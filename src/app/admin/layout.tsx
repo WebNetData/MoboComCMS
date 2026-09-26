@@ -126,10 +126,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/plans', label: t.plansAdmin, icon: 'globe', perm: 'plans.manage' },
       { href: '/admin/service-offers', label: L('فروش حجمی', 'Volume offers'), icon: 'grid', perm: 'plans.manage' },
       { href: '/admin/trial', label: L('اکانت آزمایشی', 'Trial accounts'), icon: 'sparkles', perm: 'plans.manage' },
-      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
-      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/subscriptions', label: t.subscriptions, icon: 'devices', perm: 'subs.manage' },
       { href: '/admin/panels', label: t.panels, icon: 'shield', perm: 'panels.manage' },
+    ] },
+    // Discounts and referrals serve the shop, VIP and VPN alike.
+    { title: L('بازاریابی', 'Marketing'), items: [
+      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
+      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
     ] },
     { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },

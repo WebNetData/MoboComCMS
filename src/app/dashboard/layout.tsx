@@ -12,12 +12,16 @@ import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
 import NotificationCount from '@/components/NotificationCount'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const site = useSite()
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const { t, locale } = useI18n()
+  // Without the VPN module the account area is about orders, wallet and VIP.
+  const vpnOn = useModuleEnabled('vpn')
+  const storeOn = useModuleEnabled('store')
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -40,8 +44,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: string; exact?: boolean }[] }[] = [
     {
-      label: locale === 'fa' ? 'اشتراک‌ها' : 'Subscriptions',
-      items: [{ href: '/dashboard', label: t.mySubs, icon: 'devices', exact: true }],
+      label: vpnOn ? (locale === 'fa' ? 'اشتراک‌ها' : 'Subscriptions') : (locale === 'fa' ? 'پیشخوان' : 'Overview'),
+      items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : (locale === 'fa' ? 'نمای کلی حساب' : 'Account overview'), icon: vpnOn ? 'devices' : 'grid', exact: true }],
     },
     {
       label: locale === 'fa' ? 'مالی' : 'Billing',
@@ -111,9 +115,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="side-icon"><Icon name="shield" size={19} /></span> {t.admin}
           </Link>
         )}
-        <Link href="/plans" className="side-link" onClick={() => setOpen(false)}>
-          <span className="side-icon"><Icon name="globe" size={19} /></span> {t.browsePlans}
-        </Link>
+        {vpnOn ? (
+          <Link href="/plans" className="side-link" onClick={() => setOpen(false)}>
+            <span className="side-icon"><Icon name="globe" size={19} /></span> {t.browsePlans}
+          </Link>
+        ) : storeOn ? (
+          <Link href="/products" className="side-link" onClick={() => setOpen(false)}>
+            <span className="side-icon"><Icon name="grid" size={19} /></span> {locale === 'fa' ? 'فروشگاه' : 'Shop'}
+          </Link>
+        ) : null}
       </div>
     </>
   )

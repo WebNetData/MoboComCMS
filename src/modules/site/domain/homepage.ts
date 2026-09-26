@@ -39,6 +39,16 @@ export interface LandingProduct {
   category: LandingCategory | null
 }
 
+/** Latest entertainment/community item for the homepage showcase section. */
+export interface ShowcaseItem {
+  kind: 'music' | 'cinema' | 'games' | 'software' | 'forum'
+  title: string
+  meta: string
+  cover: string
+  href: string
+  vip: boolean
+}
+
 export interface LandingData {
   plans: PublicPlan[]
   locations: LandingLocation[]
@@ -48,4 +58,8 @@ export interface LandingData {
   tomanRate: number
   /** Public Telegram bot handle (without @) that opens the mini app, or ''. */
   telegramBot: string
+  /** Newest items per enabled media/community module. */
+  showcase: ShowcaseItem[]
+  /** Public path prefixes of switched-off modules; themes hide links into them. */
+  disabledPaths: string[]
 }

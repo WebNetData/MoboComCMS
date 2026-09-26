@@ -24,5 +24,8 @@ export async function getServerLocale(): Promise<Locale> {
 
 export async function getServerTheme(): Promise<'light' | 'dark'> {
   const c = await cookies()
-  return c.get('theme')?.value === 'light' ? 'light' : 'dark'
+  const chosen = c.get('theme')?.value
+  if (chosen === 'light' || chosen === 'dark') return chosen
+  // Visitors who never toggled get the deployment default (MoboCom: light).
+  return process.env.SITE_APPEARANCE === 'dark' ? 'dark' : 'light'
 }

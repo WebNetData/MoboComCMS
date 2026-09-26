@@ -9,6 +9,8 @@ const ExtensionContext = createContext<Record<string, ExtensionPublicState>>({})
 const PackageSlotContext = createContext<PackageSlotMap>({})
 export const useExtensions = () => useContext(ExtensionContext)
 export const usePackageSlots = () => useContext(PackageSlotContext)
+/** Whether a feature module (vpn, store, forum…) is switched on; unknown ids count as on. */
+export const useModuleEnabled = (id: string) => useContext(ExtensionContext)[id]?.enabled !== false
 export default function ExtensionProvider({ runtime, packageSlots = {}, children }: { runtime: Record<string, ExtensionPublicState>; packageSlots?: PackageSlotMap; children: React.ReactNode }) {
   return <ExtensionContext.Provider value={runtime}><PackageSlotContext.Provider value={packageSlots}>{children}</PackageSlotContext.Provider></ExtensionContext.Provider>
 }

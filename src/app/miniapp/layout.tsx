@@ -21,9 +21,11 @@ import NotificationCount from '@/components/NotificationCount'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 import { tg, applyTelegramChrome, onTelegramEvent } from './telegram-client'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
   const { t, locale } = useI18n()
+  const vpnOn = useModuleEnabled('vpn')
   const [theme, setTheme] = useState('dark')
   const pathname = usePathname()
   const { status, data: session, update } = useSession()
@@ -102,7 +104,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
 
   const NAV = [
     { href: '/miniapp', label: t.miniHome, icon: 'grid', exact: true },
-    { href: '/miniapp/plans', label: t.miniPlans, icon: 'globe' },
+    vpnOn ? { href: '/miniapp/plans', label: t.miniPlans, icon: 'globe' } : { href: '/products', label: locale === 'fa' ? 'فروشگاه' : 'Shop', icon: 'grid' },
     { href: '/miniapp/wallet', label: t.miniWallet, icon: 'wallet' },
     { href: '/miniapp/support', label: t.miniSupport, icon: 'chat' },
   ]
@@ -116,7 +118,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
         <header className="tg-header">
           <Link href="/miniapp" className="tg-brand" aria-label={site.brand}>
             {site.logo ? <img className="tg-logo" src={site.logo} alt="" /> : <BrandMark />}
-            <span className="tg-brand-copy"><span className="text-lg" dir="ltr">{site.brand}</span><small>{locale === 'fa' ? 'آزادی بدون مرز' : 'Freedom without borders'}</small></span>
+            <span className="tg-brand-copy"><span className="text-lg" dir="ltr">{site.brand}</span><small>{site.tagline[locale] || site.tagline.fa}</small></span>
           </Link>
           <ThemeLangControls locale={locale} theme={theme} compact />
           {phase === 'ready' && <Link href="/miniapp/notifications" className="icon-btn" aria-label={locale === 'fa' ? 'اعلان‌ها' : 'Notifications'} aria-current={pathname === '/miniapp/notifications' ? 'page' : undefined}><Icon name="bell" size={20} /><NotificationCount /></Link>}

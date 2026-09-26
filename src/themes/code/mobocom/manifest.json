@@ -1,0 +1,19 @@
+{
+  "id": "mobocom",
+  "name": "MoboCom",
+  "description": "قالب شرکتی موبوکام: فروشگاه، مجله، سرگرمی و انجمن در یک صفحهٔ اول تمیز و منظم",
+  "version": "1.0.0",
+  "kind": "theme",
+  "apiVersion": 1,
+  "capabilities": ["ui"],
+  "design": {
+    "id": "mobocom",
+    "name": "MoboCom",
+    "description": "روشن، شرکتی و منظم با رنگ بنفش موبوکام؛ حالت تاریک هماهنگ",
+    "version": "1.0.0",
+    "radius": 18,
+    "colors": { "background": "#0b0b12", "surface": "#14141f", "accent": "#8b6cff", "text": "#eeedf6", "muted": "#9d9bb3", "border": "#262536" },
+    "lightColors": { "background": "#f6f6fb", "surface": "#ffffff", "accent": "#5b36f2", "text": "#14122b", "muted": "#615e7a", "border": "#e5e3f0" }
+  },
+  "requiresCore": "^1.0.0"
+}
