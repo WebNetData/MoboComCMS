@@ -170,3 +170,23 @@
 .seo-actions{display:flex;flex-wrap:wrap;gap:.6rem}
 .seo-filter{margin-bottom:.8rem}.seo-filter button{border:1px solid var(--border);background:var(--card);color:var(--muted);padding:.4rem .8rem;border-radius:999px;font:inherit;font-size:.8rem;cursor:pointer}.seo-filter button.is-active{background:var(--primary);color:var(--on-primary);border-color:transparent}
 @media(max-width:800px){.seo-overview,.seo-form{grid-template-columns:1fr}}
+/* AI assistant */
+.ai-page .tb-hero{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+.ai-status{display:grid;justify-items:end;gap:.25rem;padding:.8rem 1rem;border:1px solid var(--border);border-radius:14px;background:var(--card);min-width:180px}
+.ai-status small{color:var(--muted);font-size:.78rem}
+.ai-tabs{display:flex;flex-wrap:wrap;gap:.4rem}
+.ai-list{display:grid;gap:.8rem}
+.ai-list article{display:grid;gap:.6rem;padding:1rem}
+.ai-list blockquote{margin:0;padding:.7rem .9rem;border-inline-start:3px solid var(--primary);background:var(--bg-soft);border-radius:10px;white-space:pre-wrap;line-height:1.9}
+.ai-list textarea{line-height:1.9}
+.ai-review{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.ai-review .seo-actions{grid-column:1/-1}
+.ai-code{font-family:ui-monospace,monospace;font-size:.8rem}
+.ai-preview{padding:1rem;border:1px solid var(--border);border-radius:12px;max-height:420px;overflow:auto;line-height:2}
+.ai-preview h2,.ai-preview h3{margin:.6rem 0 .3rem;font-size:1.05rem}
+.ai-providers{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.7rem;margin-bottom:1rem}
+.ai-providers article{padding:.9rem;display:grid;gap:.35rem;align-content:start}
+.ai-providers article.is-active{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 25%,transparent)}
+.ai-providers p{margin:0;font-size:.82rem;line-height:1.8}
+@media (max-width:760px){.ai-review{grid-template-columns:1fr}.ai-page .tb-hero{flex-direction:column}.ai-status{justify-items:start}}
+.ai-providers .badge,.ai-status .badge{justify-self:start;width:max-content}.ai-status .badge{justify-self:end}
