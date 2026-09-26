@@ -205,7 +205,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
                 <pre className="manual-instructions" dir="ltr">{manualInstructions}</pre>
               )}
               {!hostedPayUrl && !manualInstructions && !(cardTransfer && transfer && bankAccounts.length) && <p className="muted">{t.contactSupportForPayment}</p>}
-              <p className="muted mt-3">{t.invoiceUnpaidHint}</p>
+              {!cardTransfer && <p className="muted mt-3">{t.invoiceUnpaidHint}</p>}
             </div>
           )}
 

@@ -54,7 +54,7 @@ export default function ReceiptsPage() {
           <dl className="rc-facts">
             <div><dt>مشتری</dt><dd>{receipt.user.name || receipt.user.email}{receipt.user.phone && <small dir="ltr"> {receipt.user.phone.replace(/^\+98/, '0')}</small>}</dd></div>
             <div><dt>روش</dt><dd>{METHOD[receipt.method] || receipt.method}</dd></div>
-            <div><dt>از</dt><dd>{receipt.payerName} — بانک {receipt.payerBank}{receipt.payerCard && <span dir="ltr"> ****{receipt.payerCard}</span>}</dd></div>
+            <div><dt>از</dt><dd>{receipt.payerName} — بانک {receipt.payerBank}{receipt.payerCard && <> · <bdi dir="ltr">****{receipt.payerCard}</bdi></>}</dd></div>
             <div><dt>به</dt><dd>{receipt.bankAccount ? `${receipt.bankAccount.bankName} — ${receipt.bankAccount.holderName}` : '—'}</dd></div>
             <div><dt>پیگیری</dt><dd><code dir="ltr">{receipt.trackingCode}</code></dd></div>
             <div><dt>زمان واریز</dt><dd>{receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('fa-IR') : '—'}</dd></div>
