@@ -2,32 +2,41 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
-import { getForumActor, listBoards } from '@/modules/forum/server/forum'
-import { canStartThread } from '@/modules/forum/domain/forum'
-import { getServerLocale } from '@/i18n/server'
-import MediaShell from '@/components/media/MediaShell'
-import { forumNav } from '@/components/media/nav'
-import { EmptyState } from '@/components/media/MediaCards'
-import NewThreadForm from '@/components/forum/NewThreadForm'
+import { getForumViewer, visibleCategories } from '@/modules/forum/server/forum'
+import { TRUST_NAMES } from '@/modules/forum/domain/community'
+import ForumShell from '@/components/forum/ForumShell'
+import NewTopic from '@/components/forum/NewTopic'
 
 export const dynamic = 'force-dynamic'
-type Props = { searchParams: Promise<{ board?: string }> }
+export const metadata: Metadata = { title: 'موضوع تازه — تالار گفتمان', robots: { index: false } }
 
-export const metadata: Metadata = { title: 'موضوع جدید', robots: { index: false } }
-
-export default async function NewThreadPage({ searchParams }: Props) {
+export default async function NewTopicPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
   await requireModule('forum')
-  const [query, locale, actor] = await Promise.all([searchParams, getServerLocale(), getForumActor()])
-  const fa = locale === 'fa'
-  if (!actor.userId) redirect(`/login?next=${encodeURIComponent(`/forum/new${query.board ? `?board=${query.board}` : ''}`)}`)
-  const boards = (await listBoards(actor)).filter((board) => canStartThread(board, actor))
-  const initial = boards.find((board) => board.slug === query.board)?.id
+  const viewer = await getForumViewer()
+  const { category } = await searchParams
+  if (!viewer.userId) redirect(`/login?next=${encodeURIComponent(`/forum/new${category ? `?category=${category}` : ''}`)}`)
+  const categories = (await visibleCategories(viewer)).filter((c) => c.access.create)
+  const selected = categories.find((c) => c.slug === category)
   return (
-    <MediaShell section="forum" active="new" nav={forumNav(fa)}>
-      <div className="container md-body fr-new-page">
-        <header className="fr-board-head"><div><nav className="cn-crumbs"><Link href="/forum">{fa ? 'تالار گفتمان' : 'Forum'}</Link></nav><h1>{fa ? 'ایجاد موضوع جدید' : 'Start a thread'}</h1></div></header>
-        {boards.length ? <NewThreadForm boards={boards.map(({ id, title, slug }) => ({ id, title, slug }))} initial={initial} fa={fa} /> : <EmptyState fa={fa} title={fa ? 'انجمنی برای ارسال در دسترس نیست' : 'No board is open for posting'} />}
-      </div>
-    </MediaShell>
+    <ForumShell viewer={viewer}>
+      <header className="fx-page-head"><h1>موضوع تازه</h1><p className="fx-muted">عنوان روشن بنویسید، جزئیات لازم (نسخه، دستگاه، پیام خطا) را بیاورید و برچسب مناسب بزنید تا زودتر پاسخ بگیرید.</p></header>
+      {viewer.silenced || viewer.suspended ? (
+        <div className="fx-empty"><p>امکان ارسال پیام برای حساب شما موقتاً بسته است.</p></div>
+      ) : categories.length ? (
+        <>
+          <NewTopic categories={categories.map((c) => ({ id: c.id, title: c.title, color: c.color, parentId: c.parentId }))} categoryId={selected?.id} />
+          <aside className="fx-tips">
+            <strong>راهنمای نوشتن</strong>
+            <ul>
+              <li><code>**پررنگ**</code>، <code>*مورب*</code>، <code>`کد`</code> و <code>&gt; نقل‌قول</code></li>
+              <li>با <code>@نام‌کاربری</code> دیگران را خبر کنید؛ <code>:fire:</code> ایموجی می‌گذارد</li>
+              <li>سطح اعتماد شما: {TRUST_NAMES[viewer.trustLevel]} — با مشارکت بیشتر امکانات بیشتری باز می‌شود</li>
+            </ul>
+          </aside>
+        </>
+      ) : (
+        <div className="fx-empty"><p>در حال حاضر در هیچ دسته‌ای اجازهٔ ایجاد موضوع ندارید. <Link href="/forum">بازگشت به تالار</Link></p></div>
+      )}
+    </ForumShell>
   )
 }

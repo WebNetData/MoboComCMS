@@ -57,6 +57,13 @@ model User {
   forumThreads   ForumThread[]
   forumPosts     ForumPost[]
   paymentReceipts PaymentReceipt[]
+  forumProfile   ForumProfile?
+  forumGroups    ForumGroupMember[]
+  forumReactions ForumReaction[]
+  forumBookmarks ForumBookmark[]
+  forumFlags     ForumFlag[]
+  forumTopicUsers ForumTopicUser[]
+  forumBadges    ForumUserBadge[]
 
   @@index([phone])
 }
@@ -1301,12 +1308,17 @@ model ForumCategory {
   access      String        @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
   locked      Boolean       @default(false) // only moderators start threads
   sortOrder   Int           @default(0)
+  parentId    Int?
+  parent      ForumCategory?  @relation("ForumSubcategories", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ForumCategory[] @relation("ForumSubcategories")
+  color       String        @default("#6366f1")
   threadCount Int           @default(0)
   postCount   Int           @default(0)
   lastPostAt  DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @default(now()) @updatedAt
   threads     ForumThread[]
+  permissions ForumCategoryPermission[]
 }
 
 model ForumThread {
@@ -1323,27 +1335,45 @@ model ForumThread {
   replyCount     Int           @default(0)
   lastPostAt     DateTime      @default(now())
   lastPostUserId Int?
+  solvedPostId   Int?          @unique
+  solvedPost     ForumPost?    @relation("ForumSolution", fields: [solvedPostId], references: [id], onDelete: SetNull)
+  likeCount      Int           @default(0)
+  postCount      Int           @default(0) // highest post number
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now()) @updatedAt
-  posts          ForumPost[]
+  posts          ForumPost[]   @relation("ForumThreadPosts")
+  tags           ForumThreadTag[]
+  topicUsers     ForumTopicUser[]
 
   @@index([categoryId, status, pinned, lastPostAt])
   @@index([userId])
+  @@index([status, lastPostAt])
 }
 
 model ForumPost {
   id        Int         @id @default(autoincrement())
   threadId  Int
-  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread    ForumThread @relation("ForumThreadPosts", fields: [threadId], references: [id], onDelete: Cascade)
   userId    Int
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String
   status    String      @default("VISIBLE") // VISIBLE | HIDDEN
   editedAt  DateTime?
+  postNumber Int        @default(0)
+  replyToId Int?
+  likeCount Int         @default(0)
+  editCount Int         @default(0)
   createdAt DateTime    @default(now())
 
   @@index([threadId, status, createdAt])
+  reactions ForumReaction[]
+  bookmarks ForumBookmark[]
+  flags     ForumFlag[]
+  revisions ForumPostRevision[]
+  solutionOf ForumThread?   @relation("ForumSolution")
+
   @@index([userId, createdAt])
+  @@index([threadId, postNumber])
 }
 
 /// Download / stream links for films, episodes and games. URLs are never sent to
@@ -1446,4 +1476,201 @@ model SmsLog {
 
   @@index([createdAt])
   @@index([phone, createdAt])
+}
+
+/// Forum profile (Discourse-style): public handle, bio, trust level and counters.
+model ForumProfile {
+  userId        Int          @id
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username      String       @unique
+  bio           String       @default("")
+  location      String       @default("")
+  website       String       @default("")
+  avatar        String       @default("")
+  cover         String       @default("")
+  title         String       @default("")
+  primaryGroupId Int?
+  trustLevel    Int          @default(0)
+  trustLocked   Boolean      @default(false)
+  topicCount    Int          @default(0)
+  postCount     Int          @default(0)
+  likesGiven    Int          @default(0)
+  likesReceived Int          @default(0)
+  solvedCount   Int          @default(0)
+  topicsEntered Int          @default(0)
+  daysVisited   Int          @default(0)
+  lastVisitDay  String       @default("")
+  lastSeenAt    DateTime?
+  silencedUntil DateTime?
+  suspendedUntil DateTime?
+  moderationNote String      @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+
+  @@index([trustLevel])
+  @@index([postCount])
+}
+
+/// Forum groups: custom (open, by request or invite-only) and automatic ones
+/// (everyone, vip, staff, trust_level_0..4) used in category permissions.
+model ForumGroup {
+  id          Int                  @id @default(autoincrement())
+  slug        String               @unique
+  name        String
+  description String               @default("")
+  icon        String               @default("")
+  color       String               @default("#6366f1")
+  title       String               @default("") // title granted to members
+  automatic   String?              @unique // everyone | vip | staff | trust_level_0..4
+  visibility  String               @default("PUBLIC") // PUBLIC | MEMBERS | STAFF
+  joinMode    String               @default("CLOSED") // OPEN | REQUEST | CLOSED
+  moderator   Boolean              @default(false) // members moderate the forum
+  mentionable Boolean              @default(false)
+  memberCount Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @default(now()) @updatedAt
+  members     ForumGroupMember[]
+  permissions ForumCategoryPermission[]
+}
+
+model ForumGroupMember {
+  id        Int        @id @default(autoincrement())
+  groupId   Int
+  group     ForumGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  owner     Boolean    @default(false)
+  status    String     @default("ACTIVE") // ACTIVE | PENDING
+  createdAt DateTime   @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId, status])
+}
+
+/// Per-category group permission. A category with rows is restricted to them.
+model ForumCategoryPermission {
+  id         Int           @id @default(autoincrement())
+  categoryId Int
+  category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  groupId    Int
+  group      ForumGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  level      String        @default("CREATE") // SEE | REPLY | CREATE
+
+  @@unique([categoryId, groupId])
+}
+
+model ForumTag {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String           @default("")
+  topicCount  Int              @default(0)
+  createdAt   DateTime         @default(now())
+  threads     ForumThreadTag[]
+}
+
+model ForumThreadTag {
+  threadId Int
+  thread   ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tagId    Int
+  tag      ForumTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, tagId])
+  @@index([tagId])
+}
+
+model ForumReaction {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String    @default("heart")
+  createdAt DateTime  @default(now())
+
+  @@unique([postId, userId, emoji])
+  @@index([userId, createdAt])
+}
+
+model ForumBookmark {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, postId])
+}
+
+/// Community flags; enough weight hides a post until staff review it.
+model ForumFlag {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String    @default("OTHER") // SPAM | INAPPROPRIATE | OFF_TOPIC | OTHER
+  note      String    @default("")
+  weight    Int       @default(1)
+  status    String    @default("PENDING") // PENDING | AGREED | DISAGREED
+  handledBy Int?
+  handledAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([postId, userId])
+  @@index([status, createdAt])
+}
+
+model ForumPostRevision {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  content   String
+  createdAt DateTime  @default(now())
+
+  @@index([postId, createdAt])
+}
+
+/// Per-user topic state: read position (unread/new) and notification level.
+model ForumTopicUser {
+  userId         Int
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId       Int
+  thread         ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  lastRead       Int         @default(0)
+  level          String      @default("NORMAL") // WATCHING | TRACKING | NORMAL | MUTED
+  firstVisitedAt DateTime    @default(now())
+  lastVisitedAt  DateTime    @default(now())
+
+  @@id([userId, threadId])
+  @@index([threadId, level])
+}
+
+model ForumBadge {
+  id          Int              @id @default(autoincrement())
+  slug        String           @unique
+  name        String
+  description String           @default("")
+  icon        String           @default("🏅")
+  tier        String           @default("BRONZE") // BRONZE | SILVER | GOLD
+  rule        String           @default("") // automatic rule id; empty = granted by staff
+  enabled     Boolean          @default(true)
+  grantCount  Int              @default(0)
+  createdAt   DateTime         @default(now())
+  grants      ForumUserBadge[]
+}
+
+model ForumUserBadge {
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   Int
+  badge     ForumBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  reason    String     @default("")
+  grantedBy Int?
+  grantedAt DateTime   @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([badgeId, grantedAt])
 }

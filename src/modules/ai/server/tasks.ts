@@ -3,7 +3,8 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { getSiteSeo } from '@/modules/site/server/seo'
-import { createReply } from '@/modules/forum/server/forum'
+import { createReply } from '@/modules/forum/server/actions'
+import { viewerFor } from '@/modules/forum/server/community'
 import { ForumError } from '@/modules/forum/domain/forum'
 import { queueIndexNow } from '@/modules/seo/server/indexnow'
 import {
@@ -218,7 +219,8 @@ export async function publishForumReply(threadId: number, reply: unknown) {
   if (content.length < 2) throw new AiError('متن پاسخ خالی است')
   const botId = await forumBot(await getAiConfig())
   try {
-    return await createReply({ userId: botId, member: true, moderator: false }, threadId, { content })
+    // The bot posts under the normal forum rules (category permissions, locks), as a regular member.
+    return await createReply(await viewerFor(botId), threadId, { content })
   } catch (error) {
     if (error instanceof ForumError) throw new AiError(error.message, error.status)
     throw error

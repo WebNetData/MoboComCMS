@@ -1,0 +1,407 @@
+import type { Prisma } from '@prisma/client'
+import { db } from '@/platform/database/prisma'
+import { rateLimitHit } from '@/platform/http/rate-limit'
+import { logEvent } from '@/platform/observability/logger'
+import { ForumError, cleanContent, cleanTitle } from '@/modules/forum/domain/forum'
+import {
+  canEditPost, categoryAccess, flagWeight, normalizeFlagReason, normalizeNotificationLevel, normalizeTags, postLimits, type Viewer,
+} from '@/modules/forum/domain/community'
+import { countLinks, extractMentions, markdownExcerpt } from '@/modules/forum/domain/markdown'
+import { getForumSettings, notify, refreshStats } from '@/modules/forum/server/community'
+
+// Forum writes. Every action re-checks access on the server, keeps counters in
+// the same transaction as the change, and sends notifications afterwards so a
+// notification failure never undoes a post.
+
+type Tx = Prisma.TransactionClient
+
+const categoryWithPermissions = (id: number) => db.forumCategory.findUnique({ where: { id }, include: { permissions: { select: { groupId: true, level: true } } } })
+
+function throttle(viewer: Viewer, action: 'topic' | 'post' | 'react' | 'flag') {
+  if (viewer.moderator) return
+  const limits = { topic: [5, 3_600_000], post: [30, 600_000], react: [120, 600_000], flag: [20, 86_400_000] } as const
+  const [limit, windowMs] = limits[action]
+  const burst = action === 'topic' || action === 'post' ? rateLimitHit(`forum:${action}:burst:${viewer.userId}`, 1, 10_000) : { ok: true }
+  const window = rateLimitHit(`forum:${action}:${viewer.userId}`, limit, windowMs)
+  if (!burst.ok || !window.ok) throw new ForumError('کمی صبر کنید و دوباره تلاش کنید', 429)
+}
+
+function requireUser(viewer: Viewer) {
+  if (!viewer.userId) throw new ForumError('برای این کار باید وارد شوید', 401)
+  if (viewer.suspended) throw new ForumError('حساب شما در تالار موقتاً تعلیق شده است', 403)
+  if (viewer.silenced) throw new ForumError('امکان ارسال پیام برای حساب شما موقتاً بسته شده است', 403)
+  return viewer.userId
+}
+
+async function checkContent(viewer: Viewer, content: string) {
+  const settings = await getForumSettings()
+  const limits = postLimits(viewer.trustLevel, settings, viewer.moderator)
+  if (countLinks(content) > limits.maxLinks) throw new ForumError(`کاربران تازه‌وارد حداکثر ${limits.maxLinks.toLocaleString('fa-IR')} لینک در هر پیام می‌توانند بگذارند`, 422)
+}
+
+async function applyTags(tx: Tx, threadId: number, names: string[], viewer: Viewer) {
+  const settings = await getForumSettings()
+  const existing = await tx.forumTag.findMany({ where: { name: { in: names } } })
+  const missing = names.filter((name) => !existing.some((tag) => tag.name === name))
+  if (missing.length && !viewer.moderator && (!settings.membersCreateTags || viewer.trustLevel < 1)) throw new ForumError(`برچسب «${missing[0]}» وجود ندارد و فقط کاربران با سطح اعتماد ۱ به بالا برچسب تازه می‌سازند`, 422)
+  const created = await Promise.all(missing.map((name) => tx.forumTag.create({ data: { name } })))
+  const tags = [...existing, ...created]
+  const current = await tx.forumThreadTag.findMany({ where: { threadId }, select: { tagId: true } })
+  const keep = new Set(tags.map((tag) => tag.id))
+  const removed = current.filter((row) => !keep.has(row.tagId)).map((row) => row.tagId)
+  const added = tags.filter((tag) => !current.some((row) => row.tagId === tag.id)).map((tag) => tag.id)
+  if (removed.length) {
+    await tx.forumThreadTag.deleteMany({ where: { threadId, tagId: { in: removed } } })
+    await tx.forumTag.updateMany({ where: { id: { in: removed } }, data: { topicCount: { decrement: 1 } } })
+  }
+  if (added.length) {
+    await tx.forumThreadTag.createMany({ data: added.map((tagId) => ({ threadId, tagId })) })
+    await tx.forumTag.updateMany({ where: { id: { in: added } }, data: { topicCount: { increment: 1 } } })
+  }
+}
+
+// ------------------------------------------------------------------ topics & replies
+
+export async function createTopic(viewer: Viewer, input: { categoryId: unknown; title: unknown; content: unknown; tags?: unknown }) {
+  const userId = requireUser(viewer)
+  const category = await categoryWithPermissions(Number(input.categoryId)).catch(() => null)
+  if (!category) throw new ForumError('دسته‌بندی پیدا نشد', 404)
+  const access = categoryAccess(category, viewer)
+  if (!access.create) throw new ForumError(access.see ? 'ایجاد موضوع در این دسته برای شما مجاز نیست' : 'دسته‌بندی پیدا نشد', access.see ? 403 : 404)
+  const title = cleanTitle(input.title)
+  const content = cleanContent(input.content)
+  const settings = await getForumSettings()
+  const tags = normalizeTags(input.tags, settings.maxTagsPerTopic)
+  await checkContent(viewer, content)
+  throttle(viewer, 'topic')
+  if (!viewer.moderator && viewer.trustLevel === 0) {
+    const today = await db.forumThread.count({ where: { userId, createdAt: { gt: new Date(Date.now() - 86_400_000) } } })
+    if (today >= settings.newUserTopicsPerDay) throw new ForumError(`کاربران تازه‌وارد روزانه حداکثر ${settings.newUserTopicsPerDay.toLocaleString('fa-IR')} موضوع می‌سازند`, 429)
+  }
+  const now = new Date()
+  const thread = await db.$transaction(async (tx) => {
+    const created = await tx.forumThread.create({ data: { categoryId: category.id, userId, title, lastPostAt: now, lastPostUserId: userId, postCount: 1 } })
+    await tx.forumPost.create({ data: { threadId: created.id, userId, content, postNumber: 1, createdAt: now } })
+    if (tags.length) await applyTags(tx, created.id, tags, viewer)
+    await tx.forumCategory.update({ where: { id: category.id }, data: { threadCount: { increment: 1 }, postCount: { increment: 1 }, lastPostAt: now } })
+    await tx.forumTopicUser.create({ data: { userId, threadId: created.id, lastRead: 1, level: 'WATCHING' } })
+    return created
+  })
+  await afterPost(viewer, { threadId: thread.id, title, number: 1, content, categoryId: category.id, replyToUserId: null })
+  return { id: thread.id }
+}
+
+export async function createReply(viewer: Viewer, threadId: number, input: { content: unknown; replyToId?: unknown }) {
+  const userId = requireUser(viewer)
+  const thread = Number.isSafeInteger(threadId) ? await db.forumThread.findUnique({ where: { id: threadId }, include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } }) : null
+  if (!thread || (thread.status !== 'VISIBLE' && !viewer.moderator)) throw new ForumError('موضوع پیدا نشد', 404)
+  const access = categoryAccess(thread.category, viewer)
+  if (!access.see) throw new ForumError('موضوع پیدا نشد', 404)
+  if (!access.reply) throw new ForumError('پاسخ در این دسته برای شما مجاز نیست', 403)
+  if (thread.locked && !viewer.moderator) throw new ForumError('این موضوع بسته شده است', 403)
+  const content = cleanContent(input.content)
+  await checkContent(viewer, content)
+  const replyToId = Number(input.replyToId) || null
+  const replyTo = replyToId ? await db.forumPost.findFirst({ where: { id: replyToId, threadId, status: 'VISIBLE' }, select: { id: true, userId: true } }) : null
+  throttle(viewer, 'post')
+  const now = new Date()
+  const post = await db.$transaction(async (tx) => {
+    // The increment locks the topic row, so concurrent replies get distinct numbers.
+    const updated = await tx.forumThread.update({ where: { id: threadId }, data: { postCount: { increment: 1 }, replyCount: { increment: 1 }, lastPostAt: now, lastPostUserId: userId } })
+    const created = await tx.forumPost.create({ data: { threadId, userId, content, postNumber: updated.postCount, replyToId: replyTo?.id ?? null, createdAt: now } })
+    await tx.forumCategory.update({ where: { id: thread.categoryId }, data: { postCount: { increment: 1 }, lastPostAt: now } })
+    const state = await tx.forumTopicUser.findUnique({ where: { userId_threadId: { userId, threadId } } })
+    await tx.forumTopicUser.upsert({
+      where: { userId_threadId: { userId, threadId } },
+      create: { userId, threadId, lastRead: created.postNumber, level: 'TRACKING' },
+      update: { lastRead: created.postNumber, lastVisitedAt: now, ...(state && state.level === 'NORMAL' ? { level: 'TRACKING' } : {}) },
+    })
+    return created
+  })
+  await afterPost(viewer, { threadId, title: thread.title, number: post.postNumber, content, categoryId: thread.categoryId, replyToUserId: replyTo?.userId ?? null })
+  return { id: post.id, number: post.postNumber }
+}
+
+async function viewerCanSee(userId: number, categoryId: number) {
+  const [{ viewerFor }, category] = await Promise.all([import('@/modules/forum/server/community'), categoryWithPermissions(categoryId)])
+  if (!category) return false
+  return categoryAccess(category, await viewerFor(userId)).see
+}
+
+/** Notifications (reply, watching, mentions) and stats after a new post. */
+async function afterPost(viewer: Viewer, post: { threadId: number; title: string; number: number; content: string; categoryId: number; replyToUserId: number | null }) {
+  const actorId = viewer.userId!
+  const actor = await db.forumProfile.findUnique({ where: { userId: actorId }, select: { username: true } })
+  const who = `@${actor?.username || 'user'}`
+  const href = `/forum/t/${post.threadId}?post=${post.number}`
+  const excerpt = markdownExcerpt(post.content, 140)
+  const notified = new Set<number>([actorId])
+  try {
+    if (post.replyToUserId && !notified.has(post.replyToUserId)) {
+      notified.add(post.replyToUserId)
+      await notify(post.replyToUserId, 'FORUM_REPLY', `forum:${post.threadId}:${post.number}:reply`, `${who} به پیام شما پاسخ داد`, `«${post.title}»: ${excerpt}`, href)
+    }
+    const mentioned = extractMentions(post.content)
+    if (mentioned.length) {
+      const profiles = await db.forumProfile.findMany({ where: { username: { in: mentioned } }, select: { userId: true } })
+      for (const profile of profiles) {
+        if (notified.has(profile.userId) || !await viewerCanSee(profile.userId, post.categoryId)) continue
+        notified.add(profile.userId)
+        await notify(profile.userId, 'FORUM_MENTION', `forum:${post.threadId}:${post.number}:mention:${profile.userId}`, `${who} از شما نام برد`, `«${post.title}»: ${excerpt}`, href)
+      }
+    }
+    if (post.number > 1) {
+      const watchers = await db.forumTopicUser.findMany({ where: { threadId: post.threadId, level: 'WATCHING', userId: { notIn: [...notified] } }, select: { userId: true }, take: 300 })
+      for (const watcher of watchers) {
+        await notify(watcher.userId, 'FORUM_POSTED', `forum:${post.threadId}:${post.number}:watch:${watcher.userId}`, `پاسخ تازه در «${post.title}»`, `${who}: ${excerpt}`, href)
+      }
+    }
+    await refreshStats(actorId)
+    const category = await db.forumCategory.findUnique({ where: { id: post.categoryId }, include: { permissions: { select: { groupId: true } } } })
+    if (category && !category.permissions.length && category.access === 'PUBLIC') {
+      const { queueIndexNow } = await import('@/modules/seo/server/indexnow')
+      queueIndexNow([`/forum/t/${post.threadId}`])
+    }
+  } catch (error) {
+    logEvent('warn', 'forum.after_post_failed', { threadId: post.threadId, error })
+  }
+}
+
+// ------------------------------------------------------------------ editing
+
+export async function editPost(viewer: Viewer, postId: number, input: { content?: unknown; title?: unknown; tags?: unknown; categoryId?: unknown }) {
+  requireUser(viewer)
+  const post = Number.isSafeInteger(postId) ? await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } }) : null
+  if (!post || (post.status !== 'VISIBLE' && !viewer.moderator)) throw new ForumError('پیام پیدا نشد', 404)
+  const settings = await getForumSettings()
+  if (!categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
+  if (!canEditPost(post, viewer, settings.editWindowHours)) throw new ForumError('مهلت ویرایش این پیام تمام شده یا اجازهٔ ویرایش ندارید', 403)
+  if (post.thread.locked && !viewer.moderator) throw new ForumError('این موضوع بسته شده است', 403)
+  const content = input.content === undefined ? post.content : cleanContent(input.content)
+  if (content !== post.content) await checkContent(viewer, content)
+  const first = post.postNumber === 1
+  const title = first && input.title !== undefined ? cleanTitle(input.title) : undefined
+  const tags = first && input.tags !== undefined ? normalizeTags(input.tags, settings.maxTagsPerTopic) : undefined
+  let categoryId: number | undefined
+  if (first && input.categoryId !== undefined && Number(input.categoryId) !== post.thread.categoryId) {
+    const target = await categoryWithPermissions(Number(input.categoryId))
+    if (!target || !categoryAccess(target, viewer).create) throw new ForumError('انتقال به این دسته مجاز نیست', 403)
+    categoryId = target.id
+  }
+  await db.$transaction(async (tx) => {
+    if (content !== post.content) {
+      await tx.forumPostRevision.create({ data: { postId, userId: viewer.userId!, content: post.content } })
+      await tx.forumPost.update({ where: { id: postId }, data: { content, editedAt: new Date(), editCount: { increment: 1 } } })
+    }
+    if (title !== undefined || categoryId !== undefined) await tx.forumThread.update({ where: { id: post.threadId }, data: { ...(title !== undefined ? { title } : {}), ...(categoryId !== undefined ? { categoryId } : {}) } })
+    if (tags) await applyTags(tx, post.threadId, tags, viewer)
+    if (categoryId !== undefined) { await recount(tx, post.threadId, post.thread.categoryId); await recount(tx, post.threadId, categoryId) }
+  })
+  const added = extractMentions(content).filter((name) => !extractMentions(post.content).includes(name))
+  if (added.length) await afterMentions(viewer, post.threadId, post.postNumber, post.thread.title, content, categoryId ?? post.thread.categoryId, added)
+  return { id: postId }
+}
+
+async function afterMentions(viewer: Viewer, threadId: number, number: number, title: string, content: string, categoryId: number, names: string[]) {
+  const actor = await db.forumProfile.findUnique({ where: { userId: viewer.userId! }, select: { username: true } })
+  const profiles = await db.forumProfile.findMany({ where: { username: { in: names }, userId: { not: viewer.userId! } }, select: { userId: true } })
+  for (const profile of profiles) {
+    if (!await viewerCanSee(profile.userId, categoryId)) continue
+    await notify(profile.userId, 'FORUM_MENTION', `forum:${threadId}:${number}:mention:${profile.userId}`, `@${actor?.username} از شما نام برد`, `«${title}»: ${markdownExcerpt(content, 140)}`, `/forum/t/${threadId}?post=${number}`)
+  }
+}
+
+export async function postRevisions(viewer: Viewer, postId: number) {
+  const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } })
+  if (!post || (post.status !== 'VISIBLE' && !viewer.moderator) || !categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
+  const revisions = await db.forumPostRevision.findMany({ where: { postId }, orderBy: { createdAt: 'desc' }, take: 30 })
+  const editors = new Map((await db.forumProfile.findMany({ where: { userId: { in: revisions.map((row) => row.userId) } }, select: { userId: true, username: true } })).map((row) => [row.userId, row.username]))
+  return { current: post.content, revisions: revisions.map((row) => ({ id: row.id, content: row.content, createdAt: row.createdAt, editor: editors.get(row.userId) || '' })) }
+}
+
+// ------------------------------------------------------------------ reactions, bookmarks, flags, solutions
+
+async function visiblePost(viewer: Viewer, postId: number) {
+  const post = Number.isSafeInteger(postId) ? await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } }) : null
+  if (!post || post.status !== 'VISIBLE' || post.thread.status !== 'VISIBLE' || !categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
+  return post
+}
+
+export async function react(viewer: Viewer, postId: number, emoji: string, on: boolean) {
+  const userId = requireUser(viewer)
+  const settings = await getForumSettings()
+  if (!settings.reactions.includes(emoji)) throw new ForumError('این واکنش مجاز نیست')
+  const post = await visiblePost(viewer, postId)
+  if (post.userId === userId) throw new ForumError('به پیام خودتان نمی‌توانید واکنش بدهید', 403)
+  throttle(viewer, 'react')
+  if (on) await db.forumReaction.create({ data: { postId, userId, emoji } }).catch((error: { code?: string }) => { if (error?.code !== 'P2002') throw error })
+  else await db.forumReaction.deleteMany({ where: { postId, userId, emoji } })
+  const [postLikes, threadLikes] = await Promise.all([db.forumReaction.count({ where: { postId } }), db.forumReaction.count({ where: { post: { threadId: post.threadId } } })])
+  await db.$transaction([db.forumPost.update({ where: { id: postId }, data: { likeCount: postLikes } }), db.forumThread.update({ where: { id: post.threadId }, data: { likeCount: threadLikes } })])
+  if (on) {
+    const actor = await db.forumProfile.findUnique({ where: { userId }, select: { username: true } })
+    await notify(post.userId, 'FORUM_REACTION', `forum:react:${postId}:${userId}`, `@${actor?.username} به پیام شما واکنش نشان داد`, `«${post.thread.title}»`, `/forum/t/${post.threadId}?post=${post.postNumber}`)
+  }
+  void Promise.all([refreshStats(userId), refreshStats(post.userId)]).catch(() => undefined)
+  const counts = await db.forumReaction.groupBy({ by: ['emoji'], where: { postId }, _count: { _all: true } })
+  const mine = await db.forumReaction.findMany({ where: { postId, userId }, select: { emoji: true } })
+  return { reactions: counts.map((row) => ({ emoji: row.emoji, count: row._count._all, mine: mine.some((m) => m.emoji === row.emoji) })) }
+}
+
+export async function bookmark(viewer: Viewer, postId: number, on: boolean) {
+  const userId = requireUser(viewer)
+  await visiblePost(viewer, postId)
+  if (on) await db.forumBookmark.create({ data: { userId, postId } }).catch((error: { code?: string }) => { if (error?.code !== 'P2002') throw error })
+  else await db.forumBookmark.deleteMany({ where: { userId, postId } })
+  return { bookmarked: on }
+}
+
+export async function flag(viewer: Viewer, postId: number, input: { reason?: unknown; note?: unknown }) {
+  const userId = requireUser(viewer)
+  const post = await visiblePost(viewer, postId)
+  if (post.userId === userId) throw new ForumError('پیام خودتان را نمی‌توانید گزارش کنید', 403)
+  const reason = normalizeFlagReason(input.reason)
+  const note = String(input.note || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 500)
+  if (reason === 'OTHER' && note.length < 5) throw new ForumError('دلیل گزارش را کوتاه توضیح دهید')
+  throttle(viewer, 'flag')
+  const weight = flagWeight(viewer.trustLevel, viewer.moderator)
+  const created = await db.forumFlag.create({ data: { postId, userId, reason, note, weight } }).catch((error: { code?: string }) => { if (error?.code === 'P2002') return null; throw error })
+  if (!created) throw new ForumError('این پیام را قبلاً گزارش کرده‌اید', 409)
+  const settings = await getForumSettings()
+  const total = await db.forumFlag.aggregate({ where: { postId, status: 'PENDING' }, _sum: { weight: true } })
+  let hidden = false
+  if ((total._sum.weight ?? 0) >= settings.flagHideWeight) {
+    await db.$transaction(async (tx) => {
+      if (post.postNumber === 1) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: 'HIDDEN' } })
+      else await tx.forumPost.update({ where: { id: postId }, data: { status: 'HIDDEN' } })
+      await recount(tx, post.threadId, post.thread.categoryId)
+    })
+    hidden = true
+    await notify(post.userId, 'FORUM_HIDDEN', `forum:hidden:${postId}`, 'پیام شما با گزارش کاربران پنهان شد', 'تیم تالار آن را بررسی می‌کند. اگر فکر می‌کنید اشتباه شده، با پشتیبانی تماس بگیرید.', `/forum/t/${post.threadId}`)
+    void refreshStats(post.userId).catch(() => undefined)
+  }
+  return { flagged: true, hidden }
+}
+
+export async function setSolution(viewer: Viewer, postId: number, on: boolean) {
+  const userId = requireUser(viewer)
+  const post = await visiblePost(viewer, postId)
+  if (!viewer.moderator && post.thread.userId !== userId) throw new ForumError('فقط نویسندهٔ موضوع یا ناظران راه‌حل را انتخاب می‌کنند', 403)
+  if (post.postNumber === 1) throw new ForumError('پیام اول موضوع نمی‌تواند راه‌حل باشد')
+  const previous = post.thread.solvedPostId
+  await db.forumThread.update({ where: { id: post.threadId }, data: { solvedPostId: on ? postId : null } })
+  if (on && previous !== postId) {
+    await notify(post.userId, 'FORUM_SOLVED', `forum:solved:${postId}`, 'پاسخ شما به‌عنوان راه‌حل انتخاب شد ✅', `«${post.thread.title}»`, `/forum/t/${post.threadId}?post=${post.postNumber}`)
+  }
+  const affected = [post.userId]
+  if (previous && previous !== postId) {
+    const old = await db.forumPost.findUnique({ where: { id: previous }, select: { userId: true } })
+    if (old) affected.push(old.userId)
+  }
+  void Promise.all(affected.map((id) => refreshStats(id))).catch(() => undefined)
+  return { solved: on }
+}
+
+export async function setTopicState(viewer: Viewer, threadId: number, input: { level?: unknown }) {
+  const userId = requireUser(viewer)
+  const thread = await db.forumThread.findUnique({ where: { id: threadId }, include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } })
+  if (!thread || !categoryAccess(thread.category, viewer).see) throw new ForumError('موضوع پیدا نشد', 404)
+  const level = normalizeNotificationLevel(input.level)
+  await db.forumTopicUser.upsert({ where: { userId_threadId: { userId, threadId } }, create: { userId, threadId, level }, update: { level } })
+  return { level }
+}
+
+// ------------------------------------------------------------------ moderation
+
+/** Recount a topic and its category after posts were hidden, moved or removed. */
+export async function recount(tx: Tx, threadId: number, categoryId: number) {
+  const thread = await tx.forumThread.findUnique({ where: { id: threadId }, select: { id: true } })
+  if (thread) {
+    const [count, last] = await Promise.all([
+      tx.forumPost.count({ where: { threadId, status: 'VISIBLE' } }),
+      tx.forumPost.findFirst({ where: { threadId, status: 'VISIBLE' }, orderBy: [{ postNumber: 'desc' }], select: { createdAt: true, userId: true } }),
+    ])
+    await tx.forumThread.update({ where: { id: threadId }, data: { replyCount: Math.max(0, count - 1), ...(last ? { lastPostAt: last.createdAt, lastPostUserId: last.userId } : {}) } })
+  }
+  const [threads, posts, latest] = await Promise.all([
+    tx.forumThread.count({ where: { categoryId, status: 'VISIBLE' } }),
+    tx.forumPost.count({ where: { status: 'VISIBLE', thread: { categoryId, status: 'VISIBLE' } } }),
+    tx.forumThread.findFirst({ where: { categoryId, status: 'VISIBLE' }, orderBy: { lastPostAt: 'desc' }, select: { lastPostAt: true } }),
+  ])
+  await tx.forumCategory.update({ where: { id: categoryId }, data: { threadCount: threads, postCount: posts, lastPostAt: latest?.lastPostAt ?? null } })
+}
+
+const requireModerator = (viewer: Viewer) => { if (!viewer.moderator) throw new ForumError('دسترسی مدیریت تالار ندارید', 403) }
+
+export async function moderateThread(viewer: Viewer, threadId: number, patch: { pinned?: unknown; locked?: unknown; status?: unknown; categoryId?: unknown }) {
+  requireModerator(viewer)
+  const thread = await db.forumThread.findUnique({ where: { id: threadId } })
+  if (!thread) throw new ForumError('موضوع پیدا نشد', 404)
+  const data: Record<string, unknown> = {}
+  if (typeof patch.pinned === 'boolean') data.pinned = patch.pinned
+  if (typeof patch.locked === 'boolean') data.locked = patch.locked
+  if (patch.status === 'VISIBLE' || patch.status === 'HIDDEN') data.status = patch.status
+  let target = thread.categoryId
+  if (patch.categoryId !== undefined) {
+    const category = await db.forumCategory.findUnique({ where: { id: Number(patch.categoryId) }, select: { id: true } })
+    if (!category) throw new ForumError('دستهٔ مقصد پیدا نشد', 404)
+    data.categoryId = target = category.id
+  }
+  await db.$transaction(async (tx) => {
+    await tx.forumThread.update({ where: { id: threadId }, data })
+    await recount(tx, threadId, thread.categoryId)
+    if (target !== thread.categoryId) await recount(tx, threadId, target)
+  })
+  void refreshStats(thread.userId).catch(() => undefined)
+  return { id: threadId, ...data }
+}
+
+export async function deleteThread(viewer: Viewer, threadId: number) {
+  requireModerator(viewer)
+  const thread = await db.forumThread.findUnique({ where: { id: threadId }, select: { id: true, categoryId: true, title: true, userId: true, tags: { select: { tagId: true } } } })
+  if (!thread) throw new ForumError('موضوع پیدا نشد', 404)
+  const authors = await db.forumPost.findMany({ where: { threadId }, distinct: ['userId'], select: { userId: true } })
+  await db.$transaction(async (tx) => {
+    if (thread.tags.length) await tx.forumTag.updateMany({ where: { id: { in: thread.tags.map((row) => row.tagId) } }, data: { topicCount: { decrement: 1 } } })
+    await tx.forumThread.delete({ where: { id: threadId } })
+    await recount(tx, threadId, thread.categoryId)
+  })
+  void Promise.all(authors.map((row) => refreshStats(row.userId))).catch(() => undefined)
+  return thread
+}
+
+export async function moderatePost(viewer: Viewer, postId: number, action: 'hide' | 'show' | 'delete') {
+  requireModerator(viewer)
+  const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { select: { id: true, categoryId: true } } } })
+  if (!post) throw new ForumError('پیام پیدا نشد', 404)
+  if (post.postNumber === 1 && action !== 'show') throw new ForumError('پیام اول موضوع را با پنهان یا حذف‌کردن خود موضوع مدیریت کنید', 409)
+  await db.$transaction(async (tx) => {
+    if (action === 'delete') await tx.forumPost.delete({ where: { id: postId } })
+    else await tx.forumPost.update({ where: { id: postId }, data: { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' } })
+    await recount(tx, post.threadId, post.thread.categoryId)
+  })
+  void refreshStats(post.userId).catch(() => undefined)
+  return { id: postId, threadId: post.threadId }
+}
+
+/** Staff decision on a post's pending flags: agree (keep hidden), disagree (restore) or delete. */
+export async function resolveFlags(viewer: Viewer, postId: number, action: 'agree' | 'disagree' | 'delete') {
+  requireModerator(viewer)
+  const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { select: { id: true, categoryId: true } } } })
+  if (!post) throw new ForumError('پیام پیدا نشد', 404)
+  const status = action === 'disagree' ? 'DISAGREED' : 'AGREED'
+  await db.forumFlag.updateMany({ where: { postId, status: 'PENDING' }, data: { status, handledBy: viewer.userId, handledAt: new Date() } })
+  if (action === 'delete') {
+    if (post.postNumber === 1) await deleteThread(viewer, post.threadId)
+    else await moderatePost(viewer, postId, 'delete')
+  } else {
+    const visible = action === 'disagree'
+    await db.$transaction(async (tx) => {
+      if (post.postNumber === 1) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: visible ? 'VISIBLE' : 'HIDDEN' } })
+      else await tx.forumPost.update({ where: { id: postId }, data: { status: visible ? 'VISIBLE' : 'HIDDEN' } })
+      await recount(tx, post.threadId, post.thread.categoryId)
+    })
+    void refreshStats(post.userId).catch(() => undefined)
+  }
+  return { postId, status }
+}

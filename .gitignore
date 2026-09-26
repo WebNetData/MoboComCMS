@@ -44,3 +44,4 @@ prisma/*.db-wal
 
 # Customer payment receipts (private uploads)
 /storage/receipts/
+/storage/forum/

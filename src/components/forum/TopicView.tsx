@@ -1,0 +1,384 @@
+'use client'
+
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import Composer, { type ComposerCategory } from '@/components/forum/Composer'
+import { REACTION_EMOJI } from '@/modules/forum/domain/community'
+
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; flair: { icon: string; color: string; name: string } | null }
+type Reaction = { emoji: string; count: number; mine: boolean }
+export type TopicPost = {
+  id: number; number: number; html: string; raw: string | null; status: string; createdAt: string; editedAt: string | null; editCount: number
+  author: Author; replyTo: { number: number; username: string } | null; reactions: Reaction[]; bookmarked: boolean; canEdit: boolean; own: boolean; solution: boolean; flags: number
+}
+export type TopicData = {
+  thread: { id: number; title: string; pinned: boolean; locked: boolean; status: string; views: number; replyCount: number; likeCount: number; postCount: number; createdAt: string; lastPostAt: string; userId: number; tags: string[] }
+  category: { id: number; slug: string; title: string; color: string; icon: string; parent: { slug: string; title: string; color: string } | null }
+  access: { see: boolean; reply: boolean; create: boolean }; moderator: boolean; signedIn: boolean; canSolve: boolean
+  solution: { id: number; number: number; excerpt: string; author: Author } | null
+  level: string; participants: (Author & { posts: number })[]; suggested: { id: number; title: string; replyCount: number; lastPostAt: string }[]
+  posts: TopicPost[]; reactionsAllowed: string[]; page: number; pages: number; total: number
+}
+
+const LEVELS: { id: string; label: string; hint: string }[] = [
+  { id: 'WATCHING', label: '🔔 دنبال‌کردن', hint: 'برای هر پاسخ تازه اعلان بگیرید' },
+  { id: 'TRACKING', label: '👁 پیگیری', hint: 'تعداد پاسخ‌های خوانده‌نشده را ببینید' },
+  { id: 'NORMAL', label: '○ عادی', hint: 'فقط وقتی کسی به شما پاسخ دهد یا نامتان را بیاورد' },
+  { id: 'MUTED', label: '🔕 بی‌صدا', hint: 'این موضوع در فهرست خوانده‌نشده‌ها نیاید' },
+]
+const FLAG_REASONS = [{ id: 'SPAM', label: 'هرزنامه یا تبلیغ' }, { id: 'INAPPROPRIATE', label: 'توهین‌آمیز یا نامناسب' }, { id: 'OFF_TOPIC', label: 'خارج از موضوع' }, { id: 'OTHER', label: 'دلیل دیگر' }]
+const fa = (n: number) => n.toLocaleString('fa-IR')
+
+function ago(date: string) {
+  const s = Math.max(0, (Date.now() - new Date(date).getTime()) / 1000)
+  if (s < 60) return 'همین حالا'
+  const units: [number, string][] = [[3600, 'دقیقه'], [86400, 'ساعت'], [2592000, 'روز'], [31536000, 'ماه']]
+  const divs = [60, 3600, 86400, 2592000]
+  for (let i = 0; i < units.length; i++) if (s < units[i][0]) return `${fa(Math.floor(s / divs[i]))} ${units[i][1]} پیش`
+  return `${fa(Math.floor(s / 31536000))} سال پیش`
+}
+
+function Avatar({ author, size = 44 }: { author: Pick<Author, 'name' | 'avatar' | 'avatarColor'>; size?: number }) {
+  if (author.avatar) return <img className="fx-avatar" src={author.avatar} alt="" width={size} height={size} style={{ width: size, height: size }} loading="lazy" />
+  return <span className="fx-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.42), background: author.avatarColor }} aria-hidden="true">{author.name.trim().slice(0, 1)}</span>
+}
+
+async function api(url: string, method: string, body?: unknown): Promise<{ ok: boolean; data: any }> {
+  const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null)
+  const data = await response?.json().catch(() => null)
+  return { ok: !!response?.ok, data: response?.ok ? data : { error: data?.error || 'انجام نشد؛ دوباره تلاش کنید' } }
+}
+
+type ComposerState = { mode: 'reply' | 'edit'; replyTo?: TopicPost; edit?: TopicPost; initial?: string; key: number } | null
+
+export default function TopicView({ data, categories, focusPost }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number }) {
+  const router = useRouter()
+  const { thread } = data
+  const [posts, setPosts] = useState(data.posts)
+  const [composer, setComposer] = useState<ComposerState>(null)
+  const [toast, setToast] = useState('')
+  const [level, setLevel] = useState(data.level)
+  const [menu, setMenu] = useState<string>('')
+  const [flagging, setFlagging] = useState<TopicPost | null>(null)
+  const [history, setHistory] = useState<{ post: TopicPost; items: { id: number; content: string; createdAt: string; editor: string }[]; current: string } | null>(null)
+  const [current, setCurrent] = useState(posts[0]?.number || 1)
+  const stream = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setPosts(data.posts) }, [data.posts])
+  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t) } }, [toast])
+  useEffect(() => {
+    if (!focusPost) return
+    const el = document.getElementById(`post-${focusPost}`)
+    if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('is-highlight'); setTimeout(() => el.classList.remove('is-highlight'), 2200) }
+  }, [focusPost])
+  // Timeline: which post is on screen.
+  useEffect(() => {
+    const nodes = stream.current?.querySelectorAll<HTMLElement>('[data-post-number]')
+    if (!nodes?.length) return
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).map((entry) => Number((entry.target as HTMLElement).dataset.postNumber))
+      if (visible.length) setCurrent(Math.min(...visible))
+    }, { rootMargin: '-20% 0px -60% 0px' })
+    nodes.forEach((node) => observer.observe(node))
+    return () => observer.disconnect()
+  }, [posts])
+  useEffect(() => {
+    if (!menu) return
+    const close = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest('.fx-pop')) setMenu('') }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menu])
+
+  const requireLogin = () => { if (!data.signedIn) { router.push(`/login?next=${encodeURIComponent(`/forum/t/${thread.id}`)}`); return true } return false }
+  const patchPost = (id: number, patch: Partial<TopicPost>) => setPosts((list) => list.map((post) => (post.id === id ? { ...post, ...patch } : post)))
+
+  async function react(post: TopicPost, emoji: string) {
+    if (requireLogin()) return
+    const mine = post.reactions.find((r) => r.emoji === emoji)?.mine
+    // Optimistic update, reconciled with the server's counts.
+    patchPost(post.id, { reactions: mergeReaction(post.reactions, emoji, !mine) })
+    setMenu('')
+    const { ok, data: result } = await api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: mine ? 'unreact' : 'react', emoji })
+    if (!ok) { patchPost(post.id, { reactions: post.reactions }); setToast(result.error); return }
+    patchPost(post.id, { reactions: data.reactionsAllowed.map((name) => result.reactions.find((r: Reaction) => r.emoji === name) || { emoji: name, count: 0, mine: false }).filter((r: Reaction) => r.count > 0 || r.emoji === 'heart') })
+  }
+
+  async function toggleBookmark(post: TopicPost) {
+    if (requireLogin()) return
+    const { ok, data: result } = await api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: post.bookmarked ? 'unbookmark' : 'bookmark' })
+    if (ok) { patchPost(post.id, { bookmarked: result.bookmarked }); setToast(result.bookmarked ? 'نشان شد؛ در «نشان‌شده‌ها» پیدایش می‌کنید' : 'نشان برداشته شد') } else setToast(result.error)
+  }
+
+  async function share(post: TopicPost) {
+    const url = `${window.location.origin}/forum/t/${thread.id}?post=${post.number}`
+    try { await navigator.clipboard.writeText(url); setToast('پیوند پیام کپی شد') } catch { setToast(url) }
+  }
+
+  function quote(post: TopicPost) {
+    if (requireLogin()) return
+    const selection = window.getSelection()
+    const inPost = selection && selection.rangeCount && document.getElementById(`post-${post.number}`)?.contains(selection.anchorNode)
+    const text = (inPost ? selection!.toString() : '').trim() || new DOMParser().parseFromString(post.html, 'text/html').body.textContent?.trim().slice(0, 600) || ''
+    const block = `[quote="${post.author.username}, post:${post.number}, topic:${thread.id}"]\n${text}\n[/quote]\n\n`
+    setComposer({ mode: 'reply', replyTo: post, initial: block, key: Date.now() })
+  }
+
+  async function solve(post: TopicPost) {
+    const { ok, data: result } = await api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: post.solution ? 'unsolve' : 'solve' })
+    if (ok) { setToast(post.solution ? 'انتخاب راه‌حل برداشته شد' : 'به‌عنوان راه‌حل انتخاب شد ✅'); router.refresh() } else setToast(result.error)
+  }
+
+  async function moderatePost(post: TopicPost, action: 'hide' | 'show' | 'delete') {
+    if (action === 'delete' && !window.confirm('این پیام برای همیشه حذف شود؟')) return
+    const { ok, data: result } = action === 'delete' ? await api(`/api/forum/posts/${post.id}`, 'DELETE') : await api(`/api/forum/posts/${post.id}`, 'PATCH', { action })
+    setMenu('')
+    if (ok) { setToast('انجام شد'); router.refresh() } else setToast(result.error)
+  }
+
+  async function moderateTopic(patch: Record<string, unknown>) {
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}`, 'PATCH', patch)
+    setMenu('')
+    if (ok) { setToast('انجام شد'); router.refresh() } else setToast(result.error)
+  }
+
+  async function deleteTopic() {
+    if (!window.confirm('کل موضوع و همهٔ پاسخ‌ها برای همیشه حذف شود؟')) return
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}`, 'DELETE')
+    if (ok) router.push(`/forum/c/${data.category.slug}`)
+    else setToast(result.error)
+  }
+
+  async function changeLevel(next: string) {
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/state`, 'PUT', { level: next })
+    if (ok) { setLevel(result.level); setToast(LEVELS.find((l) => l.id === result.level)?.hint || '') } else setToast(result.error)
+    setMenu('')
+  }
+
+  async function showHistory(post: TopicPost) {
+    const { ok, data: result } = await api(`/api/forum/posts/${post.id}/revisions`, 'GET')
+    if (ok) setHistory({ post, items: result.revisions, current: result.current }); else setToast(result.error)
+  }
+
+  async function submitComposer(value: { title: string; content: string; categoryId: number; tags: string[] }) {
+    if (!composer) return null
+    if (composer.mode === 'edit' && composer.edit) {
+      const body: Record<string, unknown> = { content: value.content }
+      if (composer.edit.number === 1) Object.assign(body, { title: value.title, tags: value.tags, categoryId: value.categoryId })
+      const { ok, data: result } = await api(`/api/forum/posts/${composer.edit.id}`, 'PATCH', body)
+      if (!ok) return result.error as string
+      setComposer(null); setToast('ویرایش ذخیره شد'); router.refresh()
+      return null
+    }
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/posts`, 'POST', { content: value.content, replyToId: composer.replyTo?.id })
+    if (!ok) return result.error as string
+    setComposer(null)
+    router.push(`/forum/t/${thread.id}?post=${result.number}`)
+    router.refresh()
+    return null
+  }
+
+  async function submitFlag(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!flagging) return
+    const form = new FormData(event.currentTarget)
+    const { ok, data: result } = await api(`/api/forum/posts/${flagging.id}/actions`, 'POST', { action: 'flag', reason: form.get('reason'), note: form.get('note') })
+    setFlagging(null)
+    setToast(ok ? (result.hidden ? 'گزارش ثبت شد و پیام تا بررسی تیم پنهان شد' : 'گزارش شما ثبت شد؛ ممنون که کمک می‌کنید') : result.error)
+    if (ok && result.hidden) router.refresh()
+  }
+
+  const canReply = data.access.reply && (!thread.locked || data.moderator)
+
+  return (
+    <div className="fx-topic">
+      <header className="fx-topic-head">
+        <h1>
+          {thread.pinned && <span title="سنجاق‌شده" aria-label="سنجاق‌شده">📌 </span>}
+          {thread.locked && <span title="بسته‌شده" aria-label="بسته‌شده">🔒 </span>}
+          {thread.title}
+          {data.solution && <span className="fx-solved-badge">✓ حل‌شده</span>}
+          {thread.status !== 'VISIBLE' && <span className="fx-hidden-badge">پنهان</span>}
+        </h1>
+        <div className="fx-topic-meta">
+          {data.category.parent && <Link href={`/forum/c/${data.category.parent.slug}`} className="fx-cat"><i style={{ background: data.category.parent.color }} />{data.category.parent.title}</Link>}
+          <Link href={`/forum/c/${data.category.slug}`} className="fx-cat"><i style={{ background: data.category.color }} />{data.category.title}</Link>
+          {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
+        </div>
+      </header>
+
+      {data.solution && data.page > 0 && (
+        <aside className="fx-solution">
+          <strong>✓ راه‌حل</strong> از <Link href={`/forum/u/${data.solution.author.username}`}>{data.solution.author.name}</Link> — <Link href={`/forum/t/${thread.id}?post=${data.solution.number}`}>رفتن به پاسخ</Link>
+          <p>{data.solution.excerpt}</p>
+        </aside>
+      )}
+
+      <div className="fx-topic-body">
+        <div className="fx-stream" ref={stream}>
+          {data.page > 1 && <Link className="fx-load" href={`/forum/t/${thread.id}?page=${data.page - 1}`}>↑ پیام‌های قبلی</Link>}
+          {posts.map((post) => (
+            <article key={post.id} id={`post-${post.number}`} data-post-number={post.number} className={`fx-post${post.status !== 'VISIBLE' ? ' is-hidden' : ''}${post.solution ? ' is-solution' : ''}${post.author.id === thread.userId && post.number > 1 ? ' is-op' : ''}`}>
+              <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} /></Link>
+              <div className="fx-post-main">
+                <header className="fx-post-head">
+                  <span className="fx-user">
+                    <Link href={`/forum/u/${post.author.username}`} className="fx-user-name">{post.author.name}</Link>
+                    {post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}
+                    {post.author.flair && <span className="fx-flair" style={{ background: post.author.flair.color }} title={post.author.flair.name}>{post.author.flair.icon}</span>}
+                    <bdi className="fx-handle" dir="ltr">@{post.author.username}</bdi>
+                    {post.author.title && <span className="fx-user-title">{post.author.title}</span>}
+                  </span>
+                  <span className="fx-post-when">
+                    {post.replyTo && <Link href={`/forum/t/${thread.id}?post=${post.replyTo.number}`} className="fx-reply-to" title="در پاسخ به">↩ <bdi dir="ltr">@{post.replyTo.username}</bdi></Link>}
+                    {post.editCount > 0 && <button type="button" className="fx-edited" onClick={() => void showHistory(post)} title="تاریخچهٔ ویرایش">✎ {fa(post.editCount)}</button>}
+                    <Link href={`/forum/t/${thread.id}?post=${post.number}`} title={new Date(post.createdAt).toLocaleString('fa-IR')}>{ago(post.createdAt)}</Link>
+                  </span>
+                </header>
+                {post.solution && <div className="fx-solution-mark">✓ راه‌حل انتخاب‌شده</div>}
+                {post.status !== 'VISIBLE' && <div className="fx-hidden-note">این پیام پنهان است{post.flags ? ` — ${fa(post.flags)} گزارش در انتظار بررسی` : ''}</div>}
+                <div className="fx-cooked" dangerouslySetInnerHTML={{ __html: post.html }} />
+                <footer className="fx-post-actions">
+                  <div className="fx-reactions">
+                    {post.reactions.map((reaction) => (
+                      <button key={reaction.emoji} type="button" className={`fx-react${reaction.mine ? ' is-mine' : ''}`} onClick={() => void react(post, reaction.emoji)} disabled={post.own} aria-pressed={reaction.mine} title={post.own ? 'به پیام خودتان نمی‌توانید واکنش بدهید' : 'واکنش'}>
+                        <span aria-hidden="true">{REACTION_EMOJI[reaction.emoji] || reaction.emoji}</span>{reaction.count > 0 && <b>{fa(reaction.count)}</b>}
+                      </button>
+                    ))}
+                    {!post.own && data.reactionsAllowed.length > 1 && (
+                      <span className="fx-pop">
+                        <button type="button" className="fx-react is-more" aria-label="واکنش‌های دیگر" aria-expanded={menu === `react-${post.id}`} onClick={() => setMenu(menu === `react-${post.id}` ? '' : `react-${post.id}`)}>☺+</button>
+                        {menu === `react-${post.id}` && <span className="fx-menu fx-emoji-picker">{data.reactionsAllowed.map((emoji) => <button key={emoji} type="button" onClick={() => void react(post, emoji)} aria-label={emoji}>{REACTION_EMOJI[emoji]}</button>)}</span>}
+                      </span>
+                    )}
+                  </div>
+                  <div className="fx-post-buttons">
+                    {data.canSolve && post.number > 1 && post.status === 'VISIBLE' && <button type="button" className={`fx-act${post.solution ? ' is-on' : ''}`} onClick={() => void solve(post)} title="انتخاب به‌عنوان راه‌حل">✓<span>{post.solution ? 'راه‌حل' : 'راه‌حل است'}</span></button>}
+                    <button type="button" className={`fx-act${post.bookmarked ? ' is-on' : ''}`} onClick={() => void toggleBookmark(post)} aria-pressed={post.bookmarked} title="نشان‌کردن">🔖</button>
+                    <button type="button" className="fx-act" onClick={() => void share(post)} title="کپی پیوند">🔗</button>
+                    {post.canEdit && <button type="button" className="fx-act" onClick={() => setComposer({ mode: 'edit', edit: post, key: Date.now() })} title="ویرایش">✎</button>}
+                    {!post.own && data.signedIn && <button type="button" className="fx-act" onClick={() => setFlagging(post)} title="گزارش به تیم">⚑</button>}
+                    {data.moderator && (
+                      <span className="fx-pop">
+                        <button type="button" className="fx-act" aria-label="ابزار ناظر" aria-expanded={menu === `mod-${post.id}`} onClick={() => setMenu(menu === `mod-${post.id}` ? '' : `mod-${post.id}`)}>🛡</button>
+                        {menu === `mod-${post.id}` && (
+                          <span className="fx-menu fx-menu-list">
+                            {post.number > 1 && <button type="button" onClick={() => void moderatePost(post, post.status === 'VISIBLE' ? 'hide' : 'show')}>{post.status === 'VISIBLE' ? 'پنهان‌کردن پیام' : 'نمایش پیام'}</button>}
+                            {post.flags > 0 && <><button type="button" onClick={() => void api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: 'disagree' }).then(() => router.refresh())}>رد گزارش‌ها و نمایش</button><button type="button" onClick={() => void api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: 'agree' }).then(() => router.refresh())}>تأیید گزارش‌ها</button></>}
+                            {post.number > 1 && <button type="button" className="is-danger" onClick={() => void moderatePost(post, 'delete')}>حذف پیام</button>}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {canReply && <button type="button" className="fx-act" onClick={() => quote(post)} title="نقل‌قول (متن را انتخاب کنید)">❝</button>}
+                    {canReply && <button type="button" className="fx-act is-reply" onClick={() => { if (!requireLogin()) setComposer({ mode: 'reply', replyTo: post, key: Date.now() }) }}>↩<span>پاسخ</span></button>}
+                  </div>
+                </footer>
+              </div>
+            </article>
+          ))}
+          {data.page < data.pages && <Link className="fx-load" href={`/forum/t/${thread.id}?page=${data.page + 1}`}>پیام‌های بعدی ↓</Link>}
+
+          <div className="fx-topic-foot">
+            {canReply ? <button type="button" className="btn btn-primary" onClick={() => { if (!requireLogin()) setComposer({ mode: 'reply', key: Date.now() }) }}>↩ پاسخ به موضوع</button>
+              : !data.signedIn ? <Link href={`/login?next=${encodeURIComponent(`/forum/t/${thread.id}`)}`} className="btn btn-primary">برای پاسخ وارد شوید</Link>
+                : <p className="fx-muted">{thread.locked ? '🔒 این موضوع بسته شده و پاسخ تازه نمی‌پذیرد.' : 'پاسخ در این دسته برای شما مجاز نیست.'}</p>}
+            {data.signedIn && (
+              <span className="fx-pop">
+                <button type="button" className="btn btn-ghost" aria-expanded={menu === 'level'} onClick={() => setMenu(menu === 'level' ? '' : 'level')}>{LEVELS.find((l) => l.id === level)?.label}</button>
+                {menu === 'level' && <span className="fx-menu fx-menu-list fx-levels">{LEVELS.map((item) => <button key={item.id} type="button" className={item.id === level ? 'is-active' : ''} onClick={() => void changeLevel(item.id)}><b>{item.label}</b><small>{item.hint}</small></button>)}</span>}
+              </span>
+            )}
+          </div>
+
+          {data.suggested.length > 0 && (
+            <section className="fx-suggested">
+              <h2>موضوع‌های دیگر در «{data.category.title}»</h2>
+              <ul>{data.suggested.map((topic) => <li key={topic.id}><Link href={`/forum/t/${topic.id}`}>{topic.title}</Link><small>{fa(topic.replyCount)} پاسخ · {ago(topic.lastPostAt)}</small></li>)}</ul>
+            </section>
+          )}
+        </div>
+
+        <aside className="fx-timeline" aria-label="خط زمانی موضوع">
+          <div className="fx-timeline-card">
+            <Link href={`/forum/t/${thread.id}`} className="fx-timeline-edge">{new Date(thread.createdAt).toLocaleDateString('fa-IR', { month: 'short', year: 'numeric' })}</Link>
+            <div className="fx-timeline-track" aria-hidden="true"><span style={{ height: `${Math.max(8, Math.min(100, (current / Math.max(1, thread.postCount)) * 100))}%` }} /></div>
+            <p className="fx-timeline-pos"><b>{fa(current)}</b> / {fa(thread.postCount)}</p>
+            <Link href={`/forum/t/${thread.id}?post=${thread.postCount}`} className="fx-timeline-edge">{ago(thread.lastPostAt)}</Link>
+          </div>
+          <dl className="fx-topic-stats">
+            <div><dt>پاسخ</dt><dd>{fa(thread.replyCount)}</dd></div>
+            <div><dt>بازدید</dt><dd>{fa(thread.views)}</dd></div>
+            <div><dt>واکنش</dt><dd>{fa(thread.likeCount)}</dd></div>
+          </dl>
+          {data.participants.length > 0 && <div className="fx-participants" aria-label="شرکت‌کنندگان">{data.participants.map((user) => <Link key={user.id} href={`/forum/u/${user.username}`} title={`${user.name} — ${fa(user.posts)} پیام`}><Avatar author={user} size={30} />{user.posts > 1 && <small>{fa(user.posts)}</small>}</Link>)}</div>}
+          {data.moderator && (
+            <div className="fx-mod-tools">
+              <strong>ابزار ناظر</strong>
+              <button type="button" onClick={() => void moderateTopic({ pinned: !thread.pinned })}>{thread.pinned ? 'برداشتن سنجاق' : '📌 سنجاق‌کردن'}</button>
+              <button type="button" onClick={() => void moderateTopic({ locked: !thread.locked })}>{thread.locked ? '🔓 باز کردن' : '🔒 بستن موضوع'}</button>
+              <button type="button" onClick={() => void moderateTopic({ status: thread.status === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE' })}>{thread.status === 'VISIBLE' ? 'پنهان‌کردن موضوع' : 'نمایش موضوع'}</button>
+              <select className="select" value={data.category.id} onChange={(e) => void moderateTopic({ categoryId: Number(e.target.value) })} aria-label="انتقال به دستهٔ دیگر">
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.parentId ? '— ' : ''}{c.title}</option>)}
+              </select>
+              <button type="button" className="is-danger" onClick={() => void deleteTopic()}>حذف موضوع</button>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {composer && (
+        <div className="fx-dock" role="region" aria-label="ویرایشگر">
+          <div className="container">
+            <Composer
+              key={composer.key}
+              mode={composer.mode}
+              autoFocus
+              heading={composer.mode === 'edit' ? `ویرایش پیام #${fa(composer.edit!.number)}` : composer.replyTo ? `پاسخ به @${composer.replyTo.author.username}` : `پاسخ به «${thread.title}»`}
+              editTopic={composer.mode === 'edit' && composer.edit?.number === 1}
+              categories={composer.mode === 'edit' && composer.edit?.number === 1 ? categories : []}
+              initial={composer.mode === 'edit' ? { content: composer.edit?.raw || '', title: thread.title, categoryId: data.category.id, tags: thread.tags } : { content: composer.initial }}
+              draftKey={composer.mode === 'reply' ? `forum:draft:reply:${thread.id}` : undefined}
+              submitLabel={composer.mode === 'edit' ? 'ذخیرهٔ ویرایش' : 'ارسال پاسخ'}
+              onSubmit={submitComposer}
+              onCancel={() => setComposer(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {flagging && (
+        <div className="fx-modal" role="dialog" aria-modal="true" aria-label="گزارش پیام" onClick={(e) => { if (e.target === e.currentTarget) setFlagging(null) }}>
+          <form className="fx-modal-card" onSubmit={submitFlag}>
+            <h2>گزارش پیام به تیم</h2>
+            <p className="fx-muted">گزارش‌ها محرمانه‌اند. اگر چند کاربر مورد اعتماد گزارش دهند، پیام تا بررسی تیم پنهان می‌شود.</p>
+            {FLAG_REASONS.map((reason, index) => <label key={reason.id} className="fx-radio"><input type="radio" name="reason" value={reason.id} defaultChecked={index === 0} />{reason.label}</label>)}
+            <textarea className="textarea" name="note" rows={3} maxLength={500} placeholder="توضیح (برای «دلیل دیگر» لازم است)" />
+            <div className="fx-modal-actions"><button className="btn btn-primary">ثبت گزارش</button><button type="button" className="btn btn-ghost" onClick={() => setFlagging(null)}>انصراف</button></div>
+          </form>
+        </div>
+      )}
+
+      {history && (
+        <div className="fx-modal" role="dialog" aria-modal="true" aria-label="تاریخچهٔ ویرایش" onClick={(e) => { if (e.target === e.currentTarget) setHistory(null) }}>
+          <div className="fx-modal-card is-wide">
+            <h2>تاریخچهٔ ویرایش پیام #{fa(history.post.number)}</h2>
+            <ol className="fx-revisions">
+              <li><b>نسخهٔ فعلی</b><pre dir="auto">{history.current}</pre></li>
+              {history.items.map((item) => <li key={item.id}><b>پیش از ویرایش {item.editor && <>توسط <bdi dir="ltr">@{item.editor}</bdi></>} · {ago(item.createdAt)}</b><pre dir="auto">{item.content}</pre></li>)}
+            </ol>
+            <div className="fx-modal-actions"><button type="button" className="btn btn-ghost" onClick={() => setHistory(null)}>بستن</button></div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className="fx-toast" role="status">{toast}</div>}
+    </div>
+  )
+}
+
+function mergeReaction(list: Reaction[], emoji: string, on: boolean): Reaction[] {
+  const found = list.find((r) => r.emoji === emoji)
+  if (!found) return [...list, { emoji, count: on ? 1 : 0, mine: on }]
+  return list.map((r) => (r.emoji === emoji ? { ...r, mine: on, count: Math.max(0, r.count + (on ? 1 : -1)) } : r))
+}

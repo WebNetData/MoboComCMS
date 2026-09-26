@@ -221,3 +221,18 @@
 .sms-event{display:grid;gap:.6rem;padding:.9rem 1rem}
 .sms-event.is-on{border-color:color-mix(in srgb,var(--primary) 35%,var(--border))}
 .sms-log-body{max-width:420px;white-space:pre-wrap;font-size:.82rem;line-height:1.8}
+/* Forum admin */
+.fa-list{display:grid;gap:.8rem}
+.fa-flag,.fa-user{display:grid;gap:.6rem;padding:1rem}
+.fa-flag header,.fa-user header{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between}
+.fa-excerpt{margin:0;padding:.7rem .9rem;background:var(--bg-soft);border-radius:10px;line-height:1.9;white-space:pre-wrap}
+.fa-reasons{margin:0;padding-inline-start:1.2rem;font-size:.86rem;line-height:1.9}
+.fa-inline{display:flex;gap:.5rem;align-items:center}
+.fa-inline input[type=color]{width:44px;height:40px;border:1px solid var(--border);border-radius:8px;background:none;padding:2px}
+.fa-wrap{flex-wrap:wrap;align-items:flex-end}
+.fa-grow{flex:1;min-width:220px}
+.fa-perms{border:1px dashed var(--border);border-radius:12px;padding:.8rem;display:grid;gap:.5rem}
+.fa-perms legend{padding:0 .4rem;font-weight:700;font-size:.88rem}
+.fa-cat{display:grid;border-inline-start:4px solid;padding-inline-start:10px}
+.fa-perm-cell{display:flex;flex-wrap:wrap;gap:.3rem}
+.fa-search{margin-bottom:.8rem;max-width:420px}

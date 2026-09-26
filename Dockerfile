@@ -51,7 +51,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/deploy ./deploy
 
-RUN mkdir -p /app/storage/covers /app/storage/backups /app/storage/receipts /app/storage/tickets /app/var \
+RUN mkdir -p /app/storage/covers /app/storage/backups /app/storage/receipts /app/storage/forum /app/storage/tickets /app/var \
  && chown -R node:node /app/storage /app/var
 USER node
 EXPOSE 3000

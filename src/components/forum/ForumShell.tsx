@@ -1,0 +1,98 @@
+import Link from 'next/link'
+import type { ReactNode } from 'react'
+import MediaShell from '@/components/media/MediaShell'
+import type { Viewer } from '@/modules/forum/domain/community'
+import { popularTags, viewerCounts, visibleCategories } from '@/modules/forum/server/forum'
+import { shellIdentity } from '@/modules/forum/server/people'
+import { Avatar, num } from '@/components/forum/shared'
+import NotificationsMenu from '@/components/forum/NotificationsMenu'
+
+export type ForumNavKey = 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | ''
+
+/**
+ * Forum chrome: site header/footer, a sticky community sidebar (filters,
+ * categories, tags, people) and a top bar with search, notifications and the
+ * viewer's avatar. On narrow screens the sidebar folds into a disclosure.
+ */
+export default async function ForumShell({ viewer, active = '', category, children }: { viewer: Viewer; active?: ForumNavKey; category?: string; children: ReactNode }) {
+  const [categories, counts, tags, me] = await Promise.all([
+    visibleCategories(viewer),
+    viewerCounts(viewer),
+    popularTags(viewer, 10),
+    viewer.userId ? shellIdentity(viewer.userId) : Promise.resolve(null),
+  ])
+  const signedIn = !!viewer.userId
+  const link = (key: ForumNavKey, href: string, label: string, icon: string, badge?: number) => (
+    <Link href={href} className={active === key ? 'is-active' : ''} aria-current={active === key ? 'page' : undefined}>
+      <span aria-hidden="true">{icon}</span>{label}{badge ? <em>{num(badge)}</em> : null}
+    </Link>
+  )
+  const tops = categories.filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))
+
+  const sidebar = (
+    <>
+      <nav className="fx-side-group" aria-label="موضوع‌ها">
+        {link('latest', '/forum', 'همهٔ موضوع‌ها', '☰')}
+        {signedIn && link('unread', '/forum/unread', 'خوانده‌نشده', '●', counts.unread)}
+        {signedIn && link('new', '/forum/new-topics', 'تازه', '✦', counts.fresh)}
+        {link('top', '/forum/top', 'برترین‌ها', '▲')}
+        {link('unanswered', '/forum/unanswered', 'بی‌پاسخ', '?')}
+        {link('solved', '/forum/solved', 'حل‌شده', '✓')}
+        {signedIn && link('bookmarks', '/forum/bookmarks', 'نشان‌شده‌ها', '🔖', counts.bookmarks)}
+        {signedIn && link('mine', '/forum/mine', 'فعالیت من', '✎')}
+      </nav>
+      <nav className="fx-side-group" aria-label="دسته‌بندی‌ها">
+        <h3><Link href="/forum/categories" className={active === 'categories' ? 'is-active' : ''}>دسته‌بندی‌ها</Link></h3>
+        {tops.map((c) => (
+          <div key={c.id}>
+            <Link href={`/forum/c/${c.slug}`} className={category === c.slug ? 'is-active' : ''}><i className="fx-dot" style={{ background: c.color }} aria-hidden="true" />{c.title}{c.vip && <small className="fx-vip">VIP</small>}</Link>
+            {categories.filter((child) => child.parentId === c.id).map((child) => (
+              <Link key={child.id} href={`/forum/c/${child.slug}`} className={`fx-sub${category === child.slug ? ' is-active' : ''}`}><i className="fx-dot" style={{ background: child.color }} aria-hidden="true" />{child.title}</Link>
+            ))}
+          </div>
+        ))}
+      </nav>
+      {tags.length > 0 && (
+        <nav className="fx-side-group fx-side-tags" aria-label="برچسب‌ها">
+          <h3>برچسب‌ها</h3>
+          <div>{tags.map((tag) => <Link key={tag.name} href={`/forum/tag/${encodeURIComponent(tag.name)}`}>#{tag.name}</Link>)}</div>
+        </nav>
+      )}
+      <nav className="fx-side-group" aria-label="جامعه">
+        <h3>جامعه</h3>
+        {link('users', '/forum/users', 'کاربران', '👤')}
+        {link('groups', '/forum/g', 'گروه‌ها', '👥')}
+        {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
+      </nav>
+    </>
+  )
+
+  return (
+    <MediaShell section="forum">
+      <div className="fx-root">
+        <header className="fx-top">
+          <div className="container fx-top-inner">
+            <Link href="/forum" className="fx-brand">تالار گفتمان</Link>
+            <form action="/forum/search" className="fx-search" role="search">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" /></svg>
+              <input name="q" type="search" placeholder="جست‌وجو در تالار…" aria-label="جست‌وجو در تالار" />
+            </form>
+            <div className="fx-top-actions">
+              {signedIn ? <>
+                <NotificationsMenu />
+                {me && <Link href={`/forum/u/${me.username}`} className="fx-me" aria-label="پروفایل من"><Avatar author={{ name: me.user.name, avatarColor: me.user.avatarColor, avatar: me.avatar, username: me.username }} size={34} /></Link>}
+              </> : <Link href="/login?next=/forum" className="btn btn-primary btn-sm">ورود / ثبت‌نام</Link>}
+            </div>
+          </div>
+        </header>
+        <div className="container fx-layout">
+          <aside className="fx-side">
+            <details className="fx-side-toggle"><summary>منوی تالار</summary><div className="fx-side-inner">{sidebar}</div></details>
+            <div className="fx-side-inner fx-side-desktop">{sidebar}</div>
+          </aside>
+          <div className="fx-main">{children}</div>
+        </div>
+      </div>
+    </MediaShell>
+  )
+}
