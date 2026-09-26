@@ -12,6 +12,10 @@ const paths: Record<string, React.ReactNode> = {
   plus: <path d="M12 5v14M5 12h14"/>,
   check: <path d="m5 12 4 4L19 6"/>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></>,
+  upload: <><path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></>,
+  palette: <><path d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0 0 22 9.7C22 5.9 17.5 3 12 3Z"/><path d="M7.5 11h.01M10 7h.01M15 7h.01"/></>,
+  code: <path d="m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16"/>,
+  file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></>,
 }
 export default function Icon({ name = 'shield', size = 22, className = '' }: { name?: string; size?: number; className?: string }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{paths[name] || paths.shield}</svg>

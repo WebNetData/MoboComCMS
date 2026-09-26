@@ -157,7 +157,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/telegram', label: L('ربات و مینی‌اپ', 'Telegram & Mini App'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/connection-guide', label: L('راهنمای اتصال', 'Connection guide'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/happ', label: L('اتصال Happ', 'Happ connection'), icon: 'devices', perm: 'settings.manage' },
-      { href: '/admin/extensions', label: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'grid', perm: 'settings.manage' },
+      { href: '/admin/extensions', label: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'grid', perm: 'settings.manage', exact: true },
+      { href: '/admin/extensions/editor', label: L('ویرایشگر افزونه و قالب', 'Plugin & theme editor'), icon: 'sliders', perm: 'settings.manage' },
       ...extensionNav,
     ] },
     { title: L('تنظیمات و دسترسی‌ها', 'Settings & access'), items: [

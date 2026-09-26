@@ -1,0 +1,25 @@
+{
+  "id": "promo-banner",
+  "name": "بنر تبلیغاتی",
+  "nameEn": "Promo banner",
+  "description": "یک بنر قابل‌تنظیم بالای صفحهٔ اول و مینی‌اپ، به‌همراه یک صفحهٔ معرفی کمپین.",
+  "descriptionEn": "A configurable banner on the homepage and mini app, plus a campaign page.",
+  "version": "1.0.0",
+  "author": "MoboComCMS",
+  "kind": "plugin",
+  "runtime": "declarative",
+  "requiresCore": "^1.0.0",
+  "slots": {
+    "home.before-main": { "fa": "slots/banner.fa.html", "en": "slots/banner.en.html" },
+    "miniapp.home": { "fa": "slots/banner.fa.html", "en": "slots/banner.en.html" }
+  },
+  "styles": ["style.css"],
+  "pages": [
+    { "slug": "campaign", "title": { "fa": "کمپین ویژه", "en": "Special campaign" }, "file": { "fa": "pages/campaign.fa.html", "en": "pages/campaign.en.html" }, "nav": true }
+  ],
+  "settings": [
+    { "key": "headline", "label": "تیتر بنر", "labelEn": "Banner headline", "type": "text", "default": "۳۰٪ تخفیف همهٔ پلن‌ها" },
+    { "key": "headlineEn", "label": "تیتر انگلیسی", "labelEn": "English headline", "type": "text", "default": "30% off every plan" },
+    { "key": "code", "label": "کد تخفیف", "labelEn": "Promo code", "type": "text", "default": "HAPPY30" }
+  ]
+}

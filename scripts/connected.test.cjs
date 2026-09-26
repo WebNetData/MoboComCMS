@@ -16,6 +16,7 @@ function load(file, mocks = {}, cache = new Map()) {
     if (name.startsWith('@/')) {
       const base = 'src/' + name.slice(2)
       for (const candidate of [base+'.ts',base+'.tsx',base+'/index.ts',base+'/index.tsx']) if (fs.existsSync(path.join(__dirname,'..',candidate))) return load(candidate,mocks,cache)
+      if (base.endsWith('.json') && fs.existsSync(path.join(__dirname,'..',base))) return require(path.join(__dirname,'..',base))
     }
     return require(name)
   }

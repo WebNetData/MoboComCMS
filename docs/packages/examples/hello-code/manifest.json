@@ -1,0 +1,16 @@
+{
+  "id": "hello-code",
+  "name": "سلام کد",
+  "nameEn": "Hello code",
+  "description": "نمونهٔ افزونهٔ کددار: یک کامپوننت React در جایگاه dashboard.top با تنظیمات.",
+  "descriptionEn": "Sample code plugin: a React component in dashboard.top with a setting.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "runtime": "code",
+  "apiVersion": 1,
+  "capabilities": ["ui", "settings"],
+  "settings": [
+    { "key": "message", "label": "پیام", "labelEn": "Message", "type": "text", "public": true, "default": "به پنل خوش آمدید!" }
+  ],
+  "requiresCore": "^1.0.0"
+}

@@ -1,0 +1,11 @@
+.promo-banner { display: flex; align-items: center; gap: 16px; width: min(1180px, 100% - 32px); margin: 20px auto; padding: 14px 18px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); background: color-mix(in srgb, var(--primary) 10%, var(--card)); color: var(--text); }
+.promo-banner div { display: grid; gap: 2px; flex: 1; }
+.promo-banner span { color: var(--muted); font-size: 13px; }
+.promo-banner code { font-weight: 700; color: var(--primary); }
+.promo-banner a { padding: 9px 16px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.tg-app .promo-banner { width: 100%; margin: 0 0 20px; flex-wrap: wrap; }
+.promo-page { width: min(760px, 100% - 32px); margin: 64px auto; display: grid; gap: 16px; justify-items: start; }
+.promo-page h2 { font-size: 40px; letter-spacing: -.03em; }
+.promo-page p { color: var(--muted); line-height: 1.9; }
+.promo-eyebrow { color: var(--primary); font-weight: 600; }
+.promo-button { padding: 12px 22px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-weight: 600; }

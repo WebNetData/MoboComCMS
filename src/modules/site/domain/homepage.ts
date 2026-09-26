@@ -46,4 +46,6 @@ export interface LandingData {
   products: LandingProduct[]
   forms: FormDefinition[]
   tomanRate: number
+  /** Public Telegram bot handle (without @) that opens the mini app, or ''. */
+  telegramBot: string
 }

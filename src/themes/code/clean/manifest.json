@@ -1,0 +1,33 @@
+{
+  "id": "clean",
+  "name": "Happ Clean",
+  "description": "قالب تمیز و سبک MoboComCMS؛ فضای سفید زیاد، تایپوگرافی واضح و زبان طراحی مشترک با مینی‌اپ تلگرام",
+  "version": "1.0.0",
+  "kind": "theme",
+  "apiVersion": 1,
+  "capabilities": ["ui"],
+  "design": {
+    "id": "clean",
+    "name": "Happ Clean",
+    "description": "مینیمال، روشن/تاریک، هماهنگ با مینی‌اپ",
+    "version": "1.0.0",
+    "radius": 18,
+    "colors": {
+      "background": "#0a0c11",
+      "surface": "#12151c",
+      "accent": "#6b8afd",
+      "text": "#eef1f6",
+      "muted": "#98a1b3",
+      "border": "#232834"
+    },
+    "lightColors": {
+      "background": "#f7f8fb",
+      "surface": "#ffffff",
+      "accent": "#3b5bf6",
+      "text": "#0e1220",
+      "muted": "#5c6477",
+      "border": "#e3e6ee"
+    }
+  },
+  "requiresCore": "^1.0.0"
+}

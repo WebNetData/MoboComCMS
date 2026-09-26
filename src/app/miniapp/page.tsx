@@ -8,6 +8,9 @@ import Link from 'next/link'
 import Icon from '@/components/site/Icon'
 import type { SubSummary } from '@/components/SubscriptionCard'
 import SubscriptionRow from '@/components/SubscriptionRow'
+import MiniAppFeedView from './MiniAppFeed'
+import { PluginOutlet } from '@/plugins/registry'
+import { useSite } from '@/components/site/SiteProvider'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 import { customerOverview, sortCustomerSubscriptions } from '@/modules/subscriptions/domain/customer-overview'
@@ -18,6 +21,7 @@ export default function MiniAppHome() {
   const renewalId = params.get('renew') === '1' ? Number(params.get('subscription')) : 0
   const { data: session } = useSession()
   const { t, locale } = useI18n()
+  const site = useSite()
   const fa = locale === 'fa'
   const [subs, setSubs] = useState<SubSummary[]>([])
   const [balances, setBalances] = useState<{ currency: string; balance: number }[]>([])
@@ -51,6 +55,8 @@ export default function MiniAppHome() {
     {loadError && <div className="card p-4 mb-4" role="alert"><p className="error-text mb-3">{fa ? 'دریافت اشتراک‌ها انجام نشد.' : 'Subscriptions could not be loaded.'}</p><button className="btn btn-ghost" onClick={load}>{fa ? 'تلاش دوباره' : 'Retry'}</button></div>}
     {!loading && !loadError && subs.length === 0 && <div className="card tg-empty"><div className="tile-icon mx-auto"><Icon name="globe" size={30} /></div><p className="muted mb-3">{t.noSubs}</p><Link href="/miniapp/plans" className="btn btn-primary">{t.viewPlans}</Link></div>}
     {subs.length > 0 && <div className="sub-list">{sortCustomerSubscriptions(subs).map(sub => <SubscriptionRow key={sub.id} sub={sub} compact />)}</div>}
+    <PluginOutlet slot="miniapp.home" site={site} locale={locale} />
+    <MiniAppFeedView />
     <SubscriptionAlertPreference />
   </div>
 }

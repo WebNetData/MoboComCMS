@@ -35,6 +35,7 @@ import PreviewBridge from '@/components/site/PreviewBridge'
 import MusicPlayerProvider from '@/components/media/MusicPlayer'
 import type { CSSProperties } from 'react'
 import { resolveCodeThemeId } from '@/themes/runtime'
+import { getPackageRuntime } from '@/modules/packages/server/runtime'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,9 +106,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
-  const [jsonLd, siteConfig, extensions] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime()])
+  const [jsonLd, siteConfig, extensions, packages] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null)])
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
-  const site = { ...siteConfig, navigation: siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
+  // Pages of enabled uploaded packages that ask for it join the main menu.
+  const site = { ...siteConfig, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
@@ -126,6 +128,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />
+        {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}
         {site.customCss?.trim() ? <style data-site-custom dangerouslySetInnerHTML={{ __html: safeCustomCss(site.customCss) }} /> : null}
       </head>
       <body>
@@ -137,7 +140,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PreviewBridge />
         <LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider>
       </body>
     </html>

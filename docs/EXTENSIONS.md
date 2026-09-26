@@ -1,6 +1,8 @@
 # MoboComCMS Extension Platform
 
-MoboComCMS extensions are trusted, build-time code packages with runtime activation and settings. Arbitrary uploaded JavaScript is intentionally not executed.
+MoboComCMS extensions are trusted, build-time code packages with runtime activation and settings. Arbitrary uploaded JavaScript is intentionally not executed at runtime.
+
+Administrators can also upload `.zip` packages from the Extension Manager: declarative packages (HTML/CSS/media) install instantly, code packages are applied through Git and a rebuild. See [PACKAGES.md](PACKAGES.md).
 
 ## Create a plugin
 

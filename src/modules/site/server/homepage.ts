@@ -3,6 +3,7 @@ import { getSettings } from '@/modules/settings/server'
 import { getPublicPlans } from '@/modules/catalog/server/public-plans'
 import type { LandingData } from '@/modules/site/domain/homepage'
 import { resolveUsdTomanRateNumber } from '@/modules/billing/domain/rates'
+import { telegramConfig } from '@/modules/notifications/server/telegram'
 
 function parseFormFields(value: string) {
   try {
@@ -14,7 +15,7 @@ function parseFormFields(value: string) {
 }
 
 export async function getLandingData(): Promise<LandingData> {
-  const [plans, settings, locations, posts, products, forms] = await Promise.all([
+  const [plans, settings, locations, posts, products, forms, telegram] = await Promise.all([
     getPublicPlans(),
     getSettings(),
     db.mapLocation.findMany({ where: { active: true } }),
@@ -31,6 +32,7 @@ export async function getLandingData(): Promise<LandingData> {
       take: 3,
     }),
     db.siteForm.findMany({ where: { published: true } }),
+    telegramConfig().catch(() => null),
   ])
 
   return {
@@ -70,5 +72,6 @@ export async function getLandingData(): Promise<LandingData> {
       fields: parseFormFields(form.fields),
     })),
     tomanRate: resolveUsdTomanRateNumber(settings.usdRateToman, process.env.FRENZYEX_USD_RATE_TOMAN),
+    telegramBot: telegram?.ready ? telegram.username : '',
   }
 }

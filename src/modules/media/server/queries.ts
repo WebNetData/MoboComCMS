@@ -42,8 +42,13 @@ function toPlaylist(row: any): PlaylistCard {
 
 const albumInclude = { artist: { select: artistSelect }, _count: { select: { tracks: true } } } as const
 
+/** Media tables can be missing on older databases: render an empty section instead of an error page, keeping row types. */
+function allOrEmpty<P extends readonly Promise<unknown>[]>(queries: [...P]): Promise<{ [K in keyof P]: Awaited<P[K]> }> {
+  return Promise.all(queries).catch(() => queries.map(() => [])) as Promise<{ [K in keyof P]: Awaited<P[K]> }>
+}
+
 export async function getMusicHome() {
-  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks] = await Promise.all([
+  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks] = await allOrEmpty([
     db.musicAlbum.findMany({ where: { ...live(), featured: true }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 20 }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
@@ -52,7 +57,7 @@ export async function getMusicHome() {
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
     db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
-  ]).catch(() => [[], [], [], [], [], [], [], []] as any[])
+  ])
   const genres = countList(genreRows.map((row: { genre: string }) => row.genre)).slice(0, 14)
   return {
     featuredAlbums: featuredAlbums.length ? featuredAlbums.map(toAlbum) : latestAlbums.slice(0, 5).map(toAlbum),
@@ -152,7 +157,7 @@ async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number
 }
 
 export async function getCinemaHome() {
-  const [featured, movies, series, topRated, members, dubbed, genreRows] = await Promise.all([
+  const [featured, movies, series, topRated, members, dubbed, genreRows] = await allOrEmpty([
     db.cinemaTitle.findMany({ where: { ...live(), featured: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
     db.cinemaTitle.findMany({ where: { ...live(), kind: 'MOVIE' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: { ...live(), kind: 'SERIES' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
@@ -160,7 +165,7 @@ export async function getCinemaHome() {
     db.cinemaTitle.findMany({ where: { ...live(), access: 'MEMBERS' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: { ...live(), dubbed: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: live(), select: { genres: true }, take: 600 }),
-  ]).catch(() => [[], [], [], [], [], [], []] as any[])
+  ])
   const genres = countList(genreRows.map((row: { genres: string }) => row.genres)).slice(0, 16)
   const genreShelves = await Promise.all(genres.slice(0, 3).map(async (genre) => ({
     genre,
@@ -239,13 +244,13 @@ function toGame(row: any): GameCard {
 
 export async function getGamesHome() {
   const now = new Date()
-  const [featured, latest, topRated, upcoming, facetRows] = await Promise.all([
+  const [featured, latest, topRated, upcoming, facetRows] = await allOrEmpty([
     db.gameTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 5 }),
     db.gameTitle.findMany({ where: live(), orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.gameTitle.findMany({ where: { ...live(), score: { not: null } }, orderBy: { score: 'desc' }, take: 8 }),
     db.gameTitle.findMany({ where: { ...live(), releaseDate: { gt: now } }, orderBy: { releaseDate: 'asc' }, take: 8 }),
     db.gameTitle.findMany({ where: live(), select: { platforms: true, genres: true }, take: 800 }),
-  ]).catch(() => [[], [], [], [], []] as any[])
+  ])
   return {
     hero: (featured.length ? featured : latest.slice(0, 4)).map(toGame),
     latest: latest.map(toGame), topRated: topRated.map(toGame), upcoming: upcoming.map(toGame),

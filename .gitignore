@@ -8,6 +8,7 @@ out/
 .env
 .env.*
 !.env.example
+!.env.production.example
 prisma/dev.db
 prisma/dev.db-journal
 .tools/
@@ -37,3 +38,6 @@ MoboComCMS-update-*.zip
 MoboComCMS-update-*.sha256
 MoboComCMS-source.zip
 MoboComCMS-source.sha256
+
+prisma/*.db-shm
+prisma/*.db-wal

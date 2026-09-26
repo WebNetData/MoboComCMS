@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 async function main() {
   // --- Roles ---
   const rolesData = [
-    { name: 'admin', nameFa: 'مدیر کل', nameEn: 'Super Admin', isSystem: true, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view' },
+    { name: 'admin', nameFa: 'مدیر کل', nameEn: 'Super Admin', isSystem: true, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view,extensions.code' },
     { name: 'accountant', nameFa: 'حسابدار', nameEn: 'Accountant', isSystem: false, permissions: 'dashboard.view,finance.manage,invoices.manage,gateways.manage,orders.manage' },
     { name: 'support', nameFa: 'پشتیبان', nameEn: 'Support', isSystem: false, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,invoices.manage,tickets.handle' },
     // resellers work in their own panel (/reseller) — they must not enter /admin
