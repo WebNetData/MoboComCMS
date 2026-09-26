@@ -7,7 +7,7 @@ import { createReply } from '@/modules/forum/server/forum'
 import { ForumError } from '@/modules/forum/domain/forum'
 import { queueIndexNow } from '@/modules/seo/server/indexnow'
 import {
-  commentReplyPrompt, forumReplyPrompt, metaPrompt, oneLine, parseTagged, postPrompt, productPrompt, slugify, toHtml, toPlainText,
+  commentReplyPrompt, forumReplyPrompt, metaPrompt, naturalize, oneLine, parseTagged, polishPrompt, postPrompt, productPrompt, slugify, sourceCredit, sourcePrompt, toHtml, toPlainText,
   type AiConfig,
 } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig } from '@/modules/ai/server/client'
@@ -71,7 +71,7 @@ export async function draftPost(adminId: number, input: { topic?: unknown; keywo
   const { brand, voice } = await context()
   const result = await generate(postPrompt({ brand, voice, topic, keywords: String(input.keywords || '').slice(0, 300), length }))
   const { fields, body } = parseTagged(result.text)
-  const content = cleanRichText(toHtml(body))
+  const content = cleanRichText(naturalize(toHtml(body)))
   if (plain(content).length < 200) throw new AiError('متن تولیدشده خیلی کوتاه بود؛ دوباره تلاش کنید یا مدل دیگری انتخاب کنید', 502)
   const title = oneLine(fields.title || topic, 120)
   const categoryId = Number(input.categoryId)
@@ -103,7 +103,7 @@ export async function productCopy(productId: number, facts: unknown) {
     price: '', facts: String(facts || '').slice(0, 1500), current: plain(product.description),
   }))
   const { fields, body } = parseTagged(result.text)
-  const description = cleanRichText(toHtml(body))
+  const description = cleanRichText(naturalize(toHtml(body)))
   if (plain(description).length < 80) throw new AiError('متن تولیدشده خیلی کوتاه بود؛ دوباره تلاش کنید', 502)
   return { description, meta: oneLine(fields.meta || '', 160), model: result.model }
 }
@@ -115,6 +115,45 @@ export async function applyProductCopy(productId: number, description: unknown) 
   if (!product) throw new AiError('محصول پیدا نشد', 404)
   if (product.active) queueIndexNow([`/products/${product.slug}`])
   return product
+}
+
+// ------------------------------------------------------------------ editor assistant
+
+/**
+ * Writing help inside the post editor. Nothing is saved here: the result goes
+ * back into the editor form and the admin reviews it before saving.
+ * - polish: smoother, more natural wording of the admin's own draft
+ * - source: a new article that uses a pasted source only as research (credited when a URL is given)
+ * - excerpt: a meta description for the current content
+ */
+export async function assistEditor(input: { mode?: unknown; content?: unknown; title?: unknown; source?: unknown; url?: unknown; keywords?: unknown }) {
+  const { brand, voice } = await context()
+  const content = cleanRichText(String(input.content || '')).slice(0, 60_000)
+  if (input.mode === 'excerpt') {
+    if (plain(content).length < 80) throw new AiError('ابتدا متن نوشته را بنویسید')
+    const result = await generate(metaPrompt({ brand, voice, kind: 'مقاله', title: String(input.title || '').slice(0, 200), content: plain(content) }))
+    return { excerpt: oneLine(result.text, 160), model: result.model }
+  }
+  if (input.mode === 'polish') {
+    if (plain(content).length < 80) throw new AiError('متن ویرایشگر برای بازنویسی خیلی کوتاه است')
+    const result = await generate(polishPrompt({ brand, voice, html: content }))
+    const html = cleanRichText(naturalize(toHtml(parseTagged(result.text).body)))
+    if (plain(html).length < plain(content).length * 0.4) throw new AiError('متن بازنویسی‌شده ناقص برگشت؛ دوباره تلاش کنید', 502)
+    return { content: html, model: result.model }
+  }
+  if (input.mode === 'source') {
+    const source = String(input.source || '').replace(/<[^>]+>/g, ' ').replace(/[ \t]+/g, ' ').trim()
+    if (source.length < 200) throw new AiError('متن منبع را کامل‌تر وارد کنید (حداقل چند پاراگراف)')
+    const result = await generate(sourcePrompt({ brand, voice, source, keywords: String(input.keywords || '').slice(0, 300) }))
+    const { fields, body } = parseTagged(result.text)
+    const html = cleanRichText(naturalize(toHtml(body)) + sourceCredit(String(input.url || '')))
+    if (plain(html).length < 200) throw new AiError('متن تولیدشده خیلی کوتاه بود؛ دوباره تلاش کنید', 502)
+    return {
+      title: oneLine(fields.title || '', 120), slug: slugify(fields.slug || '', ''), excerpt: oneLine(fields.excerpt || plain(html), 160),
+      content: html, model: result.model,
+    }
+  }
+  throw new AiError('حالت نامعتبر')
 }
 
 // ------------------------------------------------------------------ comments

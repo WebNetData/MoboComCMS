@@ -190,3 +190,9 @@
 .ai-providers p{margin:0;font-size:.82rem;line-height:1.8}
 @media (max-width:760px){.ai-review{grid-template-columns:1fr}.ai-page .tb-hero{flex-direction:column}.ai-status{justify-items:start}}
 .ai-providers .badge,.ai-status .badge{justify-self:start;width:max-content}.ai-status .badge{justify-self:end}
+.ai-assist{border:1px dashed color-mix(in srgb,var(--primary) 45%,var(--border));border-radius:14px;padding:.7rem .9rem;background:color-mix(in srgb,var(--primary) 4%,transparent)}
+.ai-assist-toggle{border:0;background:none;color:var(--primary);font:inherit;font-weight:700;cursor:pointer;padding:.2rem 0}
+.ai-assist-body{display:grid;gap:.7rem;margin-top:.6rem}
+.ai-assist-body p{margin:0;line-height:1.9;font-size:.85rem}
+.ai-assist-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+@media (max-width:760px){.ai-assist-row{grid-template-columns:1fr}}

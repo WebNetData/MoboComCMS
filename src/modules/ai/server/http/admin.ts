@@ -8,7 +8,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { AI_PROVIDERS } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig, publicAiConfig, saveAiConfig } from '@/modules/ai/server/client'
 import {
-  applyMeta, applyProductCopy, assistantQueues, draftPost, productCopy, publishCommentReply, publishForumReply,
+  applyMeta, applyProductCopy, assistEditor, assistantQueues, draftPost, productCopy, publishCommentReply, publishForumReply,
   suggestCommentReply, suggestForumReply, suggestMeta,
 } from '@/modules/ai/server/tasks'
 
@@ -29,6 +29,7 @@ const ACTIONS: Record<string, { perm: string; generates: boolean; run: Handler }
   'forum.suggest': { perm: 'forum.moderate', generates: true, run: (_admin, body) => suggestForumReply(id(body.id)) },
   'forum.publish': { perm: 'forum.moderate', generates: false, run: (_admin, body) => publishForumReply(id(body.id), body.reply) },
   'meta.suggest': { perm: 'cms.posts', generates: true, run: (_admin, body) => suggestMeta(id(body.id)) },
+  'editor.assist': { perm: 'cms.posts', generates: true, run: (_admin, body) => assistEditor(body) },
   'meta.apply': { perm: 'cms.posts', generates: false, run: (_admin, body) => applyMeta(id(body.id), body.meta) },
 }
 
