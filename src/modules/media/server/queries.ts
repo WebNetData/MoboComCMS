@@ -296,6 +296,67 @@ export async function getGame(slug: string) {
   }
 }
 
+// ------------------------------------------------------------------ software
+
+export type SoftwareCard = {
+  id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
+  license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; publishedAt: Date
+}
+function toSoftware(row: any): SoftwareCard {
+  return {
+    id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
+    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: row.summary, downloads: row.downloads, publishedAt: row.publishedAt,
+  }
+}
+
+export async function getSoftwareHome() {
+  const [featured, latest, popular, facetRows] = await allOrEmpty([
+    db.softwareTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 6 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ updatedAt: 'desc' }], take: 18 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
+    db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 1000 }),
+  ])
+  return {
+    featured: featured.map(toSoftware), latest: latest.map(toSoftware), popular: popular.map(toSoftware),
+    platforms: countList(facetRows.map((row: { platforms: string }) => row.platforms)).slice(0, 8),
+    categories: countList(facetRows.map((row: { category: string }) => row.category)).slice(0, 16),
+  }
+}
+
+export async function browseSoftware(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const where: any = { ...live() }
+  if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
+  if (input.category) where.category = String(input.category).slice(0, 60)
+  if (input.license) where.license = String(input.license).slice(0, 20)
+  const q = String(input.q || '').trim().slice(0, 80)
+  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }]
+  const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
+  const [rows, total] = await Promise.all([
+    db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.softwareTitle.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function getSoftware(slug: string) {
+  const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
+  if (!row) return null
+  await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
+  const [links, related] = await Promise.all([
+    publicLinks('software', [row.id]),
+    db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
+  ])
+  return {
+    software: {
+      ...toSoftware(row), website: row.website, requirements: row.requirements, content: row.content, changelog: row.changelog, views: row.views, releasedAt: row.releasedAt, updatedAt: row.updatedAt,
+      screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
+    },
+    links: links.get(row.id) || [],
+    related: related.map(toSoftware),
+  }
+}
+
 // ------------------------------------------------------------------ shared
 
 /** "a, b" strings → distinct values ordered by frequency. */

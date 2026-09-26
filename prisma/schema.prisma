@@ -52,6 +52,8 @@ model User {
   notifications  UserNotification[]
 
   @@index([telegramId])
+  forumThreads   ForumThread[]
+  forumPosts     ForumPost[]
 }
 
 model Role {
@@ -1245,11 +1247,101 @@ model GameTitle {
   @@index([status, publishedAt])
 }
 
+/// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
+/// MediaLink (ownerType "software") and go through the protected redirect.
+model SoftwareTitle {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique
+  title        String
+  titleEn      String    @default("")
+  icon         String    @default("")
+  cover        String    @default("")
+  version      String    @default("")
+  developer    String    @default("")
+  license      String    @default("FREE") // FREE | FREEMIUM | TRIAL | PAID | OPEN_SOURCE
+  platforms    String    @default("")
+  category     String    @default("")
+  size         String    @default("")
+  website      String    @default("")
+  requirements String    @default("")
+  screenshots  String    @default("[]")
+  summary      String    @default("")
+  content      String    @default("")
+  changelog    String    @default("")
+  access       String    @default("PUBLIC")
+  status       String    @default("PUBLISHED")
+  featured     Boolean   @default(false)
+  views        Int       @default(0)
+  downloads    Int       @default(0)
+  releasedAt   DateTime?
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+/// Forum (تالار گفتمان). The first post of a thread is its body; counters are
+/// denormalized for fast listings and kept in sync by the forum service.
+model ForumCategory {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique
+  title       String
+  description String        @default("")
+  icon        String        @default("")
+  access      String        @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
+  locked      Boolean       @default(false) // only moderators start threads
+  sortOrder   Int           @default(0)
+  threadCount Int           @default(0)
+  postCount   Int           @default(0)
+  lastPostAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
+  threads     ForumThread[]
+}
+
+model ForumThread {
+  id             Int           @id @default(autoincrement())
+  categoryId     Int
+  category       ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  pinned         Boolean       @default(false)
+  locked         Boolean       @default(false)
+  status         String        @default("VISIBLE") // VISIBLE | HIDDEN
+  views          Int           @default(0)
+  replyCount     Int           @default(0)
+  lastPostAt     DateTime      @default(now())
+  lastPostUserId Int?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+  posts          ForumPost[]
+
+  @@index([categoryId, status, pinned, lastPostAt])
+  @@index([userId])
+}
+
+model ForumPost {
+  id        Int         @id @default(autoincrement())
+  threadId  Int
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  status    String      @default("VISIBLE") // VISIBLE | HIDDEN
+  editedAt  DateTime?
+  createdAt DateTime    @default(now())
+
+  @@index([threadId, status, createdAt])
+  @@index([userId, createdAt])
+}
+
 /// Download / stream links for films, episodes and games. URLs are never sent to
 /// the browser; visitors go through /api/media/link/<id>, which checks VIP access.
 model MediaLink {
   id        Int      @id @default(autoincrement())
-  ownerType String // title | episode | game
+  ownerType String // title | episode | game | software
   ownerId   Int
   label     String   @default("")
   kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM

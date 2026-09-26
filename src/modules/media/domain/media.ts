@@ -65,7 +65,7 @@ export function formatRuntime(minutes: number, fa: boolean): string {
 
 export const LINK_KINDS = ['DOWNLOAD', 'STREAM'] as const
 export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
-export const LINK_OWNERS = ['title', 'episode', 'game'] as const
+export const LINK_OWNERS = ['title', 'episode', 'game', 'software'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
 export type LinkInput = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number }
@@ -136,4 +136,19 @@ export function trailerSource(url: string, toEmbed: (raw: string) => string): { 
     if (/(^|\.)(youtube-nocookie\.com|youtube\.com|aparat\.com|vimeo\.com)$/.test(host)) return { embed }
   } catch { /* relative path */ }
   return /^(https:\/\/|\/(?!\/))/.test(value) ? { src: value } : {}
+}
+
+// ------------------------------------------------------------------ software
+
+export const SOFTWARE_PLATFORMS = ['Windows', 'macOS', 'Linux', 'Android', 'iOS'] as const
+export const SOFTWARE_LICENSES = ['FREE', 'FREEMIUM', 'TRIAL', 'PAID', 'OPEN_SOURCE'] as const
+export type SoftwareLicense = typeof SOFTWARE_LICENSES[number]
+
+export function normalizeLicense(value: unknown): SoftwareLicense {
+  return (SOFTWARE_LICENSES as readonly string[]).includes(String(value)) ? value as SoftwareLicense : 'FREE'
+}
+
+export function licenseLabel(value: string, fa: boolean): string {
+  const labels: Record<string, [string, string]> = { FREE: ['رایگان', 'Free'], FREEMIUM: ['رایگان با امکانات پولی', 'Freemium'], TRIAL: ['نسخهٔ آزمایشی', 'Trial'], PAID: ['پولی', 'Paid'], OPEN_SOURCE: ['متن‌باز', 'Open source'] }
+  return (labels[value] || labels.FREE)[fa ? 0 : 1]
 }

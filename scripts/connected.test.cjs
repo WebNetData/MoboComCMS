@@ -184,9 +184,20 @@ test('signed-in website renders the shared account language across devices',asyn
     '@/modules/identity/auth':{authOptions:{}},
     '@/modules/notifications/server/telegram-locale':{getUserLocale:async()=>accountLocale},
   })
-  assert.equal(await server.getServerLocale(),'fa')
-  accountLocale=null
-  assert.equal(await server.getServerLocale(),'en')
+  const previous=process.env.SITE_LOCALES
+  try {
+    process.env.SITE_LOCALES='fa,en'
+    assert.equal(await server.getServerLocale(),'fa')
+    accountLocale=null
+    assert.equal(await server.getServerLocale(),'en')
+    // A single-language site ignores cookies and stored preferences.
+    process.env.SITE_LOCALES='fa'
+    accountLocale='en'
+    assert.equal(await server.getServerLocale(),'fa')
+  } finally {
+    if (previous === undefined) delete process.env.SITE_LOCALES
+    else process.env.SITE_LOCALES=previous
+  }
 })
 
 test('subscription delivery alert follows the selected Telegram language',async()=>{

@@ -63,6 +63,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // media tables may not be migrated yet
   }
 
+  // Software downloads and public forum boards/threads (VIP boards stay out).
+  try {
+    const [software, boards, threads] = await Promise.all([
+      db.softwareTitle.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
+      db.forumCategory.findMany({ where: { access: 'PUBLIC' }, select: { slug: true, updatedAt: true } }),
+      db.forumThread.findMany({ where: { status: 'VISIBLE', category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
+    ])
+    entries.push({ url: `${base}/software`, lastModified: now, changeFrequency: 'daily', priority: 0.8 }, { url: `${base}/forum`, lastModified: now, changeFrequency: 'hourly', priority: 0.7 })
+    for (const row of software) entries.push({ url: `${base}/software/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
+    for (const row of boards) entries.push({ url: `${base}/forum/c/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'daily', priority: 0.5 })
+    for (const row of threads) entries.push({ url: `${base}/forum/t/${row.id}`, lastModified: row.lastPostAt, changeFrequency: 'weekly', priority: 0.4 })
+  } catch {
+    // tables may not be migrated yet
+  }
+
   // Disabled feature modules (journal, VPN plans, store …) leave the sitemap.
   const runtime = await getPublicExtensionRuntime().catch(() => null)
   if (!runtime) return entries

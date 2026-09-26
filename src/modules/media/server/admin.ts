@@ -7,12 +7,12 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
-import { cleanLinks, cleanRecords, cleanRequirements, joinList, slugOf, type LinkOwner } from '@/modules/media/domain/media'
+import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
- *   /api/admin/media-library?type=music-tracks | music-albums | music-artists | music-playlists | cinema-titles | games | vip-plans
+ *   /api/admin/media-library?type=music-tracks | music-albums | music-artists | music-playlists | cinema-titles | games | software | vip-plans
  * Each resource declares its module, permissions and how a request body becomes row data.
  */
 
@@ -298,6 +298,42 @@ const RESOURCES: Record<string, Resource> = {
         screenshots: json(row.screenshots, []), pros: json(row.pros, []), cons: json(row.cons, []), requirements: json(row.requirements, { min: {}, rec: {} }),
         links: links.get(row.id) || [],
       }))
+    },
+  },
+  software: {
+    module: 'software', perms: ['software.manage', 'cms.posts'],
+    delegate: (t) => t.softwareTitle, orderBy: { updatedAt: 'desc' },
+    label: (row) => row.title,
+    parse: (b, existing) => pickDefined({
+      slug: when(b, 'slug', (v) => slugOf(v)) ?? (existing ? undefined : slugOf(b.titleEn || b.title)),
+      title: when(b, 'title', (v) => text(v, 200)),
+      titleEn: when(b, 'titleEn', (v) => text(v, 200)),
+      icon: when(b, 'icon', validateCover),
+      cover: when(b, 'cover', validateCover),
+      version: when(b, 'version', (v) => text(v, 60)),
+      developer: when(b, 'developer', (v) => text(v, 160)),
+      license: when(b, 'license', normalizeLicense),
+      platforms: when(b, 'platforms', (v) => joinList(v, 8)),
+      category: when(b, 'category', (v) => text(v, 60)),
+      size: when(b, 'size', (v) => text(v, 40)),
+      website: when(b, 'website', mediaUrl),
+      requirements: when(b, 'requirements', (v) => text(v, 2000)),
+      screenshots: when(b, 'screenshots', (v) => JSON.stringify(cleanRecords(v, ['src'], 30, 2048).map((shot) => ({ src: validateCover(shot.src) })))),
+      summary: when(b, 'summary', (v) => text(v, 3000)),
+      content: when(b, 'content', (v) => html(v)),
+      changelog: when(b, 'changelog', (v) => html(v, 20000)),
+      access: when(b, 'access', normalizeAccess),
+      status: when(b, 'status', status),
+      featured: when(b, 'featured', bool),
+      releasedAt: when(b, 'releasedAt', date),
+      publishedAt: when(b, 'publishedAt', (v) => date(v) || new Date()),
+    }),
+    afterSave: async (tx, id, b) => { if (has(b, 'links')) await saveLinks(tx, 'software', id, b.links) },
+    onDelete: async (tx, id) => { await tx.mediaLink.deleteMany({ where: { ownerType: 'software', ownerId: id } }) },
+    expand: async (rows) => {
+      const links = await linksFor('software', rows.map((row) => row.id))
+      const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }
+      return rows.map((row) => ({ ...row, releasedAt: row.releasedAt ? new Date(row.releasedAt).toISOString().slice(0, 10) : '', screenshots: json(row.screenshots, []), links: links.get(row.id) || [] }))
     },
   },
   'vip-plans': {

@@ -1,0 +1,17 @@
+{
+  "id": "forum",
+  "name": "تالار گفتمان",
+  "nameEn": "Forum",
+  "description": "انجمن گفت‌وگوی کاربران با دسته‌بندی، موضوع و پاسخ، انجمن‌های ویژهٔ VIP، سنجاق و قفل موضوع و مدیریت پیام‌ها.",
+  "descriptionEn": "Community forum with boards, threads and replies, VIP-only boards, pinning, locking and post moderation.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "chat",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/forum"],
+  "adminPaths": ["/admin/forum"],
+  "permissions": [{ "id": "forum.moderate", "label": "مدیریت تالار گفتمان" }]
+}

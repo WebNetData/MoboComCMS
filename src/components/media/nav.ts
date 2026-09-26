@@ -33,3 +33,22 @@ export function gamesNav(fa: boolean): SectionNavItem[] {
     { key: 'mobile', href: '/games/browse?platform=Android', label: fa ? 'موبایل' : 'Mobile' },
   ]
 }
+
+export function softwareNav(fa: boolean): SectionNavItem[] {
+  return [
+    { key: 'home', href: '/software', label: fa ? 'خانه نرم‌افزار' : 'Software home' },
+    { key: 'latest', href: '/software/browse', label: fa ? 'به‌روزشده‌ها' : 'Recently updated' },
+    { key: 'popular', href: '/software/browse?sort=popular', label: fa ? 'پردانلودها' : 'Most downloaded' },
+    { key: 'windows', href: '/software/browse?platform=Windows', label: 'Windows' },
+    { key: 'mac', href: '/software/browse?platform=macOS', label: 'macOS' },
+    { key: 'android', href: '/software/browse?platform=Android', label: 'Android' },
+    { key: 'ios', href: '/software/browse?platform=iOS', label: 'iOS' },
+  ]
+}
+
+export function forumNav(fa: boolean): SectionNavItem[] {
+  return [
+    { key: 'home', href: '/forum', label: fa ? 'همه انجمن‌ها' : 'All boards' },
+    { key: 'new', href: '/forum/new', label: fa ? '+ موضوع جدید' : '+ New thread' },
+  ]
+}

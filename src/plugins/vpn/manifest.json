@@ -9,7 +9,7 @@
   "apiVersion": 1,
   "category": "core",
   "icon": "shield",
-  "defaultEnabled": true,
+  "defaultEnabled": false,
   "requiresCore": "^1.0.0",
   "publicPaths": ["/plans", "/trial"],
   "adminPaths": ["/admin/plans", "/admin/service-offers", "/admin/trial", "/admin/subscriptions", "/admin/panels", "/admin/resellers", "/admin/reseller-sales", "/admin/happ", "/admin/connection-guide", "/admin/locations"]

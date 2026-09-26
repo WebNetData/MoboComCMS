@@ -390,10 +390,25 @@ async function main() {
     })
   }
 
+  // --- Forum boards (created once; admins manage them afterwards) ---
+  const boards = [
+    { slug: 'announcements', title: 'اطلاعیه‌های موبوکام', description: 'خبرها و اطلاعیه‌های رسمی تیم موبوکام', icon: '📣', locked: true, sortOrder: 0 },
+    { slug: 'general', title: 'گفت‌وگوی آزاد', description: 'هر چیزی که دوست دارید دربارهٔ آن حرف بزنید', icon: '💬', sortOrder: 10 },
+    { slug: 'help', title: 'پرسش و پاسخ فنی', description: 'مشکلات نرم‌افزار، سخت‌افزار و گوشی را اینجا بپرسید', icon: '🛠️', sortOrder: 20 },
+    { slug: 'shop', title: 'فروشگاه و سفارش‌ها', description: 'پیش از خرید بپرسید و تجربهٔ خریدتان را بگویید', icon: '🛒', sortOrder: 30 },
+    { slug: 'entertainment', title: 'فیلم، موزیک و بازی', description: 'پیشنهاد، نقد و گفت‌وگو دربارهٔ سرگرمی', icon: '🎬', sortOrder: 40 },
+    { slug: 'vip-lounge', title: 'سالن اعضای ویژه', description: 'گفت‌وگوی اختصاصی اعضای VIP', icon: '♛', access: 'MEMBERS', sortOrder: 50 },
+  ]
+  if (await prisma.forumCategory.count().catch(() => -1) === 0) {
+    for (const board of boards) await prisma.forumCategory.create({ data: board })
+  }
+
   // --- Settings ---
   const settings = [
-    { key: 'brandName', value: 'MoboComCMS' },
-    { key: 'brandTagline', value: 'اینترنت آزاد، سریع و امن' },
+    { key: 'brandName', value: 'موبوکام' },
+    { key: 'brandTagline', value: 'فروشگاه و سرگرمی دیجیتال' },
+    // MoboCom sells physical and digital products out of the box.
+    { key: 'storeEnabled', value: 'true' },
     { key: 'supportTelegram', value: '@MoboComCMS' },
     { key: 'supportEmail', value: 'support@example.com' },
     { key: 'siteUrl', value: process.env.NEXTAUTH_URL || 'http://localhost:3000' },

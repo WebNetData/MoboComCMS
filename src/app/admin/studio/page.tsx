@@ -13,8 +13,8 @@ import DesignTab from './DesignTab'
 import { TextEditor, LinkEditor } from './fields'
 import { showsInMiniApp } from '@/modules/site/domain/miniapp-feed'
 
-const sectionNames: Record<string,string> = { hero:'معرفی اصلی',features:'امکانات',plans:'پلن‌ها و قیمت‌ها',network:'شبکه سرورها',steps:'راهنمای شروع',apps:'برنامه‌ها',products:'محصولات',posts:'مجله',faq:'سوالات متداول',cta:'دعوت به شروع',form:'فرم سفارشی' }
-const sectionIcons: Record<string,string> = { hero:'bolt',features:'grid',plans:'wallet',network:'globe',steps:'arrow',apps:'devices',products:'grid',posts:'grid',faq:'chat',cta:'arrow',form:'sliders' }
+const sectionNames: Record<string,string> = { hero:'معرفی اصلی',features:'امکانات',plans:'پلن‌ها و قیمت‌ها',network:'شبکه سرورها',steps:'راهنمای شروع',apps:'برنامه‌ها',products:'محصولات',posts:'مجله',faq:'سوالات متداول',cta:'دعوت به شروع',form:'فرم سفارشی',services:'خدمات و بخش‌ها',showcase:'تازه‌های سرگرمی و انجمن' }
+const sectionIcons: Record<string,string> = { hero:'bolt',features:'grid',plans:'wallet',network:'globe',steps:'arrow',apps:'devices',products:'grid',posts:'grid',faq:'chat',cta:'arrow',form:'sliders',services:'grid',showcase:'sparkles' }
 export default function StudioPage() {
   const router = useRouter()
   const [config,setConfig] = useState<SiteConfig|null>(null)

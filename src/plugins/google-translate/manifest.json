@@ -1,0 +1,17 @@
+{
+  "id": "google-translate",
+  "name": "ترجمهٔ گوگل",
+  "nameEn": "Google Translate",
+  "description": "دکمهٔ «زبان» برای بازدیدکنندگان خارجی؛ صفحه را با مترجم گوگل به زبان دلخواه برمی‌گرداند. برای مرورگرهای غیرفارسی پیشنهاد ترجمه نشان می‌دهد.",
+  "descriptionEn": "A language button for foreign visitors that translates pages with Google Translate, and suggests it to non-Persian browsers.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "capabilities": ["ui", "settings"],
+  "settings": [
+    { "key": "languages", "label": "زبان‌ها (کد، با کاما)", "labelEn": "Languages (codes, comma separated)", "type": "text", "public": true, "default": "en,ar,tr,de,fr,ru,es,it,zh-CN,hi,ur,az", "description": "کدهای زبان گوگل، مثلاً en,ar,tr", "descriptionEn": "Google language codes, e.g. en,ar,tr" },
+    { "key": "suggest", "label": "پیشنهاد خودکار به مرورگرهای غیرفارسی", "labelEn": "Suggest to non-Persian browsers", "type": "boolean", "public": true, "default": true }
+  ],
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0"
+}

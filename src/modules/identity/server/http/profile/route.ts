@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
-  const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+  const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => locale === 'fa' ? fa : en
   const b = await req.json().catch(() => null)
   if (b?.locale !== undefined && b.locale !== 'en' && b.locale !== 'fa') return err('Invalid language', 400)

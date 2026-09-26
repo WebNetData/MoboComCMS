@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
   if (req.nextUrl.searchParams.get('view') === 'options') {
-    const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+    const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
     const [subscriptions, orders, departments] = await Promise.all([
       db.subscription.findMany({ where: { userId: user.id, status: 'ACTIVE', expiresAt: { gt: new Date() } }, include: { plan: true }, orderBy: { createdAt: 'desc' } }),
       db.order.findMany({ where: { userId: user.id, status: 'PAID', productId: { not: null }, product: { active: true } }, include: { product: true }, orderBy: { createdAt: 'desc' } }),
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
   const subject = String(body?.subject || '').trim()
   const message = sanitizeMessage(String(body?.message || '').trim())
   const priority = ['low', 'normal', 'high'].includes(body?.priority) ? body.priority : 'normal'
-  const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+  const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => locale === 'fa' ? fa : en
   const department = body?.department === undefined && body?.subscriptionId !== undefined ? 'SUBSCRIPTION' : String(body?.department || '')
   const departmentConfig = await db.ticketDepartment.findUnique({ where: { slug: department } })

@@ -1,12 +1,14 @@
 export type LocalText = { fa: string; en: string; [locale: string]: string }
 export type SiteLink = { label: LocalText; href: string }
 export type ContentItem = { title: LocalText; text: LocalText; icon: string; href: string }
-export type SectionKind = 'hero' | 'features' | 'plans' | 'network' | 'steps' | 'apps' | 'products' | 'posts' | 'faq' | 'cta' | 'form'
+export type SectionKind = 'hero' | 'features' | 'plans' | 'network' | 'steps' | 'apps' | 'products' | 'posts' | 'faq' | 'cta' | 'form' | 'services' | 'showcase'
 export type SiteSection = { id: string; kind: SectionKind; enabled: boolean; eyebrow: LocalText; title: LocalText; description: LocalText; items: ContentItem[]; action: SiteLink; formSlug: string; image?: string; /** Also show this section on the Telegram mini app home. Unset → kind default (see showsInMiniApp). */ miniapp?: boolean }
 export type ThemeColors = { background: string; surface: string; accent: string; text: string; muted: string; border: string }
 export type ThemeManifest = { id: string; name: string; description: string; version: string; extends?: string; colors: ThemeColors; lightColors?: ThemeColors; radius: number }
 export type SiteFonts = { body: string; heading: string }
 export type SiteConfig = {
+  /** Runtime only (from SITE_LOCALES, never stored): languages the visitor may switch between. */
+  locales?: string[]
   publicApiEnabled?: boolean
   copy?: Record<string, LocalText>
   logo?: string
