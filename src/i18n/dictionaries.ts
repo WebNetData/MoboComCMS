@@ -25,7 +25,7 @@ export const dictionaries = {
     miniNoTx: "No transactions yet",
 
     // brand
-    brand: 'HappVPN',
+    brand: 'MoboComCMS',
     tagline: 'Free, fast and secure internet',
 
     // nav / common
@@ -106,8 +106,8 @@ export const dictionaries = {
     month: 'month',
 
     // auth
-    loginTitle: 'Log in to HappVPN',
-    registerTitle: 'Create your HappVPN account',
+    loginTitle: 'Log in to MoboComCMS',
+    registerTitle: 'Create your MoboComCMS account',
     nameLabel: 'Name',
     emailLabel: 'Email',
     passwordLabel: 'Password (min 6 chars)',
@@ -194,7 +194,7 @@ export const dictionaries = {
     messages: 'messages',
     selectTicket: 'Select a ticket',
     you: 'You',
-    supportTeam: 'HappVPN support',
+    supportTeam: 'MoboComCMS support',
     writeReply: 'Write your reply...',
     msgEmpty: 'Message is empty',
 
@@ -578,7 +578,7 @@ export const dictionaries = {
     spent: 'Spent',
     lastLogin: 'Last activity',
     trust: 'Trusted by 50,000+ users worldwide',
-    whyUs: 'Why HappVPN?',
+    whyUs: 'Why MoboComCMS?',
     why1t: 'Blazing fast nodes',
     why1d: 'NVMe servers, 10Gbps uplinks, smart routing',
     why2t: 'Privacy first',
@@ -809,7 +809,7 @@ export const dictionaries = {
     miniTransactions: "تراکنش‌ها",
     miniNoTx: "هنوز تراکنشی ندارید",
 
-    brand: 'HappVPN',
+    brand: 'MoboComCMS',
     tagline: 'اینترنت آزاد، سریع و امن',
 
     home: 'خانه',
@@ -885,8 +885,8 @@ export const dictionaries = {
     featured: 'پیشنهاد ویژه',
     month: 'ماه',
 
-    loginTitle: 'ورود به HappVPN',
-    registerTitle: 'ساخت حساب HappVPN',
+    loginTitle: 'ورود به MoboComCMS',
+    registerTitle: 'ساخت حساب MoboComCMS',
     nameLabel: 'نام',
     emailLabel: 'ایمیل',
     passwordLabel: 'رمز عبور (حداقل ۶ کاراکتر)',
@@ -971,7 +971,7 @@ export const dictionaries = {
     messages: 'پیام',
     selectTicket: 'یک تیکت را انتخاب کنید',
     you: 'شما',
-    supportTeam: 'پشتیبانی HappVPN',
+    supportTeam: 'پشتیبانی MoboComCMS',
     writeReply: 'پاسخ خود را بنویسید...',
     msgEmpty: 'متن پیام خالی است',
 
@@ -1347,7 +1347,7 @@ export const dictionaries = {
     spent: 'مجموع خرید',
     lastLogin: 'آخرین فعالیت',
     trust: 'مورد اعتماد بیش از ۵۰٬۰۰۰ کاربر در سراسر جهان',
-    whyUs: 'چرا HappVPN؟',
+    whyUs: 'چرا MoboComCMS؟',
     why1t: 'نودهای فوق سریع',
     why1d: 'سرورهای NVMe، آپلینک ۱۰ گیگابیتی، مسیریابی هوشمند',
     why2t: 'اولویت حریم خصوصی',

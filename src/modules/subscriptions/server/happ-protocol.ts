@@ -28,7 +28,7 @@ export async function encryptHappUrl(source: string): Promise<string> {
 /**
  * The canonical customer subscription URL is always the URL returned by the
  * VPN panel. The shop domain is explicitly rejected so a panel cannot silently
- * fall back to one of HappVPN's mirror/proxy routes.
+ * fall back to one of MoboComCMS's mirror/proxy routes.
  */
 export async function panelSubscriptionUrl(token: string): Promise<string> {
   const sub = await db.subscription.findUnique({ where: { subToken: token }, select: { panelSubUrl: true } })

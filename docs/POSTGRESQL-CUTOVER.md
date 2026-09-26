@@ -1,6 +1,6 @@
 # PostgreSQL Cutover Runbook
 
-HappVPN keeps SQLite for local/single-node development and ships a schema-parity PostgreSQL definition for production cutover. Financial source-of-truth fields use integer minor units; legacy Float columns are compatibility mirrors only.
+MoboComCMS keeps SQLite for local/single-node development and ships a schema-parity PostgreSQL definition for production cutover. Financial source-of-truth fields use integer minor units; legacy Float columns are compatibility mirrors only.
 
 ## Preconditions
 

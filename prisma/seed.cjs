@@ -23,7 +23,7 @@ async function main() {
   const seedDemoData = process.env.SEED_DEMO_DATA === 'true'
   const usdMinor = (value) => BigInt(Math.round(Number(value) * 100))
   const randomPassword = () => crypto.randomBytes(24).toString('base64url')
-  const adminEmail = String(process.env.ADMIN_EMAIL || 'admin@happvpn.com').trim().toLowerCase()
+  const adminEmail = String(process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase()
   let admin = await prisma.user.findUnique({ where: { email: adminEmail } })
   let generatedAdminPassword = ''
   if (!admin) {
@@ -33,7 +33,7 @@ async function main() {
       data: {
         email: adminEmail,
         passwordHash: bcrypt.hashSync(adminPass, 12),
-        name: 'HappVPN Admin',
+        name: 'MoboComCMS Admin',
         role: 'ADMIN',
         roleId: adminRole?.id,
       },
@@ -45,19 +45,19 @@ async function main() {
   let demoCustomerPassword = ''
   let demoSupportPassword = ''
   if (seedDemoData) {
-    const existingCustomer = await prisma.user.findUnique({ where: { email: 'customer@happvpn.com' } })
+    const existingCustomer = await prisma.user.findUnique({ where: { email: 'customer@example.com' } })
     if (!existingCustomer) {
       demoCustomerPassword = randomPassword()
-      await prisma.user.create({ data: { email: 'customer@happvpn.com', passwordHash: bcrypt.hashSync(demoCustomerPassword, 12), name: 'Demo Customer', role: 'CUSTOMER' } })
+      await prisma.user.create({ data: { email: 'customer@example.com', passwordHash: bcrypt.hashSync(demoCustomerPassword, 12), name: 'Demo Customer', role: 'CUSTOMER' } })
     }
 
     const supportRole = await prisma.role.findUnique({ where: { name: 'support' } })
-    const existingSupport = await prisma.user.findUnique({ where: { email: 'support@happvpn.com' } })
+    const existingSupport = await prisma.user.findUnique({ where: { email: 'support@example.com' } })
     if (!existingSupport) {
       demoSupportPassword = randomPassword()
       await prisma.user.create({
         data: {
-          email: 'support@happvpn.com',
+          email: 'support@example.com',
           passwordHash: bcrypt.hashSync(demoSupportPassword, 12),
           name: 'Support Agent',
           role: 'ADMIN',
@@ -96,8 +96,8 @@ async function main() {
       slug: 'about',
       title: 'درباره ما',
       titleEn: 'About us',
-      content: '<h2>درباره HappVPN</h2><p>ما تیمی از مهندسان شبکه هستیم که با یک هدف کار می‌کنیم: اینترنت آزاد و امن برای همه.</p><p>سرورهای ما روی زیرساخت NVMe با آپلینک ۱۰ گیگابیتی در بیش از ۳۰ موقعیت جهانی میزبانی می‌شوند.</p>',
-      contentEn: '<h2>About HappVPN</h2><p>We are a team of network engineers with one goal: free and secure internet for everyone.</p><p>Our servers run on NVMe infrastructure with 10Gbps uplinks across 30+ global locations.</p>',
+      content: '<h2>درباره MoboComCMS</h2><p>ما تیمی از مهندسان شبکه هستیم که با یک هدف کار می‌کنیم: اینترنت آزاد و امن برای همه.</p><p>سرورهای ما روی زیرساخت NVMe با آپلینک ۱۰ گیگابیتی در بیش از ۳۰ موقعیت جهانی میزبانی می‌شوند.</p>',
+      contentEn: '<h2>About MoboComCMS</h2><p>We are a team of network engineers with one goal: free and secure internet for everyone.</p><p>Our servers run on NVMe infrastructure with 10Gbps uplinks across 30+ global locations.</p>',
       showInNav: true,
       sortOrder: 1,
     },
@@ -131,13 +131,13 @@ async function main() {
 
   const posts = [
     {
-      slug: 'welcome-to-happvpn',
-      title: 'به HappVPN خوش آمدید!',
-      titleEn: 'Welcome to HappVPN!',
+      slug: 'welcome-to-mobocomcms',
+      title: 'به MoboComCMS خوش آمدید!',
+      titleEn: 'Welcome to MoboComCMS!',
       excerpt: 'با شبکه جهانی جدید ما، اتصال سریع‌تر و پایدارتر از همیشه را تجربه کنید.',
       excerptEn: 'Experience faster and more stable connections with our new global network.',
-      content: '<p>ما افتتاح <b>شبکه جهانی HappVPN</b> را جشن می‌گیریم: ۳۰+ موقعیت فعال، آپتایم ۹۹.۹٪ و فعال‌سازی آنی اشتراک.</p><h2>چه چیزهایی تغییر کرده؟</h2><ul><li>نودهای جدید در ۱۰ کشور</li><li>پروتکل Reality برای دور زدن سانسور پیشرفته</li><li>پنل کاربری کاملاً بازطراحی‌شده</li></ul>',
-      contentEn: '<p>We are celebrating the launch of the <b>HappVPN global network</b>: 30+ active locations, 99.9% uptime and instant provisioning.</p><h2>What changed?</h2><ul><li>New nodes in 10 countries</li><li>Reality protocol for advanced censorship bypass</li><li>Fully redesigned user panel</li></ul>',
+      content: '<p>ما افتتاح <b>شبکه جهانی MoboComCMS</b> را جشن می‌گیریم: ۳۰+ موقعیت فعال، آپتایم ۹۹.۹٪ و فعال‌سازی آنی اشتراک.</p><h2>چه چیزهایی تغییر کرده؟</h2><ul><li>نودهای جدید در ۱۰ کشور</li><li>پروتکل Reality برای دور زدن سانسور پیشرفته</li><li>پنل کاربری کاملاً بازطراحی‌شده</li></ul>',
+      contentEn: '<p>We are celebrating the launch of the <b>MoboComCMS global network</b>: 30+ active locations, 99.9% uptime and instant provisioning.</p><h2>What changed?</h2><ul><li>New nodes in 10 countries</li><li>Reality protocol for advanced censorship bypass</li><li>Fully redesigned user panel</li></ul>',
       category: catNews.id,
       featured: true,
     },
@@ -177,7 +177,7 @@ async function main() {
   const catAcc = await prisma.productCategory.upsert({ where: { slug: 'accessories' }, update: {}, create: { slug: 'accessories', name: 'اکسسوری', nameEn: 'Accessories' } })
 
   const products = [
-    { slug: 'pre-configured-router', name: 'روتر آماده HappVPN', nameEn: 'HappVPN Pre-configured Router', description: 'روتر فلش‌شده با کانفیگ کامل — فقط برق و اینترنت وصل کنید.', descriptionEn: 'Flashed router with full config — just plug power and internet.', price: 79, priceMinor: usdMinor(79), currency: 'USD', stock: 10, kind: 'PHYSICAL', featured: true, categoryId: catRouter.id, sortOrder: 1 },
+    { slug: 'pre-configured-router', name: 'روتر آماده MoboComCMS', nameEn: 'MoboComCMS Pre-configured Router', description: 'روتر فلش‌شده با کانفیگ کامل — فقط برق و اینترنت وصل کنید.', descriptionEn: 'Flashed router with full config — just plug power and internet.', price: 79, priceMinor: usdMinor(79), currency: 'USD', stock: 10, kind: 'PHYSICAL', featured: true, categoryId: catRouter.id, sortOrder: 1 },
     { slug: 'usb-adapter', name: 'آداپتور USB وایفای', nameEn: 'USB WiFi Adapter', description: 'آداپتور سازگار با لینوکس برای اتصال امن.', descriptionEn: 'Linux-compatible adapter for secure connections.', price: 19, priceMinor: usdMinor(19), currency: 'USD', stock: -1, kind: 'PHYSICAL', featured: false, categoryId: catAcc.id, sortOrder: 2 },
     { slug: 'gift-card-10', name: 'گیفت کارت ۱۰ دلاری', nameEn: '$10 Gift Card', description: 'کارت هدیه برای شارژ حساب.', descriptionEn: 'Gift card to top up any account.', price: 10, priceMinor: usdMinor(10), currency: 'USD', stock: -1, featured: true, categoryId: catAcc.id, sortOrder: 3 },
   ]
@@ -264,7 +264,7 @@ async function main() {
         sortOrder: 3,
         instructions: [
           'USDT (TRC20): TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-          'Bank card: 6037-XXXX-XXXX-XXXX  (holder: HappVPN)',
+          'Bank card: 6037-XXXX-XXXX-XXXX  (holder: MoboComCMS)',
           'Send the exact amount and reply to this invoice with the transaction id.',
         ].join('\n'),
       },
@@ -308,7 +308,7 @@ async function main() {
 
   // demo sales history so the finance dashboard has a curve to show
   if (seedDemoData && (await prisma.order.count()) === 0) {
-    const demoCustomer = await prisma.user.findUnique({ where: { email: 'customer@happvpn.com' } })
+    const demoCustomer = await prisma.user.findUnique({ where: { email: 'customer@example.com' } })
     const allPlans = await prisma.plan.findMany({ orderBy: { id: 'asc' }, take: 3 })
     const firstGateway = await prisma.gateway.findFirst({ orderBy: { sortOrder: 'asc' } })
     const now = new Date()
@@ -392,10 +392,10 @@ async function main() {
 
   // --- Settings ---
   const settings = [
-    { key: 'brandName', value: 'HappVPN' },
+    { key: 'brandName', value: 'MoboComCMS' },
     { key: 'brandTagline', value: 'اینترنت آزاد، سریع و امن' },
-    { key: 'supportTelegram', value: '@HappVPN' },
-    { key: 'supportEmail', value: 'support@happvpn.com' },
+    { key: 'supportTelegram', value: '@MoboComCMS' },
+    { key: 'supportEmail', value: 'support@example.com' },
     { key: 'siteUrl', value: process.env.NEXTAUTH_URL || 'http://localhost:3000' },
     { key: 'usdRateToman', value: String(process.env.FRENZYEX_USD_RATE_TOMAN || '0').trim() || '0' },
     { key: 'themeColor', value: '#4b45ee' },

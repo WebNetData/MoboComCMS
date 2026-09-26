@@ -1,6 +1,6 @@
-# HappVPN Extension Platform
+# MoboComCMS Extension Platform
 
-HappVPN extensions are trusted, build-time code packages with runtime activation and settings. Arbitrary uploaded JavaScript is intentionally not executed.
+MoboComCMS extensions are trusted, build-time code packages with runtime activation and settings. Arbitrary uploaded JavaScript is intentionally not executed.
 
 ## Create a plugin
 

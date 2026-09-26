@@ -74,7 +74,7 @@ export const BUNDLED_TEMPLATES: BundledTemplate[] = [
     descEn: 'Centered heading with six feature cards',
     doc: doc([
       sec([col([
-        w('heading', { level: 'h2', text: 'چرا هپ‌وی‌پی‌ان؟', textEn: 'Why HappVPN?' }, center),
+        w('heading', { level: 'h2', text: 'چرا هپ‌وی‌پی‌ان؟', textEn: 'Why MoboComCMS?' }, center),
         w('text', { html: '<p>هر آنچه برای یک اتصال امن و سریع لازم دارید، در یک برنامه.</p>', htmlEn: '<p>Everything you need for a fast, private connection — in one app.</p>' }, center),
         w('list', { title: '', titleEn: '', items: items([
           { title: 'سرعت بدون محدودیت', titleEn: 'Unlimited speed', text: 'پروتکل‌های مدرن WireGuard و OpenVPN با بهینه‌سازی مسیر.', textEn: 'Modern WireGuard and OpenVPN protocols with route optimization.', icon: '⚡' },
@@ -137,7 +137,7 @@ export const BUNDLED_TEMPLATES: BundledTemplate[] = [
     descEn: 'Your four latest journal entries, live',
     doc: doc([
       sec([col([
-        w('heading', { level: 'h2', text: 'از مجله هپ‌وی‌پی‌ان', textEn: 'From the HappVPN journal' }),
+        w('heading', { level: 'h2', text: 'از مجله هپ‌وی‌پی‌ان', textEn: 'From the MoboComCMS journal' }),
         w('posts', { title: '', titleEn: '', limit: '4' }),
       ])], { paddingY: 80 }),
     ]),
@@ -150,8 +150,8 @@ export const BUNDLED_TEMPLATES: BundledTemplate[] = [
     descEn: 'Feature comparison as a table',
     doc: doc([
       sec([col([
-        w('heading', { level: 'h2', text: 'هپ‌وی‌پی‌ان یا رقبا؟', textEn: 'HappVPN vs. the rest' }, center),
-        w('text', { html: '<table><thead><tr><th>ویژگی</th><th>هپ‌وی‌پی‌ان</th><th>رایج</th></tr></thead><tbody><tr><td>پروتکل WireGuard</td><td>بله</td><td>بعضی</td></tr><tr><td>بدون ثبت لاگ</td><td>بله</td><td>خیر</td></tr><tr><td>پرداخت ریالی</td><td>بله</td><td>خیر</td></tr><tr><td>پشتیبانی فارسی</td><td>بله</td><td>خیر</td></tr></tbody></table>', htmlEn: '<table><thead><tr><th>Feature</th><th>HappVPN</th><th>Typical</th></tr></thead><tbody><tr><td>WireGuard protocol</td><td>Yes</td><td>Sometimes</td></tr><tr><td>No-logs</td><td>Yes</td><td>No</td></tr><tr><td>Local payments</td><td>Yes</td><td>No</td></tr><tr><td>Local-language support</td><td>Yes</td><td>No</td></tr></tbody></table>' }, { width: 88, align: 'center' }),
+        w('heading', { level: 'h2', text: 'هپ‌وی‌پی‌ان یا رقبا؟', textEn: 'MoboComCMS vs. the rest' }, center),
+        w('text', { html: '<table><thead><tr><th>ویژگی</th><th>هپ‌وی‌پی‌ان</th><th>رایج</th></tr></thead><tbody><tr><td>پروتکل WireGuard</td><td>بله</td><td>بعضی</td></tr><tr><td>بدون ثبت لاگ</td><td>بله</td><td>خیر</td></tr><tr><td>پرداخت ریالی</td><td>بله</td><td>خیر</td></tr><tr><td>پشتیبانی فارسی</td><td>بله</td><td>خیر</td></tr></tbody></table>', htmlEn: '<table><thead><tr><th>Feature</th><th>MoboComCMS</th><th>Typical</th></tr></thead><tbody><tr><td>WireGuard protocol</td><td>Yes</td><td>Sometimes</td></tr><tr><td>No-logs</td><td>Yes</td><td>No</td></tr><tr><td>Local payments</td><td>Yes</td><td>No</td></tr><tr><td>Local-language support</td><td>Yes</td><td>No</td></tr></tbody></table>' }, { width: 88, align: 'center' }),
       ])], { paddingY: 80 }),
     ]),
   },
@@ -424,7 +424,7 @@ export const THEME_PRESETS: Record<'header' | 'footer' | 'page', BundledTemplate
       descFa: 'درباره، لینک‌ها، مجله و تماس', descEn: 'About, links, journal and contact',
       doc: doc([
         sec([
-          col([w('heading', { level: 'h4', text: 'HappVPN', textEn: 'HappVPN' }), w('text', { html: '<p>اینترنت آزاد و امن برای همه.</p>', htmlEn: '<p>A free and secure internet for everyone.</p>' })], 30),
+          col([w('heading', { level: 'h4', text: 'MoboComCMS', textEn: 'MoboComCMS' }), w('text', { html: '<p>اینترنت آزاد و امن برای همه.</p>', htmlEn: '<p>A free and secure internet for everyone.</p>' })], 30),
           col([w('heading', { level: 'h4', text: 'دسترسی سریع', textEn: 'Quick links' }), w('text', { html: '<p><a href="/plans">پلن‌ها</a><br><a href="/products">فروشگاه</a><br><a href="/blog">مجله</a></p>', htmlEn: '<p><a href="/plans">Plans</a><br><a href="/products">Shop</a><br><a href="/blog">Journal</a></p>' })], 22),
           col([w('heading', { level: 'h4', text: 'حساب کاربری', textEn: 'Account' }), w('text', { html: '<p><a href="/dashboard">پنل کاربری</a><br><a href="/trial">اکانت تست</a></p>', htmlEn: '<p><a href="/dashboard">Dashboard</a><br><a href="/trial">Free trial</a></p>' })], 22),
           col([w('heading', { level: 'h4', text: 'پشتیبانی', textEn: 'Support' }), w('text', { html: '<p>پاسخ‌گویی ۲۴ ساعته از طریق تیکت.</p>', htmlEn: '<p>24/7 answers through tickets.</p>' })], 26),

@@ -4,7 +4,7 @@ Customer-facing name: **درگاه پرداخت ارزی ریالی**
 
 This provider is integrated as an Iranian card-to-card checkout using FrenzyEx v1.
 The provider name and credentials stay server-side; customers see the configured
-HappVPN gateway name.
+MoboComCMS gateway name.
 
 ## Required configuration
 
@@ -24,7 +24,7 @@ In FrenzyEx, set the public HTTPS callback URL to:
 https://YOUR_DOMAIN/api/payment/frenzyex/webhook
 ```
 
-For USD-priced plans, set **Admin > Settings > نرخ دلار به تومان**. HappVPN creates
+For USD-priced plans, set **Admin > Settings > نرخ دلار به تومان**. MoboComCMS creates
 the provider invoice in whole Toman (`TMN`).
 
 ## Runtime behavior

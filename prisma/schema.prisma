@@ -1,4 +1,4 @@
-// HappVPN – Prisma schema (extended CMS + RBAC)
+// MoboComCMS – Prisma schema (extended CMS + RBAC)
 generator client {
   provider = "prisma-client-js"
 }

@@ -328,7 +328,7 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
           {text && <p>{text}</p>}
           <Link className="btn btn-primary" href="/plans">{locale === 'fa' ? 'مشاهده پلن‌ها' : 'See plans'}</Link>
         </div>
-        <NetworkGlobe count={landing?.locations.length || 0} label={locale === 'fa' ? 'موقعیت سرور' : 'Server locations'} brand="HAPPVPN" />
+        <NetworkGlobe count={landing?.locations.length || 0} label={locale === 'fa' ? 'موقعیت سرور' : 'Server locations'} brand="MOBOCOMCMS" />
       </div>)
     }
     case 'form': {

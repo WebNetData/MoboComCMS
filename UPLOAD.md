@@ -1,4 +1,4 @@
-# بستهٔ Deploy HappVPN
+# بستهٔ Deploy MoboComCMS
 
 این سورس برای production با **Docker + PostgreSQL + Coolify** آماده شده است. راهنمای اصلی نصب:
 

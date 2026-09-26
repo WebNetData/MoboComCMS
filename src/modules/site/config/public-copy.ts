@@ -1,8 +1,8 @@
 import type { LocalText } from './types'
 export const publicCopy: Record<string, LocalText> = {
-  "HappVPN Premium": {
-    "fa": "HappVPN پریمیوم",
-    "en": "HappVPN Premium"
+  "MoboComCMS Premium": {
+    "fa": "MoboComCMS پریمیوم",
+    "en": "MoboComCMS Premium"
   },
   "Your connection. On your terms.": {
     "fa": "اتصال تو. با شرایط خودت.",
@@ -125,7 +125,7 @@ export const publicCopy: Record<string, LocalText> = {
     "en": "Explore plans"
   },
   "Make yourself at home": {
-    "fa": "به دنیای HappVPN بیا",
+    "fa": "به دنیای MoboComCMS بیا",
     "en": "Make yourself at home"
   },
   "Compare plans": {
@@ -208,9 +208,9 @@ export const publicCopy: Record<string, LocalText> = {
     "fa": "حساب من",
     "en": "My account"
   },
-  "Get HappVPN": {
-    "fa": "شروع با HappVPN",
-    "en": "Get HappVPN"
+  "Get MoboComCMS": {
+    "fa": "شروع با MoboComCMS",
+    "en": "Get MoboComCMS"
   },
   "Close menu": {
     "fa": "بستن منو",
@@ -240,9 +240,9 @@ export const publicCopy: Record<string, LocalText> = {
     "fa": "از هر کجا، به دنیای خودت وصل شو.",
     "en": "Your world, wherever you are."
   },
-  "Explore HappVPN": {
-    "fa": "کشف HappVPN",
-    "en": "Explore HappVPN"
+  "Explore MoboComCMS": {
+    "fa": "کشف MoboComCMS",
+    "en": "Explore MoboComCMS"
   },
   "Explore": {
     "fa": "کشف کنید",

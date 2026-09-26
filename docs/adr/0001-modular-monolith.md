@@ -5,7 +5,7 @@
 
 ## Context
 
-HappVPN contains identity, catalog, billing, wallet, provisioning, reseller, support, CMS, integrations and public APIs in one Next.js application. Most business logic currently lives in `src/lib`, and several delivery-layer pages/routes query Prisma directly. The product also needs a stable plugin/theme API.
+MoboComCMS contains identity, catalog, billing, wallet, provisioning, reseller, support, CMS, integrations and public APIs in one Next.js application. Most business logic currently lives in `src/lib`, and several delivery-layer pages/routes query Prisma directly. The product also needs a stable plugin/theme API.
 
 ## Decision
 

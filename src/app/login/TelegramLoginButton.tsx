@@ -48,7 +48,7 @@ export default function TelegramLoginButton({ botUsername }: { botUsername: stri
       {botUsername ? <div ref={host} className="auth-telegram-widget" aria-busy={!widgetReady && !error} /> : <p className="muted text-sm" role="status">{locale === 'fa' ? 'ورود تلگرام پس از تنظیم ربات در مدیریت فعال می‌شود.' : 'Telegram sign-in will be available after the bot is configured.'}</p>}
       {botUsername && !widgetReady && !error && <p className="muted text-xs">{locale === 'fa' ? 'در حال آماده‌سازی دکمهٔ تلگرام…' : 'Preparing Telegram sign-in…'}</p>}
       {error && <p className="error-text mt-2" role="alert">{error}</p>}
-      {error && botUsername && <p className="auth-telegram-note"><a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer">{locale === 'fa' ? 'ربات HappVPN را باز کنید' : 'Open the HappVPN bot'}</a> {locale === 'fa' ? 'و دستور /link را بفرستید.' : 'and send /link to connect your account.'}</p>}
+      {error && botUsername && <p className="auth-telegram-note"><a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer">{locale === 'fa' ? 'ربات MoboComCMS را باز کنید' : 'Open the MoboComCMS bot'}</a> {locale === 'fa' ? 'و دستور /link را بفرستید.' : 'and send /link to connect your account.'}</p>}
       <p className="auth-telegram-note">{locale === 'fa' ? 'حساب ایمیلی دارید؟ ابتدا از داخل پروفایل آن را به تلگرام وصل کنید.' : 'Already have an email account? Link Telegram from your profile first.'}</p>
     </section>
   )

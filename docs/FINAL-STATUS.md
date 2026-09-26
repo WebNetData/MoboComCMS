@@ -1,8 +1,8 @@
-# HappVPN Platform Refactor — Final Status
+# MoboComCMS Platform Refactor — Final Status
 
 Date: 2026-09-20
 
-This revision is the long-term platform foundation for HappVPN. The application is a modular monolith: Core business rules live behind module boundaries, Next.js App Router is delivery/composition, and plugins/themes depend on stable SDK contracts rather than private Core files.
+This revision is the long-term platform foundation for MoboComCMS. The application is a modular monolith: Core business rules live behind module boundaries, Next.js App Router is delivery/composition, and plugins/themes depend on stable SDK contracts rather than private Core files.
 
 ## Implemented platform foundation
 
@@ -126,4 +126,4 @@ These are operational/release tasks, not hidden architecture debt:
 
 ## Extension safety model
 
-HappVPN deliberately does not execute arbitrary JavaScript uploaded from the admin panel. Code plugins/themes are trusted build/deploy artifacts. Runtime activation and settings remain admin-controlled. This preserves WordPress-like extensibility without turning a ZIP upload endpoint into remote-code execution.
+MoboComCMS deliberately does not execute arbitrary JavaScript uploaded from the admin panel. Code plugins/themes are trusted build/deploy artifacts. Runtime activation and settings remain admin-controlled. This preserves WordPress-like extensibility without turning a ZIP upload endpoint into remote-code execution.

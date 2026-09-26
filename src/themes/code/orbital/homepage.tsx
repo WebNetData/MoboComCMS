@@ -28,7 +28,7 @@ function OrbitalSection({ site, locale, data, networkHref, appsHref }: ThemeHome
   const countries = new Set(data.locations.map(item => item.country)).size
   const mainPlan = data.plans.find(plan => plan.featured) || data.plans[0]
   const services = [
-    ...(mainPlan ? [{ id: `plan-${mainPlan.id}`, title: L('HappVPN پریمیوم', 'HappVPN Premium'), description: L('اتصال تو. با شرایط خودت.', 'Your connection. On your terms.'), href: `/checkout?planId=${mainPlan.id}`, price: mainPlan.price, currency: mainPlan.currency, icon: 'infinity', image: '', category: L('اشتراک VPN', 'VPN SUBSCRIPTION'), period: `${count(mainPlan.days)} ${L('روز', 'days')}` }] : []),
+    ...(mainPlan ? [{ id: `plan-${mainPlan.id}`, title: L('MoboComCMS پریمیوم', 'MoboComCMS Premium'), description: L('اتصال تو. با شرایط خودت.', 'Your connection. On your terms.'), href: `/checkout?planId=${mainPlan.id}`, price: mainPlan.price, currency: mainPlan.currency, icon: 'infinity', image: '', category: L('اشتراک VPN', 'VPN SUBSCRIPTION'), period: `${count(mainPlan.days)} ${L('روز', 'days')}` }] : []),
     ...data.products.slice(0, 3).map((product, index) => ({ id: `product-${product.id}`, title: locale === 'fa' ? product.name : product.nameEn || product.name, description: product.category ? (locale === 'fa' ? product.category.name : product.category.nameEn || product.category.name) : L('برای دنیای دیجیتال تو.', 'Made for your digital world.'), href: `/products/${product.slug}`, price: product.price, currency: product.currency, icon: ['router', 'gift', 'devices'][index], image: product.image, category: L('فروشگاه دیجیتال', 'DIGITAL STORE'), period: '' })),
   ]
   const heading = (item: Section, action?: { href: string; label: string }) => <div className="hp-section-heading"><div><span className="hp-eyebrow">{T(item.eyebrow)}</span><h2>{T(item.title)}</h2><p>{T(item.description)}</p></div>{action && <Link className="hp-text-link" href={action.href}>{action.label}<Glyph name="arrow" size={17}/></Link>}</div>
@@ -73,7 +73,7 @@ function OrbitalSection({ site, locale, data, networkHref, appsHref }: ThemeHome
     </div></section>}
 
     {features && <section className="hp-container hp-section" id={features.id}>
-      <div className="hp-feature-layout"><div className="hp-feature-intro"><span className="hp-eyebrow">{T(features.eyebrow)}</span><h2>{T(features.title)}</h2><p>{T(features.description)}</p><div className="hp-security-emblem" aria-hidden="true"><span/><span/><Glyph name="shield" size={70}/></div><Link className="hp-text-link" href="/register">{L('به دنیای HappVPN بیا', 'Make yourself at home')}<Glyph name="arrow" size={17}/></Link></div>
+      <div className="hp-feature-layout"><div className="hp-feature-intro"><span className="hp-eyebrow">{T(features.eyebrow)}</span><h2>{T(features.title)}</h2><p>{T(features.description)}</p><div className="hp-security-emblem" aria-hidden="true"><span/><span/><Glyph name="shield" size={70}/></div><Link className="hp-text-link" href="/register">{L('به دنیای MoboComCMS بیا', 'Make yourself at home')}<Glyph name="arrow" size={17}/></Link></div>
       <div className="hp-features">{features.items.map((item, index) => <article key={index}><span className={`hp-icon-box ${index === 1 ? 'hp-violet' : index === 2 ? 'hp-mint' : ''}`}><Glyph name={item.icon} size={25}/></span><h3>{T(item.title)}</h3><p>{T(item.text)}</p></article>)}</div></div>
     </section>}
 

@@ -3,7 +3,7 @@ const item = (fa: string, en: string, text: string, english: string, icon: strin
 const section = (kind: SectionKind, eyebrow: string, eyebrowEn: string, title: string, titleEn: string, description: string, descriptionEn: string, items: ContentItem[] = []): SiteSection => ({ id: kind, kind, enabled: true, eyebrow: L(eyebrow, eyebrowEn), title: L(title, titleEn), description: L(description, descriptionEn), items, action: { label: L('بیشتر ببینید', 'Explore more'), href: '/plans' }, formSlug: '' })
 
 export const defaultSite: SiteConfig = {
-  version: 1, brand: 'HappVPN', tagline: L('دنیای تو، بدون مرز.', 'Your world. Without limits.'),
+  version: 1, brand: 'MoboComCMS', tagline: L('دنیای تو، بدون مرز.', 'Your world. Without limits.'),
   announcement: { enabled: true, text: L('یک اتصال تازه به دنیای بدون مرز', 'A fresh connection to a world without limits'), link: { label: L('پلن مناسب من', 'Find my plan'), href: '/plans' } },
   navigation: [ { label: L('خانه', 'Home'), href: '/' }, { label: L('پلن‌ها و قیمت‌ها', 'Plans & pricing'), href: '/plans' }, { label: L('شبکه سرورها', 'Our network'), href: '/#network' }, { label: L('فروشگاه', 'Shop'), href: '/products' }, { label: L('مجله هَپ', 'Journal'), href: '/blog' } ],
   footer: [ { label: L('مرکز پشتیبانی', 'Support center'), href: '/dashboard/tickets' }, { label: L('سوالات متداول', 'FAQ'), href: '/#faq' }, { label: L('حساب کاربری', 'My account'), href: '/dashboard' } ],

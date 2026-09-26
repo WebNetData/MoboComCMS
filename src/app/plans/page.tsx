@@ -131,7 +131,7 @@ export default async function PlansPage() {
 
         <section className="section-tight">
           <div className="card cta-band text-center">
-            <h2 className="display-sm">{t.heroTitleA} HappVPN</h2>
+            <h2 className="display-sm">{t.heroTitleA} MoboComCMS</h2>
             <p className="lead mt-2">{t.trust}</p>
             <div className="flex justify-center gap-3 mt-5 flex-wrap">
               <Link href="/register" className="btn btn-primary">{t.createAccount}</Link>

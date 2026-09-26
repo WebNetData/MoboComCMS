@@ -79,7 +79,7 @@ export async function createInvoice(
   params.set('source_currency', sourceCurrency)
   params.set('source_amount', String(input.sourceAmount))
   params.set('order_number', input.orderNumber)
-  params.set('order_name', input.orderName || 'HappVPN subscription')
+  params.set('order_name', input.orderName || 'MoboComCMS subscription')
   params.set('callback_url', input.callbackUrl)
   params.set('success_invoice_url', input.successUrl)
   params.set('fail_invoice_url', input.failUrl)

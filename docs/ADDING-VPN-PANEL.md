@@ -20,12 +20,12 @@ column is generic JSON text for **non-secret** provider-specific settings.
 Therefore most new panel adapters can be added without changing the core schema
 or migrating customer/subscription tables.
 
-Use the existing `token` and `password` fields for credentials. HappVPN encrypts these fields at rest with `PANEL_CREDENTIAL_KEY` before persistence and decrypts them only inside the adapter factory. Do not put secrets in `Panel.config`; the Admin API can return that config to the browser. If a future provider needs additional secret fields, extend the encrypted credential mechanism rather than placing secrets in generic JSON.
+Use the existing `token` and `password` fields for credentials. MoboComCMS encrypts these fields at rest with `PANEL_CREDENTIAL_KEY` before persistence and decrypts them only inside the adapter factory. Do not put secrets in `Panel.config`; the Admin API can return that config to the browser. If a future provider needs additional secret fields, extend the encrypted credential mechanism rather than placing secrets in generic JSON.
 
 ## Adapter boundary
 
 Keep provider-specific HTTP payloads/status codes inside the adapter. The rest
-of HappVPN should only use the `PanelAdapter` methods for operations such as:
+of MoboComCMS should only use the `PanelAdapter` methods for operations such as:
 
 - connection test
 - user create/read/update/delete

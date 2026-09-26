@@ -36,14 +36,14 @@ test('live restore refuses unconfirmed runs and archives outside the backup dire
  const {safeArchive,assertConfirmed}=require('./restore-live.cjs')
  const dir=process.env.BACKUP_DIR
  try{
-  process.env.BACKUP_DIR=path.join(os.tmpdir(),'happvpn-restore-guard')
+  process.env.BACKUP_DIR=path.join(os.tmpdir(),'mobocomcms-restore-guard')
   delete require.cache[require.resolve('./restore-live.cjs')]
   const guards=require('./restore-live.cjs')
   assert.throws(()=>guards.assertConfirmed({}),/RESTORE_NOT_CONFIRMED/)
   assert.doesNotThrow(()=>guards.assertConfirmed({RESTORE_CONFIRM:'1'}))
-  assert.throws(()=>guards.safeArchive(path.join(os.tmpdir(),'happvpn-restore-guard','backup-1-a.dump.enc')),/INVALID_BACKUP_PATH/)
+  assert.throws(()=>guards.safeArchive(path.join(os.tmpdir(),'mobocomcms-restore-guard','backup-1-a.dump.enc')),/INVALID_BACKUP_PATH/)
   assert.throws(()=>guards.safeArchive(path.join(os.tmpdir(),'elsewhere','backup-1760000000000-abcdef123456.dump.enc')),/INVALID_BACKUP_PATH/)
-  assert.match(guards.safeArchive(path.join(os.tmpdir(),'happvpn-restore-guard','backup-1760000000000-abcdef123456.dump.enc')),/backup-1760000000000-abcdef123456\.dump\.enc$/)
+  assert.match(guards.safeArchive(path.join(os.tmpdir(),'mobocomcms-restore-guard','backup-1760000000000-abcdef123456.dump.enc')),/backup-1760000000000-abcdef123456\.dump\.enc$/)
  }finally{
   if(dir===undefined)delete process.env.BACKUP_DIR;else process.env.BACKUP_DIR=dir
   delete require.cache[require.resolve('./restore-live.cjs')]

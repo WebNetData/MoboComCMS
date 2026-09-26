@@ -1,4 +1,4 @@
-# HappVPN 🛡⚡
+# MoboComCMS 🛡⚡
 
 ## استودیوی سایت و طراحی Noir
 
@@ -214,7 +214,7 @@ curl -fsS -X POST \
 - اگر پنل هیچ گروهی نداشته باشد، خرید با پیام واضح رد می‌شود و مبلغ به کیف پول مشتری برمی‌گردد (اشتراک بی‌کانفیگ فروخته نمی‌شود).
 - اشتراک‌های قدیمی که بدون گروه ساخته شده‌اند، با اولین **همگام‌سازی** (باز شدن پنل کاربری) یا هر عملیات (تمدید/غیرفعال‌سازی) گروه خودکار می‌گیرند.
 - نسخه‌های قدیمی مارزبان (بدون گروه) هم پشتیبانی می‌شوند: در فیلد اینبانددها `پروتکل:تگ` بنویسید (مثل `vless:VLESS-REALITY,vmess:VMess-WS`).
-- لینک ساب canonical از خود VPN Panel (`panelSubUrl`) گرفته می‌شود. HappVPN آن URL را سمت سرور با crypt5 رمزگذاری می‌کند و فقط `happ://crypt5/...` را در سایت، Mini App، بات، QR و APIهای customer-facing نمایش می‌دهد؛ دامنه سایت منبع لینک جدید نیست و در خطای encryption هیچ raw URLای fallback نمی‌شود.
+- لینک ساب canonical از خود VPN Panel (`panelSubUrl`) گرفته می‌شود. MoboComCMS آن URL را سمت سرور با crypt5 رمزگذاری می‌کند و فقط `happ://crypt5/...` را در سایت، Mini App، بات، QR و APIهای customer-facing نمایش می‌دهد؛ دامنه سایت منبع لینک جدید نیست و در خطای encryption هیچ raw URLای fallback نمی‌شود.
 
 ## درگاه Plisio
 
@@ -301,7 +301,7 @@ Next.js 15 (App Router) · React 19 · TypeScript · Prisma + PostgreSQL (produc
 ```env
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
 TURNSTILE_SECRET_KEY=...
-TURNSTILE_EXPECTED_HOSTNAME=happvpnproxy.com
+TURNSTILE_EXPECTED_HOSTNAME=example.com
 ```
 
 توکن در سرور با Siteverify، IP کاربر، action و hostname بررسی می‌شود. اگر کلیدها

@@ -87,8 +87,8 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
         <div className="card invoice-sheet">
           <div className="invoice-head">
             <div>
-              <div className="invoice-brand">{settings.brandName || 'HappVPN'}</div>
-              <div className="muted">{settings.supportEmail || 'support@happvpn.com'}</div>
+              <div className="invoice-brand">{settings.brandName || 'MoboComCMS'}</div>
+              <div className="muted">{settings.supportEmail || 'support@example.com'}</div>
               {settings.siteUrl && <div className="muted num" dir="ltr">{settings.siteUrl}</div>}
             </div>
             <div className="text-end">

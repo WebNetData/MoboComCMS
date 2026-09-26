@@ -66,7 +66,7 @@ export default function ApiKeysPage() {
     setTimeout(() => setCopied(''), 1500)
   }
 
-  const base = typeof window !== 'undefined' ? window.location.origin : 'https://happvpn.com'
+  const base = typeof window !== 'undefined' ? window.location.origin : 'https://example.com'
   const fmt = (d: string | null) => (d ? new Date(d).toLocaleString(isFa ? 'fa-IR' : 'en-US') : '—')
 
   const examples: [string, string][] = [

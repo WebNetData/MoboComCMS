@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await finishInbox(inbox.id, 'FAILED', message)
-    console.error('[happvpn] FrenzyEx callback failed', message)
+    console.error('[mobocomcms] FrenzyEx callback failed', message)
     return NextResponse.json({ error: 'processing failed' }, { status: 500 })
   }
 }

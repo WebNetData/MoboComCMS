@@ -52,7 +52,7 @@ export async function startWalletTopup(input: {
   const invoice = await createInvoiceForOrder({ userId: input.userId, subtotal: amount, currency, gatewayId: gateway.id, status: 'UNPAID', notes: 'Wallet top-up', kind: 'WALLET_TOPUP', idempotencyKey: invoiceKey })
   const result = await createGatewayInvoice(gateway, {
     orderNumber: invoice.number, amount, currency, email: input.email,
-    orderName: `HappVPN wallet top-up ${amount} ${currency}`,
+    orderName: `MoboComCMS wallet top-up ${amount} ${currency}`,
     callbackUrl: gatewayCallbackUrl(gateway, siteUrl), successUrl: `${siteUrl}/payment/result?invoice=${invoice.number}`, failUrl: `${siteUrl}/payment/result?invoice=${invoice.number}&failed=1`,
     channel: 'web',
   })

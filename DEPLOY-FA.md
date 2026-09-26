@@ -1,4 +1,4 @@
-# راهنمای سریع نصب HappVPN روی Coolify
+# راهنمای سریع نصب MoboComCMS روی Coolify
 
 این نسخه برای این طراحی شده که کد برنامه قابل تعویض باشد ولی اطلاعات کاربران،
 سفارش‌ها، اشتراک‌ها و فایل‌های آپلودشده با هر آپدیت باقی بمانند.
@@ -7,7 +7,7 @@
 
 - Ubuntu 24.04 LTS
 - Coolify روی همان VPS
-- HappVPN در یک Application کانتینری
+- MoboComCMS در یک Application کانتینری
 - PostgreSQL به‌صورت Resource جدا با Volume دائمی
 - `/app/storage` به‌صورت Persistent Storage
 - کد در Git خصوصی

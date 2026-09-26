@@ -1,5 +1,5 @@
 /* ============================================================
-   HappVPN — styled with Figma Simple Design System (SDS)
+   MoboComCMS — styled with Figma Simple Design System (SDS)
    Tokens mirror figma/sds src/theme.css (primitives + semantic)
    ============================================================ */
 
@@ -193,7 +193,7 @@ html[data-theme='dark'] {
   --sds-color-icon-positive-default: var(--sds-color-green-200);
 }
 
-/* ---------- HappVPN brand accent (on SDS semantic layer) ---------- */
+/* ---------- MoboComCMS brand accent (on SDS semantic layer) ---------- */
 :root {
   --sds-theme-accent: #4361ee;
   --sds-theme-accent-strong: #3a56d4;

@@ -45,7 +45,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
     image: product.image || undefined,
     type: 'product',
     locale,
-    keywords: [name, isFa ? 'خرید' : 'buy', 'VPN', 'HappVPN'],
+    keywords: [name, isFa ? 'خرید' : 'buy', 'VPN', 'MoboComCMS'],
   })
 }
 
@@ -105,7 +105,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} />
   const infoNode = (
           <div className="store-product-details">
-            <span className="store-eyebrow">{product.category ? `${isFa ? product.category.name : product.category.nameEn || product.category.name} / HAPPVPN` : 'HAPPVPN / STORE'}</span>
+            <span className="store-eyebrow">{product.category ? `${isFa ? product.category.name : product.category.nameEn || product.category.name} / MOBOCOMCMS` : 'MOBOCOMCMS / STORE'}</span>
             <h1>{name}</h1>
             <div className="store-product-badges">
               <span className="store-kind-chip">{product.kind === 'PHYSICAL' ? (isFa ? 'کالای فیزیکی' : 'Physical') : (isFa ? 'محصول مجازی' : 'Digital')}</span>

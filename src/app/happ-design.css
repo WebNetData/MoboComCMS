@@ -1,4 +1,4 @@
-/* Shared HappVPN layout system: site, customer, agency, admin and Mini App. */
+/* Shared MoboComCMS layout system: site, customer, agency, admin and Mini App. */
 .brand-mark{font-size:0;flex:none;position:relative;display:inline-grid;place-items:center;background:var(--primary);color:var(--on-primary);width:36px;height:40px;border-radius:12px;border:0}
 .brand-mark>svg{display:none}.brand-mark::before{content:'H';font:900 21px/1 var(--font-inter),sans-serif;letter-spacing:-2px}
 .app-main{width:100%;max-width:1640px;margin-inline:auto;background:transparent}

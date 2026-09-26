@@ -71,7 +71,7 @@ export async function probeSubUrl(url: string, timeoutMs = 5000): Promise<boolea
   let ok = false
   try {
     const res = await fetch(url, {
-      headers: { 'user-agent': 'HappVPN/1.0 (+subscription-check)', accept: '*/*' },
+      headers: { 'user-agent': 'MoboComCMS/1.0 (+subscription-check)', accept: '*/*' },
       signal: controller.signal,
       cache: 'no-store',
       redirect: 'follow',
@@ -195,7 +195,7 @@ export async function buildConnectKit(
 export const SUB_FORMATS: SubFormat[] = ['links', 'clash', 'singbox', 'xray']
 
 /** HTTP headers are latin-1: a Persian or typographic plan name must be folded. */
-export function headerSafe(value: string, fallback = 'HappVPN') {
+export function headerSafe(value: string, fallback = 'MoboComCMS') {
   const cleaned = String(value || '')
     .replace(/[\u2010-\u2015\u2212]/g, '-')
     .replace(/[^\x20-\x7E]/g, '')
@@ -268,7 +268,7 @@ export async function renderConnectPage(kit: ConnectKit, link: string, format: S
   .tab.on { background:var(--primary); color:#fff }
   .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:18px }
 </style></head><body><div class="wrap">
-  <div class="brand"><span class="mark">⬡</span> HappVPN</div>
+  <div class="brand"><span class="mark">⬡</span> MoboComCMS</div>
   <div class="card">
     <h1>${esc(kit.planName)}</h1>
     <div class="muted">${esc(kit.username)} · <span class="mono">${esc(kit.status === 'ACTIVE' ? 'فعال' : kit.status === 'DISABLED' ? 'غیرفعال' : kit.status)}</span></div>

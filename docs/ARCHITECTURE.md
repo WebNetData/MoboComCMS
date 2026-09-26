@@ -1,10 +1,10 @@
-# HappVPN Architecture
+# MoboComCMS Architecture
 
 This document is the source of truth for new development. Existing legacy code is migrated incrementally; new code must follow these boundaries.
 
 ## 1. Architectural style
 
-HappVPN is a **modular monolith**. Next.js is the delivery/runtime framework, not the domain model. Business rules must remain usable without React, Route Handlers or Prisma types.
+MoboComCMS is a **modular monolith**. Next.js is the delivery/runtime framework, not the domain model. Business rules must remain usable without React, Route Handlers or Prisma types.
 
 ```text
 src/

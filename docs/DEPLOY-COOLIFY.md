@@ -1,12 +1,12 @@
-# HappVPN — Production deployment with Coolify
+# MoboComCMS — Production deployment with Coolify
 
-This is the recommended deployment model for HappVPN. Code, database data,
+This is the recommended deployment model for MoboComCMS. Code, database data,
 application files and secrets are deliberately kept separate so application
 updates can replace the container without replacing customer data.
 
 ## 1. Server
 
-Recommended starting point for **Coolify + HappVPN + PostgreSQL on one VPS**:
+Recommended starting point for **Coolify + MoboComCMS + PostgreSQL on one VPS**:
 
 - Ubuntu 24.04 LTS (fresh server)
 - 4 vCPU
@@ -50,9 +50,9 @@ Create a standalone PostgreSQL **17** resource in Coolify. Keep it private;
 do not expose port 5432 to the public Internet.
 
 Copy its **internal connection URL** into the application as `DATABASE_URL`.
-The URL must end with the HappVPN database and may include `?schema=public`.
+The URL must end with the MoboComCMS database and may include `?schema=public`.
 
-HappVPN applies committed Prisma migrations on container startup by default:
+MoboComCMS applies committed Prisma migrations on container startup by default:
 
 ```env
 RUN_MIGRATIONS_ON_START=true

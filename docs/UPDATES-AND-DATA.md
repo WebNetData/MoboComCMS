@@ -1,6 +1,6 @@
 # Safe updates and data ownership
 
-HappVPN production state is split into four layers:
+MoboComCMS production state is split into four layers:
 
 | Layer | Location | Replaced on app deploy? |
 |---|---|---|

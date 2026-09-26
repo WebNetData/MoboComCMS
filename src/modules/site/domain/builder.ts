@@ -396,7 +396,7 @@ export function migratePageBlocks(blocks: PageBlock[]): BuilderDoc {
     switch (block.kind) {
       case 'hero':
         widget.type = 'hero'
-        widget.props = { eyebrow: 'HappVPN', eyebrowEn: 'HappVPN', title: block.title, titleEn: block.titleEn, text: block.text, textEn: block.textEn, src: block.image, label: block.linkLabel, labelEn: block.linkLabelEn, href: block.link, secondaryLabel: '', secondaryLabelEn: '', secondaryHref: '' }
+        widget.props = { eyebrow: 'MoboComCMS', eyebrowEn: 'MoboComCMS', title: block.title, titleEn: block.titleEn, text: block.text, textEn: block.textEn, src: block.image, label: block.linkLabel, labelEn: block.linkLabelEn, href: block.link, secondaryLabel: '', secondaryLabelEn: '', secondaryHref: '' }
         break
       case 'text':
         widget.type = 'text'

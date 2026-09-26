@@ -130,7 +130,7 @@ async function fetchPinnedText(value: string): Promise<string> {
       headers: {
         accept: '*/*',
         'accept-encoding': 'identity',
-        'user-agent': 'HappVPN',
+        'user-agent': 'MoboComCMS',
       },
     }, (res) => {
       const status = res.statusCode || 0

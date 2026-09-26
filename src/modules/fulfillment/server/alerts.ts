@@ -50,7 +50,7 @@ export async function alertStuckFulfillment(limit = 10) {
     }
     const result = await bot('sendMessage', {
       chat_id: config.fulfillmentAlertsChatId,
-      text: `⚠️ HappVPN: paid order #${job.orderId} has not been fulfilled. Job #${job.id} failed after ${job.attempts} attempts. Check Admin → Operations.`,
+      text: `⚠️ MoboComCMS: paid order #${job.orderId} has not been fulfilled. Job #${job.id} failed after ${job.attempts} attempts. Check Admin → Operations.`,
       disable_web_page_preview: true,
     }, telegram)
     await db.setting.updateMany({ where: { key: claim.key, value: claim.value }, data: { value: JSON.stringify({ state: result.ok ? 'SENT' : 'FAILED', at: Date.now() }) } })

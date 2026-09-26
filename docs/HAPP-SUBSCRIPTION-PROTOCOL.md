@@ -6,7 +6,7 @@ The server reads the public HTTPS subscription URL returned by the configured VP
 
 The encryptor receives only the VPN panel subscription URL; config contents are not sent to it. The returned link is cached in server-side settings by SHA-256 of that panel URL. Panel URL/token rotation creates a different cache entry.
 
-Happ decrypts the URL using its own implementation and requests the subscription directly from the VPN panel. HappVPN does not proxy newly issued subscription traffic through the shop domain. Hiding the raw panel URL from customer-facing HappVPN surfaces reduces accidental exposure, but absolute extraction resistance on a user-controlled device is not claimed.
+Happ decrypts the URL using its own implementation and requests the subscription directly from the VPN panel. MoboComCMS does not proxy newly issued subscription traffic through the shop domain. Hiding the raw panel URL from customer-facing MoboComCMS surfaces reduces accidental exposure, but absolute extraction resistance on a user-controlled device is not claimed.
 
 Public HTTPS is required for the panel subscription URL. Localhost/private-style sources and the shop-domain mirror are rejected before calling the encryption service. If encryption fails, no raw panel link is substituted. Legacy mirror routes may remain only for compatibility with older installs; no newly issued customer link depends on them. Custom AES/RSA envelopes, `X-Happ-Client`, and `happ://subscription/import` are not used.
 

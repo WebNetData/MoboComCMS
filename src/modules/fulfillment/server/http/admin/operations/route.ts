@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
     const values = Object.fromEntries(settings.map((row) => [row.key, row.value]))
     const telegram = await telegramConfig()
     if (values[ALERT_ENABLED] !== 'true' || !values[ALERT_CHAT] || !telegram.ready) return err('Enable alerts and configure the Telegram bot first.', 409)
-    const result = await bot('sendMessage', { chat_id: values[ALERT_CHAT], text: '✅ HappVPN order operations alert test.' }, telegram)
+    const result = await bot('sendMessage', { chat_id: values[ALERT_CHAT], text: '✅ MoboComCMS order operations alert test.' }, telegram)
     await auditAdmin({ req, actor: admin, action: 'fulfillment.alerts.test', targetType: 'setting', metadata: { ok: result.ok } })
     return result.ok ? ok({ sent: true }) : err('Telegram did not accept the test message.', 502)
   }

@@ -739,12 +739,12 @@ test('Turnstile fails closed and verifies action and hostname when configured', 
     delete process.env.TURNSTILE_SECRET_KEY
     assert.equal(await verifyTurnstile('', new Headers(), 'login'), true)
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key-with-safe-length'
-    process.env.TURNSTILE_EXPECTED_HOSTNAME = 'happvpnproxy.com'
+    process.env.TURNSTILE_EXPECTED_HOSTNAME = 'example.com'
     global.fetch = async (_url, options) => {
       const body = JSON.parse(options.body)
       assert.equal(body.remoteip, '203.0.113.10')
       assert.ok(body.idempotency_key)
-      return new Response(JSON.stringify({ success: true, action: 'login', hostname: 'happvpnproxy.com' }))
+      return new Response(JSON.stringify({ success: true, action: 'login', hostname: 'example.com' }))
     }
     assert.equal(await verifyTurnstile('valid-token', new Headers(), 'login'), true)
     assert.equal(await verifyTurnstile('valid-token', new Headers(), 'register'), false)

@@ -48,7 +48,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
     locale,
     publishedTime: post.publishedAt?.toISOString(),
     modifiedTime: post.updatedAt?.toISOString(),
-    keywords: [title, ...postCategories(post).map((c) => (isFa ? c.name : c.nameEn || c.name)), isFa ? 'وبلاگ وی پی ان' : 'vpn blog', 'HappVPN'].filter(Boolean),
+    keywords: [title, ...postCategories(post).map((c) => (isFa ? c.name : c.nameEn || c.name)), isFa ? 'وبلاگ وی پی ان' : 'vpn blog', 'MoboComCMS'].filter(Boolean),
   })
 }
 
@@ -111,7 +111,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const content = post.content ? (isFa ? post.content : post.contentEn || post.content) : ''
   const lead = richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 230)
   const fmt = (d: Date) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-  const authorName = post.author?.name || 'HappVPN'
+  const authorName = post.author?.name || 'MoboComCMS'
   const initial = (authorName || 'H').trim().slice(0, 1).toUpperCase()
   const tagList = postCategories(post)
   const coverImage = post.cover || FALLBACK

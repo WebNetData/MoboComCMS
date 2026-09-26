@@ -136,7 +136,7 @@ export async function runOperationsMonitor() {
     const claimed = await claimSignal(signal)
     if (!claimed) continue
     const label = signal.status === 'ok' || signal.status === 'disabled' ? botText(locale, '✅ Recovered', '✅ بازیابی شد') : signal.status === 'critical' ? botText(locale, '🚨 Critical', '🚨 بحرانی') : botText(locale, '⚠️ Warning', '⚠️ هشدار')
-    const result = await bot('sendMessage', { chat_id: chatId, text: `${label} · HappVPN ${botText(locale, signal.title, signal.titleFa)}\n${botText(locale, signal.detail, signal.detailFa)}\n${botText(locale, 'Admin → Extensions → Monitoring', 'مدیریت ← افزونه‌ها ← پایش')}`, disable_web_page_preview: true }, telegram)
+    const result = await bot('sendMessage', { chat_id: chatId, text: `${label} · MoboComCMS ${botText(locale, signal.title, signal.titleFa)}\n${botText(locale, signal.detail, signal.detailFa)}\n${botText(locale, 'Admin → Extensions → Monitoring', 'مدیریت ← افزونه‌ها ← پایش')}`, disable_web_page_preview: true }, telegram)
     await db.setting.updateMany({ where: { key: claimed.key, value: claimed.claim }, data: { value: JSON.stringify({ status: signal.status, notified: result.ok, at: Date.now() }) } })
     if (result.ok) sent++
     else { failed++; logEvent('warn', 'monitor.alert_failed', { signal: signal.id, status: result.status }) }

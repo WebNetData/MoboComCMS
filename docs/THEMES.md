@@ -1,12 +1,12 @@
-# HappVPN Theme Platform
+# MoboComCMS Theme Platform
 
-HappVPN has two theme levels so visual customization does not leak business logic into presentation packages.
+MoboComCMS has two theme levels so visual customization does not leak business logic into presentation packages.
 
 ## 1. Design themes
 
 Design themes are JSON/token documents. They can be imported at runtime from Site Studio and control safe presentation values such as colors and radius. They contain no executable code.
 
-A customized theme may declare `extends` so it retains the renderer of its installed code theme while overriding tokens. This is the HappVPN equivalent of a controlled child theme.
+A customized theme may declare `extends` so it retains the renderer of its installed code theme while overriding tokens. This is the MoboComCMS equivalent of a controlled child theme.
 
 ## 2. Code themes
 

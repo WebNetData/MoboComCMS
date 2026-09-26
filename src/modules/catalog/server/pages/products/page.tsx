@@ -86,7 +86,7 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
     <>
       <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} preview={preview} />
       <main className="container page-main content-surface">
-        <PageIntro eyebrow={locale === 'fa' ? 'فروشگاه HappVPN' : 'HappVPN store'} title={t.products} description={t.shopSub} />
+        <PageIntro eyebrow={locale === 'fa' ? 'فروشگاه MoboComCMS' : 'MoboComCMS store'} title={t.products} description={t.shopSub} />
 
         <ShopGrid products={items} categories={categories} initialCategory={searchParams.category || ''} />
 

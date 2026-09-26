@@ -214,7 +214,7 @@ export async function cancelFrenzyPayment(apiKey: string, requestId: string): Pr
 export async function testFrenzyCredentials(apiKey: string) {
   if (!apiKey.trim()) return { ok: false, message: 'API key is missing' }
   try {
-    const response = await fetchBounded(`${baseUrl()}/api/v1/payment-requests/__happvpn_connection_test__`, {
+    const response = await fetchBounded(`${baseUrl()}/api/v1/payment-requests/__mobocomcms_connection_test__`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey.trim()}`, Accept: 'application/json' },
     })

@@ -286,7 +286,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
           {!isLanding && (
             <header className="journal-heading">
               <div>
-                <span className="journal-kicker">HAPPVPN / {t.blog.toUpperCase()}</span>
+                <span className="journal-kicker">MOBOCOMCMS / {t.blog.toUpperCase()}</span>
                 <h2>
                   {currentCategory
                     ? categoryName(currentCategory)

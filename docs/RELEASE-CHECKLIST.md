@@ -1,4 +1,4 @@
-# HappVPN Release Checklist
+# MoboComCMS Release Checklist
 
 ## Required CI gate
 

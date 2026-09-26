@@ -167,7 +167,7 @@ async function walletMessage(userId: number, locale: BotLocale) {
 
 function welcomeText(linked: boolean, locale: BotLocale) {
   return [
-    botText(locale, '👋 Welcome to <b>HappVPN</b>.', '👋 به <b>HappVPN</b> خوش آمدید.'),
+    botText(locale, '👋 Welcome to <b>MoboComCMS</b>.', '👋 به <b>MoboComCMS</b> خوش آمدید.'),
     '',
     linked
       ? botText(locale, 'Your website account is linked to this Telegram account. Everything is available here.', 'حساب سایت شما به این حساب تلگرام متصل است و می‌توانید همه‌چیز را از همین‌جا مدیریت کنید.')

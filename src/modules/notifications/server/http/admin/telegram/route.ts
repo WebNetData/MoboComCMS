@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (!chatId) return err('شناسه چت را وارد کنید یا اول تلگرام حساب ادمین را وصل کنید', 400, { code: 'NO_CHAT' })
     const res = await bot('sendMessage', {
       chat_id: chatId,
-      text: '✅ پیام آزمایشی HappVPN — ربات درست کار می‌کند.',
+      text: '✅ پیام آزمایشی MoboComCMS — ربات درست کار می‌کند.',
       parse_mode: 'HTML',
     }, cfg)
     return ok({ ok: res.ok, detail: res.description || 'sent' })

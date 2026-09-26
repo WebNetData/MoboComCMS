@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Idempotent SQLite upgrade for HappVPN exact-money and delivery infrastructure.
+"""Idempotent SQLite upgrade for MoboComCMS exact-money and delivery infrastructure.
 
 This script only performs additive schema changes plus deterministic backfills. It
 never drops legacy Float columns so the application can be rolled back while the

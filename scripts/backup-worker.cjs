@@ -28,7 +28,7 @@ async function sendBackup(tx, archive, meta, config) {
       const bytes=Buffer.alloc(Math.min(partSize,size-offset)); await handle.read(bytes,0,bytes.length,offset)
       const name=path.basename(archive)+(size>partSize?`.part${String(index).padStart(4,'0')}`:'')
       const form=new FormData(); form.set('chat_id',config.chatId); form.set('document',new Blob([bytes]),name)
-      form.set('caption',`HappVPN encrypted PostgreSQL backup\n${meta.createdAt}\nPart ${index}/${Math.ceil(size/partSize)}\nPart SHA256 ${crypto.createHash('sha256').update(bytes).digest('hex')}\nFull SHA256 ${meta.sha256}`)
+      form.set('caption',`MoboComCMS encrypted PostgreSQL backup\n${meta.createdAt}\nPart ${index}/${Math.ceil(size/partSize)}\nPart SHA256 ${crypto.createHash('sha256').update(bytes).digest('hex')}\nFull SHA256 ${meta.sha256}`)
       const response=await fetch(`https://api.telegram.org/bot${token}/sendDocument`,{method:'POST',body:form,signal:AbortSignal.timeout(120000)})
       const data=await response.json()
       if(!response.ok||!data.ok) throw Error('TELEGRAM_UPLOAD_FAILED')

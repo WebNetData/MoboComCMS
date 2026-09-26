@@ -312,7 +312,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     amount: due,
     currency,
     email: command.email || undefined,
-    orderName: `HappVPN - ${label}`,
+    orderName: `MoboComCMS - ${label}`,
     callbackUrl: gatewayCallbackUrl(gateway!, command.siteUrl),
     successUrl: `${command.siteUrl}/payment/result?order=${order.id}`,
     failUrl: `${command.siteUrl}/payment/result?order=${order.id}&failed=1`,

@@ -143,8 +143,8 @@ export function articleJsonLd(input: {
     image: input.image ? [input.image] : undefined,
     datePublished: input.published,
     dateModified: input.modified || input.published,
-    author: { '@type': 'Person', name: input.author || 'HappVPN' },
-    publisher: { '@type': 'Organization', name: 'HappVPN' },
+    author: { '@type': 'Person', name: input.author || 'MoboComCMS' },
+    publisher: { '@type': 'Organization', name: 'MoboComCMS' },
     articleSection: input.section,
     mainEntityOfPage: { '@type': 'WebPage', '@id': input.url },
   }
@@ -157,7 +157,7 @@ export function productJsonLd(input: { name: string; description: string; price:
     name: input.name,
     description: input.description,
     image: input.image ? [input.image] : undefined,
-    brand: { '@type': 'Brand', name: 'HappVPN' },
+    brand: { '@type': 'Brand', name: 'MoboComCMS' },
     aggregateRating: input.reviewCount && input.rating ? { '@type': 'AggregateRating', ratingValue: input.rating.toFixed(1), reviewCount: input.reviewCount, bestRating: 5, worstRating: 1 } : undefined,
     offers: {
       '@type': 'Offer',
@@ -211,7 +211,7 @@ export async function plansJsonLd(base: string) {
       position: i + 1,
       item: {
         '@type': 'Product',
-        name: `HappVPN ${p.name}`,
+        name: `MoboComCMS ${p.name}`,
         description: `${p.trafficGB} GB · ${p.days} days · up to ${p.deviceLimit} devices`,
         offers: { '@type': 'Offer', price: minorToDecimal(p.priceMinor || toMinor(String(p.price), p.currency), p.currency), priceCurrency: normalizeCurrency(p.currency), availability: 'https://schema.org/InStock' },
       },

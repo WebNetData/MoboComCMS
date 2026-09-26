@@ -31,3 +31,9 @@ HappVPN-source.sha256
 HappVPN-update-*.zip
 HappVPN-update-*.sha256
 
+
+# Release bundles (renamed)
+MoboComCMS-update-*.zip
+MoboComCMS-update-*.sha256
+MoboComCMS-source.zip
+MoboComCMS-source.sha256

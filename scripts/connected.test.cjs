@@ -259,7 +259,7 @@ test('bot installation keeps the native Telegram menu',async()=>{
   let sent
   global.fetch=async(_url,options)=>{sent=JSON.parse(options.body);return new Response(JSON.stringify({ok:true,result:true}),{status:200})}
   try {
-    const result=await telegram.setMenuButton('https://happvpnproxy.com',{token:'test',username:'happ_bot',apiBase:'https://api.telegram.org',webhookSecret:'',enabled:true,ready:true})
+    const result=await telegram.setMenuButton('https://example.com',{token:'test',username:'happ_bot',apiBase:'https://api.telegram.org',webhookSecret:'',enabled:true,ready:true})
     assert.equal(result.ok,true)
     assert.deepEqual(sent.menu_button,{type:'default'})
   } finally {global.fetch=original}
@@ -482,7 +482,7 @@ test('Happ uses the VPN panel subscription URL and never the shop domain',async(
     assert.equal(await protocol.safeHappLink('new'),'happ://crypt5/fixtureEncryptedLink')
     assert.equal(protocol.isEncryptedHappLink('happ://subscription/import/test'),false)
     assert.equal(protocol.isHappClient(new Headers({'user-agent':'Happ/3.0.0'})),true)
-    assert.equal(protocol.isHappClient(new Headers({'x-happ-client':'HappVPN/1'})),false)
+    assert.equal(protocol.isHappClient(new Headers({'x-happ-client':'MoboComCMS/1'})),false)
   } finally {global.fetch=oldFetch}
 })
 test('subscription mirrors never fetch loopback, private, credential-bearing or metadata hosts',()=>{
@@ -584,7 +584,7 @@ test('FrenzyEx card checkout uses TMN, standard card-to-card and server bearer a
     return new Response(JSON.stringify({request_id:'frx_req_1',status:'pending',checkout_url:'https://frenzy.test/checkout/frx_req_1',bot_pay_url:'https://t.me/FrenzyExBot?start=paybot_frx_req_1',expires_at:'2026-09-22T12:00:00'}),{status:200,headers:{'content-type':'application/json'}})
   }
   try {
-    const out=await frenzy.createFrenzyPayment('frx_live_secret',{amountToman:395500n,orderRef:'INV-1',description:'HappVPN plan'})
+    const out=await frenzy.createFrenzyPayment('frx_live_secret',{amountToman:395500n,orderRef:'INV-1',description:'MoboComCMS plan'})
     assert.equal(out.ok,true)
     assert.match(seen.url,/\/api\/v1\/payment-requests$/)
     assert.equal(seen.init.headers.Authorization,'Bearer frx_live_secret')
@@ -608,7 +608,7 @@ test('Currency / Rial gateway converts USD with the configured Toman rate and pr
     },
   })
   const gateway={id:7,name:'anything',provider:'FRENZYEX',apiKey:'frx_live_x',secretKey:'secret',fiat:'TMN',currencies:'',feePercent:0,feeBps:0,minAmount:0,minAmountMinor:0n,instructions:''}
-  const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-2',amount:2.5,currency:'USD',orderName:'HappVPN',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'telegram'})
+  const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-2',amount:2.5,currency:'USD',orderName:'MoboComCMS',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'telegram'})
   assert.equal(out.ok,true)
   assert.equal(requested.input.amountToman,395500n)
   assert.equal(out.providerCurrency,'TMN')
@@ -632,7 +632,7 @@ test('Currency / Rial gateway falls back to the env rate when the seeded DB rate
       },
     })
     const gateway={id:7,name:'درگاه پرداخت ارزی ریالی',provider:'FRENZYEX',apiKey:'frx_live_x',secretKey:'secret',fiat:'TMN',currencies:'',feePercent:0,feeBps:0,minAmount:0,minAmountMinor:0n,instructions:''}
-    const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-RATE',amount:2.5,currency:'USD',orderName:'HappVPN',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'web'})
+    const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-RATE',amount:2.5,currency:'USD',orderName:'MoboComCMS',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'web'})
     assert.equal(out.ok,true)
     assert.equal(requested.input.amountToman,575000n)
   } finally {
@@ -701,7 +701,7 @@ test('FrenzyEx ambiguous create keeps the expected Toman amount for safe callbac
     },
   })
   const gateway={id:7,name:'درگاه پرداخت ارزی ریالی',provider:'FRENZYEX',apiKey:'frx_live_x',secretKey:'secret',fiat:'TMN',currencies:'',feePercent:0,feeBps:0,minAmount:0,minAmountMinor:0n,instructions:''}
-  const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-3',amount:2.5,currency:'USD',orderName:'HappVPN',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'web'})
+  const out=await gateways.createGatewayInvoice(gateway,{orderNumber:'INV-3',amount:2.5,currency:'USD',orderName:'MoboComCMS',callbackUrl:'https://shop.test/api/payment/frenzyex/webhook',successUrl:'https://shop.test/success',failUrl:'https://shop.test/fail',channel:'web'})
   assert.equal(out.ok,false)
   assert.equal(out.ambiguous,true)
   assert.equal(out.providerAmount,395500)
