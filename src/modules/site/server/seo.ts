@@ -7,6 +7,9 @@ import { db } from '@/platform/database/prisma'
 import { getSiteConfig } from '@/modules/site/config/store'
 import { translate } from '@/modules/site/config/types'
 import { minorToDecimal, normalizeCurrency, toMinor } from '@/shared/money'
+import { getSeoConfig } from '@/modules/seo/server/config'
+import { siteLocales } from '@/i18n/policy'
+import type { SeoConfig } from '@/modules/seo/domain/seo'
 
 export interface SiteSeo {
   base: string
@@ -18,29 +21,35 @@ export interface SiteSeo {
   themeColor: string
   verification: string
   twitter: string
+  config: SeoConfig
+  /** hreflang alternates only make sense on multi-language deployments. */
+  bilingual: boolean
 }
 
 /** Reads the branding/SEO settings once per render. */
 export async function getSiteSeo(locale: Locale = 'en'): Promise<SiteSeo> {
   const s = await getSettings().catch(() => ({}) as Record<string, string>)
   const base = (s.siteUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/+$/, '')
-  const site = await getSiteConfig()
+  const [site, config] = await Promise.all([getSiteConfig(), getSeoConfig()])
   const name = site.brand
   const tagline = translate(site.tagline, locale)
+  const absolute = (url: string) => (url.startsWith('/') ? `${base}${url}` : url)
   return {
     base,
     name,
     tagline,
     description:
-      s.seoDescription ||
+      config.description ||
       (locale === 'fa'
-        ? `${name} — خرید و مدیریت اشتراک VPN با پرداخت کریپتو، پنل مشتریان، کیف پول و اینترفیس جهانی.`
-        : `${name} — buy and manage VPN subscriptions with crypto payments, a customer wallet and worldwide nodes.`),
+        ? `${name}؛ ${tagline}. خرید کالا و محصولات مجازی، مجله، موزیک، فیلم و سریال، بازی، دانلود نرم‌افزار و تالار گفتمان.`
+        : `${name} — ${tagline}. Shop, magazine, music, movies, games, software downloads and community forum.`),
     locale,
-    ogImage: s.ogImage || `${base}/og.svg`,
-    themeColor: s.themeColor || '#4b45ee',
-    verification: s.googleVerification || '',
+    ogImage: absolute(config.ogImage || '/og.png'),
+    themeColor: s.themeColor || '#5b36f2',
+    verification: config.verification.google,
     twitter: s.supportTelegram || '',
+    config,
+    bilingual: siteLocales().length > 1,
   }
 }
 
@@ -70,7 +79,7 @@ export async function pageMeta(input: PageMetaInput): Promise<Metadata> {
     description,
     keywords: input.keywords,
     metadataBase: new URL(seo.base),
-    alternates: { canonical: url, languages: { fa: url, en: url, 'x-default': url } },
+    alternates: seo.bilingual ? { canonical: url, languages: { fa: url, en: url, 'x-default': url } } : { canonical: url },
     robots: input.noIndex ? { index: false, follow: false } : { index: true, follow: true },
     openGraph: {
       type: input.type === 'article' ? 'article' : 'website',
@@ -102,9 +111,14 @@ export async function organizationJsonLd(locale: Locale = 'en') {
         '@type': 'Organization',
         '@id': `${seo.base}/#organization`,
         name: seo.name,
+        ...(seo.config.brandLatin && seo.config.brandLatin !== seo.name ? { alternateName: seo.config.brandLatin } : {}),
+        ...(seo.config.organization.legalName ? { legalName: seo.config.organization.legalName } : {}),
         url: seo.base,
         description: seo.description,
-        logo: { '@type': 'ImageObject', url: `${seo.base}/og.svg` },
+        logo: { '@type': 'ImageObject', url: seo.config.logo ? (seo.config.logo.startsWith('/') ? `${seo.base}${seo.config.logo}` : seo.config.logo) : `${seo.base}/og.png` },
+        ...(seo.config.sameAs.length ? { sameAs: seo.config.sameAs } : {}),
+        ...(seo.config.organization.email || seo.config.organization.phone ? { contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', availableLanguage: ['fa'], ...(seo.config.organization.email ? { email: seo.config.organization.email } : {}), ...(seo.config.organization.phone ? { telephone: seo.config.organization.phone } : {}) } } : {}),
+        ...(seo.config.organization.address ? { address: seo.config.organization.address } : {}),
       },
       {
         '@type': 'WebSite',

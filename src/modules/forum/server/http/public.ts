@@ -5,6 +5,8 @@ import { requireUser } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
 import { ForumError } from '@/modules/forum/domain/forum'
 import { actorFor, createReply, createThread, deleteThread, editPost, moderatePost, moderateThread } from '@/modules/forum/server/forum'
+import { queueIndexNow } from '@/modules/seo/server/indexnow'
+import { db } from '@/platform/database/prisma'
 
 // Forum write API. Reading happens in server components; every route here
 // authenticates, re-checks board access and fails closed while the module is off.
@@ -30,7 +32,13 @@ export async function POST_thread(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
   const body = await req.json().catch(() => null)
-  try { return ok(await createThread(g.actor, body || {}), 201) } catch (error) { return failure(error) }
+  try {
+    const thread = await createThread(g.actor, body || {})
+    // Public threads are announced to IndexNow; VIP boards stay private.
+    const board = await db.forumThread.findUnique({ where: { id: thread.id }, select: { category: { select: { access: true } } } }).catch(() => null)
+    if (board?.category.access === 'PUBLIC') queueIndexNow([`/forum/t/${thread.id}`])
+    return ok(thread, 201)
+  } catch (error) { return failure(error) }
 }
 
 /** POST /api/forum/threads/:id/posts { content } */

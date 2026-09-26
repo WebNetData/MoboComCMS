@@ -23,6 +23,7 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dirOf } from '@/i18n/config'
 import { deviceLocaleBootstrap } from '@/i18n/device-locale'
 import { siteLocales } from '@/i18n/policy'
+import { applyTitleTemplate } from '@/modules/seo/domain/seo'
 import { getSiteSeo, organizationJsonLd } from '@/modules/site/server/seo'
 import { getPublicSiteConfig } from '@/modules/site/config/store'
 import { defaultSiteFonts } from '@/modules/site/config/types'
@@ -56,33 +57,26 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(seo.base),
     title: {
-      default: `${seo.name} — ${seo.tagline}`,
-      template: `%s · ${seo.name}`,
+      default: seo.config.homeTitle || `${seo.name} — ${seo.tagline}`,
+      template: applyTitleTemplate(seo.config.titleTemplate, seo.name),
     },
     description: seo.description,
     applicationName: seo.name,
     generator: 'Next.js',
-    keywords: [
-      'VPN',
-      'Xray',
-      'VLESS',
-      'Remnawave',
-      'PasarGuard',
-      'crypto VPN payment',
-      'buy VPN with crypto',
-      'اشتراک وی پی ان',
-      'خرید وی پی ان',
-      'کریپتو',
-    ],
-    category: 'technology',
-    alternates: { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } },
+    keywords: seo.config.keywords.length ? seo.config.keywords : undefined,
+    category: 'shopping',
+    alternates: seo.bilingual ? { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } } : { canonical: seo.base, types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
     icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
     robots: {
       index: true,
       follow: true,
       googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
     },
-    verification: seo.verification ? { google: seo.verification } : undefined,
+    verification: {
+      ...(seo.config.verification.google ? { google: seo.config.verification.google } : {}),
+      ...(seo.config.verification.yandex ? { yandex: seo.config.verification.yandex } : {}),
+      ...(seo.config.verification.bing ? { other: { 'msvalidate.01': seo.config.verification.bing } } : {}),
+    },
     openGraph: {
       type: 'website',
       url: seo.base,
