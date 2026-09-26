@@ -7,7 +7,7 @@ import { createFrenzyPayment, testFrenzyCredentials } from '@/modules/billing/in
 import { resolveUsdTomanRate } from '@/modules/billing/domain/rates'
 import { currencyScale, legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL'
+export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER'
 
 export interface ProviderMeta {
   key: ProviderKey
@@ -21,6 +21,16 @@ export interface ProviderMeta {
 }
 
 export const PROVIDERS: ProviderMeta[] = [
+  {
+    key: 'CARD_TRANSFER',
+    label: 'Card-to-card / bank transfer',
+    labelFa: 'کارت به کارت / انتقال بانکی',
+    needsApiKey: false,
+    needsSecret: false,
+    supportsHostedCheckout: false,
+    hint: 'Customers transfer to one of your bank accounts (Finance → Bank accounts) and upload the receipt; you approve it in Finance → Payment receipts. Rial/Toman invoices only.',
+    hintFa: 'مشتری به یکی از حساب‌های بانکی شما (مالی ← حساب‌های بانکی) واریز می‌کند و رسید را بارگذاری می‌کند؛ شما در «مالی ← رسیدهای پرداخت» تأیید می‌کنید. فقط برای فاکتورهای ریالی/تومانی.',
+  },
   {
     key: 'FRENZYEX',
     label: 'Currency / Rial Payment Gateway',
@@ -60,6 +70,7 @@ export function providerMeta(key: string): ProviderMeta {
 export function customerGatewayLabel(gateway: { provider: string; name?: string } | null | undefined, locale: 'fa' | 'en' = 'fa') {
   if (!gateway) return locale === 'fa' ? 'درگاه پرداخت' : 'Payment gateway'
   if (gateway.provider === 'FRENZYEX') return locale === 'fa' ? 'درگاه پرداخت ارزی ریالی' : 'Currency / Rial Payment Gateway'
+  if (gateway.provider === 'CARD_TRANSFER' && !gateway.name?.trim()) return locale === 'fa' ? 'کارت به کارت / انتقال بانکی' : 'Card-to-card / bank transfer'
   return gateway.name?.trim() || (locale === 'fa' ? providerMeta(gateway.provider).labelFa : providerMeta(gateway.provider).label)
 }
 
@@ -96,6 +107,7 @@ export interface CheckoutGatewayOption {
 /** A gateway is usable only when the fields required for safe settlement exist. */
 export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; instructions: string }) {
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
+  if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'FRENZYEX') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   if (gw.provider === 'PLISIO') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   return Boolean(gw.apiKey.trim())
@@ -168,6 +180,7 @@ export function checkoutGatewayRef(gateway: Pick<GatewayRuntime, 'id' | 'provide
 
 export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provider' | 'fiat'>) {
   if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT']
+  if (gateway.provider === 'CARD_TRANSFER') return ['IRR', 'IRT', 'TMN']
   return [normalizeCurrency(gateway.fiat || 'USD')]
 }
 
@@ -184,7 +197,9 @@ export async function listCheckoutGateways(currencyInput?: string): Promise<Gate
     where: { active: true },
     orderBy: [{ isDefault: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }],
   })
-  const dbGateways = rows.filter(isGatewayUsable).map(runtimeGateway)
+  // Card transfer needs at least one active bank account to show at checkout.
+  const hasBankAccount = rows.some((row) => row.provider === 'CARD_TRANSFER') && await db.bankAccount.count({ where: { active: true } }) > 0
+  const dbGateways = rows.filter(isGatewayUsable).filter((row) => row.provider !== 'CARD_TRANSFER' || hasBankAccount).map(runtimeGateway)
   const envGateways = envCheckoutGateways().filter((envGateway) => !dbGateways.some((dbGateway) =>
     dbGateway.provider === envGateway.provider
     && dbGateway.apiKey === envGateway.apiKey
@@ -253,6 +268,7 @@ export async function gatewayById(id: number | null | undefined) {
 export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currencyInput: string) {
   const currency = normalizeCurrency(currencyInput)
   if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT'
+  if (gateway.provider === 'CARD_TRANSFER') return currency === 'IRR' || currency === 'IRT' || currency === 'TMN'
   return normalizeCurrency(gateway.fiat || 'USD') === currency
 }
 
@@ -350,6 +366,12 @@ export async function createGatewayInvoice(
     }
   }
 
+  if (gateway.provider === 'CARD_TRANSFER') {
+    if (!['IRR', 'IRT', 'TMN'].includes(currency)) return { ok: false, message: 'کارت به کارت فقط برای مبالغ ریالی یا تومانی است' }
+    // The customer pays on the invoice page and uploads a receipt for review.
+    return { ok: true, manual: true, txnId: '' }
+  }
+
   const gatewayCurrency = normalizeCurrency(gateway.fiat || 'USD')
   if (currency !== gatewayCurrency) {
     return { ok: false, message: `gateway currency mismatch (${gatewayCurrency} required, got ${currency})` }
@@ -395,6 +417,10 @@ export async function testGateway(gateway: GatewayRuntime): Promise<GatewayTestR
   if (gateway.provider === 'MANUAL') {
     if (!gateway.instructions.trim()) return { ok: false, message: 'no payment instructions set', detail: 'instructions are empty' }
     return { ok: true, detail: 'manual gateway ready' }
+  }
+  if (gateway.provider === 'CARD_TRANSFER') {
+    const accounts = await db.bankAccount.count({ where: { active: true } })
+    return accounts ? { ok: true, detail: `${accounts} active bank account(s)` } : { ok: false, message: 'no active bank account', detail: 'add a bank account in Finance → Bank accounts' }
   }
   if (!gateway.apiKey) return { ok: false, message: 'API key is missing' }
   if (gateway.provider === 'FRENZYEX') {

@@ -28,6 +28,8 @@ model User {
   telegramPhoto  String          @default("")
   telegramLinkedAt DateTime?
   subscriptionAlerts Boolean @default(true)
+  phoneVerifiedAt DateTime?
+  smsAlerts      Boolean         @default(true)
   lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now()) @updatedAt
@@ -54,6 +56,9 @@ model User {
   @@index([telegramId])
   forumThreads   ForumThread[]
   forumPosts     ForumPost[]
+  paymentReceipts PaymentReceipt[]
+
+  @@index([phone])
 }
 
 model Role {
@@ -792,6 +797,7 @@ model Invoice {
   product       Product?  @relation(fields: [productId], references: [id])
   gateway       Gateway?  @relation(fields: [gatewayId], references: [id])
   payments      Payment[]
+  receipts      PaymentReceipt[]
 }
 
 model Payment {
@@ -1268,6 +1274,9 @@ model SoftwareTitle {
   summary      String    @default("")
   content      String    @default("")
   changelog    String    @default("")
+  installGuide String    @default("")
+  archivePassword String @default("")
+  features     String    @default("")
   access       String    @default("PUBLIC")
   status       String    @default("PUBLISHED")
   featured     Boolean   @default(false)
@@ -1356,4 +1365,85 @@ model MediaLink {
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
+}
+
+/// Bank accounts shown to customers for card-to-card and bank transfers.
+model BankAccount {
+  id            Int              @id @default(autoincrement())
+  bankName      String
+  holderName    String
+  cardNumber    String           @default("")
+  sheba         String           @default("")
+  accountNumber String           @default("")
+  note          String           @default("")
+  active        Boolean          @default(true)
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+  receipts      PaymentReceipt[]
+}
+
+/// A customer's proof of a card-to-card / bank transfer. An admin approves it
+/// (which settles the invoice) or rejects it with a reason.
+model PaymentReceipt {
+  id            Int          @id @default(autoincrement())
+  invoiceId     Int
+  userId        Int
+  bankAccountId Int?
+  method        String       @default("CARD") // CARD | PAYA | SATNA | ACCOUNT
+  amountMinor   BigInt       @default(0)
+  currency      String       @default("IRR")
+  payerName     String       @default("")
+  payerBank     String       @default("")
+  payerCard     String       @default("") // last four digits of the source card
+  trackingCode  String       @default("")
+  paidAt        DateTime?
+  image         String       @default("") // file name under storage/receipts
+  imageType     String       @default("")
+  status        String       @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNote     String       @default("")
+  reviewedBy    Int?
+  reviewedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([invoiceId])
+  @@index([userId])
+}
+
+/// One-time SMS codes for phone login and phone verification (only a hash is stored).
+model OtpCode {
+  id         Int       @id @default(autoincrement())
+  phone      String
+  purpose    String    @default("LOGIN") // LOGIN | VERIFY
+  codeHash   String
+  attempts   Int       @default(0)
+  userId     Int?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ip         String    @default("")
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose, createdAt])
+}
+
+/// Outgoing SMS history (IPPanel).
+model SmsLog {
+  id         Int      @id @default(autoincrement())
+  phone      String
+  event      String   @default("")
+  kind       String   @default("TEXT") // TEXT | PATTERN | OTP
+  body       String   @default("")
+  status     String   @default("SENT") // SENT | FAILED | SKIPPED
+  providerId String   @default("")
+  error      String   @default("")
+  userId     Int?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([phone, createdAt])
 }

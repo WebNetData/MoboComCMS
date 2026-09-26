@@ -106,8 +106,8 @@ export const dictionaries = {
     month: 'month',
 
     // auth
-    loginTitle: 'Log in to MoboComCMS',
-    registerTitle: 'Create your MoboComCMS account',
+    loginTitle: 'Log in to your account',
+    registerTitle: 'Create your account',
     nameLabel: 'Name',
     emailLabel: 'Email',
     passwordLabel: 'Password (min 6 chars)',
@@ -885,8 +885,8 @@ export const dictionaries = {
     featured: 'پیشنهاد ویژه',
     month: 'ماه',
 
-    loginTitle: 'ورود به MoboComCMS',
-    registerTitle: 'ساخت حساب MoboComCMS',
+    loginTitle: 'ورود به حساب کاربری',
+    registerTitle: 'ساخت حساب کاربری',
     nameLabel: 'نام',
     emailLabel: 'ایمیل',
     passwordLabel: 'رمز عبور (حداقل ۶ کاراکتر)',

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   if (makeDefault) await db.gateway.updateMany({ data: { isDefault: false } })
 
-  const fiat = provider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat || 'USD')
+  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
   const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
@@ -86,6 +86,7 @@ export async function PATCH(req: NextRequest) {
   if (PROVIDERS.some((item) => item.key === b?.provider)) {
     data.provider = b.provider
     if (b.provider === 'FRENZYEX') data.fiat = 'TMN'
+    if (b.provider === 'CARD_TRANSFER') data.fiat = 'IRR'
   }
   if (b?.feePercent !== undefined) {
     const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b.feePercent) || 0) * 100)))

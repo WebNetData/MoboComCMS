@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { maskSecret } from '@/modules/billing/server/gateways'
 import { moveWallet } from '@/modules/wallet/server/wallet'
-import { bpsAmount, legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { bpsAmount, formatMoney, legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { logEvent } from '@/platform/observability/logger'
 import { invoicePaidEvent } from '@/modules/notifications/server/inbox'
@@ -29,7 +29,9 @@ export async function nextInvoiceNumber(): Promise<string> {
     create: { year, value: 1 },
     update: { value: { increment: 1 } },
   })
-  return `HV-${year}-${String(counter.value).padStart(6, '0')}`
+  // Prefix is configurable (INVOICE_PREFIX); the yearly counter keeps numbers unique across prefix changes.
+  const prefix = (process.env.INVOICE_PREFIX || 'MB').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 6) || 'MB'
+  return `${prefix}-${year}-${String(counter.value).padStart(6, '0')}`
 }
 
 export interface CreateInvoiceForOrderInput {
@@ -228,6 +230,8 @@ export async function markInvoicePaid(input: MarkPaidInput) {
   if (result.ok && !result.alreadyPaid) {
     await invoicePaidEvent(result.invoice).catch(error => logEvent('error', 'inbox.payment_failed', { invoiceId: result.invoice.id, error }))
     logEvent('info', 'payment.settled', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor, currency: result.invoice.currency })
+    void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_ORDER', { invoice: result.invoice.number, amount: formatMoney(result.invoice.paidAmountMinor, result.invoice.currency, 'fa-IR') }))
+      .catch(error => logEvent('error', 'sms.admin_failed', { invoiceId: result.invoice.id, error }))
     await emitExtensionEvent('payment.completed', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor.toString(), currency: result.invoice.currency })
     const { awardReferralForInvoice } = await import('@/modules/referrals/server/referrals')
     await awardReferralForInvoice(result.invoice.id).catch(error => logEvent('error', 'referral.reward_failed', { invoiceId: result.invoice.id, message: error instanceof Error ? error.message : 'unknown' }))

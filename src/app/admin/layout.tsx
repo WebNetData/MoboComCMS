@@ -107,6 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
       { href: '/admin/seo', label: L('مرکز سئو', 'SEO center'), icon: 'globe', perm: 'settings.manage' },
       { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
+      { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
@@ -152,6 +153,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/payments', label: t.ledger, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/expenses', label: t.expensesAdmin, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/gateways', label: t.gatewaysAdmin, icon: 'wallet', perm: 'gateways.manage' },
+      { href: '/admin/receipts', label: L('رسیدهای کارت به کارت', 'Transfer receipts'), icon: 'wallet', perm: 'invoices.manage' },
+      { href: '/admin/bank-accounts', label: L('حساب‌های بانکی', 'Bank accounts'), icon: 'wallet', perm: 'gateways.manage' },
     ] },
     { title: t.shop, items: [
       { href: '/admin/products', label: t.productsAdmin, icon: 'grid', perm: 'cms.products' },

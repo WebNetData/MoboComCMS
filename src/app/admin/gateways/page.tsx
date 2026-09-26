@@ -192,7 +192,7 @@ export default function AdminGatewaysPage() {
           </div>
           <div>
             <label className="label">{t.provider}</label>
-            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : {}) }) }}>
+            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : {}) }) }}>
               {providers.map((p) => (
                 <option key={p.key} value={p.key}>{isFa ? p.labelFa : p.label}</option>
               ))}
@@ -292,7 +292,7 @@ export default function AdminGatewaysPage() {
             <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
               <div>
                 <h3 className="font-bold flex items-center gap-2">
-                  {g.provider === 'PLISIO' ? '🪙' : g.provider === 'FRENZYEX' ? '🏦' : '💸'} {g.name}
+                  {g.provider === 'PLISIO' ? '🪙' : g.provider === 'FRENZYEX' || g.provider === 'CARD_TRANSFER' ? '🏦' : '💸'} {g.name}
                   <span className="badge badge-gray">{g.provider}</span>
                 </h3>
                 <div className="muted text-xs num" dir="ltr">

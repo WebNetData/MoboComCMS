@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { logEvent } from '@/platform/observability/logger'
 
 export type InboxEvent = {
   userId: number
@@ -14,11 +15,18 @@ export type InboxEvent = {
 /** Durable, idempotent customer event. External delivery must never gate settlement. */
 export async function createInboxEvent(event: InboxEvent) {
   if (!Number.isInteger(event.userId) || event.userId <= 0 || !/^\/[A-Za-z0-9/_?=&.%-]*$/.test(event.href) || event.href.startsWith('//')) throw new Error('invalid inbox event')
-  return db.userNotification.upsert({
+  const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
+  if (existing) return existing
+  const row = await db.userNotification.upsert({
     where: { dedupeKey: event.dedupeKey },
     create: event,
     update: {},
   })
+  // SMS copy of a new event (IPPanel). Delivery problems never affect the event itself.
+  void import('@/modules/sms/server/sms')
+    .then(({ notifyUserEvent }) => notifyUserEvent(event))
+    .catch((error) => logEvent('error', 'sms.user_event_failed', { kind: event.kind, error }))
+  return row
 }
 
 export async function invoicePaidEvent(invoice: { id: number; number: string; userId: number; kind: string }) {

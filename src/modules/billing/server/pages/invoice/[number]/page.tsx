@@ -11,6 +11,10 @@ import SiteFooter from '@/components/SiteFooter'
 import PrintButton from '@/components/PrintButton'
 import { formatAmount } from '@/shared/money/format'
 import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
+import CardTransferBox from '@/components/billing/CardTransferBox'
+import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
+import { invoiceDueMinor } from '@/modules/billing/server/billing'
+import { normalizeCurrency, toMinor } from '@/shared/money'
 
 
 export default async function InvoicePage({ params: paramsPromise }: { params: Promise<{ number: string }> }) {
@@ -66,6 +70,13 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   try { productMeta = JSON.parse(invoice.order?.meta || '{}') } catch {}
   let digitalDelivery = ''
   try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = decryptDigitalDelivery(productDelivery.digitalDelivery) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
+  const cardTransfer = invoice.gateway?.provider === 'CARD_TRANSFER'
+  const [bankAccounts, receipts] = cardTransfer ? await Promise.all([
+    db.bankAccount.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
+    db.paymentReceipt.findMany({ where: { invoiceId: invoice.id }, orderBy: { id: 'desc' }, take: 5 }),
+  ]) : [[], []]
+  const invoiceCurrency = normalizeCurrency(invoice.currency)
+  const transfer = cardTransfer ? transferAmounts(invoiceDueMinor({ totalMinor: invoice.totalMinor || toMinor(invoice.total, invoiceCurrency), walletAppliedMinor: invoice.walletAppliedMinor }), invoiceCurrency) : null
   const manualInstructions = invoice.gateway?.provider === 'MANUAL' ? invoice.gateway?.instructions || '' : ''
   const hostedPayUrl =
     invoice.status === 'UNPAID' &&
@@ -180,10 +191,20 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
               {hostedPayUrl && (
                 <a href={hostedPayUrl} className="btn btn-primary mb-3">{invoice.gateway?.provider === 'FRENZYEX' ? (isFa ? 'پرداخت با درگاه پرداخت ارزی ریالی' : 'Pay via Currency / Rial Gateway') : t.payWithCrypto} →</a>
               )}
+              {cardTransfer && transfer && bankAccounts.length > 0 && (
+                <CardTransferBox
+                  invoiceNumber={invoice.number}
+                  rial={transfer.rial.toLocaleString('fa-IR')}
+                  toman={transfer.toman.toLocaleString('fa-IR')}
+                  banks={IRANIAN_BANKS}
+                  accounts={bankAccounts.map((account) => ({ id: account.id, bankName: account.bankName, holderName: account.holderName, card: account.cardNumber ? formatCard(account.cardNumber) : '', sheba: account.sheba ? formatSheba(account.sheba) : '', accountNumber: account.accountNumber, note: account.note }))}
+                  receipts={receipts.map((receipt) => ({ id: receipt.id, status: receipt.status, trackingCode: receipt.trackingCode, payerBank: receipt.payerBank, createdAt: receipt.createdAt.toISOString(), adminNote: receipt.adminNote }))}
+                />
+              )}
               {manualInstructions && (
                 <pre className="manual-instructions" dir="ltr">{manualInstructions}</pre>
               )}
-              {!hostedPayUrl && !manualInstructions && <p className="muted">{t.contactSupportForPayment}</p>}
+              {!hostedPayUrl && !manualInstructions && !(cardTransfer && transfer && bankAccounts.length) && <p className="muted">{t.contactSupportForPayment}</p>}
               <p className="muted mt-3">{t.invoiceUnpaidHint}</p>
             </div>
           )}
