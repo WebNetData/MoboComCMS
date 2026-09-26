@@ -1,0 +1,22 @@
+{
+  "id": "operations-monitor",
+  "name": "پایش عملیات و هشدارها",
+  "nameEn": "Operations Monitoring",
+  "description": "پایش فضای دیسک، تازگی بکاپ، تحویل سفارش و خطاهای پرداخت با هشدار تلگرام",
+  "descriptionEn": "Monitor disk, backups, order delivery and payment issues with Telegram alerts",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "capabilities": ["admin", "settings"],
+  "defaultEnabled": true,
+  "requiresCore": "^1.2.4",
+  "adminNavigation": [{ "href": "/admin/extensions/operations-monitor", "label": "پایش و هشدارها", "labelEn": "Monitoring & Alerts", "icon": "shield", "permission": "settings.manage" }],
+  "settings": [
+    { "key": "alerts", "label": "ارسال هشدار تلگرام", "labelEn": "Send Telegram alerts", "type": "boolean", "default": false },
+    { "key": "chat-id", "label": "شناسه عددی چت مدیر", "labelEn": "Admin chat ID", "description": "ربات باید امکان ارسال پیام به این چت را داشته باشد.", "descriptionEn": "The bot must be able to message this chat.", "type": "text", "default": "" },
+    { "key": "disk-warning", "label": "هشدار دیسک از درصد", "labelEn": "Disk warning percentage", "type": "number", "default": 75 },
+    { "key": "disk-critical", "label": "وضعیت بحرانی دیسک از درصد", "labelEn": "Disk critical percentage", "type": "number", "default": 85 },
+    { "key": "backup-max-age-hours", "label": "حداکثر فاصله از آخرین بکاپ موفق (ساعت)", "labelEn": "Maximum backup age (hours)", "type": "number", "default": 4 },
+    { "key": "order-wait-minutes", "label": "هشدار سفارش معطل پس از (دقیقه)", "labelEn": "Overdue order threshold (minutes)", "type": "number", "default": 15 }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "support-dock",
+  "name": "دسترسی سریع پشتیبانی",
+  "nameEn": "Support shortcut",
+  "description": "دکمه شناور ورود به تیکت‌های پشتیبانی در صفحات عمومی",
+  "descriptionEn": "Floating support-ticket shortcut on public pages",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "capabilities": [
+    "ui",
+    "settings"
+  ],
+  "settings": [
+    {
+      "key": "label-fa",
+      "label": "متن فارسی",
+      "labelEn": "Persian label",
+      "type": "text",
+      "public": true,
+      "default": "کنارت هستیم"
+    },
+    {
+      "key": "label-en",
+      "label": "English label",
+      "labelEn": "English label",
+      "type": "text",
+      "public": true,
+      "default": "Here to help"
+    }
+  ],
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0"
+}

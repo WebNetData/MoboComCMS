@@ -1,0 +1,55 @@
+'use client'
+
+import Link from 'next/link'
+import { useI18n } from '@/i18n/LocaleProvider'
+import { usePlayer } from './MusicPlayer'
+import type { PlayerTrack } from './player-types'
+
+/** Play / pause control bound to the site-wide player. */
+export function PlayButton({ tracks, index = 0, variant = 'round', label }: { tracks: PlayerTrack[]; index?: number; variant?: 'round' | 'big' | 'overlay'; label?: string }) {
+  const player = usePlayer()
+  const { locale } = useI18n()
+  const fa = locale === 'fa'
+  const track = tracks[index]
+  if (!player || !track) return null
+  const active = player.current?.id === track.id
+  const playing = active && player.playing
+  const text = playing ? (fa ? 'توقف' : 'Pause') : (fa ? 'پخش' : 'Play')
+  return (
+    <button type="button" className={`mu-pb mu-pb-${variant}${active ? ' is-active' : ''}${playing ? ' is-playing' : ''}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); player.play(tracks, index) }} aria-label={`${text} ${track.title}`}>
+      <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
+      {variant === 'big' && <b>{label || text}</b>}
+    </button>
+  )
+}
+
+const fmt = (s: number) => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '')
+
+/** Numbered track list (album, playlist, charts). */
+export function TrackList({ tracks, numbered = true, showCover = true, chart = false }: { tracks: PlayerTrack[]; numbered?: boolean; showCover?: boolean; chart?: boolean }) {
+  const player = usePlayer()
+  const { locale } = useI18n()
+  const fa = locale === 'fa'
+  if (!tracks.length) return <p className="muted mu-empty">{fa ? 'هنوز آهنگی منتشر نشده.' : 'No tracks yet.'}</p>
+  return (
+    <ol className={`mu-tracklist${chart ? ' is-chart' : ''}`}>
+      {tracks.map((track, i) => {
+        const active = player?.current?.id === track.id
+        return (
+          <li key={track.id} className={active ? 'is-active' : ''}>
+            {numbered && <span className="mu-tl-no">{active && player?.playing ? <i className="mu-eq" aria-hidden="true"><b /><b /><b /></i> : (i + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+            <PlayButton tracks={tracks} index={i} />
+            {showCover && (track.cover ? <img className="mu-tl-cover" src={track.cover} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♪</span>)}
+            <span className="mu-tl-meta">
+              <Link href={`/music/track/${track.slug}`}><b>{track.title}</b></Link>
+              <Link href={`/music/artist/${track.artistSlug}`} className="muted">{track.artist}</Link>
+            </span>
+            {track.access === 'MEMBERS' && <span className="vip-chip" title="VIP">♛ VIP</span>}
+            {track.hasHq && <span className="mu-hq-chip">320</span>}
+            <span className="mu-tl-time" dir="ltr">{fmt(track.duration)}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}

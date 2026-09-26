@@ -1,0 +1,26 @@
+{
+  "id": "games",
+  "name": "گیم",
+  "nameEn": "Games",
+  "description": "معرفی و نقد بازی با امتیاز، پلتفرم، سیستم مورد نیاز، تصاویر، تریلر و لینک دانلود.",
+  "descriptionEn": "Game pages and reviews with scores, platforms, system requirements, screenshots, trailers and downloads.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "devices",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [
+    "/games"
+  ],
+  "adminPaths": [
+    "/admin/games"
+  ],
+  "permissions": [
+    {
+      "id": "games.manage",
+      "label": "مدیریت گیم"
+    }
+  ]
+}

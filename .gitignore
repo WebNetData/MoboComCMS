@@ -1,0 +1,33 @@
+node_modules/
+storage/covers/
+.next/
+.next-dev/
+out/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+prisma/dev.db
+prisma/dev.db-journal
+.tools/
+.pnpm-store/
+prisma/*.before-studio.db
+tsconfig.tsbuildinfo
+test-results/
+
+prisma/*.before-telegram-*.db
+.audit-local.json
+
+# Canonical package manager: npm (package-lock.json)
+
+deploy/.env.postgres
+storage/backups/
+var/
+HappVPN-source.zip
+HappVPN-source.sha256
+
+# Release bundles
+HappVPN-update-*.zip
+HappVPN-update-*.sha256
+

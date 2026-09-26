@@ -1,0 +1,10 @@
+.subscription-hub{max-width:1160px;margin-inline:auto;display:grid;gap:18px;padding-bottom:30px}
+.subscription-hub-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:25px 28px;border:1px solid var(--border);border-radius:20px;background:linear-gradient(135deg,var(--card),var(--bg-soft))}
+.subscription-hub-head>div{min-width:0}.subscription-hub-head .ticket-eyebrow{display:block;margin-top:18px}.subscription-hub-head h1{font-size:clamp(23px,3vw,33px);font-weight:800;margin:4px 0}.subscription-hub-head p{color:var(--muted);font-size:13px;line-height:1.7;margin:0}
+.subscription-hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.subscription-hub-panel{border:1px solid var(--border);border-radius:18px;background:var(--card);padding:22px;min-width:0}
+.subscription-hub-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:17px}.subscription-hub-panel-head h2{font-size:17px;font-weight:750}
+.subscription-hub-list{display:grid;gap:9px}.subscription-hub-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--bg-soft);color:var(--text);text-decoration:none;min-width:0}.subscription-hub-row:hover{border-color:var(--primary)}.subscription-hub-row>div:first-child{display:grid;gap:5px;min-width:0}.subscription-hub-row>div:last-child{display:grid;justify-items:end;gap:6px;flex-shrink:0}.subscription-hub-row strong{font-size:13px;overflow-wrap:anywhere}.subscription-hub-row small{color:var(--muted);font-size:11px}.subscription-hub-row .text-link{font-size:11px}
+.subscription-hub-mini .subscription-hub-head{padding:20px}.subscription-hub-mini .subscription-hub-grid{grid-template-columns:1fr}
+@media(max-width:800px){.subscription-hub-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.subscription-hub-head{padding:20px;align-items:start;flex-direction:column}.subscription-hub-panel{padding:17px}.subscription-hub-row{align-items:start;flex-wrap:wrap}}

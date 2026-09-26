@@ -1,0 +1,5 @@
+const {restoreTest}=require('./backup-core.cjs')
+const path=require('node:path')
+const [file,name]=process.argv.slice(2)
+if(!file||!name)throw Error('Usage: node --env-file=.env scripts/restore-new-database.cjs backup.dump.enc happvpn_recovered_NAME')
+restoreTest(path.resolve(file),{keepDatabase:name}).then(result=>console.log(JSON.stringify(result))).catch(()=>{console.error('RESTORE_FAILED: existing databases are never overwritten');process.exitCode=1})

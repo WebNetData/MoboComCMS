@@ -1,0 +1,127 @@
+.orbital-network {
+  --network-border: rgba(123, 176, 220, .16);
+  --network-muted: #9caec5;
+  --network-surface: #071426;
+  color: #eef5ff;
+  font-size: 13px;
+}
+.orbital-network button, .orbital-network input { font: inherit; }
+.orbital-network button { cursor: pointer; }
+.orbital-network button:focus-visible, .orbital-network input:focus-visible { outline: 2px solid #69d5ff; outline-offset: 3px; }
+.orbital-network-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-block: 5px 24px; }
+.orbital-network-regions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.orbital-network-regions button { border: 1px solid transparent; border-radius: 8px; color: #a6b7cf; background: transparent; min-height: 39px; padding: 8px 14px; white-space: nowrap; transition: color .18s, background .18s, border-color .18s; }
+.orbital-network-regions button:hover { color: #eaf5ff; background: #101f35; }
+.orbital-network-regions button.is-active { color: #9bddff; background: #0a2845; border-color: #205879; }
+.orbital-network-search { display: flex; align-items: center; gap: 10px; min-width: 210px; max-width: 275px; border: 1px solid var(--network-border); border-radius: 9px; padding-inline: 13px; color: #8198b7; background: #071324; }
+.orbital-network-search:focus-within { border-color: #329fdf; }
+.orbital-network-search input { width: 100%; min-width: 0; border: 0; border-radius: 0; padding: 12px 0; background: transparent; color: #eaf5ff; box-shadow: none; }
+.orbital-network-search input::placeholder { color: #9aabc0; }
+.orbital-network-search input:focus-visible { outline: none; }
+.orbital-network-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 440px; border: 1px solid var(--network-border); border-radius: 16px; overflow: hidden; background: var(--network-surface); }
+.orbital-network-map { position: relative; min-width: 0; min-height: 440px; display: flex; flex-direction: column; justify-content: center; background: radial-gradient(ellipse at 50% 45%, rgba(17, 79, 132, .21), transparent 65%), #050f1e; --primary: #31c8f7; --map-land: #143858; --map-land-hover: #20527c; --map-border: #0b2036; }
+.orbital-network-map-caption { position: absolute; z-index: 2; top: 22px; inset-inline-start: 24px; display: flex; align-items: center; gap: 9px; color: #91a9c5; pointer-events: none; font-size: 12px; }
+.orbital-network-map-caption svg { color: #41bce9; }
+.orbital-network-map-hint { position: absolute; bottom: 19px; inset-inline-start: 24px; max-width: calc(100% - 100px); margin: 0; font-size: 12px; color: #a2b3ca; }
+.orbital-network .orbital-network-map .map-globe-frame { min-height: 400px; padding: 30px 10px; display: flex; flex-direction: column; justify-content: center; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: hidden; }
+.orbital-network .orbital-network-map .map-globe-frame > svg { width: 100%; max-height: 390px; }
+.orbital-network .orbital-network-map .map-tooltip { top: 59px; inset-inline-start: 24px; max-width: calc(100% - 48px); color: #e8f3ff; padding: 8px 11px; font-size: 12px; background: #0a1c2feb; border-color: #294664; }
+.orbital-network .orbital-network-map .map-tooltip .muted { color: #a7bdd4; }
+.orbital-network .orbital-network-map .map-controls { bottom: 21px; inset-inline-end: 20px; gap: 7px; }
+.orbital-network .orbital-network-map .map-controls button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #294561; background: #081b2d; color: #c4e0f4; border-radius: 8px; font-size: 18px; }
+.orbital-network .orbital-network-map .map-controls button:disabled { opacity: .35; cursor: default; }
+.world-map-marker { cursor: pointer; outline: none; }
+.world-map-marker:focus .world-map-marker-ring { opacity: 1; stroke: #fff; fill: #1da3de; }
+.world-map-marker:hover .world-map-marker-ring { opacity: .7; }
+.world-map-message { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--muted, #9caec5); font-size: 13px; }
+.orbital-network-map-placeholder { min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #587997; }
+.orbital-network-map-placeholder > svg { opacity: .6; }
+.orbital-network-directory { min-width: 0; border-inline-start: 1px solid var(--network-border); padding: 17px 12px 11px; display: flex; flex-direction: column; }
+.orbital-network-directory-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 29px; padding: 0 6px 14px; color: #dbe9fa; font-size: 12px; }
+.orbital-network-result-count { color: #8fa7c0; white-space: nowrap; }
+.orbital-network-list { position: relative; display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0 3px; margin: 0; max-height: 366px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #294961 transparent; }
+.orbital-network-list li { margin: 0; padding: 0; flex: 0 0 auto; }
+.orbital-network-list button { width: 100%; min-height: 62px; display: flex; align-items: center; gap: 12px; padding: 11px 12px; text-align: start; color: #dfeaff; background: #0a1a2d; border: 1px solid #152c44; border-radius: 9px; transition: background .18s, border-color .18s; }
+.orbital-network-list button:hover { background: #10273e; border-color: #2b5375; }
+.orbital-network-list button[aria-pressed="true"] { background: linear-gradient(110deg, #0b3454, #0b253f); border-color: #2586bb; }
+.orbital-network-flag { font-size: 24px; line-height: 1.2; flex: 0 0 auto; min-width: 30px; text-align: center; }
+.orbital-network-location-copy { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.orbital-network-location-copy strong { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.orbital-network-location-copy small { color: #9eafc5; font-size: 12px; line-height: 1.4; }
+.orbital-network-pin { color: #637f9c; flex: 0 0 auto; }
+.orbital-network-list button[aria-pressed="true"] .orbital-network-pin { color: #52d0ff; }
+.orbital-network-empty { min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 14px; color: #92abc4; }
+.orbital-network-empty > svg { color: #4e94bc; margin-bottom: 16px; }
+.orbital-network-empty strong { color: #dbe9fa; font-size: 15px; font-weight: 500; }
+.orbital-network-empty p { font-size: 13px; line-height: 1.8; margin: 10px 0 16px; }
+.orbital-network-empty button { padding: 9px 16px; border: 1px solid #266990; border-radius: 7px; background: #0c2d47; color: #a5e0ff; }
+.orbital-network-details { position: relative; min-height: 94px; display: flex; align-items: center; gap: 18px; padding: 23px 25px; margin-top: 12px; border: 1px solid var(--network-border); border-radius: 12px; background: #09172a; color: #a9bbd1; }
+.orbital-network-details > svg { color: #52bee9; flex-shrink: 0; }
+.orbital-network-details > p { margin: 0; line-height: 1.8; font-size: 13px; }
+.orbital-network-details > p strong { color: #e1eeff; font-weight: 500; }
+.orbital-network-detail-prompt { margin-inline-start: 25px; color: #8ea5c1; }
+.orbital-network-selected { display: flex; align-items: center; gap: 13px; }
+.orbital-network-selected > div { display: flex; flex-direction: column; gap: 6px; }
+.orbital-network-selected small { color: #98afca; font-size: 12px; }
+.orbital-network-selected strong { color: #eef6ff; font-size: 14px; font-weight: 500; }
+.orbital-network-details dl { display: flex; align-items: center; gap: 35px; margin: 0; margin-inline-start: auto; padding-inline-end: 28px; font-size: 12px; }
+.orbital-network-details dl > div { display: flex; flex-direction: column; gap: 7px; }
+.orbital-network-details dt { color: #8ca7c2; }
+.orbital-network-details dd { color: #dbeaf9; margin: 0; }
+.orbital-network-clear-selection { position: absolute; inset-inline-end: 10px; top: 10px; color: #99b5ce; background: none; border: 0; width: 32px; height: 32px; font-size: 24px !important; line-height: 1; border-radius: 6px; }
+.orbital-network-note { color: #829bb6; font-size: 12px; margin: 15px 2px 0; line-height: 1.8; }
+.orbital-network-mobile-switch { display: none; }
+.orbital-network-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 1100px) {
+  .orbital-network-toolbar { align-items: stretch; flex-direction: column; gap: 15px; }
+  .orbital-network-search { width: 100%; max-width: none; }
+  .orbital-network-body { grid-template-columns: minmax(0, 1fr) 270px; }
+  .orbital-network-detail-prompt { display: block; margin-inline-start: 0; }
+}
+@media (max-width: 760px) {
+  .orbital-network-toolbar { padding-bottom: 17px; gap: 13px; }
+  .orbital-network-regions { flex-wrap: nowrap; overflow-x: auto; padding: 3px 2px 10px; margin-inline: -2px; scrollbar-width: thin; scrollbar-color: #234460 transparent; }
+  .orbital-network-regions button { min-height: 42px; padding-inline: 13px; }
+  .orbital-network-search input { min-height: 45px; }
+  .orbital-network-mobile-switch { display: flex; gap: 6px; padding: 5px; margin-bottom: 14px; border: 1px solid var(--network-border); border-radius: 10px; background: #071424; }
+  .orbital-network-mobile-switch button { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; min-height: 43px; color: #93aac5; border: 1px solid transparent; border-radius: 7px; background: none; }
+  .orbital-network-mobile-switch button[aria-pressed="true"] { color: #a1e2ff; background: #0c2b46; border-color: #1b5074; }
+  .orbital-network-body { display: block; min-height: 0; border-radius: 12px; }
+  .orbital-network[data-mobile-view="list"] .orbital-network-map { display: none; }
+  .orbital-network[data-mobile-view="map"] .orbital-network-directory { display: none; }
+  .orbital-network-directory { border: 0; padding: 17px 12px 12px; }
+  .orbital-network-list { max-height: 390px; }
+  .orbital-network-list button { min-height: 67px; }
+  .orbital-network-location-copy strong { font-size: 14px; }
+  .orbital-network-map { min-height: 340px; }
+  .orbital-network .orbital-network-map .map-globe-frame { min-height: 340px; padding: 50px 0; }
+  .orbital-network-map-placeholder { min-height: 340px; }
+  .orbital-network-map-caption { inset-inline-start: 17px; top: 19px; }
+  .orbital-network .orbital-network-map .map-tooltip { inset-inline-start: 17px; top: 52px; max-width: calc(100% - 34px); }
+  .orbital-network-map-hint { inset-inline-start: 17px; bottom: 20px; font-size: 11px; }
+  .orbital-network .orbital-network-map .map-controls { inset-inline-end: 13px; bottom: 16px; }
+  .orbital-network .orbital-network-map .map-controls button { width: 40px; height: 40px; }
+  .orbital-network-details { min-height: 93px; padding: 18px; gap: 13px; flex-wrap: wrap; }
+  .orbital-network-details > p { flex: 1; }
+  .orbital-network-selected { padding-inline-end: 23px; }
+  .orbital-network-details dl { width: 100%; margin: 5px 0 0; padding: 14px 0 0; border-top: 1px solid var(--network-border); justify-content: space-between; gap: 18px; }
+  .orbital-network-note { line-height: 1.9; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbital-network *, .world-map-marker { animation: none !important; transition: none !important; }
+}
+/* Keep the basemap dark for geographical contrast; controls follow the page theme. */
+[data-theme="light"] .orbital-network { --network-border: var(--orbital-border); --network-surface: var(--orbital-surface); color: var(--orbital-text); }
+[data-theme="light"] .orbital-network-regions button { color: var(--orbital-muted); }
+[data-theme="light"] .orbital-network-regions button:hover { background: var(--orbital-surface-2); color: var(--orbital-text); }
+[data-theme="light"] .orbital-network-regions button.is-active { background: var(--primary-soft); border-color: var(--orbital-border-strong); color: var(--orbital-blue); }
+[data-theme="light"] :is(.orbital-network-search,.orbital-network-mobile-switch,.orbital-network-details) { background: var(--orbital-surface); color: var(--orbital-muted); }
+[data-theme="light"] .orbital-network-search input { color: var(--orbital-text); }
+[data-theme="light"] .orbital-network-search input::placeholder { color: var(--orbital-muted); }
+[data-theme="light"] :is(.orbital-network-directory-head,.orbital-network-selected strong,.orbital-network-details dd,.orbital-network-details>p strong,.orbital-network-empty strong) { color: var(--orbital-text); }
+[data-theme="light"] :is(.orbital-network-result-count,.orbital-network-location-copy small,.orbital-network-selected small,.orbital-network-details dt,.orbital-network-detail-prompt,.orbital-network-note) { color: var(--orbital-muted); }
+[data-theme="light"] .orbital-network-list button { background: var(--orbital-surface-2); border-color: var(--orbital-border); color: var(--orbital-text); }
+[data-theme="light"] .orbital-network-list button[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--orbital-blue); }
+[data-theme="light"] .orbital-network-mobile-switch button { color: var(--orbital-muted); }
+[data-theme="light"] .orbital-network-mobile-switch button[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--orbital-border); color: var(--orbital-blue); }
+[data-theme="light"] .orbital-network-empty button { background: var(--primary-soft); color: var(--orbital-blue); border-color: var(--orbital-border-strong); }

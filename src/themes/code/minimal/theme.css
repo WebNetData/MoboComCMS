@@ -1,0 +1,5 @@
+[data-code-theme="minimal"] .site-header { background: color-mix(in srgb, var(--site-bg) 92%, transparent); border-bottom: 1px solid var(--site-border); }
+[data-code-theme="minimal"] .announcement-bar { border-radius: 0; }
+[data-code-theme="minimal"] .footer-wordmark { opacity: .08; }
+[data-design="minimal"] .noir-home { background: var(--site-bg); color: var(--site-text); }
+[data-design="minimal"] .noir-hero, [data-design="minimal"] .noir-section { filter: saturate(.88); }

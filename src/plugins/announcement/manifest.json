@@ -1,0 +1,16 @@
+{
+  "id": "announcement",
+  "name": "نوار اطلاع‌رسانی",
+  "nameEn": "Announcement bar",
+  "description": "پیام و لینک قابل ویرایش بالای تمام صفحات سایت",
+  "descriptionEn": "Editable message and link above site pages",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "capabilities": [
+    "ui"
+  ],
+  "settings": [],
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0"
+}

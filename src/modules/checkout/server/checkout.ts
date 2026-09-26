@@ -1,0 +1,400 @@
+import { db } from '@/platform/database/prisma'
+import { isStoreEnabled } from '@/modules/catalog/server/storefront'
+import { createGatewayInvoice, customerGatewayLabel, gatewayAcceptsCheckoutCurrency, gatewayCallbackUrl, resolveCheckoutGateway } from '@/modules/billing/server/gateways'
+import { createInvoiceForOrder, markInvoicePaid, recordProviderEvent, releaseInvoiceCredit } from '@/modules/billing/server/billing'
+import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
+import { checkUsername, sanitizeUsername, suggestUsername, USERNAME_MIN } from '@/modules/subscriptions/server/usernames'
+import { enqueueFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
+import { releaseInventoryReservation, reserveInventory } from '@/modules/catalog/server/inventory'
+import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { emitExtensionEvent } from '@/extensions/server/runtime'
+import { promotionCode, promotionDiscount, releasePromotionForOrder } from '@/modules/promotions/server/promotions'
+import { isMember } from '@/modules/membership/server/membership'
+import { memberPrice } from '@/modules/membership/domain/membership'
+import { isModuleEnabled } from '@/extensions/server/modules'
+
+export interface CheckoutCommand {
+  userId: number
+  email?: string | null
+  planId?: number | null
+  offerId?: number | null
+  productId?: number | null
+  variantId?: number | null
+  /** VIP membership plan purchase. */
+  membershipPlanId?: number | null
+  shippingAddress?: { recipient?: string; phone?: string; country?: string; city?: string; postalCode?: string; address?: string }
+  username?: string
+  payWith?: 'wallet' | 'gateway'
+  gatewayRef?: string
+  discountCode?: string
+  idempotencyKey: string
+  siteUrl: string
+  channel?: 'web' | 'telegram'
+}
+
+export type CheckoutFailure = { ok: false; status: number; code: string; message: string; meta?: Record<string, unknown> }
+export type CheckoutSuccess = { ok: true; data: Record<string, unknown> }
+export type CheckoutOutcome = CheckoutFailure | CheckoutSuccess
+
+function fail(status: number, code: string, message: string, meta?: Record<string, unknown>): CheckoutFailure {
+  return { ok: false, status, code, message, meta }
+}
+
+function validKey(key: string) {
+  return /^[A-Za-z0-9._:-]{8,128}$/.test(key)
+}
+
+async function replayOrder(userId: number, idempotencyKey: string): Promise<CheckoutOutcome | null> {
+  const order = await db.order.findUnique({ where: { idempotencyKey }, include: { invoice: true, subscriptions: { take: 1 } } })
+  if (!order) return null
+  if (order.userId !== userId) return fail(409, 'IDEMPOTENCY_CONFLICT', 'idempotency key belongs to another request')
+  const invoice = order.invoice
+  const subscription = order.subscriptions[0]
+  return {
+    ok: true,
+    data: {
+      replayed: true,
+      paid: order.status === 'PAID',
+      orderId: order.id,
+      invoiceId: invoice?.id ?? null,
+      invoiceNumber: invoice?.number || '',
+      invoiceUrl: invoice ? `/invoice/${invoice.number}` : '',
+      paymentUrl: order.paymentUrl || (invoice ? `/invoice/${invoice.number}` : ''),
+      subscriptionId: subscription?.id ?? null,
+      username: subscription?.username === 'pending' ? '' : subscription?.username || '',
+      walletApplied: invoice ? minorToNumber(invoice.walletAppliedMinor, invoice.currency) : 0,
+      amountDue: invoice ? minorToNumber(invoice.totalMinor - invoice.walletAppliedMinor, invoice.currency) : 0,
+      currency: order.currency,
+      fulfillmentPending: order.status === 'PAID' && Boolean(order.planId) && !subscription,
+    },
+  }
+}
+
+export async function executeCheckout(command: CheckoutCommand): Promise<CheckoutOutcome> {
+  if (!validKey(command.idempotencyKey)) return fail(400, 'IDEMPOTENCY_REQUIRED', 'a valid Idempotency-Key is required')
+  const replay = await replayOrder(command.userId, command.idempotencyKey)
+  if (replay) return replay
+
+  const offerId = Number(command.offerId) || null
+  const offer = offerId ? await db.serviceOffer.findUnique({ where: { id: offerId } }) : null
+  if (offerId && (!offer?.active || offer.ownerKey !== 'SITE')) return fail(404, 'OFFER_NOT_FOUND', 'service offer not found')
+  if (offerId && command.planId) return fail(400, 'BAD_ITEM', 'choose a plan or an offer')
+  const planId = offer?.planId || Number(command.planId) || null
+  const productId = Number(command.productId) || null
+  const membershipPlanId = Number(command.membershipPlanId) || null
+  if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
+  if ([planId, productId, membershipPlanId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
+  // VIP status decides member-only items, member prices and member-only codes.
+  const member = await isMember(command.userId)
+  let memberDiscount = false
+
+  let amountMinor = 0n
+  let amount = 0
+  let currency = 'USD'
+  let label = ''
+  let meta: Record<string, unknown> = {}
+
+  if (membershipPlanId) {
+    const vip = await db.membershipPlan.findUnique({ where: { id: membershipPlanId } })
+    if (!vip || !vip.active) return fail(404, 'MEMBERSHIP_PLAN_NOT_FOUND', 'پلن اشتراک ویژه یافت نشد')
+    currency = normalizeCurrency(vip.currency)
+    amountMinor = vip.priceMinor
+    amount = legacyNumber(amountMinor, currency)
+    label = `VIP · ${vip.nameEn || vip.name}`
+    meta = { kind: 'membership', membershipPlanId: vip.id, planName: vip.name, days: vip.days }
+  } else if (planId) {
+    const plan = await db.plan.findUnique({ where: { id: planId }, include: { panel: true } })
+    if (!plan || !plan.active) return fail(404, 'PLAN_NOT_FOUND', 'پلن یافت نشد')
+    if (!plan.panel || !plan.panel.active) return fail(503, 'PANEL_INACTIVE', 'پنل این پلن فعال نیست')
+    if (plan.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', 'این پلن مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
+    currency = normalizeCurrency(plan.currency)
+    amountMinor = offer ? offer.priceMinor : plan.priceMinor || toMinor(plan.price, currency)
+    if (!offer) {
+      const priced = memberPrice(amountMinor, plan.memberPriceMinor, member)
+      amountMinor = priced.amountMinor
+      memberDiscount = priced.memberDiscount
+    }
+    if (offer && normalizeCurrency(offer.currency) !== currency) return fail(409, 'OFFER_CURRENCY', 'offer currency no longer matches the plan')
+    amount = legacyNumber(amountMinor, currency)
+    label = offer ? offer.nameEn || offer.nameFa : plan.name
+    meta = offer ? { kind: 'offer', offerId: offer.id, planId: plan.id, planName: plan.name, trafficGB: offer.trafficGB, days: offer.days, deviceLimit: offer.deviceLimit } : { kind: 'plan', planId: plan.id, planName: plan.name }
+  } else {
+    const product = await db.product.findUnique({ where: { id: productId! } })
+    if (!product || !product.active) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
+    if (product.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', 'این محصول مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
+    if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', 'این محصول ناموجود است')
+    const variants = await db.productVariant.findMany({ where: { productId: product.id }, select: { id: true } })
+    const variantId = Number(command.variantId) || null
+    if (variants.length && !variantId) return fail(400, 'VARIANT_REQUIRED', 'لطفاً نوع محصول را انتخاب کنید')
+    const variant = variantId ? await db.productVariant.findFirst({ where: { id: variantId, productId: product.id, active: true } }) : null
+    if (variantId && !variant) return fail(404, 'VARIANT_NOT_FOUND', 'نوع انتخاب‌شده موجود نیست')
+    if (variant?.stock === 0) return fail(409, 'OUT_OF_STOCK', 'نوع انتخاب‌شده ناموجود است')
+    let shippingAddress: Record<string, string> | undefined
+    if (product.kind === 'PHYSICAL') {
+      const input = command.shippingAddress || {}
+      const required = ['recipient', 'phone', 'country', 'city', 'address'] as const
+      shippingAddress = Object.fromEntries(([...required, 'postalCode'] as const).map(key => [key, String(input[key] || '').trim().slice(0, key === 'address' ? 500 : 120)]))
+      if (required.some(key => !shippingAddress?.[key]) || !/^[+0-9 ()-]{7,24}$/.test(shippingAddress.phone)) return fail(400, 'SHIPPING_REQUIRED', 'آدرس و شماره تماس معتبر برای ارسال محصول لازم است')
+    }
+    currency = normalizeCurrency(product.currency)
+    amountMinor = variant ? variant.priceMinor || toMinor(variant.price, currency) : product.priceMinor || toMinor(product.price, currency)
+    const priced = memberPrice(amountMinor, variant ? variant.memberPriceMinor : product.memberPriceMinor, member)
+    amountMinor = priced.amountMinor
+    memberDiscount = priced.memberDiscount
+    amount = legacyNumber(amountMinor, currency)
+    label = `${product.name}${variant ? ` · ${variant.name}` : ''}`
+    meta = { kind: 'product', productId: product.id, productName: product.name, productKind: product.kind, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}', shippingAddress }
+  }
+  if (amountMinor <= 0n) return fail(400, 'INVALID_PRICE', 'item price must be greater than zero')
+  const subtotalMinor = amountMinor
+  let discountMinor = 0n
+  let promotion: Awaited<ReturnType<typeof db.promotion.findUnique>> = null
+  const code = promotionCode(command.discountCode)
+  if (code) {
+    if (!/^[A-Z0-9_-]{3,32}$/.test(code)) return fail(400, 'PROMOTION_INVALID', 'invalid discount code')
+    promotion = await db.promotion.findUnique({ where: { code } })
+    if (!promotion) return fail(404, 'PROMOTION_NOT_FOUND', 'discount code not found')
+    if (promotion.membersOnly && !member) return fail(403, 'PROMOTION_MEMBERS_ONLY', 'این کد تخفیف مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
+    const quote = promotionDiscount(promotion, { planId, amountMinor, currency })
+    if (!quote.ok) return fail(409, quote.code, 'discount code cannot be applied to this order')
+    discountMinor = quote.discountMinor
+    amountMinor -= discountMinor
+    amount = legacyNumber(amountMinor, currency)
+  }
+
+  let desiredUsername: string | undefined
+  if (planId && command.username?.trim()) {
+    const raw = command.username.trim()
+    const clean = sanitizeUsername(raw)
+    if (clean.length < USERNAME_MIN || clean !== raw.toLowerCase()) {
+      return fail(400, 'INVALID_USERNAME', 'نام کانفیگ نامعتبر است')
+    }
+    const check = await checkUsername(clean, planId)
+    if (!check.available) return fail(409, 'USERNAME_TAKEN', 'این نام کانفیگ قبلاً استفاده شده است', { suggestion: suggestUsername(clean) })
+    desiredUsername = clean
+  }
+
+  const balance = await walletBalance(command.userId, currency)
+  const balanceMinor = toMinor(balance, currency)
+  const walletOnly = command.payWith === 'wallet'
+  if (walletOnly && balanceMinor < amountMinor) {
+    return fail(402, 'INSUFFICIENT_FUNDS', 'موجودی کیف پول کافی نیست', {
+      balance,
+      amount,
+      needed: minorToNumber(amountMinor - balanceMinor, currency),
+      currency,
+    })
+  }
+  const creditMinor = balanceMinor >= amountMinor ? amountMinor : walletOnly ? 0n : balanceMinor
+  const dueMinor = amountMinor - creditMinor
+
+  let gateway: Awaited<ReturnType<typeof resolveCheckoutGateway>> = null
+  if (dueMinor > 0n) {
+    gateway = await resolveCheckoutGateway(command.gatewayRef, currency)
+    if (!gateway) {
+      return fail(command.gatewayRef ? 409 : 503, command.gatewayRef ? 'GATEWAY_NOT_AVAILABLE' : 'NO_GATEWAY', command.gatewayRef ? 'درگاه انتخاب‌شده فعال یا سازگار نیست' : 'هیچ درگاه پرداخت فعالی تنظیم نشده است', { balance, amount, currency })
+    }
+    if (!gatewayAcceptsCheckoutCurrency(gateway, currency)) {
+      return fail(409, 'GATEWAY_CURRENCY_MISMATCH', `درگاه ${customerGatewayLabel(gateway)} از واحد ${currency} پشتیبانی نمی‌کند`, { currency, gatewayCurrency: gateway.fiat })
+    }
+  }
+
+  let order
+  try {
+    order = await db.$transaction(async tx => {
+      if (promotion) {
+        const claimed = await tx.promotion.updateMany({ where: { id: promotion.id, active: true, reservedCount: promotion.reservedCount }, data: { reservedCount: { increment: 1 } } })
+        if (claimed.count !== 1) throw Error('PROMOTION_CONFLICT')
+        const usedByCustomer = await tx.promotionRedemption.count({ where: { promotionId: promotion.id, userId: command.userId, status: { in: ['RESERVED', 'USED'] } } })
+        if (usedByCustomer >= promotion.perUserLimit) throw Error('PROMOTION_USER_LIMIT')
+      }
+      const created = await tx.order.create({ data: {
+        userId: command.userId,
+        planId,
+        productId,
+        totalAmount: amount,
+        totalMinor: amountMinor,
+        currency,
+        idempotencyKey: command.idempotencyKey,
+        status: 'PENDING',
+        provider: dueMinor === 0n ? 'wallet' : gateway!.provider.toLowerCase(),
+        gatewayId: gateway?.id ?? null,
+        meta: JSON.stringify({ ...meta, walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount }),
+      } })
+      if (promotion) await tx.promotionRedemption.create({ data: { promotionId: promotion.id, userId: command.userId, orderId: created.id } })
+      return created
+    })
+  } catch (error) {
+    const replayAfterRace = await replayOrder(command.userId, command.idempotencyKey)
+    if (replayAfterRace) return replayAfterRace
+    if (error instanceof Error && error.message.startsWith('PROMOTION_')) return fail(409, error.message, 'discount code could not be reserved; please retry')
+    throw error
+  }
+
+  await emitExtensionEvent('order.created', { orderId: order.id, userId: order.userId, planId: order.planId, productId: order.productId, totalMinor: order.totalMinor.toString(), currency: order.currency })
+
+  if (productId) {
+    const reserved = await reserveInventory({ orderId: order.id, productId, variantId: Number(meta.variantId) || null })
+    if (!reserved.ok) {
+      await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+      await releasePromotionForOrder(order.id)
+      return fail(409, 'OUT_OF_STOCK', reserved.message || 'out of stock')
+    }
+  }
+
+  const invoice = await createInvoiceForOrder({
+    orderId: order.id,
+    userId: command.userId,
+    planId,
+    productId,
+    subtotal: legacyNumber(subtotalMinor, currency),
+    discount: legacyNumber(discountMinor, currency),
+    currency,
+    gatewayId: gateway?.id ?? null,
+    walletApplied: legacyNumber(creditMinor, currency),
+    notes: creditMinor > 0n ? `Wallet credit applied: ${legacyNumber(creditMinor, currency)} ${currency}` : '',
+    idempotencyKey: `checkout:${command.idempotencyKey}:invoice`,
+  })
+
+  if (creditMinor > 0n) {
+    const debit = await moveWallet({
+      userId: command.userId,
+      amount: -legacyNumber(creditMinor, currency),
+      currency,
+      type: 'PURCHASE',
+      description: `${label} ${invoice.number}`,
+      orderId: order.id,
+      invoiceId: invoice.id,
+      idempotencyKey: `checkout:${command.idempotencyKey}:wallet`,
+    })
+    if (!debit.ok) {
+      await releaseInventoryReservation(order.id)
+      await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
+      await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+      await releasePromotionForOrder(order.id)
+      return fail(409, 'WALLET_FAILED', debit.message || 'wallet debit failed')
+    }
+  }
+
+  if (dueMinor === 0n) {
+    const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'wallet' } })
+    if (!settled.ok) return fail(500, 'SETTLEMENT_FAILED', settled.message || 'invoice settlement failed')
+    const kind = membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
+    const job = await enqueueFulfillment({ kind, dedupeKey: `${kind}:order:${order.id}`, orderId: order.id, invoiceId: invoice.id })
+    const processed = await processFulfillmentJob(job.id)
+    const subscription = planId ? await db.subscription.findFirst({ where: { orderId: order.id } }) : null
+    await db.order.update({ where: { id: order.id }, data: { paymentUrl: `/invoice/${invoice.number}` } }).catch(() => {})
+    return {
+      ok: true,
+      data: {
+        paid: true,
+        settledFrom: 'wallet',
+        orderId: order.id,
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        invoiceUrl: `/invoice/${invoice.number}`,
+        paymentUrl: `/invoice/${invoice.number}`,
+        subscriptionId: subscription?.id ?? null,
+        username: subscription?.username === 'pending' ? '' : subscription?.username || '',
+        walletApplied: amount,
+        amountDue: 0,
+        balance: minorToNumber(balanceMinor - amountMinor, currency),
+        currency,
+        fulfillmentPending: !processed.ok,
+      },
+    }
+  }
+
+  const due = legacyNumber(dueMinor, currency)
+  const result = await createGatewayInvoice(gateway!, {
+    orderNumber: invoice.number,
+    amount: due,
+    currency,
+    email: command.email || undefined,
+    orderName: `HappVPN - ${label}`,
+    callbackUrl: gatewayCallbackUrl(gateway!, command.siteUrl),
+    successUrl: `${command.siteUrl}/payment/result?order=${order.id}`,
+    failUrl: `${command.siteUrl}/payment/result?order=${order.id}&failed=1`,
+    channel: command.channel || 'web',
+  })
+  const invoiceUrl = result.manual ? `/invoice/${invoice.number}` : result.paymentUrl
+  if (!result.ok || !invoiceUrl) {
+    // FrenzyEx v1 has no idempotency-key header. A timeout can mean the remote
+    // request was created even though we never received its response. Keep the
+    // local invoice pending and the wallet reservation intact so a retry cannot
+    // silently create/charge a second checkout.
+    if (result.ambiguous && gateway?.provider === 'FRENZYEX') {
+      if (result.txnId) {
+        await db.order.update({ where: { id: order.id }, data: { providerTxnId: result.txnId } }).catch(() => {})
+        await db.invoice.update({ where: { id: invoice.id }, data: { providerTxnId: result.txnId } }).catch(() => {})
+      }
+      // Persist the expected provider-side amount even when the create response
+      // was lost. A later signed callback can then be reconciled safely by
+      // order_ref + exact amount without issuing a duplicate create request.
+      if (result.providerAmount != null && result.providerCurrency) {
+        await recordProviderEvent({
+          provider: 'FRENZYEX',
+          event: 'payment.requested',
+          eventKey: result.txnId ? `frenzyex:create:${result.txnId}` : `frenzyex:create:invoice:${invoice.id}`,
+          status: 'PENDING',
+          gatewayId: gateway.id,
+          orderId: order.id,
+          invoiceId: invoice.id,
+          userId: command.userId,
+          amount: result.providerAmount,
+          currency: result.providerCurrency,
+          providerTxnId: result.txnId || '',
+          raw: { ambiguous: true, channel: command.channel || 'web' },
+        }).catch(() => {})
+      }
+      return fail(502, 'GATEWAY_AMBIGUOUS', 'پاسخ درگاه نامشخص بود. برای جلوگیری از پرداخت تکراری، دوباره سفارش جدید نسازید و وضعیت همین فاکتور را بررسی کنید.', {
+        invoiceNumber: invoice.number,
+        invoiceUrl: `/invoice/${invoice.number}`,
+      })
+    }
+    await releaseInvoiceCredit(invoice.id, `credit released ${invoice.number}`)
+    await releaseInventoryReservation(order.id)
+    await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+    await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID' } }).catch(() => {})
+    await releasePromotionForOrder(order.id)
+    return fail(502, 'GATEWAY_ERROR', 'خطا در ایجاد پرداخت: ' + (result.message || ''))
+  }
+  await db.order.update({ where: { id: order.id }, data: { providerTxnId: result.txnId || '', paymentUrl: invoiceUrl } })
+  await db.invoice.update({ where: { id: invoice.id }, data: { providerTxnId: result.txnId || '', paymentUrl: invoiceUrl } }).catch(() => {})
+  if (gateway?.provider === 'FRENZYEX' && result.txnId && result.providerAmount != null && result.providerCurrency) {
+    await recordProviderEvent({
+      provider: 'FRENZYEX',
+      event: 'payment.requested',
+      eventKey: `frenzyex:create:${result.txnId}`,
+      status: 'PENDING',
+      gatewayId: gateway.id,
+      orderId: order.id,
+      invoiceId: invoice.id,
+      userId: command.userId,
+      amount: result.providerAmount,
+      currency: result.providerCurrency,
+      providerTxnId: result.txnId,
+      raw: { expiresAt: result.expiresAt || null, channel: command.channel || 'web' },
+    })
+  }
+  return {
+    ok: true,
+    data: {
+      paid: false,
+      orderId: order.id,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.number,
+      invoiceUrl: `/invoice/${invoice.number}`,
+      paymentUrl: invoiceUrl,
+      manual: Boolean(result.manual),
+      walletApplied: minorToNumber(creditMinor, currency),
+      amountDue: due,
+      balance: minorToNumber(balanceMinor - creditMinor, currency),
+      currency,
+      gatewayLabel: customerGatewayLabel(gateway),
+      providerAmount: result.providerAmount ?? null,
+      providerCurrency: result.providerCurrency || '',
+    },
+  }
+}

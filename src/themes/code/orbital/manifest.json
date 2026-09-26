@@ -1,0 +1,25 @@
+{
+  "id": "orbital",
+  "name": "Happ Orbital",
+  "description": "قالب پریمیوم HappVPN با زبان بصری زیرساخت سایبری، ناوبری شناور و تجربه بازاریابی/اپلیکیشن یکپارچه",
+  "version": "1.0.0",
+  "kind": "theme",
+  "apiVersion": 1,
+  "capabilities": ["ui"],
+  "design": {
+    "id": "orbital",
+    "name": "Happ Orbital",
+    "description": "تاریک، پریمیوم، داده‌محور و الهام‌گرفته از زیرساخت جهانی شبکه",
+    "version": "1.0.0",
+    "radius": 20,
+    "colors": {
+      "background": "#07111f",
+      "surface": "#0c1a2f",
+      "accent": "#2ea8ff",
+      "text": "#edf4ff",
+      "muted": "#95a7c3",
+      "border": "#1a3154"
+    }
+  },
+  "requiresCore": "^1.0.0"
+}

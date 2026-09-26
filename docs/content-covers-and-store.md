@@ -1,0 +1,8 @@
+# Featured covers and storefront controls
+
+- Pages and posts expose a featured-image field in their existing CMS forms. Upload JPEG, PNG or WebP (up to 5 MB), or enter an image URL. The preview shows the centered title and dark overlay. Save the form to apply the image; clearing it restores the branded fallback.
+- Recommended artwork: 1920 × 640 pixels, with the subject near the center. Uploads are optimized to WebP with a maximum dimension of 1920 pixels. The public cover uses centered `cover` sizing without stretching on desktop or mobile.
+- Post covers use the existing `Post.cover` field. Page covers use the existing `page.layout.<id>` settings document; no schema migration is required. Page title visibility remains controlled by the page editor.
+- Uploaded media is stored in `storage/covers` and served through `/api/media/covers/<uuid>.<extension>`, so new images work without restarting the production server. Keep this directory on a writable persistent volume and include it in deployment backups. De-selecting a cover does not delete an image that another page may use.
+- Settings → Enable storefront controls `storeEnabled`. Missing or false means disabled. Public navigation, homepage products, catalog routes, public product API and sitemap product entries are hidden; new product checkouts are rejected. Existing orders/invoices and VPN plan purchases remain available. CMS product editing remains accessible to authorized staff.
+- Homepage plan cards suppress wallet information and wallet balance requests. Other plan and checkout views retain their existing wallet behavior.

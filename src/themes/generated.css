@@ -1,0 +1,124 @@
+/* theme: minimal */
+[data-code-theme="minimal"] .site-header { background: color-mix(in srgb, var(--site-bg) 92%, transparent); border-bottom: 1px solid var(--site-border); }
+[data-code-theme="minimal"] .announcement-bar { border-radius: 0; }
+[data-code-theme="minimal"] .footer-wordmark { opacity: .08; }
+[data-design="minimal"] .noir-home { background: var(--site-bg); color: var(--site-text); }
+[data-design="minimal"] .noir-hero, [data-design="minimal"] .noir-section { filter: saturate(.88); }
+
+
+/* theme: orbital */
+/* HappVPN Orbital: shared design foundation. Marketing compositions live in homepage.css. */
+[data-design="orbital"] {
+  color-scheme: dark;
+  --orbital-bg: #040c17;
+  --orbital-bg-2: #071321;
+  --orbital-surface: #091725;
+  --orbital-surface-2: #0d1d30;
+  --orbital-surface-3: #14253a;
+  --orbital-border: #1b2c40;
+  --orbital-border-strong: #2d4865;
+  --orbital-text: #f1f6ff;
+  --orbital-text-2: #becbdf;
+  --orbital-muted: #92a6c1;
+  --orbital-blue: #43b6ff;
+  --orbital-cyan: #6ee0ff;
+  --orbital-violet: #ad94ff;
+  --orbital-green: #51dfb6;
+  --orbital-amber: #f1be70;
+  --orbital-danger: #ff8d98;
+  --orbital-shadow: 0 20px 60px #00000026;
+  --orbital-glow: 0 8px 28px #0476f12b;
+  --hp-radius: 16px;
+  --hp-radius-small: 10px;
+  --hp-space: 8px;
+  --hp-motion: 180ms ease;
+  --bg: var(--orbital-bg);
+  --bg-soft: var(--orbital-bg-2);
+  --bg-hard: #020811;
+  --card: var(--orbital-surface);
+  --card-hover: var(--orbital-surface-2);
+  --border: var(--orbital-border);
+  --text: var(--orbital-text);
+  --muted: var(--orbital-muted);
+  --primary: var(--orbital-blue);
+  --primary-soft: #238fff18;
+  --primary-warm: var(--orbital-violet);
+  --on-primary: #ffffff;
+  --success: var(--orbital-green);
+  --warning: var(--orbital-amber);
+  --danger: var(--orbital-danger);
+  --map-land: #143453;
+  --map-border: #35618a;
+  --map-land-hover: #245984;
+}
+[data-design="orbital"][data-theme="light"] {
+  color-scheme: light;
+  --orbital-bg: #f7f9fd;
+  --orbital-bg-2: #eef3fa;
+  --orbital-surface: #ffffff;
+  --orbital-surface-2: #f0f5fc;
+  --orbital-surface-3: #e6eef9;
+  --orbital-border: #d5dfec;
+  --orbital-border-strong: #afc2da;
+  --orbital-text: #12233b;
+  --orbital-text-2: #384e69;
+  --orbital-muted: #546b85;
+  --orbital-blue: #0767c3;
+  --orbital-cyan: #086d90;
+  --orbital-violet: #7046c4;
+  --orbital-green: #087e60;
+  --orbital-danger: #bd3046;
+  --orbital-amber: #966016;
+  --bg-hard: #e4ecf6;
+  --map-land: #c3d8f0;
+  --map-border: #7b9bbd;
+  --map-land-hover: #a1c5ed;
+}
+[data-design="orbital"] body { background: var(--orbital-bg); color: var(--orbital-text); font-size: 15px; line-height: 1.65; }
+[data-design="orbital"] .announcement-bar { background: var(--primary-soft); border-color: var(--orbital-border); color: var(--orbital-muted); }
+[data-design="orbital"] .announcement-bar a { color: var(--orbital-blue); }
+[data-design="orbital"] .container { width: min(100% - 64px, 1360px); max-width: 1360px; padding-inline: 0; }
+[data-design="orbital"] :is(a,button,input,select,textarea,summary):focus-visible { outline: 2px solid var(--orbital-cyan); outline-offset: 4px; }
+[data-design="orbital"] :is(button,a,input,select,summary) { -webkit-tap-highlight-color: transparent; }
+[data-design="orbital"] button:disabled { opacity: .55; cursor: not-allowed; }
+[data-design="orbital"] :is(.btn,.orbital-cta,.orbital-secondary,.hp-button) { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 20px; border-radius: var(--hp-radius-small); font: inherit; font-weight: 600; font-size: 14px; text-decoration: none; line-height: 1.45; transition: background var(--hp-motion),border-color var(--hp-motion),box-shadow var(--hp-motion),transform var(--hp-motion); }
+[data-design="orbital"] :is(.btn-primary,.orbital-cta,.hp-button-primary) { color: #fff; background: linear-gradient(110deg,#087ff5,#2455f5); border: 1px solid #389eff; box-shadow: var(--orbital-glow); }
+[data-design="orbital"] :is(.btn-primary,.orbital-cta,.hp-button-primary):hover { background: linear-gradient(110deg,#1695ff,#426cff); box-shadow: 0 8px 28px #0476f144; transform: translateY(-1px); }
+[data-design="orbital"] :is(.btn-ghost,.orbital-secondary,.hp-button-secondary) { color: var(--orbital-text); background: var(--orbital-surface); border: 1px solid var(--orbital-border-strong); }
+[data-design="orbital"] :is(.btn-ghost,.orbital-secondary,.hp-button-secondary):hover { border-color: var(--orbital-blue); background: var(--orbital-surface-2); }
+[data-design="orbital"] :is(.card,.tile,.price-card,.post-card,.content-filters,.product-hero,.public-form) { background: var(--orbital-surface); border: 1px solid var(--orbital-border); border-radius: var(--hp-radius); box-shadow: none; }
+[data-design="orbital"] :is(.input,.select,textarea) { color: var(--orbital-text); background: var(--orbital-bg-2); border: 1px solid var(--orbital-border-strong); border-radius: var(--hp-radius-small); min-height: 44px; font-size: 14px; }
+[data-design="orbital"] :is(.input,textarea)::placeholder { color: var(--orbital-muted); opacity: 1; }
+[data-design="orbital"] .page-main { padding-block: 52px 80px; }
+[data-design="orbital"] :is(.display,.page-intro h1) { font-size: clamp(34px,4vw,54px); line-height: 1.2; letter-spacing: -.035em; }
+[data-design="orbital"] :is(.lead,.page-intro p) { font-size: 16px; line-height: 1.85; color: var(--orbital-muted); }
+[data-design="orbital"] .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 22px; align-items: stretch; }
+[data-design="orbital"] .price-card { padding: 28px!important; display: flex; flex-direction: column; min-width: 0; position: relative; }
+[data-design="orbital"] .price-card-featured { border-color: #389eff; background: linear-gradient(145deg,#137af010,transparent 55%),var(--orbital-surface); box-shadow: 0 0 0 1px #389eff26,0 15px 45px #0056c010; }
+[data-design="orbital"] .price-flag { background: #2b89f5; color: white; font-size: 12px; top: -14px; border-radius: 6px; }
+[data-design="orbital"] .price-name { font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
+[data-design="orbital"] .price-desc { font-size: 13px; line-height: 1.75; color: var(--orbital-muted); min-height: 46px; }
+[data-design="orbital"] .price-value { font-size: clamp(29px,3vw,40px); font-weight: 700; letter-spacing: -.04em; }
+[data-design="orbital"] :is(.price-period,.price-alt,.price-note) { font-size: 12px; color: var(--orbital-muted); }
+[data-design="orbital"] .plan-specs { margin-block: 22px; }
+[data-design="orbital"] .plan-spec { border-color: var(--orbital-border); background: var(--orbital-bg-2); border-radius: 8px; }
+[data-design="orbital"] .plan-spec-value { font-size: 19px; }
+[data-design="orbital"] .plan-spec-label { font-size: 12px; }
+[data-design="orbital"] .price-card .feature-list { margin-bottom: 24px; flex: 1; }
+[data-design="orbital"] .price-card .feature-item { font-size: 13px; line-height: 1.6; color: var(--orbital-text-2); }
+[data-design="orbital"] .price-card .feature-check { color: var(--orbital-green); }
+[data-design="orbital"] .currency-switch { background: var(--orbital-surface); border-color: var(--orbital-border); }
+[data-design="orbital"] .currency-switch button { min-height: 40px; padding: 8px 20px; font-size: 13px; }
+[data-design="orbital"] .chip { background: var(--orbital-surface); border-color: var(--orbital-border); color: var(--orbital-muted); min-height: 36px; font-size: 13px; }
+[data-design="orbital"] .chip-on { background: var(--primary-soft); color: var(--orbital-blue); border-color: var(--orbital-blue); }
+[data-design="orbital"] .orbital-h-logo { position: relative; flex-shrink: 0; background: transparent; width: 35px; height: 38px; }
+[data-design="orbital"] .orbital-h-logo i,[data-design="orbital"] .orbital-h-logo b { position: absolute; display: block; width: 8px; border-radius: 2px; transform: skewY(-18deg); }
+[data-design="orbital"] .orbital-h-logo i:first-child { height: 32px; left: 3px; top: 3px; background: linear-gradient(#6de5ff,#1979ed); }
+[data-design="orbital"] .orbital-h-logo i:nth-child(2) { height: 32px; right: 3px; top: 3px; background: linear-gradient(#b29bff,#8851f3); }
+[data-design="orbital"] .orbital-h-logo b { width: 16px; height: 8px; left: 10px; top: 15px; background: linear-gradient(90deg,#37caff,#8d78ff); }
+[data-design="orbital"] .orbital-home,[data-design="orbital"] .hp-home { overflow: clip; }
+html[dir="ltr"] .hp-text-link>svg,html[dir="ltr"] .hp-button>svg,html[dir="ltr"] .hp-product-top>svg,html[dir="ltr"] .hp-product-action>svg,html[dir="ltr"] .hp-app-links>a>svg { transform: rotate(180deg); }
+html[dir="rtl"][data-design="orbital"] :is(h1,h2,h3,.hp-eyebrow) { letter-spacing: 0; }
+@media(max-width:767px) { [data-design="orbital"] .container { width: calc(100% - 36px); } [data-design="orbital"] .page-main { padding-block: 32px 48px; } [data-design="orbital"] .price-card { padding: 24px!important; } }
+@media(prefers-reduced-motion:reduce) { [data-design="orbital"] *,[data-design="orbital"] *::before,[data-design="orbital"] *::after { animation: none!important; scroll-behavior: auto!important; transition: none!important; } }
+

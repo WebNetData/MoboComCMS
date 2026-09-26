@@ -1,0 +1,27 @@
+{
+  "id": "minimal",
+  "name": "Happ Minimal",
+  "description": "قالب کدنویسی‌شده نمونه با presentation قابل تعویض مستقل از Core",
+  "version": "1.0.0",
+  "kind": "theme",
+  "apiVersion": 1,
+  "capabilities": [
+    "ui"
+  ],
+  "design": {
+    "id": "minimal",
+    "name": "Happ Minimal",
+    "description": "روشن، مینیمال و محتوامحور",
+    "version": "1.0.0",
+    "radius": 14,
+    "colors": {
+      "background": "#f6f7f8",
+      "surface": "#ffffff",
+      "accent": "#0f766e",
+      "text": "#111827",
+      "muted": "#667085",
+      "border": "#d9dee5"
+    }
+  },
+  "requiresCore": "^1.0.0"
+}

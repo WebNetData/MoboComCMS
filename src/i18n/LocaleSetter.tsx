@@ -1,0 +1,17 @@
+'use client'
+
+import { useEffect } from 'react'
+import { dirOf } from './config'
+import type { Locale } from './dictionaries'
+
+export default function LocaleSetter({ locale, theme }: { locale: Locale; theme: string }) {
+  useEffect(() => {
+    const html = document.documentElement
+    html.setAttribute('lang', locale)
+    html.setAttribute('data-theme', theme)
+    const dir = dirOf(locale)
+    html.setAttribute('dir', dir)
+    document.cookie = `theme=${theme};path=/;max-age=31536000`
+  }, [locale, theme])
+  return null
+}

@@ -1,0 +1,26 @@
+{
+  "id": "cinema",
+  "name": "فیلم و سریال",
+  "nameEn": "Film & series",
+  "description": "فیلم و سریال با فصل و قسمت، لینک پخش و دانلود بر اساس کیفیت، دوبله و زیرنویس، بازیگران و تریلر.",
+  "descriptionEn": "Movies and series with seasons/episodes, stream and download links by quality, dubbing and subtitles, cast and trailers.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "globe",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [
+    "/cinema"
+  ],
+  "adminPaths": [
+    "/admin/cinema"
+  ],
+  "permissions": [
+    {
+      "id": "cinema.manage",
+      "label": "مدیریت فیلم و سریال"
+    }
+  ]
+}

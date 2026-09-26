@@ -1,0 +1,36 @@
+{
+  "id": "membership",
+  "name": "اشتراک ویژه (VIP)",
+  "nameEn": "VIP membership",
+  "description": "پلن‌های اشتراک ویژه، محتوا و محصولات مخصوص اعضا، قیمت ویژهٔ اعضا، کد تخفیف اختصاصی و هدیهٔ VIP با خرید.",
+  "descriptionEn": "VIP plans, member-only content and products, member prices, member-only codes and VIP gifts with purchases.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [
+    "/vip"
+  ],
+  "adminPaths": [
+    "/admin/vip"
+  ],
+  "settings": [
+    {
+      "key": "teaser-percent",
+      "label": "درصد پیش‌نمایش متن مطالب ویژه برای غیرعضو",
+      "labelEn": "Teaser share of member-only articles",
+      "type": "number",
+      "default": 25,
+      "public": false
+    }
+  ],
+  "permissions": [
+    {
+      "id": "membership.manage",
+      "label": "مدیریت اشتراک ویژه و اعضا"
+    }
+  ]
+}

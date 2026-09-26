@@ -1,0 +1,145 @@
+import type { Metadata, Viewport } from 'next'
+import './globals.css'
+import './studio.css'
+import './happ-design.css'
+import './content-design.css'
+import './builder-render.css'
+import './theme-builder.css'
+import '@/themes/generated.css'
+import '@/themes/code/orbital/homepage.css'
+import '@/themes/code/orbital/network.css'
+import '@/themes/code/orbital/chrome.css'
+import './application-polish.css'
+import './fonts.css'
+import './ticket-center.css'
+import './subscription-hub.css'
+import './store-design.css'
+import './journal-design.css'
+import './media-design.css'
+import Providers from '@/components/Providers'
+import { LocaleProvider } from '@/i18n/LocaleProvider'
+import LocaleSetter from '@/i18n/LocaleSetter'
+import { getServerLocale, getServerTheme } from '@/i18n/server'
+import { dirOf } from '@/i18n/config'
+import { deviceLocaleBootstrap } from '@/i18n/device-locale'
+import { getSiteSeo, organizationJsonLd } from '@/modules/site/server/seo'
+import { getPublicSiteConfig } from '@/modules/site/config/store'
+import { defaultSiteFonts } from '@/modules/site/config/types'
+import { safeCustomCss } from '@/modules/site/config/validation'
+import { bundledThemes } from '@/themes/registry'
+import SiteProvider from '@/components/site/SiteProvider'
+import ExtensionProvider from '@/extensions/client/ExtensionProvider'
+import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { pathDisabled } from '@/platform/extensions/contracts'
+import PreviewBridge from '@/components/site/PreviewBridge'
+import MusicPlayerProvider from '@/components/media/MusicPlayer'
+import type { CSSProperties } from 'react'
+import { resolveCodeThemeId } from '@/themes/runtime'
+
+export const dynamic = 'force-dynamic'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e1017' },
+  ],
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale()
+  const seo = await getSiteSeo(locale)
+
+  return {
+    metadataBase: new URL(seo.base),
+    title: {
+      default: `${seo.name} — ${seo.tagline}`,
+      template: `%s · ${seo.name}`,
+    },
+    description: seo.description,
+    applicationName: seo.name,
+    generator: 'Next.js',
+    keywords: [
+      'VPN',
+      'Xray',
+      'VLESS',
+      'Remnawave',
+      'PasarGuard',
+      'crypto VPN payment',
+      'buy VPN with crypto',
+      'اشتراک وی پی ان',
+      'خرید وی پی ان',
+      'کریپتو',
+    ],
+    category: 'technology',
+    alternates: { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } },
+    icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+    },
+    verification: seo.verification ? { google: seo.verification } : undefined,
+    openGraph: {
+      type: 'website',
+      url: seo.base,
+      siteName: seo.name,
+      title: `${seo.name} — ${seo.tagline}`,
+      description: seo.description,
+      locale: locale === 'fa' ? 'fa_IR' : 'en_US',
+      images: [{ url: seo.ogImage, width: 1200, height: 630, alt: seo.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${seo.name} — ${seo.tagline}`,
+      description: seo.description,
+      images: [seo.ogImage],
+    },
+    other: {
+      'format-detection': 'telephone=no',
+    },
+  }
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getServerLocale()
+  const theme = await getServerTheme()
+  const [jsonLd, siteConfig, extensions] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime()])
+  // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
+  const site = { ...siteConfig, navigation: siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
+  // The site-wide music player keeps playing across page navigations while the music module is on.
+  const musicOn = !pathDisabled('/music', extensions)
+  const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
+  const fonts = { ...defaultSiteFonts(locale), ...(site.fonts || {}) }
+  const light = design.lightColors
+  const tokens = {
+    '--site-bg': design.colors.background, '--site-surface': design.colors.surface, '--site-accent': design.colors.accent, '--site-text': design.colors.text, '--site-muted': design.colors.muted, '--site-border': design.colors.border, '--site-radius': `${design.radius}px`,
+    '--site-font-body': fonts.body, '--site-font-heading': fonts.heading,
+    ...(light ? {
+      '--site-light-bg': light.background, '--site-light-surface': light.surface, '--site-light-accent': light.accent, '--site-light-text': light.text, '--site-light-muted': light.muted, '--site-light-border': light.border,
+    } : {}),
+  } as CSSProperties
+  if (design.extends === 'orbital') Object.assign(tokens, { '--orbital-blue': design.colors.accent, '--hp-radius': `${design.radius}px`, ...(theme === 'dark' ? { '--orbital-bg': design.colors.background, '--orbital-surface': design.colors.surface, '--orbital-text': design.colors.text, '--orbital-muted': design.colors.muted, '--orbital-border': design.colors.border } : {}) })
+
+  return (
+    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />
+        {site.customCss?.trim() ? <style data-site-custom dangerouslySetInnerHTML={{ __html: safeCustomCss(site.customCss) }} /> : null}
+      </head>
+      <body>
+        <script
+          type="application/ld+json"
+          // structured data for search engines (Organization + WebSite)
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+        />
+        <PreviewBridge />
+        <LocaleProvider locale={locale}>
+          <LocaleSetter locale={locale} theme={theme} />
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
+        </LocaleProvider>
+      </body>
+    </html>
+  )
+}

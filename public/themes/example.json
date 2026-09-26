@@ -1,0 +1,15 @@
+{
+  "id": "forest",
+  "name": "Forest Studio",
+  "description": "قالب مستقل نمونه با طیف سبز جنگلی",
+  "version": "1.0.0",
+  "radius": 18,
+  "colors": {
+    "background": "#08130e",
+    "surface": "#102319",
+    "accent": "#80edb1",
+    "text": "#effaf3",
+    "muted": "#9eb9a8",
+    "border": "#294335"
+  }
+}

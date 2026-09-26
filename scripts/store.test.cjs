@@ -1,0 +1,124 @@
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const ts = require('typescript')
+const { NextRequest } = require('next/server')
+
+function load(file, mocks = {}, cache = new Map()) {
+  const key = file.replace(/\\/g, '/')
+  if (cache.has(key)) return cache.get(key).exports
+  const absolute = path.join(__dirname, '..', key)
+  const source = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
+  const mod = { exports: {} }; cache.set(key, mod)
+  const localRequire = name => {
+    if (Object.hasOwn(mocks, name)) return mocks[name]
+    if (name.startsWith('@/')) {
+      const base = 'src/' + name.slice(2)
+      for (const candidate of [base + '.ts', base + '.tsx', base + '/index.ts', base + '/index.tsx']) if (fs.existsSync(path.join(__dirname, '..', candidate))) return load(candidate, mocks, cache)
+    }
+    return require(name)
+  }
+  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
+  return mod.exports
+}
+
+test('attribute groups isolate physical colors from virtual account types and validate variants', () => {
+  const config = load('src/modules/catalog/server/product-config.ts', {
+    '@/platform/database/prisma': { db: {} },
+    '@/shared/content/sanitize': { cleanRichText: value => value },
+  })
+  const account = config.validateFields([{ key: 'account_type', label: 'نوع حساب', labelEn: 'Account type', kind: 'select', options: ['Plus', 'Pro'], required: true, variant: true }, { key: 'duration', label: 'مدت', kind: 'text', required: true }])
+  const color = config.validateFields([{ key: 'color', label: 'رنگ', kind: 'color', options: ['Blue', 'Black'], required: true, variant: true }])
+  assert.equal(account[0].key, 'account_type')
+  assert.equal(color[0].key, 'color')
+  assert.equal(config.validateSpecifications({ duration: '30 days' }, account.filter(x => !x.variant)), '{"duration":"30 days"}')
+  assert.throws(() => config.validateSpecifications({ color: 'Blue' }, account.filter(x => !x.variant)))
+  assert.throws(() => config.validateSpecifications({ color: 'Red' }, color))
+  assert.throws(() => config.validateFields([{ key: 'color', label: 'رنگ', kind: 'text' }, { key: 'color', label: 'رنگ', kind: 'text' }]))
+  const variants = config.validateVariants([{ sku: 'AI-PLUS', name: 'Plus', price: 15, stock: 2, attributes: { account_type: 'Plus' } }], account, 'USD')
+  assert.equal(variants[0].stock, 2)
+  assert.throws(() => config.validateVariants([{ sku: 'AI-PLUS', name: 'Plus', price: 15, stock: 2, attributes: { color: 'Blue' } }], account, 'USD'))
+})
+
+test('reviews require a paid purchase; member questions are open', async () => {
+  let purchased = false, reviewCreated = false, questionCreated = false, reviewWhere
+  const route = load('src/modules/catalog/server/http/product-feedback/route.ts', {
+    '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
+    '@/modules/identity/server/access': { requireUser: async () => ({ id: 9 }) },
+    '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
+    '@/platform/database/prisma': { db: {
+      product: { findUnique: async () => ({ id: 4, active: true }) },
+      order: { count: async ({ where }) => { reviewWhere = where; return purchased ? 1 : 0 } },
+      productReview: { findUnique: async () => null, create: async () => { reviewCreated = true; return { id: 1, status: 'PENDING' } } },
+      productQuestion: { create: async () => { questionCreated = true; return { id: 2, status: 'PENDING' } } },
+    } },
+  })
+  const submit = kind => route.POST(new NextRequest('http://localhost/api/products/any/feedback', { method: 'POST', body: JSON.stringify({ kind, body: 'A useful and detailed comment', rating: 5 }) }), { params: Promise.resolve({ slug: 'any' }) })
+  assert.equal((await submit('review')).status, 403)
+  assert.equal(reviewCreated, false)
+  assert.equal(reviewWhere.userId, 9)
+  assert.equal(reviewWhere.productId, 4)
+  assert.equal(reviewWhere.status, 'PAID')
+  assert.equal(reviewWhere.invoice.status, 'PAID')
+  assert.equal((await submit('question')).status, 201)
+  assert.equal(questionCreated, true)
+  purchased = true
+  assert.equal((await submit('review')).status, 201)
+  assert.equal(reviewCreated, true)
+})
+
+test('guest questions are moderated and review criteria are server-derived', async () => {
+  const { reviewScore } = load('src/modules/catalog/domain/review-score.ts')
+  assert.deepEqual(reviewScore({ criteria: { quality: 5, value: 3, usability: 4 } }), {
+    rating: 4, criteria: { quality: 5, value: 3, usability: 4 },
+  })
+  assert.equal(reviewScore({ criteria: { quality: 5, value: 8, usability: 4 } }), null)
+  let question
+  const route = load('src/modules/catalog/server/http/product-feedback/route.ts', {
+    '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
+    '@/modules/identity/server/access': { requireUser: async () => null },
+    '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
+    '@/platform/database/prisma': { db: {
+      product: { findUnique: async () => ({ id: 4, active: true }) },
+      productQuestion: { create: async ({ data }) => { question = data; return { id: 3, status: 'PENDING' } } },
+    } },
+  })
+  const submit = input => route.POST(new NextRequest('http://localhost/api/products/any/feedback', { method: 'POST', body: JSON.stringify(input) }), { params: Promise.resolve({ slug: 'any' }) })
+  assert.equal((await submit({ kind: 'question', body: 'Can this work with my device?', guestName: 'Ali' })).status, 201)
+  assert.equal(question.userId, null)
+  assert.equal(question.guestName, 'Ali')
+  assert.equal((await submit({ kind: 'question', body: 'Can this work with my device?', guestName: '<script>' })).status, 400)
+  assert.equal((await submit({ kind: 'review', body: 'A useful and detailed comment', rating: 5 })).status, 401)
+})
+
+test('variant inventory reservation rejects sold-out options without consuming product stock', async () => {
+  let productDecrements = 0
+  const inventory = load('src/modules/catalog/server/inventory.ts', {
+    '@/platform/database/prisma': { db: { $transaction: async fn => { try { return await fn({
+      inventoryReservation: { findUnique: async () => null, create: async ({ data }) => data },
+      product: { findUnique: async () => ({ id: 1, active: true, stock: 4 }), updateMany: async () => { productDecrements++; return { count: 1 } } },
+      productVariant: { findFirst: async () => ({ id: 3, stock: 0 }), updateMany: async () => ({ count: 0 }) },
+    }) } catch (error) { productDecrements = 0; throw error } } } },
+  })
+  const result = await inventory.reserveInventory({ orderId: 5, productId: 1, variantId: 3 })
+  assert.equal(result.ok, false)
+  assert.equal(result.message, 'out of stock')
+  assert.equal(productDecrements, 0) // the transaction rolls back the earlier product decrement
+})
+
+test('virtual product delivery details are encrypted and authenticated', () => {
+  const previous = process.env.STORE_DELIVERY_KEY
+  process.env.STORE_DELIVERY_KEY = 'b'.repeat(64)
+  try {
+    const { encryptDigitalDelivery, decryptDigitalDelivery } = load('src/modules/catalog/server/digital-delivery.ts')
+    const encrypted = encryptDigitalDelivery('account@example.com\nprivate-code')
+    assert.ok(encrypted.startsWith('store:v1:'))
+    assert.ok(!encrypted.includes('private-code'))
+    assert.equal(decryptDigitalDelivery(encrypted), 'account@example.com\nprivate-code')
+    assert.throws(() => decryptDigitalDelivery(encrypted.slice(0, -2) + 'zz'))
+  } finally {
+    if (previous === undefined) delete process.env.STORE_DELIVERY_KEY
+    else process.env.STORE_DELIVERY_KEY = previous
+  }
+})

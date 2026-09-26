@@ -1,0 +1,16 @@
+{
+  "id": "vpn",
+  "name": "سرویس VPN",
+  "nameEn": "VPN service",
+  "description": "پلن‌ها، اشتراک‌ها، اکانت تست، پنل‌های سرور، نمایندگان و راهنمای اتصال.",
+  "descriptionEn": "Plans, subscriptions, trials, server panels, resellers and connection guides.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "core",
+  "icon": "shield",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/plans", "/trial"],
+  "adminPaths": ["/admin/plans", "/admin/service-offers", "/admin/trial", "/admin/subscriptions", "/admin/panels", "/admin/resellers", "/admin/reseller-sales", "/admin/happ", "/admin/connection-guide", "/admin/locations"]
+}

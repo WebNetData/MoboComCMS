@@ -1,0 +1,16 @@
+{
+  "id": "journal",
+  "name": "مجله",
+  "nameEn": "Journal",
+  "description": "نوشته‌ها، دسته‌بندی‌ها، دیدگاه‌ها و صفحهٔ اصلی مجله.",
+  "descriptionEn": "Articles, categories, comments and the journal landing page.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "sliders",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/blog"],
+  "adminPaths": ["/admin/posts", "/admin/postcats", "/admin/comments"]
+}

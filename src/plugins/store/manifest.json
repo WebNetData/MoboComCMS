@@ -1,0 +1,17 @@
+{
+  "id": "store",
+  "name": "فروشگاه",
+  "nameEn": "Store",
+  "description": "فروش محصولات مجازی و فیزیکی با دسته‌بندی، ویژگی‌ها، دیدگاه، پرسش و تحویل سفارش.",
+  "descriptionEn": "Digital and physical products with categories, attributes, reviews, Q&A and deliveries.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "grid",
+  "defaultEnabled": false,
+  "stateSetting": "storeEnabled",
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/products"],
+  "adminPaths": ["/admin/products", "/admin/productcats", "/admin/productgroups", "/admin/product-feedback", "/admin/product-deliveries"]
+}

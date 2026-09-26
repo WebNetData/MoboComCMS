@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from 'next/server'
+
+const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+// Server-to-server callbacks authenticate with signatures/secrets and send no
+// Origin header; NextAuth ships its own CSRF token flow.
+const ORIGIN_EXEMPT = /^\/api\/(auth\/|payment\/|telegram\/|internal\/)/
+
+function sameSiteOrigin(req: NextRequest, origin: string): boolean {
+  try {
+    const host = new URL(origin).host
+    // Next may normalize nextUrl to localhost even when the browser used 127.0.0.1.
+    // Compare with the actual request Host, never an untrusted forwarded host.
+    if (host === (req.headers.get('host') || req.nextUrl.host)) return true
+    const configured = process.env.NEXTAUTH_URL
+    return Boolean(configured && host === new URL(configured).host)
+  } catch {
+    return false
+  }
+}
+
+const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com'
+
+function applySecurityHeaders(req: NextRequest, response: NextResponse) {
+  const path = req.nextUrl.pathname
+  // The Telegram mini app must stay embeddable in the Telegram webview.
+  const miniApp = path.startsWith('/miniapp')
+  const turnstile = path === '/login' || path === '/register'
+
+  response.headers.set('x-content-type-options', 'nosniff')
+  response.headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+  response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()')
+  if (!miniApp) response.headers.set('x-frame-options', 'SAMEORIGIN')
+
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    // Music player and trailers stream from media hosts (after the protected /api/media redirect).
+    "media-src 'self' https: blob:",
+    `connect-src 'self'${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}`,
+    // Page-builder video blocks embed these players; login/register add their own providers.
+    `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}`,
+    miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ')
+  response.headers.set('content-security-policy', csp)
+
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('strict-transport-security', 'max-age=15552000; includeSubDomains')
+  }
+}
+
+export function middleware(req: NextRequest) {
+  const incoming = req.headers.get('x-request-id')?.trim() || ''
+  const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
+  const headers = new Headers(req.headers)
+  headers.set('x-request-id', requestId)
+
+  // CSRF/Origin guard: state-changing API calls must originate from this site.
+  if (
+    MUTATING_METHODS.has(req.method) &&
+    req.nextUrl.pathname.startsWith('/api/') &&
+    !ORIGIN_EXEMPT.test(req.nextUrl.pathname)
+  ) {
+    const origin = req.headers.get('origin')
+    if (origin && !sameSiteOrigin(req, origin)) {
+      return NextResponse.json({ error: 'forbidden origin' }, { status: 403 })
+    }
+  }
+
+  const response = NextResponse.next({ request: { headers } })
+  response.headers.set('x-request-id', requestId)
+  applySecurityHeaders(req, response)
+  return response
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
+}

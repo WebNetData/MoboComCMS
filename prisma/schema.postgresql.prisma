@@ -1,0 +1,1267 @@
+// HappVPN – Prisma schema (extended CMS + RBAC)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  email          String          @unique
+  passwordHash   String
+  name           String          @default("")
+  role           String          @default("CUSTOMER") // legacy simple role: CUSTOMER | ADMIN
+  roleId         Int? // link to Role (fine-grained RBAC)
+  status         String          @default("ACTIVE") // ACTIVE | BANNED
+  note           String          @default("")
+  phone          String          @default("")
+  avatarColor    String          @default("#4b45ee")
+  walletBalance  Float           @default(0) // legacy USD mirror; use WalletAccount for accounting
+  // Telegram login: `telegramId` is the account identity inside the bot and
+  // the mini app, the rest is profile sugar for the greeting.
+  telegramId     String?         @unique
+  telegramUsername String        @default("")
+  telegramName   String          @default("")
+  telegramPhoto  String          @default("")
+  telegramLinkedAt DateTime?
+  subscriptionAlerts Boolean @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
+  orders         Order[]
+  subscriptions  Subscription[]
+  tickets        Ticket[]        @relation("TicketUser")
+  ticketMessages TicketMessage[]
+  crmNotes       CrmNote[]
+  roleRef        Role?           @relation(fields: [roleId], references: [id])
+  posts          Post[]
+  postComments   PostComment[]
+  productReviews  ProductReview[]
+  productQuestions ProductQuestion[]
+  invoices       Invoice[]
+  payments       Payment[]
+  walletTxs      WalletTx[]
+  walletAccounts WalletAccount[]
+  apiKeys        ApiKey[]
+  reseller       Reseller?
+  resellerMembership ResellerMember?
+  trialClaim     TrialClaim?
+  notifications  UserNotification[]
+
+  @@index([telegramId])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // admin | support | reseller | backup
+  nameFa      String   @default("")
+  nameEn      String   @default("")
+  permissions String   @default("") // comma separated keys
+  isSystem    Boolean  @default(false)
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model UserNotification {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  kind       String
+  dedupeKey  String    @unique
+  titleEn    String
+  titleFa    String
+  bodyEn     String    @default("")
+  bodyFa     String    @default("")
+  href       String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model Panel {
+  id            Int            @id @default(autoincrement())
+  name          String
+  type          String // REMNAWAVE | PASARGUARD
+  url           String
+  token         String
+  password      String         @default("")
+  inbounds      String         @default("")
+  // Remnawave "internal squads" (UUIDs or names, comma separated). A user
+  // without a squad gets no config, so a plan on this panel needs them.
+  internalSquads String        @default("")
+  config        String         @default("{}")
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  plans         Plan[]
+  subscriptions Subscription[]
+}
+
+model Plan {
+  id             Int             @id @default(autoincrement())
+  name           String
+  nameEn         String          @default("")
+  description    String          @default("")
+  descriptionEn  String          @default("")
+  trafficGB      Int
+  days           Int
+  deviceLimit    Int             @default(2)
+  price          Float           // legacy display mirror; exact value is priceMinor
+  priceMinor     BigInt          @default(0)
+  currency       String          @default("USD")
+  active         Boolean         @default(true)
+  featured       Boolean         @default(false)
+  access         String          @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
+  memberPriceMinor BigInt        @default(0)
+  vipGiftDays    Int             @default(0)
+  sort           Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
+  panel          Panel?          @relation(fields: [panelId], references: [id])
+  panelId        Int?
+  orderItems     OrderItem[]
+  orders         Order[]
+  subscriptions  Subscription[]
+  invoices       Invoice[]
+  resellerPrices ResellerPrice[]
+  serviceOffers ServiceOffer[]
+}
+
+model Order {
+  id            Int            @id @default(autoincrement())
+  userId        Int
+  planId        Int?
+  productId     Int? // single-product purchase
+  totalAmount   Float          // legacy display mirror; exact value is totalMinor
+  totalMinor    BigInt         @default(0)
+  currency      String         @default("USD")
+  idempotencyKey String?       @unique
+  status        String         @default("PENDING")
+  provider      String         @default("plisio")
+  providerTxnId String         @default("")
+  paymentUrl    String         @default("")
+  paidCrypto    String         @default("")
+  paidAmount    String         @default("")
+  meta          String         @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  user          User           @relation(fields: [userId], references: [id])
+  plan          Plan?          @relation(fields: [planId], references: [id])
+  product       Product?       @relation(fields: [productId], references: [id])
+  items         OrderItem[]
+  subscriptions Subscription[]
+  gateway       Gateway?       @relation(fields: [gatewayId], references: [id])
+  gatewayId     Int?
+  invoice       Invoice?
+  payments      Payment[]
+  promotionRedemptions PromotionRedemption[]
+  productDelivery ProductDelivery?
+}
+
+model OrderItem {
+  id       Int   @id @default(autoincrement())
+  orderId  Int
+  planId   Int
+  quantity Int   @default(1)
+  price    Float // legacy display mirror
+  priceMinor BigInt @default(0)
+  order    Order @relation(fields: [orderId], references: [id])
+  plan     Plan  @relation(fields: [planId], references: [id])
+}
+
+model Subscription {
+  tickets Ticket[]
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  planId       Int
+  orderId      Int?
+  panelId      Int?
+  status       String    @default("ACTIVE")
+  username     String
+  email        String?
+  trafficLimit Int       @default(0)
+  trafficUsed  Int       @default(0)
+  deviceLimit  Int       @default(0)
+  expiresAt    DateTime
+  subToken     String    @unique
+  panelSubUrl  String    @default("")
+  configLinks  String    @default("[]")
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+  plan         Plan      @relation(fields: [planId], references: [id])
+  order        Order?    @relation(fields: [orderId], references: [id])
+  panel        Panel?    @relation(fields: [panelId], references: [id])
+  // set when a reseller created this account for their own customer
+  resellerId   Int?
+  reseller     Reseller? @relation(fields: [resellerId], references: [id])
+}
+
+/// A reseller (agency) account: creates subscriptions for its own customers
+/// under admin-defined quotas (volume, account count, per-account limits).
+model Reseller {
+  id                     Int             @id @default(autoincrement())
+  userId                 Int             @unique
+  active                 Boolean         @default(true)
+  // pricing: percentage off the list price, or explicit per-plan prices
+  priceMode              String          @default("DISCOUNT") // DISCOUNT | CUSTOM
+  discountPercent        Float           @default(0)
+  // quotas — 0 means unlimited
+  maxAccounts            Int             @default(0)
+  maxActiveAccounts      Int             @default(0)
+  trafficQuotaGB         Int             @default(0) // total GB the reseller may hand out
+  maxTrafficPerAccountGB Int             @default(0) // cap per account (e.g. 100)
+  allowUnlimitedTraffic  Boolean         @default(false) // may create accounts with 0 = unlimited
+  maxDaysPerAccount      Int             @default(0) // cap on duration (e.g. 31)
+  allowUnlimitedDays     Boolean         @default(false)
+  maxDevicesPerAccount   Int             @default(0)
+  note                   String          @default("")
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @default(now()) @updatedAt
+  user                   User            @relation(fields: [userId], references: [id])
+  prices                 ResellerPrice[]
+  subscriptions          Subscription[]
+  members                ResellerMember[]
+}
+
+model ResellerMember {
+  id Int @id @default(autoincrement())
+  resellerId Int
+  userId Int @unique
+  permissions String @default("")
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  reseller Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resellerId, active])
+}
+
+model ResellerPrice {
+  id         Int      @id @default(autoincrement())
+  resellerId Int
+  planId     Int
+  price      Float // legacy display mirror
+  priceMinor BigInt @default(0)
+  reseller   Reseller @relation(fields: [resellerId], references: [id])
+  plan       Plan     @relation(fields: [planId], references: [id])
+
+  @@unique([resellerId, planId])
+}
+
+model TrialClaim {
+  id Int @id @default(autoincrement())
+  userId Int @unique
+  planId Int
+  orderId Int @unique
+  status String @default("PENDING")
+  subscriptionId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Promotion {
+  id Int @id @default(autoincrement())
+  code String @unique
+  active Boolean @default(true)
+  kind String @default("PERCENT")
+  percentBps Int @default(0)
+  amountMinor BigInt @default(0)
+  currency String @default("USD")
+  planId Int?
+  minSubtotalMinor BigInt @default(0)
+  maxUses Int @default(0)
+  perUserLimit Int @default(1)
+  membersOnly Boolean @default(false)
+  reservedCount Int @default(0)
+  startsAt DateTime?
+  endsAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  redemptions PromotionRedemption[]
+}
+
+model PromotionRedemption {
+  id Int @id @default(autoincrement())
+  promotionId Int
+  userId Int
+  orderId Int @unique
+  status String @default("RESERVED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+  @@index([promotionId, userId, status])
+}
+
+model ReferralCode {
+  id Int @id @default(autoincrement())
+  ownerId Int @unique
+  code String @unique
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ReferralAttribution {
+  id Int @id @default(autoincrement())
+  referredUserId Int @unique
+  referrerUserId Int
+  code String
+  rewardBps Int
+  rewardOrderId Int?
+  rewardMinor BigInt @default(0)
+  rewardCurrency String @default("USD")
+  rewardedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([referrerUserId, createdAt])
+}
+
+model ServiceOffer {
+  id Int @id @default(autoincrement())
+  ownerKey String
+  planId Int
+  nameFa String
+  nameEn String
+  trafficGB Int
+  days Int
+  deviceLimit Int
+  priceMinor BigInt
+  currency String @default("USD")
+  cardPriceMinor BigInt?
+  cardCurrency String?
+  active Boolean @default(true)
+  sortOrder Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  plan Plan @relation(fields: [planId], references: [id])
+  sales ResellerSale[]
+  @@index([ownerKey, active, sortOrder])
+}
+
+model ResellerBot {
+  id Int @id @default(autoincrement())
+  resellerId Int @unique
+  botId String @unique
+  username String
+  tokenCipher String
+  webhookSecret String
+  ownerTelegramId String
+  brandName String
+  publicUrl String @default("")
+  cardNumber String
+  cardHolder String
+  active Boolean @default(false)
+  lastError String @default("")
+  installedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model ResellerSale {
+  id Int @id @default(autoincrement())
+  resellerId Int
+  offerId Int
+  botId Int
+  telegramUserId String
+  telegramChatId String
+  sourceUpdateId String?
+  status String @default("AWAITING_RECEIPT")
+  receiptFileId String @default("")
+  terms String @default("{}")
+  retailMinor BigInt @default(0)
+  currency String @default("USD")
+  locale String @default("en")
+  lastError String @default("")
+  deliveredAt DateTime?
+  reviewedAt DateTime?
+  reviewerUserId Int?
+  reviewerTelegramId String @default("")
+  reviewDecision String @default("")
+  orderId Int?
+  subscriptionId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  offer ServiceOffer @relation(fields: [offerId], references: [id])
+  @@index([resellerId, status, createdAt])
+  @@index([botId, telegramUserId, createdAt])
+  @@unique([botId, sourceUpdateId])
+}
+
+model ResellerBotUpdate {
+  id Int @id @default(autoincrement())
+  botId Int
+  updateId String
+  createdAt DateTime @default(now())
+  @@unique([botId, updateId])
+  @@index([createdAt])
+}
+
+model Ticket {
+  subscriptionId Int?
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  subscriptionUsername String @default("")
+  subscriptionLink String @default("")
+  productId Int?
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  department String @default("GENERAL")
+  customFields String @default("{}")
+  device String?
+  issueType String?
+  id        Int             @id @default(autoincrement())
+  userId    Int
+  subject   String
+  status    String          @default("OPEN") // OPEN | PENDING | CLOSED
+  priority  String          @default("normal")
+  assignedToId Int?
+  firstResponseAt DateTime?
+  lastCustomerAt DateTime?
+  lastStaffAt DateTime?
+  closedAt DateTime?
+  slaDueAt DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now()) @updatedAt
+  user      User            @relation("TicketUser", fields: [userId], references: [id])
+  messages  TicketMessage[]
+  @@index([department, status, updatedAt])
+  @@index([assignedToId, status])
+}
+
+model TicketDepartment {
+  id Int @id @default(autoincrement())
+  slug String @unique
+  nameFa String
+  nameEn String
+  descriptionFa String @default("")
+  descriptionEn String @default("")
+  active Boolean @default(true)
+  requiresSubscription Boolean @default(false)
+  requiresProduct Boolean @default(false)
+  fields String @default("[]")
+  roleIds String @default("[]")
+  sortOrder Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model TicketMessage {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  userId    Int
+  fromAdmin Boolean  @default(false)
+  internal Boolean @default(false)
+  body      String
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  attachments TicketAttachment[]
+}
+
+model TicketAttachment {
+  id Int @id @default(autoincrement())
+  messageId Int
+  message TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename String @unique
+  originalName String
+  mimeType String
+  size Int
+  createdAt DateTime @default(now())
+  @@index([messageId])
+}
+
+model CrmNote {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  adminId   Int
+  body      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model WebhookLog {
+  id        Int      @id @default(autoincrement())
+  source    String   @default("plisio")
+  payload   String
+  valid     Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  actorUserId Int
+  actorEmail  String
+  action      String
+  targetType  String
+  targetId    String   @default("")
+  requestId   String   @default("")
+  ip          String   @default("")
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([requestId])
+}
+
+// ============ CMS ============
+model Page {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  title     String
+  titleEn   String   @default("")
+  content   String   @default("")
+  contentEn String   @default("")
+  status    String   @default("PUBLISHED") // DRAFT | PUBLISHED
+  showInNav Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model PostCategory {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  nameEn    String   @default("")
+  createdAt DateTime @default(now())
+  posts     Post[]
+  parentId  Int?
+  parent    PostCategory? @relation("PostCategoryTree", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  children  PostCategory[] @relation("PostCategoryTree")
+  assignments PostCategoryAssignment[]
+
+  @@index([parentId])
+}
+
+model Post {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique
+  title       String
+  titleEn     String        @default("")
+  excerpt     String        @default("")
+  excerptEn   String        @default("")
+  content     String
+  contentEn   String        @default("")
+  cover       String        @default("")
+  status      String        @default("PUBLISHED") // DRAFT | PUBLISHED
+  featured    Boolean       @default(false)
+  access      String        @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
+  views       Int           @default(0)
+  authorId    Int?
+  categoryId  Int?
+  publishedAt DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
+  author      User?         @relation(fields: [authorId], references: [id])
+  category    PostCategory? @relation(fields: [categoryId], references: [id])
+  categories  PostCategoryAssignment[]
+  comments    PostComment[]
+}
+
+model PostComment {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  parentId  Int?
+  body      String
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    PostComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies   PostComment[] @relation("CommentReplies")
+  @@index([postId, status, createdAt])
+  @@index([parentId])
+}
+
+model PostCategoryAssignment {
+  postId     Int
+  categoryId Int
+  post       Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   PostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+}
+
+model ProductCategory {
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique
+  name      String
+  nameEn    String    @default("")
+  createdAt DateTime  @default(now())
+  products  Product[]
+  parentId  Int?
+  parent    ProductCategory? @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  ProductCategory[] @relation("ProductCategoryTree")
+  attributeGroupId Int?
+  attributeGroup ProductAttributeGroup? @relation(fields: [attributeGroupId], references: [id], onDelete: SetNull)
+  @@index([parentId])
+  @@index([attributeGroupId])
+}
+
+model ProductAttributeGroup {
+  id        Int @id @default(autoincrement())
+  name      String
+  nameEn    String @default("")
+  appliesTo String @default("ANY") // ANY | VIRTUAL | PHYSICAL
+  // Validated array of {key, label, labelEn, kind, options, required}.
+  fields    String @default("[]")
+  categories ProductCategory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Product {
+  id            Int              @id @default(autoincrement())
+  slug          String           @unique
+  name          String
+  nameEn        String           @default("")
+  description   String           @default("")
+  descriptionEn String           @default("")
+  price         Float            @default(0) // legacy display mirror; exact value is priceMinor
+  priceMinor    BigInt           @default(0)
+  currency      String           @default("USD")
+  image         String           @default("")
+  gallery       String           @default("[]")
+  stock         Int              @default(-1) // -1 = unlimited
+  active        Boolean          @default(true)
+  featured      Boolean          @default(false)
+  sortOrder     Int              @default(0)
+  categoryId    Int?
+  kind          String @default("VIRTUAL") // VIRTUAL | PHYSICAL
+  access        String @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
+  memberPriceMinor BigInt @default(0) // VIP price; 0 = none
+  vipGiftDays   Int @default(0) // VIP days granted with a paid purchase
+  specifications String @default("{}") // attribute keys inherited from category group
+  faqs          String @default("[]")
+  variants      ProductVariant[]
+  reviews       ProductReview[]
+  questions     ProductQuestion[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+  category      ProductCategory? @relation(fields: [categoryId], references: [id])
+  orders        Order[]
+  invoices      Invoice[]
+  tickets       Ticket[]
+}
+
+model ProductVariant {
+  id          Int @id @default(autoincrement())
+  productId   Int
+  sku         String @unique
+  name        String
+  nameEn      String @default("")
+  // Selected attribute keys and values, e.g. {"color":"blue"}.
+  attributes  String @default("{}")
+  price       Float @default(0)
+  priceMinor  BigInt @default(0)
+  memberPriceMinor BigInt @default(0)
+  stock       Int @default(-1)
+  active      Boolean @default(true)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reservations InventoryReservation[]
+  @@index([productId, active])
+}
+
+model ProductReview {
+  id        Int @id @default(autoincrement())
+  productId Int
+  userId    Int
+  rating    Int
+  criteria  String @default("{}") // quality, value and usability scores (1–5)
+  title     String @default("")
+  body      String
+  status    String @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([productId, userId])
+  @@index([productId, status, createdAt])
+}
+
+model ProductQuestion {
+  id        Int @id @default(autoincrement())
+  productId Int
+  userId    Int?
+  guestName String @default("")
+  body      String
+  answer    String @default("")
+  status    String @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([productId, status, createdAt])
+}
+
+model ProductDelivery {
+  id          Int @id @default(autoincrement())
+  orderId     Int @unique
+  status      String @default("PENDING") // PENDING | PROCESSING | DELIVERED
+  address     String @default("")
+  trackingCode String @default("")
+  deliveryNote String @default("")
+  digitalDelivery String @default("") // encrypted fulfillment details, owner/admin only
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ============ FINANCE / BILLING ============
+model Gateway {
+  id           Int       @id @default(autoincrement())
+  name         String
+  provider     String    @default("PLISIO") // PLISIO | FRENZYEX | MANUAL
+  apiKey       String    @default("")
+  secretKey    String    @default("")
+  fiat         String    @default("USD")
+  currencies   String    @default("")
+  feePercent   Float     @default(0) // legacy display mirror
+  feeBps       Int       @default(0)
+  minAmount    Float     @default(0) // legacy display mirror
+  minAmountMinor BigInt  @default(0)
+  instructions String    @default("")
+  active       Boolean   @default(true)
+  isDefault    Boolean   @default(false)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  orders       Order[]
+  invoices     Invoice[]
+  payments     Payment[]
+}
+
+model Invoice {
+  id            Int       @id @default(autoincrement())
+  number        String    @unique
+  userId        Int
+  orderId       Int?      @unique
+  planId        Int?
+  productId     Int?
+  subtotal      Float     @default(0) // legacy display mirrors; exact values are *Minor
+  subtotalMinor BigInt    @default(0)
+  discount      Float     @default(0)
+  discountMinor BigInt    @default(0)
+  tax           Float     @default(0)
+  taxMinor      BigInt    @default(0)
+  total         Float     @default(0)
+  totalMinor    BigInt    @default(0)
+  // how much of the total was covered by the customer's wallet credit
+  walletApplied Float     @default(0)
+  walletAppliedMinor BigInt @default(0)
+  currency      String    @default("USD")
+  idempotencyKey String?  @unique
+  status        String    @default("UNPAID") // DRAFT | UNPAID | PAID | VOID | REFUNDED
+  gatewayId     Int?
+  providerTxnId String    @default("")
+  paymentUrl    String    @default("")
+  paidCrypto    String    @default("")
+  paidAmount    Float     @default(0)
+  paidAmountMinor BigInt   @default(0)
+  notes         String    @default("")
+  kind          String    @default("BILLING") // BILLING | WALLET_TOPUP
+  createdBy     Int?
+  issuedAt      DateTime  @default(now())
+  dueAt         DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  user          User      @relation(fields: [userId], references: [id])
+  order         Order?    @relation(fields: [orderId], references: [id])
+  plan          Plan?     @relation(fields: [planId], references: [id])
+  product       Product?  @relation(fields: [productId], references: [id])
+  gateway       Gateway?  @relation(fields: [gatewayId], references: [id])
+  payments      Payment[]
+}
+
+model Payment {
+  id             Int       @id @default(autoincrement())
+  userId         Int?
+  orderId        Int?
+  invoiceId      Int?
+  gatewayId      Int?
+  provider       String    @default("PLISIO")
+  providerTxnId  String    @default("")
+  amount         Float     @default(0) // legacy display mirror
+  amountMinor    BigInt    @default(0)
+  currency       String    @default("USD")
+  cryptoCurrency String    @default("")
+  cryptoAmount   String    @default("")
+  fee            Float     @default(0) // legacy display mirror
+  feeMinor       BigInt    @default(0)
+  eventKey       String?   @unique
+  status         String    @default("PENDING") // PENDING | PROCESSED | CONFIRMED | FAILED | REFUNDED
+  raw            String    @default("{}")
+  createdAt      DateTime  @default(now())
+  confirmedAt    DateTime?
+  user           User?     @relation(fields: [userId], references: [id])
+  order          Order?    @relation(fields: [orderId], references: [id])
+  invoice        Invoice?  @relation(fields: [invoiceId], references: [id])
+  gateway        Gateway?  @relation(fields: [gatewayId], references: [id])
+}
+
+model WalletTx {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  amount       Float // legacy display mirror; + credit / - debit
+  amountMinor  BigInt   @default(0)
+  balanceAfter Float    @default(0) // legacy display mirror
+  balanceAfterMinor BigInt @default(0)
+  currency     String   @default("USD")
+  idempotencyKey String? @unique
+  type         String   @default("TOPUP") // TOPUP | PURCHASE | REFUND | ADMIN_CREDIT | ADMIN_DEBIT | RENEWAL
+  status       String   @default("DONE") // DONE | PENDING | PROCESSING | FAILED
+  description  String   @default("")
+  orderId      Int?
+  invoiceId    Int?
+  adminId      Int?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  name       String    @default("default")
+  prefix     String    @default("")
+  token      String    @unique
+  active     Boolean   @default(true)
+  requests   Int       @default(0)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id])
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  category  String   @default("SERVER") // SERVER | MARKETING | SALARY | OTHER
+  amount    Float    @default(0) // legacy display mirror
+  amountMinor BigInt  @default(0)
+  currency  String   @default("USD")
+  spentAt   DateTime @default(now())
+  note      String   @default("")
+  createdBy Int?
+  createdAt DateTime @default(now())
+}
+
+// ============ FINANCIAL / DELIVERY INFRASTRUCTURE ============
+model WalletAccount {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  currency     String
+  balanceMinor BigInt   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currency])
+  @@index([currency])
+}
+
+model InvoiceSequence {
+  year      Int      @id
+  value     Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Durable webhook inbox. A provider event is claimed once and can be retried
+/// after a worker crash without settling the same financial event twice.
+model WebhookInbox {
+  id          Int       @id @default(autoincrement())
+  provider    String
+  eventKey    String
+  status      String    @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  payload     String
+  attempts    Int       @default(0)
+  lockedAt    DateTime?
+  processedAt DateTime?
+  lastError   String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@unique([provider, eventKey])
+  @@index([status, lockedAt])
+}
+
+/// Durable side-effect queue. Payment settlement is committed before external
+/// VPN provisioning/product delivery; workers can safely retry failed jobs.
+model FulfillmentJob {
+  id             Int       @id @default(autoincrement())
+  kind           String // PROVISION_SUBSCRIPTION | RENEW_SUBSCRIPTION | DELIVER_PRODUCT | RESELLER_PROVISION
+  dedupeKey      String    @unique
+  status         String    @default("PENDING") // PENDING | PROCESSING | DONE | FAILED
+  payload        String    @default("{}")
+  attempts       Int       @default(0)
+  availableAt    DateTime  @default(now())
+  lockedAt       DateTime?
+  completedAt    DateTime?
+  lastError      String    @default("")
+  orderId        Int?
+  invoiceId      Int?
+  subscriptionId Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@index([status, availableAt])
+  @@index([orderId])
+  @@index([invoiceId])
+}
+
+/// Reserves finite stock while an invoice is open so concurrent checkouts
+/// cannot oversell the last unit.
+model InventoryReservation {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @unique
+  productId Int
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantFinite Boolean @default(false)
+  quantity  Int      @default(1)
+  finite    Boolean  @default(true)
+  status    String   @default("HELD") // HELD | CONSUMED | RELEASED
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([productId, status])
+  @@index([expiresAt, status])
+}
+
+// Map markers for landing globe
+model MapLocation {
+  id        Int      @id @default(autoincrement())
+  country   String // e.g. Germany
+  countryFa String   @default("")
+  flag      String   @default("🏳️")
+  lat       Float
+  lng       Float
+  city      String   @default("")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// Independent form definitions and private submissions.
+model SiteForm {
+  id          Int              @id @default(autoincrement())
+  slug        String           @unique
+  title       String
+  description String           @default("")
+  fields      String           @default("[]")
+  published   Boolean          @default(false)
+  successText String           @default("پیام شما با موفقیت ثبت شد.")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  submissions FormSubmission[]
+}
+
+model FormSubmission {
+  id        Int      @id @default(autoincrement())
+  formId    Int
+  data      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId, createdAt])
+}
+
+model SubscriptionReminder {
+  id             String   @id
+  subscriptionId Int
+  kind           String
+  status         String   @default("CLAIMED")
+  attempts       Int      @default(1)
+  retryAt        DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@index([status, retryAt])
+  @@index([subscriptionId])
+}
+
+model ServiceIncident {
+  id Int @id @default(autoincrement())
+  panelId Int?
+  titleFa String
+  titleEn String
+  messageFa String
+  messageEn String
+  status String @default("INVESTIGATING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([panelId, status])
+}
+
+
+// ---------------------------------------------------------------- VIP membership
+
+/// Paid VIP membership plans (site-wide premium access).
+model MembershipPlan {
+  id            Int      @id @default(autoincrement())
+  slug          String   @unique
+  name          String
+  nameEn        String   @default("")
+  description   String   @default("")
+  descriptionEn String   @default("")
+  days          Int
+  priceMinor    BigInt   @default(0)
+  currency      String   @default("USD")
+  perks         String   @default("[]")
+  highlight     Boolean  @default(false)
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+}
+
+/// One VIP period. A user is a member while now is between startsAt and endsAt (and not revoked).
+model UserMembership {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  planId    Int?
+  source    String    @default("PURCHASE") // PURCHASE | GIFT | ADMIN
+  startsAt  DateTime  @default(now())
+  endsAt    DateTime
+  orderId   Int?
+  dedupeKey String?   @unique
+  note      String    @default("")
+  revokedAt DateTime?
+  createdBy Int?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, endsAt])
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------- Music
+
+model MusicArtist {
+  id        Int          @id @default(autoincrement())
+  slug      String       @unique
+  name      String
+  nameEn    String       @default("")
+  bio       String       @default("")
+  image     String       @default("")
+  cover     String       @default("")
+  featured  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @default(now()) @updatedAt
+  albums    MusicAlbum[]
+  tracks    MusicTrack[]
+}
+
+model MusicAlbum {
+  id          Int          @id @default(autoincrement())
+  slug        String       @unique
+  title       String
+  titleEn     String       @default("")
+  artistId    Int
+  cover       String       @default("")
+  year        Int?
+  genre       String       @default("")
+  description String       @default("")
+  access      String       @default("PUBLIC") // PUBLIC | MEMBERS
+  status      String       @default("PUBLISHED")
+  featured    Boolean      @default(false)
+  views       Int          @default(0)
+  publishedAt DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+  artist      MusicArtist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks      MusicTrack[]
+
+  @@index([artistId])
+  @@index([status, publishedAt])
+}
+
+model MusicTrack {
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
+  title       String
+  titleEn     String      @default("")
+  artistId    Int
+  albumId     Int?
+  trackNo     Int         @default(0)
+  cover       String      @default("")
+  audioUrl    String      @default("")
+  audioHqUrl  String      @default("")
+  duration    Int         @default(0)
+  genre       String      @default("")
+  lyrics      String      @default("")
+  access      String      @default("PUBLIC")
+  status      String      @default("PUBLISHED")
+  featured    Boolean     @default(false)
+  plays       Int         @default(0)
+  downloads   Int         @default(0)
+  publishedAt DateTime    @default(now())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+  artist      MusicArtist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  album       MusicAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+
+  @@index([artistId])
+  @@index([albumId, trackNo])
+  @@index([status, publishedAt])
+}
+
+model MusicPlaylist {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
+  titleEn     String   @default("")
+  cover       String   @default("")
+  description String   @default("")
+  trackIds    String   @default("[]")
+  access      String   @default("PUBLIC")
+  status      String   @default("PUBLISHED")
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
+
+// ---------------------------------------------------------------- Film & series
+
+model CinemaTitle {
+  id            Int            @id @default(autoincrement())
+  slug          String         @unique
+  kind          String         @default("MOVIE") // MOVIE | SERIES
+  title         String
+  titleEn       String         @default("")
+  originalTitle String         @default("")
+  poster        String         @default("")
+  backdrop      String         @default("")
+  year          Int?
+  endYear       Int?
+  imdbRating    Float?
+  imdbId        String         @default("")
+  runtime       Int            @default(0)
+  ageRating     String         @default("")
+  countries     String         @default("")
+  languages     String         @default("")
+  genres        String         @default("")
+  director      String         @default("")
+  cast          String         @default("[]")
+  summary       String         @default("")
+  summaryEn     String         @default("")
+  trailerUrl    String         @default("")
+  quality       String         @default("")
+  dubbed        Boolean        @default(false)
+  subtitle      Boolean        @default(false)
+  seriesStatus  String         @default("")
+  access        String         @default("PUBLIC")
+  status        String         @default("PUBLISHED")
+  featured      Boolean        @default(false)
+  views         Int            @default(0)
+  publishedAt   DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  seasons       CinemaSeason[]
+
+  @@index([kind, status, publishedAt])
+}
+
+model CinemaSeason {
+  id       Int             @id @default(autoincrement())
+  titleId  Int
+  number   Int
+  name     String          @default("")
+  poster   String          @default("")
+  title    CinemaTitle     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episodes CinemaEpisode[]
+
+  @@unique([titleId, number])
+}
+
+model CinemaEpisode {
+  id       Int          @id @default(autoincrement())
+  seasonId Int
+  number   Int
+  title    String       @default("")
+  titleEn  String       @default("")
+  summary  String       @default("")
+  still    String       @default("")
+  runtime  Int          @default(0)
+  airDate  DateTime?
+  access   String       @default("PUBLIC")
+  season   CinemaSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, number])
+}
+
+// ---------------------------------------------------------------- Games
+
+model GameTitle {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique
+  title        String
+  titleEn      String    @default("")
+  cover        String    @default("")
+  backdrop     String    @default("")
+  platforms    String    @default("")
+  genres       String    @default("")
+  developer    String    @default("")
+  publisher    String    @default("")
+  releaseDate  DateTime?
+  score        Int?
+  userScore    Float?
+  ageRating    String    @default("")
+  trailerUrl   String    @default("")
+  screenshots  String    @default("[]")
+  summary      String    @default("")
+  content      String    @default("")
+  pros         String    @default("[]")
+  cons         String    @default("[]")
+  requirements String    @default("{}")
+  access       String    @default("PUBLIC")
+  status       String    @default("PUBLISHED")
+  featured     Boolean   @default(false)
+  views        Int       @default(0)
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+/// Download / stream links for films, episodes and games. URLs are never sent to
+/// the browser; visitors go through /api/media/link/<id>, which checks VIP access.
+model MediaLink {
+  id        Int      @id @default(autoincrement())
+  ownerType String // title | episode | game
+  ownerId   Int
+  label     String   @default("")
+  kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM
+  quality   String   @default("")
+  size      String   @default("")
+  audio     String   @default("") // ORIGINAL | DUBBED | ''
+  subtitle  Boolean  @default(false)
+  url       String
+  access    String   @default("PUBLIC")
+  clicks    Int      @default(0)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ownerType, ownerId])
+}
