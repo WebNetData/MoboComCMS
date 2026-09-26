@@ -41,3 +41,6 @@ MoboComCMS-source.sha256
 
 prisma/*.db-shm
 prisma/*.db-wal
+
+# Customer payment receipts (private uploads)
+/storage/receipts/
