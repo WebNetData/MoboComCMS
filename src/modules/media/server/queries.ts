@@ -300,13 +300,61 @@ export async function getGame(slug: string) {
 
 export type SoftwareCard = {
   id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
-  license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; publishedAt: Date
+  license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; views: number; publishedAt: Date; updatedAt: Date
 }
 function toSoftware(row: any): SoftwareCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
-    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: row.summary, downloads: row.downloads, publishedAt: row.publishedAt,
+    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: row.summary, downloads: row.downloads,
+    views: row.views ?? 0, publishedAt: row.publishedAt, updatedAt: row.updatedAt ?? row.publishedAt,
   }
+}
+
+const FEED_SIZE = 12
+
+/** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const where: any = { ...live() }
+  if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
+  if (input.category) where.category = String(input.category).slice(0, 60)
+  if (input.license) where.license = String(input.license).slice(0, 20)
+  const q = String(input.q || '').trim().slice(0, 80)
+  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }, { summary: { contains: q } }]
+  const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'views' ? [{ views: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
+  const [rows, total] = await Promise.all([
+    db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * FEED_SIZE, take: FEED_SIZE }),
+    db.softwareTitle.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
+}
+
+export type SoftwareTree = { platform: string; count: number; categories: { name: string; count: number }[] }[]
+
+/** Sidebar: platform → category tree with counts, most viewed, most downloaded and today's updates. */
+export async function softwareSidebar() {
+  const since = new Date(Date.now() - 24 * 3600_000)
+  const [facets, viewed, downloaded, today, total] = await allOrEmpty([
+    db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 5000 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ views: 'desc' }], take: 8 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }], take: 8 }),
+    db.softwareTitle.findMany({ where: { ...live(), updatedAt: { gt: since } }, orderBy: [{ updatedAt: 'desc' }], take: 8 }),
+    db.softwareTitle.count({ where: live() }),
+  ])
+  const tree = new Map<string, { count: number; categories: Map<string, number> }>()
+  for (const row of facets as { platforms: string; category: string }[]) {
+    for (const platform of splitList(row.platforms, 8)) {
+      const node = tree.get(platform) || { count: 0, categories: new Map<string, number>() }
+      node.count++
+      if (row.category) node.categories.set(row.category, (node.categories.get(row.category) || 0) + 1)
+      tree.set(platform, node)
+    }
+  }
+  const order = ['Windows', 'macOS', 'Linux', 'Android', 'iOS']
+  const platforms: SoftwareTree = [...tree.entries()]
+    .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99) || b[1].count - a[1].count)
+    .map(([platform, node]) => ({ platform, count: node.count, categories: [...node.categories.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) }))
+  return { tree: platforms, viewed: viewed.map(toSoftware), downloaded: downloaded.map(toSoftware), today: today.map(toSoftware), total: Number(total) || 0 }
 }
 
 export async function getSoftwareHome() {
@@ -350,6 +398,7 @@ export async function getSoftware(slug: string) {
   return {
     software: {
       ...toSoftware(row), website: row.website, requirements: row.requirements, content: row.content, changelog: row.changelog, views: row.views, releasedAt: row.releasedAt, updatedAt: row.updatedAt,
+      features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],
