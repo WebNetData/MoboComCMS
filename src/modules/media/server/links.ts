@@ -9,7 +9,7 @@ import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
  * public site links to these endpoints, which check VIP access and count usage.
  */
 
-const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games' }
+const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', software: 'software' }
 
 function denied(request: Request, reason: 'login' | 'vip', wantsJson: boolean) {
   const status = reason === 'login' ? 401 : 403
@@ -28,6 +28,7 @@ function wantsJson(request: Request) {
 async function ownerAccess(ownerType: string, ownerId: number): Promise<string | null> {
   if (ownerType === 'title') return (await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true } }))?.access ?? null
   if (ownerType === 'game') return (await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true } }))?.access ?? null
+  if (ownerType === 'software') return (await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true } }))?.access ?? null
   if (ownerType === 'episode') {
     const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, season: { select: { title: { select: { access: true, status: true } } } } } })
     if (!episode || episode.season.title.status !== 'PUBLISHED') return null
@@ -53,6 +54,7 @@ export async function openMediaLink(request: Request, rawId: string) {
     if (!canAccess('MEMBERS', viewer.member)) return denied(request, 'vip', wantsJson(request))
   }
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
+  if (link.ownerType === 'software') await db.softwareTitle.update({ where: { id: link.ownerId }, data: { downloads: { increment: 1 } } }).catch(() => undefined)
   const response = NextResponse.redirect(link.url, 303)
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')

@@ -10,8 +10,8 @@ export default function AuthFrame({ children }: { children: ReactNode }) {
   const site = useSite()
   const fa = locale === 'fa'
   const features = [
-    { icon: 'devices', title: fa ? 'همه دستگاه‌ها، یک حساب' : 'All your devices. One account.', text: fa ? 'اشتراک‌ها و اتصال‌های خود را یک‌جا مدیریت کنید.' : 'Keep your subscriptions and connections together.' },
-    { icon: 'wallet', title: fa ? 'مدیریت ساده و شفاف' : 'Everything, at a glance.', text: fa ? 'مصرف، کیف پول و سفارش‌ها همیشه در دسترس شماست.' : 'Your usage, wallet and orders, always within reach.' },
+    { icon: 'devices', title: fa ? 'یک حساب برای همه‌چیز' : 'One account for everything', text: fa ? 'فروشگاه، مجله، موزیک، فیلم، بازی، نرم‌افزار و تالار با یک حساب.' : 'Shop, magazine, music, films, games, software and forum in one account.' },
+    { icon: 'wallet', title: fa ? 'مدیریت ساده و شفاف' : 'Everything, at a glance.', text: fa ? 'سفارش‌ها، فاکتورها، کیف پول و اشتراک ویژه همیشه در دسترس شماست.' : 'Your orders, invoices, wallet and VIP membership, always within reach.' },
     { icon: 'chat', title: fa ? 'پشتیبانی در کنار شما' : 'A little help, whenever you need it.', text: fa ? 'از پنل خود با تیم پشتیبانی در ارتباط باشید.' : 'Contact the support team directly from your account.' },
   ]
 
@@ -21,7 +21,7 @@ export default function AuthFrame({ children }: { children: ReactNode }) {
         <section className="auth-story" aria-labelledby="auth-story-title">
           <span className="auth-eyebrow"><span aria-hidden="true" />{site.brand}</span>
           <h2 id="auth-story-title">{fa ? 'دنیای شما.' : 'Your world.'}<br /><em>{fa ? 'بدون مرز.' : 'Within reach.'}</em></h2>
-          <p className="auth-story-intro">{fa ? 'فضایی برای مدیریت اتصال‌های شما. ساده، منظم و همیشه در دسترس.' : 'A space for your connected life. Simple, organized, and always yours.'}</p>
+          <p className="auth-story-intro">{fa ? 'خرید، سرگرمی و دانلود در یک جا. ساده، امن و همیشه در دسترس.' : 'Shopping, entertainment and downloads in one place. Simple, safe and always yours.'}</p>
           <div className="auth-orbit" aria-hidden="true">
             <svg viewBox="0 0 440 190" fill="none">
               <defs><radialGradient id="auth-orbit-glow"><stop stopColor="#119bff" stopOpacity=".2" /><stop offset="1" stopColor="#119bff" stopOpacity="0" /></radialGradient></defs>
@@ -34,7 +34,7 @@ export default function AuthFrame({ children }: { children: ReactNode }) {
           <div className="auth-feature-list">
             {features.map(feature => <div className="auth-feature" key={feature.icon}><span><Icon name={feature.icon} size={20} /></span><div><h3>{feature.title}</h3><p>{feature.text}</p></div></div>)}
           </div>
-          <p className="auth-story-foot">{fa ? 'اتصال بهتر، از اینجا شروع می‌شود.' : 'Your next connection starts here.'}</p>
+          <p className="auth-story-foot">{fa ? 'دنیای دیجیتال شما از اینجا شروع می‌شود.' : 'Your digital world starts here.'}</p>
         </section>
         <section className="auth-form-panel">{children}</section>
       </div>

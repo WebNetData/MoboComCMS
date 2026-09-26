@@ -5,9 +5,11 @@ import Link from 'next/link'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 export default function AdminDashboard() {
   const { t, locale } = useI18n()
+  const vpnOn = useModuleEnabled('vpn')
   const isFa = locale === 'fa'
   const [data, setData] = useState<any>(null)
   const [fin, setFin] = useState<any>(null)
@@ -60,7 +62,8 @@ export default function AdminDashboard() {
     [t.pendingOrders, String(s.pendingOrders), '⏳', s.pendingOrders ? 'kpi-amber' : ''],
     [t.openTickets, String(s.openTickets), '🎫', s.openTickets ? 'kpi-red' : ''],
     [t.customersCount, String(s.users), '👥', ''],
-    [t.activeSubs, String(s.activeSubs), '🔗', ''],
+    // VPN subscriptions only matter while the VPN module is on; otherwise show total orders.
+    vpnOn ? [t.activeSubs, String(s.activeSubs), '🔗', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', String(s.orders ?? 0), '🛍️', ''],
   ]
 
   const maxMonth = fin ? Math.max(1, ...fin.byMonth.map((m: any) => Math.max(m.revenue, m.expenses))) : 1

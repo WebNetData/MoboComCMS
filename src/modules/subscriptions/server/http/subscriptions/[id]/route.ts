@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 // Customer self-service subscription actions (also exposed over the public API
 // in /api/v1 — both go through lib/submanage so behaviour can never diverge).
 import { NextRequest } from 'next/server'
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id < 1) return err('invalid id', 400)
   try {
-    const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+    const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
     const preview = await getRenewalPreview(id, user.id, locale)
     if (!preview) return err('not found', 404)
     const response = ok(preview)

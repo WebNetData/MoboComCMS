@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 // Everything the customer needs to connect, for the "اتصال" panel in the
 // dashboard, the Telegram mini app and the admin panel: the live subscription
 // URL(s) with their health, the individual configs, usage and expiry.
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   const params = await paramsPromise
   const user = await requireUser(req)
   if (!user) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+  const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
   const owned = await db.subscription.findUnique({ where: { subToken: params.token }, select: { userId: true, plan: true } })
   if (!owned || owned.userId !== user.id) return NextResponse.json({ ok: false, error: locale === 'fa' ? 'اشتراک یافت نشد' : 'Subscription not found' }, { status: 404 })
   const sync = req.nextUrl.searchParams.get('sync') !== '0'

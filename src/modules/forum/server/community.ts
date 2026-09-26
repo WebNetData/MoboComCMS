@@ -1,0 +1,182 @@
+import { cache } from 'react'
+import { db } from '@/platform/database/prisma'
+import { logEvent } from '@/platform/observability/logger'
+import { parsePermissions } from '@/modules/identity/rbac'
+import { getViewer as getSessionViewer, isMember } from '@/modules/membership/server/membership'
+import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import {
+  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, usernameSeed,
+  type ForumSettings, type Viewer,
+} from '@/modules/forum/domain/community'
+
+// Shared forum services: settings, the current viewer (groups, trust level,
+// staff), profiles, counters, trust promotion, badges and notifications.
+
+const SETTINGS_KEY = 'forum.settings.v1'
+
+export const getForumSettings = cache(async (): Promise<ForumSettings> => {
+  const row = await db.setting.findUnique({ where: { key: SETTINGS_KEY } }).catch(() => null)
+  if (!row) return DEFAULT_FORUM_SETTINGS
+  try { return normalizeForumSettings(JSON.parse(row.value)) } catch { return DEFAULT_FORUM_SETTINGS }
+})
+
+export async function saveForumSettings(input: Record<string, unknown>) {
+  const settings = normalizeForumSettings(input)
+  const value = JSON.stringify(settings)
+  await db.setting.upsert({ where: { key: SETTINGS_KEY }, create: { key: SETTINGS_KEY, value }, update: { value } })
+  return settings
+}
+
+// ------------------------------------------------------------------ profiles
+
+async function uniqueUsername(seed: string) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const name = attempt ? `${seed.slice(0, 16)}${attempt + 1}` : seed
+    if (!await db.forumProfile.findUnique({ where: { username: name }, select: { userId: true } })) return name
+  }
+  return `${seed.slice(0, 12)}${Date.now().toString(36).slice(-6)}`
+}
+
+/** Profiles for these users, creating missing ones with a unique username. */
+export async function ensureProfiles(userIds: number[]) {
+  const ids = [...new Set(userIds.filter((id) => Number.isSafeInteger(id) && id > 0))]
+  if (!ids.length) return
+  const existing = new Set((await db.forumProfile.findMany({ where: { userId: { in: ids } }, select: { userId: true } })).map((row) => row.userId))
+  const missing = ids.filter((id) => !existing.has(id))
+  if (!missing.length) return
+  const users = await db.user.findMany({ where: { id: { in: missing } }, select: { id: true, email: true, name: true } })
+  for (const user of users) {
+    const username = await uniqueUsername(usernameSeed({ email: user.email, name: user.name }))
+    await db.forumProfile.create({ data: { userId: user.id, username } }).catch((error: { code?: string }) => {
+      // A concurrent request created it first (or took the name): both are fine.
+      if (error?.code !== 'P2002') throw error
+    })
+  }
+}
+
+// ------------------------------------------------------------------ viewer
+
+async function isStaff(userId: number): Promise<boolean> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { role: true, status: true, roleId: true, roleRef: { select: { permissions: true } } } }).catch(() => null)
+  if (!user || user.role !== 'ADMIN' || user.status !== 'ACTIVE') return false
+  if (user.roleId == null) return true
+  const permissions = parsePermissions(user.roleRef?.permissions || '')
+  return permissions.includes('forum.moderate') || permissions.includes('cms.posts')
+}
+
+/** Resolve a user into a forum viewer (API routes pass the authenticated user id). */
+export async function viewerFor(userId: number | null | undefined, knownMember?: boolean): Promise<Viewer> {
+  const automatic = await db.forumGroup.findMany({ where: { automatic: { not: null } }, select: { id: true, automatic: true, moderator: true } })
+  const byKey = new Map(automatic.map((group) => [group.automatic!, group]))
+  if (!userId) return { ...GUEST, groupIds: byKey.get('everyone') ? [byKey.get('everyone')!.id] : [] }
+  await ensureProfiles([userId])
+  const [profile, staff, member, memberships] = await Promise.all([
+    db.forumProfile.findUnique({ where: { userId } }),
+    isStaff(userId),
+    knownMember ?? isMember(userId).catch(() => false),
+    db.forumGroupMember.findMany({ where: { userId, status: 'ACTIVE' }, select: { groupId: true, group: { select: { moderator: true } } } }),
+  ])
+  const trustLevel = profile?.trustLevel ?? 0
+  const keys = automaticGroups({ loggedIn: true, trustLevel, member, staff })
+  const groupIds = [...new Set([...keys.map((key) => byKey.get(key)?.id).filter((id): id is number => !!id), ...memberships.map((row) => row.groupId)])]
+  const now = Date.now()
+  const moderator = staff || memberships.some((row) => row.group.moderator)
+  return {
+    userId, groupIds, trustLevel, moderator, member,
+    silenced: !!profile?.silencedUntil && profile.silencedUntil.getTime() > now,
+    suspended: !!profile?.suspendedUntil && profile.suspendedUntil.getTime() > now,
+  }
+}
+
+/** The signed-in visitor as a forum viewer (server components, cached per request). */
+export const getForumViewer = cache(async (): Promise<Viewer> => {
+  const session = await getSessionViewer()
+  const viewer = await viewerFor(session.userId, session.member)
+  if (viewer.userId) void touchVisit(viewer.userId).catch((error) => logEvent('warn', 'forum.visit_failed', { error }))
+  return viewer
+})
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** Last seen time; the first visit of each day counts toward trust levels. */
+export async function touchVisit(userId: number) {
+  const day = today()
+  const updated = await db.forumProfile.updateMany({ where: { userId, NOT: { lastVisitDay: day } }, data: { lastVisitDay: day, daysVisited: { increment: 1 }, lastSeenAt: new Date() } })
+  if (updated.count) await refreshStats(userId)
+  else await db.forumProfile.updateMany({ where: { userId, OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: new Date(Date.now() - 60_000) } }] }, data: { lastSeenAt: new Date() } })
+}
+
+// ------------------------------------------------------------------ counters, trust, badges
+
+/**
+ * Recount a user's community numbers from the source tables, then apply
+ * automatic trust promotion and badges. Counting (instead of incrementing)
+ * keeps the numbers right after moderation, deletions and undone likes.
+ */
+export async function refreshStats(userId: number) {
+  const profile = await db.forumProfile.findUnique({ where: { userId } })
+  if (!profile) return
+  const [topicCount, postCount, likesGiven, likesReceived, solvedCount, topicsEntered, bestPost, user] = await Promise.all([
+    db.forumThread.count({ where: { userId, status: 'VISIBLE' } }),
+    db.forumPost.count({ where: { userId, status: 'VISIBLE' } }),
+    db.forumReaction.count({ where: { userId } }),
+    db.forumReaction.count({ where: { post: { userId } } }),
+    db.forumPost.count({ where: { userId, status: 'VISIBLE', solutionOf: { status: 'VISIBLE' } } }),
+    db.forumTopicUser.count({ where: { userId } }),
+    db.forumPost.findFirst({ where: { userId, status: 'VISIBLE' }, orderBy: { likeCount: 'desc' }, select: { likeCount: true } }),
+    db.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
+  ])
+  const settings = await getForumSettings()
+  const stats = { daysVisited: profile.daysVisited, topicsEntered, postCount, topicCount, likesGiven, likesReceived, solvedCount }
+  const trustLevel = computeTrustLevel(profile.trustLevel, stats, settings, profile.trustLocked)
+  await db.forumProfile.update({ where: { userId }, data: { topicCount, postCount, likesGiven, likesReceived, solvedCount, topicsEntered, trustLevel } })
+  if (trustLevel > profile.trustLevel) {
+    await notify(userId, 'FORUM_TRUST', `trust:${userId}:${trustLevel}`, 'سطح اعتماد شما بالا رفت', `به سطح اعتماد ${trustLevel.toLocaleString('fa-IR')} رسیدید و امکانات بیشتری در تالار دارید.`, `/forum/u/${profile.username}`)
+  }
+  await grantBadges(userId, {
+    ...stats, trustLevel, bestPostLikes: bestPost?.likeCount ?? 0, hasAvatar: !!profile.avatar, hasBio: profile.bio.trim().length >= 10,
+    memberDays: user ? Math.floor((Date.now() - user.createdAt.getTime()) / 86_400_000) : 0,
+  })
+}
+
+async function grantBadges(userId: number, facts: Parameters<typeof earnedBadgeRules>[0]) {
+  const rules = earnedBadgeRules(facts)
+  if (!rules.length) return
+  const badges = await db.forumBadge.findMany({ where: { enabled: true, rule: { in: rules }, grants: { none: { userId } } } })
+  const profile = await db.forumProfile.findUnique({ where: { userId }, select: { username: true } })
+  for (const badge of badges) {
+    try {
+      await db.$transaction([
+        db.forumUserBadge.create({ data: { userId, badgeId: badge.id, reason: 'automatic' } }),
+        db.forumBadge.update({ where: { id: badge.id }, data: { grantCount: { increment: 1 } } }),
+      ])
+      await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badge.id}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, badge.description, `/forum/u/${profile?.username || ''}?tab=badges`)
+    } catch (error) {
+      if ((error as { code?: string })?.code !== 'P2002') throw error
+    }
+  }
+}
+
+/** Staff grant or revoke of a manual badge. */
+export async function setBadge(userId: number, badgeId: number, grant: boolean, grantedBy: number, reason = '') {
+  if (grant) {
+    const created = await db.forumUserBadge.create({ data: { userId, badgeId, reason: reason.slice(0, 200), grantedBy } }).catch((error: { code?: string }) => { if (error?.code === 'P2002') return null; throw error })
+    if (!created) return false
+    const badge = await db.forumBadge.update({ where: { id: badgeId }, data: { grantCount: { increment: 1 } } })
+    const profile = await db.forumProfile.findUnique({ where: { userId }, select: { username: true } })
+    await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badgeId}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, reason || badge.description, `/forum/u/${profile?.username || ''}?tab=badges`)
+    return true
+  }
+  const removed = await db.forumUserBadge.deleteMany({ where: { userId, badgeId } })
+  if (removed.count) await db.forumBadge.update({ where: { id: badgeId }, data: { grantCount: { decrement: removed.count } } })
+  return removed.count > 0
+}
+
+// ------------------------------------------------------------------ notifications
+
+/** Forum notification in the user's inbox (deduplicated by key). */
+export async function notify(userId: number, kind: string, dedupeKey: string, titleFa: string, bodyFa: string, href: string) {
+  if (!href.startsWith('/')) return
+  await createInboxEvent({ userId, kind, dedupeKey, titleFa, titleEn: titleFa, bodyFa: bodyFa.slice(0, 300), bodyEn: bodyFa.slice(0, 300), href: href.replace(/[^A-Za-z0-9/_?=&.%#-]/g, (char) => encodeURIComponent(char)).replace(/#.*$/, '') })
+    .catch((error) => logEvent('warn', 'forum.notify_failed', { kind, error }))
+}

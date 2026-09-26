@@ -20,12 +20,16 @@ function sameSiteOrigin(req: NextRequest, origin: string): boolean {
 }
 
 const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com'
+// Google Translate website widget (google-translate plugin), public pages only.
+const TRANSLATE_SCRIPT = ' https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com'
+const TRANSLATE_CONNECT = ' https://translate.googleapis.com https://translate-pa.googleapis.com'
 
 function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   const path = req.nextUrl.pathname
   // The Telegram mini app must stay embeddable in the Telegram webview.
   const miniApp = path.startsWith('/miniapp')
   const turnstile = path === '/login' || path === '/register'
+  const translate = !miniApp && !path.startsWith('/admin') && !path.startsWith('/api')
 
   response.headers.set('x-content-type-options', 'nosniff')
   response.headers.set('referrer-policy', 'strict-origin-when-cross-origin')
@@ -34,15 +38,15 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
 
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}`,
-    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${translate ? TRANSLATE_SCRIPT : ''}`,
+    `style-src 'self' 'unsafe-inline'${translate ? ' https://www.gstatic.com' : ''}`,
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     // Music player and trailers stream from media hosts (after the protected /api/media redirect).
     "media-src 'self' https: blob:",
-    `connect-src 'self'${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}`,
+    `connect-src 'self'${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
     // Page-builder video blocks embed these players; login/register add their own providers.
-    `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}`,
+    `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
     miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",

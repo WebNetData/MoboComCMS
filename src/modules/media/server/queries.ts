@@ -42,8 +42,13 @@ function toPlaylist(row: any): PlaylistCard {
 
 const albumInclude = { artist: { select: artistSelect }, _count: { select: { tracks: true } } } as const
 
+/** Media tables can be missing on older databases: render an empty section instead of an error page, keeping row types. */
+function allOrEmpty<P extends readonly Promise<unknown>[]>(queries: [...P]): Promise<{ [K in keyof P]: Awaited<P[K]> }> {
+  return Promise.all(queries).catch(() => queries.map(() => [])) as Promise<{ [K in keyof P]: Awaited<P[K]> }>
+}
+
 export async function getMusicHome() {
-  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks] = await Promise.all([
+  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks] = await allOrEmpty([
     db.musicAlbum.findMany({ where: { ...live(), featured: true }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 20 }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
@@ -52,7 +57,7 @@ export async function getMusicHome() {
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
     db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
-  ]).catch(() => [[], [], [], [], [], [], [], []] as any[])
+  ])
   const genres = countList(genreRows.map((row: { genre: string }) => row.genre)).slice(0, 14)
   return {
     featuredAlbums: featuredAlbums.length ? featuredAlbums.map(toAlbum) : latestAlbums.slice(0, 5).map(toAlbum),
@@ -152,7 +157,7 @@ async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number
 }
 
 export async function getCinemaHome() {
-  const [featured, movies, series, topRated, members, dubbed, genreRows] = await Promise.all([
+  const [featured, movies, series, topRated, members, dubbed, genreRows] = await allOrEmpty([
     db.cinemaTitle.findMany({ where: { ...live(), featured: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
     db.cinemaTitle.findMany({ where: { ...live(), kind: 'MOVIE' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: { ...live(), kind: 'SERIES' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
@@ -160,7 +165,7 @@ export async function getCinemaHome() {
     db.cinemaTitle.findMany({ where: { ...live(), access: 'MEMBERS' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: { ...live(), dubbed: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.cinemaTitle.findMany({ where: live(), select: { genres: true }, take: 600 }),
-  ]).catch(() => [[], [], [], [], [], [], []] as any[])
+  ])
   const genres = countList(genreRows.map((row: { genres: string }) => row.genres)).slice(0, 16)
   const genreShelves = await Promise.all(genres.slice(0, 3).map(async (genre) => ({
     genre,
@@ -239,13 +244,13 @@ function toGame(row: any): GameCard {
 
 export async function getGamesHome() {
   const now = new Date()
-  const [featured, latest, topRated, upcoming, facetRows] = await Promise.all([
+  const [featured, latest, topRated, upcoming, facetRows] = await allOrEmpty([
     db.gameTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 5 }),
     db.gameTitle.findMany({ where: live(), orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.gameTitle.findMany({ where: { ...live(), score: { not: null } }, orderBy: { score: 'desc' }, take: 8 }),
     db.gameTitle.findMany({ where: { ...live(), releaseDate: { gt: now } }, orderBy: { releaseDate: 'asc' }, take: 8 }),
     db.gameTitle.findMany({ where: live(), select: { platforms: true, genres: true }, take: 800 }),
-  ]).catch(() => [[], [], [], [], []] as any[])
+  ])
   return {
     hero: (featured.length ? featured : latest.slice(0, 4)).map(toGame),
     latest: latest.map(toGame), topRated: topRated.map(toGame), upcoming: upcoming.map(toGame),
@@ -288,6 +293,116 @@ export async function getGame(slug: string) {
     },
     links: links.get(row.id) || [],
     related: related.map(toGame),
+  }
+}
+
+// ------------------------------------------------------------------ software
+
+export type SoftwareCard = {
+  id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
+  license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; views: number; publishedAt: Date; updatedAt: Date
+}
+function toSoftware(row: any): SoftwareCard {
+  return {
+    id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
+    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: row.summary, downloads: row.downloads,
+    views: row.views ?? 0, publishedAt: row.publishedAt, updatedAt: row.updatedAt ?? row.publishedAt,
+  }
+}
+
+const FEED_SIZE = 12
+
+/** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const where: any = { ...live() }
+  if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
+  if (input.category) where.category = String(input.category).slice(0, 60)
+  if (input.license) where.license = String(input.license).slice(0, 20)
+  const q = String(input.q || '').trim().slice(0, 80)
+  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }, { summary: { contains: q } }]
+  const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'views' ? [{ views: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
+  const [rows, total] = await Promise.all([
+    db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * FEED_SIZE, take: FEED_SIZE }),
+    db.softwareTitle.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
+}
+
+export type SoftwareTree = { platform: string; count: number; categories: { name: string; count: number }[] }[]
+
+/** Sidebar: platform → category tree with counts, most viewed, most downloaded and today's updates. */
+export async function softwareSidebar() {
+  const since = new Date(Date.now() - 24 * 3600_000)
+  const [facets, viewed, downloaded, today, total] = await allOrEmpty([
+    db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 5000 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ views: 'desc' }], take: 8 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }], take: 8 }),
+    db.softwareTitle.findMany({ where: { ...live(), updatedAt: { gt: since } }, orderBy: [{ updatedAt: 'desc' }], take: 8 }),
+    db.softwareTitle.count({ where: live() }),
+  ])
+  const tree = new Map<string, { count: number; categories: Map<string, number> }>()
+  for (const row of facets as { platforms: string; category: string }[]) {
+    for (const platform of splitList(row.platforms, 8)) {
+      const node = tree.get(platform) || { count: 0, categories: new Map<string, number>() }
+      node.count++
+      if (row.category) node.categories.set(row.category, (node.categories.get(row.category) || 0) + 1)
+      tree.set(platform, node)
+    }
+  }
+  const order = ['Windows', 'macOS', 'Linux', 'Android', 'iOS']
+  const platforms: SoftwareTree = [...tree.entries()]
+    .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99) || b[1].count - a[1].count)
+    .map(([platform, node]) => ({ platform, count: node.count, categories: [...node.categories.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) }))
+  return { tree: platforms, viewed: viewed.map(toSoftware), downloaded: downloaded.map(toSoftware), today: today.map(toSoftware), total: Number(total) || 0 }
+}
+
+export async function getSoftwareHome() {
+  const [featured, latest, popular, facetRows] = await allOrEmpty([
+    db.softwareTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 6 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ updatedAt: 'desc' }], take: 18 }),
+    db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
+    db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 1000 }),
+  ])
+  return {
+    featured: featured.map(toSoftware), latest: latest.map(toSoftware), popular: popular.map(toSoftware),
+    platforms: countList(facetRows.map((row: { platforms: string }) => row.platforms)).slice(0, 8),
+    categories: countList(facetRows.map((row: { category: string }) => row.category)).slice(0, 16),
+  }
+}
+
+export async function browseSoftware(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const where: any = { ...live() }
+  if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
+  if (input.category) where.category = String(input.category).slice(0, 60)
+  if (input.license) where.license = String(input.license).slice(0, 20)
+  const q = String(input.q || '').trim().slice(0, 80)
+  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }]
+  const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
+  const [rows, total] = await Promise.all([
+    db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.softwareTitle.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function getSoftware(slug: string) {
+  const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
+  if (!row) return null
+  await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
+  const [links, related] = await Promise.all([
+    publicLinks('software', [row.id]),
+    db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
+  ])
+  return {
+    software: {
+      ...toSoftware(row), website: row.website, requirements: row.requirements, content: row.content, changelog: row.changelog, views: row.views, releasedAt: row.releasedAt, updatedAt: row.updatedAt,
+      features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
+      screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
+    },
+    links: links.get(row.id) || [],
+    related: related.map(toSoftware),
   }
 }
 

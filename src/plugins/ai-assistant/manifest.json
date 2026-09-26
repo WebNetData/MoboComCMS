@@ -1,0 +1,16 @@
+{
+  "id": "ai-assistant",
+  "name": "دستیار هوش مصنوعی",
+  "nameEn": "AI assistant",
+  "description": "نوشتن مقالهٔ مجله (پیش‌نویس)، توضیحات محصول، پیشنهاد پاسخ به دیدگاه‌ها و پرسش‌های تالار، و توضیح متای سئو با Gemini، OpenRouter، Groq (رایگان)، Claude یا مدل روی سرور خودتان. هیچ چیزی بدون تأیید مدیر منتشر نمی‌شود.",
+  "descriptionEn": "Drafts journal posts and product descriptions, suggests replies to comments and forum threads, and writes SEO meta descriptions using Gemini, OpenRouter, Groq (free tiers), Claude or a self-hosted model. Nothing is published without an admin's approval.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/ai"]
+}

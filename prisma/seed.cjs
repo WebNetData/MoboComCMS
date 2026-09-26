@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 async function main() {
   // --- Roles ---
   const rolesData = [
-    { name: 'admin', nameFa: 'مدیر کل', nameEn: 'Super Admin', isSystem: true, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view' },
+    { name: 'admin', nameFa: 'مدیر کل', nameEn: 'Super Admin', isSystem: true, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view,extensions.code' },
     { name: 'accountant', nameFa: 'حسابدار', nameEn: 'Accountant', isSystem: false, permissions: 'dashboard.view,finance.manage,invoices.manage,gateways.manage,orders.manage' },
     { name: 'support', nameFa: 'پشتیبان', nameEn: 'Support', isSystem: false, permissions: 'dashboard.view,users.manage,subs.manage,orders.manage,invoices.manage,tickets.handle' },
     // resellers work in their own panel (/reseller) — they must not enter /admin
@@ -390,10 +390,25 @@ async function main() {
     })
   }
 
+  // --- Forum boards (created once; admins manage them afterwards) ---
+  const boards = [
+    { slug: 'announcements', title: 'اطلاعیه‌های موبوکام', description: 'خبرها و اطلاعیه‌های رسمی تیم موبوکام', icon: '📣', locked: true, sortOrder: 0 },
+    { slug: 'general', title: 'گفت‌وگوی آزاد', description: 'هر چیزی که دوست دارید دربارهٔ آن حرف بزنید', icon: '💬', sortOrder: 10 },
+    { slug: 'help', title: 'پرسش و پاسخ فنی', description: 'مشکلات نرم‌افزار، سخت‌افزار و گوشی را اینجا بپرسید', icon: '🛠️', sortOrder: 20 },
+    { slug: 'shop', title: 'فروشگاه و سفارش‌ها', description: 'پیش از خرید بپرسید و تجربهٔ خریدتان را بگویید', icon: '🛒', sortOrder: 30 },
+    { slug: 'entertainment', title: 'فیلم، موزیک و بازی', description: 'پیشنهاد، نقد و گفت‌وگو دربارهٔ سرگرمی', icon: '🎬', sortOrder: 40 },
+    { slug: 'vip-lounge', title: 'سالن اعضای ویژه', description: 'گفت‌وگوی اختصاصی اعضای VIP', icon: '♛', access: 'MEMBERS', sortOrder: 50 },
+  ]
+  if (await prisma.forumCategory.count().catch(() => -1) === 0) {
+    for (const board of boards) await prisma.forumCategory.create({ data: board })
+  }
+
   // --- Settings ---
   const settings = [
-    { key: 'brandName', value: 'MoboComCMS' },
-    { key: 'brandTagline', value: 'اینترنت آزاد، سریع و امن' },
+    { key: 'brandName', value: 'موبوکام' },
+    { key: 'brandTagline', value: 'فروشگاه و سرگرمی دیجیتال' },
+    // MoboCom sells physical and digital products out of the box.
+    { key: 'storeEnabled', value: 'true' },
     { key: 'supportTelegram', value: '@MoboComCMS' },
     { key: 'supportEmail', value: 'support@example.com' },
     { key: 'siteUrl', value: process.env.NEXTAUTH_URL || 'http://localhost:3000' },

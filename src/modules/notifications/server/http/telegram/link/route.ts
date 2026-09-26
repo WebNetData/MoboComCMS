@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 // Telegram linking, from the customer's side (requires a session):
 //   GET    → link status + a fresh deep link to open in Telegram
 //   DELETE → detach the Telegram account
@@ -58,7 +59,7 @@ export async function DELETE(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireUser(req)
   if (!auth) return err('unauthorized', 401)
-  const locale = await getUserLocale(auth.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+  const locale = await getUserLocale(auth.id) || offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => botText(locale, en, fa)
 
   const body = await req.json().catch(() => null)

@@ -1,0 +1,18 @@
+{
+  "id": "ocean",
+  "name": "اقیانوس",
+  "nameEn": "Ocean",
+  "description": "قالب نمونهٔ آپلودی: رنگ‌های فیروزه‌ای روی ساختار Happ Clean",
+  "descriptionEn": "Sample uploadable theme: teal palette on top of Happ Clean",
+  "version": "1.0.0",
+  "kind": "theme",
+  "runtime": "declarative",
+  "requiresCore": "^1.0.0",
+  "design": {
+    "extends": "clean",
+    "radius": 22,
+    "colors": { "background": "#061417", "surface": "#0b2127", "accent": "#2dd4bf", "text": "#e8fbf8", "muted": "#8fb3ae", "border": "#15363d" },
+    "lightColors": { "background": "#f3fbfa", "surface": "#ffffff", "accent": "#0d9488", "text": "#082f2c", "muted": "#4f6f6b", "border": "#d5ebe8" }
+  },
+  "styles": ["theme.css"]
+}

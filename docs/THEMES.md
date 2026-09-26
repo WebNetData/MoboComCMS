@@ -8,6 +8,8 @@ Design themes are JSON/token documents. They can be imported at runtime from Sit
 
 A customized theme may declare `extends` so it retains the renderer of its installed code theme while overriding tokens. This is the MoboComCMS equivalent of a controlled child theme.
 
+Theme packages uploaded as `.zip` (see [PACKAGES.md](PACKAGES.md)) are design themes plus sanitized CSS: they are added to Site Studio's theme list and also restyle the Telegram mini app.
+
 ## 2. Code themes
 
 Code themes are trusted source packages installed during deployment. Create one with:

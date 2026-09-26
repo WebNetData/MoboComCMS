@@ -20,6 +20,8 @@ export const PERMISSIONS = [
   'roles.manage',
   'resellers.manage',
   'audit.view',
+  // Apply code packages and edit built-in plugin/theme source (full server trust).
+  'extensions.code',
 ] as const
 
 export type CorePermission = (typeof PERMISSIONS)[number]

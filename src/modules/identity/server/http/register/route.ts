@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
@@ -11,7 +12,7 @@ import { getBotLocale, setUserLocale } from '@/modules/notifications/server/tele
 import { normalizeReferralCode, referralPolicy } from '@/modules/referrals/server/referrals'
 
 export async function POST(req: NextRequest) {
-  const locale = req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en'
+  const locale = offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => locale === 'fa' ? fa : en
   // Registration is a spam/enumeration vector: keep it slow per IP.
   const limiter = rateLimitHit(`register:${clientIp(req.headers)}`, 5, 60 * 60_000)

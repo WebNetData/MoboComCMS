@@ -3,8 +3,8 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
-import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, markInvoicePaid, releaseInvoiceCredit } from '@/modules/billing/server/billing'
-import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
+import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, releaseInvoiceCredit } from '@/modules/billing/server/billing'
+import { settleInvoiceManually } from '@/modules/billing/server/settle'
 import { ensureInventoryReservation, releaseInventoryReservation } from '@/modules/catalog/server/inventory'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
@@ -176,27 +176,15 @@ export async function PATCH(req: NextRequest) {
 
   if (action === 'markPaid') {
     try {
-      // Reserve stock before financial settlement. If it cannot be reserved, do not mark the invoice paid.
-      if (invoice.productId && invoice.orderId) {
-        const held = await ensureInventoryReservation({ orderId: invoice.orderId, productId: invoice.productId, holdMinutes: 60 })
-        if (!held.ok) return err(held.message || 'out of stock', 409)
-      }
-      const res = await markInvoicePaid({
-        invoiceId: id, gatewayId: invoice.gatewayId, providerTxnId: String(b?.providerTxnId || ''),
+      const res = await settleInvoiceManually({
+        invoiceId: id, providerTxnId: String(b?.providerTxnId || ''),
         cryptoCurrency: String(b?.cryptoCurrency || ''), cryptoAmount: String(b?.cryptoAmount || ''),
         amount: b?.amount !== undefined && b?.amount !== '' ? String(b.amount) : undefined,
-        feeBps: invoice.gateway?.feeBps ?? Math.round((invoice.gateway?.feePercent || 0) * 100), provider: invoice.gateway?.provider || 'MANUAL',
         raw: { source: 'admin', by: admin.email },
       })
-      if (!res.ok) return err(res.message || 'failed', 400)
-      const job = invoice.orderId ? await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId }) : null
-      let warning: string | undefined
-      if (job) {
-        const processed = await processFulfillmentJob(job.id)
-        if (!processed.ok) warning = `payment settled; fulfillment queued for retry: ${processed.message}`
-      }
-      await auditAdmin({ req, actor: admin, action: 'invoice.markPaid', targetType: 'invoice', targetId: id, metadata: { orderId: invoice.orderId, currency, fulfillmentJobId: job?.id || null, warning } })
-      return ok({ ok: true, warning })
+      if (!res.ok) return err(res.message, res.status)
+      await auditAdmin({ req, actor: admin, action: 'invoice.markPaid', targetType: 'invoice', targetId: id, metadata: { orderId: invoice.orderId, currency, warning: res.warning } })
+      return ok({ ok: true, warning: res.warning })
     } catch (e) { return err(e instanceof Error ? e.message : 'failed', 400) }
   }
 

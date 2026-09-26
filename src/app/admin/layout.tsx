@@ -105,6 +105,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/seo', label: L('مرکز سئو', 'SEO center'), icon: 'globe', perm: 'settings.manage' },
+      { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
+      { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
@@ -118,16 +121,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/music', label: L('موزیک (آهنگ، آلبوم، هنرمند)', 'Music'), icon: 'sparkles', perm: ['music.manage', 'cms.posts'] },
       { href: '/admin/cinema', label: L('فیلم و سریال', 'Films & series'), icon: 'grid', perm: ['cinema.manage', 'cms.posts'] },
       { href: '/admin/games', label: L('بازی‌ها', 'Games'), icon: 'bolt', perm: ['games.manage', 'cms.posts'] },
+      { href: '/admin/software', label: L('نرم‌افزارها', 'Software'), icon: 'devices', perm: ['software.manage', 'cms.posts'] },
+      { href: '/admin/forum', label: L('تالار گفتمان', 'Forum'), icon: 'chat', perm: ['forum.moderate', 'cms.posts'] },
       { href: '/admin/vip', label: L('اشتراک ویژه VIP', 'VIP membership'), icon: 'shield', perm: ['membership.manage', 'plans.manage', 'users.manage'] },
     ] },
     { title: L('سرویس VPN', 'VPN service'), items: [
       { href: '/admin/plans', label: t.plansAdmin, icon: 'globe', perm: 'plans.manage' },
       { href: '/admin/service-offers', label: L('فروش حجمی', 'Volume offers'), icon: 'grid', perm: 'plans.manage' },
       { href: '/admin/trial', label: L('اکانت آزمایشی', 'Trial accounts'), icon: 'sparkles', perm: 'plans.manage' },
-      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
-      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/subscriptions', label: t.subscriptions, icon: 'devices', perm: 'subs.manage' },
       { href: '/admin/panels', label: t.panels, icon: 'shield', perm: 'panels.manage' },
+    ] },
+    // Discounts and referrals serve the shop, VIP and VPN alike.
+    { title: L('بازاریابی', 'Marketing'), items: [
+      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
+      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
     ] },
     { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
@@ -145,6 +153,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/payments', label: t.ledger, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/expenses', label: t.expensesAdmin, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/gateways', label: t.gatewaysAdmin, icon: 'wallet', perm: 'gateways.manage' },
+      { href: '/admin/receipts', label: L('رسیدهای کارت به کارت', 'Transfer receipts'), icon: 'wallet', perm: 'invoices.manage' },
+      { href: '/admin/bank-accounts', label: L('حساب‌های بانکی', 'Bank accounts'), icon: 'wallet', perm: 'gateways.manage' },
     ] },
     { title: t.shop, items: [
       { href: '/admin/products', label: t.productsAdmin, icon: 'grid', perm: 'cms.products' },
@@ -157,7 +167,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/telegram', label: L('ربات و مینی‌اپ', 'Telegram & Mini App'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/connection-guide', label: L('راهنمای اتصال', 'Connection guide'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/happ', label: L('اتصال Happ', 'Happ connection'), icon: 'devices', perm: 'settings.manage' },
-      { href: '/admin/extensions', label: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'grid', perm: 'settings.manage' },
+      { href: '/admin/extensions', label: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'grid', perm: 'settings.manage', exact: true },
+      { href: '/admin/extensions/editor', label: L('ویرایشگر افزونه و قالب', 'Plugin & theme editor'), icon: 'sliders', perm: 'settings.manage' },
       ...extensionNav,
     ] },
     { title: L('تنظیمات و دسترسی‌ها', 'Settings & access'), items: [

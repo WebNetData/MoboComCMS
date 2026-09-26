@@ -16,12 +16,15 @@ import './subscription-hub.css'
 import './store-design.css'
 import './journal-design.css'
 import './media-design.css'
+import './forum.css'
 import Providers from '@/components/Providers'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
 import LocaleSetter from '@/i18n/LocaleSetter'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dirOf } from '@/i18n/config'
 import { deviceLocaleBootstrap } from '@/i18n/device-locale'
+import { siteLocales } from '@/i18n/policy'
+import { applyTitleTemplate } from '@/modules/seo/domain/seo'
 import { getSiteSeo, organizationJsonLd } from '@/modules/site/server/seo'
 import { getPublicSiteConfig } from '@/modules/site/config/store'
 import { defaultSiteFonts } from '@/modules/site/config/types'
@@ -35,6 +38,7 @@ import PreviewBridge from '@/components/site/PreviewBridge'
 import MusicPlayerProvider from '@/components/media/MusicPlayer'
 import type { CSSProperties } from 'react'
 import { resolveCodeThemeId } from '@/themes/runtime'
+import { getPackageRuntime } from '@/modules/packages/server/runtime'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,33 +58,26 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(seo.base),
     title: {
-      default: `${seo.name} — ${seo.tagline}`,
-      template: `%s · ${seo.name}`,
+      default: seo.config.homeTitle || `${seo.name} — ${seo.tagline}`,
+      template: applyTitleTemplate(seo.config.titleTemplate, seo.name),
     },
     description: seo.description,
     applicationName: seo.name,
     generator: 'Next.js',
-    keywords: [
-      'VPN',
-      'Xray',
-      'VLESS',
-      'Remnawave',
-      'PasarGuard',
-      'crypto VPN payment',
-      'buy VPN with crypto',
-      'اشتراک وی پی ان',
-      'خرید وی پی ان',
-      'کریپتو',
-    ],
-    category: 'technology',
-    alternates: { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } },
+    keywords: seo.config.keywords.length ? seo.config.keywords : undefined,
+    category: 'shopping',
+    alternates: seo.bilingual ? { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } } : { canonical: seo.base, types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
     icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
     robots: {
       index: true,
       follow: true,
       googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
     },
-    verification: seo.verification ? { google: seo.verification } : undefined,
+    verification: {
+      ...(seo.config.verification.google ? { google: seo.config.verification.google } : {}),
+      ...(seo.config.verification.yandex ? { yandex: seo.config.verification.yandex } : {}),
+      ...(seo.config.verification.bing ? { other: { 'msvalidate.01': seo.config.verification.bing } } : {}),
+    },
     openGraph: {
       type: 'website',
       url: seo.base,
@@ -105,9 +102,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
-  const [jsonLd, siteConfig, extensions] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime()])
+  const [jsonLd, siteConfig, extensions, packages] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null)])
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
-  const site = { ...siteConfig, navigation: siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
+  // Pages of enabled uploaded packages that ask for it join the main menu.
+  const locales = siteLocales()
+  const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
@@ -125,7 +124,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />
+        {locales.length > 1 && <script dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
+        {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}
         {site.customCss?.trim() ? <style data-site-custom dangerouslySetInnerHTML={{ __html: safeCustomCss(site.customCss) }} /> : null}
       </head>
       <body>
@@ -137,7 +137,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PreviewBridge />
         <LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider>
       </body>
     </html>

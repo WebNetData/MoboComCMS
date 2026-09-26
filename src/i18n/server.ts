@@ -2,12 +2,14 @@ import { cookies } from 'next/headers'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/modules/identity/auth'
 import { getUserLocale } from '@/modules/notifications/server/telegram-locale'
-import { normalizeLocale } from './config'
+import { offeredLocale, fixedLocale } from '@/i18n/policy'
 import type { Locale } from './dictionaries'
 
 export async function getServerLocale(): Promise<Locale> {
+  const fixed = fixedLocale()
+  if (fixed) return fixed
   const c = await cookies()
-  const cookieLocale = normalizeLocale(c.get('lang')?.value, 'en')
+  const cookieLocale = offeredLocale(c.get('lang')?.value)
   try {
     const session = await getServerSession(authOptions)
     const userId = Number((session?.user as { id?: string } | undefined)?.id)
@@ -22,5 +24,8 @@ export async function getServerLocale(): Promise<Locale> {
 
 export async function getServerTheme(): Promise<'light' | 'dark'> {
   const c = await cookies()
-  return c.get('theme')?.value === 'light' ? 'light' : 'dark'
+  const chosen = c.get('theme')?.value
+  if (chosen === 'light' || chosen === 'dark') return chosen
+  // Visitors who never toggled get the deployment default (MoboCom: light).
+  return process.env.SITE_APPEARANCE === 'dark' ? 'dark' : 'light'
 }

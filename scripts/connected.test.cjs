@@ -16,6 +16,7 @@ function load(file, mocks = {}, cache = new Map()) {
     if (name.startsWith('@/')) {
       const base = 'src/' + name.slice(2)
       for (const candidate of [base+'.ts',base+'.tsx',base+'/index.ts',base+'/index.tsx']) if (fs.existsSync(path.join(__dirname,'..',candidate))) return load(candidate,mocks,cache)
+      if (base.endsWith('.json') && fs.existsSync(path.join(__dirname,'..',base))) return require(path.join(__dirname,'..',base))
     }
     return require(name)
   }
@@ -183,9 +184,20 @@ test('signed-in website renders the shared account language across devices',asyn
     '@/modules/identity/auth':{authOptions:{}},
     '@/modules/notifications/server/telegram-locale':{getUserLocale:async()=>accountLocale},
   })
-  assert.equal(await server.getServerLocale(),'fa')
-  accountLocale=null
-  assert.equal(await server.getServerLocale(),'en')
+  const previous=process.env.SITE_LOCALES
+  try {
+    process.env.SITE_LOCALES='fa,en'
+    assert.equal(await server.getServerLocale(),'fa')
+    accountLocale=null
+    assert.equal(await server.getServerLocale(),'en')
+    // A single-language site ignores cookies and stored preferences.
+    process.env.SITE_LOCALES='fa'
+    accountLocale='en'
+    assert.equal(await server.getServerLocale(),'fa')
+  } finally {
+    if (previous === undefined) delete process.env.SITE_LOCALES
+    else process.env.SITE_LOCALES=previous
+  }
 })
 
 test('subscription delivery alert follows the selected Telegram language',async()=>{

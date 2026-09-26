@@ -53,6 +53,27 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     CredentialsProvider({
+      id: 'sms-otp',
+      name: 'SMS code',
+      credentials: {
+        phone: { label: 'Mobile', type: 'text' },
+        code: { label: 'Code', type: 'text' },
+      },
+      async authorize(credentials, req) {
+        if (!credentials?.phone || !credentials?.code) return null
+        const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
+        if (!rateLimitHit(`login:otp:ip:${ip}`, 30, 10 * 60_000).ok) return null
+        const { userForPhone, verifyOtp } = await import('@/modules/sms/server/sms')
+        try {
+          const phone = await verifyOtp({ phone: credentials.phone, code: credentials.code, purpose: 'LOGIN' })
+          const user = await userForPhone(phone)
+          return user ? sessionUser(user) : null
+        } catch {
+          return null
+        }
+      },
+    }),
+    CredentialsProvider({
       id: 'telegram',
       name: 'Telegram',
       credentials: {

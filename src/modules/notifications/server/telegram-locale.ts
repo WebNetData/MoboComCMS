@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import type { InlineKeyboard } from './telegram'
+import { fixedLocale } from '@/i18n/policy'
 
 export type BotLocale = 'en' | 'fa'
 
@@ -8,6 +9,9 @@ const userKey = (userId: number) => `user.locale.${userId}`
 
 /** The website and the bot share one account preference after linking. */
 export async function getUserLocale(userId: number): Promise<BotLocale | null> {
+  // A single-language site ignores stored preferences (see SITE_LOCALES).
+  const fixed = fixedLocale()
+  if (fixed) return fixed
   if (!Number.isSafeInteger(userId) || userId < 1) return null
   const user = await db.user.findUnique({ where: { id: userId }, select: { telegramId: true } })
   if (!user) return null

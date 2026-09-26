@@ -1,0 +1,245 @@
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import bcrypt from 'bcryptjs'
+import { db } from '@/platform/database/prisma'
+import { authSecret } from '@/platform/config/env'
+import { logEvent } from '@/platform/observability/logger'
+import { getSettings } from '@/modules/settings/server'
+import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
+import {
+  DEFAULT_SMS, OTP_MAX_ATTEMPTS, OTP_RESEND_MS, OTP_TTL_MS, maskMobile, normalizeMobile, normalizeSmsConfig, otpCode, phoneEmail,
+  renderTemplate, smsEvent, validOtpFormat, type SmsConfig,
+} from '@/modules/sms/domain/sms'
+import { latinDigits } from '@/shared/text/digits'
+import { credit, sendPattern, sendText } from '@/modules/sms/server/ippanel'
+
+const KEY = 'sms.config.v1'
+
+export class SmsError extends Error {
+  constructor(message: string, readonly status = 400) { super(message) }
+}
+
+// ------------------------------------------------------------------ settings
+
+export async function getSmsConfig(): Promise<SmsConfig> {
+  const row = await db.setting.findUnique({ where: { key: KEY } }).catch(() => null)
+  if (!row) return structuredClone(DEFAULT_SMS)
+  try {
+    const stored = JSON.parse(row.value)
+    return normalizeSmsConfig(stored, { ...DEFAULT_SMS, apiKey: String(stored.apiKey || '') })
+  } catch {
+    return structuredClone(DEFAULT_SMS)
+  }
+}
+
+export async function saveSmsConfig(input: Record<string, unknown>): Promise<SmsConfig> {
+  const previous = await getSmsConfig()
+  const next = normalizeSmsConfig(input, previous)
+  // A new key is encrypted at rest (AES-256-GCM with PANEL_CREDENTIAL_KEY).
+  const stored = { ...next, apiKey: next.apiKey === previous.apiKey ? next.apiKey : encryptPanelCredential(next.apiKey) }
+  const value = JSON.stringify(stored)
+  await db.setting.upsert({ where: { key: KEY }, create: { key: KEY, value }, update: { value } })
+  return stored
+}
+
+function apiKeyOf(config: SmsConfig) {
+  try { return decryptPanelCredential(config.apiKey) } catch { return '' }
+}
+
+export function publicSmsConfig(config: SmsConfig) {
+  const key = apiKeyOf(config)
+  return { ...config, apiKey: key ? `••••${key.slice(-4)}` : '', hasKey: !!config.apiKey, ready: isReady(config) }
+}
+
+const isReady = (config: SmsConfig) => config.enabled && !!config.apiKey && !!config.fromNumber
+
+/** Phone login is offered only when SMS is fully configured (or in development, where codes go to the server log). */
+export async function otpLoginAvailable() {
+  const config = await getSmsConfig()
+  return config.otpLogin && (isReady(config) || process.env.NODE_ENV !== 'production')
+}
+
+// ------------------------------------------------------------------ sending
+
+interface SendInput { phone: string; event: string; text: string; pattern?: string; params?: Record<string, string>; userId?: number | null; kind?: 'TEXT' | 'PATTERN' | 'OTP' }
+
+/** Sends one SMS and records it in SmsLog. Never throws; returns whether it was accepted. */
+export async function sendSms(input: SendInput, config?: SmsConfig): Promise<boolean> {
+  const settings = config || await getSmsConfig()
+  const phone = normalizeMobile(input.phone)
+  const kind = input.kind || (input.pattern ? 'PATTERN' : 'TEXT')
+  const log = (status: string, providerId = '', error = '') => db.smsLog.create({
+    data: { phone: phone || String(input.phone).slice(0, 20), event: input.event, kind, body: kind === 'OTP' ? '(کد یک‌بارمصرف)' : input.text.slice(0, 1000), status, providerId, error, userId: input.userId ?? null },
+  }).catch(() => null)
+  if (!phone) { await log('SKIPPED', '', 'شمارهٔ موبایل نامعتبر'); return false }
+  if (!isReady(settings)) {
+    if (kind === 'OTP' && process.env.NODE_ENV !== 'production') logEvent('warn', 'sms.dev_otp', { phone: maskMobile(phone), text: input.text })
+    await log('SKIPPED', '', 'پنل پیامک فعال یا تنظیم نشده است')
+    return kind === 'OTP' && process.env.NODE_ENV !== 'production'
+  }
+  const key = apiKeyOf(settings)
+  const result = input.pattern
+    ? await sendPattern(key, settings.fromNumber, phone, input.pattern, input.params || {})
+    : await sendText(key, settings.fromNumber, [phone], input.text)
+  await log(result.ok ? 'SENT' : 'FAILED', result.id, result.error)
+  if (!result.ok) logEvent('warn', 'sms.failed', { event: input.event, phone: maskMobile(phone), error: result.error })
+  return result.ok
+}
+
+async function brandVars() {
+  const settings = await getSettings().catch(() => ({} as Record<string, string>))
+  return { brand: settings.brandName || 'موبوکام', site: (settings.siteUrl || process.env.NEXTAUTH_URL || '').replace(/\/+$/, '') }
+}
+
+/** Customer alert for an inbox event (called when the event is first created). */
+export async function notifyUserEvent(event: { userId: number; kind: string; titleFa: string; bodyFa?: string; href: string }) {
+  const def = smsEvent(event.kind)
+  if (!def || def.audience !== 'user') return
+  const config = await getSmsConfig()
+  const setting = config.events[event.kind]
+  if (!setting?.enabled || !isReady(config)) return
+  const user = await db.user.findUnique({ where: { id: event.userId }, select: { name: true, phone: true, phoneVerifiedAt: true, smsAlerts: true, status: true } })
+  // Only verified numbers receive alerts, so a mistyped number never gets someone else's messages.
+  if (!user || user.status !== 'ACTIVE' || !user.smsAlerts || !user.phoneVerifiedAt || !normalizeMobile(user.phone)) return
+  const { brand, site } = await brandVars()
+  const vars = { name: user.name || 'کاربر', title: event.titleFa, body: event.bodyFa || event.titleFa, link: site ? `${site}${event.href}` : event.href, brand }
+  await sendSms({ phone: user.phone, event: event.kind, userId: event.userId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name as keyof typeof vars] || ''])) }, config)
+}
+
+/** Staff alert to every admin mobile in the SMS settings. */
+export async function notifyAdmins(eventId: string, values: Record<string, string>) {
+  const def = smsEvent(eventId)
+  const config = await getSmsConfig()
+  const setting = config.events[eventId]
+  if (!def || def.audience !== 'admin' || !setting?.enabled || !isReady(config) || !config.adminPhones.length) return
+  const { brand } = await brandVars()
+  const vars: Record<string, string> = { ...values, brand }
+  for (const phone of config.adminPhones) {
+    await sendSms({ phone, event: eventId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name] || ''])) }, config)
+  }
+}
+
+/** Manual message from the admin panel: one number or a group of opted-in, verified users. */
+export async function broadcast(input: { to: 'phone' | 'verified' | 'vip'; phone?: string; text: string }) {
+  const config = await getSmsConfig()
+  if (!isReady(config)) throw new SmsError('ابتدا پنل پیامک را فعال و تنظیم کنید')
+  const text = String(input.text || '').trim().slice(0, 700)
+  if (text.length < 2) throw new SmsError('متن پیامک خالی است')
+  if (input.to === 'phone') {
+    if (!normalizeMobile(input.phone)) throw new SmsError('شمارهٔ موبایل معتبر نیست')
+    return { sent: await sendSms({ phone: String(input.phone), event: 'MANUAL', text }, config) ? 1 : 0, total: 1 }
+  }
+  const now = new Date()
+  const vipIds = input.to === 'vip'
+    ? (await db.userMembership.findMany({ where: { revokedAt: null, startsAt: { lte: now }, endsAt: { gt: now } }, select: { userId: true }, distinct: ['userId'] })).map((row) => row.userId)
+    : null
+  const users = await db.user.findMany({
+    where: { status: 'ACTIVE', smsAlerts: true, phoneVerifiedAt: { not: null }, ...(vipIds ? { id: { in: vipIds } } : {}) },
+    select: { phone: true }, take: 5000,
+  })
+  const phones = [...new Set(users.map((user) => normalizeMobile(user.phone)).filter(Boolean))]
+  const key = apiKeyOf(config)
+  let sent = 0
+  for (let index = 0; index < phones.length; index += 100) {
+    const chunk = phones.slice(index, index + 100)
+    const result = await sendText(key, config.fromNumber, chunk, text)
+    await db.smsLog.create({ data: { phone: `${chunk.length} گیرنده`, event: `BROADCAST_${input.to.toUpperCase()}`, kind: 'TEXT', body: text, status: result.ok ? 'SENT' : 'FAILED', providerId: result.id, error: result.error } })
+    if (result.ok) sent += chunk.length
+  }
+  return { sent, total: phones.length }
+}
+
+export async function smsCredit() {
+  const config = await getSmsConfig()
+  const key = apiKeyOf(config)
+  if (!key) throw new SmsError('کلید API پنل پیامک وارد نشده است')
+  const result = await credit(key)
+  if (!result.ok) throw new SmsError(result.error || 'IPPanel پاسخ نداد', 502)
+  return result.credit
+}
+
+// ------------------------------------------------------------------ OTP
+
+const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
+
+/** Sends a login or verification code. Throws SmsError with a user-facing message. */
+export async function requestOtp(input: { phone: unknown; purpose: 'LOGIN' | 'VERIFY'; ip: string; userId?: number }) {
+  const phone = normalizeMobile(input.phone)
+  if (!phone) throw new SmsError('شمارهٔ موبایل معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
+  const config = await getSmsConfig()
+  if (input.purpose === 'LOGIN' && !await otpLoginAvailable()) throw new SmsError('ورود با پیامک فعال نیست', 403)
+  const now = Date.now()
+  const [last, recentPhone, recentIp] = await Promise.all([
+    db.otpCode.findFirst({ where: { phone, purpose: input.purpose }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+    db.otpCode.count({ where: { phone, createdAt: { gt: new Date(now - 60 * 60_000) } } }),
+    input.ip ? db.otpCode.count({ where: { ip: input.ip, createdAt: { gt: new Date(now - 60 * 60_000) } } }) : Promise.resolve(0),
+  ])
+  if (last && now - last.createdAt.getTime() < OTP_RESEND_MS) {
+    throw new SmsError(`برای ارسال دوباره ${Math.ceil((OTP_RESEND_MS - (now - last.createdAt.getTime())) / 1000).toLocaleString('fa-IR')} ثانیه صبر کنید`, 429)
+  }
+  if (recentPhone >= 5 || recentIp >= 15) throw new SmsError('تعداد درخواست کد زیاد است؛ یک ساعت دیگر تلاش کنید', 429)
+  if (input.purpose === 'VERIFY' && input.userId) {
+    const taken = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null }, id: { not: input.userId } }, select: { id: true } })
+    if (taken) throw new SmsError('این شماره به حساب دیگری متصل است', 409)
+  }
+
+  const code = otpCode((max) => randomInt(max))
+  const row = await db.otpCode.create({ data: { phone, purpose: input.purpose, codeHash: hashCode(phone, code), userId: input.userId ?? null, expiresAt: new Date(now + OTP_TTL_MS), ip: input.ip.slice(0, 64) } })
+  const { brand } = await brandVars()
+  const sent = await sendSms({
+    phone, event: `OTP_${input.purpose}`, kind: 'OTP', userId: input.userId,
+    text: renderTemplate(config.otpText, { code, brand }),
+    pattern: config.otpPattern || undefined, params: { [config.otpParam || 'code']: code },
+  }, config)
+  if (!sent) {
+    await db.otpCode.update({ where: { id: row.id }, data: { consumedAt: new Date() } })
+    throw new SmsError('ارسال پیامک انجام نشد؛ کمی بعد دوباره تلاش کنید', 502)
+  }
+  return { phone, expiresIn: OTP_TTL_MS / 1000, resendIn: OTP_RESEND_MS / 1000 }
+}
+
+/** Checks a code once; five wrong tries burn it. Returns the normalized phone. */
+export async function verifyOtp(input: { phone: unknown; code: unknown; purpose: 'LOGIN' | 'VERIFY'; userId?: number }) {
+  const phone = normalizeMobile(input.phone)
+  const code = latinDigits(input.code).trim()
+  if (!phone || !validOtpFormat(code)) throw new SmsError('کد وارد شده صحیح نیست')
+  const row = await db.otpCode.findFirst({
+    where: { phone, purpose: input.purpose, consumedAt: null, expiresAt: { gt: new Date() }, ...(input.userId ? { userId: input.userId } : {}) },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!row) throw new SmsError('کد منقضی شده است؛ دوباره درخواست کنید')
+  if (row.attempts >= OTP_MAX_ATTEMPTS) throw new SmsError('تعداد تلاش‌ها زیاد بود؛ کد تازه بگیرید', 429)
+  const expected = Buffer.from(row.codeHash, 'hex')
+  const actual = Buffer.from(hashCode(phone, code), 'hex')
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+    await db.otpCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } })
+    throw new SmsError('کد وارد شده صحیح نیست')
+  }
+  // Single use, even under concurrent requests.
+  const used = await db.otpCode.updateMany({ where: { id: row.id, consumedAt: null }, data: { consumedAt: new Date() } })
+  if (used.count !== 1) throw new SmsError('این کد قبلاً استفاده شده است')
+  return phone
+}
+
+/** The account for a verified phone: the one already verified with it, or a new customer account. */
+export async function userForPhone(phone: string) {
+  const existing = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null } }, orderBy: { id: 'asc' }, include: { roleRef: true } })
+  if (existing) {
+    if (existing.status !== 'ACTIVE') return null
+    return db.user.update({ where: { id: existing.id }, data: { lastLoginAt: new Date() }, include: { roleRef: true } })
+  }
+  return db.user.create({
+    data: {
+      email: phoneEmail(phone), phone, phoneVerifiedAt: new Date(), name: '',
+      passwordHash: await bcrypt.hash(randomBytes(24).toString('base64url'), 10), lastLoginAt: new Date(),
+    },
+    include: { roleRef: true },
+  })
+}
+
+/** Links a verified phone to a signed-in account (profile). */
+export async function attachPhone(userId: number, phone: string) {
+  const taken = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null }, id: { not: userId } }, select: { id: true } })
+  if (taken) throw new SmsError('این شماره به حساب دیگری متصل است', 409)
+  await db.user.update({ where: { id: userId }, data: { phone, phoneVerifiedAt: new Date() } })
+  return phone
+}

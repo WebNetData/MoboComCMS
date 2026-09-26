@@ -11,6 +11,7 @@ export type ExtensionUiSlot =
   | 'home.after-main'
   | 'dashboard.top'
   | 'dashboard.bottom'
+  | 'miniapp.home'
 
 export type ExtensionSettingType = 'text' | 'textarea' | 'boolean' | 'number' | 'select' | 'secret'
 export interface ExtensionSettingDefinition {

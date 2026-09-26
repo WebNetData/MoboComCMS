@@ -1,3 +1,4 @@
+import { offeredLocale } from '@/i18n/policy'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -16,7 +17,7 @@ const SYNC_BATCH = 10
 export async function GET(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
-  const locale = await getUserLocale(user.id) || (req.cookies.get('lang')?.value === 'fa' ? 'fa' : 'en')
+  const locale = await getUserLocale(user.id) || offeredLocale(req.cookies.get('lang')?.value)
 
   const subs = await db.subscription.findMany({
     where: { userId: user.id },

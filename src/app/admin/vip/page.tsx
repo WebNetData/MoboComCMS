@@ -15,7 +15,7 @@ export default function AdminVipPage() {
     { key: 'nameEn', label: fa ? 'نام انگلیسی' : 'English name', dir: 'ltr' },
     { key: 'days', label: fa ? 'مدت (روز)' : 'Duration (days)', type: 'number', required: true, table: true },
     { key: 'price', label: fa ? 'قیمت' : 'Price', type: 'number', required: true, table: true },
-    { key: 'currency', label: fa ? 'ارز (مثل USD یا IRT)' : 'Currency (e.g. USD, IRT)', dir: 'ltr', placeholder: 'USD', table: true },
+    { key: 'currency', label: fa ? 'واحد پول' : 'Currency', type: 'select', options: [{ value: 'IRR', label: fa ? 'ریال (IRR)' : 'Rial (IRR)' }, { value: 'IRT', label: fa ? 'تومان (IRT)' : 'Toman (IRT)' }, { value: 'USD', label: fa ? 'دلار (USD)' : 'US dollar (USD)' }], table: true },
     { key: 'description', label: fa ? 'توضیح کوتاه' : 'Short description', type: 'textarea' },
     { key: 'descriptionEn', label: fa ? 'توضیح انگلیسی' : 'English description', type: 'textarea', dir: 'ltr' },
     { key: 'perks', label: fa ? 'مزایا' : 'Perks', type: 'records', recordKeys: [{ key: 'icon', label: fa ? 'آیکون/ایموجی' : 'Icon' }, { key: 'fa', label: fa ? 'متن فارسی' : 'Persian text', wide: true }, { key: 'en', label: fa ? 'متن انگلیسی' : 'English text', dir: 'ltr', wide: true }] },

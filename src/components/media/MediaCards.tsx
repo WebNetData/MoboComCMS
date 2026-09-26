@@ -12,7 +12,7 @@ export function VipBadge({ fa, small }: Fa & { small?: boolean }) {
   return <span className={`vip-chip${small ? ' is-small' : ''}`} title={fa ? 'مخصوص اعضای ویژه' : 'VIP members only'}>♛ VIP</span>
 }
 
-export function Shelf({ title, eyebrow, href, more, children, tone, id }: { title: string; eyebrow?: string; href?: string; more?: string; children: ReactNode; tone?: 'cinema' | 'music' | 'games'; id?: string }) {
+export function Shelf({ title, eyebrow, href, more, children, tone, id }: { title: string; eyebrow?: string; href?: string; more?: string; children: ReactNode; tone?: 'cinema' | 'music' | 'games' | 'software'; id?: string }) {
   return (
     <section className={`md-shelf${tone ? ` is-${tone}` : ''}`} id={id}>
       <header className="md-shelf-head">
@@ -172,5 +172,22 @@ export function VipGate({ fa, loggedIn, title, text, next }: Fa & { loggedIn: bo
         {!loggedIn && <Link href={`/login?next=${encodeURIComponent(next || '/vip')}`} className="btn btn-ghost">{fa ? 'قبلاً عضو شده‌ام — ورود' : 'Already VIP? Sign in'}</Link>}
       </div>
     </div>
+  )
+}
+
+type SoftwareLike = { slug: string; title: string; titleEn: string; icon: string; version: string; developer: string; license: string; platforms: string[]; category: string; access: string }
+const LICENSE: Record<string, [string, string]> = { FREE: ['رایگان', 'Free'], FREEMIUM: ['فریمیوم', 'Freemium'], TRIAL: ['آزمایشی', 'Trial'], PAID: ['پولی', 'Paid'], OPEN_SOURCE: ['متن‌باز', 'Open source'] }
+
+export function SoftwareCard({ item, fa }: Fa & { item: SoftwareLike }) {
+  const name = fa ? item.title : item.titleEn || item.title
+  return (
+    <Link href={`/software/${item.slug}`} className="sw-card">
+      <span className="sw-icon">{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
+      <span className="sw-card-body">
+        <b>{name}</b>
+        <small dir="ltr">{[item.version && `v${item.version}`, item.developer].filter(Boolean).join(' · ')}</small>
+        <span className="sw-tags"><em>{(LICENSE[item.license] || LICENSE.FREE)[fa ? 0 : 1]}</em>{item.platforms.slice(0, 3).map((p) => <em key={p}>{p}</em>)}{item.access === 'MEMBERS' && <VipBadge fa={fa} small />}</span>
+      </span>
+    </Link>
   )
 }

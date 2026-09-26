@@ -92,6 +92,14 @@ export function minorToDecimal(minor: bigint | number | string, currency: Curren
   return `${negative ? '-' : ''}${whole}.${fraction}`
 }
 
+// Iranian currencies read "۱۲٬۵۰۰٬۰۰۰ ریال" / "۱٬۲۵۰ تومان" (kept in sync with format.ts).
+const IRANIAN_UNITS: Readonly<Record<string, readonly [string, string]>> = Object.freeze({ IRR: ['ریال', 'IRR'], IRT: ['تومان', 'Toman'], TMN: ['تومان', 'Toman'] })
+
+function iranianUnit(currency: CurrencyCode, locale: string) {
+  const unit = IRANIAN_UNITS[currency]
+  return unit ? unit[locale.startsWith('fa') ? 0 : 1] : ''
+}
+
 export function formatMoney(
   minor: bigint | number | string,
   currency: CurrencyCode,
@@ -100,6 +108,8 @@ export function formatMoney(
   const code = normalizeCurrency(currency)
   const exponent = currencyExponent(code)
   const amount = minorToNumber(minor, code)
+  const unit = iranianUnit(code, locale)
+  if (unit) return `${(typeof minor === 'bigint' ? minor : BigInt(minor)).toLocaleString(locale)} ${unit}`
   try {
     return new Intl.NumberFormat(locale, {
       style: 'currency',

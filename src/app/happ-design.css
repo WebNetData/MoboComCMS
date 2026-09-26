@@ -1,6 +1,5 @@
 /* Shared MoboComCMS layout system: site, customer, agency, admin and Mini App. */
-.brand-mark{font-size:0;flex:none;position:relative;display:inline-grid;place-items:center;background:var(--primary);color:var(--on-primary);width:36px;height:40px;border-radius:12px;border:0}
-.brand-mark>svg{display:none}.brand-mark::before{content:'H';font:900 21px/1 var(--font-inter),sans-serif;letter-spacing:-2px}
+.brand-mark{flex:none;position:relative;display:inline-grid;place-items:center;background:none!important;border:0!important;box-shadow:none!important;width:auto;height:auto}
 .app-main{width:100%;max-width:1640px;margin-inline:auto;background:transparent}
 .dashboard-columns{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:24px;align-items:start}.dashboard-columns>*{min-width:0}
 .appbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px}.appbar p{max-width:680px;line-height:1.9;font-size:13px;margin-top:8px}
@@ -16,3 +15,5 @@
 @media(max-width:900px){.app-shell .side{display:none}.app-shell .card{padding:20px}.happ-admin-overview{grid-template-columns:1fr}.happ-admin-steps{grid-template-columns:1fr}.noir-section{padding-top:52px}.noir-hero{margin-top:16px;border-radius:22px;padding-inline:24px}}
 @media(max-width:600px){.container{padding-inline:18px}.noir-hero{width:calc(100% - 28px);margin-inline:auto;padding-inline:22px;min-height:0;display:block}.noir-hero h1{font-size:40px}.hero-description{font-size:12px}.hero-editorial{padding-block:18px 34px}.hero-actions{display:flex;flex-direction:column;align-items:stretch;gap:12px}.hero-actions .btn{justify-content:center}.hero-benefits{gap:15px;align-items:stretch}.app-shell .card{padding:16px}.app-shell .app-main{padding-inline:14px}.appbar .h2{font-size:25px}.appbar>.flex{width:auto}.happ-admin-feature h2{font-size:28px}.happ-settings-rows>div{font-size:11px}.sub-card .stat-strip{grid-template-columns:1fr}.grid-4{gap:10px}.kpi .text-2xl{font-size:19px}.kpi{display:block;min-height:120px}.kpi-icon{margin-bottom:12px}.price-card{padding:20px!important}.happ-how{gap:0}.site-footer .container{padding-inline:22px}}
 @media(prefers-reduced-motion:reduce){.side-link{transition:none}}
+/* Account home without the VPN module: shortcuts to the other sections. */
+.dash-shortcuts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}.dash-shortcut{display:flex;align-items:center;gap:10px;padding:16px!important;transition:border-color .15s}.dash-shortcut:hover{border-color:var(--primary)}

@@ -2,9 +2,12 @@
 
 import { setCookieLang, setCookieTheme } from '@/platform/browser/preferences'
 import { useSession } from 'next-auth/react'
+import { useSite } from '@/components/site/SiteProvider'
 
 export default function ThemeLangControls({ locale, theme, compact }: { locale: string; theme: string; compact?: boolean }) {
   const { status } = useSession()
+  // Single-language sites (SITE_LOCALES=fa) show only the appearance switch.
+  const bilingual = (useSite().locales?.length ?? 2) > 1
   async function switchTo(next: 'en' | 'fa') {
     if (status === 'authenticated') {
       const response = await fetch('/api/profile', {
@@ -24,7 +27,7 @@ export default function ThemeLangControls({ locale, theme, compact }: { locale: 
 
   return (
     <div className="flex items-center gap-1" role="group" aria-label={locale === 'fa' ? 'زبان و ظاهر' : 'Language and appearance'}>
-      <button
+      {bilingual && <button
         type="button"
         disabled={status === 'loading'}
         onClick={() => switchTo(locale === 'fa' ? 'en' : 'fa')}
@@ -35,7 +38,7 @@ export default function ThemeLangControls({ locale, theme, compact }: { locale: 
       >
         {!compact && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>}
         <span>{locale === 'fa' ? 'EN' : 'فا'}</span>
-      </button>
+      </button>}
       <button
         type="button"
         onClick={toggleTheme}

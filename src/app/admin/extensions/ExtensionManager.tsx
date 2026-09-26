@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
+import PackageManager from './PackageManager'
 
 type SettingDef = { key: string; label: string; labelEn?: string; description?: string; descriptionEn?: string; type: string; options?: { label: string; value: string }[] }
 type Manifest = {
@@ -103,6 +104,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
     </header>}
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     {loading && <div className="tb-empty">{L('Loading…', 'در حال بارگذاری…')}</div>}
+    {!loading && <PackageManager fa={fa} onChanged={() => window.dispatchEvent(new Event('happ:modules-changed'))}/>}
     {!loading && modules.length > 0 && <section className="xm-section">
       <h2>{L('Site modules', 'ماژول‌های سایت')}</h2>
       <div className="xm-grid">{modules.map(card)}</div>

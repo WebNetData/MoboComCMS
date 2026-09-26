@@ -359,6 +359,7 @@ function load(file, mocks = {}, cache = new Map()) {
     if (name.startsWith('@/') || name.startsWith('.')) {
       const base = name.startsWith('@/') ? path.resolve(__dirname, '../src', name.slice(2)) : path.resolve(path.dirname(absolute), name)
       for (const suffix of ['.ts', '.tsx', '/index.ts']) if (fs.existsSync(base + suffix)) return load(path.relative(path.resolve(__dirname, '..'), base + suffix), mocks, cache)
+      if (base.endsWith('.json') && fs.existsSync(base)) return require(base)
     }
     return require(name)
   }

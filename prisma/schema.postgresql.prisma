@@ -28,6 +28,8 @@ model User {
   telegramPhoto  String          @default("")
   telegramLinkedAt DateTime?
   subscriptionAlerts Boolean @default(true)
+  phoneVerifiedAt DateTime?
+  smsAlerts      Boolean         @default(true)
   lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now()) @updatedAt
@@ -52,6 +54,18 @@ model User {
   notifications  UserNotification[]
 
   @@index([telegramId])
+  forumThreads   ForumThread[]
+  forumPosts     ForumPost[]
+  paymentReceipts PaymentReceipt[]
+  forumProfile   ForumProfile?
+  forumGroups    ForumGroupMember[]
+  forumReactions ForumReaction[]
+  forumBookmarks ForumBookmark[]
+  forumFlags     ForumFlag[]
+  forumTopicUsers ForumTopicUser[]
+  forumBadges    ForumUserBadge[]
+
+  @@index([phone])
 }
 
 model Role {
@@ -790,6 +804,7 @@ model Invoice {
   product       Product?  @relation(fields: [productId], references: [id])
   gateway       Gateway?  @relation(fields: [gatewayId], references: [id])
   payments      Payment[]
+  receipts      PaymentReceipt[]
 }
 
 model Payment {
@@ -1245,11 +1260,127 @@ model GameTitle {
   @@index([status, publishedAt])
 }
 
+/// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
+/// MediaLink (ownerType "software") and go through the protected redirect.
+model SoftwareTitle {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique
+  title        String
+  titleEn      String    @default("")
+  icon         String    @default("")
+  cover        String    @default("")
+  version      String    @default("")
+  developer    String    @default("")
+  license      String    @default("FREE") // FREE | FREEMIUM | TRIAL | PAID | OPEN_SOURCE
+  platforms    String    @default("")
+  category     String    @default("")
+  size         String    @default("")
+  website      String    @default("")
+  requirements String    @default("")
+  screenshots  String    @default("[]")
+  summary      String    @default("")
+  content      String    @default("")
+  changelog    String    @default("")
+  installGuide String    @default("")
+  archivePassword String @default("")
+  features     String    @default("")
+  access       String    @default("PUBLIC")
+  status       String    @default("PUBLISHED")
+  featured     Boolean   @default(false)
+  views        Int       @default(0)
+  downloads    Int       @default(0)
+  releasedAt   DateTime?
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+/// Forum (تالار گفتمان). The first post of a thread is its body; counters are
+/// denormalized for fast listings and kept in sync by the forum service.
+model ForumCategory {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique
+  title       String
+  description String        @default("")
+  icon        String        @default("")
+  access      String        @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
+  locked      Boolean       @default(false) // only moderators start threads
+  sortOrder   Int           @default(0)
+  parentId    Int?
+  parent      ForumCategory?  @relation("ForumSubcategories", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ForumCategory[] @relation("ForumSubcategories")
+  color       String        @default("#6366f1")
+  threadCount Int           @default(0)
+  postCount   Int           @default(0)
+  lastPostAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
+  threads     ForumThread[]
+  permissions ForumCategoryPermission[]
+}
+
+model ForumThread {
+  id             Int           @id @default(autoincrement())
+  categoryId     Int
+  category       ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  pinned         Boolean       @default(false)
+  locked         Boolean       @default(false)
+  status         String        @default("VISIBLE") // VISIBLE | HIDDEN
+  views          Int           @default(0)
+  replyCount     Int           @default(0)
+  lastPostAt     DateTime      @default(now())
+  lastPostUserId Int?
+  solvedPostId   Int?          @unique
+  solvedPost     ForumPost?    @relation("ForumSolution", fields: [solvedPostId], references: [id], onDelete: SetNull)
+  likeCount      Int           @default(0)
+  postCount      Int           @default(0) // highest post number
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+  posts          ForumPost[]   @relation("ForumThreadPosts")
+  tags           ForumThreadTag[]
+  topicUsers     ForumTopicUser[]
+
+  @@index([categoryId, status, pinned, lastPostAt])
+  @@index([userId])
+  @@index([status, lastPostAt])
+}
+
+model ForumPost {
+  id        Int         @id @default(autoincrement())
+  threadId  Int
+  thread    ForumThread @relation("ForumThreadPosts", fields: [threadId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  status    String      @default("VISIBLE") // VISIBLE | HIDDEN
+  editedAt  DateTime?
+  postNumber Int        @default(0)
+  replyToId Int?
+  likeCount Int         @default(0)
+  editCount Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  @@index([threadId, status, createdAt])
+  reactions ForumReaction[]
+  bookmarks ForumBookmark[]
+  flags     ForumFlag[]
+  revisions ForumPostRevision[]
+  solutionOf ForumThread?   @relation("ForumSolution")
+
+  @@index([userId, createdAt])
+  @@index([threadId, postNumber])
+}
+
 /// Download / stream links for films, episodes and games. URLs are never sent to
 /// the browser; visitors go through /api/media/link/<id>, which checks VIP access.
 model MediaLink {
   id        Int      @id @default(autoincrement())
-  ownerType String // title | episode | game
+  ownerType String // title | episode | game | software
   ownerId   Int
   label     String   @default("")
   kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM
@@ -1264,4 +1395,282 @@ model MediaLink {
   createdAt DateTime @default(now())
 
   @@index([ownerType, ownerId])
+}
+
+/// Bank accounts shown to customers for card-to-card and bank transfers.
+model BankAccount {
+  id            Int              @id @default(autoincrement())
+  bankName      String
+  holderName    String
+  cardNumber    String           @default("")
+  sheba         String           @default("")
+  accountNumber String           @default("")
+  note          String           @default("")
+  active        Boolean          @default(true)
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+  receipts      PaymentReceipt[]
+}
+
+/// A customer's proof of a card-to-card / bank transfer. An admin approves it
+/// (which settles the invoice) or rejects it with a reason.
+model PaymentReceipt {
+  id            Int          @id @default(autoincrement())
+  invoiceId     Int
+  userId        Int
+  bankAccountId Int?
+  method        String       @default("CARD") // CARD | PAYA | SATNA | ACCOUNT
+  amountMinor   BigInt       @default(0)
+  currency      String       @default("IRR")
+  payerName     String       @default("")
+  payerBank     String       @default("")
+  payerCard     String       @default("") // last four digits of the source card
+  trackingCode  String       @default("")
+  paidAt        DateTime?
+  image         String       @default("") // file name under storage/receipts
+  imageType     String       @default("")
+  status        String       @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNote     String       @default("")
+  reviewedBy    Int?
+  reviewedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([invoiceId])
+  @@index([userId])
+}
+
+/// One-time SMS codes for phone login and phone verification (only a hash is stored).
+model OtpCode {
+  id         Int       @id @default(autoincrement())
+  phone      String
+  purpose    String    @default("LOGIN") // LOGIN | VERIFY
+  codeHash   String
+  attempts   Int       @default(0)
+  userId     Int?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ip         String    @default("")
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, purpose, createdAt])
+}
+
+/// Outgoing SMS history (IPPanel).
+model SmsLog {
+  id         Int      @id @default(autoincrement())
+  phone      String
+  event      String   @default("")
+  kind       String   @default("TEXT") // TEXT | PATTERN | OTP
+  body       String   @default("")
+  status     String   @default("SENT") // SENT | FAILED | SKIPPED
+  providerId String   @default("")
+  error      String   @default("")
+  userId     Int?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([phone, createdAt])
+}
+
+/// Forum profile (Discourse-style): public handle, bio, trust level and counters.
+model ForumProfile {
+  userId        Int          @id
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username      String       @unique
+  bio           String       @default("")
+  location      String       @default("")
+  website       String       @default("")
+  avatar        String       @default("")
+  cover         String       @default("")
+  title         String       @default("")
+  primaryGroupId Int?
+  trustLevel    Int          @default(0)
+  trustLocked   Boolean      @default(false)
+  topicCount    Int          @default(0)
+  postCount     Int          @default(0)
+  likesGiven    Int          @default(0)
+  likesReceived Int          @default(0)
+  solvedCount   Int          @default(0)
+  topicsEntered Int          @default(0)
+  daysVisited   Int          @default(0)
+  lastVisitDay  String       @default("")
+  lastSeenAt    DateTime?
+  silencedUntil DateTime?
+  suspendedUntil DateTime?
+  moderationNote String      @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+
+  @@index([trustLevel])
+  @@index([postCount])
+}
+
+/// Forum groups: custom (open, by request or invite-only) and automatic ones
+/// (everyone, vip, staff, trust_level_0..4) used in category permissions.
+model ForumGroup {
+  id          Int                  @id @default(autoincrement())
+  slug        String               @unique
+  name        String
+  description String               @default("")
+  icon        String               @default("")
+  color       String               @default("#6366f1")
+  title       String               @default("") // title granted to members
+  automatic   String?              @unique // everyone | vip | staff | trust_level_0..4
+  visibility  String               @default("PUBLIC") // PUBLIC | MEMBERS | STAFF
+  joinMode    String               @default("CLOSED") // OPEN | REQUEST | CLOSED
+  moderator   Boolean              @default(false) // members moderate the forum
+  mentionable Boolean              @default(false)
+  memberCount Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @default(now()) @updatedAt
+  members     ForumGroupMember[]
+  permissions ForumCategoryPermission[]
+}
+
+model ForumGroupMember {
+  id        Int        @id @default(autoincrement())
+  groupId   Int
+  group     ForumGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  owner     Boolean    @default(false)
+  status    String     @default("ACTIVE") // ACTIVE | PENDING
+  createdAt DateTime   @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId, status])
+}
+
+/// Per-category group permission. A category with rows is restricted to them.
+model ForumCategoryPermission {
+  id         Int           @id @default(autoincrement())
+  categoryId Int
+  category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  groupId    Int
+  group      ForumGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  level      String        @default("CREATE") // SEE | REPLY | CREATE
+
+  @@unique([categoryId, groupId])
+}
+
+model ForumTag {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String           @default("")
+  topicCount  Int              @default(0)
+  createdAt   DateTime         @default(now())
+  threads     ForumThreadTag[]
+}
+
+model ForumThreadTag {
+  threadId Int
+  thread   ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  tagId    Int
+  tag      ForumTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, tagId])
+  @@index([tagId])
+}
+
+model ForumReaction {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String    @default("heart")
+  createdAt DateTime  @default(now())
+
+  @@unique([postId, userId, emoji])
+  @@index([userId, createdAt])
+}
+
+model ForumBookmark {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, postId])
+}
+
+/// Community flags; enough weight hides a post until staff review it.
+model ForumFlag {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String    @default("OTHER") // SPAM | INAPPROPRIATE | OFF_TOPIC | OTHER
+  note      String    @default("")
+  weight    Int       @default(1)
+  status    String    @default("PENDING") // PENDING | AGREED | DISAGREED
+  handledBy Int?
+  handledAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([postId, userId])
+  @@index([status, createdAt])
+}
+
+model ForumPostRevision {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    Int
+  content   String
+  createdAt DateTime  @default(now())
+
+  @@index([postId, createdAt])
+}
+
+/// Per-user topic state: read position (unread/new) and notification level.
+model ForumTopicUser {
+  userId         Int
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId       Int
+  thread         ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  lastRead       Int         @default(0)
+  level          String      @default("NORMAL") // WATCHING | TRACKING | NORMAL | MUTED
+  firstVisitedAt DateTime    @default(now())
+  lastVisitedAt  DateTime    @default(now())
+
+  @@id([userId, threadId])
+  @@index([threadId, level])
+}
+
+model ForumBadge {
+  id          Int              @id @default(autoincrement())
+  slug        String           @unique
+  name        String
+  description String           @default("")
+  icon        String           @default("🏅")
+  tier        String           @default("BRONZE") // BRONZE | SILVER | GOLD
+  rule        String           @default("") // automatic rule id; empty = granted by staff
+  enabled     Boolean          @default(true)
+  grantCount  Int              @default(0)
+  createdAt   DateTime         @default(now())
+  grants      ForumUserBadge[]
+}
+
+model ForumUserBadge {
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   Int
+  badge     ForumBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  reason    String     @default("")
+  grantedBy Int?
+  grantedAt DateTime   @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([badgeId, grantedAt])
 }

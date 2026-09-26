@@ -7,6 +7,7 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import TelegramLoginButton from './TelegramLoginButton'
 import { telegramConfig } from '@/modules/notifications/server/telegram'
+import { otpLoginAvailable } from '@/modules/sms/server/sms'
 
 export default async function LoginPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ next?: string }> }) {
   const searchParams = await searchParamsPromise
@@ -25,7 +26,7 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
   const t = dict(locale)
-  const telegram = await telegramConfig()
+  const [telegram, otp] = await Promise.all([telegramConfig(), otpLoginAvailable().catch(() => false)])
   const botUsername = telegram.ready ? telegram.username : ''
   let registerHref = '/register'
   if (nextPath.startsWith('/telegram/connect?')) {
@@ -36,7 +37,7 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
     <>
       <SiteHeader theme={theme} />
       <AuthFrame>
-        <LoginForm telegramLogin={<TelegramLoginButton botUsername={botUsername} />} />
+        <LoginForm otp={otp} telegramLogin={<TelegramLoginButton botUsername={botUsername} />} />
         <div className="auth-alternative">
           <p className="muted">
             {t.noAccount} <Link href={registerHref} className="text-primary-var">{t.register}</Link>
