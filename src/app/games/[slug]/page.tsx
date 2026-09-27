@@ -8,8 +8,10 @@ import { REQUIREMENT_KEYS, trailerSource } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
-import { gamesNav } from '@/components/media/nav'
-import { GameCard, ScoreBadge, Shelf, VipBadge, VipGate } from '@/components/media/MediaCards'
+import { ScoreBadge, VipBadge, VipGate } from '@/components/media/MediaCards'
+import { GameRail } from '@/components/games/GamePortal'
+import { Icon } from '@/components/media/PortalIcons'
+import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import LinkBox from '@/components/media/LinkBox'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
@@ -51,24 +53,25 @@ export default async function GamePage({ params }: Props) {
     [fa ? 'رده سنی' : 'Age rating', g.ageRating],
   ].filter(([, v]) => v) as [string, string][]
   const ref = { type: 'game' as const, id: g.id }
-  const rating = await aggregateRating(ref)
+  const [rating, terms] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id])])
+  const term = terms.get(g.id)
   const jsonLd = { '@context': 'https://schema.org', '@type': 'VideoGame', name, ...(rating ? { aggregateRating: rating } : {}), ...(g.cover ? { image: g.cover } : {}), ...(g.summary ? { description: g.summary.slice(0, 300) } : {}), gamePlatform: g.platforms, genre: g.genres, ...(g.developer ? { author: { '@type': 'Organization', name: g.developer } } : {}), ...(g.score != null ? { review: { '@type': 'Review', reviewRating: { '@type': 'Rating', ratingValue: g.score, bestRating: 100 }, author: { '@type': 'Organization', name: 'Editors' } } } : {}) }
 
   return (
-    <MediaShell section="games" nav={gamesNav(fa)} search={{ action: '/games/browse', placeholder: fa ? 'جست‌وجوی بازی…' : 'Search games…' }}>
+    <MediaShell section="games">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <section className="gm-detail-hero" style={g.backdrop ? { backgroundImage: `url("${g.backdrop.replace(/"/g, '%22')}")` } : undefined}>
         <span className="gm-hero-shade" aria-hidden="true" />
         <div className="container gm-detail-inner">
-          <div className="gm-detail-cover">{g.cover ? <img src={g.cover} alt={name} /> : <span className="gm-noart">🎮</span>}</div>
+          <div className="gm-detail-cover">{g.cover ? <img src={g.cover} alt={name} /> : <span className="gm-noart"><Icon name="gamepad" size={48} /></span>}</div>
           <div className="gm-detail-info">
-            <nav className="cn-crumbs"><Link href="/games">{fa ? 'بازی' : 'Games'}</Link>{g.platforms[0] && <> / <Link href={`/games/browse?platform=${encodeURIComponent(g.platforms[0])}`}>{g.platforms[0]}</Link></>}</nav>
+            <nav className="cn-crumbs" aria-label="مسیر صفحه"><Link href="/games">{fa ? 'بازی' : 'Games'}</Link>{term ? term.chain.map((node) => <span key={node.path}> › <Link href={node.path}>{node.name}</Link></span>) : g.platforms[0] && <> › <Link href={`/games/browse?platform=${encodeURIComponent(g.platforms[0])}`}>{g.platforms[0]}</Link></>}</nav>
             <h1>{name}</h1>
             {g.titleEn && fa && g.titleEn !== g.title && <p className="cn-hero-sub" dir="ltr">{g.titleEn}</p>}
             <div className="gm-platforms is-large">{g.platforms.map((p) => <Link key={p} href={`/games/browse?platform=${encodeURIComponent(p)}`}>{p}</Link>)}</div>
             {g.summary && <p className="cn-summary">{g.summary}</p>}
             <div className="cn-hero-actions">
-              <a href="#download" className="btn gm-btn-primary">{locked ? `♛ ${fa ? 'ویژه VIP' : 'VIP only'}` : `⤓ ${fa ? 'دانلود بازی' : 'Download'}`}</a>
+              <a href="#download" className="btn gm-btn-primary"><Icon name="download" size={18} />{locked ? (fa ? 'دانلود ویژهٔ VIP' : 'VIP only') : (fa ? 'دانلود بازی' : 'Download')}</a>{g.content && <a href="#review" className="btn gm-btn-ghost"><Icon name="star" size={18} />نقد و بررسی</a>}
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />
               {g.access === 'MEMBERS' && <VipBadge fa={fa} />}
             </div>
@@ -84,7 +87,7 @@ export default async function GamePage({ params }: Props) {
       <div className="container md-body gm-detail-body">
         <div className="gm-main">
           {g.screenshots.length > 0 && <section className="md-shelf"><header className="md-shelf-head"><h2>{fa ? 'تصاویر بازی' : 'Screenshots'}</h2></header><Gallery images={g.screenshots} fa={fa} /></section>}
-          {g.content && <article className="mu-panel md-prose gm-review"><h2>{fa ? 'نقد و بررسی' : 'Review'}</h2><div dangerouslySetInnerHTML={{ __html: g.content }} /></article>}
+          {g.content && <article id="review" className="mu-panel md-prose gm-review"><h2>{fa ? 'نقد و بررسی' : 'Review'}</h2><div dangerouslySetInnerHTML={{ __html: g.content }} /></article>}
           {(g.pros.length > 0 || g.cons.length > 0) && (
             <section className="gm-verdict">
               {g.pros.length > 0 && <div className="is-pro"><h3>{fa ? 'نقاط قوت' : 'Pros'}</h3><ul>{g.pros.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
@@ -111,7 +114,7 @@ export default async function GamePage({ params }: Props) {
           <dl className="gm-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
         </aside>
       </div>
-      {data.related.length > 0 && <div className="container"><Shelf tone="games" title={fa ? 'بازی‌های مشابه' : 'Similar games'}>{data.related.map((game) => <GameCard key={game.id} game={game} fa={fa} />)}</Shelf></div>}
+      <GameRail title="بازی‌های مشابه" games={data.related} more={term?.path} icon="gamepad" />
     </MediaShell>
   )
 }
