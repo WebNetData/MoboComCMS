@@ -1,0 +1,7 @@
+[Unit]
+Description=MoboComCMS daily backup
+
+[Service]
+Type=oneshot
+User=mobocom
+ExecStart=/opt/mobocom/app/deploy/ubuntu/backup.sh

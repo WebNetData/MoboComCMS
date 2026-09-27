@@ -11,5 +11,7 @@ export async function register() {
     startOperationsMonitorScheduler()
     const { startRemnaControlScheduler } = await import('@/modules/providers/server/remnawave-scheduler')
     startRemnaControlScheduler()
+    const { startJobScheduler } = await import('@/modules/notifications/server/jobs-scheduler')
+    startJobScheduler()
   }
 }

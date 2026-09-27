@@ -1,0 +1,29 @@
+# systemd unit for MoboComCMS on a plain Ubuntu server.
+# Install: sudo cp deploy/ubuntu/mobocom.service /etc/systemd/system/ && sudo systemctl enable --now mobocom
+[Unit]
+Description=MoboComCMS (Next.js)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mobocom
+Group=mobocom
+WorkingDirectory=/opt/mobocom/app
+EnvironmentFile=/etc/mobocom/mobocom.env
+Environment=NODE_ENV=production PORT=3000 HOSTNAME=127.0.0.1 NEXT_TELEMETRY_DISABLED=1
+# Preflight checks, `prisma migrate deploy`, credential encryption, then `next start`.
+ExecStart=/opt/mobocom/app/deploy/docker-start.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65535
+# Hardening: the app only writes to its storage and var folders.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/mobocom/app/storage /opt/mobocom/app/var /opt/mobocom/app/.next
+
+[Install]
+WantedBy=multi-user.target
