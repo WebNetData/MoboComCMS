@@ -8,6 +8,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { softwareNav } from '@/components/media/nav'
 import { EmptyState } from '@/components/media/MediaCards'
 import { Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar } from '@/components/software/SoftwarePortal'
+import { primaryTerms, termTree } from '@/modules/taxonomy/server/taxonomy'
 
 export const dynamic = 'force-dynamic'
 type Props = { searchParams: Promise<Record<string, string | undefined>> }
@@ -33,6 +34,7 @@ export default async function SoftwareBrowsePage({ searchParams }: Props) {
     softwareFeed({ platform: params.platform, category: params.category, license: params.license, sort: params.sort, q: params.q, page: Number(params.page) || 1 }),
     softwareSidebar(),
   ])
+  const [terms, primary] = await Promise.all([termTree('software'), primaryTerms('software', feed.items.map((item) => item.id))])
   const query = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(Object.entries({ ...params, ...patch }).filter((entry): entry is [string, string] => !!entry[1]))
     return `/software/browse${next.size ? `?${next}` : ''}`
@@ -41,14 +43,14 @@ export default async function SoftwareBrowsePage({ searchParams }: Props) {
   const sorts = [['', fa ? 'جدیدترین' : 'Newest'], ['popular', fa ? 'پردانلود' : 'Downloads'], ['views', fa ? 'پربازدید' : 'Views'], ['name', fa ? 'الفبایی' : 'A–Z']]
   return (
     <MediaShell section="software" active={active} nav={softwareNav(fa)} search={{ action: '/software/browse', placeholder: fa ? 'جست‌وجوی نرم‌افزار…' : 'Search software…', value: params.q }}>
-      <SoftwareLayout sidebar={<SoftwareSidebar data={sidebar} fa={fa} active={{ platform: params.platform, category: params.category }} />}>
+      <SoftwareLayout sidebar={<SoftwareSidebar data={sidebar} fa={fa} active={{ platform: params.platform, category: params.category }} terms={terms} />}>
         <nav className="cn-crumbs sp-crumbs"><Link href="/software">{fa ? 'نرم‌افزار' : 'Software'}</Link>{params.platform && <> / <Link href={query({ category: undefined, page: undefined })} dir="ltr">{params.platform}</Link></>}{params.category && <> / <span>{params.category}</span></>}</nav>
         <header className="sp-feed-head"><h1>{heading(params, fa)}</h1><span className="md-muted">{feed.total.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'نرم‌افزار' : 'items'}</span></header>
         <div className="sp-filters">
           <nav className="md-chips" aria-label={fa ? 'مرتب‌سازی' : 'Sort'}>{sorts.map(([value, label]) => <Link key={value} href={query({ sort: value || undefined, page: undefined })} className={(params.sort || '') === value ? 'is-active' : ''}>{label}</Link>)}</nav>
           <nav className="md-chips" aria-label={fa ? 'مجوز' : 'License'}><Link href={query({ license: undefined, page: undefined })} className={!params.license ? 'is-active' : ''}>{fa ? 'همه مجوزها' : 'Any license'}</Link>{SOFTWARE_LICENSES.map((l) => <Link key={l} href={query({ license: l, page: undefined })} className={params.license === l ? 'is-active' : ''}>{licenseLabel(l, fa)}</Link>)}</nav>
         </div>
-        {feed.items.length ? feed.items.map((item) => <SoftwarePost key={item.id} item={item} fa={fa} />) : <EmptyState fa={fa} title={fa ? 'چیزی پیدا نشد' : 'Nothing found'} text={fa ? 'فیلترها یا عبارت جست‌وجو را تغییر دهید.' : 'Try other filters or search terms.'} />}
+        {feed.items.length ? feed.items.map((item) => <SoftwarePost key={item.id} item={item} fa={fa} term={primary.get(item.id)} />) : <EmptyState fa={fa} title={fa ? 'چیزی پیدا نشد' : 'Nothing found'} text={fa ? 'فیلترها یا عبارت جست‌وجو را تغییر دهید.' : 'Try other filters or search terms.'} />}
         <Pager page={feed.page} pages={feed.pages} fa={fa} href={(n) => query({ page: n > 1 ? String(n) : undefined })} />
       </SoftwareLayout>
     </MediaShell>

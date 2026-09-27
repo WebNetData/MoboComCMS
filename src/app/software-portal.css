@@ -1,0 +1,101 @@
+/* ============================================================
+   Software portal v2 (sp-) and category archives (tc-).
+   Loaded after media-design.css; overrides the first portal look
+   with a denser, SDS-based download-site layout.
+   ============================================================ */
+
+.md-software { --md-radius: 12px; --sp-strip: color-mix(in srgb, var(--md-accent) 7%, var(--md-card)); }
+.sp-ico { flex: none; }
+
+/* ---------- hero: title + main categories ---------- */
+.md-software .sp-hero { padding-block: 26px 22px; background: linear-gradient(180deg, color-mix(in srgb, var(--md-accent) 7%, transparent), transparent); border-bottom: 1px solid var(--md-line); }
+.md-software .sp-hero h1 { font-size: clamp(1.3rem, 2.4vw, 1.75rem); }
+.md-software .sp-platforms { gap: 10px; }
+.md-software .sp-platforms a { display: flex; align-items: center; gap: 10px; min-width: 150px; padding: 10px 14px; border-radius: 12px; text-align: start; transition: border-color .15s, transform .15s; }
+.md-software .sp-platforms a:hover { transform: translateY(-1px); }
+.md-software .sp-platforms a > span { display: grid; gap: 1px; }
+.md-software .sp-platforms .sp-ico { color: var(--md-accent); }
+
+/* ---------- layout ---------- */
+.md-software .sp-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; }
+.md-software .sp-main { gap: 16px; }
+.md-software .sp-feed-head { padding-bottom: 10px; border-bottom: 1px solid var(--md-line); position: relative; }
+.md-software .sp-feed-head::after { content: ''; position: absolute; inset-inline-start: 0; bottom: -1px; width: 72px; height: 3px; border-radius: 3px; background: var(--md-accent); }
+
+/* ---------- release post ---------- */
+.md-software .sp-post { grid-template-columns: 72px minmax(0, 1fr); gap: 18px; padding: 18px 20px; border-radius: var(--md-radius); background: var(--md-card); transition: border-color .15s, box-shadow .15s; }
+.md-software .sp-post:hover { box-shadow: 0 16px 36px -28px color-mix(in srgb, var(--md-accent) 80%, black); }
+.md-software .sp-post-icon { width: 72px; height: 72px; border-radius: 16px; border: 1px solid var(--md-line); background: var(--md-soft); font-size: 1.6rem; font-weight: 800; color: var(--md-accent); }
+.md-software .sp-post-icon img { padding: 8px; object-fit: contain; }
+.md-software .sp-post-body { gap: 10px; }
+.sp-post-cats { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--md-muted); font-size: .78rem; font-weight: 600; }
+.sp-post-cats span { display: inline-flex; align-items: center; gap: 4px; }
+.sp-post-cats .sp-ico { transform: scaleX(-1); opacity: .6; }
+.sp-post-cats a:hover { color: var(--md-accent); }
+.md-software .sp-post h2 { font-size: 1.08rem; gap: 10px; }
+.md-software .sp-ver { padding: 1px 8px; border-radius: 6px; background: var(--md-soft); border: 1px solid var(--md-line); color: var(--md-muted); font-size: .78rem; font-weight: 700; margin-inline-start: 8px; }
+.md-software .sp-summary { font-size: .9rem; }
+.md-software .sp-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+.md-software .sp-meta li { display: inline-flex; align-items: center; gap: 6px; }
+.md-software .sp-meta .sp-ico { opacity: .7; }
+.md-software .sp-post-foot { padding-top: 12px; border-top: 1px dashed var(--md-line); }
+.sp-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sp-badges em { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--md-line); border-radius: 999px; background: var(--md-soft); color: var(--md-muted); font-size: .74rem; font-style: normal; font-weight: 600; }
+.sp-license.is-free, .sp-license.is-open_source { border-color: color-mix(in srgb, #16a34a 35%, var(--md-line)); color: #16a34a; background: color-mix(in srgb, #16a34a 8%, var(--md-card)); }
+.sp-license.is-paid, .sp-license.is-trial { border-color: color-mix(in srgb, #d97706 35%, var(--md-line)); color: #b45309; background: color-mix(in srgb, #d97706 8%, var(--md-card)); }
+.md-software .sp-more { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 10px; background: var(--md-accent); color: var(--on-primary, #fff); font-size: .84rem; transition: filter .15s; }
+.md-software .sp-more:hover { filter: brightness(1.08); color: var(--on-primary, #fff); }
+
+/* ---------- sidebar ---------- */
+.md-software .sp-aside { gap: 16px; }
+.md-software .sp-box { padding: 0; overflow: hidden; border-radius: var(--md-radius); }
+.md-software .sp-box > h3 { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--md-line); background: var(--sp-strip); font-size: .92rem; }
+.md-software .sp-box > :not(h3) { margin: 12px 14px; }
+.md-software .sp-search { display: flex; gap: 0; padding: 6px; }
+.md-software .sp-search input { margin: 0; border: 0; background: transparent; }
+.md-software .sp-search button { display: grid; place-items: center; width: 42px; margin: 0; padding: 0; }
+.md-software .sp-tree > li + li { border-top: 1px solid var(--md-line); }
+.md-software .sp-tree summary { padding: 9px 2px; }
+.md-software .sp-tree summary > .sp-ico:last-child { transition: transform .2s; transform: rotate(180deg); color: var(--md-muted); }
+.md-software .sp-tree details[open] > summary > .sp-ico:last-child { transform: rotate(90deg); }
+.md-software .sp-tree summary a, .sp-leaf a { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.md-software .sp-tree summary a .sp-ico { color: var(--md-accent); }
+.md-software .sp-tree small { order: 0; }
+.sp-subtree { display: grid; gap: 1px; margin: 0 0 8px; padding: 0 0 0; padding-inline-start: 26px; list-style: none; border-inline-start: 1px dashed var(--md-line); margin-inline-start: 8px; }
+.sp-subtree details summary { padding: 5px 0; font-size: .86rem; }
+.sp-leaf { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: .86rem; }
+.sp-leaf a { color: var(--md-muted); }
+.md-software .sp-tree a:hover, .md-software .sp-tree a.is-active, .sp-leaf a.is-active { color: var(--md-accent); font-weight: 700; }
+.sp-leaf small { color: var(--md-muted); font-size: .72rem; background: var(--md-soft); border-radius: 999px; padding: 1px 8px; }
+
+/* ---------- category archive header ---------- */
+.tc-head { --tc-accent: var(--md-accent); display: grid; gap: 14px; padding: 20px 22px; border: 1px solid var(--md-line); border-radius: var(--md-radius, 12px); background: linear-gradient(135deg, color-mix(in srgb, var(--tc-accent) 10%, var(--md-card)), var(--md-card) 60%); }
+.tc-crumbs { display: flex; flex-wrap: wrap; gap: 2px; color: var(--md-muted); font-size: .82rem; }
+.tc-crumbs a:hover { color: var(--tc-accent); }
+.tc-crumbs [aria-current] { color: var(--md-text); font-weight: 600; }
+.tc-title { display: flex; align-items: center; gap: 16px; }
+.tc-title h1 { font-size: clamp(1.25rem, 2.4vw, 1.6rem); font-weight: 800; line-height: 1.5; }
+.tc-image { width: 72px; height: 72px; border-radius: 16px; object-fit: cover; }
+.tc-count { margin-top: 2px; color: var(--md-muted); font-size: .85rem; }
+.tc-description { max-width: 75ch; color: var(--md-muted); font-size: .92rem; line-height: 2; }
+.tc-related { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tc-related-label { color: var(--md-muted); font-size: .8rem; font-weight: 700; margin-inline-end: 4px; }
+.tc-related a { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--md-line); border-radius: 999px; background: var(--md-card); font-size: .84rem; font-weight: 600; transition: border-color .15s, color .15s; }
+.tc-related a:hover { border-color: var(--tc-accent); color: var(--tc-accent); }
+.tc-related small { color: var(--md-muted); font-size: .72rem; }
+
+@media (max-width: 980px) {
+  .md-software .sp-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .md-software .sp-post { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 14px; }
+  .md-software .sp-post-icon { width: 52px; height: 52px; border-radius: 12px; }
+  .md-software .sp-post-foot { flex-direction: column; align-items: stretch; }
+  .md-software .sp-more { justify-content: center; }
+  .md-software .sp-platforms a { min-width: 0; flex: 1 1 140px; }
+  .tc-head { padding: 16px; }
+}
+
+/* music category archive: album grid */
+.md-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px; }
+.md-body > .tc-head { margin-bottom: 20px; }

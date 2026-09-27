@@ -12,6 +12,7 @@ export default function AdminGamesPage() {
     { key: 'title', label: fa ? 'نام بازی' : 'Title', required: true, table: true },
     { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
     { key: 'platforms', label: fa ? 'پلتفرم‌ها (با ویرگول)' : 'Platforms (comma separated)', placeholder: 'PC, PS5, Xbox Series', dir: 'ltr', table: true },
+    { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'games' },
     { key: 'genres', label: fa ? 'سبک‌ها' : 'Genres', placeholder: fa ? 'اکشن، نقش‌آفرینی' : 'Action, RPG' },
     { key: 'developer', label: fa ? 'سازنده' : 'Developer' },
     { key: 'publisher', label: fa ? 'ناشر' : 'Publisher' },

@@ -20,6 +20,7 @@ export default function AdminCinemaPage() {
     { key: 'imdbId', label: 'IMDb ID', dir: 'ltr', placeholder: 'tt0111161' },
     { key: 'runtime', label: fa ? 'مدت (دقیقه)' : 'Runtime (min)', type: 'number' },
     { key: 'ageRating', label: fa ? 'رده سنی' : 'Age rating', placeholder: '+13' },
+    { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'cinema' },
     { key: 'genres', label: fa ? 'ژانرها (با ویرگول)' : 'Genres (comma separated)', placeholder: fa ? 'درام، جنایی' : 'Drama, Crime' },
     { key: 'countries', label: fa ? 'کشور سازنده' : 'Countries' },
     { key: 'languages', label: fa ? 'زبان' : 'Languages' },

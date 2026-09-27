@@ -1911,3 +1911,43 @@ model DeliveryBooking {
 
   @@index([date, slotId])
 }
+
+/// Hierarchical categories for content sections (WordPress-style taxonomy).
+/// One tree per section ("software", "games", "music", "cinema"); items are
+/// linked through TaxonomyAssignment, whose ownerId points at that section's
+/// own table.
+model TaxonomyTerm {
+  id             Int       @id @default(autoincrement())
+  taxonomy       String
+  slug           String
+  name           String
+  description    String    @default("")
+  icon           String    @default("")
+  image          String    @default("")
+  color          String    @default("")
+  parentId       Int?
+  parent         TaxonomyTerm?  @relation("TaxonomyTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children       TaxonomyTerm[] @relation("TaxonomyTree")
+  sortOrder      Int       @default(0)
+  inMenu         Boolean   @default(true)
+  count          Int       @default(0)
+  seoTitle       String    @default("")
+  seoDescription String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  assignments    TaxonomyAssignment[]
+
+  @@unique([taxonomy, slug])
+  @@index([taxonomy, parentId, sortOrder])
+}
+
+model TaxonomyAssignment {
+  termId   Int
+  ownerId  Int
+  taxonomy String
+  primary  Boolean      @default(false)
+  term     TaxonomyTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([termId, ownerId])
+  @@index([taxonomy, ownerId])
+}

@@ -1,0 +1,42 @@
+/* ============================================================
+   Section taxonomies: admin tree (tx-), term picker, and the
+   public category archive (tc-). SDS tokens via --sh-* / --mm-*.
+   ============================================================ */
+
+/* ---------- admin tree ---------- */
+.tx-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.tx-layout:has(.tx-form) { grid-template-columns: minmax(0, 1fr) 380px; }
+.tx-tree, .tx-tree ul { margin: 0; padding: 0; list-style: none; }
+.tx-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding-block: 6px; padding-inline-end: 8px; border-bottom: 1px solid var(--sh-line); }
+.tx-row:hover { background: var(--sh-subtle); }
+.tx-row.is-editing { background: var(--sh-accent-soft); }
+.tx-branch { color: var(--sh-muted); }
+.tx-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.tx-name { font-size: 14px; }
+.tx-slug { color: var(--sh-muted); font-size: 12px; }
+.tx-count { min-width: 26px; padding: 0 8px; border-radius: 999px; background: var(--sh-subtle); color: var(--sh-muted); font-size: 12px; line-height: 22px; text-align: center; }
+.tx-flag { padding: 0 8px; border-radius: 999px; background: var(--sds-color-background-warning-tertiary); color: var(--sds-color-text-warning-default); font-size: 11px; line-height: 20px; }
+.tx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-inline-start: auto; }
+.tx-icon { width: 28px; height: 28px; border: 1px solid var(--sh-line); border-radius: 6px; background: var(--sh-surface); color: var(--sh-text); cursor: pointer; }
+.tx-icon:disabled { opacity: .35; cursor: default; }
+.tx-form { position: sticky; top: 16px; display: grid; gap: 14px; }
+.tx-textarea { min-height: 0; padding-block: 10px; line-height: 1.8; }
+.tx-seo { display: grid; gap: 12px; margin: 0; padding: 12px; border: 1px dashed var(--sh-line); border-radius: 10px; }
+.tx-seo legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+
+/* ---------- term picker (media editors) ---------- */
+.tx-picker { display: grid; gap: 8px; }
+.tx-picker-head { display: flex; align-items: center; gap: 12px; }
+.tx-picker-head .input { max-width: 260px; }
+.tx-picker ul { display: grid; gap: 2px; max-height: 280px; margin: 0; padding: 8px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; list-style: none; }
+.tx-picker li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tx-picker label { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; cursor: pointer; }
+.tx-primary { padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.tx-primary.is-on { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+@media (max-width: 1000px) {
+  .tx-layout:has(.tx-form) { grid-template-columns: minmax(0, 1fr); }
+  .tx-form { position: static; order: -1; }
+  .tx-row { flex-wrap: wrap; }
+  .tx-actions { margin-inline-start: 0; width: 100%; }
+}

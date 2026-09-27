@@ -124,6 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/cinema', label: L('فیلم و سریال', 'Films & series'), icon: 'grid', perm: ['cinema.manage', 'cms.posts'] },
       { href: '/admin/games', label: L('بازی‌ها', 'Games'), icon: 'bolt', perm: ['games.manage', 'cms.posts'] },
       { href: '/admin/software', label: L('نرم‌افزارها', 'Software'), icon: 'devices', perm: ['software.manage', 'cms.posts'] },
+      { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage', 'cms.posts'] },
       { href: '/admin/forum', label: L('تالار گفتمان', 'Forum'), icon: 'chat', perm: ['forum.moderate', 'cms.posts'] },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate', 'cms.posts'] },

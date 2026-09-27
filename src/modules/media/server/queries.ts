@@ -85,6 +85,17 @@ export async function browseMusic(input: { q?: string; genre?: string; sort?: st
   return { tracks: rows.map(toTrack), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
+/** Albums filed under a music category (and its sub-categories). */
+export async function albumsByIds(ids: number[], page = 1) {
+  const current = Math.max(1, Math.min(500, Number(page) || 1))
+  const where = { ...live(), id: { in: ids.slice(0, 5000) } }
+  const [rows, total] = await Promise.all([
+    db.musicAlbum.findMany({ where, include: albumInclude, orderBy: { publishedAt: 'desc' }, skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicAlbum.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { albums: rows.map(toAlbum), total, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
 export async function getMusicGenres(): Promise<string[]> {
   const rows = await db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 800, orderBy: { publishedAt: 'desc' } }).catch(() => [])
   return countList(rows.map((row) => row.genre)).slice(0, 24)
@@ -178,9 +189,10 @@ export async function getCinemaHome() {
   }
 }
 
-export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number }) {
+export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 60) }
   if (input.country) where.countries = { contains: String(input.country).slice(0, 60) }
@@ -259,9 +271,10 @@ export async function getGamesHome() {
   }
 }
 
-export async function browseGames(input: { platform?: string; genre?: string; sort?: string; q?: string; page?: number }) {
+export async function browseGames(input: { platform?: string; genre?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 40) }
   const q = String(input.q || '').trim().slice(0, 80)
@@ -313,9 +326,11 @@ function toSoftware(row: any): SoftwareCard {
 const FEED_SIZE = 12
 
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
-export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  /** Items filed under a taxonomy term (and its sub-terms). */
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.category) where.category = String(input.category).slice(0, 60)
   if (input.license) where.license = String(input.license).slice(0, 20)

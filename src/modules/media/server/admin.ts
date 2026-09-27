@@ -10,6 +10,8 @@ import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
+import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -32,6 +34,8 @@ type Resource = {
   expand?: (rows: any[]) => Promise<any[]>
   onDelete?: (tx: Tx, id: number) => Promise<void>
   label: (row: Record<string, any>) => string
+  /** Section taxonomy the items are filed under (`terms` in the form). */
+  taxonomy?: Taxonomy
 }
 
 const text = (value: unknown, max = 300) => String(value ?? '').trim().slice(0, max)
@@ -117,7 +121,7 @@ const RESOURCES: Record<string, Resource> = {
     }),
   },
   'music-albums': {
-    module: 'music', perms: ['music.manage', 'cms.posts'],
+    taxonomy: 'music', module: 'music', perms: ['music.manage', 'cms.posts'],
     delegate: (t) => t.musicAlbum, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } } },
     label: (row) => row.title,
     parse: async (b, existing) => {
@@ -185,7 +189,7 @@ const RESOURCES: Record<string, Resource> = {
     expand: async (rows) => rows.map((row) => ({ ...row, trackIds: (() => { try { return (JSON.parse(row.trackIds || '[]') as number[]).map(String) } catch { return [] } })() })),
   },
   'cinema-titles': {
-    module: 'cinema', perms: ['cinema.manage', 'cms.posts'],
+    taxonomy: 'cinema', module: 'cinema', perms: ['cinema.manage', 'cms.posts'],
     delegate: (t) => t.cinemaTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -274,7 +278,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   games: {
-    module: 'games', perms: ['games.manage', 'cms.posts'],
+    taxonomy: 'games', module: 'games', perms: ['games.manage', 'cms.posts'],
     delegate: (t) => t.gameTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -317,7 +321,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   software: {
-    module: 'software', perms: ['software.manage', 'cms.posts'],
+    taxonomy: 'software', module: 'software', perms: ['software.manage', 'cms.posts'],
     delegate: (t) => t.softwareTitle, orderBy: { updatedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -414,7 +418,10 @@ export async function GET(req: NextRequest) {
   if (off) return off
   if (!await authorize(req, resource)) return err('forbidden', 403)
   const rows = await resource.delegate(db).findMany({ orderBy: resource.orderBy, include: resource.include, take: 1000 })
-  return ok(resource.expand ? await resource.expand(rows) : rows)
+  const expanded = resource.expand ? await resource.expand(rows) : rows
+  if (!resource.taxonomy) return ok(expanded)
+  const terms = await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id))
+  return ok(expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })))
 }
 
 async function write(req: NextRequest, mode: 'create' | 'update') {
@@ -436,8 +443,10 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
     const row = await db.$transaction(async (tx) => {
       const saved = mode === 'create' ? await resource.delegate(tx).create({ data }) : await resource.delegate(tx).update({ where: { id }, data })
       if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
+      if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
       return saved
     }, { timeout: 30_000 })
+    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
     return ok({ id: row.id, slug: row.slug }, mode === 'create' ? 201 : 200)
@@ -460,8 +469,10 @@ export async function DELETE(req: NextRequest) {
   try {
     const row = await db.$transaction(async (tx) => {
       if (resource.onDelete) await resource.onDelete(tx, id)
+      if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
       return resource.delegate(tx).delete({ where: { id } })
     })
+    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
     return ok({ deleted: true })

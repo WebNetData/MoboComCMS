@@ -15,7 +15,9 @@ type Opt = { value: string; label: string }
 export type MediaField = {
   key: string
   label: string
-  type?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist'
+  type?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms'
+  /** For `terms`: the section taxonomy (software, games, music, cinema). */
+  taxonomy?: string
   options?: Opt[]
   /** Options loaded from another media resource (e.g. artists for albums). */
   source?: { type: string; label: (row: any) => string; empty?: string }
@@ -44,6 +46,7 @@ function emptyValue(field: MediaField): unknown {
     case 'checkbox': return false
     case 'links': case 'records': case 'seasons': case 'picklist': return []
     case 'requirements': return { min: {}, rec: {} }
+    case 'terms': return { ids: [], primary: null }
     case 'select': return field.options?.[0]?.value ?? ''
     default: return ''
   }
@@ -150,7 +153,7 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
           <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong></div>
           <div className="mx-grid">
             {fields.map((field) => (
-              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist'].includes(field.type || '') ? ' is-wide' : ''}`}>
+              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}`}>
                 {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}</label>}
                 <FieldInput field={field} value={form[field.key]} onChange={(value) => set(field.key, value)} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} />
                 {field.hint && <small className="muted mx-hint">{field.hint}</small>}
@@ -228,6 +231,8 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
       return <SeasonsEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} />
     case 'requirements':
       return <RequirementsEditor value={value && typeof value === 'object' ? value : { min: {}, rec: {} }} onChange={onChange} fa={fa} />
+    case 'terms':
+      return <TermPicker taxonomy={field.taxonomy || ''} value={value && typeof value === 'object' && Array.isArray(value.ids) ? value : { ids: [], primary: null }} onChange={onChange} />
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
     default:
@@ -236,6 +241,38 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
 }
 
 // ------------------------------------------------------------------ nested editors
+
+type TermOption = { id: number; name: string; depth: number; parentId: number | null; count: number }
+type TermValue = { ids: number[]; primary: number | null }
+
+/** Category tree checkboxes with a “main category” choice (used for URLs and breadcrumbs). */
+function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: TermValue; onChange: (value: TermValue) => void }) {
+  const [options, setOptions] = useState<TermOption[] | null>(null)
+  const [filter, setFilter] = useState('')
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/admin/taxonomy?tax=${encodeURIComponent(taxonomy)}&options=1`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { options: [] })).then((d) => alive && setOptions(d.options || [])).catch(() => alive && setOptions([]))
+    return () => { alive = false }
+  }, [taxonomy])
+  const toggle = (id: number) => {
+    const ids = value.ids.includes(id) ? value.ids.filter((x) => x !== id) : [...value.ids, id]
+    onChange({ ids, primary: ids.includes(value.primary ?? -1) ? value.primary : ids[0] ?? null })
+  }
+  const manage = <Link href={`/admin/taxonomy?tax=${taxonomy}`} target="_blank" className="text-sm">مدیریت دسته‌ها ↗</Link>
+  if (!options) return <p className="muted text-sm">در حال بارگذاری دسته‌ها…</p>
+  if (!options.length) return <p className="muted text-sm">هنوز دسته‌ای ساخته نشده. {manage}</p>
+  const shown = filter.trim() ? options.filter((o) => o.name.includes(filter.trim())) : options
+  return <div className="tx-picker">
+    <div className="tx-picker-head"><input className="input" type="search" placeholder="جست‌وجوی دسته…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="جست‌وجوی دسته" />{manage}</div>
+    <ul role="group" aria-label="دسته‌ها">
+      {shown.map((o) => <li key={o.id} style={{ paddingInlineStart: `${(filter ? 0 : o.depth - 1) * 18}px` }}>
+        <label><input type="checkbox" checked={value.ids.includes(o.id)} onChange={() => toggle(o.id)} />{o.name}</label>
+        {value.ids.includes(o.id) && <button type="button" className={`tx-primary${value.primary === o.id ? ' is-on' : ''}`} aria-pressed={value.primary === o.id} onClick={() => onChange({ ...value, primary: o.id })}>{value.primary === o.id ? '★ دستهٔ اصلی' : '☆ اصلی شود'}</button>}
+      </li>)}
+    </ul>
+    <small className="muted">{value.ids.length ? `${value.ids.length.toLocaleString('fa-IR')} دسته انتخاب شده؛ دستهٔ اصلی در نشانی و مسیر صفحه نمایش داده می‌شود.` : 'حداقل یک دسته انتخاب کنید.'}</small>
+  </div>
+}
 
 type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })

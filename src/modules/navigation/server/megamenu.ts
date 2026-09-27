@@ -2,6 +2,8 @@ import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
+import { listTerms } from '@/modules/taxonomy/server/taxonomy'
+import { termPath, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import {
   MEGA_SECTIONS, SECTION_LABEL, defaultMegaConfig, facetCounts, normalizeMegaConfig, sectionForHref, treeColumns,
   type MegaColumn, type MegaFeature, type MegaLink, type MegaMenu, type MegaMenuConfig, type MegaSection, type SectionMenuConfig,
@@ -17,6 +19,14 @@ const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 const q = (params: Record<string, string>) => `?${new URLSearchParams(params)}`
 /** One failing source must never take the site header down. */
 const safe = async <T,>(work: Promise<T>, fallback: T): Promise<T> => work.catch(() => fallback)
+
+/** Columns from the section's own category tree, or null when it has no categories yet. */
+async function termColumns(taxonomy: Taxonomy, cfg: SectionMenuConfig, columns = cfg.columns): Promise<MegaColumn[] | null> {
+  const terms = await safe(listTerms(taxonomy), [])
+  const shown = terms.filter((term) => term.inMenu)
+  if (!shown.length) return null
+  return treeColumns(shown.map((term) => ({ id: term.id, parentId: term.parentId, label: term.name, href: termPath(taxonomy, terms, term.id), count: term.count })), { columns, perColumn: cfg.linksPerColumn, looseTitle: 'دسته‌بندی‌ها' })
+}
 
 /**
  * Data source per section. Each reads that section's own taxonomy, so the
@@ -52,6 +62,7 @@ const SOURCES: Record<MegaSection, Source> = {
       safe(db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 5000 }), []),
       cfg.features ? safe(db.softwareTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: cfg.features, select: { title: true, slug: true, cover: true, icon: true, version: true } }), []) : [],
     ])
+    const fromTerms = await termColumns('software', cfg)
     const order = ['Windows', 'macOS', 'Android', 'iOS', 'Linux']
     const platforms = facetCounts(rows.map((r) => r.platforms), 8).sort((a, b) => (order.indexOf(a.name) + 1 || 99) - (order.indexOf(b.name) + 1 || 99))
     const columns = platforms.slice(0, cfg.columns).map((platform): MegaColumn => ({
@@ -60,7 +71,7 @@ const SOURCES: Record<MegaSection, Source> = {
         .map((category) => ({ label: category.name, href: `/software/browse${q({ platform: platform.name, category: category.name })}`, count: category.count })),
     }))
     return {
-      columns,
+      columns: fromTerms || columns,
       quick: [{ label: 'به‌روزشده‌های امروز', href: '/software/browse' }, { label: 'پردانلودترین‌ها', href: '/software/browse?sort=popular' }, { label: 'نرم‌افزارهای رایگان', href: '/software/browse?license=FREE' }, { label: 'متن‌باز', href: '/software/browse?license=OPEN_SOURCE' }],
       features: featured.map((s) => ({ title: s.title, href: `/software/${s.slug}`, image: s.cover || s.icon, kicker: s.version ? `نسخهٔ ${s.version}` : 'نرم‌افزار ویژه' })),
     }
@@ -78,8 +89,9 @@ const SOURCES: Record<MegaSection, Source> = {
     // Long genre lists continue in a second column instead of one tall list.
     const genres = columns[1].links
     if (genres.length > cfg.linksPerColumn) columns.splice(1, 1, { title: 'سبک بازی', links: genres.slice(0, cfg.linksPerColumn) }, { title: 'سبک‌های بیشتر', links: genres.slice(cfg.linksPerColumn) })
+    const fromTerms = await termColumns('games', cfg, Math.max(1, cfg.columns - 1))
     return {
-      columns: columns.filter((c) => c.links.length).slice(0, cfg.columns),
+      columns: fromTerms ? [...fromTerms, columns[0]].filter((c) => c.links.length).slice(0, cfg.columns) : columns.filter((c) => c.links.length).slice(0, cfg.columns),
       quick: [{ label: 'تازه‌ترین بازی‌ها', href: '/games/browse' }, { label: 'برترین نمره‌ها', href: '/games/browse?sort=score' }],
       features: featured.map((g) => ({ title: g.title, href: `/games/${g.slug}`, image: g.cover, kicker: g.genres.split(/[,،]/)[0]?.trim() || 'بازی ویژه' })),
     }
@@ -97,8 +109,9 @@ const SOURCES: Record<MegaSection, Source> = {
       { title: 'مرور', links: [{ label: 'آلبوم‌ها', href: '/music#albums' }, { label: 'هنرمندان', href: '/music#artists' }, { label: 'پلی‌لیست‌ها', href: '/music#playlists' }] },
     ]
     if (genres.length > cfg.linksPerColumn) columns.splice(1, 0, { title: 'سبک‌های بیشتر', links: genres.slice(cfg.linksPerColumn).map((g) => ({ label: g.name, href: `/music/browse${q({ genre: g.name })}`, count: g.count })) })
+    const fromTerms = await termColumns('music', cfg, Math.max(1, cfg.columns - 1))
     return {
-      columns: columns.filter((c) => c.links.length).slice(0, cfg.columns),
+      columns: (fromTerms ? [...fromTerms, columns[columns.length - 1]] : columns).filter((c) => c.links.length).slice(0, cfg.columns),
       quick: [{ label: 'تازه‌ترین آهنگ‌ها', href: '/music/browse' }, { label: 'پربازدیدترین‌ها', href: '/music/browse?sort=popular' }],
       features: featured.map((a) => ({ title: a.title, href: `/music/album/${a.slug}`, image: a.cover, kicker: 'آلبوم' })),
     }
@@ -113,6 +126,12 @@ const SOURCES: Record<MegaSection, Source> = {
       title, href: `/cinema/browse${q({ kind })}`,
       links: facetCounts(rows.filter((r) => r.kind === kind).map((r) => r.genres), cfg.linksPerColumn).map((g) => ({ label: g.name, href: `/cinema/browse${q({ kind, genre: g.name })}`, count: g.count })),
     })
+    const fromTerms = await termColumns('cinema', cfg)
+    if (fromTerms) return {
+      columns: fromTerms,
+      quick: [{ label: 'دوبله فارسی', href: '/cinema/browse?dubbed=1' }, { label: 'برترین‌های IMDb', href: '/cinema/browse?sort=imdb' }],
+      features: featured.map((t) => ({ title: t.title, href: `/cinema/${t.slug}`, image: t.poster, kicker: t.kind === 'SERIES' ? 'سریال' : 'فیلم' })),
+    }
     return {
       columns: [genreColumn('MOVIE', 'فیلم'), genreColumn('SERIES', 'سریال'), { title: 'ویژه', links: [{ label: 'دوبله فارسی', href: '/cinema/browse?dubbed=1' }, { label: 'برترین‌های IMDb', href: '/cinema/browse?sort=imdb' }] }].filter((c) => c.links.length).slice(0, cfg.columns),
       quick: [{ label: 'تازه‌ترین فیلم‌ها', href: '/cinema/browse?kind=MOVIE' }, { label: 'تازه‌ترین سریال‌ها', href: '/cinema/browse?kind=SERIES' }],
