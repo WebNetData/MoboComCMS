@@ -78,7 +78,7 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
       const games = await safe(db.gameTitle.findMany({ where: { ...live(), id: { in: ids }, cover: { not: '' } }, orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }], take: cfg.features, select: { title: true, slug: true, cover: true } }), [])
       return games.map((g) => ({ title: g.title, href: `/games/${g.slug}`, image: g.cover, kicker: root.label }))
     }) : []
-    return { items: [...items, ...(platformItem.columns.length ? [platformItem] : [])], quick: [{ label: 'تازه‌ترین‌ها', href: '/games/browse' }, { label: 'برترین نمره‌ها', href: '/games/browse?sort=score' }], searchCategories: nodes.filter((n) => n.parentId === null).map((n) => ({ value: n.slug, label: n.label })) }
+    return { items: [...items, ...(platformItem.columns.length ? [platformItem] : [])], quick: [{ label: 'تازه‌ترین‌ها', href: '/games/browse' }, { label: 'تقویم انتشار', href: '/games/calendar' }, { label: 'برترین‌ها', href: '/games/top' }, { label: 'مجموعه‌ها', href: '/games/franchises' }], searchCategories: nodes.filter((n) => n.parentId === null).map((n) => ({ value: n.slug, label: n.label })) }
   },
 
   async music(cfg) {

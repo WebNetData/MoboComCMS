@@ -159,7 +159,7 @@ function toTitle(row: any): TitleCard {
 }
 const titleInclude = { _count: { select: { seasons: true } } } as const
 
-async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
+export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
   if (!ids.length) return map
   const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
@@ -246,13 +246,15 @@ export type GameCard = {
   id: number; slug: string; title: string; titleEn: string; cover: string; backdrop: string; platforms: string[]; genres: string[]
   releaseDate: Date | null; score: number | null; userScore: number | null; access: string; summary: string; developer: string
   publisher: string; screenshots: string[]; featured: boolean; views: number; publishedAt: Date
+  editorsChoice: boolean; localization: string[]
 }
-function toGame(row: any): GameCard {
+export function toGame(row: any): GameCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover, backdrop: row.backdrop || row.cover,
     platforms: splitList(row.platforms, 10), genres: splitList(row.genres, 6), releaseDate: row.releaseDate, score: row.score, userScore: row.userScore,
     access: row.access, summary: row.summary, developer: row.developer,
     publisher: row.publisher || '', featured: !!row.featured, views: row.views ?? 0, publishedAt: row.publishedAt,
+    editorsChoice: !!row.editorsChoice, localization: splitList(row.localization, 3),
     screenshots: parseJsonList<{ src: string }>(row.screenshots || '[]').map((shot) => shot.src).filter(Boolean).slice(0, 4),
   }
 }
@@ -277,9 +279,14 @@ export async function getGamesHome() {
   }
 }
 
-export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
+export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  if (input.lang && /^FA_(SUB|DUB|UI)$/.test(input.lang)) where.localization = { contains: input.lang }
+  if (input.mode && /^(SINGLE|MULTI|COOP|ONLINE)$/.test(input.mode)) where.modes = { contains: input.mode }
+  if (input.pick === 'editors') where.editorsChoice = true
+  if (input.pick === 'upcoming') where.releaseDate = { gt: new Date() }
+  if (/^\d{4}$/.test(String(input.year || ''))) where.releaseDate = { gte: new Date(Date.UTC(Number(input.year), 0, 1)), lt: new Date(Date.UTC(Number(input.year) + 1, 0, 1)) }
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.developer) where.developer = String(input.developer).slice(0, 160)
   if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
@@ -330,6 +337,9 @@ export async function getGame(slug: string) {
       pros: parseJsonList<{ text: string }>(row.pros).map((p) => p.text).filter(Boolean),
       cons: parseJsonList<{ text: string }>(row.cons).map((c) => c.text).filter(Boolean),
       requirements: parseJsonObject<Requirements>(row.requirements, { min: {}, rec: {} }),
+      franchiseId: row.franchiseId, engine: row.engine, modes: splitList(row.modes, 4), releases: parseJsonList<{ platform: string; date: string }>(row.releases),
+      playMain: row.playMain, playExtra: row.playExtra, playComplete: row.playComplete, storeLinks: parseJsonList<{ store: string; url: string }>(row.storeLinks),
+      gameSize: row.gameSize, version: row.version, verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     },
     links: links.get(row.id) || [],
     related: related.map(toGame),

@@ -8,19 +8,22 @@ import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import Pager from '@/components/media/Pager'
 import { BrowseFilters, CoverGrid } from '@/components/games/GamePortal'
+import { GAME_MODES, LOCALIZATIONS } from '@/modules/games/domain/games'
 
 export const dynamic = 'force-dynamic'
-type Search = { platform?: string; genre?: string; term?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: string }
+type Search = { platform?: string; genre?: string; term?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: string; lang?: string; mode?: string; year?: string; pick?: string }
 
 function heading(p: Search, genreName?: string) {
   if (p.q) return `نتایج جست‌وجوی «${p.q}»`
-  const parts = [genreName || p.genre, p.platform && `برای ${p.platform}`, p.publisher && `از ${p.publisher}`, p.developer && `ساخت ${p.developer}`].filter(Boolean)
+  if (p.pick === 'editors') return 'بازی‌های انتخاب سردبیر'
+  if (p.pick === 'upcoming') return 'بازی‌های در راه'
+  const parts = [genreName || p.genre, p.lang === 'FA_DUB' && 'با دوبلهٔ فارسی', p.lang === 'FA_SUB' && 'با زیرنویس فارسی', p.year && `سال ${Number(p.year).toLocaleString('fa-IR', { useGrouping: false })}`, p.platform && `برای ${p.platform}`, p.publisher && `از ${p.publisher}`, p.developer && `ساخت ${p.developer}`].filter(Boolean)
   return parts.length ? `بازی‌های ${parts.join(' ')}` : p.sort === 'score' ? 'برترین بازی‌ها' : p.sort === 'views' ? 'محبوب‌ترین بازی‌ها' : 'همهٔ بازی‌ها'
 }
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
   const p = await searchParams
-  return { title: heading(p), robots: p.q || p.developer || p.publisher ? { index: false } : undefined }
+  return { title: heading(p), robots: p.q || p.developer || p.publisher || p.mode || p.year ? { index: false } : undefined }
 }
 
 /** GameUp browser: big search, filter selects (platform, genre, publisher, developer), cover grid. */
@@ -29,10 +32,12 @@ export default async function GamesBrowsePage({ searchParams }: { searchParams: 
   const params = await searchParams
   const ids = params.term ? await ownerIdsForTermSlug('games', params.term) : null
   const [result, facets, genres] = await Promise.all([
-    browseGames({ platform: params.platform, genre: params.genre, developer: params.developer, publisher: params.publisher, sort: params.sort, q: params.q, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
+    browseGames({ platform: params.platform, genre: params.genre, developer: params.developer, publisher: params.publisher, sort: params.sort, q: params.q, lang: params.lang, mode: params.mode, year: params.year, pick: params.pick, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
     gameFacets(),
     gameGenres(),
   ])
+  const years = Array.from({ length: 12 }, (_, i) => new Date().getUTCFullYear() + 1 - i)
+  const select = (name: keyof Search, label: string, options: [string, string][]) => <label className="gx-select"><span>{label}:</span><select name={name} defaultValue={params[name] || ''}><option value="">همه</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
   const genreName = genres.options.find((option) => option.value === params.term)?.label.replace(/^(— )+/, '')
   const href = (patch: Partial<Search>) => {
     const q = new URLSearchParams(Object.entries({ ...params, page: undefined, ...patch }).filter(([, v]) => v) as [string, string][])
@@ -42,7 +47,14 @@ export default async function GamesBrowsePage({ searchParams }: { searchParams: 
   return (
     <MediaShell section="games" search={{ action: '/games/browse', placeholder: 'جست‌وجوی بازی…', value: params.q }}>
       <div className="container gx-browse">
-        <BrowseFilters action="/games/browse" values={params} facets={{ genres: genres.options, platforms: facets.platforms, developers: facets.developers, publishers: facets.publishers }} />
+        <BrowseFilters action="/games/browse" values={params} facets={{ genres: genres.options, platforms: facets.platforms, developers: facets.developers, publishers: facets.publishers }}>
+          <div className="gx-selects">
+            {select('lang', 'فارسی‌سازی', Object.entries(LOCALIZATIONS))}
+            {select('mode', 'حالت بازی', Object.entries(GAME_MODES))}
+            {select('year', 'سال انتشار', years.map((y) => [String(y), y.toLocaleString('fa-IR', { useGrouping: false })]))}
+            {select('pick', 'فهرست', [['editors', 'انتخاب سردبیر'], ['upcoming', 'در راه']])}
+          </div>
+        </BrowseFilters>
         <header className="gx-browse-head">
           <h1>{heading(params, genreName)}</h1>
           <span>{result.total.toLocaleString('fa-IR')} بازی</span>

@@ -246,7 +246,7 @@ type TermOption = { id: number; name: string; depth: number; parentId: number | 
 type TermValue = { ids: number[]; primary: number | null }
 
 /** Category tree checkboxes with a “main category” choice (used for URLs and breadcrumbs). */
-function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: TermValue; onChange: (value: TermValue) => void }) {
+export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: TermValue; onChange: (value: TermValue) => void }) {
   const [options, setOptions] = useState<TermOption[] | null>(null)
   const [filter, setFilter] = useState('')
   useEffect(() => {
@@ -274,7 +274,7 @@ function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: Te
   </div>
 }
 
-type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number }
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
@@ -398,7 +398,7 @@ const REQ_KEYS: { key: string; fa: string; en: string }[] = [
   { key: 'ram', fa: 'حافظه رم', en: 'RAM' }, { key: 'storage', fa: 'فضای ذخیره‌سازی', en: 'Storage' }, { key: 'directx', fa: 'دایرکت‌ایکس', en: 'DirectX' },
 ]
 
-function RequirementsEditor({ value, onChange, fa }: { value: { min: Record<string, string>; rec: Record<string, string> }; onChange: (value: unknown) => void; fa: boolean }) {
+export function RequirementsEditor({ value, onChange, fa }: { value: { min: Record<string, string>; rec: Record<string, string> }; onChange: (value: unknown) => void; fa: boolean }) {
   const set = (side: 'min' | 'rec', key: string, v: string) => onChange({ ...value, [side]: { ...(value[side] || {}), [key]: v } })
   return (
     <div className="mx-req">

@@ -9,6 +9,7 @@ import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
+import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
@@ -306,9 +307,27 @@ const RESOURCES: Record<string, Resource> = {
       status: when(b, 'status', status),
       featured: when(b, 'featured', bool),
       publishedAt: when(b, 'publishedAt', (v) => date(v) || new Date()),
+      franchiseId: when(b, 'franchiseId', (v) => int(v, 1, 2_000_000_000)),
+      engine: when(b, 'engine', (v) => text(v, 80)),
+      modes: when(b, 'modes', (v) => normalizeCodes(v, GAME_MODES)),
+      localization: when(b, 'localization', (v) => normalizeCodes(v, LOCALIZATIONS)),
+      releases: when(b, 'releases', (v) => JSON.stringify(cleanReleases(v))),
+      playMain: when(b, 'playMain', (v) => int(v, 0, 20000, 0) ?? 0),
+      playExtra: when(b, 'playExtra', (v) => int(v, 0, 20000, 0) ?? 0),
+      playComplete: when(b, 'playComplete', (v) => int(v, 0, 20000, 0) ?? 0),
+      storeLinks: when(b, 'storeLinks', (v) => JSON.stringify(cleanStoreLinks(v))),
+      gameSize: when(b, 'gameSize', (v) => text(v, 40)),
+      version: when(b, 'version', (v) => text(v, 60)),
+      verdict: when(b, 'verdict', (v) => text(v, 240)),
+      editorsChoice: when(b, 'editorsChoice', bool),
+      seoTitle: when(b, 'seoTitle', (v) => text(v, 120)),
+      seoDescription: when(b, 'seoDescription', (v) => text(v, 320)),
     }),
     afterSave: async (tx, id, b) => { if (has(b, 'links')) await saveLinks(tx, 'game', id, b.links) },
-    onDelete: async (tx, id) => { await tx.mediaLink.deleteMany({ where: { ownerType: 'game', ownerId: id } }) },
+    onDelete: async (tx, id) => {
+      const updates = (await tx.gameUpdate.findMany({ where: { gameId: id }, select: { id: true } })).map((row) => row.id)
+      await tx.mediaLink.deleteMany({ where: { OR: [{ ownerType: 'game', ownerId: id }, ...(updates.length ? [{ ownerType: 'gameupdate', ownerId: { in: updates } }] : [])] } })
+    },
     expand: async (rows) => {
       const links = await linksFor('game', rows.map((row) => row.id))
       const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }
@@ -316,6 +335,7 @@ const RESOURCES: Record<string, Resource> = {
         ...row,
         releaseDate: row.releaseDate ? new Date(row.releaseDate).toISOString().slice(0, 10) : '',
         screenshots: json(row.screenshots, []), pros: json(row.pros, []), cons: json(row.cons, []), requirements: json(row.requirements, { min: {}, rec: {} }),
+        releases: json(row.releases, []), storeLinks: json(row.storeLinks, []),
         links: links.get(row.id) || [],
       }))
     },
@@ -417,7 +437,8 @@ export async function GET(req: NextRequest) {
   const off = await moduleGuard(resource.module)
   if (off) return off
   if (!await authorize(req, resource)) return err('forbidden', 403)
-  const rows = await resource.delegate(db).findMany({ orderBy: resource.orderBy, include: resource.include, take: 1000 })
+  const one = Number(req.nextUrl.searchParams.get('id'))
+  const rows = await resource.delegate(db).findMany({ ...(Number.isSafeInteger(one) && one > 0 ? { where: { id: one } } : {}), orderBy: resource.orderBy, include: resource.include, take: 1000 })
   const expanded = resource.expand ? await resource.expand(rows) : rows
   if (!resource.taxonomy) return ok(expanded)
   const terms = await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id))

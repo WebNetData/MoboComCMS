@@ -68,6 +68,7 @@ model User {
   forumMessages  ForumMessage[]
   forumPollVotes ForumPollVote[]
   forumCategoryUsers ForumCategoryUser[]
+  gameLibrary  GameLibrary[]
   itemReviews    ItemReview[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
@@ -1293,11 +1294,78 @@ model GameTitle {
   status       String    @default("PUBLISHED")
   featured     Boolean   @default(false)
   views        Int       @default(0)
+  franchiseId  Int?
+  franchise    GameFranchise? @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
+  engine       String    @default("")
+  modes        String    @default("") // SINGLE, MULTI, COOP, ONLINE (comma separated)
+  localization String    @default("") // FA_SUB, FA_DUB, FA_UI (comma separated)
+  releases     String    @default("[]") // per-platform release dates [{platform, date}]
+  playMain     Int       @default(0) // hours to finish the main story
+  playExtra    Int       @default(0) // main + extras
+  playComplete Int       @default(0) // completionist
+  storeLinks   String    @default("[]") // official stores [{store, url}]
+  gameSize     String    @default("")
+  version      String    @default("") // latest build / version on the download links
+  verdict      String    @default("") // one-line editor verdict next to the score
+  editorsChoice Boolean  @default(false)
+  seoTitle     String    @default("")
+  seoDescription String  @default("")
+  updates      GameUpdate[]
+  library      GameLibrary[]
   publishedAt  DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status, publishedAt])
+  @@index([releaseDate])
+  @@index([franchiseId])
+}
+
+/// A game series (Souls, God of War…): groups titles on the franchise page.
+model GameFranchise {
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
+  title       String
+  titleEn     String      @default("")
+  description String      @default("")
+  image       String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+  games       GameTitle[]
+}
+
+/// Updates, patches, DLCs and editions of a game. Download links live in
+/// MediaLink (ownerType "gameupdate").
+model GameUpdate {
+  id         Int       @id @default(autoincrement())
+  gameId     Int
+  game       GameTitle @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  kind       String    @default("UPDATE") // UPDATE | PATCH | DLC | EDITION
+  title      String
+  version    String    @default("")
+  size       String    @default("")
+  notes      String    @default("")
+  releasedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([gameId, releasedAt])
+}
+
+/// A member's game library (GameUp "played / playing / want to play").
+model GameLibrary {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    Int
+  game      GameTitle @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  status    String // PLAYING | PLAYED | WANT | DROPPED
+  hours     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  @@unique([userId, gameId])
+  @@index([gameId, status])
+  @@index([userId, status, updatedAt])
 }
 
 /// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
