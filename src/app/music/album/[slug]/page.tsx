@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
@@ -54,6 +55,7 @@ export default async function AlbumPage({ params }: Props) {
               {album.access === 'MEMBERS' && <VipBadge fa={fa} />}
             </div>
             <div className="mu-hero-actions">{tracks.length > 0 && <PlayButton tracks={tracks} index={0} variant="big" label={fa ? 'پخش آلبوم' : 'Play album'} />}</div>
+            <ItemActionBar item={{ type: 'album', id: album.id }} title={name} image={album.cover} followLabel="آهنگ‌های جدید" />
           </div>
         </div>
       </section>
@@ -61,6 +63,7 @@ export default async function AlbumPage({ params }: Props) {
         {locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}`} title={fa ? 'این آلبوم مخصوص اعضای VIP است' : 'This album is for VIP members'} />}
         <section className="mu-panel"><TrackList tracks={tracks} showCover={false} /></section>
         {album.description && <section className="mu-panel md-prose" dangerouslySetInnerHTML={{ __html: album.description }} />}
+        <ReviewSection item={{ type: 'album', id: album.id }} title={name} path={`/music/album/${album.slug}`} />
         {data.more.length > 0 && <Shelf tone="music" title={fa ? `آلبوم‌های دیگر ${artistName}` : `More albums by ${artistName}`}>{data.more.map((item) => <AlbumCard key={item.id} album={item} fa={fa} />)}</Shelf>}
       </div>
     </MediaShell>

@@ -68,7 +68,7 @@ export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
 export const LINK_OWNERS = ['title', 'episode', 'game', 'software'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
-export type LinkInput = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number }
+export type LinkInput = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number; disabled?: boolean }
 
 /** Validates download/stream links. Only http(s) URLs are accepted. */
 export function cleanLinks(input: unknown, max = 60): LinkInput[] {
@@ -91,6 +91,8 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
       url: url.slice(0, 2000),
       access: r.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC',
       sortOrder: Number.isSafeInteger(Number(r.sortOrder)) ? Number(r.sortOrder) : index,
+      // Absent = keep the stored flag (set by broken-link or copyright handling).
+      ...(r.disabled === undefined ? {} : { disabled: r.disabled === true || r.disabled === 'true' }),
     }]
   })
 }

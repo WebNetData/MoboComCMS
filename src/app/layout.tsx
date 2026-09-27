@@ -17,6 +17,7 @@ import './store-design.css'
 import './journal-design.css'
 import './media-design.css'
 import './forum.css'
+import './engage.css'
 import Providers from '@/components/Providers'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
 import LocaleSetter from '@/i18n/LocaleSetter'
@@ -39,6 +40,8 @@ import MusicPlayerProvider from '@/components/media/MusicPlayer'
 import type { CSSProperties } from 'react'
 import { resolveCodeThemeId } from '@/themes/runtime'
 import { getPackageRuntime } from '@/modules/packages/server/runtime'
+import PwaClient from '@/components/pwa/PwaClient'
+import { CompareTray } from '@/components/engage/CompareControls'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,7 +70,8 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: seo.config.keywords.length ? seo.config.keywords : undefined,
     category: 'shopping',
     alternates: seo.bilingual ? { canonical: seo.base, languages: { fa: seo.base, en: seo.base, 'x-default': seo.base } } : { canonical: seo.base, types: { 'application/rss+xml': `${seo.base}/feed.xml` } },
-    icons: { icon: '/favicon.svg', apple: '/favicon.svg' },
+    icons: { icon: '/favicon.svg', apple: '/pwa-icon/180' },
+    appleWebApp: { capable: true, title: seo.name, statusBarStyle: 'default' },
     robots: {
       index: true,
       follow: true,
@@ -137,7 +141,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PreviewBridge />
         <LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}</ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></SiteProvider></Providers>
         </LocaleProvider>
       </body>
     </html>

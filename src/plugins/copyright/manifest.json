@@ -1,0 +1,17 @@
+{
+  "id": "copyright",
+  "name": "گزارش نقض حق نشر",
+  "nameEn": "Copyright reports",
+  "description": "فرم عمومی گزارش نقض حق نشر با کد پیگیری، صف بررسی در پنل و حذف یک‌کلیکی محتوا یا لینک‌های دانلود.",
+  "descriptionEn": "Public copyright takedown form with tracking codes, an admin review queue and one-click content or link removal.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "core",
+  "icon": "shield",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/copyright"],
+  "adminPaths": ["/admin/copyright"],
+  "permissions": [{ "id": "copyright.manage", "label": "رسیدگی به گزارش حق نشر" }]
+}

@@ -100,7 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const L = (fa: string, en: string) => locale === 'fa' ? fa : en
   const GROUPS: NavGroup[] = [
-    { title: t.overview, items: [{ href: '/admin', label: t.dashboard, icon: 'grid', exact: true }] },
+    { title: t.overview, items: [{ href: '/admin', label: t.dashboard, icon: 'grid', exact: true }, { href: '/admin/analytics', label: L('آمار بازدید و فروش', 'Analytics'), icon: 'sliders', perm: ['analytics.view', 'dashboard.view'] }] },
     { title: L('وب‌سایت و محتوا', 'Website & content'), items: [
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
@@ -110,6 +110,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
+      { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
     ] },
     { title: L('مجله و نوشته‌ها', 'Journal'), items: [
@@ -123,6 +124,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/games', label: L('بازی‌ها', 'Games'), icon: 'bolt', perm: ['games.manage', 'cms.posts'] },
       { href: '/admin/software', label: L('نرم‌افزارها', 'Software'), icon: 'devices', perm: ['software.manage', 'cms.posts'] },
       { href: '/admin/forum', label: L('تالار گفتمان', 'Forum'), icon: 'chat', perm: ['forum.moderate', 'cms.posts'] },
+      { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
+      { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate', 'cms.posts'] },
       { href: '/admin/vip', label: L('اشتراک ویژه VIP', 'VIP membership'), icon: 'shield', perm: ['membership.manage', 'plans.manage', 'users.manage'] },
     ] },
     { title: L('سرویس VPN', 'VPN service'), items: [
@@ -136,6 +139,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { title: L('بازاریابی', 'Marketing'), items: [
       { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
       { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
+      { href: '/admin/social', label: L('انتشار در تلگرام و اینستاگرام', 'Social auto-publish'), icon: 'chat', perm: ['social.manage', 'settings.manage'] },
+      { href: '/admin/push', label: L('اعلان مرورگر', 'Web push'), icon: 'bolt', perm: ['push.manage', 'settings.manage'] },
     ] },
     { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },

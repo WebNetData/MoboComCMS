@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ThemeLangControls from '@/components/ThemeLangControls'
+import SiteSearch from '@/components/search/SiteSearch'
 import { useSite } from '@/components/site/SiteProvider'
 import { translate } from '@/modules/site/config/types'
 import { PluginOutlet } from '@/plugins/registry'
@@ -52,6 +53,7 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
 
         <div className="flex items-center gap-2">
           <div className="only-desktop">
+            <SiteSearch />
             <ThemeLangControls locale={locale} theme={theme} />
           </div>
           {session ? (

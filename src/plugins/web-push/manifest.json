@@ -1,0 +1,17 @@
+{
+  "id": "web-push",
+  "name": "اعلان مرورگر (Web Push)",
+  "nameEn": "Web push notifications",
+  "description": "اعلان رایگان مرورگر و اپ نصب‌شده (PWA): پیام‌های حساب کاربری، محتوای جدید و پیام همگانی از پنل مدیریت.",
+  "descriptionEn": "Free browser and installed-app (PWA) notifications for account events, new content and admin broadcasts.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "bolt",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/push"],
+  "permissions": [{ "id": "push.manage", "label": "ارسال اعلان مرورگر" }]
+}

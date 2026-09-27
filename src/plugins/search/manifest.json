@@ -1,0 +1,16 @@
+{
+  "id": "search",
+  "name": "جست‌وجوی سراسری",
+  "nameEn": "Site search",
+  "description": "یک جست‌وجو برای کل سایت: محصولات، نرم‌افزار، بازی، فیلم و سریال، موزیک، مجله و تالار. «ی/ي»، «ک/ك»، نیم‌فاصله و اعداد فارسی را یکسان در نظر می‌گیرد.",
+  "descriptionEn": "One search across products, software, games, films, music, journal and forum, with Persian-aware normalization.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "globe",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/search"],
+  "adminPaths": []
+}

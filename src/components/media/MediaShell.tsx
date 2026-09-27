@@ -10,7 +10,7 @@ export type SectionNavItem = { href: string; label: string; key: string }
  * Page chrome for the music / cinema / games / software / forum sections: theme-builder header and
  * footer (a template targeting the section wins), plus the section's own sub-menu.
  */
-export default async function MediaShell({ section, active, nav, children, search }: { section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
+export default async function MediaShell({ section, active, nav, children, search }: { section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum' | 'search' | 'compare' | 'favorites' | 'copyright'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
   const [locale, theme, navPages] = await Promise.all([getServerLocale(), getServerTheme(), getPublicNavigationPages()])
   const context = { route: 'section' as const, sectionSlug: section }
   return (

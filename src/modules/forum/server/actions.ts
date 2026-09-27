@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
@@ -88,6 +89,7 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
     return created
   })
   await afterPost(viewer, { threadId: thread.id, title, number: 1, content, categoryId: category.id, replyToUserId: null })
+  contentChanged({ type: 'thread', id: thread.id }, null, { status: 'VISIBLE', title: thread.title })
   return { id: thread.id }
 }
 
@@ -353,6 +355,7 @@ export async function moderateThread(viewer: Viewer, threadId: number, patch: { 
     if (target !== thread.categoryId) await recount(tx, threadId, target)
   })
   void refreshStats(thread.userId).catch(() => undefined)
+  contentChanged({ type: 'thread', id: threadId }, null, null)
   return { id: threadId, ...data }
 }
 
@@ -367,6 +370,7 @@ export async function deleteThread(viewer: Viewer, threadId: number) {
     await recount(tx, threadId, thread.categoryId)
   })
   void Promise.all(authors.map((row) => refreshStats(row.userId))).catch(() => undefined)
+  contentChanged({ type: 'thread', id: threadId }, null, null)
   return thread
 }
 

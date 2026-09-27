@@ -1,0 +1,20 @@
+{
+  "id": "reviews",
+  "name": "امتیاز، نظر و علاقه‌مندی‌ها",
+  "nameEn": "Ratings, reviews & favorites",
+  "description": "امتیاز ۱ تا ۵ ستاره و نظر کاربران برای نرم‌افزار، بازی، فیلم و موزیک، فهرست علاقه‌مندی‌ها و «خبرم کن» برای نسخه یا قسمت جدید.",
+  "descriptionEn": "Star ratings and reviews for software, games, films and music, favorites and follow-for-updates.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/favorites"],
+  "adminPaths": ["/admin/reviews"],
+  "settings": [
+    { "key": "moderate-text", "label": "نظرهای متنی قبل از نمایش تأیید شوند", "labelEn": "Hold text reviews for approval", "type": "boolean", "default": true }
+  ],
+  "permissions": [{ "id": "reviews.moderate", "label": "مدیریت امتیازها و نظرها" }]
+}

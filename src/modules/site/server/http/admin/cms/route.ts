@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { contentChanged } from '@/modules/content/server/events'
 import { normalizeAccess } from '@/modules/membership/domain/membership'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -192,6 +193,7 @@ export async function POST(req: NextRequest) {
         }) as any,
         })
       })
+      contentChanged({ type: 'post', id: row.id }, null, row)
       return ok(row)
     }
     if (type === 'postcats' || type === 'productcats') {
@@ -209,6 +211,7 @@ export async function POST(req: NextRequest) {
         if (input.variants) await saveVariants(tx, created.id, input.variants)
         return created
       })
+      contentChanged({ type: 'product', id: row.id }, null, row)
       return ok(row)
     }
     if (type === 'locations') {
@@ -268,23 +271,30 @@ export async function PATCH(req: NextRequest) {
       if (b?.attributeGroupId !== undefined) data.attributeGroupId = await productCategoryGroup(b.attributeGroupId)
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, priceMinor: true, name: true } })
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
-      return ok(await db.$transaction(async tx => {
+      const saved = await db.$transaction(async tx => {
         const row = await tx.product.update({ where: { id }, data: input.data as any })
         if (input.variants) await saveVariants(tx, id, input.variants)
         return row
-      }))
+      })
+      contentChanged({ type: 'product', id }, current, saved)
+      return ok(saved)
     }
-    if (type === 'posts') return ok(await db.$transaction(async tx => {
-      if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
-        const ids = await validateCategorySelection(tx, b)
-        data.categoryId = ids[0] || null
-        data.categories = { deleteMany: {}, create: ids.map(categoryId => ({ categoryId })) }
-      }
-      return tx.post.update({ where: { id }, data })
-    }))
+    if (type === 'posts') {
+      const before = await db.post.findUnique({ where: { id }, select: { status: true, publishedAt: true, title: true } })
+      const saved = await db.$transaction(async tx => {
+        if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
+          const ids = await validateCategorySelection(tx, b)
+          data.categoryId = ids[0] || null
+          data.categories = { deleteMany: {}, create: ids.map(categoryId => ({ categoryId })) }
+        }
+        return tx.post.update({ where: { id }, data })
+      })
+      contentChanged({ type: 'post', id }, before, saved)
+      return ok(saved)
+    }
     if (type === 'postcats') return ok(await db.$transaction(async tx => {
       if (b?.parentId !== undefined) data.parentId = await validateCategoryParent(tx, b.parentId, id)
       return tx.postCategory.update({ where: { id }, data })
@@ -324,6 +334,7 @@ export async function DELETE(req: NextRequest) {
     }
     if (type === 'productgroups' && await db.productCategory.count({ where: { attributeGroupId: id } })) return err('Group is assigned to a category', 409)
     await model.delete({ where: { id } })
+    if (type === 'posts' || type === 'products') contentChanged({ type: type === 'posts' ? 'post' : 'product', id }, null, null)
     if (type === 'pages') await db.setting.deleteMany({ where: { key: { in: [`page.layout.${id}`, `page.builder.${id}`] } } })
     return ok({ deleted: true })
   } catch {

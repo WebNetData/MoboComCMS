@@ -1,0 +1,16 @@
+{
+  "id": "compare",
+  "name": "مقایسه",
+  "nameEn": "Compare",
+  "description": "مقایسهٔ کنار هم محصولات، نرم‌افزارها، بازی‌ها و فیلم‌ها (تا ۴ مورد) با مشخصات، امتیاز کاربران و قیمت.",
+  "descriptionEn": "Side-by-side comparison of products, software, games and films (up to 4 items).",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "sliders",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/compare"],
+  "adminPaths": []
+}

@@ -151,7 +151,7 @@ const titleInclude = { _count: { select: { seasons: true } } } as const
 async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
   if (!ids.length) return map
-  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
+  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
   for (const { ownerId, ...link } of rows) map.set(ownerId, [...(map.get(ownerId) || []), link])
   return map
 }

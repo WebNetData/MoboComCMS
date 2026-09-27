@@ -1,0 +1,17 @@
+{
+  "id": "social-publisher",
+  "name": "انتشار خودکار در شبکه‌های اجتماعی",
+  "nameEn": "Social auto-publish",
+  "description": "محتوای تازه (نرم‌افزار، بازی، فیلم، موزیک، مقاله و محصول) را خودکار با تصویر و لینک در کانال تلگرام و صفحهٔ اینستاگرام (حساب Business) منتشر می‌کند.",
+  "descriptionEn": "Automatically posts new content with image and link to a Telegram channel and an Instagram business account.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "chat",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/social"],
+  "permissions": [{ "id": "social.manage", "label": "مدیریت انتشار در شبکه‌های اجتماعی" }]
+}
