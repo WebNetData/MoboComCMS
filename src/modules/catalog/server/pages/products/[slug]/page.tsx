@@ -22,6 +22,7 @@ import { PRODUCT_SLOT_TYPES, docHasSlotWidget, ensureProductSlots } from '@/modu
 import { getViewer } from '@/modules/membership/server/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { legacyNumber } from '@/shared/money'
+import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -203,6 +204,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   return (
     <>
       <ThemeHeader context={renderContext} choice={chromeDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
+      <SectionBarSlot section="shop" />
       {layoutDoc ? (
         <main className="store-product-page store-product-built">
           <div className="br-container">{breadcrumbsNode}</div>

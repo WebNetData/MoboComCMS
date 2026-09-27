@@ -1,14 +1,15 @@
 /**
- * Mega menus: every broad section (shop, journal, music, cinema, games,
- * software, forum) gets its own panel under its main-menu item, built from
- * that section's category tree plus editor-controlled links and a promo card.
+ * Section menus: every broad section (shop, journal, music, cinema, games,
+ * software, forum) shows its own menu bar inside the section — its main
+ * categories, each with a mega panel of sub-categories — plus editor-controlled
+ * quick links and a promo card. The site's main menu stays simple.
  * Pure types and validation — data sources live in ../server.
  */
 
 export const MEGA_SECTIONS = ['shop', 'blog', 'music', 'cinema', 'games', 'software', 'forum'] as const
 export type MegaSection = typeof MEGA_SECTIONS[number]
 
-/** Root path of each section; a main-menu link under this path gets the section's panel. */
+/** Landing page of each section (the bar's home link). */
 export const SECTION_ROOT: Record<MegaSection, string> = {
   shop: '/products', blog: '/blog', music: '/music', cinema: '/cinema', games: '/games', software: '/software', forum: '/forum',
 }
@@ -21,18 +22,6 @@ export type MegaLink = { label: string; href: string; count?: number; hint?: str
 export type MegaColumn = { title: string; href?: string; links: MegaLink[] }
 export type MegaFeature = { title: string; href: string; image: string; kicker?: string }
 export type MegaPromo = { title: string; text: string; href: string; image: string; cta: string }
-
-/** Everything a theme needs to draw one panel. */
-export type MegaMenu = {
-  section: MegaSection
-  /** Main-menu href the panel belongs to. */
-  href: string
-  title: string
-  columns: MegaColumn[]
-  quick: MegaLink[]
-  features: MegaFeature[]
-  promo: MegaPromo | null
-}
 
 export type SectionMenuConfig = {
   enabled: boolean
@@ -130,12 +119,6 @@ export function normalizeMegaConfig(input: unknown, previous: MegaMenuConfig = d
   }
 }
 
-/** Which section a main-menu href opens (exact root or a path under it). */
-export function sectionForHref(href: string): MegaSection | null {
-  const path = href.split(/[?#]/)[0].replace(/\/+$/, '') || '/'
-  return MEGA_SECTIONS.find((section) => path === SECTION_ROOT[section]) || null
-}
-
 /**
  * Turns a category forest into panel columns: every root with children is a
  * column of its children; childless roots are gathered into one leading column.
@@ -166,4 +149,37 @@ export function facetCounts(values: string[], limit: number): { name: string; co
     for (const part of value.split(/[,،|/]/).map((item) => item.trim()).filter(Boolean)) counts.set(part, (counts.get(part) || 0) + 1)
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fa')).slice(0, limit).map(([name, count]) => ({ name, count }))
+}
+
+// ------------------------------------------------------------------ section menu bar
+
+/** One top-level entry of a section's own menu bar, with its dropdown panel. */
+export type SectionBarItem = { key: string; label: string; href: string; columns: MegaColumn[]; features: MegaFeature[] }
+
+export type SectionBar = {
+  section: MegaSection
+  title: string
+  home: string
+  items: SectionBarItem[]
+  /** Plain links after the category items (newest, most downloaded, …). */
+  quick: MegaLink[]
+  promo: MegaPromo | null
+  search: { action: string; placeholder: string; param: string; categories: { value: string; label: string }[] } | null
+}
+
+/**
+ * Dropdown columns for one top-level category: its children become columns
+ * of their own children; childless children are gathered in a leading column.
+ */
+export function subtreeColumns<T extends { id: number; parentId: number | null; label: string; href: string; count?: number }>(
+  nodes: T[], rootId: number, options: { columns: number; perColumn: number; looseTitle: string },
+): MegaColumn[] {
+  const inside = new Set<number>()
+  for (let frontier = [rootId]; frontier.length;) {
+    const next = nodes.filter((node) => node.parentId !== null && frontier.includes(node.parentId) && !inside.has(node.id))
+    for (const node of next) inside.add(node.id)
+    frontier = next.map((node) => node.id)
+  }
+  const subtree = nodes.filter((node) => inside.has(node.id)).map((node) => (node.parentId === rootId ? { ...node, parentId: null } : node))
+  return treeColumns(subtree, options)
 }

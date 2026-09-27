@@ -10,6 +10,7 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import { PageIntro } from '@/components/content/ContentPrimitives'
 import { richTextToPlain } from '@/shared/content/sanitize'
+import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 
 const SHOP_CONTEXT = { route: 'shop' } as const
@@ -28,6 +29,7 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
     return (
       <>
         <ThemeHeader context={SHOP_CONTEXT} choice={placed.doc.layout?.header} theme={theme} locale={locale} navPages={nav} preview={preview} />
+      <SectionBarSlot section="shop" />
         <main className="br-page-main"><BuilderRenderer doc={placed.doc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, placed.meta.id)} /></main>
         <ThemeFooter context={SHOP_CONTEXT} choice={placed.doc.layout?.footer} locale={locale} navPages={nav} preview={preview} />
       </>
@@ -85,6 +87,7 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
   return (
     <>
       <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} preview={preview} />
+      <SectionBarSlot section="shop" />
       <main className="container page-main content-surface">
         <PageIntro eyebrow={locale === 'fa' ? 'فروشگاه MoboComCMS' : 'MoboComCMS store'} title={t.products} description={t.shopSub} />
 

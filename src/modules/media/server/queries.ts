@@ -402,6 +402,41 @@ export async function browseSoftware(input: { platform?: string; category?: stri
   return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
+/** Header strip of the software portal: catalogue size, traffic, freshness and community. */
+export async function softwareStats() {
+  const [count, sums, last, reviews] = await allOrEmpty([
+    db.softwareTitle.count({ where: live() }),
+    db.softwareTitle.aggregate({ where: live(), _sum: { views: true, downloads: true } }),
+    db.softwareTitle.findFirst({ where: live(), orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+    db.itemReview.count({ where: { itemType: 'software', status: 'APPROVED' } }),
+  ])
+  const sum = (sums as { _sum?: { views: number | null; downloads: number | null } } | null)?._sum
+  return {
+    count: Number(count) || 0,
+    traffic: (sum?.views || 0) + (sum?.downloads || 0),
+    downloads: sum?.downloads || 0,
+    updatedAt: (last as { updatedAt: Date } | null)?.updatedAt || null,
+    reviews: Number(reviews) || 0,
+  }
+}
+
+/** Editor picks for the “suggested” sidebar list (featured first, then most downloaded). */
+export async function softwareSuggestions(take = 10) {
+  const rows = await db.softwareTitle.findMany({ where: live(), orderBy: [{ featured: 'desc' }, { downloads: 'desc' }], take }).catch(() => [])
+  return rows.map(toSoftware)
+}
+
+/** Latest journal posts with a cover (the portal's “tech news” box). */
+export async function techNews(take = 5) {
+  return db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' } }, orderBy: { publishedAt: 'desc' }, take, select: { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, category: { select: { name: true } } } }).catch(() => [])
+}
+
+/** Newest software filed under the given ids (one home-page shelf per main category). */
+export async function softwareShelf(ids: number[] | null, take = 8) {
+  const rows = await db.softwareTitle.findMany({ where: { ...live(), ...(ids ? { id: { in: ids.slice(0, 5000) } } : {}) }, orderBy: { updatedAt: 'desc' }, take }).catch(() => [])
+  return rows.map(toSoftware)
+}
+
 export async function getSoftware(slug: string) {
   const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null

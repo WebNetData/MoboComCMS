@@ -3,6 +3,7 @@ import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { TAXONOMY_INFO, TaxonomyError, isTaxonomy, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
+import { invalidateSectionBars } from '@/modules/navigation/server/megamenu'
 import { deleteTerm, importLegacy, recount, reorderTerms, saveTerm, termOptions, termTree } from '@/modules/taxonomy/server/taxonomy'
 
 function failure(error: unknown) {
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
+  invalidateSectionBars()
   const body = (await req.json().catch(() => null)) || {}
   try {
     if (body.action === 'reorder') { await reorderTerms(g.taxonomy, body.moves); return ok({ tree: await termTree(g.taxonomy) }) }
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
+  invalidateSectionBars()
   const body = (await req.json().catch(() => null)) || {}
   const id = idOf(body.id)
   if (!id) return err('invalid id')
@@ -71,6 +74,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
+  invalidateSectionBars()
   const id = idOf(req.nextUrl.searchParams.get('id'))
   if (!id) return err('invalid id')
   try {

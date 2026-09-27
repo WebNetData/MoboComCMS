@@ -105,7 +105,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
-      { href: '/admin/mega-menu', label: L('مگامنوی بخش‌ها', 'Section mega menus'), icon: 'grid', perm: 'settings.manage' },
+      { href: '/admin/mega-menu', label: L('منو و مگامنوی بخش‌ها', 'Section menus'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/seo', label: L('مرکز سئو', 'SEO center'), icon: 'globe', perm: 'settings.manage' },
       { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
       { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },

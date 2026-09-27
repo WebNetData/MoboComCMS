@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { MegaMenuPanelBody } from '@/components/site/MegaMenu'
-import type { MegaMenu, MegaMenuConfig, MegaSection, SectionMenuConfig } from '@/modules/navigation/domain/megamenu'
+import SectionMegaBar, { MegaPanel } from '@/components/site/SectionMegaBar'
+import type { MegaMenuConfig, MegaSection, SectionBar, SectionMenuConfig } from '@/modules/navigation/domain/megamenu'
 
-type SectionState = { section: MegaSection; label: string; available: boolean; preview: MegaMenu }
+type SectionState = { section: MegaSection; label: string; available: boolean; preview: SectionBar }
 type State = { config: MegaMenuConfig; sections: SectionState[]; moduleEnabled: boolean }
 
 /** Per-section mega menu settings with a live preview of the panel. */
@@ -12,7 +12,8 @@ export default function AdminMegaMenuPage() {
   const [state, setState] = useState<State | null>(null)
   const [config, setConfig] = useState<MegaMenuConfig | null>(null)
   const [active, setActive] = useState<MegaSection>('shop')
-  const [preview, setPreview] = useState<MegaMenu | null>(null)
+  const [preview, setPreview] = useState<SectionBar | null>(null)
+  const [panel, setPanel] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -59,11 +60,11 @@ export default function AdminMegaMenuPage() {
   </label>
 
   return <div className="xm-page sh-admin" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">NAVIGATION · MEGA MENU</span><h1>مگامنوی بخش‌ها</h1>
-      <p>هر بخش گستردهٔ سایت زیر آیتم خودش در منوی اصلی یک مگامنوی جدا دارد که از دسته‌بندی‌ها و زیردسته‌های همان بخش ساخته می‌شود و با اضافه شدن محتوا خودکار به‌روز می‌شود. ترتیب و عنوان آیتم‌های منوی اصلی را در <Link href="/admin/studio">ظاهر و منوها</Link> تنظیم کنید.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">NAVIGATION · MEGA MENU</span><h1>منو و مگامنوی بخش‌ها</h1>
+      <p>وقتی کاربر وارد هر بخش می‌شود، منوی اختصاصی همان بخش زیر هدر سایت نمایش داده می‌شود: دسته‌های اصلی بخش، هر کدام با مگامنوی زیردسته‌ها و موارد پیشنهادی، به‌علاوهٔ لینک‌های سریع و جست‌وجوی بخش. دسته‌ها را در <Link href="/admin/taxonomy">دسته‌بندی و زیردسته‌ها</Link> مدیریت کنید؛ منوی اصلی سایت ساده باقی می‌ماند.</p></div></header>
     {!state.moduleEnabled && <div className="xm-notice is-error">ماژول «مگامنوی بخش‌ها» غیرفعال است؛ از بخش افزونه‌ها فعالش کنید.</div>}
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
-    <label className="sh-check"><input type="checkbox" checked={config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />نمایش مگامنو در سایت</label>
+    <label className="sh-check"><input type="checkbox" checked={config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />نمایش منوی اختصاصی بخش‌ها</label>
 
     <div className="mmx-layout">
       <ul className="mmx-sections" role="tablist" aria-label="بخش‌ها">
@@ -75,14 +76,14 @@ export default function AdminMegaMenuPage() {
       <div className="mmx-editor">
         {!info.available && <div className="xm-notice">ماژول این بخش خاموش است؛ مگامنوی آن تا روشن شدن ماژول نمایش داده نمی‌شود.</div>}
         <section className="sh-panel">
-          <header className="sh-panel-head"><h2>مگامنوی {info.label}</h2>
+          <header className="sh-panel-head"><h2>منوی بخش {info.label}</h2>
             <label className="sh-check"><input type="checkbox" checked={section.enabled} onChange={(e) => patch({ enabled: e.target.checked })} />فعال</label></header>
           <div className="sh-grid sh-admin-fields">
-            {numberField('columns', 'تعداد ستون‌ها', 1, 6)}
+            {numberField('columns', 'ستون در منوی هر دسته', 1, 6)}
             {numberField('linksPerColumn', 'لینک در هر ستون', 3, 15)}
             {numberField('features', 'موارد ویژهٔ تصویردار', 0, 3)}
           </div>
-          <p className="sh-muted">ستون‌ها از دسته‌های اصلی و زیرشاخه‌هایشان ساخته می‌شوند؛ دسته‌های بدون زیرشاخه در ستون اول کنار هم قرار می‌گیرند.</p>
+          <p className="sh-muted">هر دستهٔ اصلی یک آیتم منوی بخش است؛ زیردسته‌هایش ستون‌های منوی کشویی آن را می‌سازند و زیردسته‌های بدون فرزند در ستون اول کنار هم می‌آیند.</p>
         </section>
 
         <section className="sh-panel">
@@ -113,7 +114,13 @@ export default function AdminMegaMenuPage() {
 
         <section className="mmx-preview" aria-label="پیش‌نمایش">
           <div className="mmx-preview-label">پیش‌نمایش زنده (با داده‌های واقعی این بخش)</div>
-          {preview ? <MegaMenuPanelBody menu={preview} /> : <div className="sh-skeleton" aria-busy="true" />}
+          {preview ? <>
+            <div className="mmx-bar-preview"><SectionMegaBar bar={preview} /></div>
+            {preview.items.some((item) => item.columns.length) ? <>
+              <div className="mmx-panel-pick" role="tablist" aria-label="پیش‌نمایش منوی هر دسته">{preview.items.filter((item) => item.columns.length || item.features.length).map((item) => <button key={item.key} type="button" role="tab" aria-selected={(panel || preview.items[0].key) === item.key} onClick={() => setPanel(item.key)}>{item.label}</button>)}</div>
+              {(() => { const item = preview.items.find((entry) => entry.key === panel) || preview.items.find((entry) => entry.columns.length || entry.features.length); return item ? <MegaPanel item={item} promo={preview.promo} /> : null })()}
+            </> : <p className="sh-muted mmx-empty-note">این بخش هنوز دسته‌بندی ندارد؛ از «دسته‌بندی و زیردسته‌ها» دسته بسازید تا هر دسته منوی کشویی خودش را داشته باشد.</p>}
+          </> : <div className="sh-skeleton" aria-busy="true" />}
         </section>
 
         <div className="sh-sticky-save"><button type="button" className="sh-btn sh-btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ مگامنوها'}</button></div>

@@ -13,6 +13,7 @@ import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChro
 import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
 import { requireModule } from '@/extensions/server/modules'
+import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -50,6 +51,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
             context={chromeContext} choice={builderDoc.layout?.header} theme={theme} locale={locale} navPages={navPages} preview={preview}
             fallback={<div className="journal-header-shell"><SiteHeader theme={theme} navPages={navPages} /></div>}
           />
+          <SectionBarSlot section="blog" />
           <main className="journal-page journal-liona">
             <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, docPageId)} />
           </main>
@@ -244,6 +246,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
         context={chromeContext} theme={theme} locale={locale} navPages={navPages} preview={preview}
         fallback={<div className="journal-header-shell"><SiteHeader theme={theme} navPages={navPages} /></div>}
       />
+      <SectionBarSlot section="blog" />
       <main className="journal-page journal-liona">
         {isLanding && tickerPosts.length > 0 && (
           <div className="journal-ticker">

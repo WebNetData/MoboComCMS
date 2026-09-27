@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { MEGA_SECTIONS, MegaMenuError, SECTION_LABEL, normalizeSectionConfig, type MegaSection } from '@/modules/navigation/domain/megamenu'
-import { buildMegaMenu, megaMenuAdminState, saveMegaConfig } from '@/modules/navigation/server/megamenu'
+import { MEGA_SECTIONS, MegaMenuError, normalizeSectionConfig, type MegaSection } from '@/modules/navigation/domain/megamenu'
+import { buildSectionBar, megaMenuAdminState, saveMegaConfig } from '@/modules/navigation/server/megamenu'
 
 const guard = (req: NextRequest) => adminGuard(req, 'mega-menu', ['settings.manage'])
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (typeof body.preview === 'string') {
       if (!(MEGA_SECTIONS as readonly string[]).includes(body.preview)) return err('invalid section')
       const section = body.preview as MegaSection
-      return ok({ preview: await buildMegaMenu(section, '#', SECTION_LABEL[section], { ...normalizeSectionConfig(body.config), enabled: true }) })
+      return ok({ preview: await buildSectionBar(section, { ...normalizeSectionConfig(body.config), enabled: true }) })
     }
     const config = await saveMegaConfig(body)
     await auditAdmin({ req, actor: g.admin, action: 'mega_menu.update', targetType: 'setting', targetId: 'site.megamenu.v1', metadata: { enabled: config.enabled } })

@@ -21,6 +21,7 @@ const paths: Record<string, React.ReactNode> = {
   sliders: <><path d="M4 7h4m4 0h8M4 17h10m4 0h2"/><circle cx="10" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></>,
   user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
   search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></>,
+  chevron: <path d="m6 9 6 6 6-6"/>,
   truck: <><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></>,
 }
 const aliases: Record<string, string> = { products: 'bag', shop: 'bag', store: 'bag', journal: 'news', vip: 'crown', forum: 'chat', software: 'download', cinema: 'film', games: 'game' }

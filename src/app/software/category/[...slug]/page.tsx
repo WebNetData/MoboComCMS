@@ -2,14 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
-import { softwareFeed, softwareSidebar } from '@/modules/media/server/queries'
-import { primaryTerms, resolveTermPath, termTree } from '@/modules/taxonomy/server/taxonomy'
+import { softwareFeed } from '@/modules/media/server/queries'
+import { softwarePortalChrome } from '@/modules/media/server/software-portal'
+import { primaryTerms, resolveTermPath } from '@/modules/taxonomy/server/taxonomy'
 import { SOFTWARE_LICENSES, licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
-import { softwareNav } from '@/components/media/nav'
 import { EmptyState } from '@/components/media/MediaCards'
-import TermHeader from '@/components/taxonomy/TermHeader'
-import { Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar } from '@/components/software/SoftwarePortal'
+import { FolderTiles, Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar, SoftwareStatsStrip } from '@/components/software/SoftwarePortal'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string[] }>; searchParams: Promise<{ page?: string; sort?: string; license?: string }> }
@@ -28,34 +27,40 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 }
 
-/** Category archive: /software/category/windows/security (a term and all its sub-terms). */
+/** Category archive (/software/category/windows/graphics): breadcrumb, sub-category folders, list cards with specs. */
 export default async function SoftwareCategoryPage({ params, searchParams }: Props) {
   await requireModule('software')
   const [{ slug }, query] = await Promise.all([params, searchParams])
   const found = await resolveTermPath('software', slug)
   if (!found) notFound()
   const page = Math.max(1, Number(query.page) || 1)
-  const [feed, sidebar, tree] = await Promise.all([
-    softwareFeed({ ids: found.ownerIds, page, sort: query.sort, license: query.license }),
-    softwareSidebar(),
-    termTree('software'),
-  ])
+  const [feed, chrome] = await Promise.all([softwareFeed({ ids: found.ownerIds, page, sort: query.sort, license: query.license }), softwarePortalChrome()])
   const terms = await primaryTerms('software', feed.items.map((item) => item.id))
   const href = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(Object.entries({ sort: query.sort, license: query.license, ...patch }).filter((entry): entry is [string, string] => !!entry[1]))
     return `${found.term.path}${next.size ? `?${next}` : ''}`
   }
   const sorts: [string, string][] = [['', 'جدیدترین'], ['popular', 'پردانلود'], ['views', 'پربازدید'], ['name', 'الفبایی']]
+  const pager = <Pager page={feed.page} pages={feed.pages} fa href={(n) => href({ page: n > 1 ? String(n) : undefined })} />
   return (
-    <MediaShell section="software" active="latest" nav={softwareNav(true)} search={{ action: '/software/browse', placeholder: 'جست‌وجوی نرم‌افزار…' }}>
-      <SoftwareLayout sidebar={<SoftwareSidebar data={sidebar} fa terms={tree} activeTerm={found.term.id} />}>
-        <TermHeader section={{ label: 'نرم‌افزار', href: '/software' }} chain={found.chain} term={found.term} children={found.children} siblings={found.siblings} total={feed.total} itemLabel="نرم‌افزار" />
+    <MediaShell section="software">
+      <SoftwareStatsStrip stats={chrome.stats} />
+      <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} activeTerm={found.term.id} suggestions={chrome.suggestions} promo={chrome.promo} />}>
+        <FolderTiles items={found.children.length ? found.children : found.siblings} />
+        <nav className="tc-crumbs sp-crumbs" aria-label="مسیر صفحه">
+          <Link href="/software">نرم‌افزار</Link>
+          {found.chain.slice(0, -1).map((node) => <span key={node.id}><span aria-hidden="true"> › </span><Link href={node.path}>{node.name}</Link></span>)}
+          <span aria-hidden="true"> › </span><span aria-current="page">{found.term.name}</span>
+        </nav>
+        <header className="sp-list-head"><h1>{found.term.seoTitle || `دانلود نرم‌افزارهای ${found.term.name}`}</h1><span>{feed.total.toLocaleString('fa-IR')} نرم‌افزار</span></header>
+        {found.term.description && <p className="sp-list-desc">{found.term.description}</p>}
         <div className="sp-filters">
           <nav className="md-chips" aria-label="مرتب‌سازی">{sorts.map(([value, label]) => <Link key={value} href={href({ sort: value || undefined, page: undefined })} className={(query.sort || '') === value ? 'is-active' : ''}>{label}</Link>)}</nav>
           <nav className="md-chips" aria-label="مجوز"><Link href={href({ license: undefined })} className={!query.license ? 'is-active' : ''}>همه مجوزها</Link>{SOFTWARE_LICENSES.map((l) => <Link key={l} href={href({ license: l })} className={query.license === l ? 'is-active' : ''}>{licenseLabel(l, true)}</Link>)}</nav>
         </div>
+        {pager}
         {feed.items.length ? feed.items.map((item) => <SoftwarePost key={item.id} item={item} fa term={terms.get(item.id)} />) : <EmptyState fa title="هنوز نرم‌افزاری در این دسته نیست" text="دسته‌های دیگر یا جست‌وجو را امتحان کنید." />}
-        <Pager page={feed.page} pages={feed.pages} fa href={(n) => href({ page: n > 1 ? String(n) : undefined })} />
+        {pager}
       </SoftwareLayout>
     </MediaShell>
   )

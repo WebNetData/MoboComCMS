@@ -20,13 +20,21 @@ function load(relative) {
 const mm = load('src/modules/navigation/domain/megamenu')
 const tt = load('src/modules/site/domain/theme-templates')
 
-test('main-menu links map to their section only at the section root', () => {
-  assert.equal(mm.sectionForHref('/software'), 'software')
-  assert.equal(mm.sectionForHref('/software/'), 'software')
-  assert.equal(mm.sectionForHref('/products?x=1'), 'shop')
-  assert.equal(mm.sectionForHref('/software/browse'), null)
-  assert.equal(mm.sectionForHref('/p/about'), null)
-  assert.equal(mm.sectionForHref('/'), null)
+test('a category dropdown lists the sub-tree of one top-level category', () => {
+  const nodes = [
+    { id: 1, parentId: null, label: 'ویندوز', href: '/w' },
+    { id: 2, parentId: 1, label: 'امنیت', href: '/w/s' },
+    { id: 3, parentId: 2, label: 'آنتی‌ویروس', href: '/w/s/a' },
+    { id: 4, parentId: 1, label: 'اداری', href: '/w/o' },
+    { id: 5, parentId: null, label: 'اندروید', href: '/a' },
+    { id: 6, parentId: 5, label: 'بازی', href: '/a/g' },
+  ]
+  const columns = mm.subtreeColumns(nodes, 1, { columns: 4, perColumn: 8, looseTitle: 'دسته‌های ویندوز' })
+  assert.deepEqual(columns.map((c) => c.title), ['دسته‌های ویندوز', 'امنیت'])
+  assert.deepEqual(columns[0].links.map((l) => l.label), ['اداری'])
+  assert.deepEqual(columns[1].links.map((l) => l.label), ['آنتی‌ویروس'])
+  assert.ok(!JSON.stringify(columns).includes('اندروید'), 'other top-level categories stay out')
+  assert.deepEqual(mm.subtreeColumns(nodes, 6, { columns: 4, perColumn: 8, looseTitle: 'x' }), [])
 })
 
 test('hrefs and images accept only site paths and https', () => {
