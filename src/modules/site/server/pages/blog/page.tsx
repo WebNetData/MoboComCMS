@@ -1,12 +1,11 @@
 import Link from 'next/link'
 import SiteHeader from '@/components/SiteHeader'
-import JournalHeroSlider, { type JournalSlide } from '@/components/journal/JournalHeroSlider'
-import JournalTabs, { type JournalTab } from '@/components/journal/JournalTabs'
+import LionaHome, { LionaGrid, type LionaCategory, type LionaData, type LionaStory } from '@/components/journal/LionaHome'
 import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import { categoryFilter } from '@/modules/site/server/categories'
-import { categoryDescendants, categoryOptions, postCategories } from '@/modules/site/domain/categories'
+import { categoryDescendants, postCategories } from '@/modules/site/domain/categories'
 import { richTextToPlain } from '@/shared/content/sanitize'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
@@ -16,6 +15,8 @@ import { requireModule } from '@/extensions/server/modules'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
+/** Badge colours for the journal's main categories (Liona palette). */
+const CATEGORY_COLORS = ['#22b8cf', '#7c3aed', '#e11d48', '#16a34a', '#2563eb', '#d97706', '#c026d3', '#0891b2']
 
 function readingMinutes(text: string | null | undefined) {
   return Math.max(1, Math.round(richTextToPlain(text).split(/\s+/).filter(Boolean).length / 200))
@@ -67,178 +68,111 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     if (page > 1) params.set('page', String(page))
     return `/blog${params.size ? '?' + params.toString() : ''}`
   }
-  const [cats, posts] = await Promise.all([
+  const include = { category: true, categories: { include: { category: true } }, author: { select: { name: true } } } as const
+  const [cats, listed, pool] = await Promise.all([
     db.postCategory.findMany({ orderBy: { name: 'asc' } }),
-    db.post.findMany({
-      where,
-      take: pageSize,
-      skip: (currentPage - 1) * pageSize,
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-      include: { category: true, categories: { include: { category: true } }, author: { select: { name: true } } },
-    }),
+    isLanding ? Promise.resolve([]) : db.post.findMany({ where, take: pageSize, skip: (currentPage - 1) * pageSize, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }),
+    isLanding ? db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, take: 60, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }) : Promise.resolve([]),
   ])
-  const pool = posts
-  const seg = (start: number, count: number) => pool.slice(start, start + count)
-  const popular = [...pool].sort((a, b) => b.views - a.views).slice(0, 6)
-  const fmt = (d: Date) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-  const title = (p: { title: string; titleEn: string }) => (isFa ? p.title : p.titleEn || p.title)
-  const excerpt = (p: { excerpt: string; excerptEn: string }, length = 180) => richTextToPlain(isFa ? p.excerpt : p.excerptEn || p.excerpt, length)
-  const categoryName = (c: { name: string; nameEn: string }) => (isFa ? c.name : c.nameEn || c.name)
-  const badge = (p: Story) => {
-    const first = postCategories(p)[0]
-    return first ? categoryName(first) : t.blog
-  }
-  const minutes = (p: Story) => `${readingMinutes(isFa ? p.content : p.contentEn || p.content)} ${t.minRead}`
-  const cover = (p: { cover: string | null }) => p.cover || FALLBACK
-  const currentCategory = cats.find((c) => c.slug === category)
-  const rootCategories = cats.filter((c) => !c.parentId)
+  type Story = typeof pool[number]
+
+  // Root categories carry a colour (by position) used for their badges, circles and chips.
   const byId = new Map(cats.map((c) => [c.id, c]))
-  const rootIdOf = (id: number) => {
+  const rootOf = (id: number) => {
     let node = byId.get(id)
-    let guard = 0
-    while (node?.parentId && byId.has(node.parentId) && guard++ < 30) node = byId.get(node.parentId)
-    return node?.id ?? id
+    for (let guard = 0; node?.parentId && byId.has(node.parentId) && guard < 30; guard++) node = byId.get(node.parentId)
+    return node
   }
-  const counts = new Map<number, number>()
-  for (const post of pool) {
-    for (const item of postCategories(post)) {
-      const root = rootIdOf(item.id)
-      counts.set(root, (counts.get(root) || 0) + 1)
+  const roots = cats.filter((c) => !c.parentId)
+  const rootCounts = new Map<number, number>()
+  await Promise.all(roots.map(async (root) => {
+    const ids = categoryDescendants(cats, root.id)
+    rootCounts.set(root.id, await db.post.count({ where: { status: 'PUBLISHED', OR: [{ categoryId: { in: ids } }, { categories: { some: { categoryId: { in: ids } } } }] } }))
+  }))
+  const ordered = [...roots].sort((a, b) => (rootCounts.get(b.id) || 0) - (rootCounts.get(a.id) || 0))
+  const categoryOf = (c: { id: number; name: string; nameEn: string; slug: string }): LionaCategory => {
+    const root = rootOf(c.id) || c
+    const index = Math.max(0, ordered.findIndex((r) => r.id === root.id))
+    return { id: c.id, name: isFa ? c.name : c.nameEn || c.name, slug: c.slug, color: CATEGORY_COLORS[index % CATEGORY_COLORS.length], count: rootCounts.get(c.id) || 0, href: browseUrl(c.slug, 1) }
+  }
+  const fmt = (d: Date) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const story = (post: Story): LionaStory => {
+    const first = postCategories(post)[0]
+    return {
+      id: post.id, slug: post.slug, title: isFa ? post.title : post.titleEn || post.title,
+      excerpt: richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 160), cover: post.cover || FALLBACK,
+      date: fmt(post.publishedAt), minutes: readingMinutes(isFa ? post.content : post.contentEn || post.content), views: post.views,
+      author: post.author?.name || '', category: first ? categoryOf(first) : null,
     }
   }
-  const tiles = rootCategories
-    .map((cat) => ({ cat, count: counts.get(cat.id) || 0 }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8)
-  const tabDefs = rootCategories
-    .map((cat) => {
-      const ids = new Set(categoryDescendants(cats, cat.id))
-      const items = pool.filter((post) => postCategories(post).some((item) => ids.has(item.id)))
-      return { cat, items: items.slice(0, 6) }
-    })
-    .filter((tab) => tab.items.length >= 3)
-    .slice(0, 3)
-  const childCategories = (parentId: number | null, depth = 0): React.ReactNode =>
-    depth > 30
-      ? null
-      : cats
-          .filter((c) => c.parentId === parentId)
-          .map((c) => (
-            <div key={c.id} className="journal-topic-node">
-              <Link href={browseUrl(c.slug)} className={category === c.slug ? 'is-active' : ''}>
-                <span>{categoryName(c)}</span>
-                <span aria-hidden="true">↗</span>
-              </Link>
-              {childCategories(c.id, depth + 1)}
-            </div>
-          ))
+  const currentCategory = cats.find((c) => c.slug === category)
+  const searchForm = <form action="/blog" className="lh-search" role="search">
+    {category && <input type="hidden" name="category" value={category} />}
+    <input key={query} type="search" name="q" defaultValue={query} maxLength={120} aria-label={isFa ? 'جست‌وجوی نوشته‌ها' : 'Search articles'} placeholder={isFa ? 'جست‌وجو در مجله…' : 'Search the journal…'} />
+    <button type="submit" aria-label={isFa ? 'جست‌وجو' : 'Search'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg></button>
+  </form>
 
-  type Story = typeof posts[number]
-
-  const slides: JournalSlide[] = seg(0, 4).map((post) => ({
-    href: `/blog/${post.slug}`,
-    image: cover(post),
-    category: badge(post),
-    title: title(post),
-    excerpt: excerpt(post, 150),
-    meta: [fmt(post.publishedAt), minutes(post)],
-  }))
-  const trendPosts = seg(4, 4)
-  const freshLead = pool[8]
-  const freshDark = seg(9, 5)
-  const freshCircles = seg(14, 4)
-  const guidePosts = seg(18, 6)
-  const tickerPosts = seg(0, 3)
-
-  const Meta = ({ post }: { post: Story }) => (
-    <span className="ln-meta">
-      <span className="num">{fmt(post.publishedAt)}</span>
-      <span>{minutes(post)}</span>
-    </span>
-  )
-
-  const OverlayCard = ({ post, large = false }: { post: Story; large?: boolean }) => (
-    <Link href={`/blog/${post.slug}`} className={`ln-card ln-card-overlay${large ? ' is-large' : ''}`}>
-      <span className="ln-card-art">
-        <img src={cover(post)} alt="" loading="lazy" decoding="async" />
-      </span>
-      <span className="ln-card-body">
-        <span className="ln-badge">{badge(post)}</span>
-        <strong className="ln-card-title">{title(post)}</strong>
-        <em className="ln-card-excerpt">{excerpt(post, 130)}</em>
-        <Meta post={post} />
-      </span>
-    </Link>
-  )
-
-  const PlainCard = ({ post }: { post: Story }) => (
-    <Link href={`/blog/${post.slug}`} className="ln-card ln-card-plain">
-      <span className="ln-card-art">
-        <img src={cover(post)} alt="" loading="lazy" decoding="async" />
-      </span>
-      <span className="ln-card-body">
-        <span className="ln-badge">{badge(post)}</span>
-        <strong className="ln-card-title">{title(post)}</strong>
-        <em className="ln-card-excerpt">{excerpt(post, 140)}</em>
-        <span className="ln-meta-row">
-          <Meta post={post} />
-          <span className="ln-arrow" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M20 12H5M11 6l-6 6 6 6" />
-            </svg>
-          </span>
-        </span>
-      </span>
-    </Link>
-  )
-
-  const Row = ({ post, variant }: { post: Story; variant: 'dark' | 'plain' | 'circle' }) => (
-    <Link href={`/blog/${post.slug}`} className={`ln-row ln-row-${variant}`}>
-      <span className="ln-row-art">
-        <img src={cover(post)} alt="" loading="lazy" decoding="async" />
-      </span>
-      <span className="ln-row-body">
-        <span className="ln-badge">{badge(post)}</span>
-        <strong>{title(post)}</strong>
-        <span className="ln-meta">
-          <span className="num">{fmt(post.publishedAt)}</span>
-        </span>
-      </span>
-    </Link>
-  )
-
-  const BandHead = ({ title: bandTitle, kicker, href }: { title: string; kicker?: string; href?: string }) => (
-    <div className="ln-head">
-      <div className="ln-head-title">
-        <span className="ln-head-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 2.6l2.3 5.9 5.9 2.3-5.9 2.3L12 19l-2.3-5.9-5.9-2.3 5.9-2.3z" />
-          </svg>
-        </span>
-        <div>
-          <h2>{bandTitle}</h2>
-          {kicker && <p>{kicker}</p>}
-        </div>
+  let body: React.ReactNode
+  if (isLanding) {
+    const stories = pool.map(story)
+    // Hand out stories section by section; a small journal wraps around rather than leaving holes.
+    let cursor = 0
+    const take = (count: number) => {
+      if (!stories.length) return []
+      const out: LionaStory[] = []
+      for (let i = 0; i < count && i < stories.length; i++) out.push(stories[(cursor + i) % stories.length])
+      cursor += out.length
+      return out
+    }
+    const categoriesUi = ordered.filter((c) => (rootCounts.get(c.id) || 0) > 0).map(categoryOf).slice(0, 12)
+    const storiesIn = async (rootId: number, count: number) => (await db.post.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, OR: [{ categoryId: { in: categoryDescendants(cats, rootId) } }, { categories: { some: { categoryId: { in: categoryDescendants(cats, rootId) } } } }] },
+      take: count, orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }], include,
+    })).map(story)
+    const busiest = categoriesUi.slice(0, 3)
+    const [blockA, blockB, panelStories] = await Promise.all([
+      busiest[0] ? storiesIn(busiest[0].id, 6) : Promise.resolve([]),
+      busiest[1] ? storiesIn(busiest[1].id, 6) : Promise.resolve([]),
+      busiest[2] ? storiesIn(busiest[2].id, 6) : Promise.resolve([]),
+    ])
+    const byViews = [...stories].sort((a, b) => b.views - a.views)
+    const data: LionaData = {
+      hero: take(1)[0], heroList: take(4), trending: take(4), latestLead: take(1)[0], latestStrip: take(7), latestRound: take(4),
+      news: take(3), newsRows: take(6),
+      weekly: [
+        { key: 'all', label: isFa ? 'همه مطالب' : 'All', stories: stories.slice(0, 6) },
+        { key: 'popular', label: isFa ? 'محبوب‌ترین‌ها' : 'Popular', stories: byViews.slice(0, 6) },
+        { key: 'old', label: isFa ? 'قدیمی‌ترین‌ها' : 'Oldest', stories: stories.slice(-6).reverse() },
+      ],
+      archive: take(3),
+      categories: categoriesUi,
+      blocks: [busiest[0] && { category: busiest[0], stories: blockA }, busiest[1] && { category: busiest[1], stories: blockB }].filter((entry): entry is { category: LionaCategory; stories: LionaStory[] } => !!entry),
+      panel: busiest[2] ? { category: busiest[2], stories: panelStories } : null,
+      social: (pool.filter((post) => post.featured).length >= 4 ? pool.filter((post) => post.featured).map(story) : byViews).slice(0, 4),
+    }
+    body = stories.length ? <LionaHome data={data} search={searchForm} /> : <div className="container lh-section"><div className="journal-empty"><p>{t.noPosts}</p></div></div>
+  } else {
+    body = <div className="container lh-section lh-listing">
+      <header className="lh-list-head">
+        <nav className="lh-crumbs" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}><Link href="/blog">{t.blog}</Link>{currentCategory && <> › <span>{isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name}</span></>}</nav>
+        <h1>{currentCategory ? (isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name) : query ? (isFa ? `نتایج جست‌وجوی «${query}»` : `Results for “${query}”`) : (isFa ? 'همهٔ مطالب مجله' : 'All stories')}</h1>
+        <span>{total.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {isFa ? 'مطلب' : 'stories'}</span>
+      </header>
+      <div className="lh-toolbar is-inline">
+        <nav className="lh-chips is-small" aria-label={isFa ? 'موضوعات مجله' : 'Journal topics'}>
+          <Link href={browseUrl('', 1)} className={!category ? 'is-active' : ''}>{t.allCategories}</Link>
+          {ordered.map((c) => <Link key={c.id} href={browseUrl(c.slug, 1)} className={category === c.slug ? 'is-active' : ''} style={{ '--lh-c': categoryOf(c).color } as React.CSSProperties}>{isFa ? c.name : c.nameEn || c.name}</Link>)}
+        </nav>
+        {searchForm}
       </div>
-      {href && (
-        <Link className="ln-more" href={href}>
-          {isFa ? 'مطالب بیشتر...' : 'More stories...'}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20 12H5M11 6l-6 6 6 6" />
-          </svg>
-        </Link>
-      )}
+      {listed.length ? <LionaGrid stories={listed.map(story)} /> : <div className="journal-empty"><p>{t.noPosts}</p>{(query || category) && <Link href="/blog">{isFa ? 'بازگشت به همه نوشته‌ها' : 'View all stories'} ↗</Link>}</div>}
+      {pages > 1 && <nav className="lh-pager" aria-label={isFa ? 'صفحه‌بندی نوشته‌ها' : 'Article pagination'}>
+        {currentPage > 1 && <Link href={browseUrl(category, currentPage - 1)} rel="prev">{isFa ? 'صفحهٔ قبل' : 'Previous'}</Link>}
+        <span>{currentPage.toLocaleString(isFa ? 'fa-IR' : 'en-US')} / {pages.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</span>
+        {currentPage < pages && <Link href={browseUrl(category, currentPage + 1)} rel="next">{isFa ? 'صفحهٔ بعد' : 'Next'}</Link>}
+      </nav>}
     </div>
-  )
-
-  const tabs: JournalTab[] = tabDefs.map((tab) => ({ label: categoryName(tab.cat), href: browseUrl(tab.cat.slug) }))
-  const tabPanels = tabDefs.map((tab) => (
-    <div className="ln-grid ln-grid-3" key={tab.cat.id}>
-      {tab.items.map((post) => (
-        <PlainCard key={post.id} post={post} />
-      ))}
-    </div>
-  ))
+  }
 
   return (
     <>
@@ -247,253 +181,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
         fallback={<div className="journal-header-shell"><SiteHeader theme={theme} navPages={navPages} /></div>}
       />
       <SectionBarSlot section="blog" />
-      <main className="journal-page journal-liona">
-        {isLanding && tickerPosts.length > 0 && (
-          <div className="journal-ticker">
-            <span className="journal-ticker-label">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
-              </svg>
-              {isFa ? 'تازه‌ترین‌های مجله:' : 'In the journal:'}
-            </span>
-            <div className="journal-ticker-viewport">
-              <div className="journal-ticker-track">
-                {[0, 1].map((copy) => (
-                  <span className="journal-ticker-group" key={copy} aria-hidden={copy === 1}>
-                    {tickerPosts.map((post) => (
-                      <Link key={`${copy}-${post.id}`} href={`/blog/${post.slug}`}>
-                        {title(post)}
-                      </Link>
-                    ))}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isLanding && slides.length > 0 && (
-          <div className="journal-hero-shell">
-            <JournalHeroSlider
-              slides={slides}
-              labels={{
-                previous: isFa ? 'اسلاید قبلی' : 'Previous slide',
-                next: isFa ? 'اسلاید بعدی' : 'Next slide',
-                slide: isFa ? 'اسلاید' : 'Slide',
-              }}
-            />
-          </div>
-        )}
-
-        <div className="journal-inner">
-          {!isLanding && (
-            <header className="journal-heading">
-              <div>
-                <span className="journal-kicker">MOBOCOMCMS / {t.blog.toUpperCase()}</span>
-                <h2>
-                  {currentCategory
-                    ? categoryName(currentCategory)
-                    : query
-                      ? isFa
-                        ? 'نتایج جست‌وجو'
-                        : 'Search results'
-                      : t.blog}
-                </h2>
-                <p>{query ? `${isFa ? 'جست‌وجو برای' : 'Searching for'} «${query}»` : isFa ? 'راهنما، فناوری و خبر؛ با نگاهی روشن‌تر به اینترنت.' : 'Guides, technology and news for a clearer internet.'}</p>
-              </div>
-              <span>
-                {total.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {isFa ? 'نوشته' : 'stories'}
-              </span>
-            </header>
-          )}
-
-          <div className="journal-navigation">
-            <nav className="journal-category-nav" aria-label={isFa ? 'موضوعات مجله' : 'Journal topics'}>
-              <Link href={browseUrl('')} className={!category ? 'is-active' : ''}>
-                {t.allCategories}
-              </Link>
-              {categoryOptions(rootCategories, locale).map((option) => {
-                const cat = cats.find((item) => String(item.id) === option.value)!
-                return (
-                  <Link key={cat.id} href={browseUrl(cat.slug)} className={category === cat.slug ? 'is-active' : ''}>
-                    {option.label}
-                  </Link>
-                )
-              })}
-            </nav>
-            <form action="/blog" className="journal-search" role="search">
-              {category && <input type="hidden" name="category" value={category} />}
-              <input
-                key={query}
-                type="search"
-                name="q"
-                defaultValue={query}
-                maxLength={120}
-                aria-label={isFa ? 'جست‌وجوی نوشته‌ها' : 'Search articles'}
-                placeholder={isFa ? 'جست‌وجو در مجله…' : 'Search the journal…'}
-              />
-              <button type="submit" aria-label={isFa ? 'جست‌وجو' : 'Search'}>
-                ⌕
-              </button>
-            </form>
-          </div>
-
-          {isLanding ? (
-            <div className="ln-bands">
-              {trendPosts.length >= 3 && (
-                <section className="ln-band">
-                  <BandHead title={isFa ? 'اخبار داغ فناوری' : 'Trending technology'} kicker={isFa ? 'آنچه امروز سر و صدا کرده است' : 'What is making noise today'} href={browseUrl()} />
-                  <div className="ln-grid ln-grid-4">
-                    {trendPosts.map((post) => (
-                      <OverlayCard key={post.id} post={post} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {(freshLead || freshDark.length > 0) && (
-                <section className="ln-band">
-                  <BandHead title={isFa ? 'جدیدترین مطالب ما' : 'Our latest stories'} kicker={isFa ? 'تازه منتشر شده' : 'Freshly published'} href={browseUrl()} />
-                  <div className="ln-split">
-                    {freshLead && (
-                      <div className="ln-split-lead">
-                        <OverlayCard post={freshLead} large />
-                      </div>
-                    )}
-                    {freshDark.length > 0 && (
-                      <div className="ln-panel ln-panel-dark">
-                        <span className="ln-panel-title">{isFa ? 'در یک نگاه' : 'At a glance'}</span>
-                        {freshDark.map((post) => (
-                          <Row key={post.id} post={post} variant="dark" />
-                        ))}
-                      </div>
-                    )}
-                    {freshCircles.length > 0 && (
-                      <div className="ln-panel ln-panel-plain">
-                        <span className="ln-panel-title">{isFa ? 'خواندنی‌های کوتاه' : 'Quick reads'}</span>
-                        {freshCircles.map((post) => (
-                          <Row key={post.id} post={post} variant="circle" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {tiles.length > 0 && (
-                <section className="ln-band ln-band-tint">
-                  <BandHead title={isFa ? 'دسته‌بندی‌های مجله' : 'Journal categories'} kicker={isFa ? 'موضوع مورد علاقه‌ات را پیدا کن' : 'Find your next topic'} href={browseUrl()} />
-                  <div className="ln-tiles">
-                    {tiles.map(({ cat, count }) => (
-                      <Link key={cat.id} href={browseUrl(cat.slug)} className="ln-tile">
-                        <span className="ln-tile-count num">{count.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</span>
-                        <strong>{categoryName(cat)}</strong>
-                        <span className="ln-tile-more">
-                          {isFa ? 'مشاهده نوشته‌ها' : 'Explore stories'}
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M20 12H5M11 6l-6 6 6 6" />
-                          </svg>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {guidePosts.length >= 3 && (
-                <section className="ln-band">
-                  <BandHead title={isFa ? 'راهنماها و بررسی‌ها' : 'Guides and reviews'} kicker={isFa ? 'قدم به قدم، ساده و کاربردی' : 'Step by step and practical'} href={browseUrl()} />
-                  <div className="ln-grid ln-grid-3">
-                    {guidePosts.map((post) => (
-                      <PlainCard key={post.id} post={post} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {tabs.length > 1 && (
-                <section className="ln-band">
-                  <BandHead title={isFa ? 'مطالب برگزیده' : 'Featured picks'} kicker={isFa ? 'به تفکیک موضوع' : 'Browse by topic'} />
-                  <JournalTabs tabs={tabs} panels={tabPanels} moreLabel={isFa ? 'مطالب بیشتر...' : 'More stories...'} />
-                </section>
-              )}
-
-              {popular.length >= 3 && (
-                <section className="ln-band ln-band-accent">
-                  <BandHead title={isFa ? 'پربازدیدترین مطالب' : 'Most read'} kicker={isFa ? 'انتخاب خوانندگان مجله' : 'Chosen by our readers'} href={browseUrl()} />
-                  <div className="ln-grid ln-grid-3 ln-grid-cards">
-                    {popular.map((post) => (
-                      <PlainCard key={post.id} post={post} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {pool.length === 0 && (
-                <div className="journal-empty">
-                  <p>{t.noPosts}</p>
-                  {(query || category) && (
-                    <Link href="/blog">{isFa ? 'بازگشت به همه نوشته‌ها' : 'View all stories'} ↗</Link>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <section className="ln-band" aria-label={isFa ? 'آخرین نوشته‌ها' : 'Latest stories'}>
-              <BandHead title={isFa ? 'آخرین نوشته‌ها' : 'Latest stories'} kicker={isFa ? 'همه نوشته‌ها' : 'All stories'} />
-              <div className="ln-grid ln-grid-3">
-                {pool.map((post) => (
-                  <PlainCard key={post.id} post={post} />
-                ))}
-                {pool.length === 0 && (
-                  <div className="journal-empty">
-                    <p>{t.noPosts}</p>
-                    {(query || category) && (
-                      <Link href="/blog">{isFa ? 'بازگشت به همه نوشته‌ها' : 'View all stories'} ↗</Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          <section className="journal-topic-browser">
-            <div>
-              <span className="journal-kicker">{isFa ? 'کاوش در مجله' : 'BROWSE THE JOURNAL'}</span>
-              <h2>{isFa ? 'همهٔ موضوعات' : 'All topics'}</h2>
-            </div>
-            <nav aria-label={isFa ? 'دسته‌بندی‌های مجله' : 'Journal categories'}>
-              <Link className={`journal-topic-all ${!category ? 'is-active' : ''}`} href={browseUrl('')}>
-                {t.allCategories}
-              </Link>
-              {childCategories(null)}
-            </nav>
-          </section>
-
-          {pages > 1 && (
-            <nav className="content-pagination" aria-label={isFa ? 'صفحه‌بندی نوشته‌ها' : 'Article pagination'}>
-              {currentPage > 1 && (
-                <Link className="btn btn-ghost" href={browseUrl(category, currentPage - 1)}>
-                  {isFa ? 'صفحه قبل' : 'Previous'}
-                </Link>
-              )}
-              <span>
-                {currentPage.toLocaleString(isFa ? 'fa-IR' : 'en-US')} / {pages.toLocaleString(isFa ? 'fa-IR' : 'en-US')}
-              </span>
-              {currentPage < pages && (
-                <Link className="btn btn-ghost" href={browseUrl(category, currentPage + 1)}>
-                  {isFa ? 'صفحه بعد' : 'Next'}
-                </Link>
-              )}
-              {isLanding && (
-                <Link className="btn btn-primary" href={browseUrl(category, 2)}>
-                  {isFa ? 'مشاهده همه نوشته‌ها' : 'View all stories'}
-                </Link>
-              )}
-            </nav>
-          )}
-        </div>
-      </main>
+      <main className="journal-page journal-lh">{body}</main>
       <ThemeFooter context={chromeContext} locale={locale} navPages={navPages} preview={preview} />
     </>
   )

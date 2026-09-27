@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'
-import TabSwitch from '@/components/games/TabSwitch'
+import TabSwitch from '@/components/site/TabSwitch'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
