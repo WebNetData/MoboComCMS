@@ -7,7 +7,8 @@ const ts = require('typescript')
 function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}.ts`) : require(specifier))
+  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 const md = load('src/modules/forum/domain/markdown.ts')

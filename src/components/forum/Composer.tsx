@@ -48,6 +48,22 @@ export default function Composer(props: ComposerProps) {
   const [mentionIndex, setMentionIndex] = useState(0)
   const area = useRef<HTMLTextAreaElement>(null)
   const topicFields = mode === 'topic' || props.editTopic
+  const [poll, setPoll] = useState<{ title: string; type: 'regular' | 'multiple'; results: 'on_vote' | 'always' | 'on_close'; options: string } | null>(null)
+  const [savedAt, setSavedAt] = useState(0)
+
+  function insertPoll() {
+    if (!poll) return
+    const options = poll.options.split('\n').map((line) => line.trim()).filter(Boolean)
+    if (options.length < 2) { setError('نظرسنجی دست‌کم دو گزینه لازم دارد'); return }
+    const name = content.includes('[poll') ? ` name=poll${(content.match(/\[poll/g) || []).length + 1}` : ''
+    const title = poll.title.trim() ? ` title="${poll.title.replace(/"/g, "'").trim()}"` : ''
+    const block = `[poll${name} type=${poll.type} results=${poll.results}${title}]\n${options.map((option) => `- ${option}`).join('\n')}\n[/poll]\n`
+    const el = area.current
+    const at = el ? el.selectionStart : content.length
+    const prefix = at > 0 && content[at - 1] !== '\n' ? '\n' : ''
+    setContent(content.slice(0, at) + prefix + block + content.slice(at))
+    setPoll(null); setError('')
+  }
 
   // Restore an unsent draft once (never over an explicit initial text, e.g. a quote).
   useEffect(() => {
@@ -55,7 +71,11 @@ export default function Composer(props: ComposerProps) {
     const draft = readDraft(draftKey)
     if (draft) setContent(draft)
   }, [draftKey, initial?.content])
-  useEffect(() => { if (mode !== 'edit') writeDraft(draftKey, content) }, [content, draftKey, mode])
+  useEffect(() => {
+    if (mode === 'edit' || !draftKey) return
+    const timer = setTimeout(() => { writeDraft(draftKey, content); if (content.trim()) setSavedAt(Date.now()) }, 600)
+    return () => clearTimeout(timer)
+  }, [content, draftKey, mode])
   useEffect(() => { if (props.autoFocus) area.current?.focus() }, [props.autoFocus])
 
   // @mention autocomplete for the word before the caret.
@@ -142,12 +162,23 @@ export default function Composer(props: ComposerProps) {
       <div className="fx-composer-bar">
         <div className="fx-tools" role="toolbar" aria-label="قالب‌بندی">
           {TOOLS.map((item, index) => <button key={item.title} type="button" title={item.title} aria-label={item.title} onClick={() => tool(index)} disabled={tab === 'preview'}>{item.label}</button>)}
+          <button type="button" title="نظرسنجی" aria-label="افزودن نظرسنجی" aria-expanded={!!poll} onClick={() => setPoll(poll ? null : { title: '', type: 'regular', results: 'on_vote', options: '' })} disabled={tab === 'preview'}>📊</button>
         </div>
         <div className="fx-composer-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'write'} className={tab === 'write' ? 'is-active' : ''} onClick={() => setTab('write')}>نوشتن</button>
           <button type="button" role="tab" aria-selected={tab === 'preview'} className={tab === 'preview' ? 'is-active' : ''} onClick={() => setTab('preview')}>پیش‌نمایش</button>
         </div>
       </div>
+      {poll && <div className="fx-poll-builder" role="group" aria-label="ساخت نظرسنجی">
+        <input className="input" value={poll.title} onChange={(e) => setPoll({ ...poll, title: e.target.value })} placeholder="پرسش نظرسنجی (اختیاری)" maxLength={200} />
+        <textarea className="textarea" rows={4} value={poll.options} onChange={(e) => setPoll({ ...poll, options: e.target.value })} placeholder={'هر گزینه در یک خط\nگزینهٔ اول\nگزینهٔ دوم'} aria-label="گزینه‌ها" />
+        <div className="fx-poll-builder-row">
+          <label><span>نوع</span><select className="select" value={poll.type} onChange={(e) => setPoll({ ...poll, type: e.target.value as 'regular' | 'multiple' })}><option value="regular">یک انتخاب</option><option value="multiple">چند انتخاب</option></select></label>
+          <label><span>نمایش نتایج</span><select className="select" value={poll.results} onChange={(e) => setPoll({ ...poll, results: e.target.value as 'on_vote' | 'always' | 'on_close' })}><option value="on_vote">پس از رأی</option><option value="always">همیشه</option><option value="on_close">پس از بسته‌شدن</option></select></label>
+          <button type="button" className="btn btn-primary btn-sm" onClick={insertPoll}>افزودن به متن</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPoll(null)}>انصراف</button>
+        </div>
+      </div>}
       <div className="fx-composer-body">
         {tab === 'write' ? (
           <>
@@ -174,7 +205,7 @@ export default function Composer(props: ComposerProps) {
       <div className="fx-composer-foot">
         <button className="btn btn-primary" disabled={busy || content.trim().length < 2 || (!!topicFields && title.trim().length < 5)}>{busy ? (props.busyLabel || 'در حال ارسال…') : props.submitLabel}</button>
         {props.onCancel && <button type="button" className="btn btn-ghost" onClick={props.onCancel}>انصراف</button>}
-        <small className="fx-muted">{content.length.toLocaleString('fa-IR')} / ۲۰٬۰۰۰</small>
+        <small className="fx-muted">{content.length.toLocaleString('fa-IR')} / ۲۰٬۰۰۰{draftKey && mode !== 'edit' && savedAt > 0 && content.trim() ? ' · پیش‌نویس ذخیره شد' : ''}</small>
       </div>
     </form>
   )

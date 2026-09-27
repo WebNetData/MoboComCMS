@@ -1,0 +1,15 @@
+{
+  "id": "mega-menu",
+  "name": "منو و مگامنوی بخش‌ها",
+  "nameEn": "Section mega menus",
+  "description": "هر بخش گسترده (فروشگاه، مجله، موزیک، فیلم، بازی، نرم‌افزار، انجمن) داخل خودش منوی اختصاصی دارد: دسته‌های اصلی هر کدام با مگامنوی زیردسته‌ها، موارد پیشنهادی، لینک‌های سریع، جست‌وجوی بخش و بنر تبلیغاتی.",
+  "descriptionEn": "Each section gets its own menu bar: main categories with mega panels of sub-categories, featured items, quick links, section search and a promo card.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "core",
+  "icon": "grid",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": ["/admin/mega-menu"]
+}

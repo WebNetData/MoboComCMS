@@ -41,17 +41,25 @@ export async function GET(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
   if (req.nextUrl.searchParams.get('section') === 'users') return ok(await users(req.nextUrl.searchParams.get('q') || ''))
+  if (req.nextUrl.searchParams.get('section') === 'reports') {
+    const { forumReports } = await import('@/modules/forum/server/reports')
+    return ok(await forumReports(Math.max(7, Math.min(90, Number(req.nextUrl.searchParams.get('days')) || 30))))
+  }
+  if (req.nextUrl.searchParams.get('section') === 'review') {
+    const { reviewQueue } = await import('@/modules/forum/server/moderation')
+    return ok({ items: await reviewQueue(await viewerFor(g.admin.id)) })
+  }
   const [categories, groups, badges, flags, settings, stats] = await Promise.all([
     db.forumCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: { permissions: { select: { groupId: true, level: true } } } }),
     db.forumGroup.findMany({ orderBy: [{ automatic: 'asc' }, { name: 'asc' }] }),
     db.forumBadge.findMany({ orderBy: [{ tier: 'asc' }, { id: 'asc' }] }),
     flagQueue(),
     getForumSettings(),
-    Promise.all([db.forumThread.count(), db.forumPost.count(), db.forumProfile.count({ where: { postCount: { gt: 0 } } }), db.forumFlag.count({ where: { status: 'PENDING' } })]),
+    Promise.all([db.forumThread.count(), db.forumPost.count(), db.forumProfile.count({ where: { postCount: { gt: 0 } } }), db.forumFlag.count({ where: { status: 'PENDING' } }), db.forumPost.count({ where: { status: 'PENDING' } })]),
   ])
   return ok({
     categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
-    stats: { topics: stats[0], posts: stats[1], members: stats[2], pendingFlags: stats[3] },
+    stats: { topics: stats[0], posts: stats[1], members: stats[2], pendingFlags: stats[3], pendingReview: stats[4] },
   })
 }
 
@@ -207,6 +215,11 @@ export async function POST(req: NextRequest) {
         break
       }
       case 'flags': result = await resolveFlags(viewer, Number(body.postId), body.action === 'disagree' ? 'disagree' : body.action === 'delete' ? 'delete' : 'agree'); break
+      case 'review': {
+        const { reviewPost } = await import('@/modules/forum/server/moderation')
+        result = await reviewPost(viewer, Number(body.postId), body.action === 'reject' ? 'reject' : 'approve', text(body.note, 300))
+        break
+      }
       default: return err('unknown section', 400)
     }
     await auditAdmin({ req, actor: g.admin, action: `forum.${body.section}.${body.action || 'create'}`, targetType: 'forum', targetId: String(body.slug || body.postId || body.username || ''), metadata: { section: body.section } })

@@ -85,6 +85,17 @@ export async function browseMusic(input: { q?: string; genre?: string; sort?: st
   return { tracks: rows.map(toTrack), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
+/** Albums filed under a music category (and its sub-categories). */
+export async function albumsByIds(ids: number[], page = 1) {
+  const current = Math.max(1, Math.min(500, Number(page) || 1))
+  const where = { ...live(), id: { in: ids.slice(0, 5000) } }
+  const [rows, total] = await Promise.all([
+    db.musicAlbum.findMany({ where, include: albumInclude, orderBy: { publishedAt: 'desc' }, skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicAlbum.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { albums: rows.map(toAlbum), total, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
 export async function getMusicGenres(): Promise<string[]> {
   const rows = await db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 800, orderBy: { publishedAt: 'desc' } }).catch(() => [])
   return countList(rows.map((row) => row.genre)).slice(0, 24)
@@ -148,7 +159,7 @@ function toTitle(row: any): TitleCard {
 }
 const titleInclude = { _count: { select: { seasons: true } } } as const
 
-async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
+export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
   if (!ids.length) return map
   const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
@@ -178,9 +189,10 @@ export async function getCinemaHome() {
   }
 }
 
-export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number }) {
+export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 60) }
   if (input.country) where.countries = { contains: String(input.country).slice(0, 60) }
@@ -233,45 +245,80 @@ export async function getTitle(slug: string) {
 export type GameCard = {
   id: number; slug: string; title: string; titleEn: string; cover: string; backdrop: string; platforms: string[]; genres: string[]
   releaseDate: Date | null; score: number | null; userScore: number | null; access: string; summary: string; developer: string
+  publisher: string; screenshots: string[]; featured: boolean; views: number; publishedAt: Date
+  editorsChoice: boolean; localization: string[]
 }
-function toGame(row: any): GameCard {
+export function toGame(row: any): GameCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover, backdrop: row.backdrop || row.cover,
     platforms: splitList(row.platforms, 10), genres: splitList(row.genres, 6), releaseDate: row.releaseDate, score: row.score, userScore: row.userScore,
     access: row.access, summary: row.summary, developer: row.developer,
+    publisher: row.publisher || '', featured: !!row.featured, views: row.views ?? 0, publishedAt: row.publishedAt,
+    editorsChoice: !!row.editorsChoice, localization: splitList(row.localization, 3),
+    screenshots: parseJsonList<{ src: string }>(row.screenshots || '[]').map((shot) => shot.src).filter(Boolean).slice(0, 4),
   }
 }
 
 export async function getGamesHome() {
   const now = new Date()
-  const [featured, latest, topRated, upcoming, facetRows] = await allOrEmpty([
-    db.gameTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 5 }),
+  const [featured, latest, topRated, upcoming, facetRows, popular, reviewed] = await allOrEmpty([
+    db.gameTitle.findMany({ where: { ...live(), featured: true }, orderBy: { publishedAt: 'desc' }, take: 6 }),
     db.gameTitle.findMany({ where: live(), orderBy: { publishedAt: 'desc' }, take: 16 }),
     db.gameTitle.findMany({ where: { ...live(), score: { not: null } }, orderBy: { score: 'desc' }, take: 8 }),
     db.gameTitle.findMany({ where: { ...live(), releaseDate: { gt: now } }, orderBy: { releaseDate: 'asc' }, take: 8 }),
     db.gameTitle.findMany({ where: live(), select: { platforms: true, genres: true }, take: 800 }),
+    db.gameTitle.findMany({ where: live(), orderBy: [{ views: 'desc' }], take: 16 }),
+    db.gameTitle.findMany({ where: { ...live(), score: { not: null }, content: { not: '' } }, orderBy: { publishedAt: 'desc' }, take: 8 }),
   ])
   return {
     hero: (featured.length ? featured : latest.slice(0, 4)).map(toGame),
     latest: latest.map(toGame), topRated: topRated.map(toGame), upcoming: upcoming.map(toGame),
+    popular: popular.map(toGame), reviewed: (reviewed.length ? reviewed : topRated).map(toGame), recommended: featured.map(toGame),
     platforms: countList(facetRows.map((row: any) => row.platforms)).slice(0, 12),
     genres: countList(facetRows.map((row: any) => row.genres)).slice(0, 16),
   }
 }
 
-export async function browseGames(input: { platform?: string; genre?: string; sort?: string; q?: string; page?: number }) {
+export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  if (input.lang && /^FA_(SUB|DUB|UI)$/.test(input.lang)) where.localization = { contains: input.lang }
+  if (input.mode && /^(SINGLE|MULTI|COOP|ONLINE)$/.test(input.mode)) where.modes = { contains: input.mode }
+  if (input.pick === 'editors') where.editorsChoice = true
+  if (input.pick === 'upcoming') where.releaseDate = { gt: new Date() }
+  if (/^\d{4}$/.test(String(input.year || ''))) where.releaseDate = { gte: new Date(Date.UTC(Number(input.year), 0, 1)), lt: new Date(Date.UTC(Number(input.year) + 1, 0, 1)) }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
+  if (input.developer) where.developer = String(input.developer).slice(0, 160)
+  if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 40) }
   const q = String(input.q || '').trim().slice(0, 80)
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }]
-  const orderBy = input.sort === 'score' ? [{ score: 'desc' as const }] : input.sort === 'release' ? [{ releaseDate: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
+  const orderBy = input.sort === 'score' ? [{ score: 'desc' as const }] : input.sort === 'release' ? [{ releaseDate: 'desc' as const }] : input.sort === 'views' ? [{ views: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
   const [rows, total] = await Promise.all([
     db.gameTitle.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.gameTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
   return { games: rows.map(toGame), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+/** Filter options for the games browser (developers and publishers with at least one game). */
+export async function gameFacets() {
+  const rows = await db.gameTitle.findMany({ where: live(), select: { platforms: true, genres: true, developer: true, publisher: true }, take: 3000 }).catch(() => [])
+  return {
+    platforms: countList(rows.map((row) => row.platforms)).slice(0, 16),
+    genres: countList(rows.map((row) => row.genres)).slice(0, 30),
+    developers: countList(rows.map((row) => row.developer)).slice(0, 40),
+    publishers: countList(rows.map((row) => row.publisher)).slice(0, 40),
+  }
+}
+
+/** Journal posts about games (categories named بازی/گیم/game), newest first; any posts as a fallback. */
+export async function gamePosts(take = 9) {
+  const select = { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, views: true, category: { select: { name: true } } } as const
+  const base = { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' } }
+  const about = await db.post.findMany({ where: { ...base, OR: ['بازی', 'گیم', 'game', 'Game'].map((word) => ({ category: { name: { contains: word } } })) }, orderBy: { publishedAt: 'desc' }, take, select }).catch(() => [])
+  return about.length >= 3 ? about : db.post.findMany({ where: base, orderBy: { publishedAt: 'desc' }, take, select }).catch(() => [])
 }
 
 export async function getGame(slug: string) {
@@ -290,6 +337,9 @@ export async function getGame(slug: string) {
       pros: parseJsonList<{ text: string }>(row.pros).map((p) => p.text).filter(Boolean),
       cons: parseJsonList<{ text: string }>(row.cons).map((c) => c.text).filter(Boolean),
       requirements: parseJsonObject<Requirements>(row.requirements, { min: {}, rec: {} }),
+      franchiseId: row.franchiseId, engine: row.engine, modes: splitList(row.modes, 4), releases: parseJsonList<{ platform: string; date: string }>(row.releases),
+      playMain: row.playMain, playExtra: row.playExtra, playComplete: row.playComplete, storeLinks: parseJsonList<{ store: string; url: string }>(row.storeLinks),
+      gameSize: row.gameSize, version: row.version, verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     },
     links: links.get(row.id) || [],
     related: related.map(toGame),
@@ -313,9 +363,11 @@ function toSoftware(row: any): SoftwareCard {
 const FEED_SIZE = 12
 
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
-export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number }) {
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
+  /** Items filed under a taxonomy term (and its sub-terms). */
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.category) where.category = String(input.category).slice(0, 60)
   if (input.license) where.license = String(input.license).slice(0, 20)
@@ -385,6 +437,41 @@ export async function browseSoftware(input: { platform?: string; category?: stri
     db.softwareTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
   return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+/** Header strip of the software portal: catalogue size, traffic, freshness and community. */
+export async function softwareStats() {
+  const [count, sums, last, reviews] = await allOrEmpty([
+    db.softwareTitle.count({ where: live() }),
+    db.softwareTitle.aggregate({ where: live(), _sum: { views: true, downloads: true } }),
+    db.softwareTitle.findFirst({ where: live(), orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+    db.itemReview.count({ where: { itemType: 'software', status: 'APPROVED' } }),
+  ])
+  const sum = (sums as { _sum?: { views: number | null; downloads: number | null } } | null)?._sum
+  return {
+    count: Number(count) || 0,
+    traffic: (sum?.views || 0) + (sum?.downloads || 0),
+    downloads: sum?.downloads || 0,
+    updatedAt: (last as { updatedAt: Date } | null)?.updatedAt || null,
+    reviews: Number(reviews) || 0,
+  }
+}
+
+/** Editor picks for the “suggested” sidebar list (featured first, then most downloaded). */
+export async function softwareSuggestions(take = 10) {
+  const rows = await db.softwareTitle.findMany({ where: live(), orderBy: [{ featured: 'desc' }, { downloads: 'desc' }], take }).catch(() => [])
+  return rows.map(toSoftware)
+}
+
+/** Latest journal posts with a cover (the portal's “tech news” box). */
+export async function techNews(take = 5) {
+  return db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' } }, orderBy: { publishedAt: 'desc' }, take, select: { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, category: { select: { name: true } } } }).catch(() => [])
+}
+
+/** Newest software filed under the given ids (one home-page shelf per main category). */
+export async function softwareShelf(ids: number[] | null, take = 8) {
+  const rows = await db.softwareTitle.findMany({ where: { ...live(), ...(ids ? { id: { in: ids.slice(0, 5000) } } : {}) }, orderBy: { updatedAt: 'desc' }, take }).catch(() => [])
+  return rows.map(toSoftware)
 }
 
 export async function getSoftware(slug: string) {

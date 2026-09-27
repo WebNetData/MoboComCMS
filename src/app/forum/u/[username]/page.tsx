@@ -6,6 +6,8 @@ import { getForumViewer } from '@/modules/forum/server/forum'
 import { getProfile, type ProfileTab } from '@/modules/forum/server/people'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, TimeAgo, TrustBadge, num } from '@/components/forum/shared'
+import { getForumSettings } from '@/modules/forum/server/community'
+import { canStartMessage } from '@/modules/forum/domain/discourse'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ tab?: string }> }
@@ -24,6 +26,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const viewer = await getForumViewer()
   const active = TABS.some((item) => item.key === tab) ? tab as ProfileTab : 'summary'
   const data = await getProfile(username, viewer, active)
+  const canMessage = canStartMessage(viewer, await getForumSettings())
   if (!data) notFound()
   const { author, profile } = data
   const stats: [string, number][] = [
@@ -42,6 +45,8 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             {(profile.silenced || profile.suspended) && <p className="fx-warn">{profile.suspended ? 'این حساب در تالار تعلیق شده است' : 'امکان ارسال برای این حساب موقتاً بسته است'}</p>}
           </div>
           {data.own && <Link href={`/forum/u/${profile.username}/edit`} className="btn btn-ghost btn-sm">ویرایش پروفایل</Link>}
+          {data.own && <Link href="/forum/messages" className="btn btn-ghost btn-sm">✉ پیام‌های من</Link>}
+          {!data.own && canMessage && <Link href={`/forum/messages/new?to=${profile.username}`} className="btn btn-primary btn-sm">✉ پیام خصوصی</Link>}
         </div>
         <div className="fx-profile-grid">
           <div className="fx-profile-about">

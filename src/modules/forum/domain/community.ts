@@ -22,7 +22,18 @@ export interface ForumSettings {
   membersCreateTags: boolean
   reactions: string[]
   trust: { 1: TrustRequirement; 2: TrustRequirement; 3: TrustRequirement }
+  /** First N posts of a trust level 0 member wait in the review queue (0 = off). */
+  approveNewUserPosts: number
+  /** Personal messages: on/off and the minimum trust level to start one (staff always can). */
+  messagesEnabled: boolean
+  messagesMinTrust: number
+  /** Minimum trust level to create polls. */
+  pollsMinTrust: number
+  /** Watched words: block the post, send it to review, or hide the word when shown. */
+  watchedWords: WatchedWords
 }
+
+export interface WatchedWords { block: string[]; approve: string[]; censor: string[] }
 
 export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
   imagesMinTrust: 1,
@@ -39,6 +50,17 @@ export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
     2: { daysVisited: 10, topicsEntered: 20, postCount: 3, likesGiven: 1, likesReceived: 1 },
     3: { daysVisited: 40, topicsEntered: 60, postCount: 10, likesGiven: 30, likesReceived: 20 },
   },
+  approveNewUserPosts: 0,
+  messagesEnabled: true,
+  messagesMinTrust: 1,
+  pollsMinTrust: 1,
+  watchedWords: { block: [], approve: [], censor: [] },
+}
+
+/** Lowercased, trimmed, unique words or phrases (max 200 per list, 40 characters each). */
+export function normalizeWordList(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : String(value ?? '').split(/[\n,،]+/)
+  return [...new Set(raw.map((word) => String(word).replace(/[\u0000-\u001f<>]/g, '').trim().toLowerCase().slice(0, 40)).filter((word) => word.length >= 2))].slice(0, 200)
 }
 
 export const REACTION_EMOJI: Record<string, string> = { heart: '❤️', '+1': '👍', laughing: '😆', open_mouth: '😮', cry: '😢', clap: '👏', fire: '🔥', tada: '🎉', thinking: '🤔', eyes: '👀' }
@@ -70,6 +92,15 @@ export function normalizeForumSettings(input: Record<string, any> = {}): ForumSe
     membersCreateTags: input.membersCreateTags === undefined ? d.membersCreateTags : input.membersCreateTags === true,
     reactions: reactions.includes('heart') ? reactions : ['heart', ...reactions].slice(0, 8),
     trust: { 1: trust(1), 2: trust(2), 3: trust(3) },
+    approveNewUserPosts: int(input.approveNewUserPosts, 0, 20, d.approveNewUserPosts),
+    messagesEnabled: input.messagesEnabled === undefined ? d.messagesEnabled : input.messagesEnabled === true,
+    messagesMinTrust: int(input.messagesMinTrust, 0, 4, d.messagesMinTrust),
+    pollsMinTrust: int(input.pollsMinTrust, 0, 4, d.pollsMinTrust),
+    watchedWords: {
+      block: normalizeWordList(input.watchedWords?.block),
+      approve: normalizeWordList(input.watchedWords?.approve),
+      censor: normalizeWordList(input.watchedWords?.censor),
+    },
   }
 }
 
@@ -130,8 +161,12 @@ export function automaticGroups(input: { loggedIn: boolean; trustLevel: number; 
   return keys
 }
 
-export const canEditPost = (post: { userId: number; createdAt: Date }, viewer: Viewer, editWindowHours: number, now = Date.now()) =>
-  viewer.moderator || (!!viewer.userId && !viewer.silenced && !viewer.suspended && post.userId === viewer.userId && now - new Date(post.createdAt).getTime() < editWindowHours * 3_600_000)
+/** Own posts inside the edit window; wiki posts by any member from trust level 1; staff always. */
+export const canEditPost = (post: { userId: number; createdAt: Date; wiki?: boolean }, viewer: Viewer, editWindowHours: number, now = Date.now()) =>
+  viewer.moderator || (!!viewer.userId && !viewer.silenced && !viewer.suspended && (
+    (post.wiki === true && viewer.trustLevel >= 1) ||
+    (post.userId === viewer.userId && now - new Date(post.createdAt).getTime() < editWindowHours * 3_600_000)
+  ))
 
 // ------------------------------------------------------------------ trust levels
 
@@ -229,6 +264,10 @@ export const normalizeFlagReason = (value: unknown) => (FLAG_REASONS.some((reaso
 export const flagWeight = (trustLevel: number, moderator: boolean) => (moderator ? 10 : trustLevel >= 3 ? 2 : 1)
 
 export const NOTIFICATION_LEVELS = ['WATCHING', 'TRACKING', 'NORMAL', 'MUTED'] as const
+/** Category levels add "watching first post" (notified of new topics only). */
+export const CATEGORY_LEVELS = ['WATCHING', 'WATCHING_FIRST', 'TRACKING', 'NORMAL', 'MUTED'] as const
+export type CategoryLevel = typeof CATEGORY_LEVELS[number]
+export const normalizeCategoryLevel = (value: unknown): CategoryLevel => (CATEGORY_LEVELS as readonly string[]).includes(String(value)) ? value as CategoryLevel : 'NORMAL'
 export type NotificationLevel = typeof NOTIFICATION_LEVELS[number]
 export const normalizeNotificationLevel = (value: unknown): NotificationLevel => (NOTIFICATION_LEVELS as readonly string[]).includes(String(value)) ? value as NotificationLevel : 'NORMAL'
 

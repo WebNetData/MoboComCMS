@@ -10,6 +10,7 @@ import { AlbumCard, ArtistBubble, Chips, EmptyState, PlaylistCard, Shelf, VipBad
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import VipStrip from '@/components/media/VipStrip'
+import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function MusicHomePage() {
   await requireModule('music')
+  const landing = await sectionLanding('music')
+  if (landing) return landing
   const [data, locale, viewer] = await Promise.all([getMusicHome(), getServerLocale(), getViewer()])
   const fa = locale === 'fa'
   const heroSource = data.featuredTracks.length ? data.featuredTracks : data.latestTracks.slice(0, 5)

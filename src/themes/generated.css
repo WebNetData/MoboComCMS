@@ -390,6 +390,16 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
   .mb-footer-bottom { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { [data-code-theme="mobocom"] * { transition: none !important; } }
+/* priority navigation: links that do not fit move into “More” */
+.mb-nav { position: relative; flex: 1; min-width: 0; overflow: visible; justify-content: center; }
+.mb-nav-measure { position: absolute; visibility: hidden; pointer-events: none; display: flex; gap: 2px; height: 0; overflow: hidden; }
+.mb-nav-measure span { padding: 8px 12px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.mb-nav-more { position: relative; }
+.mb-nav-more > button { display: inline-flex; align-items: center; gap: 4px; padding: 8px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.mb-nav-more > button:hover, .mb-nav-more > button[aria-expanded="true"], .mb-nav-more > button.is-active { color: var(--text); background: var(--bg-soft); }
+.mb-nav-dropdown { position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 50; display: grid; min-width: 190px; padding: 6px; border: var(--mb-hair); border-radius: 14px; background: var(--card); box-shadow: 0 18px 40px -20px rgba(10, 8, 30, .45); }
+.mb-nav-dropdown a { padding: 9px 12px; border-radius: 10px; color: var(--text); font-size: 14px; white-space: nowrap; }
+.mb-nav-dropdown a:hover { background: var(--bg-soft); }
 
 
 /* theme: orbital */

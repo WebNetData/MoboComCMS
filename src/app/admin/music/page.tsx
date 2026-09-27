@@ -48,6 +48,7 @@ export default function AdminMusicPage() {
         { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
         artist,
         { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
+        { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },
         { key: 'genre', label: fa ? 'سبک' : 'Genre' },
         { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
         { key: 'description', label: fa ? 'توضیحات' : 'Description', type: 'textarea' },

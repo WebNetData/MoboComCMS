@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
+import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
+import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
 
 type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; flair: { icon: string; color: string; name: string } | null }
@@ -11,9 +13,11 @@ type Reaction = { emoji: string; count: number; mine: boolean }
 export type TopicPost = {
   id: number; number: number; html: string; raw: string | null; status: string; createdAt: string; editedAt: string | null; editCount: number
   author: Author; replyTo: { number: number; username: string } | null; reactions: Reaction[]; bookmarked: boolean; canEdit: boolean; own: boolean; solution: boolean; flags: number
+  wiki: boolean; pendingReason: string; polls: PollData[]
 }
 export type TopicData = {
-  thread: { id: number; title: string; pinned: boolean; locked: boolean; status: string; views: number; replyCount: number; likeCount: number; postCount: number; createdAt: string; lastPostAt: string; userId: number; tags: string[] }
+  thread: { id: number; title: string; pinned: boolean; locked: boolean; status: string; views: number; replyCount: number; likeCount: number; postCount: number; createdAt: string; lastPostAt: string; userId: number; tags: string[]; closeAt: string | null; slowModeSeconds: number; listed: boolean }
+  lastRead: number
   category: { id: number; slug: string; title: string; color: string; icon: string; parent: { slug: string; title: string; color: string } | null }
   access: { see: boolean; reply: boolean; create: boolean }; moderator: boolean; signedIn: boolean; canSolve: boolean
   solution: { id: number; number: number; excerpt: string; author: Author } | null
@@ -29,6 +33,8 @@ const LEVELS: { id: string; label: string; hint: string }[] = [
 ]
 const FLAG_REASONS = [{ id: 'SPAM', label: 'هرزنامه یا تبلیغ' }, { id: 'INAPPROPRIATE', label: 'توهین‌آمیز یا نامناسب' }, { id: 'OFF_TOPIC', label: 'خارج از موضوع' }, { id: 'OTHER', label: 'دلیل دیگر' }]
 const fa = (n: number) => n.toLocaleString('fa-IR')
+const SLOW_MODES: [number, string][] = [[0, 'خاموش'], [60, '۱ دقیقه'], [300, '۵ دقیقه'], [600, '۱۰ دقیقه'], [1800, '۳۰ دقیقه'], [3600, '۱ ساعت'], [10800, '۳ ساعت'], [21600, '۶ ساعت'], [43200, '۱۲ ساعت'], [86400, '۲۴ ساعت']]
+const TIMERS: [number, string][] = [[1, '۱ ساعت'], [6, '۶ ساعت'], [24, '۱ روز'], [72, '۳ روز'], [168, '۱ هفته'], [720, '۱ ماه']]
 
 function ago(date: string) {
   const s = Math.max(0, (Date.now() - new Date(date).getTime()) / 1000)
@@ -64,6 +70,11 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
   const [history, setHistory] = useState<{ post: TopicPost; items: { id: number; content: string; createdAt: string; editor: string }[]; current: string } | null>(null)
   const [current, setCurrent] = useState(posts[0]?.number || 1)
   const stream = useRef<HTMLDivElement>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<number[]>([])
+  const [moveTarget, setMoveTarget] = useState<{ mode: 'new' | 'existing'; title: string; categoryId: number; topic: string } | null>(null)
+  const [help, setHelp] = useState(false)
+  const [focusIndex, setFocusIndex] = useState(-1)
 
   useEffect(() => { setPosts(data.posts) }, [data.posts])
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t) } }, [toast])
@@ -89,6 +100,50 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [menu])
+
+  useForumShortcuts({
+    next: () => moveFocus(1), prev: () => moveFocus(-1), help: () => setHelp((open) => !open),
+    reply: () => { if (canReplyNow() && !requireLogin()) setComposer({ mode: 'reply', key: Date.now() }) },
+    replyToPost: () => { const post = posts[focusIndex]; if (post && canReplyNow() && !requireLogin()) setComposer({ mode: 'reply', replyTo: post, key: Date.now() }) },
+    like: () => { const post = posts[focusIndex]; if (post && !post.own) void react(post, 'heart') },
+    bookmark: () => { const post = posts[focusIndex]; if (post) void toggleBookmark(post) },
+    quote: () => { const post = posts[focusIndex]; if (post && canReplyNow()) quote(post) },
+    top: () => router.push(`/forum/t/${thread.id}`), bottom: () => router.push(`/forum/t/${thread.id}?post=${thread.postCount}`),
+    escape: () => { setHelp(false); setMenu('') },
+  }, !composer && !flagging && !history)
+
+  function moveFocus(step: number) {
+    const next = Math.max(0, Math.min(posts.length - 1, focusIndex + step))
+    setFocusIndex(next)
+    const el = document.getElementById(`post-${posts[next]?.number}`)
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus({ preventScroll: true }) }
+  }
+  const canReplyNow = () => data.access.reply && (!thread.locked || data.moderator)
+
+  async function movePosts() {
+    if (!moveTarget) return
+    const body = moveTarget.mode === 'existing'
+      ? { postNumbers: selected, target: Number(/(\d+)/.exec(moveTarget.topic)?.[1] || 0) }
+      : { postNumbers: selected, title: moveTarget.title, categoryId: moveTarget.categoryId }
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/move`, 'POST', body)
+    if (!ok) { setToast(result.error); return }
+    setMoveTarget(null); setSelecting(false); setSelected([])
+    setToast(`${fa(result.moved)} پیام منتقل شد`)
+    router.push(`/forum/t/${result.id}`)
+  }
+
+  async function mergeTopic() {
+    const target = window.prompt('شناسه یا نشانی موضوع مقصد (همهٔ پیام‌های این موضوع به آن منتقل می‌شود):')
+    const id = Number(/(\d+)/.exec(target || '')?.[1] || 0)
+    if (!id) return
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/move`, 'POST', { all: true, target: id })
+    if (ok) router.push(`/forum/t/${result.id}`); else setToast(result.error)
+  }
+
+  async function topicSettings(patch: Record<string, unknown>) {
+    const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/settings`, 'PATCH', patch)
+    if (ok) { setToast('تنظیمات موضوع ذخیره شد'); router.refresh() } else setToast(result.error)
+  }
 
   const requireLogin = () => { if (!data.signedIn) { router.push(`/login?next=${encodeURIComponent(`/forum/t/${thread.id}`)}`); return true } return false }
   const patchPost = (id: number, patch: Partial<TopicPost>) => setPosts((list) => list.map((post) => (post.id === id ? { ...post, ...patch } : post)))
@@ -173,6 +228,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
     const { ok, data: result } = await api(`/api/forum/threads/${thread.id}/posts`, 'POST', { content: value.content, replyToId: composer.replyTo?.id })
     if (!ok) return result.error as string
     setComposer(null)
+    if (result.pending) setToast('پاسخ شما ثبت شد و پس از تأیید ناظران برای همه نمایش داده می‌شود')
     router.push(`/forum/t/${thread.id}?post=${result.number}`)
     router.refresh()
     return null
@@ -198,7 +254,8 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
           {thread.locked && <span title="بسته‌شده" aria-label="بسته‌شده">🔒 </span>}
           {thread.title}
           {data.solution && <span className="fx-solved-badge">✓ حل‌شده</span>}
-          {thread.status !== 'VISIBLE' && <span className="fx-hidden-badge">پنهان</span>}
+          {thread.status === 'PENDING' ? <span className="fx-hidden-badge">در انتظار تأیید</span> : thread.status !== 'VISIBLE' && <span className="fx-hidden-badge">پنهان</span>}
+          {!thread.listed && <span className="fx-hidden-badge" title="فقط با پیوند در دسترس است">فهرست‌نشده</span>}
         </h1>
         <div className="fx-topic-meta">
           {data.category.parent && <Link href={`/forum/c/${data.category.parent.slug}`} className="fx-cat"><i style={{ background: data.category.parent.color }} />{data.category.parent.title}</Link>}
@@ -206,6 +263,11 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
           {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
         </div>
       </header>
+
+      {(thread.closeAt || thread.slowModeSeconds > 0) && <div className="fx-notices">
+        {thread.closeAt && !thread.locked && <p>⏱ این موضوع {new Date(thread.closeAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })} به‌طور خودکار بسته می‌شود.</p>}
+        {thread.slowModeSeconds > 0 && <p>🐢 حالت کند: هر عضو هر {SLOW_MODES.find(([s]) => s === thread.slowModeSeconds)?.[1] || `${fa(thread.slowModeSeconds)} ثانیه`} یک پاسخ می‌تواند بفرستد.</p>}
+      </div>}
 
       {data.solution && data.page > 0 && (
         <aside className="fx-solution">
@@ -218,7 +280,8 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
         <div className="fx-stream" ref={stream}>
           {data.page > 1 && <Link className="fx-load" href={`/forum/t/${thread.id}?page=${data.page - 1}`}>↑ پیام‌های قبلی</Link>}
           {posts.map((post) => (
-            <article key={post.id} id={`post-${post.number}`} data-post-number={post.number} className={`fx-post${post.status !== 'VISIBLE' ? ' is-hidden' : ''}${post.solution ? ' is-solution' : ''}${post.author.id === thread.userId && post.number > 1 ? ' is-op' : ''}`}>
+            <article key={post.id} id={`post-${post.number}`} tabIndex={-1} data-post-number={post.number} className={`fx-post${post.status !== 'VISIBLE' ? ' is-hidden' : ''}${post.solution ? ' is-solution' : ''}${post.author.id === thread.userId && post.number > 1 ? ' is-op' : ''}${posts[focusIndex]?.id === post.id ? ' is-focused' : ''}${selected.includes(post.number) ? ' is-selected' : ''}`}>
+              {selecting && post.number > 1 && <label className="fx-select-post"><input type="checkbox" checked={selected.includes(post.number)} onChange={() => setSelected((list) => list.includes(post.number) ? list.filter((n) => n !== post.number) : [...list, post.number])} aria-label={`انتخاب پیام ${fa(post.number)}`} /></label>}
               <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} /></Link>
               <div className="fx-post-main">
                 <header className="fx-post-head">
@@ -236,8 +299,10 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
                   </span>
                 </header>
                 {post.solution && <div className="fx-solution-mark">✓ راه‌حل انتخاب‌شده</div>}
-                {post.status !== 'VISIBLE' && <div className="fx-hidden-note">این پیام پنهان است{post.flags ? ` — ${fa(post.flags)} گزارش در انتظار بررسی` : ''}</div>}
-                <div className="fx-cooked" dangerouslySetInnerHTML={{ __html: post.html }} />
+                {post.status === 'PENDING' ? <div className="fx-pending-note">⏳ این پیام در صف بررسی ناظران است و فعلاً فقط {post.own ? 'شما' : 'نویسنده و ناظران'} آن را می‌بینید{data.moderator && post.pendingReason ? ` — ${post.pendingReason}` : ''}.</div>
+                  : post.status !== 'VISIBLE' && <div className="fx-hidden-note">این پیام پنهان است{post.flags ? ` — ${fa(post.flags)} گزارش در انتظار بررسی` : ''}</div>}
+                {post.wiki && <div className="fx-wiki-note">📝 ویکی — اعضا از سطح اعتماد ۱ می‌توانند این پیام را ویرایش کنند</div>}
+                <CookedWithPolls html={post.html} polls={post.polls} signedIn={data.signedIn} canManage={data.moderator || post.own} onLogin={() => { requireLogin() }} onError={setToast} />
                 <footer className="fx-post-actions">
                   <div className="fx-reactions">
                     {post.reactions.map((reaction) => (
@@ -265,6 +330,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
                           <span className="fx-menu fx-menu-list">
                             {post.number > 1 && <button type="button" onClick={() => void moderatePost(post, post.status === 'VISIBLE' ? 'hide' : 'show')}>{post.status === 'VISIBLE' ? 'پنهان‌کردن پیام' : 'نمایش پیام'}</button>}
                             {post.flags > 0 && <><button type="button" onClick={() => void api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: 'disagree' }).then(() => router.refresh())}>رد گزارش‌ها و نمایش</button><button type="button" onClick={() => void api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: 'agree' }).then(() => router.refresh())}>تأیید گزارش‌ها</button></>}
+                            <button type="button" onClick={() => void api(`/api/forum/posts/${post.id}/actions`, 'POST', { action: post.wiki ? 'unwiki' : 'wiki' }).then(({ ok, data: r }) => { setMenu(''); if (ok) { patchPost(post.id, { wiki: r.wiki }); setToast(r.wiki ? 'پیام ویکی شد' : 'ویکی برداشته شد') } else setToast(r.error) })}>{post.wiki ? 'برداشتن ویکی' : '📝 ویکی کردن'}</button>
                             {post.number > 1 && <button type="button" className="is-danger" onClick={() => void moderatePost(post, 'delete')}>حذف پیام</button>}
                           </span>
                         )}
@@ -304,6 +370,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
             <Link href={`/forum/t/${thread.id}`} className="fx-timeline-edge">{new Date(thread.createdAt).toLocaleDateString('fa-IR', { month: 'short', year: 'numeric' })}</Link>
             <div className="fx-timeline-track" aria-hidden="true"><span style={{ height: `${Math.max(8, Math.min(100, (current / Math.max(1, thread.postCount)) * 100))}%` }} /></div>
             <p className="fx-timeline-pos"><b>{fa(current)}</b> / {fa(thread.postCount)}</p>
+            {data.lastRead > 0 && data.lastRead < thread.postCount && <Link href={`/forum/t/${thread.id}?post=${data.lastRead + 1}`} className="fx-timeline-unread">↓ {fa(thread.postCount - data.lastRead)} پیام خوانده‌نشده</Link>}
             <Link href={`/forum/t/${thread.id}?post=${thread.postCount}`} className="fx-timeline-edge">{ago(thread.lastPostAt)}</Link>
           </div>
           <dl className="fx-topic-stats">
@@ -321,9 +388,30 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
               <select className="select" value={data.category.id} onChange={(e) => void moderateTopic({ categoryId: Number(e.target.value) })} aria-label="انتقال به دستهٔ دیگر">
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.parentId ? '— ' : ''}{c.title}</option>)}
               </select>
+              <button type="button" onClick={() => void topicSettings({ listed: !thread.listed })}>{thread.listed ? '🙈 فهرست‌نکردن' : '👁 فهرست‌کردن'}</button>
+              <label className="fx-mod-field"><span>⏱ بستن خودکار</span>
+                <select className="select" value="" onChange={(e) => { const v = e.target.value; if (v === 'clear') void topicSettings({ closeHours: null }); else if (v) void topicSettings({ closeHours: Number(v) }) }}>
+                  <option value="">{thread.closeAt ? `تا ${new Date(thread.closeAt).toLocaleDateString('fa-IR')}` : 'انتخاب…'}</option>
+                  {TIMERS.map(([hours, label]) => <option key={hours} value={hours}>پس از {label}</option>)}
+                  {thread.closeAt && <option value="clear">لغو زمان‌بندی</option>}
+                </select>
+              </label>
+              <label className="fx-mod-field"><span>🐢 حالت کند</span>
+                <select className="select" value={thread.slowModeSeconds} onChange={(e) => void topicSettings({ slowMode: Number(e.target.value) })}>
+                  {SLOW_MODES.map(([seconds, label]) => <option key={seconds} value={seconds}>{label}</option>)}
+                </select>
+              </label>
+              <button type="button" aria-pressed={selecting} onClick={() => { setSelecting(!selecting); setSelected([]) }}>{selecting ? 'پایان انتخاب' : '✂ انتخاب و انتقال پیام‌ها'}</button>
+              {selecting && <div className="fx-move">
+                <small>{fa(selected.length)} پیام انتخاب شد</small>
+                <button type="button" disabled={!selected.length} onClick={() => setMoveTarget({ mode: 'new', title: '', categoryId: data.category.id, topic: '' })}>به موضوع جدید</button>
+                <button type="button" disabled={!selected.length} onClick={() => setMoveTarget({ mode: 'existing', title: '', categoryId: data.category.id, topic: '' })}>به موضوع موجود</button>
+              </div>}
+              <button type="button" onClick={() => void mergeTopic()}>🔀 ادغام در موضوع دیگر</button>
               <button type="button" className="is-danger" onClick={() => void deleteTopic()}>حذف موضوع</button>
             </div>
           )}
+          <button type="button" className="fx-shortcut-hint" onClick={() => setHelp(true)}>⌨ میان‌برها <kbd>?</kbd></button>
         </aside>
       </div>
 
@@ -371,6 +459,22 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
           </div>
         </div>
       )}
+
+      {moveTarget && (
+        <div className="fx-modal" role="dialog" aria-modal="true" aria-label="انتقال پیام‌ها" onClick={(e) => { if (e.target === e.currentTarget) setMoveTarget(null) }}>
+          <form className="fx-modal-card" onSubmit={(e) => { e.preventDefault(); void movePosts() }}>
+            <h2>انتقال {fa(selected.length)} پیام {moveTarget.mode === 'new' ? 'به موضوع جدید' : 'به موضوع موجود'}</h2>
+            {moveTarget.mode === 'new' ? <>
+              <label className="fx-field"><span>عنوان موضوع جدید</span><input className="input" required minLength={5} maxLength={150} value={moveTarget.title} onChange={(e) => setMoveTarget({ ...moveTarget, title: e.target.value })} /></label>
+              <label className="fx-field"><span>دسته</span><select className="select" value={moveTarget.categoryId} onChange={(e) => setMoveTarget({ ...moveTarget, categoryId: Number(e.target.value) })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.parentId ? '— ' : ''}{c.title}</option>)}</select></label>
+            </> : <label className="fx-field"><span>شناسه یا نشانی موضوع مقصد</span><input className="input" dir="ltr" required value={moveTarget.topic} onChange={(e) => setMoveTarget({ ...moveTarget, topic: e.target.value })} placeholder="/forum/t/123" /></label>}
+            <p className="fx-muted">پیام‌ها با همان نویسنده و تاریخ، به انتهای موضوع مقصد اضافه می‌شوند و به نویسندگان اطلاع داده می‌شود.</p>
+            <div className="fx-modal-actions"><button className="btn btn-primary">انتقال</button><button type="button" className="btn btn-ghost" onClick={() => setMoveTarget(null)}>انصراف</button></div>
+          </form>
+        </div>
+      )}
+
+      {help && <ShortcutHelp onClose={() => setHelp(false)} />}
 
       {toast && <div className="fx-toast" role="status">{toast}</div>}
     </div>

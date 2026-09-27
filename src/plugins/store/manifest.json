@@ -2,9 +2,9 @@
   "id": "store",
   "name": "فروشگاه",
   "nameEn": "Store",
-  "description": "فروش محصولات مجازی و فیزیکی با دسته‌بندی، ویژگی‌ها، دیدگاه، پرسش و تحویل سفارش.",
-  "descriptionEn": "Digital and physical products with categories, attributes, reviews, Q&A and deliveries.",
-  "version": "1.0.0",
+  "description": "فروشگاه‌ساز کامل: سبد خرید، برند، فیلتر و مرتب‌سازی، پیشنهاد شگفت‌انگیز، مدیریت سفارش با پیگیری مرحله‌ای، انبارداری و گزارش فروش.",
+  "descriptionEn": "Full store builder: cart, brands, filtered listings, timed offers, staged order tracking, inventory and sales reports.",
+  "version": "2.0.0",
   "kind": "module",
   "apiVersion": 1,
   "category": "commerce",
@@ -12,6 +12,19 @@
   "defaultEnabled": false,
   "stateSetting": "storeEnabled",
   "requiresCore": "^1.0.0",
-  "publicPaths": ["/products"],
-  "adminPaths": ["/admin/products", "/admin/productcats", "/admin/productgroups", "/admin/product-feedback", "/admin/product-deliveries"]
+  "publicPaths": [
+    "/products",
+    "/checkout/product",
+    "/cart",
+    "/checkout/cart"
+  ],
+  "adminPaths": [
+    "/admin/store",
+    "/admin/products",
+    "/admin/productcats",
+    "/admin/productgroups",
+    "/admin/product-feedback",
+    "/admin/product-deliveries",
+    "/admin/delivery"
+  ]
 }

@@ -64,9 +64,16 @@ model User {
   forumFlags     ForumFlag[]
   forumTopicUsers ForumTopicUser[]
   forumBadges    ForumUserBadge[]
+  forumConversations ForumConversationUser[]
+  forumMessages  ForumMessage[]
+  forumPollVotes ForumPollVote[]
+  forumCategoryUsers ForumCategoryUser[]
+  gameLibrary  GameLibrary[]
   itemReviews    ItemReview[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
+  addresses      UserAddress[]
+  cart           Cart?
 
   @@index([phone])
 }
@@ -179,6 +186,9 @@ model Order {
   payments      Payment[]
   promotionRedemptions PromotionRedemption[]
   productDelivery ProductDelivery?
+  deliveryBooking DeliveryBooking?
+  lines         OrderLine[]
+  events        OrderEvent[]
 }
 
 model OrderItem {
@@ -628,6 +638,10 @@ model ProductCategory {
   children  ProductCategory[] @relation("ProductCategoryTree")
   attributeGroupId Int?
   attributeGroup ProductAttributeGroup? @relation(fields: [attributeGroupId], references: [id], onDelete: SetNull)
+  image     String @default("")
+  icon      String @default("")
+  description String @default("")
+  sortOrder Int @default(0)
   @@index([parentId])
   @@index([attributeGroupId])
 }
@@ -666,6 +680,19 @@ model Product {
   memberPriceMinor BigInt @default(0) // VIP price; 0 = none
   vipGiftDays   Int @default(0) // VIP days granted with a paid purchase
   specifications String @default("{}") // attribute keys inherited from category group
+  brandId       Int?
+  sku           String @default("")
+  compareAtMinor BigInt @default(0) // list price shown struck through; 0 = no discount
+  saleEndsAt    DateTime? // end of a timed "amazing offer"
+  shortDescription String @default("")
+  warranty      String @default("")
+  weightGrams   Int @default(0)
+  maxPerOrder   Int @default(0) // 0 = no per-order limit
+  lowStockAt    Int @default(0) // 0 = store default threshold
+  seoTitle      String @default("")
+  seoDescription String @default("")
+  views         Int @default(0)
+  soldCount     Int @default(0)
   faqs          String @default("[]")
   variants      ProductVariant[]
   reviews       ProductReview[]
@@ -673,9 +700,15 @@ model Product {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
   category      ProductCategory? @relation(fields: [categoryId], references: [id])
+  brand         ProductBrand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  cartLines     CartLine[]
+  orderLines    OrderLine[]
   orders        Order[]
   invoices      Invoice[]
   tickets       Ticket[]
+
+  @@index([brandId])
+  @@index([active, soldCount])
 }
 
 model ProductVariant {
@@ -689,6 +722,7 @@ model ProductVariant {
   price       Float @default(0)
   priceMinor  BigInt @default(0)
   memberPriceMinor BigInt @default(0)
+  compareAtMinor BigInt @default(0)
   stock       Int @default(-1)
   active      Boolean @default(true)
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -735,6 +769,8 @@ model ProductDelivery {
   address     String @default("")
   trackingCode String @default("")
   deliveryNote String @default("")
+  scheduledDate String @default("") // chosen delivery day, YYYY-MM-DD
+  scheduledSlot String @default("") // chosen time window label
   digitalDelivery String @default("") // encrypted fulfillment details, owner/admin only
   deliveredAt DateTime?
   createdAt   DateTime @default(now())
@@ -949,7 +985,8 @@ model FulfillmentJob {
 /// cannot oversell the last unit.
 model InventoryReservation {
   id        Int      @id @default(autoincrement())
-  orderId   Int      @unique
+  orderId   Int
+  line      Int      @default(0) // order line index; single-item orders use 0
   productId Int
   variantId Int?
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
@@ -961,6 +998,7 @@ model InventoryReservation {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  @@unique([orderId, line])
   @@index([productId, status])
   @@index([expiresAt, status])
 }
@@ -1256,11 +1294,78 @@ model GameTitle {
   status       String    @default("PUBLISHED")
   featured     Boolean   @default(false)
   views        Int       @default(0)
+  franchiseId  Int?
+  franchise    GameFranchise? @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
+  engine       String    @default("")
+  modes        String    @default("") // SINGLE, MULTI, COOP, ONLINE (comma separated)
+  localization String    @default("") // FA_SUB, FA_DUB, FA_UI (comma separated)
+  releases     String    @default("[]") // per-platform release dates [{platform, date}]
+  playMain     Int       @default(0) // hours to finish the main story
+  playExtra    Int       @default(0) // main + extras
+  playComplete Int       @default(0) // completionist
+  storeLinks   String    @default("[]") // official stores [{store, url}]
+  gameSize     String    @default("")
+  version      String    @default("") // latest build / version on the download links
+  verdict      String    @default("") // one-line editor verdict next to the score
+  editorsChoice Boolean  @default(false)
+  seoTitle     String    @default("")
+  seoDescription String  @default("")
+  updates      GameUpdate[]
+  library      GameLibrary[]
   publishedAt  DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
 
   @@index([status, publishedAt])
+  @@index([releaseDate])
+  @@index([franchiseId])
+}
+
+/// A game series (Souls, God of War…): groups titles on the franchise page.
+model GameFranchise {
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
+  title       String
+  titleEn     String      @default("")
+  description String      @default("")
+  image       String      @default("")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @default(now()) @updatedAt
+  games       GameTitle[]
+}
+
+/// Updates, patches, DLCs and editions of a game. Download links live in
+/// MediaLink (ownerType "gameupdate").
+model GameUpdate {
+  id         Int       @id @default(autoincrement())
+  gameId     Int
+  game       GameTitle @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  kind       String    @default("UPDATE") // UPDATE | PATCH | DLC | EDITION
+  title      String
+  version    String    @default("")
+  size       String    @default("")
+  notes      String    @default("")
+  releasedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([gameId, releasedAt])
+}
+
+/// A member's game library (GameUp "played / playing / want to play").
+model GameLibrary {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    Int
+  game      GameTitle @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  status    String // PLAYING | PLAYED | WANT | DROPPED
+  hours     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  @@unique([userId, gameId])
+  @@index([gameId, status])
+  @@index([userId, status, updatedAt])
 }
 
 /// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
@@ -1322,6 +1427,7 @@ model ForumCategory {
   updatedAt   DateTime      @default(now()) @updatedAt
   threads     ForumThread[]
   permissions ForumCategoryPermission[]
+  watchers    ForumCategoryUser[]
 }
 
 model ForumThread {
@@ -1339,6 +1445,9 @@ model ForumThread {
   lastPostAt     DateTime      @default(now())
   lastPostUserId Int?
   solvedPostId   Int?          @unique
+  closeAt        DateTime? // topic timer: closes automatically at this moment
+  slowModeSeconds Int          @default(0) // minimum seconds between one member's replies
+  listed         Boolean       @default(true) // unlisted topics open by link only
   solvedPost     ForumPost?    @relation("ForumSolution", fields: [solvedPostId], references: [id], onDelete: SetNull)
   likeCount      Int           @default(0)
   postCount      Int           @default(0) // highest post number
@@ -1366,6 +1475,8 @@ model ForumPost {
   replyToId Int?
   likeCount Int         @default(0)
   editCount Int         @default(0)
+  wiki      Boolean     @default(false) // members from trust level 1 may edit
+  reviewReason String   @default("") // why a PENDING post waits for staff approval
   createdAt DateTime    @default(now())
 
   @@index([threadId, status, createdAt])
@@ -1373,6 +1484,7 @@ model ForumPost {
   bookmarks ForumBookmark[]
   flags     ForumFlag[]
   revisions ForumPostRevision[]
+  polls     ForumPoll[]
   solutionOf ForumThread?   @relation("ForumSolution")
 
   @@index([userId, createdAt])
@@ -1874,4 +1986,247 @@ model CopyrightReport {
   resolvedAt     DateTime?
 
   @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------- shipping
+model UserAddress {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  title      String   @default("")
+  recipient  String
+  mobile     String
+  province   String
+  city       String
+  address    String
+  plaque     String   @default("")
+  unit       String   @default("")
+  postalCode String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DeliveryBooking {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @unique
+  date      String // YYYY-MM-DD (Tehran)
+  slotId    String
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([date, slotId])
+}
+
+/// Hierarchical categories for content sections (WordPress-style taxonomy).
+/// One tree per section ("software", "games", "music", "cinema"); items are
+/// linked through TaxonomyAssignment, whose ownerId points at that section's
+/// own table.
+model TaxonomyTerm {
+  id             Int       @id @default(autoincrement())
+  taxonomy       String
+  slug           String
+  name           String
+  description    String    @default("")
+  icon           String    @default("")
+  image          String    @default("")
+  color          String    @default("")
+  parentId       Int?
+  parent         TaxonomyTerm?  @relation("TaxonomyTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children       TaxonomyTerm[] @relation("TaxonomyTree")
+  sortOrder      Int       @default(0)
+  inMenu         Boolean   @default(true)
+  count          Int       @default(0)
+  seoTitle       String    @default("")
+  seoDescription String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  assignments    TaxonomyAssignment[]
+
+  @@unique([taxonomy, slug])
+  @@index([taxonomy, parentId, sortOrder])
+}
+
+model TaxonomyAssignment {
+  termId   Int
+  ownerId  Int
+  taxonomy String
+  primary  Boolean      @default(false)
+  term     TaxonomyTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@id([termId, ownerId])
+  @@index([taxonomy, ownerId])
+}
+
+/// Manufacturer / brand of store products.
+model ProductBrand {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  name        String
+  nameEn      String    @default("")
+  logo        String    @default("")
+  description String    @default("")
+  featured    Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  products    Product[]
+}
+
+/// Shopping cart: one per signed-in customer, or per browser (token cookie) for guests.
+model Cart {
+  id        Int        @id @default(autoincrement())
+  token     String     @unique
+  userId    Int?       @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lines     CartLine[]
+
+  @@index([updatedAt])
+}
+
+model CartLine {
+  id         Int      @id @default(autoincrement())
+  cartId     Int
+  productId  Int
+  variantKey Int      @default(0) // variant id, 0 = product without variants
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId, variantKey])
+  @@index([productId])
+}
+
+/// Snapshot of each product line of a store order (price and name at purchase time).
+model OrderLine {
+  id             Int      @id @default(autoincrement())
+  orderId        Int
+  line           Int      @default(0)
+  productId      Int?
+  variantId      Int?
+  name           String
+  variantName    String   @default("")
+  sku            String   @default("")
+  image          String   @default("")
+  kind           String   @default("VIRTUAL")
+  quantity       Int      @default(1)
+  unitPriceMinor BigInt   @default(0)
+  listPriceMinor BigInt   @default(0)
+  totalMinor     BigInt   @default(0)
+  currency       String   @default("IRT")
+  createdAt      DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, line])
+  @@index([productId])
+}
+
+/// Order timeline (status changes, notes); customer-visible rows appear in order tracking.
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  status    String   @default("")
+  note      String   @default("")
+  visible   Boolean  @default(true)
+  actorId   Int?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+/// A poll inside a forum post ([poll] … [/poll] blocks, one row per block).
+model ForumPoll {
+  id         Int             @id @default(autoincrement())
+  postId     Int
+  post       ForumPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  name       String          @default("poll")
+  title      String          @default("")
+  type       String          @default("regular") // regular | multiple
+  options    String          @default("[]") // [{ id, label }]
+  minChoices Int             @default(1)
+  maxChoices Int             @default(1)
+  results    String          @default("on_vote") // always | on_vote | on_close
+  closed     Boolean         @default(false)
+  closesAt   DateTime?
+  voterCount Int             @default(0)
+  createdAt  DateTime        @default(now())
+  votes      ForumPollVote[]
+
+  @@unique([postId, name])
+}
+
+model ForumPollVote {
+  pollId    Int
+  poll      ForumPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime  @default(now())
+
+  @@id([pollId, userId, optionId])
+  @@index([userId])
+}
+
+/// Per-member category notification level (watching, watching first post, tracking, normal, muted).
+model ForumCategoryUser {
+  userId     Int
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId Int
+  category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  level      String        @default("NORMAL")
+
+  @@id([userId, categoryId])
+  @@index([categoryId, level])
+}
+
+/// Personal messages: private conversations between members (and staff).
+model ForumConversation {
+  id             Int                     @id @default(autoincrement())
+  title          String
+  userId         Int // creator
+  postCount      Int                     @default(0)
+  lastPostAt     DateTime                @default(now())
+  lastPostUserId Int?
+  createdAt      DateTime                @default(now())
+  participants   ForumConversationUser[]
+  messages       ForumMessage[]
+
+  @@index([lastPostAt])
+}
+
+model ForumConversationUser {
+  conversationId Int
+  conversation   ForumConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastRead       Int               @default(0)
+  archived       Boolean           @default(false)
+  left           Boolean           @default(false)
+  joinedAt       DateTime          @default(now())
+
+  @@id([conversationId, userId])
+  @@index([userId, archived])
+}
+
+model ForumMessage {
+  id             Int               @id @default(autoincrement())
+  conversationId Int
+  conversation   ForumConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  number         Int
+  content        String
+  editedAt       DateTime?
+  createdAt      DateTime          @default(now())
+
+  @@unique([conversationId, number])
+  @@index([userId, createdAt])
 }

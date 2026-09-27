@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest) {
 
     // Product stock must be held before settlement so a manual payment cannot create a paid-but-undeliverable order.
     if (order.productId) {
-      const held = await ensureInventoryReservation({ orderId: order.id, productId: order.productId, holdMinutes: 60 })
+      const held = await ensureInventoryReservation({ orderId: order.id, holdMinutes: 60 })
       if (!held.ok) return err(held.message || 'out of stock', 409)
     }
 

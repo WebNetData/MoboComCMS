@@ -12,6 +12,10 @@ import { promotionCode, promotionDiscount, releasePromotionForOrder } from '@/mo
 import { isMember } from '@/modules/membership/server/membership'
 import { memberPrice } from '@/modules/membership/domain/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { addressSnapshot, bookDelivery, getDeliverySettings, validateDelivery } from '@/modules/shipping/server/shipping'
+import { ShippingError, shippingFeeMinor } from '@/modules/shipping/domain/shipping'
+import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineLimit } from '@/modules/store/domain/store'
+import { unitPrice } from '@/modules/store/server/pricing'
 
 export interface CheckoutCommand {
   userId: number
@@ -20,8 +24,15 @@ export interface CheckoutCommand {
   offerId?: number | null
   productId?: number | null
   variantId?: number | null
+  /** Several store products at once (the shopping cart); replaces productId/variantId. */
+  lines?: { productId: number; variantId?: number | null; quantity?: number }[] | null
   /** VIP membership plan purchase. */
   membershipPlanId?: number | null
+  /** Saved address from the customer's address book (physical products). */
+  addressId?: number | null
+  /** Chosen delivery day (YYYY-MM-DD, Tehran) and time window. */
+  delivery?: { date?: string; slotId?: string } | null
+  /** Legacy inline address; still accepted from API clients. */
   shippingAddress?: { recipient?: string; phone?: string; country?: string; city?: string; postalCode?: string; address?: string }
   username?: string
   payWith?: 'wallet' | 'gateway'
@@ -80,7 +91,10 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (offerId && (!offer?.active || offer.ownerKey !== 'SITE')) return fail(404, 'OFFER_NOT_FOUND', 'service offer not found')
   if (offerId && command.planId) return fail(400, 'BAD_ITEM', 'choose a plan or an offer')
   const planId = offer?.planId || Number(command.planId) || null
-  const productId = Number(command.productId) || null
+  const cartLines = Array.isArray(command.lines) && command.lines.length ? command.lines : null
+  if (cartLines && command.productId) return fail(400, 'BAD_ITEM', 'choose a product or cart lines, not both')
+  if (cartLines && cartLines.length > MAX_CART_LINES) return fail(400, 'BAD_ITEM', 'too many cart lines')
+  const productId = Number(cartLines ? cartLines[0]?.productId : command.productId) || null
   const membershipPlanId = Number(command.membershipPlanId) || null
   if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
   if ([planId, productId, membershipPlanId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
@@ -94,6 +108,9 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let currency = 'USD'
   let label = ''
   let meta: Record<string, unknown> = {}
+  let shippingMinor = 0n
+  let delivery: { date: string; slot: { id: string; label: string } } | null = null
+  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string }[] = []
 
   if (membershipPlanId) {
     const vip = await db.membershipPlan.findUnique({ where: { id: membershipPlanId } })
@@ -120,31 +137,64 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     label = offer ? offer.nameEn || offer.nameFa : plan.name
     meta = offer ? { kind: 'offer', offerId: offer.id, planId: plan.id, planName: plan.name, trafficGB: offer.trafficGB, days: offer.days, deviceLimit: offer.deviceLimit } : { kind: 'plan', planId: plan.id, planName: plan.name }
   } else {
-    const product = await db.product.findUnique({ where: { id: productId! } })
-    if (!product || !product.active) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
-    if (product.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', 'این محصول مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
-    if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', 'این محصول ناموجود است')
-    const variants = await db.productVariant.findMany({ where: { productId: product.id }, select: { id: true } })
-    const variantId = Number(command.variantId) || null
-    if (variants.length && !variantId) return fail(400, 'VARIANT_REQUIRED', 'لطفاً نوع محصول را انتخاب کنید')
-    const variant = variantId ? await db.productVariant.findFirst({ where: { id: variantId, productId: product.id, active: true } }) : null
-    if (variantId && !variant) return fail(404, 'VARIANT_NOT_FOUND', 'نوع انتخاب‌شده موجود نیست')
-    if (variant?.stock === 0) return fail(409, 'OUT_OF_STOCK', 'نوع انتخاب‌شده ناموجود است')
-    let shippingAddress: Record<string, string> | undefined
-    if (product.kind === 'PHYSICAL') {
-      const input = command.shippingAddress || {}
-      const required = ['recipient', 'phone', 'country', 'city', 'address'] as const
-      shippingAddress = Object.fromEntries(([...required, 'postalCode'] as const).map(key => [key, String(input[key] || '').trim().slice(0, key === 'address' ? 500 : 120)]))
-      if (required.some(key => !shippingAddress?.[key]) || !/^[+0-9 ()-]{7,24}$/.test(shippingAddress.phone)) return fail(400, 'SHIPPING_REQUIRED', 'آدرس و شماره تماس معتبر برای ارسال محصول لازم است')
+    const requested = cartLines || [{ productId: productId!, variantId: Number(command.variantId) || null, quantity: 1 }]
+    const many = requested.length > 1
+    const seen = new Set<string>()
+    for (const [index, want] of requested.entries()) {
+      const quantity = Math.floor(Number(want.quantity ?? 1))
+      const product = await db.product.findUnique({ where: { id: Number(want.productId) || 0 }, include: { variants: { where: { active: true } } } })
+      const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
+      if (!product || !product.active) return fail(404, 'PRODUCT_NOT_FOUND', named('محصول یافت نشد'))
+      if (product.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
+      if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', named('این محصول ناموجود است'))
+      const variantId = Number(want.variantId) || null
+      if (product.variants.length && !variantId) return fail(400, 'VARIANT_REQUIRED', named('لطفاً نوع محصول را انتخاب کنید'))
+      const variant = variantId ? product.variants.find((row) => row.id === variantId) || null : null
+      if (variantId && !variant) return fail(404, 'VARIANT_NOT_FOUND', named('نوع انتخاب‌شده موجود نیست'))
+      if (variant?.stock === 0) return fail(409, 'OUT_OF_STOCK', named('نوع انتخاب‌شده ناموجود است'))
+      const key = `${product.id}:${variant?.id || 0}`
+      if (seen.has(key)) return fail(400, 'BAD_ITEM', 'duplicate cart line')
+      seen.add(key)
+      const limit = lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
+      if (quantity > limit) return fail(409, 'QUANTITY_LIMIT', named(`حداکثر ${limit.toLocaleString('fa-IR')} عدد از این کالا قابل سفارش است`), { productId: product.id, limit })
+      const price = unitPrice(product, variant, member)
+      if (index === 0) currency = price.currency
+      else if (price.currency !== currency) return fail(409, 'MIXED_CURRENCY', 'کالاهای یک سفارش باید واحد پول یکسان داشته باشند')
+      memberDiscount ||= price.memberDiscount
+      amountMinor += price.unitMinor * BigInt(quantity)
+      orderLines.push({
+        line: index, productId: product.id, variantId: variant?.id ?? null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku,
+        image: product.image, kind: product.kind, quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: price.unitMinor * BigInt(quantity), currency: price.currency,
+      })
+      if (index === 0) meta = { kind: 'product', productId: product.id, productName: product.name, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}' }
     }
-    currency = normalizeCurrency(product.currency)
-    amountMinor = variant ? variant.priceMinor || toMinor(variant.price, currency) : product.priceMinor || toMinor(product.price, currency)
-    const priced = memberPrice(amountMinor, variant ? variant.memberPriceMinor : product.memberPriceMinor, member)
-    amountMinor = priced.amountMinor
-    memberDiscount = priced.memberDiscount
+    const physical = orderLines.some((line) => line.kind === 'PHYSICAL')
+    let shippingAddress: Record<string, string> | undefined
+    if (physical) {
+      const deliverySettings = await getDeliverySettings()
+      try {
+        if (command.addressId) shippingAddress = await addressSnapshot(command.userId, Number(command.addressId))
+        else {
+          const input = command.shippingAddress || {}
+          const required = ['recipient', 'phone', 'country', 'city', 'address'] as const
+          shippingAddress = Object.fromEntries(([...required, 'postalCode'] as const).map(key => [key, String(input[key] || '').trim().slice(0, key === 'address' ? 500 : 120)]))
+          if (required.some(key => !shippingAddress?.[key]) || !/^[+0-9 ()-]{7,24}$/.test(shippingAddress.phone)) return fail(400, 'SHIPPING_REQUIRED', 'یک آدرس ارسال از دفترچهٔ آدرس انتخاب کنید', { addressesUrl: '/dashboard/addresses' })
+        }
+        if (deliverySettings.enabled) {
+          if (!command.delivery?.date || !command.delivery.slotId) return fail(400, 'DELIVERY_REQUIRED', 'روز و بازهٔ زمانی ارسال را انتخاب کنید')
+          delivery = await validateDelivery(command.delivery.date, command.delivery.slotId)
+        }
+      } catch (error) {
+        if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
+        throw error
+      }
+    }
     amount = legacyNumber(amountMinor, currency)
-    label = `${product.name}${variant ? ` · ${variant.name}` : ''}`
-    meta = { kind: 'product', productId: product.id, productName: product.name, productKind: product.kind, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}', shippingAddress }
+    const head = orderLines[0]
+    label = `${head.name}${head.variantName ? ` · ${head.variantName}` : ''}${many ? ` و ${(orderLines.length - 1).toLocaleString('fa-IR')} کالای دیگر` : ''}`
+    meta = { ...meta, productKind: physical ? 'PHYSICAL' : 'VIRTUAL', lineCount: orderLines.length, itemCount: orderLines.reduce((sum, line) => sum + line.quantity, 0), fromCart: Boolean(cartLines), shippingAddress, delivery }
+    if (many) meta = { ...meta, variantId: null, variantName: '', variantSku: '', variantAttributes: '{}' }
   }
   if (amountMinor <= 0n) return fail(400, 'INVALID_PRICE', 'item price must be greater than zero')
   const subtotalMinor = amountMinor
@@ -160,6 +210,12 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     if (!quote.ok) return fail(409, quote.code, 'discount code cannot be applied to this order')
     discountMinor = quote.discountMinor
     amountMinor -= discountMinor
+    amount = legacyNumber(amountMinor, currency)
+  }
+  // Shipping is charged on what the customer pays for the item (after discounts) and is never discounted itself.
+  if (productId && meta.productKind === 'PHYSICAL') {
+    shippingMinor = shippingFeeMinor(await getDeliverySettings(), currency, amountMinor)
+    amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
   }
 
@@ -220,8 +276,11 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
         status: 'PENDING',
         provider: dueMinor === 0n ? 'wallet' : gateway!.provider.toLowerCase(),
         gatewayId: gateway?.id ?? null,
-        meta: JSON.stringify({ ...meta, walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount }),
+        meta: JSON.stringify({ ...meta, walletApplied: minorToNumber(creditMinor, currency), username: desiredUsername || '', discountCode: code, discountMinor: discountMinor.toString(), memberPrice: memberDiscount, shippingMinor: shippingMinor.toString() }),
       } })
+      if (delivery) await bookDelivery(tx, created.id, delivery.date, delivery.slot.id)
+      for (const line of orderLines) await tx.orderLine.create({ data: { ...line, orderId: created.id } })
+      if (orderLines.length) await tx.orderEvent.create({ data: { orderId: created.id, status: 'PENDING', note: 'سفارش ثبت شد' } })
       if (promotion) await tx.promotionRedemption.create({ data: { promotionId: promotion.id, userId: command.userId, orderId: created.id } })
       return created
     })
@@ -229,13 +288,14 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     const replayAfterRace = await replayOrder(command.userId, command.idempotencyKey)
     if (replayAfterRace) return replayAfterRace
     if (error instanceof Error && error.message.startsWith('PROMOTION_')) return fail(409, error.message, 'discount code could not be reserved; please retry')
+    if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
     throw error
   }
 
   await emitExtensionEvent('order.created', { orderId: order.id, userId: order.userId, planId: order.planId, productId: order.productId, totalMinor: order.totalMinor.toString(), currency: order.currency })
 
   if (productId) {
-    const reserved = await reserveInventory({ orderId: order.id, productId, variantId: Number(meta.variantId) || null })
+    const reserved = await reserveInventory({ orderId: order.id })
     if (!reserved.ok) {
       await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
       await releasePromotionForOrder(order.id)
@@ -248,12 +308,12 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     userId: command.userId,
     planId,
     productId,
-    subtotal: legacyNumber(subtotalMinor, currency),
+    subtotal: legacyNumber(subtotalMinor + shippingMinor, currency),
     discount: legacyNumber(discountMinor, currency),
     currency,
     gatewayId: gateway?.id ?? null,
     walletApplied: legacyNumber(creditMinor, currency),
-    notes: creditMinor > 0n ? `Wallet credit applied: ${legacyNumber(creditMinor, currency)} ${currency}` : '',
+    notes: [shippingMinor > 0n ? `Shipping: ${legacyNumber(shippingMinor, currency)} ${currency}` : '', creditMinor > 0n ? `Wallet credit applied: ${legacyNumber(creditMinor, currency)} ${currency}` : ''].filter(Boolean).join('\n'),
     idempotencyKey: `checkout:${command.idempotencyKey}:invoice`,
   })
 

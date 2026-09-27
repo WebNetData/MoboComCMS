@@ -4,6 +4,8 @@ import { getForumViewer, topicList, type TopPeriod, type TopicFilter } from '@/m
 import ForumShell, { type ForumNavKey } from '@/components/forum/ForumShell'
 import TopicList from '@/components/forum/TopicList'
 import { Pager, num } from '@/components/forum/shared'
+import CategoryWatch from '@/components/forum/CategoryWatch'
+import { categoryLevels } from '@/modules/forum/server/moderation'
 
 const FILTER_TABS: { key: TopicFilter; label: string; personal?: boolean }[] = [
   { key: 'latest', label: 'آخرین' }, { key: 'top', label: 'برترین' }, { key: 'unread', label: 'خوانده‌نشده', personal: true }, { key: 'new', label: 'تازه', personal: true },
@@ -34,6 +36,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
   const children = category ? data.categories.filter((c) => c.parentId === category.id) : []
   const navKey: ForumNavKey = category || tag ? '' : (data.filter === 'new' ? 'new' : data.filter)
   const newTopicHref = `/forum/new${category ? `?category=${category.slug}` : ''}`
+  const level = category && signedIn ? (await categoryLevels(viewer.userId)).get(category.id) || 'NORMAL' : 'NORMAL'
 
   return (
     <ForumShell viewer={viewer} active={navKey} category={category?.slug}>
@@ -43,6 +46,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
             <h1>{category.icon && <span aria-hidden="true">{category.icon} </span>}{category.title}</h1>
             {category.description && <p>{category.description}</p>}
             <p className="fx-muted">{num(category.threadCount)} موضوع · {num(category.postCount)} پیام{category.vip ? ' · ویژهٔ اعضای VIP' : ''}{category.locked ? ' · فقط تیم موضوع می‌سازد' : ''}</p>
+            {signedIn && <CategoryWatch categoryId={category.id} initial={level} />}
             {children.length > 0 && <div className="fx-subcats">{children.map((child) => <Link key={child.id} href={`/forum/c/${child.slug}`}><i style={{ background: child.color }} aria-hidden="true" />{child.title}<small>{num(child.threadCount)}</small></Link>)}</div>}
           </div>
         </header>

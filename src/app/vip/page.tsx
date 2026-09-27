@@ -7,6 +7,7 @@ import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
 import VipPlans from '@/components/media/VipPlans'
+import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function VipPage() {
   await requireModule('membership')
+  const landing = await sectionLanding('vip')
+  if (landing) return landing
   const [locale, viewer, plans, music, cinema, games, store, journal] = await Promise.all([getServerLocale(), getViewer(), getVipPlans(), isModuleEnabled('music'), isModuleEnabled('cinema'), isModuleEnabled('games'), isModuleEnabled('store'), isModuleEnabled('journal')])
   const fa = locale === 'fa'
   const currencies = [...new Set(plans.map((plan) => plan.currency))]

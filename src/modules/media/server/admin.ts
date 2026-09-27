@@ -9,7 +9,10 @@ import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
+import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
+import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -32,6 +35,8 @@ type Resource = {
   expand?: (rows: any[]) => Promise<any[]>
   onDelete?: (tx: Tx, id: number) => Promise<void>
   label: (row: Record<string, any>) => string
+  /** Section taxonomy the items are filed under (`terms` in the form). */
+  taxonomy?: Taxonomy
 }
 
 const text = (value: unknown, max = 300) => String(value ?? '').trim().slice(0, max)
@@ -117,7 +122,7 @@ const RESOURCES: Record<string, Resource> = {
     }),
   },
   'music-albums': {
-    module: 'music', perms: ['music.manage', 'cms.posts'],
+    taxonomy: 'music', module: 'music', perms: ['music.manage', 'cms.posts'],
     delegate: (t) => t.musicAlbum, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } } },
     label: (row) => row.title,
     parse: async (b, existing) => {
@@ -185,7 +190,7 @@ const RESOURCES: Record<string, Resource> = {
     expand: async (rows) => rows.map((row) => ({ ...row, trackIds: (() => { try { return (JSON.parse(row.trackIds || '[]') as number[]).map(String) } catch { return [] } })() })),
   },
   'cinema-titles': {
-    module: 'cinema', perms: ['cinema.manage', 'cms.posts'],
+    taxonomy: 'cinema', module: 'cinema', perms: ['cinema.manage', 'cms.posts'],
     delegate: (t) => t.cinemaTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -274,7 +279,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   games: {
-    module: 'games', perms: ['games.manage', 'cms.posts'],
+    taxonomy: 'games', module: 'games', perms: ['games.manage', 'cms.posts'],
     delegate: (t) => t.gameTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -302,9 +307,27 @@ const RESOURCES: Record<string, Resource> = {
       status: when(b, 'status', status),
       featured: when(b, 'featured', bool),
       publishedAt: when(b, 'publishedAt', (v) => date(v) || new Date()),
+      franchiseId: when(b, 'franchiseId', (v) => int(v, 1, 2_000_000_000)),
+      engine: when(b, 'engine', (v) => text(v, 80)),
+      modes: when(b, 'modes', (v) => normalizeCodes(v, GAME_MODES)),
+      localization: when(b, 'localization', (v) => normalizeCodes(v, LOCALIZATIONS)),
+      releases: when(b, 'releases', (v) => JSON.stringify(cleanReleases(v))),
+      playMain: when(b, 'playMain', (v) => int(v, 0, 20000, 0) ?? 0),
+      playExtra: when(b, 'playExtra', (v) => int(v, 0, 20000, 0) ?? 0),
+      playComplete: when(b, 'playComplete', (v) => int(v, 0, 20000, 0) ?? 0),
+      storeLinks: when(b, 'storeLinks', (v) => JSON.stringify(cleanStoreLinks(v))),
+      gameSize: when(b, 'gameSize', (v) => text(v, 40)),
+      version: when(b, 'version', (v) => text(v, 60)),
+      verdict: when(b, 'verdict', (v) => text(v, 240)),
+      editorsChoice: when(b, 'editorsChoice', bool),
+      seoTitle: when(b, 'seoTitle', (v) => text(v, 120)),
+      seoDescription: when(b, 'seoDescription', (v) => text(v, 320)),
     }),
     afterSave: async (tx, id, b) => { if (has(b, 'links')) await saveLinks(tx, 'game', id, b.links) },
-    onDelete: async (tx, id) => { await tx.mediaLink.deleteMany({ where: { ownerType: 'game', ownerId: id } }) },
+    onDelete: async (tx, id) => {
+      const updates = (await tx.gameUpdate.findMany({ where: { gameId: id }, select: { id: true } })).map((row) => row.id)
+      await tx.mediaLink.deleteMany({ where: { OR: [{ ownerType: 'game', ownerId: id }, ...(updates.length ? [{ ownerType: 'gameupdate', ownerId: { in: updates } }] : [])] } })
+    },
     expand: async (rows) => {
       const links = await linksFor('game', rows.map((row) => row.id))
       const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }
@@ -312,12 +335,13 @@ const RESOURCES: Record<string, Resource> = {
         ...row,
         releaseDate: row.releaseDate ? new Date(row.releaseDate).toISOString().slice(0, 10) : '',
         screenshots: json(row.screenshots, []), pros: json(row.pros, []), cons: json(row.cons, []), requirements: json(row.requirements, { min: {}, rec: {} }),
+        releases: json(row.releases, []), storeLinks: json(row.storeLinks, []),
         links: links.get(row.id) || [],
       }))
     },
   },
   software: {
-    module: 'software', perms: ['software.manage', 'cms.posts'],
+    taxonomy: 'software', module: 'software', perms: ['software.manage', 'cms.posts'],
     delegate: (t) => t.softwareTitle, orderBy: { updatedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -413,8 +437,12 @@ export async function GET(req: NextRequest) {
   const off = await moduleGuard(resource.module)
   if (off) return off
   if (!await authorize(req, resource)) return err('forbidden', 403)
-  const rows = await resource.delegate(db).findMany({ orderBy: resource.orderBy, include: resource.include, take: 1000 })
-  return ok(resource.expand ? await resource.expand(rows) : rows)
+  const one = Number(req.nextUrl.searchParams.get('id'))
+  const rows = await resource.delegate(db).findMany({ ...(Number.isSafeInteger(one) && one > 0 ? { where: { id: one } } : {}), orderBy: resource.orderBy, include: resource.include, take: 1000 })
+  const expanded = resource.expand ? await resource.expand(rows) : rows
+  if (!resource.taxonomy) return ok(expanded)
+  const terms = await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id))
+  return ok(expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })))
 }
 
 async function write(req: NextRequest, mode: 'create' | 'update') {
@@ -436,8 +464,10 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
     const row = await db.$transaction(async (tx) => {
       const saved = mode === 'create' ? await resource.delegate(tx).create({ data }) : await resource.delegate(tx).update({ where: { id }, data })
       if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
+      if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
       return saved
     }, { timeout: 30_000 })
+    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
     return ok({ id: row.id, slug: row.slug }, mode === 'create' ? 201 : 200)
@@ -460,8 +490,10 @@ export async function DELETE(req: NextRequest) {
   try {
     const row = await db.$transaction(async (tx) => {
       if (resource.onDelete) await resource.onDelete(tx, id)
+      if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
       return resource.delegate(tx).delete({ where: { id } })
     })
+    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
     return ok({ deleted: true })

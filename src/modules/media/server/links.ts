@@ -14,7 +14,7 @@ import {
  * redirect to the — optionally signed, expiring — file URL.
  */
 
-const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', software: 'software' }
+const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', gameupdate: 'games', software: 'software' }
 
 function denied(request: Request, reason: 'login' | 'vip', wantsJson: boolean) {
   const status = reason === 'login' ? 401 : 403
@@ -58,6 +58,10 @@ async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null
   if (ownerType === 'game') {
     const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
     return row && { access: row.access, path: `/games/${row.slug}` }
+  }
+  if (ownerType === 'gameupdate') {
+    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { game: { select: { access: true, slug: true, status: true } } } })
+    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}` } : null
   }
   if (ownerType === 'software') {
     const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })

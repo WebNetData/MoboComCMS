@@ -8,6 +8,7 @@ import { cinemaNav } from '@/components/media/nav'
 import { Chips, EmptyState, PosterCard, Shelf, yr } from '@/components/media/MediaCards'
 import CinemaHero, { type HeroSlide } from '@/components/media/CinemaHero'
 import VipStrip from '@/components/media/VipStrip'
+import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CinemaHomePage() {
   await requireModule('cinema')
+  const landing = await sectionLanding('cinema')
+  if (landing) return landing
   const [data, locale, viewer] = await Promise.all([getCinemaHome(), getServerLocale(), getViewer()])
   const fa = locale === 'fa'
   const slides: HeroSlide[] = data.hero.map((ti) => ({

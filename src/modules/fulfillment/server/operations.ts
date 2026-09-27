@@ -86,7 +86,7 @@ export async function retryPaidFulfillment(orderId: number) {
     if (existing) return { ok: false as const, message: 'This subscription is already active.' }
   }
   if (!job && invoice.order.productId) {
-    const reservation = await db.inventoryReservation.findUnique({ where: { orderId }, select: { status: true } })
+    const reservation = await db.inventoryReservation.findFirst({ where: { orderId, status: 'CONSUMED' }, select: { status: true } })
     if (reservation?.status === 'CONSUMED') return { ok: false as const, message: 'This product was already delivered.' }
   }
   if (!job) {

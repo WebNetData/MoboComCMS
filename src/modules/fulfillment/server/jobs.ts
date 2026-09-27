@@ -13,6 +13,7 @@ import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, toMinor } from '@/shared/money'
 import { fulfillMembershipOrder, grantGiftForOrder } from '@/modules/membership/server/membership'
+import { recordStoreSale } from '@/modules/store/server/orders'
 
 export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'GRANT_MEMBERSHIP'
 
@@ -26,15 +27,7 @@ export async function enqueueOrderFulfillment(input: {
   productHoldMinutes?: number
 }) {
   if (input.productId) {
-    const order = await db.order.findUnique({ where: { id: input.orderId }, select: { meta: true } })
-    let meta: Record<string, unknown> = {}
-    try { meta = JSON.parse(order?.meta || '{}') } catch {}
-    const reserved = await ensureInventoryReservation({
-      orderId: input.orderId,
-      productId: input.productId,
-      variantId: Number(meta.variantId) || null,
-      holdMinutes: input.productHoldMinutes ?? 60,
-    })
+    const reserved = await ensureInventoryReservation({ orderId: input.orderId, holdMinutes: input.productHoldMinutes ?? 60 })
     if (!reserved.ok) throw new Error(reserved.message || 'out of stock')
     return enqueueFulfillment({
       kind: 'DELIVER_PRODUCT',
@@ -115,7 +108,14 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     const order = await db.order.findUnique({ where: { id: job.orderId }, select: { meta: true } })
     let meta: Record<string, unknown> = {}
     try { meta = JSON.parse(order?.meta || '{}') } catch {}
-    await db.productDelivery.upsert({ where: { orderId: job.orderId }, create: { orderId: job.orderId, address: meta.shippingAddress ? JSON.stringify(meta.shippingAddress) : '' }, update: {} })
+    const delivery = (meta.delivery && typeof meta.delivery === 'object' ? meta.delivery : {}) as { date?: unknown; slot?: { label?: unknown } }
+    await db.productDelivery.upsert({ where: { orderId: job.orderId }, create: {
+      orderId: job.orderId,
+      address: meta.shippingAddress ? JSON.stringify(meta.shippingAddress) : '',
+      scheduledDate: typeof delivery.date === 'string' ? delivery.date : '',
+      scheduledSlot: typeof delivery.slot?.label === 'string' ? delivery.slot.label : '',
+    }, update: {} })
+    await recordStoreSale(job.orderId).catch((error) => logEvent('error', 'store.sale_record_failed', { orderId: job.orderId, error }))
     await grantGiftForOrder(job.orderId).catch((error) => logEvent('error', 'membership.gift_failed', { orderId: job.orderId, error }))
     return
   }

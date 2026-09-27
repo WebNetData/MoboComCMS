@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
@@ -17,6 +17,60 @@ function Brand({ footer = false }: { footer?: boolean }) {
     {site.logo ? <img src={site.logo} alt="" className="mb-logo"/> : <span className="mb-mark" aria-hidden="true">{site.brand.trim().slice(0, 1)}</span>}
     <span className="mb-brand-copy"><strong>{site.brand}</strong>{!footer && <small>{tx(site.tagline, locale)}</small>}</span>
   </Link>
+}
+
+type NavLink = { href: string; label: string }
+
+/**
+ * Main navigation that never clips: links that do not fit the available width
+ * move into a “More” dropdown (re-measured on resize and when links change).
+ */
+function PriorityNav({ links, isOn, label, more }: { links: NavLink[]; isOn: (href: string) => boolean; label: string; more: string }) {
+  const nav = useRef<HTMLElement>(null)
+  const measure = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(links.length)
+  const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+  useEffect(() => { setOpen(false) }, [pathname])
+  useLayoutEffect(() => {
+    const el = nav.current
+    const ruler = measure.current
+    if (!el || !ruler) return
+    const fit = () => {
+      const widths = [...ruler.children].map(child => (child as HTMLElement).offsetWidth + 2)
+      const moreWidth = 90
+      const available = el.clientWidth
+      let used = 0
+      let count = 0
+      for (const [index, width] of widths.entries()) {
+        const rest = index < widths.length - 1 ? moreWidth : 0
+        if (used + width + rest > available) break
+        used += width
+        count++
+      }
+      setVisible(count)
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [links])
+  useEffect(() => {
+    if (!open) return
+    const close = (event: Event) => { if (event instanceof KeyboardEvent ? event.key === 'Escape' : !nav.current?.contains(event.target as Node)) setOpen(false) }
+    document.addEventListener('keydown', close)
+    document.addEventListener('pointerdown', close)
+    return () => { document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', close) }
+  }, [open])
+  const overflow = links.slice(visible)
+  return <nav ref={nav} className="mb-nav" aria-label={label}>
+    <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.href}>{link.label}</span>)}</div>
+    {links.slice(0, visible).map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}
+    {overflow.length > 0 && <div className="mb-nav-more">
+      <button type="button" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}>{more}<Icon name="chevron" size={14}/></button>
+      {open && <div className="mb-nav-dropdown" role="menu">{overflow.map(link => <Link key={link.href} href={link.href} role="menuitem" aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}</div>}
+    </div>}
+  </nav>
 }
 
 function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
@@ -44,7 +98,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
     <header className="site-header mb-header">
       <div className="mb-container mb-header-bar">
         <Brand/>
-        <nav className="mb-nav" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}</nav>
+        <PriorityNav links={links} isOn={isOn} label={L('ناوبری اصلی', 'Primary navigation')} more={L('بیشتر', 'More')}/>
         <div className="mb-header-actions">
           <ThemeSiteSearch className="mb-search"/>
           <ThemeLangControls locale={locale} theme={theme} compact/>

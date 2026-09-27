@@ -236,3 +236,4 @@
 .fa-cat{display:grid;border-inline-start:4px solid;padding-inline-start:10px}
 .fa-perm-cell{display:flex;flex-wrap:wrap;gap:.3rem}
 .fa-search{margin-bottom:.8rem;max-width:420px}
+.tb-builtin-sections{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}.tb-builtin-sections small{flex-basis:100%;color:var(--muted,#9bb2cc)}

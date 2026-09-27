@@ -6,8 +6,9 @@ import { popularTags, viewerCounts, visibleCategories } from '@/modules/forum/se
 import { shellIdentity } from '@/modules/forum/server/people'
 import { Avatar, num } from '@/components/forum/shared'
 import NotificationsMenu from '@/components/forum/NotificationsMenu'
+import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 
-export type ForumNavKey = 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | ''
+export type ForumNavKey = 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
 
 /**
  * Forum chrome: site header/footer, a sticky community sidebar (filters,
@@ -40,6 +41,8 @@ export default async function ForumShell({ viewer, active = '', category, childr
         {link('solved', '/forum/solved', 'حل‌شده', '✓')}
         {signedIn && link('bookmarks', '/forum/bookmarks', 'نشان‌شده‌ها', '🔖', counts.bookmarks)}
         {signedIn && link('mine', '/forum/mine', 'فعالیت من', '✎')}
+        {signedIn && link('messages', '/forum/messages', 'پیام‌های خصوصی', '✉', counts.messages)}
+        {viewer.moderator && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
       </nav>
       <nav className="fx-side-group" aria-label="دسته‌بندی‌ها">
         <h3><Link href="/forum/categories" className={active === 'categories' ? 'is-active' : ''}>دسته‌بندی‌ها</Link></h3>
@@ -79,6 +82,7 @@ export default async function ForumShell({ viewer, active = '', category, childr
             </form>
             <div className="fx-top-actions">
               {signedIn ? <>
+                <Link href="/forum/messages" className="fx-top-icon" aria-label={counts.messages ? `پیام‌های خصوصی، ${num(counts.messages)} خوانده‌نشده` : 'پیام‌های خصوصی'}>✉{counts.messages > 0 && <em>{num(counts.messages)}</em>}</Link>
                 <NotificationsMenu />
                 {me && <Link href={`/forum/u/${me.username}`} className="fx-me" aria-label="پروفایل من"><Avatar author={{ name: me.user.name, avatarColor: me.user.avatarColor, avatar: me.avatar, username: me.username }} size={34} /></Link>}
               </> : <Link href="/login?next=/forum" className="btn btn-primary btn-sm">ورود / ثبت‌نام</Link>}
@@ -92,6 +96,7 @@ export default async function ForumShell({ viewer, active = '', category, childr
           </aside>
           <div className="fx-main">{children}</div>
         </div>
+        <GlobalShortcuts />
       </div>
     </MediaShell>
   )

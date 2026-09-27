@@ -22,7 +22,7 @@ export async function settleInvoiceManually(input: ManualSettlement): Promise<{ 
   if (!invoice) return { ok: false, status: 404, message: 'invoice not found' }
   // Reserve stock before financial settlement. If it cannot be reserved, do not mark the invoice paid.
   if (invoice.productId && invoice.orderId) {
-    const held = await ensureInventoryReservation({ orderId: invoice.orderId, productId: invoice.productId, holdMinutes: 60 })
+    const held = await ensureInventoryReservation({ orderId: invoice.orderId, holdMinutes: 60 })
     if (!held.ok) return { ok: false, status: 409, message: held.message || 'out of stock' }
   }
   const res = await markInvoicePaid({

@@ -52,6 +52,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}/music`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
       { url: `${base}/cinema`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
       { url: `${base}/games`, lastModified: now, changeFrequency: 'daily', priority: 0.8 },
+      { url: `${base}/games/calendar`, lastModified: now, changeFrequency: 'daily', priority: 0.6 },
+      { url: `${base}/games/top`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+      { url: `${base}/games/franchises`, lastModified: now, changeFrequency: 'weekly', priority: 0.5 },
       { url: `${base}/vip`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     )
     for (const row of tracks) entries.push({ url: `${base}/music/track/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.6 })
@@ -59,6 +62,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const row of artists) entries.push({ url: `${base}/music/artist/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.5 })
     for (const row of titles) entries.push({ url: `${base}/cinema/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
     for (const row of games) entries.push({ url: `${base}/games/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
+    const franchises = await db.gameFranchise.findMany({ where: { games: { some: live } }, select: { slug: true, updatedAt: true }, take: 2000 })
+    for (const row of franchises) entries.push({ url: `${base}/games/franchise/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'monthly', priority: 0.5 })
   } catch {
     // media tables may not be migrated yet
   }
@@ -68,7 +73,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [software, boards, threads] = await Promise.all([
       db.softwareTitle.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
       db.forumCategory.findMany({ where: { access: 'PUBLIC' }, select: { slug: true, updatedAt: true } }),
-      db.forumThread.findMany({ where: { status: 'VISIBLE', category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
+      db.forumThread.findMany({ where: { status: 'VISIBLE', listed: true, category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
     ])
     entries.push({ url: `${base}/software`, lastModified: now, changeFrequency: 'daily', priority: 0.8 }, { url: `${base}/forum`, lastModified: now, changeFrequency: 'hourly', priority: 0.7 })
     for (const row of software) entries.push({ url: `${base}/software/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })

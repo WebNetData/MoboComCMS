@@ -9,6 +9,8 @@ import {
 } from '@/modules/forum/domain/community'
 import { countLinks, extractMentions, markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { getForumSettings, notify, refreshStats } from '@/modules/forum/server/community'
+import { contentVerdict, formatWait, slowModeWait, timerDue } from '@/modules/forum/domain/discourse'
+import { checkPolls, syncPolls } from '@/modules/forum/server/polls'
 
 // Forum writes. Every action re-checks access on the server, keeps counters in
 // the same transaction as the change, and sends notifications afterwards so a
@@ -38,6 +40,25 @@ async function checkContent(viewer: Viewer, content: string) {
   const settings = await getForumSettings()
   const limits = postLimits(viewer.trustLevel, settings, viewer.moderator)
   if (countLinks(content) > limits.maxLinks) throw new ForumError(`کاربران تازه‌وارد حداکثر ${limits.maxLinks.toLocaleString('fa-IR')} لینک در هر پیام می‌توانند بگذارند`, 422)
+  await checkPolls(viewer, content)
+}
+
+/** Watched words and new-member approval: publish, send to the review queue, or refuse. */
+async function verdictFor(viewer: Viewer, text: string) {
+  const settings = await getForumSettings()
+  const approvedPosts = !viewer.moderator && viewer.trustLevel === 0 && settings.approveNewUserPosts > 0
+    ? await db.forumPost.count({ where: { userId: viewer.userId!, status: 'VISIBLE' } })
+    : 0
+  const verdict = contentVerdict({ text, viewer, approvedPosts, settings })
+  if (verdict.action === 'block') throw new ForumError(`متن شما شامل واژهٔ غیرمجاز «${verdict.word}» است؛ آن را اصلاح کنید`, 422)
+  return verdict
+}
+
+/** A due topic timer closes the topic the first time anyone touches it. */
+export async function applyTimer(thread: { id: number; locked: boolean; closeAt: Date | null }) {
+  if (thread.locked || !timerDue(thread.closeAt)) return thread.locked
+  await db.forumThread.updateMany({ where: { id: thread.id, locked: false }, data: { locked: true, closeAt: null } }).catch(() => undefined)
+  return true
 }
 
 async function applyTags(tx: Tx, threadId: number, names: string[], viewer: Viewer) {
@@ -74,6 +95,8 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
   const settings = await getForumSettings()
   const tags = normalizeTags(input.tags, settings.maxTagsPerTopic)
   await checkContent(viewer, content)
+  const verdict = await verdictFor(viewer, `${title}\n${content}`)
+  const pending = verdict.action === 'review'
   throttle(viewer, 'topic')
   if (!viewer.moderator && viewer.trustLevel === 0) {
     const today = await db.forumThread.count({ where: { userId, createdAt: { gt: new Date(Date.now() - 86_400_000) } } })
@@ -81,16 +104,18 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
   }
   const now = new Date()
   const thread = await db.$transaction(async (tx) => {
-    const created = await tx.forumThread.create({ data: { categoryId: category.id, userId, title, lastPostAt: now, lastPostUserId: userId, postCount: 1 } })
-    await tx.forumPost.create({ data: { threadId: created.id, userId, content, postNumber: 1, createdAt: now } })
+    const created = await tx.forumThread.create({ data: { categoryId: category.id, userId, title, lastPostAt: now, lastPostUserId: userId, postCount: 1, status: pending ? 'PENDING' : 'VISIBLE' } })
+    const first = await tx.forumPost.create({ data: { threadId: created.id, userId, content, postNumber: 1, createdAt: now, status: pending ? 'PENDING' : 'VISIBLE', reviewReason: pending ? verdict.reason : '' } })
+    await syncPolls(tx, first.id, content)
     if (tags.length) await applyTags(tx, created.id, tags, viewer)
-    await tx.forumCategory.update({ where: { id: category.id }, data: { threadCount: { increment: 1 }, postCount: { increment: 1 }, lastPostAt: now } })
+    if (!pending) await tx.forumCategory.update({ where: { id: category.id }, data: { threadCount: { increment: 1 }, postCount: { increment: 1 }, lastPostAt: now } })
     await tx.forumTopicUser.create({ data: { userId, threadId: created.id, lastRead: 1, level: 'WATCHING' } })
     return created
   })
+  if (pending) return { id: thread.id, pending: true }
   await afterPost(viewer, { threadId: thread.id, title, number: 1, content, categoryId: category.id, replyToUserId: null })
   contentChanged({ type: 'thread', id: thread.id }, null, { status: 'VISIBLE', title: thread.title })
-  return { id: thread.id }
+  return { id: thread.id, pending: false }
 }
 
 export async function createReply(viewer: Viewer, threadId: number, input: { content: unknown; replyToId?: unknown }) {
@@ -100,18 +125,28 @@ export async function createReply(viewer: Viewer, threadId: number, input: { con
   const access = categoryAccess(thread.category, viewer)
   if (!access.see) throw new ForumError('موضوع پیدا نشد', 404)
   if (!access.reply) throw new ForumError('پاسخ در این دسته برای شما مجاز نیست', 403)
-  if (thread.locked && !viewer.moderator) throw new ForumError('این موضوع بسته شده است', 403)
+  const locked = await applyTimer(thread)
+  if (locked && !viewer.moderator) throw new ForumError('این موضوع بسته شده است', 403)
+  if (thread.slowModeSeconds && !viewer.moderator) {
+    const last = await db.forumPost.findFirst({ where: { threadId, userId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+    const wait = slowModeWait(thread.slowModeSeconds, last?.createdAt ?? null)
+    if (wait) throw new ForumError(`این موضوع در حالت کند است؛ ${formatWait(wait)} دیگر می‌توانید پاسخ بدهید`, 429)
+  }
   const content = cleanContent(input.content)
   await checkContent(viewer, content)
+  const verdict = await verdictFor(viewer, content)
+  const pending = verdict.action === 'review'
   const replyToId = Number(input.replyToId) || null
   const replyTo = replyToId ? await db.forumPost.findFirst({ where: { id: replyToId, threadId, status: 'VISIBLE' }, select: { id: true, userId: true } }) : null
   throttle(viewer, 'post')
   const now = new Date()
   const post = await db.$transaction(async (tx) => {
     // The increment locks the topic row, so concurrent replies get distinct numbers.
-    const updated = await tx.forumThread.update({ where: { id: threadId }, data: { postCount: { increment: 1 }, replyCount: { increment: 1 }, lastPostAt: now, lastPostUserId: userId } })
-    const created = await tx.forumPost.create({ data: { threadId, userId, content, postNumber: updated.postCount, replyToId: replyTo?.id ?? null, createdAt: now } })
-    await tx.forumCategory.update({ where: { id: thread.categoryId }, data: { postCount: { increment: 1 }, lastPostAt: now } })
+    // A post held for review takes a number but does not bump the topic until approved.
+    const updated = await tx.forumThread.update({ where: { id: threadId }, data: pending ? { postCount: { increment: 1 } } : { postCount: { increment: 1 }, replyCount: { increment: 1 }, lastPostAt: now, lastPostUserId: userId } })
+    const created = await tx.forumPost.create({ data: { threadId, userId, content, postNumber: updated.postCount, replyToId: replyTo?.id ?? null, createdAt: now, status: pending ? 'PENDING' : 'VISIBLE', reviewReason: pending ? verdict.reason : '' } })
+    await syncPolls(tx, created.id, content)
+    if (!pending) await tx.forumCategory.update({ where: { id: thread.categoryId }, data: { postCount: { increment: 1 }, lastPostAt: now } })
     const state = await tx.forumTopicUser.findUnique({ where: { userId_threadId: { userId, threadId } } })
     await tx.forumTopicUser.upsert({
       where: { userId_threadId: { userId, threadId } },
@@ -120,8 +155,9 @@ export async function createReply(viewer: Viewer, threadId: number, input: { con
     })
     return created
   })
+  if (pending) return { id: post.id, number: post.postNumber, pending: true }
   await afterPost(viewer, { threadId, title: thread.title, number: post.postNumber, content, categoryId: thread.categoryId, replyToUserId: replyTo?.userId ?? null })
-  return { id: post.id, number: post.postNumber }
+  return { id: post.id, number: post.postNumber, pending: false }
 }
 
 async function viewerCanSee(userId: number, categoryId: number) {
@@ -131,7 +167,7 @@ async function viewerCanSee(userId: number, categoryId: number) {
 }
 
 /** Notifications (reply, watching, mentions) and stats after a new post. */
-async function afterPost(viewer: Viewer, post: { threadId: number; title: string; number: number; content: string; categoryId: number; replyToUserId: number | null }) {
+export async function afterPost(viewer: Viewer, post: { threadId: number; title: string; number: number; content: string; categoryId: number; replyToUserId: number | null }) {
   const actorId = viewer.userId!
   const actor = await db.forumProfile.findUnique({ where: { userId: actorId }, select: { username: true } })
   const who = `@${actor?.username || 'user'}`
@@ -152,11 +188,22 @@ async function afterPost(viewer: Viewer, post: { threadId: number; title: string
         await notify(profile.userId, 'FORUM_MENTION', `forum:${post.threadId}:${post.number}:mention:${profile.userId}`, `${who} از شما نام برد`, `«${post.title}»: ${excerpt}`, href)
       }
     }
+    const muted = new Set((await db.forumTopicUser.findMany({ where: { threadId: post.threadId, level: 'MUTED' }, select: { userId: true } })).map((row) => row.userId))
     if (post.number > 1) {
       const watchers = await db.forumTopicUser.findMany({ where: { threadId: post.threadId, level: 'WATCHING', userId: { notIn: [...notified] } }, select: { userId: true }, take: 300 })
       for (const watcher of watchers) {
+        notified.add(watcher.userId)
         await notify(watcher.userId, 'FORUM_POSTED', `forum:${post.threadId}:${post.number}:watch:${watcher.userId}`, `پاسخ تازه در «${post.title}»`, `${who}: ${excerpt}`, href)
       }
+    }
+    // Category watchers: every post (WATCHING) or new topics only (WATCHING_FIRST).
+    const levels = post.number === 1 ? ['WATCHING', 'WATCHING_FIRST'] : ['WATCHING']
+    const categoryWatchers = await db.forumCategoryUser.findMany({ where: { categoryId: post.categoryId, level: { in: levels }, userId: { notIn: [...notified] } }, select: { userId: true }, take: 300 })
+    for (const watcher of categoryWatchers) {
+      if (muted.has(watcher.userId) || !await viewerCanSee(watcher.userId, post.categoryId)) continue
+      notified.add(watcher.userId)
+      if (post.number === 1) await notify(watcher.userId, 'FORUM_NEW_TOPIC', `forum:${post.threadId}:new:${watcher.userId}`, `موضوع تازه: «${post.title}»`, `${who}: ${excerpt}`, href)
+      else await notify(watcher.userId, 'FORUM_POSTED', `forum:${post.threadId}:${post.number}:watch:${watcher.userId}`, `پاسخ تازه در «${post.title}»`, `${who}: ${excerpt}`, href)
     }
     await refreshStats(actorId)
     const category = await db.forumCategory.findUnique({ where: { id: post.categoryId }, include: { permissions: { select: { groupId: true } } } })
@@ -180,7 +227,7 @@ export async function editPost(viewer: Viewer, postId: number, input: { content?
   if (!canEditPost(post, viewer, settings.editWindowHours)) throw new ForumError('مهلت ویرایش این پیام تمام شده یا اجازهٔ ویرایش ندارید', 403)
   if (post.thread.locked && !viewer.moderator) throw new ForumError('این موضوع بسته شده است', 403)
   const content = input.content === undefined ? post.content : cleanContent(input.content)
-  if (content !== post.content) await checkContent(viewer, content)
+  if (content !== post.content) { await checkContent(viewer, content); await verdictFor(viewer, content) }
   const first = post.postNumber === 1
   const title = first && input.title !== undefined ? cleanTitle(input.title) : undefined
   const tags = first && input.tags !== undefined ? normalizeTags(input.tags, settings.maxTagsPerTopic) : undefined
@@ -194,6 +241,7 @@ export async function editPost(viewer: Viewer, postId: number, input: { content?
     if (content !== post.content) {
       await tx.forumPostRevision.create({ data: { postId, userId: viewer.userId!, content: post.content } })
       await tx.forumPost.update({ where: { id: postId }, data: { content, editedAt: new Date(), editCount: { increment: 1 } } })
+      await syncPolls(tx, postId, content)
     }
     if (title !== undefined || categoryId !== undefined) await tx.forumThread.update({ where: { id: post.threadId }, data: { ...(title !== undefined ? { title } : {}), ...(categoryId !== undefined ? { categoryId } : {}) } })
     if (tags) await applyTags(tx, post.threadId, tags, viewer)

@@ -23,6 +23,7 @@ import { teaserHtml } from '@/modules/membership/domain/membership'
 import { VipGate } from '@/components/media/MediaCards'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
+import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -352,6 +353,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
           </div>
         )}
       />
+      <SectionBarSlot section="blog" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbsLd) }} />
 

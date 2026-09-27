@@ -40,7 +40,7 @@ export interface CheckoutGatewayChoice {
   isDefault: boolean
 }
 
-type CheckoutPayload = { membershipPlanId?: number; planId?: number; offerId?: number; productId?: number; variantId?: number; shippingAddress?: { recipient: string; phone: string; country: string; city: string; postalCode: string; address: string }; payWith?: 'wallet' | 'gateway'; username?: string; gatewayRef?: string; discountCode?: string }
+type CheckoutPayload = { membershipPlanId?: number; planId?: number; offerId?: number; productId?: number; variantId?: number; addressId?: number; delivery?: { date: string; slotId: string }; shippingAddress?: { recipient: string; phone: string; country: string; city: string; postalCode: string; address: string }; payWith?: 'wallet' | 'gateway'; username?: string; gatewayRef?: string; discountCode?: string }
 
 function storageKey(payload: CheckoutPayload) {
   return `happ.checkout.idempotency.${payload.membershipPlanId ? `vip.${payload.membershipPlanId}` : payload.offerId ? `offer.${payload.offerId}` : payload.planId ? `plan.${payload.planId}` : `product.${payload.productId}.${payload.variantId || 0}`}.${String(payload.discountCode || '').trim().toUpperCase()}`

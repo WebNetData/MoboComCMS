@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
     productId: Number(body?.productId) || null,
     variantId: Number(body?.variantId) || null,
     membershipPlanId: Number(body?.membershipPlanId) || null,
+    addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,
+    delivery: body?.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
     shippingAddress: body?.shippingAddress && typeof body.shippingAddress === 'object' && !Array.isArray(body.shippingAddress) ? body.shippingAddress : undefined,
     username: typeof body?.username === 'string' ? body.username : undefined,
     payWith: body?.payWith === 'wallet' ? 'wallet' : body?.payWith === 'gateway' ? 'gateway' : undefined,
