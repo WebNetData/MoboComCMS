@@ -167,6 +167,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: '/admin/productgroups', label: L('گروه‌های مشخصات', 'Attribute groups'), icon: 'grid', perm: 'cms.products' },
         { href: '/admin/product-feedback', label: L('دیدگاه‌ها و پرسش‌ها', 'Reviews & questions'), icon: 'chat', perm: 'cms.products' },
         { href: '/admin/product-deliveries', label: L('تحویل سفارش‌های فروشگاه', 'Store deliveries'), icon: 'grid', perm: 'orders.manage' },
+        { href: '/admin/delivery', label: L('زمان‌بندی و هزینهٔ ارسال', 'Delivery schedule'), icon: 'sliders', perm: ['orders.manage', 'settings.manage'] },
     ] },
     { title: L('اتصال‌ها و افزونه‌ها', 'Integrations'), items: [
       { href: '/admin/telegram', label: L('ربات و مینی‌اپ', 'Telegram & Mini App'), icon: 'chat', perm: 'settings.manage' },

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'orders.manage')) return err('forbidden', 403)
   const status = req.nextUrl.searchParams.get('status') || 'ALL'
   if (!['ALL', 'PENDING', 'PROCESSING', 'DELIVERED'].includes(status)) return err('invalid status')
-  const rows = await db.productDelivery.findMany({ where: status === 'ALL' ? {} : { status }, orderBy: { createdAt: 'desc' }, take: 200, select: { id: true, orderId: true, status: true, address: true, trackingCode: true, deliveryNote: true, digitalDelivery: true, createdAt: true, order: { select: { id: true, meta: true, totalAmount: true, currency: true, product: { select: { name: true, kind: true } }, user: { select: { id: true, name: true, email: true } }, invoice: { select: { number: true, status: true } } } } } })
+  const rows = await db.productDelivery.findMany({ where: status === 'ALL' ? {} : { status }, orderBy: status === 'DELIVERED' || status === 'ALL' ? { createdAt: 'desc' } : [{ scheduledDate: 'asc' }, { createdAt: 'asc' }], take: 200, select: { id: true, orderId: true, status: true, address: true, scheduledDate: true, scheduledSlot: true, trackingCode: true, deliveryNote: true, digitalDelivery: true, createdAt: true, order: { select: { id: true, meta: true, totalAmount: true, currency: true, product: { select: { name: true, kind: true } }, user: { select: { id: true, name: true, email: true } }, invoice: { select: { number: true, status: true } } } } } })
   return ok(rows.map(({ digitalDelivery, ...row }) => ({ ...row, hasDigitalDelivery: Boolean(digitalDelivery), address: row.address ? JSON.parse(row.address) : null })))
 }
 

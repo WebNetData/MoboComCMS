@@ -37,7 +37,6 @@ export default function ProductBuy({
   const [gatewayRef, setGatewayRef] = useState('')
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
   const [variantId, setVariantId] = useState<number | null>(null)
-  const [shipping, setShipping] = useState({ recipient: '', phone: '', country: '', city: '', postalCode: '', address: '' })
   const selectedVariant = variants.find(variant => variant.id === variantId)
   const regularPrice = selectedVariant?.price ?? price
   const vipPrice = selectedVariant ? selectedVariant.memberPrice || 0 : vip?.memberPrice || 0
@@ -65,12 +64,17 @@ export default function ProductBuy({
 
   async function buy() {
     setError(null)
-    if (status !== 'authenticated') { router.push(`/login?next=${encodeURIComponent(`/products/${slug}`)}`); return }
     if (variants.length && !selectedVariant) { setError({ code: 'VARIANT_REQUIRED', message: locale === 'fa' ? 'نوع محصول را انتخاب کنید.' : 'Select a product variant.', needed: 0 }); return }
-    if (kind === 'PHYSICAL' && (!shipping.recipient.trim() || !shipping.phone.trim() || !shipping.country.trim() || !shipping.city.trim() || !shipping.address.trim())) { setError({ code: 'SHIPPING_REQUIRED', message: locale === 'fa' ? 'اطلاعات ارسال را کامل کنید.' : 'Complete the shipping details.', needed: 0 }); return }
+    // Physical goods finish on the checkout page: saved address + delivery day and time.
+    if (kind === 'PHYSICAL') {
+      const next = `/checkout/product/${slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ''}`
+      router.push(status === 'authenticated' ? next : `/login?next=${encodeURIComponent(next)}`)
+      return
+    }
+    if (status !== 'authenticated') { router.push(`/login?next=${encodeURIComponent(`/products/${slug}`)}`); return }
     setBusy(true)
     try {
-      const res = await startCheckout({ productId, variantId: selectedVariant?.id, shippingAddress: kind === 'PHYSICAL' ? shipping : undefined, gatewayRef: gatewayRef || undefined })
+      const res = await startCheckout({ productId, variantId: selectedVariant?.id, gatewayRef: gatewayRef || undefined })
       if (res.ok) {
         setBalance(res.balance)
         if (res.paid || res.invoiceUrl) router.push(`/payment/result?invoice=${res.invoiceNumber}`)
@@ -88,8 +92,8 @@ export default function ProductBuy({
   return (
     <div>
       {variants.length > 0 && <fieldset className="store-variant-picker"><legend>{locale === 'fa' ? 'انتخاب نوع محصول' : 'Choose an option'}</legend><div className="store-variant-options">{variants.map(variant => { let attributes: Record<string, string> = {}; try { attributes = JSON.parse(variant.attributes) } catch {} return <button type="button" key={variant.id} className={`store-variant-option ${variantId === variant.id ? 'selected' : ''}`} aria-pressed={variantId === variant.id} disabled={variant.stock === 0} onClick={() => setVariantId(variant.id)}><strong>{locale === 'fa' ? variant.name : variant.nameEn || variant.name}</strong>{Object.entries(attributes).length > 0 && <small>{Object.values(attributes).join(' · ')}</small>}<span className="num">{money(variant.price, currency, locale === 'fa' ? 'fa-IR' : 'en-US')}</span>{variant.stock === 0 && <small>{t.outOfStock}</small>}</button> })}</div></fieldset>}
-      {kind === 'PHYSICAL' && <div className="store-shipping"><h3>{locale === 'fa' ? 'اطلاعات ارسال' : 'Shipping details'}</h3><div className="store-shipping-grid">{(['recipient', 'phone', 'country', 'city', 'postalCode', 'address'] as const).map(key => <label key={key}><span>{({ recipient: locale === 'fa' ? 'نام گیرنده' : 'Recipient', phone: locale === 'fa' ? 'شماره تماس' : 'Phone', country: locale === 'fa' ? 'کشور' : 'Country', city: locale === 'fa' ? 'شهر' : 'City', postalCode: locale === 'fa' ? 'کد پستی' : 'Postal code', address: locale === 'fa' ? 'نشانی کامل' : 'Full address' })[key]}</span><input className="input" value={shipping[key]} onChange={e => setShipping(current => ({ ...current, [key]: e.target.value }))} dir={key === 'phone' || key === 'postalCode' ? 'ltr' : undefined} /></label>)}</div></div>}
-      {gateways.length > 1 && <div className="mb-3"><label className="label">{locale === 'fa' ? 'درگاه پرداخت' : 'Payment gateway'}</label><select className="select" value={gatewayRef} onChange={(e) => setGatewayRef(e.target.value)}>{gateways.map((g) => <option key={g.ref} value={g.ref}>{g.label}{g.feePercent ? ` · ${g.feePercent}%` : ''}</option>)}</select></div>}
+      {kind === 'PHYSICAL' && <p className="store-ship-hint"><span aria-hidden="true">🚚</span>{locale === 'fa' ? 'آدرس و روز و ساعت ارسال را در مرحلهٔ بعد انتخاب می‌کنید.' : 'Choose the address and delivery time in the next step.'}</p>}
+      {gateways.length > 1 && kind !== 'PHYSICAL' && <div className="mb-3"><label className="label">{locale === 'fa' ? 'درگاه پرداخت' : 'Payment gateway'}</label><select className="select" value={gatewayRef} onChange={(e) => setGatewayRef(e.target.value)}>{gateways.map((g) => <option key={g.ref} value={g.ref}>{g.label}{g.feePercent ? ` · ${g.feePercent}%` : ''}</option>)}</select></div>}
       {hasVipPrice && (
         <div className="vip-price-row">
           {vip?.member
@@ -105,7 +109,7 @@ export default function ProductBuy({
         </div>
       ) : (
       <button className="btn btn-primary btn-lg w-full" disabled={busy || !available} onClick={buy}>
-        {busy ? t.loading : !available ? t.outOfStock : variants.length && !selectedVariant ? locale === 'fa' ? 'نوع محصول را انتخاب کنید' : 'Choose an option' : `🛒 ${t.buyNow} — ${money(currentPrice, currency, localeName)}`}
+        {busy ? t.loading : !available ? t.outOfStock : variants.length && !selectedVariant ? locale === 'fa' ? 'نوع محصول را انتخاب کنید' : 'Choose an option' : kind === 'PHYSICAL' ? `${locale === 'fa' ? 'ادامهٔ خرید' : 'Continue'} — ${money(currentPrice, currency, localeName)}` : `🛒 ${t.buyNow} — ${money(currentPrice, currency, localeName)}`}
       </button>
       )}
       {covered && <p className="wallet-covers-badge mt-3">{t.walletCoversPlan}</p>}

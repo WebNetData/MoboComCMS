@@ -115,7 +115,13 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     const order = await db.order.findUnique({ where: { id: job.orderId }, select: { meta: true } })
     let meta: Record<string, unknown> = {}
     try { meta = JSON.parse(order?.meta || '{}') } catch {}
-    await db.productDelivery.upsert({ where: { orderId: job.orderId }, create: { orderId: job.orderId, address: meta.shippingAddress ? JSON.stringify(meta.shippingAddress) : '' }, update: {} })
+    const delivery = (meta.delivery && typeof meta.delivery === 'object' ? meta.delivery : {}) as { date?: unknown; slot?: { label?: unknown } }
+    await db.productDelivery.upsert({ where: { orderId: job.orderId }, create: {
+      orderId: job.orderId,
+      address: meta.shippingAddress ? JSON.stringify(meta.shippingAddress) : '',
+      scheduledDate: typeof delivery.date === 'string' ? delivery.date : '',
+      scheduledSlot: typeof delivery.slot?.label === 'string' ? delivery.slot.label : '',
+    }, update: {} })
     await grantGiftForOrder(job.orderId).catch((error) => logEvent('error', 'membership.gift_failed', { orderId: job.orderId, error }))
     return
   }

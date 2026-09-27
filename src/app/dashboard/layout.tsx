@@ -53,6 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
         { href: '/dashboard/orders', label: t.myOrders, icon: 'grid' },
         { href: '/dashboard/invoices', label: t.myInvoices, icon: 'wallet' },
+        ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),
       ],
     },
     {

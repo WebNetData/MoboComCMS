@@ -67,6 +67,7 @@ model User {
   itemReviews    ItemReview[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
+  addresses      UserAddress[]
 
   @@index([phone])
 }
@@ -179,6 +180,7 @@ model Order {
   payments      Payment[]
   promotionRedemptions PromotionRedemption[]
   productDelivery ProductDelivery?
+  deliveryBooking DeliveryBooking?
 }
 
 model OrderItem {
@@ -735,6 +737,8 @@ model ProductDelivery {
   address     String @default("")
   trackingCode String @default("")
   deliveryNote String @default("")
+  scheduledDate String @default("") // chosen delivery day, YYYY-MM-DD
+  scheduledSlot String @default("") // chosen time window label
   digitalDelivery String @default("") // encrypted fulfillment details, owner/admin only
   deliveredAt DateTime?
   createdAt   DateTime @default(now())
@@ -1874,4 +1878,36 @@ model CopyrightReport {
   resolvedAt     DateTime?
 
   @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------- shipping
+model UserAddress {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  title      String   @default("")
+  recipient  String
+  mobile     String
+  province   String
+  city       String
+  address    String
+  plaque     String   @default("")
+  unit       String   @default("")
+  postalCode String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DeliveryBooking {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @unique
+  date      String // YYYY-MM-DD (Tehran)
+  slotId    String
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([date, slotId])
 }

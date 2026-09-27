@@ -12,6 +12,6 @@
   "defaultEnabled": false,
   "stateSetting": "storeEnabled",
   "requiresCore": "^1.0.0",
-  "publicPaths": ["/products"],
-  "adminPaths": ["/admin/products", "/admin/productcats", "/admin/productgroups", "/admin/product-feedback", "/admin/product-deliveries"]
+  "publicPaths": ["/products", "/checkout/product"],
+  "adminPaths": ["/admin/products", "/admin/productcats", "/admin/productgroups", "/admin/product-feedback", "/admin/product-deliveries", "/admin/delivery"]
 }
