@@ -68,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [software, boards, threads] = await Promise.all([
       db.softwareTitle.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
       db.forumCategory.findMany({ where: { access: 'PUBLIC' }, select: { slug: true, updatedAt: true } }),
-      db.forumThread.findMany({ where: { status: 'VISIBLE', category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
+      db.forumThread.findMany({ where: { status: 'VISIBLE', listed: true, category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
     ])
     entries.push({ url: `${base}/software`, lastModified: now, changeFrequency: 'daily', priority: 0.8 }, { url: `${base}/forum`, lastModified: now, changeFrequency: 'hourly', priority: 0.7 })
     for (const row of software) entries.push({ url: `${base}/software/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })

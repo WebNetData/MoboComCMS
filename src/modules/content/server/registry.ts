@@ -74,7 +74,7 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
       const open = categories.filter((category) => categoryAccess(category, guest).see)
       const names = new Map(open.map((category) => [category.id, category.title]))
       const rows = await db.forumThread.findMany({
-        where: { ...(where.id ? { id: where.id } : {}), status: 'VISIBLE', categoryId: { in: [...names.keys()] } }, take, orderBy: { lastPostAt: 'desc' },
+        where: { ...(where.id ? { id: where.id } : {}), status: 'VISIBLE', listed: true, categoryId: { in: [...names.keys()] } }, take, orderBy: { lastPostAt: 'desc' },
         include: { posts: { where: { postNumber: 1 }, take: 1, select: { content: true } } },
       })
       return rows.map((r) => card({ id: r.id, slug: String(r.id), title: r.title, subtitle: names.get(r.categoryId) || 'تالار', summary: markdownExcerpt(r.posts[0]?.content || '', 300), keywords: '', image: '', access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.lastPostAt, popularity: r.views + r.replyCount * 5 }))

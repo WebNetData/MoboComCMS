@@ -12,7 +12,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const [{ id }, { page }] = await Promise.all([params, searchParams])
   const data = await getTopic(Number(id), await getForumViewer(), { page: Number(page) || 1 })
   if (!data) return { title: 'موضوع پیدا نشد', robots: { index: false } }
-  const hidden = data.thread.status !== 'VISIBLE'
+  const hidden = data.thread.status !== 'VISIBLE' || !data.thread.listed
   return {
     title: `${data.thread.title} — ${data.category.title}`,
     description: data.description || undefined,

@@ -64,6 +64,10 @@ model User {
   forumFlags     ForumFlag[]
   forumTopicUsers ForumTopicUser[]
   forumBadges    ForumUserBadge[]
+  forumConversations ForumConversationUser[]
+  forumMessages  ForumMessage[]
+  forumPollVotes ForumPollVote[]
+  forumCategoryUsers ForumCategoryUser[]
   itemReviews    ItemReview[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
@@ -1355,6 +1359,7 @@ model ForumCategory {
   updatedAt   DateTime      @default(now()) @updatedAt
   threads     ForumThread[]
   permissions ForumCategoryPermission[]
+  watchers    ForumCategoryUser[]
 }
 
 model ForumThread {
@@ -1372,6 +1377,9 @@ model ForumThread {
   lastPostAt     DateTime      @default(now())
   lastPostUserId Int?
   solvedPostId   Int?          @unique
+  closeAt        DateTime? // topic timer: closes automatically at this moment
+  slowModeSeconds Int          @default(0) // minimum seconds between one member's replies
+  listed         Boolean       @default(true) // unlisted topics open by link only
   solvedPost     ForumPost?    @relation("ForumSolution", fields: [solvedPostId], references: [id], onDelete: SetNull)
   likeCount      Int           @default(0)
   postCount      Int           @default(0) // highest post number
@@ -1399,6 +1407,8 @@ model ForumPost {
   replyToId Int?
   likeCount Int         @default(0)
   editCount Int         @default(0)
+  wiki      Boolean     @default(false) // members from trust level 1 may edit
+  reviewReason String   @default("") // why a PENDING post waits for staff approval
   createdAt DateTime    @default(now())
 
   @@index([threadId, status, createdAt])
@@ -1406,6 +1416,7 @@ model ForumPost {
   bookmarks ForumBookmark[]
   flags     ForumFlag[]
   revisions ForumPostRevision[]
+  polls     ForumPoll[]
   solutionOf ForumThread?   @relation("ForumSolution")
 
   @@index([userId, createdAt])
@@ -2061,4 +2072,93 @@ model OrderEvent {
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, createdAt])
+}
+
+/// A poll inside a forum post ([poll] … [/poll] blocks, one row per block).
+model ForumPoll {
+  id         Int             @id @default(autoincrement())
+  postId     Int
+  post       ForumPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  name       String          @default("poll")
+  title      String          @default("")
+  type       String          @default("regular") // regular | multiple
+  options    String          @default("[]") // [{ id, label }]
+  minChoices Int             @default(1)
+  maxChoices Int             @default(1)
+  results    String          @default("on_vote") // always | on_vote | on_close
+  closed     Boolean         @default(false)
+  closesAt   DateTime?
+  voterCount Int             @default(0)
+  createdAt  DateTime        @default(now())
+  votes      ForumPollVote[]
+
+  @@unique([postId, name])
+}
+
+model ForumPollVote {
+  pollId    Int
+  poll      ForumPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime  @default(now())
+
+  @@id([pollId, userId, optionId])
+  @@index([userId])
+}
+
+/// Per-member category notification level (watching, watching first post, tracking, normal, muted).
+model ForumCategoryUser {
+  userId     Int
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId Int
+  category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  level      String        @default("NORMAL")
+
+  @@id([userId, categoryId])
+  @@index([categoryId, level])
+}
+
+/// Personal messages: private conversations between members (and staff).
+model ForumConversation {
+  id             Int                     @id @default(autoincrement())
+  title          String
+  userId         Int // creator
+  postCount      Int                     @default(0)
+  lastPostAt     DateTime                @default(now())
+  lastPostUserId Int?
+  createdAt      DateTime                @default(now())
+  participants   ForumConversationUser[]
+  messages       ForumMessage[]
+
+  @@index([lastPostAt])
+}
+
+model ForumConversationUser {
+  conversationId Int
+  conversation   ForumConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastRead       Int               @default(0)
+  archived       Boolean           @default(false)
+  left           Boolean           @default(false)
+  joinedAt       DateTime          @default(now())
+
+  @@id([conversationId, userId])
+  @@index([userId, archived])
+}
+
+model ForumMessage {
+  id             Int               @id @default(autoincrement())
+  conversationId Int
+  conversation   ForumConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  number         Int
+  content        String
+  editedAt       DateTime?
+  createdAt      DateTime          @default(now())
+
+  @@unique([conversationId, number])
+  @@index([userId, createdAt])
 }

@@ -3,6 +3,8 @@ import { canEditPost, categoryAccess, postLimits, type CategoryAccess, type View
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
+import { censorText, timerDue } from '@/modules/forum/domain/discourse'
+import { pollsForPosts, type PollView } from '@/modules/forum/server/polls'
 
 // Forum reads: categories, topic lists, topic view, search and author cards.
 // Every query is limited to categories the viewer may see.
@@ -59,7 +61,7 @@ export async function visibleCategories(viewer: Viewer): Promise<CategoryView[]>
 export async function categoryIndex(viewer: Viewer) {
   const categories = await visibleCategories(viewer)
   const ids = categories.map((category) => category.id)
-  const latest = ids.length ? await db.forumThread.findMany({ where: { categoryId: { in: ids }, status: 'VISIBLE' }, orderBy: { lastPostAt: 'desc' }, take: 60, select: { id: true, title: true, lastPostAt: true, categoryId: true, replyCount: true } }) : []
+  const latest = ids.length ? await db.forumThread.findMany({ where: { categoryId: { in: ids }, status: 'VISIBLE', listed: true }, orderBy: { lastPostAt: 'desc' }, take: 60, select: { id: true, title: true, lastPostAt: true, categoryId: true, replyCount: true } }) : []
   const visibleIds = new Set(ids)
   const tops = categories.filter((category) => !category.parentId || !visibleIds.has(category.parentId))
   return tops.map((category) => {
@@ -93,7 +95,7 @@ export type TopicRow = {
 
 type ThreadRecord = {
   id: number; title: string; pinned: boolean; locked: boolean; solvedPostId: number | null; status: string; replyCount: number; views: number; likeCount: number; postCount: number
-  createdAt: Date; lastPostAt: Date; categoryId: number; userId: number; lastPostUserId: number | null; tags: { tag: { name: string } }[]
+  createdAt: Date; lastPostAt: Date; categoryId: number; userId: number; lastPostUserId: number | null; tags: { tag: { name: string } }[]; closeAt?: Date | null
 }
 
 export async function topicList(input: { viewer: Viewer; filter?: TopicFilter; categorySlug?: string; tag?: string; period?: TopPeriod; page?: number }) {
@@ -106,7 +108,12 @@ export async function topicList(input: { viewer: Viewer; filter?: TopicFilter; c
   if (PERSONAL.includes(filter) && !viewer.userId) return { filter, category, rows: [] as TopicRow[], page, pages: 1, total: 0, categories }
 
   const scope = category ? [category.id, ...categories.filter((c) => c.parentId === category.id).map((c) => c.id)] : categories.map((c) => c.id)
-  const where: Record<string, unknown> = { status: 'VISIBLE', categoryId: { in: scope } }
+  // Muted categories drop out of the general lists (still open when browsed directly).
+  const muted = viewer.userId && !category ? new Set((await db.forumCategoryUser.findMany({ where: { userId: viewer.userId, level: 'MUTED' }, select: { categoryId: true } })).map((row) => row.categoryId)) : new Set<number>()
+  const inScope = ['mine', 'bookmarks'].includes(filter) ? scope : scope.filter((id) => !muted.has(id))
+  const where: Record<string, unknown> = { status: 'VISIBLE', categoryId: { in: inScope } }
+  // Unlisted topics open by link only; they still show in the member's own lists.
+  if (!['mine', 'bookmarks'].includes(filter)) where.listed = true
   if (input.tag) where.tags = { some: { tag: { name: input.tag } } }
   const states = viewer.userId ? await db.forumTopicUser.findMany({ where: { userId: viewer.userId }, select: { threadId: true, lastRead: true, level: true, thread: { select: { postCount: true } } }, orderBy: { lastVisitedAt: 'desc' }, take: 2000 }) : []
   const state = new Map(states.map((row) => [row.threadId, row]))
@@ -146,12 +153,13 @@ async function decorate(threads: ThreadRecord[], categories: CategoryView[], sta
   const authors = await authorsFor([...threads.map((thread) => thread.userId), ...threads.map((thread) => thread.lastPostUserId || thread.userId), ...participants.map((row) => row.userId)])
   const byId = new Map(categories.map((category) => [category.id, category]))
   const firstText = new Map(firstPosts.map((post) => [post.threadId, post.content]))
+  const censored = (await getForumSettings()).watchedWords.censor
   return threads.map((thread) => {
     const category = byId.get(thread.categoryId)
     const posterIds = [thread.userId, ...participants.filter((row) => row.threadId === thread.id && row.userId !== thread.userId).map((row) => row.userId)].slice(0, 5)
     const read = state.get(thread.id)
     return {
-      id: thread.id, title: thread.title, excerpt: markdownExcerpt(firstText.get(thread.id) || '', 200), pinned: thread.pinned, locked: thread.locked, solved: !!thread.solvedPostId, status: thread.status,
+      id: thread.id, title: censorText(thread.title, censored), excerpt: censorText(markdownExcerpt(firstText.get(thread.id) || '', 200), censored), pinned: thread.pinned, locked: thread.locked || timerDue(thread.closeAt), solved: !!thread.solvedPostId, status: thread.status,
       replyCount: thread.replyCount, views: thread.views, likeCount: thread.likeCount, postCount: thread.postCount, createdAt: thread.createdAt, lastPostAt: thread.lastPostAt,
       category: category ? { id: category.id, slug: category.slug, title: category.title, color: category.color, icon: category.icon } : { id: 0, slug: '', title: '', color: '#64748b', icon: '' },
       tags: thread.tags.map((row) => row.tag.name),
@@ -166,14 +174,16 @@ async function decorate(threads: ThreadRecord[], categories: CategoryView[], sta
 
 /** Counts for the sidebar (new / unread / bookmarks). */
 export async function viewerCounts(viewer: Viewer) {
-  if (!viewer.userId) return { unread: 0, fresh: 0, bookmarks: 0 }
+  if (!viewer.userId) return { unread: 0, fresh: 0, bookmarks: 0, messages: 0, review: 0 }
   const categories = (await visibleCategories(viewer)).map((c) => c.id)
   const [states, fresh, bookmarks] = await Promise.all([
     db.forumTopicUser.findMany({ where: { userId: viewer.userId, level: { not: 'MUTED' }, thread: { status: 'VISIBLE', categoryId: { in: categories } } }, select: { lastRead: true, thread: { select: { postCount: true } } }, take: 2000 }),
     db.forumThread.count({ where: { status: 'VISIBLE', categoryId: { in: categories }, createdAt: { gte: new Date(Date.now() - NEW_DAYS * 86_400_000) }, topicUsers: { none: { userId: viewer.userId } } } }),
     db.forumBookmark.count({ where: { userId: viewer.userId } }),
   ]).catch(() => [[], 0, 0] as [{ lastRead: number; thread: { postCount: number } }[], number, number])
-  return { unread: states.filter((row) => row.lastRead < row.thread.postCount).length, fresh, bookmarks }
+  const { unreadMessageCount } = await import('@/modules/forum/server/messages')
+  const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : Promise.resolve(0)])
+  return { unread: states.filter((row) => row.lastRead < row.thread.postCount).length, fresh, bookmarks, messages, review }
 }
 
 export async function popularTags(viewer: Viewer, take = 20) {
@@ -187,6 +197,7 @@ export type PostView = {
   id: number; number: number; html: string; raw: string | null; status: string; createdAt: Date; editedAt: Date | null; editCount: number
   author: AuthorView; replyTo: { number: number; username: string } | null
   reactions: { emoji: string; count: number; mine: boolean }[]; bookmarked: boolean; canEdit: boolean; own: boolean; solution: boolean; flags: number
+  wiki: boolean; pendingReason: string; polls: PollView[]
 }
 
 /** A topic page: posts (by post number), reactions, bookmarks and what the viewer may do. */
@@ -195,9 +206,17 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   const thread = await db.forumThread.findUnique({ where: { id }, include: { category: { include: { permissions: { select: { groupId: true, level: true } }, parent: { select: { slug: true, title: true, color: true } } } }, tags: { include: { tag: true } } } }).catch(() => null)
   if (!thread) return null
   const access = categoryAccess(thread.category, viewer)
-  if (!access.see || (thread.status !== 'VISIBLE' && !viewer.moderator)) return null
+  // A topic waiting for review is visible to its author (with a notice) and staff.
+  const ownPending = thread.status === 'PENDING' && !!viewer.userId && thread.userId === viewer.userId
+  if (!access.see || (thread.status !== 'VISIBLE' && !viewer.moderator && !ownPending)) return null
   const settings = await getForumSettings()
-  const postWhere = { threadId: id, ...(viewer.moderator ? {} : { status: 'VISIBLE' }) }
+  const censored = settings.watchedWords.censor
+  if (!thread.locked && timerDue(thread.closeAt)) {
+    await db.forumThread.updateMany({ where: { id, locked: false }, data: { locked: true, closeAt: null } }).catch(() => undefined)
+    thread.locked = true
+    thread.closeAt = null
+  }
+  const postWhere = viewer.moderator ? { threadId: id } : { threadId: id, OR: [{ status: 'VISIBLE' }, ...(viewer.userId ? [{ status: 'PENDING', userId: viewer.userId }] : [])] }
   const total = await db.forumPost.count({ where: postWhere })
   const pages = pageCount(total, THREAD_PAGE_SIZE)
   let page = Math.max(1, Math.min(pages, Number(input.page) || 1))
@@ -205,7 +224,7 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   const posts = await db.forumPost.findMany({ where: postWhere, orderBy: [{ postNumber: 'asc' }, { id: 'asc' }], skip: (page - 1) * THREAD_PAGE_SIZE, take: THREAD_PAGE_SIZE })
   const postIds = posts.map((post) => post.id)
   const replyIds = posts.map((post) => post.replyToId).filter((value): value is number => !!value)
-  const [reactions, mine, bookmarks, replyTargets, participantsRaw, flagRows, solved, state, suggested] = await Promise.all([
+  const [reactions, mine, bookmarks, replyTargets, participantsRaw, flagRows, solved, state, suggested, polls, categoryLevel] = await Promise.all([
     db.forumReaction.groupBy({ by: ['postId', 'emoji'], where: { postId: { in: postIds } }, _count: { _all: true } }),
     viewer.userId ? db.forumReaction.findMany({ where: { postId: { in: postIds }, userId: viewer.userId }, select: { postId: true, emoji: true } }) : Promise.resolve([]),
     viewer.userId ? db.forumBookmark.findMany({ where: { postId: { in: postIds }, userId: viewer.userId }, select: { postId: true } }) : Promise.resolve([]),
@@ -214,7 +233,9 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
     viewer.moderator ? db.forumFlag.groupBy({ by: ['postId'], where: { postId: { in: postIds }, status: 'PENDING' }, _count: { _all: true } }) : Promise.resolve([]),
     thread.solvedPostId ? db.forumPost.findUnique({ where: { id: thread.solvedPostId }, select: { id: true, postNumber: true, content: true, userId: true } }) : Promise.resolve(null),
     viewer.userId ? db.forumTopicUser.findUnique({ where: { userId_threadId: { userId: viewer.userId, threadId: id } } }) : Promise.resolve(null),
-    db.forumThread.findMany({ where: { status: 'VISIBLE', categoryId: thread.categoryId, id: { not: id } }, orderBy: { lastPostAt: 'desc' }, take: 5, select: { id: true, title: true, replyCount: true, lastPostAt: true } }),
+    db.forumThread.findMany({ where: { status: 'VISIBLE', listed: true, categoryId: thread.categoryId, id: { not: id } }, orderBy: { lastPostAt: 'desc' }, take: 5, select: { id: true, title: true, replyCount: true, lastPostAt: true } }),
+    pollsForPosts(postIds, viewer),
+    viewer.userId ? db.forumCategoryUser.findUnique({ where: { userId_categoryId: { userId: viewer.userId, categoryId: thread.categoryId } }, select: { level: true } }) : Promise.resolve(null),
   ])
   const authors = await authorsFor([...posts.map((post) => post.userId), ...replyTargets.map((row) => row.userId), ...participantsRaw.map((row) => row.userId), thread.userId, ...(solved ? [solved.userId] : [])])
   const author = (userId: number) => authors.get(userId) || fallbackAuthor(userId)
@@ -238,20 +259,24 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   const editable = (post: { userId: number; createdAt: Date }) => canEditPost(post, viewer, settings.editWindowHours) && (!thread.locked || viewer.moderator)
   return {
     thread: {
-      id: thread.id, title: thread.title, pinned: thread.pinned, locked: thread.locked, status: thread.status, views: thread.views + 1, replyCount: thread.replyCount,
+      id: thread.id, title: censorText(thread.title, censored), pinned: thread.pinned, locked: thread.locked, status: thread.status, views: thread.views + 1, replyCount: thread.replyCount,
       likeCount: thread.likeCount, postCount: thread.postCount, createdAt: thread.createdAt, lastPostAt: thread.lastPostAt, userId: thread.userId, tags: thread.tags.map((row) => row.tag.name),
+      closeAt: thread.closeAt, slowModeSeconds: thread.slowModeSeconds, listed: thread.listed,
     },
+    lastRead: state?.lastRead ?? 0,
+    categoryLevel: categoryLevel?.level || 'NORMAL',
     category: { id: thread.category.id, slug: thread.category.slug, title: thread.category.title, color: thread.category.color, icon: thread.category.icon, parent: thread.category.parent },
     access, moderator: viewer.moderator, signedIn: !!viewer.userId,
     canSolve: !!viewer.userId && (viewer.moderator || thread.userId === viewer.userId),
-    solution: solved ? { id: solved.id, number: solved.postNumber, excerpt: markdownExcerpt(solved.content, 240), author: author(solved.userId) } : null,
+    solution: solved ? { id: solved.id, number: solved.postNumber, excerpt: censorText(markdownExcerpt(solved.content, 240), censored), author: author(solved.userId) } : null,
     level: state?.level || (viewer.userId && thread.userId === viewer.userId ? 'WATCHING' : 'NORMAL'),
     participants: participantsRaw.map((row) => ({ ...author(row.userId), posts: row._count._all })),
     suggested,
     posts: posts.map((post): PostView => {
       const a = author(post.userId)
       return {
-        id: post.id, number: post.postNumber, html: renderMarkdown(post.content, { images: imagesFor(a) }), raw: editable(post) ? post.content : null,
+        id: post.id, number: post.postNumber, html: renderMarkdown(censorText(post.content, censored), { images: imagesFor(a) }), raw: editable(post) ? post.content : null,
+        wiki: post.wiki, pendingReason: post.status === 'PENDING' ? post.reviewReason || 'در انتظار تأیید' : '', polls: polls.get(post.id) || [],
         status: post.status, createdAt: post.createdAt, editedAt: post.editedAt, editCount: post.editCount, author: a,
         replyTo: post.replyToId ? replyMap.get(post.replyToId) ?? null : null,
         reactions: settings.reactions.map((emoji) => {
@@ -264,7 +289,7 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
     }),
     reactionsAllowed: settings.reactions,
     page, pages, total,
-    description: page === 1 && posts[0] ? markdownExcerpt(posts[0].content, 160) : '',
+    description: page === 1 && posts[0] ? censorText(markdownExcerpt(posts[0].content, 160), censored) : '',
   }
 }
 
@@ -276,17 +301,18 @@ export async function searchForum(viewer: Viewer, input: { q?: string; page?: nu
   if (q.length < 2) return { q, results: [], total: 0, page, pages: 1 }
   const categories = await visibleCategories(viewer)
   const scope = input.category ? categories.filter((c) => c.slug === input.category).map((c) => c.id) : categories.map((c) => c.id)
-  const where = { status: 'VISIBLE', thread: { status: 'VISIBLE', categoryId: { in: scope } }, OR: [{ content: { contains: q } }, { postNumber: 1, thread: { title: { contains: q } } }] }
+  const where = { status: 'VISIBLE', thread: { status: 'VISIBLE', listed: true, categoryId: { in: scope } }, OR: [{ content: { contains: q } }, { postNumber: 1, thread: { title: { contains: q } } }] }
   const [posts, total] = await Promise.all([
     db.forumPost.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 20, take: 20, include: { thread: { select: { id: true, title: true, categoryId: true, solvedPostId: true } } } }),
     db.forumPost.count({ where }),
   ])
   const authors = await authorsFor(posts.map((post) => post.userId))
   const byId = new Map(categories.map((category) => [category.id, category]))
+  const censored = (await getForumSettings()).watchedWords.censor
   return {
     q, total, page, pages: pageCount(total, 20),
     results: posts.map((post) => {
-      const text = markdownExcerpt(post.content, 100000)
+      const text = censorText(markdownExcerpt(post.content, 100000), censored)
       const at = text.indexOf(q)
       const start = Math.max(0, at - 80)
       return {
@@ -306,7 +332,7 @@ export type ThreadRow = { id: number; title: string; pinned: boolean; locked: bo
 export async function recentThreads(limit = 6): Promise<ThreadRow[]> {
   const categories = await visibleCategories(await viewerFor(null))
   const rows = await db.forumThread.findMany({
-    where: { status: 'VISIBLE', categoryId: { in: categories.map((c) => c.id) } }, orderBy: { lastPostAt: 'desc' }, take: Math.max(1, Math.min(20, limit)),
+    where: { status: 'VISIBLE', listed: true, categoryId: { in: categories.map((c) => c.id) } }, orderBy: { lastPostAt: 'desc' }, take: Math.max(1, Math.min(20, limit)),
     include: { user: { select: { id: true, name: true, avatarColor: true, role: true, createdAt: true } }, category: { select: { slug: true, title: true } } },
   }).catch(() => [])
   return rows.map((row) => ({

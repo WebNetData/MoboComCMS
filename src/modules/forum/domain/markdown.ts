@@ -7,8 +7,11 @@
  * become links or images. Supported: paragraphs, line breaks, # headings,
  * lists, > quotes, [quote="user, post:N, topic:M"] quotes, ``` code blocks,
  * `code`, **bold**, *italic*, ~~strike~~, [links](url), ![images](url),
- * bare URLs, @mentions and :emoji: shortcodes.
+ * bare URLs, @mentions, :emoji: shortcodes and [poll] blocks (rendered as a
+ * placeholder the topic view fills with the live poll).
  */
+
+import { POLL_BLOCK } from '@/modules/forum/domain/discourse'
 
 export interface MarkdownOptions {
   /** Render ![](url) as images (trust-level gated); otherwise as links. */
@@ -88,6 +91,11 @@ const QUOTE_BLOCK = new RegExp(`\\[quote="(${USERNAME})(?:,\\s*post:(\\d{1,6}))?
 
 function blocks(source: string, tokens: Tokens, options: Required<MarkdownOptions>, depth: number): string {
   let text = source
+  // Polls become a slot the topic view renders (options are never shown as a plain list).
+  if (depth === 0) text = text.replace(POLL_BLOCK, (_m, attrs: string) => {
+    const name = (/name=(?:"([^"]*)"|(\S+))/.exec(attrs)?.slice(1).find(Boolean) || 'poll').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20) || 'poll'
+    return `\n${tokens.put(`<div class="fr-poll-slot" data-poll="${name}"></div>`)}\n`
+  })
   // Fenced code blocks.
   text = text.replace(/^```([\w+-]{0,20})\n([\s\S]*?)\n?```[ \t]*$/gm, (_m, lang: string, code: string) =>
     `\n${tokens.put(`<pre><code${lang ? ` class="lang-${escapeHtml(lang)}"` : ''}>${escapeHtml(code)}</code></pre>`)}\n`)
@@ -145,7 +153,8 @@ export function renderMarkdown(source: string, options: MarkdownOptions = {}): s
 
 /** Plain text for listings, notifications and meta descriptions. */
 export function markdownExcerpt(source: string, max = 180): string {
-  const flat = String(source || '')
+  const flat = String(source || '').replace(/\r\n?/g, '\n')
+    .replace(POLL_BLOCK, (_m, attrs: string) => ` 📊 ${/title="([^"]*)"/.exec(attrs)?.[1] || 'نظرسنجی'} `)
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(QUOTE_BLOCK, ' ')
     .replace(/^>.*$/gm, ' ')

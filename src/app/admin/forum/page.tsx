@@ -1,6 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import ForumDashboard from './ForumDashboard'
+import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
 type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[] }
@@ -9,10 +11,11 @@ type Badge = { id: number; slug: string; name: string; description: string; icon
 type Author = { id: number; name: string; username: string }
 type Flag = { post: { id: number; number: number; excerpt: string; status: string; createdAt: string; thread: { id: number; title: string } }; author: Author; weight: number; flags: { reason: string; note: string; weight: number; createdAt: string; by: Author }[] }
 type Trust = { daysVisited: number; topicsEntered: number; postCount: number; likesGiven: number; likesReceived: number }
-type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactions: string[]; trust: Record<'1' | '2' | '3', Trust> }
+type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
+  approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
-type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number } }
-type Tab = 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'settings'
+type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
+type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
 
 const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[] }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
@@ -27,7 +30,9 @@ const date = (value: string | null) => (value ? new Date(value).toLocaleDateStri
 /** Forum administration: flag queue, categories + group permissions, groups, badges, members and settings. */
 export default function AdminForumPage() {
   const [data, setData] = useState<Data | null>(null)
-  const [tab, setTab] = useState<Tab>('flags')
+  const [tab, setTab] = useState<Tab>('dashboard')
+  const [review, setReview] = useState<unknown[] | null>(null)
+  const [words, setWords] = useState<{ block: string; approve: string; censor: string } | null>(null)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [category, setCategory] = useState(EMPTY_CATEGORY)
@@ -76,9 +81,14 @@ export default function AdminForumPage() {
   const ordered = tops.flatMap((c) => [c, ...data.categories.filter((child) => child.parentId === c.id)])
   const groupName = (id: number) => data.groups.find((g) => g.id === id)
   const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
     { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags }, { key: 'categories', label: 'دسته‌ها', count: data.categories.length }, { key: 'groups', label: 'گروه‌ها', count: data.groups.length },
-    { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'settings', label: 'تنظیمات' },
+    { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
   ]
+  const wordLists = words || { block: settings.watchedWords.block.join('\n'), approve: settings.watchedWords.approve.join('\n'), censor: settings.watchedWords.censor.join('\n') }
+  const openReview = () => {
+    fetch('/api/admin/forum?section=review', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { items: [] })).then((body) => setReview(body.items || [])).catch(() => setReview([]))
+  }
 
   function setPermission(groupId: number, level: Level | '') {
     const rest = category.permissions.filter((row) => row.groupId !== groupId)
@@ -91,9 +101,30 @@ export default function AdminForumPage() {
       <Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link>
     </header>
     <nav className="tb-tabs" role="tablist" aria-label="بخش‌های تالار">
-      {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setMessage(null) }}>{item.label}{item.count !== undefined && <span>{fa(item.count)}</span>}</button>)}
+      {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setMessage(null); if (item.key === 'review') openReview() }}>{item.label}{item.count !== undefined && <span>{fa(item.count)}</span>}</button>)}
     </nav>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
+
+    {tab === 'dashboard' && <ForumDashboard />}
+
+    {tab === 'review' && <section className="xm-section">
+      <h2>صف بررسی پیش از انتشار</h2>
+      <p className="muted">پیام‌های کاربران تازه‌وارد (طبق تنظیمات) و پیام‌های دارای «واژه‌های نیازمند تأیید» اینجا منتظر می‌مانند. تأیید، پیام را منتشر و به دنبال‌کنندگان اعلان می‌دهد.</p>
+      {review === null ? <div className="tb-empty">در حال بارگذاری…</div> : <ReviewQueue items={review as never} />}
+    </section>}
+
+    {tab === 'words' && <section className="xm-section">
+      <h2>واژه‌های تحت نظر</h2>
+      <p className="muted">هر واژه یا عبارت در یک خط. تطبیق بر اساس کل واژه است (مثلاً «کار» با «کارت» یکی نیست) و * یعنی هر ادامه‌ای (مثلاً <code>قمار*</code>). برای ناظران اعمال نمی‌شود.</p>
+      <form className="card fr-admin-form" onSubmit={(event) => { event.preventDefault(); const split = (v: string) => v.split('\n').map((w) => w.trim()).filter(Boolean); void call('PATCH', { section: 'settings', settings: { ...settings, watchedWords: { block: split(wordLists.block), approve: split(wordLists.approve), censor: split(wordLists.censor) } } }, 'واژه‌ها ذخیره شد').then((ok) => { if (ok) setWords(null) }) }}>
+        {([['block', '⛔ مسدود', 'پیام شامل این واژه‌ها ارسال نمی‌شود و نویسنده باید متن را اصلاح کند.'], ['approve', '⚖ نیازمند تأیید', 'پیام ارسال می‌شود ولی تا تأیید ناظر در صف بررسی می‌ماند.'], ['censor', '■ سانسور', 'پیام منتشر می‌شود ولی این واژه‌ها هنگام نمایش با ■ پوشانده می‌شوند.']] as const).map(([key, label, hint]) => <label key={key} className="fr-admin-wide fd-words">
+          <span><b>{label}</b><small className="muted">{hint}</small></span>
+          <textarea className="textarea" rows={6} dir="auto" value={wordLists[key]} onChange={(e) => setWords({ ...wordLists, [key]: e.target.value })} />
+          <small className="muted">{fa(wordLists[key].split('\n').filter((w) => w.trim()).length)} مورد (حداکثر ۲۰۰)</small>
+        </label>)}
+        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ واژه‌ها</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setWords(null)}>بازگردانی</button></div>
+      </form>
+    </section>}
 
     {tab === 'flags' && <section className="xm-section">
       <h2>صف بررسی گزارش‌ها</h2>
@@ -243,6 +274,10 @@ export default function AdminForumPage() {
         <Num label="وزن گزارش برای پنهان‌سازی خودکار" value={settings.flagHideWeight} min={1} max={100} onChange={(v) => setSettings({ ...settings, flagHideWeight: v })} />
         <Num label="حداکثر برچسب هر موضوع" value={settings.maxTagsPerTopic} max={10} onChange={(v) => setSettings({ ...settings, maxTagsPerTopic: v })} />
         <label className="studio-switch"><input type="checkbox" checked={settings.membersCreateTags} onChange={(e) => setSettings({ ...settings, membersCreateTags: e.target.checked })} />کاربران (سطح ۲ به بالا) برچسب تازه بسازند</label>
+        <Num label="پیام‌های نخست تازه‌واردها که نیاز به تأیید دارند (۰ = خاموش)" value={settings.approveNewUserPosts} max={20} onChange={(v) => setSettings({ ...settings, approveNewUserPosts: v })} />
+        <label className="studio-switch"><input type="checkbox" checked={settings.messagesEnabled} onChange={(e) => setSettings({ ...settings, messagesEnabled: e.target.checked })} />پیام خصوصی بین اعضا فعال باشد</label>
+        <Num label="سطح لازم برای شروع پیام خصوصی" value={settings.messagesMinTrust} max={4} onChange={(v) => setSettings({ ...settings, messagesMinTrust: v })} />
+        <Num label="سطح لازم برای ساخت نظرسنجی" value={settings.pollsMinTrust} max={4} onChange={(v) => setSettings({ ...settings, pollsMinTrust: v })} />
         <fieldset className="fa-perms fr-admin-wide">
           <legend>واکنش‌های مجاز</legend>
           <div className="fa-inline fa-wrap">{Object.entries(REACTIONS).map(([key, emoji]) => <label key={key} className="studio-switch"><input type="checkbox" checked={settings.reactions.includes(key)} onChange={(e) => setSettings({ ...settings, reactions: e.target.checked ? [...settings.reactions, key] : settings.reactions.filter((r) => r !== key) })} />{emoji}</label>)}</div>
