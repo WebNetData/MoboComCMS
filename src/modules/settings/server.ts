@@ -22,3 +22,23 @@ export async function readJsonSetting(key: string): Promise<Record<string, unkno
 export async function writeJsonSetting(key: string, value: unknown) {
   await setSetting(key, JSON.stringify(value))
 }
+
+/**
+ * Cluster-wide lease for background jobs: true when this process may run
+ * `name` now. The expiry is stored as an ISO timestamp (which sorts as text),
+ * so the conditional update is atomic on SQLite and PostgreSQL alike and only
+ * one app instance wins each slot.
+ */
+export async function acquireLease(name: string, ttlMs: number): Promise<boolean> {
+  const key = `lease.${name}`
+  const now = new Date()
+  const until = new Date(now.getTime() + ttlMs).toISOString()
+  const { count } = await db.setting.updateMany({ where: { key, value: { lt: now.toISOString() } }, data: { value: until } })
+  if (count) return true
+  try {
+    await db.setting.create({ data: { key, value: until } })
+    return true
+  } catch {
+    return false // held by another instance (or created by it a moment ago)
+  }
+}

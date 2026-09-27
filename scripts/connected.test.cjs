@@ -750,7 +750,7 @@ test('FrenzyEx recovery uses authenticated GET and controlled cancel without rec
 })
 
 test('internal worker reconciles FrenzyEx before fulfillment and reservation cleanup',()=>{
-  const worker=fs.readFileSync(path.join(__dirname,'..','src/app/api/internal/fulfillment/run/route.ts'),'utf8')
+  const worker=fs.readFileSync(path.join(__dirname,'..','src/modules/fulfillment/server/worker.ts'),'utf8')
   const reconcile=fs.readFileSync(path.join(__dirname,'..','src/modules/billing/server/frenzyex-reconciliation.ts'),'utf8')
   const paymentPos=worker.indexOf('await processFrenzyReconciliationBatch(limit)')
   const fulfillmentPos=worker.indexOf('await processFulfillmentBatch(limit)')
