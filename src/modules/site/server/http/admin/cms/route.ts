@@ -64,10 +64,12 @@ export async function GET(req: NextRequest) {
   const model = MODELS[type]()
   const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? { sortOrder: 'asc' as const } : { id: 'desc' as const }
-  const rows = await model.findMany({ orderBy, include })
+  // ?id= narrows the listing to one row (the store product editor loads a single product).
+  const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
+  const rows = await model.findMany({ orderBy, include, ...(onlyId ? { where: { id: onlyId } } : {}) })
   if (type === 'posts') return ok(rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)) })))
   if (type === 'pages') return ok(await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) }))))
-  if (type === 'products') return ok(rows.map((row: any) => ({ ...row, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, attributes: parseJson(v.attributes, {}) })) })))
+  if (type === 'products') return ok(rows.map((row: any) => ({ ...row, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) })))
   return ok(rows)
 }
 
@@ -99,6 +101,20 @@ async function productCategoryGroup(groupId: unknown) {
   const id = Number(groupId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await db.productAttributeGroup.findUnique({ where: { id } })) throw Error('Attribute group not found')
   return id
+}
+
+/** Storefront presentation of a product category (menu icon, tile image, intro text, order). */
+function productCategoryExtras(b: any) {
+  const out: Record<string, unknown> = {}
+  if (b?.image !== undefined) out.image = validateCover(b.image)
+  if (b?.icon !== undefined) out.icon = String(b.icon || '').replace(/[^a-z0-9-]/gi, '').slice(0, 40)
+  if (b?.description !== undefined) out.description = richTextToPlain(String(b.description || ''), 1000)
+  if (b?.sortOrder !== undefined) {
+    const sortOrder = Number(b.sortOrder) || 0
+    if (!Number.isSafeInteger(sortOrder)) throw Error('Invalid sort order')
+    out.sortOrder = sortOrder
+  }
+  return out
 }
 
 function productGroupInput(b: any) {
@@ -138,7 +154,47 @@ async function productInput(b: any, existing?: { price: number; currency: string
     if (!Number.isSafeInteger(days) || days < 0 || days > 3650) throw Error('Invalid VIP gift days')
     vip.vipGiftDays = days
   }
-  return { data: { ...data, ...vip, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
+  const merchandising = await productMerchandising(b, priceMinor, currency)
+  return { data: { ...data, ...vip, ...merchandising, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
+}
+
+const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max)
+const count = (value: unknown, label: string, max = 1_000_000) => {
+  const number = value === '' || value == null ? 0 : Number(value)
+  if (!Number.isSafeInteger(number) || number < 0 || number > max) throw Error(`Invalid ${label}`)
+  return number
+}
+
+/** Store fields: brand, SKU, list price and timed offer, shipping weight, limits and SEO. */
+async function productMerchandising(b: any, priceMinor: bigint, currency: string) {
+  const out: Record<string, unknown> = {}
+  if (b?.brandId !== undefined) {
+    const brandId = b.brandId === '' || b.brandId === null ? null : Number(b.brandId)
+    if (brandId !== null && (!Number.isSafeInteger(brandId) || !await db.productBrand.findUnique({ where: { id: brandId }, select: { id: true } }))) throw Error('Brand not found')
+    out.brandId = brandId
+  }
+  if (b?.compareAtPrice !== undefined) {
+    const compareAtMinor = b.compareAtPrice === '' || b.compareAtPrice === null ? 0n : toMinor(String(b.compareAtPrice), currency)
+    if (compareAtMinor < 0n || (compareAtMinor > 0n && compareAtMinor <= priceMinor)) throw Error('List price must be higher than the sale price')
+    out.compareAtMinor = compareAtMinor
+  }
+  if (b?.saleEndsAt !== undefined) {
+    const date = b.saleEndsAt ? new Date(String(b.saleEndsAt)) : null
+    if (date && Number.isNaN(date.getTime())) throw Error('Invalid offer end date')
+    out.saleEndsAt = date
+  }
+  if (b?.sku !== undefined) {
+    out.sku = plain(b.sku, 80)
+    if (out.sku && !/^[A-Za-z0-9._-]+$/.test(String(out.sku))) throw Error('SKU may contain Latin letters, digits, dot, dash and underscore')
+  }
+  if (b?.shortDescription !== undefined) out.shortDescription = richTextToPlain(String(b.shortDescription), 600)
+  if (b?.warranty !== undefined) out.warranty = plain(b.warranty, 160)
+  if (b?.seoTitle !== undefined) out.seoTitle = plain(b.seoTitle, 120)
+  if (b?.seoDescription !== undefined) out.seoDescription = plain(b.seoDescription, 320)
+  if (b?.weightGrams !== undefined) out.weightGrams = count(b.weightGrams, 'weight', 1_000_000)
+  if (b?.maxPerOrder !== undefined) out.maxPerOrder = count(b.maxPerOrder, 'order limit', 1000)
+  if (b?.lowStockAt !== undefined) out.lowStockAt = count(b.lowStockAt, 'low-stock threshold', 100_000)
+  return out
 }
 
 async function saveVariants(tx: any, productId: number, variants: ReturnType<typeof validateVariants>) {
@@ -146,7 +202,8 @@ async function saveVariants(tx: any, productId: number, variants: ReturnType<typ
   for (const variant of variants) {
     const priceMinor = toMinor(String(variant.price), variant.currency)
     const memberPriceMinor = variant.memberPrice ? toMinor(String(variant.memberPrice), variant.currency) : 0n
-    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, stock: variant.stock, active: variant.active }
+    const compareAtMinor = variant.compareAt ? toMinor(String(variant.compareAt), variant.currency) : 0n
+    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, stock: variant.stock, active: variant.active }
     if (variant.id) {
       const current = await tx.productVariant.findFirst({ where: { id: variant.id, productId } })
       if (!current) throw Error('Variant does not belong to this product')
@@ -200,7 +257,7 @@ export async function POST(req: NextRequest) {
       if (type === 'postcats') return ok(await db.$transaction(async tx => tx.postCategory.create({ data: {
         ...pick(b, ['slug', 'name', 'nameEn']), parentId: await validateCategoryParent(tx, b?.parentId),
       } as any }), { isolationLevel: 'Serializable' }))
-      const row = await model.create({ data: { ...pick(b, ['slug', 'name', 'nameEn']), parentId: await productCategoryParent(b?.parentId), attributeGroupId: await productCategoryGroup(b?.attributeGroupId) } })
+      const row = await model.create({ data: { ...pick(b, ['slug', 'name', 'nameEn']), ...productCategoryExtras(b), parentId: await productCategoryParent(b?.parentId), attributeGroupId: await productCategoryGroup(b?.attributeGroupId) } })
       return ok(row)
     }
     if (type === 'productgroups') return ok(await db.productAttributeGroup.create({ data: productGroupInput(b) }))
@@ -267,6 +324,7 @@ export async function PATCH(req: NextRequest) {
       return ok(await db.productAttributeGroup.update({ where: { id }, data: input }))
     }
     if (type === 'productcats') {
+      Object.assign(data, productCategoryExtras(b))
       if (b?.parentId !== undefined) data.parentId = await productCategoryParent(b.parentId, id)
       if (b?.attributeGroupId !== undefined) data.attributeGroupId = await productCategoryGroup(b.attributeGroupId)
     }

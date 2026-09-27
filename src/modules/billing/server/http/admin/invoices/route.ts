@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   } }) : null
 
   if (order && productId) {
-    const reservation = await ensureInventoryReservation({ orderId: order.id, productId, holdMinutes: Math.max(30, dueDays * 24 * 60) })
+    const reservation = await ensureInventoryReservation({ orderId: order.id, holdMinutes: Math.max(30, dueDays * 24 * 60) })
     if (!reservation.ok) {
       await db.order.delete({ where: { id: order.id } }).catch(() => {})
       return err(reservation.message || 'out of stock', 409)

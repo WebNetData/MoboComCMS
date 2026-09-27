@@ -107,14 +107,18 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
   },
 
   async shop(cfg) {
-    const categories = await safe(db.productCategory.findMany({ select: { id: true, parentId: true, name: true, slug: true, _count: { select: { products: { where: { active: true } } } } }, orderBy: { name: 'asc' } }), [])
+    const categories = await safe(db.productCategory.findMany({ select: { id: true, parentId: true, name: true, slug: true, _count: { select: { products: { where: { active: true } } } } }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }), [])
     const nodes = categories.map((c) => ({ id: c.id, parentId: c.parentId, label: c.name, href: `/products${q({ category: c.slug })}`, count: c._count.products, slug: c.slug }))
     const items = await itemsFromTree(nodes, cfg, async (root) => {
       const ids = descendants(categories, root.id)
       const rows = await safe(db.product.findMany({ where: { active: true, categoryId: { in: ids }, image: { not: '' } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: cfg.features, select: { name: true, slug: true, image: true } }), [])
       return rows.map((p) => ({ title: p.name, href: `/products/${p.slug}`, image: p.image, kicker: root.label }))
     })
-    return { items, quick: [{ label: 'همهٔ محصولات', href: '/products' }, { label: 'مقایسهٔ کالا', href: '/compare' }], searchCategories: [] }
+    return {
+      items,
+      quick: [{ label: 'شگفت‌انگیزها', href: '/products?discounted=1&sort=discount' }, { label: 'پرفروش‌ترین‌ها', href: '/products?sort=bestselling' }, { label: 'مقایسهٔ کالا', href: '/compare' }],
+      searchCategories: categories.filter((c) => !c.parentId).map((c) => ({ value: c.slug, label: c.name })),
+    }
   },
 
   async blog(cfg) {
@@ -140,6 +144,7 @@ const SEARCH: Partial<Record<MegaSection, { action: string; placeholder: string;
   music: { action: '/music/browse', placeholder: 'جست‌وجوی آهنگ یا هنرمند…', param: 'term' },
   cinema: { action: '/cinema/browse', placeholder: 'جست‌وجوی فیلم و سریال…', param: 'term' },
   blog: { action: '/blog', placeholder: 'جست‌وجو در مجله…', param: 'category' },
+  shop: { action: '/products', placeholder: 'جست‌وجو در فروشگاه…', param: 'category' },
 }
 
 export async function getMegaConfig(): Promise<MegaMenuConfig> {

@@ -97,12 +97,14 @@ export function validateVariants(input: unknown, fields: AttributeField[], curre
     const price = Number(raw?.price)
     const memberPrice = raw?.memberPrice === '' || raw?.memberPrice == null ? 0 : Number(raw.memberPrice)
     const stock = Number(raw?.stock)
+    const compareAt = raw?.compareAtPrice === '' || raw?.compareAtPrice == null ? 0 : Number(raw.compareAtPrice)
+    if (!Number.isFinite(compareAt) || compareAt < 0 || (compareAt > 0 && compareAt <= price)) throw Error('Variant list price must be higher than its price')
     const attributes = validateSpecifications(raw?.attributes || {}, fields.filter(field => field.variant))
     if (!Number.isFinite(memberPrice) || memberPrice < 0 || memberPrice >= price && memberPrice > 0) throw Error('VIP price must be lower than the variant price')
     if (!sku || !name || !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(stock) || stock < -1 || skuSet.has(sku) || combinationSet.has(attributes)) throw Error('Variant SKU, attributes, price or stock are invalid or duplicated')
     skuSet.add(sku)
     combinationSet.add(attributes)
-    return { id, sku, name, nameEn, attributes, price, memberPrice, stock, active: raw?.active !== false, currency }
+    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, stock, active: raw?.active !== false, currency }
   })
 }
 

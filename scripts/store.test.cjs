@@ -96,12 +96,14 @@ test('variant inventory reservation rejects sold-out options without consuming p
   let productDecrements = 0
   const inventory = load('src/modules/catalog/server/inventory.ts', {
     '@/platform/database/prisma': { db: { $transaction: async fn => { try { return await fn({
-      inventoryReservation: { findUnique: async () => null, create: async ({ data }) => data },
+      orderLine: { findMany: async () => [] },
+      order: { findUnique: async () => ({ productId: 1, meta: JSON.stringify({ variantId: 3 }) }) },
+      inventoryReservation: { findMany: async () => [], create: async ({ data }) => data },
       product: { findUnique: async () => ({ id: 1, active: true, stock: 4 }), updateMany: async () => { productDecrements++; return { count: 1 } } },
       productVariant: { findFirst: async () => ({ id: 3, stock: 0 }), updateMany: async () => ({ count: 0 }) },
     }) } catch (error) { productDecrements = 0; throw error } } } },
   })
-  const result = await inventory.reserveInventory({ orderId: 5, productId: 1, variantId: 3 })
+  const result = await inventory.reserveInventory({ orderId: 5 })
   assert.equal(result.ok, false)
   assert.equal(result.message, 'out of stock')
   assert.equal(productDecrements, 0) // the transaction rolls back the earlier product decrement

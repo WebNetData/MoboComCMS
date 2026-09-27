@@ -2,11 +2,16 @@ import Link from 'next/link'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import ProductBuy from '@/components/ProductBuy'
+import BuyBox from '@/components/store/BuyBox'
+import { StoreIcon } from '@/components/store/StoreIcons'
+import { Crumbs, ProductRail, TrustStrip } from '@/components/store/Storefront'
+import { countProductView, getStoreSettings, relatedProducts } from '@/modules/store/server/catalog'
+import { unitPrice } from '@/modules/store/server/pricing'
+import { lineLimit } from '@/modules/store/domain/store'
+import { getDeliverySettings } from '@/modules/shipping/server/shipping'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import ProductTabs from '@/components/ProductTabs'
 import ProductGallery from '@/components/ProductGallery'
-import { Breadcrumbs } from '@/components/content/ContentPrimitives'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
@@ -21,13 +26,13 @@ import { productContext, resolveEntryLayout } from '@/modules/site/server/theme-
 import { PRODUCT_SLOT_TYPES, docHasSlotWidget, ensureProductSlots } from '@/modules/site/domain/builder'
 import { getViewer } from '@/modules/membership/server/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { legacyNumber } from '@/shared/money'
+import { minorToNumber } from '@/shared/money'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 
 
 async function loadProduct(slug: string, preview = false) {
   if (!await isStoreEnabled() && !preview) return null
-  return db.product.findUnique({ where: { slug }, include: { category: true, variants: { orderBy: { id: 'asc' } } } }).catch(() => null)
+  return db.product.findUnique({ where: { slug }, include: { category: true, brand: true, variants: { orderBy: { id: 'asc' } } } }).catch(() => null)
 }
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -41,8 +46,8 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
   const activeVariants = product.variants.filter(variant => variant.active)
   const displayPrice = activeVariants.length ? Math.min(...activeVariants.map(variant => variant.price)) : product.price
   return pageMeta({
-    title: name,
-    description: richTextToPlain(raw, 160) || `${name} — ${formatAmount(displayPrice, product.currency, isFa ? 'fa-IR' : 'en-US')}`,
+    title: product.seoTitle || name,
+    description: product.seoDescription || product.shortDescription.slice(0, 160) || richTextToPlain(raw, 160) || `${name} — ${formatAmount(displayPrice, product.currency, isFa ? 'fa-IR' : 'en-US')}`,
     path: `/products/${product.slug}`,
     image: product.image || undefined,
     type: 'product',
@@ -104,83 +109,62 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
     reviewCount,
   })
 
+  const [viewer, vipOn, storeSettings, related, deliverySettings] = await Promise.all([getViewer(), isModuleEnabled('membership'), getStoreSettings(), relatedProducts(product), getDeliverySettings()])
+  if (!isPreview(preview)) countProductView(product.id)
+  const regular = unitPrice(product, null, false)
+  const variantAxes = fields.filter(field => field.variant).map(field => ({ key: field.key, label: isFa ? field.label : field.labelEn || field.label, color: field.kind === 'color' }))
+  const buyVariants = activeVariants.map(variant => {
+    const priced = unitPrice(product, variant, false)
+    return {
+      id: variant.id, name: isFa ? variant.name : variant.nameEn || variant.name, attributes: parseJson<Record<string, string>>(variant.attributes, {}),
+      price: minorToNumber(priced.unitMinor, priced.currency), listPrice: priced.listMinor ? minorToNumber(priced.listMinor, priced.currency) : 0,
+      memberPrice: vipOn && variant.memberPriceMinor > 0n ? minorToNumber(variant.memberPriceMinor, priced.currency) : 0,
+      stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder),
+    }
+  })
+  const shippingNote = deliverySettings.enabled ? 'ارسال با انتخاب روز و ساعت تحویل' : 'ارسال توسط فروشگاه'
   const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} />
   const infoNode = (
-          <div className="store-product-details">
-            <span className="store-eyebrow">{product.category ? `${isFa ? product.category.name : product.category.nameEn || product.category.name} / MOBOCOMCMS` : 'MOBOCOMCMS / STORE'}</span>
-            <h1>{name}</h1>
-            <div className="store-product-badges">
-              <span className="store-kind-chip">{product.kind === 'PHYSICAL' ? (isFa ? 'کالای فیزیکی' : 'Physical') : (isFa ? 'محصول مجازی' : 'Digital')}</span>
-              {product.featured && <span className="store-featured-chip">{t.featured}</span>}
-              <a className="store-rating-chip" href="#store-tab-reviews">
-                <span className="store-rating-chip-star" aria-hidden="true">★</span>
-                <strong className="num">{reviewCount > 0 ? reviewScore._avg.rating?.toFixed(1) : '—'}</strong>
-                <span className="store-rating-chip-count num">{reviewCount} {isFa ? 'دیدگاه' : 'reviews'}</span>
-              </a>
-            </div>
-            {html && <p className="store-product-summary">{richTextToPlain(html, 420)}</p>}
-            {highlights.length > 0 && <div className="store-product-highlights"><h2>{isFa ? 'ویژگی‌های شاخص' : 'Highlights'}</h2><dl>{highlights.map(field => <div key={field.key}><dt>{isFa ? field.label : field.labelEn || field.label}</dt><dd>{specificationValues[field.key]}</dd></div>)}</dl></div>}
-            {product.kind === 'PHYSICAL'
-              ? <div className="store-product-kind-note">{isFa ? 'اطلاعات ارسال در زمان خرید ثبت می‌شود.' : 'Shipping details are entered at checkout.'}</div>
-              : <div className="store-digital-card">
-                  <div className="store-digital-head">
-                    <span className="store-digital-icon" aria-hidden="true">⚡</span>
-                    <div>
-                      <strong>{isFa ? 'تحویل آنی پس از پرداخت' : 'Instant digital delivery'}</strong>
-                      <p>{isFa ? 'محصول بلافاصله پس از پرداخت در حساب کاربری شما فعال می‌شود.' : 'Your product activates in your account right after payment.'}</p>
-                    </div>
-                  </div>
-                  <ul className="store-digital-list">
-                    <li>{isFa ? 'درگاه پرداخت امن و بانکی' : 'Secure bank-grade checkout'}</li>
-                    <li>{isFa ? 'دسترسی فوری در بخش سفارش‌ها' : 'Immediate access in your orders'}</li>
-                    <li>{isFa ? 'پشتیبانی اختصاصی در تیکتینگ' : 'Dedicated ticket support'}</li>
-                  </ul>
-                </div>}
-          </div>
+    <div className="sx-pinfo">
+      <div className="sx-pinfo-top">
+        {product.brand && <Link href={`/products?brand=${encodeURIComponent(product.brand.slug)}`} className="sx-pinfo-brand">{product.brand.name}</Link>}
+        {product.category && <Link href={`/products?category=${encodeURIComponent(product.category.slug)}`} className="sx-pinfo-cat">{product.category.name}</Link>}
+      </div>
+      <h1>{name}</h1>
+      {product.nameEn && isFa && <p className="sx-pinfo-en" dir="ltr">{product.nameEn}</p>}
+      <div className="sx-pinfo-stats">
+        {reviewCount > 0 && <a href="#store-tab-reviews"><StoreIcon name="star" size={15} /><b className="num">{(reviewScore._avg.rating || 0).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}</b><small className="num">({reviewCount.toLocaleString('fa-IR')} دیدگاه)</small></a>}
+        {questionCount > 0 && <a href="#store-tab-questions"><StoreIcon name="chevron" size={13} />{questionCount.toLocaleString('fa-IR')} پرسش</a>}
+        {product.soldCount > 0 && <span className="num">{product.soldCount.toLocaleString('fa-IR')} فروش</span>}
+        {product.kind === 'VIRTUAL' && <span className="sx-pill is-accent"><StoreIcon name="bolt" size={13} />تحویل آنی</span>}
+      </div>
+      {(product.shortDescription || html) && <p className="sx-pinfo-lead">{product.shortDescription || richTextToPlain(html, 320)}</p>}
+      {highlights.length > 0 && <div className="sx-pinfo-specs"><h2>ویژگی‌ها</h2><ul>{highlights.map(field => <li key={field.key}><span>{isFa ? field.label : field.labelEn || field.label}</span><b>{specificationValues[field.key]}</b></li>)}</ul>{fields.some(field => !field.variant && specificationValues[field.key]) && <a href="#store-tab-specifications" className="sx-link">مشاهدهٔ همهٔ مشخصات</a>}</div>}
+      <ItemActionBar item={{ type: 'product', id: product.id }} title={name} image={product.image} followLabel="تخفیف و موجودی" />
+    </div>
   )
-  const [viewer, vipOn] = await Promise.all([getViewer(), isModuleEnabled('membership')])
   const purchaseNode = (
-          <aside className="store-purchase-card" aria-label={isFa ? 'خرید محصول' : 'Purchase product'}>
-            <div className="store-purchase-head">
-              <span className="store-purchase-label">{isFa ? 'قیمت محصول' : 'Price'}</span>
-              <span className={`store-purchase-stock ${inStock ? 'is-in' : 'is-out'}`}>{inStock ? (isFa ? 'موجود در انبار' : 'In stock') : (isFa ? 'ناموجود' : 'Out of stock')}</span>
-            </div>
-            <strong className="store-hero-price num">{activeVariants.length ? `${isFa ? 'از ' : 'From '}${formatAmount(Math.min(...activeVariants.map(variant => variant.price)), product.currency, isFa ? 'fa-IR' : 'en-US')}` : formatAmount(product.price, product.currency, isFa ? 'fa-IR' : 'en-US')}</strong>
-            <ProductBuy productId={product.id} slug={product.slug} inStock={inStock} price={product.price} currency={product.currency} kind={product.kind} variants={activeVariants.map(variant => ({ id: variant.id, name: variant.name, nameEn: variant.nameEn, price: variant.price, stock: variant.stock, attributes: variant.attributes, memberPrice: vipOn && variant.memberPriceMinor > 0n ? legacyNumber(variant.memberPriceMinor, product.currency) : 0 }))} vip={vipOn ? { member: viewer.member, loggedIn: !!viewer.userId, access: product.access, memberPrice: product.memberPriceMinor > 0n ? legacyNumber(product.memberPriceMinor, product.currency) : 0, giftDays: product.vipGiftDays } : undefined} />
-            <ItemActionBar item={{ type: 'product', id: product.id }} title={isFa ? product.name : product.nameEn || product.name} image={product.image} followLabel="تخفیف و موجودی" />
-            <div className="store-purchase-perks">
-              {product.kind !== 'PHYSICAL' && <span>⚡ {isFa ? 'تحویل آنی' : 'Instant delivery'}</span>}
-              <span>✓ {isFa ? 'پرداخت امن' : 'Secure payment'}</span>
-              <span>✓ {isFa ? 'پشتیبانی ۲۴/۷' : '24/7 support'}</span>
-            </div>
-            <div className="store-purchase-trust"><span>✓ {isFa ? 'تضمین بازگشت وجه' : 'Refund guarantee'}</span><span>✓ {isFa ? 'فعال‌سازی سریع' : 'Fast activation'}</span></div>
-          </aside>
+    <aside className="sx-pbuy" aria-label="خرید کالا">
+      <BuyBox
+        productId={product.id} slug={product.slug} kind={product.kind} currency={regular.currency}
+        price={minorToNumber(regular.unitMinor, regular.currency)} listPrice={regular.listMinor ? minorToNumber(regular.listMinor, regular.currency) : 0}
+        memberPrice={vipOn && product.memberPriceMinor > 0n ? minorToNumber(product.memberPriceMinor, regular.currency) : 0}
+        limit={lineLimit(product.stock, null, product.maxPerOrder)} inStock={inStock} lowStockAt={product.lowStockAt || storeSettings.lowStockDefault}
+        saleEndsAt={product.saleEndsAt && regular.listMinor ? product.saleEndsAt.toISOString() : null}
+        variants={buyVariants} axes={variantAxes}
+        vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
+        warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
+      />
+    </aside>
   )
   const heroNode = (
-    <section className={`store-product-hero ${product.kind === 'PHYSICAL' ? 'is-physical' : 'is-virtual'}`} aria-label={name}>
-      {galleryNode}
+    <section className={`sx-phero ${product.kind === 'PHYSICAL' ? 'is-physical' : 'is-virtual'}`} aria-label={name}>
+      <div className="sx-pgallery">{galleryNode}</div>
       {infoNode}
       {purchaseNode}
     </section>
   )
-  const uspNode = product.kind !== 'PHYSICAL' ? (
-<section className="store-usp" aria-label={isFa ? 'مزایای خرید' : 'Purchase benefits'}>
-            {[
-              ['⚡', isFa ? 'تحویل آنی' : 'Instant delivery', isFa ? 'فعال‌سازی در کمتر از یک دقیقه' : 'Activated in under a minute'],
-              ['🛡', isFa ? 'پرداخت امن' : 'Secure payment', isFa ? 'درگاه بانکی معتبر و رمزنگاری‌شده' : 'Encrypted, bank-grade checkout'],
-              ['💬', isFa ? 'پشتیبانی ۲۴ ساعته' : '24/7 support', isFa ? 'پاسخ‌گویی از طریق تیکتینگ' : 'Answers through the ticket desk'],
-              ['↩', isFa ? 'تضمین بازگشت' : 'Money back', isFa ? 'در صورت عدم فعال‌سازی' : 'If activation fails'],
-            ].map(([icon, title, desc]) => (
-              <div className="store-usp-item" key={desc}>
-                <span className="store-usp-icon" aria-hidden="true">{icon}</span>
-                <div>
-                  <strong>{title}</strong>
-                  <small>{desc}</small>
-                </div>
-              </div>
-            ))}
-          </section>
-  ) : null
+  const uspNode = <TrustStrip />
   const tabsNode = <ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} />
   const slots = {
     'product-hero': heroNode,
@@ -196,7 +180,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const ownLayout = !editingTemplate && !!builderDoc && builderDoc.mode === 'builder' && PRODUCT_SLOT_TYPES.some(type => docHasSlotWidget(builderDoc, type))
   const layoutDoc = ownLayout ? builderDoc : templateDoc && templateDoc.mode === 'builder' ? templateDoc : null
   const chromeDoc = layoutDoc || builderDoc
-  const breadcrumbsNode = <Breadcrumbs label={isFa ? 'مسیر صفحه' : 'Breadcrumb'} items={[{ label: isFa ? 'خانه' : 'Home', href: '/' }, { label: t.shop, href: '/products' }, { label: name }]} />
+  const breadcrumbsNode = <Crumbs items={[{ label: t.shop, href: '/products' }, ...(product.category ? [{ label: product.category.name, href: `/products?category=${encodeURIComponent(product.category.slug)}` }] : []), { label: name }]} />
   const ldNodes = <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }} />
@@ -220,13 +204,13 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
           {!ownLayout && builderDoc && <div className="store-product-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
         </main>
       ) : (
-        <main className="container page-main content-surface store-product-page">
+        <main className="container sx-page sx-product store-product-page">
           {breadcrumbsNode}
           {ldNodes}
-          <nav className="store-product-breadcrumb" aria-label={isFa ? 'دستهٔ محصول' : 'Product category'}><Link href="/products">{isFa ? 'فروشگاه' : 'Shop'}</Link><span aria-hidden="true">/</span>{product.category && <span>{isFa ? product.category.name : product.category.nameEn || product.category.name}</span>}<span className="store-kind">{product.kind === 'PHYSICAL' ? isFa ? 'کالای فیزیکی' : 'Physical product' : isFa ? 'محصول مجازی' : 'Digital product'}</span></nav>
           {heroNode}
           {uspNode}
           {tabsNode}
+          <ProductRail title="کالاهای مشابه" icon="box" products={related} more={product.category ? `/products?category=${encodeURIComponent(product.category.slug)}` : '/products'} />
           {builderDoc && <div className="store-product-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
         </main>
       )}

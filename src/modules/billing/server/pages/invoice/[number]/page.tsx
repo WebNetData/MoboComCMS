@@ -14,7 +14,7 @@ import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-deliver
 import CardTransferBox from '@/components/billing/CardTransferBox'
 import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
-import { normalizeCurrency, toMinor } from '@/shared/money'
+import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
 
 export default async function InvoicePage({ params: paramsPromise }: { params: Promise<{ number: string }> }) {
@@ -35,7 +35,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
       plan: { select: { name: true, trafficGB: true, days: true, deviceLimit: true } },
       product: { select: { name: true } },
       gateway: true,
-      order: { select: { id: true, status: true, paymentUrl: true, provider: true, meta: true } },
+      order: { select: { id: true, status: true, paymentUrl: true, provider: true, meta: true, lines: { orderBy: { line: 'asc' }, select: { name: true, variantName: true, quantity: true, totalMinor: true } } } },
       payments: { orderBy: { id: 'desc' }, take: 5 },
     },
   })
@@ -140,7 +140,14 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
               </tr>
             </thead>
             <tbody>
-              <tr>
+              {invoice.order?.lines.length ? <>
+                {invoice.order.lines.map((line, index) => <tr key={index}>
+                  <td>{line.name}{line.variantName && <div className="muted text-xs">{line.variantName}</div>}</td>
+                  <td className="num">{line.quantity.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</td>
+                  <td className="num">{money(minorToNumber(line.totalMinor, invoice.currency))}</td>
+                </tr>)}
+                {Number(productMeta.shippingMinor || 0) > 0 && <tr><td>{isFa ? 'هزینهٔ ارسال' : 'Shipping'}</td><td className="num">1</td><td className="num">{money(minorToNumber(BigInt(String(productMeta.shippingMinor)), invoice.currency))}</td></tr>}
+              </> : <tr>
                 <td>
                   {itemTitle}
                   {typeof productMeta.variantName === 'string' && productMeta.variantName && <div className="muted text-xs">{productMeta.variantName}</div>}
@@ -152,7 +159,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
                 </td>
                 <td className="num">1</td>
                 <td className="num">{money(invoice.subtotal)}</td>
-              </tr>
+              </tr>}
             </tbody>
           </table>
 

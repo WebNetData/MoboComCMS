@@ -68,6 +68,7 @@ model User {
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
   addresses      UserAddress[]
+  cart           Cart?
 
   @@index([phone])
 }
@@ -181,6 +182,8 @@ model Order {
   promotionRedemptions PromotionRedemption[]
   productDelivery ProductDelivery?
   deliveryBooking DeliveryBooking?
+  lines         OrderLine[]
+  events        OrderEvent[]
 }
 
 model OrderItem {
@@ -630,6 +633,10 @@ model ProductCategory {
   children  ProductCategory[] @relation("ProductCategoryTree")
   attributeGroupId Int?
   attributeGroup ProductAttributeGroup? @relation(fields: [attributeGroupId], references: [id], onDelete: SetNull)
+  image     String @default("")
+  icon      String @default("")
+  description String @default("")
+  sortOrder Int @default(0)
   @@index([parentId])
   @@index([attributeGroupId])
 }
@@ -668,6 +675,19 @@ model Product {
   memberPriceMinor BigInt @default(0) // VIP price; 0 = none
   vipGiftDays   Int @default(0) // VIP days granted with a paid purchase
   specifications String @default("{}") // attribute keys inherited from category group
+  brandId       Int?
+  sku           String @default("")
+  compareAtMinor BigInt @default(0) // list price shown struck through; 0 = no discount
+  saleEndsAt    DateTime? // end of a timed "amazing offer"
+  shortDescription String @default("")
+  warranty      String @default("")
+  weightGrams   Int @default(0)
+  maxPerOrder   Int @default(0) // 0 = no per-order limit
+  lowStockAt    Int @default(0) // 0 = store default threshold
+  seoTitle      String @default("")
+  seoDescription String @default("")
+  views         Int @default(0)
+  soldCount     Int @default(0)
   faqs          String @default("[]")
   variants      ProductVariant[]
   reviews       ProductReview[]
@@ -675,9 +695,15 @@ model Product {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
   category      ProductCategory? @relation(fields: [categoryId], references: [id])
+  brand         ProductBrand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  cartLines     CartLine[]
+  orderLines    OrderLine[]
   orders        Order[]
   invoices      Invoice[]
   tickets       Ticket[]
+
+  @@index([brandId])
+  @@index([active, soldCount])
 }
 
 model ProductVariant {
@@ -691,6 +717,7 @@ model ProductVariant {
   price       Float @default(0)
   priceMinor  BigInt @default(0)
   memberPriceMinor BigInt @default(0)
+  compareAtMinor BigInt @default(0)
   stock       Int @default(-1)
   active      Boolean @default(true)
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -953,7 +980,8 @@ model FulfillmentJob {
 /// cannot oversell the last unit.
 model InventoryReservation {
   id        Int      @id @default(autoincrement())
-  orderId   Int      @unique
+  orderId   Int
+  line      Int      @default(0) // order line index; single-item orders use 0
   productId Int
   variantId Int?
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
@@ -965,6 +993,7 @@ model InventoryReservation {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  @@unique([orderId, line])
   @@index([productId, status])
   @@index([expiresAt, status])
 }
@@ -1950,4 +1979,86 @@ model TaxonomyAssignment {
 
   @@id([termId, ownerId])
   @@index([taxonomy, ownerId])
+}
+
+/// Manufacturer / brand of store products.
+model ProductBrand {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  name        String
+  nameEn      String    @default("")
+  logo        String    @default("")
+  description String    @default("")
+  featured    Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  products    Product[]
+}
+
+/// Shopping cart: one per signed-in customer, or per browser (token cookie) for guests.
+model Cart {
+  id        Int        @id @default(autoincrement())
+  token     String     @unique
+  userId    Int?       @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lines     CartLine[]
+
+  @@index([updatedAt])
+}
+
+model CartLine {
+  id         Int      @id @default(autoincrement())
+  cartId     Int
+  productId  Int
+  variantKey Int      @default(0) // variant id, 0 = product without variants
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId, variantKey])
+  @@index([productId])
+}
+
+/// Snapshot of each product line of a store order (price and name at purchase time).
+model OrderLine {
+  id             Int      @id @default(autoincrement())
+  orderId        Int
+  line           Int      @default(0)
+  productId      Int?
+  variantId      Int?
+  name           String
+  variantName    String   @default("")
+  sku            String   @default("")
+  image          String   @default("")
+  kind           String   @default("VIRTUAL")
+  quantity       Int      @default(1)
+  unitPriceMinor BigInt   @default(0)
+  listPriceMinor BigInt   @default(0)
+  totalMinor     BigInt   @default(0)
+  currency       String   @default("IRT")
+  createdAt      DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([orderId, line])
+  @@index([productId])
+}
+
+/// Order timeline (status changes, notes); customer-visible rows appear in order tracking.
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  status    String   @default("")
+  note      String   @default("")
+  visible   Boolean  @default(true)
+  actorId   Int?
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { SectionBar, SectionBarItem, MegaPromo } from '@/modules/navigation/domain/megamenu'
@@ -58,7 +58,7 @@ export function MegaPanel({ item, promo, onNavigate }: { item: SectionBarItem; p
  * it from the keyboard; Escape, outside clicks and navigation close it. On
  * small screens the entries scroll sideways and the panel opens below the bar.
  */
-export default function SectionMegaBar({ bar, searchValue }: { bar: SectionBar; searchValue?: string }) {
+export default function SectionMegaBar({ bar, searchValue, extra }: { bar: SectionBar; searchValue?: string; extra?: ReactNode }) {
   const pathname = usePathname()
   const [open, setOpen] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -111,6 +111,7 @@ export default function SectionMegaBar({ bar, searchValue }: { bar: SectionBar; 
         <input name="q" type="search" defaultValue={searchValue} placeholder={bar.search.placeholder} aria-label={bar.search.placeholder} />
         <button type="submit" aria-label="جست‌وجو"><SearchIcon /></button>
       </form>}
+      {extra}
     </div>
     <div id={panelId} className="mm-panel" hidden={!openItem} onMouseEnter={clear} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
       {openItem && <div className="container"><div className="mm-panel-inner"><MegaPanel item={openItem} promo={bar.promo} onNavigate={() => setOpen(null)} /></div></div>}
