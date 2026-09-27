@@ -118,8 +118,14 @@ export const RESERVED_SLUGS = new Set([
   'admin', 'api', 'blog', 'p', 'products', 'plans', 'login', 'register', 'dashboard', 'miniapp', 'checkout', 'invoice',
   'payment', 'reseller', 's', 'telegram', 'trial', 'forms', 'builder-preview', 'sitemap', 'robots', 'favicon', '_next',
   'images', 'fonts', 'uploads', 'static', 'public', 'media', 'sub', 'auth', 'shop', 'home', 'index', 'search',
-  'vip', 'music', 'cinema', 'games', 'movies', 'series',
+  'vip', 'music', 'cinema', 'games', 'movies', 'series', 'software', 'forum', 'compare', 'favorites', 'copyright', 'offline',
 ])
+
+/**
+ * Built-in module sections whose landing page a published page template may
+ * replace (placement “section” with this slug). Their sub-pages stay as they are.
+ */
+export const BUILTIN_SECTIONS = new Set(['music', 'cinema', 'games', 'software', 'forum', 'vip'])
 
 export const SECTION_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
@@ -158,7 +164,7 @@ export function validatePlacement(input: unknown): Placement {
   if (kind !== 'section') return { ...emptyPlacement(), kind }
   const slug = text(p.slug, 40).toLowerCase()
   if (!SECTION_SLUG.test(slug)) throw new Error('آدرس بخش فقط حروف انگلیسی کوچک، عدد و خط تیره (مثل gaming) / Section URL: lowercase letters, digits and dashes')
-  if (RESERVED_SLUGS.has(slug)) throw new Error(`آدرس «${slug}» رزرو شده است / “${slug}” is reserved`)
+  if (RESERVED_SLUGS.has(slug) && !BUILTIN_SECTIONS.has(slug)) throw new Error(`آدرس «${slug}» رزرو شده است / “${slug}” is reserved`)
   return { kind, slug, postCategoryId: intOrNull(p.postCategoryId), productCategoryId: intOrNull(p.productCategoryId) }
 }
 

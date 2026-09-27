@@ -8,6 +8,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { gamesNav } from '@/components/media/nav'
 import { Chips, EmptyState, GameCard, ScoreBadge, Shelf, VipBadge } from '@/components/media/MediaCards'
 import VipStrip from '@/components/media/VipStrip'
+import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function GamesHomePage() {
   await requireModule('games')
+  const landing = await sectionLanding('games')
+  if (landing) return landing
   const [data, locale, viewer] = await Promise.all([getGamesHome(), getServerLocale(), getViewer()])
   const fa = locale === 'fa'
   const [lead, ...side] = data.hero

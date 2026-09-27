@@ -178,7 +178,9 @@ test('theme template rules and placements are validated per type', () => {
   assert.deepEqual(validatePlacement({ kind: 'section', slug: 'gaming', postCategoryId: '4' }), { kind: 'section', slug: 'gaming', postCategoryId: 4, productCategoryId: null })
   const a = validateTemplateMeta({ id: 'tpl-page-aaaa1', name: 'a', status: 'published', placement: { kind: 'section', slug: 'podcast' } })
   const b = validateTemplateMeta({ id: 'tpl-page-bbbb2', name: 'b', status: 'published', placement: { kind: 'section', slug: 'podcast' } })
-  for (const slug of ['music', 'cinema', 'games', 'vip']) assert.throws(() => validatePlacement({ kind: 'section', slug }), /reserved/)
+  for (const slug of ['admin', 'products', 'compare', 'movies']) assert.throws(() => validatePlacement({ kind: 'section', slug }), /reserved/)
+  // Built-in sections may get a designed landing page instead of the default one.
+  for (const slug of ['music', 'cinema', 'games', 'software', 'forum', 'vip']) assert.equal(validatePlacement({ kind: 'section', slug }).slug, slug)
   assert.equal(placementConflict([a], b).id, a.id)
   assert.equal(placementConflict([a], { ...b, placement: { ...b.placement, slug: 'radio' } }), null)
   for (const type of ['header', 'footer', 'page', 'single-post', 'single-product']) assert.equal(templateTypeOf(newTemplateId(type)), type)

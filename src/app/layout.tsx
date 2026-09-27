@@ -19,6 +19,7 @@ import './media-design.css'
 import './forum.css'
 import './engage.css'
 import './shipping.css'
+import './megamenu.css'
 import Providers from '@/components/Providers'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
 import LocaleSetter from '@/i18n/LocaleSetter'
@@ -33,6 +34,8 @@ import { defaultSiteFonts } from '@/modules/site/config/types'
 import { safeCustomCss } from '@/modules/site/config/validation'
 import { bundledThemes } from '@/themes/registry'
 import SiteProvider from '@/components/site/SiteProvider'
+import { MegaMenuProvider } from '@/components/site/MegaMenu'
+import { getMegaMenus } from '@/modules/navigation/server/megamenu'
 import ExtensionProvider from '@/extensions/client/ExtensionProvider'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
@@ -114,6 +117,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
+  const megaMenus = await getMegaMenus(site.navigation.map(link => ({ href: link.href, label: link.label[locale] || link.label.fa || link.label.en }))).catch(() => [])
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
   const fonts = { ...defaultSiteFonts(locale), ...(site.fonts || {}) }
   const light = design.lightColors
@@ -142,7 +146,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PreviewBridge />
         <LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
-          <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></SiteProvider></Providers>
+          <Providers><SiteProvider config={site}><MegaMenuProvider menus={megaMenus}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></MegaMenuProvider></SiteProvider></Providers>
         </LocaleProvider>
       </body>
     </html>

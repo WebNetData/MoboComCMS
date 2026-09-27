@@ -9,6 +9,7 @@ import { softwareNav } from '@/components/media/nav'
 import { EmptyState, SoftwareCard } from '@/components/media/MediaCards'
 import VipStrip from '@/components/media/VipStrip'
 import { Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar } from '@/components/software/SoftwarePortal'
+import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 
 export const dynamic = 'force-dynamic'
 type Props = { searchParams: Promise<{ page?: string }> }
@@ -26,6 +27,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function SoftwareHomePage({ searchParams }: Props) {
   await requireModule('software')
   const [{ page }, locale, viewer] = await Promise.all([searchParams, getServerLocale(), getViewer()])
+  const landing = !page ? await sectionLanding('software') : null
+  if (landing) return landing
   const fa = locale === 'fa'
   const current = Math.max(1, Number(page) || 1)
   const [home, feed, sidebar] = await Promise.all([getSoftwareHome(), softwareFeed({ page: current }), softwareSidebar()])

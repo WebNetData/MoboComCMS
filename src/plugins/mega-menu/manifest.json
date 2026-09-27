@@ -1,0 +1,15 @@
+{
+  "id": "mega-menu",
+  "name": "مگامنوی بخش‌ها",
+  "nameEn": "Section mega menus",
+  "description": "برای هر بخش گسترده (فروشگاه، مجله، موزیک، فیلم، بازی، نرم‌افزار، انجمن) یک مگامنوی جدا با دسته‌بندی‌ها، زیردسته‌ها، موارد ویژه، لینک‌های سریع و بنر تبلیغاتی.",
+  "descriptionEn": "A dedicated mega menu per section with its categories, sub-categories, featured items, quick links and a promo card.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "core",
+  "icon": "grid",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": ["/admin/mega-menu"]
+}

@@ -12,6 +12,7 @@ import { translate } from '@/modules/site/config/types'
 import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
 import { Breadcrumbs } from '@/components/content/ContentPrimitives'
+import { MegaNav } from '@/components/site/MegaMenu'
 
 interface NavPage {
   slug: string
@@ -38,18 +39,7 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
           <span className="text-lg" dir="ltr">{site.brand}</span>
         </Link>
 
-        <nav className="flex items-center only-desktop" style={{ gap: 'var(--sds-size-space-600)' }}>
-          {links.map(([href, label]) => (
-            <Link key={href} href={href} className={`nav-link ${isOn(href) ? 'nav-link-on' : ''}`}>
-              {label}
-            </Link>
-          ))}
-          {navPages?.map((p) => (
-            <Link key={p.slug} href={`/p/${p.slug}`} className={`nav-link ${isOn(`/p/${p.slug}`) ? 'nav-link-on' : ''}`}>
-              {locale === 'fa' ? p.title : p.titleEn || p.title}
-            </Link>
-          ))}
-        </nav>
+        <MegaNav className="flex items-center only-desktop" label={locale === 'fa' ? 'ناوبری اصلی' : 'Primary navigation'} isOn={isOn} linkClass={active => `nav-link ${active ? 'nav-link-on' : ''}`} links={[...links.map(([href, label]) => ({ href, label })), ...(navPages || []).map(p => ({ href: `/p/${p.slug}`, label: locale === 'fa' ? p.title : p.titleEn || p.title }))]} />
 
         <div className="flex items-center gap-2">
           <div className="only-desktop">

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeLangControls, ThemeMegaMobileNav, ThemeMegaNav, ThemePluginOutlet, ThemeSiteSearch, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
 
@@ -44,7 +44,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
     <header className="site-header mb-header">
       <div className="mb-container mb-header-bar">
         <Brand/>
-        <nav className="mb-nav" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}</nav>
+        <ThemeMegaNav className="mb-nav" label={L('ناوبری اصلی', 'Primary navigation')} links={links} isOn={isOn}/>
         <div className="mb-header-actions">
           <ThemeSiteSearch className="mb-search"/>
           <ThemeLangControls locale={locale} theme={theme} compact/>
@@ -52,7 +52,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
           <button type="button" className="mb-menu-button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>
         </div>
       </div>
-      {open && <nav id="mb-mobile-nav" className="mb-container mb-mobile-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}</nav>}
+      {open && <div id="mb-mobile-nav" className="mb-container"><ThemeMegaMobileNav className="mb-mobile-nav" label={L('ناوبری موبایل', 'Mobile navigation')} links={links} isOn={isOn} onNavigate={() => setOpen(false)}/></div>}
       {breadcrumbs?.length ? <nav className="mb-container mb-breadcrumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}>{breadcrumbs.map((item, index) => <span key={`${item.label}-${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}{index < breadcrumbs.length - 1 && <span aria-hidden="true"> / </span>}</span>)}</nav> : null}
     </header>
     <ThemePluginOutlet slot="site.after-header" site={site} locale={locale}/>
