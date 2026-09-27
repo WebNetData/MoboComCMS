@@ -1,0 +1,17 @@
+{
+  "id": "analytics",
+  "name": "آمار بازدید و فروش",
+  "nameEn": "Analytics",
+  "description": "آمار بازدید بدون کوکی و بدون سرویس خارجی (بازدیدکننده، صفحه، منبع ورود، دستگاه)، همراه با فروش، ثبت‌نام، دانلود و جست‌وجوهای بی‌نتیجه.",
+  "descriptionEn": "Cookie-free, self-hosted traffic analytics with sales, signups, downloads and zero-result searches.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "core",
+  "icon": "grid",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/analytics"],
+  "permissions": [{ "id": "analytics.view", "label": "مشاهدهٔ آمار سایت" }]
+}

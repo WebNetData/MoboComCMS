@@ -64,6 +64,9 @@ model User {
   forumFlags     ForumFlag[]
   forumTopicUsers ForumTopicUser[]
   forumBadges    ForumUserBadge[]
+  itemReviews    ItemReview[]
+  itemFavorites  ItemFavorite[]
+  pushSubscriptions PushSubscription[]
 
   @@index([phone])
 }
@@ -1391,6 +1394,8 @@ model MediaLink {
   url       String
   access    String   @default("PUBLIC")
   clicks    Int      @default(0)
+  disabled  Boolean  @default(false) // hidden (broken link or copyright takedown)
+  reports   LinkReport[]
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
@@ -1673,4 +1678,200 @@ model ForumUserBadge {
 
   @@unique([userId, badgeId])
   @@index([badgeId, grantedAt])
+}
+
+// ---------------------------------------------------------------- downloads
+model DownloadLog {
+  id        Int      @id @default(autoincrement())
+  linkId    Int?
+  ownerType String // title | episode | game | software | track
+  ownerId   Int
+  userId    Int?
+  visitor   String   @default("") // daily salted hash of ip + user agent
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([visitor, createdAt])
+  @@index([ownerType, ownerId])
+}
+
+model LinkReport {
+  id         Int       @id @default(autoincrement())
+  linkId     Int
+  userId     Int?
+  visitor    String    @default("")
+  reason     String // BROKEN | WRONG_FILE | SLOW | PASSWORD | OTHER
+  note       String    @default("")
+  status     String    @default("OPEN") // OPEN | FIXED | DISMISSED
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  link       MediaLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([linkId])
+}
+
+// ---------------------------------------------------------------- reviews & favorites
+model ItemReview {
+  id        Int      @id @default(autoincrement())
+  itemType  String // software | game | title | album | track
+  itemId    Int
+  userId    Int
+  rating    Int
+  body      String   @default("")
+  status    String   @default("APPROVED") // text moderation: PENDING | APPROVED | REJECTED (rejected ratings are not counted)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itemType, itemId, userId])
+  @@index([itemType, itemId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model ItemFavorite {
+  userId    Int
+  itemType  String
+  itemId    Int
+  notify    Boolean  @default(true) // "tell me about new versions / episodes"
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemType, itemId])
+  @@index([itemType, itemId])
+}
+
+model ItemStat {
+  itemType    String
+  itemId      Int
+  ratingCount Int    @default(0)
+  ratingSum   Int    @default(0)
+  favorites   Int    @default(0)
+
+  @@id([itemType, itemId])
+}
+
+// ---------------------------------------------------------------- search
+model SearchDocument {
+  id          Int      @id @default(autoincrement())
+  itemType    String
+  itemId      Int
+  title       String
+  subtitle    String   @default("")
+  text        String // normalized title, keywords and summary
+  url         String
+  image       String   @default("")
+  access      String   @default("PUBLIC")
+  boost       Int      @default(0)
+  publishedAt DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([itemType, itemId])
+  @@index([itemType, publishedAt])
+}
+
+// ---------------------------------------------------------------- social publishing
+model SocialPost {
+  id            Int       @id @default(autoincrement())
+  channel       String // TELEGRAM | INSTAGRAM
+  itemType      String
+  itemId        Int
+  status        String    @default("PENDING") // PENDING | SENDING | SENT | FAILED | SKIPPED
+  attempts      Int       @default(0)
+  error         String    @default("")
+  externalId    String    @default("")
+  text          String    @default("")
+  nextAttemptAt DateTime  @default(now())
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@unique([channel, itemType, itemId])
+  @@index([status, nextAttemptAt])
+}
+
+// ---------------------------------------------------------------- web push
+model PushSubscription {
+  id            Int       @id @default(autoincrement())
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  userId        Int?
+  userAgent     String    @default("")
+  failures      Int       @default(0)
+  lastSuccessAt DateTime?
+  createdAt     DateTime  @default(now())
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model PushCampaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String   @default("")
+  url       String   @default("/")
+  audience  String   @default("ALL") // ALL | USERS | VIP | GUESTS
+  sent      Int      @default(0)
+  failed    Int      @default(0)
+  createdBy Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------- analytics
+model AnalyticsDaily {
+  day      String // YYYY-MM-DD (Asia/Tehran)
+  path     String // "*" holds the site-wide totals
+  views    Int    @default(0)
+  visitors Int    @default(0)
+
+  @@id([day, path])
+}
+
+model AnalyticsVisitor {
+  day  String
+  hash String
+
+  @@id([day, hash])
+}
+
+model AnalyticsDimension {
+  day   String
+  dim   String // source | device | browser | os | search | search-empty
+  value String
+  count Int    @default(0)
+
+  @@id([day, dim, value])
+  @@index([dim, day])
+}
+
+// ---------------------------------------------------------------- copyright
+model CopyrightReport {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique // tracking code shown to the reporter
+  name           String
+  email          String
+  organization   String    @default("")
+  phone          String    @default("")
+  role           String    @default("OWNER") // OWNER | AGENT
+  workTitle      String
+  originalUrl    String    @default("")
+  infringingUrls String // one URL per line
+  itemType       String    @default("")
+  itemId         Int?
+  description    String
+  signature      String
+  status         String    @default("NEW") // NEW | REVIEWING | ACCEPTED | REJECTED
+  resolution     String    @default("") // message shown to the reporter
+  actionTaken    String    @default("") // internal log of what was removed
+  visitor        String    @default("")
+  handledBy      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
 }

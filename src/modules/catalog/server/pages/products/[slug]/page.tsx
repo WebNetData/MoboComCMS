@@ -3,6 +3,7 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import ProductBuy from '@/components/ProductBuy'
+import { ItemActionBar } from '@/components/engage/Engagement'
 import ProductTabs from '@/components/ProductTabs'
 import ProductGallery from '@/components/ProductGallery'
 import { Breadcrumbs } from '@/components/content/ContentPrimitives'
@@ -145,6 +146,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
             </div>
             <strong className="store-hero-price num">{activeVariants.length ? `${isFa ? 'از ' : 'From '}${formatAmount(Math.min(...activeVariants.map(variant => variant.price)), product.currency, isFa ? 'fa-IR' : 'en-US')}` : formatAmount(product.price, product.currency, isFa ? 'fa-IR' : 'en-US')}</strong>
             <ProductBuy productId={product.id} slug={product.slug} inStock={inStock} price={product.price} currency={product.currency} kind={product.kind} variants={activeVariants.map(variant => ({ id: variant.id, name: variant.name, nameEn: variant.nameEn, price: variant.price, stock: variant.stock, attributes: variant.attributes, memberPrice: vipOn && variant.memberPriceMinor > 0n ? legacyNumber(variant.memberPriceMinor, product.currency) : 0 }))} vip={vipOn ? { member: viewer.member, loggedIn: !!viewer.userId, access: product.access, memberPrice: product.memberPriceMinor > 0n ? legacyNumber(product.memberPriceMinor, product.currency) : 0, giftDays: product.vipGiftDays } : undefined} />
+            <ItemActionBar item={{ type: 'product', id: product.id }} title={isFa ? product.name : product.nameEn || product.name} image={product.image} followLabel="تخفیف و موجودی" />
             <div className="store-purchase-perks">
               {product.kind !== 'PHYSICAL' && <span>⚡ {isFa ? 'تحویل آنی' : 'Instant delivery'}</span>}
               <span>✓ {isFa ? 'پرداخت امن' : 'Secure payment'}</span>

@@ -11,6 +11,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { cinemaNav } from '@/components/media/nav'
 import { ImdbBadge, PosterCard, Shelf, VipBadge, VipGate, yr } from '@/components/media/MediaCards'
 import LinkBox from '@/components/media/LinkBox'
+import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import SeasonTabs, { type SeasonView } from '@/components/media/SeasonTabs'
 import Trailer from '@/components/media/Trailer'
 
@@ -68,6 +69,7 @@ export default async function TitlePage({ params }: Props) {
     [fa ? 'کیفیت' : 'Quality', ti.quality],
     ...(ti.kind === 'SERIES' ? [[fa ? 'وضعیت' : 'Status', ti.seriesStatus === 'ENDED' ? (fa ? 'پایان یافته' : 'Ended') : ti.seriesStatus === 'ONGOING' ? (fa ? 'در حال پخش' : 'Ongoing') : ''] as [string, string]] : []),
   ].filter(([, v]) => v) as [string, string][]
+  const ref = { type: 'title' as const, id: ti.id }
   const jsonLd = { '@context': 'https://schema.org', '@type': ti.kind === 'SERIES' ? 'TVSeries' : 'Movie', name, ...(ti.originalTitle ? { alternateName: ti.originalTitle } : {}), ...(ti.poster ? { image: ti.poster } : {}), ...(summary ? { description: summary.slice(0, 300) } : {}), ...(ti.year ? { datePublished: String(ti.year) } : {}), ...(ti.director ? { director: { '@type': 'Person', name: ti.director } } : {}), genre: ti.genres, ...(ti.imdbRating != null ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: ti.imdbRating, bestRating: 10, ratingCount: 1 } } : {}) }
 
   return (
@@ -97,6 +99,7 @@ export default async function TitlePage({ params }: Props) {
               <a href="#watch" className="btn cn-btn-primary">{locked ? `♛ ${fa ? 'ویژه VIP' : 'VIP only'}` : `▶ ${fa ? 'تماشا و دانلود' : 'Watch & download'}`}</a>
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />
             </div>
+            <ItemActionBar item={ref} title={name} image={ti.poster} followLabel={ti.kind === 'SERIES' ? 'قسمت جدید' : 'لینک‌های جدید'} />
             {facts.length > 0 && <dl className="cn-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
           </div>
         </div>
@@ -120,6 +123,7 @@ export default async function TitlePage({ params }: Props) {
           <p className="muted text-sm cn-watch-note">{fa ? 'لینک‌ها از مسیر امن سایت باز می‌شوند. برای پخش بهتر از VLC یا MX Player استفاده کنید.' : 'Links open through a protected site route. VLC or MX Player recommended.'}</p>
         </section>
 
+        <ReviewSection item={ref} title={name} path={`/cinema/${ti.slug}`} />
         {data.similar.length > 0 && <Shelf tone="cinema" title={fa ? 'پیشنهادهای مشابه' : 'You may also like'}>{data.similar.map((item) => <PosterCard key={item.id} item={item} fa={fa} />)}</Shelf>}
       </div>
     </MediaShell>

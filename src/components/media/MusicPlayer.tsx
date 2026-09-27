@@ -86,6 +86,15 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
     el.play().then(() => setPlaying(true)).catch(() => setPlaying(false)).finally(() => setLoading(false))
   }, [fa])
 
+  /** Downloads go through a freshly signed link (download protection) or the VIP/login gate. */
+  const download = useCallback(async (track: PlayerTrack) => {
+    const res = await fetch(`/api/media/track/${track.id}?dl=1&issue=1`, { headers: { accept: 'application/json' } }).catch(() => null)
+    if (res && (res.status === 401 || res.status === 403)) { setLock({ reason: res.status === 401 ? 'login' : 'vip', track }); return }
+    const data = res?.ok ? await res.json().catch(() => null) : null
+    if (typeof data?.href === 'string' && data.href.startsWith('/api/media/track/')) window.location.assign(data.href)
+    else setNotice(fa ? 'دانلود انجام نشد؛ دوباره امتحان کنید.' : 'Download failed — please try again.')
+  }, [fa])
+
   useEffect(() => {
     if (current) load(current, hq)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -183,7 +192,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
             </div>
             <div className="mu-player-side">
               {current.hasHq && <button type="button" className={`mu-hq${hq ? ' is-on' : ''}`} onClick={() => { const on = !hq; setHq(on); writePref('mu.hq', on ? '1' : '0'); load(current, on) }} title={fa ? 'کیفیت ۳۲۰' : '320 kbps'}>320</button>}
-              <a className="mu-ic" href={`/api/media/track/${current.id}?dl=1`} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}>⤓</a>
+              <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}>⤓</button>
               <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'}>☰</button>
               <input className="mu-volume" dir="ltr" type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); writePref('mu.volume', String(v)) }} aria-label={fa ? 'صدا' : 'Volume'} />
               <button type="button" className="mu-ic mu-close" onClick={() => { audio.current?.pause(); setQueue([]); setLock(null) }} aria-label={fa ? 'بستن' : 'Close'}>✕</button>

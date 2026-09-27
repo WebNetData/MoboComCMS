@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getModuleSettings, requireModule } from '@/extensions/server/modules'
 import { getTrack } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
+import { trackDownloadHref } from '@/modules/downloads/server/guard'
+import { DownloadNotice } from '@/components/media/DownloadExtras'
 import { formatDuration } from '@/modules/media/domain/media'
 import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
@@ -61,15 +64,17 @@ export default async function TrackPage({ params }: Props) {
               <span>▶ {track.plays.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'پخش' : 'plays'}</span>
               {track.access === 'MEMBERS' && <VipBadge fa={fa} />}
             </div>
-            <div className="mu-hero-actions">
+            <DownloadNotice />
+            <div className="mu-hero-actions" id="downloads">
               {track.hasAudio && <PlayButton tracks={queue} index={Math.max(0, inAlbum)} variant="big" label={fa ? 'پخش آهنگ' : 'Play'} />}
               {track.hasAudio && (dlLocked
                 ? <Link className="btn btn-ghost md-locked-btn" href="/vip">🔒 {fa ? 'دانلود ۱۲۸ (VIP)' : 'Download 128 (VIP)'}</Link>
-                : <a className="btn btn-ghost" href={`/api/media/track/${track.id}?dl=1`} rel="nofollow">⤓ {fa ? 'دانلود ۱۲۸' : 'Download 128'}</a>)}
+                : <a className="btn btn-ghost" href={await trackDownloadHref(track.id, viewer.userId, false)} rel="nofollow">⤓ {fa ? 'دانلود ۱۲۸' : 'Download 128'}</a>)}
               {track.hasHq && (hqLocked || dlLocked
                 ? <Link className="btn btn-ghost md-locked-btn" href="/vip">🔒 {fa ? 'دانلود ۳۲۰ (VIP)' : 'Download 320 (VIP)'}</Link>
-                : <a className="btn btn-ghost" href={`/api/media/track/${track.id}?dl=1&q=hq`} rel="nofollow">⤓ {fa ? 'دانلود ۳۲۰' : 'Download 320'}</a>)}
+                : <a className="btn btn-ghost" href={await trackDownloadHref(track.id, viewer.userId, true)} rel="nofollow">⤓ {fa ? 'دانلود ۳۲۰' : 'Download 320'}</a>)}
             </div>
+            <ItemActionBar item={{ type: 'track', id: track.id }} title={name} image={track.cover} />
           </div>
         </div>
       </section>
@@ -93,6 +98,7 @@ export default async function TrackPage({ params }: Props) {
             </section>
           )}
         </div>
+        <ReviewSection item={{ type: 'track', id: track.id }} title={name} path={`/music/track/${track.slug}`} />
         {album.length > 1 && data.moreFromArtist.length > 0 && (
           <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? `بیشتر از ${artistName}` : `More from ${artistName}`}</h2><Link href={`/music/artist/${track.artist.slug}`} className="md-more">{fa ? 'صفحه هنرمند ←' : 'Artist page →'}</Link></header>

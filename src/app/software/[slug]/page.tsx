@@ -10,6 +10,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { softwareNav } from '@/components/media/nav'
 import { SoftwareCard, VipBadge, VipGate } from '@/components/media/MediaCards'
 import LinkBox from '@/components/media/LinkBox'
+import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
 import CopyText from '@/components/software/CopyText'
 import { SoftwareLayout, SoftwareSidebar, isFresh, softwareName } from '@/components/software/SoftwarePortal'
@@ -64,12 +65,15 @@ export default async function SoftwarePage({ params }: Props) {
     [fa ? 'بازدید' : 'Views', n(s.views)],
     [fa ? 'دانلود' : 'Downloads', n(s.downloads)],
   ] as [string, string][]).filter(([, v]) => v)
+  const ref = { type: 'software' as const, id: s.id }
+  const rating = await aggregateRating(ref)
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'SoftwareApplication', name,
     ...(s.version ? { softwareVersion: s.version } : {}), operatingSystem: s.platforms.join(', '),
     ...(s.category ? { applicationCategory: s.category } : {}), ...(s.icon ? { image: s.icon } : {}), ...(s.summary ? { description: s.summary.slice(0, 300) } : {}),
     ...(s.developer ? { author: { '@type': 'Organization', name: s.developer } } : {}),
     ...(s.license === 'PAID' ? {} : { offers: { '@type': 'Offer', price: 0, priceCurrency: 'IRR' } }),
+    ...(rating ? { aggregateRating: rating } : {}),
   }
 
   return (
@@ -90,6 +94,7 @@ export default async function SoftwarePage({ params }: Props) {
               <a href="#download" className="btn btn-primary">{locked ? `♛ ${fa ? 'ویژه VIP' : 'VIP only'}` : `⤓ ${fa ? 'رفتن به لینک‌های دانلود' : 'Go to downloads'}`}</a>
               {s.website && <a href={s.website} className="btn btn-ghost" target="_blank" rel="noopener noreferrer nofollow">{fa ? 'سایت سازنده' : 'Developer website'} ↗</a>}
             </div>
+            <ItemActionBar item={ref} title={name} image={s.icon || s.cover} followLabel="نسخهٔ جدید" />
           </div>
         </header>
         {sections.length > 1 && <nav className="sp-tabs" aria-label={fa ? 'بخش‌های صفحه' : 'Sections'}>{sections.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}</nav>}
@@ -106,10 +111,11 @@ export default async function SoftwarePage({ params }: Props) {
           {s.archivePassword && <p className="sp-password">{fa ? 'رمز فایل فشرده:' : 'Archive password:'} <CopyText value={s.archivePassword} label={fa ? 'رمز فایل' : 'password'} /></p>}
           <ul className="sp-notes">
             <li>{fa ? <>برای باز کردن فایل‌های فشرده از آخرین نسخهٔ <bdi>WinRAR</bdi> یا <bdi>7-Zip</bdi> استفاده کنید.</> : 'Use the latest WinRAR or 7-Zip to extract archives.'}</li>
-            <li>{fa ? 'اگر لینکی کار نکرد، چند دقیقه بعد دوباره امتحان کنید یا در تالار گفتمان گزارش دهید.' : 'If a link fails, try again later or report it in the forum.'}</li>
+            <li>{fa ? 'اگر لینکی کار نکرد، با دکمهٔ ⚠ کنار همان لینک خرابی را گزارش دهید.' : 'If a link fails, report it with the ⚠ button next to it.'}</li>
             {s.license === 'PAID' || s.license === 'TRIAL' ? <li>{fa ? 'برای استفادهٔ تجاری، نسخهٔ قانونی را از سازنده تهیه کنید.' : 'For commercial use, buy a licence from the developer.'}</li> : null}
           </ul>
         </section>
+        <ReviewSection item={ref} title={name} path={`/software/${s.slug}`} />
         {data.related.length > 0 && <section className="sp-section"><h2>{fa ? 'نرم‌افزارهای مشابه' : 'Similar software'}</h2><div className="sw-grid">{data.related.map((item) => <SoftwareCard key={item.id} item={item} fa={fa} />)}</div></section>}
       </SoftwareLayout>
     </MediaShell>

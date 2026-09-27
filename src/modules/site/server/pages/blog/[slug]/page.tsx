@@ -12,6 +12,7 @@ import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
+import { ItemActionBar } from '@/components/engage/Engagement'
 import { articleJsonLd, breadcrumbJsonLd, pageMeta, siteBase } from '@/modules/site/server/seo'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { editableFor, isPreview, previewTemplate, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
@@ -145,6 +146,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       </div>
       <h1>{title}</h1>
       {lead && <p className="journal-post-lead">{lead}</p>}
+      <ItemActionBar item={{ type: 'post', id: post.id }} title={title} image={post.cover} />
       <div className="journal-post-meta">
         <span className="journal-post-author-chip">
           <span className="journal-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
 
@@ -46,6 +46,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
         <Brand/>
         <nav className="mb-nav" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}>{link.label}</Link>)}</nav>
         <div className="mb-header-actions">
+          <ThemeSiteSearch className="mb-search"/>
           <ThemeLangControls locale={locale} theme={theme} compact/>
           <Link href={session ? '/dashboard' : '/login'} className="mb-account"><Icon name="user" size={18}/><span>{session ? L('حساب من', 'My account') : L('ورود / ثبت‌نام', 'Log in')}</span></Link>
           <button type="button" className="mb-menu-button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>

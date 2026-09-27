@@ -11,6 +11,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { gamesNav } from '@/components/media/nav'
 import { GameCard, ScoreBadge, Shelf, VipBadge, VipGate } from '@/components/media/MediaCards'
 import LinkBox from '@/components/media/LinkBox'
+import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
 
@@ -49,7 +50,9 @@ export default async function GamePage({ params }: Props) {
     [fa ? 'سبک' : 'Genre', g.genres.join('، ')],
     [fa ? 'رده سنی' : 'Age rating', g.ageRating],
   ].filter(([, v]) => v) as [string, string][]
-  const jsonLd = { '@context': 'https://schema.org', '@type': 'VideoGame', name, ...(g.cover ? { image: g.cover } : {}), ...(g.summary ? { description: g.summary.slice(0, 300) } : {}), gamePlatform: g.platforms, genre: g.genres, ...(g.developer ? { author: { '@type': 'Organization', name: g.developer } } : {}), ...(g.score != null ? { review: { '@type': 'Review', reviewRating: { '@type': 'Rating', ratingValue: g.score, bestRating: 100 }, author: { '@type': 'Organization', name: 'Editors' } } } : {}) }
+  const ref = { type: 'game' as const, id: g.id }
+  const rating = await aggregateRating(ref)
+  const jsonLd = { '@context': 'https://schema.org', '@type': 'VideoGame', name, ...(rating ? { aggregateRating: rating } : {}), ...(g.cover ? { image: g.cover } : {}), ...(g.summary ? { description: g.summary.slice(0, 300) } : {}), gamePlatform: g.platforms, genre: g.genres, ...(g.developer ? { author: { '@type': 'Organization', name: g.developer } } : {}), ...(g.score != null ? { review: { '@type': 'Review', reviewRating: { '@type': 'Rating', ratingValue: g.score, bestRating: 100 }, author: { '@type': 'Organization', name: 'Editors' } } } : {}) }
 
   return (
     <MediaShell section="games" nav={gamesNav(fa)} search={{ action: '/games/browse', placeholder: fa ? 'جست‌وجوی بازی…' : 'Search games…' }}>
@@ -69,6 +72,7 @@ export default async function GamePage({ params }: Props) {
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />
               {g.access === 'MEMBERS' && <VipBadge fa={fa} />}
             </div>
+            <ItemActionBar item={ref} title={name} image={g.cover} followLabel="لینک‌های جدید" />
           </div>
           <div className="gm-scores">
             <ScoreBadge score={g.score} fa={fa} size="lg" />
@@ -101,6 +105,7 @@ export default async function GamePage({ params }: Props) {
             {locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/games/${g.slug}`} title={fa ? 'دانلود این بازی مخصوص اعضای VIP است' : 'This download is for VIP members'} />}
             <LinkBox links={data.links} fa={fa} member={viewer.member} loggedIn={!!viewer.userId} parentLocked={g.access === 'MEMBERS'} />
           </section>
+          <ReviewSection item={ref} title={name} path={`/games/${g.slug}`} />
         </div>
         <aside className="gm-aside">
           <dl className="gm-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>

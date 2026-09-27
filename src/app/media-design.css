@@ -603,6 +603,7 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .mx-links.is-compact .mx-link-row { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .mx-links.is-compact .mx-link-url { grid-column: 1 / -1; }
 .mx-mini-check { display: inline-flex; gap: 4px; align-items: center; font-size: .8rem; white-space: nowrap; }
+.mx-mini-check.is-danger { color: #dc2626; font-weight: 700; }
 .mx-row-tools { display: inline-flex; gap: 4px; justify-content: flex-end; }
 @media (max-width: 900px) { .mx-link-row { grid-template-columns: 1fr 1fr; } .mx-link-url, .mx-link-row .mx-row-tools { grid-column: 1 / -1; } }
 .mx-record-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

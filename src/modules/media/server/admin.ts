@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -71,17 +72,32 @@ function pickDefined(input: Input): Input {
 const has = (body: Input, key: string) => Object.prototype.hasOwnProperty.call(body, key)
 const when = <T>(body: Input, key: string, fn: (value: unknown) => T): T | undefined => (has(body, key) ? fn(body[key]) : undefined)
 
+/**
+ * Reconciles links by URL instead of replacing them, so an edited item keeps
+ * its link ids — and with them click counts, broken-link reports and the
+ * disabled flag set by link or copyright moderation.
+ */
 async function saveLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: unknown) {
   const links = cleanLinks(input)
-  await tx.mediaLink.deleteMany({ where: { ownerType, ownerId } })
-  if (links.length) await tx.mediaLink.createMany({ data: links.map((link) => ({ ...link, ownerType, ownerId })) })
+  const existing = await tx.mediaLink.findMany({ where: { ownerType, ownerId }, orderBy: { id: 'asc' } })
+  const unused = [...existing]
+  for (const link of links) {
+    const index = unused.findIndex((row) => row.url === link.url)
+    if (index >= 0) {
+      const [row] = unused.splice(index, 1)
+      await tx.mediaLink.update({ where: { id: row.id }, data: link })
+    } else {
+      await tx.mediaLink.create({ data: { ...link, ownerType, ownerId } })
+    }
+  }
+  if (unused.length) await tx.mediaLink.deleteMany({ where: { id: { in: unused.map((row) => row.id) } } })
 }
 
 async function linksFor(ownerType: LinkOwner, ids: number[]) {
   if (!ids.length) return new Map<number, any[]>()
   const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
   const map = new Map<number, any[]>()
-  for (const row of rows) map.set(row.ownerId, [...(map.get(row.ownerId) || []), { label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, url: row.url, access: row.access, sortOrder: row.sortOrder }])
+  for (const row of rows) map.set(row.ownerId, [...(map.get(row.ownerId) || []), { id: row.id, label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, url: row.url, access: row.access, sortOrder: row.sortOrder, disabled: row.disabled, clicks: row.clicks }])
   return map
 }
 
@@ -423,6 +439,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
       return saved
     }, { timeout: 30_000 })
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
+    if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
     return ok({ id: row.id, slug: row.slug }, mode === 'create' ? 201 : 200)
   } catch (error) {
     return failure(error)
@@ -446,6 +463,7 @@ export async function DELETE(req: NextRequest) {
       return resource.delegate(tx).delete({ where: { id } })
     })
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
+    if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
     return ok({ deleted: true })
   } catch (error) {
     return failure(error)
