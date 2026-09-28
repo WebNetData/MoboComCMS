@@ -148,6 +148,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
+      { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و تکمیل مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
       { href: '/admin/resellers', label: t.resellers, icon: 'globe', perm: 'resellers.manage' },
       { href: '/admin/reseller-sales', label: L('فروش نمایندگان', 'Reseller sales'), icon: 'wallet', perm: 'resellers.manage' },
       { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },

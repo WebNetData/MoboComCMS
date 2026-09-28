@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "profileData" TEXT NOT NULL DEFAULT '{}',
+ADD COLUMN "profileCompletedAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "UserAddress" ADD COLUMN "lat" DOUBLE PRECISION,
+ADD COLUMN "lng" DOUBLE PRECISION;

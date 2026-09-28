@@ -4,24 +4,33 @@ import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { sniffImage } from '@/shared/files/image-type'
+import { readJsonSetting } from '@/modules/settings/server'
+import { nextUsername, normalizeFieldsConfig } from '@/modules/identity/domain/profile-fields'
 import {
-  ProfileError, canFollow, canMessage, canViewProfile, cleanText, mediaPath, normalizeLinks, normalizePrivacy, normalizeUsername, normalizeWebsite, usernameSeed,
+  ProfileError, canFollow, canMessage, canViewProfile, cleanText, mediaPath, normalizeLinks, normalizePrivacy, normalizeUsername, normalizeWebsite,
   type Privacy, type ProfileLink, type Relation,
 } from '@/modules/identity/domain/profile'
 
 // The unified member profile (core identity): one username, avatar, cover,
 // bio, links and privacy used by every section, plus the follow/block graph.
 
-async function uniqueUsername(seed: string) {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const name = attempt ? `${seed.slice(0, 16)}${attempt + 1}` : seed
-    const [profile, forum] = await Promise.all([
-      db.userProfile.findUnique({ where: { username: name }, select: { userId: true } }),
-      db.forumProfile.findUnique({ where: { username: name }, select: { userId: true } }).catch(() => null),
-    ])
-    if (!profile && !forum) return name
-  }
-  return `${seed.slice(0, 12)}${Date.now().toString(36).slice(-6)}`
+/**
+ * Default username for a member who has not chosen one: prefix, prefix2,
+ * prefix3… (prefix from the registration-fields settings, "mobocomuser" by
+ * default), continuing after the highest one already taken.
+ */
+async function defaultUsername(offset = 0) {
+  const stored = await readJsonSetting('profile.fields.v1')
+  const prefix = normalizeFieldsConfig(stored).usernamePrefix
+  const [profiles, forum] = await Promise.all([
+    db.userProfile.findMany({ where: { username: { startsWith: prefix } }, select: { username: true } }),
+    db.forumProfile.findMany({ where: { username: { startsWith: prefix } }, select: { username: true } }).catch(() => [] as { username: string }[]),
+  ])
+  const taken = [...profiles, ...forum].map((row) => row.username)
+  const next = nextUsername(prefix, taken)
+  if (!offset) return next
+  const base = next === prefix ? 1 : Number(next.slice(prefix.length))
+  return `${prefix}${base + offset}`
 }
 
 /**
@@ -41,10 +50,19 @@ export async function ensureUserProfiles(userIds: number[]) {
   const forumByUser = new Map(forum.map((row) => [row.userId, row]))
   for (const user of users) {
     const legacy = forumByUser.get(user.id)
-    const data = legacy
-      ? { userId: user.id, username: legacy.username, bio: legacy.bio, location: legacy.location, website: legacy.website, avatar: legacy.avatar, cover: legacy.cover }
-      : { userId: user.id, username: await uniqueUsername(usernameSeed({ email: user.email, name: user.name })) }
-    await db.userProfile.create({ data }).catch((error: { code?: string }) => { if (error?.code !== 'P2002') throw error })
+    if (legacy) {
+      await db.userProfile.create({ data: { userId: user.id, username: legacy.username, bio: legacy.bio, location: legacy.location, website: legacy.website, avatar: legacy.avatar, cover: legacy.cover } })
+        .catch((error: { code?: string }) => { if (error?.code !== 'P2002') throw error })
+      continue
+    }
+    // Two sign-ups at once can pick the same next number: retry with the following one.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try { await db.userProfile.create({ data: { userId: user.id, username: await defaultUsername(attempt) } }); break }
+      catch (error) {
+        if ((error as { code?: string })?.code !== 'P2002') throw error
+        if (await db.userProfile.findUnique({ where: { userId: user.id }, select: { userId: true } })) break
+      }
+    }
   }
 }
 
@@ -139,6 +157,11 @@ export async function updateUserProfile(userId: number, input: Record<string, un
     return row
   })
   return { username: updated.username }
+}
+
+/** Chosen during onboarding; same rules and limits as the profile editor. */
+export async function setUsername(userId: number, username: string) {
+  return updateUserProfile(userId, { username })
 }
 
 // ------------------------------------------------------------------ media

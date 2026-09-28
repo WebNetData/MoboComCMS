@@ -198,3 +198,50 @@ html[data-design] .user-shell .side-foot { flex-shrink: 0; margin-top: 10px; pad
   .dash-split > .dash-aside { order: -1; }
   .dash-aside .pe-preview { display: none; }
 }
+
+/* ---------- location picker (lp-) ---------- */
+.lp { display: grid; gap: 8px; min-width: 0; }
+.lp-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.lp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.lp-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lp-btn:hover { border-color: var(--primary); color: var(--primary); }
+.lp-map { height: 300px; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; background: #dfe3e8; z-index: 0; }
+.lp-map:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.lp-map .leaflet-control-attribution { font-size: 10px; direction: ltr; }
+.lp-foot { font-size: 12px; color: var(--muted); }
+.lp-pin span { position: absolute; inset: 0 0 12px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--primary, #4b45ee); border: 3px solid #fff; box-shadow: 0 6px 14px rgb(0 0 0 / .35); }
+.lp-pin span::after { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+.lp-pin { background: none; border: 0; }
+.sh-map { margin: 4px 0 0; padding: 0; border: 0; min-width: 0; }
+.sh-map legend { font-size: 13px; font-weight: 700; margin-bottom: 8px; padding: 0; }
+.sh-map legend small { color: var(--muted); font-weight: 500; }
+@media (max-width: 640px) { .lp-map { height: 240px; } }
+
+/* ---------- welcome / complete profile (wl-) ---------- */
+.wl { min-height: 100dvh; display: grid; justify-items: center; align-content: start; padding: clamp(16px, 4vw, 48px) 16px 48px; background: radial-gradient(circle at 80% -10%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 40%), var(--bg); color: var(--text); }
+.wl-card { width: min(820px, 100%); display: grid; gap: 22px; padding: clamp(18px, 3vw, 34px); border: 1px solid var(--border); border-radius: 22px; background: var(--card); box-shadow: 0 30px 80px rgb(0 0 0 / .2); }
+.wl-head { display: grid; gap: 8px; }
+.wl-brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; margin-bottom: 8px; width: fit-content; }
+.wl-head h1 { margin: 0; font-size: clamp(21px, 2.6vw, 27px); letter-spacing: -.02em; }
+.wl-head p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.9; }
+.wl-badge { width: fit-content; padding: 4px 12px; border-radius: 99px; background: color-mix(in srgb, #d97706 16%, transparent); color: #d97706; font-size: 12.5px; font-weight: 800; }
+.wl-section { display: grid; gap: 14px; margin: 0; padding: 18px 0 0; border: 0; border-top: 1px solid var(--border); min-width: 0; }
+.wl-section legend { padding: 0; margin-bottom: 4px; }
+.wl-section h2 { margin: 0; font-size: 16px; }
+.wl-help { margin: -6px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+.wl-field { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.wl-field > label, .wl-label { font-weight: 700; font-size: 13px; }
+.wl-field > small { color: var(--muted); font-size: 12px; }
+.wl-wide { grid-column: 1 / -1; }
+.wl-req { color: var(--danger); margin-inline-start: 2px; }
+.wl-opt { color: var(--muted); font-weight: 500; font-size: 11.5px; }
+.wl-error { color: var(--danger) !important; font-weight: 700; }
+.wl-field [aria-invalid='true'] { border-color: var(--danger) !important; }
+.wl-radios { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-radio, .wl-check { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-size: 13.5px; }
+.wl-radio:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+.wl-radio input, .wl-check input { accent-color: var(--primary); width: 16px; height: 16px; }
+.wl-foot { display: flex; justify-content: flex-end; gap: 10px; padding-top: 6px; }
+.wl-submit { min-width: 180px; }
+@media (max-width: 640px) { .wl-foot { position: sticky; bottom: 0; padding: 12px 0; background: var(--card); } .wl-submit { flex: 1; } }
+.wl-field input[readonly] { opacity: .65; cursor: not-allowed; }

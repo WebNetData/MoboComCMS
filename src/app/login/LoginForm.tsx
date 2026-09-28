@@ -32,9 +32,12 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
     return () => clearTimeout(timer)
   }, [resendIn])
 
-  const goNext = () => {
-    const next = params.get('next') || '/dashboard'
-    router.push(/^\/(?!\/)/.test(next) && !/[\\\u0000-\u001f]/.test(next) ? next : '/dashboard')
+  const goNext = async () => {
+    const wanted = params.get('next') || '/dashboard'
+    const next = /^\/(?!\/)/.test(wanted) && !/[\\\u0000-\u001f]/.test(wanted) ? wanted : '/dashboard'
+    // New members (SMS sign-ups especially) first complete the required details.
+    const status = await fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    router.push(status?.needsCompletion ? `/welcome?next=${encodeURIComponent(next)}` : next)
     router.refresh()
   }
 

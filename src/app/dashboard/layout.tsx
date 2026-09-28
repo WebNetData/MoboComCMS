@@ -44,6 +44,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (status === 'unauthenticated') window.location.href = '/login?next=/dashboard'
   }, [status])
 
+  // Members with missing required details finish them first (admin-defined fields).
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    let active = true
+    fetch('/api/profile/completion', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((data) => {
+      if (active && data?.needsCompletion) window.location.replace(`/welcome?next=${encodeURIComponent(window.location.pathname)}`)
+    }).catch(() => null)
+    return () => { active = false }
+  }, [status])
+
   const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: string; exact?: boolean }[] }[] = [
     {
       label: vpnOn ? (locale === 'fa' ? 'اشتراک‌ها' : 'Subscriptions') : (locale === 'fa' ? 'پیشخوان' : 'Overview'),
@@ -76,6 +86,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isAdmin = ((session as any)?.user?.role ?? (session as any)?.role) === 'ADMIN'
   const [isReseller, setIsReseller] = useState(false)
+  // The session token keeps the name from sign-in; the account's current name wins.
+  const [profileName, setProfileName] = useState('')
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/profile', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => setProfileName(String(d?.name || ''))).catch(() => null)
+  }, [status, pathname])
 
   // resellers get a link to their own panel
   useEffect(() => {
@@ -90,7 +106,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return <div className="container py-20 text-center muted">{t.loading}</div>
   }
 
-  const initial = (session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()
+  const displayName = profileName || session?.user?.name || ''
+  const initial = (displayName || session?.user?.email || '?').charAt(0).toUpperCase()
   const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
   // The deepest matching menu entry names the current page in the top bar.
   const current = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })))
@@ -149,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="side-user">
           <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
           <div className="min-w-0">
-            <div className="font-semibold text-sm truncate">{session?.user?.name || '—'}</div>
+            <div className="font-semibold text-sm truncate">{displayName || '—'}</div>
             <div className="muted text-xs truncate" dir="ltr">{session?.user?.email}</div>
           </div>
         </div>

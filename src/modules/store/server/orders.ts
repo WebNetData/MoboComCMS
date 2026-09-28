@@ -153,6 +153,8 @@ function orderDetailView(order: NonNullable<DetailOrder> | (OrderWithLines & {
     address: address ? {
       title: String(address.title || ''), recipient: String(address.recipient || ''), phone: String(address.phone || ''),
       postalCode: String(address.postalCode || ''), address: String(address.address || ''),
+      lat: Number.isFinite(Number(address.lat)) && address.lat ? Number(address.lat) : null,
+      lng: Number.isFinite(Number(address.lng)) && address.lng ? Number(address.lng) : null,
     } : null,
     schedule: order.productDelivery?.scheduledDate
       ? { date: order.productDelivery.scheduledDate, slot: order.productDelivery.scheduledSlot }
