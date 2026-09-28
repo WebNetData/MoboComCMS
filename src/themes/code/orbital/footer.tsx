@@ -1,7 +1,7 @@
 'use client'
 
 import Link from '@/platform/routing/Link'
-import { ThemePluginOutlet, useThemeI18n, useThemeSite } from '@/themes/sdk/client'
+import { ThemePluginOutlet, ThemeTrustSeals, useThemeI18n, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeFooterProps } from '@/themes/types'
 import Glyph from './glyph'
 
@@ -26,6 +26,7 @@ export default function OrbitalFooter({ navPages }: ThemeFooterProps) {
           <nav aria-label={L('حساب کاربری', 'Your account')}><h3>{L('حساب شما', 'Your account')}</h3><Link href="/dashboard" className="orbital-footer-link">{L('اشتراک‌های من', 'My subscriptions')}</Link><Link href="/dashboard/orders" className="orbital-footer-link">{L('سفارش‌ها', 'Orders')}</Link><Link href="/dashboard/wallet" className="orbital-footer-link">{L('کیف پول', 'Wallet')}</Link><Link href="/dashboard/profile" className="orbital-footer-link">{L('تنظیمات حساب', 'Account settings')}</Link></nav>
           <div className="orbital-footer-help"><span className="orbital-footer-help-icon"><Glyph name="chat" size={23} /></span><h3>{L('در کنارت هستیم.', 'A little help goes a long way.')}</h3><p>{L('سؤالی درباره پلن یا اتصال داری؟ از پنل کاربری با ما در ارتباط باش.', 'Questions about your plan or connection? Reach our team from your dashboard.')}</p><Link href="/dashboard/tickets">{L('ارتباط با پشتیبانی', 'Contact support')} <span aria-hidden="true">↗</span></Link></div>
         </div>
+        <ThemeTrustSeals />
         <div className="orbital-footer-bottom"><span dir="ltr">© {new Date().getFullYear()} {site.brand}</span><span>{tx(site.copyright, locale)}</span><span className="orbital-footer-language"><Glyph name="globe" size={15} />{locale === 'fa' ? 'فارسی / English' : 'English / فارسی'}</span></div>
       </div>
     </footer>

@@ -1,0 +1,3 @@
+export { POST_forgot as POST } from '@/modules/identity/server/http/security'
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'

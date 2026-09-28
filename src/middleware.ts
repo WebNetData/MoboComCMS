@@ -30,11 +30,12 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   const path = req.nextUrl.pathname
   // The Telegram mini app must stay embeddable in the Telegram webview.
   const miniApp = path.startsWith('/miniapp')
-  const turnstile = path === '/login' || path === '/register'
+  const turnstile = path === '/login' || path === '/register' || path === '/forgot-password'
   const translate = !miniApp && !path.startsWith('/admin') && !path.startsWith('/api')
 
   response.headers.set('x-content-type-options', 'nosniff')
-  response.headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+  // The reset link carries its token in the URL; never leak it to other sites.
+  response.headers.set('referrer-policy', path === '/reset-password' ? 'no-referrer' : 'strict-origin-when-cross-origin')
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)')
   if (!miniApp) response.headers.set('x-frame-options', 'SAMEORIGIN')
 

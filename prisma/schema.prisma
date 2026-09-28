@@ -33,6 +33,11 @@ model User {
   emailAlerts    Boolean         @default(true)
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
+  passwordChangedAt DateTime?
+  totpSecret     String          @default("")
+  totpEnabledAt  DateTime?
+  totpBackup     String          @default("[]")
+  totpLastStep   Int             @default(0)
   lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now()) @updatedAt
@@ -2378,4 +2383,17 @@ model MailLog {
 
   @@index([createdAt])
   @@index([status, createdAt])
+}
+
+/// One-time password-reset links sent by email (only the hash is stored).
+model PasswordReset {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  ip        String    @default("")
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

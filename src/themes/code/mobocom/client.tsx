@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeTrustSeals, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
 
@@ -126,6 +126,7 @@ function MobocomFooter({ navPages }: ThemeFooterProps) {
         <nav aria-label={L('راهنما و پشتیبانی', 'Help')}><h3>{L('راهنما و پشتیبانی', 'Help & support')}</h3>{site.footer.map(item => <Link key={item.href} href={item.href}>{tx(item.label, locale)}</Link>)}{navPages?.map(page => <Link key={page.slug} href={`/p/${page.slug}`}>{locale === 'fa' ? page.title : page.titleEn || page.title}</Link>)}</nav>
         <nav aria-label={L('حساب کاربری', 'Account')}><h3>{L('حساب کاربری', 'Your account')}</h3><Link href="/dashboard/orders">{L('سفارش‌های من', 'My orders')}</Link><Link href="/dashboard/wallet">{L('کیف پول', 'Wallet')}</Link><Link href="/dashboard/tickets">{L('تیکت‌های پشتیبانی', 'Support tickets')}</Link><Link href="/dashboard/profile">{L('تنظیمات حساب', 'Account settings')}</Link></nav>
       </div>
+      <div className="mb-container"><ThemeTrustSeals /></div>
       <div className="mb-container mb-footer-bottom"><span>© {new Date().getFullYear().toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US', { useGrouping: false })} {site.brand}</span><span>{tx(site.tagline, locale)}</span></div>
     </footer>
     <ThemePluginOutlet slot="site.after-footer" site={site} locale={locale}/>

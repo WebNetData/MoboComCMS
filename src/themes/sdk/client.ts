@@ -10,3 +10,6 @@ export { useSession as useThemeSession, signOut as themeSignOut } from 'next-aut
 export { default as ThemeSiteSearch } from '@/components/search/SiteSearch'
 export { default as Link } from '@/platform/routing/Link'
 export { default as ThemeLiveSearch } from '@/components/search/LiveSearchInput'
+
+/** Trust seals (eNamad, Samandehi, …) configured in the admin; renders nothing when none are set. */
+export { default as ThemeTrustSeals } from '@/components/site/TrustSeals'

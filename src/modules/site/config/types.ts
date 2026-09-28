@@ -10,6 +10,8 @@ export type SiteConfig = {
   /** Runtime only (from SITE_LOCALES, never stored): languages the visitor may switch between. */
   locales?: string[]
   publicApiEnabled?: boolean
+  /** Runtime only (from the trust-seals setting): badges shown in the footer. */
+  trustSeals?: { title: string; seals: { id: string; kind: string; title: string; href: string; image: string }[] }
   copy?: Record<string, LocalText>
   logo?: string
   fonts?: SiteFonts

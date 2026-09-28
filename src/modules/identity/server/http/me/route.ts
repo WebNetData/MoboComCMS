@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
-import { requireUser } from '@/modules/identity/server/access'
+import { adminNeedsTwoFactor, requireUser } from '@/modules/identity/server/access'
 import { walletBalances } from '@/modules/wallet/server/wallet'
 import { parseResellerPermissions, RESELLER_PERMISSIONS } from '@/modules/reseller/server/reseller'
 
@@ -46,5 +46,7 @@ export async function GET(req: NextRequest) {
     roleName: user.roleRef?.name || null,
     roleLabel: user.roleRef ? (user.roleRef.nameFa || user.roleRef.nameEn || user.roleRef.name) : null,
     permissions: auth.permissions,
+    twoFactor: !!auth.twoFactor,
+    needsTwoFactor: await adminNeedsTwoFactor(auth),
   })
 }

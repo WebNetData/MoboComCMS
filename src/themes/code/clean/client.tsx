@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeLangControls, ThemePluginOutlet, ThemeTrustSeals, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import CleanIcon from './icons'
 
@@ -75,6 +75,7 @@ function CleanFooter({ navPages }: ThemeFooterProps) {
         <nav aria-label={L('منابع', 'Resources')}><h3>{L('منابع', 'Resources')}</h3>{site.footer.map(item => <Link key={item.href} href={item.href}>{tx(item.label, locale)}</Link>)}{navPages?.map(page => <Link key={page.slug} href={`/p/${page.slug}`}>{locale === 'fa' ? page.title : page.titleEn || page.title}</Link>)}</nav>
         <nav aria-label={L('حساب شما', 'Your account')}><h3>{L('حساب شما', 'Your account')}</h3><Link href="/dashboard">{L('اشتراک‌های من', 'My subscriptions')}</Link><Link href="/dashboard/wallet">{L('کیف پول', 'Wallet')}</Link><Link href="/dashboard/tickets">{L('پشتیبانی', 'Support')}</Link><Link href="/miniapp">{L('نسخه مینی‌اپ', 'Mini app view')}</Link></nav>
       </div>
+      <div className="cl-container"><ThemeTrustSeals /></div>
       <div className="cl-container cl-footer-bottom"><span dir="ltr">© {new Date().getFullYear()} {site.brand}</span><span>{tx(site.tagline, locale)}</span></div>
     </footer>
     <ThemePluginOutlet slot="site.after-footer" site={site} locale={locale}/>

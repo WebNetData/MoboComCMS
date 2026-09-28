@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import TrustSeals from '@/components/site/TrustSeals'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import BuilderRenderer, { type BuilderContext, type BuilderLocale } from '@/components/content/builder/BuilderRenderer'
@@ -65,5 +66,6 @@ export async function ThemeFooter({ context, choice, locale, navPages, builderCo
   if (!resolved) return <>{fallback ?? <SiteFooter navPages={navPages} />}</>
   return <footer className="br-theme-footer" data-template={resolved.meta.id}>
     <BuilderRenderer doc={resolved.doc} locale={locale} editable={false} context={builderContext} />
+    <div className="container"><TrustSeals /></div>
   </footer>
 }

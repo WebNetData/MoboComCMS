@@ -5,6 +5,7 @@ import { useSite } from '@/components/site/SiteProvider'
 import { translate } from '@/modules/site/config/types'
 import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
+import TrustSeals from '@/components/site/TrustSeals'
 export default function DefaultSiteFooter({ navPages }: { navPages?: { slug: string; title: string; titleEn: string }[] }) {
   const { locale } = useI18n()
   const site = useSite()
@@ -16,6 +17,6 @@ export default function DefaultSiteFooter({ navPages }: { navPages?: { slug: str
       <div><h3 className="footer-title">{L('کشف کن', 'Explore')}</h3>{site.navigation.map(l => <Link className="footer-link" key={l.href + l.label.fa} href={l.href}>{translate(l.label, locale)}</Link>)}</div>
       <div><h3 className="footer-title">{L('کنار تو', 'Here for you')}</h3>{site.footer.map(l => <Link className="footer-link" key={l.href + l.label.fa} href={l.href}>{translate(l.label, locale)}</Link>)}</div>
       <div><h3 className="footer-title">{L('بیشتر درباره ما', 'More about us')}</h3>{navPages?.map(p => <Link className="footer-link" key={p.slug} href={`/p/${p.slug}`}>{locale === 'fa' ? p.title : p.titleEn || p.title}</Link>)}<p className="muted text-sm">{translate(site.copyright, locale)}</p></div>
-    </div><div className="footer-bottom"><span>© {new Date().getFullYear()} {site.brand}</span><span>{translate(site.tagline, locale)} <span className="text-primary-var">↗</span></span></div>
+    </div><TrustSeals /><div className="footer-bottom"><span>© {new Date().getFullYear()} {site.brand}</span><span>{translate(site.tagline, locale)} <span className="text-primary-var">↗</span></span></div>
   </div></footer><PluginOutlet slot="site.after-footer" site={site} locale={locale}/></>
 }

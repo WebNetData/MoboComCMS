@@ -3,6 +3,7 @@ import { getToken } from 'next-auth/jwt'
 import { authOptions } from '@/modules/identity/auth'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
+import { sessionRevoked } from '@/modules/identity/domain/account-security'
 
 export interface AuthedUser {
   id: number
@@ -10,6 +11,25 @@ export interface AuthedUser {
   role: string
   roleId?: number | null
   permissions: string[] | null
+  /** Whether the account has 2-step sign-in on. */
+  twoFactor?: boolean
+}
+
+// The "staff must use 2-step sign-in" switch, cached briefly (read on every admin request).
+let policyCache: { at: number; required: boolean } | null = null
+async function adminTwoFactorRequired() {
+  if (policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
+  const row = await db.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
+  let required = false
+  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch { required = false }
+  policyCache = { at: Date.now(), required }
+  return required
+}
+export const clearAdminPolicyCache = () => { policyCache = null }
+
+/** Whether this admin is held back until they turn on 2-step sign-in. */
+export async function adminNeedsTwoFactor(user: AuthedUser) {
+  return user.role === 'ADMIN' && !user.twoFactor && await adminTwoFactorRequired()
 }
 
 export function getRawToken(req: NextRequest) {
@@ -26,6 +46,8 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
     include: { roleRef: true },
   })
   if (!current || current.status !== 'ACTIVE') return null
+  // A password reset signs out every session that started before it.
+  if (sessionRevoked(token.authAt, current.passwordChangedAt)) return null
 
   const permissions =
     current.role === 'ADMIN' && current.roleId != null
@@ -38,12 +60,15 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
     role: current.role,
     roleId: current.roleId,
     permissions: current.role === 'ADMIN' ? permissions : null,
+    twoFactor: !!current.totpEnabledAt,
   }
 }
 
 export async function requireAdmin(req: NextRequest): Promise<AuthedUser | null> {
   const user = await requireUser(req)
-  return user?.role === 'ADMIN' ? user : null
+  if (user?.role !== 'ADMIN') return null
+  // With the staff 2-step policy on, the admin API stays closed until it is set up.
+  return await adminNeedsTwoFactor(user) ? null : user
 }
 
 /** Legacy admin without a roleId is the super-admin compatibility path. */
