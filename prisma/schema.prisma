@@ -2489,3 +2489,27 @@ model ShortLink {
 
   @@index([createdAt])
 }
+
+model DownloadJob {
+  id         Int       @id @default(autoincrement())
+  kind       String    // fetch | transfer | extract | repack | pack
+  status     String    @default("queued") // queued | running | done | failed | cancelled
+  title      String    @default("")
+  url        String    @default("")
+  storageId  String    @default("local")
+  dir        String    @default("/")
+  name       String    @default("")
+  params     String    @default("{}") // JSON, never passwords
+  total      Float?
+  received   Float     @default(0)
+  speed      Float     @default(0)
+  result     String    @default("")
+  error      String    @default("")
+  createdBy  Int?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  updatedAt  DateTime  @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+}
