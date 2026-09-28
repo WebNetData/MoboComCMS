@@ -4,7 +4,6 @@ import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'
 import TabSwitch from '@/components/site/TabSwitch'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
-import Slider from '@/components/site/Slider'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
@@ -37,7 +36,7 @@ export function GameRail({ title, games, more, icon }: { title: string; games: G
   if (!games.length) return null
   return <section className="gx-rail-wrap">
     <div className="container"><GxTitle title={title} more={more} icon={icon} /></div>
-    <Slider className="gx-rail"><div className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</div></Slider>
+    <div className="gx-rail"><div className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</div></div>
   </section>
 }
 

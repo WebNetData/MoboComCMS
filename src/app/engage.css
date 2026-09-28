@@ -300,25 +300,63 @@ body:has(.cmp-tray) .pwa-chip { inset-block-end: 92px; }
 .mm-bar-search > select { border-start-start-radius: inherit; border-end-start-radius: inherit; }
 
 /* ---------------- card slider (sl-) ---------------- */
-.sl { position: relative; min-width: 0; }
-.sl-track { scrollbar-width: none !important; -ms-overflow-style: none; scroll-behavior: smooth; }
+.sl { --sl-accent: var(--en-accent); position: relative; min-width: 0; }
+.sl-viewport { position: relative; }
+/* The track keeps its own grid; we only hide the bar, fade the covered edge and leave room for hover lift. */
+.sl-track {
+  scrollbar-width: none !important; -ms-overflow-style: none; scroll-behavior: smooth;
+  padding-block: 8px 14px !important; margin-block: -8px -6px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--sl-fl, 0px), #000 calc(100% - var(--sl-fr, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--sl-fl, 0px), #000 calc(100% - var(--sl-fr, 0px)), transparent 100%);
+}
 .sl-track::-webkit-scrollbar { display: none !important; }
-.sl-track:focus-visible { outline: 2px solid var(--en-accent); outline-offset: 4px; border-radius: 12px; }
+.sl-track:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 4px; border-radius: 14px; }
+.sl-track > * { transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+.sl-track > *:hover { transform: translateY(-5px); }
 .sl-track.is-dragging { cursor: grabbing; scroll-snap-type: none !important; scroll-behavior: auto; user-select: none; }
 .sl-track.is-dragging * { pointer-events: none; }
-.sl-btn { position: absolute; top: 38%; z-index: 3; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, var(--en-line) 80%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--en-card) 88%, transparent); color: var(--en-text); box-shadow: 0 10px 26px -10px rgba(10, 8, 30, .55); backdrop-filter: blur(8px); cursor: pointer; transform: translateY(-50%); transition: opacity .2s, transform .2s, background .2s; }
-.sl-btn:hover { background: var(--en-accent); color: #fff; border-color: transparent; }
-.sl-btn:focus-visible { outline: 2px solid var(--en-accent); outline-offset: 2px; }
-.sl-btn.is-prev { inset-inline-start: -14px; }
-.sl-btn.is-next { inset-inline-end: -14px; }
-[dir=ltr] .sl-btn svg { transform: scaleX(-1); }
-.sl-btn:disabled { opacity: 0; pointer-events: none; transform: translateY(-50%) scale(.8); }
+
+.sl-btn {
+  position: absolute; top: 42%; z-index: 4; display: grid; place-items: center; width: 50px; height: 50px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, .22); border-radius: 50%; color: #fff; cursor: pointer;
+  background: linear-gradient(145deg, rgba(40, 36, 64, .72), rgba(12, 10, 24, .78));
+  box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .14);
+  backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  opacity: 0; transform: translateY(-50%) scale(.86);
+  transition: opacity .25s, transform .25s cubic-bezier(.2, .8, .2, 1), background .2s, box-shadow .2s;
+}
+:root[data-theme="light"] .sl-btn { color: #1c1a2e; border-color: rgba(20, 18, 43, .08); background: linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(244, 243, 250, .92)); box-shadow: 0 16px 34px -14px rgba(20, 18, 43, .45); }
+.sl-btn.is-prev { inset-inline-start: -8px; }
+.sl-btn.is-next { inset-inline-end: -8px; }
+.sl:hover .sl-btn, .sl:focus-within .sl-btn { opacity: 1; transform: translateY(-50%) scale(1); }
+.sl-btn:hover { background: var(--sl-accent); border-color: transparent; color: #fff; box-shadow: 0 18px 38px -14px var(--sl-accent); transform: translateY(-50%) scale(1.08) !important; }
+.sl-btn:active { transform: translateY(-50%) scale(.95) !important; }
+.sl-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--sl-accent) 60%, transparent); outline-offset: 3px; opacity: 1; }
+.sl-btn svg { transition: transform .2s; }
+.sl-btn.is-next:hover svg { transform: translateX(-2px); }
+.sl-btn.is-prev:hover svg { transform: translateX(2px); }
+[dir=ltr] .sl-btn svg { scale: -1 1; }
+.sl-btn:disabled { opacity: 0 !important; pointer-events: none; }
 .sl.is-static .sl-btn { display: none; }
-/* soft fade on the side that has more cards */
-.sl::before, .sl::after { content: ""; position: absolute; top: 0; bottom: 12px; z-index: 2; width: 48px; pointer-events: none; transition: opacity .2s; }
-.sl::before { inset-inline-start: 0; background: linear-gradient(to var(--sl-start-dir, left), transparent, var(--sl-fade, var(--bg, #0b0b12))); }
-.sl::after { inset-inline-end: 0; background: linear-gradient(to var(--sl-end-dir, right), transparent, var(--sl-fade, var(--bg, #0b0b12))); }
-[dir=rtl] .sl, .sl:dir(rtl) { --sl-start-dir: right; --sl-end-dir: left; }
-.sl.at-start::before, .sl.at-end::after { opacity: 0; }
-@media (hover: none), (max-width: 720px) { .sl-btn { display: none; } .sl::before, .sl::after { width: 28px; } }
-@media (prefers-reduced-motion: reduce) { .sl-track { scroll-behavior: auto; } .sl-btn { transition: none; } }
+
+/* page indicator: pills, the current one stretches (with an autoplay progress fill) */
+.sl-dots { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 10px; }
+.sl-dot { position: relative; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, var(--en-muted) 35%, transparent); cursor: pointer; transition: width .35s cubic-bezier(.2, .8, .2, 1), background .25s; }
+.sl-dot:hover { background: color-mix(in srgb, var(--en-muted) 70%, transparent); }
+.sl-dot.is-on { width: 28px; background: var(--sl-accent); }
+.sl-dot i { position: absolute; inset: 0; background: rgba(255, 255, 255, .45); transform-origin: right; animation: sl-progress linear forwards; }
+[dir=ltr] .sl-dot i { transform-origin: left; }
+.sl-dot:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 3px; }
+@keyframes sl-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@media (hover: none), (max-width: 720px) {
+  .sl-btn { display: none; }
+  .sl-track > *:hover { transform: none; }
+  .sl-dots { margin-top: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sl-track { scroll-behavior: auto; }
+  .sl-track > *, .sl-btn, .sl-dot { transition: none; }
+  .sl-track > *:hover { transform: none; }
+  .sl-dot i { animation: none; }
+}

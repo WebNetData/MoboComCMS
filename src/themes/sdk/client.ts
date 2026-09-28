@@ -10,4 +10,3 @@ export { useSession as useThemeSession, signOut as themeSignOut } from 'next-aut
 export { default as ThemeSiteSearch } from '@/components/search/SiteSearch'
 export { default as Link } from '@/platform/routing/Link'
 export { default as ThemeLiveSearch } from '@/components/search/LiveSearchInput'
-export { default as ThemeSlider } from '@/components/site/Slider'
