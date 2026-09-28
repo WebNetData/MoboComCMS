@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/tickets', label: t.supportCenter, icon: 'chat' },
         { href: '/dashboard/referrals', label: locale === 'fa' ? 'دعوت از دوستان' : 'Invite friends', icon: 'sparkles' },
         ...(site.publicApiEnabled ? [{ href: '/dashboard/api', label: t.apiAccess, icon: 'bolt' }] : []),
-        { href: '/dashboard/profile', label: t.profile, icon: 'sliders' },
+        { href: '/dashboard/profile', label: locale === 'fa' ? 'تنظیمات حساب' : 'Account settings', icon: 'sliders' },
       ],
     },
   ]
@@ -92,6 +92,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const initial = (session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()
   const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
+  // The deepest matching menu entry names the current page in the top bar.
+  const current = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })))
+    .filter((item) => isOn(item.href, item.exact))
+    .sort((a, b) => b.href.length - a.href.length)[0]
 
   const navLinks = (
     <>
@@ -136,7 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div className="app-shell">
+    <div className="app-shell user-shell">
       <aside className="side">
         <Link href="/" className="side-brand">
           <span className="brand-mark"><BrandMark/></span> {site.brand}
@@ -170,6 +174,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <nav id="dashboard-mobile-navigation" className="mobile-drawer" hidden={!open} aria-label={t.myPanel}>{navLinks}<button onClick={() => signOut({ callbackUrl: '/' })} className="side-link mobile-logout">{t.logout}</button></nav>
 
+        <header className="dash-top">
+          <nav className="dash-crumbs" aria-label={locale === 'fa' ? 'مسیر صفحه' : 'Breadcrumb'}>
+            <Link href="/dashboard">{locale === 'fa' ? 'حساب کاربری' : 'Account'}</Link>
+            {current && current.href !== '/dashboard' && <><span aria-hidden="true">/</span><span className="dash-crumb-group">{current.group}</span><span aria-hidden="true">/</span><b aria-current="page">{current.label}</b></>}
+          </nav>
+          <div className="dash-top-actions">
+            <Link href="/" className="dash-top-link"><Icon name="globe" size={17} /> {locale === 'fa' ? 'مشاهدهٔ سایت' : 'View site'}</Link>
+            <Link href="/dashboard/notifications" className="dash-top-icon" aria-label={locale === 'fa' ? 'اعلان‌ها' : 'Notifications'}><Icon name="bell" size={19} /><NotificationCount /></Link>
+            <Link href="/dashboard/profile" className="dash-top-user" aria-label={locale === 'fa' ? 'تنظیمات حساب' : 'Account settings'}><span className="avatar">{initial}</span></Link>
+          </div>
+        </header>
         <main className="app-main"><PluginOutlet slot="dashboard.top" site={site} locale={locale}/>{children}<PluginOutlet slot="dashboard.bottom" site={site} locale={locale}/></main>
       </div>
     </div>

@@ -19,7 +19,7 @@ export default function EmailAlertPreference() {
   }
   return <section className="card mb-4 mt-4" dir="rtl">
     <h2 className="font-bold mb-3">اطلاع‌رسانی ایمیلی</h2>
-    <label className="flex items-center gap-2"><input type="checkbox" disabled={busy} checked={state.enabled} onChange={(event) => void change(event.target.checked)} />ارسال ایمیل وضعیت پرداخت‌ها، سفارش‌ها، تیکت‌ها و اشتراک به <bdi dir="ltr">{state.email}</bdi></label>
+    <label className="dash-switch"><span>ایمیل وضعیت پرداخت، سفارش، تیکت و اشتراک<small>به <bdi dir="ltr">{state.email}</bdi></small></span><input type="checkbox" role="switch" disabled={busy} checked={state.enabled} onChange={(event) => void change(event.target.checked)} /></label>
     {message && <p role="status" className="text-sm mt-3">{message}</p>}
   </section>
 }
