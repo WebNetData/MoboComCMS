@@ -21,6 +21,7 @@ const TABS = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
   { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
+  { href: '/admin/store/shipments', label: 'مرسوله‌ها' },
   { href: '/admin/store/products', label: 'محصولات' },
   { href: '/admin/store/inventory', label: 'انبار' },
   { href: '/admin/store/brands', label: 'برندها' },

@@ -110,6 +110,7 @@ export async function POST_cartCheckout(req: NextRequest) {
     lines: lines.lines,
     addressId: Number.isSafeInteger(Number(body.addressId)) && Number(body.addressId) > 0 ? Number(body.addressId) : null,
     delivery: body.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
+    carrierId: typeof body?.carrierId === 'string' ? body.carrierId.slice(0, 30) : null,
     payWith: body.payWith === 'wallet' ? 'wallet' : body.payWith === 'gateway' ? 'gateway' : undefined,
     gatewayRef: typeof body.gatewayRef === 'string' ? body.gatewayRef.trim() : undefined,
     discountCode: typeof body.discountCode === 'string' ? body.discountCode : undefined,

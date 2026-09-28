@@ -12,12 +12,16 @@ import { checkoutCart, type Cart } from '@/modules/store/ui/cart-client'
 import { WEEKDAY_FA, type ScheduleDay } from '@/modules/shipping/domain/shipping'
 
 type Delivery = { enabled: boolean; days: ScheduleDay[] }
+type CarrierOption =
+  | { ok: true; carrierId: string; name: string; kind: string; zone: string; fee: number; eta: string; scheduled: boolean; free: boolean; note: string }
+  | { ok: false; carrierId: string; name: string; reason: string }
+const ZONE_FA: Record<string, string> = { city: 'درون‌شهری', province: 'درون‌استانی', country: 'برون‌استانی' }
 
 const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', timeZone: 'UTC' })
 const fullDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`)
 /** Codes whose server message is already written for the customer. */
-const PLAIN_CODES = new Set(['SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
+const PLAIN_CODES = new Set(['NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
 const PROMO_MESSAGES: Record<string, string> = {
   PROMOTION_INVALID: 'کد تخفیف نامعتبر است', PROMOTION_NOT_FOUND: 'کد تخفیف پیدا نشد', PROMOTION_INACTIVE: 'این کد تخفیف فعال نیست یا منقضی شده',
   PROMOTION_SCOPE: 'این کد برای این سفارش قابل استفاده نیست', PROMOTION_MINIMUM: 'مبلغ سفارش به حداقل لازم برای این کد نرسیده', PROMOTION_EXHAUSTED: 'ظرفیت استفاده از این کد تمام شده',
@@ -42,6 +46,9 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
+  const byCarrier = !!cart.shippingByAddress
+  const [carriers, setCarriers] = useState<{ options: CarrierOption[]; weightGrams: number } | null>(null)
+  const [carrierId, setCarrierId] = useState('')
 
   useEffect(() => { let alive = true; fetchWalletBalance(cart.currency).then((value) => alive && setBalance(value)); return () => { alive = false } }, [cart.currency])
   useEffect(() => {
@@ -50,20 +57,38 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
   }, [addresses])
   useEffect(() => { if (error) errorRef.current?.focus() }, [error])
 
+  // Carrier options are priced for the selected address (city, province and parcel weight).
+  useEffect(() => {
+    if (!byCarrier || !addressId) { setCarriers(null); return }
+    let alive = true
+    setCarriers(null)
+    fetch(`/api/shipping/quotes?addressId=${addressId}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((body) => {
+      if (!alive || !body) return
+      setCarriers({ options: body.options, weightGrams: body.weightGrams })
+      setCarrierId((current) => body.options.some((o: CarrierOption) => o.ok && o.carrierId === current) ? current : (body.options.find((o: CarrierOption) => o.ok)?.carrierId || ''))
+    }).catch(() => null)
+    return () => { alive = false }
+  }, [byCarrier, addressId])
+
   const address = addresses?.find((a) => a.id === addressId) || null
+  const carrier = carriers?.options.find((o): o is Extract<CarrierOption, { ok: true }> => o.ok && o.carrierId === carrierId) || null
+  const needsSchedule = delivery.enabled && (!byCarrier || !!carrier?.scheduled)
+  const shippingFee = byCarrier ? carrier?.fee || 0 : cart.shipping
   const day = days.find((d) => d.date === date) || null
   const slot = day?.slots.find((s) => s.id === slotId && s.available) || null
-  const total = cart.itemsTotal + cart.shipping
+  const total = cart.itemsTotal + shippingFee
   const covered = balance >= total
 
   const missing = useMemo(() => {
     if (cart.blocked) return 'سبد خرید شما نیاز به بازبینی دارد'
     if (!physical) return ''
     if (!address) return 'یک آدرس تحویل انتخاب کنید'
-    if (delivery.enabled && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
-    if (delivery.enabled && !slot) return 'زمان ارسال را انتخاب کنید'
+    if (byCarrier && !carriers) return 'در حال محاسبهٔ هزینهٔ ارسال…'
+    if (byCarrier && !carrier) return 'روش ارسال را انتخاب کنید'
+    if (needsSchedule && !days.length) return 'در حال حاضر زمان ارسالی برای انتخاب وجود ندارد'
+    if (needsSchedule && !slot) return 'زمان ارسال را انتخاب کنید'
     return ''
-  }, [cart.blocked, physical, address, delivery.enabled, days.length, slot])
+  }, [cart.blocked, physical, address, byCarrier, carriers, carrier, needsSchedule, days.length, slot])
 
   async function refreshSchedule() {
     const response = await fetch('/api/delivery/schedule', { cache: 'no-store' }).catch(() => null)
@@ -77,7 +102,8 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
     try {
       const result = await checkoutCart({
         addressId: physical && address ? address.id : undefined,
-        delivery: physical && slot && day ? { date: day.date, slotId: slot.id } : undefined,
+        delivery: physical && needsSchedule && slot && day ? { date: day.date, slotId: slot.id } : undefined,
+        carrierId: physical && byCarrier && carrier ? carrier.carrierId : undefined,
         gatewayRef: gatewayRef || undefined,
         discountCode: code.trim() || undefined,
       })
@@ -88,6 +114,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
       }
       if (result.code === 'DELIVERY_SLOT_FULL' || result.code === 'DELIVERY_SLOT_INVALID') { setSlotId(''); await refreshSchedule() }
       if (result.code === 'ADDRESS_NOT_FOUND') await reload()
+      if (result.code === 'CARRIER_UNAVAILABLE' || result.code === 'NO_CARRIER') setCarrierId('')
       if (PROMO_MESSAGES[result.code]) setCodeOpen(true)
       setError({ code: result.code, message: PROMO_MESSAGES[result.code] || result.message, needed: result.needed, currency: result.currency })
     } catch {
@@ -132,13 +159,33 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
           </div>}
         </section>}
 
-        {physical && <section className="sh-panel" aria-labelledby="sh-time-title">
+        {physical && byCarrier && address && <section className="sh-panel" aria-labelledby="sh-carrier-title">
+          <header className="sh-panel-head">
+            <h2 id="sh-carrier-title">روش ارسال</h2>
+            {carriers && <span className="sh-muted">وزن مرسوله حدود {(Math.ceil(carriers.weightGrams / 100) / 10).toLocaleString('fa-IR')} کیلوگرم · {address.city}</span>}
+          </header>
+          {!carriers ? <div className="sh-skeleton" aria-busy="true" aria-label="در حال محاسبهٔ هزینهٔ ارسال" /> : !carriers.options.some((o) => o.ok) ? <p className="sh-notice is-error" role="status">برای این آدرس روش ارسالی در دسترس نیست. آدرس دیگری انتخاب کنید یا با پشتیبانی تماس بگیرید.</p>
+            : <div className="sh-carriers" role="radiogroup" aria-label="روش ارسال">
+              {carriers.options.map((o) => o.ok ? <label key={o.carrierId} className={`sh-option sh-carrier${o.carrierId === carrierId ? ' is-selected' : ''}`}>
+                <input type="radio" name="carrier" checked={o.carrierId === carrierId} onChange={() => { setCarrierId(o.carrierId); setSlotId('') }} />
+                <div className="sh-carrier-body">
+                  <b>{o.name}</b>
+                  <small className="sh-muted">{o.scheduled ? 'تحویل در روز و ساعت انتخابی' : `تحویل ${o.eta}`} · {ZONE_FA[o.zone] || o.zone}{o.note ? ` · ${o.note}` : ''}</small>
+                </div>
+                <span className="sh-carrier-fee">{o.fee > 0 ? <Amount value={o.fee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</span>
+              </label> : <div key={o.carrierId} className="sh-option sh-carrier is-off" aria-disabled="true">
+                <div className="sh-carrier-body"><b>{o.name}</b><small className="sh-muted">{o.reason}</small></div>
+              </div>)}
+            </div>}
+        </section>}
+
+        {physical && (!byCarrier || needsSchedule || !carrier) && <section className="sh-panel" aria-labelledby="sh-time-title">
           <header className="sh-panel-head">
             <h2 id="sh-time-title">زمان ارسال</h2>
             {slot && day && <span className="sh-muted">{fullDate.format(asDate(day.date))} · ساعت {slot.label}</span>}
           </header>
           <ul className="sx-ship-items" aria-label="کالاهای ارسالی">{cart.lines.filter((line) => line.kind === 'PHYSICAL').map((line) => <li key={line.id} title={line.name}>{line.image ? <img src={line.image} alt={line.name} /> : <StoreIcon name="box" size={22} />}{line.quantity > 1 && <span className="num">{line.quantity.toLocaleString('fa-IR')}×</span>}</li>)}</ul>
-          {!delivery.enabled ? <p className="sh-muted">سفارش پس از پردازش در اولین فرصت ارسال می‌شود و کد رهگیری در بخش سفارش‌ها نمایش داده می‌شود.</p>
+          {!needsSchedule ? <p className="sh-muted">سفارش پس از پردازش در اولین فرصت ارسال می‌شود و کد رهگیری در بخش سفارش‌ها نمایش داده می‌شود.</p>
             : !days.length ? <p className="sh-notice is-error" role="status">فعلاً زمان ارسالی برای انتخاب وجود ندارد؛ کمی بعد دوباره سر بزنید.</p>
               : <>
                 <div className="sh-days" role="tablist" aria-label="روز ارسال">
@@ -155,7 +202,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
                   {day.slots.map((s) => <label key={s.id} className={`sh-slot${s.id === slotId ? ' is-selected' : ''}${s.available ? '' : ' is-full'}`}>
                     <input type="radio" name="slot" value={s.id} checked={s.id === slotId} disabled={!s.available} onChange={() => setSlotId(s.id)} />
                     <span className="sh-slot-time">ساعت {s.label}</span>
-                    <span className="sh-slot-note">{!s.available ? 'ظرفیت تکمیل' : s.remaining > 0 && s.remaining <= 3 ? `${s.remaining.toLocaleString('fa-IR')} ظرفیت باقی‌مانده` : cart.shipping > 0 ? <Amount value={cart.shipping} currency={cart.currency} /> : 'ارسال رایگان'}</span>
+                    <span className="sh-slot-note">{!s.available ? 'ظرفیت تکمیل' : s.remaining > 0 && s.remaining <= 3 ? `${s.remaining.toLocaleString('fa-IR')} ظرفیت باقی‌مانده` : shippingFee > 0 ? <Amount value={shippingFee} currency={cart.currency} /> : 'ارسال رایگان'}</span>
                   </label>)}
                 </div>}
               </>}
@@ -182,7 +229,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
         <dl className="sh-totals">
           <div><dt>قیمت کالاها</dt><dd><Amount value={cart.listTotal} currency={cart.currency} /></dd></div>
           {cart.saving > 0 && <div className="sx-save-row"><dt>سود شما</dt><dd>−<Amount value={cart.saving} currency={cart.currency} /></dd></div>}
-          {physical && <div><dt>هزینهٔ ارسال</dt><dd>{cart.shipping > 0 ? <Amount value={cart.shipping} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</dd></div>}
+          {physical && <div><dt>هزینهٔ ارسال{carrier && <small className="sh-muted"> ({carrier.name})</small>}</dt><dd>{byCarrier && !carrier ? <span className="sh-muted">—</span> : shippingFee > 0 ? <Amount value={shippingFee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</dd></div>}
           {balance > 0 && <div><dt>از کیف پول</dt><dd>−<Amount value={Math.min(balance, total)} currency={cart.currency} /></dd></div>}
           <div className="sh-total"><dt>مبلغ قابل پرداخت</dt><dd><Amount value={Math.max(0, total - balance)} currency={cart.currency} /></dd></div>
         </dl>

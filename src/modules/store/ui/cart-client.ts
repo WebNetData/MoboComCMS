@@ -11,7 +11,7 @@ export type CartLine = {
 }
 export type Cart = {
   token: string; lines: CartLine[]; count: number; currency: string; itemsTotal: number; listTotal: number; saving: number
-  shipping: number; total: number; hasPhysical: boolean; blocked: boolean
+  shipping: number; total: number; hasPhysical: boolean; blocked: boolean; shippingByAddress?: boolean
 }
 export type CartResult = { ok: true; cart: Cart; limited?: boolean } | { ok: false; error: string; code: string; status: number }
 
@@ -45,7 +45,7 @@ export const emptyCart = () => call('DELETE')
 const KEY = 'mc.cart.checkout.key'
 
 /** Places the order for the whole cart. The idempotency key survives a lost response. */
-export async function checkoutCart(payload: { addressId?: number; delivery?: { date: string; slotId: string }; gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }) {
+export async function checkoutCart(payload: { addressId?: number; delivery?: { date: string; slotId: string }; carrierId?: string; gatewayRef?: string; discountCode?: string; payWith?: 'wallet' | 'gateway' }) {
   let key = ''
   try { key = sessionStorage.getItem(KEY) || '' } catch { key = '' }
   if (!key) {

@@ -1,4 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
+import { getCarrierSettings } from '@/modules/shipping/server/carriers'
+import { addToCart, cartView } from '@/modules/store/server/cart'
 import type { Metadata } from 'next'
 import { db } from '@/platform/database/prisma'
 import { getServerTheme } from '@/i18n/server'
@@ -35,6 +37,14 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   const here = `/checkout/product/${product.slug}${variant ? `?variant=${variant.id}` : ''}`
   if (!viewer.userId) redirect(`/login?next=${encodeURIComponent(here)}`)
   if (product.access === 'MEMBERS' && !viewer.member) redirect('/vip')
+
+  // With carriers on, shipping is priced per address and carrier: "buy now" goes through the cart checkout.
+  if ((await getCarrierSettings()).enabled) {
+    const owner = { userId: viewer.userId, token: null }
+    const cart = await cartView(owner)
+    if (!cart.lines.some((line) => line.productId === product.id && (line.variantId || null) === (variant?.id || null))) await addToCart(owner, { productId: product.id, variantId: variant?.id || null, quantity: 1 }).catch(() => null)
+    redirect('/checkout/cart')
+  }
 
   const currency = normalizeCurrency(product.currency)
   const regularMinor = variant ? variant.priceMinor || toMinor(variant.price, currency) : product.priceMinor || toMinor(product.price, currency)

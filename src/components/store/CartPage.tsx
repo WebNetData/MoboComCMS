@@ -91,7 +91,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
         {cart.saving > 0 && <div className="is-save"><dt>سود شما از خرید</dt><dd><Amount value={cart.saving} currency={cart.currency} /></dd></div>}
         <div className="is-total"><dt>جمع سبد خرید</dt><dd><Amount value={cart.itemsTotal} currency={cart.currency} /></dd></div>
       </dl>
-      {cart.hasPhysical && <p className="sx-cart-hint"><StoreIcon name="truck" size={16} />{cart.shipping > 0 ? <>هزینهٔ ارسال: <Amount value={cart.shipping} currency={cart.currency} /> (در مرحلهٔ بعد محاسبه می‌شود)</> : 'ارسال این سفارش رایگان است'}</p>}
+      {cart.hasPhysical && <p className="sx-cart-hint"><StoreIcon name="truck" size={16} />{cart.shippingByAddress ? 'هزینهٔ ارسال بر اساس شهر، وزن و روش ارسال (پست، تیپاکس، پیک…) در مرحلهٔ بعد محاسبه می‌شود' : cart.shipping > 0 ? <>هزینهٔ ارسال: <Amount value={cart.shipping} currency={cart.currency} /> (در مرحلهٔ بعد محاسبه می‌شود)</> : 'ارسال این سفارش رایگان است'}</p>}
       <button type="button" className="sx-btn is-primary is-block is-large" onClick={proceed} disabled={cart.blocked || busy !== null}>تأیید و تکمیل سفارش</button>
       {cart.blocked && <p className="sx-cart-hint is-warn">برای ادامه، کالاهای دارای هشدار را حذف یا اصلاح کنید.</p>}
       {note && <p className="sx-cart-hint">{note}</p>}

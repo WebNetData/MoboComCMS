@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, nextStatuses, trackingIndex, type FulfilmentStatus } from '@/modules/store/domain/store'
 import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson } from '../../shared'
+import ShipmentPanel from './ShipmentPanel'
 
 type Detail = {
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
@@ -12,6 +13,7 @@ type Detail = {
   schedule: { date: string; slot: string } | null
   lines: { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number }[]
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
+  shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number } | null
   invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean
   customer: { id: number; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
   payments: { id: number; provider: string; status: string; amount: number; createdAt: string }[]
@@ -25,7 +27,7 @@ const ACTION_LABEL: Record<FulfilmentStatus, string> = {
 
 export default function StoreOrderPage() {
   const { id } = useParams<{ id: string }>()
-  const { data, error, setData } = useJson<Detail>(`/api/admin/store/orders/${id}`)
+  const { data, error, setData, reload } = useJson<Detail>(`/api/admin/store/orders/${id}`)
   const [to, setTo] = useState<FulfilmentStatus | ''>('')
   const [tracking, setTracking] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -86,7 +88,7 @@ export default function StoreOrderPage() {
           <dl className="sa-totals">
             <div><dt>جمع کالاها</dt><dd><Money value={data.itemsTotal} currency={data.currency} /></dd></div>
             {data.discount > 0 && <div><dt>کد تخفیف {data.discountCode && <span dir="ltr">({data.discountCode})</span>}</dt><dd>−<Money value={data.discount} currency={data.currency} /></dd></div>}
-            <div><dt>هزینهٔ ارسال</dt><dd>{data.shipping > 0 ? <Money value={data.shipping} currency={data.currency} /> : 'رایگان'}</dd></div>
+            <div><dt>هزینهٔ ارسال{data.shippingMethod && <small className="sa-sub">{data.shippingMethod.carrierName}{data.shippingMethod.eta && ` · ${data.shippingMethod.eta}`}</small>}</dt><dd>{data.shipping > 0 ? <Money value={data.shipping} currency={data.currency} /> : 'رایگان'}</dd></div>
             {data.walletApplied > 0 && <div><dt>پرداخت از کیف پول</dt><dd><Money value={data.walletApplied} currency={data.currency} /></dd></div>}
             <div className="is-total"><dt>مبلغ سفارش</dt><dd><Money value={data.total} currency={data.currency} /></dd></div>
           </dl>
@@ -105,6 +107,7 @@ export default function StoreOrderPage() {
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void move()}>{busy ? 'در حال ثبت…' : `ثبت «${ACTION_LABEL[to]}»`}</button>
           </div>}
         </section>}
+        {!virtual && data.orderStatus === 'PAID' && <ShipmentPanel orderId={data.id} method={data.shippingMethod} canIssue={!closed && data.fulfilment !== 'DELIVERED'} onChanged={() => void reload()} />}
         {data.orderStatus === 'PENDING' && <Notice>این سفارش هنوز پرداخت نشده است؛ پس از تأیید پرداخت (از صفحهٔ فاکتور یا رسید کارت‌به‌کارت) وارد صف پردازش می‌شود.</Notice>}
 
         <section className="sa-card">

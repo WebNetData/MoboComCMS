@@ -207,6 +207,7 @@ model Order {
   lines         OrderLine[]
   events        OrderEvent[]
   returns       ReturnRequest[]
+  shipment      Shipment?
 }
 
 model OrderItem {
@@ -2427,4 +2428,47 @@ model ReturnRequest {
   @@index([orderId])
   @@index([userId, createdAt])
   @@index([status, createdAt])
+}
+
+/// A parcel handed to a carrier (waybill): our own waybill number, the carrier's tracking code and its journey.
+model Shipment {
+  id           Int       @id @default(autoincrement())
+  orderId      Int       @unique
+  waybill      String    @unique
+  carrier      String
+  carrierName  String    @default("")
+  trackingCode String    @default("")
+  status       String    @default("READY") // READY | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | RETURNED | CANCELLED
+  weightGrams  Int       @default(0)
+  parcels      Int       @default(1)
+  feeMinor     BigInt    @default(0) // charged to the customer
+  costMinor    BigInt    @default(0) // paid to the carrier (optional, for margins)
+  currency     String    @default("IRT")
+  sender       String    @default("{}")
+  receiver     String    @default("{}")
+  note         String    @default("")
+  createdBy    Int?
+  shippedAt    DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events       ShipmentEvent[]
+
+  @@index([status, createdAt])
+  @@index([trackingCode])
+}
+
+/// One step of a shipment's journey, shown on the public tracking page.
+model ShipmentEvent {
+  id         Int      @id @default(autoincrement())
+  shipmentId Int
+  status     String
+  note       String   @default("")
+  location   String   @default("")
+  actorId    Int?
+  createdAt  DateTime @default(now())
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, createdAt])
 }

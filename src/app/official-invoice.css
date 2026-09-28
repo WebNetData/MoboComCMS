@@ -72,3 +72,32 @@
 .oi-toolbar .btn { background: #fff; color: #111827; border: 1px solid #d1d5db; }
 .oi-toolbar .btn:hover { border-color: #111827; }
 .oi-toolbar .btn-primary, .oi-toolbar button.btn { background: #111827; color: #fff; border-color: #111827; }
+
+/* ============================================================
+   Waybill labels (lb-): A6, one per printed page.
+   ============================================================ */
+.lb-page { padding: 16px; background: #eef0f3; color: #111; min-height: 100vh; font-family: var(--font-vazir, Vazirmatn), Tahoma, sans-serif; }
+.lb-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 13px; color: #374151; }
+.lb-toolbar button { margin-inline-start: auto; padding: 8px 18px; border: 0; border-radius: 9px; background: #111827; color: #fff; font: inherit; cursor: pointer; }
+.lb-error { padding: 24px; }
+.lb-sheet { display: flex; flex-wrap: wrap; gap: 16px; }
+.lb-label { width: 100mm; min-height: 150mm; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 6mm; background: #fff; border: 1.5px dashed #9ca3af; font-size: 11.5px; line-height: 1.8; }
+.lb-label header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; border-bottom: 2px solid #111; font-size: 13px; }
+.lb-label header b { font-size: 16px; }
+.lb-code { display: grid; justify-items: center; gap: 2px; padding: 4px 0; }
+.lb-barcode { width: 100%; height: 22mm; }
+.lb-code span { font: 700 13px ui-monospace, monospace; letter-spacing: 2px; }
+.lb-label h3 { margin: 0; font-size: 11px; color: #4b5563; }
+.lb-label p { margin: 0; }
+.lb-to { flex: 1; padding: 6px 8px; border: 2px solid #111; border-radius: 6px; }
+.lb-name { font-size: 16px; font-weight: 800; }
+.lb-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px !important; }
+.lb-from { padding: 4px 8px; border: 1px solid #9ca3af; border-radius: 6px; font-size: 10.5px; }
+.lb-label footer { display: flex; justify-content: space-between; gap: 8px; padding-top: 4px; border-top: 1px solid #111; }
+@media print {
+  @page { size: 100mm 150mm; margin: 0; }
+  body:has(.lb-sheet) * { visibility: hidden; }
+  body:has(.lb-sheet) .lb-sheet, body:has(.lb-sheet) .lb-sheet * { visibility: visible; }
+  .lb-sheet { position: absolute; inset: 0 auto auto 0; display: block; }
+  .lb-label { border: 0; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
