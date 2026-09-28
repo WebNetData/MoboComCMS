@@ -11,6 +11,10 @@ import CinemaHero, { type HeroSlide } from '@/components/media/CinemaHero'
 import VipStrip from '@/components/media/VipStrip'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { getCinemaSettings } from '@/modules/cinema/server/admin'
+import { railOrder } from '@/shared/section-layout'
+import type { CinemaRail } from '@/modules/cinema/domain/cinema'
+import { Fragment, type ReactNode } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +27,8 @@ export default async function CinemaHomePage() {
   await requireModule('cinema')
   const landing = await sectionLanding('cinema')
   if (landing) return landing
-  const [data, locale, viewer] = await Promise.all([getCinemaHome(), getServerLocale(), getViewer()])
+  const settings = await getCinemaSettings()
+  const [data, locale, viewer] = await Promise.all([getCinemaHome({ shelfSize: settings.shelfSize, genreShelves: settings.genreShelfCount, topRatedMin: settings.topRatedMin, heroIds: settings.heroIds }), getServerLocale(), getViewer()])
   const fa = locale === 'fa'
   const slides: HeroSlide[] = data.hero.map((ti) => ({
     slug: ti.slug,
@@ -31,7 +36,7 @@ export default async function CinemaHomePage() {
     subtitle: ti.originalTitle && ti.originalTitle !== ti.title ? ti.originalTitle : '',
     summary: (fa ? ti.summary : ti.summaryEn || ti.summary).slice(0, 260),
     backdrop: ti.backdrop, poster: ti.poster,
-    imdb: ti.imdbRating != null ? ti.imdbRating.toLocaleString(fa ? 'fa-IR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '',
+    imdb: settings.showImdb && ti.imdbRating != null ? ti.imdbRating.toLocaleString(fa ? 'fa-IR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '',
     year: ti.year ? yr(ti.year, fa) : '',
     genres: ti.genres.slice(0, 3),
     badges: [ti.quality, ti.dubbed ? (fa ? 'دوبله فارسی' : 'Persian dub') : '', ti.subtitle ? (fa ? 'زیرنویس' : 'Subtitles') : ''].filter(Boolean),
@@ -45,23 +50,26 @@ export default async function CinemaHomePage() {
   )
   const empty = !data.movies.length && !data.series.length
 
+  // Blocks render in the order (and visibility) chosen in «مدیریت فیلم و سریال ← صفحهٔ اصلی».
+  const blocks: Record<CinemaRail, () => ReactNode> = {
+    hero: () => null,
+    genres: () => data.genres.length > 0 && <Chips items={data.genres} hrefFor={(g) => `/cinema/browse?genre=${encodeURIComponent(g)}`} all={{ label: fa ? 'همه ژانرها' : 'All genres', href: '/cinema/browse' }} />,
+    movies: () => shelf(fa ? 'جدیدترین فیلم‌ها' : 'New movies', data.movies, '/cinema/browse?kind=MOVIE', fa ? 'تازه‌ها' : 'Fresh'),
+    series: () => shelf(fa ? 'سریال‌های تازه' : 'New series', data.series, '/cinema/browse?kind=SERIES', fa ? 'قسمت‌های جدید' : 'New episodes'),
+    topRated: () => shelf(fa ? 'برترین‌ها از نگاه IMDb' : 'Top rated on IMDb', data.topRated, '/cinema/browse?sort=imdb', fa ? 'رتبه‌بندی' : 'Ranking', true),
+    dubbed: () => shelf(fa ? 'دوبله فارسی' : 'Persian dub', data.dubbed, '/cinema/browse?dubbed=1'),
+    members: () => data.members.length > 0 && <section className="cn-vip-shelf">{shelf(fa ? 'ویژه اعضای VIP' : 'VIP exclusives', data.members, undefined, '♛ VIP')}</section>,
+    genreShelves: () => data.genreShelves.map((row) => row.titles.length > 0 && <div key={row.genre}>{shelf(row.genre, row.titles, `/cinema/browse?genre=${encodeURIComponent(row.genre)}`)}</div>),
+    vipStrip: () => !viewer.member && <VipStrip fa={fa} kind="cinema" />,
+  }
+  const order = railOrder(settings.rails)
+
   return (
     <MediaShell section="cinema" active="home" nav={cinemaNav(fa)} search={{ action: '/cinema/browse', placeholder: fa ? 'نام فیلم، سریال یا کارگردان…' : 'Film, series or director…' }}>
-      <CinemaHero slides={slides} fa={fa} />
+      {order.includes('hero') && <CinemaHero slides={slides} fa={fa} />}
       <div className="container md-body">
-        {data.genres.length > 0 && <Chips items={data.genres} hrefFor={(g) => `/cinema/browse?genre=${encodeURIComponent(g)}`} all={{ label: fa ? 'همه ژانرها' : 'All genres', href: '/cinema/browse' }} />}
         {empty && <EmptyState fa={fa} title={fa ? 'سینمای سایت آماده است' : 'The cinema is ready'} text={fa ? 'به‌زودی فیلم‌ها و سریال‌های تازه اینجا منتشر می‌شوند.' : 'New films and series are coming soon.'} />}
-        {shelf(fa ? 'جدیدترین فیلم‌ها' : 'New movies', data.movies, '/cinema/browse?kind=MOVIE', fa ? 'تازه‌ها' : 'Fresh')}
-        {shelf(fa ? 'سریال‌های تازه' : 'New series', data.series, '/cinema/browse?kind=SERIES', fa ? 'قسمت‌های جدید' : 'New episodes')}
-        {shelf(fa ? 'برترین‌ها از نگاه IMDb' : 'Top rated on IMDb', data.topRated, '/cinema/browse?sort=imdb', fa ? 'رتبه‌بندی' : 'Ranking', true)}
-        {shelf(fa ? 'دوبله فارسی' : 'Persian dub', data.dubbed, '/cinema/browse?dubbed=1')}
-        {data.members.length > 0 && (
-          <section className="cn-vip-shelf">
-            {shelf(fa ? 'ویژه اعضای VIP' : 'VIP exclusives', data.members, undefined, '♛ VIP')}
-          </section>
-        )}
-        {data.genreShelves.map((row) => row.titles.length > 0 && <div key={row.genre}>{shelf(row.genre, row.titles, `/cinema/browse?genre=${encodeURIComponent(row.genre)}`)}</div>)}
-        {!viewer.member && <VipStrip fa={fa} kind="cinema" />}
+        {order.filter((key) => key !== 'hero').map((key) => <Fragment key={key}>{blocks[key]()}</Fragment>)}
       </div>
     </MediaShell>
   )

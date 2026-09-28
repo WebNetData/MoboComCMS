@@ -47,22 +47,35 @@ function allOrEmpty<P extends readonly Promise<unknown>[]>(queries: [...P]): Pro
   return Promise.all(queries).catch(() => queries.map(() => [])) as Promise<{ [K in keyof P]: Awaited<P[K]> }>
 }
 
-export async function getMusicHome() {
-  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks] = await allOrEmpty([
+/** Music home read model; layout options come from the music section settings. */
+export async function getMusicHome(opts: { latestSize?: number; chartSize?: number; chartSource?: 'plays' | 'downloads' | 'recent'; heroTrackIds?: number[]; featuredAlbumIds?: number[] } = {}) {
+  const latestTake = Math.min(30, Math.max(6, opts.latestSize || 12))
+  const chartTake = Math.min(30, Math.max(5, opts.chartSize || 10))
+  const chartOrder = opts.chartSource === 'downloads' ? [{ downloads: 'desc' as const }, { publishedAt: 'desc' as const }] : opts.chartSource === 'recent' ? [{ publishedAt: 'desc' as const }] : [{ plays: 'desc' as const }, { publishedAt: 'desc' as const }]
+  const heroIds = (opts.heroTrackIds || []).slice(0, 5)
+  const albumIds = (opts.featuredAlbumIds || []).slice(0, 12)
+  const [featuredAlbums, latestTracks, topTracks, latestAlbums, artists, playlists, genreRows, featuredTracks, pickedTracks, pickedAlbums] = await allOrEmpty([
     db.musicAlbum.findMany({ where: { ...live(), featured: true }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
-    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 20 }),
-    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
+    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: Math.max(20, latestTake) }),
+    db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: chartOrder, take: chartTake }),
     db.musicAlbum.findMany({ where: live(), include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
     db.musicArtist.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
     db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
+    heroIds.length ? db.musicTrack.findMany({ where: { ...live(), id: { in: heroIds } }, include: trackInclude }) : Promise.resolve([]),
+    albumIds.length ? db.musicAlbum.findMany({ where: { ...live(), id: { in: albumIds } }, include: albumInclude }) : Promise.resolve([]),
   ])
   const genres = countList(genreRows.map((row: { genre: string }) => row.genre)).slice(0, 14)
+  const inOrder = <T extends { id: number }>(ids: number[], rows: T[]) => { const byId = new Map(rows.map((row) => [row.id, row])); return ids.map((id) => byId.get(id)).filter((row): row is T => !!row) }
+  const heroPicked = inOrder(heroIds, pickedTracks as any[])
+  const albumsPicked = inOrder(albumIds, pickedAlbums as any[])
   return {
-    featuredAlbums: featuredAlbums.length ? featuredAlbums.map(toAlbum) : latestAlbums.slice(0, 5).map(toAlbum),
-    featuredTracks: featuredTracks.map(toTrack),
+    featuredAlbums: albumsPicked.length ? albumsPicked.map(toAlbum) : featuredAlbums.length ? featuredAlbums.map(toAlbum) : latestAlbums.slice(0, 5).map(toAlbum),
+    featuredTracks: (heroPicked.length ? heroPicked : featuredTracks).map(toTrack),
+    heroPicked: heroPicked.length > 0,
     latestTracks: latestTracks.map(toTrack),
+    latestSize: latestTake,
     topTracks: topTracks.map(toTrack),
     latestAlbums: latestAlbums.map(toAlbum),
     artists: artists as ArtistRef[],
@@ -167,22 +180,29 @@ export async function publicLinks(ownerType: string, ids: number[]): Promise<Map
   return map
 }
 
-export async function getCinemaHome() {
-  const [featured, movies, series, topRated, members, dubbed, genreRows] = await allOrEmpty([
+/** Cinema home read model; layout options come from the cinema section settings. */
+export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: number; topRatedMin?: number; heroIds?: number[] } = {}) {
+  const take = Math.min(24, Math.max(6, opts.shelfSize || 16))
+  const shelves = Math.min(6, Math.max(0, opts.genreShelves ?? 3))
+  const heroIds = (opts.heroIds || []).slice(0, 8)
+  const [featured, movies, series, topRated, members, dubbed, genreRows, picked] = await allOrEmpty([
     db.cinemaTitle.findMany({ where: { ...live(), featured: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
-    db.cinemaTitle.findMany({ where: { ...live(), kind: 'MOVIE' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
-    db.cinemaTitle.findMany({ where: { ...live(), kind: 'SERIES' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
-    db.cinemaTitle.findMany({ where: { ...live(), imdbRating: { not: null } }, include: titleInclude, orderBy: { imdbRating: 'desc' }, take: 10 }),
-    db.cinemaTitle.findMany({ where: { ...live(), access: 'MEMBERS' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
-    db.cinemaTitle.findMany({ where: { ...live(), dubbed: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }),
+    db.cinemaTitle.findMany({ where: { ...live(), kind: 'MOVIE' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), kind: 'SERIES' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), imdbRating: opts.topRatedMin ? { gte: opts.topRatedMin } : { not: null } }, include: titleInclude, orderBy: { imdbRating: 'desc' }, take: Math.min(take, 10) }),
+    db.cinemaTitle.findMany({ where: { ...live(), access: 'MEMBERS' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), dubbed: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
     db.cinemaTitle.findMany({ where: live(), select: { genres: true }, take: 600 }),
+    heroIds.length ? db.cinemaTitle.findMany({ where: { ...live(), id: { in: heroIds } }, include: titleInclude }) : Promise.resolve([]),
   ])
   const genres = countList(genreRows.map((row: { genres: string }) => row.genres)).slice(0, 16)
-  const genreShelves = await Promise.all(genres.slice(0, 3).map(async (genre) => ({
+  const genreShelves = await Promise.all(genres.slice(0, shelves).map(async (genre) => ({
     genre,
-    titles: (await db.cinemaTitle.findMany({ where: { ...live(), genres: { contains: genre } }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 16 }).catch(() => [])).map(toTitle),
+    titles: (await db.cinemaTitle.findMany({ where: { ...live(), genres: { contains: genre } }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }).catch(() => [])).map(toTitle),
   })))
-  const hero = featured.length ? featured : [...movies, ...series].sort((a: any, b: any) => +b.publishedAt - +a.publishedAt).slice(0, 5)
+  const byId = new Map(picked.map((row: any) => [row.id, row]))
+  const chosen = heroIds.map((id) => byId.get(id)).filter(Boolean)
+  const hero = chosen.length ? chosen : featured.length ? featured : [...movies, ...series].sort((a: any, b: any) => +b.publishedAt - +a.publishedAt).slice(0, 5)
   return {
     hero: hero.map(toTitle), movies: movies.map(toTitle), series: series.map(toTitle), topRated: topRated.map(toTitle),
     members: members.map(toTitle), dubbed: dubbed.map(toTitle), genres, genreShelves,

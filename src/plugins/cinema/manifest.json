@@ -4,7 +4,7 @@
   "nameEn": "Film & series",
   "description": "فیلم و سریال با فصل و قسمت، لینک پخش و دانلود بر اساس کیفیت، دوبله و زیرنویس، بازیگران و تریلر.",
   "descriptionEn": "Movies and series with seasons/episodes, stream and download links by quality, dubbing and subtitles, cast and trailers.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "kind": "module",
   "apiVersion": 1,
   "category": "content",
@@ -31,6 +31,17 @@
     "items": [
       {
         "href": "/admin/cinema",
+        "label": "داشبورد فیلم و سریال",
+        "labelEn": "Film dashboard",
+        "icon": "grid",
+        "permissions": [
+          "cinema.manage",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/cinema/titles",
         "label": "فیلم‌ها و سریال‌ها",
         "labelEn": "Titles",
         "icon": "grid",
@@ -47,6 +58,16 @@
         "permissions": [
           "cinema.manage",
           "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/cinema/settings",
+        "label": "صفحهٔ اصلی فیلم و سریال",
+        "labelEn": "Film home",
+        "icon": "sliders",
+        "permissions": [
+          "cinema.manage",
+          "settings.manage"
         ]
       },
       {

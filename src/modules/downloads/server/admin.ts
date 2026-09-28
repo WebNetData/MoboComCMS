@@ -37,8 +37,8 @@ async function ownerLabels(links: { ownerType: string; ownerId: number }[]) {
   for (const row of software) map.set(`software:${row.id}`, { title: row.title, path: OWNER_PATH.software(row.slug), admin: '/admin/software' })
   for (const row of games) map.set(`game:${row.id}`, { title: row.title, path: OWNER_PATH.game(row.slug), admin: '/admin/games' })
   for (const row of updates) map.set(`gameupdate:${row.id}`, { title: `${row.game.title} — ${row.title}`, path: OWNER_PATH.game(row.game.slug), admin: `/admin/games/${row.game.id}` })
-  for (const row of titles) map.set(`title:${row.id}`, { title: row.title, path: OWNER_PATH.title(row.slug), admin: '/admin/cinema' })
-  for (const row of episodes) map.set(`episode:${row.id}`, { title: `${row.season.title.title} — فصل ${row.season.number} قسمت ${row.number}`, path: OWNER_PATH.title(row.season.title.slug), admin: '/admin/cinema' })
+  for (const row of titles) map.set(`title:${row.id}`, { title: row.title, path: OWNER_PATH.title(row.slug), admin: '/admin/cinema/titles' })
+  for (const row of episodes) map.set(`episode:${row.id}`, { title: `${row.season.title.title} — فصل ${row.season.number} قسمت ${row.number}`, path: OWNER_PATH.title(row.season.title.slug), admin: '/admin/cinema/titles' })
   return map
 }
 
@@ -99,7 +99,7 @@ export async function downloadStats(days = 14) {
   const top = [...perItem].sort((a, b) => b[1] - a[1]).slice(0, 10)
   const owners = await ownerLabels(top.map(([key]) => ({ ownerType: key.split(':')[0], ownerId: Number(key.split(':')[1]) })))
   const tracks = await db.musicTrack.findMany({ where: { id: { in: top.filter(([key]) => key.startsWith('track:')).map(([key]) => Number(key.split(':')[1])) } }, select: { id: true, title: true, slug: true } })
-  for (const track of tracks) owners.set(`track:${track.id}`, { title: track.title, path: `/music/track/${track.slug}`, admin: '/admin/music' })
+  for (const track of tracks) owners.set(`track:${track.id}`, { title: track.title, path: `/music/track/${track.slug}`, admin: '/admin/music/library' })
   return {
     series: [...series].map(([day, count]) => ({ day, count })),
     today: series.get(tehranDay()) || 0,

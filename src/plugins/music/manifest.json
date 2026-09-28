@@ -4,7 +4,7 @@
   "nameEn": "Music",
   "description": "آهنگ، آلبوم، هنرمند و پلی‌لیست با پخش‌کنندهٔ سراسری، دانلود با کیفیت ۱۲۸ و ۳۲۰ و متن آهنگ.",
   "descriptionEn": "Tracks, albums, artists and playlists with a site-wide player, 128/320 downloads and lyrics.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "kind": "module",
   "apiVersion": 1,
   "category": "content",
@@ -61,6 +61,17 @@
     "items": [
       {
         "href": "/admin/music",
+        "label": "داشبورد موزیک",
+        "labelEn": "Music dashboard",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/music/library",
         "label": "آهنگ، آلبوم و هنرمند",
         "labelEn": "Tracks, albums & artists",
         "icon": "grid",
@@ -77,6 +88,16 @@
         "permissions": [
           "music.manage",
           "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/music/settings",
+        "label": "صفحهٔ اصلی موزیک",
+        "labelEn": "Music home",
+        "icon": "sliders",
+        "permissions": [
+          "music.manage",
+          "settings.manage"
         ]
       },
       {

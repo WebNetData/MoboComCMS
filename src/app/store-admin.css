@@ -282,3 +282,11 @@
 .ca-target { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--sa-subtle); }
 .ca-target p, .ca-text { margin: 0; font-size: 13.5px; line-height: 1.9; white-space: pre-line; overflow-wrap: anywhere; }
 .ca-text { display: -webkit-box; max-width: 480px; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+/* section admins (cinema, music): share-of-total bars */
+.sx-bars { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sx-bars li { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.sx-bars li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-bar { height: 8px; border-radius: 99px; background: var(--sa-line); overflow: hidden; }
+.sx-bar i { display: block; height: 100%; border-radius: 99px; background: var(--sa-accent); }
+.sx-bars b { min-width: 28px; text-align: end; }

@@ -13,6 +13,10 @@ import { toPlayerTracks } from '@/components/media/player-types'
 import VipStrip from '@/components/media/VipStrip'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { getMusicSettings } from '@/modules/music/server/admin'
+import { railOrder } from '@/shared/section-layout'
+import type { MusicRail } from '@/modules/music/domain/music'
+import { Fragment, type ReactNode } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,23 +29,66 @@ export default async function MusicHomePage() {
   await requireModule('music')
   const landing = await sectionLanding('music')
   if (landing) return landing
-  const [data, locale, viewer] = await Promise.all([getMusicHome(), getServerLocale(), getViewer()])
+  const settings = await getMusicSettings()
+  const [data, locale, viewer] = await Promise.all([getMusicHome({ latestSize: settings.latestSize, chartSize: settings.chartSize, chartSource: settings.chartSource, heroTrackIds: settings.heroTrackIds, featuredAlbumIds: settings.featuredAlbumIds }), getServerLocale(), getViewer()])
   const fa = locale === 'fa'
   const heroSource = data.featuredTracks.length ? data.featuredTracks : data.latestTracks.slice(0, 5)
   const hero = toPlayerTracks(heroSource, fa)
-  const latest = toPlayerTracks(data.latestTracks.slice(0, 12), fa)
+  const latest = toPlayerTracks(data.latestTracks.slice(0, data.latestSize), fa)
   const top = toPlayerTracks(data.topTracks, fa)
   const lead = heroSource[0]
   const empty = !data.latestTracks.length && !data.latestAlbums.length
+  const order = railOrder(settings.rails)
+  const chartTitle = settings.chartSource === 'downloads' ? (fa ? 'پردانلودترین‌ها' : 'Most downloaded') : settings.chartSource === 'recent' ? (fa ? 'تازه‌ترین‌ها' : 'Newest') : (fa ? `${data.topTracks.length.toLocaleString('fa-IR')} آهنگ برتر` : `Top ${data.topTracks.length}`)
+
+  // Blocks render in the order (and visibility) chosen in «مدیریت موزیک ← صفحهٔ اصلی».
+  const blocks: Record<MusicRail, () => ReactNode> = {
+    hero: () => null,
+    genres: () => data.genres.length > 0 && <Chips items={data.genres} hrefFor={(g) => `/music/browse?genre=${encodeURIComponent(g)}`} all={{ label: fa ? 'همه سبک‌ها' : 'All genres', href: '/music/browse' }} />,
+    charts: () => !empty && (
+      <div className="mu-columns">
+        <section className="mu-panel">
+          <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'به‌روز' : 'Fresh'}</span><h2>{fa ? 'جدیدترین آهنگ‌ها' : 'New songs'}</h2></div><Link href="/music/browse" className="md-more">{fa ? 'همه ←' : 'All →'}</Link></header>
+          <TrackList tracks={latest} />
+        </section>
+        <section className="mu-panel mu-chart">
+          <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'چارت' : 'Chart'}</span><h2>{chartTitle}</h2></div><Link href={`/music/browse?sort=${settings.chartSource === 'recent' ? 'new' : 'popular'}`} className="md-more">{fa ? 'بیشتر ←' : 'More →'}</Link></header>
+          <TrackList tracks={top} chart />
+        </section>
+      </div>
+    ),
+    featuredAlbums: () => data.featuredAlbums.length > 0 && (
+      <Shelf tone="music" eyebrow={fa ? 'منتخب' : 'Editors’ picks'} title={fa ? 'آلبوم‌های ویژه' : 'Featured albums'}>
+        {data.featuredAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
+      </Shelf>
+    ),
+    latestAlbums: () => data.latestAlbums.length > 0 && (
+      <Shelf tone="music" id="albums" eyebrow={fa ? 'آلبوم' : 'Albums'} title={fa ? 'آلبوم‌های تازه' : 'New albums'}>
+        {data.latestAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
+      </Shelf>
+    ),
+    artists: () => data.artists.length > 0 && (
+      <Shelf tone="music" id="artists" eyebrow={fa ? 'هنرمندان' : 'Artists'} title={fa ? 'خوانندگان محبوب' : 'Popular artists'}>
+        {data.artists.map((artist) => <ArtistBubble key={artist.id} artist={artist} fa={fa} />)}
+      </Shelf>
+    ),
+    playlists: () => data.playlists.length > 0 && (
+      <section className="md-shelf" id="playlists">
+        <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'برای هر حال' : 'For every mood'}</span><h2>{fa ? 'پلی‌لیست‌ها' : 'Playlists'}</h2></div></header>
+        <div className="mu-playlists">{data.playlists.map((playlist, i) => <PlaylistCard key={playlist.id} playlist={playlist} fa={fa} index={i} />)}</div>
+      </section>
+    ),
+    vipStrip: () => !viewer.member && <VipStrip fa={fa} kind="music" />,
+  }
 
   return (
     <MediaShell section="music" active="home" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      {lead ? (
+      {order.includes('hero') && lead ? (
         <section className="mu-hero">
           <div className="mu-hero-bg" style={lead.cover ? { backgroundImage: `url("${lead.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
           <div className="container mu-hero-inner">
             <div className="mu-hero-lead">
-              <span className="md-eyebrow">{data.featuredTracks.length ? (fa ? 'پیشنهاد ویژه' : 'Featured') : (fa ? 'تازه منتشر شد' : 'Just released')}</span>
+              <span className="md-eyebrow">{data.featuredTracks.length ? (fa ? (data.heroPicked ? 'انتخاب سردبیر' : 'پیشنهاد ویژه') : 'Featured') : (fa ? 'تازه منتشر شد' : 'Just released')}</span>
               <h1>{fa ? lead.title : lead.titleEn || lead.title}</h1>
               <Link href={`/music/artist/${lead.artist.slug}`} className="mu-hero-artist">{fa ? lead.artist.name : lead.artist.nameEn || lead.artist.name}</Link>
               <div className="mu-hero-tags">
@@ -73,44 +120,8 @@ export default async function MusicHomePage() {
       ) : null}
 
       <div className="container md-body">
-        {data.genres.length > 0 && <Chips items={data.genres} hrefFor={(g) => `/music/browse?genre=${encodeURIComponent(g)}`} all={{ label: fa ? 'همه سبک‌ها' : 'All genres', href: '/music/browse' }} />}
         {empty && <EmptyState fa={fa} title={fa ? 'بخش موزیک آماده است' : 'Music is ready'} text={fa ? 'به‌زودی آهنگ‌ها و آلبوم‌های تازه اینجا منتشر می‌شوند.' : 'Fresh songs and albums are coming soon.'} />}
-
-        {!empty && (
-          <div className="mu-columns">
-            <section className="mu-panel">
-              <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'به‌روز' : 'Fresh'}</span><h2>{fa ? 'جدیدترین آهنگ‌ها' : 'New songs'}</h2></div><Link href="/music/browse" className="md-more">{fa ? 'همه ←' : 'All →'}</Link></header>
-              <TrackList tracks={latest} />
-            </section>
-            <section className="mu-panel mu-chart">
-              <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'چارت' : 'Chart'}</span><h2>{fa ? '۱۰ آهنگ برتر' : 'Top 10'}</h2></div><Link href="/music/browse?sort=popular" className="md-more">{fa ? 'بیشتر ←' : 'More →'}</Link></header>
-              <TrackList tracks={top} chart />
-            </section>
-          </div>
-        )}
-
-        {data.featuredAlbums.length > 0 && (
-          <Shelf tone="music" eyebrow={fa ? 'منتخب' : 'Editors’ picks'} title={fa ? 'آلبوم‌های ویژه' : 'Featured albums'}>
-            {data.featuredAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
-          </Shelf>
-        )}
-        {data.latestAlbums.length > 0 && (
-          <Shelf tone="music" id="albums" eyebrow={fa ? 'آلبوم' : 'Albums'} title={fa ? 'آلبوم‌های تازه' : 'New albums'}>
-            {data.latestAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
-          </Shelf>
-        )}
-        {data.artists.length > 0 && (
-          <Shelf tone="music" id="artists" eyebrow={fa ? 'هنرمندان' : 'Artists'} title={fa ? 'خوانندگان محبوب' : 'Popular artists'}>
-            {data.artists.map((artist) => <ArtistBubble key={artist.id} artist={artist} fa={fa} />)}
-          </Shelf>
-        )}
-        {data.playlists.length > 0 && (
-          <section className="md-shelf" id="playlists">
-            <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'برای هر حال' : 'For every mood'}</span><h2>{fa ? 'پلی‌لیست‌ها' : 'Playlists'}</h2></div></header>
-            <div className="mu-playlists">{data.playlists.map((playlist, i) => <PlaylistCard key={playlist.id} playlist={playlist} fa={fa} index={i} />)}</div>
-          </section>
-        )}
-        {!viewer.member && <VipStrip fa={fa} kind="music" />}
+        {order.filter((key) => key !== 'hero').map((key) => <Fragment key={key}>{blocks[key]()}</Fragment>)}
       </div>
     </MediaShell>
   )
