@@ -4,10 +4,11 @@ import { db } from '@/platform/database/prisma'
 import { getSettings } from '@/modules/settings/server'
 import { createInvoice, plisioCurrencies } from '@/modules/billing/infrastructure/plisio'
 import { createFrenzyPayment, testFrenzyCredentials } from '@/modules/billing/infrastructure/frenzyex'
+import { mellatOrderId, mellatPayRequest } from '@/modules/billing/infrastructure/mellat'
 import { resolveUsdTomanRate } from '@/modules/billing/domain/rates'
 import { currencyScale, legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER'
+export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER' | 'MELLAT'
 
 export interface ProviderMeta {
   key: ProviderKey
@@ -21,6 +22,16 @@ export interface ProviderMeta {
 }
 
 export const PROVIDERS: ProviderMeta[] = [
+  {
+    key: 'MELLAT',
+    label: 'Bank Mellat (Behpardakht)',
+    labelFa: 'درگاه بانک ملت (به‌پرداخت)',
+    needsApiKey: true,
+    needsSecret: true,
+    supportsHostedCheckout: true,
+    hint: 'Shaparak card payment. Enter the Terminal ID, username and password the bank issued, and ask the bank to register this server IP. Callback: /api/payment/mellat/callback.',
+    hintFa: 'پرداخت با همهٔ کارت‌های شتابی. شمارهٔ ترمینال، نام کاربری و رمز عبوری که بانک داده را وارد کنید و IP این سرور را به بانک اعلام کنید. آدرس بازگشت: /api/payment/mellat/callback',
+  },
   {
     key: 'CARD_TRANSFER',
     label: 'Card-to-card / bank transfer',
@@ -64,7 +75,7 @@ export const PROVIDERS: ProviderMeta[] = [
 ]
 
 export function providerMeta(key: string): ProviderMeta {
-  return PROVIDERS.find((p) => p.key === key) || PROVIDERS[1]
+  return PROVIDERS.find((p) => p.key === key) || PROVIDERS.find((p) => p.key === 'FRENZYEX')!
 }
 
 export function customerGatewayLabel(gateway: { provider: string; name?: string } | null | undefined, locale: 'fa' | 'en' = 'fa') {
@@ -80,6 +91,7 @@ export interface GatewayRuntime {
   provider: string
   apiKey: string
   secretKey: string
+  accountUser?: string
   fiat: string
   currencies: string
   feePercent: number
@@ -105,22 +117,24 @@ export interface CheckoutGatewayOption {
 }
 
 /** A gateway is usable only when the fields required for safe settlement exist. */
-export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; instructions: string }) {
+export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string }) {
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
+  if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())
   if (gw.provider === 'FRENZYEX') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   if (gw.provider === 'PLISIO') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   return Boolean(gw.apiKey.trim())
 }
 
 function runtimeGateway(gw: any): GatewayRuntime {
-  const fiat = gw.provider === 'FRENZYEX' ? 'TMN' : (gw.fiat || 'USD')
+  const fiat = gw.provider === 'FRENZYEX' ? 'TMN' : gw.provider === 'MELLAT' ? 'IRR' : (gw.fiat || 'USD')
   return {
     id: gw.id,
     name: gw.name,
     provider: gw.provider,
     apiKey: gw.apiKey,
     secretKey: gw.secretKey,
+    accountUser: gw.accountUser || '',
     fiat,
     currencies: gw.currencies,
     feePercent: gw.feePercent,
@@ -181,6 +195,7 @@ export function checkoutGatewayRef(gateway: Pick<GatewayRuntime, 'id' | 'provide
 export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provider' | 'fiat'>) {
   if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT']
   if (gateway.provider === 'CARD_TRANSFER') return ['IRR', 'IRT', 'TMN']
+  if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD']
   return [normalizeCurrency(gateway.fiat || 'USD')]
 }
 
@@ -269,12 +284,14 @@ export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currency
   const currency = normalizeCurrency(currencyInput)
   if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT'
   if (gateway.provider === 'CARD_TRANSFER') return currency === 'IRR' || currency === 'IRT' || currency === 'TMN'
+  if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD'].includes(currency)
   return normalizeCurrency(gateway.fiat || 'USD') === currency
 }
 
 export function gatewayCallbackUrl(gateway: GatewayRuntime, siteUrl: string) {
   const base = siteUrl.replace(/\/+$/, '')
   if (gateway.provider === 'FRENZYEX') return `${base}/api/payment/frenzyex/webhook`
+  if (gateway.provider === 'MELLAT') return `${base}/api/payment/mellat/callback`
   return `${base}/api/payment/plisio/webhook`
 }
 
@@ -318,6 +335,14 @@ async function frenzyAmountToman(amount: number, currencyInput: string): Promise
   const scale = currencyScale('USD')
   // Nearest whole Toman. FrenzyEx TMN invoices are integer Toman amounts.
   return (sourceMinor * rate + scale / 2n) / scale
+}
+
+/** Rial amount for Shaparak gateways (Toman ×10; USD through the configured rate). */
+export async function amountInRial(amount: number, currencyInput: string): Promise<bigint> {
+  const currency = normalizeCurrency(currencyInput)
+  if (currency === 'IRR') return toMinor(amount, 'IRR')
+  if (currency === 'IRT' || currency === 'TMN') return toMinor(amount, 'TMN') * 10n
+  return (await frenzyAmountToman(amount, currency)) * 10n
 }
 
 export async function createGatewayInvoice(
@@ -364,6 +389,23 @@ export async function createGatewayInvoice(
       providerCurrency: 'TMN',
       expiresAt: res.expiresAt,
     }
+  }
+
+  if (gateway.provider === 'MELLAT') {
+    let amountRial: bigint
+    try { amountRial = await amountInRial(input.amount, currency) }
+    catch (error) { return { ok: false, message: error instanceof Error ? error.message : 'invalid Rial conversion' } }
+    // Shaparak minimum is 1,000 Rial.
+    if (amountRial < 1000n) return { ok: false, message: 'مبلغ پرداخت کمتر از حداقل مجاز درگاه بانکی است' }
+    const minimumMinor = gateway.minAmountMinor || toMinor(gateway.minAmount || 0, 'IRR')
+    if (minimumMinor > 0n && amountRial < minimumMinor) return { ok: false, message: 'مبلغ کمتر از حداقل تعیین‌شده برای این درگاه است' }
+    const orderId = mellatOrderId(input.orderNumber)
+    const res = await mellatPayRequest({ terminalId: gateway.apiKey.trim(), userName: String(gateway.accountUser || '').trim(), password: gateway.secretKey }, {
+      orderId, amountRial, callbackUrl: input.callbackUrl, description: input.orderName,
+    })
+    if (!res.ok) return { ok: false, message: res.message, ambiguous: res.ambiguous, providerAmount: Number(amountRial), providerCurrency: 'IRR' }
+    const origin = new URL(input.callbackUrl).origin
+    return { ok: true, txnId: res.refId, paymentUrl: `${origin}/api/payment/mellat/start?ref=${encodeURIComponent(res.refId)}`, providerAmount: Number(amountRial), providerCurrency: 'IRR' }
   }
 
   if (gateway.provider === 'CARD_TRANSFER') {
@@ -421,6 +463,14 @@ export async function testGateway(gateway: GatewayRuntime): Promise<GatewayTestR
   if (gateway.provider === 'CARD_TRANSFER') {
     const accounts = await db.bankAccount.count({ where: { active: true } })
     return accounts ? { ok: true, detail: `${accounts} active bank account(s)` } : { ok: false, message: 'no active bank account', detail: 'add a bank account in Finance → Bank accounts' }
+  }
+  if (gateway.provider === 'MELLAT') {
+    if (!/^\d+$/.test(gateway.apiKey.trim()) || !gateway.accountUser?.trim() || !gateway.secretKey) return { ok: false, message: 'شمارهٔ ترمینال، نام کاربری و رمز عبور را کامل وارد کنید' }
+    // A 1,000 Rial request that is never paid: success proves terminal, credentials and server IP.
+    const res = await mellatPayRequest({ terminalId: gateway.apiKey.trim(), userName: gateway.accountUser.trim(), password: gateway.secretKey }, {
+      orderId: mellatOrderId('999'), amountRial: 1000n, callbackUrl: `${(process.env.NEXTAUTH_URL || 'https://example.com').replace(/\/+$/, '')}/api/payment/mellat/callback`, description: 'connection test',
+    })
+    return res.ok ? { ok: true, detail: 'اتصال به بانک ملت برقرار شد و اطلاعات پذیرنده معتبر است' } : { ok: false, message: res.message, detail: res.code ? `کد ${res.code}` : undefined }
   }
   if (!gateway.apiKey) return { ok: false, message: 'API key is missing' }
   if (gateway.provider === 'FRENZYEX') {

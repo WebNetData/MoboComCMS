@@ -21,6 +21,7 @@ interface Gateway {
   secretMasked: string
   hasApiKey: boolean
   hasSecret: boolean
+  accountUser?: string
   usable: boolean
 }
 
@@ -39,6 +40,7 @@ const EMPTY = {
   provider: 'FRENZYEX',
   apiKey: '',
   secretKey: '',
+  accountUser: '',
   fiat: 'TMN',
   currencies: '',
   feePercent: '',
@@ -146,6 +148,7 @@ export default function AdminGatewaysPage() {
       provider: gw.provider,
       apiKey: '',
       secretKey: '',
+      accountUser: gw.accountUser || '',
       fiat: gw.fiat,
       currencies: gw.currencies,
       feePercent: String(gw.feePercent),
@@ -192,7 +195,7 @@ export default function AdminGatewaysPage() {
           </div>
           <div>
             <label className="label">{t.provider}</label>
-            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : {}) }) }}>
+            <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : provider === 'MELLAT' ? { name: form.name && form.name !== 'درگاه پرداخت ارزی ریالی' ? form.name : 'پرداخت آنلاین (بانک ملت)', fiat: 'IRR', currencies: '' } : {}) }) }}>
               {providers.map((p) => (
                 <option key={p.key} value={p.key}>{isFa ? p.labelFa : p.label}</option>
               ))}
@@ -200,11 +203,17 @@ export default function AdminGatewaysPage() {
           </div>
           <div>
             <label className="label">{t.fiatCurrency}</label>
-            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.fiat} readOnly={form.provider === 'FRENZYEX'} onChange={(e) => setForm({ ...form, fiat: e.target.value })} />
+            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.provider === 'MELLAT' ? 'IRR' : form.fiat} readOnly={form.provider === 'FRENZYEX' || form.provider === 'MELLAT'} onChange={(e) => setForm({ ...form, fiat: e.target.value })} />
           </div>
+          {form.provider === 'MELLAT' && (
+            <div>
+              <label className="label">نام کاربری پذیرنده (UserName)</label>
+              <input className="input" dir="ltr" autoComplete="off" value={form.accountUser} onChange={(e) => setForm({ ...form, accountUser: e.target.value })} />
+            </div>
+          )}
           {selected?.needsApiKey && (
             <div>
-              <label className="label">{t.apiKey}</label>
+              <label className="label">{form.provider === 'MELLAT' ? 'شمارهٔ ترمینال (Terminal ID)' : t.apiKey}</label>
               <input
                 className="input"
                 dir="ltr"
@@ -216,7 +225,7 @@ export default function AdminGatewaysPage() {
           )}
           {selected?.needsSecret && (
             <div>
-              <label className="label">{t.secretKey}</label>
+              <label className="label">{form.provider === 'MELLAT' ? 'رمز عبور پذیرنده (Password)' : t.secretKey}</label>
               <input
                 className="input"
                 dir="ltr"

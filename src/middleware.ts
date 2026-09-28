@@ -51,7 +51,8 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
     `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
     miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
     "base-uri 'self'",
-    "form-action 'self'",
+    // The Mellat start page posts the payment reference to the bank.
+    `form-action 'self'${path === '/api/payment/mellat/start' ? ' https://bpm.shaparak.ir' : ''}`,
   ].join('; ')
   response.headers.set('content-security-policy', csp)
 

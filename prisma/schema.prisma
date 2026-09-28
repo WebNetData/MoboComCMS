@@ -797,6 +797,8 @@ model Gateway {
   provider     String    @default("PLISIO") // PLISIO | FRENZYEX | MANUAL
   apiKey       String    @default("")
   secretKey    String    @default("")
+  /// Login user for gateways that need one (Bank Mellat).
+  accountUser  String    @default("")
   fiat         String    @default("USD")
   currencies   String    @default("")
   feePercent   Float     @default(0) // legacy display mirror
