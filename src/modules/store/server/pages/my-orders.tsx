@@ -5,11 +5,17 @@ import { CUSTOMER_TABS, customerOrder, customerOrders, customerServiceOrders, ty
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, trackingIndex } from '@/modules/store/domain/store'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { Money } from '@/components/store/Storefront'
+import ReturnPanel from '@/components/store/ReturnPanel'
+import { orderShipment } from '@/modules/shipping/server/carriers'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const persian = (value: Date | string, time = false) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}), timeZone: 'Asia/Tehran' }).format(new Date(value))
 const persianDay = (day: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))
-const EVENT_LABEL: Record<string, string> = { PAID: 'پرداخت شد', NOTE: 'پیام فروشگاه', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
+const EVENT_LABEL: Record<string, string> = {
+  PAID: 'پرداخت شد', NOTE: 'پیام فروشگاه', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش',
+  CANCEL_REQUESTED: 'درخواست لغو', RETURN_REQUESTED: 'درخواست مرجوعی', RETURN_APPROVED: 'مرجوعی تأیید شد', RETURN_REJECTED: 'درخواست رد شد',
+  RETURN_WITHDRAWN: 'درخواست لغو شد', REFUNDED: 'برگشت وجه به کیف پول',
+}
 
 async function userId(next: string) {
   const viewer = await getViewer()
@@ -57,6 +63,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
   const user = await userId(`/dashboard/orders/${idParam}`)
   const order = Number.isSafeInteger(id) && id > 0 ? await customerOrder(user, id) : null
   if (!order) notFound()
+  const shipment = await orderShipment(order.id).catch(() => null)
   const closed = order.fulfilment === 'CANCELLED' || order.fulfilment === 'RETURNED' || order.state.key === 'CANCELLED'
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
   return <div className="sx-my sx-my-detail" dir="rtl">
@@ -85,6 +92,15 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
       </section>
       <aside className="sx-my-side">
         {order.address && <section className="sx-my-card"><h2><StoreIcon name="pin" size={17} />آدرس تحویل</h2><p>{order.address.address}</p><dl className="sx-my-kv"><div><dt>گیرنده</dt><dd>{order.address.recipient}</dd></div><div><dt>موبایل</dt><dd className="num" dir="ltr">{order.address.phone}</dd></div>{order.address.postalCode && <div><dt>کد پستی</dt><dd className="num">{order.address.postalCode}</dd></div>}</dl></section>}
+        {shipment && shipment.status !== 'CANCELLED' && <section className="sx-my-card">
+          <h2><StoreIcon name="truck" size={17} />ارسال مرسوله</h2>
+          <dl className="sx-my-kv">
+            <div><dt>شرکت حمل</dt><dd>{shipment.carrierName}</dd></div>
+            <div><dt>وضعیت</dt><dd>{shipment.statusLabel}</dd></div>
+            <div><dt>شمارهٔ بارنامه</dt><dd><Link href={`/track/${shipment.waybill}`} className="sx-link num" dir="ltr">{shipment.waybill}</Link></dd></div>
+            {shipment.trackingCode && <div><dt>کد رهگیری</dt><dd dir="ltr">{shipment.trackingUrl ? <a href={shipment.trackingUrl} target="_blank" rel="noopener noreferrer" className="sx-link">{shipment.trackingCode} ↗</a> : shipment.trackingCode}</dd></div>}
+          </dl>
+        </section>}
         {order.schedule && <section className="sx-my-card"><h2><StoreIcon name="calendar" size={17} />زمان ارسال</h2><p>{persianDay(order.schedule.date)}{order.schedule.slot && ` · ساعت ${order.schedule.slot}`}</p></section>}
         <section className="sx-my-card">
           <h2><StoreIcon name="receipt" size={17} />جمع سفارش</h2>
@@ -99,6 +115,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
         </section>
       </aside>
     </div>
+    {order.state.key !== 'UNPAID' && <ReturnPanel orderId={order.id} />}
     {order.events.length > 0 && <section className="sx-my-card">
       <h2><StoreIcon name="clock" size={17} />تاریخچهٔ سفارش</h2>
       <ol className="sx-timeline">{[...order.events].reverse().map((event) => <li key={event.id}>

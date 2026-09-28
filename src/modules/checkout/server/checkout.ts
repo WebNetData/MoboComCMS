@@ -13,6 +13,7 @@ import { isMember } from '@/modules/membership/server/membership'
 import { memberPrice } from '@/modules/membership/domain/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { addressSnapshot, bookDelivery, getDeliverySettings, validateDelivery } from '@/modules/shipping/server/shipping'
+import { checkoutCarrier } from '@/modules/shipping/server/carriers'
 import { ShippingError, shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineLimit } from '@/modules/store/domain/store'
 import { unitPrice } from '@/modules/store/server/pricing'
@@ -32,6 +33,8 @@ export interface CheckoutCommand {
   addressId?: number | null
   /** Chosen delivery day (YYYY-MM-DD, Tehran) and time window. */
   delivery?: { date?: string; slotId?: string } | null
+  /** Chosen shipping carrier (when carriers are enabled); the cheapest available one otherwise. */
+  carrierId?: string | null
   /** Legacy inline address; still accepted from API clients. */
   shippingAddress?: { recipient?: string; phone?: string; country?: string; city?: string; postalCode?: string; address?: string }
   username?: string
@@ -110,6 +113,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let meta: Record<string, unknown> = {}
   let shippingMinor = 0n
   let delivery: { date: string; slot: { id: string; label: string } } | null = null
+  let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
   const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string }[] = []
 
   if (membershipPlanId) {
@@ -181,7 +185,10 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
           shippingAddress = Object.fromEntries(([...required, 'postalCode'] as const).map(key => [key, String(input[key] || '').trim().slice(0, key === 'address' ? 500 : 120)]))
           if (required.some(key => !shippingAddress?.[key]) || !/^[+0-9 ()-]{7,24}$/.test(shippingAddress.phone)) return fail(400, 'SHIPPING_REQUIRED', 'یک آدرس ارسال از دفترچهٔ آدرس انتخاب کنید', { addressesUrl: '/dashboard/addresses' })
         }
-        if (deliverySettings.enabled) {
+        // With carriers on, the chosen carrier decides whether a delivery time is picked (the shop's own courier).
+        const dest = { province: String(shippingAddress?.province || ''), city: String(shippingAddress?.city || '') }
+        carrier = await checkoutCarrier({ carrierId: command.carrierId, lines: orderLines.filter((line) => line.kind === 'PHYSICAL'), dest, itemMinor: amountMinor, currency })
+        if (deliverySettings.enabled && (!carrier || carrier.scheduled)) {
           if (!command.delivery?.date || !command.delivery.slotId) return fail(400, 'DELIVERY_REQUIRED', 'روز و بازهٔ زمانی ارسال را انتخاب کنید')
           delivery = await validateDelivery(command.delivery.date, command.delivery.slotId)
         }
@@ -213,7 +220,21 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     amount = legacyNumber(amountMinor, currency)
   }
   // Shipping is charged on what the customer pays for the item (after discounts) and is never discounted itself.
-  if (productId && meta.productKind === 'PHYSICAL') {
+  if (productId && meta.productKind === 'PHYSICAL' && carrier) {
+    // Re-priced on what the customer pays for the items (free-shipping thresholds count after discounts).
+    const physicalLines = orderLines.filter((line) => line.kind === 'PHYSICAL')
+    const dest = meta.shippingAddress as Record<string, string> | undefined
+    try {
+      carrier = await checkoutCarrier({ carrierId: carrier.carrierId, lines: physicalLines, dest: { province: String(dest?.province || ''), city: String(dest?.city || '') }, itemMinor: amountMinor, currency }) || carrier
+    } catch (error) {
+      if (error instanceof ShippingError) return fail(error.status, error.code, error.message)
+      throw error
+    }
+    shippingMinor = carrier.feeMinor
+    meta = { ...meta, shipping: { carrierId: carrier.carrierId, carrierName: carrier.name, zone: carrier.zone, weightGrams: carrier.weightGrams, eta: carrier.eta } }
+    amountMinor += shippingMinor
+    amount = legacyNumber(amountMinor, currency)
+  } else if (productId && meta.productKind === 'PHYSICAL') {
     shippingMinor = shippingFeeMinor(await getDeliverySettings(), currency, amountMinor)
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)

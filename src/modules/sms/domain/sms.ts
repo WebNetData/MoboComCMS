@@ -45,9 +45,11 @@ export const SMS_EVENTS: SmsEventDef[] = [
   { id: 'SUBSCRIPTION_EXPIRED', audience: 'user', label: 'پایان اشتراک', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'SUBSCRIPTION_READY', audience: 'user', label: 'فعال شدن سرویس', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}.\n{link}\n{brand}' },
   { id: 'SUBSCRIPTION_RENEWED', audience: 'user', label: 'تمدید سرویس', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}.\n{link}\n{brand}' },
+  { id: 'ORDER_REFUND', audience: 'user', label: 'لغو/مرجوعی و برگشت وجه', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'ADMIN_RECEIPT', audience: 'admin', label: 'رسید کارت به کارت جدید (مدیر)', vars: ['invoice', 'amount'], template: 'رسید پرداخت جدید برای فاکتور {invoice} به مبلغ {amount} ثبت شد و منتظر تأیید است.' },
   { id: 'ADMIN_ORDER', audience: 'admin', label: 'سفارش پرداخت‌شدهٔ جدید (مدیر)', vars: ['invoice', 'amount'], template: 'سفارش جدید پرداخت شد: فاکتور {invoice} — {amount}' },
   { id: 'ADMIN_TICKET', audience: 'admin', label: 'تیکت جدید (مدیر)', vars: ['subject', 'name'], template: 'تیکت جدید از {name}: {subject}' },
+  { id: 'ADMIN_RETURN', audience: 'admin', label: 'درخواست لغو یا مرجوعی (مدیر)', vars: ['order', 'kind', 'name'], template: '{kind} جدید برای سفارش {order} از {name}؛ منتظر بررسی است.' },
 ]
 
 export const smsEvent = (id: string) => SMS_EVENTS.find((event) => event.id === id)

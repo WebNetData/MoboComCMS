@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSite } from '@/components/site/SiteProvider'
 
 /**
@@ -27,7 +27,10 @@ export default function TrustSeals({ className = '' }: { className?: string }) {
 /** The issuer's logo; if it does not load (wrong domain, issuer down) the seal's name is shown instead of an empty box. */
 function SealLogo({ src, title }: { src: string; title: string }) {
   const [failed, setFailed] = useState(false)
+  const ref = useRef<HTMLImageElement>(null)
+  // The image may have failed before React attached onError (server-rendered markup).
+  useEffect(() => { const img = ref.current; if (img?.complete && !img.naturalWidth) setFailed(true) }, [])
   if (failed) return <span className="trust-seal-fallback">{title}</span>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={title} title={title} referrerPolicy="origin" loading="lazy" decoding="async" onError={() => setFailed(true)} onLoad={(e) => { if (!e.currentTarget.naturalWidth) setFailed(true) }} />
+  return <img ref={ref} src={src} alt={title} title={title} referrerPolicy="origin" loading="lazy" decoding="async" onError={() => setFailed(true)} onLoad={(e) => { if (!e.currentTarget.naturalWidth) setFailed(true) }} />
 }

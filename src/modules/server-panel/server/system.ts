@@ -14,7 +14,7 @@ export async function command(file: string, args: string[], timeout = 4000): Pro
     return { ok: true, out: stdout }
   } catch (error) {
     const failure = error as { stdout?: string; stderr?: string; message?: string }
-    return { ok: false, out: String(failure.stdout || failure.stderr || failure.message || '') }
+    return { ok: false, out: [failure.stdout, failure.stderr].filter(Boolean).join('\n') || String(failure.message || '') }
   }
 }
 

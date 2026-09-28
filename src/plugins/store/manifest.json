@@ -16,7 +16,8 @@
     "/products",
     "/checkout/product",
     "/cart",
-    "/checkout/cart"
+    "/checkout/cart",
+    "/track"
   ],
   "adminPaths": [
     "/admin/store",
@@ -25,7 +26,8 @@
     "/admin/productgroups",
     "/admin/product-feedback",
     "/admin/product-deliveries",
-    "/admin/delivery"
+    "/admin/delivery",
+    "/admin/shipping-carriers"
   ],
   "adminMenu": {
     "title": "فروشگاه",
@@ -48,6 +50,24 @@
         "href": "/admin/store/orders",
         "label": "سفارش‌ها",
         "labelEn": "Orders",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/returns",
+        "label": "لغو و مرجوعی",
+        "labelEn": "Returns & cancellations",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/shipments",
+        "label": "مرسوله‌ها و بارنامه‌ها",
+        "labelEn": "Shipments & waybills",
         "icon": "wallet",
         "permissions": [
           "orders.manage"
@@ -115,6 +135,16 @@
         "icon": "chat",
         "permissions": [
           "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/shipping-carriers",
+        "label": "شرکت‌های حمل و تعرفهٔ ارسال",
+        "labelEn": "Carriers & shipping rates",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
         ]
       },
       {

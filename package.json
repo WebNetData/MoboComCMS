@@ -12,7 +12,7 @@
     "db:seed": "node --env-file=.env prisma/seed.cjs",
     "media:demo": "node --env-file=.env scripts/seed-media-demo.cjs",
     "setup": "npm install && npm run db:push && npm run db:seed && npm run db:migrate-post-categories",
-    "test:site": "node --test scripts/site.test.cjs scripts/content-controls.test.cjs scripts/store.test.cjs scripts/builder.test.cjs scripts/packages.test.cjs scripts/forum.test.cjs scripts/seo.test.cjs scripts/ai.test.cjs scripts/payments-sms.test.cjs scripts/forum-community.test.cjs scripts/engagement.test.cjs scripts/shipping.test.cjs scripts/navigation.test.cjs scripts/taxonomy.test.cjs scripts/store-v2.test.cjs scripts/forum-v3.test.cjs scripts/games-v2.test.cjs scripts/routes.test.cjs scripts/community.test.cjs scripts/media-admin.test.cjs scripts/ai-autofill.test.cjs scripts/server-panel.test.cjs scripts/profile-fields.test.cjs scripts/payments-mellat.test.cjs scripts/account-security.test.cjs",
+    "test:site": "node --test scripts/site.test.cjs scripts/content-controls.test.cjs scripts/store.test.cjs scripts/builder.test.cjs scripts/packages.test.cjs scripts/forum.test.cjs scripts/seo.test.cjs scripts/ai.test.cjs scripts/payments-sms.test.cjs scripts/forum-community.test.cjs scripts/engagement.test.cjs scripts/shipping.test.cjs scripts/navigation.test.cjs scripts/taxonomy.test.cjs scripts/store-v2.test.cjs scripts/forum-v3.test.cjs scripts/games-v2.test.cjs scripts/routes.test.cjs scripts/community.test.cjs scripts/media-admin.test.cjs scripts/ai-autofill.test.cjs scripts/server-panel.test.cjs scripts/profile-fields.test.cjs scripts/payments-mellat.test.cjs scripts/account-security.test.cjs scripts/returns-invoice.test.cjs scripts/player.test.cjs scripts/shipping-carriers.test.cjs scripts/forwarder.test.cjs scripts/server-domains.test.cjs scripts/download-center.test.cjs",
     "arch:check": "node scripts/check-architecture.mjs",
     "check": "npm run extensions:generate && npm run arch:check && npm run source:check && npm run schema:check && npm run money:check && npm run money-ui:check && npm run security:check && npm run audit:check && npm run i18n:check && npm run test:site && npm run test:connected && npm run typecheck && npm run test:backup",
     "extensions:generate": "node scripts/generate-extensions.mjs",
@@ -65,7 +65,9 @@
     "@tiptap/react": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
     "@types/sanitize-html": "2.16.1",
+    "basic-ftp": "^6.2.1",
     "bcryptjs": "2.4.3",
+    "hls.js": "^1.7.3",
     "imapflow": "2.1.1",
     "leaflet": "1.9.4",
     "mailparser": "3.9.30",
@@ -79,6 +81,7 @@
     "react-simple-maps": "5.0.5",
     "sanitize-html": "2.17.7",
     "sharp": "0.35.4",
+    "ssh2-sftp-client": "^12.1.1",
     "web-push": "3.6.7"
   },
   "devDependencies": {
@@ -89,6 +92,7 @@
     "@types/nodemailer": "8.0.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "@types/ssh2-sftp-client": "^9.0.6",
     "@types/web-push": "3.6.4",
     "typescript": "5.9.3"
   },

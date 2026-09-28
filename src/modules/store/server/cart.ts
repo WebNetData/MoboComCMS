@@ -5,6 +5,7 @@ import { MAX_CART_LINES, StoreError, lineLimit, normalizeQuantity } from '@/modu
 import { unitPrice } from '@/modules/store/server/pricing'
 import { getDeliverySettings } from '@/modules/shipping/server/shipping'
 import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
+import { getCarrierSettings } from '@/modules/shipping/server/carriers'
 import { minorToNumber } from '@/shared/money'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
@@ -80,6 +81,8 @@ export type CartView = {
   shipping: number
   total: number
   hasPhysical: boolean
+  /** Shipping is priced per carrier and address at checkout. */
+  shippingByAddress?: boolean
   /** Lines that block checkout (stock, availability, mixed currency). */
   blocked: boolean
 }
@@ -131,7 +134,9 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
       lineTotal: minorToNumber(lineMinor, price.currency), currency: price.currency, issue,
     }
   })
-  const shippingMinor = physicalMinor > 0n ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
+  // With carriers on, the fee depends on the address and carrier chosen at checkout.
+  const byAddress = physicalMinor > 0n && (await getCarrierSettings()).enabled
+  const shippingMinor = physicalMinor > 0n && !byAddress ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
   return {
     token: cart.token,
     lines,
@@ -143,6 +148,7 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     shipping: minorToNumber(shippingMinor, currency),
     total: minorToNumber(itemsMinor + shippingMinor, currency),
     hasPhysical: lines.some((line) => line.kind === 'PHYSICAL' && !line.issue),
+    shippingByAddress: byAddress,
     blocked,
   }
 }

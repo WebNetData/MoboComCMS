@@ -166,6 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/orders', label: t.orders, icon: 'grid', perm: 'orders.manage' },
       { href: '/admin/operations', label: L('مرکز عملیات سفارش', 'Order operations'), icon: 'shield', perm: 'orders.manage' },
       { href: '/admin/invoices', label: t.invoicesAdmin, icon: 'wallet', perm: 'invoices.manage' },
+      { href: '/admin/invoice-profile', label: L('مشخصات فروشنده در صورتحساب رسمی', 'Official invoice profile'), icon: 'sliders', perm: ['invoices.manage', 'settings.manage'] },
       { href: '/admin/payments', label: t.ledger, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/expenses', label: t.expensesAdmin, icon: 'wallet', perm: 'finance.manage' },
       { href: '/admin/gateways', label: t.gatewaysAdmin, icon: 'wallet', perm: 'gateways.manage' },

@@ -1,0 +1,103 @@
+/* ============================================================
+   Official sales invoice (oi-): صورتحساب فروش کالا و خدمات.
+   Always light, A4 landscape when printed; screen view mirrors print.
+   ============================================================ */
+
+.oi-page { min-height: 100vh; padding: 24px 16px 48px; background: #eef0f3; color: #111827; font-family: var(--font-vazir, Vazirmatn), Tahoma, sans-serif; }
+.oi-toolbar { max-width: 1120px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.oi-tip { font-size: 12px; color: #6b7280; }
+.oi-sheet { max-width: 1120px; margin: 0 auto; padding: 22px 26px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 12px 40px rgb(15 23 42 / .08); font-size: 12px; line-height: 1.9; }
+.oi-sheet h2 { margin: 0; padding: 4px 12px; font-size: 12.5px; font-weight: 800; background: #f3f4f6; border: 1px solid #9ca3af; border-bottom: 0; text-align: center; }
+.oi-sheet h2 small { font-weight: 500; color: #4b5563; }
+
+.oi-head { display: grid; grid-template-columns: 140px 1fr 220px; align-items: center; gap: 16px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 2px solid #111827; }
+.oi-brand img { max-width: 120px; max-height: 70px; object-fit: contain; }
+.oi-mark { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 14px; background: #111827; color: #fff; font-size: 26px; font-weight: 900; }
+.oi-title { text-align: center; }
+.oi-title h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -.2px; }
+.oi-status { display: inline-block; margin-top: 4px; padding: 1px 12px; border: 1.5px solid currentColor; border-radius: 4px; font-weight: 800; font-size: 11px; color: #b45309; }
+.oi-status.is-refunded, .oi-status.is-void { color: #b91c1c; }
+.oi-ids { margin: 0; display: grid; gap: 4px; }
+.oi-ids div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 10px; border: 1px solid #d1d5db; border-radius: 4px; }
+.oi-ids dt { color: #4b5563; }
+.oi-ids dd { margin: 0; font-weight: 800; }
+
+.oi-party { margin-bottom: 10px; }
+.oi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #9ca3af; }
+.oi-field { display: flex; gap: 6px; padding: 5px 10px; border-inline-start: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; min-width: 0; }
+.oi-field:nth-child(4n + 1) { border-inline-start: 0; }
+.oi-field span { color: #4b5563; white-space: nowrap; }
+.oi-field b { font-weight: 700; overflow-wrap: anywhere; }
+.oi-field.is-wide { grid-column: 1 / -1; border-inline-start: 0; border-bottom: 0; }
+
+.oi-items { margin-bottom: 10px; }
+.oi-items table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.oi-items th, .oi-items td { border: 1px solid #9ca3af; padding: 5px 6px; text-align: center; vertical-align: middle; font-variant-numeric: tabular-nums; }
+.oi-items th { background: #f9fafb; font-size: 11px; font-weight: 800; line-height: 1.6; }
+.oi-items .is-desc { text-align: start; min-width: 220px; }
+.oi-items tfoot td { background: #f3f4f6; font-weight: 800; }
+.oi-items tfoot .is-label { text-align: start; }
+.oi-words { margin: 0; padding: 6px 12px; border: 1px solid #9ca3af; border-top: 0; }
+.oi-words span { color: #4b5563; }
+
+.oi-foot { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #9ca3af; }
+.oi-terms { padding: 8px 12px; border-inline-end: 1px solid #9ca3af; }
+.oi-terms p { margin: 0 0 4px; }
+.oi-sign { display: grid; grid-template-columns: 1fr 1fr; }
+.oi-sign > div { position: relative; min-height: 110px; padding: 8px; text-align: center; color: #4b5563; }
+.oi-sign > div + div { border-inline-start: 1px solid #9ca3af; }
+.oi-sign img { display: block; max-width: 140px; max-height: 80px; margin: 6px auto 0; object-fit: contain; }
+
+@media (max-width: 860px) {
+  .oi-sheet { padding: 14px; overflow-x: auto; }
+  .oi-head { grid-template-columns: 1fr; text-align: center; }
+  .oi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .oi-field:nth-child(4n + 1) { border-inline-start: 1px solid #e5e7eb; }
+  .oi-field:nth-child(2n + 1) { border-inline-start: 0; }
+  .oi-items { overflow-x: auto; }
+  .oi-items table { min-width: 860px; }
+  .oi-foot { grid-template-columns: 1fr; }
+  .oi-terms { border-inline-end: 0; border-bottom: 1px solid #9ca3af; }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  body:has(.oi-sheet) * { visibility: hidden; }
+  body:has(.oi-sheet) .oi-sheet, body:has(.oi-sheet) .oi-sheet * { visibility: visible; }
+  .oi-page { padding: 0; background: #fff; min-height: 0; }
+  .oi-sheet { position: absolute; inset: 0 0 auto 0; max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; border-radius: 0; font-size: 10.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .oi-items table { min-width: 0; }
+  .oi-items tr { break-inside: avoid; }
+}
+.oi-toolbar .btn { background: #fff; color: #111827; border: 1px solid #d1d5db; }
+.oi-toolbar .btn:hover { border-color: #111827; }
+.oi-toolbar .btn-primary, .oi-toolbar button.btn { background: #111827; color: #fff; border-color: #111827; }
+
+/* ============================================================
+   Waybill labels (lb-): A6, one per printed page.
+   ============================================================ */
+.lb-page { padding: 16px; background: #eef0f3; color: #111; min-height: 100vh; font-family: var(--font-vazir, Vazirmatn), Tahoma, sans-serif; }
+.lb-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 13px; color: #374151; }
+.lb-toolbar button { margin-inline-start: auto; padding: 8px 18px; border: 0; border-radius: 9px; background: #111827; color: #fff; font: inherit; cursor: pointer; }
+.lb-error { padding: 24px; }
+.lb-sheet { display: flex; flex-wrap: wrap; gap: 16px; }
+.lb-label { width: 100mm; min-height: 150mm; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 6mm; background: #fff; border: 1.5px dashed #9ca3af; font-size: 11.5px; line-height: 1.8; }
+.lb-label header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; border-bottom: 2px solid #111; font-size: 13px; }
+.lb-label header b { font-size: 16px; }
+.lb-code { display: grid; justify-items: center; gap: 2px; padding: 4px 0; }
+.lb-barcode { width: 100%; height: 22mm; }
+.lb-code span { font: 700 13px ui-monospace, monospace; letter-spacing: 2px; }
+.lb-label h3 { margin: 0; font-size: 11px; color: #4b5563; }
+.lb-label p { margin: 0; }
+.lb-to { flex: 1; padding: 6px 8px; border: 2px solid #111; border-radius: 6px; }
+.lb-name { font-size: 16px; font-weight: 800; }
+.lb-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px !important; }
+.lb-from { padding: 4px 8px; border: 1px solid #9ca3af; border-radius: 6px; font-size: 10.5px; }
+.lb-label footer { display: flex; justify-content: space-between; gap: 8px; padding-top: 4px; border-top: 1px solid #111; }
+@media print {
+  @page { size: 100mm 150mm; margin: 0; }
+  body:has(.lb-sheet) * { visibility: hidden; }
+  body:has(.lb-sheet) .lb-sheet, body:has(.lb-sheet) .lb-sheet * { visibility: visible; }
+  .lb-sheet { position: absolute; inset: 0 auto auto 0; display: block; }
+  .lb-label { border: 0; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

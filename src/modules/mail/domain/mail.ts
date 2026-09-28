@@ -45,6 +45,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'SUBSCRIPTION_EXPIRED', label: 'پایان اشتراک' },
   { id: 'SUBSCRIPTION_READY', label: 'فعال شدن سرویس' },
   { id: 'SUBSCRIPTION_RENEWED', label: 'تمدید سرویس' },
+  { id: 'ORDER_REFUND', label: 'لغو/مرجوعی و برگشت وجه' },
 ]
 
 /** Placeholder accounts (phone sign-up, bots, Telegram) have no real inbox. */

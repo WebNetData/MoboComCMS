@@ -36,9 +36,24 @@ export const ROLE_PRESETS: Record<string, string[]> = {
   backup: ['dashboard.view', 'cms.pages', 'cms.posts', 'cms.products', 'settings.manage'],
 }
 
+/** Stored as the whole permission list: every capability, including ones plugins add later. */
+export const FULL_ACCESS = '*'
+
+/**
+ * A role's capabilities. "*" — and, for roles saved before it existed, any
+ * role holding every core permission (the admin preset) — means full access,
+ * so permissions that extensions add later (e.g. server.manage) are included.
+ */
 export function parsePermissions(csv: string): string[] {
   const known = new Set(ALL_PERMISSIONS)
-  return csv.split(',').map((s) => s.trim()).filter((s) => known.has(s))
+  const listed = csv.split(',').map((s) => s.trim())
+  if (listed.includes(FULL_ACCESS) || PERMISSIONS.every((permission) => listed.includes(permission))) return [...ALL_PERMISSIONS]
+  return listed.filter((s) => known.has(s))
+}
+
+export const isFullAccess = (csv: string) => {
+  const listed = csv.split(',').map((s) => s.trim())
+  return listed.includes(FULL_ACCESS) || PERMISSIONS.every((permission) => listed.includes(permission))
 }
 
 export function hasPermission(permissions: readonly string[] | undefined, needed: string): boolean {

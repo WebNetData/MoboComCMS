@@ -92,7 +92,10 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
       <main className="container py-12 max-w-3xl">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
           <Link href="/dashboard/invoices" className="muted">← {t.myInvoices}</Link>
-          <PrintButton label={t.printInvoice} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {invoice.status !== 'DRAFT' && <Link href={`/invoice/${invoice.number}/official`} className="btn btn-primary">{isFa ? 'صورتحساب رسمی (چاپ / PDF)' : 'Official invoice (print / PDF)'}</Link>}
+            <PrintButton label={t.printInvoice} />
+          </div>
         </div>
 
         <div className="card invoice-sheet">

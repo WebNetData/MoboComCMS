@@ -166,6 +166,10 @@ function orderDetailView(order: NonNullable<DetailOrder> | (OrderWithLines & {
     discount: minorToNumber(discountMinor, cur),
     discountCode: String(meta.discountCode || ''),
     shipping: minorToNumber(shippingMinor, cur),
+    shippingMethod: meta.shipping && typeof meta.shipping === 'object' ? (() => {
+      const m = meta.shipping as Record<string, unknown>
+      return { carrierId: String(m.carrierId || ''), carrierName: String(m.carrierName || ''), eta: String(m.eta || ''), weightGrams: Number(m.weightGrams) || 0 }
+    })() : null,
     total: minorToNumber(order.totalMinor, cur),
     walletApplied: order.invoice ? minorToNumber(order.invoice.walletAppliedMinor, cur) : 0,
     invoiceNumber: order.invoice?.number || '',
@@ -283,7 +287,7 @@ const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]
 
 /** Moves a paid order along the fulfilment workflow, with timeline entry and customer notice. */
 export async function transitionOrder(input: {
-  orderId: number; to: string; actorId: number
+  orderId: number; to: string; actorId: number | null
   trackingCode?: unknown; note?: unknown; digitalDelivery?: unknown; notify?: boolean; restock?: boolean
 }) {
   const delivery = await db.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })

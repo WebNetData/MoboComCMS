@@ -140,6 +140,40 @@ export function trailerSource(url: string, toEmbed: (raw: string) => string): { 
   return /^(https:\/\/|\/(?!\/))/.test(value) ? { src: value } : {}
 }
 
+/** How a film / episode link can be watched in the browser. */
+export type PlaybackKind = 'hls' | 'video' | 'maybe' | 'embed' | 'none'
+
+const VIDEO_EXT = /\.(mp4|m4v|webm|ogv|mov)$/i
+const MAYBE_EXT = /\.(mkv)$/i
+const OTHER_EXT = /\.(avi|wmv|flv|rmvb|ts|zip|rar|7z|iso|exe|apk|dmg|srt|ass)$/i
+
+/**
+ * Picks the player for a link: HLS (.m3u8) through hls.js, MP4/WebM natively,
+ * MKV "maybe" (plays only with browser codecs: H.264/VP9 + AAC/Opus, not
+ * HEVC/AC3/DTS), known video sites as an embed. `none` = download only
+ * (archives, AVI, plain http on an https site, …).
+ */
+export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string) => string = (raw) => raw): PlaybackKind {
+  let url: URL
+  try { url = new URL(String(rawUrl || '').trim()) } catch { return 'none' }
+  const embed = toEmbed(url.toString())
+  try {
+    const host = new URL(embed).hostname
+    if (/(^|\.)(youtube-nocookie\.com|youtube\.com|aparat\.com|vimeo\.com)$/.test(host)) return 'embed'
+  } catch { /* not an embed */ }
+  if (url.protocol !== 'https:') return 'none'
+  const path = decodeURIComponent(url.pathname).toLowerCase()
+  const hint = `${path} ${url.search.toLowerCase()}`
+  if (/\.m3u8($|[?\s])/.test(hint) || path.endsWith('.m3u8')) return 'hls'
+  if (VIDEO_EXT.test(path)) return 'video'
+  if (MAYBE_EXT.test(path)) return 'maybe'
+  if (OTHER_EXT.test(path)) return 'none'
+  // A stream link without a known extension (player gateways): try it natively.
+  return kind === 'STREAM' ? 'maybe' : 'none'
+}
+
+export const canPlayOnline = (kind: PlaybackKind) => kind !== 'none'
+
 // ------------------------------------------------------------------ software
 
 export const SOFTWARE_PLATFORMS = ['Windows', 'macOS', 'Linux', 'Android', 'iOS'] as const

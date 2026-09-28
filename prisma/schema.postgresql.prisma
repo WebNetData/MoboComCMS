@@ -206,6 +206,8 @@ model Order {
   deliveryBooking DeliveryBooking?
   lines         OrderLine[]
   events        OrderEvent[]
+  returns       ReturnRequest[]
+  shipment      Shipment?
 }
 
 model OrderItem {
@@ -2396,4 +2398,118 @@ model PasswordReset {
   createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// Customer cancellation (before shipping) or return (after delivery) of a store order; refunds go to the wallet.
+model ReturnRequest {
+  id          Int       @id @default(autoincrement())
+  number      String    @unique
+  orderId     Int
+  userId      Int
+  kind        String    @default("RETURN") // CANCEL | RETURN
+  status      String    @default("REQUESTED") // REQUESTED | APPROVED | REJECTED | REFUNDED | WITHDRAWN
+  reason      String    @default("")
+  description String    @default("")
+  photos      String    @default("[]") // stored file names under storage/returns
+  lines       String    @default("[]") // [{ line, quantity }]
+  requestedMinor BigInt @default(0)
+  refundMinor BigInt    @default(0)
+  currency    String    @default("IRT")
+  restocked   Boolean   @default(false)
+  adminNote   String    @default("")
+  decidedBy   Int?
+  decidedAt   DateTime?
+  refundedAt  DateTime?
+  walletTxId  Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// A parcel handed to a carrier (waybill): our own waybill number, the carrier's tracking code and its journey.
+model Shipment {
+  id           Int       @id @default(autoincrement())
+  orderId      Int       @unique
+  waybill      String    @unique
+  carrier      String
+  carrierName  String    @default("")
+  trackingCode String    @default("")
+  status       String    @default("READY") // READY | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | RETURNED | CANCELLED
+  weightGrams  Int       @default(0)
+  parcels      Int       @default(1)
+  feeMinor     BigInt    @default(0) // charged to the customer
+  costMinor    BigInt    @default(0) // paid to the carrier (optional, for margins)
+  currency     String    @default("IRT")
+  sender       String    @default("{}")
+  receiver     String    @default("{}")
+  note         String    @default("")
+  createdBy    Int?
+  shippedAt    DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events       ShipmentEvent[]
+
+  @@index([status, createdAt])
+  @@index([trackingCode])
+}
+
+/// One step of a shipment's journey, shown on the public tracking page.
+model ShipmentEvent {
+  id         Int      @id @default(autoincrement())
+  shipmentId Int
+  status     String
+  note       String   @default("")
+  location   String   @default("")
+  actorId    Int?
+  createdAt  DateTime @default(now())
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, createdAt])
+}
+
+/// Short link / forwarder: /forwarder/<slug> shows a countdown page (with ads) and then opens the target.
+model ShortLink {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  target      String
+  title       String    @default("")
+  countdown   Int?      // seconds; null = site default
+  active      Boolean   @default(true)
+  clicks      Int       @default(0)
+  lastClickAt DateTime?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([createdAt])
+}
+
+model DownloadJob {
+  id         Int       @id @default(autoincrement())
+  kind       String    // fetch | transfer | extract | repack | pack
+  status     String    @default("queued") // queued | running | done | failed | cancelled
+  title      String    @default("")
+  url        String    @default("")
+  storageId  String    @default("local")
+  dir        String    @default("/")
+  name       String    @default("")
+  params     String    @default("{}") // JSON, never passwords
+  total      Float?
+  received   Float     @default(0)
+  speed      Float     @default(0)
+  result     String    @default("")
+  error      String    @default("")
+  createdBy  Int?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  updatedAt  DateTime  @default(now()) @updatedAt
+
+  @@index([status, createdAt])
 }
