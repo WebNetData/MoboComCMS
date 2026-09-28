@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer } from '@/modules/forum/server/forum'
 import { listGroups } from '@/modules/forum/server/people'
 import ForumShell from '@/components/forum/ForumShell'
 import { num } from '@/components/forum/shared'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'گروه‌های تالار', alternates: { canonical: '/forum/g' } }
+export const metadata: Metadata = { title: 'گروه‌های تالار', alternates: { canonical: toPublicPath('/forum/g') } }
 const JOIN: Record<string, string> = { OPEN: 'عضویت آزاد', REQUEST: 'با درخواست', CLOSED: 'با دعوت' }
 
 export default async function GroupsPage() {

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { licenseLabel } from '@/modules/media/domain/media'
 import type { SoftwareCard, SoftwareTree } from '@/modules/media/server/queries'

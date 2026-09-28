@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound, redirect } from 'next/navigation'
 import { getViewer } from '@/modules/membership/server/membership'
 import { CUSTOMER_TABS, customerOrder, customerOrders, customerServiceOrders, type CustomerTab } from '@/modules/store/server/orders'

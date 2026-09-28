@@ -3,7 +3,7 @@
 // Compact list row for the subscription index (dashboard home + mini app).
 // It only names the subscription and its health; every action lives on the
 // detail page at `/dashboard/subscriptions/<id>` (or `/miniapp/...`).
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { subscriptionState } from '@/modules/subscriptions/domain/customer-overview'

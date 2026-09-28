@@ -1,6 +1,6 @@
 import { categoryMembership } from '@/modules/site/server/categories'
 import { postCategories } from '@/modules/site/domain/categories'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SiteHeader from '@/components/SiteHeader'

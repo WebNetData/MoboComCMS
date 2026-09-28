@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 import { CookedWithPolls, type PollData } from '@/components/forum/Poll'

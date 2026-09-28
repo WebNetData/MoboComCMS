@@ -29,6 +29,9 @@ export interface ExtensionSettingDefinition {
 
 export interface ExtensionPermissionDefinition { id: string; label: string; description?: string }
 export interface ExtensionAdminNavigation { href: string; label: string; labelEn?: string; icon?: string; permission?: string }
+/** A module's own group in the admin sidebar (dashboard, items, settings …). */
+export interface ExtensionAdminMenuItem { href: string; label: string; labelEn?: string; icon?: string; permissions?: readonly string[]; exact?: boolean }
+export interface ExtensionAdminMenu { title?: string; titleEn?: string; icon?: string; order?: number; items: readonly ExtensionAdminMenuItem[] }
 
 export interface ExtensionPublicState {
   enabled: boolean
@@ -66,6 +69,8 @@ export interface ExtensionManifest {
   publicPaths?: readonly string[]
   /** Core admin routes owned by the module; hidden from the admin menu while it is off. */
   adminPaths?: readonly string[]
+  /** Modules only: the module's own admin menu group; items live under adminPaths or /admin/sections/<id>. */
+  adminMenu?: ExtensionAdminMenu
   /** Legacy setting that mirrors the enabled flag (e.g. `storeEnabled`). */
   stateSetting?: string
   /** Display group in the module manager. */
@@ -97,6 +102,16 @@ export function assertValidExtensionManifest(manifest: ExtensionManifest) {
   }
   for (const path of [...(manifest.publicPaths || []), ...(manifest.adminPaths || [])]) {
     if (!/^\/[a-z0-9/_-]*$/.test(path)) throw new Error(`Extension "${manifest.id}" has an invalid path "${path}".`)
+  }
+  if (manifest.adminMenu) {
+    if (manifest.kind !== 'module') throw new Error(`Only feature modules may declare adminMenu: ${manifest.id}`)
+    // Shared core pages a section may link to: its settings page and its taxonomy.
+    const own = [...(manifest.adminPaths || []), `/admin/sections/${manifest.id}`, '/admin/taxonomy']
+    for (const item of manifest.adminMenu.items) {
+      const path = item.href.split(/[?#]/)[0]
+      if (!own.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) throw new Error(`Extension "${manifest.id}" admin menu item "${item.href}" is outside its admin paths.`)
+      if (!item.label.trim()) throw new Error(`Extension "${manifest.id}" has an admin menu item without a label.`)
+    }
   }
 }
 

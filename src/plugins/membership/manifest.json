@@ -19,6 +19,20 @@
   ],
   "settings": [
     {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی اشتراک ویژه",
+      "labelEn": "VIP home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی اشتراک ویژه",
+      "labelEn": "VIP home meta description",
+      "type": "textarea",
+      "public": true
+    },
+    {
       "key": "teaser-percent",
       "label": "درصد پیش‌نمایش متن مطالب ویژه برای غیرعضو",
       "labelEn": "Teaser share of member-only articles",
@@ -32,5 +46,33 @@
       "id": "membership.manage",
       "label": "مدیریت اشتراک ویژه و اعضا"
     }
-  ]
+  ],
+  "adminMenu": {
+    "title": "اشتراک ویژه VIP",
+    "titleEn": "VIP membership",
+    "icon": "shield",
+    "order": 80,
+    "items": [
+      {
+        "href": "/admin/vip",
+        "label": "پلن‌ها و اعضا",
+        "labelEn": "Plans & members",
+        "icon": "shield",
+        "permissions": [
+          "membership.manage",
+          "plans.manage",
+          "users.manage"
+        ]
+      },
+      {
+        "href": "/admin/sections/membership",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  }
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getGame } from '@/modules/media/server/queries'
@@ -19,6 +19,7 @@ import LinkBox from '@/components/media/LinkBox'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: g.seoTitle || (upcoming ? `بازی ${g.title}: تاریخ انتشار، تریلر و اطلاعات` : `نقد، بررسی و دانلود بازی ${g.title}`),
     description: (g.seoDescription || g.summary).slice(0, 180) || undefined,
     openGraph: { images: g.backdrop || g.cover ? [g.backdrop || g.cover] : undefined },
-    alternates: { canonical: `/games/${g.slug}` },
+    alternates: { canonical: toPublicPath(`/games/${g.slug}`) },
   }
 }
 

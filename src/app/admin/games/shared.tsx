@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import type { ReactNode } from 'react'
 
 // Games admin shell: section tabs over the shared admin kit (sa-* styles,

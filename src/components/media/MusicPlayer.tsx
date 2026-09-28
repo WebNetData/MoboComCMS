@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import type { PlayerTrack } from './player-types'
 

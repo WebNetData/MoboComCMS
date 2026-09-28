@@ -1,5 +1,5 @@
 'use client'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useSite } from '@/components/site/SiteProvider'
 import { translate } from '@/modules/site/config/types'

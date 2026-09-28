@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useState } from 'react'
 
 // GameUp-style "played / playing / want to play" shelf buttons with live counts.

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useId, useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { guidePlatforms, platformNames, type GuidePlatform, type ConnectionGuideConfig } from '@/modules/site/domain/connection-guide'
 

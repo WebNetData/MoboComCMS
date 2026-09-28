@@ -4,7 +4,7 @@
   "nameEn": "Music",
   "description": "آهنگ، آلبوم، هنرمند و پلی‌لیست با پخش‌کنندهٔ سراسری، دانلود با کیفیت ۱۲۸ و ۳۲۰ و متن آهنگ.",
   "descriptionEn": "Tracks, albums, artists and playlists with a site-wide player, 128/320 downloads and lyrics.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "kind": "module",
   "apiVersion": 1,
   "category": "content",
@@ -18,6 +18,20 @@
     "/admin/music"
   ],
   "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی موزیک",
+      "labelEn": "music home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی موزیک",
+      "labelEn": "music home meta description",
+      "type": "textarea",
+      "public": true
+    },
     {
       "key": "hq-members-only",
       "label": "کیفیت ۳۲۰ فقط برای اعضای ویژه",
@@ -38,5 +52,63 @@
       "id": "music.manage",
       "label": "مدیریت موزیک"
     }
-  ]
+  ],
+  "adminMenu": {
+    "title": "موزیک",
+    "titleEn": "Music",
+    "icon": "bolt",
+    "order": 60,
+    "items": [
+      {
+        "href": "/admin/music",
+        "label": "داشبورد موزیک",
+        "labelEn": "Music dashboard",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/music/library",
+        "label": "آهنگ، آلبوم و هنرمند",
+        "labelEn": "Tracks, albums & artists",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/taxonomy?tax=music",
+        "label": "دسته‌بندی موزیک",
+        "labelEn": "Categories",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/music/settings",
+        "label": "صفحهٔ اصلی موزیک",
+        "labelEn": "Music home",
+        "icon": "sliders",
+        "permissions": [
+          "music.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/sections/music",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  }
 }

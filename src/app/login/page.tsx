@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
 import LoginForm from './LoginForm'
 import AuthFrame from './AuthFrame'

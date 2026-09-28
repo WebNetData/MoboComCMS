@@ -25,6 +25,8 @@ import './software-portal.css'
 import './games-portal.css'
 import './journal-liona.css'
 import './store-front.css'
+import './community.css'
+import './account-home.css'
 import './store-admin.css'
 import Providers from '@/components/Providers'
 import { LocaleProvider } from '@/i18n/LocaleProvider'
@@ -50,6 +52,9 @@ import { resolveCodeThemeId } from '@/themes/runtime'
 import { getPackageRuntime } from '@/modules/packages/server/runtime'
 import PwaClient from '@/components/pwa/PwaClient'
 import { CompareTray } from '@/components/engage/CompareControls'
+import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
+import { setRouteAliases } from '@/platform/routing/aliases'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,7 +119,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
-  const [jsonLd, siteConfig, extensions, packages] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null)])
+  const [jsonLd, siteConfig, extensions, packages, routeAliases] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRouteAliases()])
+  setRouteAliases(routeAliases)
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
   // Pages of enabled uploaded packages that ask for it join the main menu.
   const locales = siteLocales()
@@ -147,10 +153,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
         <PreviewBridge />
-        <LocaleProvider locale={locale}>
+        <RouteAliasProvider map={routeAliases}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
           <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></SiteProvider></Providers>
-        </LocaleProvider>
+        </LocaleProvider></RouteAliasProvider>
       </body>
     </html>
   )

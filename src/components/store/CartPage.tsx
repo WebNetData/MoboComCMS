@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useSession } from 'next-auth/react'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { emptyCart, setLineQuantity, type Cart } from '@/modules/store/ui/cart-client'

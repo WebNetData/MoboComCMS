@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 
 export type TransferAccount = { id: number; bankName: string; holderName: string; card: string; sheba: string; accountNumber: string; note: string }

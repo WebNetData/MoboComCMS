@@ -8,6 +8,7 @@ import { musicNav } from '@/components/media/nav'
 import { AlbumCard, EmptyState, Shelf } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const fa = locale === 'fa'
   const name = fa ? data.artist.name : data.artist.nameEn || data.artist.name
-  return { title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: `/music/artist/${data.artist.slug}` } }
+  return { title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: toPublicPath(`/music/artist/${data.artist.slug}`) } }
 }
 
 export default async function ArtistPage({ params }: Props) {

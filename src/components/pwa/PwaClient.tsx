@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 

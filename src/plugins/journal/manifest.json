@@ -11,6 +11,93 @@
   "icon": "sliders",
   "defaultEnabled": true,
   "requiresCore": "^1.0.0",
-  "publicPaths": ["/blog"],
-  "adminPaths": ["/admin/posts", "/admin/postcats", "/admin/comments"]
+  "publicPaths": [
+    "/blog"
+  ],
+  "adminPaths": [
+    "/admin/posts",
+    "/admin/postcats",
+    "/admin/comments",
+    "/admin/journal"
+  ],
+  "adminMenu": {
+    "title": "مجله",
+    "titleEn": "Journal",
+    "icon": "sliders",
+    "order": 20,
+    "items": [
+      {
+        "href": "/admin/journal",
+        "label": "داشبورد مجله",
+        "labelEn": "Journal dashboard",
+        "icon": "grid",
+        "permissions": [
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/posts",
+        "label": "نوشته‌ها",
+        "labelEn": "Posts",
+        "icon": "sliders",
+        "permissions": [
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/postcats",
+        "label": "دسته‌بندی مطالب",
+        "labelEn": "Post categories",
+        "icon": "grid",
+        "permissions": [
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/comments",
+        "label": "دیدگاه‌ها",
+        "labelEn": "Comments",
+        "icon": "chat",
+        "permissions": [
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/journal/settings",
+        "label": "صفحهٔ اصلی مجله",
+        "labelEn": "Journal home",
+        "icon": "sliders",
+        "permissions": [
+          "cms.posts",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/sections/journal",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی مجله",
+      "labelEn": "journal home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی مجله",
+      "labelEn": "journal home meta description",
+      "type": "textarea",
+      "public": true
+    }
+  ]
 }

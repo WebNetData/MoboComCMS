@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import SectionMegaBar, { MegaPanel } from '@/components/site/SectionMegaBar'
 import type { MegaMenuConfig, MegaSection, SectionBar, SectionMenuConfig } from '@/modules/navigation/domain/megamenu'
 

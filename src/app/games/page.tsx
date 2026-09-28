@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { withSectionSeo } from '@/modules/site/server/section-seo'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
 import { gameGenres } from '@/modules/media/server/games-portal'
@@ -12,13 +13,16 @@ import { GameRail, GenreTiles, PlatformCards, PostsBlock, ReviewBand } from '@/c
 import { FranchiseTiles, UpcomingList, WantedRail } from '@/components/games/GameV2'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
 import type { HomeRail } from '@/modules/games/domain/games'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  return withSectionSeo('games', {
   title: 'بازی — نقد، بررسی، تقویم انتشار و دانلود بازی',
   description: 'نقد و بررسی، نمره، تقویم انتشار، سیستم مورد نیاز و دانلود بازی‌های کامپیوتر، کنسول و موبایل',
-  alternates: { canonical: '/games' },
+  alternates: { canonical: toPublicPath('/games') },
+})
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { withSectionSeo } from '@/modules/site/server/section-seo'
+import Link from '@/components/AppLink'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
 import { getViewer, getVipPlans } from '@/modules/membership/server/membership'
 import { daysLeft } from '@/modules/membership/domain/membership'
@@ -8,12 +9,13 @@ import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
 import VipPlans from '@/components/media/VipPlans'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const fa = (await getServerLocale()) === 'fa'
-  return { title: fa ? 'اشتراک ویژه VIP' : 'VIP membership', description: fa ? 'با اشتراک ویژه به همه فیلم‌ها، سریال‌ها، آهنگ‌ها و بازی‌های ویژه، کیفیت بالاتر و قیمت مخصوص اعضا دسترسی داشته باشید.' : 'Unlock every members-only film, series, song and game, higher quality and member prices.', alternates: { canonical: '/vip' } }
+  return withSectionSeo('membership', { title: fa ? 'اشتراک ویژه VIP' : 'VIP membership', description: fa ? 'با اشتراک ویژه به همه فیلم‌ها، سریال‌ها، آهنگ‌ها و بازی‌های ویژه، کیفیت بالاتر و قیمت مخصوص اعضا دسترسی داشته باشید.' : 'Unlock every members-only film, series, song and game, higher quality and member prices.', alternates: { canonical: toPublicPath('/vip') } })
 }
 
 export default async function VipPage() {

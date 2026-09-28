@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
 import { searchSite } from '@/modules/search/server/search'

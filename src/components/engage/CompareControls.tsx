@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname, useRouter } from '@/platform/routing/navigation'
 import { useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, clearCompare, readCompare, removeCompare, type CompareEntry } from '@/components/engage/compare-store'

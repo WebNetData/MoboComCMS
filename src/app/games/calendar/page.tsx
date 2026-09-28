@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { releaseCalendar, upcomingReleases } from '@/modules/games/server/portal'
 import { gameFacets } from '@/modules/media/server/queries'
 import MediaShell from '@/components/media/MediaShell'
 import { CalendarGrid } from '@/components/games/GameV2'
 import { GameRail } from '@/components/games/GamePortal'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Search = { month?: string; platform?: string }
@@ -13,7 +14,7 @@ type Search = { month?: string; platform?: string }
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
   const p = await searchParams
   const { month } = await releaseCalendar(p.month, p.platform)
-  return { title: `تقویم انتشار بازی‌ها — ${month.label}${p.platform ? ` (${p.platform})` : ''}`, description: `بازی‌هایی که در ${month.label} برای کامپیوتر، کنسول و موبایل منتشر می‌شوند.`, alternates: { canonical: '/games/calendar' }, robots: p.platform ? { index: false } : undefined }
+  return { title: `تقویم انتشار بازی‌ها — ${month.label}${p.platform ? ` (${p.platform})` : ''}`, description: `بازی‌هایی که در ${month.label} برای کامپیوتر، کنسول و موبایل منتشر می‌شوند.`, alternates: { canonical: toPublicPath('/games/calendar') }, robots: p.platform ? { index: false } : undefined }
 }
 
 /** Persian-month release calendar with a platform filter. */

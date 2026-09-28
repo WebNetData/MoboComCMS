@@ -1,7 +1,7 @@
 'use client'
 
 import MiniAppHeading from '../MiniAppHeading'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'

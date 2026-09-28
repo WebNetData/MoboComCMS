@@ -5,6 +5,7 @@
  * one canonical public URL.
  */
 
+import { toInternalPath } from '@/shared/routing/aliases'
 export const ITEM_TYPES = ['software', 'game', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread'] as const
 export type ItemType = typeof ITEM_TYPES[number]
 export type ItemRef = { type: ItemType; id: number }
@@ -59,7 +60,8 @@ export function itemPath(type: ItemType, key: { slug?: string | null; id: number
 export function parseItemPath(input: string): { type: ItemType; slug: string; id?: number } | null {
   let path = String(input || '').trim()
   try { if (/^https?:\/\//i.test(path)) path = new URL(path).pathname } catch { return null }
-  path = path.split(/[?#]/)[0]
+  // Sections may be published under other addresses (/game for /games …).
+  path = toInternalPath(path.split(/[?#]/)[0])
   let slug = ''
   const match = (pattern: RegExp) => { const m = pattern.exec(path); if (m) { try { slug = decodeURIComponent(m[1]) } catch { slug = m[1] } } return !!m }
   if (match(/^\/software\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'software', slug }

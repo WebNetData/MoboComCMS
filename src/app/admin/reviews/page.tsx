@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 type Review = { id: number; rating: number; body: string; status: string; createdAt: string; user: { id: number; name: string; email: string }; item: { key: string; title: string; url: string; label: string } }
 type Data = { total: number; page: number; pages: number; pending: number; reviews: Review[] }

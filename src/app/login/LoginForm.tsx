@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import TurnstileWidget from '@/components/TurnstileWidget'

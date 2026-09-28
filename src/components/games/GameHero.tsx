@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 export type HeroSlide = { id: number; slug: string; title: string; summary: string; backdrop: string; cover: string; screenshots: string[]; genres: string[]; score: number | null }
 

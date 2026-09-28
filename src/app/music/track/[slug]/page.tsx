@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { getModuleSettings, requireModule } from '@/extensions/server/modules'
 import { getTrack } from '@/modules/media/server/queries'
@@ -14,6 +14,8 @@ import { musicNav } from '@/components/media/nav'
 import { VipBadge, VipGate } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
+import { toPublicPath } from '@/platform/routing/aliases'
+import { getMusicSettings } from '@/modules/music/server/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,12 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fa = locale === 'fa'
   const tr = data.track
   const title = `${fa ? tr.title : tr.titleEn || tr.title} — ${fa ? tr.artist.name : tr.artist.nameEn || tr.artist.name}`
-  return { title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: `/music/track/${tr.slug}` } }
+  return { title: fa ? `دانلود آهنگ ${title}` : title, description: fa ? `پخش آنلاین و دانلود آهنگ ${title}${tr.hasHq ? ' با کیفیت ۳۲۰' : ''}` : `Listen and download ${title}`, openGraph: { images: tr.cover ? [tr.cover] : undefined, type: 'music.song' }, alternates: { canonical: toPublicPath(`/music/track/${tr.slug}`) } }
 }
 
 export default async function TrackPage({ params }: Props) {
   await requireModule('music')
-  const [{ slug }, locale, viewer, settings] = await Promise.all([params, getServerLocale(), getViewer(), getModuleSettings('music')])
+  const [{ slug }, locale, viewer, settings, layout] = await Promise.all([params, getServerLocale(), getViewer(), getModuleSettings('music'), getMusicSettings()])
   const data = await getTrack(slug)
   if (!data) notFound()
   const fa = locale === 'fa'
@@ -82,10 +84,10 @@ export default async function TrackPage({ params }: Props) {
       <div className="container md-body">
         {locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}`} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
         <div className="mu-columns">
-          <section className="mu-panel">
+          {layout.showLyrics && <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? 'متن آهنگ' : 'Lyrics'}</h2></header>
             {track.lyrics ? <div className={`mu-lyrics${locked ? ' is-teaser' : ''}`}>{locked ? track.lyrics.split('\n').slice(0, 6).join('\n') : track.lyrics}</div> : <p className="muted">{fa ? 'متن این آهنگ هنوز ثبت نشده است.' : 'No lyrics yet.'}</p>}
-          </section>
+          </section>}
           {album.length > 1 ? (
             <section className="mu-panel">
               <header className="md-shelf-head"><h2>{fa ? 'آهنگ‌های این آلبوم' : 'On this album'}</h2></header>

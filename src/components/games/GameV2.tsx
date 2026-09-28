@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { GameCard as Game } from '@/modules/media/server/queries'
 import { GAME_MODES, LOCALIZATIONS, UPDATE_KINDS, formatHours, releaseState, type UpdateKind } from '@/modules/games/domain/games'
 import { scoreBand } from '@/modules/media/domain/media'

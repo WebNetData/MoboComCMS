@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import SubscriptionCard, { type SubSummary } from '@/components/SubscriptionCard'
 import StatusBadge from '@/components/StatusBadge'
 import TicketStatusBadge from '@/components/TicketStatusBadge'

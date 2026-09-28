@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 

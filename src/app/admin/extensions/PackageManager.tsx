@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 
 type Setting = { key: string; label: string; labelEn?: string; type: 'text' | 'textarea'; default?: string }

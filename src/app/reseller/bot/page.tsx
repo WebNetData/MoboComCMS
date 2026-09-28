@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type BotInfo = { id: number; username: string; ownerTelegramId: string; brandName: string; publicUrl: string; cardNumber: string; cardHolder: string; active: boolean; lastError: string; installedAt: string | null; link: string }

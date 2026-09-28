@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { WEEKDAY_FA, type DeliverySettings, type ScheduleDay } from '@/modules/shipping/domain/shipping'
 
 /** Saturday-first week, as Iranian calendars show it (JS weekday numbers). */

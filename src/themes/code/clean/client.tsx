@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/platform/routing/Link'
+import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { ThemeLangControls, ThemePluginOutlet, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'

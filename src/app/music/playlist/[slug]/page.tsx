@@ -10,6 +10,7 @@ import { musicNav } from '@/components/media/nav'
 import { VipBadge, VipGate } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await getPlaylist(slug)
   if (!data) return {}
   const fa = locale === 'fa'
-  return { title: fa ? `پلی‌لیست ${data.playlist.title}` : `${data.playlist.titleEn || data.playlist.title} playlist`, description: data.playlist.description || undefined, alternates: { canonical: `/music/playlist/${data.playlist.slug}` } }
+  return { title: fa ? `پلی‌لیست ${data.playlist.title}` : `${data.playlist.titleEn || data.playlist.title} playlist`, description: data.playlist.description || undefined, alternates: { canonical: toPublicPath(`/music/playlist/${data.playlist.slug}`) } }
 }
 
 export default async function PlaylistPage({ params }: Props) {

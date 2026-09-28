@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { WIDGET_TYPES, emptyDoc, type BuilderDoc, type WidgetType } from '@/modules/site/domain/builder'
 import {

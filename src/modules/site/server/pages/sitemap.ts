@@ -1,3 +1,5 @@
+import { toPublicPath } from '@/platform/routing/aliases'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 import type { MetadataRoute } from 'next'
 import { db } from '@/platform/database/prisma'
 import { getSettings } from '@/modules/settings/server'
@@ -85,6 +87,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Disabled feature modules (journal, VPN plans, store …) leave the sitemap.
   const runtime = await getPublicExtensionRuntime().catch(() => null)
-  if (!runtime) return entries
-  return entries.filter((entry) => { try { return !pathDisabled(new URL(entry.url).pathname, runtime) } catch { return true } })
+  const aliases = await loadRouteAliases()
+  const publish = (entry: MetadataRoute.Sitemap[number]) => {
+    try { const url = new URL(entry.url); return { ...entry, url: `${url.origin}${toPublicPath(url.pathname + url.search, aliases)}` } } catch { return entry }
+  }
+  if (!runtime) return entries.map(publish)
+  return entries.filter((entry) => { try { return !pathDisabled(new URL(entry.url).pathname, runtime) } catch { return true } }).map(publish)
 }

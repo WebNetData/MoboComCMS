@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import type { SectionBar, SectionBarItem, MegaPromo } from '@/modules/navigation/domain/megamenu'
 
 const OPEN_DELAY = 110

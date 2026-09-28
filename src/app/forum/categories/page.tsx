@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { categoryIndex, forumStats, getForumViewer } from '@/modules/forum/server/forum'
 import ForumShell from '@/components/forum/ForumShell'
 import { TimeAgo, num } from '@/components/forum/shared'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'دسته‌بندی‌های تالار', alternates: { canonical: '/forum/categories' } }
+export const metadata: Metadata = { title: 'دسته‌بندی‌های تالار', alternates: { canonical: toPublicPath('/forum/categories') } }
 
 export default async function ForumCategoriesPage() {
   await requireModule('forum')

@@ -6,6 +6,8 @@ import { MAX_GROUP_RECIPIENTS, RuleError, canStartMessage, censorText, findWatch
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { getForumSettings, notify } from '@/modules/forum/server/community'
 import { authorsFor, fallbackAuthor } from '@/modules/forum/server/forum'
+import { relationBetween } from '@/modules/identity/server/profile'
+import { canMessage, normalizePrivacy } from '@/modules/identity/domain/profile'
 
 // Personal messages: private conversations kept apart from topics, so they
 // can never leak into listings, search, feeds or the sitemap. Only
@@ -52,6 +54,16 @@ async function resolveRecipients(viewer: Viewer, input: { to?: unknown; groups?:
   }
   ids.delete(viewer.userId!)
   if (!ids.size) throw new ForumError('دست‌کم یک گیرندهٔ دیگر لازم است')
+  // Named recipients decide who may message them (profile privacy, blocks); staff are exempt.
+  if (!viewer.moderator) {
+    const named = new Set(profiles.map((profile) => profile.userId))
+    const privacy = new Map((await db.userProfile.findMany({ where: { userId: { in: [...named] } }, select: { userId: true, username: true, privacy: true } })).map((row) => [row.userId, row]))
+    for (const id of named) {
+      const relation = await relationBetween(viewer.userId!, id)
+      const row = privacy.get(id)
+      if (!canMessage(normalizePrivacy(row?.privacy), relation)) throw new ForumError(`@${row?.username || profiles.find((p) => p.userId === id)?.username} پیام خصوصی نمی‌پذیرد`, 403)
+    }
+  }
   return [...ids]
 }
 

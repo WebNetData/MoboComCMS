@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import MiniAppHeading from '../MiniAppHeading'
 import { useI18n } from '@/i18n/LocaleProvider'

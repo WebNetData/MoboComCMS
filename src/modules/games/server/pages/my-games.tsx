@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { redirect } from 'next/navigation'
 import { getViewer } from '@/modules/membership/server/membership'
 import { myLibrary } from '@/modules/games/server/library'

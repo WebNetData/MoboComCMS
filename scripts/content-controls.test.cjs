@@ -14,12 +14,25 @@ test('backup settings and execution require settings permission', async () => {
   for (const method of ['GET','PATCH','POST']) assert.equal((await route[method](new NextRequest('http://localhost/api/admin/backups'))).status,403)
 })
 
-test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', () => {
-  const { middleware } = load('src/middleware.ts')
+test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', async () => {
+  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
   const request = origin => new NextRequest('http://localhost:3002/api/subscriptions/1', { method: 'POST', headers: { host: '127.0.0.1:3002', origin, 'x-request-id': 'origin-test-123' } })
-  assert.equal(middleware(request('http://127.0.0.1:3002')).status, 200)
-  assert.equal(middleware(request('https://attacker.invalid')).status, 403)
-  assert.equal(middleware(request('http://127.0.0.1:9999')).status, 403)
+  assert.equal((await middleware(request('http://127.0.0.1:3002'))).status, 200)
+  assert.equal((await middleware(request('https://attacker.invalid'))).status, 403)
+  assert.equal((await middleware(request('http://127.0.0.1:9999'))).status, 403)
+})
+
+test('middleware publishes sections under their aliases and redirects old addresses', async () => {
+  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
+  const get = (url) => middleware(new NextRequest(url, { headers: { 'x-request-id': 'alias-test-123' } }))
+  const old = await get('http://localhost:3002/games/x?y=1')
+  assert.equal(old.status, 308)
+  const location = new URL(old.headers.get('location'))
+  assert.equal(location.pathname + location.search, '/game/x?y=1')
+  const aliased = await get('http://localhost:3002/game/x')
+  assert.match(aliased.headers.get('x-middleware-rewrite') || '', /\/games\/x$/)
+  assert.ok(aliased.headers.get('content-security-policy'))
+  assert.equal((await get('http://localhost:3002/api/games/library')).status, 200)
 })
 
 test('incident validation rejects invalid scopes, statuses and oversized messages', () => {
@@ -279,9 +292,10 @@ test('ticket detail stays owner-scoped and returns the reported subscription con
 })
 
 test('journal comments require sign-in, moderation and an approved parent for replies', async () => {
-  let user = null, saved
+  let user = null, saved, autoApproveComments = false
   const route = load('src/modules/site/server/http/public/blog/[slug]/comments/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => user },
+    '@/modules/journal/server/admin': { getJournalSettings: async () => ({ autoApproveComments }) },
     '@/platform/database/prisma': { db: {
       post: { findUnique: async () => ({ id: 5, status: 'PUBLISHED' }) },
       postComment: { findFirst: async () => null, create: async ({ data }) => { saved = data; return { id: 11, status: 'PENDING' } } },
@@ -294,8 +308,13 @@ test('journal comments require sign-in, moderation and an approved parent for re
   assert.equal((await route.POST(request({ body: '<script>alert(1)</script>' }), context)).status, 400)
   assert.equal((await route.POST(request({ body: 'A reply', parentId: 50 }), context)).status, 404)
   assert.equal((await route.POST(request({ body: 'Useful article' }), context)).status, 201)
-  assert.equal(saved.status, undefined)
+  assert.equal(saved.status, 'PENDING')
   assert.equal(saved.userId, 31)
+  // The journal setting «انتشار خودکار دیدگاه» publishes member comments without review.
+  autoApproveComments = true
+  user = { id: 32 }
+  assert.equal((await route.POST(request({ body: 'Another useful note' }), context)).status, 201)
+  assert.equal(saved.status, 'APPROVED')
 })
 
 test('incident administration denies users without support permission', async () => {

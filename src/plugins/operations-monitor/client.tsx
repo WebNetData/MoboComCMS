@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/platform/routing/Link'
 import { useExtensionI18n } from '@/extensions/sdk/client'
 import type { PluginClientModule } from '../types'
 

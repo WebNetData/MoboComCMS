@@ -13,7 +13,7 @@ import { useSubKit } from '@/components/useSubKit'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 import { subscriptionState } from '@/modules/subscriptions/domain/customer-overview'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 export interface SubSummary {
   id: number

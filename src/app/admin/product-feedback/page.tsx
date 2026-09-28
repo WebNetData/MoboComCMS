@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type Item = { id: number; status: string; body: string; title?: string; rating?: number; answer?: string; guestName?: string; product: { name: string; slug: string }; user: { name: string; email: string } | null }

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/platform/routing/Link'
 import { ThemePluginOutlet, useThemeI18n, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeFooterProps } from '@/themes/types'
 import Glyph from './glyph'

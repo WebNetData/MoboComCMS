@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import { cleanWidgetHtml, sanitizeWidgetCss } from '@/shared/content/sanitize'
 import { getLandingData } from '@/modules/site/server/homepage'

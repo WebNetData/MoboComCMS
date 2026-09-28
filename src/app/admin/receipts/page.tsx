@@ -1,5 +1,5 @@
 'use client'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState } from 'react'
 
 type Receipt = {

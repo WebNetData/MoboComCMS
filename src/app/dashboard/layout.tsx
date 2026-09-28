@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ThemeLangControls from '@/components/ThemeLangControls'
 import { getCookie } from '@/platform/browser/preferences'
@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const vpnOn = useModuleEnabled('vpn')
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
+  const communityOn = useModuleEnabled('community')
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -57,7 +58,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),
       ],
     },
-    ...(gamesOn ? [{ label: locale === 'fa' ? 'سرگرمی' : 'Entertainment', items: [{ href: '/dashboard/games', label: locale === 'fa' ? 'کتابخانهٔ بازی من' : 'My game library', icon: 'devices' }] }] : []),
+    ...(communityOn || gamesOn ? [{ label: locale === 'fa' ? 'پروفایل و جامعه' : 'Profile & community', items: [
+      ...(communityOn ? [{ href: '/feed', label: locale === 'fa' ? 'تازه‌ها (فید)' : 'Feed', icon: 'sparkles' }, { href: '/dashboard/public-profile', label: locale === 'fa' ? 'پروفایل عمومی من' : 'My public profile', icon: 'sliders' }] : []),
+      ...(gamesOn ? [{ href: '/dashboard/games', label: locale === 'fa' ? 'کتابخانهٔ بازی من' : 'My game library', icon: 'devices' }] : []),
+    ] }] : []),
     {
       label: locale === 'fa' ? 'حساب و پشتیبانی' : 'Account & support',
       items: [

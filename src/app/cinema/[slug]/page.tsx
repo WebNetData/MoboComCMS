@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getTitle } from '@/modules/media/server/queries'
@@ -14,6 +14,7 @@ import LinkBox from '@/components/media/LinkBox'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import SeasonTabs, { type SeasonView } from '@/components/media/SeasonTabs'
 import Trailer from '@/components/media/Trailer'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: fa ? `دانلود ${kind} ${name}${ti.year ? ` ${ti.year}` : ''}${ti.dubbed ? ' با دوبله فارسی' : ''}` : `${name}${ti.year ? ` (${ti.year})` : ''}`,
     description: (fa ? ti.summary : ti.summaryEn || ti.summary).slice(0, 180) || undefined,
     openGraph: { images: ti.backdrop || ti.poster ? [ti.backdrop || ti.poster] : undefined, type: ti.kind === 'SERIES' ? 'video.tv_show' : 'video.movie' },
-    alternates: { canonical: `/cinema/${ti.slug}` },
+    alternates: { canonical: toPublicPath(`/cinema/${ti.slug}`) },
   }
 }
 

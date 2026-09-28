@@ -1,6 +1,7 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from '@/platform/routing/navigation'
+import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
 import { ReviewQueue } from '@/components/forum/Messages'
 
@@ -16,6 +17,7 @@ type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
 type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
 type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
+const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'groups', 'badges', 'users', 'words', 'settings']
 
 const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[] }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
@@ -28,9 +30,17 @@ const fa = (n: number) => n.toLocaleString('fa-IR')
 const date = (value: string | null) => (value ? new Date(value).toLocaleDateString('fa-IR') : '')
 
 /** Forum administration: flag queue, categories + group permissions, groups, badges, members and settings. */
-export default function AdminForumPage() {
+function AdminForumPage() {
   const [data, setData] = useState<Data | null>(null)
   const [tab, setTab] = useState<Tab>('dashboard')
+  const search = useSearchParams()
+  // Deep links from the forum menu in the admin sidebar (?tab=review …).
+  useEffect(() => {
+    const wanted = search.get('tab') as Tab | null
+    if (wanted === 'review') fetch('/api/admin/forum?section=review', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { items: [] })).then((body) => setReview(body.items || [])).catch(() => setReview([]))
+    if (wanted && TABS_ALL.includes(wanted)) setTab(wanted)
+    else if (!wanted) setTab('dashboard')
+  }, [search])
   const [review, setReview] = useState<unknown[] | null>(null)
   const [words, setWords] = useState<{ block: string; approve: string; censor: string } | null>(null)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
@@ -324,4 +334,8 @@ function UserModeration({ user, trustNames, busy, onSave }: { user: Member; trus
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('suspendDays', 'تعلیق')}>⛔ {suspended ? 'تغییر تعلیق' : 'تعلیق'}</button>
     </div>
   </article>
+}
+
+export default function ForumAdminPage() {
+  return <Suspense fallback={null}><AdminForumPage /></Suspense>
 }

@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import type { ProductCard } from '@/modules/store/server/catalog'
 import type { StoreTile } from '@/modules/store/domain/store'

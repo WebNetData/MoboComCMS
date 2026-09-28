@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import CoverField from '../cms/CoverField'
 import { defaultSiteFonts, local, type SiteConfig, type ThemeColors, type ThemeManifest } from '@/modules/site/config/types'
 import { TextEditor, LinkEditor } from './fields'

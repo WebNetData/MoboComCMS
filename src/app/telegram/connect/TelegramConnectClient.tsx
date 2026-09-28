@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { signOut, useSession } from 'next-auth/react'
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import Icon from '@/components/site/Icon'
 import { useI18n } from '@/i18n/LocaleProvider'
 

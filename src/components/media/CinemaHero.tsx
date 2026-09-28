@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 export type HeroSlide = { slug: string; title: string; subtitle: string; summary: string; backdrop: string; poster: string; imdb: string; year: string; genres: string[]; badges: string[]; vip: boolean; kindLabel: string }
 

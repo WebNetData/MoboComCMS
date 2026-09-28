@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { FormDefinition, FormField } from '@/modules/site/config/forms'
 import PublicForm from '@/components/site/PublicForm'
 type SavedForm = FormDefinition & { id:number; _count?:{ submissions:number } }

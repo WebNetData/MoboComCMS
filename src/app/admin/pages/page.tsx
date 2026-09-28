@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import AdminCrud, { type FieldDef } from '../cms/AdminCrud'
 import { useI18n } from '@/i18n/LocaleProvider'
 

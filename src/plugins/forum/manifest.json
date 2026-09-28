@@ -11,7 +11,120 @@
   "icon": "chat",
   "defaultEnabled": true,
   "requiresCore": "^1.0.0",
-  "publicPaths": ["/forum"],
-  "adminPaths": ["/admin/forum"],
-  "permissions": [{ "id": "forum.moderate", "label": "مدیریت تالار گفتمان" }]
+  "publicPaths": [
+    "/forum"
+  ],
+  "adminPaths": [
+    "/admin/forum"
+  ],
+  "permissions": [
+    {
+      "id": "forum.moderate",
+      "label": "مدیریت تالار گفتمان"
+    }
+  ],
+  "adminMenu": {
+    "title": "تالار گفتمان",
+    "titleEn": "Forum",
+    "icon": "chat",
+    "order": 30,
+    "items": [
+      {
+        "href": "/admin/forum",
+        "label": "داشبورد جامعه",
+        "labelEn": "Community dashboard",
+        "icon": "grid",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/forum?tab=review",
+        "label": "صف بررسی",
+        "labelEn": "Review queue",
+        "icon": "shield",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/forum?tab=flags",
+        "label": "گزارش‌ها",
+        "labelEn": "Flags",
+        "icon": "shield",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/forum?tab=categories",
+        "label": "دسته‌ها",
+        "labelEn": "Categories",
+        "icon": "grid",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/forum?tab=users",
+        "label": "کاربران و گروه‌ها",
+        "labelEn": "Members & groups",
+        "icon": "devices",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/forum?tab=words",
+        "label": "واژه‌های تحت نظر",
+        "labelEn": "Watched words",
+        "icon": "sliders",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/forum?tab=settings",
+        "label": "تنظیمات تالار",
+        "labelEn": "Forum settings",
+        "icon": "sliders",
+        "permissions": [
+          "forum.moderate",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/sections/forum",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی تالار گفتمان",
+      "labelEn": "forum home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی تالار گفتمان",
+      "labelEn": "forum home meta description",
+      "type": "textarea",
+      "public": true
+    }
+  ]
 }

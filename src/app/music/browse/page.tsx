@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { browseMusic, getMusicGenres } from '@/modules/media/server/queries'
 import { getServerLocale } from '@/i18n/server'

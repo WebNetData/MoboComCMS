@@ -2,13 +2,15 @@ import { softwareSidebar, softwareStats, softwareSuggestions } from '@/modules/m
 import { termTree } from '@/modules/taxonomy/server/taxonomy'
 import { flatten } from '@/modules/taxonomy/domain/taxonomy'
 import { getMegaConfig } from '@/modules/navigation/server/megamenu'
+import { getSoftwareSettings } from '@/modules/software/server/admin'
 
 /**
  * Data every software-portal page shares: the stats strip, highlighted
  * category tiles, the category tree, sidebar lists and the section promo.
  */
 export async function softwarePortalChrome() {
-  const [stats, sidebar, terms, suggestions, menu] = await Promise.all([softwareStats(), softwareSidebar(), termTree('software'), softwareSuggestions(10), getMegaConfig().catch(() => null)])
+  const { suggestionIds } = await getSoftwareSettings()
+  const [stats, sidebar, terms, suggestions, menu] = await Promise.all([softwareStats(), softwareSidebar(), termTree('software'), softwareSuggestions(10, suggestionIds), getMegaConfig().catch(() => null)])
   const flat = flatten(terms)
   // Tiles: categories the editor coloured first, else the busiest sub-categories (one per name).
   const coloured = flat.filter((term) => term.color && term.inMenu)

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, nextStatuses, trackingIndex, type FulfilmentStatus } from '@/modules/store/domain/store'

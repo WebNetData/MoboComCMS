@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { listBadges } from '@/modules/forum/server/people'
 import { getForumViewer } from '@/modules/forum/server/forum'
 import ForumShell from '@/components/forum/ForumShell'
 import { num } from '@/components/forum/shared'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'نشان‌های تالار', alternates: { canonical: '/forum/badges' } }
+export const metadata: Metadata = { title: 'نشان‌های تالار', alternates: { canonical: toPublicPath('/forum/badges') } }
 const TIERS = [{ key: 'GOLD', label: 'طلایی' }, { key: 'SILVER', label: 'نقره‌ای' }, { key: 'BRONZE', label: 'برنزی' }]
 
 export default async function BadgesPage() {

@@ -5,9 +5,11 @@ import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { sniffImage } from '@/shared/files/image-type'
 import { ForumError } from '@/modules/forum/domain/forum'
-import { TRUST_NAMES, normalizeUsername, type Viewer } from '@/modules/forum/domain/community'
-import { markdownExcerpt, renderMarkdown, safeUrl } from '@/modules/forum/domain/markdown'
+import { TRUST_NAMES, type Viewer } from '@/modules/forum/domain/community'
+import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { ensureProfiles, notify, refreshStats } from '@/modules/forum/server/community'
+import { updateUserProfile } from '@/modules/identity/server/profile'
+import { ProfileError } from '@/modules/identity/domain/profile'
 import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/server/forum'
 
 // Profiles, the member directory, avatars and groups.
@@ -50,35 +52,25 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
 }
 
 const clean = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f‪-‮⁦-⁩]/g, '').trim().slice(0, max)
-const mediaPath = (value: unknown) => { const path = String(value || '').trim(); return !path || /^\/api\/forum\/media\/[0-9a-f-]{36}\.(png|jpg|webp)$/.test(path) ? path : null }
 
-/** Own profile edit. Titles come only from the user's groups (or staff). */
+/**
+ * Own profile edit. The public identity (username, bio, location, website,
+ * avatar, cover) is the unified member profile; titles and the primary
+ * group stay forum-only and come from the user's groups (or staff).
+ */
 export async function updateProfile(viewer: Viewer, input: Record<string, unknown>) {
   if (!viewer.userId) throw new ForumError('وارد شوید', 401)
   await ensureProfiles([viewer.userId])
   const profile = await db.forumProfile.findUnique({ where: { userId: viewer.userId } })
   if (!profile) throw new ForumError('پروفایل پیدا نشد', 404)
+  const identity = Object.fromEntries(['username', 'bio', 'location', 'website', 'avatar', 'cover'].filter((key) => input[key] !== undefined).map((key) => [key, input[key]]))
+  if (Object.keys(identity).length) {
+    try { await updateUserProfile(viewer.userId, identity) } catch (error) {
+      if (error instanceof ProfileError) throw new ForumError(error.message, error.status)
+      throw error
+    }
+  }
   const data: Record<string, unknown> = {}
-  if (input.username !== undefined && String(input.username).toLowerCase() !== profile.username) {
-    if (!rateLimitHit(`forum:rename:${viewer.userId}`, 3, 86_400_000).ok) throw new ForumError('تغییر نام کاربری امروز بیش از حد انجام شده است', 429)
-    const username = normalizeUsername(input.username)
-    if (await db.forumProfile.findUnique({ where: { username }, select: { userId: true } })) throw new ForumError('این نام کاربری گرفته شده است', 409)
-    data.username = username
-  }
-  if (input.bio !== undefined) data.bio = clean(input.bio, 3000)
-  if (input.location !== undefined) data.location = clean(input.location, 100)
-  if (input.website !== undefined) {
-    const website = clean(input.website, 200)
-    if (website && !/^https?:\/\//i.test(website)) throw new ForumError('نشانی وب‌سایت باید با http یا https شروع شود')
-    if (website && !safeUrl(website)) throw new ForumError('نشانی وب‌سایت معتبر نیست')
-    data.website = website
-  }
-  for (const key of ['avatar', 'cover'] as const) {
-    if (input[key] === undefined) continue
-    const path = mediaPath(input[key])
-    if (path === null) throw new ForumError('تصویر معتبر نیست')
-    data[key] = path
-  }
   if (input.primaryGroupId !== undefined || input.title !== undefined) {
     const memberships = await db.forumGroupMember.findMany({ where: { userId: viewer.userId, status: 'ACTIVE' }, include: { group: { select: { id: true, title: true } } } })
     if (input.primaryGroupId !== undefined) {
@@ -93,7 +85,7 @@ export async function updateProfile(viewer: Viewer, input: Record<string, unknow
       data.title = title
     }
   }
-  const updated = await db.forumProfile.update({ where: { userId: viewer.userId }, data })
+  const updated = Object.keys(data).length ? await db.forumProfile.update({ where: { userId: viewer.userId }, data }) : await db.forumProfile.findUniqueOrThrow({ where: { userId: viewer.userId } })
   void refreshStats(viewer.userId).catch(() => undefined)
   return { username: updated.username }
 }

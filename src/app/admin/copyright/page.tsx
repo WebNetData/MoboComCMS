@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 type Report = { id: number; code: string; name: string; email: string; organization: string; phone: string; role: string; workTitle: string; originalUrl: string; infringingUrls: string[]; description: string; status: string; resolution: string; actionTaken: string; createdAt: string; resolvedAt: string | null }
 type Target = { url: string; item: { type: string; id: number; title: string; url: string; label: string } | null; links: { id: number; label: string; quality: string; url: string; disabled: boolean }[] }

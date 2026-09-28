@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import CoverField from './CoverField'
 import CategoryPicker from './CategoryPicker'
 

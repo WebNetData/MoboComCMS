@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useState } from 'react'
 import { Money, Notice, Pager, StoreShell, fa, faDate, useJson } from '../shared'
 

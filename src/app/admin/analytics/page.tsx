@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 type Top = { value: string; count: number }
 type Point = { day: string; visitors: number; views: number; signups: number; sales: number; downloads: number }

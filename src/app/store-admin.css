@@ -258,3 +258,35 @@
 .ga-rails .sa-check { flex: 1; margin: 0; }
 .ga-rail-index { width: 22px; color: var(--sa-muted); font-weight: 800; text-align: center; }
 .ga-rail-move { display: flex; gap: 4px; }
+
+/* section hub (sh-) */
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sh-card { display: grid; gap: 8px; align-content: start; }
+.sh-card.is-off { opacity: .7; }
+.sh-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sh-card-head b { font-size: 16px; }
+.sh-addresses { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.sh-addresses bdi { font-family: ui-monospace, monospace; font-weight: 700; color: var(--sa-accent); }
+.sh-address { display: grid; gap: 6px; padding-block: 8px; border-top: 1px solid var(--sa-line); }
+.sh-address:first-of-type { border-top: 0; }
+.sh-address-input { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--sa-line); border-radius: 10px; background: var(--sa-subtle); }
+.sh-address-input .input { flex: 1; min-width: 0; border: 0; border-radius: 0; font-family: ui-monospace, monospace; }
+.sh-origin { display: grid; place-items: center; padding-inline: 10px; color: var(--sa-muted); font-family: ui-monospace, monospace; font-size: 12.5px; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+
+/* community admin (ca-) */
+.ca-who { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ca-who img, .ca-dot { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; }
+.ca-dot { display: grid; place-items: center; color: #fff; font-weight: 800; }
+.ca-who > span { display: grid; min-width: 0; }
+.ca-report { display: grid; gap: 10px; }
+.ca-target { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--sa-subtle); }
+.ca-target p, .ca-text { margin: 0; font-size: 13.5px; line-height: 1.9; white-space: pre-line; overflow-wrap: anywhere; }
+.ca-text { display: -webkit-box; max-width: 480px; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+
+/* section admins (cinema, music): share-of-total bars */
+.sx-bars { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sx-bars li { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.sx-bars li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-bar { height: 8px; border-radius: 99px; background: var(--sa-line); overflow: hidden; }
+.sx-bar i { display: block; height: 100%; border-radius: 99px; background: var(--sa-accent); }
+.sx-bars b { min-width: 28px; text-align: end; }

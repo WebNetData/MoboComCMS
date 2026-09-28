@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { AuthorView } from '@/modules/forum/server/forum'
 
 // Small building blocks shared by forum pages (server-safe, no hooks).

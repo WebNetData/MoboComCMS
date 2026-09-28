@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer } from '@/modules/forum/server/forum'
 import { userDirectory } from '@/modules/forum/server/people'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, Pager, TimeAgo, UserName, num } from '@/components/forum/shared'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'کاربران تالار', alternates: { canonical: '/forum/users' } }
+export const metadata: Metadata = { title: 'کاربران تالار', alternates: { canonical: toPublicPath('/forum/users') } }
 const COLUMNS: { key: string; label: string }[] = [{ key: 'likesReceived', label: 'پسند گرفته' }, { key: 'postCount', label: 'پیام' }, { key: 'topicCount', label: 'موضوع' }, { key: 'solvedCount', label: 'راه‌حل' }, { key: 'daysVisited', label: 'روز بازدید' }]
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ sort?: string; q?: string; page?: string }> }) {

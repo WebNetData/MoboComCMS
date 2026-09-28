@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { topGames } from '@/modules/games/server/portal'
 import { gameFacets } from '@/modules/media/server/queries'
 import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import { RankedList } from '@/components/games/GameV2'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Search = { year?: string; platform?: string; by?: string }
@@ -14,7 +15,7 @@ const heading = (p: Search) => `${p.by === 'members' ? 'محبوب‌ترین ب
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
   const p = await searchParams
-  return { title: heading(p), description: 'رتبه‌بندی بازی‌ها بر اساس نمرهٔ منتقدان موبوکام و امتیاز کاربران، به تفکیک سال و پلتفرم.', alternates: { canonical: '/games/top' } }
+  return { title: heading(p), description: 'رتبه‌بندی بازی‌ها بر اساس نمرهٔ منتقدان موبوکام و امتیاز کاربران، به تفکیک سال و پلتفرم.', alternates: { canonical: toPublicPath('/games/top') } }
 }
 
 /** Ranked lists by year, platform and critics/members. */

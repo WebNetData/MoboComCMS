@@ -1,95 +1,66 @@
 'use client'
 
-import { useState } from 'react'
-import MediaCrud, { type MediaField } from '../cms/MediaCrud'
-import { commonFields } from '../cms/media-fields'
-import { useI18n } from '@/i18n/LocaleProvider'
+import Link from '@/components/AppLink'
+import { DailyBars } from '../cms/SectionAdmin'
+import { MusicShell, Notice, fa, useJson } from './shared'
 
-type Tab = 'tracks' | 'albums' | 'artists' | 'playlists'
+type Track = { id: number; slug: string; title: string; cover: string; artist: string; plays: number; downloads: number }
+type Dashboard = {
+  kpis: { tracks: number; albums: number; artists: number; playlists: number; drafts: number; scheduled: number; plays: number; downloads: number; downloads30: number; vip: number; hq: number; emptyAlbums: number; artistsWithoutPhoto: number }
+  series: { day: string; downloads: number }[]
+  health: { key: string; label: string; count: number }[]
+  worst: { id: number; title: string; cover: string; artist: string; issues: string[] }[]
+  topPlayed: Track[]
+  topDownloaded: Track[]
+  topArtists: { id: number; slug: string; name: string; image: string; tracks: number; albums: number; plays: number }[]
+}
 
-export default function AdminMusicPage() {
-  const { locale } = useI18n()
-  const fa = locale === 'fa'
-  const [tab, setTab] = useState<Tab>('tracks')
-  const { access, status, featured, publishedAt, slug } = commonFields(fa)
-  const artist: MediaField = { key: 'artistId', label: fa ? 'هنرمند' : 'Artist', type: 'select', required: true, source: { type: 'music-artists', label: (row) => row.name + (row.nameEn ? ` — ${row.nameEn}` : ''), empty: fa ? '— انتخاب هنرمند —' : '— choose artist —' }, table: (row) => row.artist?.name || '—' }
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'tracks', label: fa ? 'آهنگ‌ها' : 'Tracks' },
-    { id: 'albums', label: fa ? 'آلبوم‌ها' : 'Albums' },
-    { id: 'artists', label: fa ? 'هنرمندان' : 'Artists' },
-    { id: 'playlists', label: fa ? 'پلی‌لیست‌ها' : 'Playlists' },
-  ]
-
-  const views: Record<Tab, { type: string; title: string; fields: MediaField[]; publicPath: (row: any) => string | null; titleKey?: string }> = {
-    tracks: {
-      type: 'music-tracks', title: fa ? 'آهنگ‌ها' : 'Tracks',
-      publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/track/${row.slug}` : null),
-      fields: [
-        { key: 'title', label: fa ? 'نام آهنگ' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        artist,
-        { key: 'albumId', label: fa ? 'آلبوم (اختیاری)' : 'Album (optional)', type: 'select', source: { type: 'music-albums', label: (row) => `${row.title} — ${row.artist?.name || ''}`, empty: fa ? '— تک‌آهنگ —' : '— single —' }, table: (row) => row.album?.title || (fa ? 'تک‌آهنگ' : 'Single') },
-        { key: 'trackNo', label: fa ? 'شماره در آلبوم' : 'Track #', type: 'number' },
-        { key: 'genre', label: fa ? 'سبک (با ویرگول)' : 'Genre (comma separated)', placeholder: fa ? 'پاپ، سنتی' : 'Pop, Rock', table: true },
-        { key: 'audioUrl', label: fa ? 'فایل صوتی ۱۲۸ (لینک)' : 'Audio 128 kbps URL', dir: 'ltr', wide: true, placeholder: 'https://dl.example.com/track-128.mp3', hint: fa ? 'این لینک هرگز در صفحه نمایش داده نمی‌شود؛ پخش از مسیر امن سایت انجام می‌شود.' : 'Never shown on the page — playback goes through a protected site endpoint.' },
-        { key: 'audioHqUrl', label: fa ? 'فایل صوتی ۳۲۰ (کیفیت بالا)' : 'Audio 320 kbps (HQ) URL', dir: 'ltr', wide: true },
-        { key: 'duration', label: fa ? 'مدت (ثانیه)' : 'Duration (seconds)', type: 'number' },
-        { key: 'cover', label: fa ? 'کاور (خالی = کاور آلبوم)' : 'Cover (empty = album cover)', type: 'image' },
-        { key: 'lyrics', label: fa ? 'متن ترانه' : 'Lyrics', type: 'textarea' },
-        access, status, featured, publishedAt, slug,
-      ],
-    },
-    albums: {
-      type: 'music-albums', title: fa ? 'آلبوم‌ها' : 'Albums',
-      publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/album/${row.slug}` : null),
-      fields: [
-        { key: 'title', label: fa ? 'نام آلبوم' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        artist,
-        { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
-        { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },
-        { key: 'genre', label: fa ? 'سبک' : 'Genre' },
-        { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
-        { key: 'description', label: fa ? 'توضیحات' : 'Description', type: 'textarea' },
-        access, status, featured, publishedAt, slug,
-      ],
-    },
-    artists: {
-      type: 'music-artists', title: fa ? 'هنرمندان' : 'Artists', titleKey: 'name',
-      publicPath: (row) => `/music/artist/${row.slug}`,
-      fields: [
-        { key: 'name', label: fa ? 'نام هنرمند' : 'Name', required: true, table: true },
-        { key: 'nameEn', label: fa ? 'نام انگلیسی' : 'English name', dir: 'ltr', table: true },
-        { key: 'image', label: fa ? 'تصویر پروفایل' : 'Photo', type: 'image', table: true },
-        { key: 'cover', label: fa ? 'کاور صفحه هنرمند' : 'Header image', type: 'image' },
-        { key: 'bio', label: fa ? 'بیوگرافی' : 'Biography', type: 'textarea' },
-        featured, slug,
-      ],
-    },
-    playlists: {
-      type: 'music-playlists', title: fa ? 'پلی‌لیست‌ها' : 'Playlists',
-      publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/playlist/${row.slug}` : null),
-      fields: [
-        { key: 'title', label: fa ? 'نام پلی‌لیست' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        { key: 'description', label: fa ? 'توضیح کوتاه' : 'Short description', type: 'textarea' },
-        { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
-        { key: 'trackIds', label: fa ? 'آهنگ‌ها (به ترتیب)' : 'Tracks (in order)', type: 'picklist', source: { type: 'music-tracks', label: (row) => `${row.title} — ${row.artist?.name || ''}` } },
-        { key: 'sortOrder', label: fa ? 'ترتیب' : 'Order', type: 'number' },
-        access, status, featured, slug,
-      ],
-    },
-  }
-  const view = views[tab]
-
-  return (
-    <div>
-      <nav className="mx-tabs" aria-label={fa ? 'بخش‌های موزیک' : 'Music sections'}>
-        {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}</button>)}
-        <a className="mx-tabs-link" href="/music" target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده بخش موزیک ↗' : 'Open music site ↗'}</a>
-      </nav>
-      <MediaCrud key={view.type} type={view.type} title={view.title} fields={view.fields} publicPath={view.publicPath} titleKey={view.titleKey} subtitle={fa ? 'آهنگ‌ها با پخش‌کننده سراسری سایت پخش می‌شوند. کیفیت ۳۲۰ و دانلود طبق تنظیمات ماژول موزیک می‌تواند مخصوص VIP باشد.' : 'Tracks play in the site-wide player. HQ and downloads can be VIP-only in the music module settings.'} />
-    </div>
-  )
+/** Music dashboard: catalogue, listening, downloads and gaps to fill. */
+export default function MusicDashboardPage() {
+  const { data, error } = useJson<Dashboard>('/api/admin/music/dashboard')
+  const k = data?.kpis
+  const maxPlays = Math.max(1, ...(data?.topArtists || []).map((artist) => artist.plays))
+  return <MusicShell title="مدیریت موزیک" actions={<><Link href="/admin/music/library" className="btn btn-primary">+ افزودن آهنگ</Link><a href="/music" target="_blank" rel="noreferrer" className="btn btn-ghost">مشاهدهٔ بخش</a></>}>
+    {error && <Notice tone="error">{error}</Notice>}
+    {!data || !k ? <div className="sa-skeleton" aria-busy="true" /> : <>
+      <div className="sa-kpis">
+        <div className="sa-kpi"><span>آهنگ‌های منتشرشده</span><b className="num">{fa(k.tracks)}</b><small className="sa-sub">{fa(k.hq)} با کیفیت ۳۲۰ · {fa(k.vip)} ویژهٔ VIP</small></div>
+        <div className="sa-kpi"><span>آلبوم و هنرمند</span><b className="num">{fa(k.albums)}</b><small className="sa-sub">{fa(k.artists)} هنرمند · {fa(k.playlists)} پلی‌لیست</small></div>
+        <div className="sa-kpi"><span>پخش کل</span><b className="num">{fa(k.plays)}</b><small className="sa-sub">{fa(k.downloads)} دانلود کل</small></div>
+        <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small className="sa-sub">{fa(k.scheduled)} آهنگ زمان‌بندی‌شده</small></div>
+      </div>
+      <div className="sa-queue">
+        <Link href="/admin/music/library" className="sa-queue-item"><b className="num">{fa(k.drafts)}</b><span>پیش‌نویس</span></Link>
+        <Link href="/admin/music/library" className={`sa-queue-item${k.emptyAlbums ? ' is-warn' : ''}`}><b className="num">{fa(k.emptyAlbums)}</b><span>آلبوم بدون آهنگ</span></Link>
+        <Link href="/admin/music/library" className={`sa-queue-item${k.artistsWithoutPhoto ? ' is-warn' : ''}`}><b className="num">{fa(k.artistsWithoutPhoto)}</b><span>هنرمند بدون عکس</span></Link>
+        <Link href="/admin/music/settings" className="sa-queue-item"><b className="num">{fa(k.playlists)}</b><span>پلی‌لیست</span></Link>
+      </div>
+      <div className="sa-cols">
+        <div className="sa-stack">
+          <DailyBars title="دانلود آهنگ در ۳۰ روز اخیر" unit="دانلود" series={data.series.map((point) => ({ day: point.day, value: point.downloads }))} />
+          <section className="sa-card">
+            <header className="sa-card-head"><h2>سلامت آرشیو</h2><small>آهنگ‌هایی که چیزی کم دارند</small></header>
+            {data.health.length ? <>
+              <div className="ga-health">{data.health.map((row) => <span key={row.key} className="ga-health-chip">{row.label}<b className="num">{fa(row.count)}</b></span>)}</div>
+              {data.worst.length > 0 && <ul className="sa-rows">{data.worst.map((track) => <li key={track.id}><Link href="/admin/music/library">{track.cover ? <img src={track.cover} alt="" className="ga-thumb" /> : <span className="sa-ph" />}<span className="sa-grow"><b>{track.title}</b><small>{track.artist} · {track.issues.map((issue) => data.health.find((row) => row.key === issue)?.label || issue).join('، ')}</small></span><span className="sa-link">تکمیل</span></Link></li>)}</ul>}
+            </> : <p className="sa-hint">همهٔ آهنگ‌ها کامل هستند.</p>}
+          </section>
+        </div>
+        <div className="sa-stack">
+          <section className="sa-card">
+            <header className="sa-card-head"><h2>پرپخش‌ترین آهنگ‌ها</h2></header>
+            {data.topPlayed.length ? <ul className="sa-rank">{data.topPlayed.map((track) => <li key={track.id}>{track.cover ? <img src={track.cover} alt="" /> : <span className="sa-ph" />}<span className="sa-grow"><a href={`/music/track/${track.slug}`} target="_blank" rel="noreferrer"><b>{track.title}</b></a><small className="num">{track.artist} · {fa(track.plays)} پخش</small></span></li>)}</ul> : <p className="sa-hint">هنوز آهنگی منتشر نشده است.</p>}
+          </section>
+          {data.topDownloaded.length > 0 && <section className="sa-card">
+            <header className="sa-card-head"><h2>پردانلودترین‌ها</h2></header>
+            <ul className="sa-rank">{data.topDownloaded.map((track) => <li key={track.id}>{track.cover ? <img src={track.cover} alt="" /> : <span className="sa-ph" />}<span className="sa-grow"><b>{track.title}</b><small className="num">{track.artist} · {fa(track.downloads)} دانلود</small></span></li>)}</ul>
+          </section>}
+          <section className="sa-card">
+            <header className="sa-card-head"><h2>هنرمندان پرشنونده</h2></header>
+            {data.topArtists.length ? <ul className="sx-bars">{data.topArtists.map((artist) => <li key={artist.id}><span>{artist.name}</span><span className="sx-bar" aria-hidden="true"><i style={{ width: `${(artist.plays / maxPlays) * 100}%` }} /></span><b className="num" title={`${fa(artist.tracks)} آهنگ · ${fa(artist.albums)} آلبوم`}>{fa(artist.plays)}</b></li>)}</ul> : <p className="sa-hint">هنرمندی ثبت نشده است.</p>}
+          </section>
+        </div>
+      </div>
+    </>}
+  </MusicShell>
 }

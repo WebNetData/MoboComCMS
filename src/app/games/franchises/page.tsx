@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { franchiseList } from '@/modules/games/server/portal'
 import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import { FranchiseTiles } from '@/components/games/GameV2'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'مجموعه‌های بازی', description: 'همهٔ نسخه‌های سری‌های محبوب بازی، به ترتیب انتشار.', alternates: { canonical: '/games/franchises' } }
+export const metadata: Metadata = { title: 'مجموعه‌های بازی', description: 'همهٔ نسخه‌های سری‌های محبوب بازی، به ترتیب انتشار.', alternates: { canonical: toPublicPath('/games/franchises') } }
 
 export default async function FranchisesPage() {
   await requireModule('games')
