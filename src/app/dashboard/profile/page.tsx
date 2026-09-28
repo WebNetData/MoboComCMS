@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import SubscriptionAlertPreference from '@/components/SubscriptionAlertPreference'
 import TelegramLink from '@/components/TelegramLink'
 import PhoneVerification from '@/components/PhoneVerification'
+import EmailAlertPreference from '@/components/EmailAlertPreference'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 export default function ProfilePage() {
@@ -41,6 +42,7 @@ export default function ProfilePage() {
     <div>
       <h1 className="h2 mb-6">{t.profile}</h1>
       <PhoneVerification />
+      <EmailAlertPreference />
       <TelegramLink />
       <SubscriptionAlertPreference />
       <div className="grid-2 max-w-3xl">

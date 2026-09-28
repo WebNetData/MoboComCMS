@@ -26,6 +26,10 @@ export async function createInboxEvent(event: InboxEvent) {
   void import('@/modules/sms/server/sms')
     .then(({ notifyUserEvent }) => notifyUserEvent(event))
     .catch((error) => logEvent('error', 'sms.user_event_failed', { kind: event.kind, error }))
+  // Email copy through the site's outgoing account (e.g. Gmail), when enabled.
+  void import('@/modules/mail/server/mailer')
+    .then(({ notifyUserEmail }) => notifyUserEmail(event))
+    .catch((error) => logEvent('error', 'mail.user_event_failed', { kind: event.kind, error }))
   // Browser/PWA notification copy (web push module).
   void import('@/modules/push/server/push')
     .then(({ pushToUser }) => pushToUser(event.userId, { title: event.titleFa, body: event.bodyFa, url: event.href, tag: event.kind }))

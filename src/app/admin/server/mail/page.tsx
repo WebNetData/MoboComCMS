@@ -4,86 +4,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Notice, ServerShell, bytes, fa, faDate, useServerApi, useServerJson } from '../shared'
 import { Pager } from '../../store/shared'
 
-type Smtp = { enabled: boolean; mode: 'local' | 'smtp'; host: string; port: number; security: 'tls' | 'starttls' | 'none'; user: string; hasPassword: boolean; fromName: string; fromEmail: string; replyTo: string }
 type Status = { dir: string; installed: boolean; writable: boolean; imap: boolean; hostname: string; dkim: boolean }
 type Registry = { domains: string[]; mailboxes: { address: string; quotaMb: number; disabled: boolean }[]; aliases: { address: string; targets: string[] }[] }
-type Overview = { smtp: Smtp; status: Status; registry: Registry | null }
+type Overview = { status: Status; registry: Registry | null }
 type Tone = { tone: 'ok' | 'error'; text: string } | null
-
-function SiteSending({ smtp, onSaved }: { smtp: Smtp; onSaved: () => void }) {
-  const api = useServerApi()
-  const [form, setForm] = useState({ ...smtp, password: '' })
-  const [to, setTo] = useState('')
-  const [notice, setNotice] = useState<Tone>(null)
-  const [busy, setBusy] = useState('')
-  const [logFilter, setLogFilter] = useState('')
-  const [logPage, setLogPage] = useState(1)
-  const log = useServerJson<{ rows: { id: number; toAddress: string; subject: string; status: string; error: string; source: string; createdAt: string }[]; page: number; pages: number; sent30: number; failed30: number }>(`/api/admin/server/mail?view=log&status=${logFilter}&page=${logPage}`)
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }))
-
-  async function save(event: FormEvent) {
-    event.preventDefault()
-    setBusy('save'); setNotice(null)
-    const result = await api<{ smtp: Smtp }>('/api/admin/server/mail', { body: { op: 'smtp', settings: form } })
-    setBusy('')
-    if (!result.ok) { setNotice({ tone: 'error', text: result.error }); return }
-    setForm({ ...result.data.smtp, password: '' }); setNotice({ tone: 'ok', text: 'تنظیمات ذخیره شد.' }); onSaved()
-  }
-  async function verify() {
-    setBusy('verify'); setNotice(null)
-    const result = await api<{ ok: boolean; error?: string }>('/api/admin/server/mail', { body: { op: 'verify' } })
-    setBusy('')
-    setNotice(result.ok && result.data.ok ? { tone: 'ok', text: 'اتصال و ورود به سرور SMTP موفق بود.' } : { tone: 'error', text: result.ok ? result.data.error || 'اتصال برقرار نشد' : result.error })
-  }
-  async function test() {
-    setBusy('test'); setNotice(null)
-    const result = await api('/api/admin/server/mail', { body: { op: 'test', to } })
-    setBusy('')
-    setNotice(result.ok ? { tone: 'ok', text: `ایمیل آزمایشی به ${to} ارسال شد.` } : { tone: 'error', text: result.error })
-    void log.reload()
-  }
-
-  return <div className="sa-cols">
-    <form className="sa-card sa-form" onSubmit={save}>
-      <header className="sa-card-head"><h2>ارسال ایمیل سایت</h2><label className="sa-check"><input type="checkbox" checked={form.enabled} onChange={(e) => set('enabled', e.target.checked)} />فعال</label></header>
-      <p className="sa-hint">ایمیل‌های سایت (اطلاع‌رسانی‌ها، بازیابی، پیام‌ها) با این تنظیمات ارسال می‌شوند.</p>
-      <div className="sp-radio" role="radiogroup" aria-label="روش ارسال">
-        <label className="sa-check"><input type="radio" name="mode" checked={form.mode === 'smtp'} onChange={() => set('mode', 'smtp')} />سرور SMTP (مثل Gmail، Zoho، سرویس ایمیل)</label>
-        <label className="sa-check"><input type="radio" name="mode" checked={form.mode === 'local'} onChange={() => set('mode', 'local')} />ایمیل‌سرور همین سرور (Postfix)</label>
-      </div>
-      {form.mode === 'smtp' && <div className="sa-grid">
-        <label className="sa-field"><span>سرور SMTP</span><input className="input" dir="ltr" value={form.host} onChange={(e) => set('host', e.target.value)} placeholder="smtp.example.com" /></label>
-        <label className="sa-field"><span>پورت</span><input className="input" dir="ltr" type="number" value={form.port} onChange={(e) => set('port', Number(e.target.value))} /></label>
-        <label className="sa-field"><span>امنیت اتصال</span><select className="select" value={form.security} onChange={(e) => { const value = e.target.value as Smtp['security']; setForm((current) => ({ ...current, security: value, port: value === 'tls' ? 465 : value === 'starttls' ? 587 : 25 })) }}><option value="starttls">STARTTLS (587)</option><option value="tls">SSL/TLS (465)</option><option value="none">بدون رمزنگاری</option></select></label>
-        <label className="sa-field"><span>نام کاربری</span><input className="input" dir="ltr" autoComplete="off" value={form.user} onChange={(e) => set('user', e.target.value)} /></label>
-        <label className="sa-field"><span>رمز {smtp.hasPassword ? '(ذخیره شده؛ برای تغییر وارد کنید)' : ''}</span><input className="input" dir="ltr" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set('password', e.target.value)} placeholder={smtp.hasPassword ? '••••••••' : ''} /></label>
-      </div>}
-      <div className="sa-grid">
-        <label className="sa-field"><span>نام فرستنده</span><input className="input" value={form.fromName} onChange={(e) => set('fromName', e.target.value)} placeholder="موبوکام" /></label>
-        <label className="sa-field"><span>نشانی فرستنده (From)</span><input className="input" dir="ltr" value={form.fromEmail} onChange={(e) => set('fromEmail', e.target.value)} placeholder="no-reply@example.com" /></label>
-        <label className="sa-field"><span>نشانی پاسخ (اختیاری)</span><input className="input" dir="ltr" value={form.replyTo} onChange={(e) => set('replyTo', e.target.value)} placeholder="support@example.com" /></label>
-      </div>
-      {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
-      <div className="sa-head-actions">
-        <button type="submit" className="btn btn-primary" disabled={!!busy}>{busy === 'save' ? 'در حال ذخیره…' : 'ذخیره'}</button>
-        <button type="button" className="btn btn-ghost" disabled={!!busy} onClick={() => void verify()}>{busy === 'verify' ? 'در حال بررسی…' : 'بررسی اتصال'}</button>
-      </div>
-      <div className="sa-toolbar">
-        <input className="input" dir="ltr" value={to} onChange={(e) => setTo(e.target.value)} placeholder="you@example.com" aria-label="گیرندهٔ ایمیل آزمایشی" />
-        <button type="button" className="btn btn-ghost" disabled={!!busy || !to.includes('@')} onClick={() => void test()}>{busy === 'test' ? 'در حال ارسال…' : 'ارسال ایمیل آزمایشی'}</button>
-      </div>
-    </form>
-    <section className="sa-card sa-table-wrap sp-tc">
-      <header className="sa-card-head"><h2>ایمیل‌های ارسال‌شده</h2><small>{log.data ? `۳۰ روز: ${fa(log.data.sent30)} موفق · ${fa(log.data.failed30)} ناموفق` : ''}</small></header>
-      <div className="sa-toolbar sp-pad"><label className="sa-inline"><span>وضعیت</span><select className="select" value={logFilter} onChange={(e) => { setLogFilter(e.target.value); setLogPage(1) }}><option value="">همه</option><option value="SENT">موفق</option><option value="FAILED">ناموفق</option></select></label></div>
-      {log.data && <table className="data sa-table" style={{ minWidth: 0 }}><tbody>
-        {log.data.rows.map((row) => <tr key={row.id}><td><b className="sp-trunc" dir="ltr">{row.toAddress}</b><small className="sa-sub">{row.subject}{row.error ? ` — ${row.error}` : ''}</small></td><td><span className={`sa-state ${row.status === 'SENT' ? 'is-ok' : 'is-bad'}`}>{row.status === 'SENT' ? 'ارسال شد' : 'ناموفق'}</span></td><td><small>{faDate(row.createdAt, true)}</small></td></tr>)}
-        {!log.data.rows.length && <tr><td className="sa-empty">هنوز ایمیلی ارسال نشده است.</td></tr>}
-      </tbody></table>}
-      {log.data && <div className="sp-pad"><Pager page={log.data.page} pages={log.data.pages} onPage={setLogPage} /></div>}
-    </section>
-  </div>
-}
 
 function Install({ status }: { status: Status }) {
   return <section className="sa-card sp-blocked">
@@ -265,14 +189,18 @@ function Webmail({ registry }: { registry: Registry }) {
 
 function Mail() {
   const { data, error, reload } = useServerJson<Overview>('/api/admin/server/mail')
-  const [tab, setTab] = useState<'send' | 'boxes' | 'read'>('send')
+  const [tab, setTab] = useState<'send' | 'boxes' | 'read'>('boxes')
   if (error) return <Notice tone="error">{error}</Notice>
   if (!data) return <div className="sa-skeleton" />
   return <>
     <nav className="sa-subtabs sp-subtabs" aria-label="بخش‌های ایمیل">
-      {([['send', 'ارسال ایمیل سایت'], ['boxes', 'دامنه‌ها و صندوق‌ها'], ['read', 'خواندن نامه‌ها']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
+      {([['boxes', 'دامنه‌ها و صندوق‌ها'], ['read', 'خواندن نامه‌ها'], ['send', 'ارسال ایمیل سایت']] as const).map(([id, label]) => <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
     </nav>
-    {tab === 'send' && <SiteSending smtp={data.smtp} onSaved={() => void reload()} />}
+    {tab === 'send' && <section className="sa-card sp-blocked">
+      <h2>ارسال ایمیل سایت به صفحهٔ «ایمیل سایت» منتقل شد</h2>
+      <p>حساب ارسال (مثلاً جیمیل)، ایمیل اطلاع‌رسانی به کاربران، ارسال آزمایشی و گزارش ارسال‌ها در مدیریت سایت است و به روشن بودن پنل سرور یا ایمیل‌سرور روی این سرور نیازی ندارد.</p>
+      <a className="btn btn-primary" href="/admin/email">رفتن به ایمیل سایت</a>
+    </section>}
     {tab !== 'send' && !data.status.installed && <Install status={data.status} />}
     {tab === 'boxes' && data.status.installed && data.registry && <Mailboxes registry={data.registry} reload={() => void reload()} />}
     {tab === 'read' && data.status.installed && data.registry && (data.status.imap ? <Webmail registry={data.registry} /> : <Notice tone="error">برای خواندن نامه‌ها MAIL_MASTER_USER و MAIL_MASTER_PASSWORD باید در فایل محیطی باشند (اسکریپت نصب آن‌ها را می‌سازد).</Notice>)}

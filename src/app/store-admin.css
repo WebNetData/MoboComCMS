@@ -345,3 +345,9 @@
 
 /* VIP perks overview */
 .vp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+
+/* site email (em-) */
+.em-steps { margin: 4px 0 0; padding-inline-start: 22px; display: grid; gap: 6px; font-size: 13px; line-height: 2; }
+.em-events { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0 12px; }
+.em-preview { width: 100%; height: 460px; border: 1px solid var(--sa-line); border-radius: 12px; background: #f4f5f7; }
+.em-error { color: var(--sa-danger); overflow-wrap: anywhere; }
