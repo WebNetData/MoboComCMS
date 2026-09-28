@@ -2472,3 +2472,20 @@ model ShipmentEvent {
 
   @@index([shipmentId, createdAt])
 }
+
+/// Short link / forwarder: /forwarder/<slug> shows a countdown page (with ads) and then opens the target.
+model ShortLink {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  target      String
+  title       String    @default("")
+  countdown   Int?      // seconds; null = site default
+  active      Boolean   @default(true)
+  clicks      Int       @default(0)
+  lastClickAt DateTime?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([createdAt])
+}

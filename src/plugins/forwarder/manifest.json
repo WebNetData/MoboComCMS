@@ -1,0 +1,26 @@
+{
+  "id": "forwarder",
+  "name": "فورواردر و کوتاه‌کنندهٔ لینک",
+  "nameEn": "Link forwarder & shortener",
+  "description": "لینک‌های کوتاه با نامک دلخواه یا تصادفی و انتقال به سایت‌های دیگر از مسیر /forwarder با صفحهٔ «در حال انتقال»، ثانیه‌شمار و جای تبلیغ.",
+  "descriptionEn": "Short links with custom or random slugs, and outbound redirects through /forwarder with a countdown page and ad slots.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "globe",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/forwarder"],
+  "adminPaths": ["/admin/forwarder"],
+  "permissions": [{ "id": "forwarder.manage", "label": "مدیریت فورواردر و لینک‌های کوتاه" }],
+  "adminMenu": {
+    "title": "لینک‌ها",
+    "titleEn": "Links",
+    "icon": "globe",
+    "order": 150,
+    "items": [
+      { "href": "/admin/forwarder", "label": "فورواردر و لینک کوتاه", "labelEn": "Forwarder & short links", "icon": "globe", "permissions": ["forwarder.manage", "settings.manage"] }
+    ]
+  }
+}

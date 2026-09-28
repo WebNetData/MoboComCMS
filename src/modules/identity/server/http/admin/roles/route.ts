@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { ALL_PERMISSIONS, ROLE_PRESETS } from '@/modules/identity/rbac'
+import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS } from '@/modules/identity/rbac'
 
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'roles.manage')
@@ -22,8 +22,10 @@ export async function POST(req: NextRequest) {
   const preset = String(b?.preset || '')
   const perms: string = Array.isArray(b?.permissions) && b.permissions.length
     ? b.permissions.join(',')
-    : preset && ROLE_PRESETS[preset]
-      ? ROLE_PRESETS[preset].join(',')
+    : preset === 'admin'
+      ? FULL_ACCESS // every capability, including ones added by future plugins
+      : preset && ROLE_PRESETS[preset]
+        ? ROLE_PRESETS[preset].join(',')
       : ''
   const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || ''), nameEn: String(b?.nameEn || name), permissions: perms } })
   return ok(role)

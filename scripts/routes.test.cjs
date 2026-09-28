@@ -67,6 +67,9 @@ test('module admin menus must stay inside the module admin paths', () => {
   assert.throws(() => contracts.assertValidExtensionManifest({ ...base, kind: 'plugin', adminPaths: undefined, adminMenu: { items: [] } }), /Only feature modules/)
 })
 
+// Public utilities that are not content sections (no templates or section settings).
+const PUBLIC_TOOLS = new Set(['forwarder'])
+
 test('every bundled module menu is valid and each section links to its settings page', () => {
   const dir = path.resolve(__dirname, '../src/plugins')
   for (const name of fs.readdirSync(dir)) {
@@ -75,6 +78,6 @@ test('every bundled module menu is valid and each section links to its settings 
     const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
     contracts.assertValidExtensionManifest(manifest)
     // Public sections link to their settings page; admin-only tools (server panel) have none.
-    if (manifest.adminMenu && manifest.publicPaths?.length) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
+    if (manifest.adminMenu && manifest.publicPaths?.length && !PUBLIC_TOOLS.has(manifest.id)) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
   }
 })

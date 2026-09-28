@@ -32,6 +32,8 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   const miniApp = path.startsWith('/miniapp')
   const turnstile = path === '/login' || path === '/register' || path === '/forgot-password'
   const translate = !miniApp && !path.startsWith('/admin') && !path.startsWith('/api')
+  // The forwarder's countdown page shows the admin's ad-network code (sandboxed frames inherit this policy).
+  const ads = path === '/forwarder' || path.startsWith('/forwarder/')
 
   response.headers.set('x-content-type-options', 'nosniff')
   // The reset link carries its token in the URL; never leak it to other sites.
@@ -41,15 +43,15 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
 
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${translate ? TRANSLATE_SCRIPT : ''}`,
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${translate ? TRANSLATE_SCRIPT : ''}${ads ? ' https:' : ''}`,
     `style-src 'self' 'unsafe-inline'${translate ? ' https://www.gstatic.com' : ''}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     // Music player and trailers stream from media hosts (after the protected /api/media redirect).
     "media-src 'self' https: blob:",
-    `connect-src 'self'${path.startsWith('/watch/') ? ' https:' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
+    `connect-src 'self'${path.startsWith('/watch/') || ads ? ' https:' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
     // Page-builder video blocks embed these players; login/register add their own providers.
-    `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
+    `frame-src 'self' ${ads ? 'https:' : VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
     miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
     "base-uri 'self'",
     // The Mellat start page posts the payment reference to the bank.

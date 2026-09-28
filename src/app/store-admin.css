@@ -425,3 +425,12 @@
 .cr-quotes li.is-off { opacity: .55; }
 .btn.is-disabled { pointer-events: none; opacity: .5; }
 .sh-shipment .sa-kv dd a { word-break: break-all; }
+
+/* ---------- forwarder admin ---------- */
+.fw-slug { display: flex; align-items: center; gap: 6px; }
+.fw-slug bdi { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.fw-target { display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.fw-h3 { margin: 8px 0 0; font-size: 14px; }
+tr.is-off { opacity: .6; }
+.sa-table td.sa-row-actions { white-space: nowrap; }
+.sa-table td.sa-row-actions > * + * { margin-inline-start: 10px; }
