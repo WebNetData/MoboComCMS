@@ -272,3 +272,13 @@
 .sh-address-input { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--sa-line); border-radius: 10px; background: var(--sa-subtle); }
 .sh-address-input .input { flex: 1; min-width: 0; border: 0; border-radius: 0; font-family: ui-monospace, monospace; }
 .sh-origin { display: grid; place-items: center; padding-inline: 10px; color: var(--sa-muted); font-family: ui-monospace, monospace; font-size: 12.5px; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+
+/* community admin (ca-) */
+.ca-who { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ca-who img, .ca-dot { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex: none; }
+.ca-dot { display: grid; place-items: center; color: #fff; font-weight: 800; }
+.ca-who > span { display: grid; min-width: 0; }
+.ca-report { display: grid; gap: 10px; }
+.ca-target { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--sa-subtle); }
+.ca-target p, .ca-text { margin: 0; font-size: 13.5px; line-height: 1.9; white-space: pre-line; overflow-wrap: anywhere; }
+.ca-text { display: -webkit-box; max-width: 480px; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }

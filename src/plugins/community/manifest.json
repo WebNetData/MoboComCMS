@@ -1,0 +1,41 @@
+{
+  "id": "community",
+  "name": "پروفایل و شبکهٔ اجتماعی",
+  "nameEn": "Profiles & community",
+  "description": "پروفایل واحد کاربران با دنبال کردن، پست و دیدگاه، پسند، فعالیت‌های سراسر سایت، حریم خصوصی و مدیریت گزارش‌ها.",
+  "descriptionEn": "Unified member profiles with following, posts and comments, likes, site-wide activity, privacy controls and report moderation.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "engagement",
+  "icon": "chat",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/u", "/feed", "/people"],
+  "adminPaths": ["/admin/community"],
+  "adminMenu": {
+    "title": "جامعه و پروفایل‌ها",
+    "titleEn": "Community & profiles",
+    "icon": "chat",
+    "order": 35,
+    "items": [
+      { "href": "/admin/community", "label": "داشبورد جامعه", "labelEn": "Community dashboard", "icon": "grid", "permissions": ["community.moderate", "users.manage"], "exact": true },
+      { "href": "/admin/community/reports", "label": "گزارش‌ها", "labelEn": "Reports", "icon": "shield", "permissions": ["community.moderate", "users.manage"] },
+      { "href": "/admin/community/posts", "label": "پست‌ها", "labelEn": "Posts", "icon": "sliders", "permissions": ["community.moderate", "users.manage"] },
+      { "href": "/admin/community/people", "label": "کاربران و نشان تأیید", "labelEn": "Members & verification", "icon": "devices", "permissions": ["community.moderate", "users.manage"] },
+      { "href": "/admin/sections/community", "label": "تنظیمات بخش و آدرس", "labelEn": "Section settings & address", "icon": "sliders", "permissions": ["settings.manage"] }
+    ]
+  },
+  "settings": [
+    { "key": "seo.title", "label": "عنوان سئوی صفحهٔ «تازه‌ها»", "labelEn": "Feed SEO title", "type": "text", "public": true },
+    { "key": "seo.description", "label": "توضیح متای صفحهٔ «تازه‌ها»", "labelEn": "Feed meta description", "type": "textarea", "public": true },
+    { "key": "posts.enabled", "label": "کاربران بتوانند پست بگذارند", "labelEn": "Members can post", "type": "boolean", "default": true },
+    { "key": "posts.images", "label": "ارسال تصویر در پست", "labelEn": "Images in posts", "type": "boolean", "default": true },
+    { "key": "posts.followers-only", "label": "امکان پست «فقط دنبال‌کنندگان»", "labelEn": "Followers-only posts", "type": "boolean", "default": true },
+    { "key": "posts.max-length", "label": "حداکثر طول پست (نویسه)", "labelEn": "Max post length", "type": "number", "default": 2000 },
+    { "key": "posts.min-account-days", "label": "حداقل عمر حساب برای پست گذاشتن (روز)", "labelEn": "Min account age to post (days)", "type": "number", "default": 0 }
+  ],
+  "permissions": [
+    { "id": "community.moderate", "label": "مدیریت جامعه و گزارش‌های پروفایل" }
+  ]
+}

@@ -4,8 +4,9 @@ import { logEvent } from '@/platform/observability/logger'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { getViewer as getSessionViewer, isMember } from '@/modules/membership/server/membership'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { ensureUserProfiles } from '@/modules/identity/server/profile'
 import {
-  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, usernameSeed,
+  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings,
   type ForumSettings, type Viewer,
 } from '@/modules/forum/domain/community'
 
@@ -37,19 +38,25 @@ async function uniqueUsername(seed: string) {
   return `${seed.slice(0, 12)}${Date.now().toString(36).slice(-6)}`
 }
 
-/** Profiles for these users, creating missing ones with a unique username. */
+/**
+ * Forum profiles for these users. The public identity (username, avatar …)
+ * comes from the unified member profile, so a member has one name site-wide.
+ */
 export async function ensureProfiles(userIds: number[]) {
   const ids = [...new Set(userIds.filter((id) => Number.isSafeInteger(id) && id > 0))]
   if (!ids.length) return
   const existing = new Set((await db.forumProfile.findMany({ where: { userId: { in: ids } }, select: { userId: true } })).map((row) => row.userId))
   const missing = ids.filter((id) => !existing.has(id))
   if (!missing.length) return
-  const users = await db.user.findMany({ where: { id: { in: missing } }, select: { id: true, email: true, name: true } })
-  for (const user of users) {
-    const username = await uniqueUsername(usernameSeed({ email: user.email, name: user.name }))
-    await db.forumProfile.create({ data: { userId: user.id, username } }).catch((error: { code?: string }) => {
-      // A concurrent request created it first (or took the name): both are fine.
+  await ensureUserProfiles(missing)
+  const identities = await db.userProfile.findMany({ where: { userId: { in: missing } }, select: { userId: true, username: true, bio: true, location: true, website: true, avatar: true, cover: true } })
+  for (const identity of identities) {
+    await db.forumProfile.create({ data: identity }).catch(async (error: { code?: string }) => {
       if (error?.code !== 'P2002') throw error
+      // Created concurrently, or an old forum-only name collides: fall back to a unique name.
+      if (!await db.forumProfile.findUnique({ where: { userId: identity.userId }, select: { userId: true } })) {
+        await db.forumProfile.create({ data: { ...identity, username: await uniqueUsername(identity.username) } }).catch(() => undefined)
+      }
     })
   }
 }

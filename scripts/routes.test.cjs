@@ -16,7 +16,7 @@ function load(relative) {
   return mod.exports
 }
 
-const r = load('src/platform/routing/aliases')
+const r = load('src/shared/routing/aliases')
 const contracts = load('src/platform/extensions/contracts')
 
 const map = { '/games': '/game', '/forum': '/discourse' }
