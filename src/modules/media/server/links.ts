@@ -6,6 +6,8 @@ import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
 import {
   checkPageToken, downloadGuardEnabled, downloaderOf, getDownloadSettings, logDownload, remainingDownloads, signOriginUrl, trackDownloadHref,
 } from '@/modules/downloads/server/guard'
+import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
+import { toEmbedUrl } from '@/modules/site/domain/builder'
 
 /**
  * Protected media redirects. Download/stream URLs are stored server-side only; the
@@ -151,4 +153,67 @@ export async function openTrack(request: Request, rawId: string) {
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
   return fileRedirect(target)
+}
+
+// ------------------------------------------------------------------ online player
+
+export type WatchResult =
+  | { ok: true; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string }
+  | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'expired' | 'unplayable'; backPath: string }
+
+async function watchOwner(ownerType: string, ownerId: number) {
+  if (ownerType === 'title') {
+    const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { title: true, poster: true, backdrop: true } })
+    return row && { title: row.title, subtitle: '', poster: row.backdrop || row.poster }
+  }
+  if (ownerType === 'episode') {
+    const row = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { number: true, title: true, season: { select: { number: true, title: { select: { title: true, poster: true, backdrop: true } } } } } })
+    return row && { title: row.season.title.title, subtitle: `فصل ${row.season.number.toLocaleString('fa-IR')} · قسمت ${row.number.toLocaleString('fa-IR')}${row.title ? ` — ${row.title}` : ''}`, poster: row.season.title.backdrop || row.season.title.poster }
+  }
+  if (ownerType === 'game') {
+    const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { title: true } })
+    return row && { title: row.title, subtitle: '', poster: '' }
+  }
+  return null
+}
+
+/**
+ * The /watch/:id player: same access rules as the download redirect (VIP,
+ * signed page token, login requirement) but never counted against the daily
+ * download quota. Returns the playable (optionally signed) URL.
+ */
+export async function watchSource(rawId: string, token: string | null, headers: Headers): Promise<WatchResult> {
+  const id = Number(rawId)
+  const link = Number.isSafeInteger(id) && id > 0 ? await db.mediaLink.findUnique({ where: { id } }).catch(() => null) : null
+  if (!link || !['title', 'episode', 'game'].includes(link.ownerType)) return { ok: false, reason: 'not-found', backPath: '/' }
+  const module = OWNER_MODULE[link.ownerType]
+  const owner = module && await isModuleEnabled(module) ? await ownerOf(link.ownerType, link.ownerId).catch(() => null) : null
+  if (!owner) return { ok: false, reason: 'not-found', backPath: '/' }
+  if (link.disabled) return { ok: false, reason: 'removed', backPath: owner.path }
+  const viewer = await getViewer()
+  if (link.access === 'MEMBERS' || owner.access === 'MEMBERS') {
+    if (!viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
+    if (!canAccess('MEMBERS', viewer.member)) return { ok: false, reason: 'vip', backPath: owner.path }
+  }
+  const playback = playbackKind(link.url, link.kind, toEmbedUrl)
+  if (playback === 'none') return { ok: false, reason: 'unplayable', backPath: owner.path }
+  const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null
+  if (settings?.enforceTokens && checkPageToken(token, `l${id}`, viewer.userId) !== 'ok') return { ok: false, reason: 'expired', backPath: owner.path }
+  if (settings?.requireLogin && !viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
+  const info = await watchOwner(link.ownerType, link.ownerId)
+  await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
+  const src = playback === 'embed' ? toEmbedUrl(link.url) : settings ? signOriginUrl(link.url, settings, headers) : link.url
+  return {
+    ok: true, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    label: link.label, quality: link.quality,
+    downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
+    resumeKey: `watch:${link.ownerType}:${link.ownerId}`,
+  }
+}
+
+/** Which of these links can be watched in the site player (the URLs themselves stay server-side). */
+export async function playableLinks(ids: number[]): Promise<Map<number, PlaybackKind>> {
+  if (!ids.length) return new Map()
+  const rows = await db.mediaLink.findMany({ where: { id: { in: ids }, ownerType: { in: ['title', 'episode', 'game'] } }, select: { id: true, url: true, kind: true } }).catch(() => [])
+  return new Map(rows.map((row) => [row.id, playbackKind(row.url, row.kind, toEmbedUrl)]))
 }

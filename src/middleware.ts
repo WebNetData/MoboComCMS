@@ -47,7 +47,7 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
     "font-src 'self' data:",
     // Music player and trailers stream from media hosts (after the protected /api/media redirect).
     "media-src 'self' https: blob:",
-    `connect-src 'self'${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
+    `connect-src 'self'${path.startsWith('/watch/') ? ' https:' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
     // Page-builder video blocks embed these players; login/register add their own providers.
     `frame-src 'self' ${VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
     miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",

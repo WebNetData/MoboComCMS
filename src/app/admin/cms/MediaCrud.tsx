@@ -7,6 +7,8 @@ import CoverField from './CoverField'
 import AiAutofill from './AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
+import { playbackKind } from '@/modules/media/domain/media'
+import { toEmbedUrl } from '@/modules/site/domain/builder'
 
 /**
  * Admin list + editor for the media library (/api/admin/media-library): music,
@@ -342,6 +344,19 @@ function move<T>(list: T[], index: number, delta: number): T[] {
   return next
 }
 
+const PLAYBACK_LABEL: Record<string, [string, string, string]> = {
+  hls: ['▶ پخش آنلاین (HLS)', '▶ Streams (HLS)', 'is-ok'],
+  video: ['▶ قابل پخش آنلاین', '▶ Plays online', 'is-ok'],
+  embed: ['▶ پخش با پلیر سایت مبدأ', '▶ Embedded player', 'is-ok'],
+  maybe: ['▶ پخش آنلاین اگر کدک H.264/AAC باشد', '▶ Plays if H.264/AAC', 'is-warn'],
+  none: ['فقط دانلود', 'Download only', ''],
+}
+
+function PlaybackBadge({ url, kind, fa }: { url: string; kind: string; fa: boolean }) {
+  const [label, labelEn, tone] = PLAYBACK_LABEL[playbackKind(url, kind, toEmbedUrl)]
+  return <span className={`mx-play-badge ${tone}`}>{fa ? label : labelEn}</span>
+}
+
 export function LinksEditor({ value, onChange, fa, compact }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean }) {
   const update = (index: number, patch: Partial<LinkRow>) => onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   return (
@@ -356,6 +371,7 @@ export function LinksEditor({ value, onChange, fa, compact }: { value: LinkRow[]
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
           <input className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+          {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
           <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
           {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
           <div className="mx-row-tools">
@@ -366,6 +382,7 @@ export function LinksEditor({ value, onChange, fa, compact }: { value: LinkRow[]
         </div>
       ))}
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...value, blankLink()])}>+ {fa ? 'لینک' : 'Link'}</button>
+      {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش آنلاین در سایت برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و لینک‌های یوتیوب/آپارات کار می‌کند. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Online playback works for MP4 (H.264/AAC), WebM, HLS (.m3u8) and YouTube/Aparat links. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
     </div>
   )
 }
