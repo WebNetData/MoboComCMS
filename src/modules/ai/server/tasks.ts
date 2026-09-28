@@ -12,6 +12,7 @@ import {
   type AiConfig,
 } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig } from '@/modules/ai/server/client'
+import { autofillPrompt, cleanSchema, parseAutofill } from '@/modules/ai/domain/autofill'
 
 // Everything the assistant writes is a suggestion: posts are saved as drafts,
 // and replies, product copy and meta descriptions are only stored after an
@@ -244,4 +245,25 @@ export async function applyMeta(postId: number, meta: unknown) {
   if (!post) throw new AiError('نوشته پیدا نشد', 404)
   if (post.status === 'PUBLISHED') queueIndexNow([`/blog/${post.slug}`])
   return post
+}
+
+// ------------------------------------------------------------------ section auto-fill
+
+/**
+ * Fills a section's form from pasted source material. Returns proposed values
+ * only; the editor reviews them in the form and publishing still needs their
+ * explicit confirmation.
+ */
+export async function autofillContent(input: { section?: unknown; fields?: unknown; source?: unknown; current?: unknown }) {
+  const fields = cleanSchema(input.fields)
+  const source = String(input.source ?? '').trim()
+  if (!fields.length) throw new AiError('فیلدی برای تکمیل وجود ندارد')
+  if (source.length < 40) throw new AiError('متن منبع خیلی کوتاه است؛ دست‌کم چند جمله دربارهٔ موضوع بنویسید یا بچسبانید')
+  const current = input.current && typeof input.current === 'object' && !Array.isArray(input.current) ? input.current as Record<string, unknown> : {}
+  const { config, brand, voice } = await context()
+  const result = await generate(autofillPrompt({ brand, voice, section: String(input.section || '').slice(0, 40), fields, source, current }), config)
+  const parsed = parseAutofill(result.text, fields)
+  if (!parsed.filled.length) throw new AiError('پاسخ هوش مصنوعی قابل استفاده نبود؛ دوباره تلاش کنید', 502)
+  for (const field of fields) if (field.type === 'richtext' && typeof parsed.values[field.key] === 'string') parsed.values[field.key] = cleanRichText(parsed.values[field.key] as string)
+  return { ...parsed, model: result.model }
 }

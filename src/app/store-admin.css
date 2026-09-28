@@ -17,8 +17,10 @@
   --sa-ok: var(--sds-color-text-positive-default);
   --sa-warn: #c77700;
   --sa-deal: #ef4056;
-  display: grid; gap: 16px; color: var(--sa-text); min-width: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; color: var(--sa-text); min-width: 0;
 }
+/* Wide tables inside an admin shell scroll in place instead of widening the page. */
+.sa > * { min-width: 0; }
 .sa-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border-radius: 12px; background: var(--sa-subtle); border: 1px solid var(--sa-line); }
 .sa-tabs a { padding: 8px 14px; border-radius: 9px; color: var(--sa-muted); text-decoration: none; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .sa-tabs a:hover { color: var(--sa-text); }
@@ -290,3 +292,53 @@
 .sx-bar { height: 8px; border-radius: 99px; background: var(--sa-line); overflow: hidden; }
 .sx-bar i { display: block; height: 100%; border-radius: 99px; background: var(--sa-accent); }
 .sx-bars b { min-width: 28px; text-align: end; }
+
+/* ---------- AI auto-fill panel (ai-) and pre-publish review (pr-) — used by every content editor ---------- */
+.ai-fill { margin-bottom: 18px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--card)), var(--card) 60%); }
+.ai-fill-toggle { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.ai-fill-toggle > span:nth-child(2) { display: grid; gap: 2px; flex: 1; }
+.ai-fill-toggle b { font-size: 14.5px; }
+.ai-fill-toggle small { color: var(--muted); font-size: 12.5px; }
+.ai-fill-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 14px; }
+.ai-fill-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 11px; background: var(--primary); color: #fff; font-size: 18px; }
+.ai-fill-chevron { color: var(--muted); }
+.ai-fill-body { display: grid; gap: 10px; padding: 0 16px 16px; }
+.ai-fill-field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.ai-fill-field textarea { min-height: 140px; line-height: 1.9; color: var(--text); }
+.ai-fill-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-fill-grow { flex: 1; }
+.ai-fill-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.ai-fill-check input { width: 16px; height: 16px; accent-color: var(--primary); }
+.ai-fill-hint { color: var(--muted); font-size: 12px; }
+.ai-fill-msg { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #16a34a 12%, transparent); color: var(--text); font-size: 13px; line-height: 1.9; }
+.ai-fill-msg.is-error { background: color-mix(in srgb, #dc2626 12%, transparent); }
+.ai-fill-msg p { margin: 6px 0 0; color: var(--muted); }
+.ai-badge { display: inline-block; margin-inline-start: 8px; padding: 1px 8px; border-radius: 99px; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); font-size: 11px; font-weight: 700; vertical-align: middle; }
+.is-ai > .input, .is-ai > .textarea, .is-ai > .select, .is-ai input.input, .is-ai textarea { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent); }
+
+.pr-dialog { position: fixed; inset: 0; margin: auto; height: fit-content; width: min(760px, calc(100vw - 24px)); max-height: min(86vh, 900px); padding: 0; border: 1px solid var(--border); border-radius: 18px; background: var(--card); color: var(--text); box-shadow: 0 40px 90px -30px rgba(10, 8, 30, .6); overflow: hidden; }
+.pr-dialog[open] { display: flex; flex-direction: column; }
+.pr-dialog::backdrop { background: rgba(10, 8, 30, .55); backdrop-filter: blur(3px); }
+.pr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--border); }
+.pr-kicker { color: var(--primary); font-size: 12px; font-weight: 800; }
+.pr-head h2 { margin: 4px 0 0; font-size: 19px; line-height: 1.6; }
+.pr-x { width: 36px; height: 36px; flex: none; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--muted); cursor: pointer; }
+.pr-summary { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 0; }
+.pr-summary span { padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+.pr-summary .is-ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; }
+.pr-summary .is-ai { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+.pr-summary .is-empty { background: var(--bg-soft, #f4f5f8); color: var(--muted); }
+.pr-summary .is-missing { background: color-mix(in srgb, #dc2626 14%, transparent); color: #dc2626; }
+.pr-alert, .pr-note { margin: 10px 20px 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.9; }
+.pr-alert { background: color-mix(in srgb, #dc2626 10%, transparent); color: #b91c1c; }
+.pr-note { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.pr-list { flex: 1; margin: 12px 0 0; padding: 0 20px; overflow: auto; }
+.pr-row { display: grid; grid-template-columns: minmax(110px, 26%) 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.pr-row dt { color: var(--muted); }
+.pr-row dt em { display: block; margin-top: 2px; color: var(--primary); font-style: normal; font-size: 11px; font-weight: 700; }
+.pr-row dd { margin: 0; line-height: 1.9; overflow-wrap: anywhere; }
+.pr-row.is-empty dd { color: var(--muted); }
+.pr-row.is-missing dd { color: #dc2626; font-weight: 700; }
+.pr-row.is-ai { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.pr-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
+@media (max-width: 620px) { .pr-row { grid-template-columns: 1fr; gap: 4px; } }

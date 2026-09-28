@@ -7,6 +7,9 @@ import { useEffect, useMemo, useState } from 'react'
 import CoverField from '../../../cms/CoverField'
 import ProductExtrasEditor from '../../../products/ProductExtrasEditor'
 import { Notice, StoreShell, fa, send } from '../../shared'
+import AiAutofill from '../../../cms/AiAutofill'
+import PublishReview, { previewValue, type ReviewRow } from '../../../cms/PublishReview'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -19,6 +22,8 @@ const EMPTY: Form = {
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
 }
+
+const REVIEW_FIELDS: [string, string, boolean?][] = [['name', 'نام محصول', true], ['nameEn', 'نام انگلیسی'], ['slug', 'نامک'], ['categoryId', 'دسته', true], ['brandId', 'برند'], ['price', 'قیمت', true], ['compareAtPrice', 'قیمت قبل از تخفیف'], ['stock', 'موجودی'], ['image', 'تصویر اصلی', true], ['shortDescription', 'توضیح کوتاه'], ['description', 'توضیحات'], ['warranty', 'گارانتی'], ['faqs', 'پرسش‌های متداول'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا']]
 
 const SECTIONS = [['general', 'اطلاعات اصلی'], ['pricing', 'قیمت و تخفیف'], ['inventory', 'انبار و ارسال'], ['media', 'تصاویر'], ['attributes', 'مشخصات و تنوع'], ['seo', 'سئو']] as const
 
@@ -41,6 +46,9 @@ export default function ProductEditorPage() {
   const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [aiValues, setAiValues] = useState<Form>({})
+  const [review, setReview] = useState(false)
+  const [originalActive, setOriginalActive] = useState<boolean | null>(isNew ? null : true)
 
   useEffect(() => {
     fetch('/api/admin/cms?type=productcats').then((r) => (r.ok ? r.json() : [])).then(setCategories).catch(() => {})
@@ -50,6 +58,7 @@ export default function ProductEditorPage() {
       const rows = await response.json().catch(() => [])
       const row = Array.isArray(rows) ? rows[0] : null
       if (!row) { setError('محصول پیدا نشد'); return }
+      setOriginalActive(row.active !== false)
       setForm({ ...EMPTY, ...row, categoryId: row.categoryId ? String(row.categoryId) : '', brandId: row.brandId ? String(row.brandId) : '', saleEndsAt: localInput(row.saleEndsAt), description: row.description || '', descriptionEn: row.descriptionEn || '' })
     }).catch(() => setError('بارگذاری محصول انجام نشد'))
   }, [id, isNew])
@@ -63,8 +72,43 @@ export default function ProductEditorPage() {
 
   if (!form) return <StoreShell title="ویرایش محصول">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</StoreShell>
 
+  const categoryOptions = categories.map((category) => ({ value: String(category.id), label: category.name }))
+  const brandOptions = brands.map((brand) => ({ value: String(brand.id), label: brand.name }))
+  // The assistant fills descriptive fields only; price, stock and images stay with the editor.
+  const aiFields: AutofillField[] = [
+    { key: 'name', label: 'نام فارسی محصول', type: 'text' },
+    { key: 'nameEn', label: 'نام انگلیسی محصول', type: 'text', dir: 'ltr' },
+    { key: 'slug', label: 'نامک', type: 'slug' },
+    ...(categoryOptions.length ? [{ key: 'categoryId', label: 'دسته', type: 'select' as const, options: categoryOptions }] : []),
+    ...(brandOptions.length ? [{ key: 'brandId', label: 'برند', type: 'select' as const, options: brandOptions }] : []),
+    { key: 'shortDescription', label: 'توضیح کوتاه (یک تا دو جمله)', type: 'textarea' },
+    { key: 'description', label: 'توضیحات کامل و فروش‌محور با تیترهای فرعی', type: 'richtext' },
+    { key: 'warranty', label: 'گارانتی (در صورت ذکر در منبع)', type: 'text' },
+    { key: 'weightGrams', label: 'وزن به گرم (در صورت ذکر در منبع)', type: 'number' },
+    { key: 'faqs', label: 'پرسش‌های متداول خریداران', type: 'records', recordKeys: [{ key: 'question', label: 'پرسش' }, { key: 'answer', label: 'پاسخ' }] },
+    { key: 'seoTitle', label: 'عنوان سئو (حداکثر ۶۰ نویسه)', type: 'text' },
+    { key: 'seoDescription', label: 'توضیح متا (حداکثر ۱۶۰ نویسه)', type: 'textarea' },
+  ]
+  const isAi = (key: string) => key in aiValues && JSON.stringify(form[key]) === JSON.stringify(aiValues[key])
+  const aiUsed = Object.keys(aiValues).some(isAi)
+  const applyAi = (values: Form, filled: string[]) => {
+    setSaved('')
+    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, key === 'weightGrams' ? Number(value) || 0 : value]))
+    setForm((current) => (current ? { ...current, ...next } : current))
+    setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
+  }
+  // A new product, one switched to active, or AI-written copy is reviewed before it goes on sale.
+  const needsReview = form.active !== false && (isNew || originalActive === false || aiUsed)
+  const reviewRows: ReviewRow[] = REVIEW_FIELDS.map(([key, label, required]) => {
+    const options = key === 'categoryId' ? categoryOptions : key === 'brandId' ? brandOptions : undefined
+    const value = key === 'stock' ? (Number(form.stock) < 0 ? 'نامحدود' : previewValue(String(form.stock))) : previewValue(form[key], options)
+    return { key, label, value, state: !value && required ? 'missing' : isAi(key) ? 'ai' : value ? 'ok' : 'empty' }
+  })
+  const requestSave = () => { if (needsReview) setReview(true); else void save() }
+
   async function save() {
     if (!form) return
+    setReview(false)
     setBusy(true); setError(''); setSaved('')
     const payload: Form = {
       ...form,
@@ -80,6 +124,8 @@ export default function ProductEditorPage() {
     setBusy(false)
     if (!response.ok) { setError(response.error); return }
     if (isNew) { router.replace(`/admin/store/products/${response.data.id}?created=1`); return }
+    setOriginalActive(form.active !== false)
+    setAiValues({})
     setSaved('تغییرات ذخیره شد')
   }
 
@@ -87,11 +133,13 @@ export default function ProductEditorPage() {
 
   return <StoreShell title={isNew ? 'افزودن محصول' : form.name || 'ویرایش محصول'} actions={<>
     {!isNew && <a href={`/products/${form.slug}`} target="_blank" rel="noreferrer" className="btn btn-ghost">مشاهده در فروشگاه</a>}
-    <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : isNew ? 'انتشار محصول' : 'ذخیرهٔ تغییرات'}</button>
+    <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیرهٔ تغییرات'}</button>
   </>}>
     <Link href="/admin/store/products" className="sa-link sa-back">بازگشت به محصولات</Link>
     {error && <Notice tone="error">{error}</Notice>}
     {saved && <Notice tone="ok">{saved}</Notice>}
+    <AiAutofill section="products" fields={aiFields} form={form} onApply={applyAi} />
+    <PublishReview open={review} title={form.name} rows={reviewRows} busy={busy} onCancel={() => setReview(false)} onConfirm={() => void save()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.map(([key, label]) => <a key={key} href={`#sa-${key}`}>{label}</a>)}</nav>
     <form className="sa-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
       <div className="sa-stack">
@@ -163,7 +211,7 @@ export default function ProductEditorPage() {
           <label className="sa-check"><input type="checkbox" checked={!!form.featured} onChange={(event) => update('featured', event.target.checked)} />محصول ویژه</label>
           <label className="sa-field"><span>دسترسی</span><select className="select" value={form.access} onChange={(event) => update('access', event.target.value)}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           {field('sortOrder', 'ترتیب نمایش', { type: 'number' })}
-          <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : isNew ? 'انتشار' : 'ذخیره'}</button>
+          <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیره'}</button>
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>دسته و برند</h2><Link href="/admin/productcats" className="sa-link">مدیریت دسته‌ها</Link></header>

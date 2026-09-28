@@ -8,6 +8,9 @@ import CoverField from '../../cms/CoverField'
 import { LinksEditor, RequirementsEditor, TermPicker, type LinkRow } from '../../cms/MediaCrud'
 import { GamesShell, Notice, fa, send } from '../shared'
 import UpdatesEditor from './UpdatesEditor'
+import AiAutofill from '../../cms/AiAutofill'
+import PublishReview, { previewValue, type ReviewRow } from '../../cms/PublishReview'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { GAME_MODES, HEALTH_CHECKS, LOCALIZATIONS, STORES, healthIssues } from '@/modules/games/domain/games'
 import { GAME_PLATFORMS } from '@/modules/media/domain/media'
 
@@ -21,6 +24,32 @@ const EMPTY: Form = {
   requirements: { min: {}, rec: {} }, links: [], version: '', gameSize: '', storeLinks: [], playMain: 0, playExtra: 0, playComplete: 0, seoTitle: '', seoDescription: '',
   terms: { ids: [], primary: null },
 }
+// Fields the assistant may fill from pasted material (never status, media, links or scores).
+const AI_FIELDS: AutofillField[] = [
+  { key: 'title', label: 'نام فارسی بازی', type: 'text' },
+  { key: 'titleEn', label: 'نام انگلیسی بازی', type: 'text', dir: 'ltr' },
+  { key: 'slug', label: 'نامک', type: 'slug' },
+  { key: 'developer', label: 'سازنده', type: 'text' },
+  { key: 'publisher', label: 'ناشر', type: 'text' },
+  { key: 'engine', label: 'موتور بازی', type: 'text', dir: 'ltr' },
+  { key: 'ageRating', label: 'رده سنی (مثلاً PEGI 16)', type: 'text' },
+  { key: 'genres', label: 'سبک‌ها، با ویرگول', type: 'text' },
+  { key: 'platforms', label: 'پلتفرم‌ها، با ویرگول', type: 'text', hint: `فقط از این نام‌ها: ${GAME_PLATFORMS.join(', ')}` },
+  { key: 'modes', label: 'حالت‌های بازی، کدها با ویرگول', type: 'text', hint: `کدهای مجاز: ${Object.entries(GAME_MODES).map(([code, text]) => `${code}=${text}`).join('، ')}` },
+  { key: 'releaseDate', label: 'تاریخ انتشار جهانی', type: 'date' },
+  { key: 'summary', label: 'خلاصهٔ معرفی (۲ تا ۴ جمله)', type: 'textarea' },
+  { key: 'verdict', label: 'حکم نهایی نقد در یک جمله', type: 'text' },
+  { key: 'content', label: 'متن نقد و بررسی کامل با تیترهای فرعی', type: 'richtext' },
+  { key: 'pros', label: 'نقاط قوت', type: 'records', recordKeys: [{ key: 'text', label: 'نقطهٔ قوت' }] },
+  { key: 'cons', label: 'نقاط ضعف', type: 'records', recordKeys: [{ key: 'text', label: 'نقطهٔ ضعف' }] },
+  { key: 'version', label: 'نسخهٔ فایل (در صورت ذکر در منبع)', type: 'text', dir: 'ltr' },
+  { key: 'gameSize', label: 'حجم بازی (در صورت ذکر در منبع)', type: 'text', dir: 'ltr' },
+  { key: 'playMain', label: 'ساعت تقریبی داستان اصلی', type: 'number' },
+  { key: 'seoTitle', label: 'عنوان سئو (حداکثر ۶۰ نویسه)', type: 'text' },
+  { key: 'seoDescription', label: 'توضیح متا (حداکثر ۱۶۰ نویسه)', type: 'textarea' },
+]
+const REVIEW_FIELDS: [string, string, boolean?][] = [['title', 'نام فارسی', true], ['titleEn', 'نام انگلیسی'], ['slug', 'نامک'], ['developer', 'سازنده'], ['publisher', 'ناشر'], ['genres', 'سبک‌ها'], ['platforms', 'پلتفرم‌ها'], ['releaseDate', 'تاریخ انتشار'], ['summary', 'خلاصه', true], ['cover', 'کاور', true], ['backdrop', 'تصویر افقی'], ['verdict', 'حکم نهایی'], ['content', 'متن نقد'], ['pros', 'نقاط قوت'], ['cons', 'نقاط ضعف'], ['links', 'لینک‌های دانلود'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا'], ['access', 'دسترسی دانلود']]
+
 const SECTIONS = [['info', 'اطلاعات بازی'], ['release', 'انتشار و نمایش'], ['review', 'نقد و نمره'], ['media', 'تصاویر و تریلر'], ['requirements', 'سیستم مورد نیاز'], ['download', 'دانلود و فروشگاه‌ها'], ['updates', 'آپدیت و DLC'], ['seo', 'سئو']] as const
 const list = (value: string) => value.split(',').map((part) => part.trim()).filter(Boolean)
 const localInput = (value: string | null | undefined) => {
@@ -56,6 +85,9 @@ export default function GameEditorPage() {
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [aiValues, setAiValues] = useState<Form>({})
+  const [review, setReview] = useState<null | { publish: boolean }>(null)
+  const [originalStatus, setOriginalStatus] = useState(isNew ? '' : 'loading')
 
   useEffect(() => {
     fetch('/api/admin/games/franchises', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { franchises: [] })).then((body) => setFranchises(body.franchises || [])).catch(() => {})
@@ -64,6 +96,7 @@ export default function GameEditorPage() {
       const rows = await response.json().catch(() => [])
       const row = Array.isArray(rows) ? rows[0] : null
       if (!row) { setError('بازی پیدا نشد'); return }
+      setOriginalStatus(row.status || '')
       setForm({ ...EMPTY, ...row, franchiseId: row.franchiseId ? String(row.franchiseId) : '', score: row.score ?? '', userScore: row.userScore ?? '', publishedAt: localInput(row.publishedAt), content: row.content || '' })
     }).catch(() => setError('بارگذاری بازی انجام نشد'))
   }, [id, isNew])
@@ -78,9 +111,9 @@ export default function GameEditorPage() {
   const update = (key: string, value: unknown) => { setDirty(true); setSaved(''); setForm((current) => (current ? { ...current, [key]: value } : current)) }
   const issues = useMemo(() => form ? healthIssues({ cover: form.cover, backdrop: form.backdrop, summary: form.summary, content: form.content, score: form.score === '' ? null : Number(form.score), requirements: JSON.stringify(form.requirements), screenshots: JSON.stringify(form.screenshots), trailerUrl: form.trailerUrl, platforms: form.platforms, releaseDate: form.releaseDate ? new Date(form.releaseDate) : null, links: (form.links as LinkRow[]).filter((l) => l.url && !l.disabled).length }) : [], [form])
 
-  async function save(publish?: boolean) {
-    if (!form) return
-    if (form.title.trim().length < 2) { setError('نام بازی را بنویسید'); return }
+  async function save(publish?: boolean): Promise<boolean> {
+    if (!form) return false
+    if (form.title.trim().length < 2) { setError('نام بازی را بنویسید'); return false }
     setBusy(true); setError(''); setSaved('')
     const body = {
       ...form, ...(publish ? { status: 'PUBLISHED' } : {}),
@@ -97,14 +130,35 @@ export default function GameEditorPage() {
     }
     const response = await send<{ id: number; slug: string }>(`/api/admin/media-library?type=games`, isNew ? 'POST' : 'PATCH', body)
     setBusy(false)
-    if (!response.ok) { setError(response.error); return }
+    if (!response.ok) { setError(response.error); return false }
     setDirty(false)
     if (publish) setForm((current) => (current ? { ...current, status: 'PUBLISHED' } : current))
-    if (isNew) { router.replace(`/admin/games/${response.data.id}`); return }
+    if (isNew) { router.replace(`/admin/games/${response.data.id}`); return true }
     setForm((current) => (current ? { ...current, slug: response.data.slug } : current))
     setSaved('تغییرات ذخیره شد')
+    return true
   }
 
+  const isAi = (key: string) => !!form && key in aiValues && JSON.stringify(form[key]) === JSON.stringify(aiValues[key])
+  const aiUsed = Object.keys(aiValues).some(isAi)
+  const applyAi = (values: Form, filled: string[]) => {
+    setDirty(true); setSaved('')
+    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, key === 'releaseDate' && typeof value === 'string' ? value.slice(0, 10) : value]))
+    setForm((current) => (current ? { ...current, ...next } : current))
+    setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
+  }
+  // Going live — «انتشار», a draft switched to published, or AI-filled content — needs a final review.
+  const requestSave = (publish?: boolean) => {
+    if (!form) return
+    const goingLive = publish || (form.status === 'PUBLISHED' && (isNew || originalStatus !== 'PUBLISHED'))
+    if (goingLive || (form.status === 'PUBLISHED' && aiUsed)) { setReview({ publish: !!publish }); return }
+    void save(publish)
+  }
+  const confirmPublish = async () => { const publish = review?.publish; const done = await save(publish); setReview(null); if (done) { setOriginalStatus('PUBLISHED'); setAiValues({}) } }
+  const reviewRows: ReviewRow[] = form ? REVIEW_FIELDS.map(([key, label, required]) => {
+    const value = previewValue(form[key])
+    return { key, label, value, state: !value && required ? 'missing' : isAi(key) ? 'ai' : value ? 'ok' : 'empty' }
+  }) : []
   if (!form) return <GamesShell title="ویرایش بازی">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</GamesShell>
   const field = (key: string, label: string, props: Record<string, unknown> = {}) => <label className="sa-field"><span>{label}</span><input className="input" value={form[key] ?? ''} onChange={(e) => update(key, e.target.value)} {...props} /></label>
   const platforms = list(form.platforms)
@@ -112,13 +166,15 @@ export default function GameEditorPage() {
 
   return <GamesShell title={title} actions={<>
     {!isNew && form.status === 'PUBLISHED' && <a href={`/games/${form.slug}`} target="_blank" rel="noreferrer" className="btn btn-ghost">مشاهده در سایت</a>}
-    <button type="button" className="btn btn-ghost" disabled={busy || uploading} onClick={() => void save()}>{form.status === 'PUBLISHED' ? 'ذخیره' : 'ذخیرهٔ پیش‌نویس'}</button>
-    {form.status !== 'PUBLISHED' && <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => void save(true)}>انتشار</button>}
-    {form.status === 'PUBLISHED' && <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'به‌روزرسانی'}</button>}
+    <button type="button" className="btn btn-ghost" disabled={busy || uploading} onClick={() => requestSave()}>{form.status === 'PUBLISHED' ? 'ذخیره' : 'ذخیرهٔ پیش‌نویس'}</button>
+    {form.status !== 'PUBLISHED' && <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => requestSave(true)}>بازبینی و انتشار</button>}
+    {form.status === 'PUBLISHED' && <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => requestSave()}>{busy ? 'در حال ذخیره…' : 'به‌روزرسانی'}</button>}
   </>}>
     <Link href="/admin/games/titles" className="sa-link sa-back">→ همهٔ بازی‌ها</Link>
     {error && <Notice tone="error">{error}</Notice>}
     {saved && <Notice tone="ok">{saved}</Notice>}
+    <AiAutofill section="games" fields={AI_FIELDS} form={form} onApply={applyAi} />
+    <PublishReview open={!!review} title={form.title} rows={reviewRows} busy={busy} onCancel={() => setReview(null)} onConfirm={() => void confirmPublish()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.filter(([key]) => key !== 'updates' || !isNew).map(([key, label]) => <a key={key} href={`#${key}`}>{label}</a>)}</nav>
     <div className="sa-editor">
       <div className="sa-stack">

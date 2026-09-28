@@ -8,7 +8,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { AI_PROVIDERS } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig, publicAiConfig, saveAiConfig } from '@/modules/ai/server/client'
 import {
-  applyMeta, applyProductCopy, assistEditor, assistantQueues, draftPost, productCopy, publishCommentReply, publishForumReply,
+  applyMeta, applyProductCopy, assistEditor, assistantQueues, autofillContent, draftPost, productCopy, publishCommentReply, publishForumReply,
   suggestCommentReply, suggestForumReply, suggestMeta,
 } from '@/modules/ai/server/tasks'
 
@@ -16,7 +16,7 @@ type Handler = (admin: { id: number; email: string }, body: Record<string, any>)
 const id = (value: unknown) => { const number = Number(value); return Number.isSafeInteger(number) && number > 0 ? number : 0 }
 
 // Each action names the permission it needs; generating calls count against a per-admin limit.
-const ACTIONS: Record<string, { perm: string; generates: boolean; run: Handler }> = {
+const ACTIONS: Record<string, { perm: string | string[]; generates: boolean; run: Handler }> = {
   test: { perm: 'settings.manage', generates: true, run: async () => {
     const result = await generate({ system: 'فقط به فارسی جواب بده.', user: 'در یک جملهٔ کوتاه بگو آماده‌ای.', maxTokens: 200 })
     return { reply: result.text.trim().slice(0, 300), model: result.model }
@@ -31,6 +31,8 @@ const ACTIONS: Record<string, { perm: string; generates: boolean; run: Handler }
   'meta.suggest': { perm: 'cms.posts', generates: true, run: (_admin, body) => suggestMeta(id(body.id)) },
   'editor.assist': { perm: 'cms.posts', generates: true, run: (_admin, body) => assistEditor(body) },
   'meta.apply': { perm: 'cms.posts', generates: false, run: (_admin, body) => applyMeta(id(body.id), body.meta) },
+  // Any content editor may auto-fill the form of a section they manage.
+  'content.autofill': { perm: ['cms.posts', 'cms.pages', 'cms.products', 'software.manage', 'games.manage', 'cinema.manage', 'music.manage'], generates: true, run: (_admin, body) => autofillContent(body) },
 }
 
 async function anyPerm(req: NextRequest, perms: string[]) {
@@ -65,12 +67,12 @@ export async function POST(req: NextRequest) {
   const action = ACTIONS[String(body?.action || '')]
   if (!action) return err('unknown action', 404)
   // forum.moderate or cms.posts both moderate the forum (same rule as the forum module).
-  const admin = await anyPerm(req, action.perm === 'forum.moderate' ? ['forum.moderate', 'cms.posts'] : [action.perm])
+  const admin = await anyPerm(req, Array.isArray(action.perm) ? action.perm : action.perm === 'forum.moderate' ? ['forum.moderate', 'cms.posts'] : [action.perm])
   if (!admin) return err('forbidden', 403)
   if (action.generates && !rateLimitHit(`ai:generate:${admin.id}`, 30, 10 * 60_000).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
   try {
     const result = await action.run(admin, body)
-    await auditAdmin({ req, actor: admin, action: `ai.${body.action}`, targetType: 'ai', targetId: body.id ?? '', metadata: { model: (result as { model?: string })?.model } })
+    await auditAdmin({ req, actor: admin, action: `ai.${body.action}`, targetType: 'ai', targetId: body.id ?? body.section ?? '', metadata: { model: (result as { model?: string })?.model } })
     return ok(result)
   } catch (error) {
     if (error instanceof AiError) return err(error.message, error.status)
