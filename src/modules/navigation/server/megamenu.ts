@@ -7,6 +7,7 @@ import { descendants, termPath, type Taxonomy } from '@/modules/taxonomy/domain/
 import {
   MEGA_SECTIONS, SECTION_LABEL, SECTION_ROOT, defaultMegaConfig, facetCounts, normalizeMegaConfig, subtreeColumns,
   type MegaFeature, type MegaLink, type MegaMenuConfig, type MegaSection, type SectionBar, type SectionBarItem, type SectionMenuConfig,
+  arrangeItems,
 } from '@/modules/navigation/domain/megamenu'
 
 /**
@@ -169,10 +170,12 @@ export async function buildSectionBar(section: MegaSection, cfg: SectionMenuConf
   const search = SEARCH[section]
   return {
     section, title: SECTION_LABEL[section], home: SECTION_ROOT[section],
-    items: built.items,
-    quick: [...cfg.links, ...(cfg.hideAutoLinks ? [] : built.quick)].slice(0, 10),
+    items: arrangeItems(built.items, cfg),
+    quick: cfg.showQuick === false ? [] : [...cfg.links, ...(cfg.hideAutoLinks ? [] : built.quick)].slice(0, 10),
+    maxItems: cfg.maxItems || 0,
+    catalog: arrangeItems(built.items, { ...cfg, hiddenItems: [] }).map((item) => ({ key: item.key, label: item.label, hidden: (cfg.hiddenItems || []).includes(item.key) })),
     promo: cfg.promo.enabled ? { title: cfg.promo.title, text: cfg.promo.text, href: cfg.promo.href, image: cfg.promo.image, cta: cfg.promo.cta } : null,
-    search: search ? { ...search, categories: built.searchCategories } : null,
+    search: search && cfg.showSearch !== false ? { ...search, categories: built.searchCategories } : null,
   }
 }
 

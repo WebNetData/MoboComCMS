@@ -86,3 +86,18 @@ test('built-in sections accept a placed landing page; other reserved slugs do no
   assert.throws(() => place('admin'), /رزرو/)
   assert.throws(() => place('compare'), /رزرو/)
 })
+
+test('section bar entries follow the editor order and hide list', () => {
+  const items = ['a', 'b', 'c', 'd'].map((key) => ({ key }))
+  assert.deepEqual(mm.arrangeItems(items, { itemOrder: ['c', 'a'], hiddenItems: ['b'] }).map((i) => i.key), ['c', 'a', 'd'])
+  assert.deepEqual(mm.arrangeItems(items, { itemOrder: [], hiddenItems: [] }).map((i) => i.key), ['a', 'b', 'c', 'd'])
+  const cfg = mm.normalizeSectionConfig({ hiddenItems: ['x', 'x', '', 5], itemOrder: 'bad', maxItems: 99, showSearch: false })
+  assert.deepEqual(cfg.hiddenItems, ['x', '5'])
+  assert.deepEqual(cfg.itemOrder, [])
+  assert.equal(cfg.maxItems, 20)
+  assert.equal(cfg.showSearch, false)
+  assert.equal(cfg.showQuick, true)
+  // Settings saved before these options existed keep working.
+  const old = mm.normalizeSectionConfig({}, { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { enabled: false, title: '', text: '', href: '', image: '', cta: '' } })
+  assert.deepEqual([old.hiddenItems, old.itemOrder, old.maxItems, old.showSearch], [[], [], 0, true])
+})
