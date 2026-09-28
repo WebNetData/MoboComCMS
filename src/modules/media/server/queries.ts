@@ -297,6 +297,7 @@ export async function getGamesHome() {
     latest: latest.map(toGame), topRated: topRated.map(toGame), upcoming: upcoming.map(toGame),
     popular: popular.map(toGame), reviewed: (reviewed.length ? reviewed : topRated).map(toGame), recommended: featured.map(toGame),
     platforms: countList(facetRows.map((row: any) => row.platforms)).slice(0, 12),
+    platformCounts: countMap(facetRows.map((row: any) => row.platforms)),
     genres: countList(facetRows.map((row: any) => row.genres)).slice(0, 16),
   }
 }
@@ -525,6 +526,12 @@ export async function getSoftware(slug: string) {
 // ------------------------------------------------------------------ shared
 
 /** "a, b" strings → distinct values ordered by frequency. */
+function countMap(values: string[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const value of values) for (const part of splitList(value)) counts[part] = (counts[part] || 0) + 1
+  return counts
+}
+
 function countList(values: string[]): string[] {
   const counts = new Map<string, number>()
   for (const value of values) for (const part of splitList(value)) counts.set(part, (counts.get(part) || 0) + 1)

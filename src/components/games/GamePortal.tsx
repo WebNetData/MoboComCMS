@@ -42,14 +42,20 @@ export function GameRail({ title, games, more, icon }: { title: string; games: G
 
 const PLATFORM_NOTE: Record<string, string> = { PC: 'Windows', Windows: 'Windows', PS5: 'PlayStation', PS4: 'PlayStation', 'Xbox Series': 'Xbox', 'Xbox One': 'Xbox', Android: 'Android', iOS: 'Apple', Switch: 'Nintendo' }
 
-/** “By platform” cards. */
-export function PlatformCards({ platforms }: { platforms: string[] }) {
+/** Brand tint per platform family (cards and their icon halo). */
+const PLATFORM_TONE: Record<string, string> = { PC: '#3b82f6', Windows: '#3b82f6', PS5: '#2563eb', PS4: '#1d4ed8', 'Xbox Series': '#16a34a', 'Xbox One': '#15803d', Switch: '#e60012', Android: '#22c55e', iOS: '#a1a1aa', Linux: '#f59e0b', macOS: '#a1a1aa' }
+
+/** “By platform”: one even row of brand-tinted cards with the number of games. */
+export function PlatformCards({ platforms, counts = {} }: { platforms: string[]; counts?: Record<string, number> }) {
   if (!platforms.length) return null
+  const list = platforms.slice(0, 6)
   return <section className="container gx-platforms-row">
-    <div className="gx-platforms-head"><b>بر اساس پلتفرم</b><small>بازی مورد نظرتان را بر اساس پلتفرم پیدا کنید</small></div>
-    <nav className="gx-platforms" aria-label="پلتفرم‌ها">{platforms.slice(0, 6).map((platform) => <Link key={platform} href={`/games/browse?platform=${encodeURIComponent(platform)}`} className="gx-platform-card">
-      <span><b>بازی‌های {platform}</b><small dir="ltr">{PLATFORM_NOTE[platform] || platform}</small></span>
-      <Icon name={platformIcon(platform)} size={28} />
+    <GxTitle title="بر اساس پلتفرم" icon="grid" more="/games/browse" />
+    <nav className="gx-platforms" aria-label="پلتفرم‌ها" style={{ '--gx-n': list.length } as React.CSSProperties}>{list.map((platform) => <Link key={platform} href={`/games/browse?platform=${encodeURIComponent(platform)}`} className="gx-platform-card" style={{ '--tone': PLATFORM_TONE[platform] || 'var(--gx-red)' } as React.CSSProperties}>
+      <span className="gx-platform-icon"><Icon name={platformIcon(platform)} size={26} /></span>
+      <span className="gx-platform-text"><b dir="auto">{platform}</b><small dir="ltr">{PLATFORM_NOTE[platform] || platform}</small></span>
+      {counts[platform] ? <span className="gx-platform-count">{fa(counts[platform])} بازی</span> : null}
+      <span className="gx-platform-go" aria-hidden="true"><Icon name="chevron" size={14} /></span>
     </Link>)}</nav>
   </section>
 }

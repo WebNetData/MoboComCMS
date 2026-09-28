@@ -38,7 +38,7 @@ export default async function GamesHomePage() {
   const data = home.base
   const slides = data.hero.map((game) => ({ id: game.id, slug: game.slug, title: game.title, summary: game.summary, backdrop: game.backdrop, cover: game.cover, screenshots: game.screenshots, genres: game.genres, score: game.score }))
   const blocks: Record<HomeRail, ReactNode> = {
-    platforms: <PlatformCards platforms={data.platforms} />,
+    platforms: <PlatformCards platforms={data.platforms} counts={data.platformCounts} />,
     genres: <GenreTiles tiles={genres.tiles} />,
     latest: <GameRail title="جدیدترین بازی‌ها" games={data.latest} more="/games/browse" icon="sparkle" />,
     editors: <GameRail title="انتخاب سردبیر" games={home.editors} more="/games/browse?pick=editors" icon="trophy" />,
