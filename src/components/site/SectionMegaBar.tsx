@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 
 import Link from '@/components/AppLink'
 import { usePathname } from '@/platform/routing/navigation'
 import type { SectionBar, SectionBarItem, MegaPromo } from '@/modules/navigation/domain/megamenu'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 const OPEN_DELAY = 110
 const CLOSE_DELAY = 220
@@ -108,7 +109,7 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
       </nav>
       {bar.search && <form action={bar.search.action} className="mm-bar-search" role="search">
         {bar.search.categories.length > 0 && <select name={bar.search.param} aria-label="دسته" defaultValue=""><option value="">همهٔ دسته‌ها</option>{bar.search.categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>}
-        <input name="q" type="search" defaultValue={searchValue} placeholder={bar.search.placeholder} aria-label={bar.search.placeholder} />
+        <LiveSearchInput action={bar.search.action} defaultValue={searchValue} placeholder={bar.search.placeholder} />
         <button type="submit" aria-label="جست‌وجو"><SearchIcon /></button>
       </form>}
       {extra}

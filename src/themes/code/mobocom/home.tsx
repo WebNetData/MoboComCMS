@@ -1,6 +1,7 @@
 import Link from '@/platform/routing/Link'
 import { ThemePlanCards, ThemePublicForm, themeFormatAmount, type ThemeHomeProps } from '@/themes/sdk/server'
 import type { ThemeServerModule } from '@/themes/types'
+import { ThemeLiveSearch } from '@/themes/sdk/client'
 import Icon from './icons'
 
 type LocalText = { fa: string; en: string; [locale: string]: string }
@@ -58,7 +59,7 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
             {T(section.eyebrow) && <span className="mbx-pill"><Icon name="sparkles" size={14}/>{T(section.eyebrow)}</span>}
             <h1 id="mb-hero-title">{T(section.title).split('\n').map((line, index) => <span key={index} className={index === 1 ? 'is-accent' : undefined}>{line}</span>)}</h1>
             <p className="mbx-lead">{T(section.description)}</p>
-            {live('/search') && <form className="mbx-search" action="/search" role="search"><Icon name="search" size={20}/><input name="q" type="search" placeholder={L('جست‌وجوی بازی، فیلم، آهنگ، نرم‌افزار یا محصول…', 'Search games, films, music, apps or products…')} aria-label={L('جست‌وجو در سایت', 'Search the site')}/><button type="submit">{L('جست‌وجو', 'Search')}</button></form>}
+            {live('/search') && <form className="mbx-search" action="/search" role="search"><Icon name="search" size={20}/><ThemeLiveSearch action="/search" types={[]} placeholder={L('جست‌وجوی بازی، فیلم، آهنگ، نرم‌افزار یا محصول…', 'Search games, films, music, apps or products…')}/><button type="submit">{L('جست‌وجو', 'Search')}</button></form>}
             {chips.length > 0 && <nav className="mbx-chips" aria-label={L('میان‌برها', 'Shortcuts')}><span>{L('پرطرفدار:', 'Popular:')}</span>{chips.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}</nav>}
             <div className="mb-actions">
               {live(section.action.href) && <Link className="mb-btn mb-btn-primary" href={section.action.href}>{T(section.action.label)}<Icon name="arrow" size={18}/></Link>}
@@ -79,10 +80,21 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
     case 'services': {
       const items = section.items.filter(item => live(item.href))
       if (!items.length) return null
+      // Grid cells used: wide cards take two. The last row's cards widen to close the row.
+      const bigs = Math.min(2, items.length)
+      const rest = (items.length + bigs) % 4
+      const fill = (index: number) => {
+        if (!rest || index < bigs) return ''
+        const fromEnd = items.length - 1 - index
+        if (rest === 1) return fromEnd === 0 ? ' span-4' : ''
+        if (rest === 2) return fromEnd <= 1 ? ' span-2' : ''
+        return fromEnd === 0 ? ' span-2' : ''
+      }
       const count = (href: string) => (data.stats || []).find(stat => href === stat.href || href.startsWith(`${stat.href}/`))
-      const art = (href: string) => { const kind = SHOWCASE.find(column => href.startsWith(column.href))?.kind; const item = kind ? data.showcase.find(entry => entry.kind === kind && (entry.image || entry.cover)) : undefined; return item?.image || item?.cover || (href.startsWith('/products') ? data.products.find(p => p.image)?.image : '') || '' }
+      const art = (href: string) => { const kind = SHOWCASE.find(column => href.startsWith(column.href))?.kind; const item = kind ? data.showcase.find(entry => entry.kind === kind && (entry.image || entry.cover)) : undefined; return item?.image || item?.cover || (href.startsWith('/blog') ? data.posts.find(p => p.cover)?.cover : href.startsWith('/products') ? data.products.find(p => p.image)?.image : '') || '' }
       return <section className="mb-container mb-section" id={section.id}>{heading()}
-        <div className="mbx-sections">{items.map((item, index) => { const [icon, tone] = styleOf(item.href, item.icon); const stat = count(item.href); const image = art(item.href); return <Link key={index} href={item.href} className={`mbx-section tone-${tone}${index < 2 ? ' is-big' : ''}`}>
+        {/* 4-column grid: the first two cards are wide; cards in an unfinished last row stretch so the grid never ends with a hole. */}
+        <div className="mbx-sections">{items.map((item, index) => { const [icon, tone] = styleOf(item.href, item.icon); const stat = count(item.href); const image = item.image || art(item.href); return <Link key={index} href={item.href} className={`mbx-section tone-${tone}${index < 2 ? ' is-big' : ''}${image ? ' has-art' : ''}${fill(index)}`}>
           {image && <span className="mbx-section-art" style={{ backgroundImage: `url("${encodeURI(image)}")` }} aria-hidden="true"/>}
           <span className="mbx-section-icon"><Icon name={icon} size={24}/></span>
           <span className="mbx-section-copy"><b>{T(item.title)}</b><small>{T(item.text)}</small></span>
@@ -105,6 +117,8 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
       const columns = SHOWCASE.filter(column => column.kind !== 'forum' && live(column.href)).map(column => ({ ...column, items: data.showcase.filter(item => item.kind === column.kind) })).filter(column => column.items.length)
       const topics = live('/forum') ? data.showcase.filter(item => item.kind === 'forum').slice(0, 6) : []
       const community = live('/feed') ? data.community : null
+      // Post rows share the column height; an invite on its own row stays compact.
+      const feedRows = (posts: number) => ({ gridTemplateRows: posts % 2 ? `repeat(${Math.ceil(posts / 2)}, minmax(min-content, 1fr))` : `${posts ? `repeat(${posts / 2}, minmax(min-content, 1fr)) ` : ''}auto` })
       if (!columns.length && !topics.length && !community) return null
       return <>
         {columns.length > 0 && <section className="mb-container mb-section mbx-rails" id={section.id}>{heading()}
@@ -122,8 +136,8 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
         </section>}
         {(community || topics.length > 0) && <section className="mb-container mb-section mbx-community">
           <header className="mb-heading"><div><span className="mb-eyebrow">{L('جامعهٔ موبوکام', 'Community')}</span><h2>{L('آدم‌ها، گفت‌وگوها، سلیقه‌ها', 'People, talks and tastes')}</h2><p>{L('ببینید دیگران چه می‌بازند، چه می‌بینند و دربارهٔ چه حرف می‌زنند.', 'See what others play, watch and talk about.')}</p></div>{community && <Link className="mb-link" href="/feed">{L('ورود به تازه‌ها', 'Open the feed')}<Icon name="arrow" size={16}/></Link>}</header>
-          <div className="mbx-community-grid">
-            {community && community.posts.length > 0 && <div className="mbx-feed">{community.posts.slice(0, 4).map(post => <Link key={post.id} href={`/feed/p/${post.id}`} className="mbx-post">
+          <div className={`mbx-community-grid${community ? '' : ' is-solo'}${community && !community.posts.length ? ' is-empty' : ''}`}>
+            {community && <div className="mbx-feed" style={feedRows(community.posts.slice(0, 4).length)}>{community.posts.slice(0, 4).map(post => <Link key={post.id} href={`/feed/p/${post.id}`} className="mbx-post">
               <span className="mbx-post-head">{post.author.avatar ? <img src={post.author.avatar} alt="" className="mbx-ava"/> : <span className="mbx-ava" style={{ background: post.author.avatarColor }}>{post.author.name.slice(0, 1)}</span>}<span><b>{post.author.name}{post.author.verified && <span className="mbx-check" aria-label={L('تأییدشده', 'Verified')}>✔</span>}</b><small dir="ltr">@{post.author.username}</small></span></span>
               <p dir="auto">{post.text}</p>
               {post.image && <img src={post.image} alt="" className="mbx-post-img" loading="lazy"/>}

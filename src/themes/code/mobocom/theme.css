@@ -219,8 +219,8 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-search { display: flex; align-items: center; gap: 10px; width: min(100%, 580px); padding: 6px; padding-inline-start: 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--mb-shadow); color: var(--muted); transition: border-color .15s, box-shadow .15s; }
 .mbx-search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 4px var(--mb-soft), var(--mb-shadow); }
 .mbx-search input { flex: 1; min-width: 0; height: 44px; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; }
-.mbx-search button { height: 44px; padding-inline: 22px; border: 0; border-radius: 12px; background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 700; cursor: pointer; }
-.mbx-search button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mbx-search > button { height: 44px; padding-inline: 22px; border: 0; border-radius: 12px; background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 700; cursor: pointer; }
+.mbx-search > button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .mbx-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
 .mbx-chips > span { color: var(--muted); }
 .mbx-chips a { padding: 5px 12px; border-radius: 999px; border: var(--mb-hair); background: color-mix(in srgb, var(--card) 70%, transparent); color: var(--text); transition: border-color .15s, color .15s; }
@@ -267,12 +267,23 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-section { position: relative; isolation: isolate; display: grid; grid-template-columns: auto 1fr; align-content: start; gap: 12px 14px; min-height: 150px; padding: 20px; border-radius: var(--mb-radius); overflow: hidden; background: linear-gradient(160deg, color-mix(in srgb, var(--tone) 12%, var(--card)), var(--card) 75%); border: 1px solid color-mix(in srgb, var(--tone) 20%, var(--border)); box-shadow: var(--mb-shadow); transition: transform .18s ease, border-color .18s; }
 .mbx-section:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--tone) 55%, var(--border)); }
 .mbx-section:focus-visible { outline: 2px solid var(--tone); outline-offset: 3px; }
+.mbx-section.span-2 { grid-column: span 2; }
+.mbx-section.span-4 { grid-column: 1 / -1; }
 .mbx-section.is-big { grid-column: span 2; min-height: 210px; color: #fff; background: color-mix(in srgb, var(--tone) 55%, #120e26); border-color: transparent; }
 .mbx-section-art { position: absolute; inset: 0; z-index: -1; background: center / cover no-repeat; opacity: 0; transition: transform .4s ease; }
 .mbx-section.is-big .mbx-section-art { opacity: 1; }
 .mbx-section.is-big .mbx-section-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 35%, #0b0918f0), #0b0918b3 60%, #0b091833); }
 [dir=ltr] .mbx-section.is-big .mbx-section-art::after { background: linear-gradient(270deg, color-mix(in srgb, var(--tone) 35%, #0b0918f0), #0b0918b3 60%, #0b091833); }
 .mbx-section.is-big:hover .mbx-section-art { transform: scale(1.04); }
+/* Any card with a picture (set in Site Studio, or the section's newest image) shows it as its background. */
+[data-code-theme="mobocom"] .mbx-section.has-art { color: #fff; background: color-mix(in srgb, var(--tone) 50%, #120e26); border-color: transparent; }
+.mbx-section.has-art .mbx-section-art { opacity: 1; }
+.mbx-section.has-art .mbx-section-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, #0b091833 0%, color-mix(in srgb, var(--tone) 30%, #0b0918e6) 100%); }
+.mbx-section.has-art:hover .mbx-section-art { transform: scale(1.05); }
+.mbx-section.has-art .mbx-section-icon { background: #ffffff1f; color: #fff; backdrop-filter: blur(6px); }
+.mbx-section.has-art .mbx-section-copy small { color: #ffffffd9; }
+.mbx-section.has-art .mbx-section-count { background: #ffffff24; color: #fff; }
+.mbx-section.has-art .mbx-section-go { border-color: #ffffff4d; color: #fff; }
 .mbx-section-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--tone) 16%, var(--card)); color: var(--tone); }
 .mbx-section.is-big .mbx-section-icon { background: #ffffff1f; color: #fff; backdrop-filter: blur(6px); }
 .mbx-section-copy { display: grid; gap: 4px; align-self: center; }
@@ -327,7 +338,14 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-more { margin-top: 18px; }
 
 /* community */
-.mbx-community-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+.mbx-community-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: stretch; }
+/* Both columns end on the same line: feed rows share the column height, post meta sits at the bottom. */
+.mbx-community-grid .mbx-feed { align-content: stretch; }
+.mbx-community-grid .mbx-post:not(.is-invite) { display: flex; flex-direction: column; }
+.mbx-community-grid .mbx-post:not(.is-invite) .mbx-post-meta { margin-top: auto; }
+.mbx-community-grid .mbx-side { align-content: stretch; grid-auto-rows: auto; }
+.mbx-community-grid .mbx-side > :last-child { display: flex; flex-direction: column; }
+.mbx-community-grid .mbx-members .mbx-join { margin-top: auto; }
 .mbx-feed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .mbx-post { display: grid; align-content: start; gap: 12px; padding: 18px; border-radius: var(--mb-radius); background: var(--card); border: var(--mb-hair); box-shadow: var(--mb-shadow); transition: border-color .15s, transform .15s; }
 .mbx-post:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); transform: translateY(-2px); }
@@ -344,6 +362,11 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-post-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .mbx-post.is-invite { grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 9%, var(--card)), var(--card)); border-style: dashed; border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 .mbx-feed > .is-invite:nth-child(odd) { grid-column: 1 / -1; }
+/* No posts yet: the invite fills the feed column; no feed at all: the side boxes share the full width. */
+.mbx-community-grid.is-empty .mbx-post.is-invite { grid-column: 1 / -1; align-self: stretch; align-content: center; }
+.mbx-community-grid.is-empty .mbx-feed { height: 100%; }
+.mbx-community-grid.is-solo { grid-template-columns: 1fr; }
+.mbx-community-grid.is-solo .mbx-side { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
 .mbx-post.is-invite > span:nth-child(2) { display: grid; gap: 4px; }
 .mbx-post.is-invite small { color: var(--muted); font-size: 13px; line-height: 1.8; }
 .mbx-post.is-invite .mb-btn { min-height: 42px; padding-inline: 18px; font-size: 14px; }
@@ -404,6 +427,8 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
   .mbx-hero { padding-block: 36px 28px; }
   .mbx-hero-grid { grid-template-columns: 1fr; gap: 28px; }
   .mbx-sections, .mbx-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mbx-section.span-2 { grid-column: auto; }
+  .mbx-sections > .mbx-section:not(.is-big):last-child:nth-child(odd) { grid-column: 1 / -1; }
   .mbx-posters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .mbx-posters > :nth-child(n+5) { display: none; }
   .mbx-community-grid { grid-template-columns: 1fr; }
@@ -415,7 +440,7 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 @media (max-width: 620px) {
   .mbx-hero h1 { font-size: clamp(30px, 8.4vw, 40px); }
   .mbx-lead { font-size: 15.5px; }
-  .mbx-search button { padding-inline: 14px; }
+  .mbx-search > button { padding-inline: 14px; }
   .mbx-stats { gap: 10px 20px; }
   .mbx-stats dd { font-size: 20px; }
   .mbx-bento { grid-template-columns: 1fr 1fr; grid-template-rows: 170px 150px; gap: 10px; }

@@ -36,11 +36,11 @@
 .mm-bar-home:focus-visible, .mm-bar-link:focus-visible, .mm-bar-quick:focus-visible, .mm-trigger:focus-visible { outline: 2px solid var(--mm-accent); outline-offset: 1px; }
 
 /* section search: category select + query (download-site style) */
-.mm-bar-search { display: flex; align-items: center; flex: 0 1 360px; min-width: 220px; height: 40px; border: 1px solid var(--mm-line); border-radius: 999px; background: var(--mm-soft); overflow: hidden; }
+.mm-bar-search { position: relative; display: flex; align-items: center; flex: 0 1 360px; min-width: 220px; height: 40px; border: 1px solid var(--mm-line); border-radius: 999px; background: var(--mm-soft); }
 .mm-bar-search:focus-within { border-color: var(--mm-accent); box-shadow: 0 0 0 3px var(--mm-accent-soft); }
 .mm-bar-search select { flex: none; max-width: 120px; height: 100%; padding-inline: 12px 6px; border: 0; border-inline-end: 1px solid var(--mm-line); background: transparent; color: var(--mm-text); font: inherit; font-size: 12.5px; }
 .mm-bar-search input { flex: 1; min-width: 0; height: 100%; padding-inline: 14px; border: 0; background: transparent; color: var(--mm-text); font: inherit; font-size: 13.5px; outline: none; }
-.mm-bar-search button { display: grid; place-items: center; flex: none; width: 40px; height: 100%; border: 0; background: var(--mm-accent); color: var(--on-primary, #fff); cursor: pointer; }
+.mm-bar-search > button { display: grid; place-items: center; flex: none; width: 40px; height: 100%; border: 0; background: var(--mm-accent); color: var(--on-primary, #fff); cursor: pointer; }
 
 /* ---------- panel ---------- */
 .mm-panel { position: absolute; inset-inline: 0; top: 100%; z-index: 60; }

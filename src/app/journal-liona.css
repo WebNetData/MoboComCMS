@@ -151,10 +151,10 @@
 /* ---------- toolbar, listing ---------- */
 .lh-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 22px; }
 .lh-toolbar.is-inline { padding-top: 0; margin-bottom: 20px; }
-.lh-search { display: flex; flex: 0 1 380px; height: 44px; margin-inline-start: auto; overflow: hidden; border: 1px solid var(--lh-line); border-radius: 999px; background: var(--lh-card); }
+.lh-search { display: flex; flex: 0 1 380px; height: 44px; margin-inline-start: auto; border: 1px solid var(--lh-line); border-radius: 999px; background: var(--lh-card); }
 .lh-search:focus-within { border-color: var(--lh-accent); }
 .lh-search input { flex: 1; min-width: 0; padding-inline: 18px; border: 0; background: transparent; color: var(--lh-text); font: inherit; font-size: 13.5px; outline: none; }
-.lh-search button { display: grid; place-items: center; width: 44px; border: 0; background: var(--lh-accent); color: #062a31; cursor: pointer; }
+.lh-search > button { display: grid; place-items: center; width: 44px; border: 0; background: var(--lh-accent); color: #062a31; cursor: pointer; }
 .lh-list-head { display: grid; gap: 6px; margin-bottom: 18px; }
 .lh-list-head h1 { margin: 0; font-size: clamp(1.3rem, 2.4vw, 1.7rem); font-weight: 900; }
 .lh-list-head > span { color: var(--lh-muted); font-size: 13px; }

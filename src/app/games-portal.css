@@ -155,11 +155,11 @@
 /* ---------- browse / category ---------- */
 .gx-browse { display: grid; gap: 18px; padding-block: 24px 56px; }
 .gx-browse-form { display: grid; gap: 10px; }
-.gx-search { display: flex; height: 50px; overflow: hidden; border-radius: 12px; background: var(--gx-card-2); }
+.gx-search { display: flex; height: 50px; border-radius: 12px; background: var(--gx-card-2); }
 .gx-search input { flex: 1; min-width: 0; padding-inline: 18px; border: 0; background: transparent; color: var(--gx-text); font: inherit; font-size: 14px; outline: none; }
 .gx-search:focus-within { box-shadow: 0 0 0 2px var(--gx-red); }
-.gx-search button { flex: none; width: 140px; border: 0; background: var(--gx-red); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
-.gx-search button:hover { background: var(--gx-red-dark); }
+.gx-search > button { flex: none; width: 140px; border: 0; background: var(--gx-red); color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.gx-search > button:hover { background: var(--gx-red-dark); }
 .gx-selects { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .gx-select { display: flex; align-items: center; gap: 6px; height: 40px; padding-inline: 12px; border-radius: 10px; background: var(--gx-card-2); color: var(--gx-muted); font-size: 12.5px; }
 .gx-select select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--gx-text); font: inherit; font-size: 12.5px; }
@@ -208,7 +208,7 @@
   .gx-genres { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
   .gx-rail-track { grid-auto-columns: 132px; }
-  .gx-search button { width: 90px; }
+  .gx-search > button { width: 90px; }
   .gx-genre-head img { width: 76px; height: 76px; }
 }
 

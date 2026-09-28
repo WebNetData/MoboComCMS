@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'
 import TabSwitch from '@/components/site/TabSwitch'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
@@ -140,7 +141,7 @@ export function BrowseFilters({ action, values, facets, children }: {
   </label>
   const plain = (list: string[]) => list.map((value) => ({ value, label: value }))
   return <form action={action} className="gx-browse-form" role="search">
-    <div className="gx-search"><input name="q" type="search" defaultValue={values.q} placeholder="نام بازی را جست‌وجو کنید" aria-label="نام بازی" /><button type="submit">جست‌وجو</button></div>
+    <div className="gx-search"><LiveSearchInput action="/games" defaultValue={values.q} placeholder="نام بازی را جست‌وجو کنید" /><button type="submit">جست‌وجو</button></div>
     <div className="gx-selects">
       {select('platform', 'پلتفرم', plain(facets.platforms))}
       {select('term', 'ژانر', facets.genres)}
