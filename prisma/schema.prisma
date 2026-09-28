@@ -2356,3 +2356,19 @@ model CommunityReport {
 
   @@index([status, createdAt])
 }
+
+/// Emails the site sent (test sends, notifications) — the panel's sent log.
+model MailLog {
+  id        Int      @id @default(autoincrement())
+  toAddress String
+  subject   String
+  status    String   @default("SENT")
+  error     String   @default("")
+  messageId String   @default("")
+  source    String   @default("system")
+  actorId   Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+}

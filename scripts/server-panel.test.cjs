@@ -96,3 +96,63 @@ test('text detection and mode strings', () => {
   assert.equal(p.modeString(0o640), 'rw-r-----')
   assert.equal(p.isImageName('a.WEBP'), true)
 })
+
+const m = load('src/modules/mail/domain/mail')
+
+test('SMTP settings: validation, local mode and kept password', () => {
+  const current = { ...m.SMTP_DEFAULTS, password: 'encv1:old' }
+  const ok = m.normalizeSmtp({ enabled: true, host: 'SMTP.Example.com', port: '465', security: 'tls', user: 'u', password: '', fromName: 'موبوکام', fromEmail: 'No-Reply@Example.com' }, current)
+  assert.equal(ok.ok, true)
+  assert.equal(ok.value.host, 'smtp.example.com')
+  assert.equal(ok.value.port, 465)
+  assert.equal(ok.value.password, 'encv1:old')
+  assert.equal(ok.value.fromEmail, 'no-reply@example.com')
+  const local = m.normalizeSmtp({ enabled: true, mode: 'local', fromEmail: 'a@b.co', password: 'x' }, current)
+  assert.deepEqual([local.value.host, local.value.port, local.value.security, local.value.password], ['127.0.0.1', 25, 'none', ''])
+  assert.equal(m.normalizeSmtp({ enabled: true, host: 'smtp.x.com', port: 587, fromEmail: 'bad' }, current).ok, false)
+  assert.equal(m.normalizeSmtp({ host: 'smtp.x.com', port: 70000 }, current).ok, false)
+  assert.equal(m.normalizeSmtp({ host: 'smtp.x.com', port: 587, fromName: 'a<b>' }, current).ok, false)
+  assert.equal(m.isEmail('a@b.co\r\nBcc: x@y.z'), false)
+})
+
+test('mailbox registry round-trips and disabled boxes stop login and delivery', () => {
+  const registry = {
+    domains: ['example.com', 'shop.example.org'],
+    mailboxes: [
+      { address: 'info@example.com', hash: '{BLF-CRYPT}$2y$10$abc', quotaMb: 1024, disabled: false },
+      { address: 'old@example.com', hash: '{BLF-CRYPT}$2y$10$def', quotaMb: 0, disabled: true },
+    ],
+    aliases: [{ address: 'sales@example.com', targets: ['info@example.com', 'me@gmail.com'] }],
+  }
+  const files = m.serializeRegistry(registry)
+  assert.match(files.domains, /^example\.com OK$/m)
+  assert.match(files.mailboxes, /^info@example\.com example\.com\/info\/$/m)
+  assert.doesNotMatch(files.mailboxes, /old@/)
+  assert.match(files.passwd, /^old@example\.com:!\{BLF-CRYPT\}/m)
+  assert.match(files.passwd, /^info@example\.com:\{BLF-CRYPT\}\$2y\$10\$abc::::::userdb_quota_rule=\*:storage=1024M$/m)
+  assert.deepEqual(m.parseRegistry(files), registry)
+  assert.equal(m.dovecotHash('$2a$10$xyz'), '{BLF-CRYPT}$2y$10$xyz')
+})
+
+test('mailbox names, passwords and domains', () => {
+  for (const good of ['info', 'first.last', 'a+b', 'x_1']) assert.equal(m.isLocalPart(good), true, good)
+  for (const bad of ['', '.a', 'a.', 'a..b', 'A', 'a b', 'a@b']) assert.equal(m.isLocalPart(bad), false, bad)
+  assert.equal(m.passwordProblem('short1'), 'رمز صندوق باید دست‌کم ۱۰ نویسه باشد')
+  assert.ok(m.passwordProblem('abcdefghijk'))
+  assert.ok(m.passwordProblem('abc:defgh12'))
+  assert.equal(m.passwordProblem('Strong-pass-2026'), null)
+  assert.equal(m.isDomain('example.com'), true)
+  assert.equal(m.isDomain('localhost'), false)
+})
+
+test('DNS suggestions and presence check', () => {
+  const records = m.dnsRecords('example.com', 'mail.example.com', '203.0.113.7', { selector: 'mobocom', publicKey: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAabcdefghijklmnopqrstuvwxyz' })
+  assert.deepEqual(records.map((r) => `${r.type} ${r.name}`), ['A mail.example.com', 'MX example.com', 'TXT example.com', 'TXT _dmarc.example.com', 'TXT mobocom._domainkey.example.com'])
+  const mx = records.find((r) => r.type === 'MX')
+  assert.equal(m.recordPresent(mx, ['10 mail.example.com']), true)
+  assert.equal(m.recordPresent(mx, ['10 mx.other.net']), false)
+  const spf = records.find((r) => r.name === 'example.com' && r.type === 'TXT')
+  assert.equal(m.recordPresent(spf, ['google-site-verification=x', 'v=spf1 include:_spf.google.com ~all']), true)
+  const dkim = records.at(-1)
+  assert.equal(m.recordPresent(dkim, ['v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAabcdefghijklmnopqrstuvwxyz']), true)
+})

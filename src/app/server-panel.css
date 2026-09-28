@@ -158,3 +158,21 @@
 }
 .sa-table.sp-grid-table th { text-transform: none; letter-spacing: 0; }
 .sp-grid-table td.sa-empty { direction: rtl; text-align: center; font-family: inherit; }
+
+/* mail */
+.sp-subtabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.sp-subtabs button { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--sa-line); background: var(--sa-surface); color: var(--sa-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.sp-subtabs button.is-active { background: var(--sa-accent); border-color: var(--sa-accent); color: var(--sa-on-accent); }
+.sp-domains, .sp-aliases { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.sp-domains li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--sa-line); border-radius: 10px; }
+.sp-domains li b { font-family: var(--sp-mono); }
+.sp-domains li small { color: var(--sa-muted); }
+.sp-dns-wrap { flex-basis: 100%; overflow-x: auto; display: grid; gap: 8px; }
+.sp-copy { cursor: copy; display: inline-block; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; font-family: var(--sp-mono); font-size: 12px; }
+.sp-aliases li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.sp-aliases li b { font-family: var(--sp-mono); }
+.sp-aliases li span { color: var(--sa-muted); font-family: var(--sp-mono); font-size: 12px; flex: 1; }
+.sp-address-field { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; }
+.sp-address-field span { color: var(--sa-muted); font-weight: 700; }
+.sp-compose { min-height: 260px; padding-block: 10px; resize: vertical; line-height: 1.9; }
+.sp-radio { display: flex; gap: 6px 18px; flex-wrap: wrap; }
