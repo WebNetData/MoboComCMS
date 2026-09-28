@@ -72,3 +72,44 @@ test('picked items keep the admin order and fall back when none survive', () => 
   assert.deepEqual(music.pickInOrder([3, 9, 1], rows, [{ id: 7 }], 5).map((r) => r.id), [3, 1])
   assert.deepEqual(music.pickInOrder([9], rows, [{ id: 7 }, { id: 8 }], 1).map((r) => r.id), [7])
 })
+
+const software = load('src/modules/software/domain/software')
+const journal = load('src/modules/journal/domain/journal')
+
+test('software settings clamp sizes and keep editor picks unique', () => {
+  assert.deepEqual(software.normalizeSoftwareSettings({}), software.DEFAULT_SOFTWARE_SETTINGS)
+  const s = software.normalizeSoftwareSettings({ shelfSize: 1, categoryShelfCount: 99, newsCount: 7, suggestionIds: [5, 5, 2, 'x'], staleDays: 5 })
+  assert.equal(s.shelfSize, 4)
+  assert.equal(s.categoryShelfCount, 8)
+  assert.equal(s.newsCount, 7)
+  assert.deepEqual(s.suggestionIds, [5, 2])
+  assert.equal(s.staleDays, 30)
+})
+
+test('software health flags gaps and stale versions', () => {
+  const now = new Date('2026-09-28T00:00:00Z')
+  const full = { icon: 'i.png', version: '1.0', summary: 'x'.repeat(40), content: '<p>' + 'y'.repeat(200) + '</p>', screenshots: '[{"src":"a.png"}]', platforms: 'Windows', size: '10 MB', links: 1, releasedAt: new Date('2026-08-01T00:00:00Z'), updatedAt: now }
+  assert.deepEqual(software.softwareIssues(full, now, 180), [])
+  assert.deepEqual(software.softwareIssues({ ...full, screenshots: '[{"src":" "}]', links: 0, releasedAt: new Date('2025-01-01T00:00:00Z') }, now, 180), ['screenshots', 'links', 'stale'])
+  assert.deepEqual(software.softwareIssues({ ...full, screenshots: 'not json', content: '<b></b>' }, now, 180), ['content', 'screenshots'])
+  assert.equal(software.isStale({ releasedAt: null, updatedAt: new Date('2026-09-01T00:00:00Z') }, now, 180), false)
+})
+
+test('journal settings and article health', () => {
+  const s = journal.normalizeJournalSettings({ heroIds: [1, 2, 3, 4, 5, 6], editorIds: [9, 9, 8], blockCategoryIds: [3, 1, 2, 7], pageSize: 100, autoApproveComments: 'yes' })
+  assert.deepEqual(s.heroIds, [1, 2, 3, 4, 5])
+  assert.deepEqual(s.editorIds, [9, 8])
+  assert.deepEqual(s.blockCategoryIds, [3, 1, 2])
+  assert.equal(s.pageSize, 48)
+  assert.equal(s.autoApproveComments, false, 'only a real boolean turns auto-approve on')
+  assert.equal(journal.normalizeJournalSettings({ autoApproveComments: true }).autoApproveComments, true)
+  assert.equal(journal.wordCount('<p>سلام <b>دنیا</b></p>'), 2)
+  assert.deepEqual(journal.postIssues({ cover: '', excerpt: 'کوتاه', content: 'چند واژه', categories: 0 }), ['cover', 'excerpt', 'category', 'short'])
+  assert.deepEqual(journal.postIssues({ cover: 'c.jpg', excerpt: 'x'.repeat(40), content: 'واژه '.repeat(200), categories: 1 }), [])
+})
+
+test('journal rails match the Liona home sections', () => {
+  const src = fs.readFileSync(path.resolve(__dirname, '../src/components/journal/LionaHome.tsx'), 'utf8')
+  const keys = src.match(/LIONA_SECTIONS = \[([^\]]+)\]/)[1].match(/'([a-z]+)'/g).map((k) => k.slice(1, -1))
+  assert.deepEqual(keys, Object.keys(journal.JOURNAL_RAILS))
+})

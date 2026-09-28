@@ -1,5 +1,5 @@
 import Link from '@/components/AppLink'
-import type { CSSProperties, ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import TabSwitch from '@/components/site/TabSwitch'
 import { Icon, type IconName } from '@/components/media/PortalIcons'
 
@@ -108,10 +108,14 @@ export type LionaData = {
   social: LionaStory[]
 }
 
-export default function LionaHome({ data, search }: { data: LionaData; search: ReactNode }) {
+/** Home sections in their default order; `order` (from the journal settings) can reorder or hide them. */
+export const LIONA_SECTIONS = ['hero', 'trending', 'latest', 'categories', 'news', 'weekly', 'archive', 'blocks', 'panel', 'social'] as const
+export type LionaSection = typeof LIONA_SECTIONS[number]
+
+export default function LionaHome({ data, search, order = LIONA_SECTIONS }: { data: LionaData; search: ReactNode; order?: readonly LionaSection[] }) {
   const { hero } = data
-  return <>
-    {hero && <section className="lh-hero" style={bg(hero.cover)}>
+  const sections: Record<LionaSection, () => ReactNode> = {
+    hero: () => hero && <section className="lh-hero" style={bg(hero.cover)}>
       <div className="lh-hero-veil" aria-hidden="true" />
       {data.categories.length > 0 && <nav className="container lh-circles" aria-label="دسته‌بندی‌های مجله">{data.categories.map((category, index) => <Link key={category.id} href={category.href} className="lh-circle" style={{ '--lh-c': category.color } as CSSProperties}>
         <span><Icon name={CATEGORY_ICONS[index % CATEGORY_ICONS.length]} size={20} /></span><small>{category.name}</small>
@@ -126,16 +130,12 @@ export default function LionaHome({ data, search }: { data: LionaData; search: R
         </div>
         {data.heroList.length > 0 && <div className="lh-hero-list">{data.heroList.map((story) => <RoundRow key={story.id} story={story} />)}</div>}
       </div>
-    </section>}
-
-    <div className="container lh-toolbar">{search}</div>
-
-    {data.trending.length >= 4 && <section className="container lh-section">
+    </section>,
+    trending: () => data.trending.length >= 4 && <section className="container lh-section">
       <Head title="اخبار ترند تکنولوژی" sub="مطالب محبوب" more="/blog?page=2" icon="sparkle" />
       <div className="lh-grid-4">{data.trending.map((story) => <Card key={story.id} story={story} />)}</div>
-    </section>}
-
-    {data.latestLead && <section className="lh-band">
+    </section>,
+    latest: () => data.latestLead && <section className="lh-band">
       <div className="container lh-section">
         <Head title="جدیدترین مطالب ما" sub="مطالب اخیر مجله" more="/blog?page=2" icon="clock" />
         <div className="lh-latest">
@@ -144,27 +144,23 @@ export default function LionaHome({ data, search }: { data: LionaData; search: R
           {data.latestRound.length > 0 && <div className="lh-rounds">{data.latestRound.map((story) => <RoundRow key={story.id} story={story} />)}</div>}
         </div>
       </div>
-    </section>}
-
-    {data.categories.length > 0 && <section className="container lh-section">
+    </section>,
+    categories: () => data.categories.length > 0 && <section className="container lh-section">
       <Head title="دسته‌بندی‌های مجله" sub="موضوع مورد علاقه‌تان را انتخاب کنید" icon="grid" />
       <nav className="lh-chips" aria-label="دسته‌بندی‌ها">{data.categories.map((category) => <Link key={category.id} href={category.href} style={{ '--lh-c': category.color } as CSSProperties}>
         <b>{category.name}</b><small>{fa(category.count)} مطلب</small>
       </Link>)}</nav>
-    </section>}
-
-    {data.news.length >= 3 && <section className="container lh-section">
+    </section>,
+    news: () => data.news.length >= 3 && <section className="container lh-section">
       <Head title="آخرین اخبار" sub="تازه‌ترین‌های مجلهٔ موبوکام" more="/blog?page=2" icon="info" />
       <div className="lh-grid-3">{data.news.map((story) => <Card key={story.id} story={story} excerpt={false} />)}</div>
       {data.newsRows.length > 0 && <div className="lh-boxed-rows">{data.newsRows.map((story) => <RoundRow key={story.id} story={story} />)}</div>}
-    </section>}
-
-    {data.weekly.some((tab) => tab.stories.length) && <section className="container lh-section">
+    </section>,
+    weekly: () => data.weekly.some((tab) => tab.stories.length) && <section className="container lh-section">
       <Head title="محبوب‌ترین مطالب هفته" icon="trophy" />
       <TabSwitch className="lh-tabs" tabs={data.weekly.filter((tab) => tab.stories.length).map((tab) => ({ key: tab.key, label: tab.label, panel: <div className="lh-grid-6">{tab.stories.map((story) => <Card key={story.id} story={story} excerpt={false} />)}</div> }))} />
-    </section>}
-
-    {data.archive.length >= 3 && <section className="lh-archive" style={bg(data.archive[0].cover)}>
+    </section>,
+    archive: () => data.archive.length >= 3 && <section className="lh-archive" style={bg(data.archive[0].cover)}>
       <div className="lh-archive-veil" aria-hidden="true" />
       <span className="lh-notch is-top">مشاهدهٔ آرشیو بهترین‌ها</span>
       <div className="container lh-section">
@@ -175,26 +171,30 @@ export default function LionaHome({ data, search }: { data: LionaData; search: R
         </div>
       </div>
       <Link href="/blog?page=2" className="lh-notch is-bottom">مشاهدهٔ آرشیو بهترین‌ها</Link>
-    </section>}
-
-    {data.blocks.map(({ category, stories }) => stories.length >= 4 && <section key={category.id} className="container lh-section">
+    </section>,
+    blocks: () => data.blocks.map(({ category, stories }) => stories.length >= 4 && <section key={category.id} className="container lh-section">
       <Head title={category.name} sub="مطالب محبوب این موضوع" more={category.href} icon="star" />
       <div className="lh-block">
         {stories.slice(0, 2).map((story) => <Overlay key={story.id} story={story} tall />)}
         <div className="lh-block-texts">{stories.slice(2, 6).map((story) => <TextCard key={story.id} story={story} />)}</div>
       </div>
-    </section>)}
-
-    {data.panel && data.panel.stories.length >= 3 && <section className="container lh-section">
+    </section>),
+    panel: () => data.panel && data.panel.stories.length >= 3 && <section className="container lh-section">
       <Head title={data.panel.category.name} sub="مطالب محبوب" more={data.panel.category.href} icon="trophy" />
       <div className="lh-panel" style={{ '--lh-c': data.panel.category.color } as CSSProperties}>{data.panel.stories.map((story) => <RoundRow key={story.id} story={story} />)}</div>
-    </section>}
-
-    {data.social.length >= 4 && <section className="container lh-section">
+    </section>,
+    social: () => data.social.length >= 4 && <section className="container lh-section">
       <Head title="انتخاب سردبیر" sub="مطالب پیشنهادی" icon="star" />
       <div className="lh-grid-4">{data.social.map((story) => <Overlay key={story.id} story={story} tall />)}</div>
       <div className="lh-center"><Link href="/blog?page=2" className="lh-btn is-ghost">مشاهدهٔ همه</Link></div>
-    </section>}
+    </section>,
+  }
+  // The search toolbar stays right under the hero (or first when the hero is hidden).
+  const shown = order.filter((key, index) => LIONA_SECTIONS.includes(key) && order.indexOf(key) === index)
+  return <>
+    {shown.includes('hero') && sections.hero()}
+    <div className="container lh-toolbar">{search}</div>
+    {shown.filter((key) => key !== 'hero').map((key) => <Fragment key={key}>{sections[key]()}</Fragment>)}
   </>
 }
 

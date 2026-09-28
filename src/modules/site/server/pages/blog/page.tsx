@@ -13,6 +13,8 @@ import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '
 import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
 import { requireModule } from '@/extensions/server/modules'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
+import { getJournalSettings } from '@/modules/journal/server/admin'
+import { railOrder } from '@/shared/section-layout'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -25,14 +27,14 @@ function readingMinutes(text: string | null | undefined) {
 export default async function BlogPage({ searchParams: searchParamsPromise, preview }: { searchParams: Promise<{ category?: string; q?: string; page?: string }>; preview?: BuilderPreview }) {
   const searchParams = await searchParamsPromise
   await requireModule('journal')
-  const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
+  const [locale, theme, settings] = await Promise.all([getServerLocale(), getServerTheme(), getJournalSettings()])
   const navPages = await db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => [])
   const t = dict(locale)
   const isFa = locale === 'fa'
   const query = typeof searchParams.q === 'string' ? searchParams.q.trim().slice(0, 120) : ''
   const category = typeof searchParams.category === 'string' ? searchParams.category : ''
   const requestedPage = Number(searchParams.page)
-  const pageSize = 24
+  const pageSize = settings.pageSize
   const where = { status: 'PUBLISHED', AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
   const total = await db.post.count({ where })
   const pages = Math.max(1, Math.ceil(total / pageSize))
@@ -129,7 +131,16 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, OR: [{ categoryId: { in: categoryDescendants(cats, rootId) } }, { categories: { some: { categoryId: { in: categoryDescendants(cats, rootId) } } } }] },
       take: count, orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }], include,
     })).map(story)
-    const busiest = categoriesUi.slice(0, 3)
+    // Editors can pin the block categories; otherwise the busiest ones are used.
+    const pinned = settings.blockCategoryIds.map((id) => ordered.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => !!c).map(categoryOf)
+    const busiest = pinned.length ? pinned : categoriesUi.slice(0, 3)
+    const picks = async (ids: number[]) => {
+      if (!ids.length) return []
+      const rows = await db.post.findMany({ where: { id: { in: ids }, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, include })
+      const byPost = new Map(rows.map((row) => [row.id, row]))
+      return ids.map((id) => byPost.get(id)).filter((row): row is Story => !!row).map(story)
+    }
+    const [heroPicks, editorPicks] = await Promise.all([picks(settings.heroIds), picks(settings.editorIds)])
     const [blockA, blockB, panelStories] = await Promise.all([
       busiest[0] ? storiesIn(busiest[0].id, 6) : Promise.resolve([]),
       busiest[1] ? storiesIn(busiest[1].id, 6) : Promise.resolve([]),
@@ -137,7 +148,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     ])
     const byViews = [...stories].sort((a, b) => b.views - a.views)
     const data: LionaData = {
-      hero: take(1)[0], heroList: take(4), trending: take(4), latestLead: take(1)[0], latestStrip: take(7), latestRound: take(4),
+      hero: heroPicks[0] || take(1)[0], heroList: heroPicks.length ? [...heroPicks.slice(1), ...take(Math.max(0, 5 - heroPicks.length))].slice(0, 4) : take(4), trending: take(4), latestLead: take(1)[0], latestStrip: take(7), latestRound: take(4),
       news: take(3), newsRows: take(6),
       weekly: [
         { key: 'all', label: isFa ? 'همه مطالب' : 'All', stories: stories.slice(0, 6) },
@@ -148,9 +159,9 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       categories: categoriesUi,
       blocks: [busiest[0] && { category: busiest[0], stories: blockA }, busiest[1] && { category: busiest[1], stories: blockB }].filter((entry): entry is { category: LionaCategory; stories: LionaStory[] } => !!entry),
       panel: busiest[2] ? { category: busiest[2], stories: panelStories } : null,
-      social: (pool.filter((post) => post.featured).length >= 4 ? pool.filter((post) => post.featured).map(story) : byViews).slice(0, 4),
+      social: editorPicks.length >= 4 ? editorPicks : [...editorPicks, ...(pool.filter((post) => post.featured).length >= 4 ? pool.filter((post) => post.featured).map(story) : byViews).filter((entry) => !editorPicks.some((pick) => pick.id === entry.id))].slice(0, 4),
     }
-    body = stories.length ? <LionaHome data={data} search={searchForm} /> : <div className="container lh-section"><div className="journal-empty"><p>{t.noPosts}</p></div></div>
+    body = stories.length ? <LionaHome data={data} search={searchForm} order={railOrder(settings.rails)} /> : <div className="container lh-section"><div className="journal-empty"><p>{t.noPosts}</p></div></div>
   } else {
     body = <div className="container lh-section lh-listing">
       <header className="lh-list-head">

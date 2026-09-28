@@ -34,7 +34,7 @@ async function ownerLabels(links: { ownerType: string; ownerId: number }[]) {
     db.gameUpdate.findMany({ where: { id: { in: ids('gameupdate') } }, select: { id: true, title: true, game: { select: { id: true, title: true, slug: true } } } }),
   ])
   const map = new Map<string, { title: string; path: string; admin: string }>()
-  for (const row of software) map.set(`software:${row.id}`, { title: row.title, path: OWNER_PATH.software(row.slug), admin: '/admin/software' })
+  for (const row of software) map.set(`software:${row.id}`, { title: row.title, path: OWNER_PATH.software(row.slug), admin: '/admin/software/titles' })
   for (const row of games) map.set(`game:${row.id}`, { title: row.title, path: OWNER_PATH.game(row.slug), admin: '/admin/games' })
   for (const row of updates) map.set(`gameupdate:${row.id}`, { title: `${row.game.title} — ${row.title}`, path: OWNER_PATH.game(row.game.slug), admin: `/admin/games/${row.game.id}` })
   for (const row of titles) map.set(`title:${row.id}`, { title: row.title, path: OWNER_PATH.title(row.slug), admin: '/admin/cinema/titles' })

@@ -478,7 +478,14 @@ export async function softwareStats() {
 }
 
 /** Editor picks for the “suggested” sidebar list (featured first, then most downloaded). */
-export async function softwareSuggestions(take = 10) {
+export async function softwareSuggestions(take = 10, pickedIds: number[] = []) {
+  if (pickedIds.length) {
+    // Editor-picked list, in the admin's order; unpublished picks drop out.
+    const picked = await db.softwareTitle.findMany({ where: { ...live(), id: { in: pickedIds.slice(0, take) } } }).catch(() => [])
+    const byId = new Map(picked.map((row) => [row.id, row]))
+    const ordered = pickedIds.map((id) => byId.get(id)).filter((row): row is NonNullable<typeof row> => !!row)
+    if (ordered.length) return ordered.map(toSoftware)
+  }
   const rows = await db.softwareTitle.findMany({ where: live(), orderBy: [{ featured: 'desc' }, { downloads: 'desc' }], take }).catch(() => [])
   return rows.map(toSoftware)
 }

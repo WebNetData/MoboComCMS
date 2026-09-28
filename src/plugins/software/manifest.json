@@ -31,6 +31,17 @@
     "items": [
       {
         "href": "/admin/software",
+        "label": "داشبورد نرم‌افزار",
+        "labelEn": "Software dashboard",
+        "icon": "grid",
+        "permissions": [
+          "software.manage",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/software/titles",
         "label": "نرم‌افزارها",
         "labelEn": "Software",
         "icon": "grid",
@@ -47,6 +58,16 @@
         "permissions": [
           "software.manage",
           "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/software/settings",
+        "label": "صفحهٔ اصلی نرم‌افزار",
+        "labelEn": "Software home",
+        "icon": "sliders",
+        "permissions": [
+          "software.manage",
+          "settings.manage"
         ]
       },
       {

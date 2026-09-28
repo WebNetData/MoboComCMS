@@ -292,9 +292,10 @@ test('ticket detail stays owner-scoped and returns the reported subscription con
 })
 
 test('journal comments require sign-in, moderation and an approved parent for replies', async () => {
-  let user = null, saved
+  let user = null, saved, autoApproveComments = false
   const route = load('src/modules/site/server/http/public/blog/[slug]/comments/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => user },
+    '@/modules/journal/server/admin': { getJournalSettings: async () => ({ autoApproveComments }) },
     '@/platform/database/prisma': { db: {
       post: { findUnique: async () => ({ id: 5, status: 'PUBLISHED' }) },
       postComment: { findFirst: async () => null, create: async ({ data }) => { saved = data; return { id: 11, status: 'PENDING' } } },
@@ -307,8 +308,13 @@ test('journal comments require sign-in, moderation and an approved parent for re
   assert.equal((await route.POST(request({ body: '<script>alert(1)</script>' }), context)).status, 400)
   assert.equal((await route.POST(request({ body: 'A reply', parentId: 50 }), context)).status, 404)
   assert.equal((await route.POST(request({ body: 'Useful article' }), context)).status, 201)
-  assert.equal(saved.status, undefined)
+  assert.equal(saved.status, 'PENDING')
   assert.equal(saved.userId, 31)
+  // The journal setting «انتشار خودکار دیدگاه» publishes member comments without review.
+  autoApproveComments = true
+  user = { id: 32 }
+  assert.equal((await route.POST(request({ body: 'Another useful note' }), context)).status, 201)
+  assert.equal(saved.status, 'APPROVED')
 })
 
 test('incident administration denies users without support permission', async () => {

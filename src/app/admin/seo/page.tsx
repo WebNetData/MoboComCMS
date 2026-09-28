@@ -17,7 +17,7 @@ const ISSUE_LABEL: Record<string, string> = {
   'image-missing': 'بدون تصویر شاخص', 'thin-content': 'متن کم (زیر ۱۲۰ کلمه)', 'title-long': 'عنوان بلندتر از ۷۰ حرف', 'title-duplicate': 'عنوان تکراری',
 }
 const KIND_LABEL: Record<string, string> = { post: 'مجله', product: 'محصول', software: 'نرم‌افزار', page: 'صفحه', game: 'بازی', cinema: 'فیلم/سریال' }
-const EDIT_LINK: Record<string, string> = { post: '/admin/posts', product: '/admin/products', software: '/admin/software', page: '/admin/pages', game: '/admin/games', cinema: '/admin/cinema/titles' }
+const EDIT_LINK: Record<string, string> = { post: '/admin/posts', product: '/admin/products', software: '/admin/software/titles', page: '/admin/pages', game: '/admin/games', cinema: '/admin/cinema/titles' }
 
 /** SEO center: readiness score, settings, instant indexing and a content audit. */
 export default function AdminSeoPage() {

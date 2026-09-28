@@ -17,7 +17,8 @@
   "adminPaths": [
     "/admin/posts",
     "/admin/postcats",
-    "/admin/comments"
+    "/admin/comments",
+    "/admin/journal"
   ],
   "adminMenu": {
     "title": "مجله",
@@ -25,6 +26,16 @@
     "icon": "sliders",
     "order": 20,
     "items": [
+      {
+        "href": "/admin/journal",
+        "label": "داشبورد مجله",
+        "labelEn": "Journal dashboard",
+        "icon": "grid",
+        "permissions": [
+          "cms.posts"
+        ],
+        "exact": true
+      },
       {
         "href": "/admin/posts",
         "label": "نوشته‌ها",
@@ -50,6 +61,16 @@
         "icon": "chat",
         "permissions": [
           "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/journal/settings",
+        "label": "صفحهٔ اصلی مجله",
+        "labelEn": "Journal home",
+        "icon": "sliders",
+        "permissions": [
+          "cms.posts",
+          "settings.manage"
         ]
       },
       {
