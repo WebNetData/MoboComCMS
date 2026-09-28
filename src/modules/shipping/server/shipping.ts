@@ -69,6 +69,7 @@ export async function addressSnapshot(userId: number, id: number) {
   return {
     title: address.title, recipient: address.recipient, phone: address.mobile, country: 'ایران', province: address.province,
     city: address.city, postalCode: address.postalCode, plaque: address.plaque, unit: address.unit, address: formatAddress(address),
+    ...(address.lat !== null && address.lng !== null ? { lat: String(address.lat), lng: String(address.lng) } : {}),
   }
 }
 

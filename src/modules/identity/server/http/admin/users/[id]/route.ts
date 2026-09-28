@@ -1,6 +1,7 @@
 // Admin "customer 360" endpoint: one place to see and operate on a single user —
 // wallet, subscriptions, invoices, orders, tickets and CRM notes.
 import { NextRequest } from 'next/server'
+import { memberProfileData } from '@/modules/identity/server/profile-fields'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
@@ -59,7 +60,9 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     amount: minorToNumber(value, currency),
   }))
 
+  const profileFields = await memberProfileData(id).catch(() => null)
   return ok({
+    profileFields,
     user: {
       id: user.id,
       email: user.email,

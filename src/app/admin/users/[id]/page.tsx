@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 
 interface Detail {
+  profileFields?: { completedAt: string | null; missing: string[]; rows: { label: string; value: string }[] } | null
   user: {
     id: number
     email: string
@@ -166,6 +167,16 @@ export default function AdminCustomerPage() {
         ))}
       </div>
 
+      {tab === 'overview' && data.profileFields && (data.profileFields.rows.length > 0 || data.profileFields.missing.length > 0) && (
+        <div className="card mb-4" dir="rtl">
+          <h2 className="h3 mb-3">مشخصات تکمیلی</h2>
+          {data.profileFields.missing.length > 0 && <p className="text-sm mb-3" style={{ color: 'var(--warning, #d97706)' }}>فیلدهای ضروری تکمیل‌نشده: {data.profileFields.missing.join('، ')}</p>}
+          <dl className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '.75rem' }}>
+            {data.profileFields.rows.map((row) => <div key={row.label}><dt className="muted text-xs">{row.label}</dt><dd className="text-sm" style={{ margin: 0, overflowWrap: 'anywhere' }}>{row.value}</dd></div>)}
+          </dl>
+          {data.profileFields.completedAt && <p className="muted text-xs mt-3">تکمیل مشخصات: {new Date(data.profileFields.completedAt).toLocaleString('fa-IR')}</p>}
+        </div>
+      )}
       {tab === 'overview' && (
         <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '1rem' }}>
           <div className="card">

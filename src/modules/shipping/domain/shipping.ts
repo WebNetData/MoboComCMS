@@ -17,6 +17,25 @@ export const PROVINCES = [
 
 export const MAX_ADDRESSES = 10
 
+/** Map centre per province (its capital), for the location picker. */
+export const PROVINCE_CENTERS: Record<string, [number, number]> = {
+  'آذربایجان شرقی': [38.08, 46.29], 'آذربایجان غربی': [37.55, 45.07], 'اردبیل': [38.25, 48.29], 'اصفهان': [32.65, 51.67], 'البرز': [35.84, 50.94],
+  'ایلام': [33.64, 46.42], 'بوشهر': [28.97, 50.84], 'تهران': [35.70, 51.39], 'چهارمحال و بختیاری': [32.33, 50.86], 'خراسان جنوبی': [32.87, 59.22],
+  'خراسان رضوی': [36.30, 59.60], 'خراسان شمالی': [37.47, 57.33], 'خوزستان': [31.32, 48.67], 'زنجان': [36.68, 48.48], 'سمنان': [35.58, 53.39],
+  'سیستان و بلوچستان': [29.50, 60.86], 'فارس': [29.59, 52.58], 'قزوین': [36.27, 50.00], 'قم': [34.64, 50.88], 'کردستان': [35.31, 47.00],
+  'کرمان': [30.28, 57.08], 'کرمانشاه': [34.31, 47.07], 'کهگیلویه و بویراحمد': [30.67, 51.59], 'گلستان': [36.84, 54.43], 'گیلان': [37.28, 49.58],
+  'لرستان': [33.49, 48.36], 'مازندران': [36.57, 53.06], 'مرکزی': [34.09, 49.69], 'هرمزگان': [27.18, 56.27], 'همدان': [34.80, 48.51], 'یزد': [31.90, 54.36],
+}
+export const IRAN_CENTER: [number, number] = [32.43, 53.69]
+
+/** A pin inside Iran's bounding box, rounded to ~1 m; anything else is dropped. */
+export function normalizeCoordinates(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const a = Number(lat), b = Number(lng)
+  if (lat === null || lat === undefined || lat === '' || !Number.isFinite(a) || !Number.isFinite(b)) return null
+  if (a < 24 || a > 40.5 || b < 43 || b > 64) return null
+  return { lat: Math.round(a * 1e5) / 1e5, lng: Math.round(b * 1e5) / 1e5 }
+}
+
 const toLatin = (value: unknown) => String(value ?? '')
   .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
   .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
@@ -41,6 +60,7 @@ export function normalizePostalCode(value: unknown): string {
 export type AddressInput = {
   title: string; recipient: string; mobile: string; province: string; city: string
   address: string; plaque: string; unit: string; postalCode: string; isDefault: boolean
+  lat: number | null; lng: number | null
 }
 
 /** Validates a saved address; throws a user-facing ShippingError. */
@@ -57,7 +77,10 @@ export function validateAddress(input: Record<string, unknown>): AddressInput {
   if (city.length < 2) throw new ShippingError('شهر را وارد کنید')
   if (address.length < 10) throw new ShippingError('نشانی دقیق پستی را وارد کنید (خیابان، کوچه، …)')
   if (!postalCode) throw new ShippingError('کد پستی ده‌رقمی معتبر نیست')
+  if ((input.lat !== undefined && input.lat !== null && input.lat !== '') && !normalizeCoordinates(input.lat, input.lng)) throw new ShippingError('موقعیت انتخاب‌شده روی نقشه باید داخل ایران باشد')
+  const pin = normalizeCoordinates(input.lat, input.lng)
   return {
+    lat: pin?.lat ?? null, lng: pin?.lng ?? null,
     title: text(input.title, 30) || 'آدرس من', recipient, mobile, province, city, address, postalCode,
     plaque: text(toLatin(input.plaque), 10), unit: text(toLatin(input.unit), 10), isDefault: input.isDefault === true,
   }

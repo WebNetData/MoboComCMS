@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { MAX_ADDRESSES, PROVINCES, formatAddress } from '@/modules/shipping/domain/shipping'
+import LocationPicker from '@/components/site/LocationPicker'
 
 export type SavedAddress = {
   id: number; title: string; recipient: string; mobile: string; province: string; city: string
   address: string; plaque: string; unit: string; postalCode: string; isDefault: boolean
+  lat?: number | null; lng?: number | null
 }
 
 type Draft = Omit<SavedAddress, 'id'>
-const EMPTY: Draft = { title: '', recipient: '', mobile: '', province: '', city: '', address: '', plaque: '', unit: '', postalCode: '', isDefault: false }
+const EMPTY: Draft = { title: '', recipient: '', mobile: '', province: '', city: '', address: '', plaque: '', unit: '', postalCode: '', isDefault: false, lat: null, lng: null }
 const TITLES = ['خانه', 'محل کار', 'منزل والدین']
 const fa = (value: string) => value.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
 
@@ -41,6 +43,7 @@ export function AddressSummary({ address }: { address: SavedAddress }) {
       <li><span className="sh-meta-key">گیرنده</span>{address.recipient}</li>
       <li><span className="sh-meta-key">موبایل</span><bdi dir="ltr">{fa(address.mobile)}</bdi></li>
       <li><span className="sh-meta-key">کد پستی</span><bdi dir="ltr">{fa(address.postalCode)}</bdi></li>
+      {address.lat != null && address.lng != null && <li><span className="sh-meta-key">نقشه</span>موقعیت ثبت شده</li>}
     </ul>
   </div>
 }
@@ -93,6 +96,10 @@ export function AddressForm({ initial, onSaved, onCancel }: { initial?: SavedAdd
       {field('mobile', 'موبایل گیرنده', { required: true, inputMode: 'tel', maxLength: 16, dir: 'ltr', autoComplete: 'tel', placeholder: '۰۹۱۲۱۲۳۴۵۶۷' })}
       <div className="sh-span">{field('recipient', 'نام و نام خانوادگی گیرنده', { required: true, autoComplete: 'name', maxLength: 80 })}</div>
     </div>
+    <fieldset className="sh-map">
+      <legend>موقعیت روی نقشه <small>(اختیاری)</small></legend>
+      <LocationPicker value={draft.lat != null && draft.lng != null ? { lat: draft.lat, lng: draft.lng } : null} onChange={(pin) => setDraft((current) => ({ ...current, lat: pin?.lat ?? null, lng: pin?.lng ?? null }))} province={draft.province} city={draft.city} street={draft.address} />
+    </fieldset>
     <label className="sh-check"><input type="checkbox" checked={draft.isDefault} onChange={(e) => set('isDefault', e.target.checked)} />آدرس پیش‌فرض برای ارسال سفارش‌ها</label>
     {error && <p className="sh-error" role="alert">{error}</p>}
     <div className="sh-actions">

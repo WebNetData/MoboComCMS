@@ -8,7 +8,7 @@ import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson
 
 type Detail = {
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
-  address: { title: string; recipient: string; phone: string; postalCode: string; address: string } | null
+  address: { title: string; recipient: string; phone: string; postalCode: string; address: string; lat: number | null; lng: number | null } | null
   schedule: { date: string; slot: string } | null
   lines: { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number }[]
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
@@ -130,6 +130,7 @@ export default function StoreOrderPage() {
           <header className="sa-card-head"><h2>آدرس ارسال</h2></header>
           <p>{data.address.address}</p>
           <dl className="sa-kv"><div><dt>گیرنده</dt><dd>{data.address.recipient}</dd></div><div><dt>موبایل</dt><dd dir="ltr">{data.address.phone}</dd></div>{data.address.postalCode && <div><dt>کد پستی</dt><dd className="num">{data.address.postalCode}</dd></div>}</dl>
+          {data.address.lat !== null && data.address.lng !== null && <p className="sa-hint"><a className="sa-link" href={`https://www.openstreetmap.org/?mlat=${data.address.lat}&mlon=${data.address.lng}#map=17/${data.address.lat}/${data.address.lng}`} target="_blank" rel="noreferrer">موقعیت روی نقشه ↗</a> · <a className="sa-link" href={`https://www.google.com/maps?q=${data.address.lat},${data.address.lng}`} target="_blank" rel="noreferrer">گوگل‌مپ</a> · <a className="sa-link" href={`https://neshan.org/maps/@${data.address.lat},${data.address.lng},17z`} target="_blank" rel="noreferrer">نشان</a></p>}
         </section>}
         {data.schedule && <section className="sa-card"><header className="sa-card-head"><h2>زمان ارسال</h2></header><p>{faDay(data.schedule.date)}{data.schedule.slot && ` · ساعت ${data.schedule.slot}`}</p></section>}
         {data.trackingCode && <section className="sa-card"><header className="sa-card-head"><h2>کد رهگیری</h2></header><p dir="ltr" className="num">{data.trackingCode}</p></section>}

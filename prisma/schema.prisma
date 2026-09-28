@@ -30,6 +30,9 @@ model User {
   subscriptionAlerts Boolean @default(true)
   phoneVerifiedAt DateTime?
   smsAlerts      Boolean         @default(true)
+  emailAlerts    Boolean         @default(true)
+  profileData    String          @default("{}")
+  profileCompletedAt DateTime?
   lastLoginAt    DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now()) @updatedAt
@@ -2010,6 +2013,8 @@ model UserAddress {
   plaque     String   @default("")
   unit       String   @default("")
   postalCode String
+  lat        Float?
+  lng        Float?
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt

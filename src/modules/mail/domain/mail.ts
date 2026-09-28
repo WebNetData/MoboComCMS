@@ -17,9 +17,38 @@ export type SmtpSettings = {
   fromName: string
   fromEmail: string
   replyTo: string
+  /** Most emails sent in any 24 hours (0 = no cap). Gmail allows ~500 a day. */
+  dailyLimit: number
+  /** Email copies of customer notifications (payments, tickets, deliveries…). */
+  notifyUsers: boolean
+  /** Per notification kind; a missing kind counts as on. */
+  events: Record<string, boolean>
 }
 
-export const SMTP_DEFAULTS: SmtpSettings = { enabled: false, mode: 'smtp', host: '', port: 587, security: 'starttls', user: '', password: '', fromName: '', fromEmail: '', replyTo: '' }
+export const SMTP_DEFAULTS: SmtpSettings = { enabled: false, mode: 'smtp', host: '', port: 587, security: 'starttls', user: '', password: '', fromName: '', fromEmail: '', replyTo: '', dailyLimit: 0, notifyUsers: false, events: {} }
+
+/** Gmail / Google Workspace through smtp.gmail.com with an app password. */
+export const GMAIL_HOST = 'smtp.gmail.com'
+export const GMAIL_DAILY_LIMIT = 450
+export const isGmailHost = (host: string) => host === GMAIL_HOST || host === 'smtp.googlemail.com'
+
+/** Customer notification kinds that may also go out by email. */
+export const EMAIL_EVENTS: { id: string; label: string }[] = [
+  { id: 'PAYMENT_PAID', label: 'پرداخت تأیید شد' },
+  { id: 'RECEIPT_REJECTED', label: 'رسید کارت به کارت رد شد' },
+  { id: 'PAYMENT_CLOSED', label: 'فاکتور بسته شد' },
+  { id: 'PRODUCT_DELIVERED', label: 'محصول تحویل/ارسال شد' },
+  { id: 'DELIVERY_DELAYED', label: 'تأخیر در تحویل' },
+  { id: 'MEMBERSHIP', label: 'اشتراک ویژه (VIP)' },
+  { id: 'TICKET_REPLY', label: 'پاسخ تیکت پشتیبانی' },
+  { id: 'SUBSCRIPTION_EXPIRING', label: 'نزدیک شدن پایان اشتراک' },
+  { id: 'SUBSCRIPTION_EXPIRED', label: 'پایان اشتراک' },
+  { id: 'SUBSCRIPTION_READY', label: 'فعال شدن سرویس' },
+  { id: 'SUBSCRIPTION_RENEWED', label: 'تمدید سرویس' },
+]
+
+/** Placeholder accounts (phone sign-up, bots, Telegram) have no real inbox. */
+export const deliverableEmail = (email: string) => isEmail(email) && !/@(phone|bot)\.mobocom\.local$|@telegram\.local$|\.(local|invalid|test)$/i.test(email)
 
 const EMAIL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
 const DOMAIN = /^(?=.{3,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,63}$/i
@@ -55,6 +84,18 @@ export function normalizeSmtp(input: unknown, current: SmtpSettings): { ok: true
     fromName: oneLine(raw.fromName, 80),
     fromEmail: normalizeEmail(raw.fromEmail),
     replyTo: normalizeEmail(raw.replyTo),
+    dailyLimit: Math.max(0, Math.min(100_000, Math.round(Number(raw.dailyLimit) || 0))),
+    notifyUsers: raw.notifyUsers === true,
+    events: Object.fromEntries(EMAIL_EVENTS.map((event) => [event.id, (raw.events as Record<string, unknown> | undefined)?.[event.id] !== false])),
+  }
+  if (mode === 'smtp' && isGmailHost(value.host)) {
+    // Google shows app passwords as "abcd efgh ijkl mnop".
+    if (typeof raw.password === 'string' && raw.password !== '') value.password = raw.password.replace(/\s+/g, '')
+    if (!isEmail(value.user)) return { ok: false, error: 'برای جیمیل، نام کاربری همان نشانی کامل جیمیل است' }
+    // Gmail rewrites any other From to the signed-in account unless it is a verified "Send mail as" alias.
+    if (!value.fromEmail) value.fromEmail = normalizeEmail(value.user)
+    if (value.security === 'none') return { ok: false, error: 'جیمیل فقط با STARTTLS (۵۸۷) یا SSL (۴۶۵) کار می‌کند' }
+    if (!value.dailyLimit) value.dailyLimit = GMAIL_DAILY_LIMIT
   }
   if (mode === 'smtp' && !HOST.test(value.host)) return { ok: false, error: 'نشانی سرور SMTP نامعتبر است' }
   if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535) return { ok: false, error: 'پورت نامعتبر است' }
@@ -78,8 +119,38 @@ export function readSmtp(stored: Record<string, unknown> | undefined): SmtpSetti
     password: typeof raw.password === 'string' ? raw.password : '',
     fromName: typeof raw.fromName === 'string' ? raw.fromName : '',
     fromEmail: typeof raw.fromEmail === 'string' ? raw.fromEmail : '',
+    dailyLimit: Number.isInteger(raw.dailyLimit) ? Number(raw.dailyLimit) : 0,
+    notifyUsers: raw.notifyUsers === true,
+    events: raw.events && typeof raw.events === 'object' ? Object.fromEntries(Object.entries(raw.events as Record<string, unknown>).map(([key, value]) => [key, value !== false])) : {},
     replyTo: typeof raw.replyTo === 'string' ? raw.replyTo : '',
   }
+}
+
+// ---------------------------------------------------------------- notification email
+
+const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/** A branded, RTL, table-based email (renders in Gmail, Outlook and phones) plus its text part. */
+export function notificationEmail(input: { brand: string; site: string; name: string; title: string; body?: string; href: string; accent?: string }) {
+  const link = /^https?:\/\//.test(input.href) ? input.href : `${input.site}${input.href}`
+  const settings = `${input.site}/dashboard/profile`
+  const accent = /^#[0-9a-f]{6}$/i.test(input.accent || '') ? input.accent! : '#4b45ee'
+  const body = input.body && input.body !== input.title ? input.body : ''
+  const text = [`${input.name} عزیز،`, '', input.title, body, '', `مشاهده: ${link}`, '', input.brand, `برای قطع ایمیل‌های اطلاع‌رسانی: ${settings}`].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n')
+  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head>
+<body style="margin:0;background:#f4f5f7;font-family:Tahoma,Vazirmatn,Arial,sans-serif;color:#1f2937">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
+<tr><td style="background:${accent};padding:18px 24px;color:#ffffff;font-size:18px;font-weight:bold;text-align:right">${escapeHtml(input.brand)}</td></tr>
+<tr><td style="padding:28px 24px 8px;text-align:right;font-size:15px;line-height:2">
+<p style="margin:0 0 8px">${escapeHtml(input.name)} عزیز،</p>
+<h1 style="margin:0 0 8px;font-size:19px;line-height:1.8">${escapeHtml(input.title)}</h1>
+${body ? `<p style="margin:0;color:#4b5563">${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
+</td></tr>
+<tr><td style="padding:16px 24px 28px;text-align:right"><a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:10px;font-weight:bold;font-size:14px">مشاهده جزئیات</a></td></tr>
+<tr><td style="padding:14px 24px;background:#f9fafb;border-top:1px solid #eef0f3;text-align:right;font-size:12px;line-height:2;color:#6b7280">این ایمیل به دلیل فعالیت در حساب کاربری شما در ${escapeHtml(input.brand)} ارسال شده است. برای قطع ایمیل‌های اطلاع‌رسانی به <a href="${escapeHtml(settings)}" style="color:#6b7280">تنظیمات حساب</a> بروید.</td></tr>
+</table></td></tr></table></body></html>`
+  return { subject: `${input.title} — ${input.brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200), text, html, link, settings }
 }
 
 // ---------------------------------------------------------------- registry files
