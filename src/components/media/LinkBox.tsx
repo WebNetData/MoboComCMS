@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { groupLinks } from '@/modules/media/domain/media'
 import { getViewer } from '@/modules/membership/server/membership'
 import { linkHref } from '@/modules/downloads/server/guard'

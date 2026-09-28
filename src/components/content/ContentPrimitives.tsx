@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 
 /** Shared presentation only: content and commerce remain owned by their modules. */

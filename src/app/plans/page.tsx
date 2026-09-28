@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
 import PlanCards from '@/components/PlanCards'

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { withSectionSeo } from '@/modules/site/server/section-seo'
 import { requireModule } from '@/extensions/server/modules'
 import { getCinemaHome, type TitleCard } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -9,12 +10,13 @@ import { Chips, EmptyState, PosterCard, Shelf, yr } from '@/components/media/Med
 import CinemaHero, { type HeroSlide } from '@/components/media/CinemaHero'
 import VipStrip from '@/components/media/VipStrip'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const fa = (await getServerLocale()) === 'fa'
-  return { title: fa ? 'فیلم و سریال — دانلود و تماشای آنلاین' : 'Films & series — watch and download', description: fa ? 'جدیدترین فیلم‌ها و سریال‌ها با دوبله و زیرنویس فارسی، کیفیت‌های مختلف و لینک مستقیم' : 'The latest films and series with Persian dub and subtitles in every quality.', alternates: { canonical: '/cinema' } }
+  return withSectionSeo('cinema', { title: fa ? 'فیلم و سریال — دانلود و تماشای آنلاین' : 'Films & series — watch and download', description: fa ? 'جدیدترین فیلم‌ها و سریال‌ها با دوبله و زیرنویس فارسی، کیفیت‌های مختلف و لینک مستقیم' : 'The latest films and series with Persian dub and subtitles in every quality.', alternates: { canonical: toPublicPath('/cinema') } })
 }
 
 export default async function CinemaHomePage() {

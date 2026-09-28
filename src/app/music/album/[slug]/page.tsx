@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getAlbum } from '@/modules/media/server/queries'
@@ -12,6 +12,7 @@ import { musicNav } from '@/components/media/nav'
 import { AlbumCard, Shelf, VipBadge, VipGate, yr } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fa = locale === 'fa'
   const a = data.album
   const title = `${fa ? a.title : a.titleEn || a.title} — ${fa ? a.artist.name : a.artist.nameEn || a.artist.name}`
-  return { title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: `/music/album/${a.slug}` } }
+  return { title: fa ? `دانلود آلبوم ${title}` : `${title} (album)`, openGraph: { images: a.cover ? [a.cover] : undefined }, alternates: { canonical: toPublicPath(`/music/album/${a.slug}`) } }
 }
 
 export default async function AlbumPage({ params }: Props) {

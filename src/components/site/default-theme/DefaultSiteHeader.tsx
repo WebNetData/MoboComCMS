@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ThemeLangControls from '@/components/ThemeLangControls'

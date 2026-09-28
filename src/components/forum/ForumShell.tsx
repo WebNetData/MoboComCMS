@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import MediaShell from '@/components/media/MediaShell'
 import type { Viewer } from '@/modules/forum/domain/community'

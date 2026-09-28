@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 
 /** Start a topic: title, category, tags and the Markdown body. */

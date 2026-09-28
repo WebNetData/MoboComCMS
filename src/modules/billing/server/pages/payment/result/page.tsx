@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/modules/identity/auth'
 import { db } from '@/platform/database/prisma'

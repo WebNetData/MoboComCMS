@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import { requireModule } from '@/extensions/server/modules'
 import MediaShell from '@/components/media/MediaShell'
 import { CopyrightReportForm, CopyrightStatusLookup } from '@/components/engage/CopyrightForms'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'گزارش نقض حق نشر',
   description: 'اگر محتوایی در موبوکام حق نشر شما را نقض می‌کند، از این فرم گزارش دهید تا بررسی و حذف شود.',
-  alternates: { canonical: '/copyright' },
+  alternates: { canonical: toPublicPath('/copyright') },
 }
 
 export default async function CopyrightPage({ searchParams }: { searchParams: Promise<{ url?: string }> }) {

@@ -22,5 +22,58 @@
       "id": "cinema.manage",
       "label": "مدیریت فیلم و سریال"
     }
+  ],
+  "adminMenu": {
+    "title": "فیلم و سریال",
+    "titleEn": "Film & series",
+    "icon": "globe",
+    "order": 50,
+    "items": [
+      {
+        "href": "/admin/cinema",
+        "label": "فیلم‌ها و سریال‌ها",
+        "labelEn": "Titles",
+        "icon": "grid",
+        "permissions": [
+          "cinema.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/taxonomy?tax=cinema",
+        "label": "دسته‌بندی فیلم و سریال",
+        "labelEn": "Categories",
+        "icon": "grid",
+        "permissions": [
+          "cinema.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/sections/cinema",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی فیلم و سریال",
+      "labelEn": "film & series home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی فیلم و سریال",
+      "labelEn": "film & series home meta description",
+      "type": "textarea",
+      "public": true
+    }
   ]
 }

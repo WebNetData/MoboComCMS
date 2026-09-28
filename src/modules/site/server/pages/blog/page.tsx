@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
 import LionaHome, { LionaGrid, type LionaCategory, type LionaData, type LionaStory } from '@/components/journal/LionaHome'
 import { db } from '@/platform/database/prisma'

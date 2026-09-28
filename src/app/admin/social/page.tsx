@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 type Settings = {
   types: Record<string, boolean>; delayMinutes: number; utm: boolean

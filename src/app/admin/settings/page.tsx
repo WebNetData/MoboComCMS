@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter } from '@/platform/routing/navigation'
 
 export default function AdminSettingsPage() {
   const router = useRouter()

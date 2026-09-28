@@ -1,0 +1,98 @@
+'use client'
+
+import { useParams } from '@/platform/routing/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import Link from '@/components/AppLink'
+import { Notice, send, useJson } from '../../store/shared'
+import type { Definition, Section } from '../shared'
+
+const SEGMENT = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
+
+function SettingInput({ def, value, onChange }: { def: Definition; value: unknown; onChange: (value: unknown) => void }) {
+  const id = `set-${def.key}`
+  if (def.type === 'boolean') return <label className="sa-check"><input id={id} type="checkbox" checked={value === true || (value === undefined && def.default === true)} onChange={(e) => onChange(e.target.checked)} />{def.label}</label>
+  const input = def.type === 'textarea' ? <textarea id={id} className="input" rows={3} value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value)} />
+    : def.type === 'select' ? <select id={id} className="select" value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value)}>{def.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+    : def.type === 'number' ? <input id={id} className="input" type="number" value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />
+    : <input id={id} className="input" type={def.type === 'secret' ? 'password' : 'text'} value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value)} autoComplete="off" />
+  return <label className="sa-field" htmlFor={id}><span>{def.label}</span>{input}{def.description && <small className="sa-sub">{def.description}</small>}</label>
+}
+
+/** One section: public address, on/off, the settings its module declares, and its admin menu. */
+export default function SectionSettingsPage() {
+  const { id } = useParams<{ id: string }>()
+  const { data, error, reload } = useJson<{ section: Section }>(`/api/admin/sections?id=${encodeURIComponent(id)}`)
+  const [addresses, setAddresses] = useState<Record<string, string>>({})
+  const [settings, setSettings] = useState<Record<string, unknown>>({})
+  const [enabled, setEnabled] = useState(true)
+  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const section = data?.section
+  useEffect(() => {
+    if (!section) return
+    setAddresses(Object.fromEntries(section.bases.map((row) => [row.base, (row.alias || '').replace(/^\//, '')])))
+    setSettings(section.settings)
+    setEnabled(section.enabled)
+  }, [section])
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  const invalid = useMemo(() => Object.entries(addresses).find(([, value]) => value && !SEGMENT.test(value.trim().toLowerCase())), [addresses])
+  const seo = section?.definitions.filter((def) => def.key.startsWith('seo.')) || []
+  const other = section?.definitions.filter((def) => !def.key.startsWith('seo.')) || []
+
+  async function save() {
+    if (!section) return
+    setBusy(true); setMessage(null)
+    const response = await send<{ section: Section }>('/api/admin/sections', 'POST', { id: section.id, enabled, settings, addresses })
+    setBusy(false)
+    if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
+    setMessage({ tone: 'ok', text: 'تنظیمات بخش ذخیره شد' + (Object.values(addresses).some(Boolean) ? '؛ آدرس‌های قدیمی از این پس به آدرس تازه منتقل می‌شوند' : '') })
+    window.dispatchEvent(new Event('happ:modules-changed'))
+    void reload()
+  }
+
+  if (!section) return <div className="sa" dir="rtl">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</div>
+  return <div className="sa" dir="rtl">
+    <Link href="/admin/sections" className="sa-link sa-back">→ همهٔ بخش‌ها</Link>
+    <header className="sa-head">
+      <div><h1>تنظیمات بخش {section.name}</h1><p className="sa-hint">{section.description}</p></div>
+      <div className="sa-head-actions"><button type="button" className="btn btn-primary" disabled={busy || !!invalid} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+    </header>
+    {message && <Notice tone={message.tone}>{message.text}</Notice>}
+    <div className="sa-cols">
+      <div className="sa-stack">
+        {section.bases.length > 0 && <section className="sa-card">
+          <header className="sa-card-head"><h2>آدرس بخش</h2><small>مثلاً <bdi dir="ltr">/game</bdi> به‌جای <bdi dir="ltr">/games</bdi></small></header>
+          {section.bases.map((row) => {
+            const value = addresses[row.base] ?? ''
+            const shown = value.trim() ? `/${value.trim().toLowerCase()}` : row.base
+            return <div key={row.base} className="sh-address">
+              <label className="sa-field"><span>آدرس فعلی: <bdi dir="ltr">{row.base}</bdi></span>
+                <span className="sh-address-input" dir="ltr"><span className="sh-origin">{origin}/</span><input className="input" value={value} placeholder={row.base.slice(1)} onChange={(e) => setAddresses((current) => ({ ...current, [row.base]: e.target.value.replace(/^\/+/, '') }))} aria-label={`آدرس تازه برای ${row.base}`} /></span>
+              </label>
+              {value && !SEGMENT.test(value.trim().toLowerCase()) ? <small className="ga-issues">فقط حروف کوچک انگلیسی، عدد و خط تیره</small>
+                : <small className="sa-sub">صفحهٔ نمونه: <bdi dir="ltr">{origin}{shown}/…</bdi>{value && <> — <bdi dir="ltr">{row.base}/…</bdi> با ریدایرکت دائمی (۳۰۸) به آدرس تازه می‌رود</>}</small>}
+              {value && <button type="button" className="sa-link" onClick={() => setAddresses((current) => ({ ...current, [row.base]: '' }))}>بازگشت به آدرس پیش‌فرض</button>}
+            </div>
+          })}
+        </section>}
+        {seo.length > 0 && <section className="sa-card"><header className="sa-card-head"><h2>سئوی صفحهٔ اصلی بخش</h2><small>خالی = متن پیش‌فرض</small></header>
+          {seo.map((def) => <SettingInput key={def.key} def={def} value={settings[def.key]} onChange={(value) => setSettings((current) => ({ ...current, [def.key]: value }))} />)}
+        </section>}
+        {other.length > 0 && <section className="sa-card"><header className="sa-card-head"><h2>تنظیمات پیشرفته</h2></header>
+          {other.map((def) => <SettingInput key={def.key} def={def} value={settings[def.key]} onChange={(value) => setSettings((current) => ({ ...current, [def.key]: value }))} />)}
+        </section>}
+      </div>
+      <div className="sa-stack">
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>وضعیت</h2></header>
+          <label className="sa-check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />بخش {section.name} فعال باشد</label>
+          <p className="sa-hint">با غیرفعال کردن، صفحه‌ها و منوهای این بخش پنهان می‌شوند و داده‌ها حذف نمی‌شوند.</p>
+        </section>
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>مدیریت {section.name}</h2></header>
+          <ul className="sa-rows">{section.menu.items.filter((item) => !item.href.startsWith('/admin/sections/')).map((item) => <li key={item.href}><Link href={item.href}><span className="sa-grow"><b>{item.label}</b></span><span className="sa-link">ورود</span></Link></li>)}</ul>
+        </section>
+      </div>
+    </div>
+  </div>
+}

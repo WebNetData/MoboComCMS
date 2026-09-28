@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'

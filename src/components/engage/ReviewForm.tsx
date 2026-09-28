@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 
 type Mine = { rating: number; body: string; status: string } | null

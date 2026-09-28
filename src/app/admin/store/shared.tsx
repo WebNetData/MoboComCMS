@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { iranianUnit } from '@/shared/money/format'
 

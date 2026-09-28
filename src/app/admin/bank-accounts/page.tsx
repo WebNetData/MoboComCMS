@@ -1,5 +1,5 @@
 'use client'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState } from 'react'
 
 type Account = { id: number; bankName: string; holderName: string; cardNumber: string; sheba: string; accountNumber: string; note: string; active: boolean; sortOrder: number; approvedCount: number; approvedMinor: string }

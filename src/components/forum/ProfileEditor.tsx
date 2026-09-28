@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 
 type Initial = { username: string; bio: string; location: string; website: string; avatar: string; cover: string; title: string; primaryGroupId: number }

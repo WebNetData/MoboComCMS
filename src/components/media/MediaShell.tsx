@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { getPublicNavigationPages } from '@/modules/site/server/navigation'

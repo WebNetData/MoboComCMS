@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { fetchWalletBalances, money } from '@/modules/checkout/ui/client'
 import { planDescription, planName } from '@/modules/catalog/domain/plan-locale'

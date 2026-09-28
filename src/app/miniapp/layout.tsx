@@ -9,8 +9,8 @@ import './miniapp.css'
 //    normal browser, which is also how they are testable).
 // 3. Renders a phone-shaped app with a bottom tab bar.
 import Script from 'next/script'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname } from '@/platform/routing/navigation'
 import { signIn, useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useSite } from '@/components/site/SiteProvider'

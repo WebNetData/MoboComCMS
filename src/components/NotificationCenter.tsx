@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type Notice = { id: number; kind: string; titleEn: string; titleFa: string; bodyEn: string; bodyFa: string; href: string; readAt: string | null; createdAt: string }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 
 type Props = { slug: string; joinMode: string; status: string; owner: boolean; signedIn: boolean; manager: boolean; target?: string; mode?: 'self' | 'request' | 'member' | 'add' }

@@ -1,8 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useParams, useRouter } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import CoverField from '../../../cms/CoverField'
 import ProductExtrasEditor from '../../../products/ProductExtrasEditor'

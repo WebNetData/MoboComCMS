@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import TopicListPage from '@/components/forum/TopicListPage'
 import type { TopPeriod, TopicFilter } from '@/modules/forum/server/forum'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ type Props = { params: Promise<{ filter: string }>; searchParams: Promise<{ page
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const entry = FILTERS[(await params).filter]
   if (!entry) return {}
-  return { title: `${entry.title} — تالار گفتمان`, robots: entry.index ? undefined : { index: false }, alternates: { canonical: `/forum/${(await params).filter}` } }
+  return { title: `${entry.title} — تالار گفتمان`, robots: entry.index ? undefined : { index: false }, alternates: { canonical: toPublicPath(`/forum/${(await params).filter}`) } }
 }
 
 export default async function ForumFilterPage({ params, searchParams }: Props) {

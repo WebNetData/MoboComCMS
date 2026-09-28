@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import PlanCards from '@/components/PlanCards'
 import WorldMap from '@/components/WorldMap'
 import Icon from '@/components/site/Icon'

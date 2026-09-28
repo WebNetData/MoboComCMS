@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'

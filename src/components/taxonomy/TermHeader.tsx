@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 
 type TermLink = { id: number; name: string; path: string; count: number }
 

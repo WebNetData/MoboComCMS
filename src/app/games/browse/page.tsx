@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { browseGames, gameFacets } from '@/modules/media/server/queries'
 import { gameGenres } from '@/modules/media/server/games-portal'

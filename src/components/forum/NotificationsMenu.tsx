@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 type Notice = { id: number; kind: string; titleFa: string; bodyFa: string; href: string; readAt: string | null; createdAt: string }

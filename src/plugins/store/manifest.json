@@ -26,5 +26,151 @@
     "/admin/product-feedback",
     "/admin/product-deliveries",
     "/admin/delivery"
+  ],
+  "adminMenu": {
+    "title": "فروشگاه",
+    "titleEn": "Store",
+    "icon": "grid",
+    "order": 10,
+    "items": [
+      {
+        "href": "/admin/store",
+        "label": "داشبورد فروشگاه",
+        "labelEn": "Store dashboard",
+        "icon": "grid",
+        "permissions": [
+          "orders.manage",
+          "cms.products"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/store/orders",
+        "label": "سفارش‌ها",
+        "labelEn": "Orders",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
+        "href": "/admin/store/products",
+        "label": "محصولات",
+        "labelEn": "Products",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/store/inventory",
+        "label": "انبار و موجودی",
+        "labelEn": "Inventory",
+        "icon": "sliders",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/store/brands",
+        "label": "برندها",
+        "labelEn": "Brands",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/productcats",
+        "label": "دسته‌بندی محصولات",
+        "labelEn": "Product categories",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/productgroups",
+        "label": "گروه‌های مشخصات",
+        "labelEn": "Attribute groups",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/store/customers",
+        "label": "مشتریان",
+        "labelEn": "Customers",
+        "icon": "devices",
+        "permissions": [
+          "orders.manage",
+          "users.manage"
+        ]
+      },
+      {
+        "href": "/admin/product-feedback",
+        "label": "دیدگاه‌ها و پرسش‌ها",
+        "labelEn": "Reviews & questions",
+        "icon": "chat",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/delivery",
+        "label": "زمان‌بندی و هزینهٔ ارسال",
+        "labelEn": "Delivery schedule",
+        "icon": "sliders",
+        "permissions": [
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/products",
+        "label": "ویرایش سریع محصولات",
+        "labelEn": "Quick product editor",
+        "icon": "grid",
+        "permissions": [
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/store/settings",
+        "label": "ویترین فروشگاه",
+        "labelEn": "Storefront",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage",
+          "cms.products"
+        ]
+      },
+      {
+        "href": "/admin/sections/store",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی فروشگاه",
+      "labelEn": "store home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی فروشگاه",
+      "labelEn": "store home meta description",
+      "type": "textarea",
+      "public": true
+    }
   ]
 }

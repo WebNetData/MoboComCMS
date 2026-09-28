@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/platform/routing/Link'
 import { ThemePlanCards, ThemePublicForm, themeFormatAmount, type ThemeHomeProps } from '@/themes/sdk/server'
 import Glyph from './glyph'
 import OrbitalGlobe from './globe'

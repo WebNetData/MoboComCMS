@@ -1,5 +1,5 @@
 'use client'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useCallback, useEffect, useState } from 'react'
 
 type Provider = { id: string; label: string; model: string; free: boolean; keyUrl: string; note: string }

@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { parseTelegramWidgetRedirect } from '@/modules/identity/telegram-widget-redirect'

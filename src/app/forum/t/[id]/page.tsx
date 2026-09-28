@@ -4,6 +4,7 @@ import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer, getTopic, visibleCategories } from '@/modules/forum/server/forum'
 import ForumShell from '@/components/forum/ForumShell'
 import TopicView, { type TopicData } from '@/components/forum/TopicView'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; post?: string }> }
@@ -17,7 +18,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     title: `${data.thread.title} — ${data.category.title}`,
     description: data.description || undefined,
     robots: hidden ? { index: false } : undefined,
-    alternates: { canonical: data.page > 1 ? `/forum/t/${id}?page=${data.page}` : `/forum/t/${id}` },
+    alternates: { canonical: toPublicPath(data.page > 1 ? `/forum/t/${id}?page=${data.page}` : `/forum/t/${id}`) },
     openGraph: { type: 'article', title: data.thread.title, description: data.description || undefined },
   }
 }

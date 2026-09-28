@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { softwareFeed } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
@@ -8,6 +8,7 @@ import { SOFTWARE_LICENSES, licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import { Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar, SoftwareStatsStrip } from '@/components/software/SoftwarePortal'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Params = Record<string, string | undefined>
@@ -24,7 +25,7 @@ function heading(params: Params) {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams
   const query = new URLSearchParams(Object.entries(params).filter((entry): entry is [string, string] => !!entry[1] && ['platform', 'category', 'page'].includes(entry[0])))
-  return { title: heading(params), robots: params.q || params.term ? { index: false } : undefined, alternates: { canonical: `/software/browse${query.size ? `?${query}` : ''}` } }
+  return { title: heading(params), robots: params.q || params.term ? { index: false } : undefined, alternates: { canonical: toPublicPath(`/software/browse${query.size ? `?${query}` : ''}`) } }
 }
 
 /** Full list with search, sort and licence filters (also the target of the section search). */

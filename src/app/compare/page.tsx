@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { Fragment } from 'react'
 import { requireModule } from '@/extensions/server/modules'
 import { bestIndex, compareItems, parseCompareRefs } from '@/modules/compare/server/compare'

@@ -1,10 +1,10 @@
 'use client'
 
 import SubscriptionAlertPreference from '@/components/SubscriptionAlertPreference'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import type { SubSummary } from '@/components/SubscriptionCard'
 import SubscriptionRow from '@/components/SubscriptionRow'

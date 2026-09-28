@@ -13,3 +13,4 @@ import type { ExtensionLocalText } from '@/platform/extensions/contracts'
 export function translateExtensionText(value: ExtensionLocalText, locale: string) {
   return value[locale] || value[locale.split('-')[0]] || value.en || value.fa
 }
+export { default as Link } from '@/platform/routing/Link'

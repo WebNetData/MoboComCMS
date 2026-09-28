@@ -8,6 +8,7 @@ import { musicNav } from '@/components/media/nav'
 import { EmptyState, AlbumCard } from '@/components/media/MediaCards'
 import Pager from '@/components/media/Pager'
 import TermHeader from '@/components/taxonomy/TermHeader'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string[] }>; searchParams: Promise<{ page?: string }> }
@@ -21,7 +22,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: n > 1 ? `${title} — صفحه ${n.toLocaleString('fa-IR')}` : title,
     description: found.term.seoDescription || found.term.description || `دانلود و پخش آنلاین آلبوم‌های ${found.term.name}`,
-    alternates: { canonical: n > 1 ? `${found.term.path}?page=${n}` : found.term.path },
+    alternates: { canonical: toPublicPath(n > 1 ? `${found.term.path}?page=${n}` : found.term.path) },
   }
 }
 

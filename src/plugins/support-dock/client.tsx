@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/platform/routing/Link'
 import type { PluginClientModule, PluginProps } from '../types'
 
 function SupportDock({ locale, settings }: PluginProps) {

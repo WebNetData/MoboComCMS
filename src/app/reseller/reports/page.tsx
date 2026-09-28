@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type Sale = { id: number; telegramUserId: string; status: string; retailPrice: number; currency: string; createdAt: string; reviewedAt: string | null; deliveredAt: string | null; lastError: string; offer: { nameFa: string; nameEn: string } }

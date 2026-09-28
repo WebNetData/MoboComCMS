@@ -258,3 +258,17 @@
 .ga-rails .sa-check { flex: 1; margin: 0; }
 .ga-rail-index { width: 22px; color: var(--sa-muted); font-weight: 800; text-align: center; }
 .ga-rail-move { display: flex; gap: 4px; }
+
+/* section hub (sh-) */
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sh-card { display: grid; gap: 8px; align-content: start; }
+.sh-card.is-off { opacity: .7; }
+.sh-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sh-card-head b { font-size: 16px; }
+.sh-addresses { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.sh-addresses bdi { font-family: ui-monospace, monospace; font-weight: 700; color: var(--sa-accent); }
+.sh-address { display: grid; gap: 6px; padding-block: 8px; border-top: 1px solid var(--sa-line); }
+.sh-address:first-of-type { border-top: 0; }
+.sh-address-input { display: flex; align-items: stretch; overflow: hidden; border: 1px solid var(--sa-line); border-radius: 10px; background: var(--sa-subtle); }
+.sh-address-input .input { flex: 1; min-width: 0; border: 0; border-radius: 0; font-family: ui-monospace, monospace; }
+.sh-origin { display: grid; place-items: center; padding-inline: 10px; color: var(--sa-muted); font-family: ui-monospace, monospace; font-size: 12.5px; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }

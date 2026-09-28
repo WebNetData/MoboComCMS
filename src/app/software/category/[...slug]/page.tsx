@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { softwareFeed } from '@/modules/media/server/queries'
@@ -9,6 +9,7 @@ import { SOFTWARE_LICENSES, licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import { FolderTiles, Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar, SoftwareStatsStrip } from '@/components/software/SoftwarePortal'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string[] }>; searchParams: Promise<{ page?: string; sort?: string; license?: string }> }
@@ -22,7 +23,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return {
     title: n > 1 ? `${title} — صفحه ${n.toLocaleString('fa-IR')}` : title,
     description: found.term.seoDescription || found.term.description || `دانلود جدیدترین نسخهٔ نرم‌افزارهای دستهٔ ${found.term.name} با لینک مستقیم، راهنمای نصب و تغییرات هر نسخه`,
-    alternates: { canonical: n > 1 ? `${found.term.path}?page=${n}` : found.term.path },
+    alternates: { canonical: toPublicPath(n > 1 ? `${found.term.path}?page=${n}` : found.term.path) },
     robots: sort || license ? { index: false, follow: true } : undefined,
   }
 }

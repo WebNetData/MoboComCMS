@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import {
   THEME_TEMPLATE_TYPES, THEME_TYPE_LABELS, describeTarget,

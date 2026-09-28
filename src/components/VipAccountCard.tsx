@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 type Status = { enabled: boolean; member: boolean; endsAt: string | null; daysLeft: number }

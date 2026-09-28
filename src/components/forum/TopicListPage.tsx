@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { getForumViewer, topicList, type TopPeriod, type TopicFilter } from '@/modules/forum/server/forum'
 import ForumShell, { type ForumNavKey } from '@/components/forum/ForumShell'

@@ -1,7 +1,7 @@
 'use client'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { TAXONOMIES, TAXONOMY_INFO, descendants, flatten, isTaxonomy, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 
 type Node = {

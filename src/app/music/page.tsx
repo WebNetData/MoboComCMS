@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import { withSectionSeo } from '@/modules/site/server/section-seo'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getMusicHome } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -11,12 +12,13 @@ import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import VipStrip from '@/components/media/VipStrip'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const fa = (await getServerLocale()) === 'fa'
-  return { title: fa ? 'موزیک — دانلود و پخش آنلاین آهنگ' : 'Music — stream & download', description: fa ? 'جدیدترین آهنگ‌ها، آلبوم‌ها و پلی‌لیست‌ها با پخش آنلاین و کیفیت ۳۲۰' : 'New songs, albums and playlists with online playback and 320 kbps quality.', alternates: { canonical: '/music' } }
+  return withSectionSeo('music', { title: fa ? 'موزیک — دانلود و پخش آنلاین آهنگ' : 'Music — stream & download', description: fa ? 'جدیدترین آهنگ‌ها، آلبوم‌ها و پلی‌لیست‌ها با پخش آنلاین و کیفیت ۳۲۰' : 'New songs, albums and playlists with online playback and 320 kbps quality.', alternates: { canonical: toPublicPath('/music') } })
 }
 
 export default async function MusicHomePage() {

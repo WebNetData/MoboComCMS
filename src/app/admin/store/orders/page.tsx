@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { Money, Notice, Pager, StoreShell, STATE_TONE, fa, faDate, useJson } from '../shared'
 

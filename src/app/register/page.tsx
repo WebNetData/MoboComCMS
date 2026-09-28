@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useRouter } from '@/platform/routing/navigation'
+import Link from '@/components/AppLink'
 import SiteHeader from '@/components/SiteHeader'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'

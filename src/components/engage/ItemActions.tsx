@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, readCompare, toggleCompare, type CompareEntry } from '@/components/engage/compare-store'

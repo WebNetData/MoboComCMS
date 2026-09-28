@@ -1,3 +1,4 @@
+import { toPublicPath } from '@/platform/routing/aliases'
 import type { Locale } from '@/i18n/dictionaries'
 // Shared SEO helpers: canonical URLs, hreflang alternates, Open Graph/Twitter
 // cards and the JSON-LD graphs that search engines read.
@@ -70,7 +71,7 @@ export interface PageMetaInput {
 export async function pageMeta(input: PageMetaInput): Promise<Metadata> {
   const locale = input.locale || 'en'
   const seo = await getSiteSeo(locale)
-  const url = input.path ? `${seo.base}${input.path.startsWith('/') ? input.path : '/' + input.path}` : seo.base
+  const url = input.path ? `${seo.base}${toPublicPath(input.path.startsWith('/') ? input.path : '/' + input.path)}` : seo.base
   const description = input.description || seo.description
   const image = input.image || seo.ogImage
 

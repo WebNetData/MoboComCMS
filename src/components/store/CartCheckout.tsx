@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { useRouter } from '@/platform/routing/navigation'
 import CheckoutError from '@/components/CheckoutError'
 import { AddressDialog, AddressSummary, useAddresses, type SavedAddress } from '@/components/store/AddressBook'
 import { Amount } from '@/components/store/CartPage'

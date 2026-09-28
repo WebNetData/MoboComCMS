@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 

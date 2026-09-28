@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getSoftware, softwareShelf } from '@/modules/media/server/queries'
@@ -15,6 +15,7 @@ import Gallery from '@/components/media/Gallery'
 import CopyText from '@/components/software/CopyText'
 import DetailTabs from '@/components/software/DetailTabs'
 import { Icon, SoftwareLayout, SoftwareShelf, SoftwareSidebar, isFresh, softwareName } from '@/components/software/SoftwarePortal'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `دانلود ${name}${s.version ? ` ${s.version}` : ''}${s.platforms[0] ? ` برای ${s.platforms.join(' و ')}` : ''}`,
     description: s.summary.slice(0, 180) || undefined,
     openGraph: { images: s.cover || s.icon ? [s.cover || s.icon] : undefined },
-    alternates: { canonical: `/software/${s.slug}` },
+    alternates: { canonical: toPublicPath(`/software/${s.slug}`) },
   }
 }
 

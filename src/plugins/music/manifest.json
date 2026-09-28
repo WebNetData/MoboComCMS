@@ -19,6 +19,20 @@
   ],
   "settings": [
     {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی موزیک",
+      "labelEn": "music home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی موزیک",
+      "labelEn": "music home meta description",
+      "type": "textarea",
+      "public": true
+    },
+    {
       "key": "hq-members-only",
       "label": "کیفیت ۳۲۰ فقط برای اعضای ویژه",
       "labelEn": "320 kbps for VIP members only",
@@ -38,5 +52,42 @@
       "id": "music.manage",
       "label": "مدیریت موزیک"
     }
-  ]
+  ],
+  "adminMenu": {
+    "title": "موزیک",
+    "titleEn": "Music",
+    "icon": "bolt",
+    "order": 60,
+    "items": [
+      {
+        "href": "/admin/music",
+        "label": "آهنگ، آلبوم و هنرمند",
+        "labelEn": "Tracks, albums & artists",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/taxonomy?tax=music",
+        "label": "دسته‌بندی موزیک",
+        "labelEn": "Categories",
+        "icon": "grid",
+        "permissions": [
+          "music.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/sections/music",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  }
 }

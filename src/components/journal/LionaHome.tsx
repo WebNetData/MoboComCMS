@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
 import TabSwitch from '@/components/site/TabSwitch'
 import { Icon, type IconName } from '@/components/media/PortalIcons'

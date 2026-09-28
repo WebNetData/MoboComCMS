@@ -11,7 +11,69 @@
   "icon": "devices",
   "defaultEnabled": true,
   "requiresCore": "^1.0.0",
-  "publicPaths": ["/software"],
-  "adminPaths": ["/admin/software"],
-  "permissions": [{ "id": "software.manage", "label": "مدیریت نرم‌افزارها" }]
+  "publicPaths": [
+    "/software"
+  ],
+  "adminPaths": [
+    "/admin/software"
+  ],
+  "permissions": [
+    {
+      "id": "software.manage",
+      "label": "مدیریت نرم‌افزارها"
+    }
+  ],
+  "adminMenu": {
+    "title": "نرم‌افزار",
+    "titleEn": "Software",
+    "icon": "devices",
+    "order": 70,
+    "items": [
+      {
+        "href": "/admin/software",
+        "label": "نرم‌افزارها",
+        "labelEn": "Software",
+        "icon": "grid",
+        "permissions": [
+          "software.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/taxonomy?tax=software",
+        "label": "دسته‌بندی نرم‌افزار",
+        "labelEn": "Categories",
+        "icon": "grid",
+        "permissions": [
+          "software.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/sections/software",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی نرم‌افزار",
+      "labelEn": "software home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی نرم‌افزار",
+      "labelEn": "software home meta description",
+      "type": "textarea",
+      "public": true
+    }
+  ]
 }

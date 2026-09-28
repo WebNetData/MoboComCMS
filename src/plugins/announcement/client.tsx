@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/platform/routing/Link'
 import type { PluginClientModule, PluginProps } from '../types'
 import { translateExtensionText } from '@/extensions/sdk/client'
 

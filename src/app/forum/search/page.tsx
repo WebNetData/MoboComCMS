@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer, searchForum } from '@/modules/forum/server/forum'
 import ForumShell from '@/components/forum/ForumShell'

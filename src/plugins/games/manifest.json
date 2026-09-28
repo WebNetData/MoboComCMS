@@ -22,5 +22,109 @@
       "id": "games.manage",
       "label": "مدیریت گیم"
     }
+  ],
+  "adminMenu": {
+    "title": "بازی",
+    "titleEn": "Games",
+    "icon": "bolt",
+    "order": 40,
+    "items": [
+      {
+        "href": "/admin/games",
+        "label": "داشبورد بازی",
+        "labelEn": "Games dashboard",
+        "icon": "grid",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/games/titles",
+        "label": "همهٔ بازی‌ها",
+        "labelEn": "All games",
+        "icon": "grid",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/games/new",
+        "label": "افزودن بازی",
+        "labelEn": "Add game",
+        "icon": "plus",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/games/releases",
+        "label": "تقویم انتشار",
+        "labelEn": "Release calendar",
+        "icon": "sliders",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/games/franchises",
+        "label": "مجموعه‌ها",
+        "labelEn": "Franchises",
+        "icon": "grid",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/taxonomy?tax=games",
+        "label": "دسته‌بندی بازی‌ها",
+        "labelEn": "Game categories",
+        "icon": "grid",
+        "permissions": [
+          "games.manage",
+          "cms.posts"
+        ]
+      },
+      {
+        "href": "/admin/games/settings",
+        "label": "صفحهٔ اصلی بازی",
+        "labelEn": "Games home",
+        "icon": "sliders",
+        "permissions": [
+          "games.manage",
+          "settings.manage"
+        ]
+      },
+      {
+        "href": "/admin/sections/games",
+        "label": "تنظیمات بخش و آدرس",
+        "labelEn": "Section settings & address",
+        "icon": "sliders",
+        "permissions": [
+          "settings.manage"
+        ]
+      }
+    ]
+  },
+  "settings": [
+    {
+      "key": "seo.title",
+      "label": "عنوان سئوی صفحهٔ اصلی بازی",
+      "labelEn": "games home SEO title",
+      "type": "text",
+      "public": true
+    },
+    {
+      "key": "seo.description",
+      "label": "توضیح متای صفحهٔ اصلی بازی",
+      "labelEn": "games home meta description",
+      "type": "textarea",
+      "public": true
+    }
   ]
 }

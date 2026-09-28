@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 
 // Discourse-style keyboard shortcuts. Ignored while typing in a field.

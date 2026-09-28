@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { TopicRow } from '@/modules/forum/server/forum'
 import { Avatar, CategoryBadge, TagChip, TimeAgo, compact, num } from '@/components/forum/shared'
 

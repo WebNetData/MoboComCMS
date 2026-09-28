@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { withSectionSeo } from '@/modules/site/server/section-seo'
 import { requireModule, isModuleEnabled } from '@/extensions/server/modules'
 import { softwareShelf, techNews } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
@@ -9,13 +10,16 @@ import { EmptyState } from '@/components/media/MediaCards'
 import VipStrip from '@/components/media/VipStrip'
 import { CategoryTiles, NewsBox, SoftwareLayout, SoftwareShelf, SoftwareSidebar, SoftwareStatsStrip, platformIcon } from '@/components/software/SoftwarePortal'
 import { sectionLanding } from '@/modules/site/server/pages/section/landing'
+import { toPublicPath } from '@/platform/routing/aliases'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  return withSectionSeo('software', {
   title: 'دانلود نرم‌افزار',
   description: 'دانلود آخرین نسخهٔ نرم‌افزارهای ویندوز، مک، لینوکس، اندروید و iOS با لینک مستقیم، راهنمای نصب و تغییرات هر نسخه',
-  alternates: { canonical: '/software' },
+  alternates: { canonical: toPublicPath('/software') },
+})
 }
 
 /** Software portal home (Softgozar layout): stats, category tiles, tech news and one shelf per main category. */

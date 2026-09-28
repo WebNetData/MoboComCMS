@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import { redirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer, visibleCategories } from '@/modules/forum/server/forum'

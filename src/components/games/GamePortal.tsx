@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'

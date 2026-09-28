@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { routeDecision } from '@/platform/routing/aliases'
+import { loadRouteAliases } from '@/modules/site/server/routes'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -58,7 +60,9 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   }
 }
 
-export function middleware(req: NextRequest) {
+const NOT_ALIASED = /^\/(api|admin|_next)(\/|$)/
+
+export async function middleware(req: NextRequest) {
   const incoming = req.headers.get('x-request-id')?.trim() || ''
   const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
   const headers = new Headers(req.headers)
@@ -76,12 +80,23 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  const response = NextResponse.next({ request: { headers } })
+  // Section addresses chosen by the site owner (/game for /games, /discourse for /forum …).
+  let response: NextResponse | null = null
+  if ((req.method === 'GET' || req.method === 'HEAD') && !NOT_ALIASED.test(req.nextUrl.pathname)) {
+    const decision = routeDecision(req.nextUrl.pathname, await loadRouteAliases().catch(() => ({})))
+    if (decision) {
+      const url = req.nextUrl.clone()
+      url.pathname = decision.path
+      response = decision.kind === 'redirect' ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url, { request: { headers } })
+    }
+  }
+  response ||= NextResponse.next({ request: { headers } })
   response.headers.set('x-request-id', requestId)
   applySecurityHeaders(req, response)
   return response
 }
 
 export const config = {
+  runtime: 'nodejs',
   matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 }

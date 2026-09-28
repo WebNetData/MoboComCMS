@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from '@/components/AppLink'
+import { usePathname, useSearchParams } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ThemeLangControls from '@/components/ThemeLangControls'
 import { getCookie } from '@/platform/browser/preferences'
@@ -21,13 +21,16 @@ interface NavItem {
 
 interface NavGroup {
   title: string
+  icon?: string
   items: NavItem[]
 }
+type SectionMenu = { id: string; title: string; titleEn: string; icon: string; items: { href: string; label: string; labelEn?: string; icon?: string; permissions?: string[]; exact?: boolean }[] }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const site = useSite()
   const { data: session, status } = useSession()
   const pathname = usePathname()
+  const search = useSearchParams()
   const { t, locale } = useI18n()
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
@@ -55,6 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const s: any = session as any
   const [me, setMe] = useState<{ role: string; roleId: number | null; permissions: string[] | null } | null>(null)
   const [extensionNav, setExtensionNav] = useState<NavItem[]>([])
+  const [sectionNav, setSectionNav] = useState<NavGroup[]>([])
   const [disabledPaths, setDisabledPaths] = useState<string[]>([])
   const [navVersion, setNavVersion] = useState(0)
   useEffect(() => {
@@ -68,6 +72,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (status !== 'authenticated') return
     fetch('/api/admin/extensions/navigation').then(r => r.ok ? r.json() : null).then(d => {
       setExtensionNav((d?.items || []).map((item: any) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permission })))
+      setSectionNav((Array.isArray(d?.sections) ? d.sections as SectionMenu[] : []).map((menu) => ({
+        title: locale === 'fa' ? menu.title : menu.titleEn || menu.title,
+        icon: menu.icon,
+        items: menu.items.map((item) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permissions && item.permissions.length ? [...item.permissions] : undefined, exact: item.exact })),
+      })))
       setDisabledPaths(Array.isArray(d?.disabledPaths) ? d.disabledPaths.filter((p: unknown) => typeof p === 'string') : [])
     }).catch(() => setExtensionNav([]))
     fetch('/api/me')
@@ -101,6 +110,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const L = (fa: string, en: string) => locale === 'fa' ? fa : en
   const GROUPS: NavGroup[] = [
     { title: t.overview, items: [{ href: '/admin', label: t.dashboard, icon: 'grid', exact: true }, { href: '/admin/analytics', label: L('آمار بازدید و فروش', 'Analytics'), icon: 'sliders', perm: ['analytics.view', 'dashboard.view'] }] },
+    // Every feature module brings its own group (declared in its manifest).
+    ...sectionNav,
     { title: L('وب‌سایت و محتوا', 'Website & content'), items: [
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
@@ -114,21 +125,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
     ] },
-    { title: L('مجله و نوشته‌ها', 'Journal'), items: [
-      { href: '/admin/posts', label: t.postsAdmin, icon: 'sliders', perm: 'cms.posts' },
-      { href: '/admin/postcats', label: t.postCats, icon: 'grid', perm: 'cms.posts' },
-      { href: '/admin/comments', label: L('مدیریت دیدگاه‌ها', 'Comment moderation'), icon: 'chat', perm: 'cms.posts' },
-    ] },
-    { title: L('سرگرمی و رسانه', 'Entertainment'), items: [
-      { href: '/admin/music', label: L('موزیک (آهنگ، آلبوم، هنرمند)', 'Music'), icon: 'sparkles', perm: ['music.manage', 'cms.posts'] },
-      { href: '/admin/cinema', label: L('فیلم و سریال', 'Films & series'), icon: 'grid', perm: ['cinema.manage', 'cms.posts'] },
-      { href: '/admin/games', label: L('بازی‌ها', 'Games'), icon: 'bolt', perm: ['games.manage', 'cms.posts'] },
-      { href: '/admin/software', label: L('نرم‌افزارها', 'Software'), icon: 'devices', perm: ['software.manage', 'cms.posts'] },
+    { title: L('ابزارهای مشترک محتوا', 'Shared content tools'), items: [
+      { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage', 'cms.posts'] },
-      { href: '/admin/forum', label: L('تالار گفتمان', 'Forum'), icon: 'chat', perm: ['forum.moderate', 'cms.posts'] },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate', 'cms.posts'] },
-      { href: '/admin/vip', label: L('اشتراک ویژه VIP', 'VIP membership'), icon: 'shield', perm: ['membership.manage', 'plans.manage', 'users.manage'] },
     ] },
     { title: L('سرویس VPN', 'VPN service'), items: [
       { href: '/admin/plans', label: t.plansAdmin, icon: 'globe', perm: 'plans.manage' },
@@ -163,20 +164,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/receipts', label: L('رسیدهای کارت به کارت', 'Transfer receipts'), icon: 'wallet', perm: 'invoices.manage' },
       { href: '/admin/bank-accounts', label: L('حساب‌های بانکی', 'Bank accounts'), icon: 'wallet', perm: 'gateways.manage' },
     ] },
-    { title: t.shop, items: [
-      { href: '/admin/store', label: L('داشبورد فروشگاه', 'Store dashboard'), icon: 'grid', perm: ['orders.manage', 'cms.products'], exact: true },
-      { href: '/admin/store/orders', label: L('سفارش‌های فروشگاه', 'Store orders'), icon: 'wallet', perm: 'orders.manage' },
-      { href: '/admin/store/products', label: L('محصولات', 'Products'), icon: 'grid', perm: 'cms.products' },
-      { href: '/admin/store/inventory', label: L('انبار و موجودی', 'Inventory'), icon: 'sliders', perm: 'cms.products' },
-      { href: '/admin/store/brands', label: L('برندها', 'Brands'), icon: 'grid', perm: 'cms.products' },
-      { href: '/admin/store/customers', label: L('مشتریان فروشگاه', 'Store customers'), icon: 'devices', perm: ['orders.manage', 'users.manage'] },
-      { href: '/admin/store/settings', label: L('ویترین فروشگاه', 'Storefront'), icon: 'sliders', perm: ['settings.manage', 'cms.products'] },
-      { href: '/admin/products', label: L('ویرایش سریع محصولات', 'Quick product editor'), icon: 'grid', perm: 'cms.products' },
-        { href: '/admin/productcats', label: t.productCats, icon: 'grid', perm: 'cms.products' },
-        { href: '/admin/productgroups', label: L('گروه‌های مشخصات', 'Attribute groups'), icon: 'grid', perm: 'cms.products' },
-        { href: '/admin/product-feedback', label: L('دیدگاه‌ها و پرسش‌ها', 'Reviews & questions'), icon: 'chat', perm: 'cms.products' },
-        { href: '/admin/delivery', label: L('زمان‌بندی و هزینهٔ ارسال', 'Delivery schedule'), icon: 'sliders', perm: ['orders.manage', 'settings.manage'] },
-    ] },
     { title: L('اتصال‌ها و افزونه‌ها', 'Integrations'), items: [
       { href: '/admin/telegram', label: L('ربات و مینی‌اپ', 'Telegram & Mini App'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/connection-guide', label: L('راهنمای اتصال', 'Connection guide'), icon: 'devices', perm: 'settings.manage' },
@@ -197,7 +184,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const initial = (session?.user?.name || session?.user?.email || '?').charAt(0).toUpperCase()
-  const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
+  const isOn = (href: string, exact?: boolean) => {
+    const [path, query] = href.split('?')
+    if (query) return pathname === path && new URLSearchParams(query).get('tab') === search.get('tab') && (new URLSearchParams(query).get('tax') ?? search.get('tax')) === search.get('tax')
+    if (path === pathname && search.get('tab') && sectionNav.some((group) => group.items.some((item) => item.href.startsWith(`${path}?`)))) return false
+    return exact ? pathname === path : pathname.startsWith(path)
+  }
 
   const nav = <>
     <label className="admin-nav-search"><span className="sr-only">{L('جست‌وجوی بخش مدیریت', 'Search admin sections')}</span><input type="search" className="input" value={navQuery} placeholder={L('جست‌وجوی بخش…', 'Find a section…')} onChange={e => setNavQuery(e.target.value)} /></label>
@@ -208,7 +200,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const groupOpen = !!navQuery.trim() || (expanded[group.title] ?? active)
       if (items.length === 1 && items[0].href === '/admin') return <Link key="overview" href="/admin" onClick={() => setOpen(false)} aria-current={active ? 'page' : undefined} className={`side-link ${active ? 'side-link-active' : ''}`}><Icon name="grid" size={19} />{t.dashboard}</Link>
       return <div className={`admin-nav-group ${active ? 'has-active' : ''}`} key={group.title}>
-        <button type="button" className="admin-nav-toggle" aria-expanded={groupOpen} onClick={() => setExpanded(current => ({ ...current, [group.title]: !groupOpen }))}><Icon name={items[0].icon} size={18}/><span>{group.title}</span><svg className="admin-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
+        <button type="button" className="admin-nav-toggle" aria-expanded={groupOpen} onClick={() => setExpanded(current => ({ ...current, [group.title]: !groupOpen }))}><Icon name={group.icon || items[0].icon} size={18}/><span>{group.title}</span><svg className="admin-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
         <div className="admin-nav-items" hidden={!groupOpen}>{items.map(item => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isOn(item.href, item.exact) ? 'page' : undefined} className={`side-link ${isOn(item.href, item.exact) ? 'side-link-active' : ''}`}>{item.label}</Link>)}</div>
       </div>
     })}
