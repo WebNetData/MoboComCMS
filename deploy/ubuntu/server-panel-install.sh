@@ -38,7 +38,27 @@ set_env() { # KEY VALUE — replace or append in the env file
 echo "==> Tools"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq zip unzip acl >/dev/null
+apt-get install -y -qq zip unzip acl p7zip-full >/dev/null
+# RAR tools (multiverse); optional — without them the download center handles ZIP/7z only.
+apt-get install -y -qq unrar rar >/dev/null 2>&1 || echo "   (rar/unrar not installed — enable the multiverse repository to manage RAR archives)"
+
+echo "==> SSL (Let's Encrypt, incl. Cloudflare DNS for wildcard certificates)"
+apt-get install -y -qq certbot python3-certbot-dns-cloudflare >/dev/null
+mkdir -p /var/www/letsencrypt
+install -d -m 700 -o "$APP_USER" -g "$APP_USER" /etc/mobocom/secrets
+# Certificates renew by themselves (certbot.timer, twice a day); nginx reloads after each renewal.
+systemctl enable --now certbot.timer >/dev/null 2>&1 || true
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+printf '#!/bin/sh\nsystemctl reload nginx\n' > /etc/letsencrypt/renewal-hooks/deploy/mobocom-reload-nginx
+chmod 755 /etc/letsencrypt/renewal-hooks/deploy/mobocom-reload-nginx
+
+echo "==> Web helper (domains, SSL, site address)"
+install -m 755 -o root -g root "$(dirname "$0")/mobocom-webctl" /usr/local/sbin/mobocom-webctl
+
+echo "==> Download center folder"
+DL_ROOT="${DOWNLOADS_ROOT:-/var/www/dl}"
+install -d -m 2775 -o "$APP_USER" -g www-data "$DL_ROOT"
+set_env DOWNLOADS_ROOT "$DL_ROOT"
 
 echo "==> Panel switch"
 set_env SERVER_PANEL_ENABLED true
@@ -66,6 +86,8 @@ done
 cat > /etc/sudoers.d/mobocom-panel <<SUDO
 # Written by server-panel-install.sh — the site may only run these exact commands.
 ${APP_USER} ALL=(root) NOPASSWD: ${RULES%, }
+# Domains, SSL and site address: a helper that validates every argument itself.
+${APP_USER} ALL=(root) NOPASSWD: /usr/local/sbin/mobocom-webctl
 SUDO
 chmod 440 /etc/sudoers.d/mobocom-panel
 visudo -cf /etc/sudoers.d/mobocom-panel >/dev/null

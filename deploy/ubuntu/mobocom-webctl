@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+# mobocom-webctl — the only root-level web actions the server panel may run
+# (through sudo, see server-panel-install.sh). Every argument is validated
+# here; nginx files are generated from fixed templates, never copied from
+# the application.
+#
+#   status
+#   site-apply <domain> <app|static|redirect|proxy> <target> <www:0|1> <https:0|1> <cert-name|->
+#   site-remove <domain>
+#   cert-issue <cert-name> <http|cloudflare> <email> <domain> [domain...]
+#   cert-list
+#   cert-renew [dry]
+#   cert-delete <cert-name>
+#   site-url <https://host>
+#
+# Environment for testing: WEBCTL_NGINX_DIR, WEBCTL_DRY=1 (no nginx/certbot/systemctl calls).
+set -euo pipefail
+umask 022
+
+NGINX_DIR="${WEBCTL_NGINX_DIR:-/etc/nginx}"
+AVAILABLE="$NGINX_DIR/sites-available"
+ENABLED="$NGINX_DIR/sites-enabled"
+ACME_ROOT="${WEBCTL_ACME_ROOT:-/var/www/letsencrypt}"
+ENV_FILE="${WEBCTL_ENV_FILE:-/etc/mobocom/mobocom.env}"
+CF_INI="${WEBCTL_CF_INI:-/etc/mobocom/secrets/cloudflare.ini}"
+LE_LIVE="${WEBCTL_LE_LIVE:-/etc/letsencrypt/live}"
+APP_UPSTREAM="${WEBCTL_APP_UPSTREAM:-http://127.0.0.1:3000}"
+DRY="${WEBCTL_DRY:-0}"
+
+die() { echo "ERROR: $*" >&2; exit 2; }
+run() { if [ "$DRY" = "1" ]; then echo "DRY: $*"; else "$@"; fi }
+
+valid_domain() { [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] && [ ${#1} -le 253 ]; }
+valid_cert_domain() { valid_domain "${1#\*.}"; }
+valid_cert_name() { [[ "$1" =~ ^[a-z0-9][a-z0-9.-]{0,99}$ ]]; }
+valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; }
+valid_url() { [[ "$1" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~/%-]*)?$ ]]; }
+valid_root() { [[ "$1" =~ ^/var/www/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] && [[ "$1" != *..* ]]; }
+
+site_file() { echo "$AVAILABLE/mobocom-$1.conf"; }
+
+reload_nginx() {
+  if [ "$DRY" = "1" ]; then echo "DRY: nginx -t && systemctl reload nginx"; return 0; fi
+  nginx -t 2>&1 && systemctl reload nginx
+}
+
+location_block() { # mode target
+  local mode="$1" target="$2"
+  case "$mode" in
+    app|proxy)
+      local upstream="$APP_UPSTREAM"; [ "$mode" = "proxy" ] && upstream="$target"
+      cat <<BLOCK
+    client_max_body_size 25m;
+    location / {
+        proxy_pass $upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$remote_addr;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 120s;
+    }
+BLOCK
+      ;;
+    static)
+      cat <<BLOCK
+    root $target;
+    index index.html;
+    autoindex off;
+    # Download host: resumable downloads, no directory listing, long cache.
+    location / {
+        try_files \$uri \$uri/ =404;
+        add_header Accept-Ranges bytes;
+        add_header X-Content-Type-Options nosniff;
+        expires 7d;
+    }
+    location ~ /\. { deny all; }
+BLOCK
+      ;;
+    redirect)
+      printf '    location / {\n        return 301 %s$request_uri;\n    }\n' "${target%/}"
+      ;;
+  esac
+}
+
+cmd_status() {
+  local nginx=0 certbot=0 cf=0 timer=0 ip=""
+  command -v nginx >/dev/null 2>&1 && nginx=1
+  command -v certbot >/dev/null 2>&1 && certbot=1
+  { python3 -c 'import certbot_dns_cloudflare' >/dev/null 2>&1 || [ -d /usr/lib/python3/dist-packages/certbot_dns_cloudflare ]; } && cf=1
+  systemctl is-active --quiet certbot.timer 2>/dev/null && timer=1
+  ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  printf '{"nginx":%s,"certbot":%s,"cloudflare":%s,"renewTimer":%s,"ip":"%s","cfCredentials":%s}\n' "$nginx" "$certbot" "$cf" "$timer" "$ip" "$([ -s "$CF_INI" ] && echo 1 || echo 0)"
+}
+
+cmd_site_apply() {
+  [ $# -eq 6 ] || die "usage: site-apply <domain> <mode> <target> <www> <https> <cert|->"
+  local domain="$1" mode="$2" target="$3" www="$4" https="$5" cert="$6"
+  valid_domain "$domain" || die "invalid domain"
+  case "$mode" in
+    app) target="-" ;;
+    static) valid_root "$target" || die "static root must be under /var/www"; [ "$DRY" = "1" ] || mkdir -p "$target" ;;
+    redirect|proxy) valid_url "$target" || die "invalid target URL" ;;
+    *) die "invalid mode" ;;
+  esac
+  [[ "$www" =~ ^[01]$ && "$https" =~ ^[01]$ ]] || die "invalid flags"
+  local names="$domain"; [ "$www" = "1" ] && names="$domain www.$domain"
+  if [ "$https" = "1" ]; then
+    valid_cert_name "$cert" || die "invalid certificate name"
+    [ "$DRY" = "1" ] || [ -f "$LE_LIVE/$cert/fullchain.pem" ] || die "certificate $cert not found — issue it first"
+  fi
+  mkdir -p "$AVAILABLE" "$ENABLED"; [ "$DRY" = "1" ] || mkdir -p "$ACME_ROOT"
+  local file; file="$(site_file "$domain")"
+  local tmp; tmp="$(mktemp)"
+  {
+    echo "# Managed by the MoboCom server panel ($domain, $mode). Edits here are overwritten."
+    echo "server {"
+    echo "    listen 80;"
+    echo "    listen [::]:80;"
+    echo "    server_name $names;"
+    echo "    location /.well-known/acme-challenge/ { root $ACME_ROOT; }"
+    if [ "$https" = "1" ]; then
+      echo "    location / { return 301 https://\$host\$request_uri; }"
+    else
+      location_block "$mode" "$target"
+    fi
+    echo "}"
+    if [ "$https" = "1" ]; then
+      echo "server {"
+      # "listen … http2" works on the nginx of Ubuntu 22.04/24.04 (the "http2 on" directive needs 1.25+).
+      echo "    listen 443 ssl http2;"
+      echo "    listen [::]:443 ssl http2;"
+      echo "    server_name $names;"
+      echo "    ssl_certificate $LE_LIVE/$cert/fullchain.pem;"
+      echo "    ssl_certificate_key $LE_LIVE/$cert/privkey.pem;"
+      echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+      echo "    ssl_session_cache shared:mobocom_ssl:10m;"
+      echo "    add_header Strict-Transport-Security \"max-age=31536000\" always;"
+      location_block "$mode" "$target"
+      echo "}"
+    fi
+  } > "$tmp"
+  local backup=""
+  [ -f "$file" ] && { backup="$(mktemp)"; cp "$file" "$backup"; }
+  install -m 644 "$tmp" "$file"; rm -f "$tmp"
+  ln -sf "$file" "$ENABLED/mobocom-$domain.conf"
+  if ! reload_nginx; then
+    if [ -n "$backup" ]; then install -m 644 "$backup" "$file"; else rm -f "$file" "$ENABLED/mobocom-$domain.conf"; fi
+    rm -f "$backup"; reload_nginx >/dev/null 2>&1 || true
+    die "nginx rejected the configuration; previous version restored"
+  fi
+  rm -f "$backup"
+  echo "OK $file"
+}
+
+cmd_site_remove() {
+  [ $# -eq 1 ] || die "usage: site-remove <domain>"
+  valid_domain "$1" || die "invalid domain"
+  rm -f "$ENABLED/mobocom-$1.conf" "$(site_file "$1")"
+  reload_nginx
+  echo "OK removed $1"
+}
+
+cmd_cert_issue() {
+  [ $# -ge 4 ] || die "usage: cert-issue <name> <http|cloudflare> <email> <domain>..."
+  local name="$1" method="$2" email="$3"; shift 3
+  valid_cert_name "$name" || die "invalid certificate name"
+  valid_email "$email" || die "invalid email"
+  local args=(certonly --non-interactive --agree-tos -m "$email" --cert-name "$name" --keep-until-expiring --expand --deploy-hook "systemctl reload nginx")
+  for d in "$@"; do
+    valid_cert_domain "$d" || die "invalid domain $d"
+    [[ "$d" == \** && "$method" != "cloudflare" ]] && die "wildcard certificates need the Cloudflare DNS method"
+    args+=(-d "$d")
+  done
+  case "$method" in
+    http) mkdir -p "$ACME_ROOT"; args+=(--webroot -w "$ACME_ROOT") ;;
+    cloudflare) [ -s "$CF_INI" ] || die "Cloudflare credentials missing"; args+=(--dns-cloudflare --dns-cloudflare-credentials "$CF_INI" --dns-cloudflare-propagation-seconds 30) ;;
+    *) die "invalid method" ;;
+  esac
+  run certbot "${args[@]}"
+  echo "OK certificate $name"
+}
+
+cmd_cert_list() { if [ "$DRY" = "1" ]; then echo "No certificates found."; else certbot certificates 2>&1; fi; }
+
+cmd_cert_renew() {
+  if [ "${1:-}" = "dry" ]; then run certbot renew --dry-run --no-random-sleep-on-renew; else run certbot renew --no-random-sleep-on-renew --deploy-hook "systemctl reload nginx"; fi
+}
+
+cmd_cert_delete() {
+  [ $# -eq 1 ] && valid_cert_name "$1" || die "usage: cert-delete <name>"
+  run certbot delete --non-interactive --cert-name "$1"
+}
+
+cmd_site_url() {
+  [ $# -eq 1 ] || die "usage: site-url <url>"
+  [[ "$1" =~ ^https?://([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || die "invalid site URL"
+  [ -f "$ENV_FILE" ] || die "environment file missing"
+  if grep -q '^NEXTAUTH_URL=' "$ENV_FILE"; then sed -i "s|^NEXTAUTH_URL=.*|NEXTAUTH_URL=$1|" "$ENV_FILE"; else printf 'NEXTAUTH_URL=%s\n' "$1" >> "$ENV_FILE"; fi
+  if [ "$DRY" = "1" ]; then echo "DRY: restart mobocom"; else systemd-run --on-active=3 --unit="mobocom-restart-$$" /usr/bin/systemctl restart mobocom >/dev/null 2>&1 || (sleep 3; systemctl restart mobocom) >/dev/null 2>&1 & fi
+  echo "OK site URL set; restarting"
+}
+
+[ "$DRY" = "1" ] || [ "$(id -u)" -eq 0 ] || die "run through sudo"
+sub="${1:-}"; shift || true
+case "$sub" in
+  status) cmd_status ;;
+  site-apply) cmd_site_apply "$@" ;;
+  site-remove) cmd_site_remove "$@" ;;
+  cert-issue) cmd_cert_issue "$@" ;;
+  cert-list) cmd_cert_list ;;
+  cert-renew) cmd_cert_renew "$@" ;;
+  cert-delete) cmd_cert_delete "$@" ;;
+  site-url) cmd_site_url "$@" ;;
+  *) die "unknown command" ;;
+esac

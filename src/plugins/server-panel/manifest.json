@@ -2,7 +2,7 @@
   "id": "server-panel",
   "name": "پنل سرور",
   "nameEn": "Server panel",
-  "description": "پنل اختصاصی سرور اوبونتو: وضعیت و سرویس‌ها، مدیریت فایل کل سرور، گالری، ابزار پایگاه داده و ایمیل. با تأیید دوباره رمز، کد دومرحله‌ای، محدودیت IP و ثبت همهٔ کارها.",
+  "description": "پنل اختصاصی سرور اوبونتو: وضعیت و سرویس‌ها، مدیریت فایل کل سرور، گالری، ابزار پایگاه داده، ایمیل، دامنه و گواهی SSL (با Wildcard کلادفلر و تمدید خودکار). با تأیید دوباره رمز، کد دومرحله‌ای، محدودیت IP و ثبت همهٔ کارها.",
   "descriptionEn": "Dedicated Ubuntu server panel: status and services, whole-server file manager, gallery, database tools and email — behind password re-confirmation, 2-step codes, an IP allowlist and a full audit trail.",
   "version": "1.0.0",
   "kind": "module",
@@ -25,6 +25,7 @@
       { "href": "/admin/server/files", "label": "مدیریت فایل", "labelEn": "File manager", "icon": "sliders", "permissions": ["server.manage"] },
       { "href": "/admin/server/gallery", "label": "گالری", "labelEn": "Gallery", "icon": "sparkles", "permissions": ["server.manage"] },
       { "href": "/admin/server/database", "label": "پایگاه داده", "labelEn": "Database", "icon": "devices", "permissions": ["server.manage"] },
+      { "href": "/admin/server/domains", "label": "دامنه و SSL", "labelEn": "Domains & SSL", "icon": "globe", "permissions": ["server.manage"] },
       { "href": "/admin/server/mail", "label": "ایمیل", "labelEn": "Email", "icon": "chat", "permissions": ["server.manage"] },
       { "href": "/admin/server/security", "label": "امنیت پنل", "labelEn": "Panel security", "icon": "shield", "permissions": ["server.manage"] }
     ]

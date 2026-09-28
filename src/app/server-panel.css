@@ -176,3 +176,11 @@
 .sp-address-field span { color: var(--sa-muted); font-weight: 700; }
 .sp-compose { min-height: 260px; padding-block: 10px; resize: vertical; line-height: 1.9; }
 .sp-radio { display: flex; gap: 6px 18px; flex-wrap: wrap; }
+.sp-checks { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.sp-checks li { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.sp-methods { border: 1px solid var(--sa-line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; margin: 0; }
+.sp-methods legend { padding: 0 6px; font-weight: 800; font-size: 13px; }
+.sp-site-form { border-block-end: 1px solid var(--sa-line); padding-block-end: 14px; margin-block-end: 14px; }
+.sp-dns-form .input { flex: 1 1 140px; min-inline-size: 0; }
+.sp-dns-form .select { flex: 0 0 auto; }
+.sp-pad { padding: 12px 16px 16px; }
