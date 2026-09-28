@@ -81,7 +81,8 @@
 
 /* ---------- genres ---------- */
 .gx-genres-wrap { padding-block: 10px 6px; }
-.gx-genres { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.gx-genres { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 5 * 12px) / 6); gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
+.gx-genres > * { scroll-snap-align: start; }
 .gx-genre { position: relative; display: grid; align-content: space-between; min-height: 92px; padding: 12px 14px; overflow: hidden; border-radius: 14px; background: var(--gx-card-2) center / cover no-repeat; isolation: isolate; transition: transform .15s; }
 .gx-genre:hover { transform: translateY(-2px); }
 .gx-genre-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(200deg, rgba(10, 11, 16, .92) 15%, rgba(10, 11, 16, .35)); }
@@ -91,9 +92,8 @@
 
 /* ---------- cover cards & rails ---------- */
 .gx-rail-wrap { padding-block: 18px; }
-.gx-rail { overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(to left, transparent, #000 5%, #000 95%, transparent); }
-.gx-rail::-webkit-scrollbar { display: none; }
-.gx-rail-track { display: grid; grid-auto-flow: column; grid-auto-columns: 160px; gap: 14px; width: max-content; padding-inline: max(16px, calc((100vw - 1200px) / 2)); scroll-snap-type: x mandatory; }
+/* Rails sit inside the page container, as sliders (arrows, fades and page dots come from .sl). */
+.gx-rail-track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 5 * 14px) / 6); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; }
 .gx-cover { display: grid; align-content: start; gap: 10px; scroll-snap-align: start; }
 .gx-cover-art { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border-radius: 14px; background: var(--gx-card-2); box-shadow: 0 16px 30px -24px #000; }
 .gx-cover-art img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
@@ -190,7 +190,8 @@
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
-  .gx-genres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gx-genres { grid-auto-columns: calc((100% - 2 * 12px) / 3); }
+  .gx-rail-track { grid-auto-columns: calc((100% - 3 * 14px) / 4); }
   .gx-review-cards, .gx-post-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -205,9 +206,9 @@
   .gx-selects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
-  .gx-genres { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gx-genres { grid-auto-columns: 44%; }
+  .gx-rail-track { grid-auto-columns: 42%; }
   .gx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
-  .gx-rail-track { grid-auto-columns: 132px; }
   .gx-search > button { width: 90px; }
   .gx-genre-head img { width: 76px; height: 76px; }
 }
@@ -480,3 +481,6 @@
   .gv-req-col dl div { grid-template-columns: 90px minmax(0, 1fr); }
   .gv-play { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Sliders in the games portal use its red accent. */
+.gx-rail-wrap .sl, .gx-genres-wrap .sl { --sl-accent: var(--gx-red); }

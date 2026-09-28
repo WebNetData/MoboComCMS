@@ -4,6 +4,7 @@ import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'
 import TabSwitch from '@/components/site/TabSwitch'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
+import Slider from '@/components/site/Slider'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
@@ -35,8 +36,7 @@ export function CoverCard({ game }: { game: Game }) {
 export function GameRail({ title, games, more, icon }: { title: string; games: Game[]; more?: string; icon?: IconName }) {
   if (!games.length) return null
   return <section className="gx-rail-wrap">
-    <div className="container"><GxTitle title={title} more={more} icon={icon} /></div>
-    <div className="gx-rail"><div className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</div></div>
+    <div className="container"><GxTitle title={title} more={more} icon={icon} /><Slider className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</Slider></div>
   </section>
 }
 
@@ -61,10 +61,10 @@ export function GenreTiles({ tiles }: { tiles: GenreTile[] }) {
   if (!tiles.length) return null
   return <section className="container gx-genres-wrap">
     <GxTitle title="ژانرها" icon="grid" more="/games/browse" />
-    <nav className="gx-genres" aria-label="ژانرها">{tiles.map((tile) => <Link key={tile.key} href={tile.href} className="gx-genre" style={bg(tile.image)}>
+    <Slider as="nav" className="gx-genres" label="ژانرها">{tiles.map((tile) => <Link key={tile.key} href={tile.href} className="gx-genre" style={bg(tile.image)}>
       <span className="gx-genre-shade" aria-hidden="true" />
       <b>{tile.name}</b><small>{fa(tile.count)} بازی</small>
-    </Link>)}</nav>
+    </Link>)}</Slider>
   </section>
 }
 
