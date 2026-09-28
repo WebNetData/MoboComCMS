@@ -54,6 +54,15 @@
         ]
       },
       {
+        "href": "/admin/store/returns",
+        "label": "لغو و مرجوعی",
+        "labelEn": "Returns & cancellations",
+        "icon": "wallet",
+        "permissions": [
+          "orders.manage"
+        ]
+      },
+      {
         "href": "/admin/store/products",
         "label": "محصولات",
         "labelEn": "Products",

@@ -20,6 +20,7 @@ export function Money({ value, currency }: { value: number; currency: string }) 
 const TABS = [
   { href: '/admin/store', label: 'داشبورد', exact: true },
   { href: '/admin/store/orders', label: 'سفارش‌ها' },
+  { href: '/admin/store/returns', label: 'لغو و مرجوعی' },
   { href: '/admin/store/products', label: 'محصولات' },
   { href: '/admin/store/inventory', label: 'انبار' },
   { href: '/admin/store/brands', label: 'برندها' },
@@ -79,4 +80,5 @@ export function Pager({ page, pages, onPage }: { page: number; pages: number; on
   </nav>
 }
 
+export const RETURN_TONE: Record<string, string> = { REQUESTED: 'is-warn', APPROVED: 'is-info', REFUNDED: 'is-ok', REJECTED: 'is-bad', WITHDRAWN: '' }
 export const STATE_TONE: Record<string, string> = { info: 'is-info', warn: 'is-warn', ok: 'is-ok', bad: 'is-bad' }

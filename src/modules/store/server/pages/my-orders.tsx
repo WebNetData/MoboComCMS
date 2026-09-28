@@ -5,11 +5,16 @@ import { CUSTOMER_TABS, customerOrder, customerOrders, customerServiceOrders, ty
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, trackingIndex } from '@/modules/store/domain/store'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { Money } from '@/components/store/Storefront'
+import ReturnPanel from '@/components/store/ReturnPanel'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const persian = (value: Date | string, time = false) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}), timeZone: 'Asia/Tehran' }).format(new Date(value))
 const persianDay = (day: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))
-const EVENT_LABEL: Record<string, string> = { PAID: 'پرداخت شد', NOTE: 'پیام فروشگاه', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
+const EVENT_LABEL: Record<string, string> = {
+  PAID: 'پرداخت شد', NOTE: 'پیام فروشگاه', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش',
+  CANCEL_REQUESTED: 'درخواست لغو', RETURN_REQUESTED: 'درخواست مرجوعی', RETURN_APPROVED: 'مرجوعی تأیید شد', RETURN_REJECTED: 'درخواست رد شد',
+  RETURN_WITHDRAWN: 'درخواست لغو شد', REFUNDED: 'برگشت وجه به کیف پول',
+}
 
 async function userId(next: string) {
   const viewer = await getViewer()
@@ -99,6 +104,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
         </section>
       </aside>
     </div>
+    {order.state.key !== 'UNPAID' && <ReturnPanel orderId={order.id} />}
     {order.events.length > 0 && <section className="sx-my-card">
       <h2><StoreIcon name="clock" size={17} />تاریخچهٔ سفارش</h2>
       <ol className="sx-timeline">{[...order.events].reverse().map((event) => <li key={event.id}>

@@ -283,7 +283,7 @@ const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]
 
 /** Moves a paid order along the fulfilment workflow, with timeline entry and customer notice. */
 export async function transitionOrder(input: {
-  orderId: number; to: string; actorId: number
+  orderId: number; to: string; actorId: number | null
   trackingCode?: unknown; note?: unknown; digitalDelivery?: unknown; notify?: boolean; restock?: boolean
 }) {
   const delivery = await db.productDelivery.findUnique({ where: { orderId: input.orderId }, include: { order: { select: { userId: true, status: true, product: { select: { kind: true } }, lines: { select: { kind: true } } } } } })

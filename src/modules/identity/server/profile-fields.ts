@@ -163,3 +163,10 @@ export async function memberProfileData(userId: number) {
     rows: config.fields.filter((field) => !field.builtin && member.data[field.key] !== undefined && member.data[field.key] !== '').map((field) => ({ label: field.label, value: field.type === 'checkbox' ? (member.data[field.key] ? 'بله' : 'خیر') : String(member.data[field.key]) })),
   }
 }
+
+/** The member's national ID from an admin-defined "کد ملی" field, for official invoices ('' when none). */
+export async function memberNationalId(userId: number) {
+  const [config, member] = await Promise.all([getFieldsConfig(), loadMember(userId)])
+  const field = config.fields.find((item) => item.type === 'nationalId' && member.data[item.key])
+  return field ? String(member.data[field.key]) : ''
+}

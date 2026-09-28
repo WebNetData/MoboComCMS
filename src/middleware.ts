@@ -43,7 +43,7 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${translate ? TRANSLATE_SCRIPT : ''}`,
     `style-src 'self' 'unsafe-inline'${translate ? ' https://www.gstatic.com' : ''}`,
-    "img-src 'self' data: https:",
+    "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     // Music player and trailers stream from media hosts (after the protected /api/media redirect).
     "media-src 'self' https: blob:",

@@ -206,6 +206,7 @@ model Order {
   deliveryBooking DeliveryBooking?
   lines         OrderLine[]
   events        OrderEvent[]
+  returns       ReturnRequest[]
 }
 
 model OrderItem {
@@ -2396,4 +2397,34 @@ model PasswordReset {
   createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// Customer cancellation (before shipping) or return (after delivery) of a store order; refunds go to the wallet.
+model ReturnRequest {
+  id          Int       @id @default(autoincrement())
+  number      String    @unique
+  orderId     Int
+  userId      Int
+  kind        String    @default("RETURN") // CANCEL | RETURN
+  status      String    @default("REQUESTED") // REQUESTED | APPROVED | REJECTED | REFUNDED | WITHDRAWN
+  reason      String    @default("")
+  description String    @default("")
+  photos      String    @default("[]") // stored file names under storage/returns
+  lines       String    @default("[]") // [{ line, quantity }]
+  requestedMinor BigInt @default(0)
+  refundMinor BigInt    @default(0)
+  currency    String    @default("IRT")
+  restocked   Boolean   @default(false)
+  adminNote   String    @default("")
+  decidedBy   Int?
+  decidedAt   DateTime?
+  refundedAt  DateTime?
+  walletTxId  Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
