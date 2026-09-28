@@ -87,6 +87,24 @@ export default function AdminMegaMenuPage() {
         </section>
 
         <section className="sh-panel">
+          <header className="sh-panel-head"><h2>آیتم‌های منوی بخش</h2><small className="sh-muted">ترتیب، نمایش و تعداد</small></header>
+          {(preview || info.preview).catalog.length ? <ol className="mmx-items">{(preview || info.preview).catalog.map((item, index, list) => {
+            const move = (delta: number) => { const keys = list.map((entry) => entry.key); const target = index + delta; if (target < 0 || target >= keys.length) return; [keys[index], keys[target]] = [keys[target], keys[index]]; patch({ itemOrder: keys }) }
+            const hidden = section.hiddenItems.includes(item.key)
+            return <li key={item.key} className={hidden ? 'is-off' : ''}>
+              <span className="mmx-item-index num">{(index + 1).toLocaleString('fa-IR')}</span>
+              <label className="sh-check"><input type="checkbox" checked={!hidden} onChange={(e) => patch({ hiddenItems: e.target.checked ? section.hiddenItems.filter((key) => key !== item.key) : [...section.hiddenItems, item.key] })} />{item.label}</label>
+              <span className="mmx-item-move"><button type="button" className="sh-btn sh-btn-ghost" disabled={index === 0} onClick={() => move(-1)} aria-label={`بالا بردن ${item.label}`}>↑</button><button type="button" className="sh-btn sh-btn-ghost" disabled={index === list.length - 1} onClick={() => move(1)} aria-label={`پایین بردن ${item.label}`}>↓</button></span>
+            </li>
+          })}</ol> : <p className="sh-muted">این بخش هنوز دستهٔ اصلی ندارد.</p>}
+          <div className="sh-grid sh-admin-fields">
+            <label className="sh-field"><span>حداکثر آیتم در نوار (بقیه در «بیشتر»)</span><input className="sh-input" type="number" dir="ltr" min={0} max={20} value={section.maxItems} onChange={(e) => patch({ maxItems: Math.max(0, Math.min(20, Number(e.target.value) || 0)) })} /><small className="sh-muted">۰ = هر تعداد که جا شود؛ آیتم‌هایی که جا نشوند خودکار به «بیشتر» می‌روند.</small></label>
+          </div>
+          <label className="sh-check"><input type="checkbox" checked={section.showSearch} onChange={(e) => patch({ showSearch: e.target.checked })} />کادر جست‌وجوی بخش در نوار منو</label>
+          <label className="sh-check"><input type="checkbox" checked={section.showQuick} onChange={(e) => patch({ showQuick: e.target.checked })} />لینک‌های سریع در نوار منو</label>
+        </section>
+
+        <section className="sh-panel">
           <header className="sh-panel-head"><h2>لینک‌های سریع</h2>
             <button type="button" className="sh-btn sh-btn-ghost" disabled={section.links.length >= 12} onClick={() => patch({ links: [...section.links, { label: '', href: '' }] })}>+ لینک</button></header>
           <div className="mmx-links">

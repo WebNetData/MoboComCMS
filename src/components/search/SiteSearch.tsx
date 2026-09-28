@@ -74,12 +74,12 @@ export default function SiteSearch({ className = '' }: { className?: string }) {
         <span className="ss-trigger-label">جست‌وجو</span>
         <kbd aria-hidden="true">/</kbd>
       </button>
-      <dialog ref={dialog} className="ss-dialog" aria-label="جست‌وجو در سایت" onClick={(e) => { if (e.target === dialog.current) dialog.current?.close() }}>
+      <dialog ref={dialog} dir="rtl" className="ss-dialog" aria-label="جست‌وجو در سایت" onClick={(e) => { if (e.target === dialog.current) dialog.current?.close() }}>
         <div className="ss-box">
           <div className="ss-field">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
             <input
-              ref={input} type="search" dir="auto" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown}
+              ref={input} type="search" dir="rtl" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown}
               placeholder="نرم‌افزار، بازی، فیلم، آهنگ، محصول…" aria-label="عبارت جست‌وجو" role="combobox" aria-expanded={results.length > 0}
               aria-controls={listId} aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" enterKeyHint="search"
             />

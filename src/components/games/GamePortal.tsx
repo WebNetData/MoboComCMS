@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import type { GameCard as Game } from '@/modules/media/server/queries'
 import { Icon, platformIcon, type IconName } from '@/components/media/PortalIcons'
 import TabSwitch from '@/components/site/TabSwitch'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
+import Slider from '@/components/site/Slider'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
@@ -34,21 +36,26 @@ export function CoverCard({ game }: { game: Game }) {
 export function GameRail({ title, games, more, icon }: { title: string; games: Game[]; more?: string; icon?: IconName }) {
   if (!games.length) return null
   return <section className="gx-rail-wrap">
-    <div className="container"><GxTitle title={title} more={more} icon={icon} /></div>
-    <div className="gx-rail"><div className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</div></div>
+    <div className="container"><GxTitle title={title} more={more} icon={icon} /><Slider className="gx-rail-track">{games.map((game) => <CoverCard key={game.id} game={game} />)}</Slider></div>
   </section>
 }
 
 const PLATFORM_NOTE: Record<string, string> = { PC: 'Windows', Windows: 'Windows', PS5: 'PlayStation', PS4: 'PlayStation', 'Xbox Series': 'Xbox', 'Xbox One': 'Xbox', Android: 'Android', iOS: 'Apple', Switch: 'Nintendo' }
 
-/** “By platform” cards. */
-export function PlatformCards({ platforms }: { platforms: string[] }) {
+/** Brand tint per platform family (cards and their icon halo). */
+const PLATFORM_TONE: Record<string, string> = { PC: '#3b82f6', Windows: '#3b82f6', PS5: '#2563eb', PS4: '#1d4ed8', 'Xbox Series': '#16a34a', 'Xbox One': '#15803d', Switch: '#e60012', Android: '#22c55e', iOS: '#a1a1aa', Linux: '#f59e0b', macOS: '#a1a1aa' }
+
+/** “By platform”: one even row of brand-tinted cards with the number of games. */
+export function PlatformCards({ platforms, counts = {} }: { platforms: string[]; counts?: Record<string, number> }) {
   if (!platforms.length) return null
+  const list = platforms.slice(0, 6)
   return <section className="container gx-platforms-row">
-    <div className="gx-platforms-head"><b>بر اساس پلتفرم</b><small>بازی مورد نظرتان را بر اساس پلتفرم پیدا کنید</small></div>
-    <nav className="gx-platforms" aria-label="پلتفرم‌ها">{platforms.slice(0, 6).map((platform) => <Link key={platform} href={`/games/browse?platform=${encodeURIComponent(platform)}`} className="gx-platform-card">
-      <span><b>بازی‌های {platform}</b><small dir="ltr">{PLATFORM_NOTE[platform] || platform}</small></span>
-      <Icon name={platformIcon(platform)} size={28} />
+    <GxTitle title="بر اساس پلتفرم" icon="grid" more="/games/browse" />
+    <nav className="gx-platforms" aria-label="پلتفرم‌ها" style={{ '--gx-n': list.length } as React.CSSProperties}>{list.map((platform) => <Link key={platform} href={`/games/browse?platform=${encodeURIComponent(platform)}`} className="gx-platform-card" style={{ '--tone': PLATFORM_TONE[platform] || 'var(--gx-red)' } as React.CSSProperties}>
+      <span className="gx-platform-icon"><Icon name={platformIcon(platform)} size={26} /></span>
+      <span className="gx-platform-text"><b dir="auto">{platform}</b><small dir="ltr">{PLATFORM_NOTE[platform] || platform}</small></span>
+      {counts[platform] ? <span className="gx-platform-count">{fa(counts[platform])} بازی</span> : null}
+      <span className="gx-platform-go" aria-hidden="true"><Icon name="chevron" size={14} /></span>
     </Link>)}</nav>
   </section>
 }
@@ -60,10 +67,10 @@ export function GenreTiles({ tiles }: { tiles: GenreTile[] }) {
   if (!tiles.length) return null
   return <section className="container gx-genres-wrap">
     <GxTitle title="ژانرها" icon="grid" more="/games/browse" />
-    <nav className="gx-genres" aria-label="ژانرها">{tiles.map((tile) => <Link key={tile.key} href={tile.href} className="gx-genre" style={bg(tile.image)}>
+    <Slider as="nav" className="gx-genres" label="ژانرها">{tiles.map((tile) => <Link key={tile.key} href={tile.href} className="gx-genre" style={bg(tile.image)}>
       <span className="gx-genre-shade" aria-hidden="true" />
       <b>{tile.name}</b><small>{fa(tile.count)} بازی</small>
-    </Link>)}</nav>
+    </Link>)}</Slider>
   </section>
 }
 
@@ -140,7 +147,7 @@ export function BrowseFilters({ action, values, facets, children }: {
   </label>
   const plain = (list: string[]) => list.map((value) => ({ value, label: value }))
   return <form action={action} className="gx-browse-form" role="search">
-    <div className="gx-search"><input name="q" type="search" defaultValue={values.q} placeholder="نام بازی را جست‌وجو کنید" aria-label="نام بازی" /><button type="submit">جست‌وجو</button></div>
+    <div className="gx-search"><LiveSearchInput action="/games" defaultValue={values.q} placeholder="نام بازی را جست‌وجو کنید" /><button type="submit">جست‌وجو</button></div>
     <div className="gx-selects">
       {select('platform', 'پلتفرم', plain(facets.platforms))}
       {select('term', 'ژانر', facets.genres)}

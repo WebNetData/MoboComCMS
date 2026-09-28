@@ -43,7 +43,7 @@ export default async function SearchPage({ searchParams }: Props) {
         <header className="sr-head">
           <h1>{q ? <>نتایج جست‌وجو برای «<bdi>{q}</bdi>»</> : 'جست‌وجو در موبوکام'}</h1>
           <form className="sr-form" role="search" action="/search">
-            <input name="q" type="search" dir="auto" defaultValue={q} className="input" placeholder="نرم‌افزار، بازی، فیلم، آهنگ، محصول یا مقاله…" aria-label="عبارت جست‌وجو" autoFocus={!q} enterKeyHint="search" />
+            <input name="q" type="search" dir="rtl" defaultValue={q} className="input" placeholder="نرم‌افزار، بازی، فیلم، آهنگ، محصول یا مقاله…" aria-label="عبارت جست‌وجو" autoFocus={!q} enterKeyHint="search" />
             {data.type !== 'all' && <input type="hidden" name="type" value={data.type} />}
             <button className="btn btn-primary">جست‌وجو</button>
           </form>

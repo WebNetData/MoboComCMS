@@ -1,6 +1,7 @@
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { scoreBand } from '@/modules/media/domain/media'
+import Slider from '@/components/site/Slider'
 
 /** Presentational building blocks shared by the music, cinema and games sections. */
 
@@ -19,7 +20,7 @@ export function Shelf({ title, eyebrow, href, more, children, tone, id }: { titl
         <div>{eyebrow && <span className="md-eyebrow">{eyebrow}</span>}<h2>{title}</h2></div>
         {href && <Link href={href} className="md-more">{more || '→'}</Link>}
       </header>
-      <div className="md-rail">{children}</div>
+      <Slider className="md-rail">{children}</Slider>
     </section>
   )
 }

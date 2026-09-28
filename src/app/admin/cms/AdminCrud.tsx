@@ -6,6 +6,9 @@ import dynamic from 'next/dynamic'
 import Link from '@/components/AppLink'
 import CoverField from './CoverField'
 import CategoryPicker from './CategoryPicker'
+import AiAutofill from './AiAutofill'
+import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -41,6 +44,11 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  // Values the assistant proposed; a field counts as "AI" until the editor changes it.
+  const [aiValues, setAiValues] = useState<Record<string, unknown>>({})
+  const [review, setReview] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [originalStatus, setOriginalStatus] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -58,6 +66,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? fl.options?.[0]?.value || '' : ''
     for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' ? [] : {}
     setForm(f)
+    setAiValues({})
+    setOriginalStatus('')
   }
 
   function edit(row: any) {
@@ -68,18 +78,60 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     setForm(f)
     setEditId(row.id)
     setShowForm(true)
+    setAiValues({})
+    setOriginalStatus(row.status || '')
   }
+
+  const isAi = (key: string) => key in aiValues && JSON.stringify(form[key]) === JSON.stringify(aiValues[key])
+  const aiUsed = Object.keys(aiValues).some(isAi)
+  const publishable = ['posts', 'pages', 'products'].includes(type)
+  const hasStatus = fields.some((fl) => fl.key === 'status')
+  // Going live (new, draft → published, or with AI-filled fields) needs a final review and confirmation.
+  const needsReview = publishable && (hasStatus ? form.status === 'PUBLISHED' && (!editId || originalStatus !== 'PUBLISHED' || aiUsed) : !editId || aiUsed)
+  const aiFields: AutofillField[] = publishable ? fields.flatMap((fl): AutofillField[] => {
+    if (['status', 'access', 'featured', 'active'].includes(fl.key)) return []
+    const base = { key: fl.key, label: fl.label, dir: fl.dir }
+    switch (fl.type || 'text') {
+      case 'text': return [{ ...base, type: fl.key === 'slug' ? 'slug' : 'text' }]
+      case 'textarea': return [{ ...base, type: 'textarea' }]
+      case 'richtext': return [{ ...base, type: 'richtext' }]
+      case 'number': return [{ ...base, type: 'number' }]
+      case 'checkbox': return [{ ...base, type: 'checkbox' }]
+      case 'select': { const options = (fl.optionsFromRows?.(rows, editId) || fl.options || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
+      case 'multiselect': return fl.options?.length ? [{ ...base, type: 'multiselect', options: fl.options }] : []
+      default: return []
+    }
+  }) : []
+  const applyAi = (values: Record<string, unknown>, filled: string[]) => {
+    const next = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, fields.find((fl) => fl.key === key)?.type === 'number' && typeof value === 'number' ? String(value) : value]))
+    setForm((current) => ({ ...current, ...next }))
+    setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
+  }
+  const reviewRows: ReviewRow[] = fields.map((fl) => {
+    const value = previewValue(form[fl.key], fl.optionsFromRows?.(rows, editId) || fl.options)
+    return { key: fl.key, label: fl.label, value, state: !value && fl.required ? 'missing' : isAi(fl.key) ? 'ai' : value ? 'ok' : 'empty' }
+  })
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (uploading) return
+    if (needsReview && !review) { setReview(true); return }
+    await persist()
+  }
+
+  async function persist() {
+    if (uploading || saving) return
+    setSaving(true)
     setMsg('')
     const res = await fetch(`/api/admin/cms?type=${type}`, {
       method: editId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editId ? { ...form, id: editId } : form),
-    })
+    }).catch(() => null)
+    if (!res) { setSaving(false); setMsg(t.errGeneric); return }
     const data = await res.json().catch(() => null)
+    setSaving(false)
+    setReview(false)
     if (!res.ok) {
       setMsg(data?.error || t.errGeneric)
       return
@@ -119,9 +171,10 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
 
       {showForm && (
         <form onSubmit={save} className="card mb-6 grid-3 items-end">
+          {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
           {fields.map((fl) => (
-            <div key={fl.key} className={fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}>
-              <label className="label">{fl.label}</label>
+            <div key={fl.key} className={`${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
+              <label className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>
               {fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
                 <RichEditor
                   value={form[fl.key] || ''}
@@ -157,9 +210,10 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           ))}
           {renderEditorExtra?.(form, setForm)}
           <div className="flex gap-2">
-            <button className="btn btn-primary flex-1" disabled={uploading}>{editId ? t.save : t.add}</button>
+            <button className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
             <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
           </div>
+          <PublishReview open={review} title={String(form[titleKey] || form.title || '')} rows={reviewRows} busy={saving} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
         </form>
       )}
 

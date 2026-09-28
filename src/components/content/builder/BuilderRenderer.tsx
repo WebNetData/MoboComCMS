@@ -21,6 +21,8 @@ import { getBuilderMedia, type BuilderMediaFeed } from '@/modules/media/server/q
 import { AlbumCard, GameCard, PosterCard } from '@/components/media/MediaCards'
 import { TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
+import Slider from '@/components/site/Slider'
+import { plainText } from '@/shared/text/plain'
 
 export type BuilderLocale = 'fa' | 'en'
 
@@ -273,7 +275,7 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
             <div className="br-post-copy">
               <small>{post.category ? pick(locale, post.category.name, post.category.nameEn) : 'JOURNAL'} · {new Date(post.publishedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</small>
               <h3>{pick(locale, post.title, post.titleEn)}</h3>
-              <p>{pick(locale, post.excerpt, post.excerptEn).slice(0, 120)}</p>
+              <p>{plainText(pick(locale, post.excerpt, post.excerptEn), 120)}</p>
             </div>
           </Link>)}
         </div>
@@ -303,9 +305,9 @@ function renderWidget(widget: BuilderWidget, ctx: Ctx): ReactNode {
       return frame(widget, ctx, <div className={`md-page md-embed md-${section}`}>
         <div className="md-shelf-head">{title ? <h2>{title}</h2> : <span />}<Link href={more} className="md-more">{fa ? 'همه ←' : 'All →'}</Link></div>
         {feed.kind === 'tracks' && <div className="mu-panel"><TrackList tracks={toPlayerTracks(feed.items, fa)} chart={props.source === 'music-top'} /></div>}
-        {feed.kind === 'albums' && <div className="md-rail">{feed.items.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</div>}
-        {feed.kind === 'titles' && <div className="md-rail">{feed.items.map((item, i) => <PosterCard key={item.id} item={item} fa={fa} rank={props.source === 'cinema-top' ? i + 1 : undefined} />)}</div>}
-        {feed.kind === 'games' && <div className="md-rail">{feed.items.map((game) => <GameCard key={game.id} game={game} fa={fa} />)}</div>}
+        {feed.kind === 'albums' && <Slider className="md-rail">{feed.items.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</Slider>}
+        {feed.kind === 'titles' && <Slider className="md-rail">{feed.items.map((item, i) => <PosterCard key={item.id} item={item} fa={fa} rank={props.source === 'cinema-top' ? i + 1 : undefined} />)}</Slider>}
+        {feed.kind === 'games' && <Slider className="md-rail">{feed.items.map((game) => <GameCard key={game.id} game={game} fa={fa} />)}</Slider>}
       </div>)
     }
     case 'vip-cta': {

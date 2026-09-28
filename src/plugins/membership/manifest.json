@@ -55,12 +55,42 @@
     "items": [
       {
         "href": "/admin/vip",
-        "label": "پلن‌ها و اعضا",
-        "labelEn": "Plans & members",
+        "label": "داشبورد اشتراک ویژه",
+        "labelEn": "VIP dashboard",
+        "icon": "grid",
+        "permissions": [
+          "membership.manage",
+          "users.manage"
+        ],
+        "exact": true
+      },
+      {
+        "href": "/admin/vip/members",
+        "label": "اعضای VIP",
+        "labelEn": "Members",
         "icon": "shield",
         "permissions": [
           "membership.manage",
-          "plans.manage",
+          "users.manage"
+        ]
+      },
+      {
+        "href": "/admin/vip/plans",
+        "label": "پلن‌های اشتراک",
+        "labelEn": "Plans",
+        "icon": "grid",
+        "permissions": [
+          "membership.manage",
+          "plans.manage"
+        ]
+      },
+      {
+        "href": "/admin/vip/perks",
+        "label": "مزایا در هر بخش",
+        "labelEn": "Perks by section",
+        "icon": "sliders",
+        "permissions": [
+          "membership.manage",
           "users.manage"
         ]
       },

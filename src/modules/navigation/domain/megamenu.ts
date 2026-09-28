@@ -35,6 +35,14 @@ export type SectionMenuConfig = {
   /** Hide the automatic quick links (newest, popular, …). */
   hideAutoLinks: boolean
   promo: MegaPromo & { enabled: boolean }
+  /** Bar entries (category keys) the editor hid. */
+  hiddenItems: string[]
+  /** Editor order of bar entries (keys); unknown/new entries follow in their natural order. */
+  itemOrder: string[]
+  /** Entries shown in the bar before «بیشتر» (0 = as many as fit). */
+  maxItems: number
+  showSearch: boolean
+  showQuick: boolean
 }
 
 export type MegaMenuConfig = { enabled: boolean; sections: Record<MegaSection, SectionMenuConfig> }
@@ -46,7 +54,7 @@ export class MegaMenuError extends Error {
 const EMPTY_PROMO = { enabled: false, title: '', text: '', href: '', image: '', cta: '' }
 
 export function defaultSectionConfig(): SectionMenuConfig {
-  return { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { ...EMPTY_PROMO } }
+  return { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { ...EMPTY_PROMO }, hiddenItems: [], itemOrder: [], maxItems: 0, showSearch: true, showQuick: true }
 }
 
 export function defaultMegaConfig(): MegaMenuConfig {
@@ -88,6 +96,19 @@ function normalizeLinks(value: unknown, fallback: MegaLink[]): MegaLink[] {
   return links
 }
 
+const keys = (value: unknown) => (Array.isArray(value) ? [...new Set(value.map((key) => String(key ?? '').trim().slice(0, 80)).filter(Boolean))].slice(0, 60) : [])
+
+/** Applies the editor's order and hidden list to a section's bar entries. */
+export function arrangeItems<T extends { key: string }>(items: T[], cfg: Pick<SectionMenuConfig, 'hiddenItems' | 'itemOrder'>): T[] {
+  const rank = new Map((cfg.itemOrder || []).map((key, index) => [key, index]))
+  const hidden = new Set(cfg.hiddenItems || [])
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (rank.get(a.item.key) ?? 1000 + a.index) - (rank.get(b.item.key) ?? 1000 + b.index))
+    .map(({ item }) => item)
+    .filter((item) => !hidden.has(item.key))
+}
+
 export function normalizeSectionConfig(input: unknown, previous: SectionMenuConfig = defaultSectionConfig()): SectionMenuConfig {
   const row = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
   const promoIn = (row.promo && typeof row.promo === 'object' ? row.promo : {}) as Record<string, unknown>
@@ -105,6 +126,11 @@ export function normalizeSectionConfig(input: unknown, previous: SectionMenuConf
     links: normalizeLinks(row.links, previous.links),
     hideAutoLinks: typeof row.hideAutoLinks === 'boolean' ? row.hideAutoLinks : previous.hideAutoLinks,
     promo,
+    hiddenItems: row.hiddenItems === undefined ? previous.hiddenItems ?? [] : keys(row.hiddenItems),
+    itemOrder: row.itemOrder === undefined ? previous.itemOrder ?? [] : keys(row.itemOrder),
+    maxItems: row.maxItems === undefined ? previous.maxItems ?? 0 : int(row.maxItems, 0, 20, 0),
+    showSearch: typeof row.showSearch === 'boolean' ? row.showSearch : previous.showSearch ?? true,
+    showQuick: typeof row.showQuick === 'boolean' ? row.showQuick : previous.showQuick ?? true,
   }
 }
 
@@ -163,6 +189,10 @@ export type SectionBar = {
   items: SectionBarItem[]
   /** Plain links after the category items (newest, most downloaded, …). */
   quick: MegaLink[]
+  /** «بیشتر» takes over after this many entries (0 = as many as fit). */
+  maxItems: number
+  /** Every entry in editor order, hidden ones included (admin list). */
+  catalog: { key: string; label: string; hidden: boolean }[]
   promo: MegaPromo | null
   search: { action: string; placeholder: string; param: string; categories: { value: string; label: string }[] } | null
 }

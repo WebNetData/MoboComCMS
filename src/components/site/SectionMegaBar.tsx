@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { usePathname } from '@/platform/routing/navigation'
 import type { SectionBar, SectionBarItem, MegaPromo } from '@/modules/navigation/domain/megamenu'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 const OPEN_DELAY = 110
 const CLOSE_DELAY = 220
@@ -51,6 +52,22 @@ export function MegaPanel({ item, promo, onNavigate }: { item: SectionBarItem; p
   </div>
 }
 
+const MORE = '__more__'
+const MORE_WIDTH = 96
+
+/** Entries that did not fit in the bar: each category with its first sub-links, then the quick links. */
+function MorePanel({ items, quick, onNavigate }: { items: SectionBarItem[]; quick: { label: string; href: string }[]; onNavigate: () => void }) {
+  return <div className="mm-body is-wide mm-more-body">
+    <div className="mm-main">
+      {items.length > 0 && <div className="mm-more-grid">{items.map((item) => <section key={item.key} className="mm-column">
+        <h3 className="mm-column-title"><Link href={item.href} onClick={onNavigate}>{item.label}</Link></h3>
+        <ul>{item.columns.flatMap((column) => column.links).slice(0, 6).map((link) => <li key={link.href}><Link href={link.href} onClick={onNavigate}><span>{link.label}</span>{count(link.count)}</Link></li>)}</ul>
+      </section>)}</div>}
+      {quick.length > 0 && <div className="mm-more-quick">{quick.map((link) => <Link key={link.href + link.label} href={link.href} onClick={onNavigate}>{link.label}</Link>)}</div>}
+    </div>
+  </div>
+}
+
 /**
  * A section's own menu bar (shown inside the section, under the site header):
  * section home, one entry per main category with its mega panel, quick links
@@ -88,33 +105,84 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
     const here = decodeURIComponent(pathname)
     return path !== bar.home && (here === path || here.startsWith(`${path}/`))
   }
+  // Priority+ layout: as many entries as fit (and at most bar.maxItems categories); the rest go under «بیشتر».
+  const nav = useRef<HTMLElement>(null)
+  const widths = useRef<number[] | null>(null)
+  const signature = [...bar.items.map((item) => item.key), '|', ...bar.quick.map((link) => link.href), bar.maxItems].join(',')
+  const [fit, setFit] = useState<{ items: number; quick: number } | null>(null)
+  const layout = useCallback(() => {
+    const el = nav.current
+    if (!el || !widths.current) return
+    const home = (el.querySelector('.mm-bar-home') as HTMLElement | null)?.offsetWidth || 0
+    const gap = 4
+    let space = el.clientWidth - home - gap
+    const total = widths.current.reduce((sum, w) => sum + w + gap, 0)
+    const cap = bar.maxItems > 0 ? Math.min(bar.maxItems, bar.items.length) : bar.items.length
+    const needMore = total > space || cap < bar.items.length
+    if (needMore) space -= MORE_WIDTH
+    let items = 0
+    for (let i = 0; i < cap && space - (widths.current[i] + gap) >= 0; i++) { space -= widths.current[i] + gap; items++ }
+    let quick = 0
+    if (items === bar.items.length) {
+      space -= 18 // separator
+      for (let i = 0; i < bar.quick.length && space - (widths.current[bar.items.length + i] + gap) >= 0; i++) { space -= widths.current[bar.items.length + i] + gap; quick++ }
+    }
+    setFit((current) => (current && current.items === items && current.quick === quick ? current : { items, quick }))
+  }, [bar.items.length, bar.quick.length, bar.maxItems])
+  // Measure every entry once per bar (all rendered), then lay out on every resize.
+  useLayoutEffect(() => { widths.current = null; setFit(null) }, [signature])
+  useLayoutEffect(() => {
+    const el = nav.current
+    if (!el || fit !== null) return
+    widths.current = [...el.querySelectorAll<HTMLElement>('[data-mm-entry]')].map((entry) => entry.offsetWidth)
+    layout()
+  }, [fit, layout])
+  useEffect(() => {
+    const el = nav.current
+    if (!el) return
+    const observer = new ResizeObserver(() => layout())
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [layout])
+  const shownItems = fit ? bar.items.slice(0, fit.items) : bar.items
+  const shownQuick = fit ? bar.quick.slice(0, fit.quick) : bar.quick
+  const moreItems = fit ? bar.items.slice(fit.items) : []
+  const moreQuick = fit ? bar.quick.slice(fit.quick) : []
+  const hasMore = moreItems.length + moreQuick.length > 0
+
   const openItem = bar.items.find((item) => item.key === open) || null
 
   return <div ref={root} className="mm-bar-wrap" onBlur={(event) => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(null) }}>
     <div className="container mm-bar">
-      <nav className="mm-bar-nav" aria-label={`منوی ${bar.title}`}>
+      <nav ref={nav} className={`mm-bar-nav${fit ? ' is-fitted' : ''}`} aria-label={`منوی ${bar.title}`}>
         <Link href={bar.home} className={`mm-bar-home${pathname === bar.home ? ' is-active' : ''}`} aria-current={pathname === bar.home ? 'page' : undefined}><HomeIcon /><span>خانهٔ {bar.title}</span></Link>
-        {bar.items.map((item) => {
+        {shownItems.map((item) => {
           const expanded = open === item.key
           const on = isOn(item.href)
-          if (!item.columns.length && !item.features.length) return <Link key={item.key} href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>{item.label}</Link>
-          return <div key={item.key} className={`mm-bar-item${expanded ? ' is-open' : ''}`} onMouseEnter={() => schedule(item.key, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
+          if (!item.columns.length && !item.features.length) return <Link key={item.key} data-mm-entry="" href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>{item.label}</Link>
+          return <div key={item.key} data-mm-entry="" className={`mm-bar-item${expanded ? ' is-open' : ''}`} onMouseEnter={() => schedule(item.key, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
             <Link href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>{item.label}</Link>
             <button type="button" className="mm-trigger" data-mm-trigger={item.key} aria-expanded={expanded} aria-controls={panelId} aria-label={`زیردسته‌های ${item.label}`} onClick={() => { clear(); setOpen(expanded ? null : item.key) }}><Chevron /></button>
           </div>
         })}
-        {bar.quick.length > 0 && <span className="mm-bar-sep" aria-hidden="true" />}
-        {bar.quick.map((link) => <Link key={link.href + link.label} href={link.href} className="mm-bar-quick">{link.label}</Link>)}
+        {shownQuick.length > 0 && <span className="mm-bar-sep" aria-hidden="true" />}
+        {shownQuick.map((link) => <Link key={link.href + link.label} data-mm-entry="" href={link.href} className="mm-bar-quick">{link.label}</Link>)}
+        {hasMore && <div className={`mm-bar-item mm-more${open === MORE ? ' is-open' : ''}`} onMouseEnter={() => schedule(MORE, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
+          <button type="button" className="mm-more-btn" data-mm-trigger={MORE} aria-expanded={open === MORE} aria-controls={panelId} onClick={() => { clear(); setOpen(open === MORE ? null : MORE) }}>
+            بیشتر<span className="mm-more-count">{(moreItems.length + moreQuick.length).toLocaleString('fa-IR')}</span><Chevron />
+          </button>
+        </div>}
       </nav>
       {bar.search && <form action={bar.search.action} className="mm-bar-search" role="search">
         {bar.search.categories.length > 0 && <select name={bar.search.param} aria-label="دسته" defaultValue=""><option value="">همهٔ دسته‌ها</option>{bar.search.categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>}
-        <input name="q" type="search" defaultValue={searchValue} placeholder={bar.search.placeholder} aria-label={bar.search.placeholder} />
+        <LiveSearchInput action={bar.search.action} defaultValue={searchValue} placeholder={bar.search.placeholder} />
         <button type="submit" aria-label="جست‌وجو"><SearchIcon /></button>
       </form>}
       {extra}
     </div>
-    <div id={panelId} className="mm-panel" hidden={!openItem} onMouseEnter={clear} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
+    <div id={panelId} className="mm-panel" hidden={!openItem && open !== MORE} onMouseEnter={clear} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
       {openItem && <div className="container"><div className="mm-panel-inner"><MegaPanel item={openItem} promo={bar.promo} onNavigate={() => setOpen(null)} /></div></div>}
+      {open === MORE && hasMore && <div className="container"><div className="mm-panel-inner"><MorePanel items={moreItems} quick={moreQuick} onNavigate={() => setOpen(null)} /></div></div>}
     </div>
   </div>
 }

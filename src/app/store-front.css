@@ -82,8 +82,7 @@
 .sx-tile-link { display: flex; flex-direction: column; height: 100%; padding: 12px; border: 1px solid var(--sx-line); border-radius: var(--sx-radius); background: var(--sx-surface); color: inherit; text-decoration: none; transition: box-shadow .2s, border-color .2s; }
 .sx-tile-link:hover { box-shadow: var(--sx-shadow); border-color: transparent; }
 .sx-tile-art { position: relative; display: grid; place-items: center; aspect-ratio: 1; border-radius: var(--sx-radius-sm); background: var(--sx-subtle); overflow: hidden; }
-.sx-tile-art img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
-:root[data-theme="dark"] .sx-tile-art img { mix-blend-mode: normal; }
+.sx-tile-art img { width: 100%; height: 100%; object-fit: cover; }
 .sx-tile-ph { color: var(--sx-muted); }
 .sx-tile.is-out .sx-tile-art img { filter: grayscale(1); opacity: .6; }
 .sx-rank { position: absolute; inset-block-start: 8px; inset-inline-start: 8px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--sx-accent); color: var(--sx-on-accent); font-weight: 800; font-size: 14px; }
@@ -229,8 +228,12 @@
 /* ---------- product page ---------- */
 .sx-product .content-breadcrumbs, .sx-product .sx-crumbs { margin-top: 4px; }
 .sx-phero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(280px, .8fr); gap: 24px; align-items: start; padding: 20px; border: 1px solid var(--sx-line); border-radius: 20px; background: var(--sx-surface); margin-bottom: 24px; }
-.sx-pgallery .store-gallery .product-media { aspect-ratio: 1; border-radius: var(--sx-radius); background: var(--sx-subtle); display: grid; place-items: center; overflow: hidden; }
-.sx-pgallery .store-gallery .product-media > img { width: 100%; height: 100%; object-fit: contain; padding: 18px; }
+/* The frame takes the photo's own proportions, so there is never an empty band above or below it. */
+.sx-pgallery .store-gallery .product-media { border-radius: var(--sx-radius); background: var(--sx-subtle); overflow: hidden; }
+.sx-pgallery .store-gallery .product-media > img { display: block; width: 100%; height: auto; max-height: 620px; object-fit: cover; padding: 0; }
+.sx-pgallery .store-gallery .product-media > .content-art { aspect-ratio: 1; }
+.sx-pgallery .store-gallery-thumbs img { object-fit: cover; border-radius: 6px; }
+.sx-pgallery .store-gallery-thumbs button { padding: 2px; }
 .sx-pinfo { min-width: 0; display: grid; gap: 12px; align-content: start; }
 .sx-pinfo-top { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; }
 .sx-pinfo-brand { color: var(--sx-accent); font-weight: 800; text-decoration: none; }

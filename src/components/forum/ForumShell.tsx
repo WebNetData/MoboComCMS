@@ -7,6 +7,7 @@ import { shellIdentity } from '@/modules/forum/server/people'
 import { Avatar, num } from '@/components/forum/shared'
 import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 export type ForumNavKey = 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
 
@@ -78,7 +79,7 @@ export default async function ForumShell({ viewer, active = '', category, childr
             <Link href="/forum" className="fx-brand">تالار گفتمان</Link>
             <form action="/forum/search" className="fx-search" role="search">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" /></svg>
-              <input name="q" type="search" placeholder="جست‌وجو در تالار…" aria-label="جست‌وجو در تالار" />
+              <LiveSearchInput action="/forum/search" placeholder="جست‌وجو در تالار…" />
             </form>
             <div className="fx-top-actions">
               {signedIn ? <>

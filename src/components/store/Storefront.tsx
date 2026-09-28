@@ -5,6 +5,7 @@ import type { StoreTile } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
+import Slider from '@/components/site/Slider'
 
 // Storefront building blocks (Digikala-style commerce on the SDS tokens):
 // price, product tile, rails, the timed-offer band, category circles,
@@ -68,7 +69,7 @@ export function ProductRail({ title, icon, products, more, ranked = false }: { t
   if (!products.length) return null
   return <section className="sx-section">
     <SectionHead title={title} icon={icon} more={more} />
-    <div className="sx-rail" role="list">{products.map((product, index) => <div role="listitem" key={product.id}><ProductTile product={product} rank={ranked ? index + 1 : undefined} /></div>)}</div>
+    <Slider className="sx-rail" role="list">{products.map((product, index) => <div role="listitem" key={product.id}><ProductTile product={product} rank={ranked ? index + 1 : undefined} /></div>)}</Slider>
   </section>
 }
 
@@ -87,14 +88,14 @@ export function OfferBand({ title, products }: { title: string; products: Produc
       {ends && <Countdown until={ends} />}
       <Link href="/products?discounted=1&sort=discount" className="sx-offers-all">همهٔ پیشنهادها<StoreIcon name="chevron" size={16} /></Link>
     </div>
-    <div className="sx-offers-track" role="list">
+    <Slider className="sx-offers-track" role="list">
       {products.map((product) => <Link role="listitem" key={product.id} href={`/products/${product.slug}`} className="sx-offer">
         <span className="sx-offer-art">{product.image ? <img src={product.image} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}</span>
         <b>{product.name}</b>
         <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} compact />
       </Link>)}
       <Link role="listitem" href="/products?discounted=1&sort=discount" className="sx-offer is-more"><span><StoreIcon name="chevron" size={22} /></span>مشاهدهٔ همه</Link>
-    </div>
+    </Slider>
   </section>
 }
 
@@ -104,13 +105,13 @@ export function CategoryCircles({ categories }: { categories: CircleCategory[] }
   if (!categories.length) return null
   return <section className="sx-section">
     <SectionHead title="خرید بر اساس دسته‌بندی" icon="grid" />
-    <nav className="sx-circles" aria-label="دسته‌بندی‌های فروشگاه">
+    <Slider as="nav" className="sx-circles" label="دسته‌بندی‌های فروشگاه">
       {categories.map((category) => <Link key={category.slug} href={`/products?category=${encodeURIComponent(category.slug)}`} className="sx-circle">
         <span>{category.image ? <img src={category.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={30} />}</span>
         <b>{category.name}</b>
         <small className="num">{fa(category.total)} کالا</small>
       </Link>)}
-    </nav>
+    </Slider>
   </section>
 }
 
@@ -118,9 +119,9 @@ export function BrandStrip({ brands }: { brands: { id: number; slug: string; nam
   if (!brands.length) return null
   return <section className="sx-section">
     <SectionHead title="محبوب‌ترین برندها" icon="star" />
-    <nav className="sx-brands" aria-label="برندها">{brands.map((brand) => <Link key={brand.id} href={`/products?brand=${encodeURIComponent(brand.slug)}`} className="sx-brand" title={brand.name}>
+    <Slider as="nav" className="sx-brands" label="برندها">{brands.map((brand) => <Link key={brand.id} href={`/products?brand=${encodeURIComponent(brand.slug)}`} className="sx-brand" title={brand.name}>
       {brand.logo ? <img src={brand.logo} alt={brand.name} loading="lazy" /> : <b>{brand.name}</b>}
-    </Link>)}</nav>
+    </Link>)}</Slider>
   </section>
 }
 

@@ -147,3 +147,5 @@ button,a,input,textarea,select,summary { -webkit-tap-highlight-color:transparent
 /* Hide Google's own banner and tooltip; the page must not jump down. */
 body{top:0!important}.goog-te-banner-frame,.skiptranslate>iframe,#goog-gt-tt,.goog-te-balloon-frame{display:none!important}.goog-text-highlight{background:none!important;box-shadow:none!important}
 @media(max-width:600px){.mc-translate{bottom:16px;inset-inline-start:16px}.mc-translate-button span{display:none}.mc-translate-button{padding:12px}}
+
+.studio-item-move{display:flex;gap:6px;justify-content:flex-end}

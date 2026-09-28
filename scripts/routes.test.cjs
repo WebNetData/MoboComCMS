@@ -74,6 +74,7 @@ test('every bundled module menu is valid and each section links to its settings 
     if (!fs.existsSync(file)) continue
     const manifest = JSON.parse(fs.readFileSync(file, 'utf8'))
     contracts.assertValidExtensionManifest(manifest)
-    if (manifest.adminMenu) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
+    // Public sections link to their settings page; admin-only tools (server panel) have none.
+    if (manifest.adminMenu && manifest.publicPaths?.length) assert.ok(manifest.adminMenu.items.some((item) => item.href === `/admin/sections/${manifest.id}`), `${manifest.id} has a settings link`)
   }
 })

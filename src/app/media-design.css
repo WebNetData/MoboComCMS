@@ -56,7 +56,7 @@
 .md-subnav-links a.is-active { color: var(--md-text); background: color-mix(in srgb, var(--md-accent) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--md-accent) 40%, transparent); }
 .md-search { display: flex; align-items: center; background: var(--md-soft); border: 1px solid var(--md-line); border-radius: 999px; padding-inline: 14px 4px; min-width: 0; width: min(320px, 38vw); }
 .md-search input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--md-text); padding-block: 9px; font: inherit; font-size: .9rem; }
-.md-search button { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--md-accent); color: #111; font-size: 1.1rem; cursor: pointer; }
+.md-search > button { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--md-accent); color: #111; font-size: 1.1rem; cursor: pointer; }
 @media (max-width: 720px) { .md-subnav { flex-wrap: wrap; padding-block: 8px; } .md-search { width: 100%; } }
 
 /* shelves & rails */

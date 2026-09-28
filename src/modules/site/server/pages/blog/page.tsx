@@ -15,6 +15,7 @@ import { requireModule } from '@/extensions/server/modules'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { railOrder } from '@/shared/section-layout'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -110,7 +111,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const currentCategory = cats.find((c) => c.slug === category)
   const searchForm = <form action="/blog" className="lh-search" role="search">
     {category && <input type="hidden" name="category" value={category} />}
-    <input key={query} type="search" name="q" defaultValue={query} maxLength={120} aria-label={isFa ? 'جست‌وجوی نوشته‌ها' : 'Search articles'} placeholder={isFa ? 'جست‌وجو در مجله…' : 'Search the journal…'} />
+    <LiveSearchInput key={query} action="/blog" defaultValue={query} placeholder={isFa ? 'جست‌وجو در مجله…' : 'Search the journal…'} />
     <button type="submit" aria-label={isFa ? 'جست‌وجو' : 'Search'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg></button>
   </form>
 

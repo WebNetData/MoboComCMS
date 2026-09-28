@@ -113,9 +113,18 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
 }
 
 /** Autocomplete: the best few hits across all types. */
-export async function suggest(q: unknown) {
-  const result = await searchSite({ q, log: false })
-  return result.hits.slice(0, 8).map((hit) => ({ type: hit.type, title: hit.title, subtitle: hit.subtitle, url: hit.url, image: hit.image }))
+export async function suggest(q: unknown, only: readonly ItemType[] = []) {
+  // Section search boxes ask for their own item types only (e.g. the cinema box → titles):
+  // one ranked query per type, merged by score.
+  const hits = only.length
+    ? (await Promise.all(only.map((type) => searchSite({ q, type, log: false })))).flatMap((result) => (result.type === 'all' ? [] : result.hits)).sort((a, b) => b.score - a.score)
+    : (await searchSite({ q, log: false })).hits
+  return hits.slice(0, 8).map((hit) => ({ type: hit.type, title: hit.title, subtitle: hit.subtitle, url: hit.url, image: hit.image }))
+}
+
+/** `types=title,album` → the known item types in it. */
+export function parseTypes(value: unknown): ItemType[] {
+  return String(value ?? '').split(',').map((part) => part.trim()).filter((part): part is ItemType => (ITEM_TYPES as readonly string[]).includes(part)).slice(0, ITEM_TYPES.length)
 }
 
 export const SEARCH_TYPES: readonly ItemType[] = ITEM_TYPES

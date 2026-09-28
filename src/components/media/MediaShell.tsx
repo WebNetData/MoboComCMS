@@ -6,6 +6,7 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import SectionMegaBar from '@/components/site/SectionMegaBar'
 import { getSectionBar } from '@/modules/navigation/server/megamenu'
 import type { MegaSection } from '@/modules/navigation/domain/megamenu'
+import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 const BAR_SECTIONS: readonly MegaSection[] = ['music', 'cinema', 'games', 'software', 'forum']
 
@@ -30,7 +31,7 @@ export default async function MediaShell({ section, active, nav, children, searc
               <div className="md-subnav-links">{nav.map((item) => <Link key={item.key} href={item.href} className={active === item.key ? 'is-active' : ''} aria-current={active === item.key ? 'page' : undefined}>{item.label}</Link>)}</div>
               {search && (
                 <form action={search.action} className="md-search" role="search">
-                  <input name="q" type="search" defaultValue={search.value} placeholder={search.placeholder} aria-label={search.placeholder} />
+                  <LiveSearchInput action={search.action} defaultValue={search.value} placeholder={search.placeholder} />
                   <button type="submit" aria-label="search">⌕</button>
                 </form>
               )}

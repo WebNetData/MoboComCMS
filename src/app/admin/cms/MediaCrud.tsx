@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
+import AiAutofill from './AiAutofill'
+import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
+import type { AutofillField } from '@/modules/ai/domain/autofill'
 
 /**
  * Admin list + editor for the media library (/api/admin/media-library): music,
@@ -71,6 +74,9 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
   const [sources, setSources] = useState<Record<string, Opt[]>>({})
+  const [aiKeys, setAiKeys] = useState<Set<string>>(new Set())
+  const [review, setReview] = useState(false)
+  const [originalStatus, setOriginalStatus] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -99,13 +105,26 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
     for (const field of fields) next[field.key] = row ? toFormValue(field, row[field.key]) : emptyValue(field)
     setForm(next)
     setEditId(row?.id ?? null)
+    setOriginalStatus(row?.status || '')
+    setAiKeys(new Set())
     setMsg(null)
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Publishing (a new entry, a draft going live, or anything the assistant filled) goes through a final review.
+  const hasStatus = fields.some((field) => field.key === 'status')
+  const needsReview = () => !!form && (hasStatus ? form.status === 'PUBLISHED' && (!editId || originalStatus !== 'PUBLISHED' || aiKeys.size > 0) : !editId || aiKeys.size > 0)
+
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!form || busy) return
+    if (needsReview()) { setReview(true); return }
+    await persist()
+  }
+
+  async function persist() {
+    if (!form || busy) return
+    setReview(false)
     setBusy(true); setMsg(null)
     const body: Record<string, unknown> = { ...form }
     for (const field of fields) {
@@ -129,7 +148,43 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
     load()
   }
 
-  const set = (key: string, value: unknown) => setForm((current) => (current ? { ...current, [key]: value } : current))
+  const set = (key: string, value: unknown) => {
+    setForm((current) => (current ? { ...current, [key]: value } : current))
+    setAiKeys((current) => { if (!current.has(key)) return current; const next = new Set(current); next.delete(key); return next })
+  }
+  const optionsOf = (field: MediaField) => (field.source ? sources[field.source.type] || [] : field.options)
+  // What the assistant may fill: plain values of this section's own fields (never status, access or media).
+  const aiFields = useMemo<AutofillField[]>(() => fields.flatMap((field): AutofillField[] => {
+    if (['status', 'access', 'featured', 'publishedAt', 'sortOrder'].includes(field.key)) return []
+    const base = { key: field.key, label: field.label, hint: field.hint, dir: field.dir }
+    switch (field.type || 'text') {
+      case 'text': return [{ ...base, type: field.key === 'slug' ? 'slug' : 'text' }]
+      case 'textarea': return [{ ...base, type: /HTML/i.test(field.label) ? 'richtext' : 'textarea' }]
+      case 'number': return [{ ...base, type: 'number' }]
+      case 'checkbox': return [{ ...base, type: 'checkbox' }]
+      case 'date': return [{ ...base, type: 'date' }]
+      case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
+      case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
+      default: return []
+    }
+  }).filter((field) => field.type !== 'records' || (field.recordKeys?.length ?? 0) > 0), [fields, sources]) // eslint-disable-line react-hooks/exhaustive-deps
+  const applyAi = (values: Record<string, unknown>, filled: string[]) => {
+    setForm((current) => {
+      if (!current) return current
+      const next = { ...current }
+      for (const field of fields) {
+        if (!(field.key in values)) continue
+        const value = values[field.key]
+        next[field.key] = field.type === 'number' || field.type === 'select' ? (value === undefined || value === null ? '' : String(value)) : value
+      }
+      return next
+    })
+    setAiKeys((current) => { const next = new Set(current); for (const key of Object.keys(values)) if (!filled.includes(key)) next.delete(key); for (const key of filled) next.add(key); return next })
+  }
+  const reviewRows: ReviewRow[] = form ? fields.map((field) => {
+    const value = previewValue(form[field.key], optionsOf(field))
+    return { key: field.key, label: field.label, value, state: !value && field.required ? 'missing' : aiKeys.has(field.key) ? 'ai' : value ? 'ok' : 'empty' }
+  }) : []
   const tableFields = fields.filter((f) => f.table)
   const needle = query.trim().toLocaleLowerCase()
   const visible = needle ? rows.filter((row) => [row.title, row.titleEn, row.name, row.nameEn, row.slug, row.originalTitle].join(' ').toLocaleLowerCase().includes(needle)) : rows
@@ -151,19 +206,21 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
       {form && (
         <form onSubmit={save} className="card mb-6 mx-form">
           <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong></div>
+          <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           <div className="mx-grid">
             {fields.map((field) => (
-              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}`}>
-                {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}</label>}
+              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}${aiKeys.has(field.key) ? ' is-ai' : ''}`}>
+                {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}{aiKeys.has(field.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>}
                 <FieldInput field={field} value={form[field.key]} onChange={(value) => set(field.key, value)} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} />
                 {field.hint && <small className="muted mx-hint">{field.hint}</small>}
               </div>
             ))}
           </div>
           <div className="flex gap-2 mt-4">
-            <button className="btn btn-primary" disabled={busy}>{busy ? '…' : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
+            <button className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setForm(null); setEditId(null) }}>{fa ? 'انصراف' : 'Cancel'}</button>
           </div>
+          <PublishReview open={review} title={String(form[titleKey] || form.title || form.name || '')} rows={reviewRows} busy={busy} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
         </form>
       )}
 
