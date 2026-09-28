@@ -1,7 +1,7 @@
 import Link from '@/platform/routing/Link'
 import { ThemePlanCards, ThemePublicForm, themeFormatAmount, type ThemeHomeProps } from '@/themes/sdk/server'
 import type { ThemeServerModule } from '@/themes/types'
-import { ThemeLiveSearch } from '@/themes/sdk/client'
+import { ThemeLiveSearch, ThemeSlider } from '@/themes/sdk/client'
 import Icon from './icons'
 
 type LocalText = { fa: string; en: string; [locale: string]: string }
@@ -106,12 +106,12 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
     case 'products':
       if (!data.products.length || !live('/products')) return null
       return <section className="mb-container mb-section" id={section.id}>{heading({ href: '/products', label: L('ورود به فروشگاه', 'Visit the shop') })}
-        <div className="mbx-products">{data.products.slice(0, 8).map(product => { const off = product.listPrice && product.listPrice > product.price ? Math.round((1 - product.price / product.listPrice) * 100) : 0; return <Link key={product.id} href={`/products/${product.slug}`} className="mbx-product">
+        <ThemeSlider className="mbx-products">{data.products.slice(0, 8).map(product => { const off = product.listPrice && product.listPrice > product.price ? Math.round((1 - product.price / product.listPrice) * 100) : 0; return <Link key={product.id} href={`/products/${product.slug}`} className="mbx-product">
           <span className="mbx-product-img">{product.image ? <img src={product.image} alt="" loading="lazy"/> : <Icon name="bag" size={36}/>}{off > 0 && <em className="mbx-off">{off.toLocaleString(fa ? 'fa-IR' : 'en-US')}٪</em>}</span>
           {product.category && <small className="mbx-product-cat">{fa ? product.category.name : product.category.nameEn || product.category.name}</small>}
           <b>{fa ? product.name : product.nameEn || product.name}</b>
           <span className="mbx-product-price">{off > 0 && <s><bdi>{money(product.listPrice!, product.currency)}</bdi></s>}<bdi>{money(product.price, product.currency)}</bdi></span>
-        </Link> })}</div>
+        </Link> })}</ThemeSlider>
       </section>
     case 'showcase': {
       const columns = SHOWCASE.filter(column => column.kind !== 'forum' && live(column.href)).map(column => ({ ...column, items: data.showcase.filter(item => item.kind === column.kind) })).filter(column => column.items.length)
@@ -126,10 +126,10 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
             {columns.map((column, index) => <input key={column.kind} type="radio" name={`mbx-tab-${section.id}`} id={`mbx-${section.id}-${column.kind}`} defaultChecked={index === 0} className={`mbx-tab-input is-${column.kind}`}/>)}
             <div className="mbx-tab-labels" role="tablist">{columns.map(column => <label key={column.kind} htmlFor={`mbx-${section.id}-${column.kind}`} className={`is-${column.kind}`}><Icon name={column.icon} size={16}/>{fa ? column.fa : column.en}</label>)}</div>
             {columns.map(column => <div key={column.kind} className={`mbx-tab-panel is-${column.kind}`}>
-              <div className={`mbx-posters${column.kind === 'music' || column.kind === 'software' ? ' is-square' : ''}`}>{column.items.map(item => <Link key={item.href} href={item.href} className="mbx-poster">
+              <ThemeSlider className={`mbx-posters${column.kind === 'music' || column.kind === 'software' ? ' is-square' : ''}`}>{column.items.map(item => <Link key={item.href} href={item.href} className="mbx-poster">
                 <span className="mbx-poster-art">{item.cover ? <img src={item.cover} alt="" loading="lazy"/> : <Icon name={column.icon} size={28}/>}{item.vip && <em className="mbx-vip">VIP</em>}{item.score != null && <span className="mbx-score is-small">{item.score.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}</span>
                 <b>{item.title}</b>{item.meta && <small>{item.meta}</small>}
-              </Link>)}</div>
+              </Link>)}</ThemeSlider>
               <Link href={column.href} className="mb-link mbx-more">{L(`همهٔ ${column.fa}`, `All ${column.en}`)}<Icon name="arrow" size={14}/></Link>
             </div>)}
           </div>

@@ -9,6 +9,7 @@ import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { getBuilderMedia, browseSoftware } from '@/modules/media/server/queries'
 import { recentThreads } from '@/modules/forum/server/forum'
 import type { LandingCommunity, LandingStat, ShowcaseItem } from '@/modules/site/domain/homepage'
+import { plainText } from '@/shared/text/plain'
 
 function parseFormFields(value: string) {
   try {
@@ -115,8 +116,8 @@ export async function getLandingData(): Promise<LandingData> {
       slug: post.slug,
       title: post.title,
       titleEn: post.titleEn,
-      excerpt: post.excerpt,
-      excerptEn: post.excerptEn,
+      excerpt: plainText(post.excerpt, 220),
+      excerptEn: plainText(post.excerptEn, 220),
       cover: post.cover,
       publishedAt: post.publishedAt,
       category: post.category ? { name: post.category.name, nameEn: post.category.nameEn } : null,

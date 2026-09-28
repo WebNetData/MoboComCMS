@@ -1,5 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
+import { plainText } from '@/shared/text/plain'
+import { cleanRichText } from '@/shared/content/sanitize'
 
 /**
  * Public read models for music, film & series and games. Raw media URLs never
@@ -37,7 +39,7 @@ function toAlbum(row: any): AlbumCard {
   return { id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover || row.artist?.image || '', year: row.year, genre: row.genre, access: row.access, artist: row.artist, trackCount: row._count?.tracks ?? 0 }
 }
 function toPlaylist(row: any): PlaylistCard {
-  return { id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover, description: row.description, access: row.access, trackCount: parseJsonList<number>(row.trackIds).length }
+  return { id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover, description: plainText(row.description), access: row.access, trackCount: parseJsonList<number>(row.trackIds).length }
 }
 
 const albumInclude = { artist: { select: artistSelect }, _count: { select: { tracks: true } } } as const
@@ -132,7 +134,7 @@ export async function getAlbum(slug: string) {
     db.musicTrack.findMany({ where: { albumId: row.id, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }] }),
     db.musicAlbum.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
   ])
-  return { album: { ...toAlbum(row), description: row.description, publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), more: more.map(toAlbum) }
+  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), more: more.map(toAlbum) }
 }
 
 export async function getArtist(slug: string) {
@@ -142,7 +144,7 @@ export async function getArtist(slug: string) {
     db.musicAlbum.findMany({ where: { artistId: row.id, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { artistId: row.id, ...live() }, include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 30 }),
   ])
-  return { artist: row, albums: albums.map(toAlbum), tracks: tracks.map(toTrack) }
+  return { artist: { ...row, bio: cleanRichText(row.bio) }, albums: albums.map(toAlbum), tracks: tracks.map(toTrack) }
 }
 
 export async function getPlaylist(slug: string) {
@@ -167,7 +169,7 @@ function toTitle(row: any): TitleCard {
   return {
     id: row.id, slug: row.slug, kind: row.kind, title: row.title, titleEn: row.titleEn, originalTitle: row.originalTitle, poster: row.poster, backdrop: row.backdrop || row.poster,
     year: row.year, imdbRating: row.imdbRating, genres: splitList(row.genres, 6), quality: row.quality, dubbed: row.dubbed, subtitle: row.subtitle,
-    access: row.access, runtime: row.runtime, summary: row.summary, summaryEn: row.summaryEn, ageRating: row.ageRating, seasonsCount: row._count?.seasons ?? 0,
+    access: row.access, runtime: row.runtime, summary: plainText(row.summary), summaryEn: plainText(row.summaryEn), ageRating: row.ageRating, seasonsCount: row._count?.seasons ?? 0,
   }
 }
 const titleInclude = { _count: { select: { seasons: true } } } as const
@@ -254,7 +256,7 @@ export async function getTitle(slug: string) {
     links: titleLinks.get(row.id) || [],
     seasons: row.seasons.map((season) => ({
       id: season.id, number: season.number, name: season.name, poster: season.poster,
-      episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: episode.summary, still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
+      episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
     })),
     similar: similar.map(toTitle),
   }
@@ -272,7 +274,7 @@ export function toGame(row: any): GameCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover, backdrop: row.backdrop || row.cover,
     platforms: splitList(row.platforms, 10), genres: splitList(row.genres, 6), releaseDate: row.releaseDate, score: row.score, userScore: row.userScore,
-    access: row.access, summary: row.summary, developer: row.developer,
+    access: row.access, summary: plainText(row.summary), developer: row.developer,
     publisher: row.publisher || '', featured: !!row.featured, views: row.views ?? 0, publishedAt: row.publishedAt,
     editorsChoice: !!row.editorsChoice, localization: splitList(row.localization, 3),
     screenshots: parseJsonList<{ src: string }>(row.screenshots || '[]').map((shot) => shot.src).filter(Boolean).slice(0, 4),
@@ -375,7 +377,7 @@ export type SoftwareCard = {
 function toSoftware(row: any): SoftwareCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
-    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: row.summary, downloads: row.downloads,
+    license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: plainText(row.summary), downloads: row.downloads,
     views: row.views ?? 0, publishedAt: row.publishedAt, updatedAt: row.updatedAt ?? row.publishedAt,
   }
 }

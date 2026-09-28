@@ -15,6 +15,7 @@ import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import SeasonTabs, { type SeasonView } from '@/components/media/SeasonTabs'
 import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
+import Slider from '@/components/site/Slider'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -110,7 +111,7 @@ export default async function TitlePage({ params }: Props) {
         {ti.cast.length > 0 && (
           <section className="md-shelf">
             <header className="md-shelf-head"><h2>{fa ? 'بازیگران' : 'Cast'}</h2></header>
-            <div className="md-rail cn-cast">{ti.cast.map((person, i) => <div key={`${person.name}-${i}`} className="cn-person">{person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</div>)}</div>
+            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => <div key={`${person.name}-${i}`} className="cn-person">{person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</div>)}</Slider>
           </section>
         )}
 

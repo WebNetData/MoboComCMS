@@ -5,6 +5,7 @@ import { scoreBand } from '@/modules/media/domain/media'
 import { Icon, platformIcon } from '@/components/media/PortalIcons'
 import LinkBox from '@/components/media/LinkBox'
 import { GxTitle } from '@/components/games/GamePortal'
+import Slider from '@/components/site/Slider'
 
 // GameUp-style building blocks for the game page, release calendar, top
 // lists, franchises and the member's library.
@@ -215,9 +216,9 @@ export function WantedRail({ rows }: { rows: { wants: number; game: Game }[] }) 
   if (!rows.length) return null
   return <section className="gx-rail-wrap">
     <div className="container"><GxTitle title="موردانتظارترین‌ها از نگاه کاربران" icon="star" more="/games/calendar" /></div>
-    <div className="gx-rail"><div className="gx-rail-track">{rows.map(({ wants, game }) => <Link key={game.id} href={`/games/${game.slug}`} className="gx-cover">
+    <Slider className="gx-rail"><div className="gx-rail-track">{rows.map(({ wants, game }) => <Link key={game.id} href={`/games/${game.slug}`} className="gx-cover">
       <span className="gx-cover-art">{game.cover ? <img src={game.cover} alt="" loading="lazy" /> : <span className="gx-cover-ph"><Icon name="gamepad" size={34} /></span>}<span className="gv-wants">★ {fa(wants)}</span></span>
       <b>{game.title}</b>
-    </Link>)}</div></div>
+    </Link>)}</div></Slider>
   </section>
 }

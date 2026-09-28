@@ -137,3 +137,14 @@ test('VIP summary: active, joined, renewed, expiring and lapsed members', () => 
   assert.deepEqual(s.bySource, { PURCHASE: 2 })
   assert.deepEqual(s.byPlan, [{ planId: 1, count: 2 }, { planId: 2, count: 1 }])
 })
+
+const plain = load('src/shared/text/plain')
+
+test('plain text drops tags, separates blocks and decodes entities', () => {
+  assert.equal(plain.plainText('<p><b>دارک</b> (Dark) با امتیاز 8.7&nbsp;&amp; 4K.</p><p>کیفیت 1080p</p>'), 'دارک (Dark) با امتیاز 8.7 & 4K. کیفیت 1080p')
+  assert.equal(plain.plainText('خط اول<br/>خط دوم<script>alert(1)</script>'), 'خط اول خط دوم')
+  assert.equal(plain.plainText('&laquo;تلقین&raquo; &#1601;&#x06CC;'), '«تلقین» فی')
+  assert.equal(plain.plainText('متن ساده بدون تگ'), 'متن ساده بدون تگ')
+  assert.equal(plain.plainText('<p>یک دو سه چهار</p>', 8), 'یک دو س…')
+  assert.equal(plain.plainText(null), '')
+})

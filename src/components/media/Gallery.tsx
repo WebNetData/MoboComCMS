@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Slider from '@/components/site/Slider'
 
 /** Screenshot strip with a keyboard-friendly lightbox. */
 export default function Gallery({ images, fa }: { images: string[]; fa: boolean }) {
@@ -18,7 +19,7 @@ export default function Gallery({ images, fa }: { images: string[]; fa: boolean 
   if (!images.length) return null
   return (
     <>
-      <div className="gm-shots">{images.map((src, i) => <button key={src + i} type="button" onClick={() => setOpen(i)} aria-label={`${fa ? 'تصویر' : 'Screenshot'} ${i + 1}`}><img src={src} alt="" loading="lazy" /></button>)}</div>
+      <Slider className="gm-shots">{images.map((src, i) => <button key={src + i} type="button" onClick={() => setOpen(i)} aria-label={`${fa ? 'تصویر' : 'Screenshot'} ${i + 1}`}><img src={src} alt="" loading="lazy" /></button>)}</Slider>
       {open !== null && (
         <div className="gm-lightbox" role="dialog" aria-modal="true" onClick={() => setOpen(null)}>
           <button type="button" className="gm-lb-nav is-prev" onClick={(e) => { e.stopPropagation(); setOpen((open - 1 + images.length) % images.length) }} aria-label="previous">‹</button>
