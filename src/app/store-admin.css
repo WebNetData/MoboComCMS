@@ -342,3 +342,6 @@
 .pr-row.is-ai { background: color-mix(in srgb, var(--primary) 5%, transparent); }
 .pr-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); }
 @media (max-width: 620px) { .pr-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* VIP perks overview */
+.vp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }

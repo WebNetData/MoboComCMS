@@ -69,3 +69,42 @@ export function teaserHtml(html: string, paragraphs = 2, maxChars = 900): string
   const plain = source.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxChars)
   return plain ? `<p>${plain.replace(/&(?![a-z#0-9]+;)/gi, '&amp;').replace(/</g, '&lt;')}…</p>` : ''
 }
+
+// ------------------------------------------------------------------ admin summary
+
+export type PeriodRow = { userId: number; source: string; startsAt: Date; endsAt: Date; revokedAt: Date | null; planId: number | null; orderId: number | null; createdAt: Date }
+
+/**
+ * VIP health over a window: who is active, who joined (first ever period),
+ * who renewed (a paid period on top of an earlier one), who is about to
+ * expire and who lapsed without renewing. Pure — the dashboard and tests share it.
+ */
+export function summarizeMemberships(periods: PeriodRow[], now = new Date(), windowDays = 30, soonDays = 7) {
+  const DAY = 86_400_000
+  const since = now.getTime() - windowDays * DAY
+  const soon = now.getTime() + soonDays * DAY
+  const byUser = new Map<number, PeriodRow[]>()
+  for (const period of periods) byUser.set(period.userId, [...(byUser.get(period.userId) || []), period])
+  let active = 0, joined = 0, renewed = 0, expiring = 0, lapsed = 0
+  const expiringUsers: { userId: number; endsAt: Date }[] = []
+  const bySource: Record<string, number> = {}
+  const byPlan = new Map<number, number>()
+  for (const [userId, rows] of byUser) {
+    const valid = rows.filter((row) => !row.revokedAt).sort((a, b) => +a.createdAt - +b.createdAt)
+    if (!valid.length) continue
+    const end = Math.max(...valid.map((row) => +row.endsAt))
+    const isActive = valid.some((row) => +row.startsAt <= +now && +row.endsAt > +now) || end > +now
+    if (isActive) {
+      active++
+      if (end <= soon) { expiring++; expiringUsers.push({ userId, endsAt: new Date(end) }) }
+      const current = valid.filter((row) => +row.endsAt > +now).sort((a, b) => +b.endsAt - +a.endsAt)[0]
+      if (current?.planId) byPlan.set(current.planId, (byPlan.get(current.planId) || 0) + 1)
+    } else if (end >= since) lapsed++
+    const first = valid[0]
+    if (+first.createdAt >= since) joined++
+    if (valid.some((row, index) => index > 0 && row.source === 'PURCHASE' && +row.createdAt >= since)) renewed++
+    for (const row of valid) if (+row.createdAt >= since) bySource[row.source] = (bySource[row.source] || 0) + 1
+  }
+  expiringUsers.sort((a, b) => +a.endsAt - +b.endsAt)
+  return { active, joined, renewed, expiring, lapsed, expiringUsers, bySource, byPlan: [...byPlan].map(([planId, count]) => ({ planId, count })).sort((a, b) => b.count - a.count) }
+}

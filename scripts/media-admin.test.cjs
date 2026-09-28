@@ -113,3 +113,27 @@ test('journal rails match the Liona home sections', () => {
   const keys = src.match(/LIONA_SECTIONS = \[([^\]]+)\]/)[1].match(/'([a-z]+)'/g).map((k) => k.slice(1, -1))
   assert.deepEqual(keys, Object.keys(journal.JOURNAL_RAILS))
 })
+
+const membership = load('src/modules/membership/domain/membership')
+
+test('VIP summary: active, joined, renewed, expiring and lapsed members', () => {
+  const now = new Date('2026-09-28T12:00:00Z')
+  const d = (days) => new Date(now.getTime() + days * 86_400_000)
+  const row = (userId, source, from, to, extra = {}) => ({ userId, source, startsAt: d(from), endsAt: d(to), revokedAt: null, planId: 1, orderId: null, createdAt: d(from), ...extra })
+  const s = membership.summarizeMemberships([
+    row(1, 'PURCHASE', -10, 20),                          // joined recently, active
+    row(2, 'PURCHASE', -100, -40), row(2, 'PURCHASE', -40, 3, { planId: 2 }), // renewed 40 days ago → not in window; expiring in 3 days
+    row(3, 'PURCHASE', -60, -30), row(3, 'PURCHASE', -5, 25),               // renewed inside the window
+    row(4, 'GIFT', -50, -10),                              // lapsed 10 days ago
+    row(5, 'ADMIN', -5, 10, { revokedAt: d(-1) }),         // revoked → ignored
+    row(6, 'PURCHASE', -200, -100),                        // lapsed long ago → not counted
+  ], now)
+  assert.equal(s.active, 3)
+  assert.equal(s.joined, 1)
+  assert.equal(s.renewed, 1)
+  assert.equal(s.expiring, 1)
+  assert.deepEqual(s.expiringUsers.map((u) => u.userId), [2])
+  assert.equal(s.lapsed, 1)
+  assert.deepEqual(s.bySource, { PURCHASE: 2 })
+  assert.deepEqual(s.byPlan, [{ planId: 1, count: 2 }, { planId: 2, count: 1 }])
+})
