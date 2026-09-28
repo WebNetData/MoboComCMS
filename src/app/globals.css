@@ -1034,3 +1034,21 @@ html[data-theme='dark'] {
 .ct-file{grid-column:1/-1}
 .ct-preview{max-height:220px;max-width:100%;border-radius:12px;border:1px solid var(--border);object-fit:contain}
 @media (max-width:640px){.ct-grid{grid-template-columns:1fr}.ct-line{grid-template-columns:1fr auto}.ct-line>span{grid-column:1/-1}}
+/* password field, reset & 2-step sign-in */
+.pw-input{position:relative}
+.pw-input .input{padding-inline-end:4.5rem}
+.pw-toggle{position:absolute;inset-block:0;inset-inline-end:.35rem;margin-block:auto;height:2rem;padding:0 .6rem;border:0;border-radius:8px;background:transparent;color:var(--primary);font:inherit;font-size:.8rem;cursor:pointer}
+.pw-meter{display:flex;align-items:center;gap:.6rem;margin-top:.45rem}
+.pw-meter>span{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;width:96px;flex:none}
+.pw-meter i{height:4px;border-radius:4px;background:var(--border)}
+.pw-meter[data-level="1"] i:nth-child(-n+1){background:#e5484d}
+.pw-meter[data-level="2"] i:nth-child(-n+2){background:#f5a524}
+.pw-meter[data-level="3"] i:nth-child(-n+3){background:#46a758}
+.pw-meter[data-level="4"] i{background:#2f9e44}
+.pw-meter small{color:var(--muted);font-size:.78rem}
+.auth-back{margin:1rem 0 0;text-align:center;font-size:.85rem}
+.auth-back a{color:var(--muted)}
+.auth-back a:hover{color:var(--primary)}
+.auth-forgot{display:flex;justify-content:flex-end;margin:-.4rem 0 .9rem;font-size:.82rem}
+.auth-forgot a{color:var(--primary)}
+.auth-2fa-note{display:flex;gap:.6rem;align-items:flex-start;padding:.75rem .9rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:12px;background:var(--bg-soft);font-size:.85rem;line-height:1.9}

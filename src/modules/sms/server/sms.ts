@@ -52,6 +52,11 @@ export function publicSmsConfig(config: SmsConfig) {
 
 const isReady = (config: SmsConfig) => config.enabled && !!config.apiKey && !!config.fromNumber
 
+/** Whether SMS codes can be delivered (in development they go to the server log). */
+export async function smsAvailable() {
+  return isReady(await getSmsConfig()) || process.env.NODE_ENV !== 'production'
+}
+
 /** Phone login is offered only when SMS is fully configured (or in development, where codes go to the server log). */
 export async function otpLoginAvailable() {
   const config = await getSmsConfig()
@@ -162,7 +167,9 @@ export async function smsCredit() {
 const hashCode = (phone: string, code: string) => createHmac('sha256', authSecret()).update(`otp:${phone}:${code}`).digest('hex')
 
 /** Sends a login or verification code. Throws SmsError with a user-facing message. */
-export async function requestOtp(input: { phone: unknown; purpose: 'LOGIN' | 'VERIFY'; ip: string; userId?: number }) {
+export type OtpPurpose = 'LOGIN' | 'VERIFY' | 'RESET'
+
+export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; ip: string; userId?: number }) {
   const phone = normalizeMobile(input.phone)
   if (!phone) throw new SmsError('شمارهٔ موبایل معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
   const config = await getSmsConfig()
@@ -197,8 +204,11 @@ export async function requestOtp(input: { phone: unknown; purpose: 'LOGIN' | 'VE
   return { phone, expiresIn: OTP_TTL_MS / 1000, resendIn: OTP_RESEND_MS / 1000 }
 }
 
-/** Checks a code once; five wrong tries burn it. Returns the normalized phone. */
-export async function verifyOtp(input: { phone: unknown; code: unknown; purpose: 'LOGIN' | 'VERIFY'; userId?: number }) {
+/**
+ * Checks a code once; five wrong tries burn it. Returns the normalized phone.
+ * `consume: false` checks without using the code up (sign-in asks for the 2-step code first).
+ */
+export async function verifyOtp(input: { phone: unknown; code: unknown; purpose: OtpPurpose; userId?: number; consume?: boolean }) {
   const phone = normalizeMobile(input.phone)
   const code = latinDigits(input.code).trim()
   if (!phone || !validOtpFormat(code)) throw new SmsError('کد وارد شده صحیح نیست')
@@ -214,6 +224,7 @@ export async function verifyOtp(input: { phone: unknown; code: unknown; purpose:
     await db.otpCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } })
     throw new SmsError('کد وارد شده صحیح نیست')
   }
+  if (input.consume === false) return phone
   // Single use, even under concurrent requests.
   const used = await db.otpCode.updateMany({ where: { id: row.id, consumedAt: null }, data: { consumedAt: new Date() } })
   if (used.count !== 1) throw new SmsError('این کد قبلاً استفاده شده است')

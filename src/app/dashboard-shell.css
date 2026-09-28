@@ -245,3 +245,29 @@ html[data-design] .user-shell .side-foot { flex-shrink: 0; margin-top: 10px; pad
 .wl-submit { min-width: 180px; }
 @media (max-width: 640px) { .wl-foot { position: sticky; bottom: 0; padding: 12px 0; background: var(--card); } .wl-submit { flex: 1; } }
 .wl-field input[readonly] { opacity: .65; cursor: not-allowed; }
+
+/* 2-step sign-in card */
+.tf-card .dash-card-head{align-items:flex-start}
+.tf-badge{flex:none;padding:.25rem .7rem;border-radius:999px;font-size:.78rem;font-weight:700;border:1px solid var(--border)}
+.tf-badge.is-on{color:#15803d;background:color-mix(in srgb,#22c55e 12%,transparent);border-color:color-mix(in srgb,#22c55e 35%,transparent)}
+.tf-badge.is-off{color:var(--muted)}
+.tf-steps{margin:0 0 1rem;padding-inline-start:1.2rem;display:grid;gap:.35rem;font-size:.88rem;line-height:1.9;color:var(--muted)}
+.tf-qr{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;padding:.9rem;border:1px dashed var(--border);border-radius:14px}
+.tf-qr img{width:180px;height:180px;border-radius:10px;background:#fff;padding:6px}
+.tf-qr>div{display:grid;gap:.4rem;min-width:0}
+.tf-qr span{font-size:.8rem;color:var(--muted)}
+.tf-qr code{font-size:.95rem;letter-spacing:.06em;word-break:break-all;padding:.4rem .6rem;border-radius:8px;background:var(--bg-soft)}
+.tf-open{font-size:.82rem;color:var(--primary)}
+.tf-code{max-width:220px;letter-spacing:.2em;text-align:center;font-size:1.1rem}
+.tf-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:0 0 1rem}
+.tf-facts>div{padding:.7rem .85rem;border:1px solid var(--border);border-radius:12px}
+.tf-facts dt{font-size:.78rem;color:var(--muted)}
+.tf-facts dd{margin:.2rem 0 0;font-weight:700}
+.tf-facts dd.is-low{color:#dc2626}
+.tf-codes{margin-bottom:1rem;padding:1rem;border:1px solid color-mix(in srgb,#f59e0b 45%,var(--border));border-radius:14px;background:color-mix(in srgb,#f59e0b 7%,transparent)}
+.tf-codes p{margin:0 0 .75rem;font-size:.88rem;line-height:1.9}
+.tf-codes ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem 1rem;margin:0 0 .75rem;padding-inline-start:1.4rem}
+.tf-codes code{font-size:.95rem;letter-spacing:.05em}
+.tf-off{color:#dc2626}
+.tf-danger{background:#dc2626;border-color:#dc2626}
+@media (max-width:520px){.tf-codes ol,.tf-facts{grid-template-columns:1fr}}

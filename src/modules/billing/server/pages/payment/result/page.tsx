@@ -17,7 +17,7 @@ import { formatAmount } from '@/shared/money/format'
 export default async function PaymentResultPage({
   searchParams: searchParamsPromise,
 }: {
-  searchParams: Promise<{ invoice?: string; order?: string; failed?: string }>
+  searchParams: Promise<{ invoice?: string; order?: string; failed?: string; reason?: string }>
 }) {
   const searchParams = await searchParamsPromise
   const [locale, theme, session] = await Promise.all([getServerLocale(), getServerTheme(), getServerSession(authOptions)])
@@ -73,6 +73,7 @@ export default async function PaymentResultPage({
           <div className="text-5xl mb-4">{icon}</div>
           <h1 className="h2">{title}</h1>
           <p className="muted mt-3 leading-7">{body}</p>
+          {failed && searchParams.reason && <p className="error-text mt-3 leading-7" role="alert">{String(searchParams.reason).replace(/[<>]/g, '').slice(0, 240)}</p>}
 
           {view && (
             <div className="result-rows">

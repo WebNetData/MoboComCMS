@@ -6,6 +6,7 @@ import SubscriptionAlertPreference from '@/components/SubscriptionAlertPreferenc
 import TelegramLink from '@/components/TelegramLink'
 import PhoneVerification from '@/components/PhoneVerification'
 import EmailAlertPreference from '@/components/EmailAlertPreference'
+import TwoFactorCard from '@/components/TwoFactorCard'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
@@ -96,6 +97,8 @@ export default function ProfilePage() {
           {note('password')}
           <div className="dash-actions"><button className="btn btn-primary" disabled={busy === 'password'}>{busy === 'password' ? 'در حال ذخیره…' : t.changePassword}</button></div>
         </form>
+
+        <TwoFactorCard />
       </div>
 
       <div className="ac-col ac-channels">

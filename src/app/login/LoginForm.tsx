@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
+import Link from '@/components/AppLink'
 import TurnstileWidget from '@/components/TurnstileWidget'
 import type { ReactNode } from 'react'
 
@@ -24,7 +25,16 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState('')
   const [resendIn, setResendIn] = useState(0)
+  // 2-step sign-in: set once the first factor passed and the account asks for its code.
+  const [twoStep, setTwoStep] = useState<'' | 'credentials' | 'sms-otp'>('')
+  const [totp, setTotp] = useState('')
   const fa = locale === 'fa'
+  const twoStepError = (error: string | undefined | null, provider: 'credentials' | 'sms-otp') => {
+    // The security-check token is single use, so the second step gets a fresh one.
+    if (error === 'TOTP_REQUIRED') { setTwoStep(provider); setTotp(''); setError(''); setTurnstileReset((value) => value + 1); return true }
+    if (error === 'TOTP_INVALID') { setTwoStep(provider); setError(fa ? 'کد ورود دو مرحله‌ای درست نیست.' : 'The 2-step code is wrong.'); setTurnstileReset((value) => value + 1); return true }
+    return false
+  }
 
   useEffect(() => {
     if (resendIn <= 0) return
@@ -58,7 +68,8 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      const res = await signIn('sms-otp', { phone, code, redirect: false })
+      const res = await signIn('sms-otp', { phone, code, totp: twoStep ? totp : '', redirect: false })
+      if (twoStepError(res?.error, 'sms-otp')) return
       if (!res || res.error) { setError(fa ? 'کد وارد شده صحیح نیست یا منقضی شده است.' : 'The code is wrong or expired.'); return }
       goNext()
     } catch { setError(t.errGeneric) } finally { setLoading(false) }
@@ -73,7 +84,8 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
         setError(locale === 'fa' ? 'لطفاً اعتبارسنجی امنیتی را کامل کنید.' : 'Please complete the security check.')
         return
       }
-      const res = await signIn('credentials', { email, password, turnstileToken, redirect: false })
+      const res = await signIn('credentials', { email, password, turnstileToken, totp: twoStep ? totp : '', redirect: false })
+      if (twoStepError(res?.error, 'credentials')) return
       if (!res || res.error) {
         setError(t.loginFailed)
         setTurnstileReset((value) => value + 1)
@@ -96,6 +108,25 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
     <button type="button" role="tab" aria-selected={mode === 'phone'} className={mode === 'phone' ? 'is-active' : ''} onClick={() => { setMode('phone'); setError('') }}>{fa ? 'ورود با موبایل' : 'Mobile'}</button>
     <button type="button" role="tab" aria-selected={mode === 'email'} className={mode === 'email' ? 'is-active' : ''} onClick={() => { setMode('email'); setError('') }}>{fa ? 'ورود با ایمیل' : 'Email'}</button>
   </div>
+
+  if (twoStep) return (
+    <form onSubmit={twoStep === 'sms-otp' ? verifyCode : submit} className="auth-form" aria-busy={loading}>
+      <span className="auth-form-icon"><Icon name="shield" size={25} /></span>
+      <p className="auth-form-eyebrow">{fa ? 'ورود دو مرحله‌ای' : '2-STEP SIGN-IN'}</p>
+      <h1>{fa ? 'کد تأیید دوم' : 'Second code'}</h1>
+      <p className="auth-form-intro">{fa ? 'کد ۶ رقمی برنامهٔ احراز هویت (Google Authenticator، Microsoft Authenticator و …) را وارد کنید. اگر گوشی در دسترس نیست، یکی از کدهای پشتیبان را بزنید.' : 'Enter the 6-digit code from your authenticator app, or one of your backup codes.'}</p>
+      <div className="mb-4">
+        <label className="label" htmlFor="login-totp">{fa ? 'کد ورود دو مرحله‌ای' : '2-step code'}</label>
+        <input id="login-totp" className="input auth-otp" type="text" autoComplete="one-time-code" dir="ltr" maxLength={11} value={totp} onChange={(e) => setTotp(e.target.value)} required autoFocus />
+      </div>
+      {twoStep === 'credentials' && <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />}
+      {error && <p className="error-text" role="alert">{error}</p>}
+      <button className="btn btn-primary w-full mt-2" disabled={loading || totp.replace(/[\s-]/g, '').length < 6 || (twoStep === 'credentials' && turnstileRequired && !turnstileToken)}>
+        {loading ? <><span className="auth-spinner" aria-hidden="true" />{fa ? 'لطفاً صبر کنید…' : 'Please wait…'}</> : (fa ? 'تأیید و ورود' : 'Verify and sign in')}
+      </button>
+      <p className="auth-back"><button type="button" className="link-button" onClick={() => { setTwoStep(''); setTotp(''); setError(''); setCode(''); setSentTo('') }}>{fa ? '← انصراف و ورود دوباره' : '← Start over'}</button></p>
+    </form>
+  )
 
   if (otp && mode === 'phone') return (
     <form onSubmit={sentTo ? verifyCode : requestCode} className="auth-form" aria-busy={loading}>
@@ -140,6 +171,7 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
         <label className="label" htmlFor="login-password">{locale === 'fa' ? 'رمز عبور' : 'Password'}</label>
         <input id="login-password" className="input" type="password" autoComplete="current-password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
+      <p className="auth-forgot"><Link href="/forgot-password">{fa ? 'رمز عبور را فراموش کرده‌اید؟' : 'Forgot your password?'}</Link></p>
       <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
       {error && <p className="error-text" role="alert">{error}</p>}
       <button className="btn btn-primary w-full mt-2" disabled={loading || (turnstileRequired && !turnstileToken)}>

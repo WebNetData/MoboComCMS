@@ -8,6 +8,19 @@ import { userForTelegram } from '@/modules/identity/telegram-account'
 import { authSecret } from '@/platform/config/env'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { verifyTurnstile } from '@/modules/identity/server/turnstile'
+import { sessionRevoked } from '@/modules/identity/domain/account-security'
+
+/**
+ * 2-step sign-in: accounts with an authenticator need its code (or a backup
+ * code) too. Without one the provider answers TOTP_REQUIRED so the form can
+ * ask for it; a wrong one answers TOTP_INVALID.
+ */
+async function secondFactor(user: { id: number; totpEnabledAt: Date | null }, code: string | undefined) {
+  if (!user.totpEnabledAt) return
+  if (!code) throw new Error('TOTP_REQUIRED')
+  const { checkSecondFactor } = await import('@/modules/identity/server/account-security')
+  if (!await checkSecondFactor(user.id, code)) throw new Error('TOTP_INVALID')
+}
 
 export function sessionUser(user: { id: number; email: string; name: string; role: string; roleId: number | null; telegramId?: string | null; roleRef?: { permissions: string } | null }) {
   return {
@@ -32,6 +45,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'text' },
         password: { label: 'Password', type: 'password' },
         turnstileToken: { label: 'Turnstile token', type: 'text' },
+        totp: { label: '2-step code', type: 'text' },
       },
             async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
@@ -49,6 +63,7 @@ export const authOptions: NextAuthOptions = {
         if (user.status !== 'ACTIVE') return null
         const ok = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!ok) return null
+        await secondFactor(user, credentials.totp)
         return sessionUser(user)
       },
     }),
@@ -58,14 +73,24 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         phone: { label: 'Mobile', type: 'text' },
         code: { label: 'Code', type: 'text' },
+        totp: { label: '2-step code', type: 'text' },
       },
       async authorize(credentials, req) {
         if (!credentials?.phone || !credentials?.code) return null
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
         if (!rateLimitHit(`login:otp:ip:${ip}`, 30, 10 * 60_000).ok) return null
         const { userForPhone, verifyOtp } = await import('@/modules/sms/server/sms')
+        let phone: string
         try {
-          const phone = await verifyOtp({ phone: credentials.phone, code: credentials.code, purpose: 'LOGIN' })
+          // Checked first without using the code up, so asking for the 2-step code does not cost a new SMS.
+          phone = await verifyOtp({ phone: credentials.phone, code: credentials.code, purpose: 'LOGIN', consume: false })
+        } catch {
+          return null
+        }
+        const existing = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null } }, orderBy: { id: 'asc' }, select: { id: true, totpEnabledAt: true } })
+        if (existing) await secondFactor(existing, credentials.totp)
+        try {
+          await verifyOtp({ phone, code: credentials.code, purpose: 'LOGIN' })
           const user = await userForPhone(phone)
           return user ? sessionUser(user) : null
         } catch {
@@ -88,26 +113,37 @@ export const authOptions: NextAuthOptions = {
         if (!tg) return null
         const user = await userForTelegram(tg)
         if (!user) return null
+        // The Mini App runs inside the member's signed-in Telegram app (a device-bound
+        // factor of its own), so it is not asked for the 2-step code.
         return sessionUser(user)
       },
     }),
     CredentialsProvider({
       id: 'telegram-web',
       name: 'Telegram Web Login',
-      credentials: { authData: { label: 'Telegram authorization data', type: 'text' } },
+      credentials: { authData: { label: 'Telegram authorization data', type: 'text' }, totp: { label: '2-step code', type: 'text' } },
       async authorize(credentials) {
         const cfg = await telegramConfig()
         if (!cfg.ready) return null
         const tg = verifyLoginWidget(credentials?.authData || '', cfg.token)
         if (!tg) return null
         const user = await userForTelegram(tg)
-        return user ? sessionUser(user) : null
+        if (!user) return null
+        await secondFactor(user, credentials?.totp)
+        return sessionUser(user)
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
+      if (!user && token.uid) {
+        // Sessions end when the password is reset (or the account is suspended).
+        const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true } })
+        if (!current || current.status !== 'ACTIVE' || sessionRevoked(token.authAt, current.passwordChangedAt)) throw new Error('SESSION_REVOKED')
+        if (!token.authAt) token.authAt = Date.now()
+      }
       if (user) {
+        token.authAt = Date.now()
         token.uid = (user as any).id
         token.telegramId = (user as any).telegramId
         token.role = (user as any).role

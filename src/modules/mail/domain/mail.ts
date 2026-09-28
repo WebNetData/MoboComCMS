@@ -153,6 +153,28 @@ ${body ? `<p style="margin:0;color:#4b5563">${escapeHtml(body).replace(/\n/g, '<
   return { subject: `${input.title} — ${input.brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200), text, html, link, settings }
 }
 
+/** Transactional security email (password reset, sign-in alerts): one action, no unsubscribe footer. */
+export function actionEmail(input: { brand: string; site: string; name: string; title: string; body: string; href: string; button: string; note?: string; accent?: string }) {
+  const link = /^https?:\/\//.test(input.href) ? input.href : `${input.site}${input.href}`
+  const accent = /^#[0-9a-f]{6}$/i.test(input.accent || '') ? input.accent! : '#4b45ee'
+  const text = [`${input.name} عزیز،`, '', input.title, input.body, '', `${input.button}: ${link}`, '', input.note || '', input.brand].filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n')
+  const html = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(input.title)}</title></head>
+<body style="margin:0;background:#f4f5f7;font-family:Tahoma,Vazirmatn,Arial,sans-serif;color:#1f2937">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
+<tr><td style="background:${accent};padding:18px 24px;color:#ffffff;font-size:18px;font-weight:bold;text-align:right">${escapeHtml(input.brand)}</td></tr>
+<tr><td style="padding:28px 24px 8px;text-align:right;font-size:15px;line-height:2">
+<p style="margin:0 0 8px">${escapeHtml(input.name)} عزیز،</p>
+<h1 style="margin:0 0 8px;font-size:19px;line-height:1.8">${escapeHtml(input.title)}</h1>
+<p style="margin:0;color:#4b5563">${escapeHtml(input.body).replace(/\n/g, '<br>')}</p>
+</td></tr>
+<tr><td style="padding:16px 24px 20px;text-align:right"><a href="${escapeHtml(link)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:10px;font-weight:bold;font-size:14px">${escapeHtml(input.button)}</a></td></tr>
+<tr><td style="padding:0 24px 24px;text-align:right;font-size:12px;line-height:2;color:#6b7280;direction:ltr;word-break:break-all">${escapeHtml(link)}</td></tr>
+${input.note ? `<tr><td style="padding:14px 24px;background:#f9fafb;border-top:1px solid #eef0f3;text-align:right;font-size:12px;line-height:2;color:#6b7280">${escapeHtml(input.note)}</td></tr>` : ''}
+</table></td></tr></table></body></html>`
+  return { subject: `${input.title} — ${input.brand}`.replace(/[\r\n]+/g, ' ').slice(0, 200), text, html }
+}
+
 // ---------------------------------------------------------------- registry files
 //
 // domains    : one domain per line                       (Postfix virtual_mailbox_domains, texthash)

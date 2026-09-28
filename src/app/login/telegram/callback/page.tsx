@@ -12,6 +12,11 @@ export default function TelegramLoginCallback() {
   const { locale } = useI18n()
   const started = useRef(false)
   const [error, setError] = useState(false)
+  // Accounts with 2-step sign-in confirm with their code before the Telegram login completes.
+  const [pending, setPending] = useState<{ authData: string; destination: string } | null>(null)
+  const [totp, setTotp] = useState('')
+  const [totpError, setTotpError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (started.current) return
@@ -22,12 +27,37 @@ export default function TelegramLoginCallback() {
     if (!result) { setError(true); return }
     void signIn('telegram-web', { authData: result.authData, redirect: false })
       .then((response) => {
+        if (response?.error === 'TOTP_REQUIRED') { setPending({ authData: result.authData, destination: result.destination }); return }
         if (!response || response.error) { setError(true); return }
         router.replace(result.destination)
         router.refresh()
       })
       .catch(() => setError(true))
   }, [router])
+
+  async function confirm(e: React.FormEvent) {
+    e.preventDefault()
+    if (!pending) return
+    setBusy(true); setTotpError('')
+    const response = await signIn('telegram-web', { authData: pending.authData, totp, redirect: false }).catch(() => null)
+    setBusy(false)
+    if (response && !response.error) { router.replace(pending.destination); router.refresh(); return }
+    if (response?.error === 'TOTP_INVALID') { setTotpError(locale === 'fa' ? 'کد ورود دو مرحله‌ای درست نیست.' : 'The 2-step code is wrong.'); return }
+    setPending(null); setError(true)
+  }
+
+  if (pending) return (
+    <main className="auth-telegram-callback">
+      <form className="auth-telegram-callback-card" onSubmit={confirm} aria-busy={busy}>
+        <span className="auth-telegram-icon" aria-hidden="true">🔐</span>
+        <h1>{locale === 'fa' ? 'ورود دو مرحله‌ای' : '2-step sign-in'}</h1>
+        <p>{locale === 'fa' ? 'کد ۶ رقمی برنامهٔ احراز هویت یا یکی از کدهای پشتیبان را وارد کنید.' : 'Enter the code from your authenticator app or a backup code.'}</p>
+        <input className="input auth-otp" aria-label={locale === 'fa' ? 'کد ورود دو مرحله‌ای' : '2-step code'} autoComplete="one-time-code" dir="ltr" maxLength={11} value={totp} onChange={(e) => setTotp(e.target.value)} required autoFocus />
+        {totpError && <p className="error-text" role="alert">{totpError}</p>}
+        <button className="btn btn-primary" disabled={busy || totp.replace(/[\s-]/g, '').length < 6}>{locale === 'fa' ? 'تأیید و ورود' : 'Verify and sign in'}</button>
+      </form>
+    </main>
+  )
 
   return (
     <main className="auth-telegram-callback" role="status" aria-live="polite">

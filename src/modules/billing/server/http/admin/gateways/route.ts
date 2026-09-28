@@ -24,6 +24,7 @@ function sanitize(g: any) {
     secretMasked: maskSecret(g.secretKey),
     hasApiKey: Boolean(g.apiKey),
     hasSecret: Boolean(g.secretKey),
+    accountUser: g.accountUser || '',
     usable: isGatewayUsable(g),
   }
 }
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   if (makeDefault) await db.gateway.updateMany({ data: { isDefault: false } })
 
-  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
+  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
   const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       provider,
       apiKey: String(b?.apiKey || '').trim(),
       secretKey: String(b?.secretKey || '').trim(),
+      accountUser: String(b?.accountUser || '').trim().slice(0, 100),
       fiat,
       currencies: String(b?.currencies || '').trim(),
       feePercent: feeBps / 100,
@@ -86,8 +88,9 @@ export async function PATCH(req: NextRequest) {
   if (PROVIDERS.some((item) => item.key === b?.provider)) {
     data.provider = b.provider
     if (b.provider === 'FRENZYEX') data.fiat = 'TMN'
-    if (b.provider === 'CARD_TRANSFER') data.fiat = 'IRR'
+    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT') data.fiat = 'IRR'
   }
+  if (typeof b?.accountUser === 'string') data.accountUser = b.accountUser.trim().slice(0, 100)
   if (b?.feePercent !== undefined) {
     const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b.feePercent) || 0) * 100)))
     data.feeBps = feeBps
@@ -158,6 +161,7 @@ export async function PUT(req: NextRequest) {
     provider: b?.provider || gw.provider,
     apiKey: typeof b?.apiKey === 'string' && b.apiKey.trim() ? b.apiKey.trim() : gw.apiKey,
     secretKey: typeof b?.secretKey === 'string' && b.secretKey.trim() ? b.secretKey.trim() : gw.secretKey,
+    accountUser: typeof b?.accountUser === 'string' && b.accountUser.trim() ? b.accountUser.trim() : gw.accountUser,
     fiat: gw.fiat,
     currencies: gw.currencies,
     feePercent: gw.feeBps ? gw.feeBps / 100 : gw.feePercent,
