@@ -2796,3 +2796,52 @@ model SellerReview {
   @@unique([orderId, sellerId])
   @@index([sellerId, status, createdAt])
 }
+
+// ---------------------------------------------------------------- Live chat & CRM
+
+/// A live chat on the site: answered by the AI assistant first, then by an operator.
+model ChatConversation {
+  id               Int       @id @default(autoincrement())
+  token            String    @unique // visitor cookie
+  userId           Int?
+  name             String    @default("")
+  contact          String    @default("") // phone or email left by a guest
+  status           String    @default("BOT") // BOT | WAITING | OPEN | CLOSED
+  assignedTo       Int?
+  pageUrl          String    @default("")
+  botReplies       Int       @default(0)
+  unreadForAgent   Int       @default(0)
+  unreadForVisitor Int       @default(0)
+  rating           Int?
+  lastMessageAt    DateTime  @default(now())
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  messages         ChatMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([userId])
+  @@index([assignedTo, status])
+}
+
+model ChatMessage {
+  id             Int              @id @default(autoincrement())
+  conversationId Int
+  sender         String           // VISITOR | BOT | AGENT | SYSTEM
+  agentId        Int?
+  body           String
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, id])
+}
+
+/// Customer labels for segmentation in the CRM (e.g. wholesale, VIP, needs follow-up).
+model CrmTag {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tag       String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tag])
+  @@index([tag])
+}

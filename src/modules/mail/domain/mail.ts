@@ -52,6 +52,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'LOYALTY', label: 'باشگاه مشتریان (امتیاز و سطح)' },
   { id: 'CONTENT_PURCHASE', label: 'خرید فایل یا مقالهٔ پولی' },
   { id: 'MARKETPLACE', label: 'فروشندگان (سفارش تازه، تسویه، وضعیت فروشگاه)' },
+  { id: 'LIVECHAT', label: 'گفت‌وگوی آنلاین (پاسخ اپراتور)' },
 ]
 
 /** Placeholder accounts (phone sign-up, bots, Telegram) have no real inbox. */
