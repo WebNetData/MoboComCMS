@@ -100,7 +100,9 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
     const generic = fa ? 'پخش این آهنگ ممکن نشد.' : 'This track could not be played.'
     setNotice(generic)
     try {
-      const res = await fetch(`/api/media/track/${track.id}`, { headers: { Range: 'bytes=0-1', accept: '*/*' }, cache: 'no-store' })
+      // Not followed: a direct link to another host cannot be fetched from the page (CSP); it is the browser's own load that failed.
+      const res = await fetch(`/api/media/track/${track.id}`, { headers: { Range: 'bytes=0-1', accept: '*/*' }, cache: 'no-store', redirect: 'manual' })
+      if (res.type === 'opaqueredirect') { setNotice(fa ? 'مرورگر نتوانست فایل را از سرور فایل بگیرد (لینک مستقیم). احتمالاً آن سرور دسترسی را رد می‌کند یا فایل معتبر نیست.' : 'The browser could not load the file from its server (direct link).'); return }
       const reason = lockReason(res.status)
       if (reason) { setLock({ reason, track }); setNotice(''); return }
       if (res.status === 404 || res.status === 410) setNotice(fa ? 'فایل این آهنگ روی سرور پیدا نشد یا حذف شده است.' : 'The audio file was not found on its server.')
