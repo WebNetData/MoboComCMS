@@ -125,6 +125,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/trust-seals', label: L('نمادهای اعتماد (اینماد، ساماندهی)', 'Trust seals'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
       { href: '/admin/email', label: L('ایمیل سایت (جیمیل / SMTP)', 'Site email (Gmail / SMTP)'), icon: 'chat', perm: 'settings.manage' },
+      { href: '/admin/newsletter', label: L('خبرنامه و کمپین ایمیلی', 'Newsletter & campaigns'), icon: 'chat', perm: 'settings.manage' },
+      { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },

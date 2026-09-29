@@ -6,7 +6,7 @@ const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 // Server-to-server callbacks authenticate with signatures/secrets and send no
 // Origin header; NextAuth ships its own CSRF token flow.
-const ORIGIN_EXEMPT = /^\/api\/(auth\/|payment\/|telegram\/|internal\/)/
+const ORIGIN_EXEMPT = /^\/api\/(auth\/|payment\/|telegram\/|internal\/|feeds\/|newsletter\/unsubscribe)/
 
 function sameSiteOrigin(req: NextRequest, origin: string): boolean {
   try {
@@ -64,7 +64,7 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   }
 }
 
-const NOT_ALIASED = /^\/(api|admin|_next)(\/|$)/
+const NOT_ALIASED = /^\/(api|admin|_next|dl|files)(\/|$)/
 
 export async function middleware(req: NextRequest) {
   const incoming = req.headers.get('x-request-id')?.trim() || ''

@@ -35,6 +35,8 @@ export async function PATCH(req: NextRequest) {
     const row = await db.productReview.findUnique({ where: { id } })
     if (!row) return err('not found', 404)
     await db.productReview.update({ where: { id }, data: { status } })
+    // Customer club: one bonus per approved review (idempotent by review id).
+    if (status === 'APPROVED') await import('@/modules/store/server/marketing').then((m) => m.awardReviewBonus(row.userId, row.id)).catch(() => undefined)
   } else {
     const row = await db.productQuestion.findUnique({ where: { id } })
     if (!row) return err('not found', 404)

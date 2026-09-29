@@ -228,7 +228,7 @@ export const POST_TEMPLATES: BundledTemplate[] = [
         col([
           w('heading', { level: 'h3', text: 'مطالب دیگر', textEn: 'More stories' }),
           w('posts', { title: '', titleEn: '', limit: '3' }),
-          w('cta', { title: 'اشتراک خبرنامه', titleEn: 'Newsletter', text: 'هر هفته یک ایمیل، بدون شلوغ‌کاری.', textEn: 'One email a week, no noise.', label: 'عضویت', labelEn: 'Subscribe', href: '/blog' }),
+          w('cta', { title: 'اشتراک خبرنامه', titleEn: 'Newsletter', text: 'هر هفته یک ایمیل، بدون شلوغ‌کاری.', textEn: 'One email a week, no noise.', label: 'عضویت', labelEn: 'Subscribe', href: '/newsletter' }),
         ], 32),
       ], { paddingY: 40 }),
       sec([col([w('post-footer', {})])], { tone: 'light', paddingY: 56 }),
@@ -439,7 +439,7 @@ export const THEME_PRESETS: Record<'header' | 'footer' | 'page', BundledTemplate
       doc: doc([
         sec([col([w('hero', { eyebrow: 'HAPP / SECTION', eyebrowEn: 'HAPP / SECTION', title: 'عنوان بخش', titleEn: 'Section title', text: 'توضیح کوتاه دربارهٔ این بخش.', textEn: 'A short intro for this section.' })])], { tone: 'dark', paddingY: 96 }),
         sec([col([w('posts', { title: 'تازه‌ترین‌ها', titleEn: 'Latest', limit: '9', category: '@section' })])], { paddingY: 64 }),
-        sec([col([w('cta', { title: 'عضو خبرنامه شوید', titleEn: 'Join the newsletter', text: 'هر هفته بهترین مطالب این بخش.', textEn: 'The best of this section every week.', label: 'مجله', labelEn: 'Journal', href: '/blog' })])], { tone: 'accent', paddingY: 56 }),
+        sec([col([w('cta', { title: 'عضو خبرنامه شوید', titleEn: 'Join the newsletter', text: 'هر هفته بهترین مطالب این بخش.', textEn: 'The best of this section every week.', label: 'عضویت', labelEn: 'Subscribe', href: '/newsletter' })])], { tone: 'accent', paddingY: 56 }),
       ]),
     },
     {

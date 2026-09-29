@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type WalletTxType = 'TOPUP' | 'PURCHASE' | 'REFUND' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'RENEWAL' | 'REFERRAL'
+export type WalletTxType = 'TOPUP' | 'PURCHASE' | 'REFUND' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'RENEWAL' | 'REFERRAL' | 'GIFT_CARD' | 'LOYALTY'
 
 export interface WalletMoveInput {
   userId: number

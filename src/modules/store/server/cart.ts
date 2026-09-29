@@ -187,7 +187,8 @@ export async function addToCart(owner: CartOwner, input: { productId: unknown; v
   const next = Math.min(limit, (existing?.quantity || 0) + quantity)
   if (existing) await db.cartLine.update({ where: { id: existing.id }, data: { quantity: next } })
   else await db.cartLine.create({ data: { cartId: cart.id, productId, variantKey: variantId || 0, quantity: next } })
-  await db.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date() } })
+  // A changed cart starts a fresh abandoned-cart cycle.
+  await db.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date(), reminderCount: 0 } })
   return { token: cart.token, quantity: next, limited: next < (existing?.quantity || 0) + quantity }
 }
 
@@ -204,6 +205,7 @@ export async function updateCartLine(owner: CartOwner, lineId: number, quantityI
   const { limit } = await purchasable(line.productId, line.variantKey || null).catch(() => ({ limit: 0 }))
   if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
   await db.cartLine.update({ where: { id: line.id }, data: { quantity: Math.min(limit, quantity) } })
+  await db.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date(), reminderCount: 0 } })
   return { removed: false, quantity: Math.min(limit, quantity) }
 }
 

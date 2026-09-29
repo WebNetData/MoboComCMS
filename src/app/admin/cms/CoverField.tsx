@@ -14,8 +14,8 @@ export default function CoverField({ value, title, onChange, onBusy, mode = 'cov
   async function upload(file?: File) {
     if (!file) return
     setError('')
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setError(fa ? 'تصویر JPG، PNG یا WebP تا ۵ مگابایت انتخاب کنید.' : 'Choose a JPG, PNG or WebP image up to 5 MB.')
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 15 * 1024 * 1024) {
+      setError(fa ? 'تصویر JPG، PNG یا WebP تا ۱۵ مگابایت انتخاب کنید (خودکار فشرده و به WebP تبدیل می‌شود).' : 'Choose a JPG, PNG or WebP image up to 15 MB (compressed to WebP automatically).')
       return
     }
     setBusy(true); onBusy(true)
@@ -43,7 +43,7 @@ export default function CoverField({ value, title, onChange, onBusy, mode = 'cov
   }
 
   return <div className="cms-cover-field">
-    <p className="muted text-sm">{mode === 'section' ? (fa ? 'تصویر بخش را بارگذاری کنید (حداکثر ۵ مگابایت).' : 'Upload a section image (up to 5 MB).') : (fa ? 'اندازه پیشنهادی: ۱۹۲۰ × ۶۴۰ پیکسل. تصویر بدون کشیدگی، از مرکز برش می‌خورد؛ سوژه اصلی را وسط نگه دارید. حداکثر ۵ مگابایت.' : 'Recommended: 1920 × 640 px, up to 5 MB. The cover crops from the center without stretching; keep the subject centered.')}</p>
+    <p className="muted text-sm">{mode === 'section' ? (fa ? 'تصویر بخش را بارگذاری کنید (حداکثر ۱۵ مگابایت؛ خودکار فشرده می‌شود).' : 'Upload a section image (up to 5 MB).') : (fa ? 'اندازه پیشنهادی: ۱۹۲۰ × ۶۴۰ پیکسل. تصویر بدون کشیدگی، از مرکز برش می‌خورد؛ سوژه اصلی را وسط نگه دارید. حداکثر ۱۵ مگابایت؛ خودکار فشرده می‌شود.' : 'Recommended: 1920 × 640 px, up to 15 MB (compressed automatically). The cover crops from the center without stretching; keep the subject centered.')}</p>
     <div className="cms-cover-controls">
       <label className="label">{mode === 'section' ? (fa ? 'بارگذاری تصویر بخش' : 'Upload section image') : (fa ? 'بارگذاری تصویر شاخص' : 'Upload featured image')}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label>
       <label className="label">{fa ? 'یا نشانی تصویر' : 'Or image URL'}<input className="input" dir="ltr" value={value} disabled={busy} placeholder="https://…" onChange={e => onChange(e.target.value)} /></label>

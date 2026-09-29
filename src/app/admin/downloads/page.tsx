@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
 type Host = { host: string; method: 'nginx' | 'hmac'; secret: string; hasSecret?: boolean; ttlMinutes: number; expression: string; tokenParam: string; expiresParam: string }
-type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[] }
+type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[]; maskMode: 'external' | 'off'; maskExclude: string[]; maskTtlHours: number }
 type QueueEntry = {
   link: { id: number; label: string; quality: string; url: string; disabled: boolean; clicks: number; kind: string }
   owner: { title: string; path: string; admin: string }
@@ -109,6 +109,11 @@ export default function AdminDownloadsPage() {
 
     {tab === 'settings' && <section className="xm-section">
       <form className="card fr-admin-form" onSubmit={(event) => { event.preventDefault(); void send('PATCH', settings, 'تنظیمات دانلود ذخیره شد') }}>
+        <h2 className="fr-admin-wide">پنهان‌سازی لینک (دانلود از دامنهٔ خودتان)</h2>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.maskMode !== 'off'} onChange={(e) => setSettings({ ...settings, maskMode: e.target.checked ? 'external' : 'off' })} />فایل‌های سایت‌های دیگر از دامنهٔ همین سایت دانلود و پخش شوند؛ نشانی سرور اصلی هیچ‌جا دیده نمی‌شود</label>
+        <p className="muted fr-admin-wide">مثلاً <bdi dir="ltr">https://dl.other-site.ir/Tak/song.mp3</bdi> برای کاربر به شکل <bdi dir="ltr">https://دامنهٔ‌شما/dl/…/song.mp3</bdi> دیده می‌شود. فایل از سرور اصلی از طریق همین سایت برای کاربر فرستاده می‌شود (ادامهٔ دانلود نیمه‌کاره و جلو/عقب کردن پخش هم کار می‌کند)، پس ترافیک این دانلودها از پهنای باند سرور سایت مصرف می‌شود. فایل‌های روی دامنه و زیردامنه‌های خودتان مستقیم داده می‌شوند.</p>
+        <label className="studio-field"><span>اعتبار لینک پنهان (ساعت)</span><input className="input" type="number" min={1} max={336} value={settings.maskTtlHours} onChange={(e) => setSettings({ ...settings, maskTtlHours: Number(e.target.value) })} /></label>
+        <label className="studio-field"><span>سرورهایی که مستقیم لینک شوند (پنهان نشوند)</span><input className="input" dir="ltr" value={(settings.maskExclude || []).join(', ')} onChange={(e) => setSettings({ ...settings, maskExclude: e.target.value.split(/[\s,،]+/).filter(Boolean) })} placeholder="cdn.example.com, *.cloudfront.net" /></label>
         <h2 className="fr-admin-wide">لینک‌های موقت</h2>
         <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.enforceTokens} onChange={(e) => setSettings({ ...settings, enforceTokens: e.target.checked })} />لینک‌های دانلود امضاشده و موقت باشند (لینک کپی‌شده بعد از مدت اعتبار به صفحهٔ مطلب برمی‌گردد)</label>
         <label className="studio-field"><span>مدت اعتبار لینک صفحه (دقیقه)</span><input className="input" type="number" min={10} max={10080} value={settings.tokenTtlMinutes} onChange={(e) => setSettings({ ...settings, tokenTtlMinutes: Number(e.target.value) })} /></label>

@@ -26,6 +26,8 @@ const TABS = [
   { href: '/admin/store/inventory', label: 'انبار' },
   { href: '/admin/store/brands', label: 'برندها' },
   { href: '/admin/store/customers', label: 'مشتریان' },
+  { href: '/admin/store/marketing', label: 'بازاریابی و وفاداری' },
+  { href: '/admin/store/feeds', label: 'ترب و ایمالز' },
   { href: '/admin/store/settings', label: 'ویترین' },
 ]
 

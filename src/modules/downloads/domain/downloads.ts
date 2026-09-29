@@ -37,6 +37,12 @@ export interface DownloadSettings {
   memberDaily: number
   vipDaily: number
   hosts: SigningHost[]
+  /** Serve files on other hosts from this site's domain (/dl/…), hiding the source address. */
+  maskMode: 'external' | 'off'
+  /** Hosts that are always linked directly (e.g. a CDN you do not want to proxy). */
+  maskExclude: string[]
+  /** How long a masked link keeps working. */
+  maskTtlHours: number
 }
 
 export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
@@ -47,6 +53,9 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   memberDaily: 100,
   vipDaily: 0,
   hosts: [],
+  maskMode: 'external',
+  maskExclude: [],
+  maskTtlHours: 12,
 }
 
 export const NGINX_DEFAULT_EXPRESSION = '{expires}{uri} {secret}'
@@ -100,6 +109,9 @@ export function normalizeDownloadSettings(input: Record<string, unknown> = {}, p
     memberDaily: num('memberDaily', 0, 10_000),
     vipDaily: num('vipDaily', 0, 10_000),
     hosts,
+    maskMode: input.maskMode === undefined ? previous.maskMode ?? d.maskMode : input.maskMode === 'off' ? 'off' : 'external',
+    maskExclude: input.maskExclude === undefined ? previous.maskExclude ?? [] : [...new Set((Array.isArray(input.maskExclude) ? input.maskExclude : String(input.maskExclude).split(/[\s,،]+/)).map(normalizeHost).filter(Boolean))].slice(0, 50),
+    maskTtlHours: input.maskTtlHours === undefined ? previous.maskTtlHours ?? d.maskTtlHours : int(input.maskTtlHours, 1, 24 * 14, d.maskTtlHours),
   }
 }
 

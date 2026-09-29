@@ -498,3 +498,14 @@
 .rp-summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--sx-radius-sm); background: var(--sx-subtle); font-size: 13px; font-weight: 700; }
 .rp-policy { margin: 0; font-size: 12px; line-height: 2; color: var(--sx-muted); }
 .rp-error { margin: 0; color: var(--sx-danger); font-size: 13px; }
+
+/* Buy box: club points, installments, back-in-stock alert */
+.sx-buy-club { display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-size: 12px; color: var(--sx-muted); }
+.sx-buy-club svg { color: #d4a017; }
+.sx-buy-club b { color: var(--sx-text, inherit); }
+.sx-buy-installments { list-style: none; margin: 6px 0 0; padding: 8px 10px; display: grid; gap: 4px; border-radius: 10px; background: color-mix(in srgb, var(--sx-accent) 8%, transparent); font-size: 12px; }
+.sx-buy-installments li { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.sx-buy-installments svg { color: var(--sx-accent); flex: none; }
+.sx-stock-alert { display: grid; gap: 6px; }
+.sx-stock-alert .sx-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.sx-stock-note { margin: 0; font-size: 12px; color: var(--sx-muted); text-align: center; line-height: 1.8; }

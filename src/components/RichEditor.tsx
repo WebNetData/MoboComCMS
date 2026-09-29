@@ -8,6 +8,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Extension } from '@tiptap/core'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { rewriteAssets } from '@/modules/downloads/domain/localize'
 
 /**
  * Lightweight text-align support: StarterKit v3 has no textAlign extension, so we
@@ -58,6 +59,8 @@ export interface RichEditorProps {
   compact?: boolean
   /** Ticket editor excludes image/data uploads and raw HTML source. */
   ticketMode?: boolean
+  /** Upload folder for files copied from pasted content (staff editors only). */
+  assetSection?: string
 }
 
 /**
@@ -65,8 +68,12 @@ export interface RichEditorProps {
  * and anywhere else admins author formatted content. Output is HTML — always run
  * it through `cleanRichText` on the server before storing or rendering it.
  */
-export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', minHeight = 220, compact = false, ticketMode = false }: RichEditorProps) {
+export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', minHeight = 220, compact = false, ticketMode = false, assetSection = 'posts' }: RichEditorProps) {
   const { t } = useI18n()
+  // Staff editors copy images/files of pasted content to this server (not ticket replies).
+  const localizeOn = !ticketMode
+  const [importing, setImporting] = useState<{ busy: boolean; text: string } | null>(null)
+  const localizeRef = useRef<(auto: boolean) => void>(() => undefined)
   const fileInput = useRef<HTMLInputElement | null>(null)
   const [codeMode, setCodeMode] = useState(false)
   const [codeDraft, setCodeDraft] = useState('')
@@ -88,6 +95,8 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
     ],
     content: value || '',
     editorProps: {
+      handlePaste: () => { setTimeout(() => localizeRef.current(true), 60); return false },
+      handleDrop: () => { setTimeout(() => localizeRef.current(true), 60); return false },
       attributes: {
         dir,
         class: 'rich-editor-body prose',
@@ -106,6 +115,28 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
       editor.commands.setContent(next, { emitUpdate: false })
     }
   }, [value, editor])
+
+  localizeRef.current = (auto: boolean) => { void localizeAssets(auto) }
+  async function localizeAssets(auto: boolean) {
+    if (!editor || !localizeOn || importing?.busy) return
+    const html = editor.getHTML()
+    const origin = typeof window !== 'undefined' ? window.location.hostname.replace(/^www\./, '') : ''
+    const external = [...html.matchAll(/<(?:img[^>]*\ssrc|a[^>]*\shref)="([^"]+)"/gi)].map((m) => m[1]).filter((url) => url.startsWith('data:image/') || (/^https?:/i.test(url) && (() => { try { const h = new URL(url.replace(/&amp;/g, '&')).hostname; return h !== origin && !h.endsWith(`.${origin}`) } catch { return false } })()))
+    if (!external.length) { if (!auto) setImporting({ busy: false, text: 'تصویر یا فایلی از سایت دیگر در متن نیست.' }); return }
+    setImporting({ busy: true, text: 'در حال انتقال تصاویر و فایل‌های متن به سرور سایت…' })
+    try {
+      const response = await fetch('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html, section: assetSection }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) { setImporting({ busy: false, text: data?.error || 'انتقال انجام نشد' }); return }
+      const replacements = new Map<string, string>(data.replacements || [])
+      if (replacements.size) {
+        // Applied to the current text, so anything typed meanwhile is kept.
+        const next = rewriteAssets(editor.getHTML(), replacements)
+        editor.commands.setContent(next, { emitUpdate: true })
+      }
+      setImporting({ busy: false, text: data.failed?.length ? `${replacements.size.toLocaleString('fa-IR')} مورد به سرور منتقل شد؛ ${data.failed.length.toLocaleString('fa-IR')} مورد در دسترس نبود.` : replacements.size ? `${replacements.size.toLocaleString('fa-IR')} تصویر/فایل به سرور سایت منتقل شد.` : 'تصویر یا فایلی برای انتقال پیدا نشد.' })
+    } catch { setImporting({ busy: false, text: 'ارتباط برقرار نشد' }) }
+  }
 
   if (!editor) return <div className="rich-editor"><div className="rich-toolbar" /><div className="rich-editor-body" style={{ minHeight }} /></div>
 
@@ -139,7 +170,11 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
       return
     }
     const reader = new FileReader()
-    reader.onload = () => editor?.chain().focus().setImage({ src: String(reader.result || ''), alt: file.name }).run()
+    reader.onload = () => {
+      editor?.chain().focus().setImage({ src: String(reader.result || ''), alt: file.name }).run()
+      // Staff editors store the picture on the server instead of inside the text.
+      if (localizeOn) setTimeout(() => localizeRef.current(true), 30)
+    }
     reader.readAsDataURL(file)
   }
 
@@ -181,6 +216,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
           <>
             <Btn title={t.editorImage} on={addImage}>🖼</Btn>
             <Btn title={t.editorUploadImage} on={() => fileInput.current?.click()}>📤</Btn>
+            {localizeOn && <Btn title="انتقال تصاویر و فایل‌های سایت‌های دیگر به سرور همین سایت" on={() => void localizeAssets(false)}>⇩</Btn>}
           </>
         )}
         {!ticketMode && <Btn title={t.editorRule} on={() => editor.chain().focus().setHorizontalRule().run()}>―</Btn>}
@@ -208,6 +244,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
       ) : (
         <EditorContent editor={editor} />
       )}
+      {importing && <div className={`rich-import${importing.busy ? ' is-busy' : ''}`} role="status">{importing.text}{!importing.busy && <button type="button" onClick={() => setImporting(null)} aria-label="بستن">✕</button>}</div>}
       <input
         ref={fileInput}
         type="file"

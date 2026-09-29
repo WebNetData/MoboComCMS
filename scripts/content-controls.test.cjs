@@ -459,9 +459,9 @@ test('media upload requires CMS access, rejects invalid bytes, and serves upload
   const { url } = await response.json()
   const served = await GET(new Request('http://localhost' + url), { params: { file: url.split('/').pop() } })
   assert.equal(served.headers.get('Content-Type'), 'image/webp')
-  assert.deepEqual(Buffer.from(await served.arrayBuffer()), bytes)
+  assert.deepEqual(Buffer.from(await served.arrayBuffer()), [...files.values()].pop())
   assert.equal((await GET(new Request('http://localhost'), { params: { file: '../.env' } })).status, 404)
-  const oversized = new NextRequest('http://localhost/api/admin/media', { method: 'POST', headers: { 'content-type': 'multipart/form-data; boundary=test' }, body: Buffer.alloc(7 * 1024 * 1024) })
+  const oversized = new NextRequest('http://localhost/api/admin/media', { method: 'POST', headers: { 'content-type': 'multipart/form-data; boundary=test' }, body: Buffer.alloc(17 * 1024 * 1024) })
   assert.equal((await POST(oversized)).status, 413)
 })
 
