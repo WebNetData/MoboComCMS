@@ -14,6 +14,7 @@ const REASON: Record<string, { title: string; text: string; action?: { href: str
   removed: { title: 'این فایل در دسترس نیست', text: 'لینک به‌دلیل خرابی یا درخواست حق نشر غیرفعال شده است.' },
   login: { title: 'برای تماشا وارد شوید', text: 'تماشای این مورد برای کاربران عضو است.', action: { href: '/login', label: 'ورود / ثبت‌نام' } },
   vip: { title: 'ویژهٔ اعضای VIP', text: 'این مورد فقط برای اشتراک ویژه قابل تماشاست.', action: { href: '/vip', label: 'خرید اشتراک ویژه' } },
+  buy: { title: 'این مورد فروشی است', text: 'برای تماشا ابتدا آن را از صفحهٔ خودش خریداری کنید؛ پس از خرید همیشه در دسترس شماست.' },
   expired: { title: 'اعتبار لینک تمام شده است', text: 'برای امنیت، لینک‌های پخش مدت محدودی اعتبار دارند. از صفحهٔ فیلم دوباره روی «پخش» بزنید.' },
   unplayable: { title: 'این فایل قابل پخش آنلاین نیست', text: 'فرمت این لینک برای پخش در مرورگر مناسب نیست (مثلاً فایل فشرده یا AVI). آن را دانلود کنید.' },
 }
@@ -40,7 +41,7 @@ export default async function WatchPage({ params, searchParams }: { params: Prom
           <p>{REASON[result.reason].text}</p>
           <div>
             {REASON[result.reason].action && <Link href={REASON[result.reason].action!.href} className="btn btn-primary">{REASON[result.reason].action!.label}</Link>}
-            <Link href={`${result.backPath}#downloads`} className="btn btn-ghost">بازگشت</Link>
+            <Link href={`${result.backPath}#${result.reason === 'buy' ? 'buy' : 'downloads'}`} className={result.reason === 'buy' ? 'btn btn-primary' : 'btn btn-ghost'}>{result.reason === 'buy' ? 'خرید از صفحهٔ این مورد' : 'بازگشت'}</Link>
           </div>
         </section>}
       </div>

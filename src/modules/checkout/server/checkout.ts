@@ -17,6 +17,8 @@ import { checkoutCarrier } from '@/modules/shipping/server/carriers'
 import { ShippingError, shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineLimit } from '@/modules/store/domain/store'
 import { unitPrice } from '@/modules/store/server/pricing'
+import { quoteContent } from '@/modules/paywall/server/paywall'
+import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
 
 export interface CheckoutCommand {
   userId: number
@@ -29,6 +31,8 @@ export interface CheckoutCommand {
   lines?: { productId: number; variantId?: number | null; quantity?: number }[] | null
   /** VIP membership plan purchase. */
   membershipPlanId?: number | null
+  /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
+  contentKey?: string | null
   /** Saved address from the customer's address book (physical products). */
   addressId?: number | null
   /** Chosen delivery day (YYYY-MM-DD, Tehran) and time window. */
@@ -99,8 +103,10 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (cartLines && cartLines.length > MAX_CART_LINES) return fail(400, 'BAD_ITEM', 'too many cart lines')
   const productId = Number(cartLines ? cartLines[0]?.productId : command.productId) || null
   const membershipPlanId = Number(command.membershipPlanId) || null
+  const content = command.contentKey ? parseContentKey(command.contentKey) : null
+  if (command.contentKey && !content) return fail(400, 'BAD_ITEM', 'invalid content key')
   if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
-  if ([planId, productId, membershipPlanId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  if ([planId, productId, membershipPlanId, content].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
   const member = await isMember(command.userId)
@@ -116,7 +122,20 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
   const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string }[] = []
 
-  if (membershipPlanId) {
+  if (content) {
+    try {
+      const quote = await quoteContent(content, { userId: command.userId, member })
+      currency = normalizeCurrency(quote.currency)
+      amountMinor = quote.amountMinor
+      amount = legacyNumber(amountMinor, currency)
+      label = quote.label
+      memberDiscount = quote.memberPrice
+      meta = { kind: 'content', ownerType: quote.ownerType, ownerId: quote.ownerId, contentTitle: quote.label, contentPath: quote.path }
+    } catch (error) {
+      if (error instanceof PaywallError) return fail(error.status, error.code, error.message, error.code === 'ALREADY_OPEN' ? { contentPath: '' } : undefined)
+      throw error
+    }
+  } else if (membershipPlanId) {
     const vip = await db.membershipPlan.findUnique({ where: { id: membershipPlanId } })
     if (!vip || !vip.active) return fail(404, 'MEMBERSHIP_PLAN_NOT_FOUND', 'پلن اشتراک ویژه یافت نشد')
     currency = normalizeCurrency(vip.currency)
@@ -368,7 +387,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (dueMinor === 0n) {
     const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'wallet' } })
     if (!settled.ok) return fail(500, 'SETTLEMENT_FAILED', settled.message || 'invoice settlement failed')
-    const kind = membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
+    const kind = content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
     const job = await enqueueFulfillment({ kind, dedupeKey: `${kind}:order:${order.id}`, orderId: order.id, invoiceId: invoice.id })
     const processed = await processFulfillmentJob(job.id)
     const subscription = planId ? await db.subscription.findFirst({ where: { orderId: order.id } }) : null

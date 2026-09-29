@@ -2657,3 +2657,43 @@ model NewsletterDelivery {
   @@unique([campaignId, email])
   @@index([campaignId, status])
 }
+
+// ---------------------------------------------------------------- Paid content
+
+/// A price on one piece of content (article, software, game, film, album, track).
+/// VIP members get it free, at a member price, or pay like everyone else.
+model PaidItem {
+  id               Int      @id @default(autoincrement())
+  ownerType        String   // post | software | game | title | album | track
+  ownerId          Int
+  priceMinor       BigInt
+  currency         String   @default("IRT")
+  vipAccess        String   @default("FREE") // FREE | DISCOUNT | NONE
+  memberPriceMinor BigInt?
+  active           Boolean  @default(true)
+  sales            Int      @default(0)
+  revenueMinor     BigInt   @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@unique([ownerType, ownerId])
+}
+
+/// Lifetime access to one piece of paid content.
+model ContentPurchase {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  ownerType  String
+  ownerId    Int
+  orderId    Int?
+  paidMinor  BigInt    @default(0)
+  currency   String    @default("IRT")
+  source     String    @default("PURCHASE") // PURCHASE | ADMIN
+  note       String    @default("")
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, ownerType, ownerId])
+  @@index([ownerType, ownerId])
+  @@index([orderId])
+}

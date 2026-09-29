@@ -50,6 +50,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'CART_REMINDER', label: 'یادآوری سبد خرید رهاشده' },
   { id: 'GIFT_CARD', label: 'کارت هدیه' },
   { id: 'LOYALTY', label: 'باشگاه مشتریان (امتیاز و سطح)' },
+  { id: 'CONTENT_PURCHASE', label: 'خرید فایل یا مقالهٔ پولی' },
 ]
 
 /** Placeholder accounts (phone sign-up, bots, Telegram) have no real inbox. */

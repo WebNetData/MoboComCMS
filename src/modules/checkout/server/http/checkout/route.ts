@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     productId: Number(body?.productId) || null,
     variantId: Number(body?.variantId) || null,
     membershipPlanId: Number(body?.membershipPlanId) || null,
+    contentKey: typeof body?.contentKey === 'string' ? body.contentKey.slice(0, 40) : null,
     addressId: Number.isSafeInteger(Number(body?.addressId)) && Number(body?.addressId) > 0 ? Number(body.addressId) : null,
     delivery: body?.delivery && typeof body.delivery === 'object' ? { date: String(body.delivery.date || '').slice(0, 10), slotId: String(body.delivery.slotId || '').slice(0, 20) } : null,
     carrierId: typeof body?.carrierId === 'string' ? body.carrierId.slice(0, 30) : null,

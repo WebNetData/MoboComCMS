@@ -21,6 +21,8 @@ import { requireModule } from '@/extensions/server/modules'
 import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
 import { VipGate } from '@/components/media/MediaCards'
+import { isPaid, paywallView } from '@/modules/paywall/server/paywall'
+import BuyContent from '@/components/paywall/BuyContent'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
@@ -77,8 +79,11 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   if (!isPreview(preview)) await db.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } })
   // Members-only articles: guests get a teaser and a VIP call to action; the post's own
   // builder layout is skipped so premium blocks never render for non-members.
-  const viewer = post.access === 'MEMBERS' && !isPreview(preview) ? await getViewer() : null
-  const locked = !!viewer && !viewer.member
+  // Paid articles (paywall module) work the same way: a teaser and the buy box until bought.
+  const paid = !isPreview(preview) && await isPaid([{ ownerType: 'post', ownerId: post.id }])
+  const viewer = (post.access === 'MEMBERS' || paid) && !isPreview(preview) ? await getViewer() : null
+  const paywall = paid && viewer ? await paywallView(viewer, [{ ownerType: 'post', ownerId: post.id }]) : null
+  const locked = paywall ? !paywall.open : !!viewer && !viewer.member
   const builderDoc = locked ? null : await resolveBuilderDoc(preview, `post-${post.id}`)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
   const editingTemplate = previewTemplate(preview, 'single-post')
@@ -190,7 +195,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}`}
         dangerouslySetInnerHTML={{ __html: cleanRichText(locked ? teaserHtml(content) : content) }}
       />
-      {locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
+      {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
+      {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
 
       {tagList.length > 0 && (
         <div className="journal-tags">

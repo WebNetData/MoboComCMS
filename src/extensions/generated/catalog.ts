@@ -16,19 +16,20 @@ import m14 from '@/plugins/membership/manifest.json'
 import m15 from '@/plugins/music/manifest.json'
 import m16 from '@/plugins/operations-monitor/manifest.json'
 import m17 from '@/plugins/page-builder/manifest.json'
-import m18 from '@/plugins/remnawave-control/manifest.json'
-import m19 from '@/plugins/reviews/manifest.json'
-import m20 from '@/plugins/search/manifest.json'
-import m21 from '@/plugins/server-panel/manifest.json'
-import m22 from '@/plugins/social-publisher/manifest.json'
-import m23 from '@/plugins/software/manifest.json'
-import m24 from '@/plugins/store/manifest.json'
-import m25 from '@/plugins/support-dock/manifest.json'
-import m26 from '@/plugins/vpn/manifest.json'
-import m27 from '@/plugins/web-push/manifest.json'
+import m18 from '@/plugins/paywall/manifest.json'
+import m19 from '@/plugins/remnawave-control/manifest.json'
+import m20 from '@/plugins/reviews/manifest.json'
+import m21 from '@/plugins/search/manifest.json'
+import m22 from '@/plugins/server-panel/manifest.json'
+import m23 from '@/plugins/social-publisher/manifest.json'
+import m24 from '@/plugins/software/manifest.json'
+import m25 from '@/plugins/store/manifest.json'
+import m26 from '@/plugins/support-dock/manifest.json'
+import m27 from '@/plugins/vpn/manifest.json'
+import m28 from '@/plugins/web-push/manifest.json'
 import { assertUniqueExtensionIds, type ExtensionManifest } from '@/platform/extensions/contracts'
 
-export const extensionCatalog = [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27] as unknown as readonly ExtensionManifest[]
+export const extensionCatalog = [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28] as unknown as readonly ExtensionManifest[]
 assertUniqueExtensionIds(extensionCatalog)
 export const extensionById = new Map(extensionCatalog.map((manifest) => [manifest.id, manifest]))
 export const extensionPermissionIds = extensionCatalog.flatMap((manifest) => (manifest.permissions || []).map((permission) => permission.id))

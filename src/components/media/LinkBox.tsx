@@ -13,7 +13,7 @@ type PublicLink = { id: number; label: string; kind: string; quality: string; si
  * Open rows carry a short-lived signed token (download protection module) and
  * a "report a problem" button.
  */
-export default async function LinkBox({ links, fa, member, loggedIn, parentLocked = false, title, compact }: { links: PublicLink[]; fa: boolean; member: boolean; loggedIn: boolean; parentLocked?: boolean; title?: string; compact?: boolean }) {
+export default async function LinkBox({ links, fa, member, loggedIn, parentLocked = false, title, compact, paywall }: { links: PublicLink[]; fa: boolean; member: boolean; loggedIn: boolean; parentLocked?: boolean; title?: string; compact?: boolean; paywall?: { open: boolean } | null }) {
   if (!links.length) return <p className="muted md-nolinks">{fa ? 'لینکی برای این مورد ثبت نشده است.' : 'No links yet.'}</p>
   const viewer = await getViewer()
   const [hrefs, playable] = await Promise.all([
@@ -32,8 +32,10 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
           {!compact && <div className="md-links-group-head">{audioName(group.audio)}</div>}
           <ul>
             {group.items.map((link) => {
-              const locked = (link.access === 'MEMBERS' || parentLocked) && !member
-              const href = locked ? (loggedIn ? '/vip' : `/login?next=${encodeURIComponent('/vip')}`) : hrefs.get(link.id) || `/api/media/link/${link.id}`
+              // A priced item: buying (or VIP, when the admin made it free for members) opens every link.
+              const vipLocked = !paywall && (link.access === 'MEMBERS' || parentLocked)
+              const locked = paywall ? !paywall.open : vipLocked && !member
+              const href = locked ? (paywall ? '#buy' : loggedIn ? '/vip' : `/login?next=${encodeURIComponent('/vip')}`) : hrefs.get(link.id) || `/api/media/link/${link.id}`
               return (
                 <li key={link.id} className={locked ? 'is-locked' : ''}>
                   <span className="md-q" dir="ltr">{link.quality || '—'}</span>
@@ -43,11 +45,11 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
                       {link.size && <span dir="ltr">{link.size}</span>}
                       {compact && link.audio === 'DUBBED' && <span>{fa ? 'دوبله' : 'Dubbed'}</span>}
                       {link.subtitle && <span>{fa ? 'زیرنویس فارسی' : 'Persian subs'}</span>}
-                      {(link.access === 'MEMBERS' || parentLocked) && <span className="vip-chip is-small">♛ VIP</span>}
+                      {vipLocked && <span className="vip-chip is-small">♛ VIP</span>}
                     </small>
                   </span>
                   {locked
-                    ? <Link href={href} className="md-go is-locked" rel="nofollow">🔒 {fa ? 'ویژه VIP' : 'VIP only'}</Link>
+                    ? paywall ? <a href="#buy" className="md-go is-locked" rel="nofollow">🛒 {fa ? 'خرید' : 'Buy'}</a> : <Link href={href} className="md-go is-locked" rel="nofollow">🔒 {fa ? 'ویژه VIP' : 'VIP only'}</Link>
                     : <span className="md-go-wrap">
                       {(playable.get(link.id) || 'none') !== 'none' && <a href={watchHref(link.id)} className="md-go is-play" rel="nofollow">{fa ? '▶ پخش آنلاین' : '▶ Watch online'}</a>}
                       {(link.kind === 'DOWNLOAD' || (playable.get(link.id) || 'none') === 'none') && <a href={href} className={`md-go${link.kind === 'STREAM' ? ' is-stream' : ''}`} rel="nofollow noopener" target={link.kind === 'STREAM' ? '_blank' : undefined}>{link.kind === 'STREAM' ? (fa ? '▶ پخش' : '▶ Watch') : (fa ? '⤓ دانلود' : '⤓ Download')}</a>}<ReportLinkButton linkId={link.id} label={[link.label, link.quality, link.size].filter(Boolean).join(' · ') || (fa ? 'لینک دانلود' : 'Download link')} /></span>}

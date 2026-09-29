@@ -1,0 +1,26 @@
+{
+  "id": "paywall",
+  "name": "فروش محتوا (فایل و مقالهٔ پولی)",
+  "nameEn": "Paid content",
+  "description": "قیمت‌گذاری مقاله، نرم‌افزار، بازی، فیلم و موزیک؛ اعضای ویژه رایگان یا با تخفیف می‌گیرند و بقیه یک‌بار می‌خرند و برای همیشه دسترسی دارند.",
+  "descriptionEn": "Sell articles and downloads one by one. VIP members get them free or discounted; everyone else buys once for lifetime access.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/paywall"],
+  "permissions": [{ "id": "paywall.manage", "label": "مدیریت فروش محتوا" }],
+  "adminMenu": {
+    "title": "فروش محتوا",
+    "titleEn": "Paid content",
+    "icon": "sparkles",
+    "order": 82,
+    "items": [
+      { "href": "/admin/paywall", "label": "فایل‌ها و مقاله‌های پولی", "labelEn": "Paid items & sales", "icon": "grid", "permissions": ["paywall.manage", "membership.manage", "settings.manage"] }
+    ]
+  }
+}

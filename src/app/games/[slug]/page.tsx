@@ -16,6 +16,8 @@ import LibraryButtons from '@/components/games/LibraryButtons'
 import { Icon } from '@/components/media/PortalIcons'
 import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import LinkBox from '@/components/media/LinkBox'
+import { paywallView } from '@/modules/paywall/server/paywall'
+import BuyContent from '@/components/paywall/BuyContent'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
@@ -48,7 +50,8 @@ export default async function GamePage({ params }: Props) {
   if (!data) notFound()
   const { game: g } = data
   const extras = await gamePageExtras(g, viewer.userId ?? null)
-  const locked = g.access === 'MEMBERS' && !viewer.member
+  const paywall = await paywallView(viewer, [{ ownerType: 'game', ownerId: g.id }])
+  const locked = paywall ? !paywall.open : g.access === 'MEMBERS' && !viewer.member
   const trailer = trailerSource(g.trailerUrl, toEmbedUrl)
   const req = g.requirements
   const hasReq = REQUIREMENT_KEYS.some((k) => req.min?.[k] || req.rec?.[k])
@@ -105,7 +108,7 @@ export default async function GamePage({ params }: Props) {
             </div>
             <Badges editorsChoice={g.editorsChoice} localization={g.localization} />
             <div className="cn-hero-actions">
-              {!upcoming && <a href="#download" className="btn gm-btn-primary"><Icon name="download" size={18} />{locked ? 'دانلود ویژهٔ VIP' : 'دانلود بازی'}</a>}
+              {!upcoming && <a href="#download" className="btn gm-btn-primary"><Icon name="download" size={18} />{locked ? (paywall ? `خرید · ${paywall.price}` : 'دانلود ویژهٔ VIP') : 'دانلود بازی'}</a>}
               {g.content && <a href="#review" className="btn gm-btn-ghost"><Icon name="star" size={18} />نقد و بررسی</a>}
               <Trailer embed={trailer.embed} src={trailer.src} fa />
               {g.access === 'MEMBERS' && <VipBadge fa />}
@@ -144,11 +147,13 @@ export default async function GamePage({ params }: Props) {
           <section id="download" className="gv-section">
             <header className="gv-dl-head"><h2 className="gv-h2">دانلود بازی {g.title}</h2>{(g.version || g.gameSize) && <span>{g.version && <>نسخهٔ <bdi dir="ltr">{g.version}</bdi></>}{g.version && g.gameSize && ' · '}{g.gameSize && <>حجم <bdi dir="ltr">{g.gameSize}</bdi></>}</span>}</header>
             {upcoming && !data.links.length ? <p className="gv-empty">این بازی هنوز منتشر نشده است. با «می‌خواهم بازی کنم» یا دکمهٔ دنبال‌کردن، از انتشار و لینک‌های دانلود باخبر شوید.</p> : <>
-              {locked && <VipGate fa loggedIn={!!viewer.userId} next={`/games/${g.slug}`} title="دانلود این بازی مخصوص اعضای VIP است" />}
-              <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={g.access === 'MEMBERS'} />
+              {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/games/${g.slug}#buy`} noun="بازی" />}
+              {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ این بازی را خریده‌اید</span>}
+              {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/games/${g.slug}`} title="دانلود این بازی مخصوص اعضای VIP است" />}
+              <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={g.access === 'MEMBERS'} paywall={paywall} />
             </>}
           </section>
-          <UpdatesTimeline updates={extras.updates} member={viewer.member} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} />
+          <UpdatesTimeline updates={extras.updates} member={viewer.member} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} paywall={paywall} />
           <NewsList posts={extras.news} title={`اخبار و مقالات ${g.title}`} />
           <div id="reviews" className="gv-anchor"><ReviewSection item={ref} title={g.title} path={`/games/${g.slug}`} /></div>
         </div>

@@ -9,6 +9,7 @@ import {
 import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
 import { maskedHref } from '@/modules/downloads/server/mask'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
+import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 
 /**
  * Protected media redirects. Download/stream URLs are stored server-side only; the
@@ -18,6 +19,27 @@ import { toEmbedUrl } from '@/modules/site/domain/builder'
  */
 
 const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', gameupdate: 'games', software: 'software' }
+
+/** Paid item the viewer has not bought: back to its page, at the buy box. */
+function mustBuy(request: Request, path: string, json: boolean) {
+  if (json) return NextResponse.json({ error: 'PURCHASE_REQUIRED', page: path }, { status: 402 })
+  const target = new URL(path, request.url)
+  target.hash = 'buy'
+  return NextResponse.redirect(target, 303)
+}
+
+/**
+ * Access to an item's files: a price (paywall module) replaces the plain VIP
+ * gate — VIP members get it free or discounted as the admin chose; otherwise
+ * members-only items need VIP.
+ */
+async function gate(viewer: { userId: number | null; member: boolean }, chain: Chain, vipOnly: boolean): Promise<'ok' | 'login' | 'vip' | 'buy'> {
+  const paid = await accessFor(viewer, chain)
+  if (paid.key) return paid.decision.open ? 'ok' : viewer.userId ? 'buy' : 'login'
+  if (!vipOnly) return 'ok'
+  if (!viewer.userId) return 'login'
+  return canAccess('MEMBERS', viewer.member) ? 'ok' : 'vip'
+}
 
 function denied(request: Request, reason: 'login' | 'vip', wantsJson: boolean) {
   const status = reason === 'login' ? 401 : 403
@@ -52,29 +74,29 @@ async function fileRedirect(request: Request, url: string, download: boolean) {
   return response
 }
 
-type Owner = { access: string; path: string }
+type Owner = { access: string; path: string; chain: Chain }
 
 async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null> {
   if (ownerType === 'title') {
     const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/cinema/${row.slug}` }
+    return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }] }
   }
   if (ownerType === 'game') {
     const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/games/${row.slug}` }
+    return row && { access: row.access, path: `/games/${row.slug}`, chain: [{ ownerType: 'game', ownerId }] }
   }
   if (ownerType === 'gameupdate') {
-    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { game: { select: { access: true, slug: true, status: true } } } })
-    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}` } : null
+    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { gameId: true, game: { select: { access: true, slug: true, status: true } } } })
+    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}`, chain: [{ ownerType: 'game', ownerId: row.gameId }] } : null
   }
   if (ownerType === 'software') {
     const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/software/${row.slug}` }
+    return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }] }
   }
   if (ownerType === 'episode') {
-    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, season: { select: { title: { select: { access: true, status: true, slug: true } } } } } })
+    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, season: { select: { titleId: true, title: { select: { access: true, status: true, slug: true } } } } } })
     if (!episode || episode.season.title.status !== 'PUBLISHED') return null
-    return { access: episode.access === 'MEMBERS' || episode.season.title.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC', path: `/cinema/${episode.season.title.slug}` }
+    return { access: episode.access === 'MEMBERS' || episode.season.title.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC', path: `/cinema/${episode.season.title.slug}`, chain: [{ ownerType: 'title', ownerId: episode.season.titleId }] }
   }
   return null
 }
@@ -93,10 +115,9 @@ export async function openMediaLink(request: Request, rawId: string) {
   if (link.disabled) return backToItem(request, owner.path, 'removed', json)
 
   const viewer = await getViewer()
-  if (link.access === 'MEMBERS' || owner.access === 'MEMBERS') {
-    if (!viewer.userId) return denied(request, 'login', json)
-    if (!canAccess('MEMBERS', viewer.member)) return denied(request, 'vip', json)
-  }
+  const access = await gate(viewer, owner.chain, link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  if (access === 'buy') return mustBuy(request, owner.path, json)
+  if (access !== 'ok') return denied(request, access, json)
 
   const guarded = await downloadGuardEnabled()
   const settings = guarded ? await getDownloadSettings() : null
@@ -123,7 +144,7 @@ export async function openMediaLink(request: Request, rawId: string) {
 export async function openTrack(request: Request, rawId: string) {
   const id = Number(rawId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await isModuleEnabled('music')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
-  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, audioUrl: true, audioHqUrl: true, access: true, album: { select: { access: true } } } }).catch(() => null)
+  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true } } } }).catch(() => null)
   if (!track || !track.audioUrl) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const url = new URL(request.url)
   const hq = url.searchParams.get('q') === 'hq' && !!track.audioHqUrl
@@ -135,10 +156,10 @@ export async function openTrack(request: Request, rawId: string) {
     || (download && settings['download-members-only'] === true)
   const json = wantsJson(request) || url.searchParams.get('check') === '1' || issue
   const viewer = await getViewer()
-  if (needsVip) {
-    if (!viewer.userId) return denied(request, 'login', json)
-    if (!viewer.member) return denied(request, 'vip', json)
-  }
+  const chain: Chain = [{ ownerType: 'track', ownerId: track.id }, ...(track.albumId ? [{ ownerType: 'album' as const, ownerId: track.albumId }] : [])]
+  const access = await gate(viewer, chain, needsVip)
+  if (access === 'buy') return mustBuy(request, `/music/track/${track.slug}`, json)
+  if (access !== 'ok') return denied(request, access, json)
   if (url.searchParams.get('check') === '1') return NextResponse.json({ ok: true, hq })
   if (issue) return NextResponse.json({ href: await trackDownloadHref(id, viewer.userId, hq) })
 
@@ -161,7 +182,7 @@ export async function openTrack(request: Request, rawId: string) {
 
 export type WatchResult =
   | { ok: true; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string }
-  | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'expired' | 'unplayable'; backPath: string }
+  | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
   if (ownerType === 'title') {
@@ -193,10 +214,8 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   if (!owner) return { ok: false, reason: 'not-found', backPath: '/' }
   if (link.disabled) return { ok: false, reason: 'removed', backPath: owner.path }
   const viewer = await getViewer()
-  if (link.access === 'MEMBERS' || owner.access === 'MEMBERS') {
-    if (!viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
-    if (!canAccess('MEMBERS', viewer.member)) return { ok: false, reason: 'vip', backPath: owner.path }
-  }
+  const access = await gate(viewer, owner.chain, link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  if (access !== 'ok') return { ok: false, reason: access, backPath: owner.path }
   const playback = playbackKind(link.url, link.kind, toEmbedUrl)
   if (playback === 'none') return { ok: false, reason: 'unplayable', backPath: owner.path }
   const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null

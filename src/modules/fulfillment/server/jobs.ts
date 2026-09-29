@@ -14,8 +14,9 @@ import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, toMinor } from '@/shared/money'
 import { fulfillMembershipOrder, grantGiftForOrder } from '@/modules/membership/server/membership'
 import { recordStoreSale } from '@/modules/store/server/orders'
+import { fulfillContentOrder } from '@/modules/paywall/server/paywall'
 
-export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'GRANT_MEMBERSHIP'
+export type FulfillmentKind = 'PROVISION_SUBSCRIPTION' | 'RENEW_SUBSCRIPTION' | 'DELIVER_PRODUCT' | 'RESELLER_PROVISION' | 'TRIAL_PROVISION' | 'EXTENSION_JOB' | 'GRANT_MEMBERSHIP' | 'GRANT_CONTENT'
 
 type JobPayload = Record<string, unknown>
 
@@ -56,6 +57,9 @@ export async function enqueueOrderFulfillment(input: {
   try { meta = JSON.parse(order?.meta || '{}') } catch {}
   if (meta.kind === 'membership') {
     return enqueueFulfillment({ kind: 'GRANT_MEMBERSHIP', dedupeKey: `GRANT_MEMBERSHIP:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
+  }
+  if (meta.kind === 'content') {
+    return enqueueFulfillment({ kind: 'GRANT_CONTENT', dedupeKey: `GRANT_CONTENT:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null })
   }
   return null
 }
@@ -123,6 +127,12 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
   if (job.kind === 'GRANT_MEMBERSHIP') {
     if (!job.orderId) throw new Error('membership job has no orderId')
     await fulfillMembershipOrder(job.orderId)
+    return
+  }
+
+  if (job.kind === 'GRANT_CONTENT') {
+    if (!job.orderId) throw new Error('content job has no orderId')
+    await fulfillContentOrder(job.orderId)
     return
   }
 
