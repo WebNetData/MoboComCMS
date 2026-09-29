@@ -7,6 +7,7 @@ import {
   checkPageToken, downloadGuardEnabled, downloaderOf, getDownloadSettings, logDownload, remainingDownloads, signOriginUrl, trackDownloadHref,
 } from '@/modules/downloads/server/guard'
 import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
+import { maskedHref } from '@/modules/downloads/server/mask'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 
 /**
@@ -42,8 +43,9 @@ function backToItem(request: Request, path: string, notice: 'expired' | 'limit' 
   return NextResponse.redirect(target, 303)
 }
 
-function fileRedirect(url: string) {
-  const response = NextResponse.redirect(url, 303)
+/** Redirect to the file — masked on this site's domain when it lives on another host. */
+async function fileRedirect(request: Request, url: string, download: boolean) {
+  const response = NextResponse.redirect(new URL(await maskedHref(url, { download }), request.url), 303)
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
@@ -109,7 +111,7 @@ export async function openMediaLink(request: Request, rawId: string) {
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   if (link.ownerType === 'software') await db.softwareTitle.update({ where: { id: link.ownerId }, data: { downloads: { increment: 1 } } }).catch(() => undefined)
   if (link.kind === 'DOWNLOAD') await logDownload(who, { linkId: id, ownerType: link.ownerType, ownerId: link.ownerId })
-  return fileRedirect(settings ? signOriginUrl(link.url, settings, request.headers) : link.url)
+  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind === 'DOWNLOAD')
 }
 
 /**
@@ -152,7 +154,7 @@ export async function openTrack(request: Request, rawId: string) {
     target = signOriginUrl(target, guard, request.headers)
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
-  return fileRedirect(target)
+  return fileRedirect(request, target, download)
 }
 
 // ------------------------------------------------------------------ online player
@@ -202,7 +204,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   if (settings?.requireLogin && !viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
   const info = await watchOwner(link.ownerType, link.ownerId)
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
-  const src = playback === 'embed' ? toEmbedUrl(link.url) : settings ? signOriginUrl(link.url, settings, headers) : link.url
+  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false })
   return {
     ok: true, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,

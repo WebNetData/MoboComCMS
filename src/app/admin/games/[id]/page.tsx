@@ -247,7 +247,7 @@ export default function GameEditorPage() {
             {field('version', 'نسخهٔ فعلی', { dir: 'ltr', placeholder: '1.12' })}
             {field('gameSize', 'حجم بازی', { dir: 'ltr', placeholder: '60 GB' })}
           </div>
-          <div className="sa-field"><span>لینک‌های دانلود (از مسیر امن و با سهمیهٔ دانلود عبور می‌کنند)</span><LinksEditor value={form.links} onChange={(v) => update('links', v)} fa /></div>
+          <div className="sa-field"><span>لینک‌های دانلود (از مسیر امن و با سهمیهٔ دانلود عبور می‌کنند)</span><LinksEditor value={form.links} onChange={(v) => update('links', v)} fa section="games" /></div>
           <div className="sa-field"><span>زمان تمام کردن (ساعت)</span><div className="sa-grid">
             {([['playMain', 'داستان اصلی'], ['playExtra', 'اصلی + جانبی'], ['playComplete', 'تکمیل ۱۰۰٪']] as [string, string][]).map(([key, label]) => <label key={key} className="sa-field"><span>{label}</span><input className="input" type="number" min={0} value={form[key]} onChange={(e) => update(key, e.target.value)} /></label>)}
           </div></div>

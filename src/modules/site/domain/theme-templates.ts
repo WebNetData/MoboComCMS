@@ -119,6 +119,7 @@ export const RESERVED_SLUGS = new Set([
   'payment', 'reseller', 's', 'telegram', 'trial', 'forms', 'builder-preview', 'sitemap', 'robots', 'favicon', '_next',
   'images', 'fonts', 'uploads', 'static', 'public', 'media', 'sub', 'auth', 'shop', 'home', 'index', 'search',
   'vip', 'music', 'cinema', 'games', 'movies', 'series', 'software', 'forum', 'compare', 'favorites', 'copyright', 'offline',
+  'dl', 'files', 'forwarder', 'watch', 'track',
 ])
 
 /**

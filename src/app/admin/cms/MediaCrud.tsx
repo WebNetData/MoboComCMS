@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
+import FileUpload, { CopyToServer } from '@/components/admin/FileUpload'
 import AiAutofill from './AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
@@ -33,6 +34,10 @@ export type MediaField = {
   placeholder?: string
   table?: boolean | ((row: any) => ReactNode)
   hint?: string
+  /** Adds "upload from computer" next to a URL field (the file is stored on this server); the value is the section folder. */
+  upload?: string
+  /** File types the upload button offers, e.g. "audio/*". */
+  accept?: string
 }
 
 type Props = {
@@ -279,11 +284,11 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /><input className="input mt-2" dir="ltr" value={value || ''} placeholder="https://… / /uploads/…" onChange={(e) => onChange(e.target.value)} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /><div className="mx-upload-field mt-2"><input className="input" dir="ltr" value={value || ''} placeholder="https://… / /uploads/…" onChange={(e) => onChange(e.target.value)} /><CopyToServer url={value || ''} onCopied={onChange} /></div></div>
     case 'date': case 'datetime':
       return <input className="input" dir="ltr" type={field.type === 'date' ? 'date' : 'datetime-local'} value={value || ''} onChange={(e) => onChange(e.target.value)} />
     case 'links':
-      return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} />
+      return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} />
     case 'records':
       return <RecordsEditor value={Array.isArray(value) ? value : []} keys={field.recordKeys || [{ key: 'text', label: field.label }]} onChange={onChange} fa={fa} />
     case 'seasons':
@@ -295,6 +300,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
     default:
+      if (field.upload) return <div className="mx-upload-field"><input className="input" dir={field.dir || 'ltr'} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} /><FileUpload section={field.upload} accept={field.accept} onUploaded={(file) => onChange(file.url)} label={fa ? 'بارگذاری از رایانه' : 'Upload'} /></div>
       return <input className="input" dir={field.dir} type={field.type === 'number' ? 'number' : 'text'} step={field.type === 'number' ? 'any' : undefined} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
   }
 }
@@ -357,7 +363,9 @@ function PlaybackBadge({ url, kind, fa }: { url: string; kind: string; fa: boole
   return <span className={`mx-play-badge ${tone}`}>{fa ? label : labelEn}</span>
 }
 
-export function LinksEditor({ value, onChange, fa, compact }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean }) {
+const humanSize = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`)
+
+export function LinksEditor({ value, onChange, fa, compact, section = 'general' }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean; section?: string }) {
   const update = (index: number, patch: Partial<LinkRow>) => onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   return (
     <div className={`mx-links${compact ? ' is-compact' : ''}`}>
@@ -371,6 +379,7 @@ export function LinksEditor({ value, onChange, fa, compact }: { value: LinkRow[]
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
           <input className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+          <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
           {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
           <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
           {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
@@ -444,7 +453,7 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
                         <input className="input" dir="ltr" placeholder={fa ? 'تصویر قسمت (URL)' : 'Still image URL'} value={episode.still || ''} onChange={(e) => setEpisode(si, ei, { still: e.target.value })} />
                       </div>
                       <textarea className="textarea mt-2" rows={2} placeholder={fa ? 'خلاصه قسمت' : 'Episode summary'} value={episode.summary || ''} onChange={(e) => setEpisode(si, ei, { summary: e.target.value })} />
-                      <LinksEditor compact value={episode.links || []} onChange={(links) => setEpisode(si, ei, { links })} fa={fa} />
+                      <LinksEditor compact value={episode.links || []} onChange={(links) => setEpisode(si, ei, { links })} fa={fa} section="cinema" />
                     </div>
                   )}
                 </div>

@@ -1,0 +1,15 @@
+/* Upload-from-computer controls and the pasted-content import notice. */
+.fu { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.fu-btn { white-space: nowrap; }
+.fu-progress { display: inline-flex; align-items: center; gap: 8px; min-width: 200px; }
+.fu-bar { flex: 1; min-width: 90px; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--border, #ccc) 70%, transparent); overflow: hidden; }
+.fu-bar i { display: block; height: 100%; background: var(--primary, #6d4aff); transition: inline-size .3s ease; }
+.fu-progress small { font-size: 11.5px; color: var(--muted, #777); white-space: nowrap; }
+.fu-cancel { border: 0; background: none; color: var(--muted, #777); cursor: pointer; font: inherit; padding: 2px 4px; }
+.fu-error { color: #d93f3f; font-size: 12px; }
+.fu.is-compact .fu-btn { padding-inline: 8px; }
+.mx-upload-field { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mx-upload-field > .input { flex: 1 1 260px; min-width: 0; }
+.rich-import { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: 12.5px; border-top: 1px solid var(--border, #ddd); background: color-mix(in srgb, #22a06b 10%, transparent); }
+.rich-import.is-busy { background: color-mix(in srgb, var(--primary, #6d4aff) 10%, transparent); }
+.rich-import button { border: 0; background: none; cursor: pointer; color: inherit; font: inherit; }

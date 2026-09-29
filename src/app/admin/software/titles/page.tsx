@@ -34,7 +34,7 @@ export default function AdminSoftwarePage() {
     { key: 'archivePassword', label: fa ? 'رمز فایل فشرده (اختیاری)' : 'Archive password (optional)', dir: 'ltr', placeholder: 'mobocom.ir' },
     { key: 'requirements', label: fa ? 'پیش‌نیازها' : 'Requirements', type: 'textarea' },
     { key: 'screenshots', label: fa ? 'تصاویر' : 'Screenshots', type: 'records', recordKeys: [{ key: 'src', label: fa ? 'نشانی تصویر' : 'Image URL', dir: 'ltr', wide: true }] },
-    { key: 'links', label: fa ? 'لینک‌های دانلود' : 'Download links', type: 'links' },
+    { key: 'links', label: fa ? 'لینک‌های دانلود' : 'Download links', type: 'links', upload: 'software' },
     access, status, featured, publishedAt, slug,
   ]
   return <SoftwareShell><MediaCrud type="software" title={fa ? 'نرم‌افزارها' : 'Software'} subtitle={fa ? 'نسخه، مجوز، پلتفرم، تصاویر، تغییرات و لینک دانلود با دسترسی VIP.' : 'Version, license, platforms, screenshots, changelog and VIP-aware downloads.'} fields={fields} publicPath={(row) => (row.status === 'PUBLISHED' ? `/software/${row.slug}` : null)} /></SoftwareShell>

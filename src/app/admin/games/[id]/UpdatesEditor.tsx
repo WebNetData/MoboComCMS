@@ -53,7 +53,7 @@ export default function UpdatesEditor({ gameId, onVersion }: { gameId: number; o
         <label className="sa-field"><span>تاریخ</span><input className="input" type="date" value={editing.releasedAt} onChange={(e) => set({ releasedAt: e.target.value })} /></label>
       </div>
       <label className="sa-field"><span>تغییرات (هر مورد در یک خط)</span><textarea className="input" rows={4} value={editing.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
-      <div className="sa-field"><span>لینک‌های دانلود این مورد</span><LinksEditor value={editing.links} onChange={(links) => set({ links: links as Update['links'] })} fa compact /></div>
+      <div className="sa-field"><span>لینک‌های دانلود این مورد</span><LinksEditor value={editing.links} onChange={(links) => set({ links: links as Update['links'] })} fa compact section="games" /></div>
       <div className="sa-row"><button type="button" className="btn btn-primary" disabled={busy || editing.title.trim().length < 2} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button><button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>انصراف</button></div>
     </div> : <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setMessage(null); setEditing(blank()) }}>+ آپدیت / DLC تازه</button>}
   </div>

@@ -35,7 +35,7 @@ export default function AdminCinemaPage() {
     { key: 'summary', label: fa ? 'خلاصه داستان' : 'Synopsis', type: 'textarea' },
     { key: 'summaryEn', label: fa ? 'خلاصه انگلیسی' : 'English synopsis', type: 'textarea', dir: 'ltr' },
     { key: 'cast', label: fa ? 'بازیگران' : 'Cast', type: 'records', recordKeys: [{ key: 'name', label: fa ? 'نام' : 'Name' }, { key: 'role', label: fa ? 'نقش' : 'Role' }, { key: 'image', label: fa ? 'عکس (URL)' : 'Photo URL', dir: 'ltr', wide: true }] },
-    { key: 'links', label: fa ? 'لینک‌های دانلود / پخش فیلم' : 'Download / stream links (movie)', type: 'links', hint: fa ? 'برای سریال، لینک هر قسمت را در بخش فصل‌ها وارد کنید. لینک‌ها فقط از مسیر امن سایت باز می‌شوند.' : 'For series, add links per episode below. Links only open through the protected site endpoint.' },
+    { key: 'links', label: fa ? 'لینک‌های دانلود / پخش فیلم' : 'Download / stream links (movie)', type: 'links', upload: 'cinema', hint: fa ? 'برای سریال، لینک هر قسمت را در بخش فصل‌ها وارد کنید. لینک‌ها فقط از مسیر امن سایت باز می‌شوند.' : 'For series, add links per episode below. Links only open through the protected site endpoint.' },
     { key: 'seasons', label: fa ? 'فصل‌ها و قسمت‌ها (سریال)' : 'Seasons & episodes (series)', type: 'seasons' },
     access, status, featured, publishedAt, slug,
   ]

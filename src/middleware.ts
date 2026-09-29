@@ -64,7 +64,7 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
   }
 }
 
-const NOT_ALIASED = /^\/(api|admin|_next)(\/|$)/
+const NOT_ALIASED = /^\/(api|admin|_next|dl|files)(\/|$)/
 
 export async function middleware(req: NextRequest) {
   const incoming = req.headers.get('x-request-id')?.trim() || ''
