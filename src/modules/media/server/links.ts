@@ -9,6 +9,7 @@ import {
 } from '@/modules/downloads/server/guard'
 import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
+import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 
@@ -67,8 +68,8 @@ function backToItem(request: Request, path: string, notice: 'expired' | 'limit' 
 }
 
 /** Redirect to the file — masked on this site's domain when it lives on another host. */
-async function fileRedirect(request: Request, url: string, download: boolean, context?: FileContext) {
-  const response = siteRedirect(await maskedHref(url, { download, context }))
+async function fileRedirect(request: Request, url: string, download: boolean, context?: FileContext, tags?: FileTags) {
+  const response = siteRedirect(await maskedHref(url, { download, context, tags: tags || (context?.title ? { title: context.title } : undefined) }))
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
@@ -146,7 +147,7 @@ export async function openMediaLink(request: Request, rawId: string) {
 export async function openTrack(request: Request, rawId: string) {
   const id = Number(rawId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await isModuleEnabled('music')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
-  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true } }, artist: { select: { name: true } } } }).catch(() => null)
+  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true, title: true, cover: true } }, cover: true, artist: { select: { name: true } } } }).catch(() => null)
   if (!track || !track.audioUrl) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const url = new URL(request.url)
   const hq = url.searchParams.get('q') === 'hq' && !!track.audioHqUrl
@@ -177,7 +178,7 @@ export async function openTrack(request: Request, rawId: string) {
     target = signOriginUrl(target, guard, request.headers)
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
-  return fileRedirect(request, target, download, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' })
+  return fileRedirect(request, target, download, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' }, { title: track.title, artist: track.artist.name, album: track.album?.title, cover: track.cover || track.album?.cover || '' })
 }
 
 // ------------------------------------------------------------------ online player

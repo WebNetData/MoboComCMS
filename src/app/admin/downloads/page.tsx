@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
 type Host = { host: string; method: 'nginx' | 'hmac'; secret: string; hasSecret?: boolean; ttlMinutes: number; expression: string; tokenParam: string; expiresParam: string }
-type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[]; maskMode: 'external' | 'off'; maskExclude: string[]; maskTtlHours: number; renamePattern: string; scrubWords: string[]; scrubLinks: 'off' | 'listed' | 'all'; autoLocalize: boolean }
+type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[]; maskMode: 'external' | 'off'; maskExclude: string[]; maskTtlHours: number; renamePattern: string; scrubWords: string[]; scrubLinks: 'off' | 'listed' | 'all'; autoLocalize: boolean; cleanAudio: boolean; cleanVideo: boolean; cleanArchive: boolean; cleanMaxMb: number; cleanCacheGb: number; tagComment: string }
 type ScrubReport = { sections: { label: string; pending: number; total: number }[]; pending: number; words: number }
 type QueueEntry = {
   link: { id: number; label: string; quality: string; url: string; disabled: boolean; clicks: number; kind: string }
@@ -11,7 +11,7 @@ type QueueEntry = {
   reports: { id: number; reason: string; note: string; createdAt: string; userId: number | null }[]
 }
 type Stats = { series: { day: string; count: number }[]; today: number; total: number; members: number; top: { key: string; count: number; title: string; path: string }[]; openReports: number; disabledLinks: number }
-type Data = { settings: Settings; stats: Stats; queue: QueueEntry[]; reasons: { id: string; label: string }[] }
+type Data = { settings: Settings; stats: Stats; queue: QueueEntry[]; reasons: { id: string; label: string }[]; tools: { ffmpeg: boolean; sevenZip: boolean; zip: boolean }; cleanCache: { files: number; bytes: number; working: number } }
 type Tab = 'reports' | 'stats' | 'settings'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
@@ -159,6 +159,20 @@ export default function AdminDownloadsPage() {
           جایگزین‌ها: <code dir="ltr">{'{title}'}</code> عنوان مطلب، <code dir="ltr">{'{quality}'}</code> کیفیت، <code dir="ltr">{'{label}'}</code> عنوان لینک، <code dir="ltr">{'{site}'}</code> نام سایت شما. پسوند فایل حفظ می‌شود. خالی بگذارید تا نام اصلی فایل بماند و فقط نام سایت‌های منبع از آن حذف شود.
           نمونه: <bdi>{(settings.renamePattern || '').replace('{title}', 'Oppenheimer').replace('{quality}', '1080p').replace('{label}', 'دانلود با کیفیت 1080p').replace('{site}', 'موبوکام').replace('{name}', 'Oppenheimer.2023.1080p') || 'Oppenheimer.2023.1080p'}.mkv</bdi>
         </small></label>
+
+        <h2 className="fr-admin-wide">پاک‌سازی داخل فایل‌ها</h2>
+        <p className="muted fr-admin-wide">با روشن کردن هر گزینه، اولین دانلود هر فایل یک‌بار روی این سرور دریافت و پاک‌سازی می‌شود و از آن به بعد نسخهٔ تمیز از همین سرور دانلود می‌شود. تا نسخهٔ تمیز آماده شود (برای فایل‌های بزرگ ممکن است چند دقیقه طول بکشد) فایل اصلی تحویل داده می‌شود. این کار فضای دیسک و پهنای باند سرور را مصرف می‌کند؛ همه به‌طور پیش‌فرض خاموش‌اند.</p>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanAudio} onChange={(e) => setSettings({ ...settings, cleanAudio: e.target.checked })} />موزیک MP3: تگ‌ها، کاور و توضیحات سایت منبع حذف و عنوان، خواننده، آلبوم و کاور خودتان نوشته شود</label>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanVideo} disabled={!data.tools.ffmpeg && !settings.cleanVideo} onChange={(e) => setSettings({ ...settings, cleanVideo: e.target.checked })} />فیلم و سریال (MP4، MKV، WebM، MOV): عنوان، توضیحات، فصل‌بندی و نام ترک‌های صدا و زیرنویس پاک شود (کیفیت و زبان ترک‌ها تغییری نمی‌کند){!data.tools.ffmpeg && <b className="muted"> — نیازمند ffmpeg روی سرور</b>}</label>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanArchive} disabled={!data.tools.sevenZip && !settings.cleanArchive} onChange={(e) => setSettings({ ...settings, cleanArchive: e.target.checked })} />نرم‌افزار و بازی (ZIP و 7z): میان‌برها و صفحه‌های وب (url، html، lnk) و فایل‌های متنی که نام سایت منبع دارند حذف و توضیح فایل زیپ پاک شود{!data.tools.sevenZip && <b className="muted"> — نیازمند 7z روی سرور</b>}</label>
+        <p className="muted fr-admin-wide">فایل‌های RAR و آرشیوهای رمزدار بدون تغییر تحویل داده می‌شوند. فایل‌های متنی فقط وقتی حذف می‌شوند که یکی از نام‌های سایت منبع (بخش بالا) در آن‌ها باشد.</p>
+        <label className="studio-field"><span>متن توضیح داخل فایل (اختیاری)</span><input className="input" value={settings.tagComment} maxLength={150} onChange={(e) => setSettings({ ...settings, tagComment: e.target.value })} placeholder="دانلود از موبوکام" /></label>
+        <label className="studio-field"><span>حداکثر حجم فایل برای پاک‌سازی (مگابایت)</span><input className="input" type="number" min={1} max={20000} value={settings.cleanMaxMb} onChange={(e) => setSettings({ ...settings, cleanMaxMb: Number(e.target.value) })} /></label>
+        <label className="studio-field"><span>فضای نگه‌داری نسخه‌های تمیز (گیگابایت)</span><input className="input" type="number" min={1} max={2000} value={settings.cleanCacheGb} onChange={(e) => setSettings({ ...settings, cleanCacheGb: Number(e.target.value) })} /></label>
+        <div className="fr-admin-wide fa-inline fa-wrap">
+          <span className="muted">نسخه‌های تمیز ذخیره‌شده: {fa(data.cleanCache.files)} فایل، {fa(Math.round(data.cleanCache.bytes / 1024 / 1024))} مگابایت{data.cleanCache.working ? ` — ${fa(data.cleanCache.working)} فایل در حال آماده‌سازی` : ''}</span>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !data.cleanCache.files} onClick={() => { if (window.confirm('همهٔ نسخه‌های تمیز حذف شوند؟ دانلودهای بعدی دوباره آماده می‌شوند.')) void send('POST', { action: 'clean-cache-clear' }, 'نسخه‌های تمیز حذف شدند') }}>حذف نسخه‌های تمیز</button>
+        </div>
 
         <h2 className="fr-admin-wide">لینک‌های موقت</h2>
         <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.enforceTokens} onChange={(e) => setSettings({ ...settings, enforceTokens: e.target.checked })} />لینک‌های دانلود امضاشده و موقت باشند (لینک کپی‌شده بعد از مدت اعتبار به صفحهٔ مطلب برمی‌گردد)</label>

@@ -50,3 +50,4 @@ prisma/*.db-wal
 e2e/.auth/
 test-results/
 playwright-report/
+/storage/clean-cache/

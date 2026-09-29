@@ -38,7 +38,7 @@ set_env() { # KEY VALUE — replace or append in the env file
 echo "==> Tools"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq zip unzip acl p7zip-full >/dev/null
+apt-get install -y -qq zip unzip acl p7zip-full ffmpeg >/dev/null
 # RAR tools (multiverse); optional — without them the download center handles ZIP/7z only.
 apt-get install -y -qq unrar rar >/dev/null 2>&1 || echo "   (rar/unrar not installed — enable the multiverse repository to manage RAR archives)"
 

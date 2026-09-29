@@ -10,7 +10,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$DEST"
 
 pg_dump --format=custom --no-owner --dbname="${DATABASE_URL%%\?*}" --file="$DEST/db-$STAMP.dump"
-tar -czf "$DEST/storage-$STAMP.tar.gz" -C /opt/mobocom/app storage
+tar -czf "$DEST/storage-$STAMP.tar.gz" --exclude=storage/clean-cache -C /opt/mobocom/app storage
 
 find "$DEST" -type f \( -name 'db-*.dump' -o -name 'storage-*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
 echo "[backup] done: $DEST/db-$STAMP.dump, $DEST/storage-$STAMP.tar.gz"
