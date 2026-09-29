@@ -32,7 +32,8 @@ for (const file of critical) {
 
 const rbac = fs.readFileSync('src/modules/identity/rbac.ts', 'utf8')
 if (!rbac.includes("'audit.view'")) throw new Error('audit.view permission missing')
-const seed = fs.readFileSync('prisma/seed.cjs', 'utf8')
+// The role definitions are shared by the seed and the web installer.
+const seed = fs.readFileSync('prisma/system-roles.json', 'utf8')
 if (!seed.includes('audit.view')) throw new Error('seed admin role lacks audit.view')
 
 console.log('Audit/observability invariants OK')

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { routeDecision } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
+import { installGate } from '@/modules/installer/server/gate'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -75,6 +76,10 @@ export async function middleware(req: NextRequest) {
   const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
   const headers = new Headers(req.headers)
   headers.set('x-request-id', requestId)
+
+  // Before the first install every page leads to the web installer (never on a working site).
+  const setup = await installGate(req).catch(() => null)
+  if (setup) { setup.headers.set('x-request-id', requestId); return setup as NextResponse }
 
   // CSRF/Origin guard: state-changing API calls must originate from this site.
   if (
