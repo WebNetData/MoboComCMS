@@ -6,6 +6,7 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getViewer } from '@/modules/membership/server/membership'
 import { REPORT_REASONS } from '@/modules/downloads/domain/downloads'
 import { getDownloadSettings, publicDownloadSettings, saveDownloadSettings } from '@/modules/downloads/server/guard'
+import { scrubAll, scrubPreview } from '@/modules/downloads/server/scrub'
 import { DownloadError, downloadStats, probeLink, reportLink, reportQueue, resolveLinkReports } from '@/modules/downloads/server/admin'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -45,11 +46,19 @@ export async function PATCH(req: NextRequest) {
   return ok({ settings: publicDownloadSettings(saved) })
 }
 
-/** POST /api/admin/downloads { action: fixed | dismiss | disable | enable | probe, linkId } */
+/** POST /api/admin/downloads { action: fixed | dismiss | disable | enable | probe, linkId } | { action: scrub-preview | scrub-run, cursor? } */
 export async function POST(req: NextRequest) {
   const g = await adminGuard(req, 'download-guard', ['downloads.manage', 'settings.manage'])
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
+  if (body.action === 'scrub-preview') return ok(await scrubPreview())
+  if (body.action === 'scrub-run') {
+    try {
+      const result = await scrubAll(body.cursor)
+      if (result.changed) await auditAdmin({ req, actor: g.admin, action: 'downloads.scrub', targetType: 'content', targetId: 'all', metadata: { changed: result.changed, images: result.imagesCopied } })
+      return ok(result)
+    } catch (error) { return failure(error) }
+  }
   const linkId = Number(body.linkId)
   if (!Number.isSafeInteger(linkId) || linkId <= 0) return err('invalid link')
   try {

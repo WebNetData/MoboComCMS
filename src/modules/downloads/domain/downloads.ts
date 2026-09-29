@@ -11,6 +11,8 @@
  *     redirect target cannot be reshared.
  */
 
+import { normalizeWords, type LinkMode } from '@/modules/downloads/domain/scrub'
+
 export type SigningMethod = 'nginx' | 'hmac'
 
 export interface SigningHost {
@@ -43,6 +45,14 @@ export interface DownloadSettings {
   maskExclude: string[]
   /** How long a masked link keeps working. */
   maskTtlHours: number
+  /** Saved file name: {title} {label} {quality} {site} {name}; empty keeps the source name minus the listed words. */
+  renamePattern: string
+  /** Source site names/domains removed from copied text and file names. */
+  scrubWords: string[]
+  /** Links unwrapped in copied rich text: none, those to a listed source, or every link to another site. */
+  scrubLinks: LinkMode
+  /** Copy images that still live on other sites to this server (covers, screenshots, images in text). */
+  autoLocalize: boolean
 }
 
 export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
@@ -56,6 +66,10 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   maskMode: 'external',
   maskExclude: [],
   maskTtlHours: 12,
+  renamePattern: '{title} {quality} - {site}',
+  scrubWords: [],
+  scrubLinks: 'listed',
+  autoLocalize: true,
 }
 
 export const NGINX_DEFAULT_EXPRESSION = '{expires}{uri} {secret}'
@@ -112,6 +126,10 @@ export function normalizeDownloadSettings(input: Record<string, unknown> = {}, p
     maskMode: input.maskMode === undefined ? previous.maskMode ?? d.maskMode : input.maskMode === 'off' ? 'off' : 'external',
     maskExclude: input.maskExclude === undefined ? previous.maskExclude ?? [] : [...new Set((Array.isArray(input.maskExclude) ? input.maskExclude : String(input.maskExclude).split(/[\s,،]+/)).map(normalizeHost).filter(Boolean))].slice(0, 50),
     maskTtlHours: input.maskTtlHours === undefined ? previous.maskTtlHours ?? d.maskTtlHours : int(input.maskTtlHours, 1, 24 * 14, d.maskTtlHours),
+    renamePattern: input.renamePattern === undefined ? previous.renamePattern ?? d.renamePattern : String(input.renamePattern).replace(/[\u0000-\u001f/\\?#%"<>|*:]/g, ' ').trim().slice(0, 120),
+    scrubWords: input.scrubWords === undefined ? previous.scrubWords ?? [] : normalizeWords(input.scrubWords),
+    scrubLinks: input.scrubLinks === undefined ? previous.scrubLinks ?? d.scrubLinks : input.scrubLinks === 'all' || input.scrubLinks === 'off' ? input.scrubLinks : 'listed',
+    autoLocalize: input.autoLocalize === undefined ? previous.autoLocalize ?? d.autoLocalize : input.autoLocalize === true,
   }
 }
 

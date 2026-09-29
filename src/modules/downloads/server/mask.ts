@@ -4,6 +4,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { getDownloadSettings } from '@/modules/downloads/server/guard'
 import { contentTypeFor, decodeNamePath, dispositionFor, encodeName, fileNameOf, resolveSibling, shouldMask } from '@/modules/downloads/domain/mask'
+import { downloadFileName } from '@/modules/downloads/domain/scrub'
 
 // Masked file links (/dl/<token>/<name>): the real URL of a file on another
 // host is encrypted into the token (AES-256-GCM, so it cannot be read or
@@ -33,6 +34,11 @@ export function openLink(token: string): Payload | null {
   } catch { return null }
 }
 
+async function siteBrand() {
+  const settings = await getSettings().catch(() => ({} as Record<string, string>))
+  return settings.brandName || ''
+}
+
 async function siteHost() {
   const settings = await getSettings().catch(() => ({} as Record<string, string>))
   for (const candidate of [settings.siteUrl, process.env.NEXTAUTH_URL]) {
@@ -41,15 +47,23 @@ async function siteHost() {
   return ''
 }
 
+/** What the file is, for its saved name (see the rename pattern in the download settings). */
+export type FileContext = { title?: string; label?: string; quality?: string }
+
 /**
  * The address to send a visitor to for a file: a masked /dl/ path on this
  * domain when the file lives elsewhere (and masking is on), otherwise the URL
  * itself. `download` makes the browser save the file; otherwise it plays inline.
+ * The file is saved under this site's name for it, not the source's file name.
  */
-export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string }): Promise<string> {
+export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string; context?: FileContext }): Promise<string> {
   const settings = await getDownloadSettings()
   if (!shouldMask(rawUrl, { mode: settings.maskMode, siteHost: await siteHost(), exclude: settings.maskExclude })) return rawUrl
-  const name = options.name || fileNameOf(rawUrl)
+  const original = fileNameOf(rawUrl)
+  const name = options.name || downloadFileName({
+    pattern: options.context?.title ? settings.renamePattern : '', original, words: settings.scrubWords,
+    title: options.context?.title, label: options.context?.label, quality: options.context?.quality, site: await siteBrand(),
+  })
   const token = sealLink({ u: rawUrl, e: Math.floor(Date.now() / 1000) + settings.maskTtlHours * 3600, d: options.download ? 1 : 0, n: name })
   return `/dl/${token}/${encodeName(name)}`
 }

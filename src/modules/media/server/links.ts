@@ -8,7 +8,7 @@ import {
   checkPageToken, downloadGuardEnabled, downloaderOf, getDownloadSettings, logDownload, remainingDownloads, signOriginUrl, trackDownloadHref,
 } from '@/modules/downloads/server/guard'
 import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
-import { maskedHref } from '@/modules/downloads/server/mask'
+import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 
@@ -67,37 +67,37 @@ function backToItem(request: Request, path: string, notice: 'expired' | 'limit' 
 }
 
 /** Redirect to the file — masked on this site's domain when it lives on another host. */
-async function fileRedirect(request: Request, url: string, download: boolean) {
-  const response = siteRedirect(await maskedHref(url, { download }))
+async function fileRedirect(request: Request, url: string, download: boolean, context?: FileContext) {
+  const response = siteRedirect(await maskedHref(url, { download, context }))
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
   return response
 }
 
-type Owner = { access: string; path: string; chain: Chain }
+type Owner = { access: string; path: string; chain: Chain; title: string }
 
 async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null> {
   if (ownerType === 'title') {
-    const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }] }
+    const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }], title: row.title }
   }
   if (ownerType === 'game') {
-    const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/games/${row.slug}`, chain: [{ ownerType: 'game', ownerId }] }
+    const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    return row && { access: row.access, path: `/games/${row.slug}`, chain: [{ ownerType: 'game', ownerId }], title: row.title }
   }
   if (ownerType === 'gameupdate') {
-    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { gameId: true, game: { select: { access: true, slug: true, status: true } } } })
-    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}`, chain: [{ ownerType: 'game', ownerId: row.gameId }] } : null
+    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { gameId: true, title: true, game: { select: { access: true, slug: true, status: true, title: true } } } })
+    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}`, chain: [{ ownerType: 'game', ownerId: row.gameId }], title: `${row.game.title} ${row.title}`.trim() } : null
   }
   if (ownerType === 'software') {
-    const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true } })
-    return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }] }
+    const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }], title: row.title }
   }
   if (ownerType === 'episode') {
-    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, season: { select: { titleId: true, title: { select: { access: true, status: true, slug: true } } } } } })
+    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, number: true, season: { select: { titleId: true, number: true, title: { select: { access: true, status: true, slug: true, title: true } } } } } })
     if (!episode || episode.season.title.status !== 'PUBLISHED') return null
-    return { access: episode.access === 'MEMBERS' || episode.season.title.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC', path: `/cinema/${episode.season.title.slug}`, chain: [{ ownerType: 'title', ownerId: episode.season.titleId }] }
+    return { access: episode.access === 'MEMBERS' || episode.season.title.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC', path: `/cinema/${episode.season.title.slug}`, chain: [{ ownerType: 'title', ownerId: episode.season.titleId }], title: `${episode.season.title.title} S${String(episode.season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}` }
   }
   return null
 }
@@ -134,7 +134,7 @@ export async function openMediaLink(request: Request, rawId: string) {
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   if (link.ownerType === 'software') await db.softwareTitle.update({ where: { id: link.ownerId }, data: { downloads: { increment: 1 } } }).catch(() => undefined)
   if (link.kind === 'DOWNLOAD') await logDownload(who, { linkId: id, ownerType: link.ownerType, ownerId: link.ownerId })
-  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind === 'DOWNLOAD')
+  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind === 'DOWNLOAD', { title: owner.title, label: link.label, quality: link.quality })
 }
 
 /**
@@ -146,7 +146,7 @@ export async function openMediaLink(request: Request, rawId: string) {
 export async function openTrack(request: Request, rawId: string) {
   const id = Number(rawId)
   if (!Number.isSafeInteger(id) || id <= 0 || !await isModuleEnabled('music')) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
-  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true } } } }).catch(() => null)
+  const track = await db.musicTrack.findFirst({ where: { id, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { id: true, slug: true, title: true, audioUrl: true, audioHqUrl: true, access: true, albumId: true, album: { select: { access: true } }, artist: { select: { name: true } } } }).catch(() => null)
   if (!track || !track.audioUrl) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 })
   const url = new URL(request.url)
   const hq = url.searchParams.get('q') === 'hq' && !!track.audioHqUrl
@@ -177,7 +177,7 @@ export async function openTrack(request: Request, rawId: string) {
     target = signOriginUrl(target, guard, request.headers)
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
-  return fileRedirect(request, target, download)
+  return fileRedirect(request, target, download, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' })
 }
 
 // ------------------------------------------------------------------ online player
@@ -225,7 +225,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   if (settings?.requireLogin && !viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
   const info = await watchOwner(link.ownerType, link.ownerId)
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
-  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false })
+  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, context: { title: owner.title, label: link.label, quality: link.quality } })
   return {
     ok: true, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
