@@ -127,6 +127,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/email', label: L('ایمیل سایت (جیمیل / SMTP)', 'Site email (Gmail / SMTP)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/newsletter', label: L('خبرنامه و کمپین ایمیلی', 'Newsletter & campaigns'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
+      { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/monitoring', label: L('پایش سرعت و سلامت سرور', 'Performance & health'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
