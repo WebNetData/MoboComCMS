@@ -68,7 +68,7 @@ test('module admin menus must stay inside the module admin paths', () => {
 })
 
 // Public utilities that are not content sections (no templates or section settings).
-const PUBLIC_TOOLS = new Set(['forwarder'])
+const PUBLIC_TOOLS = new Set(['forwarder', 'ads'])
 
 test('every bundled module menu is valid and each section links to its settings page', () => {
   const dir = path.resolve(__dirname, '../src/plugins')

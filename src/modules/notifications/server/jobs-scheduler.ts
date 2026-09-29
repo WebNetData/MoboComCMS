@@ -44,6 +44,18 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Advertising: writes impression/click counters, ends finished campaigns, prunes old daily rows.
+    name: 'ads', everyMs: 60_000,
+    run: async (tick) => {
+      const ads = await import('@/modules/ads/server/serving')
+      await ads.flushAdStats()
+      if (tick % 720 === 0) {
+        const { db } = await import('@/platform/database/prisma')
+        await db.adStatDaily.deleteMany({ where: { day: { lt: new Date(Date.now() - 800 * 86_400_000).toISOString().slice(0, 10) } } })
+      }
+    },
+  },
+  {
     // Guest page cache: keeps the sections' entry pages warm and writes the visits served from the cache.
     name: 'pagecache', everyMs: 60_000,
     run: async () => {

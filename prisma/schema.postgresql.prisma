@@ -2913,3 +2913,134 @@ model CurrencyRateLog {
 
   @@index([code, createdAt])
 }
+
+// ---------------------------------------------------------------- Advertising
+
+/// A place on the site that shows promotions (header banner, sidebar, …).
+model AdPlacement {
+  id           Int      @id @default(autoincrement())
+  key          String   @unique
+  name         String
+  description  String   @default("")
+  width        Int      @default(0)
+  height       Int      @default(0)
+  device       String   @default("ALL") // ALL | DESKTOP | MOBILE
+  kind         String   @default("BANNER") // BANNER | STICKY
+  active       Boolean  @default(true)
+  builtin      Boolean  @default(false)
+  fallbackHtml String   @default("") // the site's own promotion, shown when no campaign matches
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+}
+
+model Advertiser {
+  id        Int          @id @default(autoincrement())
+  userId    Int?         @unique
+  name      String
+  company   String       @default("")
+  email     String       @default("")
+  phone     String       @default("")
+  website   String       @default("")
+  notes     String       @default("")
+  status    String       @default("ACTIVE") // ACTIVE | BLOCKED
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @default(now()) @updatedAt
+  campaigns AdCampaign[]
+
+  @@index([status])
+}
+
+model AdCampaign {
+  id               Int         @id @default(autoincrement())
+  advertiserId     Int?
+  name             String
+  status           String      @default("DRAFT") // DRAFT | PENDING | ACTIVE | PAUSED | ENDED | REJECTED
+  priority         Int         @default(5) // 1 (last) to 10 (first)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  placements       String      @default("[]")
+  devices          String      @default("ALL")
+  audience         String      @default("ALL") // ALL | GUEST | MEMBER | NON_VIP
+  includePaths     String      @default("[]")
+  excludePaths     String      @default("[]")
+  languages        String      @default("[]")
+  hours            String      @default("") // local hours, e.g. "9-23"
+  maxImpressions   Int         @default(0) // 0 = no limit
+  maxClicks        Int         @default(0)
+  dailyImpressions Int         @default(0)
+  dailyClicks      Int         @default(0)
+  impressions      Int         @default(0)
+  clicks           Int         @default(0)
+  packageId        Int?
+  paidMinor        BigInt      @default(0)
+  currency         String      @default("IRT")
+  note             String      @default("")
+  rejectReason     String      @default("")
+  approvedAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @default(now()) @updatedAt
+  advertiser       Advertiser? @relation(fields: [advertiserId], references: [id], onDelete: SetNull)
+  creatives        AdCreative[]
+
+  @@index([status, startsAt, endsAt])
+  @@index([advertiserId])
+}
+
+model AdCreative {
+  id             Int        @id @default(autoincrement())
+  campaignId     Int
+  kind           String     @default("IMAGE") // IMAGE | HTML | TEXT
+  title          String     @default("")
+  imageUrl       String     @default("")
+  imageMobileUrl String     @default("")
+  alt            String     @default("")
+  linkUrl        String     @default("")
+  html           String     @default("")
+  text           String     @default("")
+  cta            String     @default("")
+  weight         Int        @default(1)
+  active         Boolean    @default(true)
+  impressions    Int        @default(0)
+  clicks         Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @default(now()) @updatedAt
+  campaign       AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, active])
+}
+
+/// Impressions and clicks per day, creative and placement (written in batches).
+model AdStatDaily {
+  id           Int    @id @default(autoincrement())
+  day          String // YYYY-MM-DD
+  campaignId   Int
+  creativeId   Int
+  placementKey String
+  impressions  Int    @default(0)
+  clicks       Int    @default(0)
+  requests     Int    @default(0) // placement rows only (creativeId 0): ad requests
+  empty        Int    @default(0) // … and how many found no campaign
+
+  @@unique([day, creativeId, placementKey])
+  @@index([campaignId, day])
+  @@index([day])
+}
+
+/// A placement package the site sells to advertisers.
+model AdPackage {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @default("")
+  placements  String   @default("[]")
+  days        Int      @default(30)
+  impressions Int      @default(0) // 0 = unlimited within the period
+  clicks      Int      @default(0)
+  priceMinor  BigInt
+  currency    String   @default("IRT")
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  sold        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+}
