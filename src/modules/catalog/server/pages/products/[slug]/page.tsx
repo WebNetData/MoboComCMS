@@ -28,6 +28,8 @@ import { getViewer } from '@/modules/membership/server/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { minorToNumber } from '@/shared/money'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
+import { customerGatewayLabel, installmentConfig, isInstallmentGateway, listCheckoutGateways } from '@/modules/billing/server/gateways'
+import { getLoyaltySettings } from '@/modules/store/server/marketing'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -109,7 +111,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
     reviewCount,
   })
 
-  const [viewer, vipOn, storeSettings, related, deliverySettings] = await Promise.all([getViewer(), isModuleEnabled('membership'), getStoreSettings(), relatedProducts(product), getDeliverySettings()])
+  const [viewer, vipOn, storeSettings, related, deliverySettings, checkoutGateways, loyalty] = await Promise.all([getViewer(), isModuleEnabled('membership'), getStoreSettings(), relatedProducts(product), getDeliverySettings(), listCheckoutGateways(product.currency).catch(() => []), getLoyaltySettings()])
+  const installments = checkoutGateways.filter((gateway) => isInstallmentGateway(gateway.provider)).map((gateway) => ({ label: customerGatewayLabel(gateway), count: installmentConfig(gateway.config).installments }))
   if (!isPreview(preview)) countProductView(product.id)
   const regular = unitPrice(product, null, false)
   const variantAxes = fields.filter(field => field.variant).map(field => ({ key: field.key, label: isFa ? field.label : field.labelEn || field.label, color: field.kind === 'color' }))
@@ -154,6 +157,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
         variants={buyVariants} axes={variantAxes}
         vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
         warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
+        installments={installments} club={loyalty.enabled && loyalty.earnPoints > 0 ? { earnPoints: loyalty.earnPoints, earnStepToman: loyalty.earnStepToman } : null}
       />
     </aside>
   )

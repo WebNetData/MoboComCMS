@@ -66,6 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/orders', label: t.myOrders, icon: 'grid' },
         { href: '/dashboard/invoices', label: t.myInvoices, icon: 'wallet' },
         ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),
+        ...(storeOn ? [{ href: '/dashboard/gift-cards', label: locale === 'fa' ? 'کارت هدیه' : 'Gift cards', icon: 'sparkles' }, { href: '/dashboard/club', label: locale === 'fa' ? 'باشگاه مشتریان' : 'Customer club', icon: 'shield' }] : []),
       ],
     },
     ...(communityOn || gamesOn ? [{ label: locale === 'fa' ? 'پروفایل و جامعه' : 'Profile & community', items: [

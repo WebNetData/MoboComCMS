@@ -3,7 +3,16 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
-import { isGatewayUsable, maskSecret, PROVIDERS, providerMeta, testGateway, type GatewayRuntime } from '@/modules/billing/server/gateways'
+import { installmentConfig, isGatewayUsable, isInstallmentGateway, maskSecret, PROVIDERS, providerMeta, testGateway, type GatewayRuntime } from '@/modules/billing/server/gateways'
+
+/** Installment gateway settings from the form; an empty password keeps the stored one. */
+function mergeConfig(previous: string | undefined, b: any): string {
+  const current = installmentConfig(previous)
+  const password = typeof b?.password === 'string' && b.password.trim() ? b.password.trim().slice(0, 200) : current.password
+  const baseUrl = typeof b?.baseUrl === 'string' ? installmentConfig({ baseUrl: b.baseUrl }).baseUrl : current.baseUrl
+  const installments = b?.installments !== undefined ? installmentConfig({ installments: b.installments }).installments : current.installments
+  return JSON.stringify({ password, baseUrl, installments })
+}
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
 function sanitize(g: any) {
@@ -25,6 +34,7 @@ function sanitize(g: any) {
     hasApiKey: Boolean(g.apiKey),
     hasSecret: Boolean(g.secretKey),
     accountUser: g.accountUser || '',
+    ...(isInstallmentGateway(g.provider) ? (() => { const c = installmentConfig(g.config); return { baseUrl: c.baseUrl, installments: c.installments, hasPassword: Boolean(c.password) } })() : {}),
     usable: isGatewayUsable(g),
   }
 }
@@ -48,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   if (makeDefault) await db.gateway.updateMany({ data: { isDefault: false } })
 
-  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
+  const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')
   const feeBps = Math.max(0, Math.min(10000, Math.round((Number(b?.feePercent) || 0) * 100)))
   let minAmountMinor: bigint
   try { minAmountMinor = toMinor(String(b?.minAmount ?? '0'), fiat) } catch (e) { return err(e instanceof Error ? e.message : 'invalid minimum') }
@@ -59,6 +69,7 @@ export async function POST(req: NextRequest) {
       apiKey: String(b?.apiKey || '').trim(),
       secretKey: String(b?.secretKey || '').trim(),
       accountUser: String(b?.accountUser || '').trim().slice(0, 100),
+      config: isInstallmentGateway(provider) ? mergeConfig('{}', b) : '{}',
       fiat,
       currencies: String(b?.currencies || '').trim(),
       feePercent: feeBps / 100,
@@ -88,7 +99,7 @@ export async function PATCH(req: NextRequest) {
   if (PROVIDERS.some((item) => item.key === b?.provider)) {
     data.provider = b.provider
     if (b.provider === 'FRENZYEX') data.fiat = 'TMN'
-    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT') data.fiat = 'IRR'
+    if (b.provider === 'CARD_TRANSFER' || b.provider === 'MELLAT' || isInstallmentGateway(b.provider)) data.fiat = 'IRR'
   }
   if (typeof b?.accountUser === 'string') data.accountUser = b.accountUser.trim().slice(0, 100)
   if (b?.feePercent !== undefined) {
@@ -102,8 +113,9 @@ export async function PATCH(req: NextRequest) {
   if (typeof b?.apiKey === 'string' && b.apiKey.trim() !== '') data.apiKey = b.apiKey.trim()
   if (typeof b?.secretKey === 'string' && b.secretKey.trim() !== '') data.secretKey = b.secretKey.trim()
 
-  const current = await db.gateway.findUnique({ where: { id }, select: { fiat: true, minAmount: true } })
+  const current = await db.gateway.findUnique({ where: { id }, select: { fiat: true, minAmount: true, provider: true, config: true } })
   if (!current) return err('not found', 404)
+  if (isInstallmentGateway(String(b?.provider || current.provider))) data.config = mergeConfig(current.config, b)
   const effectiveProvider = String(b?.provider || '') === 'FRENZYEX' ? 'FRENZYEX' : undefined
   const effectiveFiat = effectiveProvider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat ?? current.fiat)
   if (b?.fiat !== undefined && effectiveFiat !== current.fiat && b?.minAmount === undefined) {
@@ -162,6 +174,7 @@ export async function PUT(req: NextRequest) {
     apiKey: typeof b?.apiKey === 'string' && b.apiKey.trim() ? b.apiKey.trim() : gw.apiKey,
     secretKey: typeof b?.secretKey === 'string' && b.secretKey.trim() ? b.secretKey.trim() : gw.secretKey,
     accountUser: typeof b?.accountUser === 'string' && b.accountUser.trim() ? b.accountUser.trim() : gw.accountUser,
+    config: isInstallmentGateway(String(b?.provider || gw.provider)) ? mergeConfig(gw.config, b) : gw.config,
     fiat: gw.fiat,
     currencies: gw.currencies,
     feePercent: gw.feeBps ? gw.feeBps / 100 : gw.feePercent,

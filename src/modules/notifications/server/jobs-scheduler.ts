@@ -24,6 +24,11 @@ const JOBS: Job[] = [
     // Every 15th minute also rebuilds the search index and prunes old stats.
     run: async (tick) => (await import('@/modules/content/server/jobs')).runEngagementJobs({ full: tick % 15 === 0 }),
   },
+  {
+    // Back-in-stock alerts, abandoned cart reminders and customer club points.
+    name: 'store-marketing', everyMs: 60_000,
+    run: async () => (await import('@/modules/store/server/marketing')).runMarketingJobs(),
+  },
 ]
 
 export function startJobScheduler() {

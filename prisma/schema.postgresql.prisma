@@ -806,6 +806,8 @@ model Gateway {
   secretKey    String    @default("")
   /// Login user for gateways that need one (Bank Mellat).
   accountUser  String    @default("")
+  /// Provider settings that do not fit the columns above (JSON; installment gateways).
+  config       String    @default("{}")
   fiat         String    @default("USD")
   currencies   String    @default("")
   feePercent   Float     @default(0) // legacy display mirror
@@ -2103,6 +2105,8 @@ model Cart {
   id        Int        @id @default(autoincrement())
   token     String     @unique
   userId    Int?       @unique
+  remindedAt    DateTime?
+  reminderCount Int        @default(0)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
   user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2512,4 +2516,87 @@ model DownloadJob {
   updatedAt  DateTime  @default(now()) @updatedAt
 
   @@index([status, createdAt])
+}
+
+/// "Let me know when it's back": one row per customer and product/variant.
+model StockAlert {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  productId  Int
+  variantId  Int       @default(0) // 0 = the product itself
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  @@unique([userId, productId, variantId])
+  @@index([productId, notifiedAt])
+}
+
+/// Store gift card. Only a hash of the code is kept; the code is shown once.
+model GiftCard {
+  id             Int       @id @default(autoincrement())
+  codeHash       String    @unique
+  last4          String
+  /// Encrypted code, so the buyer (and staff) can see it again.
+  codeEnc        String    @default("")
+  currency       String    @default("IRT")
+  amountMinor    BigInt
+  status         String    @default("ACTIVE") // ACTIVE | REDEEMED | DISABLED
+  source         String    @default("ADMIN") // ADMIN | PURCHASE
+  purchaserId    Int?
+  recipientName  String    @default("")
+  recipientEmail String    @default("")
+  message        String    @default("")
+  note           String    @default("")
+  expiresAt      DateTime?
+  redeemedBy     Int?
+  redeemedAt     DateTime?
+  createdBy      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+  @@index([purchaserId])
+  @@index([redeemedBy])
+}
+
+/// Customer club points ledger (earned on paid orders, spent as wallet credit).
+model LoyaltyEntry {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  points         Int
+  kind           String // EARN_ORDER | REVERSE_ORDER | REDEEM | ADMIN | BONUS
+  note           String   @default("")
+  orderId        Int?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+}
+
+model LoyaltyAccount {
+  userId    Int      @id
+  balance   Int      @default(0)
+  lifetime  Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([lifetime])
+}
+
+/// Abandoned cart reminders (one row per reminder sent).
+model CartReminder {
+  id               Int       @id @default(autoincrement())
+  cartId           Int
+  userId           Int
+  step             Int
+  valueMinor       BigInt    @default(0)
+  currency         String    @default("IRT")
+  couponCode       String    @default("")
+  sentAt           DateTime  @default(now())
+  recoveredOrderId Int?
+  recoveredAt      DateTime?
+
+  @@index([cartId])
+  @@index([userId, sentAt])
+  @@index([sentAt])
 }

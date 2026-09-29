@@ -5,10 +5,15 @@ import { getSettings } from '@/modules/settings/server'
 import { createInvoice, plisioCurrencies } from '@/modules/billing/infrastructure/plisio'
 import { createFrenzyPayment, testFrenzyCredentials } from '@/modules/billing/infrastructure/frenzyex'
 import { mellatOrderId, mellatPayRequest } from '@/modules/billing/infrastructure/mellat'
+import { createInstallment, testInstallment, type InstallmentCredentials } from '@/modules/billing/infrastructure/installments'
 import { resolveUsdTomanRate } from '@/modules/billing/domain/rates'
 import { currencyScale, legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
-export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER' | 'MELLAT'
+export type ProviderKey = 'PLISIO' | 'FRENZYEX' | 'MANUAL' | 'CARD_TRANSFER' | 'MELLAT' | 'SNAPPPAY' | 'DIGIPAY' | 'AZKI'
+
+/** Buy-now-pay-later providers (خرید اقساطی); Rial amounts, customer mobile required. */
+export const INSTALLMENT_KEYS = ['SNAPPPAY', 'DIGIPAY', 'AZKI'] as const
+export const isInstallmentGateway = (provider: string) => (INSTALLMENT_KEYS as readonly string[]).includes(provider)
 
 export interface ProviderMeta {
   key: ProviderKey
@@ -72,6 +77,36 @@ export const PROVIDERS: ProviderMeta[] = [
     hint: 'Shows your wallet/card instructions on the invoice; you confirm the payment in the panel.',
     hintFa: 'دستور پرداخت (شماره کارت / آدرس کیف پول) روی فاکتور نمایش داده می‌شود و شما پرداخت را تایید می‌کنید.',
   },
+  {
+    key: 'SNAPPPAY',
+    label: 'SnappPay (buy now, pay later)',
+    labelFa: 'اسنپ‌پی (خرید اقساطی)',
+    needsApiKey: true,
+    needsSecret: true,
+    supportsHostedCheckout: true,
+    hint: 'Installment purchase. Client ID, Client Secret, merchant username and password from SnappPay; the customer needs a verified mobile number.',
+    hintFa: 'خرید اقساطی (۴ قسط). Client ID، Client Secret، نام کاربری و رمز پذیرنده را از اسنپ‌پی بگیرید. مشتری باید شمارهٔ موبایل تأییدشده داشته باشد.',
+  },
+  {
+    key: 'DIGIPAY',
+    label: 'DigiPay credit (BNPL)',
+    labelFa: 'دیجی‌پی (خرید اعتباری / اقساطی)',
+    needsApiKey: true,
+    needsSecret: true,
+    supportsHostedCheckout: true,
+    hint: 'DigiPay UPG credit purchase. Client ID, Client Secret, username and password of the business account.',
+    hintFa: 'خرید اعتباری دیجی‌پی (UPG). Client ID، Client Secret، نام کاربری و رمز حساب کسب‌وکار دیجی‌پی را وارد کنید.',
+  },
+  {
+    key: 'AZKI',
+    label: 'Azki Vam (installments)',
+    labelFa: 'ازکی وام (خرید اقساطی)',
+    needsApiKey: true,
+    needsSecret: true,
+    supportsHostedCheckout: true,
+    hint: 'Azki installment purchase. Merchant ID and API key from the Azki merchant panel.',
+    hintFa: 'خرید اقساطی ازکی. شناسهٔ پذیرنده (Merchant ID) و کلید API را از پنل پذیرندگی ازکی وارد کنید.',
+  },
 ]
 
 export function providerMeta(key: string): ProviderMeta {
@@ -92,6 +127,8 @@ export interface GatewayRuntime {
   apiKey: string
   secretKey: string
   accountUser?: string
+  /** Provider JSON settings (installment gateways). */
+  config?: string
   fiat: string
   currencies: string
   feePercent: number
@@ -117,17 +154,32 @@ export interface CheckoutGatewayOption {
 }
 
 /** A gateway is usable only when the fields required for safe settlement exist. */
-export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string }) {
+/** Extra settings of installment gateways (Gateway.config JSON). */
+export function installmentConfig(raw: unknown): { password: string; baseUrl: string; installments: number } {
+  let value: Record<string, unknown> = {}
+  try { value = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw && typeof raw === 'object' ? raw as Record<string, unknown> : {} } catch { value = {} }
+  const baseUrl = String(value.baseUrl || '').trim().replace(/\/+$/, '')
+  return { password: String(value.password || ''), baseUrl: /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(baseUrl) || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?/.test(baseUrl) ? baseUrl : '', installments: Math.max(2, Math.min(24, Math.round(Number(value.installments)) || 4)) }
+}
+
+export function installmentCredentials(gateway: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; config?: string }): InstallmentCredentials {
+  const config = installmentConfig(gateway.config)
+  return { provider: gateway.provider as InstallmentCredentials['provider'], baseUrl: config.baseUrl, clientId: gateway.apiKey.trim(), clientSecret: String(gateway.secretKey || '').trim(), username: String(gateway.accountUser || '').trim(), password: config.password }
+}
+
+export function isGatewayUsable(gw: { provider: string; apiKey: string; secretKey?: string; accountUser?: string; instructions: string; config?: string }) {
   if (gw.provider === 'MANUAL') return Boolean(gw.instructions.trim())
   if (gw.provider === 'CARD_TRANSFER') return true
   if (gw.provider === 'MELLAT') return Boolean(/^\d+$/.test(gw.apiKey.trim()) && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim())
+  if (gw.provider === 'AZKI') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
+  if (isInstallmentGateway(gw.provider)) return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim() && String(gw.accountUser || '').trim() && installmentConfig(gw.config).password)
   if (gw.provider === 'FRENZYEX') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   if (gw.provider === 'PLISIO') return Boolean(gw.apiKey.trim() && String(gw.secretKey || '').trim())
   return Boolean(gw.apiKey.trim())
 }
 
 function runtimeGateway(gw: any): GatewayRuntime {
-  const fiat = gw.provider === 'FRENZYEX' ? 'TMN' : gw.provider === 'MELLAT' ? 'IRR' : (gw.fiat || 'USD')
+  const fiat = gw.provider === 'FRENZYEX' ? 'TMN' : gw.provider === 'MELLAT' || isInstallmentGateway(gw.provider) ? 'IRR' : (gw.fiat || 'USD')
   return {
     id: gw.id,
     name: gw.name,
@@ -135,6 +187,7 @@ function runtimeGateway(gw: any): GatewayRuntime {
     apiKey: gw.apiKey,
     secretKey: gw.secretKey,
     accountUser: gw.accountUser || '',
+    config: gw.config || '{}',
     fiat,
     currencies: gw.currencies,
     feePercent: gw.feePercent,
@@ -196,6 +249,7 @@ export function gatewayAcceptedCurrencies(gateway: Pick<GatewayRuntime, 'provide
   if (gateway.provider === 'FRENZYEX') return ['USD', 'TMN', 'IRT']
   if (gateway.provider === 'CARD_TRANSFER') return ['IRR', 'IRT', 'TMN']
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD']
+  if (isInstallmentGateway(gateway.provider)) return ['IRR', 'IRT', 'TMN']
   return [normalizeCurrency(gateway.fiat || 'USD')]
 }
 
@@ -285,6 +339,7 @@ export function gatewayAcceptsCheckoutCurrency(gateway: GatewayRuntime, currency
   if (gateway.provider === 'FRENZYEX') return currency === 'USD' || currency === 'TMN' || currency === 'IRT'
   if (gateway.provider === 'CARD_TRANSFER') return currency === 'IRR' || currency === 'IRT' || currency === 'TMN'
   if (gateway.provider === 'MELLAT') return ['IRR', 'IRT', 'TMN', 'USD'].includes(currency)
+  if (isInstallmentGateway(gateway.provider)) return ['IRR', 'IRT', 'TMN'].includes(currency)
   return normalizeCurrency(gateway.fiat || 'USD') === currency
 }
 
@@ -292,6 +347,7 @@ export function gatewayCallbackUrl(gateway: GatewayRuntime, siteUrl: string) {
   const base = siteUrl.replace(/\/+$/, '')
   if (gateway.provider === 'FRENZYEX') return `${base}/api/payment/frenzyex/webhook`
   if (gateway.provider === 'MELLAT') return `${base}/api/payment/mellat/callback`
+  if (isInstallmentGateway(gateway.provider)) return `${base}/api/payment/installment/${gateway.provider.toLowerCase()}/callback`
   return `${base}/api/payment/plisio/webhook`
 }
 
@@ -305,6 +361,10 @@ export interface GatewayInvoiceInput {
   successUrl: string
   failUrl: string
   channel?: 'web' | 'telegram'
+  /** Installment providers: the customer's mobile and the basket. */
+  mobile?: string
+  items?: { id: string; name: string; count: number; unitAmount: number }[]
+  shippingAmount?: number
 }
 
 export interface GatewayInvoiceResult {
@@ -408,6 +468,20 @@ export async function createGatewayInvoice(
     return { ok: true, txnId: res.refId, paymentUrl: `${origin}/api/payment/mellat/start?ref=${encodeURIComponent(res.refId)}`, providerAmount: Number(amountRial), providerCurrency: 'IRR' }
   }
 
+  if (isInstallmentGateway(gateway.provider)) {
+    if (!['IRR', 'IRT', 'TMN'].includes(currency)) return { ok: false, message: 'خرید اقساطی فقط برای مبالغ ریالی یا تومانی است' }
+    const amountRial = await amountInRial(input.amount, currency)
+    const minimumMinor = gateway.minAmountMinor || toMinor(gateway.minAmount || 0, 'IRR')
+    if (minimumMinor > 0n && amountRial < minimumMinor) return { ok: false, message: 'مبلغ کمتر از حداقل خرید اقساطی این درگاه است' }
+    const items = await Promise.all((input.items?.length ? input.items : [{ id: input.orderNumber, name: input.orderName, count: 1, unitAmount: input.amount }]).map(async (item) => ({ id: item.id, name: item.name, count: item.count, amountRial: await amountInRial(item.unitAmount, currency), category: 'general' })))
+    const res = await createInstallment(installmentCredentials(gateway), {
+      reference: input.orderNumber, amountRial, shippingRial: input.shippingAmount ? await amountInRial(input.shippingAmount, currency) : 0n, mobile: input.mobile || '',
+      returnUrl: `${input.callbackUrl}?ref=${encodeURIComponent(input.orderNumber)}`, items,
+    })
+    if (!res.ok) return { ok: false, message: res.message, ambiguous: res.ambiguous, providerAmount: Number(amountRial), providerCurrency: 'IRR' }
+    return { ok: true, txnId: res.token, paymentUrl: res.paymentUrl, providerAmount: Number(amountRial), providerCurrency: 'IRR' }
+  }
+
   if (gateway.provider === 'CARD_TRANSFER') {
     if (!['IRR', 'IRT', 'TMN'].includes(currency)) return { ok: false, message: 'کارت به کارت فقط برای مبالغ ریالی یا تومانی است' }
     // The customer pays on the invoice page and uploads a receipt for review.
@@ -471,6 +545,10 @@ export async function testGateway(gateway: GatewayRuntime): Promise<GatewayTestR
       orderId: mellatOrderId('999'), amountRial: 1000n, callbackUrl: `${(process.env.NEXTAUTH_URL || 'https://example.com').replace(/\/+$/, '')}/api/payment/mellat/callback`, description: 'connection test',
     })
     return res.ok ? { ok: true, detail: 'اتصال به بانک ملت برقرار شد و اطلاعات پذیرنده معتبر است' } : { ok: false, message: res.message, detail: res.code ? `کد ${res.code}` : undefined }
+  }
+  if (isInstallmentGateway(gateway.provider)) {
+    const res = await testInstallment(installmentCredentials(gateway))
+    return res.ok ? { ok: true, detail: res.message } : { ok: false, message: res.message }
   }
   if (!gateway.apiKey) return { ok: false, message: 'API key is missing' }
   if (gateway.provider === 'FRENZYEX') {

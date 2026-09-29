@@ -9,6 +9,7 @@ import { executeCheckout } from '@/modules/checkout/server/checkout'
 import { StoreError } from '@/modules/store/domain/store'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
+import { markCartRecovered } from '@/modules/store/server/marketing'
 import { addOrderNote, adminOrder, adminOrders, transitionOrder } from '@/modules/store/server/orders'
 import { adminProducts, bulkProducts, deleteBrand, inventoryList, listBrands, saveBrand, storeCustomers, storeDashboard, updateStock } from '@/modules/store/server/admin'
 
@@ -120,6 +121,7 @@ export async function POST_cartCheckout(req: NextRequest) {
   })
   if (!result.ok) return err(result.message, result.status, { code: result.code, ...(result.meta || {}) })
   await removePurchasedLines(who, lines.lines.map((line) => line.lineId)).catch(() => {})
+  if (!result.data.replayed && typeof result.data.orderId === 'number') await markCartRecovered(user.id, result.data.orderId).catch(() => {})
   return ok(result.data)
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from '@/platform/routing/navigation'
 import { useSession } from 'next-auth/react'
 import CheckoutError from '@/components/CheckoutError'
@@ -31,6 +31,10 @@ export type BuyBoxProps = {
   warranty: string
   badges: string[]
   shipping: string
+  /** Active installment gateways ("خرید اقساطی") and their shown number of parts. */
+  installments?: { label: string; count: number }[]
+  /** Customer club earning rule (points per spent Toman), when the club is on. */
+  club?: { earnPoints: number; earnStepToman: number } | null
 }
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -44,6 +48,38 @@ const swatch = (value: string) => COLORS[value.trim().toLowerCase()] || COLORS[v
 function Amount({ value, currency, className }: { value: number; currency: string; className?: string }) {
   const unit = iranianUnit(currency, 'fa-IR')
   return <span className={`sx-money ${className || ''}`}><b className="num">{unit ? Math.round(value).toLocaleString('fa-IR') : new Intl.NumberFormat('fa-IR', { style: 'currency', currency }).format(value)}</b>{unit && <small>{unit}</small>}</span>
+}
+
+/** "Let me know when it's back" for an out-of-stock product or variant. */
+function StockAlert({ productId, variantId, slug }: { productId: number; variantId: number | null; slug: string }) {
+  const router = useRouter()
+  const { status } = useSession()
+  const [subscribed, setSubscribed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const query = `productId=${productId}&variantId=${variantId || 0}`
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    let live = true
+    void fetch(`/api/store/stock-alerts?${query}`).then((r) => r.json()).then((data) => { if (live) setSubscribed(!!data?.subscribed) }).catch(() => undefined)
+    return () => { live = false }
+  }, [status, query])
+  async function toggle() {
+    if (status !== 'authenticated') { router.push(`/login?next=${encodeURIComponent(`/products/${slug}`)}`); return }
+    setBusy(true); setNote('')
+    const response = await fetch(subscribed ? `/api/store/stock-alerts?${query}` : '/api/store/stock-alerts', subscribed ? { method: 'DELETE' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId, variantId }) }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    setBusy(false)
+    if (!response?.ok) { setNote(data?.error || 'انجام نشد'); return }
+    setSubscribed(!!data?.subscribed)
+    setNote(data?.subscribed ? 'به محض موجود شدن با پیامک، ایمیل و اعلان خبرتان می‌کنیم.' : 'اطلاع‌رسانی لغو شد.')
+  }
+  return <div className="sx-stock-alert">
+    <button type="button" className={`sx-btn is-block${subscribed ? '' : ' is-primary'}`} disabled={busy} aria-pressed={subscribed} onClick={() => void toggle()}>
+      <StoreIcon name="bell" size={17} />{busy ? 'لطفاً صبر کنید…' : subscribed ? 'منتظر موجود شدن هستید (لغو)' : 'موجود شد خبرم کن'}
+    </button>
+    {note && <p className="sx-stock-note" role="status">{note}</p>}
+  </div>
 }
 
 /**
@@ -72,6 +108,9 @@ export default function BuyBox(props: BuyBoxProps) {
   const vipPrice = props.vip.enabled && memberPrice > 0 && memberPrice < price ? memberPrice : 0
   const membersOnly = props.vip.enabled && props.vip.access === 'MEMBERS' && !props.vip.member
   const stockLeft = variant ? variant.stock : -1
+  const toman = props.currency === 'IRR' ? price / 10 : props.currency === 'IRT' || props.currency === 'TMN' ? price : 0
+  const clubPoints = props.club && toman > 0 ? Math.floor(Math.floor(toman / props.club.earnStepToman) * props.club.earnPoints) : 0
+  const installmentsNote = toman > 0 ? (props.installments || []).filter((row) => row.count >= 2).map((row) => ({ ...row, each: Math.ceil(toman / row.count) })) : []
 
   // Values per axis, so each attribute becomes its own row of options.
   const axes = useMemo(() => props.axes.map((axis) => ({ ...axis, values: [...new Set(props.variants.map((row) => row.attributes[axis.key]).filter(Boolean))] })).filter((axis) => axis.values.length), [props.axes, props.variants])
@@ -144,10 +183,13 @@ export default function BuyBox(props: BuyBoxProps) {
         {props.saleEndsAt && discount > 0 && <div className="sx-buy-timer"><StoreIcon name="clock" size={15} />پایان پیشنهاد <Countdown until={props.saleEndsAt} /></div>}
         {vipPrice > 0 && <div className="sx-buy-vip">{props.vip.member ? <>قیمت شما با عضویت VIP: <Amount value={vipPrice} currency={props.currency} /></> : <>قیمت اعضای VIP: <Amount value={vipPrice} currency={props.currency} /> <Link href="/vip">عضو شوید</Link></>}</div>}
         {props.vip.giftDays > 0 && <div className="sx-buy-vip"><StoreIcon name="star" size={15} />{fa(props.vip.giftDays)} روز اشتراک VIP هدیه با این خرید</div>}
+        {clubPoints > 0 && <div className="sx-buy-club"><StoreIcon name="star" size={15} />با این خرید <b className="num">{fa(clubPoints)}</b> امتیاز باشگاه مشتریان می‌گیرید</div>}
+        {installmentsNote.length > 0 && <ul className="sx-buy-installments">{installmentsNote.map((row) => <li key={row.label}><StoreIcon name="clock" size={15} /><span>{row.label}: <b className="num">{fa(row.count)}</b> قسط <b className="num">{fa(row.each)}</b> تومانی</span></li>)}</ul>}
       </div>}
 
       {available && stockLeft >= 0 && stockLeft <= Math.max(props.lowStockAt, 3) && <p className="sx-low is-box">تنها {fa(stockLeft)} عدد در انبار باقی مانده</p>}
       {!available && <p className="sx-unavailable is-box">{props.variants.length && !variant ? 'یکی از گزینه‌ها را انتخاب کنید' : 'این کالا فعلاً موجود نیست'}</p>}
+      {!available && !membersOnly && !(props.variants.length && !variant) && <StockAlert productId={props.productId} variantId={variant?.id ?? null} slug={props.slug} />}
 
       {membersOnly ? <div className="sx-buy-members"><b>این کالا مخصوص اعضای ویژه است</b><Link href="/vip" className="sx-btn is-primary is-block">عضویت VIP</Link></div>
         : available && (added

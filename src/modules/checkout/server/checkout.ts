@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
-import { createGatewayInvoice, customerGatewayLabel, gatewayAcceptsCheckoutCurrency, gatewayCallbackUrl, resolveCheckoutGateway } from '@/modules/billing/server/gateways'
+import { createGatewayInvoice, customerGatewayLabel, gatewayAcceptsCheckoutCurrency, gatewayCallbackUrl, isInstallmentGateway, resolveCheckoutGateway } from '@/modules/billing/server/gateways'
 import { createInvoiceForOrder, markInvoicePaid, recordProviderEvent, releaseInvoiceCredit } from '@/modules/billing/server/billing'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
 import { checkUsername, sanitizeUsername, suggestUsername, USERNAME_MIN } from '@/modules/subscriptions/server/usernames'
@@ -276,6 +276,13 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       return fail(409, 'GATEWAY_CURRENCY_MISMATCH', `درگاه ${customerGatewayLabel(gateway)} از واحد ${currency} پشتیبانی نمی‌کند`, { currency, gatewayCurrency: gateway.fiat })
     }
   }
+  // Installment providers approve the purchase against the customer's verified mobile number.
+  let installmentMobile = ''
+  if (gateway && isInstallmentGateway(gateway.provider)) {
+    const customer = await db.user.findUnique({ where: { id: command.userId }, select: { phone: true, phoneVerifiedAt: true } })
+    if (!customer?.phone || !customer.phoneVerifiedAt) return fail(400, 'PHONE_REQUIRED', 'برای خرید اقساطی ابتدا شمارهٔ موبایل خود را در حساب کاربری ثبت و تأیید کنید', { profileUrl: '/dashboard/profile' })
+    installmentMobile = customer.phone
+  }
 
   let order
   try {
@@ -398,6 +405,9 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     successUrl: `${command.siteUrl}/payment/result?order=${order.id}`,
     failUrl: `${command.siteUrl}/payment/result?order=${order.id}&failed=1`,
     channel: command.channel || 'web',
+    mobile: installmentMobile || undefined,
+    items: orderLines.length ? orderLines.map((line) => ({ id: String(line.productId), name: `${line.name}${line.variantName ? ` · ${line.variantName}` : ''}`, count: line.quantity, unitAmount: legacyNumber(line.unitPriceMinor, currency) })) : undefined,
+    shippingAmount: shippingMinor > 0n ? legacyNumber(shippingMinor, currency) : undefined,
   })
   const invoiceUrl = result.manual ? `/invoice/${invoice.number}` : result.paymentUrl
   if (!result.ok || !invoiceUrl) {

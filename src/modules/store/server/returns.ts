@@ -361,6 +361,8 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     await db.order.update({ where: { id: row.orderId }, data: { status: 'REFUNDED' } })
     if (order.invoice) await db.invoice.update({ where: { id: order.invoice.id }, data: { status: 'REFUNDED' } })
   }
+  // Customer club points earned on the refunded part go back.
+  await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(row.orderId, amount, `return:${row.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { returnId: row.id, error: String(error) }))
   const shown = minorToNumber(amount, currency).toLocaleString('fa-IR')
   await db.orderEvent.create({ data: { orderId: row.orderId, status: 'REFUNDED', note: `${row.number}: ${shown} ${currency === 'IRT' ? 'تومان' : currency} به کیف پول برگشت${note ? ` — ${note}` : ''}`, visible: true, actorId: input.actorId } })
   await notifyCustomer(row, 'REFUNDED', `برگشت وجه ${row.number}`, `${shown} ${currency === 'IRT' ? 'تومان' : currency} بابت ${RETURN_KIND_LABEL[row.kind as ReturnKind]} سفارش ${row.orderId.toLocaleString('fa-IR')} به کیف پول شما واریز شد.`)
