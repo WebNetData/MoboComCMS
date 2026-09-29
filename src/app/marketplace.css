@@ -143,3 +143,40 @@
 .mk-dl dd { margin: 0; }
 .mk-commissions { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .mk-commissions label { display: grid; grid-template-columns: 1fr 80px; align-items: center; gap: 8px; font-size: .88rem; }
+
+/* Seller variants: value picker, combination builder, price/stock table */
+.sl-var { display: grid; gap: 14px; }
+.sl-var-pick { display: grid; gap: 12px; }
+.sl-var-field { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sl-var-field legend { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.sl-var-values { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sl-var-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; cursor: pointer; background: var(--card); }
+.sl-var-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.sl-var-chip.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--card)); color: var(--primary); font-weight: 600; }
+.sl-var-chip:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sl-var-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); }
+.sl-var-add { display: inline-flex; gap: 6px; align-items: center; }
+.sl-var-add .input { width: 150px; padding-block: 6px; }
+.sl-var-generate { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 4px; border-top: 1px dashed var(--line); }
+.sl-var-bulk { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.sl-var-bulk .input { width: 140px; padding-block: 6px; }
+.sl-var-table { display: grid; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sl-var-row { display: grid; grid-template-columns: minmax(140px, 1.4fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(90px, .8fr) 88px 36px; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.sl-var-row:last-child { border-bottom: 0; }
+.sl-var-row.is-head { background: color-mix(in srgb, var(--muted) 8%, var(--card)); font-size: 12px; color: var(--muted); font-weight: 600; }
+.sl-var-row.is-off { opacity: .6; }
+.sl-var-row .input { width: 100%; padding-block: 6px; }
+.sl-var-name { display: grid; gap: 2px; min-width: 0; }
+.sl-var-name small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-var-off { color: var(--primary); font-size: 11px; font-weight: 700; }
+.sl-var-switch { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; cursor: pointer; }
+.sl-var-row .sl-x { position: static; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
+@media (max-width: 720px) {
+  .sl-var-row.is-head { display: none; }
+  .sl-var-row { grid-template-columns: 1fr 1fr; }
+  .sl-var-name { grid-column: 1 / -1; }
+  .sl-var-row [role="cell"]:nth-child(2)::before { content: 'قیمت'; }
+  .sl-var-row [role="cell"]:nth-child(3)::before { content: 'قبل از تخفیف'; }
+  .sl-var-row [role="cell"]:nth-child(4)::before { content: 'موجودی'; }
+  .sl-var-row [role="cell"]:nth-child(n+2):nth-child(-n+4)::before { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+}

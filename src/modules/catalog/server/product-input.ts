@@ -4,6 +4,7 @@ import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { validateCover } from '@/shared/content/cover'
 import { attributeGroupForCategory, validateFaqs, validateFields, validateGallery, validateSpecifications, validateVariants } from '@/modules/catalog/server/product-config'
+import { applyFxToBody } from '@/modules/fx/server/fx'
 
 /**
  * Product form → row data, shared by the store admin (CMS products) and the
@@ -33,8 +34,13 @@ export async function productCategoryConfig(categoryId: unknown) {
   return { categoryId: id, ...await attributeGroupForCategory(id) }
 }
 
-export async function productInput(b: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number }) {
-  const currency = normalizeCurrency(b?.currency ?? existing?.currency ?? 'USD')
+type FxExisting = { pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
+
+export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number } & FxExisting) {
+  const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'USD')
+  // A foreign-currency product: its prices are computed from the cost and the live rate.
+  const fx = await applyFxToBody(input || {}, existing, currency)
+  const b: any = fx.body
   const priceMinor = toMinor(String(b?.price ?? existing?.price ?? '0'), currency)
   const category = await productCategoryConfig(b?.categoryId !== undefined ? b.categoryId : existing?.categoryId)
   const kind = String(b?.kind ?? existing?.kind ?? 'VIRTUAL')
@@ -62,7 +68,7 @@ export async function productInput(b: any, existing?: { price: number; currency:
     vip.vipGiftDays = days
   }
   const merchandising = await productMerchandising(b, priceMinor, currency)
-  return { data: { ...data, ...vip, ...merchandising, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
+  return { data: { ...data, ...vip, ...merchandising, ...fx.fields, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
 }
 
 const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max)
@@ -110,7 +116,7 @@ export async function saveVariants(tx: any, productId: number, variants: ReturnT
     const priceMinor = toMinor(String(variant.price), variant.currency)
     const memberPriceMinor = variant.memberPrice ? toMinor(String(variant.memberPrice), variant.currency) : 0n
     const compareAtMinor = variant.compareAt ? toMinor(String(variant.compareAt), variant.currency) : 0n
-    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, stock: variant.stock, active: variant.active }
+    const data = { sku: variant.sku, name: variant.name, nameEn: variant.nameEn, attributes: variant.attributes, price: legacyNumber(priceMinor, variant.currency), priceMinor, memberPriceMinor, compareAtMinor, fxAmountMinor: variant.fxAmountMinor, stock: variant.stock, active: variant.active }
     if (variant.id) {
       const current = await tx.productVariant.findFirst({ where: { id: variant.id, productId } })
       if (!current) throw Error('Variant does not belong to this product')

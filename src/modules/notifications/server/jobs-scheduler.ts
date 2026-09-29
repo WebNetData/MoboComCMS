@@ -43,6 +43,11 @@ const JOBS: Job[] = [
       return runQueue()
     },
   },
+  {
+    // Live exchange rates; FX-priced products follow them (interval set in the currency page).
+    name: 'fx', everyMs: 60_000,
+    run: async () => (await import('@/modules/fx/server/fx')).runFxJob(),
+  },
 ]
 
 export function startJobScheduler() {

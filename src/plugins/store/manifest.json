@@ -167,6 +167,17 @@
         ]
       },
       {
+        "href": "/admin/store/currency",
+        "label": "نرخ ارز و قیمت ارزی",
+        "labelEn": "Exchange rates & FX pricing",
+        "icon": "wallet",
+        "permissions": [
+          "cms.products",
+          "orders.manage",
+          "settings.manage"
+        ]
+      },
+      {
         "href": "/admin/store/settings",
         "label": "ویترین فروشگاه",
         "labelEn": "Storefront",

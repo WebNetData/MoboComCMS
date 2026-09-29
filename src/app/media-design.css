@@ -912,3 +912,8 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .mx-play-badge.is-ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #16a34a; }
 .mx-play-badge.is-warn { background: color-mix(in srgb, #d97706 14%, transparent); color: #b45309; }
 .mx-links-hint { margin: 8px 0 0; line-height: 1.9; }
+
+/* Own price of one download link (sold separately, e.g. a 4K file) */
+.mx-link-price { display: inline-flex; align-items: center; gap: 6px; grid-column: span 2; }
+.mx-link-price .input { min-width: 0; }
+.mx-link-price.is-on .input { border-color: var(--primary); }

@@ -4,6 +4,7 @@ import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { getSettings, readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { minorToNumber } from '@/shared/money'
 import {
@@ -39,6 +40,15 @@ type Conversation = NonNullable<Awaited<ReturnType<typeof db.chatConversation.fi
 
 const publicMessage = (row: { id: number; sender: string; body: string; createdAt: Date }) => ({ id: row.id, sender: row.sender, body: row.body, at: row.createdAt.toISOString() })
 
+// Realtime channels (server-sent events): one per conversation, one for the operators' inbox.
+export const conversationChannel = (id: number) => `chat:c:${id}`
+export const AGENTS_CHANNEL = 'chat:agents'
+
+/** Tells open streams that a conversation changed (a message, its status). */
+async function announce(conversationId: number, event: { type: 'message' | 'status' | 'typing'; [key: string]: unknown }) {
+  await Promise.all([publish(conversationChannel(conversationId), event), publish(AGENTS_CHANNEL, { ...event, conversationId })])
+}
+
 async function addMessage(conversation: Conversation, sender: string, body: string, agentId?: number | null) {
   const message = await db.chatMessage.create({ data: { conversationId: conversation.id, sender, body, agentId: agentId ?? null } })
   await db.chatConversation.update({
@@ -48,7 +58,14 @@ async function addMessage(conversation: Conversation, sender: string, body: stri
       ...(sender === 'VISITOR' ? { unreadForAgent: { increment: 1 } } : sender === 'AGENT' || sender === 'BOT' ? { unreadForVisitor: { increment: 1 } } : {}),
     },
   })
+  await announce(conversation.id, { type: 'message', id: message.id, sender })
   return message
+}
+
+async function setStatus(id: number, data: Parameters<typeof db.chatConversation.update>[0]['data'] & { status: string }) {
+  const row = await db.chatConversation.update({ where: { id }, data })
+  await announce(id, { type: 'status', status: data.status })
+  return row
 }
 
 async function notifyAgents(conversation: Conversation, text: string) {
@@ -118,7 +135,7 @@ export async function visitorSend(input: { token: string; userId: number | null;
 }
 
 async function handToOperator(conversation: Conversation, settings: ChatSettings, lastText: string, announce = true) {
-  await db.chatConversation.update({ where: { id: conversation.id }, data: { status: 'WAITING' } })
+  await setStatus(conversation.id, { status: 'WAITING' })
   const online = operatorsOnline(settings)
   await notifyAgents(conversation, lastText)
   if (online && !announce) return []
@@ -140,6 +157,24 @@ export async function visitorPoll(token: string, userId: number | null, since: n
   const messages = await db.chatMessage.findMany({ where: { conversationId: conversation.id, id: { gt: Math.max(0, since) } }, orderBy: { id: 'asc' }, take: 50 })
   if (conversation.unreadForVisitor) await db.chatConversation.update({ where: { id: conversation.id }, data: { unreadForVisitor: 0 } })
   return { status: conversation.status, messages: messages.map(publicMessage) }
+}
+
+/** The visitor's own conversation (cookie token; a signed-in owner must match). */
+export async function visitorConversation(token: string, userId: number | null) {
+  const conversation = await db.chatConversation.findUnique({ where: { token } })
+  return conversation && (!conversation.userId || conversation.userId === userId) ? conversation : null
+}
+
+/** Messages after `since` for a visitor stream (marks them read). */
+export async function visitorMessagesSince(conversationId: number, since: number) {
+  const messages = await db.chatMessage.findMany({ where: { conversationId, id: { gt: Math.max(0, since) } }, orderBy: { id: 'asc' }, take: 100 })
+  if (messages.length) await db.chatConversation.update({ where: { id: conversationId }, data: { unreadForVisitor: 0 } })
+  return messages.map(publicMessage)
+}
+
+/** "Typing…" hints: never stored, only relayed to the other side. */
+export async function typing(conversationId: number, who: 'visitor' | 'agent') {
+  await announce(conversationId, { type: 'typing', who })
 }
 
 export async function visitorContact(token: string, userId: number | null, input: { name?: unknown; contact?: unknown }) {
@@ -244,7 +279,7 @@ export async function agentReply(id: number, agentId: number, body: unknown) {
   if (!conversation) throw new ChatError('گفت‌وگو پیدا نشد', 404)
   if (conversation.status === 'CLOSED') throw new ChatError('این گفت‌وگو بسته شده است', 409)
   if (conversation.status !== 'OPEN' || !conversation.assignedTo) {
-    await db.chatConversation.update({ where: { id }, data: { status: 'OPEN', assignedTo: conversation.assignedTo || agentId } })
+    await setStatus(id, { status: 'OPEN', assignedTo: conversation.assignedTo || agentId })
     const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true } })
     await addMessage(conversation, 'SYSTEM', `${agent?.name || 'اپراتور'} به گفت‌وگو پیوست.`)
   }
@@ -257,16 +292,16 @@ export async function agentAction(id: number, agentId: number, action: string) {
   const conversation = await db.chatConversation.findUnique({ where: { id } })
   if (!conversation) throw new ChatError('گفت‌وگو پیدا نشد', 404)
   if (action === 'assign') {
-    await db.chatConversation.update({ where: { id }, data: { assignedTo: agentId, status: conversation.status === 'CLOSED' ? 'CLOSED' : 'OPEN' } })
+    await setStatus(id, { assignedTo: agentId, status: conversation.status === 'CLOSED' ? 'CLOSED' : 'OPEN' })
     const agent = await db.user.findUnique({ where: { id: agentId }, select: { name: true } })
     await addMessage(conversation, 'SYSTEM', `${agent?.name || 'اپراتور'} به گفت‌وگو پیوست.`)
   } else if (action === 'close') {
-    await db.chatConversation.update({ where: { id }, data: { status: 'CLOSED', closedAt: new Date() } })
+    await setStatus(id, { status: 'CLOSED', closedAt: new Date() })
     await addMessage(conversation, 'SYSTEM', 'گفت‌وگو بسته شد. از همراهی شما سپاسگزاریم؛ لطفاً به این گفت‌وگو امتیاز دهید.')
   } else if (action === 'reopen') {
-    await db.chatConversation.update({ where: { id }, data: { status: 'OPEN', closedAt: null, assignedTo: agentId } })
+    await setStatus(id, { status: 'OPEN', closedAt: null, assignedTo: agentId })
   } else if (action === 'to-bot') {
-    await db.chatConversation.update({ where: { id }, data: { status: 'BOT', assignedTo: null, botReplies: 0 } })
+    await setStatus(id, { status: 'BOT', assignedTo: null, botReplies: 0 })
   } else throw new ChatError('عملیات نامعتبر است')
 }
 

@@ -180,6 +180,11 @@ export async function saveSellerProduct(seller: SellerRow, input: Record<string,
   // Seller slugs are namespaced so they never collide with the shop's own products.
   if (!id && !String(body.slug || '').trim()) body.slug = `s${seller.id}-${Date.now().toString(36)}`
   if (body.slug !== undefined && !/^[a-z0-9-]{3,80}$/.test(String(body.slug))) throw new MarketplaceError('نامک محصول فقط حروف انگلیسی کوچک، عدد و خط تیره')
+  // Sellers rarely keep SKUs; a variant without one gets a unique shop-scoped code.
+  if (Array.isArray(body.variants)) {
+    const stamp = Date.now().toString(36)
+    body.variants = body.variants.slice(0, 100).map((variant: Record<string, unknown>, index: number) => ({ ...variant, sku: String(variant?.sku || '').trim() || `S${seller.id}-${stamp}-${index + 1}` }))
+  }
   if (id) {
     const current = await db.product.findFirst({ where: { id, sellerId: seller.id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, name: true, priceMinor: true } })
     if (!current) throw new MarketplaceError('محصول پیدا نشد', 404)
@@ -190,7 +195,7 @@ export async function saveSellerProduct(seller: SellerRow, input: Record<string,
       const row = await tx.product.update({ where: { id }, data: { ...(parsed.data as Prisma.ProductUpdateInput), approval, ...(approval !== 'APPROVED' ? { active: false } : {}) } })
       if (parsed.variants) await saveVariants(tx, id, parsed.variants)
       return row
-    })
+    }).catch((error: { code?: string }) => { throw error?.code === 'P2002' ? new MarketplaceError('این نامک یا کد تنوع (SKU) تکراری است', 409) : error })
     contentChanged({ type: 'product', id }, current, saved)
     if (approval === 'PENDING' && current.approval === 'REJECTED') await notifyAdmins('محصول ویرایش‌شده منتظر بررسی', `«${saved.name}» از ${seller.shopName}`, '/admin/marketplace?tab=products', `product-review:${id}:${Date.now()}`)
     return saved

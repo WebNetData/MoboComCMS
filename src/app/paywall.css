@@ -34,3 +34,13 @@
 @media (max-width: 560px) { .pw-row { grid-template-columns: 48px minmax(0, 1fr); } .pw-row .btn { grid-column: 1 / -1; } }
 .pw-page { display: grid; gap: 18px; }
 .pw-page-head p { margin-block-start: 6px; }
+
+/* A download row sold on its own (e.g. a 4K file) */
+.md-buy { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.md-go.is-buy { border: 0; cursor: pointer; font: inherit; font-weight: 800; }
+.md-go.is-buy s { opacity: .6; font-weight: 500; }
+.md-go.is-buy:disabled { opacity: .7; cursor: progress; }
+.md-buy-vip { font-size: .72rem; color: var(--md-accent, #d4a017); }
+.md-buy-error { font-size: .72rem; color: #e5484d; }
+.md-own { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: color-mix(in srgb, var(--md-accent, #d4a017) 16%, transparent); }
+.md-own.is-open { background: color-mix(in srgb, #30a46c 18%, transparent); }

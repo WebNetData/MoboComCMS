@@ -10,7 +10,7 @@ type Purchase = { id: number; userId: number; user: string; source: string; revo
 type Overview = { enabled: boolean; kpis: { items: number; sales30: number; revenue30: string; buyers: number }; items: Item[]; recent: Purchase[] }
 type Tone = { tone: 'ok' | 'error'; text: string } | null
 
-const TYPE: Record<string, string> = { post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ' }
+const TYPE: Record<string, string> = { post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', link: 'لینک جداگانه' }
 const VIP: Record<string, string> = { FREE: 'رایگان برای VIP', DISCOUNT: 'تخفیف VIP', NONE: 'VIP هم می‌خرد' }
 const editorOf = (item: { ownerType: string; ownerId: number }) => ({ post: '/admin/posts', software: '/admin/software/titles', game: `/admin/games/${item.ownerId}`, title: '/admin/cinema/titles', album: '/admin/music/library', track: '/admin/music/library' } as Record<string, string>)[item.ownerType] || '/admin'
 

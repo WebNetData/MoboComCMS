@@ -31,8 +31,27 @@ function LiveChat(_props: PluginProps) {
   const [contact, setContact] = useState({ name: '', contact: '' })
   const [contactSaved, setContactSaved] = useState(false)
   const [rated, setRated] = useState(false)
+  const [live, setLive] = useState(false)
+  const [agentTyping, setAgentTyping] = useState(false)
   const list = useRef<HTMLDivElement>(null)
   const lastId = useRef(0)
+  const openRef = useRef(open)
+  const typingSent = useRef(0)
+  useEffect(() => { openRef.current = open }, [open])
+
+  /** Adds new messages once (the stream, the send response and polling may all deliver the same one). */
+  const merge = useCallback((incoming: Message[]) => {
+    if (!incoming.length) return
+    lastId.current = Math.max(lastId.current, ...incoming.map((m) => m.id))
+    setMessages((current) => {
+      const fresh = incoming.filter((m) => !current.some((c) => c.id === m.id))
+      // The visitor's own message may arrive on the stream before the send finishes: drop its placeholder.
+      const kept = current.filter((c) => !(c.id < 0 && fresh.some((m) => m.sender === 'VISITOR' && m.body === c.body)))
+      return fresh.length || kept.length !== current.length ? [...kept, ...fresh] : current
+    })
+    const replies = incoming.filter((m) => m.sender !== 'VISITOR').length
+    if (replies && !openRef.current) setUnread((count) => count + replies)
+  }, [])
 
   const load = useCallback(async () => {
     const response = await fetch('/api/chat', { cache: 'no-store' }).catch(() => null)
@@ -51,22 +70,45 @@ function LiveChat(_props: PluginProps) {
     if (new URLSearchParams(window.location.search).get('chat') === '1') setOpen(true)
   }, [load])
 
-  // Polling: every 3 s while open, every 25 s for the unread badge while closed.
+  // Live updates over server-sent events once a conversation exists; the browser reconnects by itself.
+  const hasConversation = status !== null
   useEffect(() => {
-    if (!status) return
+    if (!hasConversation || typeof EventSource === 'undefined') return
+    let failures = 0
+    let typingTimer: ReturnType<typeof setTimeout> | undefined
+    const source = new EventSource(`/api/chat/stream?since=${lastId.current}`)
+    source.addEventListener('ready', () => { failures = 0; setLive(true) })
+    source.addEventListener('message', (event) => { merge([JSON.parse((event as MessageEvent).data)]); setAgentTyping(false) })
+    source.addEventListener('status', (event) => setStatus(JSON.parse((event as MessageEvent).data).status))
+    source.addEventListener('typing', () => { setAgentTyping(true); clearTimeout(typingTimer); typingTimer = setTimeout(() => setAgentTyping(false), 4000) })
+    source.onerror = () => {
+      setLive(false)
+      // Three failed connections in a row: fall back to polling.
+      if (++failures >= 3) source.close()
+    }
+    return () => { source.close(); clearTimeout(typingTimer); setLive(false) }
+  }, [hasConversation, merge])
+
+  // Fallback polling (no EventSource, or the stream keeps failing): every 3 s while open, 25 s for the badge.
+  useEffect(() => {
+    if (!status || live) return
     const timer = setInterval(async () => {
       const response = await fetch(`/api/chat?since=${lastId.current}`, { cache: 'no-store' }).catch(() => null)
       if (!response?.ok) return
       const data: { status: string | null; messages: Message[] } = await response.json()
       if (data.status) setStatus(data.status)
-      if (data.messages.length) {
-        lastId.current = data.messages.at(-1)!.id
-        setMessages((current) => [...current, ...data.messages.filter((m) => !current.some((c) => c.id === m.id))])
-        if (!open) setUnread((count) => count + data.messages.filter((m) => m.sender !== 'VISITOR').length)
-      }
+      merge(data.messages)
     }, open ? 3000 : 25_000)
     return () => clearInterval(timer)
-  }, [status, open])
+  }, [status, open, live, merge])
+
+  /** Lets the operator see "typing…" (at most every 3 s, only when a person is on the other side). */
+  function onType(value: string) {
+    setText(value)
+    if (!value.trim() || (status !== 'OPEN' && status !== 'WAITING') || Date.now() - typingSent.current < 3000) return
+    typingSent.current = Date.now()
+    void fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'typing' }) }).catch(() => null)
+  }
 
   useEffect(() => { if (open) { setUnread(0); list.current?.scrollTo({ top: list.current.scrollHeight, behavior: 'smooth' }) } }, [open, messages.length, sending])
 
@@ -81,8 +123,8 @@ function LiveChat(_props: PluginProps) {
     const data = await response?.json().catch(() => null)
     setSending(false)
     if (!response?.ok) { setError(data?.error || 'ارسال نشد؛ دوباره تلاش کنید'); setMessages((current) => current.filter((m) => m.id !== optimistic.id)); setText(body); return }
-    setMessages((current) => [...current.filter((m) => m.id !== optimistic.id), ...data.messages.filter((m: Message) => !current.some((c) => c.id === m.id))])
-    lastId.current = Math.max(lastId.current, ...data.messages.map((m: Message) => m.id))
+    setMessages((current) => current.filter((m) => m.id !== optimistic.id))
+    merge(data.messages)
     setStatus(data.status)
   }
 
@@ -91,7 +133,7 @@ function LiveChat(_props: PluginProps) {
     const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'operator' }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setSending(false)
-    if (response?.ok) { setMessages((current) => [...current, ...(data.messages || [])]); lastId.current = Math.max(lastId.current, ...(data.messages || []).map((m: Message) => m.id)); setStatus('WAITING') }
+    if (response?.ok) { merge(data.messages || []); setStatus('WAITING') }
   }
 
   async function saveContact(event: FormEvent) {
@@ -126,7 +168,7 @@ function LiveChat(_props: PluginProps) {
             {message.sender !== 'VISITOR' && <small className="lc-who">{message.sender === 'AGENT' ? 'اپراتور' : state.botName}</small>}
             <p><Text body={message.body} /></p><time>{time(message.at)}</time>
           </div>)}
-        {sending && <div className="lc-msg is-bot lc-typing" aria-label="در حال نوشتن"><span /><span /><span /></div>}
+        {(sending || agentTyping) && <div className="lc-msg is-bot lc-typing" aria-label={agentTyping ? 'اپراتور در حال نوشتن است' : 'در حال نوشتن'}><span /><span /><span /></div>}
         {showContact && <form className="lc-contact" onSubmit={saveContact}>
           <b>برای اینکه پاسخ را از دست ندهید</b>
           <input className="input" value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} placeholder="نام شما" aria-label="نام" />
@@ -139,7 +181,7 @@ function LiveChat(_props: PluginProps) {
       {error && <p className="lc-error" role="alert">{error}</p>}
       {current === 'BOT' && <button type="button" className="lc-human" onClick={() => void operator()} disabled={sending}>👤 گفت‌وگو با اپراتور</button>}
       <form className="lc-input" onSubmit={send}>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} rows={1} maxLength={2000} placeholder={current === 'CLOSED' ? 'برای شروع گفت‌وگوی تازه بنویسید…' : 'پیام خود را بنویسید…'} aria-label="پیام" />
+        <textarea value={text} onChange={(e) => onType(e.target.value)} onKeyDown={onKey} rows={1} maxLength={2000} placeholder={current === 'CLOSED' ? 'برای شروع گفت‌وگوی تازه بنویسید…' : 'پیام خود را بنویسید…'} aria-label="پیام" />
         <button type="submit" disabled={sending || !text.trim()} aria-label="ارسال"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12l-11.5 1.9z" transform="rotate(180 12 12)" /></svg></button>
       </form>
     </section>}

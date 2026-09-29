@@ -115,7 +115,8 @@ export async function openMediaLink(request: Request, rawId: string) {
   if (link.disabled) return backToItem(request, owner.path, 'removed', json)
 
   const viewer = await getViewer()
-  const access = await gate(viewer, owner.chain, link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  // A link with its own price is checked first; otherwise the item's price or VIP rule applies.
+  const access = await gate(viewer, [{ ownerType: 'link', ownerId: id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
   if (access === 'buy') return mustBuy(request, owner.path, json)
   if (access !== 'ok') return denied(request, access, json)
 
@@ -214,7 +215,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   if (!owner) return { ok: false, reason: 'not-found', backPath: '/' }
   if (link.disabled) return { ok: false, reason: 'removed', backPath: owner.path }
   const viewer = await getViewer()
-  const access = await gate(viewer, owner.chain, link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  const access = await gate(viewer, [{ ownerType: 'link', ownerId: id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
   if (access !== 'ok') return { ok: false, reason: access, backPath: owner.path }
   const playback = playbackKind(link.url, link.kind, toEmbedUrl)
   if (playback === 'none') return { ok: false, reason: 'unplayable', backPath: owner.path }

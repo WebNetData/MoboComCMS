@@ -7,12 +7,13 @@ import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
-import { legacyNumber } from '@/shared/money'
+import { legacyNumber, minorToDecimal } from '@/shared/money'
 import { validateCover } from '@/shared/content/cover'
 import { validateCategoryParent, validateCategorySelection } from '@/modules/site/server/categories'
 import { postCategories } from '@/modules/site/domain/categories'
 import { parseJson, validateFields } from '@/modules/catalog/server/product-config'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
+import { fxFormFields } from '@/modules/fx/server/fx'
 
 const PERM_MAP: Record<string, Permission> = {
   pages: 'cms.pages',
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
   const rows = await model.findMany({ orderBy, include, ...(onlyId ? { where: { id: onlyId } } : {}) })
   if (type === 'posts') return ok(rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)) })))
   if (type === 'pages') return ok(await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) }))))
-  if (type === 'products') return ok(rows.map((row: any) => ({ ...row, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) })))
+  if (type === 'products') return ok(rows.map((row: any) => ({ ...row, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) })))
   return ok(rows)
 }
 
@@ -231,7 +232,7 @@ export async function PATCH(req: NextRequest) {
       if (b?.attributeGroupId !== undefined) data.attributeGroupId = await productCategoryGroup(b.attributeGroupId)
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, priceMinor: true, name: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true } })
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const saved = await db.$transaction(async tx => {

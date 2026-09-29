@@ -3,6 +3,7 @@ import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { db } from '@/platform/database/prisma'
 import { requireUser } from '@/modules/identity/server/access'
 import { PaywallError, isOwnerType, parseContentKey, type OwnerType } from '@/modules/paywall/domain/paywall'
 import { adminGrant, getPaidItem, myPurchases, paywallOverview, removePaidItem, revokePurchase, savePaidItem } from '@/modules/paywall/server/paywall'
@@ -11,6 +12,15 @@ import { adminGrant, getPaidItem, myPurchases, paywallOverview, removePaidItem, 
 const SECTION_PERMS: Record<OwnerType, string[]> = {
   post: ['cms.posts'], software: ['software.manage', 'cms.posts'], game: ['games.manage', 'cms.posts'],
   title: ['cinema.manage', 'cms.posts'], album: ['music.manage', 'cms.posts'], track: ['music.manage', 'cms.posts'],
+  link: [],
+}
+const LINK_PERMS: Record<string, string[]> = { title: SECTION_PERMS.title, episode: SECTION_PERMS.title, game: SECTION_PERMS.game, gameupdate: SECTION_PERMS.game, software: SECTION_PERMS.software }
+
+/** A link is priced by whoever manages the section it belongs to. */
+async function sectionPerms(owner: { ownerType: OwnerType; ownerId: number }) {
+  if (owner.ownerType !== 'link') return SECTION_PERMS[owner.ownerType]
+  const link = await db.mediaLink.findUnique({ where: { id: owner.ownerId }, select: { ownerType: true } }).catch(() => null)
+  return link ? LINK_PERMS[link.ownerType] || [] : []
 }
 const MANAGE = ['paywall.manage', 'membership.manage', 'settings.manage']
 
@@ -29,7 +39,7 @@ function ownerFrom(req: NextRequest, body?: Record<string, unknown>) {
 /** GET /api/admin/paywall — the dashboard, or ?ownerType=&ownerId= for one item's price panel. */
 export async function GET(req: NextRequest) {
   const owner = ownerFrom(req)
-  const guard = await adminGuard(req, 'paywall', owner ? [...MANAGE, ...SECTION_PERMS[owner.ownerType]] : MANAGE)
+  const guard = await adminGuard(req, 'paywall', owner ? [...MANAGE, ...await sectionPerms(owner)] : MANAGE)
   if ('response' in guard) return guard.response
   if (owner) return ok(await getPaidItem(owner.ownerType, owner.ownerId))
   const q = req.nextUrl.searchParams
@@ -41,7 +51,7 @@ export async function PUT(req: NextRequest) {
   const body = (await req.json().catch(() => null)) || {}
   const owner = ownerFrom(req, body)
   if (!owner) return err('مورد نامعتبر است', 400)
-  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...SECTION_PERMS[owner.ownerType]])
+  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...await sectionPerms(owner)])
   if ('response' in guard) return guard.response
   try {
     const item = await savePaidItem(owner.ownerType, owner.ownerId, body)
@@ -54,7 +64,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const owner = ownerFrom(req)
   if (!owner) return err('مورد نامعتبر است', 400)
-  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...SECTION_PERMS[owner.ownerType]])
+  const guard = await adminGuard(req, 'paywall', [...MANAGE, ...await sectionPerms(owner)])
   if ('response' in guard) return guard.response
   await removePaidItem(owner.ownerType, owner.ownerId)
   await auditAdmin({ req, actor: guard.admin, action: 'paywall.remove', targetType: owner.ownerType, targetId: String(owner.ownerId), metadata: {} })
