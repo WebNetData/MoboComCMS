@@ -10,15 +10,7 @@ import { getBuilderMedia, browseSoftware } from '@/modules/media/server/queries'
 import { recentThreads } from '@/modules/forum/server/forum'
 import type { LandingCommunity, LandingStat, ShowcaseItem } from '@/modules/site/domain/homepage'
 import { plainText } from '@/shared/text/plain'
-
-function parseFormFields(value: string) {
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
+import { parseForm, publicForm } from '@/modules/forms/domain/forms'
 
 const SHOWCASE_SIZE = 8
 
@@ -133,10 +125,7 @@ export async function getLandingData(): Promise<LandingData> {
       category: product.category ? { name: product.category.name, nameEn: product.category.nameEn } : null,
       listPrice: product.compareAtMinor > 0n && (!product.saleEndsAt || product.saleEndsAt > new Date()) ? legacyNumber(product.compareAtMinor, normalizeCurrency(product.currency)) : 0,
     })),
-    forms: forms.map((form) => ({
-      ...form,
-      fields: parseFormFields(form.fields),
-    })),
+    forms: forms.map((form) => publicForm(parseForm(form))),
     tomanRate: resolveUsdTomanRateNumber(settings.usdRateToman, process.env.FRENZYEX_USD_RATE_TOMAN),
     telegramBot: telegram?.ready ? telegram.username : '',
     showcase,

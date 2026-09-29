@@ -1,42 +1,114 @@
 'use client'
-import { useEffect, useState } from 'react'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
-import type { FormDefinition, FormField } from '@/modules/site/config/forms'
 import PublicForm from '@/components/site/PublicForm'
-type SavedForm = FormDefinition & { id:number; _count?:{ submissions:number } }
-type Submission = { id:number; read:boolean; createdAt:string; data:{ id:string; label:string; value:string|boolean }[] }
-const newForm = ():FormDefinition => ({slug:'',title:'',description:'',published:false,successText:'پیام شما با موفقیت ثبت شد. به‌زودی بررسی می‌کنیم.',fields:[{id:'name',label:'نام و نام خانوادگی',type:'text',required:true,options:[]},{id:'email',label:'ایمیل',type:'email',required:true,options:[]},{id:'message',label:'پیام شما',type:'textarea',required:true,options:[]}]})
-const names:Record<FormField['type'],string> = {text:'متن کوتاه',email:'ایمیل',tel:'تلفن',textarea:'متن بلند',select:'انتخاب از لیست',checkbox:'تأیید / رضایت'}
+import { normalizeForm, publicForm, type FormDefinition } from '@/modules/forms/domain/forms'
+import Builder from './Builder'
+import Inbox from './Inbox'
+import SettingsPanel from './SettingsPanel'
+import { blankForm, settingsOf, type SavedForm, type Template } from './shared'
+
+type Tab = 'build' | 'settings' | 'preview' | 'inbox'
+const TABS: [Tab, string][] = [['build', 'ساخت فرم'], ['settings', 'تنظیمات'], ['preview', 'پیش‌نمایش'], ['inbox', 'پاسخ‌ها']]
+const fa = (n: number) => n.toLocaleString('fa-IR')
+
 export default function FormsAdmin() {
-  const [forms,setForms] = useState<SavedForm[]>([])
-  const [form,setForm] = useState<FormDefinition>(newForm)
-  const [tab,setTab] = useState('edit')
-  const [dirty,setDirty] = useState(false)
-  const [busy,setBusy] = useState(false)
-  const [notice,setNotice] = useState('')
-  const [failed,setFailed] = useState(false)
-  const [loading,setLoading] = useState(true)
-  const [submissions,setSubmissions] = useState<Submission[]>([])
-  const [page,setPage] = useState(1)
-  const [total,setTotal] = useState(0)
-  async function load(){const r=await fetch('/api/admin/forms');if(!r.ok)throw new Error('دریافت فرم‌ها ممکن نشد؛ دسترسی مدیریت صفحات لازم است.');const data:SavedForm[]=await r.json();setForms(data);return data}
-  useEffect(()=>{load().then(data=>{if(data.length)setForm(data[0])}).catch(e=>{setFailed(true);setNotice(e.message)}).finally(()=>setLoading(false))},[])
-  useEffect(()=>{if(tab!=='inbox'||!form.id)return;let active=true;setSubmissions([]);fetch(`/api/admin/forms/submissions?formId=${form.id}&page=${page}`).then(async r=>{if(!r.ok)throw new Error('دریافت پاسخ‌ها ممکن نشد');return r.json()}).then(data=>{if(active){setSubmissions(data.rows);setTotal(data.total)}}).catch(e=>{if(active){setFailed(true);setNotice(e.message)}});return()=>{active=false}},[tab,form.id,page])
-  useEffect(()=>{const guard=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[dirty])
-  function edit(value:FormDefinition){setForm(value);setDirty(true);setNotice('')}
-  function select(value:FormDefinition){if(dirty&&!window.confirm('تغییرات ذخیره نشده کنار گذاشته شوند؟'))return;setForm(structuredClone(value));setDirty(false);setTab('edit');setNotice('');setPage(1)}
-  function field(index:number,value:FormField){edit({...form,fields:form.fields.map((f,i)=>i===index?value:f)})}
-  function move(index:number,delta:number){const fields=[...form.fields];[fields[index],fields[index+delta]]=[fields[index+delta],fields[index]];edit({...form,fields})}
-  async function save(){setBusy(true);setNotice('');try{const r=await fetch('/api/admin/forms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});const data=await r.json();if(!r.ok)throw new Error(data.error);setForm(data);setDirty(false);await load();setNotice(data.published?'فرم ذخیره و منتشر شد.':'پیش‌نویس فرم ذخیره شد.');setFailed(false)}catch(e){setFailed(true);setNotice(e instanceof Error?e.message:'ذخیره ناموفق')}finally{setBusy(false)}}
-  async function mark(row:Submission){try{const r=await fetch('/api/admin/forms/submissions',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:row.id,read:!row.read})});if(!r.ok)throw new Error('تغییر وضعیت ممکن نشد');setSubmissions(values=>values.map(v=>v.id===row.id?{...v,read:!v.read}:v))}catch(e){setFailed(true);setNotice(e instanceof Error?e.message:'خطا')}}
-  return <div dir="rtl"><div className="studio-header"><div><span className="section-kicker">HAPP / FORM BUILDER</span><h1>فرم‌ساز و صندوق پاسخ‌ها</h1><p>فرم تماس، درخواست همکاری و نظرسنجی خودت را بساز.</p></div><div className="studio-actions"><button className="btn btn-ghost" onClick={()=>select(newForm())}>+ فرم جدید</button><button className="btn btn-primary" disabled={busy||loading} onClick={save}>{busy?'در حال ذخیره…':'ذخیره فرم'}</button></div></div>
-    {notice&&<div role={failed?'alert':'status'} className={`studio-notice ${failed?'studio-error':''}`}>{notice}</div>}
-    {loading?<div className="studio-notice">در حال دریافت فرم‌ها…</div>:<div className="studio-layout"><aside className="form-library">{forms.length?forms.map(f=><button className={f.id===form.id?'selected':''} key={f.id} onClick={()=>select(f)}><strong>{f.title}</strong><small>{f.published?'منتشرشده':'پیش‌نویس'} · {f._count?.submissions||0} پاسخ</small><small dir="ltr">/forms/{f.slug}</small></button>):<div className="empty-panel">اولین فرم خودت را بساز.</div>}<Link href="/admin/studio" className="text-link">افزودن فرم به صفحه اصلی ↗</Link></aside><div><div className="studio-tabs" role="tablist">{[['edit','ساخت فرم'],['preview','پیش‌نمایش'],['inbox','پاسخ‌ها']].map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
-    {tab==='edit'&&<div className="card studio-editor"><div className="studio-languages"><label className="studio-field"><span>عنوان فرم</span><input className="input" value={form.title} onChange={e=>edit({...form,title:e.target.value})} placeholder="مثلاً درخواست همکاری"/></label><label className="studio-field"><span>نشانی انگلیسی یکتا</span><input className="input" dir="ltr" value={form.slug} onChange={e=>edit({...form,slug:e.target.value})} placeholder="contact-us"/></label></div><label className="studio-field"><span>توضیحات</span><textarea className="input" rows={2} value={form.description} onChange={e=>edit({...form,description:e.target.value})}/></label><label className="studio-switch mb-6"><input type="checkbox" checked={form.published} onChange={e=>edit({...form,published:e.target.checked})}/>انتشار عمومی فرم</label><h3 className="mb-4">فیلدهای فرم</h3><div className="field-palette">{Object.entries(names).map(([type,label])=><button className="btn btn-ghost" key={type} onClick={()=>edit({...form,fields:[...form.fields,{id:`field_${Date.now().toString(36)}`,label,type:type as FormField['type'],required:false,options:type==='select'?['گزینه اول','گزینه دوم']:[]}]})}>+ {label}</button>)}</div>
-      {form.fields.map((f,i)=><div className="studio-item" key={f.id}><div className="studio-item-head"><h3>{i+1}. {names[f.type]}</h3><div className="studio-actions"><button className="btn btn-ghost" aria-label="فیلد بالاتر" disabled={i===0} onClick={()=>move(i,-1)}>↑</button><button className="btn btn-ghost" aria-label="فیلد پایین‌تر" disabled={i===form.fields.length-1} onClick={()=>move(i,1)}>↓</button><button className="btn btn-ghost" onClick={()=>edit({...form,fields:form.fields.filter((_,j)=>j!==i)})}>حذف</button></div></div><label className="studio-field"><span>عنوان فیلد</span><input className="input" value={f.label} onChange={e=>field(i,{...f,label:e.target.value})}/></label>{f.type==='select'&&<label className="studio-field"><span>گزینه‌ها؛ هر گزینه در یک خط</span><textarea className="input" value={f.options.join('\n')} onChange={e=>field(i,{...f,options:e.target.value.split('\n')})}/></label>}<label className="studio-switch"><input type="checkbox" checked={f.required} onChange={e=>field(i,{...f,required:e.target.checked})}/>تکمیل این فیلد الزامی است</label></div>)}
-      <label className="studio-field"><span>پیام بعد از ارسال موفق</span><textarea className="input" rows={2} value={form.successText} onChange={e=>edit({...form,successText:e.target.value})}/></label>{form.id&&<div className="studio-help">نشانی فرم: <Link href={`/forms/${form.slug}`} target="_blank" className="text-primary-var" dir="ltr">/forms/{form.slug} ↗</Link>{!form.published&&' (تا زمان انتشار برای بازدیدکنندگان قابل مشاهده نیست)'}</div>}</div>}
-    {tab==='preview'&&<><div className="studio-notice">پیش‌نمایش چیدمان فرم؛ ارسال در این نما غیرفعال است.</div><fieldset disabled style={{border:0,padding:0}}><PublicForm key={JSON.stringify(form)} form={form}/></fieldset></>}
-    {tab==='inbox'&&<>{!form.id?<div className="empty-panel">ابتدا فرم را ذخیره کن.</div>:<><div className="studio-help">{total.toLocaleString('fa-IR')} پاسخ · صفحه {page.toLocaleString('fa-IR')}</div>{submissions.length?submissions.map(row=><article className={`submission-row ${row.read?'':'unread'}`} key={row.id}><div className="studio-item-head"><span className="muted text-sm">#{row.id} · {new Date(row.createdAt).toLocaleString('fa-IR')}</span><button className="btn btn-ghost" onClick={()=>mark(row)}>{row.read?'علامت‌گذاری نخوانده':'علامت‌گذاری خوانده‌شده'}</button></div><dl>{row.data.map((answer,i)=><div style={{display:'contents'}} key={i}><dt>{answer.label}</dt><dd>{typeof answer.value==='boolean'?(answer.value?'بله':'خیر'):answer.value||'—'}</dd></div>)}</dl></article>):<div className="empty-panel">هنوز پاسخی در این صفحه ثبت نشده است.</div>}<div className="studio-actions"><button className="btn btn-ghost" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>صفحه قبل</button><button className="btn btn-ghost" disabled={page*25>=total} onClick={()=>setPage(p=>p+1)}>صفحه بعد</button></div></>}</>}
-    </div></div>}
+  const [forms, setForms] = useState<SavedForm[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [form, setForm] = useState<FormDefinition | null>(null)
+  const [tab, setTab] = useState<Tab>('build')
+  const [dirty, setDirty] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [picking, setPicking] = useState(false)
+
+  const load = useCallback(async () => {
+    const r = await fetch('/api/admin/forms', { cache: 'no-store' })
+    if (!r.ok) throw new Error('دریافت فرم‌ها ممکن نشد؛ دسترسی مدیریت صفحات لازم است.')
+    const data: { forms: SavedForm[]; templates: Template[] } = await r.json()
+    setForms(data.forms); setTemplates(data.templates)
+    return data.forms
+  }, [])
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search)
+    load().then((list) => {
+      const id = Number(wanted.get('form'))
+      const start = list.find((f) => f.id === id) || list[0]
+      if (start) { setForm(structuredClone(start)); if (wanted.get('tab') === 'inbox') setTab('inbox') } else setPicking(true)
+    }).catch((e) => setNotice({ tone: 'error', text: e.message })).finally(() => setLoading(false))
+  }, [load])
+  useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [dirty])
+
+  const say = useCallback((tone: 'ok' | 'error', text: string) => setNotice({ tone, text }), [])
+  const edit = (next: FormDefinition) => { setForm(next); setDirty(true); setNotice(null) }
+  const confirmLeave = () => !dirty || window.confirm('تغییرات ذخیره‌نشده کنار گذاشته شوند؟')
+  function open(value: FormDefinition) { if (!confirmLeave()) return; setForm(structuredClone(value)); setDirty(false); setTab('build'); setNotice(null); setPicking(false) }
+
+  // The same checks the server applies, so problems show before the request.
+  const problem = useMemo(() => { if (!form) return ''; try { normalizeForm(form); return '' } catch (e) { return e instanceof Error ? e.message : '' } }, [form])
+
+  async function save() {
+    if (!form) return
+    setBusy(true)
+    const r = await fetch('/api/admin/forms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    const data = await r.json().catch(() => null)
+    setBusy(false)
+    if (!r.ok) { say('error', data?.error || 'ذخیره ناموفق'); return }
+    setForm(data); setDirty(false); await load()
+    say('ok', data.published ? 'فرم ذخیره و منتشر شد.' : 'پیش‌نویس فرم ذخیره شد.')
+  }
+  async function op(kind: 'duplicate' | 'delete') {
+    if (!form?.id) return
+    if (kind === 'delete' && !window.confirm(`فرم «${form.title}» با همهٔ پاسخ‌ها و ضمیمه‌هایش برای همیشه حذف شود؟`)) return
+    const r = await fetch('/api/admin/forms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: kind, id: form.id }) })
+    const data = await r.json().catch(() => null)
+    if (!r.ok) { say('error', data?.error || 'انجام نشد'); return }
+    const list = await load()
+    if (kind === 'duplicate') { setForm(structuredClone(data)); setDirty(false); say('ok', 'کپی ساخته شد.') } else { setForm(list[0] ? structuredClone(list[0]) : null); setDirty(false); if (!list.length) setPicking(true); say('ok', 'فرم حذف شد.') }
+  }
+  function fromTemplate(t: Template | null) {
+    if (!confirmLeave()) return
+    const base = t ? structuredClone(t.form) : blankForm()
+    // A template's address may already exist; the admin can change it before saving.
+    if (t && forms.some((f) => f.slug === base.slug)) base.slug = `${base.slug}-${Date.now().toString(36).slice(-4)}`
+    setForm(base as FormDefinition); setDirty(true); setTab('build'); setPicking(false); setNotice(null)
+  }
+
+  if (loading) return <div className="sa" dir="rtl"><div className="sa-skeleton" aria-busy="true" /></div>
+  const saved = forms.find((f) => f.id === form?.id)
+  return <div className="sa fb-page" dir="rtl">
+    <header className="sa-head"><div><h1>فرم‌ساز</h1><p className="sa-hint">فرم تماس، ثبت‌نام، نظرسنجی و درخواست بسازید؛ پاسخ‌ها را مدیریت و خروجی بگیرید.</p></div>
+      <div className="sa-head-actions"><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
+        <button type="button" className="btn btn-primary" disabled={busy || !form || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیرهٔ فرم' : 'ذخیره شد'}</button></div></header>
+    {notice && <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`sa-notice ${notice.tone === 'error' ? 'is-error' : 'is-ok'}`}>{notice.text}</div>}
+
+    {picking && <section className="sa-card fb-templates" aria-label="شروع فرم تازه">
+      <header className="sa-card-head"><h2>از کجا شروع کنیم؟</h2>{forms.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicking(false)}>بستن</button>}</header>
+      <div className="fb-tpl-grid">
+        <button type="button" onClick={() => fromTemplate(null)}><b>فرم خالی</b><small>نام، ایمیل و پیام؛ هر چه خواستید اضافه کنید.</small></button>
+        {templates.map((t) => <button type="button" key={t.id} onClick={() => fromTemplate(t)}><b>{t.name}</b><small>{t.description}</small></button>)}
+      </div>
+    </section>}
+
+    <div className="fb-layout">
+      <aside className="fb-forms" aria-label="فرم‌ها">
+        {forms.map((f) => <button key={f.id} type="button" className={f.id === form?.id ? 'is-active' : ''} onClick={() => open(f)}><strong>{f.title}</strong><small>{f.published ? 'منتشرشده' : 'پیش‌نویس'} · {fa(f.counts.total)} پاسخ{f.counts.new ? ` · ${fa(f.counts.new)} جدید` : ''}</small></button>)}
+        {!forms.length && <p className="sa-hint">هنوز فرمی ندارید.</p>}
+      </aside>
+
+      {form && <div className="fb-main">
+        <div className="fb-title"><div><h2>{form.title || 'فرم بدون عنوان'}</h2>{form.id ? <small dir="ltr">/forms/{form.slug}</small> : <small>ذخیره نشده</small>}</div>
+          {form.id && <div className="sa-row-actions">{form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}<button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('duplicate')}>کپی</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('delete')}>حذف</button></div>}</div>
+        <div className="sa-tabs fb-tabs" role="tablist">{TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}{id === 'inbox' && saved?.counts.new ? <span className="fb-badge">{fa(saved.counts.new)}</span> : null}</button>)}</div>
+        {problem && dirty && tab !== 'inbox' && <p className="fb-problem" role="status">⚠ {problem}</p>}
+
+        {tab === 'build' && <Builder form={form} onChange={edit} />}
+        {tab === 'settings' && <SettingsPanel form={form} onChange={edit} />}
+        {tab === 'preview' && (problem ? <p className="sa-hint">پیش‌نمایش پس از رفع خطای بالا نمایش داده می‌شود: {problem}</p> : <><p className="sa-hint">پیش‌نمایش زنده؛ شرط‌ها و مرحله‌ها کار می‌کنند اما فرم ارسال نمی‌شود.</p><PublicForm key={JSON.stringify(form)} form={publicForm({ ...form, settings: settingsOf(form) })} preview /></>)}
+        {tab === 'inbox' && (form.id ? <Inbox formId={form.id} onNotice={say} /> : <p className="sa-hint">ابتدا فرم را ذخیره کنید.</p>)}
+      </div>}
+    </div>
   </div>
 }

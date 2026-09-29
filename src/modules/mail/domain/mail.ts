@@ -55,6 +55,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'LIVECHAT', label: 'گفت‌وگوی آنلاین (پاسخ اپراتور)' },
   { id: 'FX_RATE', label: 'نرخ ارز منتظر تأیید (مدیر)' },
   { id: 'ADS', label: 'تبلیغات (تأیید و وضعیت کمپین)' },
+  { id: 'FORM', label: 'پاسخ تازهٔ فرم‌ها (مدیر)' },
 ]
 
 /** Placeholder accounts (phone sign-up, bots, Telegram) have no real inbox. */

@@ -1063,9 +1063,11 @@ model SiteForm {
   fields      String           @default("[]")
   published   Boolean          @default(false)
   successText String           @default("پیام شما با موفقیت ثبت شد.")
+  settings    String           @default("{}") // steps, notifications, limits, schedule (see modules/forms/domain)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   submissions FormSubmission[]
+  uploads     FormUpload[]
 }
 
 model FormSubmission {
@@ -1073,10 +1075,33 @@ model FormSubmission {
   formId    Int
   data      String
   read      Boolean  @default(false)
+  status    String   @default("NEW") // NEW | READ | STARRED | ARCHIVED | SPAM
+  note      String   @default("")
+  userId    Int?
+  ipHash    String   @default("")
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  uploads   FormUpload[]
 
   @@index([formId, createdAt])
+  @@index([formId, status])
+  @@index([userId])
+}
+
+model FormUpload {
+  id           String          @id // stored file name (uuid + extension)
+  formId       Int
+  submissionId Int?
+  originalName String
+  mimeType     String
+  size         Int
+  createdAt    DateTime        @default(now())
+  form         SiteForm        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submission   FormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([submissionId])
+  @@index([createdAt])
 }
 
 model SubscriptionReminder {
