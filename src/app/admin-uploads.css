@@ -13,3 +13,19 @@
 .rich-import { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: 12.5px; border-top: 1px solid var(--border, #ddd); background: color-mix(in srgb, #22a06b 10%, transparent); }
 .rich-import.is-busy { background: color-mix(in srgb, var(--primary, #6d4aff) 10%, transparent); }
 .rich-import button { border: 0; background: none; cursor: pointer; color: inherit; font: inherit; }
+
+/* Newsletter (public) */
+.nl-page { padding-block: 40px 60px; display: grid; justify-items: center; }
+.nl-card, .nl-form { width: 100%; max-width: 620px; display: grid; gap: 14px; padding: 28px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); text-align: center; }
+.nl-card h1 { margin: 0; font-size: 22px; }
+.nl-card p { margin: 0; color: var(--muted); line-height: 2; }
+.nl-card .btn, .nl-card form { justify-self: center; }
+.nl-form { text-align: start; background: radial-gradient(circle at 100% 0, color-mix(in srgb, var(--primary) 16%, transparent), transparent 55%), var(--card); }
+.nl-form h2 { margin: 0; font-size: 20px; }
+.nl-form p { margin: 4px 0 0; color: var(--muted); }
+.nl-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.nl-form-row .input { flex: 1 1 180px; min-width: 0; }
+.nl-form.is-compact { padding: 0; border: 0; background: none; }
+.nl-note { margin: 0; font-size: 13px; }
+.nl-note.is-ok { color: #1a7f55; }
+.nl-note.is-error { color: #d93f3f; }

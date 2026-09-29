@@ -6,6 +6,7 @@ import { iranianUnit } from '@/shared/money/format'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
 import Slider from '@/components/site/Slider'
+import { sized, srcSet } from '@/shared/media/image'
 
 // Storefront building blocks (Digikala-style commerce on the SDS tokens):
 // price, product tile, rails, the timed-offer band, category circles,
@@ -37,7 +38,7 @@ export function ProductTile({ product, rank }: { product: ProductCard; rank?: nu
   return <article className={`sx-tile${product.inStock ? '' : ' is-out'}`}>
     <Link href={`/products/${product.slug}`} className="sx-tile-link">
       <span className="sx-tile-art">
-        {product.image ? <img src={product.image} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
+        {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
         {product.vipOnly && <span className="sx-flag is-vip">VIP</span>}
         {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />تحویل آنی</span>}
@@ -90,7 +91,7 @@ export function OfferBand({ title, products }: { title: string; products: Produc
     </div>
     <Slider className="sx-offers-track" role="list">
       {products.map((product) => <Link role="listitem" key={product.id} href={`/products/${product.slug}`} className="sx-offer">
-        <span className="sx-offer-art">{product.image ? <img src={product.image} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}</span>
+        <span className="sx-offer-art">{product.image ? <img src={sized(product.image, 160)} srcSet={srcSet(product.image, 160)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}</span>
         <b>{product.name}</b>
         <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} compact />
       </Link>)}
@@ -107,7 +108,7 @@ export function CategoryCircles({ categories }: { categories: CircleCategory[] }
     <SectionHead title="خرید بر اساس دسته‌بندی" icon="grid" />
     <Slider as="nav" className="sx-circles" label="دسته‌بندی‌های فروشگاه">
       {categories.map((category) => <Link key={category.slug} href={`/products?category=${encodeURIComponent(category.slug)}`} className="sx-circle">
-        <span>{category.image ? <img src={category.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={30} />}</span>
+        <span>{category.image ? <img src={sized(category.image, 160)} alt="" loading="lazy" /> : <StoreIcon name="box" size={30} />}</span>
         <b>{category.name}</b>
         <small className="num">{fa(category.total)} کالا</small>
       </Link>)}

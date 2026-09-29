@@ -2,6 +2,7 @@ import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { scoreBand } from '@/modules/media/domain/media'
 import Slider from '@/components/site/Slider'
+import { sized, srcSet } from '@/shared/media/image'
 
 /** Presentational building blocks shared by the music, cinema and games sections. */
 
@@ -55,7 +56,7 @@ export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: nu
     <Link href={`/cinema/${item.slug}`} className="cn-poster">
       {rank !== undefined && <span className="cn-rank" aria-hidden="true">{rank}</span>}
       <span className="cn-poster-art">
-        {item.poster ? <img src={item.poster} alt={name} loading="lazy" /> : <span className="cn-noart">🎬</span>}
+        {item.poster ? <img src={sized(item.poster, 320)} srcSet={srcSet(item.poster, 320)} alt={name} loading="lazy" /> : <span className="cn-noart">🎬</span>}
         <span className="cn-poster-badges">
           {item.access === 'MEMBERS' && <VipBadge fa={fa} small />}
           {item.dubbed && <span className="cn-badge is-dub">{fa ? 'دوبله' : 'Dub'}</span>}
@@ -89,7 +90,7 @@ export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
   return (
     <Link href={`/music/album/${album.slug}`} className="mu-album">
       <span className="mu-album-art">
-        {album.cover ? <img src={album.cover} alt={name} loading="lazy" /> : <span className="mu-noart">♪</span>}
+        {album.cover ? <img src={sized(album.cover, 320)} srcSet={srcSet(album.cover, 320)} alt={name} loading="lazy" /> : <span className="mu-noart">♪</span>}
         {album.access === 'MEMBERS' && <VipBadge fa={fa} small />}
         <span className="mu-album-play" aria-hidden="true">▶</span>
       </span>

@@ -2600,3 +2600,60 @@ model CartReminder {
   @@index([userId, sentAt])
   @@index([sentAt])
 }
+
+/// Newsletter list: site visitors who subscribed (double opt-in) and anyone who unsubscribed.
+model NewsletterSubscriber {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  name           String    @default("")
+  userId         Int?
+  status         String    @default("PENDING") // PENDING | ACTIVE | UNSUBSCRIBED
+  token          String    @unique
+  source         String    @default("form")
+  createdAt      DateTime  @default(now())
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+
+  @@index([status])
+}
+
+model NewsletterCampaign {
+  id          Int       @id @default(autoincrement())
+  subject     String
+  preheader   String    @default("")
+  html        String    @default("")
+  audience    String    @default("subscribers") // subscribers | users | customers | all
+  status      String    @default("DRAFT") // DRAFT | SCHEDULED | SENDING | SENT | CANCELLED
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  total       Int       @default(0)
+  sent        Int       @default(0)
+  failed      Int       @default(0)
+  opens       Int       @default(0)
+  clicks      Int       @default(0)
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([status, scheduledAt])
+}
+
+model NewsletterDelivery {
+  id         Int       @id @default(autoincrement())
+  campaignId Int
+  email      String
+  name       String    @default("")
+  userId     Int?
+  token      String    @unique
+  status     String    @default("PENDING") // PENDING | SENT | FAILED
+  error      String    @default("")
+  sentAt     DateTime?
+  openedAt   DateTime?
+  opens      Int       @default(0)
+  clickedAt  DateTime?
+  clicks     Int       @default(0)
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+}

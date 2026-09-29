@@ -29,6 +29,11 @@ const JOBS: Job[] = [
     name: 'store-marketing', everyMs: 60_000,
     run: async () => (await import('@/modules/store/server/marketing')).runMarketingJobs(),
   },
+  {
+    // Newsletter campaigns, a batch per minute within the email daily cap.
+    name: 'newsletter', everyMs: 60_000,
+    run: async () => (await import('@/modules/mail/server/newsletter')).runNewsletter(),
+  },
 ]
 
 export function startJobScheduler() {
