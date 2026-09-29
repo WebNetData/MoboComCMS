@@ -1,0 +1,28 @@
+{
+  "id": "livechat",
+  "name": "گفت‌وگوی آنلاین و CRM",
+  "nameEn": "Live chat & CRM",
+  "description": "ویجت گفت‌وگوی زنده: پاسخ اول با دستیار هوش مصنوعی و انتقال به اپراتور؛ کنسول اپراتورها و پروندهٔ ۳۶۰ درجهٔ هر مشتری (سفارش‌ها، تیکت‌ها، گفت‌وگوها، کیف پول، یادداشت و برچسب).",
+  "descriptionEn": "Live chat widget answered by the AI assistant first, handed to operators on request; operator console and a 360° customer file.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "support",
+  "icon": "chat",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "capabilities": ["ui"],
+  "publicPaths": [],
+  "adminPaths": ["/admin/chat", "/admin/crm"],
+  "permissions": [{ "id": "support.chat", "label": "پاسخ به گفت‌وگوی آنلاین و مشاهدهٔ پروندهٔ مشتری" }],
+  "adminMenu": {
+    "title": "گفت‌وگو و مشتریان",
+    "titleEn": "Chat & customers",
+    "icon": "chat",
+    "order": 60,
+    "items": [
+      { "href": "/admin/chat", "label": "گفت‌وگوی آنلاین", "labelEn": "Live chat", "icon": "chat", "permissions": ["support.chat", "tickets.manage", "settings.manage"] },
+      { "href": "/admin/crm", "label": "پروندهٔ مشتریان (CRM)", "labelEn": "Customers (CRM)", "icon": "shield", "permissions": ["users.manage", "support.chat", "tickets.manage", "settings.manage"] }
+    ]
+  }
+}

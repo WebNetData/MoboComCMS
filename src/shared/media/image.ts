@@ -10,13 +10,16 @@ const OWN = /^\/api\/media\/covers\/[0-9a-f-]{36}\.(webp|png|jpg)$/
 /** The nearest allowed width at or above the requested one. */
 export const snapWidth = (width: number) => IMAGE_WIDTHS.find((w) => w >= width) ?? IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1]
 
+/** Optional media CDN (NEXT_PUBLIC_MEDIA_CDN, e.g. https://media.example.com) in front of /api/media/covers. */
+const CDN = (process.env.NEXT_PUBLIC_MEDIA_CDN || '').replace(/\/+$/, '')
+
 export function sized(src: string | null | undefined, width: number): string {
   const value = String(src || '')
-  return OWN.test(value) ? `${value}?w=${snapWidth(width)}` : value
+  return OWN.test(value) ? `${CDN}${value}?w=${snapWidth(width)}` : value
 }
 
 /** srcset for 1× and 2× screens (empty when the image is not a site image). */
 export function srcSet(src: string | null | undefined, width: number): string | undefined {
   const value = String(src || '')
-  return OWN.test(value) ? `${value}?w=${snapWidth(width)} 1x, ${value}?w=${snapWidth(width * 2)} 2x` : undefined
+  return OWN.test(value) ? `${CDN}${value}?w=${snapWidth(width)} 1x, ${CDN}${value}?w=${snapWidth(width * 2)} 2x` : undefined
 }

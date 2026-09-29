@@ -10,6 +10,8 @@ import { licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
 import { VipBadge, VipGate } from '@/components/media/MediaCards'
 import LinkBox from '@/components/media/LinkBox'
+import { paywallView } from '@/modules/paywall/server/paywall'
+import BuyContent from '@/components/paywall/BuyContent'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
 import Gallery from '@/components/media/Gallery'
 import CopyText from '@/components/software/CopyText'
@@ -49,7 +51,8 @@ export default async function SoftwarePage({ params }: Props) {
   if (!data) notFound()
   const s = data.software
   const name = softwareName(s, true)
-  const locked = s.access === 'MEMBERS' && !viewer.member
+  const paywall = await paywallView(viewer, [{ ownerType: 'software', ownerId: s.id }])
+  const locked = paywall ? !paywall.open : s.access === 'MEMBERS' && !viewer.member
   const ref = { type: 'software' as const, id: s.id }
   const [rating, termMap] = await Promise.all([aggregateRating(ref), primaryTerms('software', [s.id])])
   const term = termMap.get(s.id)
@@ -80,8 +83,10 @@ export default async function SoftwarePage({ params }: Props) {
 
   const tabs = [
     { id: 'download', label: 'لینک‌های دانلود', content: <>
-      {locked && <VipGate fa loggedIn={!!viewer.userId} next={`/software/${s.slug}`} title="دانلود این نرم‌افزار مخصوص اعضای VIP است" />}
-      <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} />
+      {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/software/${s.slug}#buy`} noun="نرم‌افزار" />}
+      {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ این نرم‌افزار را خریده‌اید</span>}
+      {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/software/${s.slug}`} title="دانلود این نرم‌افزار مخصوص اعضای VIP است" />}
+      <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} />
       <ul className="sp-notes">
         <li>برای باز کردن فایل‌های فشرده از آخرین نسخهٔ <bdi>WinRAR</bdi> یا <bdi>7-Zip</bdi> استفاده کنید.</li>
         <li>اگر لینکی کار نکرد، با دکمهٔ گزارش کنار همان لینک خرابی را اطلاع دهید.</li>
@@ -107,7 +112,7 @@ export default async function SoftwarePage({ params }: Props) {
           </div>
           <div className="sp-hero-actions">
             <a href="#about" className="sp-btn is-orange"><Icon name="info" size={18} />توضیحات بیشتر</a>
-            <a href="#download" className="sp-btn is-teal"><Icon name="download" size={18} />{locked ? 'دانلود ویژهٔ VIP' : 'دانلود کنید'}</a>
+            <a href="#download" className="sp-btn is-teal"><Icon name="download" size={18} />{locked ? (paywall ? `خرید · ${paywall.price}` : 'دانلود ویژهٔ VIP') : 'دانلود کنید'}</a>
           </div>
         </div>
       </header>

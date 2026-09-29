@@ -90,7 +90,7 @@ export default function AdminMusicPage() {
         {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}</button>)}
         <a className="mx-tabs-link" href="/music" target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده بخش موزیک ↗' : 'Open music site ↗'}</a>
       </nav>
-      <MediaCrud key={view.type} type={view.type} title={view.title} fields={view.fields} publicPath={view.publicPath} titleKey={view.titleKey} subtitle={fa ? 'آهنگ‌ها با پخش‌کننده سراسری سایت پخش می‌شوند. کیفیت ۳۲۰ و دانلود طبق تنظیمات ماژول موزیک می‌تواند مخصوص VIP باشد.' : 'Tracks play in the site-wide player. HQ and downloads can be VIP-only in the music module settings.'} />
+      <MediaCrud key={view.type} type={view.type} paywall={view.type === 'music-tracks' ? { ownerType: 'track', noun: 'این آهنگ' } : view.type === 'music-albums' ? { ownerType: 'album', noun: 'این آلبوم' } : undefined} title={view.title} fields={view.fields} publicPath={view.publicPath} titleKey={view.titleKey} subtitle={fa ? 'آهنگ‌ها با پخش‌کننده سراسری سایت پخش می‌شوند. کیفیت ۳۲۰ و دانلود طبق تنظیمات ماژول موزیک می‌تواند مخصوص VIP باشد.' : 'Tracks play in the site-wide player. HQ and downloads can be VIP-only in the music module settings.'} />
     </MusicShell>
   )
 }

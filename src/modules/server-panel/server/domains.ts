@@ -222,3 +222,28 @@ export async function deleteCloudflareRecord(zone: unknown, recordId: unknown) {
   if (!/^[a-f0-9]{32}$/.test(id)) throw new DomainError('شناسهٔ رکورد معتبر نیست')
   await cf(token, `/zones/${zoneId(zone)}/dns_records/${id}`, { method: 'DELETE' })
 }
+
+/**
+ * Purges the Cloudflare cache of every zone the site uses (its own address
+ * and the panel's site domains), so a new theme, asset or image shows at once.
+ */
+export async function purgeCloudflareCache(): Promise<{ zones: string[] }> {
+  const state = await load()
+  const token = cfToken(state)
+  if (!token) throw new DomainError('توکن کلادفلر ثبت نشده است (پنل سرور ← دامنه‌ها)')
+  const siteUrl = (await db.setting.findUnique({ where: { key: 'siteUrl' } }).catch(() => null))?.value || ''
+  let siteHost = ''
+  try { siteHost = siteUrl ? new URL(siteUrl).hostname : '' } catch { /* no site address */ }
+  const apexes = [...new Set([siteHost, ...state.sites.map((site) => site.domain)].filter((host) => host && host.includes('.') && !/^[\d.]+$/.test(host)).map(apexOf))]
+  const purged: string[] = []
+  for (const apex of apexes) {
+    const zones = await cf<{ id: string; name: string }[]>(token, `/zones?name=${encodeURIComponent(apex)}`)
+    for (const zone of zones) {
+      await cf(token, `/zones/${zone.id}/purge_cache`, { method: 'POST', body: JSON.stringify({ purge_everything: true }) })
+      purged.push(zone.name)
+    }
+  }
+  if (!purged.length) throw new DomainError('هیچ زون کلادفلری برای دامنه‌های سایت پیدا نشد')
+  logEvent('info', 'cdn.cloudflare_purged', { zones: purged })
+  return { zones: purged }
+}

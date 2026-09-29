@@ -18,13 +18,13 @@ export type ArtistRef = { id: number; slug: string; name: string; nameEn: string
 export type TrackCard = {
   id: number; slug: string; title: string; titleEn: string; cover: string; duration: number; genre: string
   access: string; plays: number; hasAudio: boolean; hasHq: boolean; publishedAt: Date
-  artist: ArtistRef; album: { slug: string; title: string; titleEn: string } | null
+  artist: ArtistRef; album: { id: number; slug: string; title: string; titleEn: string } | null
 }
 export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number }
 export type PlaylistCard = { id: number; slug: string; title: string; titleEn: string; cover: string; description: string; access: string; trackCount: number }
 
 const artistSelect = { id: true, slug: true, name: true, nameEn: true, image: true } as const
-const trackInclude = { artist: { select: artistSelect }, album: { select: { slug: true, title: true, titleEn: true, cover: true } } } as const
+const trackInclude = { artist: { select: artistSelect }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true } } } as const
 
 function toTrack(row: any): TrackCard {
   return {
@@ -32,7 +32,7 @@ function toTrack(row: any): TrackCard {
     cover: row.cover || row.album?.cover || row.artist?.image || '',
     duration: row.duration, genre: row.genre, access: row.access, plays: row.plays,
     hasAudio: !!row.audioUrl, hasHq: !!row.audioHqUrl, publishedAt: row.publishedAt,
-    artist: row.artist, album: row.album ? { slug: row.album.slug, title: row.album.title, titleEn: row.album.titleEn } : null,
+    artist: row.artist, album: row.album ? { id: row.album.id, slug: row.album.slug, title: row.album.title, titleEn: row.album.titleEn } : null,
   }
 }
 function toAlbum(row: any): AlbumCard {

@@ -10,9 +10,12 @@ import { StoreIcon } from '@/components/store/StoreIcons'
 import { addToCart } from '@/modules/store/ui/cart-client'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
 import { iranianUnit } from '@/shared/money/format'
+import { useSite } from '@/components/site/SiteProvider'
 
 export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number }
 export type BuyBoxProps = {
+  /** Marketplace seller of this product; the site itself when absent. */
+  seller?: { name: string; label: string; href: string } | null
   productId: number
   slug: string
   kind: string
@@ -88,6 +91,7 @@ function StockAlert({ productId, variantId, slug }: { productId: number; variant
  * and — for digital products — instant purchase.
  */
 export default function BuyBox(props: BuyBoxProps) {
+  const site = useSite()
   const router = useRouter()
   const { status } = useSession()
   // Preselect the first in-stock variant, like Digikala.
@@ -172,7 +176,7 @@ export default function BuyBox(props: BuyBoxProps) {
 
     <div className="sx-buy-card">
       <ul className="sx-buy-facts">
-        <li><StoreIcon name="store" size={18} /><span><b>فروشگاه موبوکام</b><small>عملکرد عالی</small></span></li>
+        <li><StoreIcon name="store" size={18} /><span>{props.seller ? <Link href={props.seller.href}><b>{props.seller.name}</b></Link> : <b>فروشگاه {site.brand}</b>}<small>{props.seller ? props.seller.label : 'فروشندهٔ رسمی'}</small></span></li>
         {props.warranty && <li><StoreIcon name="shield" size={18} /><span>{props.warranty}</span></li>}
         <li>{props.kind === 'PHYSICAL' ? <StoreIcon name="truck" size={18} /> : <StoreIcon name="bolt" size={18} />}<span>{props.kind === 'PHYSICAL' ? props.shipping : 'تحویل آنی پس از پرداخت در حساب کاربری'}</span></li>
       </ul>

@@ -15,3 +15,10 @@ export async function register() {
     startJobScheduler()
   }
 }
+
+/** Unhandled errors in pages and route handlers land on the monitoring page (and the log). */
+export async function onRequestError(error: unknown, request: { path: string; method: string }) {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return
+  const { logEvent } = await import('@/platform/observability/logger')
+  logEvent('error', 'request.unhandled', { error: error instanceof Error ? error.message : String(error), path: `${request.method} ${request.path}` })
+}

@@ -5,7 +5,9 @@ import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import type { PlayerTrack } from './player-types'
 
-type Lock = { reason: 'login' | 'vip'; track: PlayerTrack } | null
+type Lock = { reason: 'login' | 'vip' | 'buy'; track: PlayerTrack } | null
+
+const lockReason = (status: number): 'login' | 'vip' | 'buy' | null => (status === 401 ? 'login' : status === 403 ? 'vip' : status === 402 ? 'buy' : null)
 type PlayerState = {
   current: PlayerTrack | null
   queue: PlayerTrack[]
@@ -71,6 +73,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
     let useHq = wantHq && track.hasHq
     if (track.access === 'MEMBERS' || useHq) {
       const res = await fetch(`/api/media/track/${track.id}?check=1${useHq ? '&q=hq' : ''}`, { headers: { accept: 'application/json' } }).catch(() => null)
+      if (res?.status === 402) { setLoading(false); setPlaying(false); setLock({ reason: 'buy', track }); return }
       if (res && (res.status === 401 || res.status === 403)) {
         if (useHq && track.access !== 'MEMBERS') {
           useHq = false
@@ -83,13 +86,20 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
       }
     }
     el.src = `/api/media/track/${track.id}${useHq ? '?q=hq' : ''}`
-    el.play().then(() => setPlaying(true)).catch(() => setPlaying(false)).finally(() => setLoading(false))
+    el.play().then(() => setPlaying(true)).catch(async () => {
+      setPlaying(false)
+      // A paid track (or one locked after the page loaded) fails to load: ask why and show the right gate.
+      const res = await fetch(`/api/media/track/${track.id}?check=1`, { headers: { accept: 'application/json' } }).catch(() => null)
+      const reason = res ? lockReason(res.status) : null
+      if (reason) setLock({ reason, track })
+    }).finally(() => setLoading(false))
   }, [fa])
 
   /** Downloads go through a freshly signed link (download protection) or the VIP/login gate. */
   const download = useCallback(async (track: PlayerTrack) => {
     const res = await fetch(`/api/media/track/${track.id}?dl=1&issue=1`, { headers: { accept: 'application/json' } }).catch(() => null)
-    if (res && (res.status === 401 || res.status === 403)) { setLock({ reason: res.status === 401 ? 'login' : 'vip', track }); return }
+    const reason = res ? lockReason(res.status) : null
+    if (reason) { setLock({ reason, track }); return }
     const data = res?.ok ? await res.json().catch(() => null) : null
     if (typeof data?.href === 'string' && data.href.startsWith('/api/media/track/')) window.location.assign(data.href)
     else setNotice(fa ? 'دانلود انجام نشد؛ دوباره امتحان کنید.' : 'Download failed — please try again.')
@@ -202,8 +212,8 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
           {lock && (
             <div className="mu-player-lock" role="alert">
               <span className="vip-crown">♛</span>
-              <div><b>{lock.reason === 'login' ? (fa ? 'برای پخش وارد شوید' : 'Sign in to listen') : (fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members')}</b><small>{lock.track.title} — {lock.track.artist}</small></div>
-              <Link className="btn btn-primary btn-sm" href={lock.reason === 'login' ? `/login?next=${encodeURIComponent(`/music/track/${lock.track.slug}`)}` : '/vip'}>{lock.reason === 'login' ? (fa ? 'ورود' : 'Sign in') : (fa ? 'عضویت VIP' : 'Go VIP')}</Link>
+              <div><b>{lock.reason === 'login' ? (fa ? 'برای پخش وارد شوید' : 'Sign in to listen') : lock.reason === 'buy' ? (fa ? 'این آهنگ فروشی است' : 'This track is for sale') : (fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members')}</b><small>{lock.track.title} — {lock.track.artist}</small></div>
+              <Link className="btn btn-primary btn-sm" href={lock.reason === 'login' ? `/login?next=${encodeURIComponent(`/music/track/${lock.track.slug}`)}` : lock.reason === 'buy' ? `/music/track/${lock.track.slug}#buy` : '/vip'}>{lock.reason === 'login' ? (fa ? 'ورود' : 'Sign in') : lock.reason === 'buy' ? (fa ? 'خرید' : 'Buy') : (fa ? 'عضویت VIP' : 'Go VIP')}</Link>
             </div>
           )}
           {showQueue && (

@@ -361,6 +361,8 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     await db.order.update({ where: { id: row.orderId }, data: { status: 'REFUNDED' } })
     if (order.invoice) await db.invoice.update({ where: { id: order.invoice.id }, data: { status: 'REFUNDED' } })
   }
+  // Marketplace sellers give back their share of the refunded part (and get the commission back).
+  await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(row.orderId, amount, `return:${row.id}`, row.kind === 'RETURN' ? parseJson<LineChoice[]>(row.lines, []).map((choice) => choice.line) : undefined)).catch((error) => logEvent('error', 'marketplace.refund_reverse_failed', { returnId: row.id, error: String(error) }))
   // Customer club points earned on the refunded part go back.
   await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(row.orderId, amount, `return:${row.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { returnId: row.id, error: String(error) }))
   const shown = minorToNumber(amount, currency).toLocaleString('fa-IR')

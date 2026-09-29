@@ -39,5 +39,5 @@ export default function AdminCinemaPage() {
     { key: 'seasons', label: fa ? 'فصل‌ها و قسمت‌ها (سریال)' : 'Seasons & episodes (series)', type: 'seasons' },
     access, status, featured, publishedAt, slug,
   ]
-  return <CinemaShell><MediaCrud type="cinema-titles" title={fa ? 'فیلم و سریال' : 'Films & series'} subtitle={fa ? 'هر فیلم یا قسمت می‌تواند چند لینک با کیفیت، حجم، دوبله/زیرنویس و دسترسی VIP داشته باشد.' : 'Every movie or episode can carry several links with quality, size, dub/subtitle and VIP access.'} fields={fields} publicPath={(row) => (row.status === 'PUBLISHED' ? `/cinema/${row.slug}` : null)} /></CinemaShell>
+  return <CinemaShell><MediaCrud type="cinema-titles" paywall={{ ownerType: 'title', noun: 'این فیلم یا سریال' }} title={fa ? 'فیلم و سریال' : 'Films & series'} subtitle={fa ? 'هر فیلم یا قسمت می‌تواند چند لینک با کیفیت، حجم، دوبله/زیرنویس و دسترسی VIP داشته باشد.' : 'Every movie or episode can carry several links with quality, size, dub/subtitle and VIP access.'} fields={fields} publicPath={(row) => (row.status === 'PUBLISHED' ? `/cinema/${row.slug}` : null)} /></CinemaShell>
 }

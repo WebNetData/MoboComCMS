@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 import Link from '@/components/AppLink'
 import { useParams, useRouter } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
@@ -214,6 +215,7 @@ export default function GameEditorPage() {
             </div>)}
             <button type="button" className="btn btn-ghost btn-sm ga-add" onClick={() => update('releases', [...form.releases, { platform: platforms.find((p) => !form.releases.some((r: { platform: string }) => r.platform === p)) || '', date: form.releaseDate || '' }])}>+ تاریخ پلتفرم</button>
           </div>
+          <PaidAccessPanel ownerType="game" ownerId={isNew ? null : Number(id)} noun="این بازی" />
         </section>
 
         <section id="review" className="sa-card"><header className="sa-card-head"><h2>نقد و نمره</h2></header>

@@ -1,0 +1,26 @@
+{
+  "id": "marketplace",
+  "name": "بازار فروشندگان (چندفروشندگی)",
+  "nameEn": "Multi-vendor marketplace",
+  "description": "فروشندگان دیگر در فروشگاه شما غرفه باز می‌کنند: پنل فروشنده با محصول، موجودی و سفارش؛ کارمزد فروش، تسویه به شبا و امتیاز فروشنده؛ مانند دیجی‌کالا.",
+  "descriptionEn": "Other sellers open shops in your store: seller panel with products, stock and orders; sales commission, IBAN payouts and seller ratings.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "grid",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": ["/admin/marketplace"],
+  "permissions": [{ "id": "marketplace.manage", "label": "مدیریت فروشندگان، کارمزد و تسویه" }],
+  "adminMenu": {
+    "title": "بازار فروشندگان",
+    "titleEn": "Marketplace",
+    "icon": "grid",
+    "order": 31,
+    "items": [
+      { "href": "/admin/marketplace", "label": "فروشندگان و تسویه", "labelEn": "Sellers & payouts", "icon": "grid", "permissions": ["marketplace.manage", "cms.products", "settings.manage"] }
+    ]
+  }
+}

@@ -1,20 +1,29 @@
 import { db } from '@/platform/database/prisma'
+import { cached, invalidate } from '@/platform/cache/kv'
+
+// Settings are read on nearly every request; they are cached briefly and
+// dropped on every write (lease rows change constantly and are never cached).
+const TTL_MS = 30_000
 
 export async function getSettings(): Promise<Record<string, string>> {
-  const rows = await db.setting.findMany()
-  return Object.fromEntries(rows.map((row) => [row.key, row.value]))
+  const all = await cached('settings:all', TTL_MS, async () => {
+    const rows = await db.setting.findMany({ where: { NOT: { key: { startsWith: 'lease.' } } } })
+    return Object.fromEntries(rows.map((row) => [row.key, row.value]))
+  })
+  return { ...all }
 }
 
 export async function setSetting(key: string, value: string) {
   await db.setting.upsert({ where: { key }, update: { value }, create: { key, value } })
+  await invalidate('settings:').catch(() => undefined)
 }
 
 /** A JSON setting; a missing or corrupt value yields `undefined` so callers apply their defaults. */
 export async function readJsonSetting(key: string): Promise<Record<string, unknown> | undefined> {
-  const row = await db.setting.findUnique({ where: { key } }).catch(() => null)
-  if (!row) return undefined
+  const raw = await cached(`settings:key:${key}`, TTL_MS, async () => (await db.setting.findUnique({ where: { key } }).catch(() => null))?.value ?? null)
+  if (raw === null) return undefined
   try {
-    const value = JSON.parse(row.value)
+    const value = JSON.parse(raw)
     return value && typeof value === 'object' && !Array.isArray(value) ? value : undefined
   } catch { return undefined }
 }

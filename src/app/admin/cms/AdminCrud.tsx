@@ -29,7 +29,7 @@ interface Props {
   titleKey?: string
   extraRows?: (row: any) => Record<string, string>
   editorExtraKeys?: string[]
-  renderEditorExtra?: (form: Record<string, any>, setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>) => React.ReactNode
+  renderEditorExtra?: (form: Record<string, any>, setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>, editId: number | null) => React.ReactNode
   headerActions?: React.ReactNode
 }
 
@@ -208,7 +208,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
               )}
             </div>
           ))}
-          {renderEditorExtra?.(form, setForm)}
+          {renderEditorExtra?.(form, setForm, editId)}
           <div className="flex gap-2">
             <button className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
             <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>

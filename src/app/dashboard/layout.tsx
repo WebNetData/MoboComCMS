@@ -24,6 +24,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
   const communityOn = useModuleEnabled('community')
+  const paywallOn = useModuleEnabled('paywall')
+  const marketplaceOn = useModuleEnabled('marketplace')
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -65,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
         { href: '/dashboard/orders', label: t.myOrders, icon: 'grid' },
         { href: '/dashboard/invoices', label: t.myInvoices, icon: 'wallet' },
+        ...(paywallOn ? [{ href: '/dashboard/purchases', label: locale === 'fa' ? 'خریدهای من (فایل و مقاله)' : 'My purchases', icon: 'sparkles' }] : []),
         ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),
         ...(storeOn ? [{ href: '/dashboard/gift-cards', label: locale === 'fa' ? 'کارت هدیه' : 'Gift cards', icon: 'sparkles' }, { href: '/dashboard/club', label: locale === 'fa' ? 'باشگاه مشتریان' : 'Customer club', icon: 'shield' }] : []),
       ],
@@ -134,6 +137,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       ))}
       <div className="side-group side-group-rule">
+        {marketplaceOn && storeOn && (
+          <Link href="/seller" className="side-link" onClick={() => setOpen(false)}>
+            <span className="side-icon"><Icon name="grid" size={19} /></span> {locale === 'fa' ? 'پنل فروشندگی / فروشنده شوید' : 'Seller panel'}
+          </Link>
+        )}
         {isReseller && (
           <Link href="/reseller" className="side-link" onClick={() => setOpen(false)}>
             <span className="side-icon"><Icon name="grid" size={19} /></span> {t.resellerPanel}

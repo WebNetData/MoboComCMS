@@ -213,6 +213,8 @@ export async function PATCH(req: NextRequest) {
       } })
     })
     if (walletMinor > 0n) await moveWallet({ userId: invoice.userId, amount: legacyNumber(walletMinor, currency), currency, type: 'REFUND', description: `refund wallet portion of ${invoice.number}`, invoiceId: invoice.id, orderId: invoice.orderId, idempotencyKey: `invoice-refund-wallet:${invoice.id}` })
+    // Marketplace: sellers give back their share of a fully refunded store order.
+    if (invoice.orderId) await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(invoice.orderId!, totalMinor, `invoice:${invoice.id}`)).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: 'invoice.refund', targetType: 'invoice', targetId: id, metadata: { orderId: invoice.orderId, currency, refundMinor: totalMinor.toString(), walletRefundMinor: walletMinor.toString() } })
     return ok({ ok: true, note: 'External gateway refunds must be executed with the provider before recording this action.' })
   }

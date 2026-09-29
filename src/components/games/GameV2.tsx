@@ -85,7 +85,7 @@ export function InfoCard({ facts, releases, play, stores }: { facts: Fact[]; rel
 export type UpdateView = { id: number; kind: UpdateKind; title: string; version: string; size: string; notes: string; releasedAt: string; links: { id: number; label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; access: string }[] }
 
 /** Updates, patches, DLCs and editions as a timeline; each can carry its own protected links. */
-export async function UpdatesTimeline({ updates, member, loggedIn, locked }: { updates: UpdateView[]; member: boolean; loggedIn: boolean; locked: boolean }) {
+export async function UpdatesTimeline({ updates, member, loggedIn, locked, paywall }: { updates: UpdateView[]; member: boolean; loggedIn: boolean; locked: boolean; paywall?: { open: boolean } | null }) {
   if (!updates.length) return null
   return <section id="updates" className="gv-section">
     <GxTitle title="آپدیت‌ها و محتوای الحاقی" icon="refresh" />
@@ -98,7 +98,7 @@ export async function UpdatesTimeline({ updates, member, loggedIn, locked }: { u
         {update.size && <small>{update.size}</small>}
       </div>
       {update.notes && <p className="gv-notes">{update.notes}</p>}
-      {update.links.length > 0 && <LinkBox links={update.links} fa member={member} loggedIn={loggedIn} parentLocked={locked} compact />}
+      {update.links.length > 0 && <LinkBox links={update.links} fa member={member} loggedIn={loggedIn} parentLocked={locked} compact paywall={paywall} />}
     </li>)}</ol>
   </section>
 }

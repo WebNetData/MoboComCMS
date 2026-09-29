@@ -7,6 +7,8 @@ import { getTrack } from '@/modules/media/server/queries'
 import { getViewer } from '@/modules/membership/server/membership'
 import { trackDownloadHref } from '@/modules/downloads/server/guard'
 import { DownloadNotice } from '@/components/media/DownloadExtras'
+import { paywallView } from '@/modules/paywall/server/paywall'
+import BuyContent from '@/components/paywall/BuyContent'
 import { formatDuration } from '@/modules/media/domain/media'
 import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
@@ -42,9 +44,13 @@ export default async function TrackPage({ params }: Props) {
   const album = toPlayerTracks(data.albumTracks, fa)
   const inAlbum = album.findIndex((item) => item.id === track.id)
   const queue = inAlbum >= 0 ? album : self
-  const locked = track.access === 'MEMBERS' && !viewer.member
-  const dlLocked = locked || (settings['download-members-only'] === true && !viewer.member)
-  const hqLocked = locked || (settings['hq-members-only'] !== false && !viewer.member)
+  // A price (on the track or its album) replaces the VIP gates: buying opens playback, HQ and downloads.
+  const paywall = await paywallView(viewer, [{ ownerType: 'track', ownerId: track.id }, ...(track.album ? [{ ownerType: 'album' as const, ownerId: track.album.id }] : [])])
+  const locked = paywall ? !paywall.open : track.access === 'MEMBERS' && !viewer.member
+  const dlLocked = locked || (!paywall && settings['download-members-only'] === true && !viewer.member)
+  const hqLocked = locked || (!paywall && settings['hq-members-only'] !== false && !viewer.member)
+  const lockHref = paywall ? '#buy' : '/vip'
+  const lockTag = paywall ? '' : ' (VIP)'
   const name = fa ? track.title : track.titleEn || track.title
   const artistName = fa ? track.artist.name : track.artist.nameEn || track.artist.name
   const jsonLd = { '@context': 'https://schema.org', '@type': 'MusicRecording', name, byArtist: { '@type': 'MusicGroup', name: artistName }, ...(track.duration ? { duration: `PT${Math.floor(track.duration / 60)}M${track.duration % 60}S` } : {}), ...(track.album ? { inAlbum: { '@type': 'MusicAlbum', name: track.album.title } } : {}), ...(track.cover ? { image: track.cover } : {}) }
@@ -70,10 +76,10 @@ export default async function TrackPage({ params }: Props) {
             <div className="mu-hero-actions" id="downloads">
               {track.hasAudio && <PlayButton tracks={queue} index={Math.max(0, inAlbum)} variant="big" label={fa ? 'پخش آهنگ' : 'Play'} />}
               {track.hasAudio && (dlLocked
-                ? <Link className="btn btn-ghost md-locked-btn" href="/vip">🔒 {fa ? 'دانلود ۱۲۸ (VIP)' : 'Download 128 (VIP)'}</Link>
+                ? <Link className="btn btn-ghost md-locked-btn" href={lockHref}>🔒 {fa ? `دانلود ۱۲۸${lockTag}` : `Download 128${lockTag}`}</Link>
                 : <a className="btn btn-ghost" href={await trackDownloadHref(track.id, viewer.userId, false)} rel="nofollow">⤓ {fa ? 'دانلود ۱۲۸' : 'Download 128'}</a>)}
               {track.hasHq && (hqLocked || dlLocked
-                ? <Link className="btn btn-ghost md-locked-btn" href="/vip">🔒 {fa ? 'دانلود ۳۲۰ (VIP)' : 'Download 320 (VIP)'}</Link>
+                ? <Link className="btn btn-ghost md-locked-btn" href={lockHref}>🔒 {fa ? `دانلود ۳۲۰${lockTag}` : `Download 320${lockTag}`}</Link>
                 : <a className="btn btn-ghost" href={await trackDownloadHref(track.id, viewer.userId, true)} rel="nofollow">⤓ {fa ? 'دانلود ۳۲۰' : 'Download 320'}</a>)}
             </div>
             <ItemActionBar item={{ type: 'track', id: track.id }} title={name} image={track.cover} />
@@ -82,7 +88,9 @@ export default async function TrackPage({ params }: Props) {
       </section>
 
       <div className="container md-body">
-        {locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}`} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
+        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}#buy`} noun={paywall.key.startsWith('album:') ? 'آلبوم' : 'آهنگ'} />}
+        {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ {fa ? 'این مورد را خریده‌اید' : 'You own this'}</span>}
+        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}`} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
         <div className="mu-columns">
           {layout.showLyrics && <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? 'متن آهنگ' : 'Lyrics'}</h2></header>

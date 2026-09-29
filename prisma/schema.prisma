@@ -713,6 +713,10 @@ model Product {
   views         Int @default(0)
   soldCount     Int @default(0)
   faqs          String @default("[]")
+  sellerId      Int? // marketplace seller; null = the site itself
+  approval      String @default("APPROVED") // APPROVED | PENDING | REJECTED (seller products are reviewed)
+  approvalNote  String @default("")
+  seller        Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   variants      ProductVariant[]
   reviews       ProductReview[]
   questions     ProductQuestion[]
@@ -728,6 +732,7 @@ model Product {
 
   @@index([brandId])
   @@index([active, soldCount])
+  @@index([sellerId])
 }
 
 model ProductVariant {
@@ -2147,12 +2152,17 @@ model OrderLine {
   listPriceMinor BigInt   @default(0)
   totalMinor     BigInt   @default(0)
   currency       String   @default("IRT")
+  sellerId       Int? // marketplace seller of this line
+  commissionMinor BigInt  @default(0)
+  sellerStatus   String   @default("") // '' | ACCEPTED | READY | SHIPPED | CANCELLED
+  sellerTracking String   @default("")
   createdAt      DateTime @default(now())
   order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, line])
   @@index([productId])
+  @@index([sellerId, createdAt])
 }
 
 /// Order timeline (status changes, notes); customer-visible rows appear in order tracking.
@@ -2656,4 +2666,215 @@ model NewsletterDelivery {
 
   @@unique([campaignId, email])
   @@index([campaignId, status])
+}
+
+// ---------------------------------------------------------------- Paid content
+
+/// A price on one piece of content (article, software, game, film, album, track).
+/// VIP members get it free, at a member price, or pay like everyone else.
+model PaidItem {
+  id               Int      @id @default(autoincrement())
+  ownerType        String   // post | software | game | title | album | track
+  ownerId          Int
+  priceMinor       BigInt
+  currency         String   @default("IRT")
+  vipAccess        String   @default("FREE") // FREE | DISCOUNT | NONE
+  memberPriceMinor BigInt?
+  active           Boolean  @default(true)
+  sales            Int      @default(0)
+  revenueMinor     BigInt   @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@unique([ownerType, ownerId])
+}
+
+/// Lifetime access to one piece of paid content.
+model ContentPurchase {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  ownerType  String
+  ownerId    Int
+  orderId    Int?
+  paidMinor  BigInt    @default(0)
+  currency   String    @default("IRT")
+  source     String    @default("PURCHASE") // PURCHASE | ADMIN
+  note       String    @default("")
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, ownerType, ownerId])
+  @@index([ownerType, ownerId])
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------- Marketplace (multi-vendor)
+
+/// A shop selling on the site (Digikala-style marketplace). One per user.
+model Seller {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique
+  slug              String    @unique
+  shopName          String
+  legalName         String    @default("")
+  kind              String    @default("PERSON") // PERSON | COMPANY
+  nationalId        String    @default("")
+  phone             String    @default("")
+  email             String    @default("")
+  city              String    @default("")
+  address           String    @default("")
+  about             String    @default("")
+  logo              String    @default("")
+  banner            String    @default("")
+  iban              String    @default("")
+  ibanOwner         String    @default("")
+  status            String    @default("PENDING") // PENDING | ACTIVE | SUSPENDED | REJECTED
+  statusNote        String    @default("")
+  commissionPercent Int?      // overrides the category/default commission
+  ratingSum         Int       @default(0)
+  ratingCount       Int       @default(0)
+  salesCount        Int       @default(0)
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+  products          Product[]
+
+  @@index([status])
+}
+
+/// Seller money: sales, commission, refunds and payouts (signed amounts). Sales become withdrawable after the hold period.
+model SellerLedger {
+  id          Int      @id @default(autoincrement())
+  sellerId    Int
+  kind        String   // SALE | COMMISSION | REFUND | PAYOUT | ADJUST
+  amountMinor BigInt
+  currency    String   @default("IRT")
+  orderId     Int?
+  orderLineId Int?
+  payoutId    Int?
+  note        String   @default("")
+  availableAt DateTime @default(now())
+  dedupeKey   String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([sellerId, createdAt])
+  @@index([orderId])
+}
+
+/// A seller's withdrawal request, paid by the admin to the seller's IBAN.
+model SellerPayout {
+  id          Int       @id @default(autoincrement())
+  sellerId    Int
+  amountMinor BigInt
+  currency    String    @default("IRT")
+  status      String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  iban        String    @default("")
+  ibanOwner   String    @default("")
+  reference   String    @default("")
+  note        String    @default("")
+  processedBy Int?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+}
+
+/// Customer rating of a seller after an order (on time, as described, packaging).
+model SellerReview {
+  id        Int      @id @default(autoincrement())
+  sellerId  Int
+  userId    Int
+  orderId   Int
+  rating    Int
+  criteria  String   @default("{}")
+  body      String   @default("")
+  status    String   @default("APPROVED") // APPROVED | HIDDEN
+  reply     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@unique([orderId, sellerId])
+  @@index([sellerId, status, createdAt])
+}
+
+// ---------------------------------------------------------------- Live chat & CRM
+
+/// A live chat on the site: answered by the AI assistant first, then by an operator.
+model ChatConversation {
+  id               Int       @id @default(autoincrement())
+  token            String    @unique // visitor cookie
+  userId           Int?
+  name             String    @default("")
+  contact          String    @default("") // phone or email left by a guest
+  status           String    @default("BOT") // BOT | WAITING | OPEN | CLOSED
+  assignedTo       Int?
+  pageUrl          String    @default("")
+  botReplies       Int       @default(0)
+  unreadForAgent   Int       @default(0)
+  unreadForVisitor Int       @default(0)
+  rating           Int?
+  lastMessageAt    DateTime  @default(now())
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  messages         ChatMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([userId])
+  @@index([assignedTo, status])
+}
+
+model ChatMessage {
+  id             Int              @id @default(autoincrement())
+  conversationId Int
+  sender         String           // VISITOR | BOT | AGENT | SYSTEM
+  agentId        Int?
+  body           String
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, id])
+}
+
+/// Customer labels for segmentation in the CRM (e.g. wholesale, VIP, needs follow-up).
+model CrmTag {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tag       String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tag])
+  @@index([tag])
+}
+
+// ---------------------------------------------------------------- Operations
+
+/// Background queue for heavy work (image optimization, re-indexing…), run by the job scheduler.
+model BackgroundJob {
+  id         Int       @id @default(autoincrement())
+  kind       String
+  payload    String    @default("{}")
+  status     String    @default("QUEUED") // QUEUED | RUNNING | DONE | FAILED
+  attempts   Int       @default(0)
+  dedupeKey  String?   @unique
+  runAt      DateTime  @default(now())
+  lockedAt   DateTime?
+  lastError  String    @default("")
+  result     String    @default("")
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([status, runAt])
+}
+
+/// Sampled real-user performance (Web Vitals) and server timings, kept for a week.
+model PerfSample {
+  id        Int      @id @default(autoincrement())
+  kind      String   // LCP | INP | CLS | TTFB | FCP
+  value     Float
+  page      String   @default("")
+  device    String   @default("") // mobile | desktop
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([createdAt])
 }

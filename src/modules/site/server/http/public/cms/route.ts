@@ -6,13 +6,18 @@ import { err, ok } from '@/platform/http/response'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
+import { accessFor, paywallEnabled } from '@/modules/paywall/server/paywall'
 
-/** Members-only article bodies are reduced to a teaser for everyone else. */
-async function gatePosts<T extends { access?: string; content?: string; contentEn?: string }>(posts: T[]): Promise<(T & { locked?: boolean })[]> {
-  if (!posts.some((post) => post.access === 'MEMBERS')) return posts
+/** Members-only and paid article bodies are reduced to a teaser for everyone who may not read them. */
+async function gatePosts<T extends { id?: number; access?: string; content?: string; contentEn?: string }>(posts: T[]): Promise<(T & { locked?: boolean })[]> {
+  const paid = await paywallEnabled() ? new Set((await db.paidItem.findMany({ where: { ownerType: 'post', active: true, ownerId: { in: posts.map((post) => post.id || 0) } }, select: { ownerId: true } })).map((row) => row.ownerId)) : new Set<number>()
+  if (!paid.size && !posts.some((post) => post.access === 'MEMBERS')) return posts
   const viewer = await getViewer()
-  if (viewer.member) return posts
-  return posts.map((post) => (post.access === 'MEMBERS' ? { ...post, content: teaserHtml(post.content || ''), contentEn: teaserHtml(post.contentEn || ''), locked: true } : post))
+  const teaser = (post: T) => ({ ...post, content: teaserHtml(post.content || ''), contentEn: teaserHtml(post.contentEn || ''), locked: true })
+  return Promise.all(posts.map(async (post) => {
+    if (post.id && paid.has(post.id)) return (await accessFor(viewer, [{ ownerType: 'post', ownerId: post.id }])).decision.open ? post : teaser(post)
+    return post.access === 'MEMBERS' && !viewer.member ? teaser(post) : post
+  }))
 }
 
 export async function GET(req: NextRequest) {

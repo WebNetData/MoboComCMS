@@ -10,6 +10,8 @@ import { getServerLocale } from '@/i18n/server'
 import MediaShell from '@/components/media/MediaShell'
 import { musicNav } from '@/components/media/nav'
 import { AlbumCard, Shelf, VipBadge, VipGate, yr } from '@/components/media/MediaCards'
+import { paywallView } from '@/modules/paywall/server/paywall'
+import BuyContent from '@/components/paywall/BuyContent'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
@@ -38,7 +40,8 @@ export default async function AlbumPage({ params }: Props) {
   const total = data.tracks.reduce((sum, t) => sum + (t.duration || 0), 0)
   const name = fa ? album.title : album.titleEn || album.title
   const artistName = fa ? album.artist.name : album.artist.nameEn || album.artist.name
-  const locked = album.access === 'MEMBERS' && !viewer.member
+  const paywall = await paywallView(viewer, [{ ownerType: 'album', ownerId: album.id }])
+  const locked = paywall ? !paywall.open : album.access === 'MEMBERS' && !viewer.member
   return (
     <MediaShell section="music" active="albums" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
       <section className="mu-detail-hero">
@@ -61,7 +64,9 @@ export default async function AlbumPage({ params }: Props) {
         </div>
       </section>
       <div className="container md-body">
-        {locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}`} title={fa ? 'این آلبوم مخصوص اعضای VIP است' : 'This album is for VIP members'} />}
+        {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}#buy`} noun="آلبوم" />}
+        {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ {fa ? 'این آلبوم را خریده‌اید' : 'You own this album'}</span>}
+        {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/album/${album.slug}`} title={fa ? 'این آلبوم مخصوص اعضای VIP است' : 'This album is for VIP members'} />}
         <section className="mu-panel"><TrackList tracks={tracks} showCover={false} /></section>
         {album.description && <section className="mu-panel md-prose" dangerouslySetInnerHTML={{ __html: album.description }} />}
         <ReviewSection item={{ type: 'album', id: album.id }} title={name} path={`/music/album/${album.slug}`} />

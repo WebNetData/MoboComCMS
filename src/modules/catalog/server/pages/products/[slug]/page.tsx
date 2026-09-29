@@ -30,6 +30,8 @@ import { minorToNumber } from '@/shared/money'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import { customerGatewayLabel, installmentConfig, isInstallmentGateway, listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { getLoyaltySettings } from '@/modules/store/server/marketing'
+import { productSeller } from '@/modules/marketplace/server/marketplace'
+import SellerCard from '@/components/marketplace/SellerCard'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -146,9 +148,11 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
       <ItemActionBar item={{ type: 'product', id: product.id }} title={name} image={product.image} followLabel="تخفیف و موجودی" />
     </div>
   )
+  const seller = await productSeller(product.id)
   const purchaseNode = (
     <aside className="sx-pbuy" aria-label="خرید کالا">
       <BuyBox
+        seller={seller ? { name: seller.shopName, label: seller.performance.label, href: `/shop/${seller.slug}` } : null}
         productId={product.id} slug={product.slug} kind={product.kind} currency={regular.currency}
         price={minorToNumber(regular.unitMinor, regular.currency)} listPrice={regular.listMinor ? minorToNumber(regular.listMinor, regular.currency) : 0}
         memberPrice={vipOn && product.memberPriceMinor > 0n ? minorToNumber(product.memberPriceMinor, regular.currency) : 0}
@@ -159,6 +163,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
         warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
         installments={installments} club={loyalty.enabled && loyalty.earnPoints > 0 ? { earnPoints: loyalty.earnPoints, earnStepToman: loyalty.earnStepToman } : null}
       />
+      {seller && <SellerCard seller={seller} />}
     </aside>
   )
   const heroNode = (

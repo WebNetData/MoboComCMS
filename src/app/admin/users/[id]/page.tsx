@@ -165,6 +165,7 @@ export default function AdminCustomerPage() {
         {TABS.map(([key, label]) => (
           <button key={key} className={`tab ${tab === key ? 'tab-active' : ''}`} onClick={() => setTab(key)}>{label}</button>
         ))}
+        <a className="tab" href={`/admin/crm/${u.id}`}>{isFa ? 'پروندهٔ ۳۶۰ درجه ↗' : 'Customer 360 ↗'}</a>
       </div>
 
       {tab === 'overview' && data.profileFields && (data.profileFields.rows.length > 0 || data.profileFields.missing.length > 0) && (

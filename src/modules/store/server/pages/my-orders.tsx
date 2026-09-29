@@ -6,6 +6,7 @@ import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, trackingIndex } f
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { Money } from '@/components/store/Storefront'
 import ReturnPanel from '@/components/store/ReturnPanel'
+import RateSellers from '@/components/marketplace/RateSellers'
 import { orderShipment } from '@/modules/shipping/server/carriers'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -116,6 +117,7 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
       </aside>
     </div>
     {order.state.key !== 'UNPAID' && <ReturnPanel orderId={order.id} />}
+    {order.state.key !== 'UNPAID' && <RateSellers orderId={order.id} />}
     {order.events.length > 0 && <section className="sx-my-card">
       <h2><StoreIcon name="clock" size={17} />تاریخچهٔ سفارش</h2>
       <ol className="sx-timeline">{[...order.events].reverse().map((event) => <li key={event.id}>

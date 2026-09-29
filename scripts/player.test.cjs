@@ -41,7 +41,9 @@ test('video sites are embedded, archives and plain http are download-only', () =
 test('player page keeps the same access rules and quota exemption', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/links.ts'), 'utf8')
   const watch = source.slice(source.indexOf('export async function watchSource'))
-  assert.match(watch, /canAccess\('MEMBERS', viewer\.member\)/)
+  // VIP and paid content share one gate with the download redirect.
+  assert.match(watch, /await gate\(viewer, owner\.chain/)
+  assert.match(source.slice(source.indexOf('async function gate('), source.indexOf('function denied(')), /canAccess\('MEMBERS', viewer\.member\)/)
   assert.match(watch, /checkPageToken\(token, `l\$\{id\}`/)
   assert.doesNotMatch(watch, /logDownload/, 'watching does not use the daily download quota')
 })

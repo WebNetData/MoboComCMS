@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
 import FileUpload, { CopyToServer } from '@/components/admin/FileUpload'
 import AiAutofill from './AiAutofill'
+import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { playbackKind } from '@/modules/media/domain/media'
@@ -47,6 +48,8 @@ type Props = {
   fields: MediaField[]
   publicPath?: (row: any) => string | null
   titleKey?: string
+  /** Paid content: the item type priced from this editor (software, title, album, track). */
+  paywall?: { ownerType: string; noun: string }
 }
 
 const API = '/api/admin/media-library'
@@ -70,7 +73,7 @@ function toFormValue(field: MediaField, value: unknown): unknown {
   return value
 }
 
-export default function MediaCrud({ type, title, subtitle, fields, publicPath, titleKey = 'title' }: Props) {
+export default function MediaCrud({ type, title, subtitle, fields, publicPath, titleKey = 'title', paywall }: Props) {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const [rows, setRows] = useState<any[]>([])
@@ -223,6 +226,7 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
               </div>
             ))}
           </div>
+          {paywall && <PaidAccessPanel ownerType={paywall.ownerType} ownerId={editId} noun={paywall.noun} />}
           <div className="flex gap-2 mt-4">
             <button className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setForm(null); setEditId(null) }}>{fa ? 'انصراف' : 'Cancel'}</button>
