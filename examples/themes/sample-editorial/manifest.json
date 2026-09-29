@@ -1,0 +1,21 @@
+{
+  "id": "sample-editorial",
+  "name": "سرمقاله (نمونه)",
+  "nameEn": "Editorial (sample)",
+  "description": "نمونهٔ قالب کددار: رنگ‌ها و شعاع گوشه، یک نوار معرفی بالای صفحهٔ اصلی و پاورقی سفارشی؛ بقیهٔ صفحه از قالب پیش‌فرض می‌آید.",
+  "descriptionEn": "A sample code theme: design tokens, an intro strip above the home page and a custom footer note; everything else comes from the default renderer.",
+  "version": "1.0.0",
+  "kind": "theme",
+  "apiVersion": 1,
+  "requiresCore": "^1.0.0",
+  "capabilities": ["ui"],
+  "design": {
+    "id": "sample-editorial",
+    "name": "Editorial (sample)",
+    "description": "Warm paper tones with an ink-blue accent",
+    "version": "1.0.0",
+    "radius": 6,
+    "colors": { "background": "#15130f", "surface": "#1e1b16", "accent": "#e2b567", "text": "#f6f1e7", "muted": "#a9a08f", "border": "#332f27" },
+    "lightColors": { "background": "#faf6ee", "surface": "#ffffff", "accent": "#1f3a8a", "text": "#1c1a16", "muted": "#6b6557", "border": "#e6dfd0" }
+  }
+}

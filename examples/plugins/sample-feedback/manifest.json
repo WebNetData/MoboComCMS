@@ -1,0 +1,67 @@
+{
+  "id": "sample-feedback",
+  "name": "بازخورد سریع (نمونه)",
+  "nameEn": "Quick feedback (sample)",
+  "description": "نمونهٔ کامل افزونه: ویجت «این صفحه مفید بود؟» در پایین صفحه، ذخیرهٔ رأی‌ها، صفحهٔ مدیریت، دسترسی، رویداد و کار پس‌زمینه.",
+  "descriptionEn": "A complete sample plugin: an \"was this page helpful?\" widget, vote storage, an admin page, permissions, an event handler and a background job.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "requiresCore": "^1.0.0",
+  "defaultEnabled": false,
+  "capabilities": [
+    "ui",
+    "admin",
+    "api",
+    "events",
+    "jobs",
+    "settings",
+    "storage"
+  ],
+  "permissions": [
+    {
+      "id": "sample-feedback.view",
+      "label": "مشاهدهٔ نتیجهٔ بازخوردها"
+    },
+    {
+      "id": "sample-feedback.manage",
+      "label": "صفر کردن بازخوردها"
+    }
+  ],
+  "adminNavigation": [
+    {
+      "href": "/admin/extensions/sample-feedback",
+      "label": "بازخورد سریع",
+      "labelEn": "Quick feedback",
+      "icon": "chat",
+      "permission": "sample-feedback.view"
+    }
+  ],
+  "settings": [
+    {
+      "key": "question",
+      "label": "متن پرسش",
+      "labelEn": "Question",
+      "type": "text",
+      "public": true,
+      "required": true,
+      "default": "این صفحه برایتان مفید بود؟"
+    },
+    {
+      "key": "thanks",
+      "label": "پیام تشکر",
+      "labelEn": "Thank-you message",
+      "type": "text",
+      "public": true,
+      "default": "ممنون از بازخوردتان!"
+    },
+    {
+      "key": "hide-on-admin",
+      "label": "در پنل مدیریت نمایش داده نشود",
+      "labelEn": "Hide in the admin area",
+      "type": "boolean",
+      "public": true,
+      "default": true
+    }
+  ]
+}

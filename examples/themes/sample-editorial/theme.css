@@ -1,0 +1,8 @@
+/* Theme styles are bundled into one stylesheet by `npm run extensions:generate`.
+   Scope everything to your theme's id so several themes can coexist: */
+html[data-design="sample-editorial"] body { font-feature-settings: "liga", "kern"; }
+html[data-design="sample-editorial"] h1, html[data-design="sample-editorial"] h2 { letter-spacing: -.01em; }
+
+.ed-strip { display: flex; gap: 14px; align-items: baseline; justify-content: center; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 13px; }
+.ed-strip b { color: var(--text); font-weight: 600; }
+.ed-colophon { margin: 0; padding: 14px 16px 28px; text-align: center; color: var(--muted); font-size: 12px; }
