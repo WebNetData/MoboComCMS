@@ -1,0 +1,31 @@
+{
+  "id": "ads",
+  "name": "مدیریت تبلیغات",
+  "nameEn": "Advertising manager",
+  "description": "جایگاه‌های بنر، کمپین با هدف‌گیری و زمان‌بندی، فروش بستهٔ تبلیغاتی از کیف پول، آمار نمایش و کلیک و گزارش.",
+  "descriptionEn": "Banner placements, targeted and scheduled campaigns, package sales from the wallet, impression and click statistics and reports.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "megaphone",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/advertise"],
+  "adminPaths": ["/admin/ads"],
+  "permissions": [{ "id": "ads.manage", "label": "مدیریت تبلیغات" }],
+  "adminMenu": {
+    "title": "تبلیغات",
+    "titleEn": "Advertising",
+    "icon": "megaphone",
+    "order": 84,
+    "items": [
+      { "href": "/admin/ads", "label": "داشبورد تبلیغات", "labelEn": "Overview", "icon": "grid", "permissions": ["ads.manage", "settings.manage"], "exact": true },
+      { "href": "/admin/ads/campaigns", "label": "کمپین‌ها", "labelEn": "Campaigns", "icon": "wallet", "permissions": ["ads.manage", "settings.manage"] },
+      { "href": "/admin/ads/placements", "label": "جایگاه‌ها", "labelEn": "Placements", "icon": "grid", "permissions": ["ads.manage", "settings.manage"] },
+      { "href": "/admin/ads/packages", "label": "بسته‌های فروش", "labelEn": "Packages", "icon": "sparkles", "permissions": ["ads.manage", "settings.manage"] },
+      { "href": "/admin/ads/advertisers", "label": "تبلیغ‌دهنده‌ها", "labelEn": "Advertisers", "icon": "grid", "permissions": ["ads.manage", "settings.manage"] },
+      { "href": "/admin/ads/settings", "label": "تنظیمات تبلیغات", "labelEn": "Settings", "icon": "shield", "permissions": ["ads.manage", "settings.manage"] }
+    ]
+  }
+}

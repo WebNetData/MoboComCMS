@@ -85,10 +85,10 @@ A plugin component receives a stable, read-only site context, `locale` and its p
 
 ## Extension API
 
-Server routes are registered in `server.ts` and automatically dispatched below the plugin namespace. Plugins do not create Core route files.
+Server routes are registered in `server.ts` and automatically dispatched below the plugin namespace. Plugins do not create Core route files, and they answer with `extensionJson()` from `@/extensions/sdk/server` (importing `next/server` directly is blocked by the architecture check). A complete worked example lives in `examples/plugins/sample-feedback`; the step-by-step Persian guide is [DEVELOPERS-FA.md](DEVELOPERS-FA.md).
 
 ```ts
-import { NextResponse } from 'next/server'
+import { extensionJson } from '@/extensions/sdk/server'
 import type { PluginServerModule } from '@/extensions/server/types'
 
 export const plugin: PluginServerModule = {
@@ -98,7 +98,7 @@ export const plugin: PluginServerModule = {
     access: 'permission:affiliate.manage',
     async handler(_request, ctx) {
       const state = await ctx.storage.get('summary')
-      return NextResponse.json({ state, actor: ctx.actor })
+      return extensionJson({ state, actor: ctx.actor })
     },
   }],
 }

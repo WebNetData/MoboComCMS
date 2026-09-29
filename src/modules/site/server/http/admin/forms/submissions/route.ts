@@ -1,19 +1,52 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
+import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
+import { FormsError } from '@/modules/forms/domain/forms'
+import { deleteSubmissions, exportCsv, formStats, listSubmissions, updateSubmissions } from '@/modules/forms/server/service'
+
+const failure = (error: unknown) => { if (error instanceof FormsError) return err(error.message, error.status); throw error }
+const ids = (body: Record<string, unknown>) => (Array.isArray(body.ids) ? body.ids : [body.id]).map(Number)
+
+/** GET ?formId=&status=&q=&from=&to=&page= — answers; &export=csv downloads them; &view=stats gives the daily chart. */
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'cms.pages')) return err('دسترسی مجاز نیست', 403)
-  const formId = Number(req.nextUrl.searchParams.get('formId'))
-  const page = Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1)
-  if (!Number.isSafeInteger(formId) || formId < 1 || !Number.isSafeInteger(page)) return err('شناسه نامعتبر')
-  const [rows, total] = await Promise.all([db.formSubmission.findMany({ where: { formId }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 25, take: 25 }), db.formSubmission.count({ where: { formId } })])
-  return ok({ rows: rows.map(r => ({ ...r, data: JSON.parse(r.data) })), total, page })
+  const q = req.nextUrl.searchParams
+  const formId = Number(q.get('formId'))
+  if (!Number.isSafeInteger(formId) || formId < 1) return err('شناسه نامعتبر')
+  const query = { formId, status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
+  try {
+    if (q.get('view') === 'stats') return ok(await formStats(formId))
+    if (q.get('export') === 'csv') {
+      const file = await exportCsv(query)
+      return new Response(file.body, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${file.slug}-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'no-store' } })
+    }
+    return ok(await listSubmissions(query))
+  } catch (error) { return failure(error) }
 }
+
+/** PATCH { id | ids, status?, note? } (a legacy { id, read } still works) */
 export async function PATCH(req: NextRequest) {
-  if (!await requirePerm(req, 'cms.pages')) return err('دسترسی مجاز نیست', 403)
-  const b = await req.json().catch(() => null)
-  if (!Number.isSafeInteger(b?.id) || typeof b.read !== 'boolean') return err('داده نامعتبر')
-  const result = await db.formSubmission.updateMany({ where: { id: b.id }, data: { read: b.read } })
-  return result.count ? ok({ saved: true }) : err('پاسخ پیدا نشد', 404)
+  const admin = await requirePerm(req, 'cms.pages')
+  if (!admin) return err('دسترسی مجاز نیست', 403)
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return err('داده نامعتبر')
+  const status = body.status !== undefined ? body.status : typeof body.read === 'boolean' ? (body.read ? 'READ' : 'NEW') : undefined
+  try {
+    const changed = await updateSubmissions(ids(body), { status, note: body.note })
+    return ok({ saved: true, changed })
+  } catch (error) { return failure(error) }
+}
+
+/** DELETE { ids } */
+export async function DELETE(req: NextRequest) {
+  const admin = await requirePerm(req, 'cms.pages')
+  if (!admin) return err('دسترسی مجاز نیست', 403)
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return err('داده نامعتبر')
+  try {
+    const removed = await deleteSubmissions(ids(body))
+    await auditAdmin({ req, actor: admin, action: 'forms.submissions.delete', targetType: 'form', targetId: String(body.formId || ''), metadata: { removed } })
+    return ok({ removed })
+  } catch (error) { return failure(error) }
 }

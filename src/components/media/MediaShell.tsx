@@ -7,8 +7,11 @@ import SectionMegaBar from '@/components/site/SectionMegaBar'
 import { getSectionBar } from '@/modules/navigation/server/megamenu'
 import type { MegaSection } from '@/modules/navigation/domain/megamenu'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
+import PromoSlot from '@/components/promo/PromoSlot'
 
 const BAR_SECTIONS: readonly MegaSection[] = ['music', 'cinema', 'games', 'software', 'forum']
+// Sections that carry the site's promotion placements above and below their content.
+const PROMO_SECTIONS: readonly string[] = ['music', 'cinema', 'games', 'software']
 
 export type SectionNavItem = { href: string; label: string; key: string }
 
@@ -38,7 +41,9 @@ export default async function MediaShell({ section, active, nav, children, searc
             </nav>
           </div>
         )}
+        {PROMO_SECTIONS.includes(section) && <PromoSlot placement="content-top" />}
         {children}
+        {PROMO_SECTIONS.includes(section) && <PromoSlot placement="content-bottom" />}
       </main>
       <ThemeFooter context={context} locale={locale} navPages={navPages} />
     </>

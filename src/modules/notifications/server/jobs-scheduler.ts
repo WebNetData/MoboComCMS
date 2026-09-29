@@ -44,6 +44,42 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Advertising: writes impression/click counters, ends finished campaigns, prunes old daily rows.
+    name: 'ads', everyMs: 60_000,
+    run: async (tick) => {
+      const ads = await import('@/modules/ads/server/serving')
+      await ads.flushAdStats()
+      if (tick % 720 === 0) {
+        const { db } = await import('@/platform/database/prisma')
+        await db.adStatDaily.deleteMany({ where: { day: { lt: new Date(Date.now() - 800 * 86_400_000).toISOString().slice(0, 10) } } })
+      }
+    },
+  },
+  {
+    // Repository: asks the vendor about each stored license once a day; a revoked license switches its package off.
+    name: 'repository', everyMs: 24 * 3_600_000,
+    run: async () => { await (await import('@/modules/repository/server/client')).refreshRepositoryLicenses() },
+  },
+  {
+    // Updates: asks the release feed and tells administrators once when a newer version exists.
+    name: 'updates', everyMs: 6 * 3_600_000,
+    run: async () => { await (await import('@/modules/updater/server/service')).notifyNewVersion() },
+  },
+  {
+    // Forms: attachments that were uploaded but never submitted are removed after a day.
+    name: 'forms', everyMs: 3_600_000,
+    run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads() },
+  },
+  {
+    // Guest page cache: keeps the sections' entry pages warm and writes the visits served from the cache.
+    name: 'pagecache', everyMs: 60_000,
+    run: async () => {
+      const cache = await import('@/modules/performance/server/pagecache')
+      await cache.flushViews()
+      await cache.runWarmJob()
+    },
+  },
+  {
     // Live exchange rates; FX-priced products follow them (interval set in the currency page).
     name: 'fx', everyMs: 60_000,
     run: async () => (await import('@/modules/fx/server/fx')).runFxJob(),

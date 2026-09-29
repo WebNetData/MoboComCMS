@@ -26,6 +26,7 @@ import BuyContent from '@/components/paywall/BuyContent'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
+import PromoSlot from '@/components/promo/PromoSlot'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -413,12 +414,14 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
           <main className="journal-post journal-post-solo">
             <div className="journal-post-shell">
               {crumb}
+              <PromoSlot placement="content-top" />
               {templateDoc && <div className="journal-post-builder"><BuilderRenderer doc={templateDoc} locale={locale} editable={!!editingTemplate} preview={isPreview(preview)} context={builderContext} /></div>}
               {headerSlot}
               {coverSlot}
               {builderDoc && <div className="journal-post-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
               <div className="journal-post-col">
                 {contentSlot}
+                <PromoSlot placement="content-bottom" />
                 {footerSlot}
               </div>
             </div>

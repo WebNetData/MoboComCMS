@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { NextResponse } from 'next/server'
 import { db } from '@/platform/database/prisma'
 
 const SAFE_KEY = /^[a-zA-Z0-9._:-]{1,100}$/
@@ -45,4 +46,9 @@ export async function enqueueExtensionJob(pluginId: string, jobName: string, pay
     },
     update: {},
   })
+}
+
+/** A JSON response for an extension API route (plugins do not import `next/server` themselves). */
+export function extensionJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { status })
 }

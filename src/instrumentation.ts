@@ -1,18 +1,32 @@
 export async function register() {
+  // Everything below is Node.js only; keeping the imports inside this branch keeps them out of the Edge build.
   if (process.env.NEXT_RUNTIME === 'nodejs' && process.env.NEXT_PHASE !== 'phase-production-build') {
+    // The web installer runs before there is a database: nothing else may start, and the environment is not yet complete.
+    if (process.env.SETUP_MODE === '1') return
     const { validateProductionEnvironment } = await import('@/platform/config/env')
     validateProductionEnvironment()
 
-    const { startReminderScheduler } = await import('@/modules/notifications/server/reminder-scheduler')
-    startReminderScheduler()
-    const { startBackupScheduler } = await import('@/modules/notifications/server/backup-scheduler')
-    startBackupScheduler()
-    const { startOperationsMonitorScheduler } = await import('@/modules/notifications/server/operations-monitor-scheduler')
-    startOperationsMonitorScheduler()
-    const { startRemnaControlScheduler } = await import('@/modules/providers/server/remnawave-scheduler')
-    startRemnaControlScheduler()
-    const { startJobScheduler } = await import('@/modules/notifications/server/jobs-scheduler')
-    startJobScheduler()
+    const startBackgroundWork = async () => {
+      const { startReminderScheduler } = await import('@/modules/notifications/server/reminder-scheduler')
+      startReminderScheduler()
+      const { startBackupScheduler } = await import('@/modules/notifications/server/backup-scheduler')
+      startBackupScheduler()
+      const { startOperationsMonitorScheduler } = await import('@/modules/notifications/server/operations-monitor-scheduler')
+      startOperationsMonitorScheduler()
+      const { startRemnaControlScheduler } = await import('@/modules/providers/server/remnawave-scheduler')
+      startRemnaControlScheduler()
+      const { startJobScheduler } = await import('@/modules/notifications/server/jobs-scheduler')
+      startJobScheduler()
+    }
+
+    // Background jobs need the tables of an installed site; a site still being installed starts them when it is finished.
+    const { installMode } = await import('@/modules/installer/server/state')
+    const mode = await installMode().catch(() => 'unknown' as const)
+    if (mode === 'installed' || mode === 'unknown') { await startBackgroundWork(); return }
+    const wait = setInterval(() => {
+      void installMode().then((now) => { if (now === 'installed') { clearInterval(wait); void startBackgroundWork() } }).catch(() => undefined)
+    }, 5000)
+    wait.unref?.()
   }
 }
 

@@ -17,7 +17,7 @@ function load(relative) {
 }
 const { validateSite, validateTheme, safeHref } = load('src/modules/site/config/validation.ts')
 const { defaultSite } = load('src/modules/site/config/defaults.ts')
-const { validForm, validateSubmission } = load('src/modules/site/config/forms.ts')
+const { validForm, validateSubmission } = load('src/modules/forms/domain/forms.ts')
 const monitorPlugin = load('src/plugins/operations-monitor/server.ts').plugin
 const remnaPlugin = load('src/plugins/remnawave-control/server.ts').plugin
 const { reconcileSubscription, safeRepairable } = load('src/modules/providers/domain/remnawave-reconciliation.ts')

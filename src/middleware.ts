@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { routeDecision } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
+import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
+import { installGate } from '@/modules/installer/server/gate'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -65,12 +67,19 @@ function applySecurityHeaders(req: NextRequest, response: NextResponse) {
 }
 
 const NOT_ALIASED = /^\/(api|admin|_next|dl|files)(\/|$)/
+// Writes by admins can change public pages; these never do.
+const ADMIN_WRITE = /^\/api\/admin\//
+const ADMIN_WRITE_SKIP = /^\/api\/admin\/(optimization|performance|monitoring|chat|crm|crm-notes|audit|analytics|backups|incidents|extensions\/state)(\/|$)/
 
 export async function middleware(req: NextRequest) {
   const incoming = req.headers.get('x-request-id')?.trim() || ''
   const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
   const headers = new Headers(req.headers)
   headers.set('x-request-id', requestId)
+
+  // Before the first install every page leads to the web installer (never on a working site).
+  const setup = await installGate(req).catch(() => null)
+  if (setup) { setup.headers.set('x-request-id', requestId); return setup as NextResponse }
 
   // CSRF/Origin guard: state-changing API calls must originate from this site.
   if (
@@ -84,14 +93,35 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // An admin change may alter public pages: the guest page cache is emptied shortly after it.
+  if (MUTATING_METHODS.has(req.method) && ADMIN_WRITE.test(req.nextUrl.pathname) && !ADMIN_WRITE_SKIP.test(req.nextUrl.pathname)) purgeSoon('admin-change')
+
   // Section addresses chosen by the site owner (/game for /games, /discourse for /forum …).
   let response: NextResponse | null = null
+  let canonicalPath = req.nextUrl.pathname
+  let redirected = false
   if ((req.method === 'GET' || req.method === 'HEAD') && !NOT_ALIASED.test(req.nextUrl.pathname)) {
     const decision = routeDecision(req.nextUrl.pathname, await loadRouteAliases().catch(() => ({})))
     if (decision) {
       const url = req.nextUrl.clone()
       url.pathname = decision.path
+      if (decision.kind === 'rewrite') canonicalPath = decision.path
+      else redirected = true
       response = decision.kind === 'redirect' ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url, { request: { headers } })
+    }
+  }
+  // Guests get public pages from the page cache (see Optimization in the admin); everything else goes on.
+  if (!redirected && req.method === 'GET' && !NOT_ALIASED.test(req.nextUrl.pathname)) {
+    const cached = await pageCacheHandle({
+      request: req, canonicalPath, publicPath: req.nextUrl.pathname,
+      // The raw address: Next strips `?_rsc=` (client-side navigation) from nextUrl, and those requests must never be cached.
+      search: new URL(req.url).search, host: req.headers.get('host') || req.nextUrl.host,
+      port: req.nextUrl.port, proto: req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', ''),
+    }).catch(() => null)
+    if (cached) {
+      cached.headers.set('x-request-id', requestId)
+      applySecurityHeaders(req, cached as NextResponse)
+      return cached
     }
   }
   response ||= NextResponse.next({ request: { headers } })

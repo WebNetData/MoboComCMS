@@ -32,6 +32,7 @@ import { customerGatewayLabel, installmentConfig, isInstallmentGateway, listChec
 import { getLoyaltySettings } from '@/modules/store/server/marketing'
 import { productSeller } from '@/modules/marketplace/server/marketplace'
 import SellerCard from '@/components/marketplace/SellerCard'
+import PromoSlot from '@/components/promo/PromoSlot'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -216,9 +217,11 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
         <main className="container sx-page sx-product store-product-page">
           {breadcrumbsNode}
           {ldNodes}
+          <PromoSlot placement="content-top" />
           {heroNode}
           {uspNode}
           {tabsNode}
+          <PromoSlot placement="content-bottom" />
           <ProductRail title="کالاهای مشابه" icon="box" products={related} more={product.category ? `/products?category=${encodeURIComponent(product.category.slug)}` : '/products'} />
           {builderDoc && <div className="store-product-builder"><BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={ownEditable} context={builderContext} /></div>}
         </main>

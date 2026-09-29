@@ -54,6 +54,7 @@ export const SMS_EVENTS: SmsEventDef[] = [
   { id: 'MARKETPLACE', audience: 'user', label: 'فروشندگان (سفارش تازه، تسویه، وضعیت فروشگاه)', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'LIVECHAT', audience: 'user', label: 'گفت‌وگوی آنلاین (پاسخ اپراتور)', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'FX_RATE', audience: 'user', label: 'نرخ ارز منتظر تأیید (مدیر)', vars: ['name', 'title', 'link'], template: '{title}\n{link}\n{brand}' },
+  { id: 'ADS', audience: 'user', label: 'تبلیغات (تأیید و وضعیت کمپین)', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'ADMIN_RECEIPT', audience: 'admin', label: 'رسید کارت به کارت جدید (مدیر)', vars: ['invoice', 'amount'], template: 'رسید پرداخت جدید برای فاکتور {invoice} به مبلغ {amount} ثبت شد و منتظر تأیید است.' },
   { id: 'ADMIN_ORDER', audience: 'admin', label: 'سفارش پرداخت‌شدهٔ جدید (مدیر)', vars: ['invoice', 'amount'], template: 'سفارش جدید پرداخت شد: فاکتور {invoice} — {amount}' },
   { id: 'ADMIN_TICKET', audience: 'admin', label: 'تیکت جدید (مدیر)', vars: ['subject', 'name'], template: 'تیکت جدید از {name}: {subject}' },

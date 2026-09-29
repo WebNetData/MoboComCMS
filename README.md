@@ -7,6 +7,8 @@
 - استودیو: `/admin/studio`
 - فرم‌ساز: `/admin/forms`
 - راهنمای استفاده و توسعه: [docs/SITE-STUDIO.md](docs/SITE-STUDIO.md)
+- ساخت افزونه، قالب و ماژول (با نمونهٔ کامل): [docs/DEVELOPERS-FA.md](docs/DEVELOPERS-FA.md)
+- نصب از مرورگر و به‌روزرسانی از پنل: بخش‌های «نصب از مرورگر» و «به‌روزرسانی از پنل مدیریت» در [DEPLOY-FA.md](DEPLOY-FA.md)
 - قالب نمونه قابل نصب: [public/themes/example.json](public/themes/example.json)
 - آزمون‌های منطق فرم و تنظیمات: `npm run test:site`
 - آزمون یکپارچه روی سرور محلی: `node --env-file=.env scripts/site.integration.cjs`
