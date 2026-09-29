@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { siteRedirect } from '@/platform/http/redirect'
 import { db } from '@/platform/database/prisma'
 import { canAccess } from '@/modules/membership/domain/membership'
 import { getViewer } from '@/modules/membership/server/membership'
@@ -25,7 +26,7 @@ function mustBuy(request: Request, path: string, json: boolean) {
   if (json) return NextResponse.json({ error: 'PURCHASE_REQUIRED', page: path }, { status: 402 })
   const target = new URL(path, request.url)
   target.hash = 'buy'
-  return NextResponse.redirect(target, 303)
+  return siteRedirect(target)
 }
 
 /**
@@ -48,7 +49,7 @@ function denied(request: Request, reason: 'login' | 'vip', wantsJson: boolean) {
   const target = new URL(reason === 'login' ? '/login' : '/vip', request.url)
   if (reason === 'login') target.searchParams.set('next', request.headers.get('referer') ? new URL(request.headers.get('referer') as string).pathname : '/')
   else target.searchParams.set('from', 'media')
-  return NextResponse.redirect(target, 303)
+  return siteRedirect(target)
 }
 
 function wantsJson(request: Request) {
@@ -62,12 +63,12 @@ function backToItem(request: Request, path: string, notice: 'expired' | 'limit' 
   const target = new URL(path, request.url)
   target.searchParams.set('dl', notice)
   target.hash = 'downloads'
-  return NextResponse.redirect(target, 303)
+  return siteRedirect(target)
 }
 
 /** Redirect to the file — masked on this site's domain when it lives on another host. */
 async function fileRedirect(request: Request, url: string, download: boolean) {
-  const response = NextResponse.redirect(new URL(await maskedHref(url, { download }), request.url), 303)
+  const response = siteRedirect(await maskedHref(url, { download }))
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
