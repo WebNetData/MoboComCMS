@@ -107,10 +107,10 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
       if (!data.products.length || !live('/products')) return null
       return <section className="mb-container mb-section" id={section.id}>{heading({ href: '/products', label: L('ورود به فروشگاه', 'Visit the shop') })}
         <div className="mbx-products">{data.products.slice(0, 8).map(product => { const off = product.listPrice && product.listPrice > product.price ? Math.round((1 - product.price / product.listPrice) * 100) : 0; return <Link key={product.id} href={`/products/${product.slug}`} className="mbx-product">
-          <span className="mbx-product-img">{product.image ? <img src={product.image} alt="" loading="lazy"/> : <Icon name="bag" size={36}/>}{off > 0 && <em className="mbx-off">{off.toLocaleString(fa ? 'fa-IR' : 'en-US')}٪</em>}</span>
+          <span className="mbx-product-img">{product.image ? <img src={product.image} alt="" loading="lazy"/> : <span className="mbx-product-ph"><Icon name="bag" size={30}/></span>}{off > 0 && <em className="mbx-off">{off.toLocaleString(fa ? 'fa-IR' : 'en-US')}٪</em>}</span>
           {product.category && <small className="mbx-product-cat">{fa ? product.category.name : product.category.nameEn || product.category.name}</small>}
           <b>{fa ? product.name : product.nameEn || product.name}</b>
-          <span className="mbx-product-price">{off > 0 && <s><bdi>{money(product.listPrice!, product.currency)}</bdi></s>}<bdi>{money(product.price, product.currency)}</bdi></span>
+          <span className="mbx-product-foot"><span className="mbx-product-price">{off > 0 && <s><bdi>{money(product.listPrice!, product.currency)}</bdi></s>}<bdi>{money(product.price, product.currency)}</bdi></span><span className="mbx-product-go" aria-hidden="true"><Icon name="arrow" size={16}/></span></span>
         </Link> })}</div>
       </section>
     case 'showcase': {
@@ -136,13 +136,19 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
         </section>}
         {(community || topics.length > 0) && <section className="mb-container mb-section mbx-community">
           <header className="mb-heading"><div><span className="mb-eyebrow">{L('جامعهٔ موبوکام', 'Community')}</span><h2>{L('آدم‌ها، گفت‌وگوها، سلیقه‌ها', 'People, talks and tastes')}</h2><p>{L('ببینید دیگران چه می‌بازند، چه می‌بینند و دربارهٔ چه حرف می‌زنند.', 'See what others play, watch and talk about.')}</p></div>{community && <Link className="mb-link" href="/feed">{L('ورود به تازه‌ها', 'Open the feed')}<Icon name="arrow" size={16}/></Link>}</header>
+          {community && <Link href="/feed" className="mbx-composer">
+            <span className="mbx-composer-icon" aria-hidden="true"><Icon name="pen" size={18}/></span>
+            <span className="mbx-composer-field"><b>{L('شما هم بنویسید…', 'Share yours…')}</b><small>{L('از بازی، فیلم یا آهنگی که این روزها دوستش دارید بگویید', 'What are you playing, watching or listening to?')}</small></span>
+            <span className="mbx-composer-tags" aria-hidden="true"><span><Icon name="game" size={15}/></span><span><Icon name="film" size={15}/></span><span><Icon name="music" size={15}/></span></span>
+            <span className="mbx-composer-btn">{L('نوشتن پست', 'Write a post')}</span>
+          </Link>}
           <div className={`mbx-community-grid${community ? '' : ' is-solo'}${community && !community.posts.length ? ' is-empty' : ''}`}>
-            {community && <div className="mbx-feed" style={feedRows(community.posts.slice(0, 4).length)}>{community.posts.slice(0, 4).map(post => <Link key={post.id} href={`/feed/p/${post.id}`} className="mbx-post">
+            {community && community.posts.length > 0 && <div className="mbx-feed" style={feedRows(community.posts.slice(0, 4).length)}>{community.posts.slice(0, 4).map(post => <Link key={post.id} href={`/feed/p/${post.id}`} className="mbx-post">
               <span className="mbx-post-head">{post.author.avatar ? <img src={post.author.avatar} alt="" className="mbx-ava"/> : <span className="mbx-ava" style={{ background: post.author.avatarColor }}>{post.author.name.slice(0, 1)}</span>}<span><b>{post.author.name}{post.author.verified && <span className="mbx-check" aria-label={L('تأییدشده', 'Verified')}>✔</span>}</b><small dir="ltr">@{post.author.username}</small></span></span>
               <p dir="auto">{post.text}</p>
               {post.image && <img src={post.image} alt="" className="mbx-post-img" loading="lazy"/>}
               <span className="mbx-post-meta"><span><Icon name="heart" size={14}/>{post.likes.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span><span><Icon name="comment" size={14}/>{post.comments.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span></span>
-            </Link>)}<Link href="/feed" className="mbx-post is-invite"><span className="mbx-invite-icon"><Icon name="sparkles" size={22}/></span><span><b>{L('شما هم بنویسید', 'Share yours')}</b><small>{L('از بازی، فیلم یا آهنگی که این روزها دوستش دارید بگویید و دوستان تازه پیدا کنید.', 'Tell people what you play, watch or listen to — and find new friends.')}</small></span><span className="mb-btn mb-btn-primary">{L('نوشتن پست', 'Write a post')}</span></Link></div>}
+            </Link>)}</div>}
             <aside className="mbx-side">
               {topics.length > 0 && <div className="mbx-topics"><header><Icon name="flame" size={18}/><b>{L('داغ در تالار گفتمان', 'Hot on the forum')}</b></header><ol>{topics.map((topic, index) => <li key={topic.href}><Link href={topic.href}><span className="mbx-rank">{(index + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</span><span><b>{topic.title}</b>{topic.meta && <small>{topic.meta}</small>}</span></Link></li>)}</ol></div>}
               {community && community.members.length > 0 && <div className="mbx-members"><header><Icon name="users" size={18}/><b>{L('اعضای فعال', 'Active members')}</b><small>{community.total.toLocaleString(fa ? 'fa-IR' : 'en-US')} {L('عضو', 'members')}</small></header><div className="mbx-faces">{community.members.map(member => <Link key={member.username} href={`/u/${member.username}`} title={member.name}>{member.avatar ? <img src={member.avatar} alt={member.name}/> : <span style={{ background: member.avatarColor }}>{member.name.slice(0, 1)}</span>}</Link>)}</div><Link href="/people" className="mb-btn mb-btn-ghost mbx-join">{L('پیدا کردن دوستان', 'Find people')}</Link></div>}
@@ -153,15 +159,18 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
     }
     case 'features':
       return <section className="mb-container mb-section mb-about" id={section.id}>
-        <div className="mb-about-copy">{heading()}</div>
-        <div className="mb-features">{section.items.map((item, index) => <article key={index} className="mb-card"><span className="mb-icon"><Icon name={item.icon} size={22}/></span><h3>{T(item.title)}</h3><p>{T(item.text)}</p></article>)}</div>
+        <div className="mb-about-panel">
+          <span className="mb-about-grid" aria-hidden="true"/>
+          <div className="mb-about-copy">{heading()}</div>
+          <div className="mb-features">{section.items.map((item, index) => <article key={index} className={`mb-feature tone-${index % 4}`}><span className="mb-feature-icon"><Icon name={item.icon} size={24}/></span><span className="mb-feature-num" aria-hidden="true">{(index + 1).toLocaleString(fa ? 'fa-IR' : 'en-US', { minimumIntegerDigits: 2 })}</span><h3>{T(item.title)}</h3><p>{T(item.text)}</p></article>)}</div>
+        </div>
       </section>
     case 'posts':
       if (!data.posts.length || !live('/blog')) return null
       return <section className="mb-container mb-section" id={section.id}>{heading({ href: '/blog', label: L('همهٔ مطالب مجله', 'All articles') })}
         <div className="mbx-mag">{data.posts.map((post, index) => <Link key={post.id} href={`/blog/${post.slug}`} className={`mbx-article${index === 0 ? ' is-lead' : ''}`}>
-          <span className="mbx-article-img">{post.cover ? <img src={post.cover} alt="" loading="lazy"/> : <Icon name="news" size={34}/>}</span>
-          <span className="mbx-article-body">{post.category && <small className="mb-eyebrow">{fa ? post.category.name : post.category.nameEn || post.category.name}</small>}<b>{fa ? post.title : post.titleEn || post.title}</b>{index === 0 && <small className="mbx-excerpt">{fa ? post.excerpt : post.excerptEn || post.excerpt}</small>}<time dateTime={new Date(post.publishedAt).toISOString()}>{new Date(post.publishedAt).toLocaleDateString(fa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time></span>
+          <span className="mbx-article-img">{post.cover ? <img src={post.cover} alt="" loading="lazy"/> : <Icon name="news" size={index === 0 ? 48 : 26}/>}</span>
+          <span className="mbx-article-body">{post.category && <small className="mb-eyebrow">{fa ? post.category.name : post.category.nameEn || post.category.name}</small>}<b>{fa ? post.title : post.titleEn || post.title}</b>{index === 0 && <small className="mbx-excerpt">{fa ? post.excerpt : post.excerptEn || post.excerpt}</small>}<time dateTime={new Date(post.publishedAt).toISOString()}>{index === 0 && <span className="mbx-read">{L('ادامهٔ مطلب', 'Read more')}<Icon name="arrow" size={14}/></span>}{new Date(post.publishedAt).toLocaleDateString(fa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time></span>
         </Link>)}</div>
       </section>
     case 'plans':

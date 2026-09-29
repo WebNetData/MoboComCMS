@@ -45,9 +45,9 @@ function Products() {
   async function apply() {
     if (!action || !selected.length) return
     if (action === 'delete' && !window.confirm(`${fa(selected.length)} محصول حذف شود؟ محصولاتی که سفارش دارند به‌جای حذف غیرفعال می‌شوند.`)) return
-    const response = await send<{ changed: number; deleted?: number; deactivated?: number }>('/api/admin/store/products', 'POST', { ids: selected, action, value, round, endsAt: endsAt || undefined })
+    const response = await send<{ changed: number; deleted?: number; deactivated?: number; skippedFx?: number }>('/api/admin/store/products', 'POST', { ids: selected, action, value, round, endsAt: endsAt || undefined })
     if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
-    setResult({ tone: 'ok', text: action === 'delete' ? `${fa(response.data.deleted || 0)} حذف و ${fa(response.data.deactivated || 0)} غیرفعال شد` : `${fa(response.data.changed)} محصول به‌روز شد` })
+    setResult({ tone: 'ok', text: action === 'delete' ? `${fa(response.data.deleted || 0)} حذف و ${fa(response.data.deactivated || 0)} غیرفعال شد` : `${fa(response.data.changed)} محصول به‌روز شد${response.data.skippedFx ? `؛ ${fa(response.data.skippedFx)} محصول ارزی تغییر نکرد (قیمتشان از نرخ ارز و درصد سود می‌آید)` : ''}` })
     setAction(''); setValue('')
     void reload()
   }
@@ -55,6 +55,7 @@ function Products() {
   const select = (key: string, label: string, options: [string, string][]) => <label className="sa-inline"><span>{label}</span><select className="select" value={filters[key]} onChange={(event) => go({ [key]: event.target.value })}><option value="">همه</option>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
 
   return <StoreShell title="محصولات" actions={<Link href="/admin/store/products/new" className="btn btn-primary">+ افزودن محصول</Link>}>
+    <ForeignPriceBanner />
     <nav className="sa-subtabs" aria-label="وضعیت محصول">{[['', 'همه', data?.counts.all], ['active', 'فعال', data?.counts.active], ['inactive', 'غیرفعال', data?.counts.inactive], ['featured', 'ویژه', undefined], ['discounted', 'تخفیف‌دار', undefined]].map(([key, label, count]) => <button key={String(key)} type="button" className={filters.status === key ? 'is-active' : ''} onClick={() => go({ status: String(key) })}>{label}{count ? <span className="num">{fa(Number(count))}</span> : null}</button>)}</nav>
     <form className="sa-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); go({ q: search.trim() }) }}>
       <input className="input" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="نام، نامک یا SKU" aria-label="جست‌وجوی محصول" />
@@ -101,4 +102,32 @@ function Products() {
 
 export default function StoreProductsPage() {
   return <Suspense fallback={null}><Products /></Suspense>
+}
+
+/**
+ * Products still sold in dollars or euros show "$" in the shop. One click turns them into Toman products whose
+ * price follows the live rate from the same foreign amount (nothing is lost; the admin can edit profit afterwards).
+ */
+function ForeignPriceBanner() {
+  const [found, setFound] = useState<{ products: { id: number; name: string; currency: string; price: string }[]; missingRates: string[] } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState('')
+  const [error, setError] = useState('')
+  useEffect(() => { void send<{ products: { id: number; name: string; currency: string; price: string }[]; missingRates: string[] }>('/api/admin/fx', 'POST', { op: 'convert', dryRun: true }).then((r) => { if (r.ok) setFound(r.data) }) }, [])
+  if (done) return <Notice tone="ok">{done}</Notice>
+  if (!found || (!found.products.length && !found.missingRates.length)) return null
+  async function convert() {
+    if (!window.confirm(`${fa(found!.products.length)} محصول از قیمت ارزی ثابت به «قیمت ارزی با نرخ روز» (فروش به تومان) تبدیل شود؟`)) return
+    setBusy(true); setError('')
+    const r = await send<{ converted: number }>('/api/admin/fx', 'POST', { op: 'convert' })
+    setBusy(false)
+    if (r.ok) setDone(`${fa(r.data.converted)} محصول اکنون به تومان و با نرخ روز فروخته می‌شود. درصد سود را می‌توانید در صفحهٔ هر محصول تنظیم کنید.`)
+    else setError(r.error)
+  }
+  return <div className="sa-notice is-warn sa-fx-banner" role="region" aria-label="محصولات با قیمت دلاری">
+    <div><b>{fa(found.products.length)} محصول هنوز با دلار/یورو قیمت‌گذاری شده و در فروشگاه با علامت ارز خارجی نمایش داده می‌شود.</b>
+      <p>با تبدیل، همان قیمت ارزی حفظ می‌شود و قیمت تومانی از نرخ روز محاسبه و با تغییر نرخ خودکار به‌روز می‌شود.{found.missingRates.length ? ` نرخ ${found.missingRates.join('، ')} ثبت نشده؛ ابتدا از «نرخ ارز» آن را وارد کنید.` : ''}</p>
+      {error && <p className="error-text" role="alert">{error}</p>}</div>
+    {found.products.length > 0 && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void convert()}>{busy ? 'در حال تبدیل…' : 'تبدیل به تومان با نرخ روز'}</button>}
+  </div>
 }

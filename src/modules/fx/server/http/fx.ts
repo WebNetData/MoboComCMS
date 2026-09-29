@@ -4,7 +4,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { FxError } from '@/modules/fx/domain/fx'
 import {
-  approvePending, fxOverview, previewFx, publicFxConfig, refreshRates, rejectPending, repriceProducts, saveFxConfig, setManualRate, setRateLock, testFxSource,
+  approvePending, convertForeignProducts, fxOverview, previewFx, publicFxConfig, refreshRates, rejectPending, repriceProducts, saveFxConfig, setManualRate, setRateLock, testFxSource,
 } from '@/modules/fx/server/fx'
 
 /** Rates and foreign-currency pricing belong to the store managers. */
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     if (op === 'lock') { await setRateLock(code, !!body.locked); await audit('lock', { locked: !!body.locked }); return ok({ locked: !!body.locked }) }
     if (op === 'approve') { const repriced = await approvePending(code); await audit('approve', { repriced }); return ok({ repriced }) }
     if (op === 'reject') { await rejectPending(code); await audit('reject'); return ok({ rejected: true }) }
+    if (op === 'convert') { const result = await convertForeignProducts({ dryRun: body.dryRun === true, sell: body.sell === 'IRR' ? 'IRR' : 'IRT' }); if (!body.dryRun) await audit('convert', { converted: result.converted }); return ok(result) }
     if (op === 'reprice') { const result = await repriceProducts(); await audit('reprice', { count: result.count }); return ok(result) }
     return err('عملیات نامعتبر است', 400)
   } catch (error) { return failure(error) }

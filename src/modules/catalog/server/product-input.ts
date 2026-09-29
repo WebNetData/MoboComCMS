@@ -37,7 +37,7 @@ export async function productCategoryConfig(categoryId: unknown) {
 type FxExisting = { pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
 
 export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number } & FxExisting) {
-  const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'USD')
+  const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'IRT')
   // A foreign-currency product: its prices are computed from the cost and the live rate.
   const fx = await applyFxToBody(input || {}, existing, currency)
   const b: any = fx.body

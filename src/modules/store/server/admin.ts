@@ -200,7 +200,10 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
   const endsAt = action === 'discount' && input.endsAt ? new Date(String(input.endsAt)) : null
   if (endsAt && (Number.isNaN(endsAt.getTime()) || endsAt <= new Date())) throw new StoreError('زمان پایان تخفیف باید در آینده باشد')
   const bps = Number.isFinite(percent) ? BigInt(Math.round(percent * 100)) : 0n
-  const products = await db.product.findMany({ where, include: { variants: true } })
+  const all = await db.product.findMany({ where, include: { variants: true } })
+  // Foreign-currency products get their prices from the rate; a percentage edit would be undone at the next reprice.
+  const products = all.filter((product) => product.pricingMode !== 'FX')
+  const skippedFx = all.length - products.length
   let changed = 0
   await db.$transaction(async (tx) => {
     for (const product of products) {
@@ -230,7 +233,7 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
       changed++
     }
   })
-  return { changed }
+  return { changed, skippedFx }
 }
 
 // ------------------------------------------------------------------ inventory

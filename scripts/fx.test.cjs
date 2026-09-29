@@ -186,3 +186,18 @@ test('wiring: scheduler job, admin page, product editor, inbox kind', () => {
   assert.match(server, /redirect: 'error'/)
   assert.match(server, /isPrivateAddress/)
 })
+
+test('switching a variant product to FX keeps the price differences between variants', () => {
+  const source = read('src/modules/fx/server/fx.ts')
+  const start = source.indexOf('export function proportionalCost')
+  const body = source.slice(start, source.indexOf('\n}\n', start) + 2).replace('export function', 'function').replace(/: bigint/g, '').replace(/: number/g, '')
+  const proportionalCost = new Function(`${body}; return proportionalCost`)()
+  assert.equal(proportionalCost(1000n, 1_500_000, 1_000_000), 1500n, 'a white shirt 50% dearer costs 15 USD when the product costs 10')
+  assert.equal(proportionalCost(1000n, 1_000_000, 1_000_000), 0n, 'same price → follows the product')
+  assert.equal(proportionalCost(1000n, 0, 1_000_000), 0n)
+  assert.equal(proportionalCost(0n, 5, 10), 0n)
+  const fx = read('src/modules/fx/server/fx.ts')
+  assert.match(fx, /existing\?\.pricingMode !== 'FX'/, 'only when switching from a fixed price')
+  assert.match(fx, /export async function convertForeignProducts/)
+  assert.match(read('src/modules/store/server/admin.ts'), /pricingMode !== 'FX'/, 'bulk price edits leave FX products alone')
+})
