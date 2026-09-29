@@ -3069,3 +3069,87 @@ model AdPackage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 }
+
+// ---------------------------------------------------------------- plugin & theme repository (vendor side)
+
+model RepoProduct {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique // equals the package id in manifest.json
+  kind        String        @default("PLUGIN") // PLUGIN | THEME
+  name        String
+  summary     String        @default("")
+  description String        @default("")
+  icon        String        @default("")
+  cover       String        @default("")
+  author      String        @default("")
+  category    String        @default("")
+  priceMinor  BigInt        @default(0) // 0 = free
+  currency    String        @default("IRT")
+  siteLimit   Int           @default(1) // sites per license; 0 = unlimited
+  supportDays Int           @default(365) // releases published within this period of the purchase; 0 = for life
+  active      Boolean       @default(false)
+  featured    Boolean       @default(false)
+  downloads   Int           @default(0)
+  sold        Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @default(now()) @updatedAt
+  releases    RepoRelease[]
+  licenses    RepoLicense[]
+
+  @@index([active, kind])
+}
+
+model RepoRelease {
+  id           Int         @id @default(autoincrement())
+  productId    Int
+  version      String
+  fileId       String // stored file name under storage/repository (uuid.zip)
+  sha256       String
+  size         Int
+  changelog    String      @default("")
+  requiresCore String      @default("")
+  runtime      String      @default("declarative") // declarative | code
+  published    Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  product      RepoProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, version])
+  @@index([productId, createdAt])
+}
+
+model RepoLicense {
+  id           Int              @id @default(autoincrement())
+  keyHash      String           @unique // sha256 of the normalised key (lookup)
+  keyEnc       String // the key encrypted, so the buyer can see it again
+  keyLast4     String
+  productId    Int
+  userId       Int?
+  email        String           @default("")
+  source       String           @default("PURCHASE") // PURCHASE | GRANT
+  status       String           @default("ACTIVE") // ACTIVE | REVOKED
+  siteLimit    Int              @default(1)
+  paidMinor    BigInt           @default(0)
+  currency     String           @default("IRT")
+  note         String           @default("")
+  createdAt    DateTime         @default(now())
+  updatesUntil DateTime? // null = for life
+  product      RepoProduct      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  activations  RepoActivation[]
+
+  @@index([productId, status])
+  @@index([userId])
+}
+
+model RepoActivation {
+  id         Int         @id @default(autoincrement())
+  licenseId  Int
+  site       String // host name of the site that activated the license
+  coreVersion String     @default("")
+  active     Boolean     @default(true)
+  ipHash     String      @default("")
+  firstAt    DateTime    @default(now())
+  lastSeenAt DateTime    @default(now())
+  license    RepoLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseId, site])
+}

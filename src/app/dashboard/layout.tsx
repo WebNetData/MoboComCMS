@@ -24,6 +24,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
   const adsOn = useModuleEnabled('ads')
+  const repoOn = useModuleEnabled('repository')
+  const [hasLicenses, setHasLicenses] = useState(false)
   const communityOn = useModuleEnabled('community')
   const paywallOn = useModuleEnabled('paywall')
   const marketplaceOn = useModuleEnabled('marketplace')
@@ -42,6 +44,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open])
+
+  // The licenses page is offered only where the vendor role is on and this user owns a license.
+  useEffect(() => {
+    if (status !== 'authenticated' || !repoOn) return
+    let active = true
+    fetch('/api/repo/mine', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (active && d?.licenses?.length) setHasLicenses(true) }).catch(() => null)
+    return () => { active = false }
+  }, [status, repoOn])
 
   useEffect(() => {
     if (status === 'unauthenticated') window.location.href = '/login?next=/dashboard'
@@ -68,6 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
         { href: '/dashboard/orders', label: t.myOrders, icon: 'grid' },
         { href: '/dashboard/invoices', label: t.myInvoices, icon: 'wallet' },
+        ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: locale === 'fa' ? 'لایسنس‌های من' : 'My licenses', icon: 'shield' }] : []),
         ...(adsOn ? [{ href: '/dashboard/ads', label: locale === 'fa' ? 'تبلیغات من' : 'My advertising', icon: 'sparkles' }] : []),
         ...(paywallOn ? [{ href: '/dashboard/purchases', label: locale === 'fa' ? 'خریدهای من (فایل و مقاله)' : 'My purchases', icon: 'sparkles' }] : []),
         ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),

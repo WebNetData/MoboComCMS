@@ -56,6 +56,11 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Repository: asks the vendor about each stored license once a day; a revoked license switches its package off.
+    name: 'repository', everyMs: 24 * 3_600_000,
+    run: async () => { await (await import('@/modules/repository/server/client')).refreshRepositoryLicenses() },
+  },
+  {
     // Updates: asks the release feed and tells administrators once when a newer version exists.
     name: 'updates', everyMs: 6 * 3_600_000,
     run: async () => { await (await import('@/modules/updater/server/service')).notifyNewVersion() },

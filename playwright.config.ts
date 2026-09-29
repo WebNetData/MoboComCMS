@@ -33,6 +33,6 @@ export default defineConfig({
     url: `http://localhost:${port}/api/health/ready`,
     reuseExistingServer: true,
     timeout: 240_000,
-    env: { NEXTAUTH_URL: `http://localhost:${port}` },
+    env: { NEXTAUTH_URL: `http://localhost:${port}`, REPOSITORY_ALLOW_PRIVATE: '1' },
   },
 })

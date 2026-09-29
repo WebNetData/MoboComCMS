@@ -124,3 +124,27 @@
 .upd-pending { margin: 0 0 10px; padding-inline-start: 20px; font: 12px/1.8 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
 .upd-releases { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .upd-releases li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Repository admin and public pages */
+.rp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.rp-card { display: grid; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.rp-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rp-card footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rp-sum { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.rp-meta { display: grid; gap: 4px; margin: 0; font-size: 12.5px; }
+.rp-meta div { display: flex; justify-content: space-between; gap: 10px; }
+.rp-meta dt { color: var(--muted); }
+.rp-meta dd { margin: 0; font-weight: 600; }
+.rp-warn { margin: 0; padding: 8px 10px; border-radius: 8px; background: #fff4e5; color: #8a4b00; font-size: 12.5px; }
+.rp-notes { margin: 6px 0 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font: 12.5px/1.8 inherit; }
+.rp-key { display: flex; gap: 6px; align-items: center; flex: 1; min-width: 220px; }
+.rp-key .input { min-width: 0; }
+.rp-confirm { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--primary-soft); display: grid; gap: 8px; }
+.rp-confirm code, .rp-releases code, .rp-list code { overflow-wrap: anywhere; }
+.rp-list { display: grid; gap: 12px; }
+.rp-upload { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.rp-site { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.rp-public { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 22px; }
+.rp-public h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); }
+.rp-public .rp-price { font-size: 22px; font-weight: 800; }
+.rp-buy { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); max-width: 460px; }

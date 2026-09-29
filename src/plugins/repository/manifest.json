@@ -1,0 +1,29 @@
+{
+  "id": "repository",
+  "name": "مخزن افزونه و قالب",
+  "nameEn": "Plugin & theme repository",
+  "description": "مرور و نصب افزونه و قالب از یک مخزن با بررسی امضا، و اگر بخواهید فروش افزونه و قالب خودتان با لایسنس، فعال‌سازی روی سایت‌ها و به‌روزرسانی.",
+  "descriptionEn": "Browse and install plugins and themes from a repository with signature checks, and optionally sell your own with licenses, site activations and updates.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "design",
+  "icon": "sparkles",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": ["/repository"],
+  "adminPaths": ["/admin/repository"],
+  "permissions": [{ "id": "repository.manage", "label": "مدیریت مخزن افزونه و قالب" }],
+  "adminMenu": {
+    "title": "مخزن افزونه و قالب",
+    "titleEn": "Repository",
+    "icon": "sparkles",
+    "order": 86,
+    "items": [
+      { "href": "/admin/repository", "label": "مرور و نصب", "labelEn": "Browse & install", "icon": "sparkles", "permissions": ["settings.manage"], "exact": true },
+      { "href": "/admin/repository/products", "label": "محصولات و نسخه‌ها (فروش)", "labelEn": "My products", "icon": "grid", "permissions": ["repository.manage", "settings.manage"] },
+      { "href": "/admin/repository/licenses", "label": "لایسنس‌ها", "labelEn": "Licenses", "icon": "shield", "permissions": ["repository.manage", "settings.manage"] },
+      { "href": "/admin/repository/settings", "label": "تنظیمات مخزن", "labelEn": "Settings", "icon": "sliders", "permissions": ["repository.manage", "settings.manage"] }
+    ]
+  }
+}
