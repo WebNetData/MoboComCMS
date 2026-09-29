@@ -1,0 +1,42 @@
+{
+  "id": "performance",
+  "name": "بهینه‌سازی و سرعت سایت",
+  "nameEn": "Site optimization",
+  "description": "کش صفحه برای مهمان‌ها، گرم‌کردن خودکار صفحه‌ها، پاک‌سازی هنگام تغییر محتوا و ارائهٔ نسخهٔ ذخیره‌شده هنگام خطا؛ برای ترافیک بالا.",
+  "descriptionEn": "Guest page cache, automatic warm-up, purge on change and serve-stale on error, for high traffic.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "system",
+  "icon": "bolt",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "publicPaths": [],
+  "adminPaths": [
+    "/admin/optimization"
+  ],
+  "permissions": [
+    {
+      "id": "performance.manage",
+      "label": "مدیریت بهینه‌سازی و کش"
+    }
+  ],
+  "adminMenu": {
+    "title": "بهینه‌سازی",
+    "titleEn": "Optimization",
+    "icon": "bolt",
+    "order": 95,
+    "items": [
+      {
+        "href": "/admin/optimization",
+        "label": "کش صفحه و سرعت",
+        "labelEn": "Page cache & speed",
+        "icon": "bolt",
+        "permissions": [
+          "performance.manage",
+          "settings.manage"
+        ]
+      }
+    ]
+  }
+}

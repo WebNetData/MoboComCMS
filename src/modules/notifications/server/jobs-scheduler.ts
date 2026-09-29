@@ -44,6 +44,15 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Guest page cache: keeps the sections' entry pages warm and writes the visits served from the cache.
+    name: 'pagecache', everyMs: 60_000,
+    run: async () => {
+      const cache = await import('@/modules/performance/server/pagecache')
+      await cache.flushViews()
+      await cache.runWarmJob()
+    },
+  },
+  {
     // Live exchange rates; FX-priced products follow them (interval set in the currency page).
     name: 'fx', everyMs: 60_000,
     run: async () => (await import('@/modules/fx/server/fx')).runFxJob(),
