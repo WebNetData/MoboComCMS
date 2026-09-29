@@ -120,6 +120,8 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
       scheduledSlot: typeof delivery.slot?.label === 'string' ? delivery.slot.label : '',
     }, update: {} })
     await recordStoreSale(job.orderId).catch((error) => logEvent('error', 'store.sale_record_failed', { orderId: job.orderId, error }))
+    // Marketplace: seller share and commission of each seller line.
+    await import('@/modules/marketplace/server/marketplace').then((m) => m.recordMarketplaceSale(job.orderId!)).catch((error) => logEvent('error', 'marketplace.sale_record_failed', { orderId: job.orderId, error }))
     await grantGiftForOrder(job.orderId).catch((error) => logEvent('error', 'membership.gift_failed', { orderId: job.orderId, error }))
     return
   }

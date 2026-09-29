@@ -9,6 +9,11 @@ export async function POST(req: NextRequest) {
   if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) return err('forbidden', 403)
   const admin = await requirePerm(req, 'cms.pages') || await requirePerm(req, 'cms.posts') || await requirePerm(req, 'settings.manage')
   if (!admin) return err('forbidden', 403)
+  return receiveImage(req)
+}
+
+/** Reads one uploaded image (multipart "file"), stores it as WebP and returns its URL. Callers check access first. */
+export async function receiveImage(req: NextRequest) {
   if (Number(req.headers.get('content-length')) > 16 * 1024 * 1024) return err('حداکثر حجم تصویر ۱۵ مگابایت است', 413)
   try {
     const reader = req.body?.getReader()

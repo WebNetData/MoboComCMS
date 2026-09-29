@@ -51,6 +51,7 @@ export const SMS_EVENTS: SmsEventDef[] = [
   { id: 'GIFT_CARD', audience: 'user', label: 'کارت هدیه', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'LOYALTY', audience: 'user', label: 'باشگاه مشتریان (امتیاز و سطح)', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
   { id: 'CONTENT_PURCHASE', audience: 'user', label: 'خرید فایل یا مقالهٔ پولی', vars: ['name', 'title', 'link'], template: '{name} عزیز، {title}\n{link}\n{brand}' },
+  { id: 'MARKETPLACE', audience: 'user', label: 'فروشندگان (سفارش تازه، تسویه، وضعیت فروشگاه)', vars: ['name', 'title', 'body', 'link'], template: '{name} عزیز، {body}\n{link}\n{brand}' },
   { id: 'ADMIN_RECEIPT', audience: 'admin', label: 'رسید کارت به کارت جدید (مدیر)', vars: ['invoice', 'amount'], template: 'رسید پرداخت جدید برای فاکتور {invoice} به مبلغ {amount} ثبت شد و منتظر تأیید است.' },
   { id: 'ADMIN_ORDER', audience: 'admin', label: 'سفارش پرداخت‌شدهٔ جدید (مدیر)', vars: ['invoice', 'amount'], template: 'سفارش جدید پرداخت شد: فاکتور {invoice} — {amount}' },
   { id: 'ADMIN_TICKET', audience: 'admin', label: 'تیکت جدید (مدیر)', vars: ['subject', 'name'], template: 'تیکت جدید از {name}: {subject}' },

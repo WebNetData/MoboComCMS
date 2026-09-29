@@ -120,7 +120,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let shippingMinor = 0n
   let delivery: { date: string; slot: { id: string; label: string } } | null = null
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
-  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string }[] = []
+  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null }[] = []
 
   if (content) {
     try {
@@ -189,6 +189,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       orderLines.push({
         line: index, productId: product.id, variantId: variant?.id ?? null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku,
         image: product.image, kind: product.kind, quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: price.unitMinor * BigInt(quantity), currency: price.currency,
+        sellerId: product.sellerId ?? null,
       })
       if (index === 0) meta = { kind: 'product', productId: product.id, productName: product.name, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}' }
     }

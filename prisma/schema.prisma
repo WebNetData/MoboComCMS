@@ -713,6 +713,10 @@ model Product {
   views         Int @default(0)
   soldCount     Int @default(0)
   faqs          String @default("[]")
+  sellerId      Int? // marketplace seller; null = the site itself
+  approval      String @default("APPROVED") // APPROVED | PENDING | REJECTED (seller products are reviewed)
+  approvalNote  String @default("")
+  seller        Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   variants      ProductVariant[]
   reviews       ProductReview[]
   questions     ProductQuestion[]
@@ -728,6 +732,7 @@ model Product {
 
   @@index([brandId])
   @@index([active, soldCount])
+  @@index([sellerId])
 }
 
 model ProductVariant {
@@ -2147,12 +2152,17 @@ model OrderLine {
   listPriceMinor BigInt   @default(0)
   totalMinor     BigInt   @default(0)
   currency       String   @default("IRT")
+  sellerId       Int? // marketplace seller of this line
+  commissionMinor BigInt  @default(0)
+  sellerStatus   String   @default("") // '' | ACCEPTED | READY | SHIPPED | CANCELLED
+  sellerTracking String   @default("")
   createdAt      DateTime @default(now())
   order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, line])
   @@index([productId])
+  @@index([sellerId, createdAt])
 }
 
 /// Order timeline (status changes, notes); customer-visible rows appear in order tracking.
@@ -2696,4 +2706,93 @@ model ContentPurchase {
   @@unique([userId, ownerType, ownerId])
   @@index([ownerType, ownerId])
   @@index([orderId])
+}
+
+// ---------------------------------------------------------------- Marketplace (multi-vendor)
+
+/// A shop selling on the site (Digikala-style marketplace). One per user.
+model Seller {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique
+  slug              String    @unique
+  shopName          String
+  legalName         String    @default("")
+  kind              String    @default("PERSON") // PERSON | COMPANY
+  nationalId        String    @default("")
+  phone             String    @default("")
+  email             String    @default("")
+  city              String    @default("")
+  address           String    @default("")
+  about             String    @default("")
+  logo              String    @default("")
+  banner            String    @default("")
+  iban              String    @default("")
+  ibanOwner         String    @default("")
+  status            String    @default("PENDING") // PENDING | ACTIVE | SUSPENDED | REJECTED
+  statusNote        String    @default("")
+  commissionPercent Int?      // overrides the category/default commission
+  ratingSum         Int       @default(0)
+  ratingCount       Int       @default(0)
+  salesCount        Int       @default(0)
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+  products          Product[]
+
+  @@index([status])
+}
+
+/// Seller money: sales, commission, refunds and payouts (signed amounts). Sales become withdrawable after the hold period.
+model SellerLedger {
+  id          Int      @id @default(autoincrement())
+  sellerId    Int
+  kind        String   // SALE | COMMISSION | REFUND | PAYOUT | ADJUST
+  amountMinor BigInt
+  currency    String   @default("IRT")
+  orderId     Int?
+  orderLineId Int?
+  payoutId    Int?
+  note        String   @default("")
+  availableAt DateTime @default(now())
+  dedupeKey   String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([sellerId, createdAt])
+  @@index([orderId])
+}
+
+/// A seller's withdrawal request, paid by the admin to the seller's IBAN.
+model SellerPayout {
+  id          Int       @id @default(autoincrement())
+  sellerId    Int
+  amountMinor BigInt
+  currency    String    @default("IRT")
+  status      String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  iban        String    @default("")
+  ibanOwner   String    @default("")
+  reference   String    @default("")
+  note        String    @default("")
+  processedBy Int?
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+}
+
+/// Customer rating of a seller after an order (on time, as described, packaging).
+model SellerReview {
+  id        Int      @id @default(autoincrement())
+  sellerId  Int
+  userId    Int
+  orderId   Int
+  rating    Int
+  criteria  String   @default("{}")
+  body      String   @default("")
+  status    String   @default("APPROVED") // APPROVED | HIDDEN
+  reply     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@unique([orderId, sellerId])
+  @@index([sellerId, status, createdAt])
 }

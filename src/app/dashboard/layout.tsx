@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const gamesOn = useModuleEnabled('games')
   const communityOn = useModuleEnabled('community')
   const paywallOn = useModuleEnabled('paywall')
+  const marketplaceOn = useModuleEnabled('marketplace')
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
@@ -136,6 +137,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       ))}
       <div className="side-group side-group-rule">
+        {marketplaceOn && storeOn && (
+          <Link href="/seller" className="side-link" onClick={() => setOpen(false)}>
+            <span className="side-icon"><Icon name="grid" size={19} /></span> {locale === 'fa' ? 'پنل فروشندگی / فروشنده شوید' : 'Seller panel'}
+          </Link>
+        )}
         {isReseller && (
           <Link href="/reseller" className="side-link" onClick={() => setOpen(false)}>
             <span className="side-icon"><Icon name="grid" size={19} /></span> {t.resellerPanel}

@@ -30,7 +30,7 @@ export const RESERVED_SEGMENTS = new Set([
   'checkout', 'cart', 'payment', 'invoice', 'miniapp', 'telegram', 'reseller', 'ext', 'p', 's', 'pwa-icon', 'offline', 'robots.txt', 'sitemap.xml',
   'feed.xml', 'llms.txt', 'manifest.webmanifest', 'favicon.ico', 'favicon.svg', 'og.png', 'builder-preview', 'shipping', 'forms', 'subscription', 'trial',
   'u', 'user', 'users', 'profile', 'people', 'feed', 'notifications', 'settings', 'search', 'copyright', 'favorites', 'compare', 'plans', 'vip',
-  'dl', 'forwarder', 'watch', 'track', 'newsletter',
+  'dl', 'forwarder', 'watch', 'track', 'newsletter', 'seller', 'shop', 'chat',
 ])
 
 const SEGMENT = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
