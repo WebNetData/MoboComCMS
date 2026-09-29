@@ -1,0 +1,39 @@
+name: Browser tests
+
+# Runs the Playwright suite (e2e/) against a fresh SQLite database with demo data.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: file:./dev.db
+      NEXTAUTH_URL: http://localhost:3100
+      NEXTAUTH_SECRET: ci-only-secret-please-do-not-use-anywhere-else-2026
+      PANEL_CREDENTIAL_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: CiAdmin!Password-2026
+      SEED_DEMO_DATA: 'true'
+      E2E_ADMIN_EMAIL: admin@example.com
+      E2E_ADMIN_PASSWORD: CiAdmin!Password-2026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma db push --skip-generate
+      - run: node prisma/seed.cjs
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/

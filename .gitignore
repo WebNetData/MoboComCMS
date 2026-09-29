@@ -45,3 +45,8 @@ prisma/*.db-wal
 # Customer payment receipts (private uploads)
 /storage/receipts/
 /storage/forum/
+
+# Playwright
+e2e/.auth/
+test-results/
+playwright-report/

@@ -108,7 +108,9 @@ export async function middleware(req: NextRequest) {
   // Guests get public pages from the page cache (see Optimization in the admin); everything else goes on.
   if (!redirected && req.method === 'GET' && !NOT_ALIASED.test(req.nextUrl.pathname)) {
     const cached = await pageCacheHandle({
-      request: req, canonicalPath, publicPath: req.nextUrl.pathname, search: req.nextUrl.search, host: req.headers.get('host') || req.nextUrl.host,
+      request: req, canonicalPath, publicPath: req.nextUrl.pathname,
+      // The raw address: Next strips `?_rsc=` (client-side navigation) from nextUrl, and those requests must never be cached.
+      search: new URL(req.url).search, host: req.headers.get('host') || req.nextUrl.host,
       port: req.nextUrl.port, proto: req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', ''),
     }).catch(() => null)
     if (cached) {
