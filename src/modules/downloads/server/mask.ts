@@ -84,6 +84,9 @@ export async function serveMasked(req: Request, token: string, nameSegments: str
   }
   if (upstream.status === 416) return new Response(null, { status: 416, headers: { 'Content-Range': upstream.headers.get('content-range') || '' } })
   if (!upstream.ok) {
+    // 403/451/429 from a file host usually mean it blocks this server (foreign IP, hotlink protection):
+    // the fix is to link that host directly (admin → downloads → "link directly").
+    logEvent('warn', 'downloads.mask_upstream_status', { host: new URL(target).hostname, status: upstream.status, hint: upstream.status === 403 || upstream.status === 451 ? 'host blocks this server; add it to the direct-link list in admin downloads' : undefined })
     await upstream.body?.cancel().catch(() => undefined)
     return notFound(upstream.status === 404 || upstream.status === 410 ? 404 : 502, upstream.status === 404 ? 'فایل روی سرور پیدا نشد.' : 'سرور فایل پاسخ نداد؛ کمی بعد دوباره تلاش کنید.')
   }

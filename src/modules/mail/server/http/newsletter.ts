@@ -1,3 +1,4 @@
+import { siteRedirect } from '@/platform/http/redirect'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { err, ok } from '@/platform/http/response'
@@ -31,7 +32,7 @@ export async function POST_unsubscribe(req: NextRequest) {
   const form = await req.formData().catch(() => null)
   const value = req.nextUrl.searchParams.get('t') || String(form?.get('t') || '')
   const email = await unsubscribe(value)
-  if (req.headers.get('content-type')?.includes('form')) return NextResponse.redirect(new URL(`/newsletter/unsubscribe?done=${email ? 1 : 0}`, req.url), 303)
+  if (req.headers.get('content-type')?.includes('form')) return siteRedirect(`/newsletter/unsubscribe?done=${email ? 1 : 0}`)
   return email ? ok({ unsubscribed: true }) : err('پیوند لغو عضویت معتبر نیست', 404)
 }
 
@@ -49,7 +50,7 @@ export async function GET_click(req: NextRequest, context: { params: Promise<{ t
   const raw = (await context.params).token
   const target = req.nextUrl.searchParams.get('u') || ''
   const valid = /^https?:\/\//i.test(target) && verifySignature(target, req.nextUrl.searchParams.get('s') || '')
-  if (!valid) return NextResponse.redirect(new URL('/', req.url), 302)
+  if (!valid) return siteRedirect('/', 302)
   if (/^[A-Za-z0-9_-]{10,60}$/.test(raw)) await trackClick(raw).catch(() => undefined)
   return NextResponse.redirect(target, 302)
 }
