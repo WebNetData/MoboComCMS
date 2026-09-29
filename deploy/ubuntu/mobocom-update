@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# mobocom-update — the only root-level update action the site may run (through sudo, see updater-install.sh).
+#
+#   mobocom-update <release tag>          e.g. v1.6.0
+#
+# The tag is validated here; the update itself runs as the service user in a transient systemd unit, outside the
+# site's own control group, so restarting the site does not stop it.
+# Testing: MOBOCOM_UPDATE_DRY=1 prints instead of running.
+set -euo pipefail
+
+APP_USER="${MOBOCOM_APP_USER:-mobocom}"
+APP_DIR="${MOBOCOM_APP_DIR:-/opt/mobocom/app}"
+REF="${1:-}"
+
+[[ "$REF" =~ ^v?[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}([-+][0-9A-Za-z.-]{1,40})?$ ]] || { echo "ERROR: invalid version" >&2; exit 2; }
+[ -x "$APP_DIR/deploy/ubuntu/self-update.sh" ] || [ "${MOBOCOM_UPDATE_DRY:-0}" = "1" ] || { echo "ERROR: $APP_DIR/deploy/ubuntu/self-update.sh not found" >&2; exit 2; }
+
+CMD=(systemd-run --unit=mobocom-update --collect --quiet "--uid=$APP_USER" "--property=WorkingDirectory=$APP_DIR" bash "$APP_DIR/deploy/ubuntu/self-update.sh" "$REF")
+if [ "${MOBOCOM_UPDATE_DRY:-0}" = "1" ]; then echo "DRY: ${CMD[*]}"; exit 0; fi
+if systemctl is-active --quiet mobocom-update.service 2>/dev/null; then echo "ERROR: an update is already running" >&2; exit 3; fi
+"${CMD[@]}"
+echo "started"

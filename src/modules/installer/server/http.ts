@@ -4,7 +4,8 @@ import { err } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { InstallError } from '@/modules/installer/domain/installer'
 import { installMode, isSetupMode } from './state'
-import { applySchema, buildProvider, environmentChecks, installSite, moduleCatalog, saveDatabase, testDatabase } from './setup'
+import { buildProvider } from '@/platform/database/migrate'
+import { applySchema, environmentChecks, installSite, moduleCatalog, saveDatabase, testDatabase } from './setup'
 
 const NO_STORE = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }
 

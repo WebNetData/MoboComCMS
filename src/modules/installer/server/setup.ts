@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
 import { probeDatabase } from '@/platform/database/probe'
+import { applyMigrations, buildProvider } from '@/platform/database/migrate'
 import { extensionCatalog } from '@/extensions/generated/catalog'
 import { saveExtensionState } from '@/extensions/server/state'
 import { setSetting } from '@/modules/settings/server'
@@ -16,15 +17,6 @@ import {
 import { configDirectory, installMode, isSetupMode, lastErrorFile, markInstalled, runtimeEnvFile } from './state'
 
 const production = () => process.env.NODE_ENV === 'production'
-
-/** The database engine this build was generated for (the schema variant decides it, not the address). */
-export function buildProvider(): 'postgresql' | 'sqlite' | 'unknown' {
-  try {
-    const schema = readFileSync(join(process.cwd(), 'node_modules', '.prisma', 'client', 'schema.prisma'), 'utf8')
-    const match = /datasource\s+\w+\s*\{[^}]*provider\s*=\s*"(\w+)"/.exec(schema)
-    return match?.[1] === 'postgresql' ? 'postgresql' : match?.[1] === 'sqlite' ? 'sqlite' : 'unknown'
-  } catch { return 'unknown' }
-}
 
 // ------------------------------------------------------------------ checks
 
@@ -134,28 +126,15 @@ export async function saveDatabase(input: Record<string, unknown>, origin: strin
 
 // ------------------------------------------------------------------ schema step
 
-function tail(text: string, lines = 30) {
-  return text.split('\n').slice(-lines).join('\n').trim()
-}
-
 export async function applySchema() {
   return exclusive(async () => {
     if ((await installMode(true)) !== 'needs-schema') throw new InstallError('جدول‌ها از قبل ساخته شده‌اند یا پایگاه داده در دسترس نیست', 409)
-    const provider = buildProvider()
-    const cli = join(process.cwd(), 'node_modules', 'prisma', 'build', 'index.js')
-    if (!existsSync(cli)) throw new InstallError('ابزار Prisma در این بسته نیست؛ جدول‌ها را با «npm run deploy:migrate» بسازید')
-    const args = provider === 'postgresql'
-      ? [cli, 'migrate', 'deploy', '--schema', 'prisma/schema.postgresql.prisma']
-      : [cli, 'db', 'push', '--skip-generate', '--schema', 'prisma/schema.prisma']
-    const output = await new Promise<string>((resolveOutput, reject) => {
-      execFile(process.execPath, args, { cwd: process.cwd(), env: process.env, timeout: 180_000, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
-        const text = `${stdout}\n${stderr}`
-        if (error) reject(new InstallError(`ساخت جدول‌ها ناموفق بود:\n${scrubMessage(tail(text), [process.env.DATABASE_URL || ''])}`, 500))
-        else resolveOutput(text)
-      })
-    })
+    let output = ''
+    try { output = await applyMigrations() } catch (error) {
+      throw new InstallError(`ساخت جدول‌ها ناموفق بود:\n${scrubMessage(error instanceof Error ? error.message : '', [process.env.DATABASE_URL || ''])}`, 500)
+    }
     const mode = await installMode(true)
-    return { log: scrubMessage(tail(output), [process.env.DATABASE_URL || '']), mode }
+    return { log: scrubMessage(output, [process.env.DATABASE_URL || '']), mode }
   })
 }
 

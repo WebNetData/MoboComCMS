@@ -56,6 +56,11 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Updates: asks the release feed and tells administrators once when a newer version exists.
+    name: 'updates', everyMs: 6 * 3_600_000,
+    run: async () => { await (await import('@/modules/updater/server/service')).notifyNewVersion() },
+  },
+  {
     // Forms: attachments that were uploaded but never submitted are removed after a day.
     name: 'forms', everyMs: 3_600_000,
     run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads() },
