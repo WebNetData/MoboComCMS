@@ -1,13 +1,27 @@
+import { kv, type Kv } from '@/platform/cache/kv'
+
 /**
- * Small bounded in-memory rate limiter shared by the edge-facing routes.
+ * Small bounded rate limiter shared by the edge-facing routes.
  *
- * Buckets live in the process: this is a guard rail, not a distributed
- * limiter. Put a shared limiter (Redis, edge WAF) in front before
- * multi-instance deployments.
+ * Decisions are synchronous and local; with Redis (REDIS_URL) every hit is
+ * also counted in Redis and the highest count seen across instances wins,
+ * so several app instances share one limit (eventually consistent within a
+ * request or two).
  */
 
 const buckets = new Map<string, { count: number; resetAt: number }>()
+const shared = new Map<string, number>()
 const MAX_BUCKETS = 20_000
+let redis: Kv | null = null
+if (process.env.REDIS_URL && typeof window === 'undefined') void kv().then((store) => { if (store.kind === 'redis') redis = store }).catch(() => undefined)
+
+function countShared(key: string, windowMs: number) {
+  if (!redis) return
+  redis.incr(`rl:${key}`, windowMs).then((count) => {
+    if (shared.size > MAX_BUCKETS) shared.clear()
+    shared.set(key, count)
+  }).catch(() => undefined)
+}
 
 /**
  * Best-effort client IP. Earlier x-forwarded-for entries are
@@ -30,12 +44,14 @@ export function rateLimitHit(key: string, limit: number, windowMs = 60_000): { o
     for (const [bucketKey, value] of buckets) if (value.resetAt <= now) buckets.delete(bucketKey)
     if (buckets.size >= MAX_BUCKETS && !buckets.has(key)) return { ok: false, retryAfter: 60 }
   }
+  countShared(key, windowMs)
   const bucket = buckets.get(key)
   if (!bucket || bucket.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs })
+    shared.delete(key)
     return { ok: true, retryAfter: 0 }
   }
   bucket.count += 1
-  if (bucket.count > limit) return { ok: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) }
+  if (Math.max(bucket.count, shared.get(key) || 0) > limit) return { ok: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) }
   return { ok: true, retryAfter: 0 }
 }

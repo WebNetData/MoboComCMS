@@ -2845,3 +2845,36 @@ model CrmTag {
   @@unique([userId, tag])
   @@index([tag])
 }
+
+// ---------------------------------------------------------------- Operations
+
+/// Background queue for heavy work (image optimization, re-indexing…), run by the job scheduler.
+model BackgroundJob {
+  id         Int       @id @default(autoincrement())
+  kind       String
+  payload    String    @default("{}")
+  status     String    @default("QUEUED") // QUEUED | RUNNING | DONE | FAILED
+  attempts   Int       @default(0)
+  dedupeKey  String?   @unique
+  runAt      DateTime  @default(now())
+  lockedAt   DateTime?
+  lastError  String    @default("")
+  result     String    @default("")
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([status, runAt])
+}
+
+/// Sampled real-user performance (Web Vitals) and server timings, kept for a week.
+model PerfSample {
+  id        Int      @id @default(autoincrement())
+  kind      String   // LCP | INP | CLS | TTFB | FCP
+  value     Float
+  page      String   @default("")
+  device    String   @default("") // mobile | desktop
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([createdAt])
+}

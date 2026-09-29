@@ -93,3 +93,23 @@ body:has(.lc-root) .support-dock { display: none; }
 .crm-filters { display: flex; gap: 6px; flex-wrap: wrap; }
 .crm-filters button { padding: 4px 12px; border-radius: 99px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; font-size: .85rem; }
 .crm-filters button.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* monitoring (mo-*) */
+.mo-meter { display: block; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; margin-block: 6px 2px; }
+.mo-meter i { display: block; height: 100%; border-radius: inherit; background: #16a34a; }
+.mo-meter.is-warn i { background: #f59e0b; }
+.mo-meter.is-bad i { background: #dc2626; }
+.mo-bad { color: #dc2626; }
+.mo-vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-block-end: 12px; }
+.mo-vital { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); border-inline-start: 4px solid var(--line); }
+.mo-vital.is-ok { border-inline-start-color: #16a34a; }
+.mo-vital.is-warn { border-inline-start-color: #f59e0b; }
+.mo-vital.is-bad { border-inline-start-color: #dc2626; }
+.mo-vital b { font-size: 1.2rem; }
+.mo-vital .sa-state { justify-self: start; }
+.mo-checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.mo-checks li { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); line-height: 1.9; }
+.mo-checks li.is-ok { border-color: rgba(22, 163, 74, .45); }
+.mo-checks li.is-warn { border-color: rgba(245, 158, 11, .5); }
+.mo-stack { display: grid; gap: 14px; }
+.mo-stack .sa-table { min-width: 0; width: 100%; }

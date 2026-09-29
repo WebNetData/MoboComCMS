@@ -63,6 +63,7 @@ import { CompareTray } from '@/components/engage/CompareControls'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
 import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
+import WebVitals from '@/components/site/WebVitals'
 
 export const dynamic = 'force-dynamic'
 
@@ -161,6 +162,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
         <PreviewBridge />
+        <WebVitals />
         <RouteAliasProvider map={routeAliases}><LocaleProvider locale={locale}>
           <LocaleSetter locale={locale} theme={theme} />
           <Providers><SiteProvider config={site}><ExtensionProvider runtime={extensions} packageSlots={packages?.slots}>{musicOn ? <MusicPlayerProvider>{children}</MusicPlayerProvider> : children}<PwaClient /><CompareTray /></ExtensionProvider></SiteProvider></Providers>

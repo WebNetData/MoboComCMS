@@ -1,3 +1,5 @@
+import { recordError } from '@/platform/observability/metrics'
+
 const REDACT = /password|secret|token|authorization|cookie|api[_-]?key|private[_-]?key/i
 
 function safeValue(value: unknown, depth = 0): unknown {
@@ -31,7 +33,10 @@ export function logEvent(
     event,
     ...safeValue(fields) as Record<string, unknown>,
   })
-  if (level === 'error') console.error(record)
-  else if (level === 'warn') console.warn(record)
+  if (level === 'error') {
+    const f = fields as Record<string, unknown>
+    recordError(event, String((f.error instanceof Error ? f.error.message : f.error) ?? f.message ?? ''), String(f.path ?? ''))
+    console.error(record)
+  } else if (level === 'warn') console.warn(record)
   else console.info(record)
 }
