@@ -95,6 +95,24 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
     }).finally(() => setLoading(false))
   }, [fa])
 
+  /** The audio element only says "error"; ask the server why so the visitor (and the admin) see the real cause. */
+  const explainFailure = useCallback(async (track: PlayerTrack) => {
+    const generic = fa ? 'پخش این آهنگ ممکن نشد.' : 'This track could not be played.'
+    setNotice(generic)
+    try {
+      const res = await fetch(`/api/media/track/${track.id}`, { headers: { Range: 'bytes=0-1', accept: '*/*' }, cache: 'no-store' })
+      const reason = lockReason(res.status)
+      if (reason) { setLock({ reason, track }); setNotice(''); return }
+      if (res.status === 404 || res.status === 410) setNotice(fa ? 'فایل این آهنگ روی سرور پیدا نشد یا حذف شده است.' : 'The audio file was not found on its server.')
+      else if (res.status >= 500) setNotice(fa ? 'سرور فایل صوتی در حال حاضر در دسترس نیست؛ کمی بعد دوباره تلاش کنید.' : 'The audio server is unreachable right now — try again shortly.')
+      else if (res.ok) {
+        const type = res.headers.get('content-type') || ''
+        setNotice(/^audio\/|octet-stream/.test(type) ? generic : fa ? `فایل صوتی معتبر نیست (نوع: ${type.split(';')[0] || 'نامشخص'}). لینک آهنگ را در پنل بررسی کنید.` : `The file is not audio (${type || 'unknown type'}).`)
+      }
+      await res.body?.cancel().catch(() => undefined)
+    } catch { /* keep the generic message */ }
+  }, [fa])
+
   /** Downloads go through a freshly signed link (download protection) or the VIP/login gate. */
   const download = useCallback(async (track: PlayerTrack) => {
     const res = await fetch(`/api/media/track/${track.id}?dl=1&issue=1`, { headers: { accept: 'application/json' } }).catch(() => null)
@@ -176,7 +194,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
         onWaiting={() => setLoading(true)}
         onPlaying={() => setLoading(false)}
         onEnded={() => { if (repeat === 'one' && audio.current) { audio.current.currentTime = 0; audio.current.play().catch(() => undefined) } else next() }}
-        onError={() => { setLoading(false); setPlaying(false); if (current) setNotice(fa ? 'پخش این آهنگ ممکن نشد.' : 'This track could not be played.') }}
+        onError={() => { setLoading(false); setPlaying(false); if (current) void explainFailure(current) }}
       />
       {current && (
         <div className="mu-player" role="region" aria-label={fa ? 'پخش‌کننده موزیک' : 'Music player'}>
