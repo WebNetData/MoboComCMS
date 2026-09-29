@@ -104,7 +104,9 @@ export function validateVariants(input: unknown, fields: AttributeField[], curre
     if (!sku || !name || !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(stock) || stock < -1 || skuSet.has(sku) || combinationSet.has(attributes)) throw Error('Variant SKU, attributes, price or stock are invalid or duplicated')
     skuSet.add(sku)
     combinationSet.add(attributes)
-    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, stock, active: raw?.active !== false, currency }
+    // Set only by the FX pricing step (never from a raw JSON body): the variant's own foreign cost.
+    const fxAmountMinor = typeof raw?.fxAmountMinor === 'bigint' && raw.fxAmountMinor > 0n ? raw.fxAmountMinor : 0n
+    return { id, sku, name, nameEn, attributes, price, memberPrice, compareAt, fxAmountMinor, stock, active: raw?.active !== false, currency }
   })
 }
 

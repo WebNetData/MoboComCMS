@@ -113,3 +113,17 @@ body:has(.lc-root) .support-dock { display: none; }
 .mo-checks li.is-warn { border-color: rgba(245, 158, 11, .5); }
 .mo-stack { display: grid; gap: 14px; }
 .mo-stack .sa-table { min-width: 0; width: 100%; }
+
+/* Live connection badge and "customer is typing" (operator console) */
+.cc-live { display: inline-flex; align-items: center; gap: 6px; margin-inline-start: 8px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: middle; color: var(--sa-muted, #6b7280); background: var(--sa-subtle, rgb(0 0 0 / .05)); }
+.cc-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .6; }
+.cc-live.is-on { color: var(--sa-ok, #16a34a); background: color-mix(in srgb, var(--sa-ok, #16a34a) 12%, transparent); }
+.cc-live.is-on::before { opacity: 1; animation: cc-pulse 1.8s ease-in-out infinite; }
+.cc-typing { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; color: var(--sa-muted, #6b7280); }
+.cc-typing span { display: inline-flex; gap: 3px; }
+.cc-typing i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: cc-dot 1.2s infinite ease-in-out; }
+.cc-typing i:nth-child(2) { animation-delay: .15s; }
+.cc-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes cc-pulse { 50% { opacity: .35; } }
+@keyframes cc-dot { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .cc-live.is-on::before, .cc-typing i { animation: none; } }

@@ -292,7 +292,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'date': case 'datetime':
       return <input className="input" dir="ltr" type={field.type === 'date' ? 'date' : 'datetime-local'} value={value || ''} onChange={(e) => onChange(e.target.value)} />
     case 'links':
-      return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} />
+      return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} priced={field.upload === 'cinema' || field.upload === 'software' || field.upload === 'games'} />
     case 'records':
       return <RecordsEditor value={Array.isArray(value) ? value : []} keys={field.recordKeys || [{ key: 'text', label: field.label }]} onChange={onChange} fa={fa} />
     case 'seasons':
@@ -343,7 +343,7 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   </div>
 }
 
-export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number }
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
@@ -369,7 +369,7 @@ function PlaybackBadge({ url, kind, fa }: { url: string; kind: string; fa: boole
 
 const humanSize = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`)
 
-export function LinksEditor({ value, onChange, fa, compact, section = 'general' }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean; section?: string }) {
+export function LinksEditor({ value, onChange, fa, compact, section = 'general', priced = false }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean; section?: string; priced?: boolean }) {
   const update = (index: number, patch: Partial<LinkRow>) => onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   return (
     <div className={`mx-links${compact ? ' is-compact' : ''}`}>
@@ -382,6 +382,11 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general' 
           <select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
+          {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
+            <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
+            {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
+            {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+          </span>}
           <input className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
           <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
           {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
@@ -394,7 +399,8 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general' 
           </div>
         </div>
       ))}
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...value, blankLink()])}>+ {fa ? 'لینک' : 'Link'}</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'لینک' : 'Link'}</button>
+      {priced && !compact && <p className="muted text-sm mx-links-hint">{fa ? 'قیمت جدا: لینکی که قیمت دارد جداگانه فروخته می‌شود (مثلاً نسخهٔ 4K گران‌تر)؛ خرید کل مورد آن را باز نمی‌کند. خالی بگذارید تا تابع قیمت یا دسترسی خود مورد باشد. ماژول «فروش محتوا» باید روشن باشد.' : 'Own price: a priced link is sold separately; buying the item does not open it.'}</p>}
       {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش آنلاین در سایت برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و لینک‌های یوتیوب/آپارات کار می‌کند. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Online playback works for MP4 (H.264/AAC), WebM, HLS (.m3u8) and YouTube/Aparat links. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
     </div>
   )

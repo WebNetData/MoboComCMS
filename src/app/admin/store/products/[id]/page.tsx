@@ -8,6 +8,7 @@ import CoverField from '../../../cms/CoverField'
 import ProductExtrasEditor from '../../../products/ProductExtrasEditor'
 import { Notice, StoreShell, fa, send } from '../../shared'
 import AiAutofill from '../../../cms/AiAutofill'
+import FxPricing from '../FxPricing'
 import PublishReview, { previewValue, type ReviewRow } from '../../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 
@@ -21,6 +22,7 @@ const EMPTY: Form = {
   name: '', nameEn: '', slug: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', saleEndsAt: '', currency: 'IRT', stock: -1, sku: '', lowStockAt: 0, maxPerOrder: 0,
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
+  pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
 }
 
 const REVIEW_FIELDS: [string, string, boolean?][] = [['name', 'نام محصول', true], ['nameEn', 'نام انگلیسی'], ['slug', 'نامک'], ['categoryId', 'دسته', true], ['brandId', 'برند'], ['price', 'قیمت', true], ['compareAtPrice', 'قیمت قبل از تخفیف'], ['stock', 'موجودی'], ['image', 'تصویر اصلی', true], ['shortDescription', 'توضیح کوتاه'], ['description', 'توضیحات'], ['warranty', 'گارانتی'], ['faqs', 'پرسش‌های متداول'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا']]
@@ -101,7 +103,8 @@ export default function ProductEditorPage() {
   const needsReview = form.active !== false && (isNew || originalActive === false || aiUsed)
   const reviewRows: ReviewRow[] = REVIEW_FIELDS.map(([key, label, required]) => {
     const options = key === 'categoryId' ? categoryOptions : key === 'brandId' ? brandOptions : undefined
-    const value = key === 'stock' ? (Number(form.stock) < 0 ? 'نامحدود' : previewValue(String(form.stock))) : previewValue(form[key], options)
+    const fxPrice = key === 'price' && form.pricingMode === 'FX' ? (form.fxAmount ? `${form.fxAmount} ${form.fxCurrency || 'USD'}${Number(form.markupPercent) ? ` + ${form.markupPercent}٪` : ''}${Number(form.markupFixed) ? ` + ${Number(form.markupFixed).toLocaleString('fa-IR')}` : ''} (نرخ روز)` : '') : null
+    const value = fxPrice !== null ? fxPrice : key === 'stock' ? (Number(form.stock) < 0 ? 'نامحدود' : previewValue(String(form.stock))) : previewValue(form[key], options)
     return { key, label, value, state: !value && required ? 'missing' : isAi(key) ? 'ai' : value ? 'ok' : 'empty' }
   })
   const requestSave = () => { if (needsReview) setReview(true); else void save() }
@@ -119,7 +122,9 @@ export default function ProductEditorPage() {
       stock: Number(form.stock), lowStockAt: Number(form.lowStockAt) || 0, maxPerOrder: Number(form.maxPerOrder) || 0, weightGrams: Number(form.weightGrams) || 0, sortOrder: Number(form.sortOrder) || 0,
       variants: (Array.isArray(form.variants) ? form.variants : []).map((variant: Form) => ({ ...variant, price: Number(variant.price), stock: Number(variant.stock) })),
     }
-    for (const key of ['id', 'createdAt', 'updatedAt', 'category', 'priceMinor', 'views', 'soldCount', 'brand']) delete payload[key]
+    for (const key of ['id', 'createdAt', 'updatedAt', 'category', 'priceMinor', 'views', 'soldCount', 'brand', 'repricedAt']) delete payload[key]
+    // A foreign-currency product gets its prices from the server (cost × live rate + profit).
+    if (payload.pricingMode !== 'FX') for (const key of ['fxCurrency', 'fxAmount', 'fxCompareAt', 'fxMemberPrice', 'markupPercent', 'markupFixed']) delete payload[key]
     const response = await send<{ id: number }>(`/api/admin/cms?type=products`, isNew ? 'POST' : 'PATCH', isNew ? payload : { ...payload, id: Number(id) })
     setBusy(false)
     if (!response.ok) { setError(response.error); return }
@@ -156,7 +161,12 @@ export default function ProductEditorPage() {
         </section>
 
         <section id="sa-pricing" className="sa-card">
-          <header className="sa-card-head"><h2>قیمت و تخفیف</h2>{discount > 0 && <span className="sa-tag is-deal">{fa(discount)}٪ تخفیف</span>}</header>
+          <header className="sa-card-head"><h2>قیمت و تخفیف</h2>{discount > 0 && form.pricingMode !== 'FX' && <span className="sa-tag is-deal">{fa(discount)}٪ تخفیف</span>}</header>
+          <div className="px-mode" role="group" aria-label="روش قیمت‌گذاری">
+            <button type="button" aria-pressed={form.pricingMode !== 'FX'} onClick={() => update('pricingMode', 'FIXED')}>قیمت ثابت</button>
+            <button type="button" aria-pressed={form.pricingMode === 'FX'} onClick={() => setForm((current) => (current ? { ...current, pricingMode: 'FX', currency: current.currency === 'IRR' ? 'IRR' : 'IRT' } : current))}>قیمت ارزی (نرخ روز)</button>
+          </div>
+          {form.pricingMode === 'FX' ? <FxPricing form={form} update={update} /> : <>
           <div className="sa-grid">
             {field('price', 'قیمت فروش *', { type: 'number', min: 0, step: 'any', required: true })}
             {field('compareAtPrice', 'قیمت قبل از تخفیف (خط‌خورده)', { type: 'number', min: 0, step: 'any' })}
@@ -166,6 +176,7 @@ export default function ProductEditorPage() {
             {field('vipGiftDays', 'روز VIP هدیه با خرید', { type: 'number', min: 0 })}
           </div>
           <p className="sa-hint">قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد. با گذشت زمان پایان پیشنهاد، قیمت خط‌خورده خودکار پنهان می‌شود.</p>
+          </>}
         </section>
 
         <section id="sa-inventory" className="sa-card">

@@ -22,12 +22,16 @@ async function post(body: Record<string, unknown>, method: 'POST' | 'PUT' = 'POS
   return response?.ok ? { ok: true as const, data } : { ok: false as const, error: String(data?.error || 'انجام نشد') }
 }
 
-function Conversation({ id, onChanged }: { id: number; onChanged: () => void }) {
+type Pulse = { id: number; n: number }
+
+function Conversation({ id, onChanged, live, pulse, typingAt }: { id: number; onChanged: () => void; live: boolean; pulse: Pulse; typingAt: number }) {
   const [detail, setDetail] = useState<Detail | null>(null)
   const [text, setText] = useState('')
   const [notice, setNotice] = useState('')
+  const [visitorTyping, setVisitorTyping] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const lastId = useRef(0)
+  const typingSent = useRef(0)
   const load = useCallback(async () => {
     const response = await fetch(`/api/admin/chat?id=${id}`, { cache: 'no-store' }).catch(() => null)
     if (!response?.ok) return
@@ -35,17 +39,34 @@ function Conversation({ id, onChanged }: { id: number; onChanged: () => void }) 
     setDetail(data); lastId.current = data.messages.at(-1)?.id || 0
   }, [id])
   useEffect(() => { setDetail(null); void load() }, [load])
-  useEffect(() => {
-    const timer = setInterval(async () => {
-      const response = await fetch(`/api/admin/chat?id=${id}&since=${lastId.current}`, { cache: 'no-store' }).catch(() => null)
-      if (!response?.ok) return
-      const data: Detail = await response.json()
-      if (data.messages.length) { lastId.current = data.messages.at(-1)!.id; setDetail((current) => current ? { ...data, messages: [...current.messages, ...data.messages.filter((m) => !current.messages.some((c) => c.id === m.id))] } : data) }
-      else setDetail((current) => current ? { ...current, conversation: data.conversation } : current)
-    }, 3000)
-    return () => clearInterval(timer)
+  /** New messages and the current status since the last one shown. */
+  const refresh = useCallback(async () => {
+    const response = await fetch(`/api/admin/chat?id=${id}&since=${lastId.current}`, { cache: 'no-store' }).catch(() => null)
+    if (!response?.ok) return
+    const data: Detail = await response.json()
+    if (data.messages.length) { lastId.current = Math.max(lastId.current, data.messages.at(-1)!.id); setDetail((current) => current ? { ...data, messages: [...current.messages, ...data.messages.filter((m) => !current.messages.some((c) => c.id === m.id))] } : data) }
+    else setDetail((current) => current ? { ...current, conversation: data.conversation } : current)
   }, [id])
-  useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }) }, [detail?.messages.length])
+  // Live: the console's event stream says when this conversation changed. Otherwise poll every 3 s.
+  useEffect(() => { if (pulse.id === id && pulse.n) { setVisitorTyping(false); void refresh() } }, [pulse, id, refresh])
+  useEffect(() => {
+    if (live) return
+    const timer = setInterval(() => void refresh(), 3000)
+    return () => clearInterval(timer)
+  }, [live, refresh])
+  useEffect(() => {
+    if (!typingAt) return
+    setVisitorTyping(true)
+    const timer = setTimeout(() => setVisitorTyping(false), 4000)
+    return () => clearTimeout(timer)
+  }, [typingAt])
+  function onType(value: string) {
+    setText(value)
+    if (!value.trim() || Date.now() - typingSent.current < 3000) return
+    typingSent.current = Date.now()
+    void post({ id, action: 'typing' })
+  }
+  useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }) }, [detail?.messages.length, visitorTyping])
 
   async function send(event?: FormEvent) {
     event?.preventDefault()
@@ -77,10 +98,11 @@ function Conversation({ id, onChanged }: { id: number; onChanged: () => void }) 
       {notice && <p className="sa-notice is-info" role="status">{notice}</p>}
       <div className="cc-messages" ref={box} aria-live="polite">
         {detail.messages.map((m) => m.sender === 'SYSTEM' ? <p key={m.id} className="cc-system">{m.body}</p> : <div key={m.id} className={`cc-msg is-${m.sender.toLowerCase()}`}><small>{m.sender === 'VISITOR' ? 'مشتری' : m.sender === 'BOT' ? 'دستیار هوشمند' : m.agent || 'اپراتور'} · {time(m.at)}</small>{m.body}</div>)}
+        {visitorTyping && c.status !== 'CLOSED' && <p className="cc-typing" role="status"><span aria-hidden="true"><i /><i /><i /></span>مشتری در حال نوشتن است…</p>}
       </div>
       {c.status !== 'CLOSED' && <>
         <div className="cc-quick">{QUICK.map((quick) => <button key={quick} type="button" onClick={() => setText(quick)}>{quick.slice(0, 26)}…</button>)}</div>
-        <form className="cc-compose" onSubmit={send}><textarea className="textarea" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} placeholder="پاسخ… (Enter ارسال، Shift+Enter خط تازه)" aria-label="پاسخ" /><button type="submit" className="btn btn-primary" disabled={!text.trim()}>ارسال</button></form>
+        <form className="cc-compose" onSubmit={send}><textarea className="textarea" value={text} onChange={(e) => onType(e.target.value)} onKeyDown={onKey} placeholder="پاسخ… (Enter ارسال، Shift+Enter خط تازه)" aria-label="پاسخ" /><button type="submit" className="btn btn-primary" disabled={!text.trim()}>ارسال</button></form>
       </>}
     </section>
     <aside className="cc-side">
@@ -147,11 +169,38 @@ export default function ChatConsole() {
     const response = await fetch(`/api/admin/chat?status=${status}&q=${encodeURIComponent(q)}`, { cache: 'no-store' }).catch(() => null)
     if (response?.ok) setList(await response.json())
   }, [status, q])
-  useEffect(() => { void loadList(); const timer = setInterval(() => void loadList(), 5000); return () => clearInterval(timer) }, [loadList])
+  const [live, setLive] = useState(false)
+  const [pulse, setPulse] = useState<Pulse>({ id: 0, n: 0 })
+  const [typing, setTyping] = useState<{ id: number; at: number }>({ id: 0, at: 0 })
+  const loadListRef = useRef(loadList)
+  useEffect(() => { loadListRef.current = loadList }, [loadList])
+  // One event stream for the whole console: which conversation changed, who is typing.
+  useEffect(() => {
+    if (typeof EventSource === 'undefined') return
+    let failures = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const source = new EventSource('/api/admin/chat/stream')
+    source.onopen = () => { failures = 0; setLive(true) }
+    source.addEventListener('activity', (event) => {
+      const data = JSON.parse((event as MessageEvent).data)
+      setPulse((current) => ({ id: data.conversationId, n: current.n + 1 }))
+      clearTimeout(timer)
+      timer = setTimeout(() => void loadListRef.current(), 250)
+    })
+    source.addEventListener('typing', (event) => setTyping({ id: JSON.parse((event as MessageEvent).data).conversationId, at: Date.now() }))
+    source.onerror = () => { setLive(false); if (++failures >= 3) source.close() }
+    return () => { source.close(); clearTimeout(timer); setLive(false) }
+  }, [])
+  useEffect(() => {
+    void loadList()
+    if (live) return
+    const timer = setInterval(() => void loadList(), 5000)
+    return () => clearInterval(timer)
+  }, [loadList, live])
   useEffect(() => { const id = Number(new URLSearchParams(window.location.search).get('id')); if (id) setActive(id); fetch('/api/admin/chat?view=stats').then((r) => r.json()).then(setStats).catch(() => undefined) }, [])
 
   return <div className="sa" dir="rtl">
-    <header className="sa-head"><div><h1>گفت‌وگوی آنلاین</h1><p className="sa-hint">دستیار هوشمند پاسخ اول را می‌دهد؛ گفت‌وگوهایی که اپراتور می‌خواهند اینجا با اولویت نمایش داده می‌شوند.</p></div></header>
+    <header className="sa-head"><div><h1>گفت‌وگوی آنلاین <span className={`cc-live${live ? ' is-on' : ''}`} title={live ? 'اتصال زنده برقرار است' : 'به‌روزرسانی دوره‌ای'}>{live ? 'زنده' : 'دوره‌ای'}</span></h1><p className="sa-hint">دستیار هوشمند پاسخ اول را می‌دهد؛ گفت‌وگوهایی که اپراتور می‌خواهند اینجا با اولویت نمایش داده می‌شوند.</p></div></header>
     {stats && <div className="sa-kpis">
       <div className="sa-kpi"><small>گفت‌وگوی ۳۰ روز</small><b className="num">{fa(stats.total)}</b></div>
       <div className="sa-kpi"><small>حل‌شده با دستیار</small><b className="num">{fa(stats.resolvedByBot)}</b><span className="sa-sub">{stats.total ? `${fa(Math.round((stats.resolvedByBot / stats.total) * 100))}٪` : ''}</span></div>
@@ -167,14 +216,14 @@ export default function ChatConsole() {
         </header>
         <div className="cc-items">
           {list?.rows.map((row) => <button key={row.id} type="button" className={`cc-item${active === row.id ? ' is-active' : ''}`} onClick={() => setActive(row.id)}>
-            <span className="cc-item-top"><b>{row.name}</b>{row.unread > 0 ? <i className="cc-unread">{fa(row.unread)}</i> : <span className={`sa-state ${(STATUS[row.status] || ['', ''])[1]}`}>{(STATUS[row.status] || [row.status])[0]}</span>}</span>
+            <span className="cc-item-top"><b>{row.name}</b>{row.unread > 0 && active !== row.id ? <i className="cc-unread">{fa(row.unread)}</i> : <span className={`sa-state ${(STATUS[row.status] || ['', ''])[1]}`}>{(STATUS[row.status] || [row.status])[0]}</span>}</span>
             <small>{row.last ? `${row.last.sender === 'VISITOR' ? '' : row.last.sender === 'BOT' ? 'دستیار: ' : row.last.sender === 'AGENT' ? 'شما: ' : ''}${row.last.body}` : '—'}</small>
             <small>{time(row.lastMessageAt)}{row.contact ? ` · ${row.contact}` : ''}</small>
           </button>)}
           {list && !list.rows.length && <p className="cc-empty">گفت‌وگویی نیست.</p>}
         </div>
       </section>
-      {active ? <Conversation key={active} id={active} onChanged={() => void loadList()} /> : <section className="cc-chat"><div className="cc-empty">یک گفت‌وگو را از فهرست انتخاب کنید.</div></section>}
+      {active ? <Conversation key={active} id={active} onChanged={() => void loadList()} live={live} pulse={pulse} typingAt={typing.id === active ? typing.at : 0} /> : <section className="cc-chat"><div className="cc-empty">یک گفت‌وگو را از فهرست انتخاب کنید.</div></section>}
     </div>}
   </div>
 }

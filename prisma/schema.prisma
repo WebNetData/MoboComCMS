@@ -716,6 +716,14 @@ model Product {
   sellerId      Int? // marketplace seller; null = the site itself
   approval      String @default("APPROVED") // APPROVED | PENDING | REJECTED (seller products are reviewed)
   approvalNote  String @default("")
+  pricingMode   String @default("FIXED") // FIXED | FX (price follows a foreign cost and the live rate)
+  fxCurrency    String @default("") // cost currency: USD, EUR, …
+  fxAmountMinor BigInt @default(0) // foreign cost in minor units (cents)
+  fxCompareAtMinor BigInt @default(0) // foreign list price shown struck through; 0 = none
+  fxMemberMinor BigInt @default(0) // foreign VIP price; 0 = none
+  markupBps     Int @default(0) // profit percentage in basis points (1250 = 12.5%)
+  markupFixedMinor BigInt @default(0) // fixed profit added after the percentage, in the selling currency
+  repricedAt    DateTime?
   seller        Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   variants      ProductVariant[]
   reviews       ProductReview[]
@@ -733,6 +741,7 @@ model Product {
   @@index([brandId])
   @@index([active, soldCount])
   @@index([sellerId])
+  @@index([pricingMode])
 }
 
 model ProductVariant {
@@ -747,6 +756,7 @@ model ProductVariant {
   priceMinor  BigInt @default(0)
   memberPriceMinor BigInt @default(0)
   compareAtMinor BigInt @default(0)
+  fxAmountMinor BigInt @default(0) // foreign cost of this variant when the product is FX-priced; 0 = product cost
   stock       Int @default(-1)
   active      Boolean @default(true)
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -2877,4 +2887,29 @@ model PerfSample {
 
   @@index([kind, createdAt])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------- Exchange rates
+
+/// Toman per one unit of a foreign currency; FX-priced products follow it.
+model CurrencyRate {
+  code        String    @id // USD, EUR, …
+  rate        Float // Toman per unit
+  source      String    @default("MANUAL") // navasan | brsapi | custom | cross | MANUAL
+  locked      Boolean   @default(false) // set by hand; automatic updates skip it
+  pendingRate Float? // a jump over the limit waits for approval
+  pendingAt   DateTime?
+  fetchedAt   DateTime?
+  updatedAt   DateTime  @default(now()) @updatedAt
+}
+
+model CurrencyRateLog {
+  id        Int      @id @default(autoincrement())
+  code      String
+  rate      Float
+  source    String
+  products  Int      @default(0) // products repriced by this change
+  createdAt DateTime @default(now())
+
+  @@index([code, createdAt])
 }

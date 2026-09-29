@@ -7,9 +7,10 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requireUser } from '@/modules/identity/server/access'
 import { ChatError } from '@/modules/livechat/domain/livechat'
+import { sseResponse, subscribe } from '@/platform/realtime/bus'
 import {
-  addNote, agentAction, agentConversation, agentList, agentReply, chatStats, chatToTicket, crmProfile, crmSearch, getChatSettings, newChatToken,
-  requestOperator, saveChatSettings, setTag, visitorContact, visitorPoll, visitorRate, visitorSend, visitorState,
+  AGENTS_CHANNEL, addNote, agentAction, agentConversation, agentList, agentReply, chatStats, chatToTicket, conversationChannel, crmProfile, crmSearch, getChatSettings, newChatToken,
+  requestOperator, saveChatSettings, setTag, typing, visitorContact, visitorConversation, visitorMessagesSince, visitorPoll, visitorRate, visitorSend, visitorState,
 } from '@/modules/livechat/server/livechat'
 
 const COOKIE = 'mc_chat'
@@ -46,6 +47,13 @@ export async function POST_visitor(req: NextRequest) {
   const user = await requireUser(req)
   const input = await body(req)
   const existing = tokenOf(req)
+  if (input.op === 'typing') {
+    // "Typing…" is relayed to the operator; it has its own, looser limit and needs a conversation.
+    if (!existing || !rateLimitHit(`chat-typing:${existing}`, 40, 60_000).ok) return ok({ ok: false })
+    const conversation = await visitorConversation(existing, user?.id ?? null)
+    if (conversation && conversation.status !== 'CLOSED') await typing(conversation.id, 'visitor')
+    return ok({ ok: true })
+  }
   const token = existing || newChatToken()
   if (!rateLimitHit(`chat:${existing || clientIp(req.headers)}`, 20, 60_000).ok) return err('پیام‌ها خیلی سریع ارسال شد؛ کمی صبر کنید', 429)
   try {
@@ -55,6 +63,47 @@ export async function POST_visitor(req: NextRequest) {
     const result = await visitorSend({ token, userId: user?.id ?? null, body: input.body, name: input.name, pageUrl: input.pageUrl })
     return withCookie(NextResponse.json(result), token)
   } catch (error) { return failure(error) }
+}
+
+/**
+ * GET /api/chat/stream — the visitor's conversation as server-sent events:
+ * `message` (full message, id = message id), `status`, `typing`. Reconnects
+ * catch up from Last-Event-ID. 204 when there is no conversation yet.
+ */
+export async function GET_visitorStream(req: NextRequest) {
+  const off = await moduleGuard('livechat')
+  if (off) return off
+  const token = tokenOf(req)
+  if (!token) return new Response(null, { status: 204 })
+  if (!rateLimitHit(`chat-sse:${token}`, 30, 60_000).ok) return err('اتصال‌های پیاپی زیاد است', 429)
+  const user = await requireUser(req)
+  const conversation = await visitorConversation(token, user?.id ?? null)
+  if (!conversation) return new Response(null, { status: 204 })
+  const since = Number(req.headers.get('last-event-id') || req.nextUrl.searchParams.get('since')) || 0
+  return sseResponse(req.signal, async (send) => {
+    let last = since
+    let running: Promise<void> | null = null
+    let again = false
+    // Serialised catch-up: every hint reads what is new since the last message sent.
+    const flush = () => {
+      if (running) { again = true; return running }
+      running = (async () => {
+        do {
+          again = false
+          for (const message of await visitorMessagesSince(conversation.id, last)) { send('message', message, message.id); last = message.id }
+        } while (again)
+      })().catch(() => undefined).finally(() => { running = null })
+      return running
+    }
+    const stop = await subscribe(conversationChannel(conversation.id), (event) => {
+      if (event.type === 'message') void flush()
+      else if (event.type === 'status') send('status', { status: event.status })
+      else if (event.type === 'typing' && event.who === 'agent') send('typing', {})
+    })
+    send('ready', { status: conversation.status })
+    await flush()
+    return stop
+  })
 }
 
 // ------------------------------------------------------------------ operators
@@ -81,10 +130,25 @@ export async function POST_agent(req: NextRequest) {
   const input = await body(req)
   const id = idOf(input.id)
   try {
+    if (input.action === 'typing') { if (id) await typing(id, 'agent'); return ok({ ok: true }) }
     if (input.action === 'ticket') { const ticketId = await chatToTicket(id, guard.admin.id); return ok({ ticketId }) }
     if (input.action) { await agentAction(id, guard.admin.id, String(input.action)); return ok({ ok: true }) }
     return ok({ message: await agentReply(id, guard.admin.id, input.body) })
   } catch (error) { return failure(error) }
+}
+
+/**
+ * GET /api/admin/chat/stream — operators' live inbox: `activity` (a message or
+ * status change in some conversation) and `typing` (a visitor is typing).
+ * The panel then reads what changed through the normal API.
+ */
+export async function GET_agentStream(req: NextRequest) {
+  const guard = await adminGuard(req, 'livechat', AGENT)
+  if ('response' in guard) return guard.response
+  return sseResponse(req.signal, async (send) => subscribe(AGENTS_CHANNEL, (event) => {
+    if (event.type === 'typing') { if (event.who === 'visitor') send('typing', { conversationId: event.conversationId }) }
+    else send('activity', { conversationId: event.conversationId, type: event.type, sender: event.sender ?? null, status: event.status ?? null })
+  }))
 }
 
 export async function PUT_agent(req: NextRequest) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
 type Row = { id: number; ownerType: string; title: string; url: string; image: string; subtitle: string; paid: string; createdAt: string }
-const TYPE: Record<string, string> = { post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ' }
+const TYPE: Record<string, string> = { post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', link: 'فایل جداگانه' }
 
 /** Everything the member bought (or was given): lifetime access, one click back to each item. */
 export default function MyPurchases() {

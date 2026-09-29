@@ -9,6 +9,7 @@ import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
+import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
@@ -84,25 +85,62 @@ const when = <T>(body: Input, key: string, fn: (value: unknown) => T): T | undef
  */
 async function saveLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: unknown) {
   const links = cleanLinks(input)
+  const prices = linkPriceInputs(input, ownerType)
   const existing = await tx.mediaLink.findMany({ where: { ownerType, ownerId }, orderBy: { id: 'asc' } })
   const unused = [...existing]
   for (const link of links) {
     const index = unused.findIndex((row) => row.url === link.url)
+    let id: number
     if (index >= 0) {
       const [row] = unused.splice(index, 1)
       await tx.mediaLink.update({ where: { id: row.id }, data: link })
+      id = row.id
     } else {
-      await tx.mediaLink.create({ data: { ...link, ownerType, ownerId } })
+      id = (await tx.mediaLink.create({ data: { ...link, ownerType, ownerId } })).id
+    }
+    if (prices.has(link.url)) await saveLinkPrice(tx, id, prices.get(link.url) || null)
+  }
+  if (unused.length) {
+    await tx.mediaLink.deleteMany({ where: { id: { in: unused.map((row) => row.id) } } })
+    await tx.paidItem.deleteMany({ where: { ownerType: 'link', ownerId: { in: unused.map((row) => row.id) } } })
+  }
+}
+
+/**
+ * Own prices typed on link rows (url → price). Only rows that carry a `price`
+ * key are touched; only titles, games and software keep stable link ids, so
+ * only their links can be sold on their own.
+ */
+function linkPriceInputs(input: unknown, ownerType: LinkOwner) {
+  const out = new Map<string, ReturnType<typeof normalizeLinkPrice>>()
+  if (!(PRICED_LINK_OWNERS as readonly string[]).includes(ownerType) || !Array.isArray(input)) return out
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object' || !('price' in raw)) continue
+    const row = raw as Record<string, unknown>
+    try { out.set(String(row.url || '').trim().slice(0, 2000), normalizeLinkPrice(row)) } catch (error) {
+      throw new Error(`قیمت لینک «${String(row.label || row.quality || row.url).slice(0, 40)}»: ${error instanceof Error ? error.message : 'نامعتبر'}`)
     }
   }
-  if (unused.length) await tx.mediaLink.deleteMany({ where: { id: { in: unused.map((row) => row.id) } } })
+  return out
+}
+
+async function saveLinkPrice(tx: Tx, linkId: number, rule: ReturnType<typeof normalizeLinkPrice>) {
+  if (!rule) { await tx.paidItem.deleteMany({ where: { ownerType: 'link', ownerId: linkId } }); return }
+  await tx.paidItem.upsert({ where: { ownerType_ownerId: { ownerType: 'link', ownerId: linkId } }, create: { ownerType: 'link', ownerId: linkId, ...rule }, update: rule })
 }
 
 async function linksFor(ownerType: LinkOwner, ids: number[]) {
   if (!ids.length) return new Map<number, any[]>()
   const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
+  const priced = (PRICED_LINK_OWNERS as readonly string[]).includes(ownerType) && rows.length
+    ? new Map((await db.paidItem.findMany({ where: { ownerType: 'link', ownerId: { in: rows.map((row) => row.id) } } })).map((rule) => [rule.ownerId, rule]))
+    : new Map()
   const map = new Map<number, any[]>()
-  for (const row of rows) map.set(row.ownerId, [...(map.get(row.ownerId) || []), { id: row.id, label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, url: row.url, access: row.access, sortOrder: row.sortOrder, disabled: row.disabled, clicks: row.clicks }])
+  for (const row of rows) {
+    const rule = priced.get(row.id)
+    const price = rule ? { price: rule.priceMinor.toString(), priceVip: rule.vipAccess === 'NONE' ? 'NONE' : 'FREE', sales: rule.sales } : {}
+    map.set(row.ownerId, [...(map.get(row.ownerId) || []), { id: row.id, label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, url: row.url, access: row.access, sortOrder: row.sortOrder, disabled: row.disabled, clicks: row.clicks, ...price }])
+  }
   return map
 }
 

@@ -7,13 +7,14 @@ export class PaywallError extends Error {
   constructor(message: string, readonly status = 400, readonly code = 'PAYWALL') { super(message) }
 }
 
-export const OWNER_TYPES = ['post', 'software', 'game', 'title', 'album', 'track'] as const
+/** `link` is one download/stream link with its own price (a 4K file, a special edition). */
+export const OWNER_TYPES = ['post', 'software', 'game', 'title', 'album', 'track', 'link'] as const
 export type OwnerType = (typeof OWNER_TYPES)[number]
 export const OWNER_LABEL: Record<OwnerType, string> = {
-  post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ',
+  post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', link: 'لینک دانلود',
 }
 export const OWNER_MODULE: Record<OwnerType, string> = {
-  post: 'journal', software: 'software', game: 'games', title: 'cinema', album: 'music', track: 'music',
+  post: 'journal', software: 'software', game: 'games', title: 'cinema', album: 'music', track: 'music', link: 'paywall',
 }
 
 export const VIP_ACCESS = ['FREE', 'DISCOUNT', 'NONE'] as const
@@ -83,7 +84,11 @@ export function decideAccess(rule: PaidRule | null | undefined, viewer: { member
   }
 }
 
-/** Which paid records guard an item: the item itself, then its parent (a track's album). First active one wins. */
+/**
+ * Which paid records guard an item: the item itself, then its parent (a
+ * track's album; a download link's title). First active one wins, so a link
+ * with its own price is sold on its own — buying the whole item does not open it.
+ */
 export function pickRule<T extends PaidRule & { ownerType: string; ownerId: number }>(rules: T[], chain: { ownerType: string; ownerId: number }[]): T | null {
   for (const link of chain) {
     const rule = rules.find((row) => row.ownerType === link.ownerType && row.ownerId === link.ownerId && row.active)
@@ -100,3 +105,13 @@ export function formatPrice(minor: bigint, currency: string): string {
 
 /** Admin-form value of a stored price (inverse of normalizePaidInput). */
 export const priceInput = (minor: bigint | null | undefined, currency: string) => (minor == null ? '' : currency === 'USD' ? (Number(minor) / 100).toFixed(2) : minor.toString())
+
+/** Owners whose links may carry their own price (their link ids are stable across edits). */
+export const PRICED_LINK_OWNERS = ['title', 'game', 'software'] as const
+
+/** Link-row price from the admin link editor: '' = no own price. */
+export function normalizeLinkPrice(input: { price?: unknown; priceVip?: unknown }): PaidInput | null {
+  const text = String(input.price ?? '').replace(/[,،٬\s]/g, '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+  if (!text) return null
+  return normalizePaidInput({ price: text, currency: 'IRT', vipAccess: input.priceVip === 'NONE' ? 'NONE' : 'FREE' })
+}

@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useParams, useRouter } from '@/platform/routing/navigation'
 import { call } from '../../SellerContext'
+import Variants, { type VariantRow } from './Variants'
 
 type Field = { key: string; label: string; kind: string; options: string[]; required: boolean; variant?: boolean }
 type Meta = { categories: { id: number; name: string; parentId: number | null }[]; brands: { id: number; name: string }[] }
 type Form = {
   name: string; nameEn: string; slug: string; categoryId: string; brandId: string; kind: string; price: string; compareAtPrice: string; stock: string; sku: string
-  image: string; gallery: string[]; shortDescription: string; description: string; weightGrams: string; warranty: string; maxPerOrder: string; specifications: Record<string, string>
+  image: string; gallery: string[]; shortDescription: string; description: string; weightGrams: string; warranty: string; maxPerOrder: string; specifications: Record<string, string>; variants: VariantRow[]
 }
-const EMPTY: Form = { name: '', nameEn: '', slug: '', categoryId: '', brandId: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', stock: '', sku: '', image: '', gallery: [], shortDescription: '', description: '', weightGrams: '', warranty: '', maxPerOrder: '', specifications: {} }
+const EMPTY: Form = { name: '', nameEn: '', slug: '', categoryId: '', brandId: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', stock: '', sku: '', image: '', gallery: [], shortDescription: '', description: '', weightGrams: '', warranty: '', maxPerOrder: '', specifications: {}, variants: [] }
 
 const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const toHtml = (text: string) => text.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean).map((part) => `<p>${escape(part).replace(/\n/g, '<br>')}</p>`).join('')
@@ -60,7 +61,9 @@ export default function SellerProductEditor() {
   const [meta, setMeta] = useState<Meta | null>(null)
   const [form, setForm] = useState<Form | null>(isNew ? EMPTY : null)
   const [info, setInfo] = useState<{ approval: string; approvalNote: string; active: boolean; hasVariants: boolean } | null>(null)
-  const [fields, setFields] = useState<Field[]>([])
+  const [allFields, setAllFields] = useState<Field[]>([])
+  const fields = useMemo(() => allFields.filter((field) => !field.variant), [allFields])
+  const variantFields = useMemo(() => allFields.filter((field) => field.variant), [allFields])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -76,12 +79,13 @@ export default function SellerProductEditor() {
         price: String(row.price), compareAtPrice: row.compareAtPrice === '' ? '' : String(row.compareAtPrice), stock: row.stock < 0 ? '' : String(row.stock), sku: row.sku,
         image: row.image, gallery: row.gallery, shortDescription: row.shortDescription, description: toText(row.description), weightGrams: row.weightGrams ? String(row.weightGrams) : '',
         warranty: row.warranty, maxPerOrder: row.maxPerOrder ? String(row.maxPerOrder) : '', specifications: row.specifications || {},
+        variants: (row.variants || []).map((v: { id: number; sku: string; name: string; attributes: Record<string, string>; price: number; compareAt: number | ''; stock: number; active: boolean }) => ({ id: v.id, sku: v.sku, name: v.name, attributes: v.attributes || {}, price: String(v.price), compareAt: v.compareAt === '' ? '' : String(v.compareAt), stock: v.stock < 0 ? '' : String(v.stock), active: v.active })),
       })
     }).catch(() => setNotice({ ok: false, text: 'بارگذاری نشد' }))
   }, [id, isNew])
   useEffect(() => {
-    if (!form?.categoryId) { setFields([]); return }
-    fetch(`/api/seller/products?categoryId=${form.categoryId}`).then((r) => r.json()).then((data) => setFields((data.fields || []).filter((field: Field) => !field.variant))).catch(() => setFields([]))
+    if (!form?.categoryId) { setAllFields([]); return }
+    fetch(`/api/seller/products?categoryId=${form.categoryId}`).then((r) => r.json()).then((data) => setAllFields(data.fields || [])).catch(() => setAllFields([]))
   }, [form?.categoryId])
 
   const categories = useMemo(() => {
@@ -99,7 +103,9 @@ export default function SellerProductEditor() {
     if (!form) return
     setBusy(true); setNotice(null)
     const specifications = Object.fromEntries(Object.entries(form.specifications).filter(([key, value]) => value && fields.some((field) => field.key === key)))
-    const payload = { ...form, id: isNew ? undefined : Number(id), description: toHtml(form.description), specifications, brandId: form.brandId || null, categoryId: form.categoryId || null }
+    // Variants: each combination with its own price and stock (empty stock = unlimited).
+    const variants = form.variants.map((v) => ({ id: v.id, sku: v.sku, name: v.name, attributes: v.attributes, price: v.price, compareAtPrice: v.compareAt, stock: v.stock === '' ? -1 : Number(v.stock), active: v.active }))
+    const payload = { ...form, variants, id: isNew ? undefined : Number(id), description: toHtml(form.description), specifications, brandId: form.brandId || null, categoryId: form.categoryId || null }
     if (isNew) delete (payload as Partial<typeof payload>).slug
     const result = await call<{ id: number; approval: string }>('/api/seller/products', isNew ? 'POST' : 'PUT', payload)
     setBusy(false)
@@ -123,7 +129,7 @@ export default function SellerProductEditor() {
           <div className="sa-cols">
             <label className="sa-field"><span>عنوان انگلیسی</span><input className="input" dir="ltr" value={form.nameEn} onChange={(e) => set({ nameEn: e.target.value })} /></label>
             <label className="sa-field"><span>نوع کالا</span><select className="select" value={form.kind} onChange={(e) => set({ kind: e.target.value })}><option value="PHYSICAL">کالای فیزیکی (ارسال پستی)</option><option value="VIRTUAL">کالای مجازی (کد، لایسنس، فایل)</option></select></label>
-            <label className="sa-field"><span>دسته‌بندی *</span><select className="select" value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value, specifications: {} })} required><option value="">انتخاب کنید…</option>{categories.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}</select></label>
+            <label className="sa-field"><span>دسته‌بندی *</span><select className="select" value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value, specifications: {}, variants: [] })} required><option value="">انتخاب کنید…</option>{categories.map((row) => <option key={row.id} value={row.id}>{row.label}</option>)}</select></label>
             <label className="sa-field"><span>برند</span><select className="select" value={form.brandId} onChange={(e) => set({ brandId: e.target.value })}><option value="">بدون برند / متفرقه</option>{meta?.brands.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
           </div>
           <label className="sa-field"><span>خلاصهٔ ویژگی‌ها (زیر عنوان)</span><textarea className="textarea" rows={2} value={form.shortDescription} onChange={(e) => set({ shortDescription: e.target.value })} maxLength={600} /></label>
@@ -141,13 +147,17 @@ export default function SellerProductEditor() {
               : <select className="select" value={form.specifications[field.key] || ''} onChange={(e) => set({ specifications: { ...form.specifications, [field.key]: e.target.value } })} required={field.required}><option value="">—</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select>}
           </label>)}</div>
         </section>}
+
+        {form.categoryId && <section className="sa-card sa-form"><header className="sa-card-head"><h2>تنوع‌ها</h2><small className="sa-sub">رنگ، سایز، ظرفیت… با قیمت و موجودی جدا</small></header>
+          <Variants key={`${form.categoryId}:${variantFields.length}`} fields={variantFields} rows={form.variants} basePrice={form.price} onChange={(variants) => set({ variants })} />
+        </section>}
       </div>
 
       <aside className="sa-editor-side sa-stack">
         <section className="sa-card sa-form"><header className="sa-card-head"><h2>قیمت و موجودی</h2></header>
           <label className="sa-field"><span>قیمت فروش (تومان) *</span><input className="input" dir="ltr" inputMode="numeric" value={form.price} onChange={(e) => set({ price: e.target.value.replace(/[^\d]/g, '') })} required /></label>
           <label className="sa-field"><span>قیمت قبل از تخفیف (اختیاری)</span><input className="input" dir="ltr" inputMode="numeric" value={form.compareAtPrice} onChange={(e) => set({ compareAtPrice: e.target.value.replace(/[^\d]/g, '') })} />{discount > 0 && <small className="sa-sub">{discount.toLocaleString('fa-IR')}٪ تخفیف نمایش داده می‌شود</small>}</label>
-          <label className="sa-field"><span>موجودی انبار</span><input className="input" dir="ltr" inputMode="numeric" value={form.stock} onChange={(e) => set({ stock: e.target.value.replace(/[^\d]/g, '') })} placeholder="خالی = نامحدود" disabled={info?.hasVariants} /></label>
+          <label className="sa-field"><span>موجودی انبار</span><input className="input" dir="ltr" inputMode="numeric" value={form.stock} onChange={(e) => set({ stock: e.target.value.replace(/[^\d]/g, '') })} placeholder="خالی = نامحدود" disabled={form.variants.length > 0} />{form.variants.length > 0 && <small className="sa-sub">موجودی هر تنوع جداگانه تعیین می‌شود.</small>}</label>
           <label className="sa-field"><span>حداکثر تعداد در هر سفارش</span><input className="input" dir="ltr" inputMode="numeric" value={form.maxPerOrder} onChange={(e) => set({ maxPerOrder: e.target.value.replace(/[^\d]/g, '') })} placeholder="بدون محدودیت" /></label>
           <label className="sa-field"><span>کد کالا (SKU)</span><input className="input" dir="ltr" value={form.sku} onChange={(e) => set({ sku: e.target.value })} /></label>
         </section>

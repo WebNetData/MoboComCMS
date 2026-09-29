@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { itemCard, itemCards } from '@/modules/content/server/registry'
+import { itemCards } from '@/modules/content/server/registry'
 import { itemPath } from '@/modules/content/domain/items'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import {
@@ -18,6 +18,46 @@ import {
 export type Chain = { ownerType: OwnerType; ownerId: number }[]
 
 export const paywallEnabled = cache(() => isModuleEnabled('paywall'))
+
+type Card = { title: string; url: string; image: string; subtitle: string }
+type LinkOwnerRow = { id: number; ownerType: string; ownerId: number; label: string; quality: string }
+
+/** Parent item of each link (an episode's series, a game update's game) as a card ref. */
+async function linkParents(links: LinkOwnerRow[]) {
+  const episodes = links.filter((row) => row.ownerType === 'episode').map((row) => row.ownerId)
+  const updates = links.filter((row) => row.ownerType === 'gameupdate').map((row) => row.ownerId)
+  const [episodeRows, updateRows] = await Promise.all([
+    episodes.length ? db.cinemaEpisode.findMany({ where: { id: { in: episodes } }, select: { id: true, season: { select: { titleId: true } } } }) : [],
+    updates.length ? db.gameUpdate.findMany({ where: { id: { in: updates } }, select: { id: true, gameId: true } }) : [],
+  ])
+  return new Map(links.flatMap((row): [number, { type: 'title' | 'game' | 'software'; id: number }][] => {
+    if (row.ownerType === 'title' || row.ownerType === 'game' || row.ownerType === 'software') return [[row.id, { type: row.ownerType, id: row.ownerId }]]
+    if (row.ownerType === 'episode') { const hit = episodeRows.find((item) => item.id === row.ownerId); return hit ? [[row.id, { type: 'title', id: hit.season.titleId }]] : [] }
+    if (row.ownerType === 'gameupdate') { const hit = updateRows.find((item) => item.id === row.ownerId); return hit ? [[row.id, { type: 'game', id: hit.gameId }]] : [] }
+    return []
+  }))
+}
+
+const linkName = (link: { label: string; quality: string }) => [link.label, link.quality].filter(Boolean).join(' · ') || 'لینک دانلود'
+
+/** Public cards of paid items; a link reads "<item> — <link label>" and opens its item page. */
+async function cards(refs: { ownerType: string; ownerId: number }[]): Promise<Map<string, Card>> {
+  const plain = refs.filter((ref) => ref.ownerType !== 'link').map((ref) => ({ type: ref.ownerType as Exclude<OwnerType, 'link'>, id: ref.ownerId }))
+  const linkIds = [...new Set(refs.filter((ref) => ref.ownerType === 'link').map((ref) => ref.ownerId))]
+  const links = linkIds.length ? await db.mediaLink.findMany({ where: { id: { in: linkIds } }, select: { id: true, ownerType: true, ownerId: true, label: true, quality: true } }) : []
+  const parents = await linkParents(links)
+  const found = await itemCards([...plain, ...[...parents.values()]])
+  const out = new Map<string, Card>()
+  for (const ref of plain) { const card = found.get(`${ref.type}:${ref.id}`); if (card) out.set(`${ref.type}:${ref.id}`, card) }
+  for (const link of links) {
+    const parent = parents.get(link.id)
+    const card = parent && found.get(`${parent.type}:${parent.id}`)
+    if (card) out.set(`link:${link.id}`, { ...card, title: `${card.title} — ${linkName(link)}`, url: `${card.url}#downloads` })
+  }
+  return out
+}
+
+const cardOf = async (ownerType: OwnerType, ownerId: number) => (await cards([{ ownerType, ownerId }])).get(`${ownerType}:${ownerId}`) || null
 
 /** The rules on an item and its parents, plus whether the viewer bought the one that applies. */
 export async function accessFor(viewer: { userId: number | null; member: boolean }, chain: Chain): Promise<{ decision: AccessDecision; key: string | null }> {
@@ -52,13 +92,33 @@ export async function paywallView(viewer: { userId: number | null; member: boole
   const { decision, key } = await accessFor(viewer, chain)
   if (!key) return null
   const [ownerType, ownerId] = key.split(':')
-  const card = await itemCard({ type: ownerType as OwnerType, id: Number(ownerId) }).catch(() => null)
+  const card = await cardOf(ownerType as OwnerType, Number(ownerId)).catch(() => null)
   if (decision.open) return { key, open: true, reason: decision.reason, price: '', listPrice: '', vipFree: false, vipPrice: '', memberPrice: false, title: card?.title || '' }
   return {
     key, open: false, reason: 'buy', title: card?.title || '',
     price: formatPrice(decision.priceMinor, decision.currency), listPrice: formatPrice(decision.listPriceMinor, decision.currency),
     vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice,
   }
+}
+
+/**
+ * Links sold on their own (a 4K file, a special edition): the buy state of
+ * each for this viewer. Links without their own price are absent.
+ */
+export async function linkPaywalls(viewer: { userId: number | null; member: boolean }, linkIds: number[]): Promise<Map<number, PaywallView>> {
+  const out = new Map<number, PaywallView>()
+  if (!linkIds.length || !await paywallEnabled()) return out
+  const rules = await db.paidItem.findMany({ where: { ownerType: 'link', ownerId: { in: linkIds }, active: true } }).catch(() => [])
+  if (!rules.length) return out
+  const bought = viewer.userId ? new Set((await db.contentPurchase.findMany({ where: { userId: viewer.userId, ownerType: 'link', ownerId: { in: rules.map((rule) => rule.ownerId) }, revokedAt: null }, select: { ownerId: true } })).map((row) => row.ownerId)) : new Set<number>()
+  for (const rule of rules) {
+    const decision = decideAccess(rule, { member: viewer.member, purchased: bought.has(rule.ownerId) })
+    const key = contentKey('link', rule.ownerId)
+    out.set(rule.ownerId, decision.open
+      ? { key, open: true, reason: decision.reason, price: '', listPrice: '', vipFree: false, vipPrice: '', memberPrice: false, title: '' }
+      : { key, open: false, reason: 'buy', price: formatPrice(decision.priceMinor, decision.currency), listPrice: formatPrice(decision.listPriceMinor, decision.currency), vipFree: decision.vipFree, vipPrice: decision.vipPriceMinor ? formatPrice(decision.vipPriceMinor, decision.currency) : '', memberPrice: decision.memberPrice, title: '' })
+  }
+  return out
 }
 
 // ------------------------------------------------------------------ checkout & fulfilment
@@ -68,7 +128,7 @@ export type CheckoutQuote = { ownerType: OwnerType; ownerId: number; amountMinor
 /** Price for checkout. Refuses items that are free for this viewer or already bought. */
 export async function quoteContent(key: { ownerType: OwnerType; ownerId: number }, viewer: { userId: number; member: boolean }): Promise<CheckoutQuote> {
   if (!await paywallEnabled()) throw new PaywallError('فروش محتوا در حال حاضر فعال نیست', 403, 'PAYWALL_DISABLED')
-  const card = await itemCard({ type: key.ownerType, id: key.ownerId })
+  const card = await cardOf(key.ownerType, key.ownerId)
   if (!card) throw new PaywallError('این مورد یافت نشد', 404, 'CONTENT_NOT_FOUND')
   const { decision } = await accessFor(viewer, [key])
   if (decision.open) throw new PaywallError(decision.reason === 'purchased' ? 'این مورد را قبلاً خریده‌اید' : 'این مورد برای شما رایگان است', 409, 'ALREADY_OPEN')
@@ -87,7 +147,7 @@ export async function fulfillContentOrder(orderId: number): Promise<void> {
   const created = await grantContent({ userId: order.userId, ownerType, ownerId, orderId: order.id, paidMinor: order.totalMinor, currency: order.currency, source: 'PURCHASE' })
   if (!created) return
   await db.paidItem.updateMany({ where: { ownerType, ownerId }, data: { sales: { increment: 1 }, revenueMinor: { increment: order.totalMinor } } }).catch(() => undefined)
-  const path = String(meta.contentPath || itemPath(ownerType, { id: ownerId }))
+  const path = String(meta.contentPath || (ownerType === 'link' ? '/dashboard/purchases' : itemPath(ownerType, { id: ownerId })))
   await createInboxEvent({
     userId: order.userId, kind: 'CONTENT_PURCHASE', dedupeKey: `content:order:${order.id}`,
     titleFa: `خرید «${String(meta.contentTitle || '').slice(0, 80)}» انجام شد`, titleEn: 'Your purchase is ready',
@@ -121,9 +181,9 @@ export async function grantContent(input: { userId: number; ownerType: OwnerType
 /** "My purchases": everything the user bought, newest first. */
 export async function myPurchases(userId: number) {
   const rows = await db.contentPurchase.findMany({ where: { userId, revokedAt: null }, orderBy: { createdAt: 'desc' }, take: 500 })
-  const cards = await itemCards(rows.map((row) => ({ type: row.ownerType as OwnerType, id: row.ownerId })))
+  const found = await cards(rows)
   return rows.map((row) => {
-    const card = cards.get(`${row.ownerType}:${row.ownerId}`)
+    const card = found.get(`${row.ownerType}:${row.ownerId}`)
     return {
       id: row.id, ownerType: row.ownerType, title: card?.title || 'موردی که دیگر منتشر نیست', url: card?.url || '', image: card?.image || '', subtitle: card?.subtitle || '',
       paid: row.source === 'ADMIN' ? 'هدیهٔ مدیر' : formatPrice(row.paidMinor, row.currency), createdAt: row.createdAt.toISOString(),
@@ -140,7 +200,7 @@ async function ownerRows(refs: { ownerType: string; ownerId: number }[]): Promis
   const out = new Map<string, OwnerRow>()
   const ids = (type: string) => [...new Set(refs.filter((ref) => ref.ownerType === type).map((ref) => ref.ownerId))]
   const put = (type: string, rows: { id: number; title: string; slug: string; status: string; image: string }[]) => {
-    for (const row of rows) out.set(`${type}:${row.id}`, { id: row.id, title: row.title, path: itemPath(type as OwnerType, row), image: row.image, status: row.status })
+    for (const row of rows) out.set(`${type}:${row.id}`, { id: row.id, title: row.title, path: itemPath(type as Exclude<OwnerType, 'link'>, row), image: row.image, status: row.status })
   }
   const pick = { id: true, title: true, slug: true, status: true } as const
   await Promise.all([
@@ -150,7 +210,22 @@ async function ownerRows(refs: { ownerType: string; ownerId: number }[]): Promis
     ids('title').length && db.cinemaTitle.findMany({ where: { id: { in: ids('title') } }, select: { ...pick, poster: true } }).then((rows) => put('title', rows.map((r) => ({ ...r, image: r.poster })))),
     ids('album').length && db.musicAlbum.findMany({ where: { id: { in: ids('album') } }, select: { ...pick, cover: true } }).then((rows) => put('album', rows.map((r) => ({ ...r, image: r.cover })))),
     ids('track').length && db.musicTrack.findMany({ where: { id: { in: ids('track') } }, select: { ...pick, cover: true } }).then((rows) => put('track', rows.map((r) => ({ ...r, image: r.cover })))),
+    ids('link').length && linkOwnerRows(ids('link')).then((rows) => { for (const [key, row] of rows) out.set(key, row) }),
   ])
+  return out
+}
+
+/** Admin rows of priced links: "<item> — <label>", linking to the item's editor page on the site. */
+async function linkOwnerRows(ids: number[]) {
+  const links = await db.mediaLink.findMany({ where: { id: { in: ids } }, select: { id: true, ownerType: true, ownerId: true, label: true, quality: true } })
+  const parents = await linkParents(links)
+  const parentRows = await ownerRows([...parents.values()].map((ref) => ({ ownerType: ref.type, ownerId: ref.id })))
+  const out = new Map<string, OwnerRow>()
+  for (const link of links) {
+    const parent = parents.get(link.id)
+    const row = parent && parentRows.get(`${parent.type}:${parent.id}`)
+    if (row) out.set(`link:${link.id}`, { ...row, id: link.id, title: `${row.title} — ${linkName(link)}` })
+  }
   return out
 }
 

@@ -18,7 +18,8 @@ const rule = (extra = {}) => ({ priceMinor: 150000n, currency: 'IRT', vipAccess:
 test('content keys parse only known item types with positive ids', () => {
   assert.deepEqual(p.parseContentKey('post:12'), { ownerType: 'post', ownerId: 12 })
   assert.deepEqual(p.parseContentKey('software:3'), { ownerType: 'software', ownerId: 3 })
-  for (const bad of ['user:1', 'post:0', 'post:-1', 'post:abc', 'post:1:2', '', null, 'POST:1', 'link:5']) assert.equal(p.parseContentKey(bad), null, String(bad))
+  assert.deepEqual(p.parseContentKey('link:5'), { ownerType: 'link', ownerId: 5 })
+  for (const bad of ['user:1', 'post:0', 'post:-1', 'post:abc', 'post:1:2', '', null, 'POST:1', 'link:0']) assert.equal(p.parseContentKey(bad), null, String(bad))
   assert.equal(p.contentKey('album', 4), 'album:4')
 })
 
