@@ -6,6 +6,8 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getViewer } from '@/modules/membership/server/membership'
 import { REPORT_REASONS } from '@/modules/downloads/domain/downloads'
 import { getDownloadSettings, publicDownloadSettings, saveDownloadSettings } from '@/modules/downloads/server/guard'
+import { scrubAll, scrubPreview } from '@/modules/downloads/server/scrub'
+import { cleanCacheStats, cleanTools, clearCleanCache } from '@/modules/downloads/server/clean'
 import { DownloadError, downloadStats, probeLink, reportLink, reportQueue, resolveLinkReports } from '@/modules/downloads/server/admin'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -31,8 +33,8 @@ export async function POST_report(req: NextRequest, { params }: Ctx) {
 export async function GET(req: NextRequest) {
   const g = await adminGuard(req, 'download-guard', ['downloads.manage', 'settings.manage'])
   if ('response' in g) return g.response
-  const [settings, stats, queue] = await Promise.all([getDownloadSettings(), downloadStats(), reportQueue()])
-  return ok({ settings: publicDownloadSettings(settings), stats, queue, reasons: REPORT_REASONS })
+  const [settings, stats, queue, tools, cleanCache] = await Promise.all([getDownloadSettings(), downloadStats(), reportQueue(), cleanTools(), cleanCacheStats()])
+  return ok({ settings: publicDownloadSettings(settings), stats, queue, reasons: REPORT_REASONS, tools, cleanCache })
 }
 
 /** PATCH /api/admin/downloads { ...settings } */
@@ -45,11 +47,24 @@ export async function PATCH(req: NextRequest) {
   return ok({ settings: publicDownloadSettings(saved) })
 }
 
-/** POST /api/admin/downloads { action: fixed | dismiss | disable | enable | probe, linkId } */
+/** POST /api/admin/downloads { action: fixed | dismiss | disable | enable | probe, linkId } | { action: scrub-preview | scrub-run, cursor? } */
 export async function POST(req: NextRequest) {
   const g = await adminGuard(req, 'download-guard', ['downloads.manage', 'settings.manage'])
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
+  if (body.action === 'scrub-preview') return ok(await scrubPreview())
+  if (body.action === 'clean-cache-clear') {
+    const result = await clearCleanCache()
+    await auditAdmin({ req, actor: g.admin, action: 'downloads.clean_cache.clear', targetType: 'cache', targetId: 'clean-cache', metadata: result })
+    return ok(result)
+  }
+  if (body.action === 'scrub-run') {
+    try {
+      const result = await scrubAll(body.cursor)
+      if (result.changed) await auditAdmin({ req, actor: g.admin, action: 'downloads.scrub', targetType: 'content', targetId: 'all', metadata: { changed: result.changed, images: result.imagesCopied } })
+      return ok(result)
+    } catch (error) { return failure(error) }
+  }
   const linkId = Number(body.linkId)
   if (!Number.isSafeInteger(linkId) || linkId <= 0) return err('invalid link')
   try {

@@ -255,6 +255,15 @@ export async function fxProductInput(b: Record<string, any>, existing: Partial<F
   return { fields: { ...fields, repricedAt: new Date() }, prices, fxCurrency }
 }
 
+/** A variant's foreign cost from its old price relative to the product's (0 = same as the product). */
+export function proportionalCost(productCost: bigint, variantPrice: number, productPrice: number): bigint {
+  if (!(productCost > 0n) || !Number.isFinite(variantPrice) || !Number.isFinite(productPrice) || variantPrice <= 0 || productPrice <= 0) return 0n
+  const ratio = variantPrice / productPrice
+  if (Math.abs(ratio - 1) < 0.0005) return 0n
+  const minor = BigInt(Math.max(1, Math.round(Number(productCost) * ratio)))
+  return minor
+}
+
 /** Rewrites the price fields of a product body with the FX-computed ones (variants included). */
 export async function applyFxToBody(b: Record<string, any>, existing: Partial<FxFields> | undefined, sellCurrency: string): Promise<{ body: Record<string, any>; fields: Record<string, unknown> }> {
   const fx = await fxProductInput(b, existing, sellCurrency)
@@ -263,8 +272,13 @@ export async function applyFxToBody(b: Record<string, any>, existing: Partial<Fx
   const decimal = (minor: bigint) => (minor > 0n ? minorToDecimal(minor, sellCurrency) : '')
   const body: Record<string, any> = { ...b, price: decimal(prices.priceMinor), compareAtPrice: decimal(prices.compareAtMinor), memberPrice: decimal(prices.memberPriceMinor) }
   if (Array.isArray(b.variants)) {
+    // Switching a fixed-price product to FX: a variant without its own foreign cost keeps its price
+    // difference (a white shirt dearer than a black one) by getting a cost in the same proportion.
+    const switching = existing?.pricingMode !== 'FX'
+    const oldProduct = Number(String(b.price ?? '').replace(/[,،٬\s]/g, ''))
     body.variants = b.variants.map((variant: Record<string, unknown>) => {
-      const own = decimalInput(variant.fxAmount, fx.fxCurrency, 'قیمت ارزی تنوع')
+      let own = decimalInput(variant.fxAmount, fx.fxCurrency, 'قیمت ارزی تنوع')
+      if (!own && switching) own = proportionalCost(fx.fields.fxAmountMinor, Number(variant.price), oldProduct)
       return { ...variant, fxAmountMinor: own, price: decimal(prices.variant(own)), compareAtPrice: '', memberPrice: '' }
     })
   }
@@ -374,4 +388,48 @@ export async function testFxSource(input: Record<string, unknown>) {
   const config = normalizeFxConfig({ ...input, apiKey: apiKey === undefined ? previous.apiKey : apiKey ? encryptPanelCredential(apiKey) : '' }, previous)
   const result = await fetchRates(config)
   return { rates: result.rates, crossed: result.crossed }
+}
+
+/**
+ * Products still priced in a foreign currency (legacy USD-priced products) become Toman products whose price comes from
+ * that same foreign amount and the live rate: the dollar price is kept as the FX cost, variants and list/VIP prices too.
+ */
+export async function convertForeignProducts(options: { dryRun?: boolean; sell?: 'IRT' | 'IRR' } = {}) {
+  const sell = options.sell === 'IRR' ? 'IRR' : 'IRT'
+  const rates = await loadRates()
+  const rows = await db.product.findMany({
+    where: { pricingMode: { not: 'FX' }, currency: { notIn: ['IRT', 'IRR', 'TMN'] } },
+    select: { id: true, name: true, currency: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, variants: { select: { id: true, priceMinor: true } } },
+  })
+  const convertible = rows.filter((row) => FX_CODES.includes(normalizeCurrency(row.currency)) && rates[normalizeCurrency(row.currency)] > 0)
+  const missing = [...new Set(rows.filter((row) => !convertible.includes(row)).map((row) => row.currency))]
+  if (options.dryRun) return { products: convertible.map((row) => ({ id: row.id, name: row.name, currency: row.currency, price: minorToDecimal(row.priceMinor, row.currency) })), missingRates: missing, converted: 0 }
+  for (const row of convertible) {
+    const code = normalizeCurrency(row.currency)
+    await db.$transaction([
+      db.product.update({ where: { id: row.id }, data: {
+        pricingMode: 'FX', fxCurrency: code, fxAmountMinor: row.priceMinor,
+        fxCompareAtMinor: row.compareAtMinor > row.priceMinor ? row.compareAtMinor : 0n,
+        fxMemberMinor: row.memberPriceMinor > 0n && row.memberPriceMinor < row.priceMinor ? row.memberPriceMinor : 0n,
+        markupBps: 0, markupFixedMinor: 0n, currency: sell,
+      } }),
+      // A variant with the product's own price follows the product (0); others keep their own foreign cost.
+      ...row.variants.map((variant) => db.productVariant.update({ where: { id: variant.id }, data: { fxAmountMinor: variant.priceMinor === row.priceMinor ? 0n : variant.priceMinor, compareAtMinor: 0n, memberPriceMinor: 0n } })),
+    ])
+  }
+  // Every converted price is recomputed, even when the rounded Toman amount happens to equal the old minor amount.
+  if (convertible.length) await forceReprice(convertible.map((row) => row.id))
+  return { products: [], missingRates: missing, converted: convertible.length }
+}
+
+async function forceReprice(ids: number[]) {
+  const [rates, config] = await Promise.all([loadRates(), getFxConfig()])
+  const products = await db.product.findMany({ where: { id: { in: ids }, pricingMode: 'FX' }, select: { id: true, currency: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, variants: { select: { id: true, fxAmountMinor: true } } } })
+  for (const product of products) {
+    const prices = fxProductPrices(product, rates, config.roundToman)
+    await db.$transaction([
+      db.product.update({ where: { id: product.id }, data: { priceMinor: prices.priceMinor, price: legacyNumber(prices.priceMinor, product.currency), compareAtMinor: prices.compareAtMinor, memberPriceMinor: prices.memberPriceMinor, repricedAt: new Date() } }),
+      ...product.variants.map((variant) => { const priceMinor = prices.variant(variant.fxAmountMinor); return db.productVariant.update({ where: { id: variant.id }, data: { priceMinor, price: legacyNumber(priceMinor, product.currency) } }) }),
+    ])
+  }
 }

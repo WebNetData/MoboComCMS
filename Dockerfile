@@ -34,8 +34,9 @@ ENV NODE_ENV=production \
 
 # pg_dump 17 keeps the optional in-app encrypted backup compatible with the
 # recommended PostgreSQL 17 deployment. curl/tini are operational utilities.
+# ffmpeg, 7z and zip clean downloaded files (admin → downloads, off by default).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg tini openssl \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg tini openssl ffmpeg p7zip-full zip \
  && install -d /usr/share/postgresql-common/pgdg \
  && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
  && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
@@ -51,7 +52,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/deploy ./deploy
 
-RUN mkdir -p /app/storage/covers /app/storage/backups /app/storage/receipts /app/storage/forum /app/storage/tickets /app/var \
+RUN mkdir -p /app/storage/covers /app/storage/clean-cache /app/storage/backups /app/storage/receipts /app/storage/forum /app/storage/tickets /app/var \
  && chown -R node:node /app/storage /app/var
 USER node
 EXPOSE 3000

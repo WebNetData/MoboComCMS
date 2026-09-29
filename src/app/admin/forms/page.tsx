@@ -68,11 +68,11 @@ export default function FormsAdmin() {
     const list = await load()
     if (kind === 'duplicate') { setForm(structuredClone(data)); setDirty(false); say('ok', 'کپی ساخته شد.') } else { setForm(list[0] ? structuredClone(list[0]) : null); setDirty(false); if (!list.length) setPicking(true); say('ok', 'فرم حذف شد.') }
   }
-  function fromTemplate(t: Template | null) {
+  function fromTemplate(template: Template | null) {
     if (!confirmLeave()) return
-    const base = t ? structuredClone(t.form) : blankForm()
+    const base = template ? structuredClone(template.form) : blankForm()
     // A template's address may already exist; the admin can change it before saving.
-    if (t && forms.some((f) => f.slug === base.slug)) base.slug = `${base.slug}-${Date.now().toString(36).slice(-4)}`
+    if (template && forms.some((f) => f.slug === base.slug)) base.slug = `${base.slug}-${Date.now().toString(36).slice(-4)}`
     setForm(base as FormDefinition); setDirty(true); setTab('build'); setPicking(false); setNotice(null)
   }
 

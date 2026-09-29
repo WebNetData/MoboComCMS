@@ -11,6 +11,8 @@
  *     redirect target cannot be reshared.
  */
 
+import { normalizeWords, type LinkMode } from '@/modules/downloads/domain/scrub'
+
 export type SigningMethod = 'nginx' | 'hmac'
 
 export interface SigningHost {
@@ -43,6 +45,24 @@ export interface DownloadSettings {
   maskExclude: string[]
   /** How long a masked link keeps working. */
   maskTtlHours: number
+  /** Saved file name: {title} {label} {quality} {site} {name}; empty keeps the source name minus the listed words. */
+  renamePattern: string
+  /** Source site names/domains removed from copied text and file names. */
+  scrubWords: string[]
+  /** Links unwrapped in copied rich text: none, those to a listed source, or every link to another site. */
+  scrubLinks: LinkMode
+  /** Copy images that still live on other sites to this server (covers, screenshots, images in text). */
+  autoLocalize: boolean
+  /** Clean inside downloaded files (a cleaned copy is kept on this server): MP3 tags, video metadata, archive junk. All off by default. */
+  cleanAudio: boolean
+  cleanVideo: boolean
+  cleanArchive: boolean
+  /** Larger files are passed through unchanged. */
+  cleanMaxMb: number
+  /** Disk kept for cleaned copies; the least recently used are removed beyond it. */
+  cleanCacheGb: number
+  /** Written into cleaned files (MP3 comment, video comment), e.g. "دانلود از موبوکام". */
+  tagComment: string
 }
 
 export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
@@ -56,6 +76,16 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   maskMode: 'external',
   maskExclude: [],
   maskTtlHours: 12,
+  renamePattern: '{title} {quality} - {site}',
+  scrubWords: [],
+  scrubLinks: 'listed',
+  autoLocalize: true,
+  cleanAudio: false,
+  cleanVideo: false,
+  cleanArchive: false,
+  cleanMaxMb: 800,
+  cleanCacheGb: 20,
+  tagComment: '',
 }
 
 export const NGINX_DEFAULT_EXPRESSION = '{expires}{uri} {secret}'
@@ -112,6 +142,16 @@ export function normalizeDownloadSettings(input: Record<string, unknown> = {}, p
     maskMode: input.maskMode === undefined ? previous.maskMode ?? d.maskMode : input.maskMode === 'off' ? 'off' : 'external',
     maskExclude: input.maskExclude === undefined ? previous.maskExclude ?? [] : [...new Set((Array.isArray(input.maskExclude) ? input.maskExclude : String(input.maskExclude).split(/[\s,،]+/)).map(normalizeHost).filter(Boolean))].slice(0, 50),
     maskTtlHours: input.maskTtlHours === undefined ? previous.maskTtlHours ?? d.maskTtlHours : int(input.maskTtlHours, 1, 24 * 14, d.maskTtlHours),
+    renamePattern: input.renamePattern === undefined ? previous.renamePattern ?? d.renamePattern : String(input.renamePattern).replace(/[\u0000-\u001f/\\?#%"<>|*:]/g, ' ').trim().slice(0, 120),
+    scrubWords: input.scrubWords === undefined ? previous.scrubWords ?? [] : normalizeWords(input.scrubWords),
+    scrubLinks: input.scrubLinks === undefined ? previous.scrubLinks ?? d.scrubLinks : input.scrubLinks === 'all' || input.scrubLinks === 'off' ? input.scrubLinks : 'listed',
+    autoLocalize: input.autoLocalize === undefined ? previous.autoLocalize ?? d.autoLocalize : input.autoLocalize === true,
+    cleanAudio: input.cleanAudio === undefined ? previous.cleanAudio ?? false : input.cleanAudio === true,
+    cleanVideo: input.cleanVideo === undefined ? previous.cleanVideo ?? false : input.cleanVideo === true,
+    cleanArchive: input.cleanArchive === undefined ? previous.cleanArchive ?? false : input.cleanArchive === true,
+    cleanMaxMb: input.cleanMaxMb === undefined ? previous.cleanMaxMb ?? d.cleanMaxMb : int(input.cleanMaxMb, 1, 20_000, d.cleanMaxMb),
+    cleanCacheGb: input.cleanCacheGb === undefined ? previous.cleanCacheGb ?? d.cleanCacheGb : int(input.cleanCacheGb, 1, 2_000, d.cleanCacheGb),
+    tagComment: input.tagComment === undefined ? previous.tagComment ?? '' : String(input.tagComment).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 150),
   }
 }
 

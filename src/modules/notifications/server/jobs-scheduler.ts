@@ -84,6 +84,11 @@ const JOBS: Job[] = [
     name: 'fx', everyMs: 60_000,
     run: async () => (await import('@/modules/fx/server/fx')).runFxJob(),
   },
+  {
+    // New and edited content: copies images from other sites here and removes source names and links.
+    name: 'scrub', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/downloads/server/scrub')).scrubRecent(),
+  },
 ]
 
 export function startJobScheduler() {

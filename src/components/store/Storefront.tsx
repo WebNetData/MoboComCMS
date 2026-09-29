@@ -40,6 +40,7 @@ export function ProductTile({ product, rank }: { product: ProductCard; rank?: nu
       <span className="sx-tile-art">
         {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
+        {product.inStock && product.discount > 0 && <span className="sx-tile-off num">{fa(product.discount)}٪</span>}
         {product.vipOnly && <span className="sx-flag is-vip">VIP</span>}
         {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />تحویل آنی</span>}
       </span>

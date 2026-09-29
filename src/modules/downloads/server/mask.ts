@@ -4,6 +4,8 @@ import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { getDownloadSettings } from '@/modules/downloads/server/guard'
 import { contentTypeFor, decodeNamePath, dispositionFor, encodeName, fileNameOf, resolveSibling, shouldMask } from '@/modules/downloads/domain/mask'
+import { downloadFileName } from '@/modules/downloads/domain/scrub'
+import { cleanedCopy, serveCleaned, type FileTags } from '@/modules/downloads/server/clean'
 
 // Masked file links (/dl/<token>/<name>): the real URL of a file on another
 // host is encrypted into the token (AES-256-GCM, so it cannot be read or
@@ -11,7 +13,7 @@ import { contentTypeFor, decodeNamePath, dispositionFor, encodeName, fileNameOf,
 // visitor, forwarding range requests so downloads can resume and video/audio
 // can seek. Visitors only ever see this site's domain.
 
-type Payload = { u: string; e: number; d: 0 | 1; n: string }
+type Payload = { u: string; e: number; d: 0 | 1; n: string; m?: FileTags }
 
 const key = () => createHash('sha256').update(`${authSecret()}:masked-file-links:v1`).digest()
 
@@ -33,6 +35,11 @@ export function openLink(token: string): Payload | null {
   } catch { return null }
 }
 
+async function siteBrand() {
+  const settings = await getSettings().catch(() => ({} as Record<string, string>))
+  return settings.brandName || ''
+}
+
 async function siteHost() {
   const settings = await getSettings().catch(() => ({} as Record<string, string>))
   for (const candidate of [settings.siteUrl, process.env.NEXTAUTH_URL]) {
@@ -41,16 +48,24 @@ async function siteHost() {
   return ''
 }
 
+/** What the file is, for its saved name (see the rename pattern in the download settings). */
+export type FileContext = { title?: string; label?: string; quality?: string }
+
 /**
  * The address to send a visitor to for a file: a masked /dl/ path on this
  * domain when the file lives elsewhere (and masking is on), otherwise the URL
  * itself. `download` makes the browser save the file; otherwise it plays inline.
+ * The file is saved under this site's name for it, not the source's file name.
  */
-export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string }): Promise<string> {
+export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string; context?: FileContext; tags?: FileTags }): Promise<string> {
   const settings = await getDownloadSettings()
   if (!shouldMask(rawUrl, { mode: settings.maskMode, siteHost: await siteHost(), exclude: settings.maskExclude })) return rawUrl
-  const name = options.name || fileNameOf(rawUrl)
-  const token = sealLink({ u: rawUrl, e: Math.floor(Date.now() / 1000) + settings.maskTtlHours * 3600, d: options.download ? 1 : 0, n: name })
+  const original = fileNameOf(rawUrl)
+  const name = options.name || downloadFileName({
+    pattern: options.context?.title ? settings.renamePattern : '', original, words: settings.scrubWords,
+    title: options.context?.title, label: options.context?.label, quality: options.context?.quality, site: await siteBrand(),
+  })
+  const token = sealLink({ u: rawUrl, e: Math.floor(Date.now() / 1000) + settings.maskTtlHours * 3600, d: options.download ? 1 : 0, n: name, ...(options.download && options.tags ? { m: options.tags } : {}) })
   return `/dl/${token}/${encodeName(name)}`
 }
 
@@ -69,6 +84,12 @@ export async function serveMasked(req: Request, token: string, nameSegments: str
   const target = resolveSibling(payload.u, payload.n, requested === payload.n ? '' : requested)
   if (!target) return notFound()
   const name = requested && requested !== payload.n ? requested.split('/').pop() || payload.n : payload.n
+
+  // Downloads of a kind the admin chose to clean come from a cleaned copy on this server.
+  if (payload.d === 1 && target === payload.u && (req.method === 'GET' || req.method === 'HEAD')) {
+    const cleaned = await cleanedCopy({ url: target }, name, payload.m || {}).catch(() => null)
+    if (cleaned) return serveCleaned(req, cleaned, name, true)
+  }
 
   const headers: Record<string, string> = { Accept: '*/*', 'User-Agent': req.headers.get('user-agent') || 'Mozilla/5.0' }
   const range = req.headers.get('range')

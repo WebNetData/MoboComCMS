@@ -137,9 +137,18 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
   const stat = await fs.stat(file).catch(() => null)
   if (!stat?.isFile()) return new Response('فایل پیدا نشد', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   const name = parts[parts.length - 1]
+  // Files kept here may still carry their source's tags: served from a cleaned copy when the admin switched that on.
+  const playable = /\.(mp3|m4a|aac|ogg|opus|wav|flac|mp4|m4v|webm|m3u8|ts|vtt|jpe?g|png|webp|gif|avif|pdf)$/i.test(name)
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    const { cleanedCopy, serveCleaned } = await import('@/modules/downloads/server/clean')
+    // A download waits for its cleaned copy; a player streaming in place uses it once it is ready.
+    const download = !playable || new URL(req.url).searchParams.has('dl')
+    const cleaned = await cleanedCopy({ file }, name, { title: name.replace(/\.[^.]+$/, '') }, { wait: download && !req.headers.get('range') }).catch(() => null)
+    if (cleaned) return serveCleaned(req, cleaned, name, !playable)
+  }
   const headers = new Headers({
     'Content-Type': contentTypeFor(name, null), 'Accept-Ranges': 'bytes', 'Last-Modified': stat.mtime.toUTCString(), ETag: `"${stat.size.toString(36)}-${Math.round(stat.mtimeMs).toString(36)}"`,
-    'Content-Disposition': dispositionFor(name, !/\.(mp3|m4a|aac|ogg|opus|wav|flac|mp4|m4v|webm|m3u8|ts|vtt|jpe?g|png|webp|gif|avif|pdf)$/i.test(name)),
+    'Content-Disposition': dispositionFor(name, !playable),
     'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'X-Accel-Buffering': 'no',
   })
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('range') || '')

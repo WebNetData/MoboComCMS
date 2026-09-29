@@ -3,14 +3,15 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
 type Host = { host: string; method: 'nginx' | 'hmac'; secret: string; hasSecret?: boolean; ttlMinutes: number; expression: string; tokenParam: string; expiresParam: string }
-type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[]; maskMode: 'external' | 'off'; maskExclude: string[]; maskTtlHours: number }
+type Settings = { enforceTokens: boolean; tokenTtlMinutes: number; requireLogin: boolean; guestDaily: number; memberDaily: number; vipDaily: number; hosts: Host[]; maskMode: 'external' | 'off'; maskExclude: string[]; maskTtlHours: number; renamePattern: string; scrubWords: string[]; scrubLinks: 'off' | 'listed' | 'all'; autoLocalize: boolean; cleanAudio: boolean; cleanVideo: boolean; cleanArchive: boolean; cleanMaxMb: number; cleanCacheGb: number; tagComment: string }
+type ScrubReport = { sections: { label: string; pending: number; total: number }[]; pending: number; words: number }
 type QueueEntry = {
   link: { id: number; label: string; quality: string; url: string; disabled: boolean; clicks: number; kind: string }
   owner: { title: string; path: string; admin: string }
   reports: { id: number; reason: string; note: string; createdAt: string; userId: number | null }[]
 }
 type Stats = { series: { day: string; count: number }[]; today: number; total: number; members: number; top: { key: string; count: number; title: string; path: string }[]; openReports: number; disabledLinks: number }
-type Data = { settings: Settings; stats: Stats; queue: QueueEntry[]; reasons: { id: string; label: string }[] }
+type Data = { settings: Settings; stats: Stats; queue: QueueEntry[]; reasons: { id: string; label: string }[]; tools: { ffmpeg: boolean; sevenZip: boolean; zip: boolean }; cleanCache: { files: number; bytes: number; working: number } }
 type Tab = 'reports' | 'stats' | 'settings'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
@@ -24,11 +25,13 @@ export default function AdminDownloadsPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const [probes, setProbes] = useState<Record<number, string>>({})
+  const [wordsText, setWordsText] = useState('')
+  const [scrub, setScrub] = useState<{ report: ScrubReport | null; running: boolean; progress: string }>({ report: null, running: false, progress: '' })
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/downloads', { cache: 'no-store' }).catch(() => null)
     const body = await response?.json().catch(() => null)
-    if (response?.ok && body) { setData(body); setSettings(body.settings) }
+    if (response?.ok && body) { setData(body); setSettings(body.settings); setWordsText((body.settings.scrubWords || []).join('\n')) }
     else setMessage({ text: body?.error || 'دریافت اطلاعات ناموفق بود', error: true })
   }, [])
   useEffect(() => { void load() }, [load])
@@ -49,6 +52,35 @@ export default function AdminDownloadsPage() {
     const response = await fetch('/api/admin/downloads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'probe', linkId }) }).catch(() => null)
     const result = await response?.json().catch(() => null)
     setProbes((current) => ({ ...current, [linkId]: result ? `${result.ok ? '✓' : '✗'} ${result.detail}${result.size ? ` (${result.size})` : ''}` : 'بررسی انجام نشد' }))
+  }
+
+  async function scrubAction(body: Record<string, unknown>) {
+    const response = await fetch('/api/admin/downloads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+    const result = await response?.json().catch(() => null)
+    if (!response?.ok) throw new Error(result?.error || 'انجام نشد')
+    return result
+  }
+
+  async function checkTraces() {
+    setScrub((current) => ({ ...current, running: true, progress: 'در حال بررسی محتوا…' }))
+    try { setScrub({ report: await scrubAction({ action: 'scrub-preview' }), running: false, progress: '' }) }
+    catch (error) { setScrub((current) => ({ ...current, running: false, progress: (error as Error).message })) }
+  }
+
+  async function cleanAll() {
+    if (!window.confirm('همهٔ محتوای ذخیره‌شده بررسی و پاک‌سازی می‌شود و تصاویر سایت‌های دیگر روی این سرور کپی می‌شوند. این کار برگشت‌پذیر نیست. ادامه می‌دهید؟')) return
+    let cursor = '', changed = 0, images = 0, failed = 0, scanned = 0
+    setScrub((current) => ({ ...current, running: true, progress: 'شروع شد…' }))
+    try {
+      for (;;) {
+        const result = await scrubAction({ action: 'scrub-run', cursor })
+        changed += result.changed; images += result.imagesCopied; failed += result.imagesFailed; scanned += result.scanned
+        setScrub((current) => ({ ...current, progress: `${fa(scanned)} مورد بررسی شد؛ ${fa(changed)} مورد پاک‌سازی و ${fa(images)} تصویر کپی شد…` }))
+        if (result.done) break
+        cursor = result.cursor
+      }
+      setScrub({ report: await scrubAction({ action: 'scrub-preview' }), running: false, progress: `تمام شد: ${fa(changed)} مورد پاک‌سازی و ${fa(images)} تصویر به این سرور کپی شد.${failed ? ` ${fa(failed)} تصویر دریافت نشد (سرور مبدأ در دسترس نبود یا اجازه نداد)؛ فردا دوباره امتحان می‌شود.` : ''}` })
+    } catch (error) { setScrub((current) => ({ ...current, running: false, progress: (error as Error).message })) }
   }
 
   if (!data || !settings) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
@@ -114,6 +146,34 @@ export default function AdminDownloadsPage() {
         <p className="muted fr-admin-wide">مثلاً <bdi dir="ltr">https://dl.other-site.ir/Tak/song.mp3</bdi> برای کاربر به شکل <bdi dir="ltr">https://دامنهٔ‌شما/dl/…/song.mp3</bdi> دیده می‌شود. فایل از سرور اصلی از طریق همین سایت برای کاربر فرستاده می‌شود (ادامهٔ دانلود نیمه‌کاره و جلو/عقب کردن پخش هم کار می‌کند)، پس ترافیک این دانلودها از پهنای باند سرور سایت مصرف می‌شود. فایل‌های روی دامنه و زیردامنه‌های خودتان مستقیم داده می‌شوند.</p>
         <label className="studio-field"><span>اعتبار لینک پنهان (ساعت)</span><input className="input" type="number" min={1} max={336} value={settings.maskTtlHours} onChange={(e) => setSettings({ ...settings, maskTtlHours: Number(e.target.value) })} /></label>
         <label className="studio-field"><span>سرورهایی که مستقیم لینک شوند (پنهان نشوند)</span><input className="input" dir="ltr" value={(settings.maskExclude || []).join(', ')} onChange={(e) => setSettings({ ...settings, maskExclude: e.target.value.split(/[\s,،]+/).filter(Boolean) })} placeholder="cdn.example.com, *.cloudfront.net" /></label>
+        <h2 className="fr-admin-wide">حذف ردپای سایت‌های منبع</h2>
+        <p className="muted fr-admin-wide">برای محتوایی که از سایت‌های دیگر کپی می‌کنید. محتوای تازه و ویرایش‌شده هر چند دقیقه خودکار پاک‌سازی می‌شود؛ برای محتوای قبلی از دکمهٔ «پاک‌سازی همهٔ محتوا» در پایین همین صفحه استفاده کنید.</p>
+        <label className="studio-field fr-admin-wide"><span>نام و دامنهٔ سایت‌های منبع (هر کدام در یک خط)</span><textarea className="textarea" dir="ltr" rows={4} value={wordsText} onChange={(e) => { setWordsText(e.target.value); setSettings({ ...settings, scrubWords: e.target.value.split(/[\n,،]+/).map((word) => word.trim()).filter(Boolean) }) }} placeholder={'musicfa.ir\nFilm2Media\nsoft98.ir'} /><small className="muted">این نام‌ها (همراه عبارت‌هایی مثل «دانلود از سایت …») از متن‌ها، عنوان‌ها، عنوان لینک‌ها و نام فایل‌های دانلودی حذف می‌شوند.</small></label>
+        <label className="studio-field"><span>لینک‌های داخل متن</span><select className="input" value={settings.scrubLinks} onChange={(e) => setSettings({ ...settings, scrubLinks: e.target.value as Settings['scrubLinks'] })}>
+          <option value="listed">لینک به سایت‌های منبع حذف شود (متن لینک می‌ماند)</option>
+          <option value="all">همهٔ لینک‌ها به سایت‌های دیگر حذف شود</option>
+          <option value="off">لینک‌ها دست نخورد</option>
+        </select></label>
+        <label className="studio-switch"><input type="checkbox" checked={settings.autoLocalize} onChange={(e) => setSettings({ ...settings, autoLocalize: e.target.checked })} />تصاویر سایت‌های دیگر (کاور، پوستر، اسکرین‌شات و عکس‌های داخل متن) خودکار روی همین سرور کپی شوند</label>
+        <label className="studio-field fr-admin-wide"><span>نام فایل هنگام دانلود</span><input className="input" value={settings.renamePattern} onChange={(e) => setSettings({ ...settings, renamePattern: e.target.value })} placeholder="{title} {quality} - {site}" /><small className="muted">
+          جایگزین‌ها: <code dir="ltr">{'{title}'}</code> عنوان مطلب، <code dir="ltr">{'{quality}'}</code> کیفیت، <code dir="ltr">{'{label}'}</code> عنوان لینک، <code dir="ltr">{'{site}'}</code> نام سایت شما. پسوند فایل حفظ می‌شود. خالی بگذارید تا نام اصلی فایل بماند و فقط نام سایت‌های منبع از آن حذف شود.
+          نمونه: <bdi>{(settings.renamePattern || '').replace('{title}', 'Oppenheimer').replace('{quality}', '1080p').replace('{label}', 'دانلود با کیفیت 1080p').replace('{site}', 'موبوکام').replace('{name}', 'Oppenheimer.2023.1080p') || 'Oppenheimer.2023.1080p'}.mkv</bdi>
+        </small></label>
+
+        <h2 className="fr-admin-wide">پاک‌سازی داخل فایل‌ها</h2>
+        <p className="muted fr-admin-wide">با روشن کردن هر گزینه، اولین دانلود هر فایل یک‌بار روی این سرور دریافت و پاک‌سازی می‌شود و از آن به بعد نسخهٔ تمیز از همین سرور دانلود می‌شود. تا نسخهٔ تمیز آماده شود (برای فایل‌های بزرگ ممکن است چند دقیقه طول بکشد) فایل اصلی تحویل داده می‌شود. این کار فضای دیسک و پهنای باند سرور را مصرف می‌کند؛ همه به‌طور پیش‌فرض خاموش‌اند.</p>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanAudio} onChange={(e) => setSettings({ ...settings, cleanAudio: e.target.checked })} />موزیک MP3: تگ‌ها، کاور و توضیحات سایت منبع حذف و عنوان، خواننده، آلبوم و کاور خودتان نوشته شود</label>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanVideo} disabled={!data.tools.ffmpeg && !settings.cleanVideo} onChange={(e) => setSettings({ ...settings, cleanVideo: e.target.checked })} />فیلم و سریال (MP4، MKV، WebM، MOV): عنوان، توضیحات، فصل‌بندی و نام ترک‌های صدا و زیرنویس پاک شود (کیفیت و زبان ترک‌ها تغییری نمی‌کند){!data.tools.ffmpeg && <b className="muted"> — نیازمند ffmpeg روی سرور</b>}</label>
+        <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.cleanArchive} disabled={!data.tools.sevenZip && !settings.cleanArchive} onChange={(e) => setSettings({ ...settings, cleanArchive: e.target.checked })} />نرم‌افزار و بازی (ZIP و 7z): میان‌برها و صفحه‌های وب (url، html، lnk) و فایل‌های متنی که نام سایت منبع دارند حذف و توضیح فایل زیپ پاک شود{!data.tools.sevenZip && <b className="muted"> — نیازمند 7z روی سرور</b>}</label>
+        <p className="muted fr-admin-wide">فایل‌های RAR و آرشیوهای رمزدار بدون تغییر تحویل داده می‌شوند. فایل‌های متنی فقط وقتی حذف می‌شوند که یکی از نام‌های سایت منبع (بخش بالا) در آن‌ها باشد.</p>
+        <label className="studio-field"><span>متن توضیح داخل فایل (اختیاری)</span><input className="input" value={settings.tagComment} maxLength={150} onChange={(e) => setSettings({ ...settings, tagComment: e.target.value })} placeholder="دانلود از موبوکام" /></label>
+        <label className="studio-field"><span>حداکثر حجم فایل برای پاک‌سازی (مگابایت)</span><input className="input" type="number" min={1} max={20000} value={settings.cleanMaxMb} onChange={(e) => setSettings({ ...settings, cleanMaxMb: Number(e.target.value) })} /></label>
+        <label className="studio-field"><span>فضای نگه‌داری نسخه‌های تمیز (گیگابایت)</span><input className="input" type="number" min={1} max={2000} value={settings.cleanCacheGb} onChange={(e) => setSettings({ ...settings, cleanCacheGb: Number(e.target.value) })} /></label>
+        <div className="fr-admin-wide fa-inline fa-wrap">
+          <span className="muted">نسخه‌های تمیز ذخیره‌شده: {fa(data.cleanCache.files)} فایل، {fa(Math.round(data.cleanCache.bytes / 1024 / 1024))} مگابایت{data.cleanCache.working ? ` — ${fa(data.cleanCache.working)} فایل در حال آماده‌سازی` : ''}</span>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy || !data.cleanCache.files} onClick={() => { if (window.confirm('همهٔ نسخه‌های تمیز حذف شوند؟ دانلودهای بعدی دوباره آماده می‌شوند.')) void send('POST', { action: 'clean-cache-clear' }, 'نسخه‌های تمیز حذف شدند') }}>حذف نسخه‌های تمیز</button>
+        </div>
+
         <h2 className="fr-admin-wide">لینک‌های موقت</h2>
         <label className="studio-switch fr-admin-wide"><input type="checkbox" checked={settings.enforceTokens} onChange={(e) => setSettings({ ...settings, enforceTokens: e.target.checked })} />لینک‌های دانلود امضاشده و موقت باشند (لینک کپی‌شده بعد از مدت اعتبار به صفحهٔ مطلب برمی‌گردد)</label>
         <label className="studio-field"><span>مدت اعتبار لینک صفحه (دقیقه)</span><input className="input" type="number" min={10} max={10080} value={settings.tokenTtlMinutes} onChange={(e) => setSettings({ ...settings, tokenTtlMinutes: Number(e.target.value) })} /></label>
@@ -144,6 +204,19 @@ export default function AdminDownloadsPage() {
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings({ ...settings, hosts: [...settings.hosts, { ...EMPTY_HOST }] })}>+ افزودن سرور دانلود</button>
         <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button></div>
       </form>
+
+      <div className="card fr-admin-form">
+        <h2 className="fr-admin-wide">پاک‌سازی همهٔ محتوا</h2>
+        <p className="muted fr-admin-wide">با تنظیمات ذخیره‌شدهٔ بالا، همهٔ مطالب مجله، موزیک، فیلم و سریال، بازی و نرم‌افزار بررسی می‌شوند: تصاویر سایت‌های دیگر روی این سرور کپی و نام و لینک سایت‌های منبع حذف می‌شود. اول تنظیمات را ذخیره کنید.</p>
+        <div className="fr-admin-actions fr-admin-wide">
+          <button type="button" className="btn btn-ghost btn-sm" disabled={scrub.running} onClick={() => void checkTraces()}>بررسی (بدون تغییر)</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={scrub.running} onClick={() => void cleanAll()}>پاک‌سازی همهٔ محتوا</button>
+        </div>
+        {scrub.progress && <p className="fr-admin-wide" role="status">{scrub.progress}</p>}
+        {scrub.report && <div className="table-wrap fr-admin-wide"><table className="table"><thead><tr><th>بخش</th><th>نیازمند پاک‌سازی</th><th>کل</th></tr></thead><tbody>
+          {scrub.report.sections.filter((row) => row.total).map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.pending ? <b>{fa(row.pending)}</b> : '✓'}</td><td>{fa(row.total)}</td></tr>)}
+        </tbody></table>{!scrub.report.words && <p className="muted">هنوز نام سایت منبعی وارد نکرده‌اید؛ فقط تصاویر بررسی شدند.</p>}</div>}
+      </div>
     </section>}
   </div>
 }
