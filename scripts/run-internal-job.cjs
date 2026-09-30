@@ -4,10 +4,14 @@ const kind = process.argv[2]
 const paths = {
   fulfillment: '/api/internal/fulfillment/run?limit=50',
   reminders: '/api/internal/reminders/run',
+  engage: '/api/internal/engage/run',
+  'store-marketing': '/api/internal/store-marketing/run',
+  // Background queue (bulk import slices and other heavy admin work) and stalled-import recovery.
+  imports: '/api/internal/imports/run',
 }
 const path = paths[kind]
 if (!path) {
-  console.error('usage: node scripts/run-internal-job.cjs fulfillment|reminders')
+  console.error(`usage: node scripts/run-internal-job.cjs ${Object.keys(paths).join('|')}`)
   process.exit(2)
 }
 
