@@ -110,6 +110,25 @@ export function toDate(value: unknown): Date | null {
   return d
 }
 
+/** Seconds from "3:45", "1:02:03", "225" (seconds) or "3m 45s". */
+export function toDuration(value: unknown): number | null {
+  if (isBlank(value)) return null
+  if (typeof value === 'number') { if (!Number.isFinite(value) || value < 0 || value > 36_000) throw new ValueError(`مدت نامعتبر: ${value}`); return Math.round(value) }
+  const text = latinDigits(toText(value, 40)).trim().toLowerCase()
+  let seconds: number | null = null
+  if (/^\d+(\.\d+)?$/.test(text)) seconds = Math.round(Number(text))
+  else if (/^\d{1,3}(:\d{1,2}){1,2}$/.test(text)) {
+    const parts = text.split(':').map(Number)
+    if (parts.slice(1).some((p) => p > 59)) throw new ValueError(`مدت نامعتبر: ${text}`)
+    seconds = parts.reduce((total, part) => total * 60 + part, 0)
+  } else {
+    const m = /^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m(?:in)?)?\s*(?:(\d+)\s*s(?:ec)?)?$/.exec(text)
+    if (m && (m[1] || m[2] || m[3])) seconds = Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)
+  }
+  if (seconds === null || seconds > 36_000) throw new ValueError(`مدت نامعتبر: ${text}`)
+  return seconds
+}
+
 /** A list from an array or "a, b ، c | d". */
 export function toList(value: unknown, max = 50): string[] {
   if (isBlank(value)) return []

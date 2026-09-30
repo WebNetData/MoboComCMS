@@ -36,9 +36,30 @@ export function parseFile(name: string, bytes: Uint8Array, sheet = ''): Parsed {
   return { format, rows: book.rows, sheets: book.sheets, sheet: book.sheet }
 }
 
-function decodeText(bytes: Uint8Array): string {
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes)
-  return text.replace(/^﻿/, '')
+/**
+ * Text files must be valid UTF-8 (the usual export), UTF-16 with its byte
+ * order mark (Excel's "Unicode text"), or Windows-1256 (older Persian Excel
+ * CSV). Anything else is refused instead of being read as garbage.
+ */
+export function decodeText(bytes: Uint8Array): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return strictDecode(bytes.subarray(2), 'utf-16le')
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return strictDecode(bytes.subarray(2), 'utf-16be')
+  const utf8 = tryDecode(bytes, 'utf-8')
+  if (utf8 !== null) return utf8.replace(/^\ufeff/, '')
+  const arabic = tryDecode(bytes, 'windows-1256')
+  if (arabic !== null && /[\u0600-\u06ff]/.test(arabic)) return arabic
+  throw new ImportFileError('رمزگذاری (encoding) فایل معتبر نیست؛ فایل را با UTF-8 ذخیره کنید')
+}
+
+function tryDecode(bytes: Uint8Array, encoding: string): string | null {
+  try { return new TextDecoder(encoding, { fatal: true }).decode(bytes) } catch { return null }
+}
+
+function strictDecode(bytes: Uint8Array, encoding: string): string {
+  const text = tryDecode(bytes, encoding)
+  if (text === null) throw new ImportFileError('رمزگذاری (encoding) فایل معتبر نیست؛ فایل را با UTF-8 ذخیره کنید')
+  if (text.includes('\u0000')) throw new ImportFileError('فایل متنی نیست')
+  return text
 }
 
 const cell = (value: string) => {
@@ -250,6 +271,7 @@ export function readXlsx(bytes: Uint8Array, wanted = ''): { rows: Record<string,
     rid: /\br:id="([^"]+)"/.exec(m[0])?.[1] || /\bid="([^"]+)"/.exec(m[0])?.[1] || '',
   }))
   if (!sheets.length) throw new ImportFileError('فایل XLSX هیچ برگه‌ای ندارد')
+  if (sheets.length > LIMITS.xlsxSheets) throw new ImportFileError(`فایل XLSX بیش از ${LIMITS.xlsxSheets} برگه دارد`)
   const chosen = sheets.find((sheet) => sheet.name === wanted) || sheets[0]
   let target = targets.get(chosen.rid) || 'worksheets/sheet1.xml'
   target = target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`
@@ -258,6 +280,7 @@ export function readXlsx(bytes: Uint8Array, wanted = ''): { rows: Record<string,
   const shared = [...read('xl/sharedStrings.xml').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map((m) => cell(textOf(m[1])))
 
   const matrix: unknown[][] = []
+  let cells = 0
   for (const rowMatch of sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
     if (matrix.length > LIMITS.rows + 1) throw new ImportFileError(`تعداد ردیف‌ها بیش از ${LIMITS.rows} است`)
     const values: unknown[] = []
@@ -268,6 +291,7 @@ export function readXlsx(bytes: Uint8Array, wanted = ''): { rows: Record<string,
       const col = ref ? columnIndex(ref) : next
       next = col + 1
       if (col >= LIMITS.columns) throw new ImportFileError(`تعداد ستون‌ها بیش از ${LIMITS.columns} است`)
+      if (++cells > LIMITS.xlsxCells) throw new ImportFileError(`تعداد خانه‌های برگه بیش از ${LIMITS.xlsxCells.toLocaleString('en-US')} است`)
       const type = /\bt="([^"]+)"/.exec(attrs)?.[1] || 'n'
       const body = c[2] || ''
       const v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1]

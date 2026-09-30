@@ -53,6 +53,33 @@ export interface ImportContext {
   previewLines: (fields: FieldDef[], values: Record<string, unknown>, allowed: Record<string, unknown>, format?: (key: string, value: unknown) => string) => PreviewLine[]
 }
 
+/**
+ * Something the admin must decide about, reported by the dry run with its
+ * context: an attribute the product's attribute group does not define, or a
+ * value its options do not offer. The import options say what happens to it.
+ */
+export type Finding = {
+  type: 'unknownAttribute' | 'newOption'
+  /** The attribute's source name (unknownAttribute) or its key in the group (newOption). */
+  attribute: string
+  label: string
+  value?: string
+  group: string
+  product: string
+  /** What the configured policy does with it. */
+  outcome: 'ignored' | 'added' | 'mapped' | 'rejected' | 'needs-mapping'
+  /** The group's current options (to map a new value to one of them). */
+  options?: string[]
+  variation?: boolean
+  /** Key of this item in the manual map option (attributeMap / optionMap). */
+  mapKey?: string
+}
+
+/** A write failed part-way: the rows already changed, so rollback still sees them. */
+export class ApplyFailure extends Error {
+  constructor(message: string, readonly changes: Change[]) { super(message) }
+}
+
 /** What one record will do. Produced without writing anything. */
 export interface Plan {
   action: Action
@@ -62,6 +89,7 @@ export interface Plan {
   messages: Message[]
   preview: PreviewCard
   counters: Counters
+  findings?: Finding[]
   /** Adapter-private resolved data handed to apply(). */
   data?: unknown
 }
@@ -92,6 +120,8 @@ export interface ImportAdapter {
   module: string | null
   fields: FieldDef[]
   variantFields?: FieldDef[]
+  /** What the nested/grouped rows are called in the wizard ("تنوع‌ها", "قسمت‌ها"). */
+  variantLabel?: string
   supports: { variants?: boolean; attributes?: boolean; specs?: boolean }
   /** How an existing row is recognised, in order (shown in the wizard). */
   identity: string[]
@@ -109,6 +139,8 @@ export interface ImportAdapter {
   apply(item: SourceItem, plan: Plan, ctx: ImportContext): Promise<ApplyResult>
   /** Undoes one record's changes where it is still safe (rows changed since are reported, not overwritten). */
   rollback(changes: Change[]): Promise<RollbackResult>
+  /** Once after a job (e.g. recount section categories instead of after every record). */
+  finish?(): Promise<void>
 }
 
 const registry = new Map<string, ImportAdapter>()

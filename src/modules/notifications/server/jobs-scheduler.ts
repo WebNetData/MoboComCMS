@@ -44,6 +44,11 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Bulk import: restarts import jobs whose queue chain was lost and prunes week-old drafts (the work itself runs on the queue).
+    name: 'imports', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/imports/server/engine')).sweepImportJobs(),
+  },
+  {
     // Advertising: writes impression/click counters, ends finished campaigns, prunes old daily rows.
     name: 'ads', everyMs: 60_000,
     run: async (tick) => {

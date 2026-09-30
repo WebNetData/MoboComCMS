@@ -4,7 +4,7 @@
  * rest of the record still imports). Pure.
  */
 import type { FieldDef, Message } from '@/modules/imports/domain/types'
-import { isBlank, normalizeName, toBool, toCategoryPaths, toDate, toImages, toInt, toList, toMoney, toNumber, toText, toUrl, latinSlug, ValueError } from '@/modules/imports/domain/values'
+import { isBlank, normalizeName, toBool, toCategoryPaths, toDate, toImages, toInt, toList, toMoney, toNumber, toText, toUrl, latinSlug, toDuration, ValueError } from '@/modules/imports/domain/values'
 
 export type Coerced = { values: Record<string, unknown>; messages: Message[] }
 
@@ -34,6 +34,7 @@ export function coerceField(field: FieldDef, raw: unknown, options: { categorySe
       return hit.value
     }
     case 'json': return raw
+    case 'duration': return toDuration(raw)
   }
 }
 

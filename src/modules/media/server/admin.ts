@@ -483,6 +483,49 @@ export async function GET(req: NextRequest) {
   return ok(expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })))
 }
 
+/**
+ * Saves one item exactly as the admin form does (validation, nested links/seasons,
+ * section categories). Shared with the bulk import engine; the caller recounts taxonomy.
+ */
+export async function saveMediaItem(type: string, body: Input, id: number | null): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
+  const resource = RESOURCES[type]
+  if (!resource) throw new Error(`Unknown resource: ${type}`)
+  const existing = id ? await resource.delegate(db).findUnique({ where: { id } }) : null
+  if (id && !existing) throw new Error('not found')
+  const data = await resource.parse(body, existing)
+  const row = await db.$transaction(async (tx) => {
+    const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data })
+    if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
+    if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
+    return saved
+  }, { timeout: 30_000 })
+  if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
+  return { row, existing }
+}
+
+/** Deletes one item with its links and section categories (import rollback). */
+export async function deleteMediaItem(type: string, id: number) {
+  const resource = RESOURCES[type]
+  if (!resource) throw new Error(`Unknown resource: ${type}`)
+  const row = await db.$transaction(async (tx) => {
+    if (resource.onDelete) await resource.onDelete(tx, id)
+    if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
+    return resource.delegate(tx).delete({ where: { id } })
+  })
+  if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
+}
+
+/** Recounts a resource's section categories after many writes. */
+export async function recountMediaTaxonomy(type: string) {
+  const resource = RESOURCES[type]
+  if (resource?.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+}
+
+/** Existing download links of an item (import merges new links with them instead of dropping them). */
+export async function mediaLinksOf(ownerType: LinkOwner, id: number) {
+  return (await linksFor(ownerType, [id])).get(id) || []
+}
+
 async function write(req: NextRequest, mode: 'create' | 'update') {
   const found = resourceOf(req)
   if (!found) return err('Unknown resource', 404)
@@ -496,18 +539,10 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
   const id = mode === 'update' ? Number(body.id) : 0
   if (mode === 'update' && (!Number.isSafeInteger(id) || id <= 0)) return err('invalid id')
   try {
-    const existing = mode === 'update' ? await resource.delegate(db).findUnique({ where: { id } }) : null
-    if (mode === 'update' && !existing) return err('not found', 404)
-    const data = await resource.parse(body, existing)
-    const row = await db.$transaction(async (tx) => {
-      const saved = mode === 'create' ? await resource.delegate(tx).create({ data }) : await resource.delegate(tx).update({ where: { id }, data })
-      if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
-      if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
-      return saved
-    }, { timeout: 30_000 })
+    if (mode === 'update' && !await resource.delegate(db).findUnique({ where: { id } })) return err('not found', 404)
+    const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null)
     if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
-    if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
     return ok({ id: row.id, slug: row.slug }, mode === 'create' ? 201 : 200)
   } catch (error) {
     return failure(error)

@@ -10,16 +10,23 @@ import { ImportFileError } from '@/modules/imports/domain/parse'
 import { addStats, type Stats } from '@/modules/imports/domain/report'
 import { normalizeSettings } from '@/modules/imports/domain/settings'
 import { LIMITS, type FieldDef, type ImportSettings, type Message, type PreviewCard, type PreviewLine, type SourceItem } from '@/modules/imports/domain/types'
-import { toText } from '@/modules/imports/domain/values'
+import { normalizeValue, toText } from '@/modules/imports/domain/values'
 import { deleteUpload, loadParsed } from '@/modules/imports/server/files'
 import { importImage, knownSources } from '@/modules/imports/server/media'
-import { getImporter, type ApplyResult, type Change, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
+import { ApplyFailure, getImporter, type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 import '@/modules/imports/server/adapters'
 
 /**
  * The import engine: settings → items → plans (preview and dry run, no
  * writes) → a background job that applies the plan record by record, with
  * progress, pause/resume/cancel, a per-record history and rollback.
+ *
+ * Execution runs on the site's BackgroundJob queue (kinds imports.run and
+ * imports.rollback): each queue job processes one time-boxed slice and
+ * enqueues the next. The import itself — settings, progress, statistics and
+ * one ImportRecord per source record — lives in ImportJob/ImportRecord, which
+ * the queue's cleanup never touches, so the history stays after queue rows
+ * are pruned.
  */
 
 export class ImportError extends Error {
@@ -196,6 +203,8 @@ export type DryRun = {
   duplicates: number
   blocking: string[]
   problems: { index: number; rows: number[]; title: string; action: string; messages: Message[] }[]
+  /** Unknown attributes and new attribute values, once each, with how many records have them. */
+  findings: (Finding & { count: number; products: string[] })[]
 }
 
 /** Plans every item without writing; `limit` plans only the first items (the preview). */
@@ -226,8 +235,9 @@ export async function planJob(job: Job, rawSettings: unknown, actor: Actor, limi
   const summary: DryRun = {
     settingsHash: settingsHash(settings), fileHash: job.fileHash, at: new Date().toISOString(),
     total: all.length, valid: 0, warnings: 0, invalid: 0, actions: {}, counters: {}, duplicates: 0, blocking,
-    problems: [],
+    problems: [], findings: [],
   }
+  const findings = new Map<string, Finding & { count: number; products: string[] }>()
   for (const [index, plan] of plans.entries()) {
     summary.actions[plan.action] = (summary.actions[plan.action] || 0) + 1
     addStats(summary.counters, plan.counters)
@@ -238,26 +248,25 @@ export async function planJob(job: Job, rawSettings: unknown, actor: Actor, limi
     else summary.valid++
     if (plan.counters.duplicates) summary.duplicates += plan.counters.duplicates
     if ((hasError || hasWarning) && summary.problems.length < 500) summary.problems.push({ index: items[index].index, rows: items[index].rows, title: plan.title, action: plan.action, messages: plan.messages.slice(0, 20) })
+    for (const finding of plan.findings || []) {
+      const key = `${finding.type}|${finding.group}|${finding.attribute}|${finding.type === 'newOption' ? normalizeValue(finding.value) : ''}`
+      const hit = findings.get(key)
+      if (hit) { hit.count++; if (hit.products.length < 5 && !hit.products.includes(finding.product)) hit.products.push(finding.product) }
+      else if (findings.size < 300) findings.set(key, { ...finding, count: 1, products: [finding.product] })
+    }
   }
+  summary.findings = [...findings.values()]
   return { settings, summary, previews: plans.slice(0, LIMITS.previewItems).map((plan) => plan.preview) as PreviewCard[] }
 }
 
 // ------------------------------------------------------------------ running
 
-type Kick = { timer?: ReturnType<typeof setTimeout> }
-const kicks = globalThis as typeof globalThis & { importKicks?: Map<number, Kick> }
-const kickMap = kicks.importKicks ??= new Map()
-
-/** Runs the job's next slice soon, in this process (the scheduler also picks up any due job). */
-export function kick(jobId: number, delay = 50) {
-  const entry = kickMap.get(jobId) || {}
-  if (entry.timer) return
-  entry.timer = setTimeout(() => {
-    entry.timer = undefined
-    runSlice(jobId).catch((error) => logEvent('error', 'imports.slice_failed', { jobId, error: String(error) }))
-  }, delay)
-  entry.timer.unref?.()
-  kickMap.set(jobId, entry)
+/** Queues the next slice on the site's background queue and nudges the queue to run now in this process. */
+export async function dispatch(kind: 'imports.run' | 'imports.rollback', jobId: number) {
+  const { enqueue, runQueue } = await import('@/modules/operations/server/queue')
+  await enqueue(kind, { jobId })
+  const timer = setTimeout(() => void runQueue(40_000).catch((error) => logEvent('error', 'imports.queue_failed', { jobId, error: String(error) })), 50)
+  timer.unref?.()
 }
 
 async function claim(jobId: number, statuses: string[]) {
@@ -275,10 +284,11 @@ function recordStatus(result: { action: string; messages: Message[] }) {
 }
 
 /** Processes records until the time budget ends, the job finishes, or it is paused/cancelled. */
-export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done: boolean }> {
-  if (!await claim(jobId, ['QUEUED', 'RUNNING'])) return { done: false }
+export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done: boolean; next: boolean }> {
+  // Held by another worker (it continues the chain), or paused/cancelled: nothing to do here.
+  if (!await claim(jobId, ['QUEUED', 'RUNNING'])) return { done: false, next: false }
   let job = await db.importJob.findUnique({ where: { id: jobId } })
-  if (!job) return { done: true }
+  if (!job) return { done: true, next: false }
   const started = Date.now()
   try {
     const adapter = adapterFor(job.adapter)
@@ -309,7 +319,8 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
             result = await adapter.apply(item, plan, ctx)
             result.messages = [...plan.messages.filter((m) => m.level !== 'info'), ...result.messages]
           } catch (error) {
-            result = { action: 'FAIL', entityType: '', entityId: plan.entityId, changes: [], counters: {}, messages: [...plan.messages, { level: 'error', text: error instanceof Error ? error.message.slice(0, 400) : 'خطای ناشناخته' }] }
+            // A failed record never stops the job; rows it managed to create are kept for rollback.
+            result = { action: 'FAIL', entityType: '', entityId: plan.entityId, changes: error instanceof ApplyFailure ? error.changes : [], counters: {}, messages: [...plan.messages, { level: 'error', text: error instanceof Error ? error.message.slice(0, 400) : 'خطای ناشناخته' }] }
           }
         }
         await db.importRecord.upsert({
@@ -329,20 +340,21 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
     }
     const finished = cursor >= items.length && !stop
     if (finished) {
+      await adapter.finish?.().catch((error) => logEvent('warn', 'imports.finish_failed', { jobId, error: String(error) }))
       const final = await finalStats(jobId, items.length)
-      await db.importJob.update({ where: { id: jobId }, data: { status: 'DONE', finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
-      await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.completed', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, file: job.fileName, ...final } })
-    } else {
-      await db.importJob.update({ where: { id: jobId }, data: { lockedUntil: null } })
-      const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true } })
-      if (current?.status === 'RUNNING') kick(jobId, 200)
+      const status = final.failed ? 'DONE_WITH_ERRORS' : 'DONE'
+      await db.importJob.update({ where: { id: jobId }, data: { status, finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
+      await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.completed', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, file: job.fileName, status, ...final } })
+      return { done: true, next: false }
     }
-    return { done: finished }
+    await db.importJob.update({ where: { id: jobId }, data: { lockedUntil: null } })
+    const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true } })
+    return { done: false, next: current?.status === 'RUNNING' }
   } catch (error) {
     const message = error instanceof ImportFileError || error instanceof ImportError ? error.message : error instanceof Error ? error.message : 'خطای ناشناخته'
     logEvent('error', 'imports.job_failed', { jobId, error: message })
     await db.importJob.update({ where: { id: jobId }, data: { status: 'FAILED', error: message.slice(0, 1000), finishedAt: new Date(), lockedUntil: null } })
-    return { done: true }
+    return { done: true, next: false }
   }
 }
 
@@ -357,19 +369,26 @@ async function finalStats(jobId: number, total: number): Promise<Stats> {
   return stats
 }
 
-/** Scheduler entry: one slice of the oldest runnable job (restarts jobs whose worker died). */
-export async function runImportJobs() {
-  const job = await db.importJob.findFirst({
-    where: { status: { in: ['QUEUED', 'RUNNING'] }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: new Date() } }] },
-    orderBy: { id: 'asc' }, select: { id: true },
+/**
+ * Scheduler entry (every few minutes): a job whose queue chain was lost (a
+ * crash between slices, a queue row that failed for good) gets a new queue
+ * job; unstarted drafts and their files are removed after a week.
+ */
+export async function sweepImportJobs() {
+  const now = new Date()
+  const stalled = await db.importJob.findMany({
+    where: { status: { in: ['QUEUED', 'RUNNING', 'ROLLING_BACK'] }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }], updatedAt: { lt: new Date(now.getTime() - 3 * 60_000) } },
+    select: { id: true, status: true }, take: 20,
   })
-  const rolling = await db.importJob.findFirst({ where: { status: 'ROLLING_BACK', OR: [{ lockedUntil: null }, { lockedUntil: { lt: new Date() } }] }, orderBy: { id: 'asc' }, select: { id: true } })
-  if (job) await runSlice(job.id, 25_000)
-  if (rolling) await rollbackSlice(rolling.id, 25_000)
-  // Unstarted drafts and their files are removed after a week.
+  let resumed = 0
+  for (const job of stalled) {
+    const kind = job.status === 'ROLLING_BACK' ? 'imports.rollback' : 'imports.run'
+    const pending = await db.backgroundJob.count({ where: { kind, status: { in: ['QUEUED', 'RUNNING'] }, payload: JSON.stringify({ jobId: job.id }) } })
+    if (!pending) { await dispatch(kind, job.id); resumed++ }
+  }
   const stale = await db.importJob.findMany({ where: { status: 'DRAFT', updatedAt: { lt: new Date(Date.now() - 7 * 86_400_000) } }, select: { id: true, fileKey: true }, take: 20 })
   for (const draft of stale) { await deleteUpload(draft.fileKey); await db.importJob.delete({ where: { id: draft.id } }) }
-  return { job: job?.id ?? null, rollback: rolling?.id ?? null }
+  return { resumed, pruned: stale.length }
 }
 
 // ------------------------------------------------------------------ control
@@ -385,7 +404,7 @@ export async function startJob(job: Job, rawSettings: unknown) {
   if (!dry || dry.settingsHash !== settingsHash(settings) || dry.fileHash !== job.fileHash) throw new ImportError('ابتدا پیش‌نمایش و اجرای آزمایشی (Dry Run) را با همین تنظیمات انجام دهید')
   if (settings.options.missingVariants === 'delete' && settings.options.confirmDelete !== true) throw new ImportError('حذف تنوع‌های غایب نیاز به تأیید جداگانه دارد')
   const updated = await db.importJob.update({ where: { id: job.id }, data: { status: 'QUEUED', settings: JSON.stringify(settings), total: dry.total, cursor: 0, stats: JSON.stringify({ total: dry.total }), startedAt: new Date(), error: '' } })
-  kick(job.id)
+  await dispatch('imports.run', job.id)
   return updated
 }
 
@@ -395,7 +414,7 @@ export async function setJobState(job: Job, op: 'pause' | 'resume' | 'cancel') {
   const status = op === 'pause' ? 'PAUSED' : op === 'resume' ? 'QUEUED' : 'CANCELLED'
   // The record being written finishes in its own transaction; the worker stops before the next one.
   const updated = await db.importJob.update({ where: { id: job.id }, data: { status, ...(op === 'cancel' ? { finishedAt: new Date() } : {}) } })
-  if (op === 'resume') kick(job.id)
+  if (op === 'resume') await dispatch('imports.run', job.id)
   return updated
 }
 
@@ -404,17 +423,17 @@ export async function setJobState(job: Job, op: 'pause' | 'resume' | 'cancel') {
 type Stored = { changes?: Change[]; counters?: Stats }
 
 export async function startRollback(job: Job) {
-  if (!['DONE', 'CANCELLED', 'FAILED', 'PAUSED'].includes(job.status)) throw new ImportError('بازگردانی فقط برای ورود اطلاعات تمام‌شده، لغوشده یا متوقف‌شده ممکن است')
+  if (!['DONE', 'DONE_WITH_ERRORS', 'CANCELLED', 'FAILED', 'PAUSED'].includes(job.status)) throw new ImportError('بازگردانی فقط برای ورود اطلاعات تمام‌شده، لغوشده یا متوقف‌شده ممکن است')
   const updated = await db.importJob.update({ where: { id: job.id }, data: { status: 'ROLLING_BACK', lockedUntil: null } })
-  setTimeout(() => void rollbackSlice(job.id).catch((error) => logEvent('error', 'imports.rollback_failed', { jobId: job.id, error: String(error) })), 50).unref?.()
+  await dispatch('imports.rollback', job.id)
   return updated
 }
 
 /** Undoes records newest first; rows changed since the import are reported, never overwritten. */
-export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{ done: boolean }> {
-  if (!await claim(jobId, ['ROLLING_BACK'])) return { done: false }
+export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{ done: boolean; next: boolean }> {
+  if (!await claim(jobId, ['ROLLING_BACK'])) return { done: false, next: false }
   const job = await db.importJob.findUnique({ where: { id: jobId } })
-  if (!job) return { done: true }
+  if (!job) return { done: true, next: false }
   const adapter = adapterFor(job.adapter)
   const started = Date.now()
   const summary: Stats = (() => { try { return JSON.parse(job.stats || '{}') } catch { return {} } })()
@@ -433,13 +452,12 @@ export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{
     await db.importJob.update({ where: { id: jobId }, data: { stats: JSON.stringify(summary), lockedUntil: new Date(Date.now() + LEASE_MS) } })
     if (Date.now() - started > budgetMs) {
       await db.importJob.update({ where: { id: jobId }, data: { lockedUntil: null } })
-      setTimeout(() => void rollbackSlice(jobId).catch(() => undefined), 200).unref?.()
-      return { done: false }
+      return { done: false, next: true }
     }
   }
   await db.importJob.update({ where: { id: jobId }, data: { status: 'ROLLED_BACK', stats: JSON.stringify(summary), lockedUntil: null, finishedAt: new Date() } })
   await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.rolled_back', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, rolledBack: summary.rolledBack || 0, conflicts: summary.rollbackConflicts || 0 } })
-  return { done: true }
+  return { done: true, next: false }
 }
 
 export type { SourceColumn }

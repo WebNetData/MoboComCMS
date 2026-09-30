@@ -60,12 +60,13 @@ export function isBlockedAddress(address: string): boolean {
 }
 
 /** Protocol and port rules for a remote media URL (before any DNS lookup). */
-export function checkRemoteUrl(raw: string): URL {
+export function checkRemoteUrl(raw: string, options: { allowPrivate?: boolean } = {}): URL {
   let url: URL
   try { url = new URL(raw) } catch { throw new Error('نشانی نامعتبر است') }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`پروتکل ${url.protocol} مجاز نیست`)
   if (url.username || url.password) throw new Error('نشانی دارای نام کاربری/رمز مجاز نیست')
   const port = url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80
+  if (options.allowPrivate) return url // test servers only (the caller never enables this in production)
   if (![80, 443, 8080, 8443].includes(port)) throw new Error(`درگاه ${port} مجاز نیست`)
   const host = url.hostname.toLowerCase().replace(/\.$/, '')
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host === 'metadata' ) throw new Error('نشانی داخلی مجاز نیست')

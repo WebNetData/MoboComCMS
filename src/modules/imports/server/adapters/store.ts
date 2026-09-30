@@ -1,13 +1,13 @@
 import { db } from '@/platform/database/prisma'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
-import { validateFields, type AttributeField } from '@/modules/catalog/server/product-config'
+import { inheritedAttributeGroup, validateFields, validateSpecifications, type AttributeField } from '@/modules/catalog/server/product-config'
 import { slugify } from '@/modules/taxonomy/domain/taxonomy'
 import { combinationKey, detectKind, findAttribute, generatedSku, kindOf, matchOption, newAttributeKey, SKU_PATTERN, splitPrice, stockOf, type Kind } from '@/modules/imports/domain/store'
 import type { Counters, FieldDef, ImportSettings, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import { latinSlug, normalizeName, normalizeValue, toText } from '@/modules/imports/domain/values'
-import { countImages, htmlImageUrls, identityOf, importImages, loadIdentities, localizeHtml, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, undoChange, type Client } from '@/modules/imports/server/adapters/common'
-import type { ApplyResult, Change, ImportAdapter, ImportContext, Plan } from '@/modules/imports/server/registry'
+import { countImages, htmlImageUrls, identityOf, importImages, loadIdentities, localizeHtml, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange, type Client } from '@/modules/imports/server/adapters/common'
+import { type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 
 /**
  * Store products, on the store's real model: Product (one category, brand,
@@ -36,7 +36,7 @@ const FIELDS: FieldDef[] = [
   { key: 'kind', label: 'نوع محصول', type: 'enum', group: 'commerce', enum: [{ value: 'PHYSICAL', label: 'فیزیکی' }, { value: 'VIRTUAL', label: 'مجازی / دیجیتال' }], updateByDefault: false, synonyms: ['type', 'product_type', 'kind', 'نوع', 'نوع محصول'] },
   { key: 'price', label: 'قیمت اصلی', type: 'money', group: 'commerce', requiredOnCreate: true, synonyms: ['price', 'regular_price', 'list_price', 'base_price', 'قیمت', 'قیمت اصلی'] },
   { key: 'salePrice', label: 'قیمت فروش ویژه', type: 'money', group: 'commerce', synonyms: ['sale_price', 'saleprice', 'special_price', 'discount_price', 'offer_price', 'final_price', 'قیمت فروش', 'قیمت با تخفیف', 'قیمت ویژه'] },
-  { key: 'currency', label: 'واحد پول', type: 'text', group: 'commerce', updateByDefault: false, synonyms: ['currency', 'currency_code', 'واحد پول'] },
+  { key: 'currency', label: 'واحد پول', type: 'text', group: 'commerce', updatable: false, hint: 'فقط برای محصولات جدید؛ واحد پول محصول موجود با ورود اطلاعات عوض نمی‌شود', synonyms: ['currency', 'currency_code', 'واحد پول'] },
   { key: 'stock', label: 'موجودی', type: 'int', group: 'commerce', synonyms: ['stock', 'quantity', 'qty', 'inventory', 'stock_quantity', 'physical_stock', 'موجودی', 'تعداد'] },
   { key: 'stockStatus', label: 'وضعیت موجودی', type: 'enum', group: 'commerce', enum: STOCK_STATUS, synonyms: ['stock_status', 'availability', 'in_stock', 'وضعیت موجودی'], hint: 'موجود بدون تعداد = بدون محدودیت' },
   { key: 'image', label: 'تصویر شاخص', type: 'image', group: 'media', synonyms: ['image', 'thumbnail', 'featured_image', 'main_image', 'image_url', 'picture', 'تصویر', 'عکس'] },
@@ -68,8 +68,8 @@ const VARIANT_FIELDS: FieldDef[] = [
 type Opt = {
   currency: string; categorySeparator: string; missingCategories: 'create' | 'error'; missingBrands: 'create' | 'error'
   productType: 'auto' | Kind; groupMode: 'none' | 'source' | 'category' | 'fixed' | 'map'; groupFixed: number | null; groupMap: Record<string, number>
-  missingGroups: 'create' | 'manual' | 'error'; missingAttributes: 'create' | 'manual' | 'error'; missingValues: 'create' | 'error'
-  attributeMap: Record<string, string>; missingVariants: 'keep' | 'disable' | 'delete'; confirmDelete: boolean; newStatus: 'active' | 'inactive'
+  missingGroups: 'create' | 'manual' | 'error'; missingAttributes: 'ignore' | 'manual' | 'add' | 'reject'; missingValues: 'add' | 'map' | 'ignore' | 'reject'
+  attributeMap: Record<string, string>; optionMap: Record<string, string>; missingVariants: 'keep' | 'disable' | 'delete'; confirmDelete: boolean; newStatus: 'active' | 'inactive'
 }
 
 function normalizeOptions(raw: Record<string, unknown>): Opt {
@@ -90,9 +90,12 @@ function normalizeOptions(raw: Record<string, unknown>): Opt {
     groupFixed: Number.isSafeInteger(fixed) && fixed > 0 ? fixed : null,
     groupMap: idMap(raw.groupMap),
     missingGroups: pick(raw.missingGroups, ['create', 'manual', 'error'], 'error'),
-    missingAttributes: pick(raw.missingAttributes, ['create', 'manual', 'error'], 'create'),
-    missingValues: pick(raw.missingValues, ['create', 'error'], 'create'),
+    // Safe defaults: an attribute the group does not define is left out, a value the group does not offer rejects the record.
+    missingAttributes: pick(raw.missingAttributes, ['ignore', 'manual', 'add', 'reject'], 'ignore'),
+    missingValues: pick(raw.missingValues, ['add', 'map', 'ignore', 'reject'], 'reject'),
     attributeMap: keyMap(raw.attributeMap),
+    optionMap: Object.fromEntries(Object.entries(raw.optionMap && typeof raw.optionMap === 'object' ? raw.optionMap as Record<string, unknown> : {}).slice(0, 1000)
+      .map(([k, v]) => [k.slice(0, 200), String(v ?? '').trim().slice(0, 80)] as const).filter(([, v]) => v)),
     missingVariants: pick(raw.missingVariants, ['keep', 'disable', 'delete'], 'keep'),
     confirmDelete: raw.confirmDelete === true,
     newStatus: pick(raw.newStatus, ['active', 'inactive'], 'active'),
@@ -139,19 +142,37 @@ function walkPath(c: Caches, path: string[]): { found: Cat | null; existing: Cat
   return { found: existing[existing.length - 1] || null, existing, missing: [] }
 }
 
-/** The group a category uses, inherited from the nearest ancestor that has one. */
-function groupOfCategory(c: Caches, id: number | null): { group: Group | null; via: Cat | null } {
-  const seen = new Set<number>()
-  let current = id
-  while (current && !seen.has(current)) {
-    seen.add(current)
-    const cat = c.cats.get(current)
-    if (!cat) break
-    if (cat.attributeGroupId) return { group: c.groups.get(cat.attributeGroupId) || null, via: cat }
-    current = cat.parentId
-  }
-  return { group: null, via: null }
+/** The group a category uses — the store's own inheritance walk, over the run's category cache. */
+async function groupOfCategory(c: Caches, id: number | null): Promise<{ group: Group | null; via: Cat | null }> {
+  const found = await inheritedAttributeGroup(id, (catId) => {
+    const cat = c.cats.get(catId)
+    return cat ? { parentId: cat.parentId, group: cat.attributeGroupId ? c.groups.get(cat.attributeGroupId) || null : null } : null
+  })
+  return { group: found.group, via: found.categoryId ? c.cats.get(found.categoryId) || null : null }
 }
+
+/** Specifications after this import: the product's current ones (unless replacing) plus the file's, only the group's keys. */
+function mergedSpecs(existing: Existing | null, specs: Record<string, string>, replace: boolean, fields: AttributeField[]): Record<string, string> {
+  const keys = new Set(fields.filter((f) => !f.variant).map((f) => f.key))
+  let current: Record<string, string> = {}
+  try { current = existing && !replace ? JSON.parse(existing.specifications || '{}') : {} } catch { current = {} }
+  const merged: Record<string, string> = {}
+  for (const [key, value] of Object.entries({ ...current, ...specs })) if (keys.has(key)) merged[key] = value
+  return merged
+}
+
+/**
+ * File prices are in the import's currency. An existing product priced in
+ * another currency keeps its prices (its currency is never switched by an
+ * import, since its other amounts — variants, VIP price — would change meaning).
+ */
+function currencyConflict(existing: Existing | null, o: Opt): string {
+  if (!existing || existing.currency === o.currency) return ''
+  return `قیمت‌های فایل به ${o.currency} است ولی این محصول به ${existing.currency} قیمت‌گذاری شده؛ قیمت محصول و تنوع‌هایش تغییر نمی‌کند`
+}
+
+/** Key of a manual value mapping: attribute key and the normalized source value. */
+export const optionMapKey = (key: string, value: string) => `${key}=${normalizeValue(value)}`
 
 const findBrand = (c: Caches, name: string) => {
   const n = normalizeName(name), s = latinSlug(name)
@@ -292,7 +313,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
   // When the product's category is not imported, its current category decides the group.
   const categoryAllowed = 'category' in ctx.allow({ category: categoryPath }, mode, existing ? currentValues(existing, c) : undefined)
   if (existing && (!categoryAllowed || !categoryPath.length) && existing.categoryId) category = c.cats.get(existing.categoryId) || null
-  const categoryGroup = category ? groupOfCategory(c, category.id) : { group: null, via: null }
+  const categoryGroup = category ? await groupOfCategory(c, category.id) : { group: null, via: null }
   let desired: { id: number | null; name: string; create: boolean } | null = null
   if (o.groupMode === 'category') desired = categoryGroup.group ? { id: categoryGroup.group.id, name: categoryGroup.group.name, create: false } : null
   else if (o.groupMode === 'fixed' && o.groupFixed) { const g = c.groups.get(o.groupFixed); if (!g) return fail('گروه ویژگی انتخاب‌شده پیدا نشد'); desired = { id: g.id, name: g.name, create: false } }
@@ -324,33 +345,65 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
     fields = existingGroup ? [...existingGroup.fields] : []
   }
 
-  // Attributes: only the group's (or new ones in the group, if allowed) — never anything else.
+  // Attributes: only what the product's attribute group defines. An attribute the group does not
+  // define, or a value its options do not offer, follows the import options (reported in the dry run).
   const attrPlans: AttrPlan[] = []
   const newFields: AttributeField[] = []
   const newOptions: { key: string; value: string }[] = []
-  const resolveAttr = (name: string, value: string, variation: boolean): AttrPlan | string => {
+  const findings: Finding[] = []
+  type Resolved = AttrPlan | { skip: string } | string
+  const resolveAttr = (name: string, value: string, variation: boolean): Resolved => {
+    const groupName = group?.name || ''
     let field = findAttribute([...fields, ...newFields], name, o.attributeMap)
     let create = false
     if (!field) {
-      if (o.missingAttributes !== 'create') return o.missingAttributes === 'manual' ? `ویژگی «${name}» در گروه «${group?.name}» نیست؛ آن را در مرحلهٔ نگاشت به ویژگی موجود وصل کنید` : `ویژگی «${name}» در گروه «${group?.name}» تعریف نشده است`
-      if (fields.length + newFields.length >= 30) return `گروه «${group?.name}» حداکثر ۳۰ ویژگی دارد`
-      field = { key: newAttributeKey(name, [...fields, ...newFields].map((f) => f.key)), label: name.slice(0, 80), labelEn: '', kind: variation ? 'select' : 'text', options: [], required: false, variant: variation }
-      newFields.push(field)
-      create = true
-      planOnce(ctx, `attr:${group?.name}:${normalizeName(name)}`, counters, 'attributesCreated')
+      const finding = { type: 'unknownAttribute' as const, attribute: name, label: name, value, group: groupName, product: title, variation, mapKey: name }
+      if (o.missingAttributes === 'add') {
+        if (fields.length + newFields.length >= 30) { findings.push({ ...finding, outcome: 'rejected' }); return `ویژگی ناشناخته «${name}»: گروه «${groupName}» حداکثر ۳۰ ویژگی دارد` }
+        field = { key: newAttributeKey(name, [...fields, ...newFields].map((f) => f.key)), label: name.slice(0, 80), labelEn: '', kind: variation ? 'select' : 'text', options: [], required: false, variant: variation }
+        newFields.push(field)
+        create = true
+        findings.push({ ...finding, outcome: 'added' })
+        planOnce(ctx, `attr:${groupName}:${normalizeName(name)}`, counters, 'attributesCreated')
+      } else if (o.missingAttributes === 'ignore' && !variation) {
+        findings.push({ ...finding, outcome: 'ignored' })
+        return { skip: `ویژگی ناشناخته «${name}» در گروه ویژگی «${groupName}» تعریف نشده؛ وارد نمی‌شود` }
+      } else {
+        findings.push({ ...finding, outcome: o.missingAttributes === 'manual' ? 'needs-mapping' : 'rejected' })
+        if (o.missingAttributes === 'manual') return `ویژگی ناشناخته «${name}» در گروه ویژگی «${groupName}» نیست؛ آن را در تنظیمات به یکی از ویژگی‌های گروه نگاشت کنید`
+        if (variation && o.missingAttributes === 'ignore') return `ویژگی تنوع «${name}» در گروه ویژگی «${groupName}» تعریف نشده؛ ویژگی تنوع را نمی‌توان نادیده گرفت (ترکیب تنوع ناقص می‌شود)`
+        return `ویژگی ناشناخته «${name}» در گروه ویژگی «${groupName}» تعریف نشده است`
+      }
     }
-    if (field.variant !== variation) return `ویژگی «${field.label}» در گروه «${group?.name}» ${field.variant ? 'ویژگی تنوع است و نمی‌تواند مشخصهٔ ثابت باشد' : 'مشخصهٔ ثابت است و نمی‌تواند ویژگی تنوع باشد'}`
+    if (field.variant !== variation) return `ویژگی «${field.label}» در گروه «${groupName}» ${field.variant ? 'ویژگی تنوع است و نمی‌تواند مشخصهٔ ثابت باشد' : 'مشخصهٔ ثابت است و نمی‌تواند ویژگی تنوع باشد'}`
     let stored = matchOption(field, value)
     let createOption = false
     if (stored === null) {
-      if (o.missingValues === 'error') return `مقدار «${value}» برای ویژگی «${field.label}» در گروه مجاز نیست`
-      if (field.options.length >= 40) return `ویژگی «${field.label}» حداکثر ۴۰ مقدار دارد`
-      stored = value.trim().slice(0, 80)
-      createOption = true
-      if (!newOptions.some((n) => n.key === field!.key && normalizeValue(n.value) === normalizeValue(stored!))) {
-        newOptions.push({ key: field.key, value: stored })
-        field.options = [...field.options, stored]
-        planOnce(ctx, `opt:${group?.name}:${field.key}:${normalizeValue(stored)}`, counters, 'valuesCreated')
+      const finding = { type: 'newOption' as const, attribute: field.key, label: field.label, value, group: groupName, product: title, options: [...field.options], variation, mapKey: optionMapKey(field.key, value) }
+      const mapped = o.optionMap[optionMapKey(field.key, value)]
+      if (mapped) {
+        const target = matchOption(field, mapped)
+        if (!target) { findings.push({ ...finding, outcome: 'rejected' }); return `نگاشت مقدار «${value}» به «${mapped}» معتبر نیست؛ «${mapped}» از گزینه‌های «${field.label}» نیست` }
+        findings.push({ ...finding, outcome: 'mapped' })
+        stored = target
+      } else if (o.missingValues === 'add') {
+        if (field.options.length >= 40) { findings.push({ ...finding, outcome: 'rejected' }); return `ویژگی «${field.label}» حداکثر ۴۰ گزینه دارد؛ «${value}» اضافه نمی‌شود` }
+        stored = value.trim().slice(0, 80)
+        createOption = true
+        findings.push({ ...finding, outcome: 'added' })
+        if (!newOptions.some((n) => n.key === field!.key && normalizeValue(n.value) === normalizeValue(stored!))) {
+          newOptions.push({ key: field.key, value: stored })
+          field.options = [...field.options, stored]
+          planOnce(ctx, `opt:${groupName}:${field.key}:${normalizeValue(stored)}`, counters, 'valuesCreated')
+        }
+      } else if (o.missingValues === 'ignore' && !variation) {
+        findings.push({ ...finding, outcome: 'ignored' })
+        return { skip: `مقدار جدید «${value}» برای «${field.label}» در گروه «${groupName}» نیست؛ این مشخصه وارد نمی‌شود` }
+      } else {
+        findings.push({ ...finding, outcome: o.missingValues === 'map' ? 'needs-mapping' : 'rejected' })
+        return o.missingValues === 'map'
+          ? `مقدار جدید «${value}» برای «${field.label}» (گروه «${groupName}»): آن را در تنظیمات به یکی از گزینه‌های موجود نگاشت کنید`
+          : `مقدار «${value}» از گزینه‌های «${field.label}» در گروه «${groupName}» نیست`
       }
     }
     return { name, key: field.key, label: field.label, value: stored, create, createOption, variation }
@@ -364,14 +417,24 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
     for (const name of specNames) {
       const r = resolveAttr(name, item.specs[name], false)
       if (typeof r === 'string') { messages.push({ level: 'error', text: r }); continue }
+      if ('skip' in r) { messages.push({ level: 'warning', text: r.skip }); continue }
       specs[r.key] = r.value
       attrPlans.push(r)
     }
-    if (mode === 'create' && ctx.settings.policies.specifications?.create) {
-      for (const f of fields.filter((f) => f.required && !f.variant)) if (!specs[f.key]) return fail(`ویژگی الزامی «${f.label}» در گروه «${group.name}» مقدار ندارد`)
+  }
+  const failWith = (text: string): Plan => ({ ...fail(text), findings })
+  if (messages.some((m) => m.level === 'error')) return failWith('مشخصات این محصول با گروه ویژگی آن سازگار نیست')
+  // The store's own validator decides: required attributes, allowed values, nothing outside the group.
+  // A new product is always checked (the store never creates one that breaks its group); an existing
+  // one only when its specifications are being imported.
+  const specsPolicyOn = 'specifications' in ctx.allow({ specifications: specs }, mode, existing ? currentValues(existing, c) : undefined)
+  if (group && (mode === 'create' || specsPolicyOn)) {
+    const allFields = [...fields, ...newFields]
+    const target = mode === 'create' && !specsPolicyOn ? {} : mergedSpecs(existing, specs, ctx.settings.existing === 'replace', allFields)
+    try { validateSpecifications(target, allFields.filter((f) => !f.variant)) } catch (error) {
+      return failWith(`مشخصات با گروه ویژگی «${group.name}» سازگار نیست: ${error instanceof Error ? error.message : ''}`)
     }
   }
-  if (messages.some((m) => m.level === 'error')) return fail('ویژگی‌های این محصول با گروه ویژگی آن سازگار نیست')
 
   // Variants.
   const variantPlans: VariantPlan[] = []
@@ -392,9 +455,13 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
       if (!attrs[name]) { bad = `${label}: مقدار «${name}» ندارد (ترکیب ویژگی ناقص)`; break }
       const r = resolveAttr(name, attrs[name], true)
       if (typeof r === 'string') { bad = `${label}: ${r}`; break }
+      if ('skip' in r) { bad = `${label}: ${r.skip}`; break }
       resolved[r.key] = r.value
     }
     if (!bad && !Object.keys(resolved).length) bad = `${label}: هیچ ویژگی تنوعی (مثل رنگ یا حافظه) ندارد`
+    if (!bad) {
+      try { validateSpecifications(resolved, [...fields, ...newFields].filter((f) => f.variant)) } catch (error) { bad = `${label}: ترکیب ویژگی‌ها با گروه «${group?.name}» سازگار نیست (${error instanceof Error ? error.message : ''})` }
+    }
     if (bad) { messages.push({ level: 'error', text: bad }); continue }
     const combo = combinationKey(resolved)
     if (seenCombos.has(combo)) { messages.push({ level: 'error', text: `${label}: تنوع تکراری (${Object.entries(resolved).map(([k, val]) => `${k}=${val}`).join('، ')}) — مثل تنوع ${seenCombos.get(combo)! + 1}` }); continue }
@@ -413,7 +480,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
     const stock = stockOf(v.stock as number | null, v.stockStatus as string | null)
     const vMode = match ? 'update' : 'create'
     const allowed = ctx.allowVariant({ ...v, sku }, vMode)
-    if (vMode === 'create' && !('price' in allowed && price)) { messages.push({ level: 'error', text: `${label}: برای ساخت تنوع، قیمت لازم است${price ? ' ولی «قیمت تنوع» برای ساخت غیرفعال است' : ''}` }); continue }
+    if (vMode === 'create' && !(('price' in allowed || 'salePrice' in allowed) && price)) { messages.push({ level: 'error', text: `${label}: امکان ساخت تنوع نیست؛ فیلد الزامی «قیمت تنوع» ${price ? 'از ورود اطلاعات کنار گذاشته شده' : 'در فایل مقدار ندارد'} و مقدار جایگزین معتبری وجود ندارد` }); continue }
     if (skuGenerated) messages.push({ level: 'info', text: `${label}: SKU ندارد؛ «${sku}» ساخته شد` })
     variantPlans.push({
       index: i, existingId: match?.id ?? null, externalId, sku, skuGenerated,
@@ -421,7 +488,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
       attributes: resolved, values: v, price, compareAt, stock, image: toText(v.image, 2048), active: typeof v.active === 'boolean' ? v.active : null,
     })
   }
-  if (item.variants.length && !variantPlans.length) return fail('هیچ‌کدام از تنوع‌های این محصول معتبر نیست')
+  if (item.variants.length && !variantPlans.length) return failWith('هیچ‌کدام از تنوع‌های این محصول معتبر نیست')
   const missingVariantIds = existing && item.variants.length ? existingVariants.filter((ev) => !variantPlans.some((vp) => vp.existingId === ev.id)).map((ev) => ev.id) : []
 
   // Prices: the product's own price, or (for a new variable product without one) the lowest variant price.
@@ -435,12 +502,16 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
       if (variantPrices.length && ctx.settings.policies.variants?.create) {
         derivedPrice = String(Math.min(...variantPrices))
         messages.push({ level: 'info', text: `قیمت پایه از کمترین قیمت تنوع‌ها (${money(derivedPrice)}) گرفته شد` })
-      } else return fail(priceAllowed ? 'قیمت محصول در فایل نیست' : 'قیمت محصول برای ساخت غیرفعال است و محصول بدون قیمت ساخته نمی‌شود')
+      } else return failWith(priceAllowed
+        ? 'امکان ساخت محصول نیست؛ فیلد الزامی «قیمت» در فایل مقدار ندارد و مقدار جایگزین معتبری (قیمت تنوع‌ها) وجود ندارد'
+        : 'امکان ساخت محصول نیست؛ فیلد الزامی «قیمت» از ورود اطلاعات کنار گذاشته شده و مقدار جایگزین معتبری وجود ندارد')
     }
-    if (!('title' in allowedMain)) return fail('نام محصول برای ساخت لازم است')
+    if (!('title' in allowedMain)) return failWith('امکان ساخت محصول نیست؛ فیلد الزامی «نام محصول» در فایل نیست یا از ورود اطلاعات کنار گذاشته شده')
   } else if (existing?.pricingMode === 'FX' && ('price' in allowedMain || 'salePrice' in allowedMain)) {
     messages.push({ level: 'warning', text: 'قیمت این محصول ارزی (از نرخ روز) محاسبه می‌شود؛ قیمت فایل روی آن اعمال نمی‌شود' })
   }
+  const priceNote = currencyConflict(existing, o)
+  if (priceNote && (('price' in allowedMain || 'salePrice' in allowedMain) || variantPlans.some((vp) => vp.existingId && vp.price))) messages.push({ level: 'warning', text: priceNote })
 
   // Images.
   const image = toText(values.image, 2048)
@@ -476,7 +547,7 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
   if (variantPlans.length) lines.push({ label: 'تنوع‌ها', value: `${variantPlans.length} تنوع`, state: 'variants' in allowedMain ? 'IMPORTED' : 'IGNORED' })
   const imageCount = (image ? 1 : 0) + gallery.length
   return {
-    action, title, sourceKey, entityId: existing?.id, messages, counters, data,
+    action, title, sourceKey, entityId: existing?.id, messages, counters, data, findings,
     preview: { title, subtitle: [brandName, categoryPath.join(' › ')].filter(Boolean).join(' · '), image, action, lines: [...lines, ...(imageCount ? [{ label: 'تصاویر', value: String(imageCount), state: 'IMPORTED' as const }] : [])], children, messages },
   }
 }
@@ -594,13 +665,16 @@ async function ensureGroup(c: Caches, data: Data, category: Cat | null, kind: Ki
 const PRODUCT_TRACKED = ['name', 'nameEn', 'slug', 'sku', 'description', 'shortDescription', 'image', 'gallery', 'price', 'priceMinor', 'compareAtMinor', 'currency', 'stock', 'kind', 'categoryId', 'brandId', 'specifications', 'weightGrams', 'warranty', 'active', 'featured', 'saleEndsAt', 'seoTitle', 'seoDescription']
 const VARIANT_TRACKED = ['sku', 'name', 'attributes', 'price', 'priceMinor', 'compareAtMinor', 'stock', 'active', 'image']
 
-async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promise<ApplyResult> {
+function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promise<ApplyResult> {
+  return tracked((changes) => applyProduct(item, planned, ctx, changes))
+}
+
+async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext, changes: Change[]): Promise<ApplyResult> {
   const data = planned.data as Data
   const o = ctx.settings.options as unknown as Opt
   const c = await caches(ctx)
   const messages: Message[] = []
   const counters: Counters = {}
-  const changes: Change[] = []
   const creating = planned.action === 'CREATE'
   // The same product earlier in this file: update what it created.
   let existing = data.existing
@@ -651,9 +725,12 @@ async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promi
     const stock = stockOf('stock' in allowed ? allowed.stock as number : null, 'stockStatus' in allowed ? allowed.stockStatus as string : null)
     if (stock !== null) row.stock = stock
   }
+  // Currency is explicit: a new product gets the file's (mapped column, else the import option), never a database default.
   let currency = existing?.currency || o.currency
-  if ('currency' in allowed) { try { currency = normalizeCurrency(allowed.currency, o.currency) } catch { messages.push({ level: 'warning', text: 'واحد پول نامعتبر است؛ واحد پیش‌فرض استفاده شد' }) } }
-  const priceAllowed = ('price' in allowed || 'salePrice' in allowed) && existing?.pricingMode !== 'FX'
+  if (!existing && 'currency' in allowed) { try { currency = normalizeCurrency(allowed.currency, o.currency) } catch { messages.push({ level: 'warning', text: `واحد پول «${toText(allowed.currency, 10)}» نامعتبر است؛ ${o.currency} استفاده شد` }) } }
+  if (!existing) row.currency = currency
+  const pricesUsable = !currencyConflict(existing, o)
+  const priceAllowed = ('price' in allowed || 'salePrice' in allowed) && existing?.pricingMode !== 'FX' && pricesUsable
   if (priceAllowed || (!existing && data.derivedPrice)) {
     const regular = 'price' in allowed ? allowed.price as string : null
     const sale = 'salePrice' in allowed ? allowed.salePrice as string : null
@@ -670,15 +747,10 @@ async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promi
   }
   if (!existing && !row.priceMinor) throw new Error('محصول بدون قیمت ساخته نمی‌شود')
 
-  // Specifications: only the category group's non-variation attributes.
+  // Specifications: the group's non-variation attributes, checked by the store's own validator.
   if ('specifications' in allowed && group) {
-    const keys = new Set(group.fields.filter((f) => !f.variant).map((f) => f.key))
-    let current: Record<string, string> = {}
-    try { current = existing && ctx.settings.existing !== 'replace' ? JSON.parse(existing.specifications || '{}') : {} } catch { current = {} }
-    const merged: Record<string, string> = {}
-    for (const [key, value] of Object.entries({ ...current, ...data.specs })) if (keys.has(key)) merged[key] = value
-    row.specifications = JSON.stringify(merged)
-  }
+    row.specifications = validateSpecifications(mergedSpecs(existing, data.specs, ctx.settings.existing === 'replace', group.fields), group.fields.filter((f) => !f.variant))
+  } else if (!existing && group) row.specifications = validateSpecifications({}, group.fields.filter((f) => !f.variant))
 
   // Variant images before the transaction (network must not hold a database transaction open).
   const variantImages = new Map<number, string>()
@@ -691,6 +763,8 @@ async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promi
   }
 
   const externalId = toText(data.values.externalId, 190)
+  // Changes made inside the transaction are only kept if it commits.
+  const mark = changes.length
   const result = await db.$transaction(async (tx) => {
     let productId: number
     if (!existing) {
@@ -719,7 +793,7 @@ async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promi
         const vMode = match ? 'update' : 'create'
         const allowedV = ctx.allowVariant({ ...vp.values, sku: vp.sku }, vMode)
         const v: Record<string, unknown> = {}
-        if (('price' in allowedV || 'salePrice' in allowedV) && vp.price) {
+        if (('price' in allowedV || 'salePrice' in allowedV) && vp.price && pricesUsable) {
           const priceMinor = toMinor(vp.price, currency)
           v.priceMinor = priceMinor; v.price = legacyNumber(priceMinor, currency)
           v.compareAtMinor = vp.compareAt ? (toMinor(vp.compareAt, currency) > priceMinor ? toMinor(vp.compareAt, currency) : 0n) : 0n
@@ -770,7 +844,7 @@ async function apply(item: SourceItem, planned: Plan, ctx: ImportContext): Promi
       }
     }
     return productId
-  }, { timeout: 30_000 })
+  }, { timeout: 30_000 }).catch((error) => { changes.length = mark; throw error })
   const owners = (ctx.cache.get('variantSkus') as Map<string, number> | undefined) || new Map<string, number>()
   for (const vp of data.variants) owners.set(vp.sku, result)
   return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'product', entityId: result, changes, messages, counters }
@@ -879,9 +953,10 @@ export const storeImporter: ImportAdapter = {
     { key: 'groupFixed', label: 'گروه ویژگی برای همه', type: 'select', step: 4, dynamic: true, when: { key: 'groupMode', values: ['fixed'] } },
     { key: 'groupMap', label: 'دستهٔ فایل ← گروه ویژگی', type: 'valueMap', step: 4, dynamic: true, valuesOf: 'category', when: { key: 'groupMode', values: ['map'] } },
     { key: 'missingGroups', label: 'گروه ویژگیِ فایل موجود نیست', type: 'select', step: 4, default: 'error', choices: [{ value: 'create', label: 'ساخته شود' }, { value: 'manual', label: 'نگاشت دستی لازم است' }, { value: 'error', label: 'خطا' }], when: { key: 'groupMode', values: ['source'] } },
-    { key: 'missingAttributes', label: 'ویژگی در گروه تعریف نشده', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'به همان گروه اضافه شود' }, { value: 'manual', label: 'نگاشت دستی لازم است' }, { value: 'error', label: 'خطا' }] },
+    { key: 'missingAttributes', label: 'ویژگی ناشناخته (در گروه ویژگی محصول تعریف نشده)', type: 'select', step: 4, default: 'ignore', hint: 'ویژگی نامرتبط هرگز بی‌اجازه به محصول اضافه نمی‌شود؛ موارد در اجرای آزمایشی فهرست می‌شوند', choices: [{ value: 'ignore', label: 'نادیده گرفته شود' }, { value: 'manual', label: 'نگاشت دستی به ویژگی موجود' }, { value: 'add', label: 'به گروه ویژگی اضافه شود' }, { value: 'reject', label: 'رکورد رد شود' }] },
     { key: 'attributeMap', label: 'ویژگی فایل ← ویژگی موجود', type: 'valueMap', step: 4, dynamic: true, valuesOf: '__attributes__' },
-    { key: 'missingValues', label: 'مقدار ویژگی در گزینه‌ها نیست', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'به گزینه‌ها اضافه شود' }, { value: 'error', label: 'خطا' }] },
+    { key: 'missingValues', label: 'گزینهٔ جدید (مقدار در گزینه‌های ویژگی نیست)', type: 'select', step: 4, default: 'reject', hint: 'مثلاً «1TB» برای حافظه‌ای که فقط 128/256/512 دارد', choices: [{ value: 'add', label: 'به گزینه‌های گروه ویژگی اضافه شود' }, { value: 'map', label: 'نگاشت به گزینهٔ موجود' }, { value: 'ignore', label: 'نادیده گرفته شود' }, { value: 'reject', label: 'رکورد رد شود' }] },
+    { key: 'optionMap', label: 'مقدار جدید ← گزینهٔ موجود', type: 'valueMap', step: 4, valuesOf: '__options__', hint: 'از فهرست «گزینه‌های جدید» اجرای آزمایشی پر می‌شود' },
     { key: 'missingVariants', label: 'تنوع‌های موجودی که در فایل نیستند', type: 'select', step: 8, default: 'keep', choices: [{ value: 'keep', label: 'بدون تغییر بمانند' }, { value: 'disable', label: 'غیرفعال شوند' }, { value: 'delete', label: 'حذف شوند (برگشت‌ناپذیر)' }] },
     { key: 'confirmDelete', label: 'حذف تنوع‌های غایب را تأیید می‌کنم (تنوع‌های دارای سفارش فقط غیرفعال می‌شوند)', type: 'bool', step: 8, default: false, destructive: true, when: { key: 'missingVariants', values: ['delete'] } },
     { key: 'newStatus', label: 'وضعیت محصولات جدید (اگر ستون وضعیت نگاشت نشده)', type: 'select', step: 8, default: 'active', choices: [{ value: 'active', label: 'فعال' }, { value: 'inactive', label: 'غیرفعال' }] },

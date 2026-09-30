@@ -3161,7 +3161,7 @@ model RepoActivation {
 model ImportJob {
   id             Int       @id @default(autoincrement())
   adapter        String
-  status         String    @default("DRAFT") // DRAFT | QUEUED | RUNNING | PAUSED | CANCELLED | DONE | FAILED | ROLLING_BACK | ROLLED_BACK
+  status         String    @default("DRAFT") // DRAFT | QUEUED | RUNNING | PAUSED | CANCELLED | DONE | DONE_WITH_ERRORS | FAILED | ROLLING_BACK | ROLLED_BACK
   fileName       String    @default("")
   fileKey        String    @default("") // stored upload under storage/imports (never public)
   fileHash       String    @default("")
@@ -3220,18 +3220,20 @@ model ImportRecord {
   @@index([entityType, entityId])
 }
 
-// Source identifiers (external ids) of imported rows, so a second import finds the same row.
-model ImportIdentity {
+// External ids of imported rows per source (a supplier, imdb…), so a re-import finds the same
+// row and one entity can carry ids from several sources.
+model ImportExternalRef {
   id         Int      @id @default(autoincrement())
-  entity     String // store.product | store.variant | store.brand | store.category | post | cinema.title …
+  source     String   @default("default") // supplier-a | imdb | …
+  entityType String // store.product | store.variant | post | media.movies …
   externalId String
   entityId   Int
   jobId      Int?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
 
-  @@unique([entity, externalId])
-  @@index([entity, entityId])
+  @@unique([source, entityType, externalId])
+  @@index([entityType, entityId])
 }
 
 // Remote images already copied into the media library (by address and by content).

@@ -33,6 +33,7 @@ import { getLoyaltySettings } from '@/modules/store/server/marketing'
 import { productSeller } from '@/modules/marketplace/server/marketplace'
 import SellerCard from '@/components/marketplace/SellerCard'
 import PromoSlot from '@/components/promo/PromoSlot'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -192,8 +193,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const chromeDoc = layoutDoc || builderDoc
   const breadcrumbsNode = <Crumbs items={[{ label: t.shop, href: '/products' }, ...(product.category ? [{ label: product.category.name, href: `/products?category=${encodeURIComponent(product.category.slug)}` }] : []), { label: name }]} />
   const ldNodes = <>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productLd) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbs) }} />
   </>
   return (
     <>

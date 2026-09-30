@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { findAssets, rewriteAssets } from '@/modules/downloads/domain/localize'
 import type { Counters, Message } from '@/modules/imports/domain/types'
 import { stableHash, toText } from '@/modules/imports/domain/values'
-import type { Change, ImportContext } from '@/modules/imports/server/registry'
+import { ApplyFailure, type Change, type ImportContext } from '@/modules/imports/server/registry'
 
 /** Helpers every adapter uses: identities, in-file duplicates, images, snapshots and safe rollback. */
 
@@ -11,13 +11,19 @@ export type Client = Tx | typeof db
 
 // ------------------------------------------------------------------ identities
 
+/**
+ * External ids live in ImportExternalRef, per source (the job's `source`
+ * setting) and entity type, so one row can carry ids from several suppliers
+ * and a re-import of the same source finds the same row.
+ */
+
 /** Loads external id → row id for many ids at once (cached for the run). */
 export async function loadIdentities(ctx: ImportContext, entity: string, externalIds: string[]) {
   const key = `identity:${entity}`
   const map = (ctx.cache.get(key) as Map<string, number> | undefined) || new Map<string, number>()
   const missing = [...new Set(externalIds.filter((id) => id && !map.has(id)))]
   for (let i = 0; i < missing.length; i += 500) {
-    const rows = await db.importIdentity.findMany({ where: { entity, externalId: { in: missing.slice(i, i + 500) } }, select: { externalId: true, entityId: true } })
+    const rows = await db.importExternalRef.findMany({ where: { source: ctx.settings.source, entityType: entity, externalId: { in: missing.slice(i, i + 500) } }, select: { externalId: true, entityId: true } })
     for (const row of rows) map.set(row.externalId, row.entityId)
   }
   ctx.cache.set(key, map)
@@ -29,9 +35,10 @@ export const identityOf = (ctx: ImportContext, entity: string, externalId: strin
 
 export async function saveIdentity(tx: Client, ctx: ImportContext, entity: string, externalId: string, entityId: number) {
   if (!externalId) return
-  await tx.importIdentity.upsert({
-    where: { entity_externalId: { entity, externalId } },
-    create: { entity, externalId, entityId, jobId: ctx.jobId },
+  const source = ctx.settings.source
+  await tx.importExternalRef.upsert({
+    where: { source_entityType_externalId: { source, entityType: entity, externalId } },
+    create: { source, entityType: entity, externalId, entityId, jobId: ctx.jobId },
     update: { entityId, jobId: ctx.jobId },
   })
   const key = `identity:${entity}`
@@ -165,3 +172,12 @@ export async function undoChange(
 
 /** A short deterministic suffix for generated slugs/SKUs of a record. */
 export const suffixOf = (seed: string) => stableHash(seed).slice(0, 6)
+
+/** Runs an adapter's write; if it fails part-way, the rows it already changed still reach the history (and rollback). */
+export async function tracked<T>(write: (changes: Change[]) => Promise<T>): Promise<T> {
+  const changes: Change[] = []
+  try { return await write(changes) } catch (error) {
+    if (!changes.length) throw error
+    throw new ApplyFailure(error instanceof Error ? error.message : 'خطای ناشناخته', changes)
+  }
+}

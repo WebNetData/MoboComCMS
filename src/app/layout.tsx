@@ -66,6 +66,7 @@ import { CompareTray } from '@/components/engage/CompareControls'
 import RouteAliasProvider from '@/platform/routing/RouteAliasProvider'
 import { setRouteAliases } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 import WebVitals from '@/components/site/WebVitals'
 
 export const dynamic = 'force-dynamic'
@@ -162,7 +163,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           type="application/ld+json"
           // structured data for search engines (Organization + WebSite)
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
         />
         <PreviewBridge />
         <WebVitals />

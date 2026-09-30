@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import dns from 'node:dns'
 import fs from 'node:fs/promises'
 import http from 'node:http'
@@ -8,6 +8,7 @@ import path from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { env } from '@/platform/config/env'
 import { checkRemoteUrl, isBlockedAddress } from '@/modules/imports/domain/net'
+import { CoverImageError, storeCoverImage } from '@/modules/site/server/cover-store'
 
 /**
  * Remote images of imported records go into the site's media library
@@ -21,7 +22,8 @@ import { checkRemoteUrl, isBlockedAddress } from '@/modules/imports/domain/net'
 
 export const MEDIA_LIMITS = { bytes: 15 * 1024 * 1024, timeoutMs: 20_000, redirects: 3, pixels: 60_000_000, attempts: 3 }
 const OWN = /^\/api\/media\/covers\/[0-9a-f-]{36}\.(webp|png|jpg)$/
-const allowPrivate = () => env('IMPORT_ALLOW_PRIVATE_HOSTS') === '1'
+// Test-only escape hatch for the local image server of the integration test; never honoured in production.
+const allowPrivate = () => env('IMPORT_ALLOW_PRIVATE_HOSTS') === '1' && process.env.NODE_ENV !== 'production'
 
 export class MediaError extends Error {
   constructor(message: string, readonly retry = false) { super(message) }
@@ -73,13 +75,13 @@ function requestOnce(url: URL): Promise<{ status: number; location: string; type
 
 /** GET with every hop checked; the final response must be a success. */
 export async function safeFetch(raw: string): Promise<Fetched> {
-  let url = checkRemoteUrl(raw)
+  let url = checkRemoteUrl(raw, { allowPrivate: allowPrivate() })
   for (let hop = 0; hop <= MEDIA_LIMITS.redirects; hop++) {
     const res = await requestOnce(url)
     if (res.status >= 300 && res.status < 400) {
       if (!res.location) throw new MediaError('تغییر مسیر بدون مقصد')
       if (hop === MEDIA_LIMITS.redirects) throw new MediaError('تعداد تغییر مسیرها بیش از حد مجاز است')
-      url = checkRemoteUrl(new URL(res.location, url).toString())
+      url = checkRemoteUrl(new URL(res.location, url).toString(), { allowPrivate: allowPrivate() })
       continue
     }
     if (res.status >= 500 || res.status === 429) throw new MediaError(`سرور تصویر خطا داد (${res.status})`, true)
@@ -93,18 +95,12 @@ const sha256 = (value: string | Buffer) => createHash('sha256').update(value).di
 /** The address as a key: scheme and host in lower case, fragment dropped. */
 export const sourceKey = (raw: string) => { try { const url = new URL(raw); url.hash = ''; return sha256(url.toString()) } catch { return sha256(raw) } }
 
+/** Remote bytes → the site's content-image store (same checks and processing as an admin upload, strict). */
 async function storeImage(bytes: Buffer, type: string): Promise<string> {
   if (type && !/^image\//i.test(type) && !/octet-stream/i.test(type)) throw new MediaError(`نوع فایل تصویر نیست (${type.slice(0, 40)})`)
-  const sharp = (await import('sharp')).default
-  const image = sharp(bytes, { animated: true, limitInputPixels: MEDIA_LIMITS.pixels, failOn: 'error' })
-  const meta = await image.metadata().catch(() => null)
-  if (!meta?.format || !['jpeg', 'png', 'webp', 'gif', 'avif', 'heif', 'tiff'].includes(meta.format)) throw new MediaError('محتوای فایل تصویر معتبر نیست')
-  const out = await image.rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82, effort: 4 }).toBuffer()
-  const file = `${randomUUID()}.webp`
-  const dir = path.join(process.cwd(), 'storage', 'covers')
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path.join(dir, file), out, { flag: 'wx' })
-  return `/api/media/covers/${file}`
+  try { return await storeCoverImage(bytes, { strict: true }) } catch (error) {
+    throw new MediaError(error instanceof CoverImageError ? error.message : 'تصویر ذخیره نشد')
+  }
 }
 
 const exists = (url: string) => fs.access(path.join(process.cwd(), 'storage', 'covers', url.split('/').pop() || '')).then(() => true, () => false)

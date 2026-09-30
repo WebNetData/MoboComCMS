@@ -60,16 +60,17 @@ CREATE TABLE "ImportRecord" (
 );
 
 -- CreateTable
-CREATE TABLE "ImportIdentity" (
+CREATE TABLE "ImportExternalRef" (
     "id" SERIAL NOT NULL,
-    "entity" TEXT NOT NULL,
+    "source" TEXT NOT NULL DEFAULT 'default',
+    "entityType" TEXT NOT NULL,
     "externalId" TEXT NOT NULL,
     "entityId" INTEGER NOT NULL,
     "jobId" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ImportIdentity_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ImportExternalRef_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -103,10 +104,10 @@ CREATE INDEX "ImportRecord_entityType_entityId_idx" ON "ImportRecord"("entityTyp
 CREATE UNIQUE INDEX "ImportRecord_jobId_index_key" ON "ImportRecord"("jobId", "index");
 
 -- CreateIndex
-CREATE INDEX "ImportIdentity_entity_entityId_idx" ON "ImportIdentity"("entity", "entityId");
+CREATE INDEX "ImportExternalRef_entityType_entityId_idx" ON "ImportExternalRef"("entityType", "entityId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ImportIdentity_entity_externalId_key" ON "ImportIdentity"("entity", "externalId");
+CREATE UNIQUE INDEX "ImportExternalRef_source_entityType_externalId_key" ON "ImportExternalRef"("source", "entityType", "externalId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ImportMedia_sourceHash_key" ON "ImportMedia"("sourceHash");

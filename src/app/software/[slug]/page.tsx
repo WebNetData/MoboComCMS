@@ -18,6 +18,7 @@ import CopyText from '@/components/software/CopyText'
 import DetailTabs from '@/components/software/DetailTabs'
 import { Icon, SoftwareLayout, SoftwareShelf, SoftwareSidebar, isFresh, softwareName } from '@/components/software/SoftwarePortal'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -101,7 +102,7 @@ export default async function SoftwarePage({ params }: Props) {
 
   return (
     <MediaShell section="software">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <header className="sp-hero-band">
         <div className="container sp-hero-band-inner">
           <span className="sp-hero-icon">{s.icon ? <img src={s.icon} alt="" width={84} height={84} /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>

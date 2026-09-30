@@ -34,8 +34,10 @@ export function normalizeSettings(input: unknown, adapter: string, fields: Field
     const key = /^[a-z][a-z0-9_]{0,39}$/.test(String(row.key || '')) ? String(row.key) : undefined
     attributes.push({ source, name, key, variation: row.variation === true && mode !== 'none' })
   }
+  const source = String(raw.source ?? '').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'default'
   return {
     adapter,
+    source,
     sheet: String(raw.sheet ?? '').slice(0, 100),
     mapping,
     variantMapping: mode === 'none' ? {} : variantMapping,

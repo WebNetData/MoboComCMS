@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
 import { requirePerm } from '@/modules/identity/server/access'
 import { err, ok } from '@/platform/http/response'
+import { coverFormat, storeCoverImage } from '@/modules/site/server/cover-store'
 
 export async function POST(req: NextRequest) {
   if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) return err('forbidden', 403)
@@ -31,23 +29,9 @@ export async function receiveImage(req: NextRequest) {
     const file = form.get('file')
     if (!file || typeof file === 'string' || !file.size || file.size > 15 * 1024 * 1024) return err('تصویر باید کمتر از ۱۵ مگابایت باشد', 400)
     const bytes = Buffer.from(await file.arrayBuffer())
-    const extension = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'png'
-      : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? 'jpg'
-      : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' ? 'webp' : null
-    if (!extension) return err('فقط تصاویر PNG، JPEG و WebP مجاز هستند', 400)
-    // Stored as WebP (max 2400px, EXIF orientation applied) — much smaller pages; GIF animation is kept.
-    let output: Buffer = bytes
-    let finalExtension = extension
-    try {
-      const sharp = (await import('sharp')).default
-      output = await sharp(bytes, { animated: true }).rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer()
-      finalExtension = 'webp'
-    } catch { output = bytes }
-    const filename = `${randomUUID()}.${finalExtension}`
-    const directory = join(process.cwd(), 'storage', 'covers')
-    await mkdir(directory, { recursive: true })
-    await writeFile(join(directory, filename), output, { flag: 'wx' })
-    return ok({ url: `/api/media/covers/${filename}` })
+    if (!coverFormat(bytes)) return err('فقط تصاویر PNG، JPEG و WebP مجاز هستند', 400)
+    // Stored as WebP (max 2400px, EXIF orientation applied) — much smaller pages.
+    return ok({ url: await storeCoverImage(bytes) })
   } catch {
     return err('بارگذاری تصویر انجام نشد؛ دوباره تلاش کنید', 400)
   }

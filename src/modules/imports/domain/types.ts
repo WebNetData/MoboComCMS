@@ -12,6 +12,9 @@ export const LIMITS = {
   xlsxUnpackedBytes: 120 * 1024 * 1024,
   xlsxRatio: 250,
   xlsxEntries: 5000,
+  xlsxSheets: 50,
+  /** Every non-empty cell of the chosen sheet. */
+  xlsxCells: 2_000_000,
   rows: 20_000,
   columns: 250,
   cellChars: 60_000,
@@ -23,7 +26,7 @@ export const LIMITS = {
 
 export type FieldType =
   | 'text' | 'longtext' | 'html' | 'slug' | 'int' | 'number' | 'money' | 'bool' | 'date'
-  | 'image' | 'images' | 'list' | 'url' | 'enum' | 'category' | 'json'
+  | 'image' | 'images' | 'list' | 'url' | 'enum' | 'category' | 'json' | 'duration'
 
 /** A destination field an adapter accepts. */
 export interface FieldDef {
@@ -57,6 +60,8 @@ export type AttributeSource = { source: string; name: string; key?: string; vari
 /** Validated import settings (stored on the job and in templates). */
 export interface ImportSettings {
   adapter: string
+  /** Source system of the file's external ids (supplier-a, imdb…): ids are unique per source. */
+  source: string
   sheet: string
   /** destination field key → source path ('' = not mapped). */
   mapping: Record<string, string>

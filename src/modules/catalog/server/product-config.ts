@@ -34,17 +34,33 @@ export function validateFields(input: unknown): AttributeField[] {
   })
 }
 
-export async function attributeGroupForCategory(categoryId: number | null | undefined): Promise<{ fields: AttributeField[]; appliesTo: string }> {
+/**
+ * The attribute group a category uses: its own, else the nearest ancestor's.
+ * One walk for every caller (product form, seller panel, bulk import); the
+ * caller supplies how a category is loaded (a query, or a run-wide cache).
+ */
+export async function inheritedAttributeGroup<G>(
+  categoryId: number | null | undefined,
+  load: (id: number) => Promise<{ parentId: number | null; group: G | null } | null> | { parentId: number | null; group: G | null } | null,
+): Promise<{ group: G | null; categoryId: number | null }> {
   const visited = new Set<number>()
   let id = categoryId || null
   while (id && !visited.has(id)) {
     visited.add(id)
-    const category = await db.productCategory.findUnique({ where: { id }, include: { attributeGroup: true } })
+    const category = await load(id)
     if (!category) throw Error('Category not found')
-    if (category.attributeGroup) return { fields: validateFields(category.attributeGroup.fields), appliesTo: category.attributeGroup.appliesTo }
+    if (category.group) return { group: category.group, categoryId: id }
     id = category.parentId
   }
-  return { fields: [], appliesTo: 'ANY' }
+  return { group: null, categoryId: null }
+}
+
+export async function attributeGroupForCategory(categoryId: number | null | undefined): Promise<{ fields: AttributeField[]; appliesTo: string }> {
+  const { group } = await inheritedAttributeGroup(categoryId, async (id) => {
+    const category = await db.productCategory.findUnique({ where: { id }, include: { attributeGroup: true } })
+    return category ? { parentId: category.parentId, group: category.attributeGroup } : null
+  })
+  return group ? { fields: validateFields(group.fields), appliesTo: group.appliesTo } : { fields: [], appliesTo: 'ANY' }
 }
 
 export async function attributeFieldsForCategory(categoryId: number | null | undefined): Promise<AttributeField[]> {
