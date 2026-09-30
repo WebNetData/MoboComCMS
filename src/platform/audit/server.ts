@@ -52,3 +52,32 @@ export async function auditAdmin(input: {
     logEvent('error', 'audit.write_failed', { requestId, action: input.action, targetType: input.targetType, error })
   }
 }
+
+/**
+ * Audit entry for work a background job does on an administrator's behalf
+ * (an import that finishes, a rollback): same log, no request.
+ */
+export async function auditSystem(input: {
+  actor: { id: number; email: string }
+  action: string
+  targetType: string
+  targetId?: string | number | null
+  metadata?: Record<string, unknown>
+}) {
+  try {
+    await db.auditLog.create({
+      data: {
+        actorUserId: input.actor.id,
+        actorEmail: input.actor.email,
+        action: input.action,
+        targetType: input.targetType,
+        targetId: input.targetId == null ? '' : String(input.targetId),
+        requestId: 'background',
+        ip: '',
+        metadata: JSON.stringify(sanitize(input.metadata || {})).slice(0, 12_000),
+      },
+    })
+  } catch (error) {
+    logEvent('error', 'audit.write_failed', { requestId: 'background', action: input.action, targetType: input.targetType, error })
+  }
+}

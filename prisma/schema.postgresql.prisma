@@ -739,6 +739,7 @@ model Product {
   tickets       Ticket[]
 
   @@index([brandId])
+  @@index([sku])
   @@index([active, soldCount])
   @@index([sellerId])
   @@index([pricingMode])
@@ -757,6 +758,7 @@ model ProductVariant {
   memberPriceMinor BigInt @default(0)
   compareAtMinor BigInt @default(0)
   fxAmountMinor BigInt @default(0) // foreign cost of this variant when the product is FX-priced; 0 = product cost
+  image       String @default("") // photo of this variant (shown when it is selected)
   stock       Int @default(-1)
   active      Boolean @default(true)
   product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -3152,4 +3154,94 @@ model RepoActivation {
   license    RepoLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
   @@unique([licenseId, site])
+}
+
+// ------------------------------------------------------------------ bulk import
+// One import run: the uploaded file, its mapping and options, progress and totals.
+model ImportJob {
+  id             Int       @id @default(autoincrement())
+  adapter        String
+  status         String    @default("DRAFT") // DRAFT | QUEUED | RUNNING | PAUSED | CANCELLED | DONE | FAILED | ROLLING_BACK | ROLLED_BACK
+  fileName       String    @default("")
+  fileKey        String    @default("") // stored upload under storage/imports (never public)
+  fileHash       String    @default("")
+  format         String    @default("") // json | csv | xlsx
+  settings       String    @default("{}") // mapping, field policies and options (validated)
+  templateId     Int?
+  total          Int       @default(0)
+  cursor         Int       @default(0) // next record to process
+  stats          String    @default("{}")
+  dryRun         String    @default("") // summary of the last dry run
+  createdById    Int
+  createdByEmail String    @default("")
+  lockedUntil    DateTime? // lease held by the worker processing a slice
+  error          String    @default("")
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  records        ImportRecord[]
+
+  @@index([status, updatedAt])
+  @@index([adapter, createdAt])
+}
+
+// Saved mapping and options for a recurring source ("Digikala export", "Movie source A").
+model ImportTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  adapter     String
+  settings    String   @default("{}")
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([adapter, name])
+}
+
+// What happened to one record of a job, with what is needed to undo it.
+model ImportRecord {
+  id         Int       @id @default(autoincrement())
+  jobId      Int
+  index      Int
+  sourceKey  String    @default("")
+  title      String    @default("")
+  action     String    @default("") // CREATE | UPDATE | SKIP | FAIL
+  status     String    @default("OK") // OK | WARNING | FAILED | ROLLED_BACK | ROLLBACK_CONFLICT
+  entityType String    @default("")
+  entityId   Int?
+  messages   String    @default("[]")
+  changes    String    @default("{}") // created rows and field values before/after, for rollback
+  createdAt  DateTime  @default(now())
+  job        ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, index])
+  @@index([jobId, status])
+  @@index([entityType, entityId])
+}
+
+// Source identifiers (external ids) of imported rows, so a second import finds the same row.
+model ImportIdentity {
+  id         Int      @id @default(autoincrement())
+  entity     String // store.product | store.variant | store.brand | store.category | post | cinema.title …
+  externalId String
+  entityId   Int
+  jobId      Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([entity, externalId])
+  @@index([entity, entityId])
+}
+
+// Remote images already copied into the media library (by address and by content).
+model ImportMedia {
+  id          Int      @id @default(autoincrement())
+  sourceHash  String   @unique
+  sourceUrl   String
+  contentHash String   @default("")
+  localUrl    String
+  createdAt   DateTime @default(now())
+
+  @@index([contentHash])
 }
