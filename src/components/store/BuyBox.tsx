@@ -12,7 +12,10 @@ import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/clie
 import { iranianUnit } from '@/shared/money/format'
 import { useSite } from '@/components/site/SiteProvider'
 
-export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number }
+export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number; image?: string }
+
+/** Tells the product gallery which picture the chosen variant has (ProductGallery listens for it). */
+export const VARIANT_IMAGE_EVENT = 'store:variant-image'
 export type BuyBoxProps = {
   /** Marketplace seller of this product; the site itself when absent. */
   seller?: { name: string; label: string; href: string } | null
@@ -103,6 +106,10 @@ export default function BuyBox(props: BuyBoxProps) {
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
 
   const variant = props.variants.find((row) => row.id === variantId) || null
+  const variantImage = variant?.image || ''
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(VARIANT_IMAGE_EVENT, { detail: { productId: props.productId, image: variantImage } }))
+  }, [props.productId, variantImage])
   const price = variant ? variant.price : props.price
   const listPrice = variant ? variant.listPrice : props.listPrice
   const memberPrice = variant ? variant.memberPrice : props.memberPrice

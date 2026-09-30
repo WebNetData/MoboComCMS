@@ -5,13 +5,13 @@ import { auditSystem } from '@/platform/audit/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { coerceValues } from '@/modules/imports/domain/coerce'
 import { buildItems } from '@/modules/imports/domain/items'
-import { allowedValues, autoMap, discoverColumns, missingForCreate, type SourceColumn } from '@/modules/imports/domain/mapping'
+import { allowedValues, autoMap, discoverColumns, getPath, missingForCreate, type SourceColumn } from '@/modules/imports/domain/mapping'
 import { ImportFileError } from '@/modules/imports/domain/parse'
 import { addStats, type Stats } from '@/modules/imports/domain/report'
 import { normalizeSettings } from '@/modules/imports/domain/settings'
 import { LIMITS, type FieldDef, type ImportSettings, type Message, type PreviewCard, type PreviewLine, type SourceItem } from '@/modules/imports/domain/types'
 import { normalizeValue, toText } from '@/modules/imports/domain/values'
-import { deleteUpload, loadParsed } from '@/modules/imports/server/files'
+import { deleteUpload, loadParsed, pruneIncoming } from '@/modules/imports/server/files'
 import { importImage, knownSources } from '@/modules/imports/server/media'
 import { ApplyFailure, getImporter, type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 import '@/modules/imports/server/adapters'
@@ -118,9 +118,20 @@ export async function analyzeJob(job: Job) {
       }
     }
   }
+  // Distinct values of short columns (for value maps such as "file category → attribute group").
+  const distinct: Record<string, string[]> = {}
+  for (const path of valueColumns) {
+    const seen = new Set<string>()
+    for (const row of parsed.rows.slice(0, 5000)) {
+      const text = toText(getPath(row, path), 200)
+      if (text) seen.add(text)
+      if (seen.size > 100) break
+    }
+    if (seen.size && seen.size <= 100) distinct[path] = [...seen]
+  }
   return {
     columns, rows: parsed.rows.length, sheets: parsed.sheets || [], sheet: parsed.sheet || '', format: parsed.format,
-    sample: parsed.rows.slice(0, 5),
+    sample: parsed.rows.slice(0, 5), distinct,
     suggestions: { mapping, variants, variantMapping, attributes },
   }
 }
@@ -163,7 +174,7 @@ function typed(adapter: ImportAdapter, settings: ImportSettings, item: SourceIte
   return {
     values: main.values,
     variantValues: variants.map((v) => v.values),
-    messages: [...main.messages.map((m) => soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => soften(m, `تنوع ${i + 1}: `)))],
+    messages: [...(item.notes || []), ...main.messages.map((m) => soften(m)), ...variants.flatMap((v, i) => v.messages.map((m) => soften(m, `تنوع ${i + 1}: `)))],
   }
 }
 
@@ -307,7 +318,8 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
       for (let j = 0; j < batch.length; j++) {
         const item = batch[j]
         if (done.has(item.index)) continue
-        if (j % 5 === 0) {
+        {
+          // Pause/cancel take effect before the next record (the one being written finishes in its own transaction).
           const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true } })
           if (current?.status !== 'RUNNING') { stop = true; cursor = item.index; break }
         }
@@ -343,7 +355,12 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
       await adapter.finish?.().catch((error) => logEvent('warn', 'imports.finish_failed', { jobId, error: String(error) }))
       const final = await finalStats(jobId, items.length)
       const status = final.failed ? 'DONE_WITH_ERRORS' : 'DONE'
-      await db.importJob.update({ where: { id: jobId }, data: { status, finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
+      // Only a running job becomes done: a pause or cancel that arrived meanwhile is kept.
+      const closed = await db.importJob.updateMany({ where: { id: jobId, status: 'RUNNING' }, data: { status, finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
+      if (!closed.count) {
+        await db.importJob.update({ where: { id: jobId }, data: { cursor, stats: JSON.stringify(final), lockedUntil: null } })
+        return { done: false, next: false }
+      }
       await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.completed', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, file: job.fileName, status, ...final } })
       return { done: true, next: false }
     }
@@ -388,6 +405,7 @@ export async function sweepImportJobs() {
   }
   const stale = await db.importJob.findMany({ where: { status: 'DRAFT', updatedAt: { lt: new Date(Date.now() - 7 * 86_400_000) } }, select: { id: true, fileKey: true }, take: 20 })
   for (const draft of stale) { await deleteUpload(draft.fileKey); await db.importJob.delete({ where: { id: draft.id } }) }
+  await pruneIncoming()
   return { resumed, pruned: stale.length }
 }
 

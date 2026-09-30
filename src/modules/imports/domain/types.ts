@@ -90,6 +90,8 @@ export interface SourceItem {
   /** Per-variant attribute values, aligned with `variants`. */
   variantAttributes: Record<string, string>[]
   raw: Record<string, unknown>
+  /** Problems found while building the item (e.g. flat rows of one group that disagree). */
+  notes?: Message[]
 }
 
 export type Level = 'error' | 'warning' | 'info'

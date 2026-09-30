@@ -140,7 +140,7 @@ export function allowedValues(
     if (!policy) continue
     if (mode === 'create') { if (policy.create) out[key] = value; continue }
     if (existing === 'skip') continue
-    if (existing === 'replace') { if (policy.create || policy.update) out[key] = value; continue }
+    // Update switched off always wins: "replace" only changes how lists (e.g. specifications) are written, never which fields.
     if (!policy.update) continue
     if (existing === 'fill-empty' && current && !blank(current[key])) continue
     out[key] = value

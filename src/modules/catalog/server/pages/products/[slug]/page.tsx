@@ -126,11 +126,11 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
       id: variant.id, name: isFa ? variant.name : variant.nameEn || variant.name, attributes: parseJson<Record<string, string>>(variant.attributes, {}),
       price: minorToNumber(priced.unitMinor, priced.currency), listPrice: priced.listMinor ? minorToNumber(priced.listMinor, priced.currency) : 0,
       memberPrice: vipOn && variant.memberPriceMinor > 0n ? minorToNumber(variant.memberPriceMinor, priced.currency) : 0,
-      stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder),
+      stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder), image: variant.image || undefined,
     }
   })
   const shippingNote = deliverySettings.enabled ? 'ارسال با انتخاب روز و ساعت تحویل' : 'ارسال توسط فروشگاه'
-  const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} />
+  const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} productId={product.id} />
   const infoNode = (
     <div className="sx-pinfo">
       <div className="sx-pinfo-top">

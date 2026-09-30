@@ -279,9 +279,13 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
   if (paths.length > 1) messages.push({ level: 'warning', text: `محصول فروشگاه یک دسته دارد؛ فقط «${paths[0].join(' > ')}» استفاده می‌شود` })
   const categoryPath = paths[0] || []
   let category: Cat | null = null
+  // Where the attribute group is inherited from: the category itself, or — when the end of the path is
+  // still to be created — its deepest existing ancestor (new categories inherit exactly like existing ones).
+  let groupSource: Cat | null = null
   if (categoryPath.length) {
     const walk = walkPath(c, categoryPath)
     category = walk.found
+    groupSource = walk.found || walk.existing[walk.existing.length - 1] || null
     if (walk.missing.length) {
       if (o.missingCategories === 'error') return fail(`دستهٔ «${categoryPath.join(' > ')}» وجود ندارد`)
       for (let i = walk.existing.length; i < categoryPath.length; i++) planOnce(ctx, `cat:${categoryPath.slice(0, i + 1).map(normalizeName).join('>')}`, counters, 'categoriesCreated')
@@ -312,8 +316,8 @@ async function plan(item: SourceItem, values: Record<string, unknown>, variantVa
   // Attribute group: from the file, the category, one group for all, or a map by source category.
   // When the product's category is not imported, its current category decides the group.
   const categoryAllowed = 'category' in ctx.allow({ category: categoryPath }, mode, existing ? currentValues(existing, c) : undefined)
-  if (existing && (!categoryAllowed || !categoryPath.length) && existing.categoryId) category = c.cats.get(existing.categoryId) || null
-  const categoryGroup = category ? await groupOfCategory(c, category.id) : { group: null, via: null }
+  if (existing && (!categoryAllowed || !categoryPath.length) && existing.categoryId) groupSource = category = c.cats.get(existing.categoryId) || null
+  const categoryGroup = groupSource ? await groupOfCategory(c, groupSource.id) : { group: null, via: null }
   let desired: { id: number | null; name: string; create: boolean } | null = null
   if (o.groupMode === 'category') desired = categoryGroup.group ? { id: categoryGroup.group.id, name: categoryGroup.group.name, create: false } : null
   else if (o.groupMode === 'fixed' && o.groupFixed) { const g = c.groups.get(o.groupFixed); if (!g) return fail('گروه ویژگی انتخاب‌شده پیدا نشد'); desired = { id: g.id, name: g.name, create: false } }

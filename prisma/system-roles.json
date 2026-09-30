@@ -4,7 +4,7 @@
     "nameFa": "مدیر کل",
     "nameEn": "Super Admin",
     "isSystem": true,
-    "permissions": "dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view,extensions.code"
+    "permissions": "dashboard.view,users.manage,subs.manage,orders.manage,finance.manage,invoices.manage,gateways.manage,plans.manage,panels.manage,tickets.handle,tickets.departments.manage,settings.manage,cms.pages,cms.posts,cms.products,roles.manage,resellers.manage,audit.view,imports.manage,extensions.code"
   },
   {
     "name": "accountant",

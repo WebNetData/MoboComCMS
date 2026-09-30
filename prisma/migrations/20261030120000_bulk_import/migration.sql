@@ -121,3 +121,6 @@ CREATE INDEX "Product_sku_idx" ON "Product"("sku");
 -- AddForeignKey
 ALTER TABLE "ImportRecord" ADD CONSTRAINT "ImportRecord_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "ImportJob"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+
+-- The system administrator role gets the new bulk import permission (custom roles are left to their owners).
+UPDATE "Role" SET "permissions" = "permissions" || ',imports.manage' WHERE "name" = 'admin' AND "permissions" NOT LIKE '%imports.manage%';

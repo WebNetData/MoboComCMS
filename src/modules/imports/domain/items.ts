@@ -5,7 +5,7 @@
  */
 import { getPath } from '@/modules/imports/domain/mapping'
 import { isBlank, toText } from '@/modules/imports/domain/values'
-import { LIMITS, type ImportSettings, type SourceItem } from '@/modules/imports/domain/types'
+import { LIMITS, type ImportSettings, type Message, type SourceItem } from '@/modules/imports/domain/types'
 
 /** A variant-relative path: "variants[].color" → "color" when the variants live under "variants". */
 export function relativePath(path: string, variantsSource: string): string {
@@ -77,11 +77,22 @@ export function buildItems(rows: Record<string, unknown>[], settings: ImportSett
       if (!groups.has(key)) { groups.set(key, []); order.push(key) }
       groups.get(key)!.push(i)
     })
+    const variantPaths = new Set([...Object.values(settings.variantMapping), ...settings.attributes.filter((a) => a.variation).map((a) => a.source)])
     return order.map((key, index) => {
       const members = groups.get(key)!
       const memberRows = members.map((i) => rows[i])
       const hasVariantData = settings.attributes.some((a) => a.variation) || Object.values(settings.variantMapping).some(Boolean)
-      return build(index, memberRows, members.map((i) => i + 1), settings, hasVariantData ? memberRows.slice(0, LIMITS.variantsPerItem + 1) : [])
+      const item = build(index, memberRows, members.map((i) => i + 1), settings, hasVariantData ? memberRows.slice(0, LIMITS.variantsPerItem + 1) : [])
+      // Ambiguity is reported, not guessed away: a row without a group key, or rows of one group that disagree on a product field.
+      const notes: Message[] = []
+      if (key.startsWith('r:')) notes.push({ level: 'warning', text: `ستون گروه‌بندی «${settings.variants.groupBy}» در ردیف ${members[0] + 1} خالی است؛ این ردیف یک محصول جداگانه در نظر گرفته شد` })
+      for (const [field, path] of Object.entries(settings.mapping)) {
+        if (!path || variantPaths.has(path)) continue
+        const distinct = [...new Set(memberRows.map((row) => toText(getPath(row, path), 120)).filter(Boolean))]
+        if (distinct.length > 1) notes.push({ level: 'warning', text: `ردیف‌های گروه «${key.slice(2)}» برای «${field}» مقدار متفاوت دارند (${distinct.slice(0, 3).join(' | ')})؛ مقدار اولین ردیف استفاده شد` })
+      }
+      if (notes.length) item.notes = notes
+      return item
     })
   }
   return rows.map((row, index) => {

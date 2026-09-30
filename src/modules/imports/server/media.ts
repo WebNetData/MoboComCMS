@@ -7,7 +7,7 @@ import net from 'node:net'
 import path from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { env } from '@/platform/config/env'
-import { checkRemoteUrl, isBlockedAddress } from '@/modules/imports/domain/net'
+import { checkRemoteUrl, isBlockedAddress, isLoopback } from '@/modules/imports/domain/net'
 import { CoverImageError, storeCoverImage } from '@/modules/site/server/cover-store'
 
 /**
@@ -22,8 +22,9 @@ import { CoverImageError, storeCoverImage } from '@/modules/site/server/cover-st
 
 export const MEDIA_LIMITS = { bytes: 15 * 1024 * 1024, timeoutMs: 20_000, redirects: 3, pixels: 60_000_000, attempts: 3 }
 const OWN = /^\/api\/media\/covers\/[0-9a-f-]{36}\.(webp|png|jpg)$/
-// Test-only escape hatch for the local image server of the integration test; never honoured in production.
-const allowPrivate = () => env('IMPORT_ALLOW_PRIVATE_HOSTS') === '1' && process.env.NODE_ENV !== 'production'
+// Test-only: lets the integration test's local image server (loopback only) be reached; never honoured in production.
+const allowLoopback = () => env('IMPORT_ALLOW_LOOPBACK') === '1' && process.env.NODE_ENV !== 'production'
+const refused = (address: string) => isBlockedAddress(address) && !(allowLoopback() && isLoopback(address))
 
 export class MediaError extends Error {
   constructor(message: string, readonly retry = false) { super(message) }
@@ -35,7 +36,7 @@ function guardedLookup(hostname: string, options: dns.LookupOptions, callback: (
     if (error) return callback(error, '')
     const list = addresses as dns.LookupAddress[]
     if (!list.length) return callback(new MediaError('نام میزبان پیدا نشد'), '')
-    if (!allowPrivate() && list.some((entry) => isBlockedAddress(entry.address))) return callback(new MediaError('نشانی به شبکهٔ داخلی اشاره می‌کند و مسدود شد'), '')
+    if (list.some((entry) => refused(entry.address))) return callback(new MediaError('نشانی به شبکهٔ داخلی اشاره می‌کند و مسدود شد'), '')
     if (options.all) return callback(null, list)
     callback(null, list[0].address, list[0].family)
   })
@@ -47,7 +48,7 @@ function requestOnce(url: URL): Promise<{ status: number; location: string; type
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http
     const literal = url.hostname.replace(/^\[|\]$/g, '')
-    if (net.isIP(literal) && !allowPrivate() && isBlockedAddress(literal)) return reject(new MediaError('نشانی شبکهٔ داخلی مجاز نیست'))
+    if (net.isIP(literal) && refused(literal)) return reject(new MediaError('نشانی شبکهٔ داخلی مجاز نیست'))
     const req = client.request(url, {
       method: 'GET', lookup: guardedLookup as never, timeout: MEDIA_LIMITS.timeoutMs,
       headers: { 'User-Agent': 'MoboComCMS-Importer/1.0', Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.1' },
@@ -75,13 +76,13 @@ function requestOnce(url: URL): Promise<{ status: number; location: string; type
 
 /** GET with every hop checked; the final response must be a success. */
 export async function safeFetch(raw: string): Promise<Fetched> {
-  let url = checkRemoteUrl(raw, { allowPrivate: allowPrivate() })
+  let url = checkRemoteUrl(raw, { allowLoopback: allowLoopback() })
   for (let hop = 0; hop <= MEDIA_LIMITS.redirects; hop++) {
     const res = await requestOnce(url)
     if (res.status >= 300 && res.status < 400) {
       if (!res.location) throw new MediaError('تغییر مسیر بدون مقصد')
       if (hop === MEDIA_LIMITS.redirects) throw new MediaError('تعداد تغییر مسیرها بیش از حد مجاز است')
-      url = checkRemoteUrl(new URL(res.location, url).toString(), { allowPrivate: allowPrivate() })
+      url = checkRemoteUrl(new URL(res.location, url).toString(), { allowLoopback: allowLoopback() })
       continue
     }
     if (res.status >= 500 || res.status === 429) throw new MediaError(`سرور تصویر خطا داد (${res.status})`, true)
