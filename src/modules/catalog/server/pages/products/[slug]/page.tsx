@@ -33,6 +33,7 @@ import { getLoyaltySettings } from '@/modules/store/server/marketing'
 import { productSeller } from '@/modules/marketplace/server/marketplace'
 import SellerCard from '@/components/marketplace/SellerCard'
 import PromoSlot from '@/components/promo/PromoSlot'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -125,11 +126,11 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
       id: variant.id, name: isFa ? variant.name : variant.nameEn || variant.name, attributes: parseJson<Record<string, string>>(variant.attributes, {}),
       price: minorToNumber(priced.unitMinor, priced.currency), listPrice: priced.listMinor ? minorToNumber(priced.listMinor, priced.currency) : 0,
       memberPrice: vipOn && variant.memberPriceMinor > 0n ? minorToNumber(variant.memberPriceMinor, priced.currency) : 0,
-      stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder),
+      stock: variant.stock, limit: product.stock === 0 ? 0 : lineLimit(product.stock, variant.stock, product.maxPerOrder), image: variant.image || undefined,
     }
   })
   const shippingNote = deliverySettings.enabled ? 'ارسال با انتخاب روز و ساعت تحویل' : 'ارسال توسط فروشگاه'
-  const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} />
+  const galleryNode = <ProductGallery images={[product.image, ...parseJson<string[]>(product.gallery, [])]} alt={name} productId={product.id} />
   const infoNode = (
     <div className="sx-pinfo">
       <div className="sx-pinfo-top">
@@ -192,8 +193,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const chromeDoc = layoutDoc || builderDoc
   const breadcrumbsNode = <Crumbs items={[{ label: t.shop, href: '/products' }, ...(product.category ? [{ label: product.category.name, href: `/products?category=${encodeURIComponent(product.category.slug)}` }] : []), { label: name }]} />
   const ldNodes = <>
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productLd) }} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbs) }} />
   </>
   return (
     <>

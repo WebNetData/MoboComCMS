@@ -27,6 +27,7 @@ import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChro
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import PromoSlot from '@/components/promo/PromoSlot'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -361,8 +362,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
         )}
       />
       <SectionBarSlot section="blog" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbsLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
 
       {(() => {
         const crumb = (

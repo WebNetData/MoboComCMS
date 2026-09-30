@@ -18,6 +18,7 @@ import SeasonTabs, { type SeasonView } from '@/components/media/SeasonTabs'
 import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
 import Slider from '@/components/site/Slider'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -79,7 +80,7 @@ export default async function TitlePage({ params }: Props) {
 
   return (
     <MediaShell section="cinema" active={ti.kind === 'SERIES' ? 'series' : 'movies'} nav={cinemaNav(fa)} search={{ action: '/cinema/browse', placeholder: fa ? 'نام فیلم، سریال یا کارگردان…' : 'Film, series or director…' }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="cn-detail-hero">
         <div className="cn-hero-bg is-active" style={ti.backdrop ? { backgroundImage: `url("${ti.backdrop.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="cn-hero-shade" aria-hidden="true" />

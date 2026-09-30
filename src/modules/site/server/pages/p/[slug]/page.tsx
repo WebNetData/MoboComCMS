@@ -14,6 +14,7 @@ import { parseForm, publicForm } from '@/modules/forms/domain/forms'
 import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -60,7 +61,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
   return (
     <>
       <ThemeHeader context={chromeContext} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} breadcrumbs={[{ label: isFa ? 'خانه' : 'Home', href: '/' }, { label: title }]} preview={preview} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbsLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
       <main>
         {layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
         {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}

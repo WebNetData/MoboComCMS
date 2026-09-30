@@ -11,6 +11,7 @@ import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '
 import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
 import { PluginOutlet } from '@/plugins/registry'
 import type { RenderContext } from '@/modules/site/domain/theme-templates'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 const CONTEXT: RenderContext = { route: 'home' }
 
@@ -36,7 +37,7 @@ export default async function HomeView({ preview }: { preview?: BuilderPreview }
     ? <><PluginOutlet slot="home.before-main" site={site} locale={locale}/><main className="br-page-main"><BuilderRenderer doc={builderDoc} locale={locale} data={landingData} preview={isPreview(preview)} editable={editableFor(preview, docPageId)}/></main><PluginOutlet slot="home.after-main" site={site} locale={locale}/></>
     : <LandingPage site={site} locale={locale} data={landingData}/>
   return <>
-    {faq.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(faq)).replace(/</g, '\\u003c') }}/>}
+    {faq.length > 0 && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd(faq)) }}/>}
     <ThemeHeader context={CONTEXT} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} preview={preview}/>
     {main}
     <ThemeFooter context={CONTEXT} choice={builderDoc?.layout?.footer} locale={locale} navPages={navPages} preview={preview}/>

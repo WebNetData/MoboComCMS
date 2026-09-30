@@ -33,6 +33,29 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
   'images.clear-cache': { label: 'پاک‌کردن کش اندازه‌های تصویر', run: async () => (await import('@/modules/site/server/images')).clearImageCache() },
   'search.reindex': { label: 'بازسازی کامل نمایهٔ جست‌وجو', run: async () => (await import('@/modules/content/server/jobs')).runEngagementJobs({ full: true }) },
   'cdn.purge': { label: 'پاک‌کردن کش CDN', run: async () => (await import('@/modules/operations/server/monitoring')).purgeCdn() },
+  // Bulk import: one time-boxed slice per queue job; the import's own history is in ImportJob/ImportRecord.
+  'imports.run': {
+    label: 'ورود گروهی اطلاعات',
+    run: async (payload) => {
+      const jobId = Number(payload.jobId)
+      if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
+      const { runSlice } = await import('@/modules/imports/server/engine')
+      const result = await runSlice(jobId, 35_000)
+      if (result.next) await enqueue('imports.run', { jobId })
+      return { jobId, ...result }
+    },
+  },
+  'imports.rollback': {
+    label: 'بازگردانی ورود گروهی اطلاعات',
+    run: async (payload) => {
+      const jobId = Number(payload.jobId)
+      if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
+      const { rollbackSlice } = await import('@/modules/imports/server/engine')
+      const result = await rollbackSlice(jobId, 35_000)
+      if (result.next) await enqueue('imports.rollback', { jobId })
+      return { jobId, ...result }
+    },
+  },
 }
 
 export const JOB_LABEL: Record<string, string> = Object.fromEntries(Object.entries(HANDLERS).map(([kind, handler]) => [kind, handler.label]))

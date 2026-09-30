@@ -20,6 +20,8 @@ export const PERMISSIONS = [
   'roles.manage',
   'resellers.manage',
   'audit.view',
+  // Bulk import (upload, mapping, run, rollback); separate from settings.manage.
+  'imports.manage',
   // Apply code packages and edit built-in plugin/theme source (full server trust).
   'extensions.code',
 ] as const

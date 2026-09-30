@@ -18,6 +18,7 @@ import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { getMusicSettings } from '@/modules/music/server/admin'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +58,7 @@ export default async function TrackPage({ params }: Props) {
 
   return (
     <MediaShell section="music" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="mu-detail-hero">
         <div className="mu-hero-bg" style={track.cover ? { backgroundImage: `url("${track.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="container mu-detail-inner">

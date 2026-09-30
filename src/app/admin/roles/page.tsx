@@ -27,6 +27,7 @@ const PERM_LABELS: Record<string, string> = {
   'cms.posts': '📝 Posts',
   'cms.products': '🛒 Products',
   'roles.manage': '🔑 Roles',
+  'imports.manage': '📥 Bulk import',
 }
 
 export default function AdminRolesPage() {

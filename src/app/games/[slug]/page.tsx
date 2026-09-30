@@ -22,6 +22,7 @@ import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/enga
 import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { safeJsonLd } from '@/shared/seo/json-ld'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -93,7 +94,7 @@ export default async function GamePage({ params }: Props) {
 
   return (
     <MediaShell section="games">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="gm-detail-hero gv-hero" style={g.backdrop ? { backgroundImage: `url("${g.backdrop.replace(/"/g, '%22')}")` } : undefined}>
         <span className="gm-hero-shade" aria-hidden="true" />
         <div className="container gm-detail-inner gv-hero-inner">
