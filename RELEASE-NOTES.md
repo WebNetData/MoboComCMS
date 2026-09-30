@@ -1,5 +1,15 @@
 # HappVPN deployable baseline — 2026-09-22
 
+## 1.6.0 — MoboComCMS multi-section CMS and bulk import
+
+Releases everything merged after 1.5.0 (PRs #1–#17). Upgrade notes, the migration list and post-update checks: `UPDATE-1.6.0.md`; installation on a VPS or shared hosting: `docs/DEPLOY-VPS-HOST-FA.md`.
+
+- Sections: MoboCom homepage, software, games, cinema, music and magazine portals with their own taxonomies, mega menus, templates and configurable addresses; Discourse-style forum (v3); unified profiles and community; pro user dashboard; live search, reviews, compare, social publishing, PWA/push, analytics, copyright reports; AI auto-fill; paid content and VIP.
+- Store v2: cart, brands, attribute groups, variants, filters, advanced admin; address book and delivery dates, returns, official invoices, carriers, back-in-stock, abandoned carts, gift cards, loyalty, installments, Torob/Emalls feeds; multi-vendor marketplace; FX pricing with live rates (variants included); Mellat and card-to-card gateways, IPPanel SMS, 2-step sign-in.
+- Admin tools: bulk import (JSON/CSV/XLSX → store, magazine, movies, series, games, software, music) with dry run, per-field create/update/ignore, reports and rollback (`imports.manage`); server panel, download center, secure/masked links, watermarking, source-trace and file-metadata cleaning; ads, form builder, newsletter, live chat and CRM, monitoring, page cache, Redis/CDN; web installer, one-click updater, plugin/theme repository with licensing.
+- Security: `safeJsonLd` for every JSON-LD script; connect-time SSRF checks for imported images.
+- 30 database migrations (`20260927120000_software_forum` … `20261030120000_bulk_import`), applied automatically on start.
+
 ## 1.5.0 — Flexible page builder (completed)
 
 - Live preview moved to `/builder-preview/<pageId>` (outside the client-rendered admin layout, which kept the preview bridge from ever running); server-side permission check, noindex, robots-disallowed. The bridge is a client component with a MutationObserver instead of an inline script and timers.
