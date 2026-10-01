@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Commit and push the verified Store variant picker correction.
-Risk: R4 program; this Store picker slice is R2 and does not change checkout or persistence.
-Owner/contracts: `store` owns variant selection; `catalog` supplies active variant attributes and purchase limits to BuyBox.
+Current milestone: Push verified durable Store stock alerts.
+Risk: R4 program; this Store alert slice is R3 because it changes durable job order and publication gating.
+Owner/contracts: `store` owns stock alert eligibility and the scheduler; `notifications` owns deduplicated inbox events.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -25,9 +25,10 @@ Done (verified):
 - Per-event SMS, email and browser-push preferences, with an SDS-aligned responsive dashboard matrix, were committed and pushed as `ac8ffbd`.
 - The notification inbox now uses the same SDS-based dashboard composition, with compact activity rows and clear loading/empty states; committed and pushed as `6d1e040`.
 - The account library overview now uses SDS-token cards, semantic icons, a balanced three-column desktop grid and responsive dark/light layouts; committed and pushed as `744179f`.
+- The Store variant picker now aligns option availability with actual selection and preserves contextual sold-out combinations; committed and pushed as `1d0e42e`.
 
 In progress:
-- Review and push the verified Store variant picker slice. Keep unrelated local files out of commits.
+- Review and push durable Store stock alerts. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -49,9 +50,10 @@ Validation actually run:
 - For inbox visual polish: `typecheck`, `source:check`, and the existing authenticated browser behavior test passed after the change. The browser test covered 34 unread items, paging, mark-read actions, dark desktop/mobile, light mobile, and horizontal overflow at 360, 390, 768 and 1440 pixels. The first visual attempt used stale development CSS; restarting the app and rerunning the test confirmed the final result.
 - For library visual polish: `typecheck`, `source:check`, `arch:check` and the authenticated library feed browser check passed. The browser check verified recent playlist/collection items, dark desktop/mobile, light mobile, and no horizontal overflow at 360, 390, 768 or 1440 pixels. Final screenshots were inspected after the balanced desktop grid change.
 - For Store variant selection: focused domain test, `typecheck`, `source:check`, `arch:check`, `security:check` and `build:postgres` passed. A local browser product check verified contextual sold-out state, fallback to an available combination, restored purchase state, dark desktop/mobile layout and mobile width after final CSS. Final mobile screenshot was inspected.
+- For Store stock alerts: focused domain and simulated failure/retry/concurrent tests, `typecheck`, `source:check`, `arch:check`, `security:check` and `build:postgres` passed. A connected local PostgreSQL check verified pending approval, zero stock, failed inbox write retry, one persisted event and one final marker.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit and push the Store variant picker, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Commit and push Store stock alerts, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.

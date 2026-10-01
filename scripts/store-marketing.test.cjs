@@ -15,6 +15,19 @@ function load(relative) {
 const m = load('src/modules/store/domain/marketing')
 const inst = load('src/modules/billing/infrastructure/installments')
 
+test('stock alerts require a public purchasable product and active matching variant', () => {
+  const base = { active: true, approval: 'APPROVED', stock: 5, variantCount: 2, variants: [{ id: 2, stock: 0 }, { id: 3, stock: 4 }] }
+  assert.equal(m.stockAlertAvailable(base, 0), true)
+  assert.equal(m.stockAlertAvailable(base, 2), false)
+  assert.equal(m.stockAlertAvailable(base, 3), true)
+  assert.equal(m.stockAlertAvailable(base, 4), false)
+  assert.equal(m.stockAlertAvailable({ ...base, approval: 'PENDING' }, 3), false)
+  assert.equal(m.stockAlertAvailable({ ...base, active: false }, 3), false)
+  assert.equal(m.stockAlertAvailable({ ...base, stock: 0 }, 3), false)
+  assert.equal(m.stockAlertAvailable({ ...base, variants: [] }, 0), false)
+  assert.equal(m.stockAlertAvailable({ ...base, variantCount: 0, variants: [] }, 0), true)
+})
+
 test('club: points, tiers, reversals and redemption value', () => {
   const s = m.normalizeLoyalty({ enabled: true, earnPoints: 1, earnStepToman: 10000, pointValueToman: 100 })
   assert.equal(m.pointsFor(s, 1_250_000n), 125)
