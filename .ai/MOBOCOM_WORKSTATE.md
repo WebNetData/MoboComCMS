@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Push verified public forum topic tracking into recent history.
-Risk: R4 program; this forum-to-library slice is R2 and adds no schema or API.
-Owner/contracts: Forum renders topic pages; `content` owns the existing tracker, public registry and private recent feed.
+Current milestone: Finish durable external notification delivery and move to the next capability gap.
+Risk: R4 program; this notification slice is R3 and adds no schema or public API.
+Owner/contracts: `notifications` owns inbox events and dispatch; `operations` owns the existing durable queue; channel modules own provider sends and preferences.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -29,9 +29,10 @@ Done (verified):
 - Store stock alerts now gate on publication and variant availability, persist the deduplicated inbox event before marking the alert, and retry failures; committed and pushed as `707bcbe`.
 - The private recently viewed page now uses a responsive SDS-token account composition in dark and light themes; committed and pushed as `71ca5ca`.
 - The full project validation contract tests were refreshed and pushed as `887c721`.
+- Public forum topic tracking into recent history was verified and pushed as `f8f9fff`.
 
 In progress:
-- Review and push public forum topic tracking. Keep unrelated local files out of commits.
+- Commit and push durable notification delivery after final build and diff review. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -57,9 +58,10 @@ Validation actually run:
 - For recent-history UI: `typecheck`, `source:check`, `arch:check`, `build:postgres` and authenticated browser check passed. The browser check covered item tracking, long mixed-script title, destructive clear action, dark desktop/mobile, light mobile and empty state, and no horizontal overflow at 360, 390, 768 and 1440 pixels. Screenshots were inspected.
 - Full `npm run check` passed with Git Bash ahead of the Windows WSL stub on PATH. The first attempt exposed two stale source-contract tests: media now has five paywall-gated paths, and inbox PATCH returns the owner-scoped unread count. Their targeted tests and the full check passed after updating the assertions. Recent-history browser QA passed again after the committed layout.
 - For forum recent views: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and authenticated browser test passed. The test verified a public listed topic is recorded and shown in private history, while a restricted topic visible to staff is rejected by the shared registry.
+- For durable notification delivery: focused concurrent/rollback/provider-failure test and local PostgreSQL queue check passed. Full `npm run check` passed with Git Bash ahead of the WSL stub, and `build:postgres` passed.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit and push public forum topic tracking, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Commit/push notification delivery, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.

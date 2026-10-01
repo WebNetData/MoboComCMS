@@ -137,17 +137,18 @@ async function brand() {
   return { brand: settings.brandName || 'موبوکام', site: (settings.siteUrl || process.env.NEXTAUTH_URL || '').replace(/\/+$/, '') }
 }
 
-/** Email copy of a customer notification (called when the inbox event is first created). */
-export async function notifyUserEmail(event: { userId: number; kind: string; titleFa: string; bodyFa?: string; href: string }) {
+/** Email copy of a customer notification, delivered by its queued channel job. */
+export async function notifyUserEmail(event: { userId: number; kind: string; titleFa: string; bodyFa?: string; href: string }): Promise<boolean | null> {
   const settings = await getSmtp()
-  if (!settings.enabled || !settings.notifyUsers || settings.events[event.kind] === false || !EMAIL_EVENTS.some((item) => item.id === event.kind)) return
+  if (!settings.enabled || !settings.notifyUsers || settings.events[event.kind] === false || !EMAIL_EVENTS.some((item) => item.id === event.kind)) return null
   const user = await db.user.findUnique({ where: { id: event.userId }, select: { email: true, name: true, status: true, emailAlerts: true } })
-  if (!user || user.status !== 'ACTIVE' || !user.emailAlerts || !deliverableEmail(user.email)) return
-  if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(event.userId, event.kind, 'email')) return
+  if (!user || user.status !== 'ACTIVE' || !user.emailAlerts || !deliverableEmail(user.email)) return null
+  if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(event.userId, event.kind, 'email')) return null
   const { brand: name, site } = await brand()
   const email = notificationEmail({ brand: name, site, name: user.name || 'کاربر', title: event.titleFa, body: event.bodyFa, href: event.href })
   const result = await sendMail({ to: user.email, subject: email.subject, text: email.text, html: email.html, source: `notify:${event.kind}`.slice(0, 40), headers: { 'List-Unsubscribe': `<${email.settings}>` } })
   if (!result.ok) logEvent('warn', 'mail.user_event_failed', { kind: event.kind, error: result.error })
+  return result.ok
 }
 
 /** Sample of the notification email for the admin preview. */
