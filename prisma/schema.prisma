@@ -61,6 +61,7 @@ model User {
   resellerMembership ResellerMember?
   trialClaim     TrialClaim?
   notifications  UserNotification[]
+  notificationMutes UserNotificationMute[]
 
   @@index([telegramId])
   forumThreads   ForumThread[]
@@ -134,6 +135,19 @@ model UserNotification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+/// A missing row means the external copy is allowed. In-app notices are never muted here.
+model UserNotificationMute {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  kind      String
+  channel   String   // sms | email | push
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, channel])
+  @@index([userId])
 }
 
 model Panel {

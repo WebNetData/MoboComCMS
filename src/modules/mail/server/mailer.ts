@@ -143,6 +143,7 @@ export async function notifyUserEmail(event: { userId: number; kind: string; tit
   if (!settings.enabled || !settings.notifyUsers || settings.events[event.kind] === false || !EMAIL_EVENTS.some((item) => item.id === event.kind)) return
   const user = await db.user.findUnique({ where: { id: event.userId }, select: { email: true, name: true, status: true, emailAlerts: true } })
   if (!user || user.status !== 'ACTIVE' || !user.emailAlerts || !deliverableEmail(user.email)) return
+  if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(event.userId, event.kind, 'email')) return
   const { brand: name, site } = await brand()
   const email = notificationEmail({ brand: name, site, name: user.name || 'کاربر', title: event.titleFa, body: event.bodyFa, href: event.href })
   const result = await sendMail({ to: user.email, subject: email.subject, text: email.text, html: email.html, source: `notify:${event.kind}`.slice(0, 40), headers: { 'List-Unsubscribe': `<${email.settings}>` } })

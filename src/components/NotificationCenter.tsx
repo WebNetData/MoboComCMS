@@ -59,7 +59,7 @@ export default function NotificationCenter() {
   }
 
   return <div className="max-w-3xl mx-auto">
-    <div className="flex items-center justify-between flex-wrap gap-3 mb-6"><div><h1 className="h2">{fa ? 'اعلان‌ها' : 'Notifications'}</h1><p className="muted">{fa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread`}</p></div>{unread > 0 && <button className="btn btn-ghost" onClick={() => mark()}>{fa ? 'خواندن همه' : 'Mark all read'}</button>}</div>
+    <div className="flex items-center justify-between flex-wrap gap-3 mb-6"><div><h1 className="h2">{fa ? 'اعلان‌ها' : 'Notifications'}</h1><p className="muted">{fa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread`}</p></div><div className="flex gap-2"><Link href="/dashboard/notifications/preferences" className="btn btn-ghost">{fa ? 'تنظیمات اعلان‌ها' : 'Preferences'}</Link>{unread > 0 && <button className="btn btn-ghost" onClick={() => mark()}>{fa ? 'خواندن همه' : 'Mark all read'}</button>}</div></div>
     <div className="flex gap-2 mb-4" role="group" aria-label={fa ? 'نمایش اعلان‌ها' : 'Notification view'}>
       <button type="button" className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={filter === 'all'} onClick={() => selectFilter('all')}>{fa ? 'همه' : 'All'}</button>
       <button type="button" className={`btn ${filter === 'unread' ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={filter === 'unread'} onClick={() => selectFilter('unread')}>{fa ? 'خوانده‌نشده' : 'Unread'}</button>

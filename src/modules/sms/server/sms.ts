@@ -105,6 +105,7 @@ export async function notifyUserEvent(event: { userId: number; kind: string; tit
   const user = await db.user.findUnique({ where: { id: event.userId }, select: { name: true, phone: true, phoneVerifiedAt: true, smsAlerts: true, status: true } })
   // Only verified numbers receive alerts, so a mistyped number never gets someone else's messages.
   if (!user || user.status !== 'ACTIVE' || !user.smsAlerts || !user.phoneVerifiedAt || !normalizeMobile(user.phone)) return
+  if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(event.userId, event.kind, 'sms')) return
   const { brand, site } = await brandVars()
   const vars = { name: user.name || 'کاربر', title: event.titleFa, body: event.bodyFa || event.titleFa, link: site ? `${site}${event.href}` : event.href, brand }
   await sendSms({ phone: user.phone, event: event.kind, userId: event.userId, text: renderTemplate(setting.text, vars), pattern: setting.pattern || undefined, params: Object.fromEntries(def.vars.map((name) => [name, vars[name as keyof typeof vars] || ''])) }, config)
