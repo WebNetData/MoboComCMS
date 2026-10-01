@@ -31,6 +31,7 @@ model User {
   phoneVerifiedAt DateTime?
   smsAlerts      Boolean         @default(true)
   emailAlerts    Boolean         @default(true)
+  pushAlerts     Boolean         @default(true)
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?

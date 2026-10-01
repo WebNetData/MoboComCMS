@@ -116,6 +116,8 @@ const select = { id: true, endpoint: true, p256dh: true, auth: true } as const
 export async function pushToUser(userId: number, payload: PushPayload) {
   if (!await isModuleEnabled('web-push')) return { sent: 0, failed: 0 }
   if (!(await getPushConfig()).accountEvents) return { sent: 0, failed: 0 }
+  const user = await db.user.findUnique({ where: { id: userId }, select: { status: true, pushAlerts: true } })
+  if (!user || user.status !== 'ACTIVE' || !user.pushAlerts) return { sent: 0, failed: 0 }
   const targets = await db.pushSubscription.findMany({ where: { userId }, select, take: 20 })
   return deliver(targets, payload).catch((error) => { logEvent('error', 'push.user_failed', { userId, error }); return { sent: 0, failed: targets.length } })
 }

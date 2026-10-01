@@ -6,6 +6,7 @@ import SubscriptionAlertPreference from '@/components/SubscriptionAlertPreferenc
 import TelegramLink from '@/components/TelegramLink'
 import PhoneVerification from '@/components/PhoneVerification'
 import EmailAlertPreference from '@/components/EmailAlertPreference'
+import PushAlertPreference from '@/components/PushAlertPreference'
 import TwoFactorCard from '@/components/TwoFactorCard'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
@@ -105,6 +106,7 @@ export default function ProfilePage() {
         <h2 className="ac-col-title">اطلاع‌رسانی و اتصال‌ها</h2>
         <PhoneVerification />
         <EmailAlertPreference />
+        <PushAlertPreference />
         <TelegramLink />
         {vpnOn && <SubscriptionAlertPreference />}
       </div>
