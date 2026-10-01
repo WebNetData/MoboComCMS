@@ -94,7 +94,7 @@ async function cards(rows: CardRow[]) {
 }
 
 export async function productCards(where: Prisma.ProductWhereInput, orderBy: Prisma.ProductOrderByWithRelationInput[] = [{ id: 'desc' }], take = 12) {
-  const rows = await db.product.findMany({ where: { active: true, ...where }, orderBy, take, include: CARD_INCLUDE }).catch(() => [] as CardRow[])
+  const rows = await db.product.findMany({ where: { AND: [{ active: true, approval: 'APPROVED' }, where] }, orderBy, take, include: CARD_INCLUDE }).catch(() => [] as CardRow[])
   return cards(rows)
 }
 
@@ -106,7 +106,7 @@ export type CategoryNode = { id: number; slug: string; name: string; image: stri
 export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
   const [rows, counts] = await Promise.all([
     db.productCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
-    db.product.groupBy({ by: ['categoryId'], where: { active: true }, _count: { _all: true } }),
+    db.product.groupBy({ by: ['categoryId'], where: { active: true, approval: 'APPROVED' }, _count: { _all: true } }),
   ])
   const direct = new Map(counts.map((row) => [row.categoryId, row._count._all]))
   const nodes = new Map<number, CategoryNode>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, name: row.name, image: row.image, icon: row.icon, description: row.description, parentId: row.parentId, count: direct.get(row.id) || 0, total: 0, children: [] }]))
@@ -152,7 +152,7 @@ export async function shopHome() {
     productCards({}, [{ soldCount: 'desc' }, { id: 'desc' }], 12),
     productCards({}, [{ createdAt: 'desc' }], 12),
     productCards({}, [{ views: 'desc' }, { id: 'desc' }], 12),
-    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }) : Promise.resolve([]),
+    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED' } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }) : Promise.resolve([]),
   ])
   const offers = offersRaw.filter((card) => card.discount > 0).slice(0, 12)
   // One rail per top-level category that has enough products (up to three).
@@ -170,7 +170,7 @@ const LISTING_CAP = 2000
 export async function shopListing(query: ShopQuery, pageSize = 24) {
   const tree = await categoryTree()
   const found = query.category ? findCategory(tree, query.category) : null
-  const where: Prisma.ProductWhereInput = { active: true }
+  const where: Prisma.ProductWhereInput = { active: true, approval: 'APPROVED' }
   if (found) where.categoryId = { in: subtreeIds(found.node) }
   if (query.kind) where.kind = query.kind
   if (query.q) where.OR = [{ name: { contains: query.q } }, { nameEn: { contains: query.q } }, { sku: { contains: query.q } }, { shortDescription: { contains: query.q } }, { brand: { name: { contains: query.q } } }]
