@@ -64,6 +64,13 @@
 .sx-product .sx-buy-actions .sx-btn.is-primary { min-height: 52px; border-radius: 14px; font-size: 15px; font-weight: 900; box-shadow: var(--sxp-glow); }
 .sx-product .sx-qty { border-radius: 14px; }
 .sx-product .sx-swatch.is-selected, .sx-product .sx-option.is-selected { box-shadow: 0 0 0 3px var(--sxp-ring); }
+.sx-buy .sx-axis { padding: 10px 12px 13px; border: 1px solid var(--sx-line); border-radius: var(--sds-size-radius-400); background: var(--sx-surface); }
+.sx-buy .sx-axis legend { padding-inline: 6px; color: var(--sx-muted); font-size: 12px; font-weight: 700; }
+.sx-buy .sx-axis legend b { color: var(--sx-text); font-size: 13px; }
+.sx-buy .sx-option, .sx-buy .sx-swatch { transition: border-color .15s, background .15s, box-shadow .15s; }
+.sx-buy .sx-option:hover, .sx-buy .sx-swatch:hover { border-color: var(--sx-accent); background: var(--sx-accent-soft); }
+.sx-buy .sx-option.is-out, .sx-buy .sx-swatch.is-out { opacity: .7; background: var(--sx-subtle); }
+.sx-buy .sx-swatch.is-out > span:first-child { filter: grayscale(1); }
 
 .sx-product .sx-trust { gap: 12px; padding: 0; background: none; margin-block: 28px 8px; }
 .sx-product .sx-trust > div { padding: 16px; border-radius: 18px; background: var(--sx-surface); border: 1px solid var(--sx-line); transition: transform .2s, box-shadow .2s; }

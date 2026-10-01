@@ -10,6 +10,7 @@ import { StoreIcon } from '@/components/store/StoreIcons'
 import { addToCart } from '@/modules/store/ui/cart-client'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
 import { iranianUnit } from '@/shared/money/format'
+import { variantOption } from '@/modules/store/domain/store'
 import { useSite } from '@/components/site/SiteProvider'
 
 export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number; image?: string }
@@ -126,10 +127,7 @@ export default function BuyBox(props: BuyBoxProps) {
   // Values per axis, so each attribute becomes its own row of options.
   const axes = useMemo(() => props.axes.map((axis) => ({ ...axis, values: [...new Set(props.variants.map((row) => row.attributes[axis.key]).filter(Boolean))] })).filter((axis) => axis.values.length), [props.axes, props.variants])
   const pick = (key: string, value: string) => {
-    const wanted = { ...(variant?.attributes || {}), [key]: value }
-    const exact = props.variants.find((row) => Object.entries(wanted).every(([k, v]) => row.attributes[k] === v))
-    const loose = props.variants.find((row) => row.attributes[key] === value && row.limit > 0) || props.variants.find((row) => row.attributes[key] === value)
-    const next = exact || loose
+    const next = variantOption(props.variants, variant, key, value).selected
     if (next) { setVariantId(next.id); setQuantity(1); setAdded(false) }
   }
 
@@ -167,9 +165,10 @@ export default function BuyBox(props: BuyBoxProps) {
         <legend>{axis.label}: <b>{current || 'انتخاب کنید'}</b></legend>
         <div className={axis.color ? 'sx-swatches' : 'sx-options'}>
           {axis.values.map((value) => {
-            const inStock = props.variants.some((row) => row.attributes[axis.key] === value && row.limit > 0)
+            const { inStock, changesOtherOptions } = variantOption(props.variants, variant, axis.key, value)
             const color = axis.color ? swatch(value) : ''
-            return <button key={value} type="button" aria-pressed={current === value} className={`${axis.color ? 'sx-swatch' : 'sx-option'}${current === value ? ' is-selected' : ''}${inStock ? '' : ' is-out'}`} onClick={() => pick(axis.key, value)} title={inStock ? value : `${value} (ناموجود)`}>
+            const label = `${axis.label}: ${value}${!inStock ? '، ناموجود برای انتخاب فعلی' : changesOtherOptions ? '، گزینه‌های دیگر تغییر می‌کنند' : ''}`
+            return <button key={value} type="button" aria-label={label} aria-pressed={current === value} className={`${axis.color ? 'sx-swatch' : 'sx-option'}${current === value ? ' is-selected' : ''}${inStock ? '' : ' is-out'}`} onClick={() => pick(axis.key, value)} title={label}>
               {axis.color ? <><span style={{ background: color || 'var(--sx-subtle)' }} />{!color && value}<span className="sx-sr">{value}</span></> : value}
             </button>
           })}
