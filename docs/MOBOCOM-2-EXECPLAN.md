@@ -74,6 +74,8 @@ Watch history checkpoint: A private, paginated `/cinema/history` page reuses the
 
 Library feed checkpoint: The private account library now combines bounded recent favorites, games, personal playlists, owned collections, saved collections and live content purchases in time order. It uses each domain's existing read contract, keeps specialist statuses and ordering, and excludes private items owned by others. A connected two-account test verified the private and saved collection paths, a purchase, and anonymous content guard. The authenticated browser check verified recent items and the dark account design.
 
+Recent views checkpoint: Shared public detail pages record a signed-in member's view after a visible stay, through the existing content registry. The server rejects unpublished or disabled targets, keeps private per-user rows for six months, and exposes a paginated account history with owner-only clearing. The account library shows a bounded preview. Migration 20261108120000 was applied locally; connected and browser tests verified publication filtering, repeat visits, privacy, tracker delivery, dark UI and clearing. The public product page and registry now also reject seller products pending approval; the connected test covers both paths.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

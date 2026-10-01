@@ -59,7 +59,7 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'product': {
-      const rows = await db.product.findMany({ where: { ...where, active: true }, take, orderBy: { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await db.product.findMany({ where: { ...where, active: true, approval: 'APPROVED' }, take, orderBy: { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'post': {

@@ -96,6 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       label: locale === 'fa' ? 'حساب و پشتیبانی' : 'Account & support',
       items: [
         { href: '/dashboard/collections', label: locale === 'fa' ? 'مجموعه‌های من' : 'My collections', icon: 'grid' },
+        { href: '/dashboard/recent', label: locale === 'fa' ? 'اخیراً مشاهده‌شده' : 'Recently viewed', icon: 'sparkles' },
         { href: '/dashboard/notifications', label: locale === 'fa' ? 'اعلان‌ها' : 'Notifications', icon: 'bell' },
         { href: '/dashboard/tickets', label: t.supportCenter, icon: 'chat' },
         { href: '/dashboard/referrals', label: locale === 'fa' ? 'دعوت از دوستان' : 'Invite friends', icon: 'sparkles' },

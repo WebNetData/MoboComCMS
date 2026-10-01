@@ -3,6 +3,7 @@ import { COMPARABLE, FAVORITABLE, REVIEWABLE, itemKey, type ItemRef } from '@/mo
 import { getViewer } from '@/modules/membership/server/membership'
 import { itemEngagement } from '@/modules/reviews/server/reviews'
 import ItemActions from '@/components/engage/ItemActions'
+import RecentViewTracker from '@/components/engage/RecentViewTracker'
 import ReviewForm from '@/components/engage/ReviewForm'
 
 const num = (value: number) => value.toLocaleString('fa-IR')
@@ -19,7 +20,7 @@ export async function ItemActionBar({ item, title, image, followLabel }: { item:
   const canCompare = compareOn && COMPARABLE.includes(item.type)
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
-  return <ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} />
+  return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
 /** Rating summary, the member's review form and approved reviews for an item. */

@@ -44,7 +44,7 @@ async function loadProduct(slug: string, preview = false) {
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await paramsPromise
   const product = await loadProduct(params.slug)
-  if (!product || !product.active) return { title: 'Not found', robots: { index: false, follow: false } }
+  if (!product || !product.active || product.approval !== 'APPROVED') return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
   const isFa = locale === 'fa'
   const name = isFa ? product.name : product.nameEn || product.name
@@ -69,7 +69,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const isFa = locale === 'fa'
 
   const product = await loadProduct(params.slug, isPreview(preview))
-  if (!product || (product.active !== true && !isPreview(preview))) notFound()
+  if (!product || ((product.active !== true || product.approval !== 'APPROVED') && !isPreview(preview))) notFound()
 
   const navPages = await db.page
     .findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } })
