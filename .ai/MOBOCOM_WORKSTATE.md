@@ -24,7 +24,7 @@ Done (verified):
 - Private unread inbox view was committed and pushed as `a82fa06`.
 - Per-event SMS, email and browser-push preferences, with an SDS-aligned responsive dashboard matrix, were committed and pushed as `ac8ffbd`.
 - The notification inbox now uses the same SDS-based dashboard composition, with compact activity rows and clear loading/empty states; committed and pushed as `6d1e040`.
-- The account library overview now uses SDS-token cards, semantic icons, a balanced three-column desktop grid and responsive dark/light layouts.
+- The account library overview now uses SDS-token cards, semantic icons, a balanced three-column desktop grid and responsive dark/light layouts; committed and pushed as `744179f`.
 
 In progress:
 - Inspect the remaining capability brief and choose the next bounded slice. Keep unrelated local files out of commits.
