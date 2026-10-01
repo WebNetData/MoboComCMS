@@ -3,12 +3,10 @@ import { playbackKind } from '@/modules/media/domain/media'
 import { linkHref } from '@/modules/downloads/server/guard'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 
-/** Private, bounded Continue Watching read model. Drafts and removed links stay hidden. */
-export async function continueWatching(userId: number, take = 8) {
-  const progress = await db.cinemaWatchProgress.findMany({
-    where: { userId, completedAt: null, positionSeconds: { gt: 0 } },
-    orderBy: { updatedAt: 'desc' }, take: Math.min(Math.max(take * 3, 12), 60),
-  })
+type ProgressRow = Awaited<ReturnType<typeof db.cinemaWatchProgress.findMany>>[number]
+
+/** Resolve only currently published and playable references; never return raw media URLs. */
+async function resolveProgress(userId: number, progress: ProgressRow[], take: number) {
   if (!progress.length) return []
   const titleIds = progress.filter((row) => row.ownerType === 'title').map((row) => row.ownerId)
   const episodeIds = progress.filter((row) => row.ownerType === 'episode').map((row) => row.ownerId)
@@ -33,11 +31,40 @@ export async function continueWatching(userId: number, take = 8) {
     const parent = title || episode!.season.title
     return [{ key: `${row.ownerType}:${row.ownerId}`, title: parent.title, titleEn: parent.titleEn, poster: parent.poster,
       subtitle: episode ? `S${episode.season.number}E${episode.number}${episode.title ? ` · ${episode.title}` : ''}` : '',
-      path: `/cinema/${parent.slug}`, linkId, percent: row.durationSeconds ? Math.min(100, Math.round(row.positionSeconds / row.durationSeconds * 100)) : 0 }]
+      path: `/cinema/${parent.slug}`, linkId, completed: !!row.completedAt, updatedAt: row.updatedAt,
+      percent: row.completedAt ? 100 : row.durationSeconds ? Math.min(100, Math.round(row.positionSeconds / row.durationSeconds * 100)) : 0 }]
   }).slice(0, take)
   return Promise.all(rows.map(async (row) => {
     const protectedHref = await linkHref(row.linkId, userId)
     const token = new URL(protectedHref, 'http://localhost').searchParams.get('t')
     return { ...row, href: `/watch/${row.linkId}${token ? `?t=${encodeURIComponent(token)}` : ''}` }
   }))
+}
+
+/** Private, bounded Continue Watching read model. Drafts and removed links stay hidden. */
+export async function continueWatching(userId: number, take = 8) {
+  const progress = await db.cinemaWatchProgress.findMany({
+    where: { userId, completedAt: null, positionSeconds: { gt: 0 } },
+    orderBy: { updatedAt: 'desc' }, take: Math.min(Math.max(take * 3, 12), 60),
+  })
+  return resolveProgress(userId, progress, take)
+}
+
+export async function watchHistory(userId: number, rawPage: number) {
+  const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 1000) : 1
+  const pageSize = 24
+  const [progress, total] = await Promise.all([
+    db.cinemaWatchProgress.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+    db.cinemaWatchProgress.count({ where: { userId } }),
+  ])
+  return { items: await resolveProgress(userId, progress, pageSize), page, pages: Math.max(1, Math.ceil(total / pageSize)), total }
+}
+
+export async function clearWatchHistory(userId: number) {
+  const result = await db.cinemaWatchProgress.deleteMany({ where: { userId } })
+  return { removed: result.count }
+}
+
+export async function watchHistoryCount(userId: number) {
+  return db.cinemaWatchProgress.count({ where: { userId } })
 }

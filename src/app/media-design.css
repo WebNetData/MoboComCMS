@@ -74,6 +74,15 @@
 .cn-continue-card small { color: var(--md-muted); }
 .cn-continue-progress { display: block; height: 5px; overflow: hidden; border-radius: 99px; background: var(--md-line); }
 .cn-continue-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--md-accent); }
+.cn-history { padding-block: 32px 64px; }
+.cn-history-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.cn-history-head h1 { font-size: clamp(1.5rem, 3vw, 2.2rem); margin: 4px 0 8px; }
+.cn-history-head p { color: var(--md-muted); margin: 0; }
+.cn-history-actions { display: grid; gap: 6px; }
+.cn-history-actions [role="alert"] { color: #ff9b9b; font-size: 12px; }
+.cn-history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 24px 16px; }
+.cn-history-pages { display: flex; justify-content: center; align-items: center; gap: 18px; margin-block-start: 24px; }
+.cn-history-pages a { color: var(--md-accent); }
 @media (min-width: 900px) { .md-rail { grid-auto-columns: calc((100% - 5 * 16px) / 6); } }
 
 .md-chips { display: flex; flex-wrap: wrap; gap: 8px; }

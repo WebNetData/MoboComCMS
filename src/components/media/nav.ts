@@ -21,6 +21,7 @@ export function cinemaNav(fa: boolean): SectionNavItem[] {
     { key: 'series', href: '/cinema/browse?kind=SERIES', label: fa ? 'سریال‌ها' : 'Series' },
     { key: 'dubbed', href: '/cinema/browse?dubbed=1', label: fa ? 'دوبله فارسی' : 'Persian dub' },
     { key: 'imdb', href: '/cinema/browse?sort=imdb', label: fa ? 'برترین‌های IMDb' : 'Top IMDb' },
+    { key: 'history', href: '/cinema/history', label: fa ? 'تاریخچهٔ تماشا' : 'Watch history' },
     { key: 'vip', href: '/vip', label: fa ? '♛ VIP' : '♛ VIP' },
   ]
 }

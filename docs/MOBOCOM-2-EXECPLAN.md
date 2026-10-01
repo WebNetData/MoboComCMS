@@ -70,6 +70,8 @@ Cinema progress checkpoint: Authenticated film and episode playback now records 
 
 Next episode checkpoint: The watch page offers a signed link to the next chronological episode, including the first episode of the next season. A short countdown begins after playback ends, with immediate play and cancel controls. Upcoming and access-restricted episodes are withheld. The connected test verifies the episode link, season boundary, scheduled release and member gate.
 
+Watch history checkpoint: A private, paginated `/cinema/history` page reuses the published-content progress read model, separates completed and unfinished items, and offers an owner-only clear action. The cinema navigation and account library link to it. Connected tests verified history isolation and clearing only the requesting member's rows; the browser test verified the dark page and clear control. The PostgreSQL production build, schema parity, source, architecture, security and type checks passed.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

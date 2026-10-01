@@ -9,6 +9,7 @@ import { myLibrary } from '@/modules/games/server/library'
 import { getGamesSettings } from '@/modules/games/server/portal'
 import { listPersonalPlaylists } from '@/modules/music/server/personal-playlists'
 import { listeningHistoryCount } from '@/modules/music/server/listening-history'
+import { watchHistoryCount } from '@/modules/cinema/server/progress'
 import { myCollections } from '@/modules/content/server/collections'
 import { ITEM_LABEL } from '@/modules/content/domain/items'
 import { LIBRARY_LABELS } from '@/modules/games/domain/games'
@@ -20,17 +21,18 @@ export default async function LibraryPage() {
   const viewer = await getViewer()
   if (!viewer.userId) redirect('/login?next=/dashboard/library')
   const userId = viewer.userId
-  const [locale, reviewsOn, gamesModuleOn, musicOn] = await Promise.all([
-    getServerLocale(), isModuleEnabled('reviews'), isModuleEnabled('games'), isModuleEnabled('music'),
+  const [locale, reviewsOn, gamesModuleOn, musicOn, cinemaOn] = await Promise.all([
+    getServerLocale(), isModuleEnabled('reviews'), isModuleEnabled('games'), isModuleEnabled('music'), isModuleEnabled('cinema'),
   ])
   const gamesOn = gamesModuleOn && (await getGamesSettings()).libraryEnabled
   const fa = locale === 'fa'
-  const [favorites, games, playlists, listens, collections] = await Promise.all([
+  const [favorites, games, playlists, listens, collections, watches] = await Promise.all([
     reviewsOn ? favoritePreview(userId) : Promise.resolve(null),
     gamesOn ? myLibrary(userId, null, 1) : Promise.resolve(null),
     musicOn ? listPersonalPlaylists(userId) : Promise.resolve(null),
     musicOn ? listeningHistoryCount(userId) : Promise.resolve(null),
     myCollections(userId),
+    cinemaOn ? watchHistoryCount(userId) : Promise.resolve(null),
   ])
   const number = (value: number) => value.toLocaleString(fa ? 'fa-IR' : 'en-US')
 
@@ -43,6 +45,7 @@ export default async function LibraryPage() {
       {games && <Link href="/dashboard/games" className="ud-kpi"><small>{fa ? 'بازی‌های من' : 'My games'}</small><b>{number(Object.values(games.counts).reduce((sum, value) => sum + value, 0))}</b><span>{fa ? 'مشاهدهٔ قفسه‌های بازی' : 'View game shelves'}</span></Link>}
       {playlists && <Link href="/music/my-playlists" className="ud-kpi"><small>{fa ? 'پلی‌لیست‌های من' : 'My playlists'}</small><b>{number(playlists.length)}</b><span>{fa ? 'مدیریت پلی‌لیست‌ها' : 'Manage playlists'}</span></Link>}
       {listens !== null && <Link href="/music/history" className="ud-kpi"><small>{fa ? 'تاریخچهٔ پخش' : 'Listening history'}</small><b>{number(listens)}</b><span>{fa ? 'آهنگ‌های شنیده‌شده' : 'Played tracks'}</span></Link>}
+      {watches !== null && <Link href="/cinema/history" className="ud-kpi"><small>{fa ? 'تاریخچهٔ تماشا' : 'Watch history'}</small><b>{number(watches)}</b><span>{fa ? 'فیلم‌ها و قسمت‌های دیده‌شده' : 'Films and episodes'}</span></Link>}
       <Link href="/dashboard/collections" className="ud-kpi"><small>{fa ? 'مجموعه‌های من' : 'My collections'}</small><b>{number(collections.length)}</b><span>{fa ? 'مدیریت مجموعه‌ها' : 'Manage collections'}</span></Link>
     </div>
 

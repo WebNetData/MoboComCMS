@@ -34,7 +34,18 @@ async function main() {
   const rgb = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color)
   assert.ok(rgb && Math.max(...rgb.slice(1).map(Number)) < 80, `expected dark cinema background, got ${color}`)
   await page.screenshot({ path: '.next-dev/cinema-progress-qa.png', fullPage: true })
-  console.log('Cinema browser: authenticated Continue Watching card and dark stage OK')
+  await page.goto('http://127.0.0.1:3000/cinema/history', { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.waitForLoadState('load', { timeout: 60000 })
+  await page.locator('.cn-history-grid .cn-continue-card').filter({ hasText: 'Continue watching browser test' }).waitFor()
+  await page.screenshot({ path: '.next-dev/cinema-history-qa.png', fullPage: true })
+  page.on('dialog', (dialog) => void dialog.accept())
+  const [clearResponse] = await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/cinema/history') && response.request().method() === 'DELETE', { timeout: 60000 }),
+    page.locator('.cn-history-actions button').click(),
+  ])
+  assert.equal(clearResponse.status(), 200)
+  assert.equal(await db.cinemaWatchProgress.count({ where: { userId } }), 0)
+  console.log('Cinema browser: dark Continue Watching shelf, private history and clear action OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
