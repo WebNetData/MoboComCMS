@@ -80,6 +80,8 @@ Review read checkpoint: The shared public review API checks the current publicat
 
 Review list checkpoint: Shared item pages expose a button to load the next ten approved reviews through the existing bounded API. Duplicate IDs are suppressed if moderation changes order between page requests, and errors remain retryable. The control uses existing dark-theme button and text tokens. A local browser test confirmed ten initial reviews, the second page adding two more, and the dark page appearance after a Docker restart.
 
+Helpful review checkpoint: A member can mark an approved shared item review as helpful or undo the vote. The review owner cannot vote, and pending reviews or reviews on unpublished items reject writes. A composite key makes repeated votes idempotent; read counts are grouped for only the visible page. Editing the review text or rejecting it clears earlier votes. Migration 20261109120000 was applied locally. Connected tests verified access, same-origin checks, idempotency, undo and edit reset; the browser test verified the dark control and count. Static checks and the PostgreSQL build passed.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

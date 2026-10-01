@@ -7,8 +7,9 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getViewer } from '@/modules/membership/server/membership'
 import { parseItemKey } from '@/modules/content/domain/items'
 import { itemCard } from '@/modules/content/server/registry'
+import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import { ReviewError } from '@/modules/reviews/domain/reviews'
-import { deleteReview, itemEngagement, moderateReview, reviewQueue, saveReview, setFavorite } from '@/modules/reviews/server/reviews'
+import { deleteReview, itemEngagement, moderateReview, reviewQueue, saveReview, setFavorite, setReviewHelpful } from '@/modules/reviews/server/reviews'
 
 function failure(error: unknown) {
   if (error instanceof ReviewError) return err(error.message, error.status)
@@ -53,6 +54,17 @@ export async function DELETE_review(req: NextRequest) {
   const ref = refOf(req.nextUrl.searchParams.get('item'))
   if (!ref) return err('invalid item')
   try { return ok(await deleteReview(g.user.id, ref)) } catch (error) { return failure(error) }
+}
+
+/** POST /api/engage/review/helpful { reviewId, on } */
+export async function POST_helpful(req: NextRequest) {
+  if (!bulkSameOrigin(req)) return err('forbidden', 403)
+  const g = await member(req)
+  if ('response' in g) return g.response
+  const body = (await req.json().catch(() => null)) || {}
+  const reviewId = Number(body.reviewId)
+  if (!Number.isSafeInteger(reviewId) || reviewId <= 0 || typeof body.on !== 'boolean') return err('invalid input')
+  try { return ok(await setReviewHelpful(g.user.id, reviewId, body.on)) } catch (error) { return failure(error) }
 }
 
 /** POST /api/engage/favorite { item, on, notify } */

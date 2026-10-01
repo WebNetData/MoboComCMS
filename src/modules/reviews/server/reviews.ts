@@ -30,7 +30,7 @@ export async function refreshItemStat(ref: ItemRef) {
   await db.itemStat.upsert({ where: { itemType_itemId: { itemType: ref.type, itemId: ref.id } }, create: { itemType: ref.type, itemId: ref.id, ...data }, update: data })
 }
 
-export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string }; mine: boolean }
+export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string }; mine: boolean; helpfulCount: number; helpfulByMe: boolean }
 
 /** Everything an item page shows: summary, the viewer's own review/favorite and a page of reviews. */
 export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1) {
@@ -48,12 +48,34 @@ export async function itemEngagement(ref: ItemRef, userId: number | null, page =
   const distribution: RatingSummary['distribution'] = [0, 0, 0, 0, 0]
   for (const row of ratings) if (row.rating >= 1 && row.rating <= 5) distribution[row.rating - 1] = row._count.rating
   const summary = summarizeDistribution(distribution)
+  const reviewIds = rows.map((row) => row.id)
+  const [helpfulCounts, myHelpful] = reviewIds.length ? await Promise.all([
+    db.itemReviewHelpful.groupBy({ by: ['reviewId'], where: { reviewId: { in: reviewIds } }, _count: { reviewId: true } }),
+    userId ? db.itemReviewHelpful.findMany({ where: { userId, reviewId: { in: reviewIds } }, select: { reviewId: true } }) : Promise.resolve([]),
+  ]) : [[], []]
+  const helpfulById = new Map(helpfulCounts.map((row) => [row.reviewId, row._count.reviewId]))
+  const helpfulByMe = new Set(myHelpful.map((row) => row.reviewId))
   return {
     reviewable, summary, favorites, total, page: safePage, pages: Math.ceil(total / PAGE),
     mine: mine ? { rating: mine.rating, body: mine.body, status: mine.status } : null,
     favorite: favorite ? { notify: favorite.notify } : null,
-    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId })),
+    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId, helpfulCount: helpfulById.get(row.id) || 0, helpfulByMe: helpfulByMe.has(row.id) })),
   }
+}
+
+/** One reversible helpful vote per member on a currently public approved review. */
+export async function setReviewHelpful(userId: number, reviewId: number, on: boolean) {
+  await assertOn()
+  if (!rateLimitHit(`review-helpful:${userId}`, 120, 3_600_000).ok) throw new ReviewError('کمی بعد دوباره تلاش کنید', 429)
+  const review = await db.itemReview.findUnique({ where: { id: reviewId } })
+  if (!review || review.status !== 'APPROVED' || !review.body.trim()) throw new ReviewError('نظر در دسترس نیست', 404)
+  if (review.userId === userId) throw new ReviewError('نمی‌توانید به نظر خودتان رأی دهید', 403)
+  const ref = parseItemKey(`${review.itemType}:${review.itemId}`)
+  if (!ref || !await itemCard(ref)) throw new ReviewError('نظر در دسترس نیست', 404)
+  const where = { reviewId_userId: { reviewId, userId } }
+  if (on) await db.itemReviewHelpful.upsert({ where, create: { reviewId, userId }, update: {} })
+  else await db.itemReviewHelpful.deleteMany({ where: { reviewId, userId } })
+  return { reviewId, on, count: await db.itemReviewHelpful.count({ where: { reviewId } }) }
 }
 
 export async function saveReview(userId: number, ref: ItemRef, input: { rating: unknown; body?: unknown }) {
@@ -68,7 +90,14 @@ export async function saveReview(userId: number, ref: ItemRef, input: { rating: 
   const previous = await db.itemReview.findUnique({ where })
   // An unchanged approved text stays approved when only the stars change.
   const status = previous && previous.body === body && previous.status === 'APPROVED' ? 'APPROVED' : initialReviewStatus(body, settings['moderate-text'] !== false)
-  await db.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status }, update: { rating, body, status } })
+  if (previous && previous.body !== body) {
+    await db.$transaction([
+      db.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status }, update: { rating, body, status } }),
+      db.itemReviewHelpful.deleteMany({ where: { reviewId: previous.id } }),
+    ])
+  } else {
+    await db.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status }, update: { rating, body, status } })
+  }
   await refreshItemStat(ref)
   return { rating, body, status }
 }
@@ -171,7 +200,11 @@ export async function moderateReview(id: number, action: 'approve' | 'reject' | 
   const review = await db.itemReview.findUnique({ where: { id } })
   if (!review) throw new ReviewError('نظر پیدا نشد', 404)
   if (action === 'delete') await db.itemReview.delete({ where: { id } })
-  else await db.itemReview.update({ where: { id }, data: { status: action === 'approve' ? 'APPROVED' : 'REJECTED' } })
+  else if (action === 'reject') await db.$transaction([
+    db.itemReview.update({ where: { id }, data: { status: 'REJECTED' } }),
+    db.itemReviewHelpful.deleteMany({ where: { reviewId: id } }),
+  ])
+  else await db.itemReview.update({ where: { id }, data: { status: 'APPROVED' } })
   const ref = parseItemKey(`${review.itemType}:${review.itemId}`)
   if (ref) await refreshItemStat(ref)
   if (action === 'approve' && review.status !== 'APPROVED') {

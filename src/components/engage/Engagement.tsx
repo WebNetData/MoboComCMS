@@ -48,7 +48,7 @@ export async function ReviewSection({ item, title, path }: { item: ItemRef; titl
         </ol>
         <div className="rv-cta"><ReviewForm item={itemKey(item)} mine={data.mine} loggedIn={!!viewer.userId} title={title} path={path} /></div>
       </div>
-      <ReviewList key={itemKey(item)} item={itemKey(item)} initial={data.reviews.map((review) => ({ ...review, createdAt: review.createdAt.toISOString() }))} initialTotal={data.total} initialPages={data.pages} />
+      <ReviewList key={itemKey(item)} item={itemKey(item)} initial={data.reviews.map((review) => ({ ...review, createdAt: review.createdAt.toISOString() }))} initialTotal={data.total} initialPages={data.pages} loggedIn={!!viewer.userId} />
     </section>
   )
 }

@@ -96,6 +96,7 @@ model User {
   communityLikes CommunityLike[]
   communityReports CommunityReport[]
   itemReviews    ItemReview[]
+  itemReviewHelpfulVotes ItemReviewHelpful[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
   addresses      UserAddress[]
@@ -2069,10 +2070,22 @@ model ItemReview {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  helpfulVotes ItemReviewHelpful[]
 
   @@unique([itemType, itemId, userId])
   @@index([itemType, itemId, status, createdAt])
   @@index([status, createdAt])
+}
+
+model ItemReviewHelpful {
+  reviewId  Int
+  userId    Int
+  createdAt DateTime @default(now())
+  review    ItemReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, userId])
+  @@index([userId])
 }
 
 model ItemFavorite {
