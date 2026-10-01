@@ -6,6 +6,7 @@ import ForumShell from '@/components/forum/ForumShell'
 import TopicView, { type TopicData } from '@/components/forum/TopicView'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import RecentViewTracker from '@/components/engage/RecentViewTracker'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; post?: string }> }
@@ -42,6 +43,7 @@ export default async function TopicPage({ params, searchParams }: Props) {
   return (
     <ForumShell viewer={viewer} category={data.category.slug}>
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
+      {viewer.userId && data.thread.status === 'VISIBLE' && data.thread.listed && <RecentViewTracker item={`thread:${data.thread.id}`} />}
       <TopicView data={serialized} categories={categories} focusPost={Number(post) || undefined} />
     </ForumShell>
   )
