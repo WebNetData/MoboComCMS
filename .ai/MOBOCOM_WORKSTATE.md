@@ -24,6 +24,7 @@ Done (verified):
 - Private unread inbox view was committed and pushed as `a82fa06`.
 - Per-event SMS, email and browser-push preferences, with an SDS-aligned responsive dashboard matrix, were committed and pushed as `ac8ffbd`.
 - The notification inbox now uses the same SDS-based dashboard composition, with compact activity rows and clear loading/empty states; committed and pushed as `6d1e040`.
+- The account library overview now uses SDS-token cards, semantic icons, a balanced three-column desktop grid and responsive dark/light layouts.
 
 In progress:
 - Inspect the remaining capability brief and choose the next bounded slice. Keep unrelated local files out of commits.
@@ -46,6 +47,7 @@ Validation actually run:
 - For unread inbox: `typecheck`, `source:check`, `arch:check`, `security:check`, and browser check on port 3000 passed. The browser check verified 34 unread items across pages, read actions, immediate badge refresh, and the dark empty view. PostgreSQL build passed after the final code change.
 - For per-event notification preferences: `schema:check`, `typecheck`, `source:check`, `arch:check`, `security:check`, focused push gate test, authenticated browser persistence/owner-scope/validation test, and `build:postgres` passed. Visual inspection covered dark desktop/tablet/mobile and light mobile; overflow checks passed at 1440, 768, 390 and 360 pixels. The deployment is Persian-only, so English LTR was not browser-tested.
 - For inbox visual polish: `typecheck`, `source:check`, and the existing authenticated browser behavior test passed after the change. The browser test covered 34 unread items, paging, mark-read actions, dark desktop/mobile, light mobile, and horizontal overflow at 360, 390, 768 and 1440 pixels. The first visual attempt used stale development CSS; restarting the app and rerunning the test confirmed the final result.
+- For library visual polish: `typecheck`, `source:check`, `arch:check` and the authenticated library feed browser check passed. The browser check verified recent playlist/collection items, dark desktop/mobile, light mobile, and no horizontal overflow at 360, 390, 768 or 1440 pixels. Final screenshots were inspected after the balanced desktop grid change.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.

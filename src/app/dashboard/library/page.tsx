@@ -15,6 +15,7 @@ import { recentViewPreview } from '@/modules/content/server/recent-views'
 import { myCollections, savedCollections } from '@/modules/content/server/collections'
 import { ITEM_LABEL } from '@/modules/content/domain/items'
 import { LIBRARY_LABELS } from '@/modules/games/domain/games'
+import Icon from '@/components/site/Icon'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'کتابخانهٔ من | My library', robots: { index: false } }
@@ -50,20 +51,21 @@ export default async function LibraryPage() {
     ...(purchases?.items || []).map((item) => ({ key: `purchase:${item.id}`, kind: fa ? 'خریداری‌شده' : 'Purchased', title: item.title, image: item.image, href: item.url, detail: item.subtitle || '', at: new Date(item.addedAt).getTime() })),
   ].sort((a, b) => b.at - a.at).slice(0, 12)
 
-  return <div className="ud ulib-page">
+  return <div className="ud ulib-page ulib-home">
     <header className="ulib-head">
-      <div><span className="md-eyebrow">{fa ? 'محتوای ذخیره‌شده' : 'Saved content'}</span><h1>{fa ? 'کتابخانهٔ من' : 'My library'}</h1><p className="muted">{fa ? 'علاقه‌مندی‌ها، بازی‌ها و پلی‌لیست‌های شخصی شما در یک جا.' : 'Your favorites, games and personal playlists in one place.'}</p></div>
+      <span className="ulib-head-icon"><Icon name="layers" size={25} /></span>
+      <div><span className="md-eyebrow">{fa ? 'فضای شخصی شما' : 'Your personal space'}</span><h1>{fa ? 'کتابخانهٔ من' : 'My library'}</h1><p className="muted">{fa ? 'محتوای ذخیره‌شده، مجموعه‌ها و تاریخچهٔ شما در یک جا.' : 'Saved content, collections and history in one place.'}</p></div>
     </header>
     <div className="ulib-summary">
-      {favorites && <Link href="/favorites" className="ud-kpi"><small>{fa ? 'علاقه‌مندی‌ها' : 'Favorites'}</small><b>{number(favorites.total)}</b><span>{fa ? 'نمایش همهٔ موارد' : 'View all items'}</span></Link>}
-      {games && <Link href="/dashboard/games" className="ud-kpi"><small>{fa ? 'بازی‌های من' : 'My games'}</small><b>{number(Object.values(games.counts).reduce((sum, value) => sum + value, 0))}</b><span>{fa ? 'مشاهدهٔ قفسه‌های بازی' : 'View game shelves'}</span></Link>}
-      {playlists && <Link href="/music/my-playlists" className="ud-kpi"><small>{fa ? 'پلی‌لیست‌های من' : 'My playlists'}</small><b>{number(playlists.length)}</b><span>{fa ? 'مدیریت پلی‌لیست‌ها' : 'Manage playlists'}</span></Link>}
-      {listens !== null && <Link href="/music/history" className="ud-kpi"><small>{fa ? 'تاریخچهٔ پخش' : 'Listening history'}</small><b>{number(listens)}</b><span>{fa ? 'آهنگ‌های شنیده‌شده' : 'Played tracks'}</span></Link>}
-      {watches !== null && <Link href="/cinema/history" className="ud-kpi"><small>{fa ? 'تاریخچهٔ تماشا' : 'Watch history'}</small><b>{number(watches)}</b><span>{fa ? 'فیلم‌ها و قسمت‌های دیده‌شده' : 'Films and episodes'}</span></Link>}
-      <Link href="/dashboard/collections" className="ud-kpi"><small>{fa ? 'مجموعه‌های من' : 'My collections'}</small><b>{number(collections.length)}</b><span>{fa ? 'مدیریت مجموعه‌ها' : 'Manage collections'}</span></Link>
-      <Link href="/dashboard/collections" className="ud-kpi"><small>{fa ? 'مجموعه‌های ذخیره‌شده' : 'Saved collections'}</small><b>{number(saved.length)}</b><span>{fa ? 'دیدن مجموعه‌های ذخیره‌شده' : 'View saved collections'}</span></Link>
-      {purchases && <Link href="/dashboard/purchases" className="ud-kpi"><small>{fa ? 'خریدهای محتوایی' : 'Content purchases'}</small><b>{number(purchases.total)}</b><span>{fa ? 'دیدن خریدهای من' : 'View my purchases'}</span></Link>}
-      <Link href="/dashboard/recent" className="ud-kpi"><small>{fa ? 'اخیراً مشاهده‌شده' : 'Recently viewed'}</small><b>{number(views.total)}</b><span>{fa ? 'تاریخچهٔ مرور' : 'Browse history'}</span></Link>
+      {favorites && <Link href="/favorites" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="heart" size={19} /></span><small>{fa ? 'علاقه‌مندی‌ها' : 'Favorites'}</small><b>{number(favorites.total)}</b><span>{fa ? 'نمایش همهٔ موارد' : 'View all items'}</span></Link>}
+      {games && <Link href="/dashboard/games" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="devices" size={19} /></span><small>{fa ? 'بازی‌های من' : 'My games'}</small><b>{number(Object.values(games.counts).reduce((sum, value) => sum + value, 0))}</b><span>{fa ? 'مشاهدهٔ قفسه‌های بازی' : 'View game shelves'}</span></Link>}
+      {playlists && <Link href="/music/my-playlists" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="music" size={19} /></span><small>{fa ? 'پلی‌لیست‌های من' : 'My playlists'}</small><b>{number(playlists.length)}</b><span>{fa ? 'مدیریت پلی‌لیست‌ها' : 'Manage playlists'}</span></Link>}
+      {listens !== null && <Link href="/music/history" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="clock" size={19} /></span><small>{fa ? 'تاریخچهٔ پخش' : 'Listening history'}</small><b>{number(listens)}</b><span>{fa ? 'آهنگ‌های شنیده‌شده' : 'Played tracks'}</span></Link>}
+      {watches !== null && <Link href="/cinema/history" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="film" size={19} /></span><small>{fa ? 'تاریخچهٔ تماشا' : 'Watch history'}</small><b>{number(watches)}</b><span>{fa ? 'فیلم‌ها و قسمت‌های دیده‌شده' : 'Films and episodes'}</span></Link>}
+      <Link href="/dashboard/collections" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="layers" size={19} /></span><small>{fa ? 'مجموعه‌های من' : 'My collections'}</small><b>{number(collections.length)}</b><span>{fa ? 'مدیریت مجموعه‌ها' : 'Manage collections'}</span></Link>
+      <Link href="/dashboard/collections" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="bookmark" size={19} /></span><small>{fa ? 'مجموعه‌های ذخیره‌شده' : 'Saved collections'}</small><b>{number(saved.length)}</b><span>{fa ? 'دیدن مجموعه‌های ذخیره‌شده' : 'View saved collections'}</span></Link>
+      {purchases && <Link href="/dashboard/purchases" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="wallet" size={19} /></span><small>{fa ? 'خریدهای محتوایی' : 'Content purchases'}</small><b>{number(purchases.total)}</b><span>{fa ? 'دیدن خریدهای من' : 'View my purchases'}</span></Link>}
+      <Link href="/dashboard/recent" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="eye" size={19} /></span><small>{fa ? 'اخیراً مشاهده‌شده' : 'Recently viewed'}</small><b>{number(views.total)}</b><span>{fa ? 'تاریخچهٔ مرور' : 'Browse history'}</span></Link>
     </div>
 
     {recent.length > 0 && <section className="ud-card" aria-labelledby="lb-recent-title"><header className="ud-card-head"><h2 id="lb-recent-title">{fa ? 'تازه‌ترین موارد کتابخانه' : 'Recent in your library'}</h2></header><ul className="ulib-items">{recent.map((item) => <li key={item.key}><Link href={item.href}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">✦</span>}<span><b>{item.title}</b><small>{item.kind} · {item.detail}</small></span></Link></li>)}</ul></section>}
