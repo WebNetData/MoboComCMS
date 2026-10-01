@@ -1596,8 +1596,19 @@ model GameUpdate {
   notes      String    @default("")
   releasedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
+  releaseNotification GameUpdateReleaseNotification?
 
   @@index([gameId, releasedAt])
+}
+
+model GameUpdateReleaseNotification {
+  updateId    Int        @id
+  dueAt       DateTime
+  lastUserId  Int        @default(0)
+  completedAt DateTime?
+  update      GameUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
 }
 
 /// A member's game library (GameUp "played / playing / want to play").

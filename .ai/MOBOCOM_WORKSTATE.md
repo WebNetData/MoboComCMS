@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Gate scheduled game updates and their direct download links until release.
-Risk: R4 program; this game publication slice is R3 and adds no schema or public API.
-Owner/contracts: `games` owns release scheduling and public updates; `media` owns protected download links.
+Current milestone: Deliver scheduled game update notices to opted-in followers through a persistent cursor.
+Risk: R4 program; this game notification slice is R3 with one additive Prisma migration.
+Owner/contracts: `games` owns release scheduling and follower cursor; `notifications` owns the durable inbox; `content` runs the existing engagement worker.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -31,15 +31,17 @@ Done (verified):
 - The full project validation contract tests were refreshed and pushed as `887c721`.
 - Public forum topic tracking into recent history was verified and pushed as `f8f9fff`.
 - Durable notification delivery was verified and pushed as `36ffbf0`.
+- Scheduled game update publication and direct download gates were verified and pushed as `991fadc`.
 
 In progress:
-- Commit and push the verified game-release gate. Keep unrelated local files out of commits.
+- Commit and push the verified game release notification slice. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
 - Both Prisma schemas contain `ItemReviewHelpful`. Migration `20261109120000_item_review_helpful` was applied locally; production deployment remains pending.
 - Both Prisma schemas now contain `User.pushAlerts`. Additive migration `20261110120000_push_alert_preference` was applied locally; production deployment remains pending.
 - Both Prisma schemas contain `UserNotificationMute`. Additive migration `20261111120000_notification_event_mutes` is applied to the local Docker PostgreSQL database; production deployment remains pending.
+- Both Prisma schemas now contain `GameUpdateReleaseNotification`. Additive migration `20261112120000_game_update_release_notifications` is applied locally; production deployment remains pending. It backfills only future game updates, avoiding surprise notices for old releases.
 
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
@@ -61,9 +63,10 @@ Validation actually run:
 - For forum recent views: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and authenticated browser test passed. The test verified a public listed topic is recorded and shown in private history, while a restricted topic visible to staff is rejected by the shared registry.
 - For durable notification delivery: focused concurrent/rollback/provider-failure test and local PostgreSQL queue check passed. Full `npm run check` passed with Git Bash ahead of the WSL stub, and `build:postgres` passed.
 - For scheduled game updates: `typecheck`, `source:check`, `arch:check`, `security:check`, 24 nearby tests, full `npm run check`, `build:postgres` and a local PostgreSQL/API check passed. The connected check verified a future update and its version are absent from rendered game content, its direct file link returns 404, the due update becomes visible without a deploy, and a future parent publication closes the link. The first connected attempt exposed Next dev script traces and a stale dev cache; rendered-content assertions and a restart resolved those test conditions.
+- For game release notices: schema parity, both Prisma validations, local PostgreSQL migration, TypeScript check, full `npm run check`, `build:postgres` and a connected worker check passed. The worker check covered future and draft gates, opted-out and late followers, dedupe collision retry, cursor progress and independent channel job creation.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit/push the game-release gate, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Commit/push game release notices, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.

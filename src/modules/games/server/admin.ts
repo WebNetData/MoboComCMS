@@ -4,6 +4,7 @@ import { recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { validateCover } from '@/shared/content/cover'
 import { cleanLinks, slugOf, splitList } from '@/modules/media/domain/media'
 import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpdateKind, parseDay, releaseState, type HealthCheck } from '@/modules/games/domain/games'
+import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifications'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
@@ -252,12 +253,14 @@ export async function saveGameUpdate(gameId: number, input: Record<string, unkno
   try { cleanLinks(input.links, 20) } catch (error) { throw new GameError(error instanceof Error ? error.message : 'لینک نامعتبر است') }
   const data = { kind: normalizeUpdateKind(input.kind), title, version: text(input.version, 60), size: text(input.size, 40), notes: text(input.notes, 8000), releasedAt: input.releasedAt ? parseDay(input.releasedAt) : new Date() }
   const saved = await db.$transaction(async (tx) => {
+    let before = null
     if (id) {
-      const current = await tx.gameUpdate.findFirst({ where: { id, gameId }, select: { id: true } })
-      if (!current) throw new GameError('آپدیت پیدا نشد', 404)
+      before = await tx.gameUpdate.findFirst({ where: { id, gameId }, select: { id: true, releasedAt: true } })
+      if (!before) throw new GameError('آپدیت پیدا نشد', 404)
     }
     const row = id ? await tx.gameUpdate.update({ where: { id }, data }) : await tx.gameUpdate.create({ data: { ...data, gameId } })
     if (input.links !== undefined) await reconcileLinks(tx, row.id, input.links)
+    await scheduleGameUpdateRelease(tx, row, before)
     return row
   })
   // The newest non-DLC version becomes the game's current version.
