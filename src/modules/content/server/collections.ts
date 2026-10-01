@@ -227,7 +227,7 @@ export async function savedCollections(userId: number) {
   return db.userCollectionSave.findMany({
     where: { userId, collection: { OR: [{ visibility: { in: ['PUBLIC', 'EDITORIAL', 'UNLISTED'] } }, { ownerId: userId }, { collaborators: { some: { userId } } }] } },
     orderBy: { createdAt: 'desc' }, take: 100,
-    select: { collection: { select: { id: true, title: true, cover: true, description: true, visibility: true, shareToken: true, owner: { select: { name: true } }, _count: { select: { items: true } } } } },
+    select: { createdAt: true, collection: { select: { id: true, title: true, cover: true, description: true, visibility: true, shareToken: true, owner: { select: { name: true } }, _count: { select: { items: true } } } } },
   })
 }
 

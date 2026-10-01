@@ -72,6 +72,8 @@ Next episode checkpoint: The watch page offers a signed link to the next chronol
 
 Watch history checkpoint: A private, paginated `/cinema/history` page reuses the published-content progress read model, separates completed and unfinished items, and offers an owner-only clear action. The cinema navigation and account library link to it. Connected tests verified history isolation and clearing only the requesting member's rows; the browser test verified the dark page and clear control. The PostgreSQL production build, schema parity, source, architecture, security and type checks passed.
 
+Library feed checkpoint: The private account library now combines bounded recent favorites, games, personal playlists, owned collections, saved collections and live content purchases in time order. It uses each domain's existing read contract, keeps specialist statuses and ordering, and excludes private items owned by others. A connected two-account test verified the private and saved collection paths, a purchase, and anonymous content guard. The authenticated browser check verified recent items and the dark account design.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

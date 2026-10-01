@@ -4,7 +4,7 @@ This is an initial code inventory for the owner's 20-capability brief. A module 
 
 | Brief capability | Existing owner or contract | Next gap to resolve |
 | --- | --- | --- |
-| Universal user library | `ItemFavorite`, `GameLibrary`, `UserMusicPlaylist`, `MusicListenHistory`, `CinemaWatchProgress`, `/favorites`, `/dashboard/library` | A private overview and server-side Music/Cinema progress connect existing collections; define shared write and privacy semantics while retaining game-specific status and playlist ordering. |
+| Universal user library | `ItemFavorite`, `GameLibrary`, `UserMusicPlaylist`, `MusicListenHistory`, `CinemaWatchProgress`, `ContentPurchase`, `/favorites`, `/dashboard/library` | A private overview and recent cross-domain feed compose existing favorites, games, playlists, owned/saved collections and live purchases; server-side Music/Cinema progress is delivered. Shared write semantics and other domains still need expansion while retaining specialist status and ordering. |
 | Store experience | `catalog`, `store`, `marketplace`, `orders`, `checkout` | Audit journey and cross-entity features against existing catalog rules. |
 | Universal review and rating | `reviews`, `ItemFavorite`, `ItemStat` | Audit eligibility, moderation, and product review interoperability. |
 | Cinema experience | `cinema`, `media`, `CinemaTitle`, `CinemaWatchProgress` | Server-side film and episode progress, cross-quality resume, private Continue Watching and paginated watch history with owner-only clearing, plus gated next-episode playback are delivered. Subtitle/audio tracks, preferences, release calendar and deeper discovery remain. |

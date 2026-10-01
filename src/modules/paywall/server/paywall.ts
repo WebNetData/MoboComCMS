@@ -191,6 +191,21 @@ export async function myPurchases(userId: number) {
   })
 }
 
+/** Bounded live purchases for the account library overview. */
+export async function purchasePreview(userId: number, take = 6) {
+  const size = Math.min(12, Math.max(1, Math.trunc(take) || 6))
+  const [total, rows] = await Promise.all([
+    db.contentPurchase.count({ where: { userId, revokedAt: null } }),
+    db.contentPurchase.findMany({ where: { userId, revokedAt: null }, orderBy: { createdAt: 'desc' }, take: Math.min(48, size * 4) }),
+  ])
+  const found = await cards(rows)
+  const items = rows.flatMap((row) => {
+    const card = found.get(`${row.ownerType}:${row.ownerId}`)
+    return card?.url ? [{ id: row.id, title: card.title, image: card.image, url: card.url, subtitle: card.subtitle, addedAt: row.createdAt }] : []
+  }).slice(0, size)
+  return { total, items }
+}
+
 // ------------------------------------------------------------------ admin
 
 type OwnerRow = { id: number; title: string; path: string; image: string; status: string }
