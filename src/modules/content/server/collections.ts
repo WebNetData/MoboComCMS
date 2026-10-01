@@ -55,7 +55,7 @@ export async function publicCollections(rawPage: unknown) {
   const where = { visibility: { in: ['PUBLIC', 'EDITORIAL'] } }
   const [total, rows] = await Promise.all([
     db.userCollection.count({ where }),
-    db.userCollection.findMany({ where, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE, select: { id: true, title: true, description: true, cover: true, visibility: true, updatedAt: true, owner: { select: { name: true } }, _count: { select: { items: true, followers: true } } } }),
+    db.userCollection.findMany({ where, orderBy: [{ visibility: 'asc' }, { updatedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE, select: { id: true, title: true, description: true, cover: true, visibility: true, updatedAt: true, owner: { select: { name: true } }, _count: { select: { items: true, followers: true, reactions: true } } } }),
   ])
   return { items: rows, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), total }
 }
@@ -64,16 +64,29 @@ export async function collectionPublicMetadata(id: number) {
   return db.userCollection.findFirst({ where: { id, visibility: { in: ['PUBLIC', 'EDITORIAL'] } }, select: { title: true, description: true } })
 }
 
+/** Staff curation of a public member list. The owner retains ownership and can withdraw it. */
+export async function featureCollection(id: number, on: boolean) {
+  if (on) {
+    const row = await db.userCollection.findFirst({ where: { id, visibility: 'PUBLIC' }, select: { id: true } })
+    if (!row) throw new CollectionError('Public collection unavailable', 404)
+    const detail = await getCollection(id, null)
+    if (!detail.items.length) throw new CollectionError('Collection needs a published item')
+  }
+  const result = await db.userCollection.updateMany({ where: { id, visibility: on ? 'PUBLIC' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PUBLIC' } })
+  if (!result.count) throw new CollectionError('Collection unavailable', 404)
+  return { editorial: on }
+}
+
 export async function getCollection(id: number, viewerId: number | null, shareToken?: string) {
   const row = await db.userCollection.findUnique({
     where: { id },
-    include: { owner: { select: { name: true } }, collaborators: { include: { user: { select: { name: true, email: true } } } }, items: { orderBy: { position: 'asc' }, take: MAX_ITEMS, select: { id: true, itemType: true, itemId: true, position: true } }, _count: { select: { followers: true } } },
+    include: { owner: { select: { name: true } }, collaborators: { include: { user: { select: { name: true, email: true } } } }, items: { orderBy: { position: 'asc' }, take: MAX_ITEMS, select: { id: true, itemType: true, itemId: true, position: true } }, _count: { select: { followers: true, reactions: true } } },
   })
   const member = row && (row.ownerId === viewerId || row.collaborators.some((entry) => entry.userId === viewerId))
   if (!row || (row.visibility === 'PRIVATE' && !member) || (row.visibility === 'UNLISTED' && !member && (!shareToken || shareToken !== row.shareToken))) throw new CollectionError('Collection unavailable', 404)
   const refs = row.items.map((item) => parseItemKey(`${item.itemType}:${item.itemId}`)).filter((ref): ref is ItemRef => !!ref)
   const cards = await itemCards(refs)
-  return { id: row.id, ownerId: row.ownerId, ownerName: row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, followerCount: row._count.followers, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
+  return { id: row.id, ownerId: row.ownerId, ownerName: row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, followerCount: row._count.followers, reactionCount: row._count.reactions, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
 }
 
 export async function createCollection(userId: number, input: { title?: unknown; description?: unknown; cover?: unknown; visibility?: unknown }) {
@@ -90,7 +103,7 @@ export async function updateCollection(userId: number, id: number, input: { titl
     if (!current) throw new CollectionError('Collection unavailable', 404)
     await tx.userCollection.update({ where: { id }, data: { ...data, ...(data.visibility === 'UNLISTED' && current.visibility !== 'UNLISTED' ? { shareToken: randomBytes(24).toString('base64url') } : {}) } })
     if (data.visibility && data.visibility !== current.visibility && ['PRIVATE', 'UNLISTED'].includes(data.visibility)) {
-      await Promise.all([tx.userCollectionSave.deleteMany({ where: { collectionId: id } }), tx.userCollectionFollow.deleteMany({ where: { collectionId: id } })])
+      await Promise.all([tx.userCollectionSave.deleteMany({ where: { collectionId: id } }), tx.userCollectionFollow.deleteMany({ where: { collectionId: id } }), tx.userCollectionReaction.deleteMany({ where: { collectionId: id } })])
     }
     return { saved: true }
   })
@@ -175,10 +188,10 @@ export async function removeCollectionItem(userId: number, id: number, rawRef: u
 
 export async function followCollection(userId: number, id: number, on: boolean) {
   return db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR UPDATE`
+    await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR SHARE`
     const collection = await tx.userCollection.findFirst({ where: { id, visibility: { in: ['PUBLIC', 'EDITORIAL'] } }, select: { ownerId: true } })
     if (!collection || collection.ownerId === userId) throw new CollectionError('Collection unavailable', 404)
-    if (on) await tx.userCollectionFollow.upsert({ where: { collectionId_userId: { collectionId: id, userId } }, create: { collectionId: id, userId }, update: {} })
+    if (on) await tx.$executeRaw`INSERT INTO "UserCollectionFollow" ("collectionId", "userId") VALUES (${id}, ${userId}) ON CONFLICT ("collectionId", "userId") DO NOTHING`
     else await tx.userCollectionFollow.deleteMany({ where: { collectionId: id, userId } })
     return { following: on }
   })
@@ -186,6 +199,24 @@ export async function followCollection(userId: number, id: number, on: boolean) 
 
 export async function collectionIsFollowed(userId: number, id: number) {
   return !!await db.userCollectionFollow.findUnique({ where: { collectionId_userId: { collectionId: id, userId } }, select: { userId: true } })
+}
+
+export async function collectionIsReacted(userId: number, id: number) {
+  return !!await db.userCollectionReaction.findUnique({ where: { collectionId_userId: { collectionId: id, userId } }, select: { userId: true } })
+}
+
+export async function reactCollection(userId: number, id: number, on: boolean) {
+  if (!on) {
+    await db.userCollectionReaction.deleteMany({ where: { collectionId: id, userId } })
+    return { reacted: false, count: await db.userCollectionReaction.count({ where: { collectionId: id } }) }
+  }
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR SHARE`
+    const collection = await tx.userCollection.findFirst({ where: { id, visibility: { in: ['PUBLIC', 'EDITORIAL'] } }, select: { id: true } })
+    if (!collection) throw new CollectionError('Collection unavailable', 404)
+    await tx.$executeRaw`INSERT INTO "UserCollectionReaction" ("collectionId", "userId") VALUES (${id}, ${userId}) ON CONFLICT ("collectionId", "userId") DO NOTHING`
+    return { reacted: true, count: await tx.userCollectionReaction.count({ where: { collectionId: id } }) }
+  })
 }
 
 export async function collectionIsSaved(userId: number, id: number) {
@@ -206,10 +237,10 @@ export async function saveCollection(userId: number, id: number, on: boolean, sh
     return { saved: false }
   }
   return db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR UPDATE`
+    await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR SHARE`
     const allowed = await tx.userCollection.findFirst({ where: { id, OR: [{ visibility: { in: ['PUBLIC', 'EDITORIAL'] } }, ...(shareToken ? [{ visibility: 'UNLISTED', shareToken }] : []), { ownerId: userId }, { collaborators: { some: { userId } } }] }, select: { id: true } })
     if (!allowed) throw new CollectionError('Collection unavailable', 404)
-    await tx.userCollectionSave.upsert({ where: { collectionId_userId: { collectionId: id, userId } }, create: { collectionId: id, userId }, update: {} })
+    await tx.$executeRaw`INSERT INTO "UserCollectionSave" ("collectionId", "userId") VALUES (${id}, ${userId}) ON CONFLICT ("collectionId", "userId") DO NOTHING`
     return { saved: true }
   })
 }

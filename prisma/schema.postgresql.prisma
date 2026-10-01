@@ -83,6 +83,7 @@ model User {
   collectionCollaborations UserCollectionCollaborator[]
   followedCollections UserCollectionFollow[]
   savedCollections UserCollectionSave[]
+  collectionReactions UserCollectionReaction[]
   userProfile  UserProfile?
   following    UserFollow[] @relation("UserFollowing")
   followers    UserFollow[] @relation("UserFollowers")
@@ -1338,6 +1339,7 @@ model UserCollection {
   collaborators UserCollectionCollaborator[]
   followers   UserCollectionFollow[]
   saves       UserCollectionSave[]
+  reactions   UserCollectionReaction[]
 
   @@index([ownerId, updatedAt])
   @@index([visibility, updatedAt])
@@ -1387,6 +1389,17 @@ model UserCollectionSave {
 
   @@id([collectionId, userId])
   @@index([userId, createdAt])
+}
+
+model UserCollectionReaction {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------- Film & series

@@ -62,8 +62,12 @@ Music progress checkpoint: Listening history now also holds position, duration, 
 
 Collections checkpoint: A separate collection model preserves existing favorites, game status and playlist order. Client item references resolve through the published-content registry before insertion; detail reads filter unpublished or disabled items. Owner-only settings and collaborator administration, serialized item order mutations, public follow, personal save, API origin checks, bounded bodies, and private page access are in place. Unlisted access requires a random share token for non-members; restrictive visibility transitions revoke saves and follows. Migrations 20261103120000, 20261104120000 and 20261105120000 were applied locally. Connected API and browser checks passed, including dark-theme visual inspection.
 
+Collection reactions checkpoint: Public and editorial collections now accept one idempotent reaction per signed-in member. Reactions are cleared when visibility becomes private or unlisted. Migration 20261106120000 was applied locally; connected tests verified deduplication, access and revocation, and the browser test verified the button and persistence.
+
+Editorial selection checkpoint: Staff with `cms.posts` permission can promote a public collection containing live items to the editorial directory, then return it to public status. The admin list and promotion API use the existing permission and audit contracts; the public directory ranks editorial picks first. Collection owners can withdraw their own collection from public visibility, which also removes its editorial selection. Connected authorization tests, the authenticated admin browser flow, and the PostgreSQL production build passed.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint
 
-Extend the collections contract with reactions and an editorial workflow, then define a read adapter across favorites, game status and personal playlists without losing their specialist fields. Continue the broader 20-capability audit and implementation.
+Define a read adapter across favorites, game status and personal playlists without losing their specialist fields. Continue the broader 20-capability audit and implementation, including a dedicated editorial authoring flow.

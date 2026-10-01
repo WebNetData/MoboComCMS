@@ -17,7 +17,7 @@ This is an initial code inventory for the owner's 20-capability brief. A module 
 | Audit/version explorer | `AuditLog`, platform audit | Audit version granularity, sensitive data handling, and restore semantics. |
 | Notification center | `notifications`, `UserNotification`, inbox events | Audit user preferences, delivery, deduplication, and retention. |
 | Community and social graph | `community`, `forum`, `UserFollow`, `social` | Keep person-follow distinct from following a content item; audit blocks and privacy. |
-| Universal collections | `UserCollection`, items, collaborators, follows, saves; existing content registry | Cross-domain public/private/token-gated unlisted collections, owner editing, item ordering, collaboration, follows and personal saves are delivered. Editorial authoring, reactions and scale QA remain. |
+| Universal collections | `UserCollection`, items, collaborators, follows, saves, reactions; existing content registry | Cross-domain public/private/token-gated unlisted collections, owner editing, item ordering, collaboration, follows, personal saves, public reactions and staff editorial selection are delivered. Dedicated editorial authoring and scale QA remain. |
 | Recommendation engine | `search`, `analytics`, item stats | Establish consent and quality metrics before using activity signals. |
 | SEO platform | `seo`, site SEO, content registry | Audit canonical URLs, structured data, and entity coverage. |
 | Entity hubs | content registry and public detail pages | Define relationships and authoritative source for each entity pair. |

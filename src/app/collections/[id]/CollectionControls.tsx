@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 
-type Collection = { id: number; title: string; description: string; cover: string; shareToken: string | null; visibility: string; isOwner: boolean; canEdit: boolean; members: { userId: number; name: string; email: string }[] }
+type Collection = { id: number; title: string; description: string; cover: string; shareToken: string | null; visibility: string; reactionCount: number; isOwner: boolean; canEdit: boolean; members: { userId: number; name: string; email: string }[] }
 
 async function request(url: string, method: string, body?: object) {
   const response = await fetch(url, { method, ...(body ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}) })
@@ -11,9 +11,11 @@ async function request(url: string, method: string, body?: object) {
   return data
 }
 
-export default function CollectionControls({ collection, loggedIn, followed: initialFollowed, saved: initialSaved, fa }: { collection: Collection; loggedIn: boolean; followed: boolean; saved: boolean; fa: boolean }) {
+export default function CollectionControls({ collection, loggedIn, followed: initialFollowed, saved: initialSaved, reacted: initialReacted, fa }: { collection: Collection; loggedIn: boolean; followed: boolean; saved: boolean; reacted: boolean; fa: boolean }) {
   const [followed, setFollowed] = useState(initialFollowed)
   const [saved, setSaved] = useState(initialSaved)
+  const [reacted, setReacted] = useState(initialReacted)
+  const [reactionCount, setReactionCount] = useState(collection.reactionCount)
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(collection.title)
   const [description, setDescription] = useState(collection.description)
@@ -33,6 +35,16 @@ export default function CollectionControls({ collection, loggedIn, followed: ini
     if (!loggedIn) { window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`); return }
     setBusy(true); setError('')
     try { await request(`/api/collections/${collection.id}/save${collection.shareToken ? `?share=${encodeURIComponent(collection.shareToken)}` : ''}`, saved ? 'DELETE' : 'PUT'); setSaved(!saved) } catch (cause) { setError((cause as Error).message) } finally { setBusy(false) }
+  }
+
+  async function react() {
+    if (!loggedIn) { window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`); return }
+    setBusy(true); setError('')
+    try {
+      const result = await request(`/api/collections/${collection.id}/reaction`, reacted ? 'DELETE' : 'PUT')
+      setReacted(result.reacted)
+      setReactionCount(result.count)
+    } catch (cause) { setError((cause as Error).message) } finally { setBusy(false) }
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -57,6 +69,7 @@ export default function CollectionControls({ collection, loggedIn, followed: ini
   }
 
   return <div className="collections-controls">
+    {['PUBLIC', 'EDITORIAL'].includes(collection.visibility) && <button type="button" className="btn btn-ghost" disabled={busy} aria-pressed={reacted} onClick={() => void react()}><span aria-hidden="true">{reacted ? '♥' : '♡'}</span> {fa ? 'پسندیدن' : 'Like'} {reactionCount.toLocaleString(fa ? 'fa-IR' : 'en-US')}</button>}
     {collection.canEdit && collection.visibility === 'UNLISTED' && collection.shareToken && <button type="button" className="btn btn-ghost" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/collections/${collection.id}?share=${encodeURIComponent(collection.shareToken!)}`).then(() => setError(fa ? 'لینک کپی شد.' : 'Link copied.')).catch(() => setError(fa ? 'کپی لینک انجام نشد.' : 'Could not copy link.')) }}>{fa ? 'کپی لینک خصوصی' : 'Copy unlisted link'}</button>}
     {!collection.isOwner && <button type="button" className="btn btn-ghost" disabled={busy} aria-pressed={saved} onClick={() => void saveList()}>{saved ? (fa ? 'ذخیره‌شده' : 'Saved') : (fa ? 'ذخیرهٔ مجموعه' : 'Save collection')}</button>}
     {!collection.canEdit && collection.visibility === 'PUBLIC' && <button type="button" className="btn btn-primary" disabled={busy} aria-pressed={followed} onClick={() => void follow()}>{followed ? (fa ? 'دنبال می‌کنید' : 'Following') : (fa ? 'دنبال‌کردن' : 'Follow')}</button>}
