@@ -158,6 +158,55 @@ html[data-design] .user-shell .side-foot { flex-shrink: 0; margin-top: 10px; pad
 @media (max-width: 390px) { .np-inbox-note { padding: 13px; } .np-table tbody tr { padding-inline: 13px; } }
 @media (prefers-reduced-motion: reduce) { .np-loading > span { animation: none; } .np-table tbody tr { transition: none; } }
 
+/* Inbox shares the notification page language while keeping dense activity rows. */
+.nc-header { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.nc-header-copy { flex: 1; min-width: 0; }
+.nc-header h1 { margin: 0; font-size: clamp(23px, 2.4vw, 29px); line-height: 1.4; font-weight: 800; }
+.nc-header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.8; }
+.nc-settings { flex: none; border-radius: var(--sds-size-radius-200); }
+.nc-panel { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--sds-size-radius-xl); background: var(--card); }
+.nc-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+.nc-tabs { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: var(--sds-size-radius-200); background: var(--bg-soft); }
+.nc-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 6px 13px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.nc-tabs button:hover { color: var(--text); }
+.nc-tabs button.is-active { color: var(--primary); background: var(--card); box-shadow: var(--sds-effects-shadows-drop-shadow-200); }
+.nc-tabs button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.nc-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); font-size: 11px; }
+.nc-mark-all { border-radius: var(--sds-size-radius-200); }
+.nc-error { margin-bottom: 16px; }
+.nc-list { display: grid; }
+.nc-item.card { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: start; gap: 13px; padding: 17px 20px; border: 0; border-top: 1px solid var(--border); border-inline-start: 3px solid transparent; border-radius: 0; background: var(--card); box-shadow: none; backdrop-filter: none; }
+.nc-item.card:first-child { border-top: 0; }
+.nc-item.card:hover { background: color-mix(in srgb, var(--primary) 4%, var(--card)); box-shadow: none; }
+.nc-item.is-unread { border-inline-start-color: var(--primary); }
+.nc-item-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--sds-size-radius-200); background: var(--bg-soft); color: var(--muted); }
+.nc-item.is-unread .nc-item-icon { background: var(--primary-soft); color: var(--primary); }
+.nc-item-copy { min-width: 0; }
+.nc-item-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 14px; font-weight: 700; line-height: 1.6; }
+.nc-item-title a { min-width: 0; overflow-wrap: anywhere; }
+.nc-item-title a:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.nc-item-title a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 2px; }
+.nc-unread-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.nc-item-copy p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.nc-item-copy time { display: block; margin-top: 8px; color: var(--muted); font-size: 11.5px; }
+.nc-mark-one { align-self: center; border-radius: var(--sds-size-radius-200); white-space: nowrap; }
+.nc-empty { display: grid; justify-items: center; gap: 8px; padding: 55px 20px; text-align: center; }
+.nc-empty-icon { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 4px; border-radius: var(--sds-size-radius-400); background: var(--primary-soft); color: var(--primary); }
+.nc-empty strong { font-size: 15px; }
+.nc-empty p { max-width: 46ch; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.nc-more { display: flex; width: calc(100% - 40px); margin: 18px 20px; border-radius: var(--sds-size-radius-200); }
+@media (max-width: 640px) {
+  .nc-header { flex-wrap: wrap; }
+  .nc-settings { width: 100%; }
+  .nc-toolbar { padding: 12px; }
+  .nc-tabs { flex: 1; }
+  .nc-tabs button { flex: 1; padding-inline: 9px; }
+  .nc-mark-all { width: 100%; }
+  .nc-item.card { grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 15px 13px; }
+  .nc-item-icon { width: 34px; height: 34px; }
+  .nc-mark-one { grid-column: 2; justify-self: start; }
+}
+
 /* floating save bar */
 .dash-savebar { position: sticky; bottom: 16px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 12px 40px rgb(0 0 0 / .28); font-size: 13px; animation: dash-rise .18s ease-out; }
 .dash-savebar b { font-weight: 700; }

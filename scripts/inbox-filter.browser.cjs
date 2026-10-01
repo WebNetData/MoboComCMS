@@ -28,6 +28,15 @@ async function main() {
   const rows = page.locator('article.card')
   await rows.first().waitFor({ timeout: 60000 })
   assert.equal(await rows.count(), 30)
+  await page.screenshot({ path: '.next-dev/inbox-populated-desktop.png' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  await page.screenshot({ path: '.next-dev/inbox-populated-mobile.png' })
+  for (const width of [360, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `horizontal overflow at ${width}px`)
+  }
+  await page.setViewportSize({ width: 1365, height: 900 })
   const color = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
   const rgb = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color)
   assert.ok(rgb && Math.max(...rgb.slice(1).map(Number)) < 80, `expected dark background, got ${color}`)
@@ -46,7 +55,13 @@ async function main() {
   assert.equal((await db.userNotification.count({ where: { userId, readAt: null } })), 0)
   await page.waitForFunction(() => document.querySelectorAll('.badge-amber[aria-label$="unread notifications"]').length === 0, null, { timeout: 60000 })
   await page.screenshot({ path: '.next-dev/inbox-filter-qa.png', fullPage: true })
-  console.log('Inbox browser: dark page, unread pagination and mark-read filtering OK')
+  await context.addCookies([{ name: 'theme', value: 'light', url: 'http://127.0.0.1:3000' }])
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: /خوانده‌نشده|Unread/ }).click()
+  await page.locator('.nc-empty').waitFor()
+  await page.screenshot({ path: '.next-dev/inbox-empty-light-mobile.png' })
+  console.log('Inbox browser: dark/light responsive page, unread pagination and mark-read filtering OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
