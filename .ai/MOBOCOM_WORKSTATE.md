@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Finish the account web-push preference slice, then continue the capability map.
-Risk: R4 program; account push preference is R3 because it adds a User field and affects delivery.
-Owner/contracts: `identity` owns account preferences; `push` owns web-push delivery; `notifications` owns the private inbox.
+Current milestone: Validate and commit the private unread inbox view.
+Risk: R4 program; unread view is R2 because it changes the authenticated API and UI.
+Owner/contracts: `notifications` owns the private inbox; `identity` owns account preferences; `push` owns web-push delivery.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -20,9 +20,10 @@ Done (verified):
 - Storefront approval filtering was committed and pushed as `fe4b83e`.
 - Search publication guard was committed and pushed as `ab977bf`.
 - Inbox concurrent dispatch dedupe was committed and pushed as `7602612`.
+- Account web-push preference was committed and pushed as `b4d3a6d`.
 
 In progress:
-- Review, commit and push the account web-push preference slice.
+- Finish production build, review, commit and push the unread inbox view.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -38,9 +39,10 @@ Validation actually run:
 - For search publication: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and connected stale-index test passed.
 - For inbox idempotency: focused 20-request concurrent fanout test, `typecheck`, `source:check`, `arch:check`, `security:check`, and `build:postgres` passed.
 - For push preference: `schema:check`, local PostgreSQL migration, focused preference test, `source:check`, `arch:check`, `security:check`, `build:postgres`, and an authenticated browser check on port 3000 passed. The browser check verified persisted opt-out across reloads and a dark page visually.
+- For unread inbox: `typecheck`, `source:check`, `arch:check`, `security:check`, and browser check on port 3000 passed. The browser check verified 34 unread items across pages, read actions, immediate badge refresh, and the dark empty view. PostgreSQL build passed after the final code change.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Stage, inspect, commit and push only the push-preference slice. Then inspect the next bounded capability gap; do not open a PR until the 2.0 brief is complete.
+- Stage, inspect, commit and push only the unread inbox slice after the build passes. Then inspect the next bounded capability gap; do not open a PR until the 2.0 brief is complete.

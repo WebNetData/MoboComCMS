@@ -8,10 +8,18 @@ export default function NotificationCount() {
   const [count, setCount] = useState(0)
   useEffect(() => {
     let active = true
-    const refresh = () => fetch('/api/inbox?countOnly=1', { cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(data => { if (active) setCount(Number(data?.unread || 0)) }).catch(() => {})
+    let requestSeq = 0
+    const refresh = () => {
+      const seq = ++requestSeq
+      void fetch('/api/inbox?countOnly=1', { cache: 'no-store' })
+        .then(response => response.ok ? response.json() : null)
+        .then(data => { if (active && seq === requestSeq && data) setCount(Number(data.unread || 0)) })
+        .catch(() => {})
+    }
     void refresh()
     const timer = window.setInterval(refresh, 60_000)
-    return () => { active = false; window.clearInterval(timer) }
+    window.addEventListener('mobocom:inbox-updated', refresh)
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('mobocom:inbox-updated', refresh) }
   }, [pathname])
   return count > 0 ? <span className="badge badge-amber" aria-label={`${count} unread notifications`}>{count > 99 ? '99+' : count}</span> : null
 }
