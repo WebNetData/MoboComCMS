@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Deliver scheduled game update notices to opted-in followers through a persistent cursor.
-Risk: R4 program; this game notification slice is R3 with one additive Prisma migration.
-Owner/contracts: `games` owns release scheduling and follower cursor; `notifications` owns the durable inbox; `content` runs the existing engagement worker.
+Current milestone: Inspect Software release history and version-notification semantics before a new vertical slice.
+Risk: R4 program; a Software release-history slice will be R3/R4 because it touches durable data, protected links, admin editing and scheduled publication.
+Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -32,9 +32,10 @@ Done (verified):
 - Public forum topic tracking into recent history was verified and pushed as `f8f9fff`.
 - Durable notification delivery was verified and pushed as `36ffbf0`.
 - Scheduled game update publication and direct download gates were verified and pushed as `991fadc`.
+- Scheduled game update follower notices and their additive migration were verified and pushed as `baff9a1`.
 
 In progress:
-- Commit and push the verified game release notification slice. Keep unrelated local files out of commits.
+- Repository inspection found Software has only a current `version` and `changelog`, with no release history. `contentChanged` sends version notices through a best-effort hook; it does not check future `publishedAt` for Software. A safe next slice needs a release record, public/download gates and a durable release cursor together. No Software behavior has been changed yet.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -69,4 +70,4 @@ Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit/push game release notices, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Design and implement the smallest complete Software version-history path with scheduled publication and link gating, then connect release notices. Do not open a PR until the 2.0 brief is complete.
