@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Validate and commit the private unread inbox view.
-Risk: R4 program; unread view is R2 because it changes the authenticated API and UI.
-Owner/contracts: `notifications` owns the private inbox; `identity` owns account preferences; `push` owns web-push delivery.
+Current milestone: Inspect the next bounded MoboCom 2.0 capability gap.
+Risk: R4 program; per-event notification preferences were R3 because they add an owner-scoped schema and gate external delivery.
+Owner/contracts: `notifications` owns the private inbox and per-event mutes; `identity` owns global account preferences; SMS, mail and push enforce delivery preferences.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -21,14 +21,17 @@ Done (verified):
 - Search publication guard was committed and pushed as `ab977bf`.
 - Inbox concurrent dispatch dedupe was committed and pushed as `7602612`.
 - Account web-push preference was committed and pushed as `b4d3a6d`.
+- Private unread inbox view was committed and pushed as `a82fa06`.
+- Per-event SMS, email and browser-push preferences, with an SDS-aligned responsive dashboard matrix, were committed and pushed as `ac8ffbd`.
 
 In progress:
-- Finish production build, review, commit and push the unread inbox view.
+- Inspect the remaining capability brief and choose the next bounded slice. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
 - Both Prisma schemas contain `ItemReviewHelpful`. Migration `20261109120000_item_review_helpful` was applied locally; production deployment remains pending.
 - Both Prisma schemas now contain `User.pushAlerts`. Additive migration `20261110120000_push_alert_preference` was applied locally; production deployment remains pending.
+- Both Prisma schemas contain `UserNotificationMute`. Additive migration `20261111120000_notification_event_mutes` is applied to the local Docker PostgreSQL database; production deployment remains pending.
 
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
@@ -40,9 +43,10 @@ Validation actually run:
 - For inbox idempotency: focused 20-request concurrent fanout test, `typecheck`, `source:check`, `arch:check`, `security:check`, and `build:postgres` passed.
 - For push preference: `schema:check`, local PostgreSQL migration, focused preference test, `source:check`, `arch:check`, `security:check`, `build:postgres`, and an authenticated browser check on port 3000 passed. The browser check verified persisted opt-out across reloads and a dark page visually.
 - For unread inbox: `typecheck`, `source:check`, `arch:check`, `security:check`, and browser check on port 3000 passed. The browser check verified 34 unread items across pages, read actions, immediate badge refresh, and the dark empty view. PostgreSQL build passed after the final code change.
+- For per-event notification preferences: `schema:check`, `typecheck`, `source:check`, `arch:check`, `security:check`, focused push gate test, authenticated browser persistence/owner-scope/validation test, and `build:postgres` passed. Visual inspection covered dark desktop/tablet/mobile and light mobile; overflow checks passed at 1440, 768, 390 and 360 pixels. The deployment is Persian-only, so English LTR was not browser-tested.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Stage, inspect, commit and push only the unread inbox slice after the build passes. Then inspect the next bounded capability gap; do not open a PR until the 2.0 brief is complete.
+- Inspect the next bounded capability gap; do not open a PR until the 2.0 brief is complete.
