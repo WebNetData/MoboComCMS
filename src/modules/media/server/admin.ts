@@ -14,6 +14,10 @@ import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCod
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
+import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
+import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
+import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
+import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -448,6 +452,8 @@ const RESOURCES: Record<string, Resource> = {
   },
 }
 
+const PUBLISHABLE = new Set(['music-albums', 'music-tracks', 'music-playlists', 'cinema-titles', 'games', 'software'])
+
 async function authorize(req: NextRequest, resource: Resource) {
   for (const perm of resource.perms) {
     const admin = await requirePerm(req, perm)
@@ -471,16 +477,40 @@ function failure(error: unknown) {
 export async function GET(req: NextRequest) {
   const found = resourceOf(req)
   if (!found) return err('Unknown resource', 404)
-  const [, resource] = found
+  const [type, resource] = found
   const off = await moduleGuard(resource.module)
   if (off) return off
   if (!await authorize(req, resource)) return err('forbidden', 403)
   const one = Number(req.nextUrl.searchParams.get('id'))
-  const rows = await resource.delegate(db).findMany({ ...(Number.isSafeInteger(one) && one > 0 ? { where: { id: one } } : {}), orderBy: resource.orderBy, include: resource.include, take: 1000 })
+  const offset = Number(req.nextUrl.searchParams.get('skip') || 0)
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100_000) return err('invalid offset', 400)
+  const paged = req.nextUrl.searchParams.get('paged') === '1' && !(Number.isSafeInteger(one) && one > 0)
+  let pageInfo: ReturnType<typeof adminPageParams> | null = null
+  if (paged) {
+    try { pageInfo = adminPageParams(req.nextUrl.searchParams) } catch (error) { return err(error instanceof Error ? error.message : 'invalid page', 400) }
+  }
+  const searchFields: Record<string, string[]> = {
+    'music-artists': ['name', 'nameEn', 'slug'],
+    'music-albums': ['title', 'titleEn', 'slug'],
+    'music-tracks': ['title', 'titleEn', 'slug'],
+    'music-playlists': ['title', 'titleEn', 'slug'],
+    'cinema-titles': ['title', 'titleEn', 'originalTitle', 'slug'],
+    games: ['title', 'titleEn', 'slug'],
+    software: ['title', 'titleEn', 'slug'],
+    'vip-plans': ['name', 'nameEn', 'slug'],
+  }
+  const where = Number.isSafeInteger(one) && one > 0 ? { id: one } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const total = pageInfo ? await resource.delegate(db).count({ where }) as number : 0
+  const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
+  const orderBy = Array.isArray(resource.orderBy) || 'id' in resource.orderBy ? resource.orderBy : [resource.orderBy, { id: 'desc' as const }]
+  const rows = await resource.delegate(db).findMany({ ...(where ? { where } : {}), orderBy, include: resource.include, skip: slice?.skip ?? offset, ...(slice ? slice.take ? { take: slice.take } : {} : { take: 1000 }) })
   const expanded = resource.expand ? await resource.expand(rows) : rows
-  if (!resource.taxonomy) return ok(expanded)
-  const terms = await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id))
-  return ok(expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })))
+  const terms = resource.taxonomy ? await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id)) : null
+  const result = terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
+  if (!pageInfo || !slice) return ok(result)
+  const overall = await resource.delegate(db).count() as number
+  const vip = type !== 'music-artists' && type !== 'vip-plans' ? await resource.delegate(db).count({ where: { access: 'MEMBERS' } }) as number : null
+  return ok({ rows: result, total, overall, vip, page: slice.page, pages: slice.pages })
 }
 
 /**
@@ -495,6 +525,7 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const data = await resource.parse(body, existing)
   const row = await db.$transaction(async (tx) => {
     const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data })
+    if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
     if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
     return saved
@@ -543,7 +574,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
     const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null)
     if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
-    return ok({ id: row.id, slug: row.slug }, mode === 'create' ? 201 : 200)
+    return ok({ id: row.id, slug: row.slug, status: row.status }, mode === 'create' ? 201 : 200)
   } catch (error) {
     return failure(error)
   }
@@ -573,4 +604,55 @@ export async function DELETE(req: NextRequest) {
   } catch (error) {
     return failure(error)
   }
+}
+
+/** Batch editor for the shared media lists; deletion uses the same nested cleanup as single-item deletion. */
+export async function BULK(req: NextRequest) {
+  const found = resourceOf(req)
+  if (!found) return err('Unknown resource', 404)
+  const [type, resource] = found
+  if (!bulkSameOrigin(req)) return err('forbidden', 403)
+  const off = await moduleGuard(resource.module)
+  if (off) return off
+  const admin = await authorize(req, resource)
+  if (!admin) return err('forbidden', 403)
+  let input: Awaited<ReturnType<typeof readBulkInput>>
+  try { input = await readBulkInput(req) } catch (error) { return err(error instanceof Error ? error.message : 'invalid batch', 400) }
+  const { ids, action } = input
+  if (action !== 'delete' && !PUBLISHABLE.has(type)) return err('status is not available for this resource', 400)
+  const failed: { id: number; reason: string }[] = []
+  const succeeded: number[] = []
+
+  if (action !== 'delete') {
+    try {
+      const rows = await resource.delegate(db).findMany({ where: { id: { in: ids } } }) as Record<string, any>[]
+      const known = new Set(rows.map((row) => row.id))
+      for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
+      if (rows.length) {
+        const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
+        await db.$transaction(async (tx) => {
+          await resource.delegate(tx).updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
+          if (type === 'music-tracks' && status === 'PUBLISHED') {
+            for (const row of rows) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+          }
+        })
+        if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+        const paths: string[] = []
+        for (const row of rows) {
+          succeeded.push(row.id)
+          if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, row, { ...row, status })
+          if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }
+        }
+        if (paths.length) queueIndexNow(paths)
+      }
+    } catch (error) { return failure(error) }
+  } else {
+    for (const id of ids) {
+      try { await deleteMediaItem(type, id); succeeded.push(id) }
+      catch { failed.push({ id, reason: 'cannot delete (in use or missing)' }) }
+    }
+    if (succeeded.length) await recountMediaTaxonomy(type)
+  }
+  await auditAdmin({ req, actor: admin, action: `media.${type}.bulk.${action}`, targetType: type, metadata: { succeeded, failed } })
+  return ok({ changed: succeeded.length, failed })
 }

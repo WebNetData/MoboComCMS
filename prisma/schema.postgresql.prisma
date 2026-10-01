@@ -77,6 +77,12 @@ model User {
   forumPollVotes ForumPollVote[]
   forumCategoryUsers ForumCategoryUser[]
   gameLibrary  GameLibrary[]
+  musicPlaylists UserMusicPlaylist[]
+  musicListenHistory MusicListenHistory[]
+  ownedCollections UserCollection[] @relation("CollectionOwner")
+  collectionCollaborations UserCollectionCollaborator[]
+  followedCollections UserCollectionFollow[]
+  savedCollections UserCollectionSave[]
   userProfile  UserProfile?
   following    UserFollow[] @relation("UserFollowing")
   followers    UserFollow[] @relation("UserFollowers")
@@ -1240,6 +1246,9 @@ model MusicTrack {
   updatedAt   DateTime    @default(now()) @updatedAt
   artist      MusicArtist @relation(fields: [artistId], references: [id], onDelete: Cascade)
   album       MusicAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  userPlaylistItems UserMusicPlaylistTrack[]
+  releaseNotification MusicTrackReleaseNotification?
+  listenHistory MusicListenHistory[]
 
   @@index([artistId])
   @@index([albumId, trackNo])
@@ -1260,6 +1269,124 @@ model MusicPlaylist {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model MusicTrackReleaseNotification {
+  trackId     Int        @id
+  dueAt       DateTime
+  lastUserId  Int        @default(0)
+  completedAt DateTime?
+  track       MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
+}
+
+model MusicListenHistory {
+  userId       Int
+  trackId      Int
+  playCount    Int        @default(1)
+  firstPlayedAt DateTime @default(now())
+  lastPlayedAt DateTime   @default(now())
+  positionSeconds Int    @default(0)
+  durationSeconds Int    @default(0)
+  progressUpdatedAt DateTime?
+  completedAt DateTime?
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track        MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+  @@index([userId, lastPlayedAt])
+}
+
+model UserMusicPlaylist {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks    UserMusicPlaylistTrack[]
+
+  @@index([userId, updatedAt])
+}
+
+model UserMusicPlaylistTrack {
+  playlistId Int
+  trackId    Int
+  position   Int
+  addedAt    DateTime @default(now())
+  playlist   UserMusicPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      MusicTrack        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+  @@index([playlistId, position])
+  @@index([trackId])
+}
+
+model UserCollection {
+  id          Int      @id @default(autoincrement())
+  ownerId     Int
+  title       String
+  description String   @default("")
+  cover       String   @default("")
+  shareToken  String?  @unique
+  visibility  String   @default("PRIVATE") // PRIVATE | UNLISTED | PUBLIC | EDITORIAL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  owner       User     @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  items       UserCollectionItem[]
+  collaborators UserCollectionCollaborator[]
+  followers   UserCollectionFollow[]
+  saves       UserCollectionSave[]
+
+  @@index([ownerId, updatedAt])
+  @@index([visibility, updatedAt])
+}
+
+model UserCollectionItem {
+  id           Int      @id @default(autoincrement())
+  collectionId Int
+  itemType     String
+  itemId       Int
+  position     Int
+  addedAt      DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, itemType, itemId])
+  @@unique([collectionId, position])
+}
+
+model UserCollectionCollaborator {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
+}
+
+model UserCollectionFollow {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
+}
+
+model UserCollectionSave {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId, createdAt])
 }
 
 // ---------------------------------------------------------------- Film & series

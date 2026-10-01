@@ -26,7 +26,7 @@ export type PlaylistCard = { id: number; slug: string; title: string; titleEn: s
 const artistSelect = { id: true, slug: true, name: true, nameEn: true, image: true } as const
 const trackInclude = { artist: { select: artistSelect }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true } } } as const
 
-function toTrack(row: any): TrackCard {
+export function toTrack(row: any): TrackCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn,
     cover: row.cover || row.album?.cover || row.artist?.image || '',
@@ -43,6 +43,42 @@ function toPlaylist(row: any): PlaylistCard {
 }
 
 const albumInclude = { artist: { select: artistSelect }, _count: { select: { tracks: true } } } as const
+
+const musicPage = (value: unknown) => Math.min(10_000, Math.max(1, Number.isSafeInteger(Number(value)) ? Number(value) : 1))
+const musicSearch = (value: unknown) => String(value || '').trim().slice(0, 100)
+
+export async function browseMusicArtists(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = q ? { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : undefined
+  const [rows, total] = await Promise.all([
+    db.musicArtist.findMany({ where, select: artistSelect, orderBy: [{ featured: 'desc' }, { name: 'asc' }, { id: 'asc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicArtist.count({ where }),
+  ])
+  return { artists: rows, total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function browseMusicAlbums(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = { ...live(), ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { artist: { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }] } }] } : {}) }
+  const [rows, total] = await Promise.all([
+    db.musicAlbum.findMany({ where, include: albumInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicAlbum.count({ where }),
+  ])
+  return { albums: rows.map(toAlbum), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function browseMusicPlaylists(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = { status: 'PUBLISHED', ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : {}) }
+  const [rows, total] = await Promise.all([
+    db.musicPlaylist.findMany({ where, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { id: 'desc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicPlaylist.count({ where }),
+  ])
+  return { playlists: rows.map(toPlaylist), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
 
 /** Media tables can be missing on older databases: render an empty section instead of an error page, keeping row types. */
 function allOrEmpty<P extends readonly Promise<unknown>[]>(queries: [...P]): Promise<{ [K in keyof P]: Awaited<P[K]> }> {

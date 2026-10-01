@@ -102,6 +102,21 @@ export async function listFavorites(userId: number) {
   })
 }
 
+/** Bounded account-home preview; the full favorites page owns the complete list. */
+export async function favoritePreview(userId: number, take = 6) {
+  const size = Math.min(12, Math.max(1, Math.trunc(take) || 6))
+  const [total, rows] = await Promise.all([
+    db.itemFavorite.count({ where: { userId } }),
+    db.itemFavorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: Math.min(48, size * 4) }),
+  ])
+  const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
+  const items = rows.flatMap((row) => {
+    const card = cards.get(`${row.itemType}:${row.itemId}`)
+    return card ? [{ ...card, addedAt: row.createdAt }] : []
+  }).slice(0, size)
+  return { total, items }
+}
+
 /** Ratings for many items at once (cards, comparison). */
 export async function ratingsFor(refs: ItemRef[]): Promise<Map<string, { average: number | null; count: number; favorites: number }>> {
   if (!refs.length) return new Map()

@@ -5,9 +5,12 @@ export function musicNav(fa: boolean): SectionNavItem[] {
     { key: 'home', href: '/music', label: fa ? 'خانه موزیک' : 'Music home' },
     { key: 'new', href: '/music/browse', label: fa ? 'جدیدترین‌ها' : 'New releases' },
     { key: 'top', href: '/music/browse?sort=popular', label: fa ? 'پربازدیدترین‌ها' : 'Most played' },
-    { key: 'albums', href: '/music#albums', label: fa ? 'آلبوم‌ها' : 'Albums' },
-    { key: 'artists', href: '/music#artists', label: fa ? 'هنرمندان' : 'Artists' },
-    { key: 'playlists', href: '/music#playlists', label: fa ? 'پلی‌لیست‌ها' : 'Playlists' },
+    { key: 'albums', href: '/music/albums', label: fa ? 'آلبوم‌ها' : 'Albums' },
+    { key: 'artists', href: '/music/artists', label: fa ? 'هنرمندان' : 'Artists' },
+    { key: 'playlists', href: '/music/playlists', label: fa ? 'پلی‌لیست‌ها' : 'Playlists' },
+    { key: 'mine', href: '/music/my-playlists', label: fa ? 'پلی‌لیست‌های من' : 'My playlists' },
+    { key: 'history', href: '/music/history', label: fa ? 'تاریخچهٔ پخش' : 'Listening history' },
+    { key: 'favorites', href: '/favorites?type=track', label: fa ? 'آهنگ‌های دلخواه' : 'Liked songs' },
   ]
 }
 

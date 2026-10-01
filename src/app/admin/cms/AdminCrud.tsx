@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import dynamic from 'next/dynamic'
 import Link from '@/components/AppLink'
@@ -8,6 +8,9 @@ import CoverField from './CoverField'
 import CategoryPicker from './CategoryPicker'
 import AiAutofill from './AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
+import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
+import AdminPagination from './AdminPagination'
+import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -37,6 +40,15 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const { t, locale } = useI18n()
   const fa = locale === 'fa'
   const [query, setQuery] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<AdminPageSize>(20)
+  const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [overall, setOverall] = useState(0)
+  const [published, setPublished] = useState<number | null>(null)
+  const [optionRows, setOptionRows] = useState<any[] | null>(null)
+  const loadId = useRef(0)
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
   const [editId, setEditId] = useState<number | null>(null)
@@ -49,17 +61,43 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [review, setReview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [originalStatus, setOriginalStatus] = useState('')
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState(0)
+  const [bulkMsg, setBulkMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
 
   const load = useCallback(async () => {
+    const requestId = ++loadId.current
     setLoading(true)
-    const res = await fetch(`/api/admin/cms?type=${type}`)
-    if (res.ok) setRows(await res.json())
+    const params = new URLSearchParams({ type, paged: '1', page: String(page), limit: String(pageSize), q: search })
+    const res = await fetch(`/api/admin/cms?${params}`).catch(() => null)
+    const data = await res?.json().catch(() => null)
+    if (requestId !== loadId.current) return
+    if (res?.ok && Array.isArray(data?.rows)) {
+      setRows(data.rows)
+      setTotal(data.total)
+      setOverall(data.overall)
+      setPublished(data.published)
+      setPages(data.pages)
+      if (data.page !== page) setPage(data.page)
+      setMsg('')
+    } else setMsg(data?.error || t.errGeneric)
     setLoading(false)
-  }, [type])
+  }, [type, page, pageSize, search, t.errGeneric])
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setSearch(query.trim()) }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
+    if (type !== 'productcats') return
+    fetch('/api/admin/cms?type=productcats&options=1').then((res) => res.ok ? res.json() : []).then((data) => setOptionRows(Array.isArray(data) ? data : [])).catch(() => setOptionRows([]))
+  }, [type, overall])
 
   function emptyForm() {
     const f: Record<string, any> = {}
@@ -97,7 +135,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
       case 'richtext': return [{ ...base, type: 'richtext' }]
       case 'number': return [{ ...base, type: 'number' }]
       case 'checkbox': return [{ ...base, type: 'checkbox' }]
-      case 'select': { const options = (fl.optionsFromRows?.(rows, editId) || fl.options || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
+      case 'select': { const options = (fl.optionsFromRows?.(optionRows || rows, editId) || fl.options || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
       case 'multiselect': return fl.options?.length ? [{ ...base, type: 'multiselect', options: fl.options }] : []
       default: return []
     }
@@ -108,7 +146,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     setAiValues((current) => { const out = { ...current }; for (const key of Object.keys(next)) { if (filled.includes(key)) out[key] = next[key]; else delete out[key] } return out })
   }
   const reviewRows: ReviewRow[] = fields.map((fl) => {
-    const value = previewValue(form[fl.key], fl.optionsFromRows?.(rows, editId) || fl.options)
+    const value = previewValue(form[fl.key], fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)
     return { key: fl.key, label: fl.label, value, state: !value && fl.required ? 'missing' : isAi(fl.key) ? 'ai' : value ? 'ok' : 'empty' }
   })
 
@@ -143,15 +181,47 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   }
 
   async function remove(id: number) {
+    if (bulkBusy) return
     if (!confirm(t.confirmDelete)) return
     const res = await fetch(`/api/admin/cms?type=${type}&id=${id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) setMsg(data?.error || t.errGeneric)
+    else setSelected((current) => { const next = new Set(current); next.delete(id); return next })
     load()
   }
 
   const tableFields = fields.filter((f) => !f.hideInTable)
-  const visibleRows = rows.filter(row => [row.title, row.titleEn, row.name, row.nameEn, row.slug].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+  const visibleRows = rows
+  const bulkEnabled = type === 'posts' || type === 'pages'
+  const visibleIds = visibleRows.map((row) => Number(row.id))
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
+  const toggleSelected = (id: number) => setSelected((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const toggleAllVisible = () => setSelected((current) => {
+    const next = new Set(current)
+    if (visibleIds.every((id) => next.has(id))) visibleIds.forEach((id) => next.delete(id))
+    else visibleIds.forEach((id) => next.add(id))
+    return next
+  })
+  async function applyBulk(action: BulkAction) {
+    const ids = [...selected]
+    if (!ids.length || bulkBusy) return
+    setBulkBusy(true)
+    setBulkProgress(0)
+    setBulkMsg(null)
+    const result = await runBulkAction('/api/admin/cms', type, ids, action, setBulkProgress)
+    setSelected(new Set(result.failed.map((item) => item.id)))
+    setBulkBusy(false)
+    const label = action === 'delete' ? (fa ? 'حذف' : 'deleted') : action === 'draft' ? (fa ? 'پیش‌نویس' : 'moved to draft') : (fa ? 'منتشر' : 'published')
+    setBulkMsg({ tone: result.failed.length ? 'err' : 'ok', text: fa
+      ? `${result.succeeded.length.toLocaleString('fa-IR')} مورد ${label} شد.${result.failed.length ? ` ${result.failed.length.toLocaleString('fa-IR')} مورد ناموفق بود: ${result.failed.slice(0, 3).map((item) => `#${item.id} ${item.reason}`).join('، ')}` : ''}`
+      : `${result.succeeded.length} items ${label}.${result.failed.length ? ` ${result.failed.length} failed: ${result.failed.slice(0, 3).map((item) => `#${item.id} ${item.reason}`).join(', ')}` : ''}` })
+    await load()
+  }
   const names: Record<string, string> = { pages: fa ? 'صفحه‌های سایت' : 'Pages', posts: fa ? 'نوشته‌ها' : 'Articles', products: fa ? 'محصولات فروشگاه' : 'Products', postcats: fa ? 'دسته‌بندی نوشته‌ها' : 'Article categories', productcats: fa ? 'دسته‌بندی محصولات' : 'Product categories' }
   const publicPath = type === 'pages' ? '/p/' : type === 'posts' ? '/blog/' : type === 'products' ? '/products/' : ''
 
@@ -167,7 +237,11 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           </button>
         </div>
       </div>
-      <div className="cms-summary"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{rows.length.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{rows.filter(row => row.status === 'PUBLISHED' || row.active === true).length.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
+      <div className="cms-summary"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
+
+      <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
+
+      {bulkEnabled && <><BulkActions count={selected.size} canPublish fa={fa} busy={bulkBusy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />{bulkMsg && <p className={bulkMsg.tone === 'err' ? 'error-text cms-bulk-message' : 'cms-bulk-message'} role="status">{bulkMsg.text}</p>}</>}
 
       {showForm && (
         <form onSubmit={save} className="card mb-6 grid-3 items-end">
@@ -191,7 +265,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                 </label>
               ) : fl.type === 'select' ? (
                 <select aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
-                  {(fl.optionsFromRows?.(rows, editId) || fl.options)?.map((o) => (
+                  {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)?.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
@@ -224,6 +298,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           <table className="data">
             <thead>
               <tr>
+                {bulkEnabled && <th><input type="checkbox" aria-label={fa ? 'انتخاب همه موارد نمایش‌داده‌شده' : 'Select all visible items'} checked={allVisibleSelected} disabled={bulkBusy || !visibleIds.length} onChange={toggleAllVisible} /></th>}
                 <th>#</th>
                 {tableFields.map((f) => (
                   <th key={f.key}>{f.label}</th>
@@ -235,13 +310,14 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
               {visibleRows.map((row) => {
                 const extra = extraRows ? extraRows(row) : {}
                 return (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={selected.has(row.id) ? 'is-selected' : ''}>
+                    {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.title || `#${row.id}`}`} checked={selected.has(row.id)} disabled={bulkBusy} onChange={() => toggleSelected(row.id)} /></td>}
                     <td className="num">{row.id}</td>
                     {tableFields.map((f) => {
                       if (extra[f.key] !== undefined) {
                         return <td key={f.key}>{extra[f.key]}</td>
                       }
-                      if (f.optionsFromRows) return <td key={f.key}>{f.optionsFromRows(rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
+                      if (f.optionsFromRows) return <td key={f.key}>{f.optionsFromRows(optionRows || rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
                       const v = row[f.key]
                       if (typeof v === 'boolean') return <td key={f.key}>{v ? '✅' : '—'}</td>
                       const str = String(v ?? '')
@@ -249,24 +325,25 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                     })}
                     <td>
                       <div className="flex gap-1">
-                        <button className="badge badge-purple" disabled={uploading} onClick={() => edit(row)}>{t.edit}</button>
+                        <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'posts' && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {publicPath && (row.status === 'PUBLISHED' || row.active === true) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
-                        <button className="badge badge-red" onClick={() => remove(row.id)}>{t.delete}</button>
+                        <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{t.delete}</button>
                       </div>
                     </td>
                   </tr>
                 )
               })}
               {visibleRows.length === 0 && (
-                <tr><td colSpan={tableFields.length + 2} className="muted text-center py-8">{fa ? 'موردی پیدا نشد.' : 'No entries found.'}</td></tr>
+                <tr><td colSpan={tableFields.length + 2 + Number(bulkEnabled)} className="muted text-center py-8">{fa ? 'موردی پیدا نشد.' : 'No entries found.'}</td></tr>
               )}
             </tbody>
           </table>
         )}
       </div>
+      <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
     </div>
   )
 }

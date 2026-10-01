@@ -17,7 +17,6 @@ export async function ItemActionBar({ item, title, image, followLabel }: { item:
   const [reviewsOn, compareOn] = await Promise.all([isModuleEnabled('reviews'), isModuleEnabled('compare')])
   const canFavorite = reviewsOn && FAVORITABLE.includes(item.type)
   const canCompare = compareOn && COMPARABLE.includes(item.type)
-  if (!canFavorite && !canCompare) return null
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
   return <ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} />

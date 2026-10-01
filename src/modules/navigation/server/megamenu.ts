@@ -85,7 +85,7 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
   async music(cfg) {
     const { nodes } = await taxonomyNodes('music')
     const items = nodes.length ? await itemsFromTree(nodes, cfg, async () => []) : []
-    return { items, quick: [{ label: 'تازه‌ترین آهنگ‌ها', href: '/music/browse' }, { label: 'پربازدیدها', href: '/music/browse?sort=popular' }, { label: 'آلبوم‌ها', href: '/music#albums' }, { label: 'هنرمندان', href: '/music#artists' }, { label: 'پلی‌لیست‌ها', href: '/music#playlists' }], searchCategories: [] }
+    return { items, quick: [{ label: 'تازه‌ترین آهنگ‌ها', href: '/music/browse' }, { label: 'پربازدیدها', href: '/music/browse?sort=popular' }, { label: 'آلبوم‌ها', href: '/music/albums' }, { label: 'هنرمندان', href: '/music/artists' }, { label: 'پلی‌لیست‌ها', href: '/music/playlists' }, { label: 'پلی‌لیست‌های من', href: '/music/my-playlists' }, { label: 'آهنگ‌های دلخواه', href: '/favorites?type=track' }], searchCategories: [] }
   },
 
   async cinema(cfg) {

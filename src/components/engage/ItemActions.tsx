@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, readCompare, toggleCompare, type CompareEntry } from '@/components/engage/compare-store'
+import AddToCollection from '@/components/engage/AddToCollection'
 
 type Props = {
   item: string
@@ -73,6 +74,7 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
           ? <span className="ea-compare-group"><button type="button" className="ea-btn is-on" aria-pressed="true" onClick={compare}><span aria-hidden="true">⚖</span>در فهرست مقایسه</button><Link href="/compare" className="ea-link">مقایسه ←</Link></span>
           : <button type="button" className="ea-btn" aria-pressed="false" onClick={compare}><span aria-hidden="true">⚖</span>افزودن به مقایسه</button>
       )}
+      <AddToCollection item={item} loggedIn={loggedIn} />
       {(error || compareNote) && <p className="ea-note" role="status">{error || compareNote}</p>}
     </div>
   )

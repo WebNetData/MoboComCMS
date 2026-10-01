@@ -23,6 +23,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const vpnOn = useModuleEnabled('vpn')
   const storeOn = useModuleEnabled('store')
   const gamesOn = useModuleEnabled('games')
+  const musicOn = useModuleEnabled('music')
+  const reviewsOn = useModuleEnabled('reviews')
   const adsOn = useModuleEnabled('ads')
   const repoOn = useModuleEnabled('repository')
   const [hasLicenses, setHasLicenses] = useState(false)
@@ -85,13 +87,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ...(storeOn ? [{ href: '/dashboard/gift-cards', label: locale === 'fa' ? 'کارت هدیه' : 'Gift cards', icon: 'sparkles' }, { href: '/dashboard/club', label: locale === 'fa' ? 'باشگاه مشتریان' : 'Customer club', icon: 'shield' }] : []),
       ],
     },
-    ...(communityOn || gamesOn ? [{ label: locale === 'fa' ? 'پروفایل و جامعه' : 'Profile & community', items: [
+    ...(communityOn || gamesOn || musicOn || reviewsOn ? [{ label: locale === 'fa' ? 'پروفایل و جامعه' : 'Profile & community', items: [
+      ...(gamesOn || musicOn || reviewsOn ? [{ href: '/dashboard/library', label: locale === 'fa' ? 'کتابخانهٔ من' : 'My library', icon: 'grid' }] : []),
       ...(communityOn ? [{ href: '/feed', label: locale === 'fa' ? 'تازه‌ها (فید)' : 'Feed', icon: 'sparkles' }, { href: '/dashboard/public-profile', label: locale === 'fa' ? 'پروفایل عمومی من' : 'My public profile', icon: 'sliders' }] : []),
       ...(gamesOn ? [{ href: '/dashboard/games', label: locale === 'fa' ? 'کتابخانهٔ بازی من' : 'My game library', icon: 'devices' }] : []),
     ] }] : []),
     {
       label: locale === 'fa' ? 'حساب و پشتیبانی' : 'Account & support',
       items: [
+        { href: '/dashboard/collections', label: locale === 'fa' ? 'مجموعه‌های من' : 'My collections', icon: 'grid' },
         { href: '/dashboard/notifications', label: locale === 'fa' ? 'اعلان‌ها' : 'Notifications', icon: 'bell' },
         { href: '/dashboard/tickets', label: t.supportCenter, icon: 'chat' },
         { href: '/dashboard/referrals', label: locale === 'fa' ? 'دعوت از دوستان' : 'Invite friends', icon: 'sparkles' },

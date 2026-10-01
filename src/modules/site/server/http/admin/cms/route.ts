@@ -14,6 +14,10 @@ import { postCategories } from '@/modules/site/domain/categories'
 import { parseJson, validateFields } from '@/modules/catalog/server/product-config'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
 import { fxFormFields } from '@/modules/fx/server/fx'
+import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
+import { auditAdmin } from '@/platform/audit/server'
+import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
+import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 
 const PERM_MAP: Record<string, Permission> = {
   pages: 'cms.pages',
@@ -63,16 +67,37 @@ export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, perm)
   if (!admin) return err('forbidden', 403)
 
+  if (type === 'productcats' && req.nextUrl.searchParams.get('options') === '1') {
+    return ok(await db.productCategory.findMany({ select: { id: true, name: true, parentId: true }, orderBy: { id: 'asc' } }))
+  }
+
   const model = MODELS[type]()
   const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } } } : type === 'productcats' ? { attributeGroup: true } : undefined
-  const orderBy = type === 'pages' ? { sortOrder: 'asc' as const } : { id: 'desc' as const }
+  const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
-  const rows = await model.findMany({ orderBy, include, ...(onlyId ? { where: { id: onlyId } } : {}) })
-  if (type === 'posts') return ok(rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)) })))
-  if (type === 'pages') return ok(await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) }))))
-  if (type === 'products') return ok(rows.map((row: any) => ({ ...row, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) })))
-  return ok(rows)
+  const paged = req.nextUrl.searchParams.get('paged') === '1' && !onlyId
+  let pageInfo: ReturnType<typeof adminPageParams> | null = null
+  if (paged) {
+    try { pageInfo = adminPageParams(req.nextUrl.searchParams) } catch (error) { return err(error instanceof Error ? error.message : 'invalid page', 400) }
+  }
+  const searchFields: Record<string, string[]> = {
+    pages: ['title', 'titleEn', 'slug'], posts: ['title', 'titleEn', 'slug'],
+    postcats: ['name', 'nameEn', 'slug'], products: ['name', 'nameEn', 'slug'],
+    productcats: ['name', 'nameEn', 'slug'], productgroups: ['name', 'nameEn'],
+    locations: ['country', 'countryFa', 'city'],
+  }
+  const where = onlyId ? { id: onlyId } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const total = pageInfo ? await model.count({ where }) : 0
+  const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
+  const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
+  let result: any[] = rows
+  if (type === 'posts') result = rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)) }))
+  if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
+  if (type === 'products') result = rows.map((row: any) => ({ ...row, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
+  if (!pageInfo || !slice) return ok(result)
+  const published = type === 'posts' || type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: { active: true } }) : null
+  return ok({ rows: result, total, overall: await model.count(), published, page: slice.page, pages: slice.pages })
 }
 
 async function productCategoryParent(parentId: unknown, currentId?: number) {
@@ -307,4 +332,67 @@ export async function DELETE(req: NextRequest) {
     await model.delete({ where: { id } })
     return ok({ deleted: true })
   }
+}
+
+/** Status and deletion batches for editorial content. The browser sends at most 100 IDs at a time. */
+export async function BULK(req: NextRequest) {
+  const type = req.nextUrl.searchParams.get('type') || ''
+  if (type !== 'posts' && type !== 'pages') return err('unknown type', 404)
+  if (!bulkSameOrigin(req)) return err('forbidden', 403)
+  const admin = await requirePerm(req, PERM_MAP[type])
+  if (!admin) return err('forbidden', 403)
+  let input: Awaited<ReturnType<typeof readBulkInput>>
+  try { input = await readBulkInput(req) } catch (error) { return err(error instanceof Error ? error.message : 'invalid batch', 400) }
+  const { ids, action } = input
+  const failed: { id: number; reason: string }[] = []
+  const succeeded: number[] = []
+  const paths: string[] = []
+
+  if (action !== 'delete') {
+    const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
+    if (type === 'posts') {
+      const rows = await db.post.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true, title: true, status: true, publishedAt: true } })
+      const known = new Set(rows.map((row) => row.id))
+      for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
+      if (rows.length) {
+        await db.post.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
+        for (const row of rows) {
+          succeeded.push(row.id)
+          contentChanged({ type: 'post', id: row.id }, row, { ...row, status })
+          if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }
+        }
+      }
+    } else {
+      const rows = await db.page.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true } })
+      const known = new Set(rows.map((row) => row.id))
+      for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
+      if (rows.length) {
+        await db.page.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
+        for (const row of rows) {
+          succeeded.push(row.id)
+          if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }
+        }
+      }
+    }
+  } else {
+    for (const id of ids) {
+      try {
+        if (type === 'posts') {
+          const row = await db.post.delete({ where: { id } })
+          contentChanged({ type: 'post', id }, row, null)
+        } else {
+          await db.$transaction(async (tx) => {
+            await tx.page.delete({ where: { id } })
+            await tx.setting.deleteMany({ where: { key: { in: [`page.layout.${id}`, `page.builder.${id}`] } } })
+          })
+        }
+        succeeded.push(id)
+      } catch {
+        failed.push({ id, reason: 'cannot delete (in use or missing)' })
+      }
+    }
+  }
+  if (paths.length) queueIndexNow(paths)
+  await auditAdmin({ req, actor: admin, action: `cms.${type}.bulk.${action}`, targetType: type, metadata: { succeeded, failed } })
+  return ok({ changed: succeeded.length, failed })
 }

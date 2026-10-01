@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1.7
+# Local development image: `next dev` against the compose PostgreSQL.
+# Production stays on the root Dockerfile (it demands a public HTTPS URL).
+FROM node:22-bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    DATABASE_URL=postgresql://mobocom:mobocom-local@postgres:5432/mobocom?schema=public
+COPY package*.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY . .
+RUN npm run postinstall
+EXPOSE 3000
+CMD ["sh", "-c", "[ -d node_modules/next ] || npm ci --ignore-scripts --no-audit --no-fund; node scripts/generate-extensions.mjs && node scripts/generate-db-client.cjs && npx prisma migrate deploy --schema prisma/schema.postgresql.prisma && node prisma/seed.cjs && npx next dev --turbopack -p 3000 -H 0.0.0.0"]
