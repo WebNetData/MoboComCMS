@@ -25,10 +25,10 @@ Data/migrations:
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
 - For review read hardening: 9 focused tests, `typecheck`, `source:check`, `arch:check`, `security:check`, and `build:postgres` passed after the final code change.
-- For review list pagination: `typecheck`, `source:check`, `arch:check`, and `build:postgres` passed before a final client state sync adjustment; the affected type check will be rerun. Browser interaction has not been verified because the local development server has timed out.
+- For review list pagination: `typecheck`, `source:check`, `arch:check`, and `build:postgres` passed; `typecheck` passed again after the final client state sync adjustment. Connected API and browser checks passed after a Docker restart, including dark visual inspection.
 
 Known blockers/failures:
-- Local Next.js development requests are timing out; the connected review API test has not completed. Temporary seeded rows were removed. Production preview cannot run with the local HTTP URL because the production configuration correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
+- The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Validate review pagination, stage only its files, inspect the staged diff, commit and push. Recheck connected HTTP behavior when the local dev server responds.
+- Commit the browser regression test and updated validation notes. Then continue the next evidence-based MoboCom 2.0 capability slice.
