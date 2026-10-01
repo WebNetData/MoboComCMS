@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Align public storefront publication with seller approval.
-Risk: R4 program; storefront visibility is R3 because it crosses marketplace approval and public reads.
-Owner/contracts: `store` catalog owns public cards, listing and facets; `catalog` and `marketplace` own product data and approval.
+Current milestone: Guard public search against stale indexed publication state.
+Risk: R4 program; public search visibility is R3 because its index lags source data.
+Owner/contracts: `search` owns indexed search reads; `content` registry owns current public item visibility.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -17,9 +17,10 @@ Done (verified):
 - Public review publication checks and bounded grouped ratings were committed and pushed as `727828f`.
 - Paginated review UI and browser validation were committed and pushed through `199c7d3`.
 - Helpful shared review votes were committed and pushed as `7f69148`.
+- Storefront approval filtering was committed and pushed as `fe4b83e`.
 
 In progress:
-- Finish build and commit the storefront publication slice.
+- Finish build and commit the search publication slice.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -31,9 +32,10 @@ Validation actually run:
 - For review list pagination: `typecheck`, `source:check`, `arch:check`, and `build:postgres` passed; `typecheck` passed again after the final client state sync adjustment. Connected API and browser checks passed after a Docker restart, including dark visual inspection.
 - For helpful votes: `schema:check`, `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres`, local migration, connected API and browser checks passed.
 - For storefront publication: `typecheck`, `source:check`, `arch:check`, `build:postgres` and connected public listing/detail check passed.
+- For search publication: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and connected stale-index test passed.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Stage only the storefront publication slice, inspect the staged diff, commit and push. Then continue the capability map.
+- Stage only the search publication slice, inspect the staged diff, commit and push. Then continue the capability map.

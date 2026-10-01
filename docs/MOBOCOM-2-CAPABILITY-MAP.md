@@ -11,7 +11,7 @@ This is an initial code inventory for the owner's 20-capability brief. A module 
 | Music experience | `music`, `media`, Music models, global `MusicPlayer` | Directories, private playlists, queue restoration, artist release alerts, and private listening history are delivered. Recommendations remain. |
 | Software and games releases | `software`, `games`, `GameLibrary` | Audit release/version history and entitlement contracts. |
 | Editorial and Magazine | `journal`, `Post` | Audit editorial workflow and entity references. |
-| Federated search | `search`, `SearchDocument`, content registry | Audit index freshness, access filtering, facets, and relevance. |
+| Federated search | `search`, `SearchDocument`, content registry | Bounded candidates are rechecked against current publication state before hits, type counts or suggestions are returned; stale public search responses are not cached. Index freshness, broader facets and relevance still need work. |
 | Importer and data sync | `imports` adapters and execution | Audit repeatable sync, conflict handling, and provenance before changing the importer. |
 | Admin workspace | existing admin routes and module admin services | Audit bulk actions, saved views, permissions, and keyboard flows. |
 | Audit/version explorer | `AuditLog`, platform audit | Audit version granularity, sensitive data handling, and restore semantics. |

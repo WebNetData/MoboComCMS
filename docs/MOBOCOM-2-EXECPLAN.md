@@ -84,6 +84,8 @@ Helpful review checkpoint: A member can mark an approved shared item review as h
 
 Store publication checkpoint: The public catalog now applies the same approval rule as product detail and the content registry. Cards, category counts, brand rails, listings and brand facets exclude active but pending products. The connected test confirmed an approved product appears in storefront search while an active pending product and its detail stay hidden. Type, source, architecture checks and the PostgreSQL build passed.
 
+Search publication checkpoint: Search checks each bounded indexed candidate against the current public content registry before computing hits, type counts or suggestions. The API uses `private, no-store` because publication can change before the index rebuilds. A connected test left stale product documents in the index and verified they disappeared from all three public outputs after approval was revoked. Type, source, architecture, security and PostgreSQL build checks passed.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint
