@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Finish durable external notification delivery and move to the next capability gap.
-Risk: R4 program; this notification slice is R3 and adds no schema or public API.
-Owner/contracts: `notifications` owns inbox events and dispatch; `operations` owns the existing durable queue; channel modules own provider sends and preferences.
+Current milestone: Gate scheduled game updates and their direct download links until release.
+Risk: R4 program; this game publication slice is R3 and adds no schema or public API.
+Owner/contracts: `games` owns release scheduling and public updates; `media` owns protected download links.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -30,9 +30,10 @@ Done (verified):
 - The private recently viewed page now uses a responsive SDS-token account composition in dark and light themes; committed and pushed as `71ca5ca`.
 - The full project validation contract tests were refreshed and pushed as `887c721`.
 - Public forum topic tracking into recent history was verified and pushed as `f8f9fff`.
+- Durable notification delivery was verified and pushed as `36ffbf0`.
 
 In progress:
-- Commit and push durable notification delivery after final build and diff review. Keep unrelated local files out of commits.
+- Commit and push the verified game-release gate. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -59,9 +60,10 @@ Validation actually run:
 - Full `npm run check` passed with Git Bash ahead of the Windows WSL stub on PATH. The first attempt exposed two stale source-contract tests: media now has five paywall-gated paths, and inbox PATCH returns the owner-scoped unread count. Their targeted tests and the full check passed after updating the assertions. Recent-history browser QA passed again after the committed layout.
 - For forum recent views: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and authenticated browser test passed. The test verified a public listed topic is recorded and shown in private history, while a restricted topic visible to staff is rejected by the shared registry.
 - For durable notification delivery: focused concurrent/rollback/provider-failure test and local PostgreSQL queue check passed. Full `npm run check` passed with Git Bash ahead of the WSL stub, and `build:postgres` passed.
+- For scheduled game updates: `typecheck`, `source:check`, `arch:check`, `security:check`, 24 nearby tests, full `npm run check`, `build:postgres` and a local PostgreSQL/API check passed. The connected check verified a future update and its version are absent from rendered game content, its direct file link returns 404, the due update becomes visible without a deploy, and a future parent publication closes the link. The first connected attempt exposed Next dev script traces and a stale dev cache; rendered-content assertions and a restart resolved those test conditions.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit/push notification delivery, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Commit/push the game-release gate, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.

@@ -84,15 +84,15 @@ async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null
     return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }], title: row.title }
   }
   if (ownerType === 'game') {
-    const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    const row = await db.gameTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { access: true, slug: true, title: true } })
     return row && { access: row.access, path: `/games/${row.slug}`, chain: [{ ownerType: 'game', ownerId }], title: row.title }
   }
   if (ownerType === 'gameupdate') {
-    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { gameId: true, title: true, game: { select: { access: true, slug: true, status: true, title: true } } } })
-    return row && row.game.status === 'PUBLISHED' ? { access: row.game.access, path: `/games/${row.game.slug}`, chain: [{ ownerType: 'game', ownerId: row.gameId }], title: `${row.game.title} ${row.title}`.trim() } : null
+    const row = await db.gameUpdate.findUnique({ where: { id: ownerId }, select: { gameId: true, title: true, releasedAt: true, game: { select: { access: true, slug: true, status: true, publishedAt: true, title: true } } } })
+    return row && row.releasedAt <= new Date() && row.game.status === 'PUBLISHED' && row.game.publishedAt <= new Date() ? { access: row.game.access, path: `/games/${row.game.slug}`, chain: [{ ownerType: 'game', ownerId: row.gameId }], title: `${row.game.title} ${row.title}`.trim() } : null
   }
   if (ownerType === 'software') {
-    const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { access: true, slug: true, title: true } })
     return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }], title: row.title }
   }
   if (ownerType === 'episode') {

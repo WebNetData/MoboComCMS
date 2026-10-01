@@ -18,10 +18,10 @@ export default function UpdatesEditor({ gameId, onVersion }: { gameId: number; o
   async function save() {
     if (!editing) return
     setBusy(true)
-    const response = await send('/api/admin/games/updates', 'POST', { ...editing, gameId, id: editing.id || undefined, links: editing.links.filter((link) => link.url) })
+    const response = await send<{ version: string }>('/api/admin/games/updates', 'POST', { ...editing, gameId, id: editing.id || undefined, links: editing.links.filter((link) => link.url) })
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
-    if (editing.version && editing.kind !== 'DLC') onVersion(editing.version)
+    if (response.data.version) onVersion(response.data.version)
     setMessage({ tone: 'ok', text: editing.id ? 'آپدیت ذخیره شد' : 'آپدیت اضافه شد؛ دنبال‌کنندگان بازی در بخش «آپدیت‌ها» آن را می‌بینند' })
     setEditing(null)
     void reload()

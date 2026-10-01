@@ -385,10 +385,13 @@ export async function getGame(slug: string) {
   if (!row) return null
   await db.gameTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const genre = splitList(row.genres, 1)[0]
-  const [links, related] = await Promise.all([
+  const [links, related, releasedVersion, scheduledVersion] = await Promise.all([
     publicLinks('game', [row.id]),
     db.gameTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(genre ? { genres: { contains: genre } } : {}) }, orderBy: { publishedAt: 'desc' }, take: 8 }),
+    db.gameUpdate.findFirst({ where: { gameId: row.id, kind: { not: 'DLC' }, version: { not: '' }, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, select: { version: true } }),
+    row.version ? db.gameUpdate.findFirst({ where: { gameId: row.id, version: row.version, kind: { not: 'DLC' }, releasedAt: { gt: new Date() } }, select: { id: true } }) : null,
   ])
+  // The public version follows the release clock, including updates that become due without an admin save.
   return {
     game: {
       ...toGame(row), publisher: row.publisher, ageRating: row.ageRating, trailerUrl: row.trailerUrl, content: row.content, views: row.views, publishedAt: row.publishedAt,
@@ -398,7 +401,7 @@ export async function getGame(slug: string) {
       requirements: parseJsonObject<Requirements>(row.requirements, { min: {}, rec: {} }),
       franchiseId: row.franchiseId, engine: row.engine, modes: splitList(row.modes, 4), releases: parseJsonList<{ platform: string; date: string }>(row.releases),
       playMain: row.playMain, playExtra: row.playExtra, playComplete: row.playComplete, storeLinks: parseJsonList<{ store: string; url: string }>(row.storeLinks),
-      gameSize: row.gameSize, version: row.version, verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
+      gameSize: row.gameSize, version: releasedVersion?.version || (scheduledVersion ? '' : row.version), verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     },
     links: links.get(row.id) || [],
     related: related.map(toGame),

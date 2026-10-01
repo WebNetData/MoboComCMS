@@ -261,11 +261,15 @@ export async function saveGameUpdate(gameId: number, input: Record<string, unkno
     return row
   })
   // The newest non-DLC version becomes the game's current version.
-  if (data.version && data.kind !== 'DLC') {
-    const newest = await db.gameUpdate.findFirst({ where: { gameId, kind: { not: 'DLC' }, version: { not: '' } }, orderBy: { releasedAt: 'desc' }, select: { version: true } })
-    if (newest) await db.gameTitle.update({ where: { id: gameId }, data: { version: newest.version } })
+  let version = ''
+  if (data.version && data.kind !== 'DLC' && data.releasedAt <= new Date()) {
+    const newest = await db.gameUpdate.findFirst({ where: { gameId, kind: { not: 'DLC' }, version: { not: '' }, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, select: { version: true } })
+    if (newest) {
+      await db.gameTitle.update({ where: { id: gameId }, data: { version: newest.version } })
+      version = newest.version
+    }
   }
-  return { id: saved.id, created: !id }
+  return { id: saved.id, created: !id, version }
 }
 
 export async function deleteGameUpdate(gameId: number, id: number) {
