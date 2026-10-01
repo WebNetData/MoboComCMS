@@ -908,6 +908,9 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .vp-resume { position: absolute; inset-inline: 16px; inset-block-start: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .72); color: #fff; font-size: 13px; backdrop-filter: blur(6px); }
 .vp-resume button, .vp-error button, .vp-error a { padding: 7px 14px; border: 0; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
 .vp-resume button.is-ghost { background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / .4); }
+.vp-next { position: absolute; inset-inline: 16px; inset-block-end: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .82); color: #fff; font-size: 13px; backdrop-filter: blur(6px); }
+.vp-next a, .vp-next button { padding: 7px 14px; border: 0; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.vp-next button.is-ghost { background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / .4); }
 .vp-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; padding: 24px; text-align: center; background: rgb(0 0 0 / .86); color: #fff; }
 .vp-error p { max-width: 560px; margin: 0; line-height: 2; color: rgb(255 255 255 / .8); font-size: 14px; }
 .vp-error div { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }

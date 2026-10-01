@@ -68,6 +68,8 @@ Editorial selection checkpoint: Staff with `cms.posts` permission can promote a 
 
 Cinema progress checkpoint: Authenticated film and episode playback now records bounded position and duration in PostgreSQL. Different quality links for the same film share one resume point; each episode keeps its own. Completion clears the resume position. Reads on the watch page and the private Continue Watching shelf exclude unpublished titles, removed links and other users' progress. Migration 20261107120000 is applied locally. The connected test covers authentication, same-origin writes, cross-quality and episode behavior, page rendering, completion and disabled links. The authenticated browser test verified the shelf and dark stage. Schema parity, type checking and the PostgreSQL production build passed.
 
+Next episode checkpoint: The watch page offers a signed link to the next chronological episode, including the first episode of the next season. A short countdown begins after playback ends, with immediate play and cancel controls. Upcoming and access-restricted episodes are withheld. The connected test verifies the episode link, season boundary, scheduled release and member gate.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

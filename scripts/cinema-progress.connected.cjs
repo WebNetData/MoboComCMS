@@ -35,10 +35,15 @@ async function main() {
   titleId = title.id
   const season = await db.cinemaSeason.create({ data: { titleId, number: 1 } })
   const episode = await db.cinemaEpisode.create({ data: { seasonId: season.id, number: 1 } })
+  const episode2 = await db.cinemaEpisode.create({ data: { seasonId: season.id, number: 2 } })
+  const season2 = await db.cinemaSeason.create({ data: { titleId, number: 2 } })
+  const nextSeasonEpisode = await db.cinemaEpisode.create({ data: { seasonId: season2.id, number: 1 } })
   const links = await Promise.all([
     db.mediaLink.create({ data: { ownerType: 'title', ownerId: titleId, kind: 'STREAM', url: 'https://example.invalid/test.mp4' } }),
     db.mediaLink.create({ data: { ownerType: 'title', ownerId: titleId, kind: 'STREAM', url: 'https://example.invalid/test-720.mp4' } }),
     db.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode.id, kind: 'STREAM', url: 'https://example.invalid/episode.mp4' } }),
+    db.mediaLink.create({ data: { ownerType: 'episode', ownerId: episode2.id, kind: 'STREAM', url: 'https://example.invalid/episode-2.mp4' } }),
+    db.mediaLink.create({ data: { ownerType: 'episode', ownerId: nextSeasonEpisode.id, kind: 'STREAM', url: 'https://example.invalid/season-2.mp4' } }),
   ])
   linkIds = links.map((link) => link.id)
   const own = await cookie(owner)
@@ -63,6 +68,18 @@ async function main() {
   }
   assert.equal((await put(own, links[2].id, 50, 1200)).status, 200)
   assert.equal(await db.cinemaWatchProgress.count({ where: { userId } }), 2, 'episode keeps independent progress')
+  const firstEpisodeWatch = await fetch(`${base}/watch/${links[2].id}?t=${pageToken(links[2].id, userId)}`, { headers: { cookie: own } })
+  assert.equal(firstEpisodeWatch.status, 200)
+  assert.ok((await firstEpisodeWatch.text()).includes(`/watch/${links[3].id}`), 'first episode offers the second')
+  const secondEpisodeWatch = await fetch(`${base}/watch/${links[3].id}?t=${pageToken(links[3].id, userId)}`, { headers: { cookie: own } })
+  assert.equal(secondEpisodeWatch.status, 200)
+  assert.ok((await secondEpisodeWatch.text()).includes(`/watch/${links[4].id}`), 'season boundary offers next season')
+  await db.cinemaEpisode.update({ where: { id: nextSeasonEpisode.id }, data: { airDate: new Date(Date.now() + 60_000) } })
+  const scheduledNext = await fetch(`${base}/watch/${links[3].id}?t=${pageToken(links[3].id, userId)}`, { headers: { cookie: own } })
+  assert.ok(!(await scheduledNext.text()).includes(`/watch/${links[4].id}`), 'future episode must not be offered')
+  await db.cinemaEpisode.update({ where: { id: nextSeasonEpisode.id }, data: { airDate: null, access: 'MEMBERS' } })
+  const gatedNext = await fetch(`${base}/watch/${links[3].id}?t=${pageToken(links[3].id, userId)}`, { headers: { cookie: own } })
+  assert.ok(!(await gatedNext.text()).includes(`/watch/${links[4].id}`), 'restricted episode must not be offered')
   assert.equal(await db.cinemaWatchProgress.count({ where: { userId: otherId } }), 0, 'watch progress is private')
   assert.equal((await put(own, links[0].id, 585, 600)).status, 200)
   const completed = await db.cinemaWatchProgress.findUniqueOrThrow({ where: { userId_ownerType_ownerId: { userId, ownerType: 'title', ownerId: titleId } } })
@@ -73,7 +90,7 @@ async function main() {
   assert.equal((await put(own, links[0].id, 30, 600)).status, 404)
   await db.cinemaTitle.update({ where: { id: titleId }, data: { publishedAt: new Date(Date.now() + 60_000) } })
   assert.equal((await put(own, links[1].id, 30, 600)).status, 404, 'scheduled title must not accept progress')
-  console.log('Cinema progress: auth, privacy, cross-quality resume, episode separation, completion and publication gating OK')
+  console.log('Cinema: progress, privacy, next episode, season boundary, access and publication gating OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {

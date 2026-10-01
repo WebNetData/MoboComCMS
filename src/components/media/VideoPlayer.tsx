@@ -11,6 +11,7 @@ type Props = {
   resumeKey: string
   progressLinkId?: number
   serverResume?: number | null
+  nextEpisode?: { href: string; label: string } | null
   downloadHref?: string
 }
 
@@ -30,7 +31,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, downloadHref }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
@@ -40,7 +41,14 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   const [resume, setResume] = useState(0)
   const [attempt, setAttempt] = useState(0)
   const [pip, setPip] = useState(false)
+  const [nextCountdown, setNextCountdown] = useState<number | null>(null)
   useEffect(() => { setPip('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) }, [])
+  useEffect(() => {
+    if (nextCountdown === null || !nextEpisode) return
+    if (nextCountdown === 0) { window.location.assign(nextEpisode.href); return }
+    const timer = window.setTimeout(() => setNextCountdown((value) => value === null ? null : value - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [nextCountdown, nextEpisode])
 
   useEffect(() => {
     const element = video.current
@@ -93,7 +101,8 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       write(resumeKey, element.duration && element.currentTime > element.duration - 60 ? null : element.currentTime)
       if (Date.now() - lastRemoteAt >= 15000) saveRemote()
     }
-    const onEnd = () => { write(resumeKey, null); saveRemote() }
+    const onEnd = () => { write(resumeKey, null); saveRemote(); if (nextEpisode) setNextCountdown(8) }
+    const onPlay = () => setNextCountdown(null)
     const onError = () => {
       const code = element.error?.code
       // 4 = MEDIA_ERR_SRC_NOT_SUPPORTED, 3 = MEDIA_ERR_DECODE, 2 = MEDIA_ERR_NETWORK
@@ -103,11 +112,12 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     element.addEventListener('timeupdate', onTime)
     element.addEventListener('pause', saveRemote)
     element.addEventListener('ended', onEnd)
+    element.addEventListener('play', onPlay)
     window.addEventListener('pagehide', saveRemote)
     element.addEventListener('error', onError)
     element.addEventListener('loadedmetadata', onMeta)
-    return () => { element.removeEventListener('timeupdate', onTime); element.removeEventListener('pause', saveRemote); element.removeEventListener('ended', onEnd); element.removeEventListener('error', onError); element.removeEventListener('loadedmetadata', onMeta); window.removeEventListener('pagehide', saveRemote) }
-  }, [resumeKey, playback, progressLinkId])
+    return () => { element.removeEventListener('timeupdate', onTime); element.removeEventListener('pause', saveRemote); element.removeEventListener('ended', onEnd); element.removeEventListener('play', onPlay); element.removeEventListener('error', onError); element.removeEventListener('loadedmetadata', onMeta); window.removeEventListener('pagehide', saveRemote) }
+  }, [resumeKey, playback, progressLinkId, nextEpisode])
 
   // Keyboard: space/k play, ←/→ 10s, f fullscreen, m mute.
   useEffect(() => {
@@ -137,6 +147,11 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
         <span>از {clock(resume)} ادامه می‌دهید؟</span>
         <button type="button" onClick={() => { if (video.current) { video.current.currentTime = resume; void video.current.play() } setResume(0) }}>ادامهٔ پخش</button>
         <button type="button" className="is-ghost" onClick={() => { write(resumeKey, null); setResume(0) }}>از اول</button>
+      </div>}
+      {nextEpisode && nextCountdown !== null && !error && <div className="vp-next" role="status">
+        <span>قسمت بعدی {nextEpisode.label} تا {fa(nextCountdown)} ثانیهٔ دیگر پخش می‌شود.</span>
+        <a href={nextEpisode.href}>اکنون پخش کن</a>
+        <button type="button" className="is-ghost" onClick={() => setNextCountdown(null)}>ماندن در این صفحه</button>
       </div>}
       {error && <div className="vp-error" role="alert">
         <b>{error === 'network' ? 'فایل از سرور دانلود دریافت نشد' : 'مرورگر شما نمی‌تواند این فایل را پخش کند'}</b>
