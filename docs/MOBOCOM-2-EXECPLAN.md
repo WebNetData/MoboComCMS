@@ -86,6 +86,8 @@ Store publication checkpoint: The public catalog now applies the same approval r
 
 Search publication checkpoint: Search checks each bounded indexed candidate against the current public content registry before computing hits, type counts or suggestions. The API uses `private, no-store` because publication can change before the index rebuilds. A connected test left stale product documents in the index and verified they disappeared from all three public outputs after approval was revoked. Type, source, architecture, security and PostgreSQL build checks passed.
 
+Inbox idempotency checkpoint: A new inbox event is inserted under the existing unique dedupe key before any external copy is dispatched. Concurrent duplicates return the stored row without SMS, email or push fanout; a key collision between users fails. A focused 20-request concurrency test verifies one dispatch per channel. Type, source, architecture, security and PostgreSQL build checks passed. External dispatch remains best effort and is not yet a durable retry queue.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

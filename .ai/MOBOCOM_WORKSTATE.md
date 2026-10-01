@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Guard public search against stale indexed publication state.
-Risk: R4 program; public search visibility is R3 because its index lags source data.
-Owner/contracts: `search` owns indexed search reads; `content` registry owns current public item visibility.
+Current milestone: Make inbox event fanout idempotent under concurrent writes.
+Risk: R4 program; notification fanout is R3 because external copies can duplicate.
+Owner/contracts: `notifications` owns durable inbox events and best-effort SMS, email and push dispatch.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -18,9 +18,10 @@ Done (verified):
 - Paginated review UI and browser validation were committed and pushed through `199c7d3`.
 - Helpful shared review votes were committed and pushed as `7f69148`.
 - Storefront approval filtering was committed and pushed as `fe4b83e`.
+- Search publication guard was committed and pushed as `ab977bf`.
 
 In progress:
-- Finish build and commit the search publication slice.
+- Validate and commit the inbox idempotency slice.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -33,9 +34,10 @@ Validation actually run:
 - For helpful votes: `schema:check`, `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres`, local migration, connected API and browser checks passed.
 - For storefront publication: `typecheck`, `source:check`, `arch:check`, `build:postgres` and connected public listing/detail check passed.
 - For search publication: `typecheck`, `source:check`, `arch:check`, `security:check`, `build:postgres` and connected stale-index test passed.
+- For inbox idempotency: focused 20-request concurrent fanout test, `typecheck`, `source:check`, `arch:check`, `security:check`, and `build:postgres` passed.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Stage only the search publication slice, inspect the staged diff, commit and push. Then continue the capability map.
+- Stage, inspect, commit and push only the inbox idempotency slice. Then continue the capability map.

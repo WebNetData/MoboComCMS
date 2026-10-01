@@ -15,7 +15,7 @@ This is an initial code inventory for the owner's 20-capability brief. A module 
 | Importer and data sync | `imports` adapters and execution | Audit repeatable sync, conflict handling, and provenance before changing the importer. |
 | Admin workspace | existing admin routes and module admin services | Audit bulk actions, saved views, permissions, and keyboard flows. |
 | Audit/version explorer | `AuditLog`, platform audit | Audit version granularity, sensitive data handling, and restore semantics. |
-| Notification center | `notifications`, `UserNotification`, inbox events | Audit user preferences, delivery, deduplication, and retention. |
+| Notification center | `notifications`, `UserNotification`, inbox events | Concurrent dedupe now dispatches external copies only for the winning insert and rejects cross-user key collisions. User preferences, durable delivery/retry and retention remain. |
 | Community and social graph | `community`, `forum`, `UserFollow`, `social` | Keep person-follow distinct from following a content item; audit blocks and privacy. |
 | Universal collections | `UserCollection`, items, collaborators, follows, saves, reactions; existing content registry | Cross-domain public/private/token-gated unlisted collections, owner editing, item ordering, collaboration, follows, personal saves, public reactions and staff editorial selection are delivered. Dedicated editorial authoring and scale QA remain. |
 | Recommendation engine | `search`, `analytics`, item stats | Establish consent and quality metrics before using activity signals. |

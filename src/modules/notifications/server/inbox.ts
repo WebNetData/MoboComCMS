@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
+import { Prisma } from '@prisma/client'
 
 export type InboxEvent = {
   userId: number
@@ -15,13 +16,15 @@ export type InboxEvent = {
 /** Durable, idempotent customer event. External delivery must never gate settlement. */
 export async function createInboxEvent(event: InboxEvent) {
   if (!Number.isInteger(event.userId) || event.userId <= 0 || !/^\/[A-Za-z0-9/_?=&.%-]*$/.test(event.href) || event.href.startsWith('//')) throw new Error('invalid inbox event')
-  const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
-  if (existing) return existing
-  const row = await db.userNotification.upsert({
-    where: { dedupeKey: event.dedupeKey },
-    create: event,
-    update: {},
-  })
+  let row
+  try {
+    row = await db.userNotification.create({ data: event })
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
+    const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
+    if (!existing || existing.userId !== event.userId) throw new Error('inbox dedupe key collision')
+    return existing
+  }
   // SMS copy of a new event (IPPanel). Delivery problems never affect the event itself.
   void import('@/modules/sms/server/sms')
     .then(({ notifyUserEvent }) => notifyUserEvent(event))
