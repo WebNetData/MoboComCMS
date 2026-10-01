@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Push the verified private recent-history page polish.
-Risk: R4 program; this page slice is R2 and changes no data or API contract.
-Owner/contracts: `content` owns recent-view data; the dashboard page renders its private feed with account UI tokens.
+Current milestone: Review the next MoboCom 2.0 gap after restoring the full project check.
+Risk: R4 program; the validation repair is R1 and changes test expectations only.
+Owner/contracts: Media paywall gate and owner-scoped notification unread count are unchanged; their contract tests now cover the current behavior.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -27,9 +27,10 @@ Done (verified):
 - The account library overview now uses SDS-token cards, semantic icons, a balanced three-column desktop grid and responsive dark/light layouts; committed and pushed as `744179f`.
 - The Store variant picker now aligns option availability with actual selection and preserves contextual sold-out combinations; committed and pushed as `1d0e42e`.
 - Store stock alerts now gate on publication and variant availability, persist the deduplicated inbox event before marking the alert, and retry failures; committed and pushed as `707bcbe`.
+- The private recently viewed page now uses a responsive SDS-token account composition in dark and light themes; committed and pushed as `71ca5ca`.
 
 In progress:
-- Push the verified recently viewed page composition. Keep unrelated local files out of commits.
+- Commit the refreshed media-paywall and inbox contract tests, then choose the next bounded capability gap. Keep unrelated local files out of commits.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -53,9 +54,10 @@ Validation actually run:
 - For Store variant selection: focused domain test, `typecheck`, `source:check`, `arch:check`, `security:check` and `build:postgres` passed. A local browser product check verified contextual sold-out state, fallback to an available combination, restored purchase state, dark desktop/mobile layout and mobile width after final CSS. Final mobile screenshot was inspected.
 - For Store stock alerts: focused domain and simulated failure/retry/concurrent tests, `typecheck`, `source:check`, `arch:check`, `security:check` and `build:postgres` passed. A connected local PostgreSQL check verified pending approval, zero stock, failed inbox write retry, one persisted event and one final marker.
 - For recent-history UI: `typecheck`, `source:check`, `arch:check`, `build:postgres` and authenticated browser check passed. The browser check covered item tracking, long mixed-script title, destructive clear action, dark desktop/mobile, light mobile and empty state, and no horizontal overflow at 360, 390, 768 and 1440 pixels. Screenshots were inspected.
+- Full `npm run check` passed with Git Bash ahead of the Windows WSL stub on PATH. The first attempt exposed two stale source-contract tests: media now has five paywall-gated paths, and inbox PATCH returns the owner-scoped unread count. Their targeted tests and the full check passed after updating the assertions. Recent-history browser QA passed again after the committed layout.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Commit and push recent-history UI, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.
+- Commit and push the refreshed contract tests, then inspect the next capability gap. Do not open a PR until the 2.0 brief is complete.

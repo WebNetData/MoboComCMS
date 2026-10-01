@@ -912,8 +912,8 @@ test('paid wallet recovery credits only unsettled top-ups',async()=>{
 
 test('notification read actions are scoped to the signed-in owner',async()=>{
   const {NextRequest}=require('next/server')
-  const updates=[]
-  const db={userNotification:{updateMany:async query=>{updates.push(query);return {count:1}}}}
+  const updates=[], counts=[]
+  const db={userNotification:{updateMany:async query=>{updates.push(query);return {count:1}},count:async query=>{counts.push(query);return 2}}}
   const route=load('src/modules/notifications/server/http/inbox/route.ts',{
     '@/platform/database/prisma':{db},
     '@/modules/identity/server/access':{requireUser:async()=>({id:7})},
@@ -921,6 +921,7 @@ test('notification read actions are scoped to the signed-in owner',async()=>{
   const req=new NextRequest('http://localhost/api/inbox',{method:'PATCH',body:JSON.stringify({id:42})})
   assert.equal((await route.PATCH(req)).status,200)
   assert.deepEqual(updates[0].where,{id:42,userId:7,readAt:null})
+  assert.deepEqual(counts[0].where,{userId:7,readAt:null})
 })
 
 test('paid orders missing delivery jobs are enqueued once, but delivered orders are skipped',async()=>{
