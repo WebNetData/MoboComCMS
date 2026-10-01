@@ -157,6 +157,7 @@
 .rv-head time { font-size: 12px; color: var(--md-muted, var(--en-muted)); }
 .rv-body { margin: 0; line-height: 1.95; white-space: pre-line; overflow-wrap: anywhere; }
 .rv-none { margin: 18px 0 0; }
+.rv-more { margin-block-start: 18px; }
 @media (max-width: 820px) { .rv-top { grid-template-columns: auto 1fr; } .rv-cta { grid-column: 1 / -1; } }
 @media (max-width: 480px) { .rv-section { padding: 16px; } .rv-top { grid-template-columns: 1fr; } .rv-score { justify-items: start; grid-template-columns: auto auto; align-items: center; gap: 4px 12px; } .rv-score small { grid-column: 1 / -1; } }
 

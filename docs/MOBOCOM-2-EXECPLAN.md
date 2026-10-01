@@ -78,6 +78,8 @@ Recent views checkpoint: Shared public detail pages record a signed-in member's 
 
 Review read checkpoint: The shared public review API checks the current publication registry before returning a rating or review. Rating distribution is grouped in PostgreSQL instead of loading every rating row, and page input is capped. Domain tests and static checks pass. The local development server has recently timed out on connected HTTP requests, so this slice's connected test remains unverified.
 
+Review list checkpoint: Shared item pages expose a button to load the next ten approved reviews through the existing bounded API. Duplicate IDs are suppressed if moderation changes order between page requests, and errors remain retryable. The control uses existing dark-theme button and text tokens. Browser interaction remains to be checked when the local development server responds.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint
