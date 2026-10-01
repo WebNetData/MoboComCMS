@@ -103,6 +103,38 @@
   .ulib-home .ud-card { padding: 15px; }
 }
 
+/* Recently viewed: a compact history composition in the account library. */
+.recent-home { gap: 22px; }
+.recent-home .ulib-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding-block: 4px 2px; }
+.recent-heading { display: flex; align-items: center; gap: 15px; min-width: 0; }
+.recent-heading > div { min-width: 0; }
+.recent-home .ulib-head h1 { margin: 3px 0 4px; line-height: 1.35; }
+.recent-home .ulib-head p { font-size: 13.5px; line-height: 1.8; }
+.recent-home .cn-history-actions { margin: 0; }
+.recent-card { gap: 16px; border-radius: var(--sds-size-radius-xl); }
+.recent-card .ud-card-head { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.recent-page-count { color: var(--muted); font-size: 12px; }
+.recent-card .ulib-items { grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 12px; }
+.recent-card .ulib-items a { min-height: 78px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--sds-size-radius-200); transition: background .15s, border-color .15s; }
+.recent-card .ulib-items a:hover { border-color: color-mix(in srgb, var(--primary) 46%, var(--border)); background: var(--primary-soft); }
+.recent-card .ulib-items a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.recent-card .ulib-noart { background: var(--primary-soft); color: var(--primary); font-size: 21px; }
+.recent-card .ulib-items small { display: flex; align-items: center; gap: 5px; }
+.recent-card .ulib-items time { direction: ltr; unicode-bidi: isolate; }
+.recent-empty { justify-items: center; padding: 40px 24px; text-align: center; border-radius: var(--sds-size-radius-xl); }
+.recent-empty-icon { display: grid; place-items: center; width: 62px; height: 62px; border-radius: var(--sds-size-radius-400); background: var(--primary-soft); color: var(--primary); }
+.recent-empty h2 { margin: 4px 0 0; font-size: 18px; }
+.recent-empty p { max-width: 440px; margin: 0; font-size: 13px; line-height: 1.8; }
+.recent-empty .btn { margin-top: 8px; }
+@media (max-width: 750px) { .recent-card .ulib-items { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) {
+  .recent-home { gap: 17px; }
+  .recent-heading { align-items: flex-start; gap: 11px; }
+  .recent-card { padding: 15px; }
+  .recent-card .ud-card-head { align-items: flex-start; }
+  .recent-empty { padding: 32px 17px; }
+}
+
 .collections-page { padding-block: 32px 64px; color: var(--text); }
 .collections-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 28px; }
 .collections-head h1 { margin: 5px 0 10px; font-size: clamp(26px, 3vw, 38px); }
