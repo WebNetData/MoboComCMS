@@ -4,10 +4,10 @@ This is an initial code inventory for the owner's 20-capability brief. A module 
 
 | Brief capability | Existing owner or contract | Next gap to resolve |
 | --- | --- | --- |
-| Universal user library | `ItemFavorite`, `GameLibrary`, `UserMusicPlaylist`, `MusicListenHistory`, `/favorites`, `/dashboard/library` | A private overview and server-side Music progress connect existing collections; define shared write and privacy semantics while retaining game-specific status and playlist ordering. |
+| Universal user library | `ItemFavorite`, `GameLibrary`, `UserMusicPlaylist`, `MusicListenHistory`, `CinemaWatchProgress`, `/favorites`, `/dashboard/library` | A private overview and server-side Music/Cinema progress connect existing collections; define shared write and privacy semantics while retaining game-specific status and playlist ordering. |
 | Store experience | `catalog`, `store`, `marketplace`, `orders`, `checkout` | Audit journey and cross-entity features against existing catalog rules. |
 | Universal review and rating | `reviews`, `ItemFavorite`, `ItemStat` | Audit eligibility, moderation, and product review interoperability. |
-| Cinema experience | `cinema`, `media`, `CinemaTitle` | Audit discovery, library, player, and episode state. |
+| Cinema experience | `cinema`, `media`, `CinemaTitle`, `CinemaWatchProgress` | Server-side film and episode progress, cross-quality resume and private Continue Watching are delivered. Auto-next, tracks, preferences, release calendar and deeper discovery remain. |
 | Music experience | `music`, `media`, Music models, global `MusicPlayer` | Directories, private playlists, queue restoration, artist release alerts, and private listening history are delivered. Recommendations remain. |
 | Software and games releases | `software`, `games`, `GameLibrary` | Audit release/version history and entitlement contracts. |
 | Editorial and Magazine | `journal`, `Post` | Audit editorial workflow and entity references. |

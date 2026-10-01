@@ -79,6 +79,7 @@ model User {
   gameLibrary  GameLibrary[]
   musicPlaylists UserMusicPlaylist[]
   musicListenHistory MusicListenHistory[]
+  cinemaWatchProgress CinemaWatchProgress[]
   ownedCollections UserCollection[] @relation("CollectionOwner")
   collectionCollaborations UserCollectionCollaborator[]
   followedCollections UserCollectionFollow[]
@@ -1469,6 +1470,20 @@ model CinemaEpisode {
   season   CinemaSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([seasonId, number])
+}
+
+model CinemaWatchProgress {
+  userId          Int
+  ownerType       String // title | episode
+  ownerId         Int
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  updatedAt       DateTime @default(now()) @updatedAt
+  completedAt     DateTime?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ownerType, ownerId])
+  @@index([userId, updatedAt])
 }
 
 // ---------------------------------------------------------------- Games

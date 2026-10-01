@@ -15,6 +15,8 @@ import { getCinemaSettings } from '@/modules/cinema/server/admin'
 import { railOrder } from '@/shared/section-layout'
 import type { CinemaRail } from '@/modules/cinema/domain/cinema'
 import { Fragment, type ReactNode } from 'react'
+import Link from '@/components/AppLink'
+import { continueWatching } from '@/modules/cinema/server/progress'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +31,7 @@ export default async function CinemaHomePage() {
   if (landing) return landing
   const settings = await getCinemaSettings()
   const [data, locale, viewer] = await Promise.all([getCinemaHome({ shelfSize: settings.shelfSize, genreShelves: settings.genreShelfCount, topRatedMin: settings.topRatedMin, heroIds: settings.heroIds }), getServerLocale(), getViewer()])
+  const watching = viewer.userId ? await continueWatching(viewer.userId) : []
   const fa = locale === 'fa'
   const slides: HeroSlide[] = data.hero.map((ti) => ({
     slug: ti.slug,
@@ -68,6 +71,14 @@ export default async function CinemaHomePage() {
     <MediaShell section="cinema" active="home" nav={cinemaNav(fa)} search={{ action: '/cinema/browse', placeholder: fa ? 'نام فیلم، سریال یا کارگردان…' : 'Film, series or director…' }}>
       {order.includes('hero') && <CinemaHero slides={slides} fa={fa} />}
       <div className="container md-body">
+        {watching.length > 0 && <Shelf tone="cinema" title={fa ? 'ادامهٔ تماشا' : 'Continue watching'} eyebrow={fa ? 'کتابخانهٔ شما' : 'Your library'}>
+          {watching.map((item) => <Link key={item.key} href={item.href} className="cn-continue-card">
+            <span className="cn-continue-poster">{item.poster ? <img src={item.poster} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
+            <b>{fa ? item.title : item.titleEn || item.title}</b>
+            {item.subtitle && <small dir="auto">{item.subtitle}</small>}
+            <span className="cn-continue-progress" role="meter" aria-valuenow={item.percent} aria-valuemin={0} aria-valuemax={100} aria-label={fa ? 'پیشرفت تماشا' : 'Watch progress'}><span style={{ width: `${item.percent}%` }} /></span>
+          </Link>)}
+        </Shelf>}
         {empty && <EmptyState fa={fa} title={fa ? 'سینمای سایت آماده است' : 'The cinema is ready'} text={fa ? 'به‌زودی فیلم‌ها و سریال‌های تازه اینجا منتشر می‌شوند.' : 'New films and series are coming soon.'} />}
         {order.filter((key) => key !== 'hero').map((key) => <Fragment key={key}>{blocks[key]()}</Fragment>)}
       </div>

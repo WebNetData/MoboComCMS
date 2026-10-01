@@ -66,6 +66,14 @@
 .md-more { font-size: .88rem; font-weight: 700; color: var(--md-accent) !important; white-space: nowrap; }
 .md-rail { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(136px, 40%, 190px); gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding-block-end: 10px; scrollbar-width: thin; scrollbar-color: var(--md-line) transparent; overscroll-behavior-x: contain; }
 .md-rail > * { scroll-snap-align: start; }
+.cn-continue-card { display: grid; align-content: start; gap: 8px; min-width: 0; color: var(--md-text); text-decoration: none; }
+.cn-continue-card:hover { color: var(--md-accent); }
+.cn-continue-poster { display: grid; place-items: center; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 12px; background: var(--md-card); border: 1px solid var(--md-line); }
+.cn-continue-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cn-continue-card b, .cn-continue-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-continue-card small { color: var(--md-muted); }
+.cn-continue-progress { display: block; height: 5px; overflow: hidden; border-radius: 99px; background: var(--md-line); }
+.cn-continue-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--md-accent); }
 @media (min-width: 900px) { .md-rail { grid-auto-columns: calc((100% - 5 * 16px) / 6); } }
 
 .md-chips { display: flex; flex-wrap: wrap; gap: 8px; }

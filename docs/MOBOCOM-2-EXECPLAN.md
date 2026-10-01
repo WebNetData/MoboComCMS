@@ -66,6 +66,8 @@ Collection reactions checkpoint: Public and editorial collections now accept one
 
 Editorial selection checkpoint: Staff with `cms.posts` permission can promote a public collection containing live items to the editorial directory, then return it to public status. The admin list and promotion API use the existing permission and audit contracts; the public directory ranks editorial picks first. Collection owners can withdraw their own collection from public visibility, which also removes its editorial selection. Connected authorization tests, the authenticated admin browser flow, and the PostgreSQL production build passed.
 
+Cinema progress checkpoint: Authenticated film and episode playback now records bounded position and duration in PostgreSQL. Different quality links for the same film share one resume point; each episode keeps its own. Completion clears the resume position. Reads on the watch page and the private Continue Watching shelf exclude unpublished titles, removed links and other users' progress. Migration 20261107120000 is applied locally. The connected test covers authentication, same-origin writes, cross-quality and episode behavior, page rendering, completion and disabled links. The authenticated browser test verified the shelf and dark stage. Schema parity, type checking and the PostgreSQL production build passed.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

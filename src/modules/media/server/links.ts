@@ -80,7 +80,7 @@ type Owner = { access: string; path: string; chain: Chain; title: string }
 
 async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null> {
   if (ownerType === 'title') {
-    const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED' }, select: { access: true, slug: true, title: true } })
+    const row = await db.cinemaTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { access: true, slug: true, title: true } })
     return row && { access: row.access, path: `/cinema/${row.slug}`, chain: [{ ownerType: 'title', ownerId }], title: row.title }
   }
   if (ownerType === 'game') {
@@ -96,8 +96,8 @@ async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null
     return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }], title: row.title }
   }
   if (ownerType === 'episode') {
-    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, number: true, season: { select: { titleId: true, number: true, title: { select: { access: true, status: true, slug: true, title: true } } } } } })
-    if (!episode || episode.season.title.status !== 'PUBLISHED') return null
+    const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, number: true, season: { select: { titleId: true, number: true, title: { select: { access: true, status: true, publishedAt: true, slug: true, title: true } } } } } })
+    if (!episode || episode.season.title.status !== 'PUBLISHED' || episode.season.title.publishedAt > new Date()) return null
     return { access: episode.access === 'MEMBERS' || episode.season.title.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC', path: `/cinema/${episode.season.title.slug}`, chain: [{ ownerType: 'title', ownerId: episode.season.titleId }], title: `${episode.season.title.title} S${String(episode.season.number).padStart(2, '0')}E${String(episode.number).padStart(2, '0')}` }
   }
   return null
@@ -184,7 +184,7 @@ export async function openTrack(request: Request, rawId: string) {
 // ------------------------------------------------------------------ online player
 
 export type WatchResult =
-  | { ok: true; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string }
+  | { ok: true; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -225,6 +225,8 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   if (settings?.enforceTokens && checkPageToken(token, `l${id}`, viewer.userId) !== 'ok') return { ok: false, reason: 'expired', backPath: owner.path }
   if (settings?.requireLogin && !viewer.userId) return { ok: false, reason: 'login', backPath: owner.path }
   const info = await watchOwner(link.ownerType, link.ownerId)
+  const progressEnabled = !!viewer.userId && link.ownerType !== 'game' && playback !== 'embed'
+  const progress = progressEnabled ? await db.cinemaWatchProgress.findUnique({ where: { userId_ownerType_ownerId: { userId: viewer.userId!, ownerType: link.ownerType, ownerId: link.ownerId } }, select: { positionSeconds: true, completedAt: true } }) : null
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, context: { title: owner.title, label: link.label, quality: link.quality } })
   return {
@@ -232,7 +234,29 @@ export async function watchSource(rawId: string, token: string | null, headers: 
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,
+    progressEnabled, serverResume: progress ? (progress.completedAt ? 0 : progress.positionSeconds) : null,
   }
+}
+
+export async function saveCinemaWatchProgress(userId: number, linkId: number, positionSeconds: number, durationSeconds: number) {
+  if (!Number.isSafeInteger(linkId) || linkId <= 0 || !Number.isFinite(positionSeconds) || !Number.isFinite(durationSeconds)
+    || positionSeconds < 0 || durationSeconds <= 0 || durationSeconds > 86400 || positionSeconds > durationSeconds + 10) return null
+  const link = await db.mediaLink.findUnique({ where: { id: linkId }, select: { id: true, ownerType: true, ownerId: true, disabled: true, access: true, url: true, kind: true } })
+  if (!link || link.disabled || !['title', 'episode'].includes(link.ownerType) || playbackKind(link.url, link.kind, toEmbedUrl) === 'none' || !await isModuleEnabled('cinema')) return null
+  const owner = await ownerOf(link.ownerType, link.ownerId)
+  if (!owner) return null
+  const viewer = await getViewer()
+  if (viewer.userId !== userId || await gate(viewer, [{ ownerType: 'link', ownerId: linkId }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') return null
+  const duration = Math.round(durationSeconds)
+  const position = Math.min(duration, Math.round(positionSeconds))
+  const completed = position >= duration * 0.95 || duration - position < 30
+  const record = await db.cinemaWatchProgress.upsert({
+    where: { userId_ownerType_ownerId: { userId, ownerType: link.ownerType, ownerId: link.ownerId } },
+    create: { userId, ownerType: link.ownerType, ownerId: link.ownerId, positionSeconds: completed ? 0 : position, durationSeconds: duration, completedAt: completed ? new Date() : null },
+    update: { positionSeconds: completed ? 0 : position, durationSeconds: duration, completedAt: completed ? new Date() : null },
+    select: { positionSeconds: true, completedAt: true },
+  })
+  return { positionSeconds: record.positionSeconds, completed: !!record.completedAt }
 }
 
 /** Which of these links can be watched in the site player (the URLs themselves stay server-side). */

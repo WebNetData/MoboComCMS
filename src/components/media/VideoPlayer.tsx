@@ -9,6 +9,8 @@ type Props = {
   poster?: string
   title: string
   resumeKey: string
+  progressLinkId?: number
+  serverResume?: number | null
   downloadHref?: string
 }
 
@@ -28,7 +30,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, downloadHref }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, downloadHref }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
@@ -45,7 +47,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, d
     if (!element || playback === 'embed') return
     setError(''); setLevels([])
     let cancelled = false
-    const saved = read(resumeKey)
+    const saved = serverResume == null ? read(resumeKey) : serverResume
     if (saved > 30) setResume(saved)
 
     const native = playback !== 'hls' || element.canPlayType('application/vnd.apple.mpegurl')
@@ -69,18 +71,29 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, d
       }).catch(() => setError('network'))
     }
     return () => { cancelled = true; hls.current?.destroy(); hls.current = null; element.removeAttribute('src'); element.load() }
-  }, [src, playback, resumeKey, attempt])
+  }, [src, playback, resumeKey, serverResume, attempt])
 
   // Remember the position every few seconds; forget it near the end.
   useEffect(() => {
     const element = video.current
     if (!element) return
     let last = 0
+    let lastRemoteAt = 0
+    const saveRemote = () => {
+      if (!progressLinkId || !Number.isFinite(element.duration) || element.duration <= 0 || element.currentTime <= 0) return
+      lastRemoteAt = Date.now()
+      void fetch('/api/cinema/progress', {
+        method: 'PUT', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', keepalive: true,
+        body: JSON.stringify({ linkId: progressLinkId, positionSeconds: element.currentTime, durationSeconds: element.duration }),
+      }).catch(() => undefined)
+    }
     const onTime = () => {
       if (Math.abs(element.currentTime - last) < 5) return
       last = element.currentTime
       write(resumeKey, element.duration && element.currentTime > element.duration - 60 ? null : element.currentTime)
+      if (Date.now() - lastRemoteAt >= 15000) saveRemote()
     }
+    const onEnd = () => { write(resumeKey, null); saveRemote() }
     const onError = () => {
       const code = element.error?.code
       // 4 = MEDIA_ERR_SRC_NOT_SUPPORTED, 3 = MEDIA_ERR_DECODE, 2 = MEDIA_ERR_NETWORK
@@ -88,10 +101,13 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, d
     }
     const onMeta = () => { if (element.videoWidth === 0 && element.duration > 0 && playback !== 'hls') setError('codec') }
     element.addEventListener('timeupdate', onTime)
+    element.addEventListener('pause', saveRemote)
+    element.addEventListener('ended', onEnd)
+    window.addEventListener('pagehide', saveRemote)
     element.addEventListener('error', onError)
     element.addEventListener('loadedmetadata', onMeta)
-    return () => { element.removeEventListener('timeupdate', onTime); element.removeEventListener('error', onError); element.removeEventListener('loadedmetadata', onMeta) }
-  }, [resumeKey, playback])
+    return () => { element.removeEventListener('timeupdate', onTime); element.removeEventListener('pause', saveRemote); element.removeEventListener('ended', onEnd); element.removeEventListener('error', onError); element.removeEventListener('loadedmetadata', onMeta); window.removeEventListener('pagehide', saveRemote) }
+  }, [resumeKey, playback, progressLinkId])
 
   // Keyboard: space/k play, ←/→ 10s, f fullscreen, m mute.
   useEffect(() => {
