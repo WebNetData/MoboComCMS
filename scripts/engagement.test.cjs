@@ -83,6 +83,7 @@ test('reviews: ratings, text rules and summaries', () => {
   assert.equal(rv.initialReviewStatus('متن کافی برای نظر', false), 'APPROVED')
   assert.deepEqual(rv.summarize([5, 4, 4, 1, 9]), { average: 3.5, count: 4, distribution: [1, 0, 0, 2, 1] })
   assert.deepEqual(rv.summarize([]), { average: null, count: 0, distribution: [0, 0, 0, 0, 0] })
+  assert.deepEqual(rv.summarizeDistribution([1, 0, 0, 1, 1]), { average: 3.3, count: 3, distribution: [1, 0, 0, 1, 1] })
 })
 
 test('social posts escape HTML, respect limits and tag links', () => {

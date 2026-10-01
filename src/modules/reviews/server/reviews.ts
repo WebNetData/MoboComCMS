@@ -5,7 +5,7 @@ import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
 import { FAVORITABLE, ITEM_LABEL, REVIEWABLE, itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
 import { itemCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
-import { ReviewError, initialReviewStatus, normalizeRating, normalizeReviewBody, summarize, type RatingSummary } from '@/modules/reviews/domain/reviews'
+import { ReviewError, initialReviewStatus, normalizeRating, normalizeReviewBody, summarizeDistribution, type RatingSummary } from '@/modules/reviews/domain/reviews'
 
 const PAGE = 10
 const counted = { status: { not: 'REJECTED' } }
@@ -36,17 +36,20 @@ export type PublicReview = { id: number; rating: number; body: string; createdAt
 export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1) {
   const reviewable = REVIEWABLE.includes(ref.type)
   const where = { itemType: ref.type, itemId: ref.id }
+  const safePage = Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000) : 1
   const [ratings, mine, favorite, favorites, total, rows] = await Promise.all([
-    reviewable ? db.itemReview.findMany({ where: { ...where, ...counted }, select: { rating: true } }) : Promise.resolve([]),
+    reviewable ? db.itemReview.groupBy({ by: ['rating'], where: { ...where, ...counted }, _count: { rating: true } }) : Promise.resolve([]),
     reviewable && userId ? db.itemReview.findUnique({ where: { itemType_itemId_userId: { ...where, userId } } }) : Promise.resolve(null),
     userId ? db.itemFavorite.findUnique({ where: { userId_itemType_itemId: { userId, ...where } } }) : Promise.resolve(null),
     db.itemFavorite.count({ where }),
     reviewable ? db.itemReview.count({ where: { ...where, status: 'APPROVED', NOT: { body: '' } } }) : Promise.resolve(0),
-    reviewable ? db.itemReview.findMany({ where: { ...where, status: 'APPROVED', NOT: { body: '' } }, orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true } } } }) : Promise.resolve([]),
+    reviewable ? db.itemReview.findMany({ where: { ...where, status: 'APPROVED', NOT: { body: '' } }, orderBy: { createdAt: 'desc' }, skip: (safePage - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true } } } }) : Promise.resolve([]),
   ])
-  const summary: RatingSummary = summarize(ratings.map((row) => row.rating))
+  const distribution: RatingSummary['distribution'] = [0, 0, 0, 0, 0]
+  for (const row of ratings) if (row.rating >= 1 && row.rating <= 5) distribution[row.rating - 1] = row._count.rating
+  const summary = summarizeDistribution(distribution)
   return {
-    reviewable, summary, favorites, total, page, pages: Math.ceil(total / PAGE),
+    reviewable, summary, favorites, total, page: safePage, pages: Math.ceil(total / PAGE),
     mine: mine ? { rating: mine.rating, body: mine.body, status: mine.status } : null,
     favorite: favorite ? { notify: favorite.notify } : null,
     reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId })),

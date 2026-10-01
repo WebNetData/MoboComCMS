@@ -76,6 +76,8 @@ Library feed checkpoint: The private account library now combines bounded recent
 
 Recent views checkpoint: Shared public detail pages record a signed-in member's view after a visible stay, through the existing content registry. The server rejects unpublished or disabled targets, keeps private per-user rows for six months, and exposes a paginated account history with owner-only clearing. The account library shows a bounded preview. Migration 20261108120000 was applied locally; connected and browser tests verified publication filtering, repeat visits, privacy, tracker delivery, dark UI and clearing. The public product page and registry now also reject seller products pending approval; the connected test covers both paths.
 
+Review read checkpoint: The shared public review API checks the current publication registry before returning a rating or review. Rating distribution is grouped in PostgreSQL instead of loading every rating row, and page input is capped. Domain tests and static checks pass. The local development server has recently timed out on connected HTTP requests, so this slice's connected test remains unverified.
+
 Final checkpoint for the current branch: the PostgreSQL production build, schema parity, type check, architecture and security checks pass after the unlisted-token migration. The connected collections test covers token-gated reads, privacy transitions, owner/collaborator permissions, ordering, follow and save; the browser test covers add-from-item and the dark collection detail.
 
 ## Next implementation checkpoint

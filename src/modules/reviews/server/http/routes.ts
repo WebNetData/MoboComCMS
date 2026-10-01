@@ -6,6 +6,7 @@ import { requireUser } from '@/modules/identity/server/access'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getViewer } from '@/modules/membership/server/membership'
 import { parseItemKey } from '@/modules/content/domain/items'
+import { itemCard } from '@/modules/content/server/registry'
 import { ReviewError } from '@/modules/reviews/domain/reviews'
 import { deleteReview, itemEngagement, moderateReview, reviewQueue, saveReview, setFavorite } from '@/modules/reviews/server/reviews'
 
@@ -30,8 +31,9 @@ export async function GET(req: NextRequest) {
   if (off) return off
   const ref = refOf(req.nextUrl.searchParams.get('item'))
   if (!ref) return err('invalid item')
+  if (!await itemCard(ref)) return err('Item unavailable', 404)
   const viewer = await getViewer()
-  return ok(await itemEngagement(ref, viewer.userId, Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1)))
+  return ok(await itemEngagement(ref, viewer.userId, Number(req.nextUrl.searchParams.get('page'))))
 }
 
 /** POST /api/engage/review { item, rating, body } */

@@ -29,10 +29,15 @@ export const initialReviewStatus = (body: string, moderateText: boolean) => (bod
 
 export type RatingSummary = { average: number | null; count: number; distribution: [number, number, number, number, number] }
 
-export function summarize(ratings: number[]): RatingSummary {
-  const distribution: [number, number, number, number, number] = [0, 0, 0, 0, 0]
-  for (const rating of ratings) if (rating >= 1 && rating <= 5) distribution[rating - 1]++
+/** Builds a rating summary from the five bounded database buckets. */
+export function summarizeDistribution(distribution: RatingSummary['distribution']): RatingSummary {
   const count = distribution.reduce((sum, n) => sum + n, 0)
   const sum = distribution.reduce((total, n, index) => total + n * (index + 1), 0)
   return { average: count ? Math.round((sum / count) * 10) / 10 : null, count, distribution }
+}
+
+export function summarize(ratings: number[]): RatingSummary {
+  const distribution: [number, number, number, number, number] = [0, 0, 0, 0, 0]
+  for (const rating of ratings) if (rating >= 1 && rating <= 5) distribution[rating - 1]++
+  return summarizeDistribution(distribution)
 }
