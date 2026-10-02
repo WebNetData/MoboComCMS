@@ -1695,6 +1695,18 @@ model Studio {
   softwarePublished   SoftwareTitle[] @relation("SoftwarePublisherStudio")
 }
 
+/// Durable follower cursor for the first publication of a Game or Software title.
+model StudioPublicationNotification {
+  itemType    String
+  itemId      Int
+  dueAt       DateTime
+  lastUserId  Int       @default(0)
+  completedAt DateTime?
+
+  @@id([itemType, itemId])
+  @@index([completedAt, dueAt])
+}
+
 /// Version history. Files are MediaLink rows with ownerType "softwarerelease".
 model SoftwareRelease {
   id         Int       @id @default(autoincrement())

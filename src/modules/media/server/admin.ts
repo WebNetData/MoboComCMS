@@ -20,6 +20,7 @@ import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-
 import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 import { resolveStudioId } from '@/modules/studios/server/identity'
+import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -537,6 +538,7 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
       }
     }
     const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data })
+    if (type === 'games' || type === 'software') await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', saved, existing)
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
     if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
@@ -551,6 +553,7 @@ export async function deleteMediaItem(type: string, id: number) {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
   const row = await db.$transaction(async (tx) => {
+    if (type === 'games' || type === 'software') await tx.studioPublicationNotification.deleteMany({ where: { itemType: type === 'games' ? 'game' : 'software', itemId: id } })
     if (resource.onDelete) await resource.onDelete(tx, id)
     if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
     return resource.delegate(tx).delete({ where: { id } })
@@ -605,6 +608,7 @@ export async function DELETE(req: NextRequest) {
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
   try {
     const row = await db.$transaction(async (tx) => {
+      if (type === 'games' || type === 'software') await tx.studioPublicationNotification.deleteMany({ where: { itemType: type === 'games' ? 'game' : 'software', itemId: id } })
       if (resource.onDelete) await resource.onDelete(tx, id)
       if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
       return resource.delegate(tx).delete({ where: { id } })
@@ -646,6 +650,9 @@ export async function BULK(req: NextRequest) {
           await resource.delegate(tx).updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
           if (type === 'music-tracks' && status === 'PUBLISHED') {
             for (const row of rows) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+          }
+          if (type === 'games' || type === 'software') {
+            for (const row of rows) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
         })
         if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)

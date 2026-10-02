@@ -17,10 +17,11 @@ type Props = {
   canCompare?: boolean
   /** Wording for the notify switch, e.g. "نسخهٔ جدید"; without it there is nothing to follow. */
   followLabel?: string
+  favoriteLabels?: { off: string; on: string }
 }
 
 /** Favorite (with "tell me about updates") and compare toggles for an item page. */
-export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel }: Props) {
+export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel, favoriteLabels }: Props) {
   const reviewsOn = useModuleEnabled('reviews')
   const compareOn = useModuleEnabled('compare')
   const [favorite, setFavorite] = useState(initial)
@@ -59,8 +60,8 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
     <div className="ea-actions">
       {reviewsOn && canFavorite && (
         <>
-          <button type="button" className={`ea-btn${favorite ? ' is-on' : ''}`} aria-pressed={!!favorite} disabled={busy} onClick={() => void save(!favorite)} title={favorite ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}>
-            <span aria-hidden="true">{favorite ? '♥' : '♡'}</span>{favorite ? 'در علاقه‌مندی‌ها' : 'علاقه‌مندی'}{count > 0 && <small>{count.toLocaleString('fa-IR')}</small>}
+          <button type="button" className={`ea-btn${favorite ? ' is-on' : ''}`} aria-pressed={!!favorite} disabled={busy} onClick={() => void save(!favorite)} title={favorite ? favoriteLabels?.on || 'حذف از علاقه‌مندی‌ها' : favoriteLabels?.off || 'افزودن به علاقه‌مندی‌ها'}>
+            <span aria-hidden="true">{favoriteLabels ? favorite ? '✓' : '+' : favorite ? '♥' : '♡'}</span>{favorite ? favoriteLabels?.on || 'در علاقه‌مندی‌ها' : favoriteLabels?.off || 'علاقه‌مندی'}{count > 0 && <small>{count.toLocaleString('fa-IR')}</small>}
           </button>
           {favorite && followLabel && (
             <button type="button" className={`ea-btn${favorite.notify ? ' is-on' : ''}`} aria-pressed={favorite.notify} disabled={busy} onClick={() => void save(true, !favorite.notify)} title={`اعلان ${followLabel}`}>

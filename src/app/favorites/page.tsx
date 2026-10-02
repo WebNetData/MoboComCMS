@@ -11,7 +11,7 @@ import ItemActions from '@/components/engage/ItemActions'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'علاقه‌مندی‌های من', robots: { index: false } }
 
-const FOLLOW: Partial<Record<ItemType, string>> = { software: 'نسخهٔ جدید', game: 'لینک‌های جدید', title: 'قسمت جدید', album: 'آهنگ‌های جدید', product: 'تخفیف و موجودی' }
+const FOLLOW: Partial<Record<ItemType, string>> = { software: 'نسخهٔ جدید', game: 'لینک‌های جدید', studio: 'بازی یا نرم‌افزار تازه', title: 'قسمت جدید', album: 'آهنگ‌های جدید', product: 'تخفیف و موجودی' }
 
 export default async function FavoritesPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   await requireModule('reviews')
@@ -43,7 +43,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
                   <span className="sr-type">{ITEM_LABEL[item.type].one}</span>
                   <h2><Link href={item.url}>{item.title}</Link></h2>
                   {item.subtitle && <p className="sr-sub">{item.subtitle}</p>}
-                  <ItemActions item={itemKey(item)} title={item.title} image={item.image} loggedIn favorite={{ notify: item.notify }} canCompare={false} followLabel={FOLLOW[item.type]} />
+                  <ItemActions item={itemKey(item)} title={item.title} image={item.image} loggedIn favorite={{ notify: item.notify }} canCompare={false} followLabel={FOLLOW[item.type]} favoriteLabels={item.type === 'studio' ? { off: 'دنبال‌کردن', on: 'دنبال می‌کنید' } : undefined} />
                 </div>
               </li>
             ))}

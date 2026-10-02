@@ -15,13 +15,13 @@ const Stars = ({ value, label }: { value: number; label: string }) => (
 )
 
 /** Favorite / follow / compare buttons for an item hero. Renders nothing when both modules are off. */
-export async function ItemActionBar({ item, title, image, followLabel }: { item: ItemRef; title: string; image?: string; followLabel?: string }) {
+export async function ItemActionBar({ item, title, image, followLabel, favoriteLabels }: { item: ItemRef; title: string; image?: string; followLabel?: string; favoriteLabels?: { off: string; on: string } }) {
   const [reviewsOn, compareOn] = await Promise.all([isModuleEnabled('reviews'), isModuleEnabled('compare')])
   const canFavorite = reviewsOn && FAVORITABLE.includes(item.type)
   const canCompare = compareOn && COMPARABLE.includes(item.type)
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
-  return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
+  return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
 /** Rating summary, the member's review form and approved reviews for an item. */
