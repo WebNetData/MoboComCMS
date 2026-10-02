@@ -4,6 +4,7 @@ import { recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { validateCover } from '@/shared/content/cover'
 import { cleanLinks, slugOf, splitList } from '@/modules/media/domain/media'
 import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpdateKind, parseDay, releaseState, type HealthCheck } from '@/modules/games/domain/games'
+import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifications'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
@@ -99,7 +100,13 @@ export async function adminGames(input: { q?: string; status?: string; platform?
   if (input.franchise === 'none') where.franchiseId = null
   else if (positive(input.franchise)) where.franchiseId = positive(input.franchise)
   const orderBy = input.sort === 'views' ? [{ views: 'desc' as const }] : input.sort === 'score' ? [{ score: 'desc' as const }] : input.sort === 'release' ? [{ releaseDate: 'desc' as const }] : input.sort === 'title' ? [{ title: 'asc' as const }] : input.sort === 'updated' ? [{ updatedAt: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
-  const rows = await db.gameTitle.findMany({ where, orderBy, take: 5000, include: { franchise: { select: { title: true } } } })
+  const size = input.size === 'all' ? 'all' : [20, 50, 100, 500].includes(Number(input.size)) ? Number(input.size) : 20
+  const requestedPage = Math.max(1, Math.min(100_000, Number(input.page) || 1))
+  const matchedTotal = await db.gameTitle.count({ where })
+  const initialPages = size === 'all' ? 1 : Math.max(1, Math.ceil(matchedTotal / size))
+  const initialPage = size === 'all' ? 1 : Math.min(requestedPage, initialPages)
+  const filterIssues = input.issue === 'any' || !!(input.issue && input.issue in HEALTH_CHECKS)
+  const rows = await db.gameTitle.findMany({ where, orderBy: [...orderBy, { id: 'desc' as const }], ...(!filterIssues && size !== 'all' ? { skip: (initialPage - 1) * size, take: size } : {}), include: { franchise: { select: { title: true } } } })
   const [linkMap, libraryRows, updateRows, counts] = await Promise.all([
     linkCounts(rows.map((row) => row.id)),
     db.gameLibrary.groupBy({ by: ['gameId'], where: { gameId: { in: rows.map((row) => row.id) } }, _count: { _all: true } }),
@@ -123,13 +130,14 @@ export async function adminGames(input: { q?: string; status?: string; platform?
   })
   if (input.issue && input.issue in HEALTH_CHECKS) list = list.filter((row) => row.issues.includes(input.issue as HealthCheck))
   if (input.issue === 'any') list = list.filter((row) => row.issues.length > 0)
-  const size = Math.max(10, Math.min(500, Number(input.size) || 25))
-  const page = Math.max(1, Math.min(400, Number(input.page) || 1))
+  const total = filterIssues ? list.length : matchedTotal
+  const pages = size === 'all' ? 1 : Math.max(1, Math.ceil(total / size))
+  const page = size === 'all' ? 1 : Math.min(requestedPage, pages)
   const facets = await db.gameTitle.findMany({ select: { platforms: true }, take: 5000 })
   const platforms = [...new Set(facets.flatMap((row) => splitList(row.platforms, 12)))].sort()
   const franchises = await db.gameFranchise.findMany({ select: { id: true, title: true }, orderBy: { title: 'asc' } })
   return {
-    total: list.length, page, pages: Math.max(1, Math.ceil(list.length / size)), games: list.slice((page - 1) * size, page * size),
+    total, page, pages, games: filterIssues && size !== 'all' ? list.slice((page - 1) * size, page * size) : list,
     counts: { all: counts[0], published: counts[1], draft: counts[2], scheduled: counts[3], upcoming: counts[4] },
     platforms, franchises, checks: HEALTH_CHECKS,
   }
@@ -245,20 +253,26 @@ export async function saveGameUpdate(gameId: number, input: Record<string, unkno
   try { cleanLinks(input.links, 20) } catch (error) { throw new GameError(error instanceof Error ? error.message : 'لینک نامعتبر است') }
   const data = { kind: normalizeUpdateKind(input.kind), title, version: text(input.version, 60), size: text(input.size, 40), notes: text(input.notes, 8000), releasedAt: input.releasedAt ? parseDay(input.releasedAt) : new Date() }
   const saved = await db.$transaction(async (tx) => {
+    let before = null
     if (id) {
-      const current = await tx.gameUpdate.findFirst({ where: { id, gameId }, select: { id: true } })
-      if (!current) throw new GameError('آپدیت پیدا نشد', 404)
+      before = await tx.gameUpdate.findFirst({ where: { id, gameId }, select: { id: true, releasedAt: true } })
+      if (!before) throw new GameError('آپدیت پیدا نشد', 404)
     }
     const row = id ? await tx.gameUpdate.update({ where: { id }, data }) : await tx.gameUpdate.create({ data: { ...data, gameId } })
     if (input.links !== undefined) await reconcileLinks(tx, row.id, input.links)
+    await scheduleGameUpdateRelease(tx, row, before)
     return row
   })
   // The newest non-DLC version becomes the game's current version.
-  if (data.version && data.kind !== 'DLC') {
-    const newest = await db.gameUpdate.findFirst({ where: { gameId, kind: { not: 'DLC' }, version: { not: '' } }, orderBy: { releasedAt: 'desc' }, select: { version: true } })
-    if (newest) await db.gameTitle.update({ where: { id: gameId }, data: { version: newest.version } })
+  let version = ''
+  if (data.version && data.kind !== 'DLC' && data.releasedAt <= new Date()) {
+    const newest = await db.gameUpdate.findFirst({ where: { gameId, kind: { not: 'DLC' }, version: { not: '' }, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, select: { version: true } })
+    if (newest) {
+      await db.gameTitle.update({ where: { id: gameId }, data: { version: newest.version } })
+      version = newest.version
+    }
   }
-  return { id: saved.id, created: !id }
+  return { id: saved.id, created: !id, version }
 }
 
 export async function deleteGameUpdate(gameId: number, id: number) {

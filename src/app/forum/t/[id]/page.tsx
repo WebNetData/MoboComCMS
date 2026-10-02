@@ -6,6 +6,10 @@ import ForumShell from '@/components/forum/ForumShell'
 import TopicView, { type TopicData } from '@/components/forum/TopicView'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import RecentViewTracker from '@/components/engage/RecentViewTracker'
+import Link from '@/components/AppLink'
+import { parseItemKey } from '@/modules/content/domain/items'
+import { itemCard } from '@/modules/content/server/registry'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; post?: string }> }
@@ -30,6 +34,8 @@ export default async function TopicPage({ params, searchParams }: Props) {
   const viewer = await getForumViewer()
   const data = await getTopic(Number(id), viewer, { page: Number(page) || 1, post: Number(post) || undefined })
   if (!data) notFound()
+  const relatedRef = data.thread.itemType && data.thread.itemId ? parseItemKey(`${data.thread.itemType}:${data.thread.itemId}`) : null
+  const relatedItem = relatedRef ? await itemCard(relatedRef) : null
   const categories = (await visibleCategories(viewer)).filter((c) => c.access.create || c.id === data.category.id).map((c) => ({ id: c.id, title: c.title, color: c.color, parentId: c.parentId }))
   // Dates → strings for the client component.
   const serialized = JSON.parse(JSON.stringify(data)) as TopicData
@@ -42,6 +48,8 @@ export default async function TopicPage({ params, searchParams }: Props) {
   return (
     <ForumShell viewer={viewer} category={data.category.slug}>
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
+      {viewer.userId && data.thread.status === 'VISIBLE' && data.thread.listed && <RecentViewTracker item={`thread:${data.thread.id}`} />}
+      {relatedItem && <nav className="er-topic-context" aria-label="موضوع مرتبط"><span>{data.thread.kind === 'QUESTION' ? 'پرسش دربارهٔ' : 'گفت‌وگو دربارهٔ'}</span><Link href={relatedItem.url}>{relatedItem.title} ←</Link></nav>}
       <TopicView data={serialized} categories={categories} focusPost={Number(post) || undefined} />
     </ForumShell>
   )

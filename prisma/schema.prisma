@@ -31,6 +31,8 @@ model User {
   phoneVerifiedAt DateTime?
   smsAlerts      Boolean         @default(true)
   emailAlerts    Boolean         @default(true)
+  pushAlerts     Boolean         @default(true)
+  recommendationOptIn Boolean    @default(false)
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?
@@ -60,6 +62,7 @@ model User {
   resellerMembership ResellerMember?
   trialClaim     TrialClaim?
   notifications  UserNotification[]
+  notificationMutes UserNotificationMute[]
 
   @@index([telegramId])
   forumThreads   ForumThread[]
@@ -77,6 +80,15 @@ model User {
   forumPollVotes ForumPollVote[]
   forumCategoryUsers ForumCategoryUser[]
   gameLibrary  GameLibrary[]
+  musicPlaylists UserMusicPlaylist[]
+  musicListenHistory MusicListenHistory[]
+  cinemaWatchProgress CinemaWatchProgress[]
+  recentViews UserRecentView[]
+  ownedCollections UserCollection[] @relation("CollectionOwner")
+  collectionCollaborations UserCollectionCollaborator[]
+  followedCollections UserCollectionFollow[]
+  savedCollections UserCollectionSave[]
+  collectionReactions UserCollectionReaction[]
   userProfile  UserProfile?
   following    UserFollow[] @relation("UserFollowing")
   followers    UserFollow[] @relation("UserFollowers")
@@ -87,6 +99,7 @@ model User {
   communityLikes CommunityLike[]
   communityReports CommunityReport[]
   itemReviews    ItemReview[]
+  itemReviewHelpfulVotes ItemReviewHelpful[]
   itemFavorites  ItemFavorite[]
   pushSubscriptions PushSubscription[]
   addresses      UserAddress[]
@@ -123,6 +136,19 @@ model UserNotification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+/// A missing row means the external copy is allowed. In-app notices are never muted here.
+model UserNotificationMute {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  kind      String
+  channel   String   // sms | email | push
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, channel])
+  @@index([userId])
 }
 
 model Panel {
@@ -1240,6 +1266,9 @@ model MusicTrack {
   updatedAt   DateTime    @default(now()) @updatedAt
   artist      MusicArtist @relation(fields: [artistId], references: [id], onDelete: Cascade)
   album       MusicAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  userPlaylistItems UserMusicPlaylistTrack[]
+  releaseNotification MusicTrackReleaseNotification?
+  listenHistory MusicListenHistory[]
 
   @@index([artistId])
   @@index([albumId, trackNo])
@@ -1260,6 +1289,136 @@ model MusicPlaylist {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model MusicTrackReleaseNotification {
+  trackId     Int        @id
+  dueAt       DateTime
+  lastUserId  Int        @default(0)
+  completedAt DateTime?
+  track       MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
+}
+
+model MusicListenHistory {
+  userId       Int
+  trackId      Int
+  playCount    Int        @default(1)
+  firstPlayedAt DateTime @default(now())
+  lastPlayedAt DateTime   @default(now())
+  positionSeconds Int    @default(0)
+  durationSeconds Int    @default(0)
+  progressUpdatedAt DateTime?
+  completedAt DateTime?
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track        MusicTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+  @@index([userId, lastPlayedAt])
+}
+
+model UserMusicPlaylist {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks    UserMusicPlaylistTrack[]
+
+  @@index([userId, updatedAt])
+}
+
+model UserMusicPlaylistTrack {
+  playlistId Int
+  trackId    Int
+  position   Int
+  addedAt    DateTime @default(now())
+  playlist   UserMusicPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      MusicTrack        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+  @@index([playlistId, position])
+  @@index([trackId])
+}
+
+model UserCollection {
+  id          Int      @id @default(autoincrement())
+  ownerId     Int
+  title       String
+  description String   @default("")
+  cover       String   @default("")
+  shareToken  String?  @unique
+  visibility  String   @default("PRIVATE") // PRIVATE | UNLISTED | PUBLIC | EDITORIAL
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  owner       User     @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  items       UserCollectionItem[]
+  collaborators UserCollectionCollaborator[]
+  followers   UserCollectionFollow[]
+  saves       UserCollectionSave[]
+  reactions   UserCollectionReaction[]
+
+  @@index([ownerId, updatedAt])
+  @@index([visibility, updatedAt])
+}
+
+model UserCollectionItem {
+  id           Int      @id @default(autoincrement())
+  collectionId Int
+  itemType     String
+  itemId       Int
+  position     Int
+  addedAt      DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, itemType, itemId])
+  @@unique([collectionId, position])
+}
+
+model UserCollectionCollaborator {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
+}
+
+model UserCollectionFollow {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
+}
+
+model UserCollectionSave {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId, createdAt])
+}
+
+model UserCollectionReaction {
+  collectionId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  collection   UserCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, userId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------- Film & series
@@ -1331,6 +1490,32 @@ model CinemaEpisode {
   @@unique([seasonId, number])
 }
 
+model CinemaWatchProgress {
+  userId          Int
+  ownerType       String // title | episode
+  ownerId         Int
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  updatedAt       DateTime @default(now()) @updatedAt
+  completedAt     DateTime?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ownerType, ownerId])
+  @@index([userId, updatedAt])
+}
+
+model UserRecentView {
+  userId        Int
+  itemType      String
+  itemId        Int
+  firstViewedAt DateTime @default(now())
+  lastViewedAt  DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemType, itemId])
+  @@index([userId, lastViewedAt])
+}
+
 // ---------------------------------------------------------------- Games
 
 model GameTitle {
@@ -1344,6 +1529,10 @@ model GameTitle {
   genres       String    @default("")
   developer    String    @default("")
   publisher    String    @default("")
+  developerStudioId Int?
+  developerStudio Studio? @relation("GameDeveloperStudio", fields: [developerStudioId], references: [id], onDelete: SetNull)
+  publisherStudioId Int?
+  publisherStudio Studio? @relation("GamePublisherStudio", fields: [publisherStudioId], references: [id], onDelete: SetNull)
   releaseDate  DateTime?
   score        Int?
   userScore    Float?
@@ -1384,6 +1573,8 @@ model GameTitle {
   @@index([status, publishedAt])
   @@index([releaseDate])
   @@index([franchiseId])
+  @@index([developerStudioId])
+  @@index([publisherStudioId])
 }
 
 /// A game series (Souls, God of War…): groups titles on the franchise page.
@@ -1412,8 +1603,19 @@ model GameUpdate {
   notes      String    @default("")
   releasedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
+  releaseNotification GameUpdateReleaseNotification?
 
   @@index([gameId, releasedAt])
+}
+
+model GameUpdateReleaseNotification {
+  updateId    Int        @id
+  dueAt       DateTime
+  lastUserId  Int        @default(0)
+  completedAt DateTime?
+  update      GameUpdate @relation(fields: [updateId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
 }
 
 /// A member's game library (GameUp "played / playing / want to play").
@@ -1433,8 +1635,8 @@ model GameLibrary {
   @@index([userId, status, updatedAt])
 }
 
-/// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
-/// MediaLink (ownerType "software") and go through the protected redirect.
+/// Software downloads (Windows/macOS/Linux/Android/iOS). Base and versioned
+/// MediaLink rows use ownerType "software" and "softwarerelease" respectively.
 model SoftwareTitle {
   id           Int       @id @default(autoincrement())
   slug         String    @unique
@@ -1444,6 +1646,11 @@ model SoftwareTitle {
   cover        String    @default("")
   version      String    @default("")
   developer    String    @default("")
+  publisher    String    @default("")
+  developerStudioId Int?
+  developerStudio Studio? @relation("SoftwareDeveloperStudio", fields: [developerStudioId], references: [id], onDelete: SetNull)
+  publisherStudioId Int?
+  publisherStudio Studio? @relation("SoftwarePublisherStudio", fields: [publisherStudioId], references: [id], onDelete: SetNull)
   license      String    @default("FREE") // FREE | FREEMIUM | TRIAL | PAID | OPEN_SOURCE
   platforms    String    @default("")
   category     String    @default("")
@@ -1466,8 +1673,87 @@ model SoftwareTitle {
   publishedAt  DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
+  releases     SoftwareRelease[]
 
   @@index([status, publishedAt])
+  @@index([developerStudioId])
+  @@index([publisherStudioId])
+}
+
+/// Shared developer/publisher identity for Games and Software.
+model Studio {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  normalizedName      String    @unique
+  summary             String    @default("")
+  logo                String    @default("")
+  website             String    @default("")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  gamesDeveloped      GameTitle[] @relation("GameDeveloperStudio")
+  gamesPublished      GameTitle[] @relation("GamePublisherStudio")
+  softwareDeveloped   SoftwareTitle[] @relation("SoftwareDeveloperStudio")
+  softwarePublished   SoftwareTitle[] @relation("SoftwarePublisherStudio")
+}
+
+/// Durable follower cursor for the first publication of a Game or Software title.
+model StudioPublicationNotification {
+  itemType    String
+  itemId      Int
+  dueAt       DateTime
+  lastUserId  Int       @default(0)
+  completedAt DateTime?
+
+  @@id([itemType, itemId])
+  @@index([completedAt, dueAt])
+}
+
+/// Version history. Files are MediaLink rows with ownerType "softwarerelease".
+model SoftwareRelease {
+  id         Int       @id @default(autoincrement())
+  softwareId Int
+  software   SoftwareTitle @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  version    String
+  channel    String    @default("STABLE") // STABLE | BETA | NIGHTLY
+  status     String    @default("DRAFT") // DRAFT | PUBLISHED
+  changelog  String    @default("")
+  size       String    @default("")
+  checksum   String    @default("")
+  requirements String @default("")
+  screenshots String   @default("[]")
+  releasedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  notification SoftwareReleaseNotification?
+  targets    SoftwareReleaseTarget[]
+
+  @@unique([softwareId, version, channel])
+  @@index([softwareId, status, releasedAt])
+  @@index([status, releasedAt])
+}
+
+/// OS/CPU compatibility for one Software version. Empty architecture means any.
+model SoftwareReleaseTarget {
+  id           Int      @id @default(autoincrement())
+  releaseId    Int
+  release      SoftwareRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  platform     String
+  architecture String   @default("")
+  minVersion   String   @default("")
+  notes        String   @default("")
+
+  @@unique([releaseId, platform, architecture])
+  @@index([platform, architecture])
+}
+
+model SoftwareReleaseNotification {
+  releaseId   Int       @id
+  dueAt       DateTime
+  lastUserId  Int       @default(0)
+  completedAt DateTime?
+  release     SoftwareRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
 }
 
 /// Forum (تالار گفتمان). The first post of a thread is its body; counters are
@@ -1497,6 +1783,9 @@ model ForumCategory {
 
 model ForumThread {
   id             Int           @id @default(autoincrement())
+  itemType       String?
+  itemId         Int?
+  kind           String        @default("DISCUSSION") // DISCUSSION | QUESTION
   categoryId     Int
   category       ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   userId         Int
@@ -1525,6 +1814,7 @@ model ForumThread {
   @@index([categoryId, status, pinned, lastPostAt])
   @@index([userId])
   @@index([status, lastPostAt])
+  @@index([itemType, itemId, kind, status, listed, lastPostAt])
 }
 
 model ForumPost {
@@ -1566,6 +1856,9 @@ model MediaLink {
   kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM
   quality   String   @default("")
   size      String   @default("")
+  platform  String   @default("") // software downloads: Windows/macOS/Linux/Android/iOS
+  architecture String @default("") // x86 | x64 | arm64 | armv7 | universal
+  checksum  String   @default("") // per-file SHA-256 when supplied
   audio     String   @default("") // ORIGINAL | DUBBED | ''
   subtitle  Boolean  @default(false)
   url       String
@@ -1901,10 +2194,22 @@ model ItemReview {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  helpfulVotes ItemReviewHelpful[]
 
   @@unique([itemType, itemId, userId])
   @@index([itemType, itemId, status, createdAt])
   @@index([status, createdAt])
+}
+
+model ItemReviewHelpful {
+  reviewId  Int
+  userId    Int
+  createdAt DateTime @default(now())
+  review    ItemReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, userId])
+  @@index([userId])
 }
 
 model ItemFavorite {

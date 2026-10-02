@@ -8,6 +8,13 @@ export class MarketingError extends Error {
   constructor(message: string, readonly status = 400, readonly code = 'MARKETING') { super(message) }
 }
 
+/** Current public purchase eligibility for a stock alert target. */
+export function stockAlertAvailable(product: { active: boolean; approval: string; stock: number; variantCount: number; variants: readonly { id: number; stock: number }[] }, variantId: number) {
+  if (!product.active || product.approval !== 'APPROVED' || product.stock === 0) return false
+  if (variantId) return product.variants.some((variant) => variant.id === variantId && variant.stock !== 0)
+  return product.variantCount === 0 || product.variants.some((variant) => variant.stock !== 0)
+}
+
 const int = (value: unknown, fallback: number, min: number, max: number) => {
   const n = Math.round(Number(value))
   return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback

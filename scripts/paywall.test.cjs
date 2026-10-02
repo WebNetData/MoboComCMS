@@ -92,7 +92,12 @@ test('every gate asks the paywall: pages, download links, player, articles and c
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
   const links = read('src/modules/media/server/links.ts')
   assert.match(links, /async function gate\(/)
-  assert.equal((links.match(/await gate\(viewer/g) || []).length, 3, 'download link, track and watch player')
+  for (const name of ['openMediaLink', 'openTrack', 'nextPlayableEpisode', 'watchSource', 'saveCinemaWatchProgress']) {
+    const start = links.indexOf(`async function ${name}(`)
+    assert.ok(start >= 0, `${name} exists`)
+    const end = links.indexOf('\n}', start)
+    assert.ok(end > start && /await gate\(viewer/.test(links.slice(start, end)), `${name} checks paywall access`)
+  }
   assert.match(links, /status: 402/)
   for (const page of ['src/app/software/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/cinema/[slug]/page.tsx', 'src/app/music/track/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) {
     assert.match(read(page), /paywallView\(/, page)

@@ -9,6 +9,7 @@ import { AlbumCard, EmptyState, Shelf } from '@/components/media/MediaCards'
 import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { ItemActionBar } from '@/components/engage/Engagement'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -42,6 +43,7 @@ export default async function ArtistPage({ params }: Props) {
             <h1>{name}</h1>
             <p className="muted">{tracks.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آهنگ' : 'songs'} · {data.albums.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آلبوم' : 'albums'}</p>
             {tracks.length > 0 && <div className="mu-hero-actions"><PlayButton tracks={tracks} index={0} variant="big" label={fa ? 'پخش محبوب‌ترین‌ها' : 'Play top songs'} /></div>}
+            <ItemActionBar item={{ type: 'artist', id: artist.id }} title={name} image={artist.image} followLabel={fa ? 'آهنگ‌های تازه' : 'new tracks'} />
           </div>
         </div>
       </section>

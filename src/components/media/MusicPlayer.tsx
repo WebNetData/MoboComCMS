@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import type { PlayerTrack } from './player-types'
+import { readPlaybackSession, sourceUrl, trackSource, writePlaybackSession } from './playback-session'
 
 type Lock = { reason: 'login' | 'vip' | 'buy'; track: PlayerTrack } | null
 
@@ -45,7 +46,15 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const audio = useRef<HTMLAudioElement | null>(null)
+  const restoredTrackId = useRef<number | null>(null)
+  const reportedTrackId = useRef<number | null>(null)
+  const historyWritable = useRef<boolean | null>(null)
+  const progressSyncAt = useRef(0)
+  const progressRequest = useRef<Promise<void>>(Promise.resolve())
+  const loadRequestId = useRef(0)
+  const resumeAt = useRef(0)
   const [queue, setQueue] = useState<PlayerTrack[]>([])
+  const [sessionReady, setSessionReady] = useState(false)
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [time, setTime] = useState(0)
@@ -63,20 +72,39 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
   useEffect(() => {
     setVolume(Number(readPref('mu.volume', '0.9')) || 0.9)
     setHq(readPref('mu.hq', '0') === '1')
+    const saved = readPlaybackSession()
+    if (saved) {
+      restoredTrackId.current = saved.queue[saved.index].id
+      resumeAt.current = saved.time
+      setQueue(saved.queue)
+      setIndex(saved.index)
+      setTime(saved.time)
+    }
+    setSessionReady(true)
   }, [])
   useEffect(() => { if (audio.current) audio.current.volume = volume }, [volume])
+  useEffect(() => {
+    if (sessionReady) writePlaybackSession(queue.length ? { queue, index, time } : null)
+  }, [sessionReady, queue, index, time])
 
   const load = useCallback(async (track: PlayerTrack, wantHq: boolean) => {
     const el = audio.current
     if (!el) return
+    const requestId = ++loadRequestId.current
+    if (Number(el.dataset.trackId) === track.id && el.currentTime > 0) resumeAt.current = el.currentTime
+    reportedTrackId.current = null
+    progressSyncAt.current = 0
     setLock(null); setNotice(''); setLoading(true)
-    let useHq = wantHq && track.hasHq
+    let source = trackSource(track, wantHq)
+    let useHq = source.quality === 'hq'
     if (track.access === 'MEMBERS' || useHq) {
-      const res = await fetch(`/api/media/track/${track.id}?check=1${useHq ? '&q=hq' : ''}`, { headers: { accept: 'application/json' } }).catch(() => null)
+      const res = await fetch(sourceUrl(source, true), { headers: { accept: 'application/json' } }).catch(() => null)
+      if (requestId !== loadRequestId.current) return
       if (res?.status === 402) { setLoading(false); setPlaying(false); setLock({ reason: 'buy', track }); return }
       if (res && (res.status === 401 || res.status === 403)) {
         if (useHq && track.access !== 'MEMBERS') {
           useHq = false
+          source = trackSource(track, false)
           setNotice(fa ? 'کیفیت ۳۲۰ مخصوص اعضای VIP است؛ با کیفیت عادی پخش می‌شود.' : 'HQ audio is for VIP members — playing standard quality.')
         } else {
           setLoading(false); setPlaying(false)
@@ -85,7 +113,19 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
         }
       }
     }
-    el.src = `/api/media/track/${track.id}${useHq ? '?q=hq' : ''}`
+    if (requestId !== loadRequestId.current) return
+    if (resumeAt.current <= 0 && historyWritable.current !== false) {
+      const progress = await fetch(`/api/music/history?trackId=${track.id}`, { signal: AbortSignal.timeout(1500) }).catch(() => null)
+      if (progress?.status === 401) historyWritable.current = false
+      else if (progress?.ok) {
+        historyWritable.current = true
+        const data = await progress.json().catch(() => null)
+        if (!data?.completedAt && Number.isFinite(data?.positionSeconds) && Number.isFinite(data?.durationSeconds) && data.positionSeconds > 5 && data.durationSeconds - data.positionSeconds > 5) resumeAt.current = data.positionSeconds
+      }
+    }
+    if (requestId !== loadRequestId.current) return
+    el.dataset.trackId = String(track.id)
+    el.src = sourceUrl(source)
     el.play().then(() => setPlaying(true)).catch(async () => {
       setPlaying(false)
       // A paid track (or one locked after the page loaded) fails to load: ask why and show the right gate.
@@ -94,6 +134,22 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
       if (reason) setLock({ reason, track })
     }).finally(() => setLoading(false))
   }, [fa])
+
+  const syncProgress = useCallback((completed = false) => {
+    const el = audio.current
+    if (!el || historyWritable.current !== true) return
+    const trackId = Number(el.dataset.trackId)
+    const duration = el.duration
+    if (!Number.isSafeInteger(trackId) || trackId <= 0 || !Number.isFinite(duration) || duration <= 0) return
+    const position = completed ? duration : el.currentTime
+    if (!Number.isFinite(position) || position < 0) return
+    progressSyncAt.current = Date.now()
+    const body = JSON.stringify({ trackId, position, duration, completed })
+    progressRequest.current = progressRequest.current.catch(() => undefined).then(async () => {
+      await fetch('/api/music/history', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body, keepalive: true })
+    })
+    void progressRequest.current.catch(() => undefined)
+  }, [])
 
   /** The audio element only says "error"; ask the server why so the visitor (and the admin) see the real cause. */
   const explainFailure = useCallback(async (track: PlayerTrack) => {
@@ -126,28 +182,36 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
   }, [fa])
 
   useEffect(() => {
-    if (current) load(current, hq)
+    if (current?.id === restoredTrackId.current) return
+    if (current) {
+      if (audio.current && reportedTrackId.current === Number(audio.current.dataset.trackId) && !audio.current.ended) syncProgress()
+      resumeAt.current = 0; setTime(0); load(current, hq)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, index, queue])
 
   const play = useCallback((tracks: PlayerTrack[], start = 0) => {
     if (!tracks.length) return
+    restoredTrackId.current = null
     const same = current && tracks[start]?.id === current.id
     if (same && audio.current) {
-      if (audio.current.paused) audio.current.play().then(() => setPlaying(true)).catch(() => undefined)
+      if (!audio.current.getAttribute('src')) void load(current, hq)
+      else if (audio.current.paused) audio.current.play().then(() => setPlaying(true)).catch(() => undefined)
       else audio.current.pause()
       return
     }
     setQueue(tracks)
     setIndex(Math.max(0, Math.min(start, tracks.length - 1)))
-  }, [current])
+  }, [current, hq, load])
 
   const toggle = useCallback(() => {
     const el = audio.current
     if (!el || !current) return
-    if (el.paused) el.play().then(() => setPlaying(true)).catch(() => undefined)
+    restoredTrackId.current = null
+    if (!el.getAttribute('src')) void load(current, hq)
+    else if (el.paused) el.play().then(() => setPlaying(true)).catch(() => undefined)
     else el.pause()
-  }, [current])
+  }, [current, hq, load])
 
   const next = useCallback(() => {
     if (!queue.length) return
@@ -190,12 +254,28 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
         ref={audio}
         preload="none"
         onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onPause={() => { setPlaying(false); if (!audio.current?.ended && reportedTrackId.current === Number(audio.current?.dataset.trackId)) syncProgress() }}
+        onTimeUpdate={(e) => { setTime(e.currentTarget.currentTime); if (!e.currentTarget.paused && Date.now() - progressSyncAt.current >= 15_000) syncProgress() }}
         onDurationChange={(e) => setLength(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => { if (resumeAt.current > 0) { e.currentTarget.currentTime = Math.min(resumeAt.current, Math.max(0, e.currentTarget.duration - 1)); resumeAt.current = 0 } }}
         onWaiting={() => setLoading(true)}
-        onPlaying={() => setLoading(false)}
-        onEnded={() => { if (repeat === 'one' && audio.current) { audio.current.currentTime = 0; audio.current.play().catch(() => undefined) } else next() }}
+        onPlaying={() => {
+          setLoading(false)
+          const trackId = Number(audio.current?.dataset.trackId)
+          if (Number.isSafeInteger(trackId) && trackId > 0 && reportedTrackId.current !== trackId) {
+            reportedTrackId.current = trackId
+            void fetch('/api/music/history', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackId }), keepalive: true })
+              .then((response) => {
+                if (response.status === 401) historyWritable.current = false
+                else if (response.ok) {
+                  historyWritable.current = true
+                  if (Number(audio.current?.dataset.trackId) === trackId) syncProgress()
+                }
+              })
+              .catch(() => undefined)
+          }
+        }}
+        onEnded={() => { syncProgress(true); if (repeat === 'one' && audio.current) { reportedTrackId.current = null; audio.current.currentTime = 0; audio.current.play().catch(() => undefined) } else next() }}
         onError={() => { setLoading(false); setPlaying(false); if (current) void explainFailure(current) }}
       />
       {current && (
@@ -212,6 +292,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
                 <button type="button" className="mu-ic" onClick={prev} aria-label={fa ? 'قبلی' : 'Previous'}>⏮</button>
                 <button type="button" className="mu-play-main" onClick={toggle} aria-label={playing ? (fa ? 'توقف' : 'Pause') : (fa ? 'پخش' : 'Play')}>{loading ? <span className="mu-spinner" /> : playing ? '❚❚' : '▶'}</button>
                 <button type="button" className="mu-ic" onClick={next} aria-label={fa ? 'بعدی' : 'Next'}>⏭</button>
+                <button type="button" className={`mu-ic mu-mobile-queue-button${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} aria-expanded={showQueue}>☰</button>
                 <button type="button" className={`mu-ic${repeat !== 'off' ? ' is-on' : ''}`} onClick={() => setRepeat(repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off')} aria-label={fa ? 'تکرار' : 'Repeat'} title={fa ? 'تکرار' : 'Repeat'}>{repeat === 'one' ? '🔂' : '🔁'}</button>
               </div>
               <div className="mu-player-seek" dir="ltr">
@@ -225,7 +306,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
               <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}>⤓</button>
               <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'}>☰</button>
               <input className="mu-volume" dir="ltr" type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); writePref('mu.volume', String(v)) }} aria-label={fa ? 'صدا' : 'Volume'} />
-              <button type="button" className="mu-ic mu-close" onClick={() => { audio.current?.pause(); setQueue([]); setLock(null) }} aria-label={fa ? 'بستن' : 'Close'}>✕</button>
+              <button type="button" className="mu-ic mu-close" onClick={() => { loadRequestId.current++; audio.current?.pause(); audio.current?.removeAttribute('src'); audio.current?.removeAttribute('data-track-id'); setQueue([]); setTime(0); setLock(null) }} aria-label={fa ? 'بستن' : 'Close'}>✕</button>
             </div>
           </div>
           {notice && <div className="mu-player-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="close">✕</button></div>}
@@ -241,7 +322,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
               <header><b>{fa ? 'صف پخش' : 'Up next'}</b><span className="muted">{queue.length}</span></header>
               <ol>{queue.map((track, i) => (
                 <li key={`${track.id}-${i}`} className={i === index ? 'is-current' : ''}>
-                  <button type="button" onClick={() => setIndex(i)}>{track.cover ? <img src={track.cover} alt="" /> : <span className="mu-player-noart">♪</span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}</button>
+                  <button type="button" onClick={() => play(queue, i)}>{track.cover ? <img src={track.cover} alt="" /> : <span className="mu-player-noart">♪</span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}</button>
                 </li>
               ))}</ol>
             </div>

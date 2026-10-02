@@ -2,6 +2,9 @@ import { db } from '@/platform/database/prisma'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
+import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
+import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+import type { Prisma } from '@prisma/client'
 
 /**
  * Public read models for music, film & series and games. Raw media URLs never
@@ -20,13 +23,13 @@ export type TrackCard = {
   access: string; plays: number; hasAudio: boolean; hasHq: boolean; publishedAt: Date
   artist: ArtistRef; album: { id: number; slug: string; title: string; titleEn: string } | null
 }
-export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number }
+export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number; recommendationReason?: string }
 export type PlaylistCard = { id: number; slug: string; title: string; titleEn: string; cover: string; description: string; access: string; trackCount: number }
 
 const artistSelect = { id: true, slug: true, name: true, nameEn: true, image: true } as const
 const trackInclude = { artist: { select: artistSelect }, album: { select: { id: true, slug: true, title: true, titleEn: true, cover: true } } } as const
 
-function toTrack(row: any): TrackCard {
+export function toTrack(row: any): TrackCard {
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn,
     cover: row.cover || row.album?.cover || row.artist?.image || '',
@@ -43,6 +46,42 @@ function toPlaylist(row: any): PlaylistCard {
 }
 
 const albumInclude = { artist: { select: artistSelect }, _count: { select: { tracks: true } } } as const
+
+const musicPage = (value: unknown) => Math.min(10_000, Math.max(1, Number.isSafeInteger(Number(value)) ? Number(value) : 1))
+const musicSearch = (value: unknown) => String(value || '').trim().slice(0, 100)
+
+export async function browseMusicArtists(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = q ? { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : undefined
+  const [rows, total] = await Promise.all([
+    db.musicArtist.findMany({ where, select: artistSelect, orderBy: [{ featured: 'desc' }, { name: 'asc' }, { id: 'asc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicArtist.count({ where }),
+  ])
+  return { artists: rows, total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function browseMusicAlbums(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = { ...live(), ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { artist: { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }] } }] } : {}) }
+  const [rows, total] = await Promise.all([
+    db.musicAlbum.findMany({ where, include: albumInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicAlbum.count({ where }),
+  ])
+  return { albums: rows.map(toAlbum), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
+export async function browseMusicPlaylists(input: { q?: string; page?: number }) {
+  const page = musicPage(input.page)
+  const q = musicSearch(input.q)
+  const where = { status: 'PUBLISHED', ...(q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : {}) }
+  const [rows, total] = await Promise.all([
+    db.musicPlaylist.findMany({ where, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { id: 'desc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicPlaylist.count({ where }),
+  ])
+  return { playlists: rows.map(toPlaylist), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
 
 /** Media tables can be missing on older databases: render an empty section instead of an error page, keeping row types. */
 function allOrEmpty<P extends readonly Promise<unknown>[]>(queries: [...P]): Promise<{ [K in keyof P]: Awaited<P[K]> }> {
@@ -130,11 +169,13 @@ export async function getAlbum(slug: string) {
   const row = await db.musicAlbum.findFirst({ where: { slug, ...live() }, include: albumInclude }).catch(() => null)
   if (!row) return null
   await db.musicAlbum.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [tracks, more] = await Promise.all([
+  const [tracks, recommendations] = await Promise.all([
     db.musicTrack.findMany({ where: { albumId: row.id, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }] }),
-    db.musicAlbum.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
+    relatedAlbums(row),
   ])
-  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), more: more.map(toAlbum) }
+  const relatedRows = recommendations.length ? await db.musicAlbum.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: albumInclude }) : []
+  const relatedById = new Map(relatedRows.map((item) => [item.id, item]))
+  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toAlbum(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getArtist(slug: string) {
@@ -162,8 +203,9 @@ export type TitleCard = {
   id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
   year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean
   access: string; runtime: number; summary: string; summaryEn: string; ageRating: string; seasonsCount: number
+  recommendationReason?: string
 }
-export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; access: string }
+export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; access: string }
 
 function toTitle(row: any): TitleCard {
   return {
@@ -177,7 +219,7 @@ const titleInclude = { _count: { select: { seasons: true } } } as const
 export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
   if (!ids.length) return map
-  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
+  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, platform: true, architecture: true, checksum: true, audio: true, subtitle: true, access: true } }).catch(() => [])
   for (const { ownerId, ...link } of rows) map.set(ownerId, [...(map.get(ownerId) || []), link])
   return map
 }
@@ -242,12 +284,13 @@ export async function getTitle(slug: string) {
   if (!row) return null
   await db.cinemaTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const episodeIds = row.seasons.flatMap((season) => season.episodes.map((episode) => episode.id))
-  const firstGenre = splitList(row.genres, 1)[0]
-  const [titleLinks, episodeLinks, similar] = await Promise.all([
+  const [titleLinks, episodeLinks, recommendations] = await Promise.all([
     publicLinks('title', [row.id]),
     publicLinks('episode', episodeIds),
-    db.cinemaTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(firstGenre ? { genres: { contains: firstGenre } } : { kind: row.kind }) }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
+    relatedCinema(row),
   ])
+  const similarRows = recommendations.length ? await db.cinemaTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: titleInclude }) : []
+  const similarById = new Map(similarRows.map((item) => [item.id, item]))
   return {
     title: {
       ...toTitle(row), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
@@ -258,7 +301,7 @@ export async function getTitle(slug: string) {
       id: season.id, number: season.number, name: season.name, poster: season.poster,
       episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
     })),
-    similar: similar.map(toTitle),
+    similar: recommendations.flatMap((result) => { const item = similarById.get(result.item.id); return item ? [{ ...toTitle(item), recommendationReason: result.reason }] : [] }),
   }
 }
 
@@ -269,6 +312,7 @@ export type GameCard = {
   releaseDate: Date | null; score: number | null; userScore: number | null; access: string; summary: string; developer: string
   publisher: string; screenshots: string[]; featured: boolean; views: number; publishedAt: Date
   editorsChoice: boolean; localization: string[]
+  recommendationReason?: string
 }
 export function toGame(row: any): GameCard {
   return {
@@ -302,7 +346,7 @@ export async function getGamesHome() {
   }
 }
 
-export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
+export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
   if (input.lang && /^FA_(SUB|DUB|UI)$/.test(input.lang)) where.localization = { contains: input.lang }
@@ -311,8 +355,10 @@ export async function browseGames(input: { platform?: string; genre?: string; de
   if (input.pick === 'upcoming') where.releaseDate = { gt: new Date() }
   if (/^\d{4}$/.test(String(input.year || ''))) where.releaseDate = { gte: new Date(Date.UTC(Number(input.year), 0, 1)), lt: new Date(Date.UTC(Number(input.year) + 1, 0, 1)) }
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
-  if (input.developer) where.developer = String(input.developer).slice(0, 160)
-  if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
+  if (input.developerStudioId && Number.isSafeInteger(input.developerStudioId) && input.developerStudioId > 0) where.developerStudioId = input.developerStudioId
+  else if (input.developer) where.developer = String(input.developer).slice(0, 160)
+  if (input.publisherStudioId && Number.isSafeInteger(input.publisherStudioId) && input.publisherStudioId > 0) where.publisherStudioId = input.publisherStudioId
+  else if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 40) }
   const q = String(input.q || '').trim().slice(0, 80)
@@ -348,24 +394,28 @@ export async function getGame(slug: string) {
   const row = await db.gameTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.gameTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const genre = splitList(row.genres, 1)[0]
-  const [links, related] = await Promise.all([
+  const [links, recommendations, releasedVersion, scheduledVersion] = await Promise.all([
     publicLinks('game', [row.id]),
-    db.gameTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(genre ? { genres: { contains: genre } } : {}) }, orderBy: { publishedAt: 'desc' }, take: 8 }),
+    relatedGames(row),
+    db.gameUpdate.findFirst({ where: { gameId: row.id, kind: { not: 'DLC' }, version: { not: '' }, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, select: { version: true } }),
+    row.version ? db.gameUpdate.findFirst({ where: { gameId: row.id, version: row.version, kind: { not: 'DLC' }, releasedAt: { gt: new Date() } }, select: { id: true } }) : null,
   ])
+  const relatedRows = recommendations.length ? await db.gameTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } } }) : []
+  const relatedById = new Map(relatedRows.map((item) => [item.id, item]))
+  // The public version follows the release clock, including updates that become due without an admin save.
   return {
     game: {
-      ...toGame(row), publisher: row.publisher, ageRating: row.ageRating, trailerUrl: row.trailerUrl, content: row.content, views: row.views, publishedAt: row.publishedAt,
+      ...toGame(row), publisher: row.publisher, developerStudioId: row.developerStudioId, publisherStudioId: row.publisherStudioId, ageRating: row.ageRating, trailerUrl: row.trailerUrl, content: row.content, views: row.views, publishedAt: row.publishedAt,
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
       pros: parseJsonList<{ text: string }>(row.pros).map((p) => p.text).filter(Boolean),
       cons: parseJsonList<{ text: string }>(row.cons).map((c) => c.text).filter(Boolean),
       requirements: parseJsonObject<Requirements>(row.requirements, { min: {}, rec: {} }),
       franchiseId: row.franchiseId, engine: row.engine, modes: splitList(row.modes, 4), releases: parseJsonList<{ platform: string; date: string }>(row.releases),
       playMain: row.playMain, playExtra: row.playExtra, playComplete: row.playComplete, storeLinks: parseJsonList<{ store: string; url: string }>(row.storeLinks),
-      gameSize: row.gameSize, version: row.version, verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
+      gameSize: row.gameSize, version: releasedVersion?.version || (scheduledVersion ? '' : row.version), verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     },
     links: links.get(row.id) || [],
-    related: related.map(toGame),
+    related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toGame(item), recommendationReason: result.reason }] : [] }),
   }
 }
 
@@ -374,8 +424,10 @@ export async function getGame(slug: string) {
 export type SoftwareCard = {
   id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
   license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; views: number; publishedAt: Date; updatedAt: Date
+  recommendationReason?: string
 }
-function toSoftware(row: any): SoftwareCard {
+function toSoftware(source: any, versions: VersionProjection): SoftwareCard {
+  const row = projectSoftwareVersion(source, versions)
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
     license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: plainText(row.summary), downloads: row.downloads,
@@ -385,8 +437,43 @@ function toSoftware(row: any): SoftwareCard {
 
 const FEED_SIZE = 12
 
+/** Paginated release archive. Only due versions of live parent titles qualify. */
+export async function softwareReleaseFeed(input: { software?: string; channel?: string; platform?: string; architecture?: string; q?: string; page?: number }) {
+  const now = new Date()
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const channel = ['STABLE', 'BETA', 'NIGHTLY'].includes(String(input.channel)) ? String(input.channel) : ''
+  const platform = String(input.platform || '').trim().slice(0, 60)
+  const architecture = String(input.architecture || '').trim().slice(0, 40)
+  const q = String(input.q || '').trim().slice(0, 80)
+  const where: Prisma.SoftwareReleaseWhereInput = {
+    status: 'PUBLISHED', releasedAt: { lte: now },
+    software: { status: 'PUBLISHED', publishedAt: { lte: now }, ...(input.software ? { slug: String(input.software).slice(0, 120) } : {}) },
+    ...(channel ? { channel } : {}),
+    ...(platform || architecture ? { targets: { some: { ...(platform ? { platform } : {}), ...(architecture ? { architecture } : {}) } } } : {}),
+    ...(q ? { OR: [{ version: { contains: q } }, { software: { title: { contains: q } } }, { software: { titleEn: { contains: q } } }, { software: { developer: { contains: q } } }] } : {}),
+  }
+  const total = await db.softwareRelease.count({ where })
+  const pages = Math.max(1, Math.ceil(total / 20))
+  const currentPage = Math.min(page, pages)
+  const rows = await db.softwareRelease.findMany({ where, include: { software: { select: { slug: true, title: true, titleEn: true, icon: true, summary: true, developer: true } }, targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], skip: (currentPage - 1) * 20, take: 20 })
+  return { items: rows.map((row) => ({ id: row.id, version: row.version, channel: row.channel, releasedAt: row.releasedAt, changelog: plainText(row.changelog).slice(0, 220), size: row.size, targets: row.targets.map(({ platform, architecture, minVersion }) => ({ platform, architecture, minVersion })), software: { ...row.software, summary: plainText(row.software.summary).slice(0, 160) } })), total, page: currentPage, pages }
+}
+
+/** One historical version, including protected file handles but never raw URLs. */
+export async function getSoftwareRelease(slug: string, releaseId: number) {
+  if (!Number.isSafeInteger(releaseId) || releaseId < 1) return null
+  const now = new Date()
+  const release = await db.softwareRelease.findFirst({
+    where: { id: releaseId, status: 'PUBLISHED', releasedAt: { lte: now }, software: { slug, status: 'PUBLISHED', publishedAt: { lte: now } } },
+    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, developer: true, developerStudioId: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
+  })
+  if (!release) return null
+  const links = await publicLinks('softwarerelease', [release.id])
+  return { id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, targets: release.targets, software: { ...release.software, summary: plainText(release.software.summary) }, links: links.get(release.id) || [] }
+}
+
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
-export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
   /** Items filed under a taxonomy term (and its sub-terms). */
@@ -394,6 +481,10 @@ export async function softwareFeed(input: { platform?: string; category?: string
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.category) where.category = String(input.category).slice(0, 60)
   if (input.license) where.license = String(input.license).slice(0, 20)
+  if (input.developerStudioId && Number.isSafeInteger(input.developerStudioId) && input.developerStudioId > 0) where.developerStudioId = input.developerStudioId
+  else if (input.developer) where.developer = String(input.developer).slice(0, 160)
+  if (input.publisherStudioId && Number.isSafeInteger(input.publisherStudioId) && input.publisherStudioId > 0) where.publisherStudioId = input.publisherStudioId
+  else if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
   const q = String(input.q || '').trim().slice(0, 80)
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }, { summary: { contains: q } }]
   const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'views' ? [{ views: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
@@ -401,7 +492,8 @@ export async function softwareFeed(input: { platform?: string; category?: string
     db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * FEED_SIZE, take: FEED_SIZE }),
     db.softwareTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
-  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return { items: rows.map((row) => toSoftware(row, versions)), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
 }
 
 export type SoftwareTree = { platform: string; count: number; categories: { name: string; count: number }[] }[]
@@ -429,7 +521,8 @@ export async function softwareSidebar() {
   const platforms: SoftwareTree = [...tree.entries()]
     .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99) || b[1].count - a[1].count)
     .map(([platform, node]) => ({ platform, count: node.count, categories: [...node.categories.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) }))
-  return { tree: platforms, viewed: viewed.map(toSoftware), downloaded: downloaded.map(toSoftware), today: today.map(toSoftware), total: Number(total) || 0 }
+  const versions = await currentSoftwareVersions([...viewed, ...downloaded, ...today].map((row) => row.id))
+  return { tree: platforms, viewed: viewed.map((row) => toSoftware(row, versions)), downloaded: downloaded.map((row) => toSoftware(row, versions)), today: today.map((row) => toSoftware(row, versions)), total: Number(total) || 0 }
 }
 
 export async function getSoftwareHome() {
@@ -439,8 +532,9 @@ export async function getSoftwareHome() {
     db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
     db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 1000 }),
   ])
+  const versions = await currentSoftwareVersions([...featured, ...latest, ...popular].map((row) => row.id))
   return {
-    featured: featured.map(toSoftware), latest: latest.map(toSoftware), popular: popular.map(toSoftware),
+    featured: featured.map((row) => toSoftware(row, versions)), latest: latest.map((row) => toSoftware(row, versions)), popular: popular.map((row) => toSoftware(row, versions)),
     platforms: countList(facetRows.map((row: { platforms: string }) => row.platforms)).slice(0, 8),
     categories: countList(facetRows.map((row: { category: string }) => row.category)).slice(0, 16),
   }
@@ -459,7 +553,8 @@ export async function browseSoftware(input: { platform?: string; category?: stri
     db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.softwareTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
-  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return { items: rows.map((row) => toSoftware(row, versions)), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
 /** Header strip of the software portal: catalogue size, traffic, freshness and community. */
@@ -487,10 +582,11 @@ export async function softwareSuggestions(take = 10, pickedIds: number[] = []) {
     const picked = await db.softwareTitle.findMany({ where: { ...live(), id: { in: pickedIds.slice(0, take) } } }).catch(() => [])
     const byId = new Map(picked.map((row) => [row.id, row]))
     const ordered = pickedIds.map((id) => byId.get(id)).filter((row): row is NonNullable<typeof row> => !!row)
-    if (ordered.length) return ordered.map(toSoftware)
+    if (ordered.length) { const versions = await currentSoftwareVersions(ordered.map((row) => row.id)); return ordered.map((row) => toSoftware(row, versions)) }
   }
   const rows = await db.softwareTitle.findMany({ where: live(), orderBy: [{ featured: 'desc' }, { downloads: 'desc' }], take }).catch(() => [])
-  return rows.map(toSoftware)
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return rows.map((row) => toSoftware(row, versions))
 }
 
 /** Latest journal posts with a cover (the portal's “tech news” box). */
@@ -501,25 +597,36 @@ export async function techNews(take = 5) {
 /** Newest software filed under the given ids (one home-page shelf per main category). */
 export async function softwareShelf(ids: number[] | null, take = 8) {
   const rows = await db.softwareTitle.findMany({ where: { ...live(), ...(ids ? { id: { in: ids.slice(0, 5000) } } : {}) }, orderBy: { updatedAt: 'desc' }, take }).catch(() => [])
-  return rows.map(toSoftware)
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return rows.map((row) => toSoftware(row, versions))
 }
 
 export async function getSoftware(slug: string) {
+  const now = new Date()
   const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [links, related] = await Promise.all([
+  const [links, recommendations, releases] = await Promise.all([
     publicLinks('software', [row.id]),
-    db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
+    relatedSoftware(row),
+    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, include: { targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
   ])
+  const related = recommendations.length ? await db.softwareTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } } }) : []
+  const versions = await currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now)
+  const relatedById = new Map(related.map((item) => [item.id, item]))
+  const projected = projectSoftwareVersion(row, versions)
+  const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
   return {
     software: {
-      ...toSoftware(row), website: row.website, requirements: row.requirements, content: row.content, changelog: row.changelog, views: row.views, releasedAt: row.releasedAt, updatedAt: row.updatedAt,
+      ...toSoftware(row, versions), publisher: row.publisher, developerStudioId: row.developerStudioId, publisherStudioId: row.publisherStudioId, website: row.website, requirements: row.requirements, content: row.content,
+      changelog: projected.changelog, views: row.views,
+      releasedAt: projected.releasedAt, updatedAt: projected.updatedAt,
       features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],
-    related: related.map(toSoftware),
+    releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), targets: release.targets, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
+    related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toSoftware(item, versions), recommendationReason: result.reason }] : [] }),
   }
 }
 

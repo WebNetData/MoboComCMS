@@ -18,6 +18,7 @@ function load(relative) {
 const media = load('src/modules/media/domain/media')
 const { toEmbedUrl } = load('src/modules/site/domain/builder')
 const kind = (url, k = 'DOWNLOAD') => media.playbackKind(url, k, toEmbedUrl)
+const playback = load('src/components/media/playback-session')
 
 test('browser-playable files get the in-site player', () => {
   assert.equal(kind('https://dl.example.com/movie.720p.mp4'), 'video')
@@ -47,4 +48,22 @@ test('player page keeps the same access rules and quota exemption', () => {
   assert.match(source.slice(source.indexOf('async function gate('), source.indexOf('function denied(')), /canAccess\('MEMBERS', viewer\.member\)/)
   assert.match(watch, /checkPageToken\(token, `l\$\{id\}`/)
   assert.doesNotMatch(watch, /logDownload/, 'watching does not use the daily download quota')
+})
+
+test('music source keeps quality and access checks behind the protected track route', () => {
+  const track = { id: 42, hasHq: true }
+  assert.equal(playback.sourceUrl(playback.trackSource(track, false)), '/api/media/track/42')
+  assert.equal(playback.sourceUrl(playback.trackSource(track, true), true), '/api/media/track/42?check=1&q=hq')
+  assert.equal(playback.trackSource({ id: 42, hasHq: false }, true).quality, 'standard')
+})
+
+test('restored music queue rejects malformed tracks and clamps position', () => {
+  const track = { id: 42, slug: 'song-42', title: 'Song', artist: 'Artist', artistSlug: 'artist', cover: '/cover.jpg', access: 'MEMBERS', hasHq: true, duration: 180 }
+  const session = playback.parsePlaybackSession({ queue: [{ ...track, id: -1 }, track, { ...track, slug: 'javascript:bad' }], index: 8, time: 999 })
+  assert.equal(session.queue.length, 1)
+  assert.equal(session.index, 0)
+  assert.equal(session.time, 180)
+  assert.equal(session.queue[0].access, 'MEMBERS')
+  assert.equal(playback.parsePlaybackSession({ queue: [{ ...track, slug: 'آهنگ-تازه' }], index: 0, time: 0 }).queue.length, 1)
+  assert.equal(playback.parsePlaybackSession({ queue: [] }), null)
 })

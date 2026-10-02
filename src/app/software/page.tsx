@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from '@/components/AppLink'
 import { withSectionSeo } from '@/modules/site/server/section-seo'
 import { requireModule, isModuleEnabled } from '@/extensions/server/modules'
 import { softwareShelf, techNews } from '@/modules/media/server/queries'
@@ -54,6 +55,7 @@ export default async function SoftwareHomePage() {
       {order.includes('tiles') && <div className="container sp-top"><CategoryTiles tiles={chrome.tiles} /></div>}
       <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
         <h1 className="sr-only">دانلود نرم‌افزار</h1>
+        <nav className="sp-release-entry" aria-label="کشف نرم‌افزار"><Link href="/software/releases">نسخه‌ها و به‌روزرسانی‌ها ←</Link><Link href="/studios">سازندگان و ناشران ←</Link></nav>
         {order.filter((key) => key !== 'stats' && key !== 'tiles').map((key) => <Fragment key={key}>{blocks[key]()}</Fragment>)}
       </SoftwareLayout>
     </MediaShell>

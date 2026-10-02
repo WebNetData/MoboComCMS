@@ -48,7 +48,7 @@ export function EmptyState({ fa, title, text }: Fa & { title?: string; text?: st
 
 // ------------------------------------------------------------------ cinema
 
-type TitleLike = { slug: string; kind: string; title: string; titleEn: string; poster: string; year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean; access: string; seasonsCount: number }
+type TitleLike = { slug: string; kind: string; title: string; titleEn: string; poster: string; year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean; access: string; seasonsCount: number; recommendationReason?: string }
 
 export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: number }) {
   const name = fa ? item.title : item.titleEn || item.title
@@ -71,6 +71,7 @@ export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: nu
         {item.year ? ` · ${yr(item.year, fa)}` : ''}
         {item.kind === 'SERIES' && item.seasonsCount ? ` · ${n(item.seasonsCount, fa)} ${fa ? 'فصل' : item.seasonsCount > 1 ? 'seasons' : 'season'}` : ''}
       </span>
+      {item.recommendationReason && <small className="cn-poster-reason">{fa ? item.recommendationReason : item.recommendationReason.startsWith('سبک مشترک: ') ? `Shared genre: ${item.recommendationReason.slice('سبک مشترک: '.length)}` : 'Same format'}</small>}
     </Link>
   )
 }
@@ -83,7 +84,7 @@ export function ImdbBadge({ rating, fa, large }: Fa & { rating: number | null; l
 // ------------------------------------------------------------------ music
 
 type ArtistLike = { slug: string; name: string; nameEn: string; image: string }
-type AlbumLike = { slug: string; title: string; titleEn: string; cover: string; year: number | null; access: string; artist: ArtistLike; trackCount: number }
+type AlbumLike = { slug: string; title: string; titleEn: string; cover: string; year: number | null; access: string; artist: ArtistLike; trackCount: number; recommendationReason?: string }
 
 export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
   const name = fa ? album.title : album.titleEn || album.title
@@ -96,6 +97,7 @@ export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
       </span>
       <b>{name}</b>
       <small>{fa ? album.artist.name : album.artist.nameEn || album.artist.name}{album.year ? ` · ${yr(album.year, fa)}` : ''}</small>
+      {album.recommendationReason && <small className="mu-album-reason">{fa ? album.recommendationReason : album.recommendationReason.startsWith('سبک مشترک: ') ? `Shared genre: ${album.recommendationReason.slice('سبک مشترک: '.length)}` : 'Same artist'}</small>}
     </Link>
   )
 }

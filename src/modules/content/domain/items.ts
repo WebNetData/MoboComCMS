@@ -6,7 +6,7 @@
  */
 
 import { toInternalPath } from '@/shared/routing/aliases'
-export const ITEM_TYPES = ['software', 'game', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread'] as const
+export const ITEM_TYPES = ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread'] as const
 export type ItemType = typeof ITEM_TYPES[number]
 export type ItemRef = { type: ItemType; id: number }
 
@@ -14,13 +14,14 @@ export const isItemType = (value: unknown): value is ItemType => (ITEM_TYPES as 
 
 /** Feature module that must be enabled for the item type to be public. */
 export const ITEM_MODULE: Record<ItemType, string> = {
-  software: 'software', game: 'games', title: 'cinema', album: 'music', track: 'music', artist: 'music',
+  software: 'software', game: 'games', studio: 'games', title: 'cinema', album: 'music', track: 'music', artist: 'music',
   product: 'store', post: 'journal', thread: 'forum',
 }
 
 export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: string }> = {
   software: { one: 'نرم‌افزار', many: 'نرم‌افزارها', icon: '💾' },
   game: { one: 'بازی', many: 'بازی‌ها', icon: '🎮' },
+  studio: { one: 'سازنده / ناشر', many: 'سازندگان و ناشران', icon: '🏢' },
   title: { one: 'فیلم و سریال', many: 'فیلم و سریال', icon: '🎬' },
   album: { one: 'آلبوم', many: 'آلبوم‌ها', icon: '💿' },
   track: { one: 'آهنگ', many: 'آهنگ‌ها', icon: '🎵' },
@@ -33,7 +34,7 @@ export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: str
 /** Item types members can rate, review and follow (products keep their own review system). */
 export const REVIEWABLE: readonly ItemType[] = ['software', 'game', 'title', 'album', 'track']
 /** Item types members can favorite. */
-export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'title', 'album', 'track', 'artist', 'product', 'post']
+export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post']
 /** Item types that can be compared side by side (only with the same type). */
 export const COMPARABLE: readonly ItemType[] = ['software', 'game', 'title', 'product']
 export const COMPARE_MAX = 4
@@ -43,6 +44,7 @@ export function itemPath(type: ItemType, key: { slug?: string | null; id: number
   switch (type) {
     case 'software': return `/software/${slug}`
     case 'game': return `/games/${slug}`
+    case 'studio': return `/studios/${key.id}`
     case 'title': return `/cinema/${slug}`
     case 'album': return `/music/album/${slug}`
     case 'track': return `/music/track/${slug}`
@@ -66,6 +68,7 @@ export function parseItemPath(input: string): { type: ItemType; slug: string; id
   const match = (pattern: RegExp) => { const m = pattern.exec(path); if (m) { try { slug = decodeURIComponent(m[1]) } catch { slug = m[1] } } return !!m }
   if (match(/^\/software\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'software', slug }
   if (match(/^\/games\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'game', slug }
+  if (match(/^\/studios\/(\d+)\/?$/)) return { type: 'studio', slug, id: Number(slug) }
   if (match(/^\/cinema\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'title', slug }
   if (match(/^\/music\/album\/([^/]+)\/?$/)) return { type: 'album', slug }
   if (match(/^\/music\/track\/([^/]+)\/?$/)) return { type: 'track', slug }

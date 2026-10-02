@@ -262,6 +262,7 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
       id: thread.id, title: censorText(thread.title, censored), pinned: thread.pinned, locked: thread.locked, status: thread.status, views: thread.views + 1, replyCount: thread.replyCount,
       likeCount: thread.likeCount, postCount: thread.postCount, createdAt: thread.createdAt, lastPostAt: thread.lastPostAt, userId: thread.userId, tags: thread.tags.map((row) => row.tag.name),
       closeAt: thread.closeAt, slowModeSeconds: thread.slowModeSeconds, listed: thread.listed,
+      itemType: thread.itemType, itemId: thread.itemId, kind: thread.kind,
     },
     lastRead: state?.lastRead ?? 0,
     categoryLevel: categoryLevel?.level || 'NORMAL',

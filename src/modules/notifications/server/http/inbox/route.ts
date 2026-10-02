@@ -6,14 +6,22 @@ import { err, ok } from '@/platform/http/response'
 export async function GET(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
-  if (req.nextUrl.searchParams.get('countOnly') === '1') return ok({ unread: await db.userNotification.count({ where: { userId: user.id, readAt: null } }) })
-  const cursor = Number(req.nextUrl.searchParams.get('before') || 0)
+  const privateOk = (data: unknown) => {
+    const response = ok(data)
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
+  if (req.nextUrl.searchParams.get('countOnly') === '1') return privateOk({ unread: await db.userNotification.count({ where: { userId: user.id, readAt: null } }) })
+  const before = req.nextUrl.searchParams.get('before')
+  const cursor = before === null ? 0 : Number(before)
+  if (before !== null && (!Number.isSafeInteger(cursor) || cursor <= 0)) return err('invalid cursor', 400)
+  const unreadOnly = req.nextUrl.searchParams.get('unread') === '1'
   const notifications = await db.userNotification.findMany({
-    where: { userId: user.id, ...(Number.isInteger(cursor) && cursor > 0 ? { id: { lt: cursor } } : {}) },
+    where: { userId: user.id, ...(unreadOnly ? { readAt: null } : {}), ...(cursor > 0 ? { id: { lt: cursor } } : {}) },
     orderBy: { id: 'desc' }, take: 31,
   })
   const unread = await db.userNotification.count({ where: { userId: user.id, readAt: null } })
-  return ok({ notifications: notifications.slice(0, 30), nextCursor: notifications.length > 30 ? notifications[29].id : null, unread })
+  return privateOk({ notifications: notifications.slice(0, 30), nextCursor: notifications.length > 30 ? notifications[29].id : null, unread })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -27,5 +35,7 @@ export async function PATCH(req: NextRequest) {
     if (!Number.isInteger(id) || id <= 0) return err('invalid notification id', 400)
     await db.userNotification.updateMany({ where: { id, userId: user.id, readAt: null }, data: { readAt: new Date() } })
   }
-  return ok({ updated: true })
+  const response = ok({ updated: true, unread: await db.userNotification.count({ where: { userId: user.id, readAt: null } }) })
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }

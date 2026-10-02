@@ -29,6 +29,7 @@ export function CoverCard({ game }: { game: Game }) {
       {game.score !== null && <span className="gx-score is-corner">{fa(game.score)}</span>}
     </span>
     <b>{game.title}</b>
+    {game.recommendationReason && <small className="gx-cover-reason">{game.recommendationReason}</small>}
   </Link>
 }
 

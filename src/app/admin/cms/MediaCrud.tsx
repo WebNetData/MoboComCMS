@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
@@ -8,6 +8,9 @@ import FileUpload, { CopyToServer } from '@/components/admin/FileUpload'
 import AiAutofill from './AiAutofill'
 import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
+import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
+import AdminPagination from './AdminPagination'
+import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { playbackKind } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -83,30 +86,54 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<AdminPageSize>(20)
+  const [pages, setPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [overall, setOverall] = useState(0)
+  const [vip, setVip] = useState<number | null>(null)
+  const loadId = useRef(0)
   const [sources, setSources] = useState<Record<string, Opt[]>>({})
   const [aiKeys, setAiKeys] = useState<Set<string>>(new Set())
   const [review, setReview] = useState(false)
   const [originalStatus, setOriginalStatus] = useState('')
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkProgress, setBulkProgress] = useState(0)
 
   const load = useCallback(async () => {
+    const requestId = ++loadId.current
     setLoading(true)
-    const res = await fetch(`${API}?type=${type}`)
-    const data = await res.json().catch(() => null)
-    if (res.ok) setRows(Array.isArray(data) ? data : [])
-    else setMsg({ tone: 'err', text: data?.error || (fa ? 'بارگذاری ناموفق بود' : 'Could not load') })
+    const params = new URLSearchParams({ type, paged: '1', page: String(page), limit: String(pageSize), q: search })
+    const res = await fetch(`${API}?${params}`).catch(() => null)
+    const data = await res?.json().catch(() => null)
+    if (requestId !== loadId.current) return
+    if (res?.ok && Array.isArray(data?.rows)) {
+      setRows(data.rows)
+      setTotal(data.total)
+      setOverall(data.overall)
+      setVip(data.vip)
+      setPages(data.pages)
+      if (data.page !== page) setPage(data.page)
+    } else setMsg({ tone: 'err', text: data?.error || (fa ? 'بارگذاری ناموفق بود' : 'Could not load') })
     setLoading(false)
-  }, [type, fa])
+  }, [type, fa, page, pageSize, search])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); setSearch(query.trim()) }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
 
   const sourceTypes = useMemo(() => [...new Set(fields.flatMap((f) => (f.source ? [f.source.type] : [])))], [fields])
   useEffect(() => {
     if (!form) return
     sourceTypes.forEach(async (sourceType) => {
-      const res = await fetch(`${API}?type=${sourceType}`)
+      const res = await fetch(`${API}?type=${sourceType}&paged=1&limit=all`)
       const data = res.ok ? await res.json().catch(() => []) : []
       const field = fields.find((f) => f.source?.type === sourceType)!
-      setSources((current) => ({ ...current, [sourceType]: (Array.isArray(data) ? data : []).map((row: any) => ({ value: String(row.id), label: field.source!.label(row) })) }))
+      setSources((current) => ({ ...current, [sourceType]: (Array.isArray(data?.rows) ? data.rows : []).map((row: any) => ({ value: String(row.id), label: field.source!.label(row) })) }))
     })
   }, [form === null, sourceTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,10 +178,12 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
   }
 
   async function remove(row: any) {
+    if (busy) return
     if (!confirm(fa ? `«${row[titleKey] || row.name}» حذف شود؟` : `Delete “${row[titleKey] || row.name}”?`)) return
     const res = await fetch(`${API}?type=${type}&id=${row.id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) setMsg({ tone: 'err', text: data?.error || (fa ? 'حذف ناموفق بود' : 'Delete failed') })
+    else setSelected((current) => { const next = new Set(current); next.delete(row.id); return next })
     load()
   }
 
@@ -196,8 +225,37 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
     return { key: field.key, label: field.label, value, state: !value && field.required ? 'missing' : aiKeys.has(field.key) ? 'ai' : value ? 'ok' : 'empty' }
   }) : []
   const tableFields = fields.filter((f) => f.table)
-  const needle = query.trim().toLocaleLowerCase()
-  const visible = needle ? rows.filter((row) => [row.title, row.titleEn, row.name, row.nameEn, row.slug, row.originalTitle].join(' ').toLocaleLowerCase().includes(needle)) : rows
+  const visible = rows
+  const bulkEnabled = type !== 'vip-plans'
+  const visibleIds = visible.map((row) => Number(row.id))
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
+  const toggleSelected = (id: number) => setSelected((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const toggleAllVisible = () => setSelected((current) => {
+    const next = new Set(current)
+    if (visibleIds.every((id) => next.has(id))) visibleIds.forEach((id) => next.delete(id))
+    else visibleIds.forEach((id) => next.add(id))
+    return next
+  })
+  async function applyBulk(action: BulkAction) {
+    const ids = [...selected]
+    if (!ids.length || busy) return
+    setBusy(true)
+    setBulkProgress(0)
+    setMsg(null)
+    const result = await runBulkAction(API, type, ids, action, setBulkProgress)
+    setSelected(new Set(result.failed.map((item) => item.id)))
+    const label = action === 'delete' ? (fa ? 'حذف' : 'deleted') : action === 'draft' ? (fa ? 'پیش‌نویس' : 'moved to draft') : (fa ? 'منتشر' : 'published')
+    setMsg({ tone: result.failed.length ? 'err' : 'ok', text: fa
+      ? `${result.succeeded.length.toLocaleString('fa-IR')} مورد ${label} شد.${result.failed.length ? ` ${result.failed.length.toLocaleString('fa-IR')} مورد ناموفق بود: ${result.failed.slice(0, 3).map((item) => `#${item.id} ${item.reason}`).join('، ')}` : ''}`
+      : `${result.succeeded.length} items ${label}.${result.failed.length ? ` ${result.failed.length} failed: ${result.failed.slice(0, 3).map((item) => `#${item.id} ${item.reason}`).join(', ')}` : ''}` })
+    await load()
+    setBusy(false)
+  }
 
   return (
     <div className="cms-workspace mx-workspace">
@@ -236,35 +294,39 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
       )}
 
       <div className="cms-summary">
-        <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{rows.length.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
-        <div><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{rows.filter((row) => row.access === 'MEMBERS').length.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
+        <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
+        {vip !== null && <div><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
         <label className="cms-search"><span>{fa ? 'جست‌وجو' : 'Search'}</span><input className="input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label>
       </div>
 
+      <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || busy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
+      {bulkEnabled && <BulkActions count={selected.size} canPublish={hasStatus} fa={fa} busy={busy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />}
       <div className="card overflow-x-auto">
         {loading ? <p className="muted text-center py-6">{fa ? 'در حال بارگذاری…' : 'Loading…'}</p> : (
           <table className="data">
-            <thead><tr><th>#</th>{tableFields.map((f) => <th key={f.key}>{f.label}</th>)}<th>{fa ? 'عملیات' : 'Actions'}</th></tr></thead>
+            <thead><tr>{bulkEnabled && <th><input type="checkbox" aria-label={fa ? 'انتخاب همه موارد نمایش‌داده‌شده' : 'Select all visible items'} checked={allVisibleSelected} disabled={busy || !visibleIds.length} onChange={toggleAllVisible} /></th>}<th>#</th>{tableFields.map((f) => <th key={f.key}>{f.label}</th>)}<th>{fa ? 'عملیات' : 'Actions'}</th></tr></thead>
             <tbody>
               {visible.map((row) => {
                 const href = publicPath?.(row)
                 return (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={selected.has(row.id) ? 'is-selected' : ''}>
+                    {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.name || `#${row.id}`}`} checked={selected.has(row.id)} disabled={busy} onChange={() => toggleSelected(row.id)} /></td>}
                     <td className="num">{row.id}</td>
                     {tableFields.map((f) => <td key={f.key}>{typeof f.table === 'function' ? f.table(row) : cell(f, row[f.key], fa)}</td>)}
                     <td><div className="flex gap-1">
-                      <button type="button" className="badge badge-purple" onClick={() => open(row)}>{fa ? 'ویرایش' : 'Edit'}</button>
+                      <button type="button" className="badge badge-purple" disabled={busy} onClick={() => open(row)}>{fa ? 'ویرایش' : 'Edit'}</button>
                       {href && <Link className="badge badge-gray" href={href} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
-                      <button type="button" className="badge badge-red" onClick={() => remove(row)}>{fa ? 'حذف' : 'Delete'}</button>
+                      <button type="button" className="badge badge-red" disabled={busy} onClick={() => remove(row)}>{fa ? 'حذف' : 'Delete'}</button>
                     </div></td>
                   </tr>
                 )
               })}
-              {!visible.length && <tr><td colSpan={tableFields.length + 2} className="muted text-center py-8">{fa ? 'هنوز موردی ثبت نشده.' : 'Nothing here yet.'}</td></tr>}
+              {!visible.length && <tr><td colSpan={tableFields.length + 2 + Number(bulkEnabled)} className="muted text-center py-8">{fa ? 'هنوز موردی ثبت نشده.' : 'Nothing here yet.'}</td></tr>}
             </tbody>
           </table>
         )}
       </div>
+      <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || busy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
     </div>
   )
 }
@@ -343,7 +405,7 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   </div>
 }
 
-export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
@@ -379,6 +441,11 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
           <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option></select>
           <input className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
           <input className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+          {section === 'software' && <div className="mx-software-link-meta">
+            <label><span>{fa ? 'سیستم‌عامل فایل' : 'File OS'}</span><input className="input" list="software-platform-options" value={row.platform || ''} onChange={(e) => update(index, { platform: e.target.value })} placeholder="Windows" /></label>
+            <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
+            <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
+          </div>}
           <select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>

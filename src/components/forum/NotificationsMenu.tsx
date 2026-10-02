@@ -36,10 +36,11 @@ export default function NotificationsMenu() {
   }, [open, load])
 
   async function readAll() {
-    await fetch('/api/inbox', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) }).catch(() => null)
+    const response = await fetch('/api/inbox', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) }).catch(() => null)
+    if (response?.ok) window.dispatchEvent(new Event('mobocom:inbox-updated'))
     void load()
   }
-  const markRead = (id: number) => { void fetch('/api/inbox', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).catch(() => null) }
+  const markRead = (id: number) => { void fetch('/api/inbox', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }).then((response) => { if (response.ok) window.dispatchEvent(new Event('mobocom:inbox-updated')) }).catch(() => null) }
 
   return (
     <div className="fx-bell" ref={box}>

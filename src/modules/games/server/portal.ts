@@ -52,7 +52,7 @@ export async function gamePageExtras(game: { id: number; title: string; titleEn:
   const settings = await getGamesSettings()
   const [franchise, updates, news, counts, mine, scores] = await Promise.all([
     game.franchiseId ? db.gameFranchise.findUnique({ where: { id: game.franchiseId }, include: { games: { where: { ...live(), id: { not: game.id } }, orderBy: { releaseDate: 'asc' }, take: 12 } } }).catch(() => null) : null,
-    db.gameUpdate.findMany({ where: { gameId: game.id }, orderBy: { releasedAt: 'desc' }, take: 30 }).catch(() => []),
+    db.gameUpdate.findMany({ where: { gameId: game.id, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, take: 30 }).catch(() => []),
     newsAbout([game.title, game.titleEn]),
     settings.libraryEnabled ? libraryCounts(game.id) : null,
     settings.libraryEnabled ? libraryEntry(userId, game.id) : null,
@@ -177,4 +177,3 @@ async function newsByKeywords(words: string[]) {
   const rows = await db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' }, OR: words.flatMap((word) => [{ category: { name: { contains: word } } }, { title: { contains: word } }]) }, orderBy: { publishedAt: 'desc' }, take: 9, select }).catch(() => [])
   return rows.length >= 3 ? rows : gamePosts(9)
 }
-

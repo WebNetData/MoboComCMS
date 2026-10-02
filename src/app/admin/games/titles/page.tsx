@@ -3,7 +3,9 @@
 import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState } from 'react'
-import { GamesShell, Notice, Pager, RELEASE_LABEL, fa, faDate, send, useJson } from '../shared'
+import { GamesShell, Notice, RELEASE_LABEL, fa, faDate, send, useJson } from '../shared'
+import AdminPagination from '../../cms/AdminPagination'
+import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 
 type Game = {
   id: number; slug: string; title: string; titleEn: string; cover: string; platforms: string[]; status: string; scheduled: boolean; publishedAt: string; releaseDate: string | null
@@ -18,7 +20,7 @@ const STATUS_TABS: [string, string][] = [['', 'همه'], ['published', 'منتش
 function Titles() {
   const router = useRouter()
   const params = useSearchParams()
-  const filters = Object.fromEntries(['q', 'status', 'platform', 'franchise', 'issue', 'sort', 'page'].map((key) => [key, params.get(key) || '']))
+  const filters = Object.fromEntries(['q', 'status', 'platform', 'franchise', 'issue', 'sort', 'page', 'size'].map((key) => [key, params.get(key) || '']))
   const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value))
   const { data, error, loading, reload } = useJson<List>(`/api/admin/games/list?${query}`)
   const [search, setSearch] = useState(filters.q)
@@ -26,21 +28,25 @@ function Titles() {
   const [action, setAction] = useState('')
   const [value, setValue] = useState('')
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
-  useEffect(() => setSelected([]), [data])
   useEffect(() => setSearch(filters.q), [filters.q])
 
   const go = (patch: Record<string, string>) => {
     const next = new URLSearchParams(Object.entries({ ...filters, page: '', ...patch }).filter(([, v]) => v))
     router.push(`/admin/games/titles?${next}`)
   }
-  const all = !!data?.games.length && selected.length === data.games.length
+  const all = !!data?.games.length && data.games.every((game) => selected.includes(game.id))
 
   async function apply() {
     if (!action || !selected.length) return
     if (action === 'delete' && !window.confirm(`${fa(selected.length)} بازی همراه با لینک‌ها و آپدیت‌هایشان حذف شود؟ این کار برگشت‌پذیر نیست.`)) return
-    const response = await send<{ changed: number }>('/api/admin/games/list', 'POST', { ids: selected, action, value })
-    if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
-    setResult({ tone: 'ok', text: `${fa(response.data.changed)} بازی ${action === 'delete' ? 'حذف' : 'به‌روز'} شد` })
+    let changed = 0
+    for (let index = 0; index < selected.length; index += 500) {
+      const response = await send<{ changed: number }>('/api/admin/games/list', 'POST', { ids: selected.slice(index, index + 500), action, value })
+      if (!response.ok) { setSelected(selected.slice(index)); setResult({ tone: 'error', text: `${fa(changed)} بازی به‌روز شد؛ ${response.error}` }); void reload(); return }
+      changed += response.data.changed
+    }
+    setResult({ tone: 'ok', text: `${fa(changed)} بازی ${action === 'delete' ? 'حذف' : 'به‌روز'} شد` })
+    setSelected([])
     setAction(''); setValue('')
     void reload()
   }
@@ -62,6 +68,7 @@ function Titles() {
     </form>
     {error && <Notice tone="error">{error}</Notice>}
     {result && <Notice tone={result.tone}>{result.text}</Notice>}
+    <AdminPagination fa page={data?.page || 1} pages={data?.pages || 1} size={(filters.size || '20') as AdminPageSize} total={data?.total || 0} shown={data?.games.length || 0} busy={loading} onPage={(page) => go({ page: String(page) })} onSize={(size) => go({ size: String(size) })} />
     {selected.length > 0 && <div className="sa-bulk" role="region" aria-label="عملیات گروهی">
       <b className="num">{fa(selected.length)} انتخاب‌شده</b>
       <select className="select" value={action} onChange={(event) => { setAction(event.target.value); setValue('') }} aria-label="عملیات"><option value="">عملیات گروهی…</option>{BULK.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
@@ -71,7 +78,7 @@ function Titles() {
     </div>}
     <div className="sa-card sa-table-wrap" aria-busy={loading}>
       <table className="data sa-table">
-        <thead><tr><th><input type="checkbox" aria-label="انتخاب همه" checked={all} onChange={() => setSelected(all ? [] : data?.games.map((g) => g.id) || [])} /></th><th>بازی</th><th>انتشار بازی</th><th>نمره</th><th>دانلود</th><th>مخاطب</th><th>وضعیت</th></tr></thead>
+        <thead><tr><th><input type="checkbox" aria-label="انتخاب همه موارد این صفحه" checked={all} onChange={() => setSelected((current) => all ? current.filter((id) => !data?.games.some((game) => game.id === id)) : [...new Set([...current, ...(data?.games.map((game) => game.id) || [])])])} /></th><th>بازی</th><th>انتشار بازی</th><th>نمره</th><th>دانلود</th><th>مخاطب</th><th>وضعیت</th></tr></thead>
         <tbody>
           {data?.games.map((game) => <tr key={game.id} className={selected.includes(game.id) ? 'is-selected' : ''}>
             <td><input type="checkbox" aria-label={`انتخاب ${game.title}`} checked={selected.includes(game.id)} onChange={() => setSelected((list) => list.includes(game.id) ? list.filter((id) => id !== game.id) : [...list, game.id])} /></td>
@@ -94,7 +101,7 @@ function Titles() {
         </tbody>
       </table>
     </div>
-    {data && <Pager page={data.page} pages={data.pages} onPage={(page) => go({ page: String(page) })} />}
+    <AdminPagination fa page={data?.page || 1} pages={data?.pages || 1} size={(filters.size || '20') as AdminPageSize} total={data?.total || 0} shown={data?.games.length || 0} busy={loading} onPage={(page) => go({ page: String(page) })} onSize={(size) => go({ size: String(size) })} />
   </GamesShell>
 }
 

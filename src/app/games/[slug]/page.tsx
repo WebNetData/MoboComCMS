@@ -19,6 +19,7 @@ import LinkBox from '@/components/media/LinkBox'
 import { paywallView } from '@/modules/paywall/server/paywall'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
+import RelatedDiscussions from '@/components/forum/RelatedDiscussions'
 import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
@@ -61,8 +62,8 @@ export default async function GamePage({ params }: Props) {
   const [rating, terms] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id])])
   const term = terms.get(g.id)
   const facts = ([
-    ['سازنده', g.developer && <Link href={`/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
-    ['ناشر', g.publisher && <Link href={`/games/browse?publisher=${encodeURIComponent(g.publisher)}`}>{g.publisher}</Link>],
+    ['سازنده', g.developer && <Link href={g.developerStudioId ? `/studios/${g.developerStudioId}` : `/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
+    ['ناشر', g.publisher && <Link href={g.publisherStudioId ? `/studios/${g.publisherStudioId}` : `/games/browse?publisher=${encodeURIComponent(g.publisher)}`}>{g.publisher}</Link>],
     ['تاریخ انتشار', g.releaseDate ? new Date(g.releaseDate).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : 'اعلام نشده'],
     ['سبک', g.genres.join('، ')],
     ['مجموعه', extras.franchise && <Link href={`/games/franchise/${extras.franchise.slug}`}>{extras.franchise.title}</Link>],
@@ -156,6 +157,7 @@ export default async function GamePage({ params }: Props) {
           </section>
           <UpdatesTimeline updates={extras.updates} member={viewer.member} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} paywall={paywall} />
           <NewsList posts={extras.news} title={`اخبار و مقالات ${g.title}`} />
+          <RelatedDiscussions item={ref} />
           <div id="reviews" className="gv-anchor"><ReviewSection item={ref} title={g.title} path={`/games/${g.slug}`} /></div>
         </div>
         <aside className="gv-aside">

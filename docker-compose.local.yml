@@ -1,0 +1,44 @@
+# MoboComCMS local test stack: PostgreSQL 17 + dev app on http://localhost:3000
+# Usage: docker compose -f docker-compose.local.yml up --build
+name: mobocom-local
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: mobocom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mobocom
+      POSTGRES_PASSWORD: mobocom-local
+      POSTGRES_DB: mobocom
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - mobocom_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mobocom -d mobocom"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mobocom-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - .:/app
+      - mobocom_node_modules:/app/node_modules
+      - mobocom_next_dev:/app/.next-dev
+
+volumes:
+  mobocom_postgres:
+  mobocom_node_modules:
+  mobocom_next_dev:

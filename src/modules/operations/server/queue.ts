@@ -12,6 +12,13 @@ type Handler = (payload: Record<string, unknown>, job: { id: number; attempts: n
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { label: string; run: Handler }> = {
+  'notification.deliver': {
+    label: 'تحویل اعلان کاربر',
+    run: async (payload) => {
+      const { deliverInboxCopy } = await import('@/modules/notifications/server/inbox')
+      return deliverInboxCopy(Number(payload.notificationId), String(payload.channel || ''))
+    },
+  },
   'images.optimize': {
     label: 'بهینه‌سازی همهٔ تصاویر',
     run: async (payload) => {

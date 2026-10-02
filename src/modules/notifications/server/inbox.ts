@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { logEvent } from '@/platform/observability/logger'
+import { Prisma } from '@prisma/client'
 
 export type InboxEvent = {
   userId: number
@@ -15,26 +15,46 @@ export type InboxEvent = {
 /** Durable, idempotent customer event. External delivery must never gate settlement. */
 export async function createInboxEvent(event: InboxEvent) {
   if (!Number.isInteger(event.userId) || event.userId <= 0 || !/^\/[A-Za-z0-9/_?=&.%-]*$/.test(event.href) || event.href.startsWith('//')) throw new Error('invalid inbox event')
-  const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
-  if (existing) return existing
-  const row = await db.userNotification.upsert({
-    where: { dedupeKey: event.dedupeKey },
-    create: event,
-    update: {},
-  })
-  // SMS copy of a new event (IPPanel). Delivery problems never affect the event itself.
-  void import('@/modules/sms/server/sms')
-    .then(({ notifyUserEvent }) => notifyUserEvent(event))
-    .catch((error) => logEvent('error', 'sms.user_event_failed', { kind: event.kind, error }))
-  // Email copy through the site's outgoing account (e.g. Gmail), when enabled.
-  void import('@/modules/mail/server/mailer')
-    .then(({ notifyUserEmail }) => notifyUserEmail(event))
-    .catch((error) => logEvent('error', 'mail.user_event_failed', { kind: event.kind, error }))
-  // Browser/PWA notification copy (web push module).
-  void import('@/modules/push/server/push')
-    .then(({ pushToUser }) => pushToUser(event.userId, { title: event.titleFa, body: event.bodyFa, url: event.href, tag: event.kind }))
-    .catch((error) => logEvent('error', 'push.user_event_failed', { kind: event.kind, error }))
+  let row
+  try {
+    row = await db.$transaction(async (tx) => {
+      const created = await tx.userNotification.create({ data: event })
+      await tx.backgroundJob.createMany({ data: (['sms', 'email', 'push'] as const).map((channel) => ({
+        kind: 'notification.deliver', payload: JSON.stringify({ notificationId: created.id, channel }),
+        dedupeKey: `notification:${created.id}:${channel}`,
+      })) })
+      return created
+    })
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
+    const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
+    if (!existing || existing.userId !== event.userId) throw new Error('inbox dedupe key collision')
+    return existing
+  }
   return row
+}
+
+/** Queue handler: each channel retries independently without repeating a successful channel. */
+export async function deliverInboxCopy(notificationId: number, channel: string) {
+  if (!Number.isSafeInteger(notificationId) || notificationId <= 0 || !['sms', 'email', 'push'].includes(channel)) throw new Error('invalid notification delivery')
+  const event = await db.userNotification.findUnique({ where: { id: notificationId } })
+  if (!event) return { skipped: 'removed' }
+  if (channel === 'sms') {
+    const { notifyUserEvent } = await import('@/modules/sms/server/sms')
+    const sent = await notifyUserEvent(event)
+    if (sent === false) throw new Error('SMS provider rejected notification')
+    return { sent: sent === true }
+  }
+  if (channel === 'email') {
+    const { notifyUserEmail } = await import('@/modules/mail/server/mailer')
+    const sent = await notifyUserEmail(event)
+    if (sent === false) throw new Error('Email provider rejected notification')
+    return { sent: sent === true }
+  }
+  const { pushToUser } = await import('@/modules/push/server/push')
+  const delivered = await pushToUser(event.userId, { title: event.titleFa, body: event.bodyFa, url: event.href, tag: event.kind })
+  if (delivered.retryable) throw new Error('Push provider failed to deliver notification')
+  return { sent: delivered.sent > 0 }
 }
 
 export async function invoicePaidEvent(invoice: { id: number; number: string; userId: number; kind: string }) {

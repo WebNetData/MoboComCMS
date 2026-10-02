@@ -14,6 +14,6 @@ export async function GET(req: NextRequest) {
   const response = params.get('suggest') === '1'
     ? ok({ results: await suggest(q, parseTypes(params.get('types'))) })
     : ok(await searchSite({ q, type: params.get('type'), page: params.get('page') }))
-  response.headers.set('Cache-Control', 'private, max-age=30')
+  response.headers.set('Cache-Control', 'private, no-store')
   return response
 }

@@ -19,6 +19,7 @@ import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { getMusicSettings } from '@/modules/music/server/admin'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import AddToPersonalPlaylist from '@/components/media/AddToPersonalPlaylist'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,6 +85,7 @@ export default async function TrackPage({ params }: Props) {
                 : <a className="btn btn-ghost" href={await trackDownloadHref(track.id, viewer.userId, true)} rel="nofollow">⤓ {fa ? 'دانلود ۳۲۰' : 'Download 320'}</a>)}
             </div>
             <ItemActionBar item={{ type: 'track', id: track.id }} title={name} image={track.cover} />
+            <AddToPersonalPlaylist trackId={track.id} trackSlug={track.slug} loggedIn={!!viewer.userId} fa={fa} />
           </div>
         </div>
       </section>

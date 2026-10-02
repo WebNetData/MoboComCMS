@@ -11,6 +11,9 @@ import { countLinks, extractMentions, markdownExcerpt } from '@/modules/forum/do
 import { getForumSettings, notify, refreshStats } from '@/modules/forum/server/community'
 import { contentVerdict, formatWait, slowModeWait, timerDue } from '@/modules/forum/domain/discourse'
 import { checkPolls, syncPolls } from '@/modules/forum/server/polls'
+import { parseItemKey } from '@/modules/content/domain/items'
+import { itemCard } from '@/modules/content/server/registry'
+import { ENTITY_TOPIC_TYPES, publicEntityCategoryIds } from '@/modules/forum/server/related'
 
 // Forum writes. Every action re-checks access on the server, keeps counters in
 // the same transaction as the change, and sends notifications afterwards so a
@@ -84,12 +87,16 @@ async function applyTags(tx: Tx, threadId: number, names: string[], viewer: View
 
 // ------------------------------------------------------------------ topics & replies
 
-export async function createTopic(viewer: Viewer, input: { categoryId: unknown; title: unknown; content: unknown; tags?: unknown }) {
+export async function createTopic(viewer: Viewer, input: { categoryId: unknown; title: unknown; content: unknown; tags?: unknown; item?: unknown; kind?: unknown }) {
   const userId = requireUser(viewer)
   const category = await categoryWithPermissions(Number(input.categoryId)).catch(() => null)
   if (!category) throw new ForumError('دسته‌بندی پیدا نشد', 404)
   const access = categoryAccess(category, viewer)
   if (!access.create) throw new ForumError(access.see ? 'ایجاد موضوع در این دسته برای شما مجاز نیست' : 'دسته‌بندی پیدا نشد', access.see ? 403 : 404)
+  const ref = input.item == null || input.item === '' ? null : parseItemKey(input.item)
+  if (input.item && (!ref || !ENTITY_TOPIC_TYPES.includes(ref.type as (typeof ENTITY_TOPIC_TYPES)[number]) || !await itemCard(ref))) throw new ForumError('مورد مرتبط در دسترس نیست', 404)
+  if (ref && !(await publicEntityCategoryIds()).includes(category.id)) throw new ForumError('موضوع مرتبط باید در یک دسته‌بندی عمومی ثبت شود', 422)
+  const kind = ref && input.kind === 'QUESTION' ? 'QUESTION' : 'DISCUSSION'
   const title = cleanTitle(input.title)
   const content = cleanContent(input.content)
   const settings = await getForumSettings()
@@ -104,7 +111,7 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
   }
   const now = new Date()
   const thread = await db.$transaction(async (tx) => {
-    const created = await tx.forumThread.create({ data: { categoryId: category.id, userId, title, lastPostAt: now, lastPostUserId: userId, postCount: 1, status: pending ? 'PENDING' : 'VISIBLE' } })
+    const created = await tx.forumThread.create({ data: { categoryId: category.id, userId, title, lastPostAt: now, lastPostUserId: userId, postCount: 1, status: pending ? 'PENDING' : 'VISIBLE', itemType: ref?.type, itemId: ref?.id, kind } })
     const first = await tx.forumPost.create({ data: { threadId: created.id, userId, content, postNumber: 1, createdAt: now, status: pending ? 'PENDING' : 'VISIBLE', reviewReason: pending ? verdict.reason : '' } })
     await syncPolls(tx, first.id, content)
     if (tags.length) await applyTags(tx, created.id, tags, viewer)

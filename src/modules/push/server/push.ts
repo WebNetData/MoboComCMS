@@ -75,9 +75,9 @@ export async function unsubscribe(endpoint: unknown) {
 
 type Target = { id: number; endpoint: string; p256dh: string; auth: string }
 
-/** Sends to many subscriptions with bounded concurrency; returns sent/failed counts. */
-async function deliver(targets: Target[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
-  if (!targets.length) return { sent: 0, failed: 0 }
+/** Sends to many subscriptions with bounded concurrency; only transient failures need a retry. */
+async function deliver(targets: Target[], payload: PushPayload): Promise<{ sent: number; failed: number; retryable: number }> {
+  if (!targets.length) return { sent: 0, failed: 0, retryable: 0 }
   const keys = await vapid()
   const body = JSON.stringify({ title: payload.title.slice(0, 120), body: (payload.body || '').slice(0, 300), url: payload.url || '/', image: payload.image || undefined, tag: payload.tag })
   let sent = 0
@@ -107,17 +107,20 @@ async function deliver(targets: Target[], payload: PushPayload): Promise<{ sent:
   ])
   // A subscription that failed 5 times in a row is abandoned.
   await db.pushSubscription.deleteMany({ where: { failures: { gte: 5 } } })
-  return { sent, failed }
+  return { sent, failed, retryable: flaky.length }
 }
 
 const select = { id: true, endpoint: true, p256dh: true, auth: true } as const
 
-/** Account notification to one member's browsers (called for every new inbox event). */
+/** Account notification to one member's browsers (used by its queued channel job). */
 export async function pushToUser(userId: number, payload: PushPayload) {
-  if (!await isModuleEnabled('web-push')) return { sent: 0, failed: 0 }
-  if (!(await getPushConfig()).accountEvents) return { sent: 0, failed: 0 }
+  if (!await isModuleEnabled('web-push')) return { sent: 0, failed: 0, retryable: 0 }
+  if (!(await getPushConfig()).accountEvents) return { sent: 0, failed: 0, retryable: 0 }
+  const user = await db.user.findUnique({ where: { id: userId }, select: { status: true, pushAlerts: true } })
+  if (!user || user.status !== 'ACTIVE' || !user.pushAlerts) return { sent: 0, failed: 0, retryable: 0 }
+  if (!await (await import('@/modules/notifications/server/preferences')).isNotificationChannelEnabled(userId, payload.tag || '', 'push')) return { sent: 0, failed: 0, retryable: 0 }
   const targets = await db.pushSubscription.findMany({ where: { userId }, select, take: 20 })
-  return deliver(targets, payload).catch((error) => { logEvent('error', 'push.user_failed', { userId, error }); return { sent: 0, failed: targets.length } })
+  return deliver(targets, payload).catch((error) => { logEvent('error', 'push.user_failed', { userId, error }); return { sent: 0, failed: targets.length, retryable: targets.length } })
 }
 
 async function audienceWhere(audience: PushAudience) {

@@ -26,17 +26,19 @@ const OWNER_PATH: Record<string, (slug: string) => string> = { software: (s) => 
 /** Human label and page for link owners (episodes resolve to their series). */
 async function ownerLabels(links: { ownerType: string; ownerId: number }[]) {
   const ids = (type: string) => [...new Set(links.filter((link) => link.ownerType === type).map((link) => link.ownerId))]
-  const [software, games, titles, episodes, updates] = await Promise.all([
+  const [software, games, titles, episodes, updates, releases] = await Promise.all([
     db.softwareTitle.findMany({ where: { id: { in: ids('software') } }, select: { id: true, title: true, slug: true } }),
     db.gameTitle.findMany({ where: { id: { in: ids('game') } }, select: { id: true, title: true, slug: true } }),
     db.cinemaTitle.findMany({ where: { id: { in: ids('title') } }, select: { id: true, title: true, slug: true } }),
     db.cinemaEpisode.findMany({ where: { id: { in: ids('episode') } }, select: { id: true, number: true, season: { select: { number: true, title: { select: { title: true, slug: true } } } } } }),
     db.gameUpdate.findMany({ where: { id: { in: ids('gameupdate') } }, select: { id: true, title: true, game: { select: { id: true, title: true, slug: true } } } }),
+    db.softwareRelease.findMany({ where: { id: { in: ids('softwarerelease') } }, select: { id: true, version: true, software: { select: { id: true, title: true, slug: true } } } }),
   ])
   const map = new Map<string, { title: string; path: string; admin: string }>()
   for (const row of software) map.set(`software:${row.id}`, { title: row.title, path: OWNER_PATH.software(row.slug), admin: '/admin/software/titles' })
   for (const row of games) map.set(`game:${row.id}`, { title: row.title, path: OWNER_PATH.game(row.slug), admin: '/admin/games' })
   for (const row of updates) map.set(`gameupdate:${row.id}`, { title: `${row.game.title} — ${row.title}`, path: OWNER_PATH.game(row.game.slug), admin: `/admin/games/${row.game.id}` })
+  for (const row of releases) map.set(`softwarerelease:${row.id}`, { title: `${row.software.title} — ${row.version}`, path: OWNER_PATH.software(row.software.slug), admin: `/admin/software/releases?softwareId=${row.software.id}` })
   for (const row of titles) map.set(`title:${row.id}`, { title: row.title, path: OWNER_PATH.title(row.slug), admin: '/admin/cinema/titles' })
   for (const row of episodes) map.set(`episode:${row.id}`, { title: `${row.season.title.title} — فصل ${row.season.number} قسمت ${row.number}`, path: OWNER_PATH.title(row.season.title.slug), admin: '/admin/cinema/titles' })
   return map

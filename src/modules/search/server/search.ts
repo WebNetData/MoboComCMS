@@ -3,7 +3,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { normalizePersian, relevance, searchTokens, searchableText } from '@/shared/text/persian'
 import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
-import { allItems, enabledItemTypes, itemCard, type ItemCard } from '@/modules/content/server/registry'
+import { allItems, enabledItemTypes, itemCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 
 /**
@@ -92,11 +92,15 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
     where: { itemType: { in: types }, AND: tokens.map((token) => ({ text: { contains: token } })) },
     orderBy: { boost: 'desc' }, take: CANDIDATES,
   })
+  // The index may lag a publication change; verify bounded candidates now.
+  const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
   const phrase = normalizePersian(query)
-  const scored = rows.map((row) => {
+  const scored = rows.flatMap((row) => {
+    const card = publicCards.get(`${row.itemType}:${row.itemId}`)
+    if (!card) return []
     const score = relevance(tokens, row.title, row.text, phrase)
     // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
-    return { row, score: score ? score + Math.log10(1 + row.boost) : 0 }
+    return [{ row, card, score: score ? score + Math.log10(1 + row.boost) : 0 }]
   }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime())
 
   const counts: Partial<Record<ItemType, number>> = {}
@@ -104,8 +108,8 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const filtered = type === 'all' ? scored : scored.filter(({ row }) => row.itemType === type)
   const pages = Math.ceil(filtered.length / PAGE_SIZE)
   const current = Math.min(page, Math.max(1, pages))
-  const hits = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, score }) => ({
-    type: row.itemType as ItemType, id: row.itemId, title: row.title, subtitle: row.subtitle, url: row.url, image: row.image, access: row.access,
+  const hits = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
+    type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
     score: Math.round(score), snippet: snippet(row.text, tokens),
   }))
   if (input.log !== false && current === 1) void recordSearch(phrase, scored.length)

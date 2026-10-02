@@ -109,6 +109,7 @@ export function SoftwareTile({ item }: { item: SoftwareCard }) {
   return <Link href={`/software/${item.slug}`} className="sp-app">
     <span className="sp-app-icon">{item.icon ? <img src={item.icon} alt="" loading="lazy" width={56} height={56} /> : <span>{name.slice(0, 1)}</span>}</span>
     <b><bdi>{name}</bdi></b>
+    {item.recommendationReason && <small className="sp-app-reason">{item.recommendationReason}</small>}
     {item.version && <small dir="ltr">{item.version}</small>}
     {item.summary && <span className="sp-app-sum">{item.summary}</span>}
   </Link>

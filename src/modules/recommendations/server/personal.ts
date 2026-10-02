@@ -1,0 +1,80 @@
+import { db } from '@/platform/database/prisma'
+import { itemCards, type ItemCard } from '@/modules/content/server/registry'
+import { itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
+import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+
+type Seed = { ref: ItemRef; kind: 'favorite' | 'view' }
+type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: Seed['kind']; reason: string }
+
+const supported = new Set(['game', 'software', 'title', 'album'])
+const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+
+/** Private, bounded suggestions. No interaction history is read before explicit consent. */
+export async function personalRecommendations(userId: number, take = 6): Promise<{ enabled: boolean; items: PersonalSuggestion[] }> {
+  if (!Number.isSafeInteger(userId) || userId < 1) return { enabled: false, items: [] }
+  const preference = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
+  if (!preference?.recommendationOptIn) return { enabled: false, items: [] }
+
+  const [favorites, views] = await Promise.all([
+    db.itemFavorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+    db.userRecentView.findMany({ where: { userId, lastViewedAt: { gte: new Date(Date.now() - 180 * 86_400_000) } }, orderBy: { lastViewedAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+  ])
+  const seeds: Seed[] = []
+  const seen = new Set<string>()
+  for (const [kind, rows] of [['favorite', favorites], ['view', views]] as const) for (const row of rows) {
+    const ref = parseItemKey(`${row.itemType}:${row.itemId}`)
+    if (!ref || !supported.has(ref.type)) continue
+    const key = itemKey(ref)
+    if (!seen.has(key)) { seeds.push({ ref, kind }); seen.add(key) }
+  }
+  if (!seeds.length) return { enabled: true, items: [] }
+  const sourceCards = await itemCards(seeds.map((seed) => seed.ref))
+  const now = new Date()
+  const ranked = new Map<string, { ref: ItemRef; score: number; sourceTitle: string; sourceKind: Seed['kind']; reason: string }>()
+  let used = 0
+  for (const seed of seeds) {
+    const source = sourceCards.get(itemKey(seed.ref))
+    if (!source) continue
+    let suggestions
+    switch (seed.ref.type) {
+      case 'game': {
+        const row = await db.gameTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genres: true, platforms: true, developerStudioId: true, publisherStudioId: true } })
+        suggestions = row ? await relatedGames(row, 12) : []
+        break
+      }
+      case 'software': {
+        const row = await db.softwareTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, category: true, platforms: true, developerStudioId: true, publisherStudioId: true } })
+        suggestions = row ? await relatedSoftware(row, 12) : []
+        break
+      }
+      case 'title': {
+        const row = await db.cinemaTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genres: true, kind: true } })
+        suggestions = row ? await relatedCinema(row, 12) : []
+        break
+      }
+      case 'album': {
+        const row = await db.musicAlbum.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
+        suggestions = row ? await relatedAlbums(row, 12) : []
+        break
+      }
+      default: continue
+    }
+    for (const suggestion of suggestions) {
+      const key = itemKey(suggestion.item)
+      if (seen.has(key)) continue
+      const score = suggestion.score + (seed.kind === 'favorite' ? 3 : 0)
+      const previous = ranked.get(key)
+      if (!previous || score > previous.score) ranked.set(key, { ref: suggestion.item, score, sourceTitle: source.title, sourceKind: seed.kind, reason: suggestion.reason })
+    }
+    if (++used === 2) break
+  }
+  const order = [...ranked.values()].sort((a, b) => b.score - a.score || a.ref.id - b.ref.id).slice(0, 24)
+  const cards = await itemCards(order.map((entry) => entry.ref))
+  // A preference changed during calculation must close this private result too.
+  const stillEnabled = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
+  if (!stillEnabled?.recommendationOptIn) return { enabled: false, items: [] }
+  return { enabled: true, items: order.flatMap((entry) => {
+    const item = cards.get(itemKey(entry.ref))
+    return item ? [{ item, sourceTitle: entry.sourceTitle, sourceKind: entry.sourceKind, reason: entry.reason }] : []
+  }).slice(0, Math.max(1, Math.min(12, Math.trunc(take) || 6))) }
+}

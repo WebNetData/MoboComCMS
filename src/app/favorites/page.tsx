@@ -4,22 +4,22 @@ import { redirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getViewer } from '@/modules/membership/server/membership'
 import { listFavorites } from '@/modules/reviews/server/reviews'
-import { ITEM_LABEL, itemKey, type ItemType } from '@/modules/content/domain/items'
+import { ITEM_LABEL, isItemType, itemKey, type ItemType } from '@/modules/content/domain/items'
 import MediaShell from '@/components/media/MediaShell'
 import ItemActions from '@/components/engage/ItemActions'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'علاقه‌مندی‌های من', robots: { index: false } }
 
-const FOLLOW: Partial<Record<ItemType, string>> = { software: 'نسخهٔ جدید', game: 'لینک‌های جدید', title: 'قسمت جدید', album: 'آهنگ‌های جدید', product: 'تخفیف و موجودی' }
+const FOLLOW: Partial<Record<ItemType, string>> = { software: 'نسخهٔ جدید', game: 'لینک‌های جدید', studio: 'بازی یا نرم‌افزار تازه', title: 'قسمت جدید', album: 'آهنگ‌های جدید', product: 'تخفیف و موجودی' }
 
 export default async function FavoritesPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   await requireModule('reviews')
   const viewer = await getViewer()
   if (!viewer.userId) redirect('/login?next=/favorites')
   const [items, { type }] = await Promise.all([listFavorites(viewer.userId), searchParams])
-  const types = [...new Set(items.map((item) => item.type))]
-  const shown = type && types.includes(type as ItemType) ? items.filter((item) => item.type === type) : items
+  const types = [...new Set([...items.map((item) => item.type), ...(isItemType(type) ? [type] : [])])]
+  const shown = isItemType(type) ? items.filter((item) => item.type === type) : items
 
   return (
     <MediaShell section="favorites">
@@ -28,7 +28,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
           <h1>علاقه‌مندی‌های من</h1>
           <p className="muted">{items.length ? `${items.length.toLocaleString('fa-IR')} مورد ذخیره شده. با 🔔 از نسخه، قسمت یا تخفیف جدید باخبر شوید؛ اعلان‌ها در صندوق پیام و پیامک شما می‌آیند.` : 'هنوز چیزی ذخیره نکرده‌اید.'}</p>
         </header>
-        {types.length > 1 && (
+        {(types.length > 1 || isItemType(type)) && (
           <nav className="sr-tabs" aria-label="نوع">
             <Link href="/favorites" className={!type ? 'is-active' : ''}>همه <span>{items.length.toLocaleString('fa-IR')}</span></Link>
             {types.map((t) => <Link key={t} href={`/favorites?type=${t}`} className={type === t ? 'is-active' : ''}>{ITEM_LABEL[t].icon} {ITEM_LABEL[t].many} <span>{items.filter((item) => item.type === t).length.toLocaleString('fa-IR')}</span></Link>)}
@@ -43,7 +43,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
                   <span className="sr-type">{ITEM_LABEL[item.type].one}</span>
                   <h2><Link href={item.url}>{item.title}</Link></h2>
                   {item.subtitle && <p className="sr-sub">{item.subtitle}</p>}
-                  <ItemActions item={itemKey(item)} title={item.title} image={item.image} loggedIn favorite={{ notify: item.notify }} canCompare={false} followLabel={FOLLOW[item.type]} />
+                  <ItemActions item={itemKey(item)} title={item.title} image={item.image} loggedIn favorite={{ notify: item.notify }} canCompare={false} followLabel={FOLLOW[item.type]} favoriteLabels={item.type === 'studio' ? { off: 'دنبال‌کردن', on: 'دنبال می‌کنید' } : undefined} />
                 </div>
               </li>
             ))}
@@ -51,8 +51,8 @@ export default async function FavoritesPage({ searchParams }: { searchParams: Pr
         ) : (
           <div className="sr-empty">
             <span aria-hidden="true">♡</span>
-            <h2>فهرست علاقه‌مندی‌ها خالی است</h2>
-            <p className="muted">در صفحهٔ هر نرم‌افزار، بازی، فیلم، آلبوم یا محصول روی «♡ علاقه‌مندی» بزنید تا اینجا ذخیره شود.</p>
+            <h2>{type === 'track' ? 'هنوز آهنگی به علاقه‌مندی‌ها اضافه نکرده‌اید' : 'فهرست علاقه‌مندی‌ها خالی است'}</h2>
+            <p className="muted">{type === 'track' ? 'در صفحهٔ هر آهنگ روی «♡ علاقه‌مندی» بزنید تا اینجا نمایش داده شود.' : 'در صفحهٔ هر نرم‌افزار، بازی، فیلم، آلبوم یا محصول روی «♡ علاقه‌مندی» بزنید تا اینجا ذخیره شود.'}</p>
             <div className="sr-chips"><Link href="/software">نرم‌افزار</Link><Link href="/games">بازی</Link><Link href="/cinema">فیلم و سریال</Link><Link href="/music">موزیک</Link><Link href="/products">فروشگاه</Link></div>
           </div>
         )}

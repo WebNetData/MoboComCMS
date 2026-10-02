@@ -63,18 +63,18 @@ export default async function MusicHomePage() {
       </Shelf>
     ),
     latestAlbums: () => data.latestAlbums.length > 0 && (
-      <Shelf tone="music" id="albums" eyebrow={fa ? 'آلبوم' : 'Albums'} title={fa ? 'آلبوم‌های تازه' : 'New albums'}>
+      <Shelf tone="music" id="albums" href="/music/albums" more={fa ? 'همهٔ آلبوم‌ها ←' : 'All albums →'} eyebrow={fa ? 'آلبوم' : 'Albums'} title={fa ? 'آلبوم‌های تازه' : 'New albums'}>
         {data.latestAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
       </Shelf>
     ),
     artists: () => data.artists.length > 0 && (
-      <Shelf tone="music" id="artists" eyebrow={fa ? 'هنرمندان' : 'Artists'} title={fa ? 'خوانندگان محبوب' : 'Popular artists'}>
+      <Shelf tone="music" id="artists" href="/music/artists" more={fa ? 'همهٔ هنرمندان ←' : 'All artists →'} eyebrow={fa ? 'هنرمندان' : 'Artists'} title={fa ? 'خوانندگان محبوب' : 'Popular artists'}>
         {data.artists.map((artist) => <ArtistBubble key={artist.id} artist={artist} fa={fa} />)}
       </Shelf>
     ),
     playlists: () => data.playlists.length > 0 && (
       <section className="md-shelf" id="playlists">
-        <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'برای هر حال' : 'For every mood'}</span><h2>{fa ? 'پلی‌لیست‌ها' : 'Playlists'}</h2></div></header>
+        <header className="md-shelf-head"><div><span className="md-eyebrow">{fa ? 'برای هر حال' : 'For every mood'}</span><h2>{fa ? 'پلی‌لیست‌ها' : 'Playlists'}</h2></div><Link href="/music/playlists" className="md-more">{fa ? 'همهٔ پلی‌لیست‌ها ←' : 'All playlists →'}</Link></header>
         <div className="mu-playlists">{data.playlists.map((playlist, i) => <PlaylistCard key={playlist.id} playlist={playlist} fa={fa} index={i} />)}</div>
       </section>
     ),

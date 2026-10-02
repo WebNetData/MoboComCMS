@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, readCompare, toggleCompare, type CompareEntry } from '@/components/engage/compare-store'
+import AddToCollection from '@/components/engage/AddToCollection'
 
 type Props = {
   item: string
@@ -16,10 +17,11 @@ type Props = {
   canCompare?: boolean
   /** Wording for the notify switch, e.g. "نسخهٔ جدید"; without it there is nothing to follow. */
   followLabel?: string
+  favoriteLabels?: { off: string; on: string }
 }
 
 /** Favorite (with "tell me about updates") and compare toggles for an item page. */
-export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel }: Props) {
+export default function ItemActions({ item, title, image = '', loggedIn, favorite: initial, favorites = 0, canFavorite = true, canCompare = false, followLabel, favoriteLabels }: Props) {
   const reviewsOn = useModuleEnabled('reviews')
   const compareOn = useModuleEnabled('compare')
   const [favorite, setFavorite] = useState(initial)
@@ -58,8 +60,8 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
     <div className="ea-actions">
       {reviewsOn && canFavorite && (
         <>
-          <button type="button" className={`ea-btn${favorite ? ' is-on' : ''}`} aria-pressed={!!favorite} disabled={busy} onClick={() => void save(!favorite)} title={favorite ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}>
-            <span aria-hidden="true">{favorite ? '♥' : '♡'}</span>{favorite ? 'در علاقه‌مندی‌ها' : 'علاقه‌مندی'}{count > 0 && <small>{count.toLocaleString('fa-IR')}</small>}
+          <button type="button" className={`ea-btn${favorite ? ' is-on' : ''}`} aria-pressed={!!favorite} disabled={busy} onClick={() => void save(!favorite)} title={favorite ? favoriteLabels?.on || 'حذف از علاقه‌مندی‌ها' : favoriteLabels?.off || 'افزودن به علاقه‌مندی‌ها'}>
+            <span aria-hidden="true">{favoriteLabels ? favorite ? '✓' : '+' : favorite ? '♥' : '♡'}</span>{favorite ? favoriteLabels?.on || 'در علاقه‌مندی‌ها' : favoriteLabels?.off || 'علاقه‌مندی'}{count > 0 && <small>{count.toLocaleString('fa-IR')}</small>}
           </button>
           {favorite && followLabel && (
             <button type="button" className={`ea-btn${favorite.notify ? ' is-on' : ''}`} aria-pressed={favorite.notify} disabled={busy} onClick={() => void save(true, !favorite.notify)} title={`اعلان ${followLabel}`}>
@@ -73,6 +75,7 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
           ? <span className="ea-compare-group"><button type="button" className="ea-btn is-on" aria-pressed="true" onClick={compare}><span aria-hidden="true">⚖</span>در فهرست مقایسه</button><Link href="/compare" className="ea-link">مقایسه ←</Link></span>
           : <button type="button" className="ea-btn" aria-pressed="false" onClick={compare}><span aria-hidden="true">⚖</span>افزودن به مقایسه</button>
       )}
+      <AddToCollection item={item} loggedIn={loggedIn} />
       {(error || compareNote) && <p className="ea-note" role="status">{error || compareNote}</p>}
     </div>
   )

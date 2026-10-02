@@ -86,6 +86,21 @@ export function lineLimit(stock: number, variantStock: number | null, maxPerOrde
   return Math.max(0, limit)
 }
 
+type SelectableVariant = { attributes: Record<string, string>; limit: number }
+
+/** Selects the clicked option without changing other attributes when that combination exists. */
+export function variantOption<T extends SelectableVariant>(variants: readonly T[], current: T | null, key: string, value: string) {
+  const matching = variants.filter((row) => row.attributes[key] === value)
+  const contextual = matching.filter((row) => Object.entries(current?.attributes || {}).every(([name, selected]) => name === key || row.attributes[name] === selected))
+  const candidates = contextual.length ? contextual : matching
+  const selected = candidates.find((row) => row.limit > 0) || candidates[0] || null
+  return {
+    selected,
+    inStock: candidates.some((row) => row.limit > 0),
+    changesOtherOptions: contextual.length === 0 && matching.some((row) => row.limit > 0),
+  }
+}
+
 export function normalizeQuantity(value: unknown): number {
   const quantity = Math.floor(Number(toLatin(String(value ?? '')).trim() || NaN))
   if (!Number.isSafeInteger(quantity) || quantity < 0 || quantity > MAX_LINE_QUANTITY) throw new StoreError('تعداد معتبر نیست', 400, 'BAD_QUANTITY')

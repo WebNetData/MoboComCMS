@@ -3,7 +3,9 @@ import { COMPARABLE, FAVORITABLE, REVIEWABLE, itemKey, type ItemRef } from '@/mo
 import { getViewer } from '@/modules/membership/server/membership'
 import { itemEngagement } from '@/modules/reviews/server/reviews'
 import ItemActions from '@/components/engage/ItemActions'
+import RecentViewTracker from '@/components/engage/RecentViewTracker'
 import ReviewForm from '@/components/engage/ReviewForm'
+import ReviewList from '@/components/engage/ReviewList'
 
 const num = (value: number) => value.toLocaleString('fa-IR')
 const Stars = ({ value, label }: { value: number; label: string }) => (
@@ -13,14 +15,13 @@ const Stars = ({ value, label }: { value: number; label: string }) => (
 )
 
 /** Favorite / follow / compare buttons for an item hero. Renders nothing when both modules are off. */
-export async function ItemActionBar({ item, title, image, followLabel }: { item: ItemRef; title: string; image?: string; followLabel?: string }) {
+export async function ItemActionBar({ item, title, image, followLabel, favoriteLabels }: { item: ItemRef; title: string; image?: string; followLabel?: string; favoriteLabels?: { off: string; on: string } }) {
   const [reviewsOn, compareOn] = await Promise.all([isModuleEnabled('reviews'), isModuleEnabled('compare')])
   const canFavorite = reviewsOn && FAVORITABLE.includes(item.type)
   const canCompare = compareOn && COMPARABLE.includes(item.type)
-  if (!canFavorite && !canCompare) return null
   const viewer = await getViewer()
   const data = canFavorite ? await itemEngagement(item, viewer.userId) : null
-  return <ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} />
+  return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
 /** Rating summary, the member's review form and approved reviews for an item. */
@@ -47,20 +48,7 @@ export async function ReviewSection({ item, title, path }: { item: ItemRef; titl
         </ol>
         <div className="rv-cta"><ReviewForm item={itemKey(item)} mine={data.mine} loggedIn={!!viewer.userId} title={title} path={path} /></div>
       </div>
-      {data.reviews.length > 0 ? (
-        <ul className="rv-list">
-          {data.reviews.map((review) => (
-            <li key={review.id} className={review.mine ? 'is-mine' : ''}>
-              <span className="rv-avatar" style={{ background: review.author.color }} aria-hidden="true">{review.author.name.slice(0, 1)}</span>
-              <div>
-                <p className="rv-head"><b>{review.author.name}</b><Stars value={review.rating} label={`${review.rating} از ۵`} /><time dateTime={review.createdAt.toISOString()}>{review.createdAt.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })}</time></p>
-                <p className="rv-body" dir="auto">{review.body}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : <p className="muted rv-none">هنوز نظری نوشته نشده است؛ اولین نفر باشید.</p>}
-      {data.total > data.reviews.length && <p className="muted">{num(data.total - data.reviews.length)} نظر دیگر…</p>}
+      <ReviewList key={itemKey(item)} item={itemKey(item)} initial={data.reviews.map((review) => ({ ...review, createdAt: review.createdAt.toISOString() }))} initialTotal={data.total} initialPages={data.pages} loggedIn={!!viewer.userId} />
     </section>
   )
 }

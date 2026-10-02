@@ -3,6 +3,7 @@ import { getModuleStates } from '@/extensions/server/modules'
 import { ITEM_MODULE, ITEM_TYPES, itemKey, itemPath, type ItemRef, type ItemType } from '@/modules/content/domain/items'
 import { GUEST, categoryAccess } from '@/modules/forum/domain/community'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
+import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 
 /**
  * Loads public items of every content type into one card shape. Only published,
@@ -36,11 +37,23 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
   switch (type) {
     case 'software': {
       const rows = await db.softwareTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
-      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.version && `نسخه ${r.version}`, r.developer].filter(Boolean).join(' · '), summary: plain(r.summary || r.content), keywords: [r.titleEn, r.category, r.platforms, r.developer, r.version].join(' '), image: r.icon || r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.downloads + r.views }))
+      const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+      return rows.map((source) => { const r = projectSoftwareVersion(source, versions); return card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.version && `نسخه ${r.version}`, r.developer].filter(Boolean).join(' · '), summary: plain(r.summary || r.content), keywords: [r.titleEn, r.category, r.platforms, r.developer, r.version].join(' '), image: r.icon || r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.downloads + r.views }) })
     }
     case 'game': {
       const rows = await db.gameTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.platforms, summary: plain(r.summary || r.content), keywords: [r.titleEn, r.genres, r.platforms, r.developer, r.publisher].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
+    }
+    case 'studio': {
+      const states = await getModuleStates()
+      const visible = [
+        ...(states.games !== false ? [{ gamesDeveloped: { some: live() } }, { gamesPublished: { some: live() } }] : []),
+        ...(states.software !== false ? [{ softwareDeveloped: { some: live() } }, { softwarePublished: { some: live() } }] : []),
+      ]
+      if (!visible.length) return []
+      const ids = where.id?.in || (where.slug ? [Number(where.slug) || 0] : undefined)
+      const rows = await db.studio.findMany({ where: { ...(ids ? { id: { in: ids } } : {}), OR: visible }, take, orderBy: { updatedAt: 'desc' } })
+      return rows.map((r) => card({ id: r.id, slug: String(r.id), title: r.name, subtitle: 'سازنده / ناشر', summary: plain(r.summary), keywords: r.name, image: r.logo, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: 0 }))
     }
     case 'title': {
       const rows = await db.cinemaTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
@@ -59,7 +72,7 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'product': {
-      const rows = await db.product.findMany({ where: { ...where, active: true }, take, orderBy: { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await db.product.findMany({ where: { ...where, active: true, approval: 'APPROVED' }, take, orderBy: { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'post': {
@@ -85,7 +98,7 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
 /** Item types whose owning module is enabled. */
 export async function enabledItemTypes(): Promise<ItemType[]> {
   const states = await getModuleStates()
-  return ITEM_TYPES.filter((type) => states[ITEM_MODULE[type]] !== false)
+  return ITEM_TYPES.filter((type) => type === 'studio' ? states.games !== false || states.software !== false : states[ITEM_MODULE[type]] !== false)
 }
 
 /** Cards for the given references, keyed by "type:id". Missing or hidden items are absent. */

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
-import { requireModule } from '@/extensions/server/modules'
-import { getSoftware, softwareShelf } from '@/modules/media/server/queries'
+import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
+import { getSoftware } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
-import { ownerIdsForTermSlug, primaryTerms } from '@/modules/taxonomy/server/taxonomy'
+import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import { getViewer } from '@/modules/membership/server/membership'
 import { licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
@@ -13,6 +13,7 @@ import LinkBox from '@/components/media/LinkBox'
 import { paywallView } from '@/modules/paywall/server/paywall'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
+import RelatedDiscussions from '@/components/forum/RelatedDiscussions'
 import Gallery from '@/components/media/Gallery'
 import CopyText from '@/components/software/CopyText'
 import DetailTabs from '@/components/software/DetailTabs'
@@ -57,13 +58,11 @@ export default async function SoftwarePage({ params }: Props) {
   const ref = { type: 'software' as const, id: s.id }
   const [rating, termMap] = await Promise.all([aggregateRating(ref), primaryTerms('software', [s.id])])
   const term = termMap.get(s.id)
-  // Related: newest items of the same main category (falls back to the legacy category match).
-  const termSlug = term ? decodeURIComponent(term.path.split('/').pop() || '') : ''
-  const sameTerm = termSlug ? (await ownerIdsForTermSlug('software', termSlug))?.filter((id) => id !== s.id) : null
-  const related = sameTerm?.length ? await softwareShelf(sameTerm, 8) : data.related
+  const related = data.related
   const artwork = s.cover && s.cover !== s.icon ? s.cover : s.screenshots[0] || s.icon
   const specs: [string, React.ReactNode][] = ([
-    ['ناشر / تولیدکننده', s.developer],
+    ['سازنده', s.developer ? <Link href={s.developerStudioId ? `/studios/${s.developerStudioId}` : `/software/browse?developer=${encodeURIComponent(s.developer)}`}>{s.developer}</Link> : ''],
+    ['ناشر', s.publisher ? <Link href={s.publisherStudioId ? `/studios/${s.publisherStudioId}` : `/software/browse?publisher=${encodeURIComponent(s.publisher)}`}>{s.publisher}</Link> : ''],
     ['هزینهٔ دانلود', licenseLabel(s.license, true)],
     ['نسخه', s.version ? <bdi dir="ltr">{s.version}</bdi> : ''],
     ['سیستم‌عامل', s.platforms.length ? <bdi dir="ltr">{s.platforms.join(', ')}</bdi> : ''],
@@ -82,12 +81,15 @@ export default async function SoftwarePage({ params }: Props) {
   }
   const stars = rating ? Math.round(Number(rating.ratingValue)) : 0
 
+  const forumOn = await isModuleEnabled('forum')
   const tabs = [
     { id: 'download', label: 'لینک‌های دانلود', content: <>
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/software/${s.slug}#buy`} noun="نرم‌افزار" />}
       {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ این نرم‌افزار را خریده‌اید</span>}
       {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/software/${s.slug}`} title="دانلود این نرم‌افزار مخصوص اعضای VIP است" />}
-      <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} />
+      {data.releases[0]?.links.length > 0 && <><h3>نسخهٔ <bdi dir="ltr">{data.releases[0].version}</bdi></h3><LinkBox links={data.releases[0].links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} /></>}
+      {data.releases[0]?.links.length > 0 && data.links.length > 0 && <h3>لینک‌های اصلی نرم‌افزار</h3>}
+      <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact={data.releases[0]?.links.length > 0} />
       <ul className="sp-notes">
         <li>برای باز کردن فایل‌های فشرده از آخرین نسخهٔ <bdi>WinRAR</bdi> یا <bdi>7-Zip</bdi> استفاده کنید.</li>
         <li>اگر لینکی کار نکرد، با دکمهٔ گزارش کنار همان لینک خرابی را اطلاع دهید.</li>
@@ -96,7 +98,18 @@ export default async function SoftwarePage({ params }: Props) {
     </> },
     ...(s.installGuide ? [{ id: 'install', label: 'آموزش نصب و فعال‌سازی', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.installGuide }} /> }] : []),
     ...(s.requirements ? [{ id: 'requirements', label: 'سیستم مورد نیاز', content: <p className="sw-requirements">{s.requirements}</p> }] : []),
-    ...(s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
+    ...(data.releases.length ? [{ id: 'changes', label: 'تاریخچهٔ نسخه‌ها', content: <><ol className="sp-release-list">{data.releases.map((release) => <li key={release.id} className="sp-release-item">
+      <div className="sp-release-head"><strong><bdi dir="ltr">{release.version}</bdi></strong><span>{release.channel === 'BETA' ? 'آزمایشی' : release.channel === 'NIGHTLY' ? 'شبانه' : 'پایدار'}</span><time dateTime={release.releasedAt.toISOString()}>{date(release.releasedAt)}</time></div>
+      {release.targets.length > 0 && <div className="sp-release-targets" aria-label="سازگاری نسخه">{release.targets.map((target) => <span key={`${target.platform}:${target.architecture}`}><bdi dir="ltr">{target.platform}{target.architecture ? ` · ${target.architecture}` : ''}{target.minVersion ? ` · ${target.minVersion}+` : ''}</bdi>{target.notes && <> · {target.notes}</>}</span>)}</div>}
+      {release.size && <small>حجم: <bdi dir="ltr">{release.size}</bdi></small>}
+      {release.requirements && <p className="sw-requirements"><b>نیازمندی‌ها: </b>{release.requirements}</p>}
+      {release.changelog && <div className="md-prose" dangerouslySetInnerHTML={{ __html: release.changelog }} />}
+      {release.screenshots.length > 0 && <Gallery images={release.screenshots} fa />}
+      {release.checksum && <small>SHA-256: <CopyText value={release.checksum} label="SHA-256" /></small>}
+      {release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}
+      <Link className="sp-release-more" href={`/software/${s.slug}/releases/${release.id}`}>صفحهٔ این نسخه ←</Link>
+    </li>)}</ol><Link className="sp-release-more" href={`/software/releases?software=${encodeURIComponent(s.slug)}`}>همهٔ نسخه‌های این نرم‌افزار ←</Link></> }] : s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
+    ...(forumOn ? [{ id: 'discussions', label: 'پرسش و گفت‌وگو', content: <RelatedDiscussions item={ref} /> }] : []),
     { id: 'reviews', label: 'نظرات کاربران', content: <ReviewSection item={ref} title={name} path={`/software/${s.slug}`} /> },
   ]
 

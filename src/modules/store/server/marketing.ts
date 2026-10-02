@@ -9,7 +9,7 @@ import { decryptPanelCredential, encryptPanelCredential } from '@/modules/provid
 import { cartView } from '@/modules/store/server/cart'
 import { legacyNumber, minorToNumber, toMinor } from '@/shared/money'
 import {
-  MarketingError, dueStep, giftCardState, giftCode, giftCodeLooksValid, normalizeGift, normalizeGiftCode, normalizeLoyalty, normalizeRecovery, pointsFor,
+  MarketingError, dueStep, giftCardState, giftCode, giftCodeLooksValid, normalizeGift, normalizeGiftCode, normalizeLoyalty, normalizeRecovery, pointsFor, stockAlertAvailable,
   redeemValue, reversalPoints, tierFor, tomanOf, validGiftAmount, type LoyaltySettings,
 } from '@/modules/store/domain/marketing'
 
@@ -43,10 +43,13 @@ const notify = (event: Parameters<typeof createInboxEvent>[0]) => createInboxEve
 // ------------------------------------------------------------------ back in stock
 
 async function productAvailability(productId: number, variantId: number) {
-  const product = await db.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, name: true, stock: true } } } })
+  const product = await db.product.findUnique({ where: { id: productId }, include: {
+    variants: { where: { active: true }, select: { id: true, name: true, stock: true } },
+    _count: { select: { variants: true } },
+  } })
   if (!product) return null
   const variant = variantId ? product.variants.find((row) => row.id === variantId) || null : null
-  const available = product.active && product.stock !== 0 && (variantId ? !!variant && variant.stock !== 0 : !product.variants.length || product.variants.some((row) => row.stock !== 0))
+  const available = stockAlertAvailable({ ...product, variantCount: product._count.variants }, variantId)
   return { product, variant, available }
 }
 
@@ -58,7 +61,7 @@ export async function stockAlertStatus(userId: number, productIdInput: unknown, 
 export async function subscribeStockAlert(userId: number, productIdInput: unknown, variantIdInput: unknown) {
   const productId = positive(productIdInput), variantId = positive(variantIdInput)
   const state = productId ? await productAvailability(productId, variantId) : null
-  if (!state || !state.product.active) throw new MarketingError('کالا پیدا نشد', 404)
+  if (!state || !state.product.active || state.product.approval !== 'APPROVED') throw new MarketingError('کالا پیدا نشد', 404)
   if (variantId && !state.variant) throw new MarketingError('نوع انتخاب‌شده پیدا نشد', 404)
   if (state.available && (!variantId || state.variant!.stock !== 0)) throw new MarketingError('این کالا هم‌اکنون موجود است', 409, 'IN_STOCK')
   if (await db.stockAlert.count({ where: { userId, notifiedAt: null } }) >= 100) throw new MarketingError('بیش از ۱۰۰ درخواست فعال دارید', 429)
@@ -80,18 +83,21 @@ export async function runStockAlerts(limit = 300) {
     if (sent >= limit) break
     const state = await productAvailability(key.productId, key.variantId)
     if (!state?.available) continue
-    const waiting = await db.stockAlert.findMany({ where: { productId: key.productId, variantId: key.variantId, notifiedAt: null }, take: limit - sent })
+    const waiting = await db.stockAlert.findMany({ where: { productId: key.productId, variantId: key.variantId, notifiedAt: null }, orderBy: { id: 'asc' }, take: limit - sent })
     for (const alert of waiting) {
-      const claimed = await db.stockAlert.updateMany({ where: { id: alert.id, notifiedAt: null }, data: { notifiedAt: new Date() } })
-      if (!claimed.count) continue
       const name = `${state.product.name}${state.variant ? ` (${state.variant.name})` : ''}`
-      await notify({
-        userId: alert.userId, kind: 'STOCK_BACK', dedupeKey: `stock-back:${alert.id}:${alert.createdAt.getTime()}`,
-        titleFa: `«${name}» موجود شد`, titleEn: `${name} is back in stock`,
-        bodyFa: 'کالایی که منتظرش بودید دوباره موجود شد؛ موجودی ممکن است محدود باشد.', bodyEn: 'The item you were waiting for is back in stock.',
-        href: `/products/${encodeURIComponent(state.product.slug)}`,
-      })
-      sent++
+      try {
+        await createInboxEvent({
+          userId: alert.userId, kind: 'STOCK_BACK', dedupeKey: `stock-back:${alert.id}:${alert.createdAt.getTime()}`,
+          titleFa: `«${name}» موجود شد`, titleEn: `${name} is back in stock`,
+          bodyFa: 'کالایی که منتظرش بودید دوباره موجود شد؛ موجودی ممکن است محدود باشد.', bodyEn: 'The item you were waiting for is back in stock.',
+          href: `/products/${encodeURIComponent(state.product.slug)}`,
+        })
+        const marked = await db.stockAlert.updateMany({ where: { id: alert.id, createdAt: alert.createdAt, notifiedAt: null }, data: { notifiedAt: new Date() } })
+        sent += marked.count
+      } catch (error) {
+        logEvent('warn', 'store.stock_alert_delivery_failed', { alertId: alert.id, error: String(error) })
+      }
     }
   }
   return { sent }
