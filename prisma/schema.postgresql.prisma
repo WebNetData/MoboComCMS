@@ -1528,6 +1528,10 @@ model GameTitle {
   genres       String    @default("")
   developer    String    @default("")
   publisher    String    @default("")
+  developerStudioId Int?
+  developerStudio Studio? @relation("GameDeveloperStudio", fields: [developerStudioId], references: [id], onDelete: SetNull)
+  publisherStudioId Int?
+  publisherStudio Studio? @relation("GamePublisherStudio", fields: [publisherStudioId], references: [id], onDelete: SetNull)
   releaseDate  DateTime?
   score        Int?
   userScore    Float?
@@ -1568,6 +1572,8 @@ model GameTitle {
   @@index([status, publishedAt])
   @@index([releaseDate])
   @@index([franchiseId])
+  @@index([developerStudioId])
+  @@index([publisherStudioId])
 }
 
 /// A game series (Souls, God of War…): groups titles on the franchise page.
@@ -1639,6 +1645,11 @@ model SoftwareTitle {
   cover        String    @default("")
   version      String    @default("")
   developer    String    @default("")
+  publisher    String    @default("")
+  developerStudioId Int?
+  developerStudio Studio? @relation("SoftwareDeveloperStudio", fields: [developerStudioId], references: [id], onDelete: SetNull)
+  publisherStudioId Int?
+  publisherStudio Studio? @relation("SoftwarePublisherStudio", fields: [publisherStudioId], references: [id], onDelete: SetNull)
   license      String    @default("FREE") // FREE | FREEMIUM | TRIAL | PAID | OPEN_SOURCE
   platforms    String    @default("")
   category     String    @default("")
@@ -1664,6 +1675,24 @@ model SoftwareTitle {
   releases     SoftwareRelease[]
 
   @@index([status, publishedAt])
+  @@index([developerStudioId])
+  @@index([publisherStudioId])
+}
+
+/// Shared developer/publisher identity for Games and Software.
+model Studio {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  normalizedName      String    @unique
+  summary             String    @default("")
+  logo                String    @default("")
+  website             String    @default("")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  gamesDeveloped      GameTitle[] @relation("GameDeveloperStudio")
+  gamesPublished      GameTitle[] @relation("GamePublisherStudio")
+  softwareDeveloped   SoftwareTitle[] @relation("SoftwareDeveloperStudio")
+  softwarePublished   SoftwareTitle[] @relation("SoftwarePublisherStudio")
 }
 
 /// Version history. Files are MediaLink rows with ownerType "softwarerelease".

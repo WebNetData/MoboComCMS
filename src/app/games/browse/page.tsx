@@ -11,7 +11,7 @@ import { BrowseFilters, CoverGrid } from '@/components/games/GamePortal'
 import { GAME_MODES, LOCALIZATIONS } from '@/modules/games/domain/games'
 
 export const dynamic = 'force-dynamic'
-type Search = { platform?: string; genre?: string; term?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: string; lang?: string; mode?: string; year?: string; pick?: string }
+type Search = { platform?: string; genre?: string; term?: string; developer?: string; publisher?: string; developerStudioId?: string; publisherStudioId?: string; sort?: string; q?: string; page?: string; lang?: string; mode?: string; year?: string; pick?: string }
 
 function heading(p: Search, genreName?: string) {
   if (p.q) return `نتایج جست‌وجوی «${p.q}»`
@@ -32,7 +32,7 @@ export default async function GamesBrowsePage({ searchParams }: { searchParams: 
   const params = await searchParams
   const ids = params.term ? await ownerIdsForTermSlug('games', params.term) : null
   const [result, facets, genres] = await Promise.all([
-    browseGames({ platform: params.platform, genre: params.genre, developer: params.developer, publisher: params.publisher, sort: params.sort, q: params.q, lang: params.lang, mode: params.mode, year: params.year, pick: params.pick, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
+    browseGames({ platform: params.platform, genre: params.genre, developer: params.developer, publisher: params.publisher, developerStudioId: Number(params.developerStudioId) || undefined, publisherStudioId: Number(params.publisherStudioId) || undefined, sort: params.sort, q: params.q, lang: params.lang, mode: params.mode, year: params.year, pick: params.pick, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
     gameFacets(),
     gameGenres(),
   ])

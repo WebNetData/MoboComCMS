@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from '@/components/AppLink'
 import { withSectionSeo } from '@/modules/site/server/section-seo'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
@@ -57,6 +58,7 @@ export default async function GamesHomePage() {
     <MediaShell section="games">
       <h1 className="sr-only">بازی</h1>
       <GameHero slides={slides} />
+      <nav className="container" aria-label="سازندگان و ناشران بازی"><Link className="btn btn-ghost" href="/studios">سازندگان و ناشران بازی و نرم‌افزار ←</Link></nav>
       {!data.latest.length && <div className="container"><EmptyState fa title="بخش بازی آماده است" text="به‌زودی نقد و دانلود بازی‌ها اینجا منتشر می‌شود." /></div>}
       {home.settings.rails.filter((rail) => rail.enabled).map((rail) => <div key={rail.key} className="gv-rail-slot">{blocks[rail.key]}</div>)}
       {!viewer.member && <div className="container gx-vip"><VipStrip fa kind="games" /></div>}

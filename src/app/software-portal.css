@@ -251,7 +251,7 @@ html[data-theme='dark'] .md-software {
 .sp-release-targets span { padding: 5px 9px; border: 1px solid var(--sp-line); border-radius: 8px; background: var(--sp-row); color: var(--sp-text); font-size: .8rem; }
 .sp-release-item .gm-shots { max-width: 100%; }
 .sp-release-search { display: flex; gap: 8px; }
-.sp-release-entry { padding: 12px 16px; border: 1px solid var(--sp-line); border-radius: 12px; background: var(--sp-card); }
+.sp-release-entry { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; padding: 12px 16px; border: 1px solid var(--sp-line); border-radius: 12px; background: var(--sp-card); }
 .sp-release-entry a, .sp-release-more { color: var(--md-accent); font-size: .84rem; font-weight: 700; }
 .sp-release-more { display: inline-block; margin-top: 8px; }
 .sp-release-search .input { min-width: 0; flex: 1; }

@@ -16,6 +16,8 @@ type Props = { searchParams: Promise<Params> }
 
 function heading(params: Params) {
   if (params.q) return `نتایج جست‌وجوی «${params.q}»`
+  if (params.developer) return `نرم‌افزارهای ساختهٔ ${params.developer}`
+  if (params.publisher) return `نرم‌افزارهای منتشرشدهٔ ${params.publisher}`
   const parts = [params.category, params.platform].filter(Boolean)
   if (parts.length) return `دانلود نرم‌افزار ${parts.join(' برای ')}`
   if (params.license) return `نرم‌افزارهای ${licenseLabel(params.license, true)}`
@@ -25,7 +27,7 @@ function heading(params: Params) {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams
   const query = new URLSearchParams(Object.entries(params).filter((entry): entry is [string, string] => !!entry[1] && ['platform', 'category', 'page'].includes(entry[0])))
-  return { title: heading(params), robots: params.q || params.term ? { index: false } : undefined, alternates: { canonical: toPublicPath(`/software/browse${query.size ? `?${query}` : ''}`) } }
+  return { title: heading(params), robots: params.q || params.term || params.developer || params.publisher ? { index: false } : undefined, alternates: { canonical: toPublicPath(`/software/browse${query.size ? `?${query}` : ''}`) } }
 }
 
 /** Full list with search, sort and licence filters (also the target of the section search). */
@@ -34,7 +36,7 @@ export default async function SoftwareBrowsePage({ searchParams }: Props) {
   const params = await searchParams
   const ids = params.term ? await ownerIdsForTermSlug('software', params.term) : null
   const [feed, chrome] = await Promise.all([
-    softwareFeed({ platform: params.platform, category: params.category, license: params.license, sort: params.sort, q: params.q, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
+    softwareFeed({ platform: params.platform, category: params.category, license: params.license, developer: params.developer, publisher: params.publisher, developerStudioId: Number(params.developerStudioId) || undefined, publisherStudioId: Number(params.publisherStudioId) || undefined, sort: params.sort, q: params.q, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
     softwarePortalChrome(),
   ])
   const terms = await primaryTerms('software', feed.items.map((item) => item.id))

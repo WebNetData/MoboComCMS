@@ -14,6 +14,7 @@ export default function AdminSoftwarePage() {
     { key: 'titleEn', label: fa ? 'نام انگلیسی (برای نشانی)' : 'English name', dir: 'ltr' },
     { key: 'version', label: fa ? 'نسخه' : 'Version', dir: 'ltr', placeholder: '2.4.1', table: true },
     { key: 'developer', label: fa ? 'سازنده' : 'Developer' },
+    { key: 'publisher', label: fa ? 'ناشر' : 'Publisher' },
     { key: 'license', label: fa ? 'مجوز' : 'License', type: 'select', options: [
       { value: 'FREE', label: fa ? 'رایگان' : 'Free' }, { value: 'FREEMIUM', label: fa ? 'رایگان با امکانات پولی' : 'Freemium' },
       { value: 'TRIAL', label: fa ? 'آزمایشی' : 'Trial' }, { value: 'PAID', label: fa ? 'پولی' : 'Paid' }, { value: 'OPEN_SOURCE', label: fa ? 'متن‌باز' : 'Open source' },

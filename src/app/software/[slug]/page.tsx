@@ -63,7 +63,8 @@ export default async function SoftwarePage({ params }: Props) {
   const related = sameTerm?.length ? await softwareShelf(sameTerm, 8) : data.related
   const artwork = s.cover && s.cover !== s.icon ? s.cover : s.screenshots[0] || s.icon
   const specs: [string, React.ReactNode][] = ([
-    ['ناشر / تولیدکننده', s.developer],
+    ['سازنده', s.developer ? <Link href={s.developerStudioId ? `/studios/${s.developerStudioId}` : `/software/browse?developer=${encodeURIComponent(s.developer)}`}>{s.developer}</Link> : ''],
+    ['ناشر', s.publisher ? <Link href={s.publisherStudioId ? `/studios/${s.publisherStudioId}` : `/software/browse?publisher=${encodeURIComponent(s.publisher)}`}>{s.publisher}</Link> : ''],
     ['هزینهٔ دانلود', licenseLabel(s.license, true)],
     ['نسخه', s.version ? <bdi dir="ltr">{s.version}</bdi> : ''],
     ['سیستم‌عامل', s.platforms.length ? <bdi dir="ltr">{s.platforms.join(', ')}</bdi> : ''],

@@ -1,7 +1,7 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Add shared developer/publisher hubs across Software and Games.
+Current milestone: Connect shared Studio profiles to follow/activity, then continue the 2.0 capability map.
 Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
@@ -36,7 +36,7 @@ Done (verified):
 - Software release history and current-version projection were verified and pushed as `0a1bff1` and `e5b745c`.
 
 In progress:
-- Software has version history, durable notices, an admin editor, due-only public history and protected per-version links. A shared due-release projection covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Versions have OS/CPU targets, requirements, screenshots and per-file OS/CPU/checksum. A new public 20-item release archive filters channel/OS/CPU and dedicated due-only detail pages expose older versions. Shared developer/publisher hubs remain.
+- Software has version history, durable notices, an admin editor, due-only public history and protected per-version links. A shared due-release projection covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Versions have OS/CPU targets, requirements, screenshots and per-file OS/CPU/checksum. A public 20-item release archive filters channel/OS/CPU and dedicated due-only detail pages expose older versions. Shared Studio identities now connect developer/publisher roles across Games and Software with public hubs and staff-managed profiles. Follow/activity and recommendation integrations remain.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -47,6 +47,7 @@ Data/migrations:
 - Both Prisma schemas now contain `SoftwareRelease` and `SoftwareReleaseNotification`. Additive migration `20261113120000_software_releases` is applied to local Docker PostgreSQL; production deployment remains pending. It backfills existing current versions as history and queues only future releases.
 - Both Prisma schemas now contain `SoftwareReleaseTarget` and release requirements/screenshots plus per-file compatibility/checksum metadata. Additive migration `20261114120000_software_release_compatibility` is applied locally; production deployment remains pending. Legacy versions inherit current title-level requirements, screenshots and platform targets.
 - An additive `SoftwareRelease(status, releasedAt)` index in migration `20261115120000_software_release_archive_index` is applied locally for the global archive; production deployment remains pending.
+- Both Prisma schemas now contain shared `Studio` identities and optional Game/Software role foreign keys. Migration `20261116120000_shared_studios` merged existing developer/publisher names by normalized name without changing legacy strings or URLs; it is applied locally, production deployment pending. Software gained an optional publisher field.
 
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
@@ -73,9 +74,10 @@ Validation actually run:
 - For Software current-version projection: `typecheck`, source, architecture and security checks passed. A connected PostgreSQL/browser test confirmed a future version stays off the browse card, then a due version appears; an authenticated API test confirmed the CMS row and Software dashboard show the due version. A release save reindexed search with the due version and removed it again when rescheduled into the future.
 - For Software compatibility: schema parity, SQLite Prisma validation, generated PostgreSQL client, local PostgreSQL migration, full `npm run check`, `build:postgres`, connected release and admin API checks passed. API checks covered invalid SHA-256, duplicate OS/CPU, save/read and public rendering. Browser checks covered public/admin dark/light at 390/1440 pixels with no horizontal overflow; screenshots were inspected. A first visual assertion mistakenly read an input value via `innerText`, then passed after correcting the assertion.
 - For Software release discovery: schema parity, SQLite Prisma validation and local PostgreSQL index migration passed. Connected checks covered 22 due versions across two archive pages, OS/CPU filtering, future/draft archive and detail gates, and an old version detail page. Browser inspection covered archive/detail/admin/public at 390 and 1440 pixels in dark and light themes without horizontal overflow. Full `npm run check` and `build:postgres` passed after the release archive code and index migration.
+- For shared Studio profiles: schema parity, generated PostgreSQL client and local PostgreSQL migration passed; a connected check verified legacy backfill, cross-catalogue case-insensitive identity reuse, public listing/profile and browse links, draft-only exclusion, admin permission gate and website validation. Dark/light browser screenshots of directory/profile/admin at 390/1440 pixels were inspected; no horizontal overflow. The logo preview was changed from a wide cover to a square preview after visual review. Full `npm run check` and `build:postgres` passed.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Add shared developer/publisher hubs across Software and Games, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.
+- Connect shared Studio profiles to follow/activity using the existing owners, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.

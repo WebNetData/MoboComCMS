@@ -19,6 +19,7 @@ import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
+import { resolveStudioId } from '@/modules/studios/server/identity'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -395,6 +396,7 @@ const RESOURCES: Record<string, Resource> = {
       cover: when(b, 'cover', validateCover),
       version: when(b, 'version', (v) => text(v, 60)),
       developer: when(b, 'developer', (v) => text(v, 160)),
+      publisher: when(b, 'publisher', (v) => text(v, 160)),
       license: when(b, 'license', normalizeLicense),
       platforms: when(b, 'platforms', (v) => joinList(v, 8)),
       category: when(b, 'category', (v) => text(v, 60)),
@@ -529,6 +531,11 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   if (id && !existing) throw new Error('not found')
   const data = await resource.parse(body, existing)
   const row = await db.$transaction(async (tx) => {
+    if (type === 'games' || type === 'software') {
+      for (const role of ['developer', 'publisher'] as const) {
+        if (data[role] !== undefined) data[`${role}StudioId`] = await resolveStudioId(tx, data[role])
+      }
+    }
     const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data })
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)

@@ -340,7 +340,7 @@ export async function getGamesHome() {
   }
 }
 
-export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
+export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
   if (input.lang && /^FA_(SUB|DUB|UI)$/.test(input.lang)) where.localization = { contains: input.lang }
@@ -349,8 +349,10 @@ export async function browseGames(input: { platform?: string; genre?: string; de
   if (input.pick === 'upcoming') where.releaseDate = { gt: new Date() }
   if (/^\d{4}$/.test(String(input.year || ''))) where.releaseDate = { gte: new Date(Date.UTC(Number(input.year), 0, 1)), lt: new Date(Date.UTC(Number(input.year) + 1, 0, 1)) }
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
-  if (input.developer) where.developer = String(input.developer).slice(0, 160)
-  if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
+  if (input.developerStudioId && Number.isSafeInteger(input.developerStudioId) && input.developerStudioId > 0) where.developerStudioId = input.developerStudioId
+  else if (input.developer) where.developer = String(input.developer).slice(0, 160)
+  if (input.publisherStudioId && Number.isSafeInteger(input.publisherStudioId) && input.publisherStudioId > 0) where.publisherStudioId = input.publisherStudioId
+  else if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 40) }
   const q = String(input.q || '').trim().slice(0, 80)
@@ -396,7 +398,7 @@ export async function getGame(slug: string) {
   // The public version follows the release clock, including updates that become due without an admin save.
   return {
     game: {
-      ...toGame(row), publisher: row.publisher, ageRating: row.ageRating, trailerUrl: row.trailerUrl, content: row.content, views: row.views, publishedAt: row.publishedAt,
+      ...toGame(row), publisher: row.publisher, developerStudioId: row.developerStudioId, publisherStudioId: row.publisherStudioId, ageRating: row.ageRating, trailerUrl: row.trailerUrl, content: row.content, views: row.views, publishedAt: row.publishedAt,
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
       pros: parseJsonList<{ text: string }>(row.pros).map((p) => p.text).filter(Boolean),
       cons: parseJsonList<{ text: string }>(row.cons).map((c) => c.text).filter(Boolean),
@@ -442,11 +444,11 @@ export async function softwareReleaseFeed(input: { software?: string; channel?: 
     ...(platform || architecture ? { targets: { some: { ...(platform ? { platform } : {}), ...(architecture ? { architecture } : {}) } } } : {}),
     ...(q ? { OR: [{ version: { contains: q } }, { software: { title: { contains: q } } }, { software: { titleEn: { contains: q } } }, { software: { developer: { contains: q } } }] } : {}),
   }
-  const [rows, total] = await Promise.all([
-    db.softwareRelease.findMany({ where, include: { software: { select: { slug: true, title: true, titleEn: true, icon: true, summary: true, developer: true } }, targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * 20, take: 20 }),
-    db.softwareRelease.count({ where }),
-  ])
-  return { items: rows.map((row) => ({ id: row.id, version: row.version, channel: row.channel, releasedAt: row.releasedAt, changelog: plainText(row.changelog).slice(0, 220), size: row.size, targets: row.targets.map(({ platform, architecture, minVersion }) => ({ platform, architecture, minVersion })), software: { ...row.software, summary: plainText(row.software.summary).slice(0, 160) } })), total, page, pages: Math.max(1, Math.ceil(total / 20)) }
+  const total = await db.softwareRelease.count({ where })
+  const pages = Math.max(1, Math.ceil(total / 20))
+  const currentPage = Math.min(page, pages)
+  const rows = await db.softwareRelease.findMany({ where, include: { software: { select: { slug: true, title: true, titleEn: true, icon: true, summary: true, developer: true } }, targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], skip: (currentPage - 1) * 20, take: 20 })
+  return { items: rows.map((row) => ({ id: row.id, version: row.version, channel: row.channel, releasedAt: row.releasedAt, changelog: plainText(row.changelog).slice(0, 220), size: row.size, targets: row.targets.map(({ platform, architecture, minVersion }) => ({ platform, architecture, minVersion })), software: { ...row.software, summary: plainText(row.software.summary).slice(0, 160) } })), total, page: currentPage, pages }
 }
 
 /** One historical version, including protected file handles but never raw URLs. */
@@ -455,7 +457,7 @@ export async function getSoftwareRelease(slug: string, releaseId: number) {
   const now = new Date()
   const release = await db.softwareRelease.findFirst({
     where: { id: releaseId, status: 'PUBLISHED', releasedAt: { lte: now }, software: { slug, status: 'PUBLISHED', publishedAt: { lte: now } } },
-    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, developer: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
+    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, developer: true, developerStudioId: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
   })
   if (!release) return null
   const links = await publicLinks('softwarerelease', [release.id])
@@ -463,7 +465,7 @@ export async function getSoftwareRelease(slug: string, releaseId: number) {
 }
 
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
-export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
+export async function softwareFeed(input: { platform?: string; category?: string; license?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[] }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
   /** Items filed under a taxonomy term (and its sub-terms). */
@@ -471,6 +473,10 @@ export async function softwareFeed(input: { platform?: string; category?: string
   if (input.platform) where.platforms = { contains: String(input.platform).slice(0, 40) }
   if (input.category) where.category = String(input.category).slice(0, 60)
   if (input.license) where.license = String(input.license).slice(0, 20)
+  if (input.developerStudioId && Number.isSafeInteger(input.developerStudioId) && input.developerStudioId > 0) where.developerStudioId = input.developerStudioId
+  else if (input.developer) where.developer = String(input.developer).slice(0, 160)
+  if (input.publisherStudioId && Number.isSafeInteger(input.publisherStudioId) && input.publisherStudioId > 0) where.publisherStudioId = input.publisherStudioId
+  else if (input.publisher) where.publisher = String(input.publisher).slice(0, 160)
   const q = String(input.q || '').trim().slice(0, 80)
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { developer: { contains: q } }, { category: { contains: q } }, { summary: { contains: q } }]
   const orderBy = input.sort === 'popular' ? [{ downloads: 'desc' as const }] : input.sort === 'views' ? [{ views: 'desc' as const }] : input.sort === 'name' ? [{ title: 'asc' as const }] : [{ updatedAt: 'desc' as const }]
@@ -602,7 +608,7 @@ export async function getSoftware(slug: string) {
   const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
   return {
     software: {
-      ...toSoftware(row, versions), website: row.website, requirements: row.requirements, content: row.content,
+      ...toSoftware(row, versions), publisher: row.publisher, developerStudioId: row.developerStudioId, publisherStudioId: row.publisherStudioId, website: row.website, requirements: row.requirements, content: row.content,
       changelog: projected.changelog, views: row.views,
       releasedAt: projected.releasedAt, updatedAt: projected.updatedAt,
       features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',

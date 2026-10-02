@@ -175,3 +175,6 @@
 .bld-preview-stage .bld-preview-frame{flex:0 0 auto;max-inline-size:100%;transition:inline-size .2s ease}
 .bld-preview-stage.is-tablet .bld-preview-frame,.bld-preview-stage.is-mobile .bld-preview-frame{border-inline:1px solid #29445f;box-shadow:0 0 0 6px #0d1d2e}
 .builder-workspace .bld-preview-stage .bld-preview-frame{min-height:100%}
+.cms-cover-field.is-logo .cms-cover-preview{justify-self:start;width:112px;height:112px;min-height:0;aspect-ratio:1;background:var(--bg-soft);border:1px solid var(--border)}
+.cms-cover-field.is-logo .cms-cover-preview img{object-fit:contain;z-index:0}
+.cms-cover-field.is-logo .cms-cover-preview::after{display:none}

@@ -55,7 +55,7 @@ export default async function SoftwareHomePage() {
       {order.includes('tiles') && <div className="container sp-top"><CategoryTiles tiles={chrome.tiles} /></div>}
       <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
         <h1 className="sr-only">دانلود نرم‌افزار</h1>
-        <nav className="sp-release-entry" aria-label="نسخه‌های نرم‌افزار"><Link href="/software/releases">مشاهدهٔ همهٔ نسخه‌ها و به‌روزرسانی‌ها ←</Link></nav>
+        <nav className="sp-release-entry" aria-label="کشف نرم‌افزار"><Link href="/software/releases">نسخه‌ها و به‌روزرسانی‌ها ←</Link><Link href="/studios">سازندگان و ناشران ←</Link></nav>
         {order.filter((key) => key !== 'stats' && key !== 'tiles').map((key) => <Fragment key={key}>{blocks[key]()}</Fragment>)}
       </SoftwareLayout>
     </MediaShell>

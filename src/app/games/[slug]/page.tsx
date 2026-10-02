@@ -61,8 +61,8 @@ export default async function GamePage({ params }: Props) {
   const [rating, terms] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id])])
   const term = terms.get(g.id)
   const facts = ([
-    ['سازنده', g.developer && <Link href={`/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
-    ['ناشر', g.publisher && <Link href={`/games/browse?publisher=${encodeURIComponent(g.publisher)}`}>{g.publisher}</Link>],
+    ['سازنده', g.developer && <Link href={g.developerStudioId ? `/studios/${g.developerStudioId}` : `/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
+    ['ناشر', g.publisher && <Link href={g.publisherStudioId ? `/studios/${g.publisherStudioId}` : `/games/browse?publisher=${encodeURIComponent(g.publisher)}`}>{g.publisher}</Link>],
     ['تاریخ انتشار', g.releaseDate ? new Date(g.releaseDate).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : 'اعلام نشده'],
     ['سبک', g.genres.join('، ')],
     ['مجموعه', extras.franchise && <Link href={`/games/franchise/${extras.franchise.slug}`}>{extras.franchise.title}</Link>],
