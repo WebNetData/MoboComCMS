@@ -21,8 +21,8 @@ export async function GET_releases(req: NextRequest) {
     const selectedId = positive(req.nextUrl.searchParams.get('selectedId'))
     const where = q ? { OR: [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : {}
     const [rows, selected] = await Promise.all([
-      db.softwareTitle.findMany({ where, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, title: true, slug: true, version: true, status: true } }),
-      selectedId ? db.softwareTitle.findUnique({ where: { id: selectedId }, select: { id: true, title: true, slug: true, version: true, status: true } }) : null,
+      db.softwareTitle.findMany({ where, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, title: true, slug: true, status: true } }),
+      selectedId ? db.softwareTitle.findUnique({ where: { id: selectedId }, select: { id: true, title: true, slug: true, status: true } }) : null,
     ])
     return ok({ picker: selected && !rows.some((row) => row.id === selected.id) ? [selected, ...rows] : rows })
   }

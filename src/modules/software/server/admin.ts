@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { splitList } from '@/modules/media/domain/media'
 import { SOFTWARE_HEALTH, isStale, normalizeSoftwareSettings, softwareIssues, type SoftwareHealth, type SoftwareSettings } from '@/modules/software/domain/software'
+import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 
 // Software admin: portal settings, catalogue dashboard and picker.
 
@@ -22,13 +23,15 @@ export async function saveSoftwareSettings(input: unknown): Promise<SoftwareSett
 
 export async function softwareDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
-  const [settings, titles, links, reports, downloads] = await Promise.all([
+  const [settings, rawTitles, links, reports, downloads] = await Promise.all([
     getSoftwareSettings(),
     db.softwareTitle.findMany({ select: { id: true, slug: true, title: true, icon: true, version: true, summary: true, content: true, screenshots: true, platforms: true, size: true, license: true, status: true, publishedAt: true, releasedAt: true, updatedAt: true, views: true, downloads: true, access: true, featured: true } }),
     db.mediaLink.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] } }, select: { ownerType: true, ownerId: true, clicks: true, disabled: true } }),
     db.linkReport.count({ where: { status: 'OPEN', link: { ownerType: { in: ['software', 'softwarerelease'] } } } }).catch(() => 0),
     db.downloadLog.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] }, createdAt: { gte: since } }, select: { createdAt: true } }).catch(() => []),
   ])
+  const versions = await currentSoftwareVersions(rawTitles.map((title) => title.id), now)
+  const titles = rawTitles.map((title) => projectSoftwareVersion(title, versions))
   const linkCount = new Map<number, number>()
   const releaseIds = links.filter((link) => link.ownerType === 'softwarerelease').map((link) => link.ownerId)
   const releaseOwners = new Map((releaseIds.length ? await db.softwareRelease.findMany({ where: { id: { in: releaseIds }, status: 'PUBLISHED', releasedAt: { lte: now } }, select: { id: true, softwareId: true } }) : []).map((row) => [row.id, row.softwareId]))
@@ -67,5 +70,7 @@ export async function softwareDashboard(now = new Date()) {
 }
 
 export async function softwarePicker() {
-  return db.softwareTitle.findMany({ where: { status: 'PUBLISHED' }, orderBy: { updatedAt: 'desc' }, take: 800, select: { id: true, title: true, icon: true, version: true } })
+  const rows = await db.softwareTitle.findMany({ where: { status: 'PUBLISHED' }, orderBy: { updatedAt: 'desc' }, take: 800, select: { id: true, title: true, icon: true, version: true } })
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return rows.map((row) => ({ ...row, version: versions.has(row.id) ? versions.get(row.id)?.version || '' : row.version }))
 }

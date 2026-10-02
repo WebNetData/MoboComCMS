@@ -1,7 +1,7 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Complete the Software release-history vertical slice, then align current-version projections across catalogue and admin surfaces.
+Current milestone: Add platform-specific compatibility to Software releases and their protected downloads.
 Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
@@ -35,7 +35,7 @@ Done (verified):
 - Scheduled game update follower notices and their additive migration were verified and pushed as `baff9a1`.
 
 In progress:
-- Software now has `SoftwareRelease` and a durable notification cursor, an admin editor, a due-only public history and protected per-release download links. Existing current versions were backfilled without past notices. The catalogue and admin summary still use the legacy `SoftwareTitle.version`; align them with the latest due release next. Platform-specific compatibility remains.
+- Software has `SoftwareRelease` and a durable notification cursor, an admin editor, a due-only public history and protected per-release download links. Existing current versions were backfilled without past notices. A shared due-release projection now covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Platform-specific compatibility and deeper discovery remain.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -67,9 +67,10 @@ Validation actually run:
 - For scheduled game updates: `typecheck`, `source:check`, `arch:check`, `security:check`, 24 nearby tests, full `npm run check`, `build:postgres` and a local PostgreSQL/API check passed. The connected check verified a future update and its version are absent from rendered game content, its direct file link returns 404, the due update becomes visible without a deploy, and a future parent publication closes the link. The first connected attempt exposed Next dev script traces and a stale dev cache; rendered-content assertions and a restart resolved those test conditions.
 - For game release notices: schema parity, both Prisma validations, local PostgreSQL migration, TypeScript check, full `npm run check`, `build:postgres` and a connected worker check passed. The worker check covered future and draft gates, opted-out and late followers, dedupe collision retry, cursor progress and independent channel job creation.
 - For Software release history: schema parity, both Prisma validations, local PostgreSQL migration, full `npm run check`, PostgreSQL build, connected public/link/notification check, authenticated admin create/list/ownership/delete check, and dark/light browser layout inspection passed. Public and admin pages have no horizontal overflow at tested mobile widths; the admin rich editor was inspected at 360, 390, 768 and 1440 pixels. A local Next.js restart was needed after source changes to avoid stale development assets.
+- For Software current-version projection: `typecheck`, source, architecture and security checks passed. A connected PostgreSQL/browser test confirmed a future version stays off the browse card, then a due version appears; an authenticated API test confirmed the CMS row and Software dashboard show the due version. A release save reindexed search with the due version and removed it again when rescheduled into the future.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Make the latest due Software release authoritative for catalogue cards, feed, admin summary and search metadata; add platform-specific compatibility. Then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.
+- Add platform and architecture compatibility to Software releases and download selection, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.

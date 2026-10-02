@@ -26,7 +26,9 @@ async function main() {
   const notices = load('src/modules/software/server/release-notifications.ts', {
     '@/platform/database/prisma': { db },
     '@/modules/notifications/server/inbox': { createInboxEvent: inbox.createInboxEvent },
+    '@/modules/content/server/events': { contentChanged: () => undefined },
   })
+  const projection = load('src/modules/software/server/current-version.ts', { '@/platform/database/prisma': { db } })
   const yesterday = new Date(Date.now() - 86_400_000)
   const tomorrow = new Date(Date.now() + 86_400_000)
   const software = await db.softwareTitle.create({ data: { slug, title: 'Codex software release', version: 'future-9.9', changelog: 'future-secret', publishedAt: yesterday } })
@@ -41,6 +43,10 @@ async function main() {
   linkId = link.id
   const future = rendered(await (await get(`/software/${slug}`)).text())
   assert.ok(!future.includes('future-9.9') && !future.includes('future-secret'), 'future version and changelog stay off the public page')
+  const futureBrowse = rendered(await (await get('/software/browse?q=Codex%20software%20release')).text())
+  assert.ok(futureBrowse.includes(slug) && !futureBrowse.includes('future-9.9'), 'catalogue card hides the future version')
+  assert.equal((await projection.currentSoftwareVersions([softwareId])).get(softwareId), null)
+  assert.equal(projection.projectSoftwareVersion(software, await projection.currentSoftwareVersions([softwareId])).version, '')
   assert.equal((await get(`/api/media/link/${linkId}`)).status, 404, 'future file is closed')
   assert.equal((await notices.processSoftwareReleaseNotifications()).checked, 0, 'future release is not notified')
 
@@ -57,6 +63,9 @@ async function main() {
   await db.softwareRelease.update({ where: { id: releaseId }, data: { status: 'PUBLISHED' } })
   const live = rendered(await (await get(`/software/${slug}`)).text())
   assert.ok(live.includes('future-9.9') && live.includes('future-secret'), 'due version and changelog appear')
+  const liveBrowse = rendered(await (await get('/software/browse?q=Codex%20software%20release')).text())
+  assert.ok(liveBrowse.includes('future-9.9'), 'catalogue card follows the due release')
+  assert.equal((await projection.currentSoftwareVersions([softwareId])).get(softwareId)?.version, 'future-9.9')
   assert.notEqual((await get(`/api/media/link/${linkId}`)).status, 404, 'due file passes publication gate')
   await db.softwareTitle.update({ where: { id: softwareId }, data: { publishedAt: tomorrow } })
   assert.equal((await get(`/api/media/link/${linkId}`)).status, 404, 'scheduled parent closes direct file access')

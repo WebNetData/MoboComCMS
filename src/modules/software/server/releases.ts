@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { cleanLinks } from '@/modules/media/domain/media'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { scheduleSoftwareRelease } from '@/modules/software/server/release-notifications'
+import { contentChanged } from '@/modules/content/server/events'
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0]
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
@@ -36,7 +37,7 @@ async function reconcileLinks(tx: Tx, releaseId: number, input: unknown) {
 }
 
 export async function saveSoftwareRelease(softwareId: number, input: Record<string, unknown>) {
-  const software = await db.softwareTitle.findUnique({ where: { id: softwareId }, select: { id: true } })
+  const software = await db.softwareTitle.findUnique({ where: { id: softwareId }, select: { id: true, title: true, status: true, publishedAt: true, version: true } })
   if (!software) throw new SoftwareReleaseError('نرم‌افزار پیدا نشد', 404)
   const id = idOf(input.id)
   const version = text(input.version, 60)
@@ -57,8 +58,10 @@ export async function saveSoftwareRelease(softwareId: number, input: Record<stri
       const saved = id ? await tx.softwareRelease.update({ where: { id }, data }) : await tx.softwareRelease.create({ data: { ...data, softwareId } })
       if (input.links !== undefined) await reconcileLinks(tx, saved.id, input.links)
       await scheduleSoftwareRelease(tx, saved, before)
+      if ((saved.status === 'PUBLISHED' && saved.releasedAt <= new Date()) || (before?.status === 'PUBLISHED' && before.releasedAt <= new Date())) await tx.softwareTitle.update({ where: { id: softwareId }, data: { updatedAt: new Date() } })
       return saved
     })
+    contentChanged({ type: 'software', id: softwareId }, software, software)
     return { id: row.id, created: !id }
   } catch (error) {
     if (/Unique constraint/i.test(String(error))) throw new SoftwareReleaseError('این نسخه در این کانال قبلاً ثبت شده است', 409)
@@ -67,8 +70,13 @@ export async function saveSoftwareRelease(softwareId: number, input: Record<stri
 }
 
 export async function deleteSoftwareRelease(softwareId: number, releaseId: number) {
-  const row = await db.softwareRelease.findFirst({ where: { id: releaseId, softwareId } })
+  const row = await db.softwareRelease.findFirst({ where: { id: releaseId, softwareId }, include: { software: { select: { id: true, title: true, status: true, publishedAt: true, version: true } } } })
   if (!row) throw new SoftwareReleaseError('نسخه پیدا نشد', 404)
-  await db.$transaction([db.mediaLink.deleteMany({ where: { ownerType: 'softwarerelease', ownerId: releaseId } }), db.softwareRelease.delete({ where: { id: releaseId } })])
+  await db.$transaction(async (tx) => {
+    await tx.mediaLink.deleteMany({ where: { ownerType: 'softwarerelease', ownerId: releaseId } })
+    await tx.softwareRelease.delete({ where: { id: releaseId } })
+    if (row.status === 'PUBLISHED' && row.releasedAt <= new Date()) await tx.softwareTitle.update({ where: { id: softwareId }, data: { updatedAt: new Date() } })
+  })
+  contentChanged({ type: 'software', id: softwareId }, row.software, row.software)
   return row
 }

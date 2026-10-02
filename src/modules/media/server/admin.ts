@@ -18,6 +18,7 @@ import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
+import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 
 /**
  * One admin CRUD endpoint for every media/VIP resource:
@@ -420,8 +421,9 @@ const RESOURCES: Record<string, Resource> = {
     },
     expand: async (rows) => {
       const links = await linksFor('software', rows.map((row) => row.id))
+      const versions = await currentSoftwareVersions(rows.map((row) => row.id))
       const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }
-      return rows.map((row) => ({ ...row, releasedAt: row.releasedAt ? new Date(row.releasedAt).toISOString().slice(0, 10) : '', screenshots: json(row.screenshots, []), links: links.get(row.id) || [] }))
+      return rows.map((source) => { const row = projectSoftwareVersion(source, versions); return { ...row, releasedAt: row.releasedAt ? new Date(row.releasedAt).toISOString().slice(0, 10) : '', screenshots: json(row.screenshots, []), links: links.get(row.id) || [] } })
     },
   },
   'vip-plans': {

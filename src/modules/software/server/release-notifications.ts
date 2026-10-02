@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { contentChanged } from '@/modules/content/server/events'
 
 type Release = { id: number; status: string; releasedAt: Date }
 
@@ -20,11 +21,13 @@ export async function processSoftwareReleaseNotifications(now = new Date()) {
   const pending = await db.softwareReleaseNotification.findMany({
     where: { completedAt: null, dueAt: { lte: now }, release: { is: { status: 'PUBLISHED', releasedAt: { lte: now }, software: { is: { status: 'PUBLISHED', publishedAt: { lte: now } } } } } },
     orderBy: [{ dueAt: 'asc' }, { releaseId: 'asc' }], take: 10,
-    include: { release: { include: { software: { select: { id: true, slug: true, title: true } } } } },
+    include: { release: { include: { software: { select: { id: true, slug: true, title: true, status: true, publishedAt: true, version: true } } } } },
   })
   let sent = 0
   for (const cursor of pending) {
     const { release } = cursor
+    await db.softwareTitle.updateMany({ where: { id: release.softwareId, updatedAt: { lt: release.releasedAt } }, data: { updatedAt: new Date() } })
+    contentChanged({ type: 'software', id: release.softwareId }, release.software, release.software)
     const followers = await db.itemFavorite.findMany({
       where: { itemType: 'software', itemId: release.softwareId, notify: true, userId: { gt: cursor.lastUserId }, createdAt: { lte: cursor.dueAt } },
       orderBy: { userId: 'asc' }, select: { userId: true }, take: 50,

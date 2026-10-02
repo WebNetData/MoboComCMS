@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
+import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
 
 /**
  * Public read models for music, film & series and games. Raw media URLs never
@@ -414,7 +415,8 @@ export type SoftwareCard = {
   id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
   license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; views: number; publishedAt: Date; updatedAt: Date
 }
-function toSoftware(row: any): SoftwareCard {
+function toSoftware(source: any, versions: VersionProjection): SoftwareCard {
+  const row = projectSoftwareVersion(source, versions)
   return {
     id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, icon: row.icon, cover: row.cover || row.icon, version: row.version, developer: row.developer,
     license: row.license, platforms: splitList(row.platforms, 6), category: row.category, size: row.size, access: row.access, summary: plainText(row.summary), downloads: row.downloads,
@@ -440,7 +442,8 @@ export async function softwareFeed(input: { platform?: string; category?: string
     db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * FEED_SIZE, take: FEED_SIZE }),
     db.softwareTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
-  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return { items: rows.map((row) => toSoftware(row, versions)), total, page, pages: Math.max(1, Math.ceil(total / FEED_SIZE)) }
 }
 
 export type SoftwareTree = { platform: string; count: number; categories: { name: string; count: number }[] }[]
@@ -468,7 +471,8 @@ export async function softwareSidebar() {
   const platforms: SoftwareTree = [...tree.entries()]
     .sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99) || b[1].count - a[1].count)
     .map(([platform, node]) => ({ platform, count: node.count, categories: [...node.categories.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) }))
-  return { tree: platforms, viewed: viewed.map(toSoftware), downloaded: downloaded.map(toSoftware), today: today.map(toSoftware), total: Number(total) || 0 }
+  const versions = await currentSoftwareVersions([...viewed, ...downloaded, ...today].map((row) => row.id))
+  return { tree: platforms, viewed: viewed.map((row) => toSoftware(row, versions)), downloaded: downloaded.map((row) => toSoftware(row, versions)), today: today.map((row) => toSoftware(row, versions)), total: Number(total) || 0 }
 }
 
 export async function getSoftwareHome() {
@@ -478,8 +482,9 @@ export async function getSoftwareHome() {
     db.softwareTitle.findMany({ where: live(), orderBy: [{ downloads: 'desc' }, { publishedAt: 'desc' }], take: 10 }),
     db.softwareTitle.findMany({ where: live(), select: { platforms: true, category: true }, take: 1000 }),
   ])
+  const versions = await currentSoftwareVersions([...featured, ...latest, ...popular].map((row) => row.id))
   return {
-    featured: featured.map(toSoftware), latest: latest.map(toSoftware), popular: popular.map(toSoftware),
+    featured: featured.map((row) => toSoftware(row, versions)), latest: latest.map((row) => toSoftware(row, versions)), popular: popular.map((row) => toSoftware(row, versions)),
     platforms: countList(facetRows.map((row: { platforms: string }) => row.platforms)).slice(0, 8),
     categories: countList(facetRows.map((row: { category: string }) => row.category)).slice(0, 16),
   }
@@ -498,7 +503,8 @@ export async function browseSoftware(input: { platform?: string; category?: stri
     db.softwareTitle.findMany({ where, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.softwareTitle.count({ where }),
   ]).catch(() => [[], 0] as [any[], number])
-  return { items: rows.map(toSoftware), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return { items: rows.map((row) => toSoftware(row, versions)), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
 /** Header strip of the software portal: catalogue size, traffic, freshness and community. */
@@ -526,10 +532,11 @@ export async function softwareSuggestions(take = 10, pickedIds: number[] = []) {
     const picked = await db.softwareTitle.findMany({ where: { ...live(), id: { in: pickedIds.slice(0, take) } } }).catch(() => [])
     const byId = new Map(picked.map((row) => [row.id, row]))
     const ordered = pickedIds.map((id) => byId.get(id)).filter((row): row is NonNullable<typeof row> => !!row)
-    if (ordered.length) return ordered.map(toSoftware)
+    if (ordered.length) { const versions = await currentSoftwareVersions(ordered.map((row) => row.id)); return ordered.map((row) => toSoftware(row, versions)) }
   }
   const rows = await db.softwareTitle.findMany({ where: live(), orderBy: [{ featured: 'desc' }, { downloads: 'desc' }], take }).catch(() => [])
-  return rows.map(toSoftware)
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return rows.map((row) => toSoftware(row, versions))
 }
 
 /** Latest journal posts with a cover (the portal's “tech news” box). */
@@ -540,32 +547,34 @@ export async function techNews(take = 5) {
 /** Newest software filed under the given ids (one home-page shelf per main category). */
 export async function softwareShelf(ids: number[] | null, take = 8) {
   const rows = await db.softwareTitle.findMany({ where: { ...live(), ...(ids ? { id: { in: ids.slice(0, 5000) } } : {}) }, orderBy: { updatedAt: 'desc' }, take }).catch(() => [])
-  return rows.map(toSoftware)
+  const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+  return rows.map((row) => toSoftware(row, versions))
 }
 
 export async function getSoftware(slug: string) {
+  const now = new Date()
   const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [links, related, releases, releaseCount] = await Promise.all([
+  const [links, related, releases] = await Promise.all([
     publicLinks('software', [row.id]),
     db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
-    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: new Date() } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
-    db.softwareRelease.count({ where: { softwareId: row.id } }).catch(() => 0),
+    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
   ])
+  const versions = await currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now)
+  const projected = projectSoftwareVersion(row, versions)
   const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
-  const current = releases[0]
   return {
     software: {
-      ...toSoftware(row), version: current?.version || (releaseCount ? '' : row.version), website: row.website, requirements: row.requirements, content: row.content,
-      changelog: current?.changelog || (releaseCount ? '' : row.changelog), views: row.views,
-      releasedAt: current?.releasedAt || (releaseCount ? null : row.releasedAt), updatedAt: row.updatedAt,
+      ...toSoftware(row, versions), website: row.website, requirements: row.requirements, content: row.content,
+      changelog: projected.changelog, views: row.views,
+      releasedAt: projected.releasedAt, updatedAt: projected.updatedAt,
       features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],
     releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
-    related: related.map(toSoftware),
+    related: related.map((item) => toSoftware(item, versions)),
   }
 }
 

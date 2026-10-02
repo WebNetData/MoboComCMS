@@ -9,7 +9,7 @@ import { SoftwareShell } from '../shared'
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
-type Picker = { id: number; title: string; slug: string; version: string; status: string }
+type Picker = { id: number; title: string; slug: string; status: string }
 type Release = { id: number; version: string; channel: string; status: string; releasedAt: string; changelog: string; size: string; checksum: string; links: (LinkRow & { id: number })[] }
 const blank = (): Release => ({ id: 0, version: '', channel: 'STABLE', status: 'DRAFT', releasedAt: new Date().toISOString().slice(0, 10), changelog: '', size: '', checksum: '', links: [] })
 

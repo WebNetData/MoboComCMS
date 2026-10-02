@@ -3,6 +3,7 @@ import { getModuleStates } from '@/extensions/server/modules'
 import { ITEM_MODULE, ITEM_TYPES, itemKey, itemPath, type ItemRef, type ItemType } from '@/modules/content/domain/items'
 import { GUEST, categoryAccess } from '@/modules/forum/domain/community'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
+import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 
 /**
  * Loads public items of every content type into one card shape. Only published,
@@ -36,7 +37,8 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
   switch (type) {
     case 'software': {
       const rows = await db.softwareTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
-      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.version && `نسخه ${r.version}`, r.developer].filter(Boolean).join(' · '), summary: plain(r.summary || r.content), keywords: [r.titleEn, r.category, r.platforms, r.developer, r.version].join(' '), image: r.icon || r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.downloads + r.views }))
+      const versions = await currentSoftwareVersions(rows.map((row) => row.id))
+      return rows.map((source) => { const r = projectSoftwareVersion(source, versions); return card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.version && `نسخه ${r.version}`, r.developer].filter(Boolean).join(' · '), summary: plain(r.summary || r.content), keywords: [r.titleEn, r.category, r.platforms, r.developer, r.version].join(' '), image: r.icon || r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.downloads + r.views }) })
     }
     case 'game': {
       const rows = await db.gameTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
