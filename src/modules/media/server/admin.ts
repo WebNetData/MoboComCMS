@@ -414,7 +414,10 @@ const RESOURCES: Record<string, Resource> = {
       publishedAt: when(b, 'publishedAt', (v) => date(v) || new Date()),
     }),
     afterSave: async (tx, id, b) => { if (has(b, 'links')) await saveLinks(tx, 'software', id, b.links) },
-    onDelete: async (tx, id) => { await tx.mediaLink.deleteMany({ where: { ownerType: 'software', ownerId: id } }) },
+    onDelete: async (tx, id) => {
+      const releases = await tx.softwareRelease.findMany({ where: { softwareId: id }, select: { id: true } })
+      await tx.mediaLink.deleteMany({ where: { OR: [{ ownerType: 'software', ownerId: id }, ...(releases.length ? [{ ownerType: 'softwarerelease', ownerId: { in: releases.map((row) => row.id) } }] : [])] } })
+    },
     expand: async (rows) => {
       const links = await linksFor('software', rows.map((row) => row.id))
       const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }

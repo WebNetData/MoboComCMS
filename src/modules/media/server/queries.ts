@@ -547,17 +547,24 @@ export async function getSoftware(slug: string) {
   const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [links, related] = await Promise.all([
+  const [links, related, releases, releaseCount] = await Promise.all([
     publicLinks('software', [row.id]),
     db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
+    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: new Date() } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
+    db.softwareRelease.count({ where: { softwareId: row.id } }).catch(() => 0),
   ])
+  const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
+  const current = releases[0]
   return {
     software: {
-      ...toSoftware(row), website: row.website, requirements: row.requirements, content: row.content, changelog: row.changelog, views: row.views, releasedAt: row.releasedAt, updatedAt: row.updatedAt,
+      ...toSoftware(row), version: current?.version || (releaseCount ? '' : row.version), website: row.website, requirements: row.requirements, content: row.content,
+      changelog: current?.changelog || (releaseCount ? '' : row.changelog), views: row.views,
+      releasedAt: current?.releasedAt || (releaseCount ? null : row.releasedAt), updatedAt: row.updatedAt,
       features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],
+    releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
     related: related.map(toSoftware),
   }
 }

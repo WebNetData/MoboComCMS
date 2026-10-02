@@ -1,8 +1,8 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Inspect Software release history and version-notification semantics before a new vertical slice.
-Risk: R4 program; a Software release-history slice will be R3/R4 because it touches durable data, protected links, admin editing and scheduled publication.
+Current milestone: Complete the Software release-history vertical slice, then align current-version projections across catalogue and admin surfaces.
+Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
 Decisions:
@@ -35,7 +35,7 @@ Done (verified):
 - Scheduled game update follower notices and their additive migration were verified and pushed as `baff9a1`.
 
 In progress:
-- Repository inspection found Software has only a current `version` and `changelog`, with no release history. `contentChanged` sends version notices through a best-effort hook; it does not check future `publishedAt` for Software. A safe next slice needs a release record, public/download gates and a durable release cursor together. No Software behavior has been changed yet.
+- Software now has `SoftwareRelease` and a durable notification cursor, an admin editor, a due-only public history and protected per-release download links. Existing current versions were backfilled without past notices. The catalogue and admin summary still use the legacy `SoftwareTitle.version`; align them with the latest due release next. Platform-specific compatibility remains.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -43,6 +43,7 @@ Data/migrations:
 - Both Prisma schemas now contain `User.pushAlerts`. Additive migration `20261110120000_push_alert_preference` was applied locally; production deployment remains pending.
 - Both Prisma schemas contain `UserNotificationMute`. Additive migration `20261111120000_notification_event_mutes` is applied to the local Docker PostgreSQL database; production deployment remains pending.
 - Both Prisma schemas now contain `GameUpdateReleaseNotification`. Additive migration `20261112120000_game_update_release_notifications` is applied locally; production deployment remains pending. It backfills only future game updates, avoiding surprise notices for old releases.
+- Both Prisma schemas now contain `SoftwareRelease` and `SoftwareReleaseNotification`. Additive migration `20261113120000_software_releases` is applied to local Docker PostgreSQL; production deployment remains pending. It backfills existing current versions as history and queues only future releases.
 
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
@@ -65,9 +66,10 @@ Validation actually run:
 - For durable notification delivery: focused concurrent/rollback/provider-failure test and local PostgreSQL queue check passed. Full `npm run check` passed with Git Bash ahead of the WSL stub, and `build:postgres` passed.
 - For scheduled game updates: `typecheck`, `source:check`, `arch:check`, `security:check`, 24 nearby tests, full `npm run check`, `build:postgres` and a local PostgreSQL/API check passed. The connected check verified a future update and its version are absent from rendered game content, its direct file link returns 404, the due update becomes visible without a deploy, and a future parent publication closes the link. The first connected attempt exposed Next dev script traces and a stale dev cache; rendered-content assertions and a restart resolved those test conditions.
 - For game release notices: schema parity, both Prisma validations, local PostgreSQL migration, TypeScript check, full `npm run check`, `build:postgres` and a connected worker check passed. The worker check covered future and draft gates, opted-out and late followers, dedupe collision retry, cursor progress and independent channel job creation.
+- For Software release history: schema parity, both Prisma validations, local PostgreSQL migration, full `npm run check`, PostgreSQL build, connected public/link/notification check, authenticated admin create/list/ownership/delete check, and dark/light browser layout inspection passed. Public and admin pages have no horizontal overflow at tested mobile widths; the admin rich editor was inspected at 360, 390, 768 and 1440 pixels. A local Next.js restart was needed after source changes to avoid stale development assets.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Design and implement the smallest complete Software version-history path with scheduled publication and link gating, then connect release notices. Do not open a PR until the 2.0 brief is complete.
+- Make the latest due Software release authoritative for catalogue cards, feed, admin summary and search metadata; add platform-specific compatibility. Then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.

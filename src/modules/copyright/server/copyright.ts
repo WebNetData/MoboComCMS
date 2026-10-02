@@ -69,7 +69,8 @@ export async function reportDetail(id: number) {
     if (owner) {
       const episodes = item.type === 'title' ? (await db.cinemaEpisode.findMany({ where: { season: { titleId: item.id } }, select: { id: true } })).map((e) => e.id) : []
       const updates = item.type === 'game' ? (await db.gameUpdate.findMany({ where: { gameId: item.id }, select: { id: true } })).map((u) => u.id) : []
-      links = await db.mediaLink.findMany({ where: { OR: [{ ownerType: owner, ownerId: item.id }, ...(episodes.length ? [{ ownerType: 'episode', ownerId: { in: episodes } }] : []), ...(updates.length ? [{ ownerType: 'gameupdate', ownerId: { in: updates } }] : [])] }, select: { id: true, label: true, quality: true, url: true, disabled: true }, orderBy: { id: 'asc' } })
+      const releases = item.type === 'software' ? (await db.softwareRelease.findMany({ where: { softwareId: item.id }, select: { id: true } })).map((release) => release.id) : []
+      links = await db.mediaLink.findMany({ where: { OR: [{ ownerType: owner, ownerId: item.id }, ...(episodes.length ? [{ ownerType: 'episode', ownerId: { in: episodes } }] : []), ...(updates.length ? [{ ownerType: 'gameupdate', ownerId: { in: updates } }] : []), ...(releases.length ? [{ ownerType: 'softwarerelease', ownerId: { in: releases } }] : [])] }, select: { id: true, label: true, quality: true, url: true, disabled: true }, orderBy: { id: 'asc' } })
     }
     return { url, item: { type: item.type, id: item.id, title: item.title, url: item.url, label: ITEM_LABEL[item.type].one }, links }
   }))

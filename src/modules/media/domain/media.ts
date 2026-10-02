@@ -65,7 +65,7 @@ export function formatRuntime(minutes: number, fa: boolean): string {
 
 export const LINK_KINDS = ['DOWNLOAD', 'STREAM'] as const
 export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
-export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software'] as const
+export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software', 'softwarerelease'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
 export type LinkInput = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number; disabled?: boolean }

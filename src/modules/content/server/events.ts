@@ -5,7 +5,8 @@ import { itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/i
  * One place that reacts to content being created, edited, published or
  * deleted: the search index is patched, first publication is announced
  * (Telegram / Instagram / push) and followers hear about meaningful updates
- * (a new software version, a price drop or restock). Everything here is best
+ * (a price drop or restock). Software releases use their durable release queue.
+ * Everything here is best
  * effort and never fails the admin save that triggered it.
  */
 
@@ -46,9 +47,6 @@ async function react(ref: ItemRef, before: Snapshot, after: Snapshot) {
   const title = after.title || after.name || ''
   if (!live(ref.type, before) && live(ref.type, after)) await enqueueAnnouncement(ref, after.publishedAt || new Date())
   if (!live(ref.type, after)) return
-  if (ref.type === 'software' && before?.version && after.version && before.version !== after.version) {
-    await notifyFollowers(ref, { key: `v${after.version}`, title: `نسخهٔ ${after.version} ${title} منتشر شد`, body: `«${title}» به نسخهٔ ${after.version} به‌روز شد. لینک‌های دانلود تازه را ببینید.` })
-  }
   if (ref.type === 'product' && before && after.kind === 'PHYSICAL' && (before.stock ?? 0) <= 0 && (after.stock ?? 0) > 0) {
     await notifyFollowers(ref, { key: `restock-${Date.now().toString(36)}`, title: `${title} دوباره موجود شد`, body: `«${title}» که در علاقه‌مندی‌های شماست دوباره موجود است.` })
   }

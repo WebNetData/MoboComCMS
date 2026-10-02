@@ -25,12 +25,14 @@ export async function softwareDashboard(now = new Date()) {
   const [settings, titles, links, reports, downloads] = await Promise.all([
     getSoftwareSettings(),
     db.softwareTitle.findMany({ select: { id: true, slug: true, title: true, icon: true, version: true, summary: true, content: true, screenshots: true, platforms: true, size: true, license: true, status: true, publishedAt: true, releasedAt: true, updatedAt: true, views: true, downloads: true, access: true, featured: true } }),
-    db.mediaLink.findMany({ where: { ownerType: 'software' }, select: { ownerId: true, clicks: true, disabled: true } }),
-    db.linkReport.count({ where: { status: 'OPEN', link: { ownerType: 'software' } } }).catch(() => 0),
-    db.downloadLog.findMany({ where: { ownerType: 'software', createdAt: { gte: since } }, select: { createdAt: true } }).catch(() => []),
+    db.mediaLink.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] } }, select: { ownerType: true, ownerId: true, clicks: true, disabled: true } }),
+    db.linkReport.count({ where: { status: 'OPEN', link: { ownerType: { in: ['software', 'softwarerelease'] } } } }).catch(() => 0),
+    db.downloadLog.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] }, createdAt: { gte: since } }, select: { createdAt: true } }).catch(() => []),
   ])
   const linkCount = new Map<number, number>()
-  for (const link of links) if (!link.disabled) linkCount.set(link.ownerId, (linkCount.get(link.ownerId) || 0) + 1)
+  const releaseIds = links.filter((link) => link.ownerType === 'softwarerelease').map((link) => link.ownerId)
+  const releaseOwners = new Map((releaseIds.length ? await db.softwareRelease.findMany({ where: { id: { in: releaseIds }, status: 'PUBLISHED', releasedAt: { lte: now } }, select: { id: true, softwareId: true } }) : []).map((row) => [row.id, row.softwareId]))
+  for (const link of links) if (!link.disabled) { const ownerId = link.ownerType === 'softwarerelease' ? releaseOwners.get(link.ownerId) : link.ownerId; if (ownerId) linkCount.set(ownerId, (linkCount.get(ownerId) || 0) + 1) }
   const live = titles.filter((title) => title.status === 'PUBLISHED' && title.publishedAt <= now)
   const health = Object.fromEntries(Object.keys(SOFTWARE_HEALTH).map((key) => [key, 0])) as Record<SoftwareHealth, number>
   const worst: { id: number; title: string; icon: string; version: string; issues: SoftwareHealth[] }[] = []

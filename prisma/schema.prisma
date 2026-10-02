@@ -1628,8 +1628,8 @@ model GameLibrary {
   @@index([userId, status, updatedAt])
 }
 
-/// Software downloads (Windows/macOS/Linux/Android/iOS). Download links live in
-/// MediaLink (ownerType "software") and go through the protected redirect.
+/// Software downloads (Windows/macOS/Linux/Android/iOS). Base and versioned
+/// MediaLink rows use ownerType "software" and "softwarerelease" respectively.
 model SoftwareTitle {
   id           Int       @id @default(autoincrement())
   slug         String    @unique
@@ -1661,8 +1661,39 @@ model SoftwareTitle {
   publishedAt  DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
+  releases     SoftwareRelease[]
 
   @@index([status, publishedAt])
+}
+
+/// Version history. Files are MediaLink rows with ownerType "softwarerelease".
+model SoftwareRelease {
+  id         Int       @id @default(autoincrement())
+  softwareId Int
+  software   SoftwareTitle @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  version    String
+  channel    String    @default("STABLE") // STABLE | BETA | NIGHTLY
+  status     String    @default("DRAFT") // DRAFT | PUBLISHED
+  changelog  String    @default("")
+  size       String    @default("")
+  checksum   String    @default("")
+  releasedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+  notification SoftwareReleaseNotification?
+
+  @@unique([softwareId, version, channel])
+  @@index([softwareId, status, releasedAt])
+}
+
+model SoftwareReleaseNotification {
+  releaseId   Int       @id
+  dueAt       DateTime
+  lastUserId  Int       @default(0)
+  completedAt DateTime?
+  release     SoftwareRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([completedAt, dueAt])
 }
 
 /// Forum (تالار گفتمان). The first post of a thread is its body; counters are

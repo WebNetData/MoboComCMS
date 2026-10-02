@@ -20,7 +20,7 @@ import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
  * redirect to the — optionally signed, expiring — file URL.
  */
 
-const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', gameupdate: 'games', software: 'software' }
+const OWNER_MODULE: Record<string, string> = { title: 'cinema', episode: 'cinema', game: 'games', gameupdate: 'games', software: 'software', softwarerelease: 'software' }
 
 /** Paid item the viewer has not bought: back to its page, at the buy box. */
 function mustBuy(request: Request, path: string, json: boolean) {
@@ -94,6 +94,10 @@ async function ownerOf(ownerType: string, ownerId: number): Promise<Owner | null
   if (ownerType === 'software') {
     const row = await db.softwareTitle.findFirst({ where: { id: ownerId, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, select: { access: true, slug: true, title: true } })
     return row && { access: row.access, path: `/software/${row.slug}`, chain: [{ ownerType: 'software', ownerId }], title: row.title }
+  }
+  if (ownerType === 'softwarerelease') {
+    const row = await db.softwareRelease.findUnique({ where: { id: ownerId }, select: { version: true, status: true, releasedAt: true, softwareId: true, software: { select: { access: true, slug: true, status: true, publishedAt: true, title: true } } } })
+    return row && row.status === 'PUBLISHED' && row.releasedAt <= new Date() && row.software.status === 'PUBLISHED' && row.software.publishedAt <= new Date() ? { access: row.software.access, path: `/software/${row.software.slug}`, chain: [{ ownerType: 'software', ownerId: row.softwareId }], title: `${row.software.title} ${row.version}`.trim() } : null
   }
   if (ownerType === 'episode') {
     const episode = await db.cinemaEpisode.findUnique({ where: { id: ownerId }, select: { access: true, number: true, season: { select: { titleId: true, number: true, title: { select: { access: true, status: true, publishedAt: true, slug: true, title: true } } } } } })

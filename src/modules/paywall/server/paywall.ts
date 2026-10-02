@@ -26,14 +26,17 @@ type LinkOwnerRow = { id: number; ownerType: string; ownerId: number; label: str
 async function linkParents(links: LinkOwnerRow[]) {
   const episodes = links.filter((row) => row.ownerType === 'episode').map((row) => row.ownerId)
   const updates = links.filter((row) => row.ownerType === 'gameupdate').map((row) => row.ownerId)
-  const [episodeRows, updateRows] = await Promise.all([
+  const releases = links.filter((row) => row.ownerType === 'softwarerelease').map((row) => row.ownerId)
+  const [episodeRows, updateRows, releaseRows] = await Promise.all([
     episodes.length ? db.cinemaEpisode.findMany({ where: { id: { in: episodes } }, select: { id: true, season: { select: { titleId: true } } } }) : [],
     updates.length ? db.gameUpdate.findMany({ where: { id: { in: updates } }, select: { id: true, gameId: true } }) : [],
+    releases.length ? db.softwareRelease.findMany({ where: { id: { in: releases } }, select: { id: true, softwareId: true } }) : [],
   ])
   return new Map(links.flatMap((row): [number, { type: 'title' | 'game' | 'software'; id: number }][] => {
     if (row.ownerType === 'title' || row.ownerType === 'game' || row.ownerType === 'software') return [[row.id, { type: row.ownerType, id: row.ownerId }]]
     if (row.ownerType === 'episode') { const hit = episodeRows.find((item) => item.id === row.ownerId); return hit ? [[row.id, { type: 'title', id: hit.season.titleId }]] : [] }
     if (row.ownerType === 'gameupdate') { const hit = updateRows.find((item) => item.id === row.ownerId); return hit ? [[row.id, { type: 'game', id: hit.gameId }]] : [] }
+    if (row.ownerType === 'softwarerelease') { const hit = releaseRows.find((item) => item.id === row.ownerId); return hit ? [[row.id, { type: 'software', id: hit.softwareId }]] : [] }
     return []
   }))
 }
