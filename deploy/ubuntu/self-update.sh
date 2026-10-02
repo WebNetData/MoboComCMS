@@ -7,7 +7,7 @@
 # restart of the site). Progress is written to storage/update/state.json and update.log, which the panel shows.
 # Database migrations are applied by deploy/docker-start.sh when the service starts.
 #
-# Test overrides: UPDATE_NPM, UPDATE_BUILD, UPDATE_RESTART, UPDATE_HEALTH_URL, UPDATE_HEALTH_TRIES, UPDATE_STATE_DIR, UPDATE_ENV_FILE.
+# Test overrides: UPDATE_NPM, UPDATE_BUILD, UPDATE_BACKUP, UPDATE_RESTART, UPDATE_HEALTH_URL, UPDATE_HEALTH_TRIES, UPDATE_STATE_DIR, UPDATE_ENV_FILE.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -20,6 +20,7 @@ LOG="$DIR/update.log"
 STATE="$DIR/state.json"
 NPM="${UPDATE_NPM:-npm}"
 BUILD="${UPDATE_BUILD:-$NPM run build:postgres}"
+BACKUP="${UPDATE_BACKUP:-bash deploy/ubuntu/backup.sh}"
 RESTART="${UPDATE_RESTART:-sudo -n systemctl restart mobocom}"
 HEALTH="${UPDATE_HEALTH_URL:-http://127.0.0.1:3000/api/health/ready}"
 TRIES="${UPDATE_HEALTH_TRIES:-40}"
@@ -68,6 +69,9 @@ PREV="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$PREV" ] || { state failed "مخزن git پیدا نشد"; exit 1; }
 run git fetch --quiet --tags origin || { state failed "دریافت از مخزن ممکن نشد"; exit 1; }
 git rev-parse -q --verify "refs/tags/${REF}^{commit}" >/dev/null || { say "tag $REF not found"; state failed "این نسخه در مخزن نیست"; exit 1; }
+
+step "Backing up before update"
+runsh "$BACKUP" || { state failed "Backup failed before code replacement"; exit 1; }
 
 step "جایگزینی کد با ${REF}"
 run git checkout --quiet --force --detach "$REF" || { state failed "تعویض کد ناموفق بود"; exit 1; }

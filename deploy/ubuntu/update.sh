@@ -7,6 +7,8 @@ cd "$(dirname "$0")/../.."
 BRANCH="${BRANCH:-main}"
 echo "[update] fetching $BRANCH"
 git fetch --quiet origin "$BRANCH"
+echo "[update] backing up before code replacement"
+bash -c "${UPDATE_BACKUP:-bash deploy/ubuntu/backup.sh}"
 git checkout --quiet "$BRANCH"
 git reset --hard --quiet "origin/$BRANCH"
 
