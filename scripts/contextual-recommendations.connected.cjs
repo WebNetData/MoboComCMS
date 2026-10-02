@@ -9,7 +9,7 @@ const { chromium } = require('playwright')
 process.env.DATABASE_URL = process.env.MOBOCOM_CONNECTED_DATABASE_URL || 'postgresql://mobocom:mobocom-local@127.0.0.1:5435/mobocom?schema=public'
 const db = new PrismaClient()
 const seed = `codex-contextual-${Date.now()}`
-const games = [], software = [], studios = [], cinema = []
+const games = [], software = [], studios = [], cinema = [], albums = [], artists = []
 let browser
 
 function load(relative, imports = {}) {
@@ -47,6 +47,16 @@ async function main() {
     cinema.push(row.id)
     return row
   }
+  const artist = async (name) => {
+    const row = await db.musicArtist.create({ data: { slug: `${seed}-${name}`, name } })
+    artists.push(row.id)
+    return row
+  }
+  const album = async (name, artistId, data = {}) => {
+    const row = await db.musicAlbum.create({ data: { slug: `${seed}-${name}`, title: name, artistId, publishedAt: past, ...data } })
+    albums.push(row.id)
+    return row
+  }
   const gameSource = await game('game-source', { genres: 'RPG, Strategy', platforms: 'PC', developerStudioId: one })
   const gameStrong = await game('game-strong', { genres: 'Strategy, RPG', platforms: 'PC', publisherStudioId: one })
   const gameTopic = await game('game-topic', { genres: 'Strategy', platforms: 'Switch', developerStudioId: two })
@@ -63,6 +73,13 @@ async function main() {
   const cinemaKind = await title('cinema-kind', { kind: 'MOVIE', genres: 'Comedy' })
   const cinemaDraft = await title('cinema-draft', { kind: 'MOVIE', genres: 'Drama', status: 'DRAFT' })
   const cinemaFuture = await title('cinema-future', { kind: 'MOVIE', genres: 'Drama', publishedAt: future })
+  const [firstArtist, secondArtist] = await Promise.all(['artist-one', 'artist-two'].map(artist))
+  const albumSource = await album('album-source', firstArtist.id, { genre: 'Pop, Indie' })
+  const albumStrong = await album('album-strong', firstArtist.id, { genre: 'Pop' })
+  const albumGenre = await album('album-genre', secondArtist.id, { genre: 'Indie' })
+  const albumArtist = await album('album-artist', firstArtist.id, { genre: 'Rock' })
+  const albumDraft = await album('album-draft', firstArtist.id, { genre: 'Pop', status: 'DRAFT' })
+  const albumFuture = await album('album-future', firstArtist.id, { genre: 'Pop', publishedAt: future })
 
   const gameResults = await adapter.relatedGames(gameSource)
   assert.deepEqual(gameResults.slice(0, 3).map((item) => item.item.id), [gameStrong.id, gameTopic.id, gamePlatform.id])
@@ -75,6 +92,10 @@ async function main() {
   const cinemaResults = await adapter.relatedCinema(cinemaSource)
   assert.deepEqual(cinemaResults.slice(0, 3).map((item) => item.item.id), [cinemaStrong.id, cinemaGenre.id, cinemaKind.id])
   assert.ok(!cinemaResults.some((item) => [cinemaSource.id, cinemaDraft.id, cinemaFuture.id].includes(item.item.id)))
+  const albumResults = await adapter.relatedAlbums(albumSource)
+  assert.deepEqual(albumResults.slice(0, 3).map((item) => item.item.id), [albumStrong.id, albumGenre.id, albumArtist.id])
+  assert.equal(albumResults[2].reason, 'هنرمند مشترک')
+  assert.ok(!albumResults.some((item) => [albumSource.id, albumDraft.id, albumFuture.id].includes(item.item.id)))
   const falseSubstring = domain.rankContextual({ type: 'game', id: 1, topics: ['RPG'], platforms: [], creators: [], publishedAt: past }, [{ id: 2, topics: ['JRPG'], platforms: [], creators: [], publishedAt: past }])
   assert.equal(falseSubstring.length, 0, 'substring retrieval must not become a recommendation')
 
@@ -88,8 +109,10 @@ async function main() {
       ['game', gameSource, gameStrong, gameDraft, '.gx-cover-reason'],
       ['software', appSource, appTopic, appDraft, '.sp-app-reason'],
       ['cinema', cinemaSource, cinemaStrong, cinemaDraft, '.cn-poster-reason'],
+      ['album', albumSource, albumStrong, albumDraft, '.mu-album-reason'],
     ]) {
-      await page.goto(`http://127.0.0.1:3000/${kind === 'game' ? 'games' : kind}/${source.slug}`, { waitUntil: 'networkidle', timeout: 60000 })
+      const route = kind === 'game' ? `games/${source.slug}` : kind === 'album' ? `music/album/${source.slug}` : `${kind}/${source.slug}`
+      await page.goto(`http://127.0.0.1:3000/${route}`, { waitUntil: 'networkidle', timeout: 60000 })
       const text = await page.locator('body').innerText()
       assert.ok(text.includes(expected.title) && !text.includes(hidden.title), `${kind} public related cards respect publication`)
       assert.ok(await page.locator(selector).count(), `${kind} related cards explain the suggestion`)
@@ -99,7 +122,7 @@ async function main() {
     }
     await context.close()
   }
-  console.log('Contextual recommendations: Game/Software/Cinema ranking, live gates, exact matching, explained cards and dark/light 390/1440 browser layouts OK')
+  console.log('Contextual recommendations: Game/Software/Cinema/Music album ranking, live gates, exact matching, explained cards and dark/light 390/1440 browser layouts OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
@@ -107,6 +130,8 @@ main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(
   if (games.length) await db.gameTitle.deleteMany({ where: { id: { in: games } } })
   if (software.length) await db.softwareTitle.deleteMany({ where: { id: { in: software } } })
   if (cinema.length) await db.cinemaTitle.deleteMany({ where: { id: { in: cinema } } })
+  if (albums.length) await db.musicAlbum.deleteMany({ where: { id: { in: albums } } })
+  if (artists.length) await db.musicArtist.deleteMany({ where: { id: { in: artists } } })
   if (studios.length) await db.studio.deleteMany({ where: { id: { in: studios } } })
   await db.$disconnect()
 })

@@ -84,7 +84,7 @@ export function ImdbBadge({ rating, fa, large }: Fa & { rating: number | null; l
 // ------------------------------------------------------------------ music
 
 type ArtistLike = { slug: string; name: string; nameEn: string; image: string }
-type AlbumLike = { slug: string; title: string; titleEn: string; cover: string; year: number | null; access: string; artist: ArtistLike; trackCount: number }
+type AlbumLike = { slug: string; title: string; titleEn: string; cover: string; year: number | null; access: string; artist: ArtistLike; trackCount: number; recommendationReason?: string }
 
 export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
   const name = fa ? album.title : album.titleEn || album.title
@@ -97,6 +97,7 @@ export function AlbumCard({ album, fa }: Fa & { album: AlbumLike }) {
       </span>
       <b>{name}</b>
       <small>{fa ? album.artist.name : album.artist.nameEn || album.artist.name}{album.year ? ` · ${yr(album.year, fa)}` : ''}</small>
+      {album.recommendationReason && <small className="mu-album-reason">{fa ? album.recommendationReason : album.recommendationReason.startsWith('سبک مشترک: ') ? `Shared genre: ${album.recommendationReason.slice('سبک مشترک: '.length)}` : 'Same artist'}</small>}
     </Link>
   )
 }

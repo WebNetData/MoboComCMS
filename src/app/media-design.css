@@ -222,6 +222,7 @@
 .mu-album:hover .mu-album-play { opacity: 1; transform: none; }
 .mu-album b, .mu-album small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mu-album small { color: var(--md-muted); font-size: .84rem; }
+.mu-album .mu-album-reason { color: var(--md-accent); font-size: .72rem; }
 .mu-artist { display: grid; justify-items: center; gap: 8px; text-align: center; min-width: 0; }
 .mu-artist > span { width: 100%; max-width: 140px; aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--md-soft); box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--md-accent) 45%, transparent); transition: box-shadow .2s; }
 .mu-artist:hover > span { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--md-accent); }

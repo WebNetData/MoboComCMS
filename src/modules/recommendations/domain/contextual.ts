@@ -12,7 +12,7 @@ type Candidate = {
   publishedAt: Date
 }
 
-export type ContextualSource = Candidate & { type: 'game' | 'software' | 'title' }
+export type ContextualSource = Candidate & { type: 'game' | 'software' | 'title' | 'album' }
 
 export function terms(value: string): string[] {
   return [...new Set(String(value || '').split(/[,،]/).map((part) => part.trim()).filter(Boolean))].slice(0, 12)
@@ -37,7 +37,7 @@ export function rankContextual(source: ContextualSource, candidates: Candidate[]
       ...(kind ? ['kind' as const] : []),
     ]
     const reason = sharedTopic ? source.type === 'software' ? `دستهٔ مشترک: ${sharedTopic}` : `سبک مشترک: ${sharedTopic}`
-      : creator ? 'سازنده یا ناشر مشترک' : platform ? `پلتفرم مشترک: ${platform}` : kind ? 'نوع محتوای مشابه' : 'تازه منتشر شده'
+      : creator ? source.type === 'album' ? 'هنرمند مشترک' : 'سازنده یا ناشر مشترک' : platform ? `پلتفرم مشترک: ${platform}` : kind ? 'نوع محتوای مشابه' : 'تازه منتشر شده'
     return { item: { type: source.type, id: candidate.id }, score: topicCount * 10 + Number(creator) * 6 + Number(!!platform) * 2 + Number(kind), reason, signals: signals.length ? signals : ['freshness' as const], publishedAt: candidate.publishedAt }
   }).filter((result) => !hasContext || result.score > 0)
   ranked.sort((a, b) => b.score - a.score || b.publishedAt.getTime() - a.publishedAt.getTime() || a.item.id - b.item.id)

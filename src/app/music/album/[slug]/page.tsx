@@ -70,7 +70,7 @@ export default async function AlbumPage({ params }: Props) {
         <section className="mu-panel"><TrackList tracks={tracks} showCover={false} /></section>
         {album.description && <section className="mu-panel md-prose" dangerouslySetInnerHTML={{ __html: album.description }} />}
         <ReviewSection item={{ type: 'album', id: album.id }} title={name} path={`/music/album/${album.slug}`} />
-        {data.more.length > 0 && <Shelf tone="music" title={fa ? `آلبوم‌های دیگر ${artistName}` : `More albums by ${artistName}`}>{data.more.map((item) => <AlbumCard key={item.id} album={item} fa={fa} />)}</Shelf>}
+        {data.related.length > 0 && <Shelf tone="music" title={fa ? 'آلبوم‌های مرتبط' : 'Related albums'}>{data.related.map((item) => <AlbumCard key={item.id} album={item} fa={fa} />)}</Shelf>}
       </div>
     </MediaShell>
   )

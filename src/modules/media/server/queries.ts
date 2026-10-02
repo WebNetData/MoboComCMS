@@ -3,7 +3,7 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
-import { relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
 import type { Prisma } from '@prisma/client'
 
 /**
@@ -23,7 +23,7 @@ export type TrackCard = {
   access: string; plays: number; hasAudio: boolean; hasHq: boolean; publishedAt: Date
   artist: ArtistRef; album: { id: number; slug: string; title: string; titleEn: string } | null
 }
-export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number }
+export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number; recommendationReason?: string }
 export type PlaylistCard = { id: number; slug: string; title: string; titleEn: string; cover: string; description: string; access: string; trackCount: number }
 
 const artistSelect = { id: true, slug: true, name: true, nameEn: true, image: true } as const
@@ -169,11 +169,13 @@ export async function getAlbum(slug: string) {
   const row = await db.musicAlbum.findFirst({ where: { slug, ...live() }, include: albumInclude }).catch(() => null)
   if (!row) return null
   await db.musicAlbum.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [tracks, more] = await Promise.all([
+  const [tracks, recommendations] = await Promise.all([
     db.musicTrack.findMany({ where: { albumId: row.id, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }] }),
-    db.musicAlbum.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
+    relatedAlbums(row),
   ])
-  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), more: more.map(toAlbum) }
+  const relatedRows = recommendations.length ? await db.musicAlbum.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: albumInclude }) : []
+  const relatedById = new Map(relatedRows.map((item) => [item.id, item]))
+  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toAlbum(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getArtist(slug: string) {
