@@ -3,7 +3,7 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
-import { relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+import { relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
 import type { Prisma } from '@prisma/client'
 
 /**
@@ -201,6 +201,7 @@ export type TitleCard = {
   id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
   year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean
   access: string; runtime: number; summary: string; summaryEn: string; ageRating: string; seasonsCount: number
+  recommendationReason?: string
 }
 export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; access: string }
 
@@ -281,12 +282,13 @@ export async function getTitle(slug: string) {
   if (!row) return null
   await db.cinemaTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
   const episodeIds = row.seasons.flatMap((season) => season.episodes.map((episode) => episode.id))
-  const firstGenre = splitList(row.genres, 1)[0]
-  const [titleLinks, episodeLinks, similar] = await Promise.all([
+  const [titleLinks, episodeLinks, recommendations] = await Promise.all([
     publicLinks('title', [row.id]),
     publicLinks('episode', episodeIds),
-    db.cinemaTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(firstGenre ? { genres: { contains: firstGenre } } : { kind: row.kind }) }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
+    relatedCinema(row),
   ])
+  const similarRows = recommendations.length ? await db.cinemaTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: titleInclude }) : []
+  const similarById = new Map(similarRows.map((item) => [item.id, item]))
   return {
     title: {
       ...toTitle(row), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
@@ -297,7 +299,7 @@ export async function getTitle(slug: string) {
       id: season.id, number: season.number, name: season.name, poster: season.poster,
       episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
     })),
-    similar: similar.map(toTitle),
+    similar: recommendations.flatMap((result) => { const item = similarById.get(result.item.id); return item ? [{ ...toTitle(item), recommendationReason: result.reason }] : [] }),
   }
 }
 

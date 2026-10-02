@@ -373,6 +373,7 @@ body:has(.mu-player) { padding-block-end: 96px; }
 .cn-poster-hover em { font-style: normal; font-weight: 800; font-size: .76rem; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, .15); }
 .cn-poster-title { font-weight: 700; font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cn-poster-meta { color: var(--md-muted); font-size: .8rem; }
+.cn-poster-reason { color: var(--md-accent); font-size: .72rem; line-height: 1.5; }
 .cn-rank { position: absolute; z-index: 2; inset-block-end: 44px; inset-inline-start: -6px; font-size: 4.2rem; font-weight: 900; line-height: 1; color: #0a0c12; -webkit-text-stroke: 2px rgba(255, 255, 255, .85); pointer-events: none; }
 .cn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 16px; }
 .cn-vip-shelf { padding: 22px; border-radius: 24px; background: radial-gradient(800px 240px at 80% 0%, rgba(245, 196, 81, .16), transparent 70%), #12100b; border: 1px solid rgba(245, 196, 81, .25); }

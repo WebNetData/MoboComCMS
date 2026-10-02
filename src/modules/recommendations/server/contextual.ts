@@ -5,6 +5,7 @@ const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 
 type GameSource = { id: number; genres: string; platforms: string; developerStudioId: number | null; publisherStudioId: number | null }
 type SoftwareSource = { id: number; category: string; platforms: string; developerStudioId: number | null; publisherStudioId: number | null }
+type CinemaSource = { id: number; genres: string; kind: string }
 
 /** Game adapter: query a bounded public candidate pool, then rank exact shared terms. */
 export async function relatedGames(source: GameSource, take = 8): Promise<ContextualRecommendation[]> {
@@ -34,4 +35,16 @@ export async function relatedSoftware(source: SoftwareSource, take = 8): Promise
   ]
   const rows = await db.softwareTitle.findMany({ where: { ...live(now), id: { not: source.id }, ...(matches.length ? { OR: matches } : {}) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 180, select: { id: true, category: true, platforms: true, developerStudioId: true, publisherStudioId: true, publishedAt: true } })
   return rankContextual({ type: 'software', id: source.id, topics: category ? [category] : [], platforms, creators, publishedAt: now }, rows.map((row) => ({ id: row.id, topics: row.category.trim() ? [row.category.trim()] : [], platforms: terms(row.platforms), creators: [row.developerStudioId, row.publisherStudioId], publishedAt: row.publishedAt })), take)
+}
+
+/** Cinema adapter: shared genres lead, same film/series format fills the rail. */
+export async function relatedCinema(source: CinemaSource, take = 12): Promise<ContextualRecommendation[]> {
+  const now = new Date()
+  const genres = terms(source.genres)
+  const rows = await db.cinemaTitle.findMany({
+    where: { ...live(now), id: { not: source.id }, OR: [{ kind: source.kind }, ...genres.map((genre) => ({ genres: { contains: genre } }))] },
+    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 180,
+    select: { id: true, genres: true, kind: true, publishedAt: true },
+  })
+  return rankContextual({ type: 'title', id: source.id, topics: genres, platforms: [], creators: [], kind: source.kind, publishedAt: now }, rows.map((row) => ({ id: row.id, topics: terms(row.genres), platforms: [], creators: [], kind: row.kind, publishedAt: row.publishedAt })), take)
 }
