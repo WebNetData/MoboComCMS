@@ -16,9 +16,10 @@ export async function PATCH(req: NextRequest) {
   const admin = await requirePerm(req, 'settings.manage' as Permission)
   if (!admin) return err('forbidden', 403)
   const b = await req.json().catch(() => null)
-  const allowed = ['supportTelegram', 'supportEmail', 'siteUrl', 'usdRateToman', 'seoDescription', 'ogImage', 'googleVerification', 'subscriptionPrefix', 'storeEnabled', 'publicApiEnabled']
+  const allowed = ['supportTelegram', 'supportEmail', 'siteUrl', 'usdRateToman', 'seoDescription', 'ogImage', 'googleVerification', 'subscriptionPrefix', 'storeEnabled', 'publicApiEnabled', 'personalRecommendationsEnabled']
   if (b?.storeEnabled !== undefined && !['true', 'false'].includes(b.storeEnabled)) return err('وضعیت فروشگاه معتبر نیست')
   if (b?.publicApiEnabled !== undefined && !['true', 'false'].includes(b.publicApiEnabled)) return err('وضعیت API معتبر نیست')
+  if (b?.personalRecommendationsEnabled !== undefined && !['true', 'false'].includes(b.personalRecommendationsEnabled)) return err('وضعیت پیشنهادهای شخصی معتبر نیست')
   if (b?.subscriptionPrefix && !/^[a-z][a-z0-9_]{0,11}$/.test(b.subscriptionPrefix)) return err('پیشوند باید با حرف کوچک انگلیسی شروع شود و حداکثر ۱۲ حرف، عدد یا _ باشد')
   if (b?.usdRateToman !== undefined && b.usdRateToman !== '') {
     const rate = String(b.usdRateToman).trim()

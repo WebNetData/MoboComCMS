@@ -53,6 +53,10 @@ export default function AdminSettingsPage() {
           <p className="muted text-sm mt-3">{locale === 'fa' ? 'در حالت خاموش، بخش API، مدیریت کلیدها و دسترسی API عمومی برای همه غیرفعال است.' : 'When off, the API section, key management and public API access are disabled for everyone.'}</p>
         </div>
         <div className="mb-6">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={s.personalRecommendationsEnabled !== 'false'} onChange={e => setS({ ...s, personalRecommendationsEnabled: e.target.checked ? 'true' : 'false' })}/><strong>{locale === 'fa' ? 'پیشنهادهای شخصی کتابخانه' : 'Personal library suggestions'}</strong></label>
+          <p className="muted text-sm mt-3">{locale === 'fa' ? 'نمایش پیشنهادهای مبتنی بر فعالیت را برای همه متوقف می‌کند. رضایت ثبت‌شدهٔ کاربران محفوظ می‌ماند و با فعال‌سازی دوباره اعمال می‌شود.' : 'Pause activity-based suggestions for everyone. Saved member consent remains unchanged and takes effect when enabled again.'}</p>
+        </div>
+        <div className="mb-6">
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={s.storeEnabled === 'true'} onChange={e => setS({ ...s, storeEnabled: e.target.checked ? 'true' : 'false' })} />
             <strong>{locale === 'fa' ? 'فعال بودن فروشگاه' : 'Enable storefront'}</strong>
