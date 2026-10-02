@@ -27,17 +27,17 @@ async function main() {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 })
     await context.addCookies([{ name: 'theme', value: theme, url: 'http://127.0.0.1:3000' }, { name: 'next-auth.session-token', value: token, url: 'http://127.0.0.1:3000' }])
     const page = await context.newPage()
-    for (const [kind, url] of [['public', `/software/${slug}`], ['admin', `/admin/software/releases?softwareId=${softwareId}`]]) {
+    for (const [kind, url] of [['public', `/software/${slug}`], ['archive', `/software/releases?software=${slug}`], ['detail', `/software/${slug}/releases/${releaseId}`], ['admin', `/admin/software/releases?softwareId=${softwareId}`]]) {
       await page.goto(`http://127.0.0.1:3000${url}`, { waitUntil: 'networkidle', timeout: 60000 })
       if (kind === 'admin') { await page.getByRole('button', { name: 'ویرایش' }).first().click(); await page.getByText('سازگاری این نسخه').waitFor() }
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
       assert.ok(overflow <= 1, `${theme} ${width} ${kind} horizontal overflow ${overflow}`)
-      assert.ok(kind === 'public' ? (await page.locator('body').innerText()).includes('arm64') : await page.locator('input[value="arm64"]').count(), `${kind} shows architecture`)
+      assert.ok(kind === 'admin' ? await page.locator('input[value="arm64"]').count() : (await page.locator('body').innerText()).includes('arm64'), `${kind} shows architecture`)
       await page.screenshot({ path: path.join(out, `software-compatibility-${kind}-${theme}-${width}.png`), fullPage: true })
     }
     await context.close()
   }
-  console.log('Software compatibility visual: public/admin, dark/light, 390/1440, no horizontal overflow')
+  console.log('Software compatibility visual: public/archive/detail/admin, dark/light, 390/1440, no horizontal overflow')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {

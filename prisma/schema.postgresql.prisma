@@ -1687,6 +1687,7 @@ model SoftwareRelease {
 
   @@unique([softwareId, version, channel])
   @@index([softwareId, status, releasedAt])
+  @@index([status, releasedAt])
 }
 
 /// OS/CPU compatibility for one Software version. Empty architecture means any.

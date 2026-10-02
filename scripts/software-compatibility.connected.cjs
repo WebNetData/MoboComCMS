@@ -41,7 +41,21 @@ async function main() {
   const publicPage = await (await fetch(`http://127.0.0.1:3000/software/${slug}`, { signal: AbortSignal.timeout(45_000) })).text()
   const rendered = publicPage.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
   assert.ok(rendered.includes('ARM test') && rendered.includes('RAM 16 GB') && rendered.includes('arm64') && rendered.includes('SHA-256'), 'public release shows compatibility and file hash')
-  console.log('Software compatibility: admin validation/save/read and public metadata OK')
+  const historical = Array.from({ length: 21 }, (_, index) => ({ softwareId, version: `1.0.${index}`, channel: 'STABLE', status: 'PUBLISHED', releasedAt: new Date(Date.now() - (index + 2) * 86_400_000) }))
+  await db.softwareRelease.createMany({ data: historical })
+  const future = await db.softwareRelease.create({ data: { softwareId, version: 'hidden-future', status: 'PUBLISHED', releasedAt: new Date(Date.now() + 86_400_000) } })
+  const draft = await db.softwareRelease.create({ data: { softwareId, version: 'hidden-draft', status: 'DRAFT', releasedAt: new Date(Date.now() - 86_400_000) } })
+  const archive = (await (await fetch(`http://127.0.0.1:3000/software/releases?software=${slug}`, { signal: AbortSignal.timeout(45_000) })).text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  assert.ok(archive.includes('3.2.0') && !archive.includes('hidden-future') && !archive.includes('hidden-draft'), 'archive gates scheduled and draft releases')
+  const nextPage = (await (await fetch(`http://127.0.0.1:3000/software/releases?software=${slug}&page=2`, { signal: AbortSignal.timeout(45_000) })).text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  assert.ok(nextPage.includes('1.0.20') && (nextPage.match(/class="sp-release-archive-card"/g) || []).length === 2, 'old versions are reachable on page two')
+  const filtered = (await (await fetch(`http://127.0.0.1:3000/software/releases?software=${slug}&platform=Windows&architecture=arm64`, { signal: AbortSignal.timeout(45_000) })).text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  assert.ok(filtered.includes('3.2.0') && !filtered.includes('1.0.0'), 'OS/CPU filter uses release targets')
+  const old = await db.softwareRelease.findFirstOrThrow({ where: { softwareId, version: '1.0.20' } })
+  assert.equal((await fetch(`http://127.0.0.1:3000/software/${slug}/releases/${old.id}`, { signal: AbortSignal.timeout(45_000) })).status, 200, 'historical detail stays reachable')
+  assert.equal((await fetch(`http://127.0.0.1:3000/software/${slug}/releases/${future.id}`, { signal: AbortSignal.timeout(45_000) })).status, 404, 'future detail is closed')
+  assert.equal((await fetch(`http://127.0.0.1:3000/software/${slug}/releases/${draft.id}`, { signal: AbortSignal.timeout(45_000) })).status, 404, 'draft detail is closed')
+  console.log('Software compatibility: admin validation/save/read, release archive filters/gates/pagination and historical detail OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {

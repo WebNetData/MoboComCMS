@@ -3,6 +3,7 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
+import type { Prisma } from '@prisma/client'
 
 /**
  * Public read models for music, film & series and games. Raw media URLs never
@@ -425,6 +426,41 @@ function toSoftware(source: any, versions: VersionProjection): SoftwareCard {
 }
 
 const FEED_SIZE = 12
+
+/** Paginated release archive. Only due versions of live parent titles qualify. */
+export async function softwareReleaseFeed(input: { software?: string; channel?: string; platform?: string; architecture?: string; q?: string; page?: number }) {
+  const now = new Date()
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const channel = ['STABLE', 'BETA', 'NIGHTLY'].includes(String(input.channel)) ? String(input.channel) : ''
+  const platform = String(input.platform || '').trim().slice(0, 60)
+  const architecture = String(input.architecture || '').trim().slice(0, 40)
+  const q = String(input.q || '').trim().slice(0, 80)
+  const where: Prisma.SoftwareReleaseWhereInput = {
+    status: 'PUBLISHED', releasedAt: { lte: now },
+    software: { status: 'PUBLISHED', publishedAt: { lte: now }, ...(input.software ? { slug: String(input.software).slice(0, 120) } : {}) },
+    ...(channel ? { channel } : {}),
+    ...(platform || architecture ? { targets: { some: { ...(platform ? { platform } : {}), ...(architecture ? { architecture } : {}) } } } : {}),
+    ...(q ? { OR: [{ version: { contains: q } }, { software: { title: { contains: q } } }, { software: { titleEn: { contains: q } } }, { software: { developer: { contains: q } } }] } : {}),
+  }
+  const [rows, total] = await Promise.all([
+    db.softwareRelease.findMany({ where, include: { software: { select: { slug: true, title: true, titleEn: true, icon: true, summary: true, developer: true } }, targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * 20, take: 20 }),
+    db.softwareRelease.count({ where }),
+  ])
+  return { items: rows.map((row) => ({ id: row.id, version: row.version, channel: row.channel, releasedAt: row.releasedAt, changelog: plainText(row.changelog).slice(0, 220), size: row.size, targets: row.targets.map(({ platform, architecture, minVersion }) => ({ platform, architecture, minVersion })), software: { ...row.software, summary: plainText(row.software.summary).slice(0, 160) } })), total, page, pages: Math.max(1, Math.ceil(total / 20)) }
+}
+
+/** One historical version, including protected file handles but never raw URLs. */
+export async function getSoftwareRelease(slug: string, releaseId: number) {
+  if (!Number.isSafeInteger(releaseId) || releaseId < 1) return null
+  const now = new Date()
+  const release = await db.softwareRelease.findFirst({
+    where: { id: releaseId, status: 'PUBLISHED', releasedAt: { lte: now }, software: { slug, status: 'PUBLISHED', publishedAt: { lte: now } } },
+    include: { software: { select: { id: true, slug: true, title: true, titleEn: true, icon: true, access: true, developer: true, summary: true } }, targets: { orderBy: { id: 'asc' } } },
+  })
+  if (!release) return null
+  const links = await publicLinks('softwarerelease', [release.id])
+  return { id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, targets: release.targets, software: { ...release.software, summary: plainText(release.software.summary) }, links: links.get(release.id) || [] }
+}
 
 /** Softgozar-style feed: newest updates first, filterable by platform, category, license and search. */
 export async function softwareFeed(input: { platform?: string; category?: string; license?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
