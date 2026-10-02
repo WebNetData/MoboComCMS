@@ -32,6 +32,7 @@ model User {
   smsAlerts      Boolean         @default(true)
   emailAlerts    Boolean         @default(true)
   pushAlerts     Boolean         @default(true)
+  recommendationOptIn Boolean    @default(false)
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?

@@ -8,6 +8,7 @@ import PhoneVerification from '@/components/PhoneVerification'
 import EmailAlertPreference from '@/components/EmailAlertPreference'
 import PushAlertPreference from '@/components/PushAlertPreference'
 import TwoFactorCard from '@/components/TwoFactorCard'
+import RecommendationPreference from '@/components/RecommendationPreference'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
@@ -100,6 +101,7 @@ export default function ProfilePage() {
         </form>
 
         <TwoFactorCard />
+        <RecommendationPreference />
       </div>
 
       <div className="ac-col ac-channels">

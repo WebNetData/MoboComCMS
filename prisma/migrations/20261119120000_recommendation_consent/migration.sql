@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "recommendationOptIn" BOOLEAN NOT NULL DEFAULT false;

@@ -12,6 +12,7 @@ import { listeningHistoryCount } from '@/modules/music/server/listening-history'
 import { watchHistoryCount } from '@/modules/cinema/server/progress'
 import { purchasePreview } from '@/modules/paywall/server/paywall'
 import { recentViewPreview } from '@/modules/content/server/recent-views'
+import { personalRecommendations } from '@/modules/recommendations/server/personal'
 import { myCollections, savedCollections } from '@/modules/content/server/collections'
 import { ITEM_LABEL } from '@/modules/content/domain/items'
 import { LIBRARY_LABELS } from '@/modules/games/domain/games'
@@ -29,7 +30,7 @@ export default async function LibraryPage() {
   ])
   const gamesOn = gamesModuleOn && (await getGamesSettings()).libraryEnabled
   const fa = locale === 'fa'
-  const [favorites, games, playlists, listens, collections, watches, saved, purchases, views] = await Promise.all([
+  const [favorites, games, playlists, listens, collections, watches, saved, purchases, views, suggestions] = await Promise.all([
     reviewsOn ? favoritePreview(userId) : Promise.resolve(null),
     gamesOn ? myLibrary(userId, null, 1) : Promise.resolve(null),
     musicOn ? listPersonalPlaylists(userId) : Promise.resolve(null),
@@ -39,6 +40,7 @@ export default async function LibraryPage() {
     savedCollections(userId),
     paywallOn ? purchasePreview(userId) : Promise.resolve(null),
     recentViewPreview(userId),
+    personalRecommendations(userId),
   ])
   const number = (value: number) => value.toLocaleString(fa ? 'fa-IR' : 'en-US')
   const ownedCollectionIds = new Set(collections.map((item) => item.id))
@@ -68,6 +70,12 @@ export default async function LibraryPage() {
       <Link href="/dashboard/recent" className="ud-kpi"><span className="ulib-kpi-icon"><Icon name="eye" size={19} /></span><small>{fa ? 'اخیراً مشاهده‌شده' : 'Recently viewed'}</small><b>{number(views.total)}</b><span>{fa ? 'تاریخچهٔ مرور' : 'Browse history'}</span></Link>
     </div>
 
+    <section className="ud-card" aria-labelledby="lb-suggestions-title">
+      <header className="ud-card-head"><h2 id="lb-suggestions-title">{fa ? 'پیشنهادهای شما' : 'For you'}</h2><Link href="/dashboard/profile">{fa ? 'تنظیمات' : 'Settings'}</Link></header>
+      {!suggestions.enabled ? <p className="ud-muted">{fa ? 'پیشنهادهای شخصی خاموش‌اند. اگر مایلید، در تنظیمات حساب استفاده از علاقه‌مندی‌ها و بازدیدهای اخیر را فعال کنید.' : 'Personal suggestions are off. You can enable use of favorites and recent views in account settings.'}</p>
+        : suggestions.items.length ? <ul className="ulib-items">{suggestions.items.map(({ item, sourceTitle, sourceKind, reason }) => <li key={`${item.type}:${item.id}`}><Link href={item.url}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">{ITEM_LABEL[item.type].icon}</span>}<span><b>{item.title}</b><small>{fa ? `${sourceKind === 'favorite' ? 'بر اساس علاقه‌مندی به' : 'بر اساس بازدید'} «${sourceTitle}» · ${reason}` : `Similar to “${sourceTitle}”`}</small></span></Link></li>)}</ul>
+          : <p className="ud-muted">{fa ? 'با ذخیره یا دیدن بازی، نرم‌افزار، فیلم و آلبوم، پیشنهادهای مرتبط اینجا نمایش داده می‌شوند.' : 'Save or view games, software, films and albums to see related suggestions here.'}</p>}
+    </section>
     {recent.length > 0 && <section className="ud-card" aria-labelledby="lb-recent-title"><header className="ud-card-head"><h2 id="lb-recent-title">{fa ? 'تازه‌ترین موارد کتابخانه' : 'Recent in your library'}</h2></header><ul className="ulib-items">{recent.map((item) => <li key={item.key}><Link href={item.href}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">✦</span>}<span><b>{item.title}</b><small>{item.kind} · {item.detail}</small></span></Link></li>)}</ul></section>}
 
     {views.items.length > 0 && <section className="ud-card" aria-labelledby="lb-views-title"><header className="ud-card-head"><h2 id="lb-views-title">{fa ? 'اخیراً مشاهده‌شده' : 'Recently viewed'}</h2><Link href="/dashboard/recent">{fa ? 'همه' : 'View all'}</Link></header><ul className="ulib-items">{views.items.map((item) => <li key={`${item.type}:${item.id}`}><Link href={item.url}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">{ITEM_LABEL[item.type].icon}</span>}<span><b>{item.title}</b><small>{ITEM_LABEL[item.type].one}</small></span></Link></li>)}</ul></section>}
