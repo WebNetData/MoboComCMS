@@ -3,6 +3,7 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
+import { relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
 import type { Prisma } from '@prisma/client'
 
 /**
@@ -307,6 +308,7 @@ export type GameCard = {
   releaseDate: Date | null; score: number | null; userScore: number | null; access: string; summary: string; developer: string
   publisher: string; screenshots: string[]; featured: boolean; views: number; publishedAt: Date
   editorsChoice: boolean; localization: string[]
+  recommendationReason?: string
 }
 export function toGame(row: any): GameCard {
   return {
@@ -388,13 +390,14 @@ export async function getGame(slug: string) {
   const row = await db.gameTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.gameTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const genre = splitList(row.genres, 1)[0]
-  const [links, related, releasedVersion, scheduledVersion] = await Promise.all([
+  const [links, recommendations, releasedVersion, scheduledVersion] = await Promise.all([
     publicLinks('game', [row.id]),
-    db.gameTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(genre ? { genres: { contains: genre } } : {}) }, orderBy: { publishedAt: 'desc' }, take: 8 }),
+    relatedGames(row),
     db.gameUpdate.findFirst({ where: { gameId: row.id, kind: { not: 'DLC' }, version: { not: '' }, releasedAt: { lte: new Date() } }, orderBy: { releasedAt: 'desc' }, select: { version: true } }),
     row.version ? db.gameUpdate.findFirst({ where: { gameId: row.id, version: row.version, kind: { not: 'DLC' }, releasedAt: { gt: new Date() } }, select: { id: true } }) : null,
   ])
+  const relatedRows = recommendations.length ? await db.gameTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } } }) : []
+  const relatedById = new Map(relatedRows.map((item) => [item.id, item]))
   // The public version follows the release clock, including updates that become due without an admin save.
   return {
     game: {
@@ -408,7 +411,7 @@ export async function getGame(slug: string) {
       gameSize: row.gameSize, version: releasedVersion?.version || (scheduledVersion ? '' : row.version), verdict: row.verdict, seoTitle: row.seoTitle, seoDescription: row.seoDescription,
     },
     links: links.get(row.id) || [],
-    related: related.map(toGame),
+    related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toGame(item), recommendationReason: result.reason }] : [] }),
   }
 }
 
@@ -417,6 +420,7 @@ export async function getGame(slug: string) {
 export type SoftwareCard = {
   id: number; slug: string; title: string; titleEn: string; icon: string; cover: string; version: string; developer: string
   license: string; platforms: string[]; category: string; size: string; access: string; summary: string; downloads: number; views: number; publishedAt: Date; updatedAt: Date
+  recommendationReason?: string
 }
 function toSoftware(source: any, versions: VersionProjection): SoftwareCard {
   const row = projectSoftwareVersion(source, versions)
@@ -598,12 +602,14 @@ export async function getSoftware(slug: string) {
   const row = await db.softwareTitle.findFirst({ where: { slug, ...live() } }).catch(() => null)
   if (!row) return null
   await db.softwareTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
-  const [links, related, releases] = await Promise.all([
+  const [links, recommendations, releases] = await Promise.all([
     publicLinks('software', [row.id]),
-    db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
+    relatedSoftware(row),
     db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, include: { targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
   ])
+  const related = recommendations.length ? await db.softwareTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } } }) : []
   const versions = await currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now)
+  const relatedById = new Map(related.map((item) => [item.id, item]))
   const projected = projectSoftwareVersion(row, versions)
   const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
   return {
@@ -616,7 +622,7 @@ export async function getSoftware(slug: string) {
     },
     links: links.get(row.id) || [],
     releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), targets: release.targets, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
-    related: related.map((item) => toSoftware(item, versions)),
+    related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toSoftware(item, versions), recommendationReason: result.reason }] : [] }),
   }
 }
 

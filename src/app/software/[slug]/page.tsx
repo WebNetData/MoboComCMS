@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
-import { getSoftware, softwareShelf } from '@/modules/media/server/queries'
+import { getSoftware } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
-import { ownerIdsForTermSlug, primaryTerms } from '@/modules/taxonomy/server/taxonomy'
+import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import { getViewer } from '@/modules/membership/server/membership'
 import { licenseLabel } from '@/modules/media/domain/media'
 import MediaShell from '@/components/media/MediaShell'
@@ -58,10 +58,7 @@ export default async function SoftwarePage({ params }: Props) {
   const ref = { type: 'software' as const, id: s.id }
   const [rating, termMap] = await Promise.all([aggregateRating(ref), primaryTerms('software', [s.id])])
   const term = termMap.get(s.id)
-  // Related: newest items of the same main category (falls back to the legacy category match).
-  const termSlug = term ? decodeURIComponent(term.path.split('/').pop() || '') : ''
-  const sameTerm = termSlug ? (await ownerIdsForTermSlug('software', termSlug))?.filter((id) => id !== s.id) : null
-  const related = sameTerm?.length ? await softwareShelf(sameTerm, 8) : data.related
+  const related = data.related
   const artwork = s.cover && s.cover !== s.icon ? s.cover : s.screenshots[0] || s.icon
   const specs: [string, React.ReactNode][] = ([
     ['سازنده', s.developer ? <Link href={s.developerStudioId ? `/studios/${s.developerStudioId}` : `/software/browse?developer=${encodeURIComponent(s.developer)}`}>{s.developer}</Link> : ''],
