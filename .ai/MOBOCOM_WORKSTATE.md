@@ -1,7 +1,7 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Connect entity reviews and recommendations to shared Studio hubs, then continue the 2.0 capability map.
+Current milestone: Connect recommendations to shared Studio hubs, then continue the 2.0 capability map.
 Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
@@ -36,7 +36,7 @@ Done (verified):
 - Software release history and current-version projection were verified and pushed as `0a1bff1` and `e5b745c`.
 
 In progress:
-- Software has version history, durable notices, an admin editor, due-only public history and protected per-version links. A shared due-release projection covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Versions have OS/CPU targets, requirements, screenshots and per-file OS/CPU/checksum. A public 20-item release archive filters channel/OS/CPU and dedicated due-only detail pages expose older versions. Shared Studio identities connect developer/publisher roles across Games and Software with public hubs, staff-managed profiles and authenticated follows. First publication of a Game or Software title enqueues a durable, deduplicated notice for followers of either Studio role. Public Game, Software and Studio pages now connect to the existing moderated forum for entity-scoped questions and discussions, with a paginated archive and backlink. Broader review and recommendation integration remain.
+- Software has version history, durable notices, an admin editor, due-only public history and protected per-version links. A shared due-release projection covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Versions have OS/CPU targets, requirements, screenshots and per-file OS/CPU/checksum. A public 20-item release archive filters channel/OS/CPU and dedicated due-only detail pages expose older versions. Shared Studio identities connect developer/publisher roles across Games and Software with public hubs, staff-managed profiles and authenticated follows. First publication of a Game or Software title enqueues a durable, deduplicated notice for followers of either Studio role. Public Game, Software and Studio pages connect to the existing moderated forum for entity-scoped questions and discussions. Studio hubs now show the latest approved text reviews of their published products, with a 20-item paginated archive. Recommendations remain.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -79,9 +79,10 @@ Validation actually run:
 - For shared Studio profiles: schema parity, generated PostgreSQL client and local PostgreSQL migration passed; a connected check verified legacy backfill, cross-catalogue case-insensitive identity reuse, public listing/profile and browse links, draft-only exclusion, admin permission gate and website validation. Dark/light browser screenshots of directory/profile/admin at 390/1440 pixels were inspected; no horizontal overflow. The logo preview was changed from a wide cover to a square preview after visual review. Full `npm run check` and `build:postgres` passed.
 - For Studio follows and product publication notices: schema parity, SQLite Prisma validation, generated PostgreSQL client, local migration, full `npm run check` and `build:postgres` passed. A connected API/worker check covered signed-in follow, private favorites projection, draft/future gates, Game and Software publication, dual-role dedupe, opt-out, late followers, failed inbox write retry, cursor completion and channel jobs. Profile screenshots in dark/light at 390/1440 pixels were visually inspected; no overflow.
 - For entity topics: schema parity, SQLite Prisma validation, generated PostgreSQL client, local migration, full `npm run check` and `build:postgres` passed. A connected PostgreSQL/API check covered contextual composer, draft and private-category rejection, topic creation for Game/Software/Studio, product previews, forum backlink, unlisted exclusion, 20-item archive pagination and closure when a product becomes draft. Dark/light browser QA at 390/1440 pixels covered all three previews, the archive and composer without horizontal overflow; selected screenshots were visually inspected.
+- For Studio product reviews: a connected PostgreSQL/browser check verified cross-catalogue approved text, product links, hidden pending/rejected/draft reviews, 20-item archive pagination and immediate draft gating. Profile and archive dark/light screenshots at 390/1440 pixels were inspected with no horizontal overflow. Full `npm run check` and `build:postgres` passed; the build was rerun after changing a CSS alignment value and passed without the new warning.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Connect reviews and recommendations to shared entity hubs, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.
+- Connect recommendations to shared entity hubs, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.

@@ -10,7 +10,7 @@ process.env.DATABASE_URL = process.env.MOBOCOM_CONNECTED_DATABASE_URL || 'postgr
 const db = new PrismaClient()
 const suffix = Date.now()
 const name = `استودیوی مشترک آزمایشی ${suffix}`
-let studioId = 0, softwareId = 0, gameId = 0, browser
+let studioId = 0, softwareId = 0, gameId = 0, reviewerId = 0, browser
 
 async function main() {
   const admin = await db.user.findUnique({ where: { email: process.env.ADMIN_EMAIL } })
@@ -20,6 +20,11 @@ async function main() {
   studioId = studio.id
   softwareId = (await db.softwareTitle.create({ data: { slug: `codex-studio-software-${suffix}`, title: 'نرم‌افزار آزمایشی استودیو', developer: name, developerStudioId: studioId, status: 'PUBLISHED', publishedAt: new Date(Date.now() - 86_400_000) } })).id
   gameId = (await db.gameTitle.create({ data: { slug: `codex-studio-game-${suffix}`, title: 'بازی آزمایشی استودیو', publisher: name, publisherStudioId: studioId, status: 'PUBLISHED', publishedAt: new Date(Date.now() - 86_400_000) } })).id
+  reviewerId = (await db.user.create({ data: { email: `codex-studio-review-${suffix}@example.invalid`, passwordHash: 'test-only', name: 'منتقد آزمایشی' } })).id
+  await db.itemReview.createMany({ data: [
+    { itemType: 'game', itemId: gameId, userId: reviewerId, rating: 5, body: 'این بازی تجربهٔ خوبی داشت و اجرای آن روان بود.', status: 'APPROVED' },
+    { itemType: 'software', itemId: softwareId, userId: reviewerId, rating: 4, body: 'نصب نرم‌افزار ساده بود و کارهای اصلی را خوب انجام داد.', status: 'APPROVED' },
+  ] })
   browser = await chromium.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' })
   const out = path.join(__dirname, '..', 'var')
   fs.mkdirSync(out, { recursive: true })
@@ -27,23 +32,27 @@ async function main() {
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 })
     await context.addCookies([{ name: 'theme', value: theme, url: 'http://127.0.0.1:3000' }, { name: 'next-auth.session-token', value: token, url: 'http://127.0.0.1:3000' }])
     const page = await context.newPage()
-    for (const [kind, route] of [['directory', `/studios?q=${encodeURIComponent(name)}`], ['profile', `/studios/${studioId}`], ['admin', `/admin/studios?q=${encodeURIComponent(name)}`]]) {
+    for (const [kind, route] of [['directory', `/studios?q=${encodeURIComponent(name)}`], ['profile', `/studios/${studioId}`], ['reviews', `/studios/${studioId}/reviews`], ['admin', `/admin/studios?q=${encodeURIComponent(name)}`]]) {
       await page.goto(`http://127.0.0.1:3000${route}`, { waitUntil: 'networkidle', timeout: 60000 })
       if (kind === 'admin') { await page.getByPlaceholder('نام سازنده یا ناشر').fill(name); const row = page.locator('.sa-row.sa-repeat').filter({ hasText: name }); await row.waitFor(); await row.getByRole('button', { name: 'ویرایش' }).click() }
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
       assert.ok(overflow <= 1, `${theme} ${width} ${kind} horizontal overflow ${overflow}`)
       assert.ok((await page.locator('body').innerText()).includes(name), `${kind} displays studio name`)
+      if (kind === 'profile' || kind === 'reviews') assert.equal(await page.locator('.org-review-list li').count(), 2, 'approved product reviews appear')
       await page.screenshot({ path: path.join(out, `studios-${kind}-${theme}-${width}.png`), fullPage: true })
     }
     await context.close()
   }
-  console.log('Studios visual: directory/profile/admin, dark/light, 390/1440, no horizontal overflow')
+  console.log('Studios visual: directory/profile/reviews/admin, dark/light, 390/1440, no horizontal overflow')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
   if (browser) await browser.close()
+  if (gameId) await db.itemReview.deleteMany({ where: { itemType: 'game', itemId: gameId } })
+  if (softwareId) await db.itemReview.deleteMany({ where: { itemType: 'software', itemId: softwareId } })
   if (gameId) await db.gameTitle.deleteMany({ where: { id: gameId } })
   if (softwareId) await db.softwareTitle.deleteMany({ where: { id: softwareId } })
   if (studioId) await db.studio.deleteMany({ where: { id: studioId } })
+  if (reviewerId) await db.user.deleteMany({ where: { id: reviewerId } })
   await db.$disconnect()
 })
