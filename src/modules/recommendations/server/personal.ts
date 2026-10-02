@@ -6,8 +6,8 @@ import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/m
 type Seed = { ref: ItemRef; kind: 'favorite' | 'view' | 'follow' }
 type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: Seed['kind']; reason: string }
 
-const supported = new Set(['game', 'software', 'title', 'album'])
-const followedCreators = new Set(['artist', 'studio'])
+const supported = ['game', 'software', 'title', 'album']
+const followedCreators = ['artist', 'studio']
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 // Admin pause must take effect on the next request, including across separately bundled routes.
 const available = async () => (await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' }, select: { value: true } }))?.value !== 'false'
@@ -19,21 +19,24 @@ export async function personalRecommendations(userId: number, take = 6): Promise
   const preference = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
   if (!preference?.recommendationOptIn) return { available: true, enabled: false, items: [] }
 
-  const [favorites, views] = await Promise.all([
-    db.itemFavorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+  const [follows, favorites, views] = await Promise.all([
+    db.itemFavorite.findMany({ where: { userId, itemType: { in: followedCreators } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+    db.itemFavorite.findMany({ where: { userId, itemType: { in: supported } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
     db.userRecentView.findMany({ where: { userId, lastViewedAt: { gte: new Date(Date.now() - 180 * 86_400_000) } }, orderBy: { lastViewedAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
   ])
-  const seeds: Seed[] = []
+  const creatorSeeds: Seed[] = []
+  const contentSeeds: Seed[] = []
   const seen = new Set<string>()
-  for (const [kind, rows] of [['favorite', favorites], ['view', views]] as const) for (const row of rows) {
+  for (const [kind, rows] of [['follow', follows], ['favorite', favorites], ['view', views]] as const) for (const row of rows) {
     const ref = parseItemKey(`${row.itemType}:${row.itemId}`)
     if (!ref) continue
     const key = itemKey(ref)
-    if (!seen.has(key) && (supported.has(ref.type) || (kind === 'favorite' && followedCreators.has(ref.type)))) {
-      seeds.push({ ref, kind: followedCreators.has(ref.type) ? 'follow' : kind })
-    }
+    if (!seen.has(key) && (kind === 'follow' ? followedCreators.includes(ref.type) : supported.includes(ref.type)))
+      (kind === 'follow' ? creatorSeeds : contentSeeds).push({ ref, kind })
     seen.add(key)
   }
+  // Reserve room for a followed creator even when newer content favorites fill the history window.
+  const seeds = [creatorSeeds[0], contentSeeds[0], ...creatorSeeds.slice(1), ...contentSeeds.slice(1)].filter((seed): seed is Seed => !!seed)
   if (!seeds.length) return { available: true, enabled: true, items: [] }
   const sourceCards = await itemCards(seeds.map((seed) => seed.ref))
   const now = new Date()

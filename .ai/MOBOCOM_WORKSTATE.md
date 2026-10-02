@@ -1,7 +1,7 @@
 # MoboCom Work State
 
-Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices after PR #19 was merged into `main`.
-Current milestone: Complete the remaining recommendation signals and continue the 2.0 capability map on `codex/mobocom-next`.
+Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices after PR #20 was merged into `main`.
+Current milestone: Keep followed-creator recommendations visible despite newer content favorites, then continue the 2.0 capability map.
 Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
@@ -87,9 +87,10 @@ Validation actually run:
 - For Music album recommendations: connected PostgreSQL checks verified genre/artist ranking, exact matching, draft/future exclusions and public card reasons. Dark/light browser checks at 390/1440 pixels passed without overflow and screenshots were inspected. Full `npm run check` and `build:postgres` passed; the build retained existing Autoprefixer alignment warnings in `media-design.css`.
 - For personal recommendations: schema parity, SQLite Prisma validation, PostgreSQL client generation and local migration passed. Connected checks verified default opt-out, no history reads without consent, invalid consent rejection, owner-scoped toggle, current-publication exclusion and revocation. Authenticated browser QA covered private library/settings in dark/light at 390/1440 pixels without horizontal overflow; screenshots were inspected. A first browser attempt was redirected by mandatory customer onboarding; the test fixture was changed to a staff user to isolate recommendation behavior and the rerun passed. Full `npm run check` passed.
 - After PR #19 merged, a focused audit found the private recommendation rail lacked a global Admin pause and followed-creator signals. The Admin settings route and UI now control an immediate global pause without erasing member consent. The existing `ItemFavorite` follow records feed live artist albums/tracks and Studio Games/Software through the same publication-aware registry. Connected PostgreSQL/browser checks passed for pause/resume, consent, followed creators, hidden drafts/future releases and dark/light layouts. Type, source, architecture and security checks passed for the Admin-pause slice; full `npm run check` in the local Linux container and `build:postgres` passed after the follow slice.
+- After PR #20 merged, a focused audit found that the 12 newest content favorites could hide older artist/studio follows. The existing recommendation service now reads bounded creator follows and content favorites separately, reserving one of its two seed slots for a creator when present. The connected PostgreSQL/browser test passed with 13 newer favorites, publication gates and existing consent/Admin-pause checks. `typecheck`, source, architecture, security, the full Linux-container `npm run check`, and `build:postgres` passed. No migration or protected UI change was needed.
 
 Known blockers/failures:
-- The local Next.js development server has intermittent long request delays and sometimes needs a restart to pick up source changes. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. PR #19 merged the preceding batch into `main`; production deployment and its additive migrations remain pending.
+- The local Next.js development server has intermittent long request delays and sometimes needs a restart to pick up source changes. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. PR #20 merged the preceding batch into `main`; production deployment and its additive migrations remain pending.
 
 Next concrete action:
-- Evaluate measurable recommendation quality and the next production-readiness gap. Keep later PRs incremental and migrations additive.
+- Review measurable recommendation quality and the next production-readiness gap. Keep later PRs incremental and migrations additive.
