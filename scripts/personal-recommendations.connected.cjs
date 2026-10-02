@@ -152,6 +152,16 @@ async function main() {
   for (const title of [album.title, track.title, related.title, software.title, artist.name, studio.name]) assert.ok(followedText.includes(title), `followed creator suggestion includes ${title}: ${followedText}`)
   for (const title of [draftAlbum.title, futureTrack.title, hidden.title]) assert.ok(!followedText.includes(title), `unpublished follow candidate excluded: ${title}`)
   assert.ok(followedText.includes('بر اساس دنبال‌کردن'), 'follow signal is explained')
+  await db.itemFavorite.delete({ where: { userId_itemType_itemId: { userId: user.id, itemType: 'studio', itemId: studio.id } } })
+  for (let index = 0; index < 13; index++) {
+    const favorite = await db.gameTitle.create({ data: { slug: `${seed}-new-favorite-${index}`, title: `${seed} new favorite ${index}`, genres: `${seed}-genre-${index}`, platforms: `${seed}-platform-${index}`, publishedAt } })
+    ids.games.push(favorite.id)
+    await db.itemFavorite.create({ data: { userId: user.id, itemType: 'game', itemId: favorite.id } })
+  }
+  await followPage.reload({ waitUntil: 'domcontentloaded' })
+  const olderFollowText = await followShelf.innerText()
+  assert.ok(olderFollowText.includes(album.title) && olderFollowText.includes(track.title), 'older artist follow survives more than 12 newer content favorites')
+  assert.ok(!olderFollowText.includes(draftAlbum.title) && !olderFollowText.includes(futureTrack.title), 'older follow still observes publication gates')
   await followView.close()
   response = await request('PATCH', '/api/profile', { recommendationOptIn: false })
   assert.equal(response.status, 200)
