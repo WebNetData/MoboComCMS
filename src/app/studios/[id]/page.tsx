@@ -8,6 +8,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import RelatedDiscussions from '@/components/forum/RelatedDiscussions'
 import StudioReviews from '@/components/studios/StudioReviews'
+import StudioSuggestions from '@/components/studios/StudioSuggestions'
 import { toPublicPath } from '@/platform/routing/aliases'
 import '../studios.css'
 
@@ -49,6 +50,7 @@ export default async function StudioPage({ params }: Props) {
       {groups.map((group) => <section className="org-section" key={group.key}><header><h2>{group.title}</h2><span>{group.count.toLocaleString('fa-IR')} مورد</span></header><ul className="org-products">{group.ids.map((itemId) => { const item = group.items.get(itemId); return item ? <li key={itemId}><Link href={`${group.base}/${item.slug}`}><span className="org-product-icon">{'cover' in item && item.cover ? <img src={item.cover} alt="" loading="lazy" /> : item.title.slice(0, 1)}</span><span><b>{item.title}</b>{item.summary && <small>{item.summary}</small>}</span><span className="org-arrow" aria-hidden="true">←</span></Link></li> : null })}</ul>{group.count > group.ids.length && <Link className="org-more" href={group.href}>نمایش همه ←</Link>}</section>)}
       <StudioReviews studioId={studio.id} enabled={{ games, software }} />
       <RelatedDiscussions item={{ type: 'studio', id: studio.id }} />
+      <StudioSuggestions studioId={studio.id} enabled={{ games, software }} />
     </div>
   </MediaShell>
 }

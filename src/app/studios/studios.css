@@ -44,5 +44,14 @@
 .org-reviews small { color: var(--md-muted); }
 .org-review-pages { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; color: var(--md-muted); font-size: .84rem; }
 .org-review-pages a { color: var(--md-accent); font-weight: 700; }
+.org-suggestions { display: grid; gap: 13px; min-width: 0; }
+.org-suggestions > header span { color: var(--md-accent); font-size: .8rem; font-weight: 700; }
+.org-suggestions h2 { margin: 3px 0 0; font-size: 1.15rem; }
+.org-suggestions ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.org-suggestions li { min-width: 0; }
+.org-suggestions li > a { display: flex; align-items: center; gap: 12px; min-width: 0; height: 100%; padding: 14px; border: 1px solid var(--md-line); border-radius: 13px; background: var(--md-card); color: var(--md-text); }
+.org-suggestions li > a:hover, .org-suggestions li > a:focus-visible { border-color: var(--md-accent); }
+.org-suggestions li > a > span:nth-child(2) { display: grid; gap: 3px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.org-suggestions small { color: var(--md-muted); font-size: .78rem; }
 @media (max-width: 700px) { .org-review-list { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .org-page { gap: 16px; } .org-heading, .org-profile-head { padding: 18px; } .org-heading { align-items: flex-start; } .org-heading strong { white-space: nowrap; } .org-search { flex-wrap: wrap; } .org-search .input { flex-basis: 100%; } }
