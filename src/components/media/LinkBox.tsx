@@ -6,8 +6,9 @@ import { playableLinks } from '@/modules/media/server/links'
 import { DownloadNotice, ReportLinkButton } from '@/components/media/DownloadExtras'
 import { linkPaywalls } from '@/modules/paywall/server/paywall'
 import BuyLinkButton from '@/components/paywall/BuyLinkButton'
+import CopyText from '@/components/software/CopyText'
 
-type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; access: string }
+type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform?: string; architecture?: string; checksum?: string; audio: string; subtitle: boolean; access: string }
 
 /**
  * Download / stream box (hexdl / melofilm style): grouped by dub vs original audio,
@@ -49,11 +50,13 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
                     <b>{link.label || (link.kind === 'STREAM' ? (fa ? 'پخش آنلاین' : 'Watch online') : (fa ? 'دانلود مستقیم' : 'Direct download'))}</b>
                     <small>
                       {link.size && <span dir="ltr">{link.size}</span>}
+                      {(link.platform || link.architecture) && <span dir="ltr">{[link.platform, link.architecture].filter(Boolean).join(' · ')}</span>}
                       {compact && link.audio === 'DUBBED' && <span>{fa ? 'دوبله' : 'Dubbed'}</span>}
                       {link.subtitle && <span>{fa ? 'زیرنویس فارسی' : 'Persian subs'}</span>}
                       {vipLocked && <span className="vip-chip is-small">♛ VIP</span>}
                       {own && (own.open ? <span className="md-own is-open">{own.reason === 'purchased' ? '✓ خریداری‌شده' : '♛ رایگان برای شما'}</span> : <span className="md-own">فروش جداگانه</span>)}
                     </small>
+                    {link.checksum && <small className="md-checksum">SHA-256: <CopyText value={link.checksum} label="SHA-256" /></small>}
                   </span>
                   {locked && own
                     ? <BuyLinkButton contentKey={own.key} price={own.price} listPrice={own.listPrice} memberPrice={own.memberPrice} vipFree={own.vipFree} loggedIn={loggedIn} />

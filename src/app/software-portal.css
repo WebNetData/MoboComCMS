@@ -247,6 +247,9 @@ html[data-theme='dark'] .md-software {
 .sp-release-head time { margin-inline-start: auto; color: var(--sp-muted); font-size: .8rem; }
 .sp-release-item small { color: var(--sp-muted); overflow-wrap: anywhere; }
 .sp-release-item .md-prose { line-height: 1.9; overflow-wrap: anywhere; }
+.sp-release-targets { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-release-targets span { padding: 5px 9px; border: 1px solid var(--sp-line); border-radius: 8px; background: var(--sp-row); color: var(--sp-text); font-size: .8rem; }
+.sp-release-item .gm-shots { max-width: 100%; }
 .md-software .md-links-group { border: 0; border-radius: 0; background: transparent; }
 .md-software .md-links-group-head { margin-bottom: 8px; border: 0; border-radius: 12px; }
 .md-software .md-links ul { display: grid; gap: 10px; }

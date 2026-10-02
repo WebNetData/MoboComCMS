@@ -1677,13 +1677,30 @@ model SoftwareRelease {
   changelog  String    @default("")
   size       String    @default("")
   checksum   String    @default("")
+  requirements String @default("")
+  screenshots String   @default("[]")
   releasedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @default(now()) @updatedAt
   notification SoftwareReleaseNotification?
+  targets    SoftwareReleaseTarget[]
 
   @@unique([softwareId, version, channel])
   @@index([softwareId, status, releasedAt])
+}
+
+/// OS/CPU compatibility for one Software version. Empty architecture means any.
+model SoftwareReleaseTarget {
+  id           Int      @id @default(autoincrement())
+  releaseId    Int
+  release      SoftwareRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  platform     String
+  architecture String   @default("")
+  minVersion   String   @default("")
+  notes        String   @default("")
+
+  @@unique([releaseId, platform, architecture])
+  @@index([platform, architecture])
 }
 
 model SoftwareReleaseNotification {
@@ -1792,6 +1809,9 @@ model MediaLink {
   kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM
   quality   String   @default("")
   size      String   @default("")
+  platform  String   @default("") // software downloads: Windows/macOS/Linux/Android/iOS
+  architecture String @default("") // x86 | x64 | arm64 | armv7 | universal
+  checksum  String   @default("") // per-file SHA-256 when supplied
   audio     String   @default("") // ORIGINAL | DUBBED | ''
   subtitle  Boolean  @default(false)
   url       String

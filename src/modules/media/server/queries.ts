@@ -200,7 +200,7 @@ export type TitleCard = {
   year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean
   access: string; runtime: number; summary: string; summaryEn: string; ageRating: string; seasonsCount: number
 }
-export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; access: string }
+export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; access: string }
 
 function toTitle(row: any): TitleCard {
   return {
@@ -214,7 +214,7 @@ const titleInclude = { _count: { select: { seasons: true } } } as const
 export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
   if (!ids.length) return map
-  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, audio: true, subtitle: true, access: true } }).catch(() => [])
+  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, platform: true, architecture: true, checksum: true, audio: true, subtitle: true, access: true } }).catch(() => [])
   for (const { ownerId, ...link } of rows) map.set(ownerId, [...(map.get(ownerId) || []), link])
   return map
 }
@@ -559,7 +559,7 @@ export async function getSoftware(slug: string) {
   const [links, related, releases] = await Promise.all([
     publicLinks('software', [row.id]),
     db.softwareTitle.findMany({ where: { ...live(), id: { not: row.id }, ...(row.category ? { category: row.category } : {}) }, orderBy: { downloads: 'desc' }, take: 8 }).catch(() => []),
-    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
+    db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, include: { targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
   ])
   const versions = await currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now)
   const projected = projectSoftwareVersion(row, versions)
@@ -573,7 +573,7 @@ export async function getSoftware(slug: string) {
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],
-    releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
+    releases: releases.map((release) => ({ id: release.id, version: release.version, channel: release.channel, changelog: release.changelog, size: release.size, checksum: release.checksum, requirements: release.requirements, screenshots: parseJsonList<{ src: string }>(release.screenshots).map((shot) => shot.src).filter(Boolean), targets: release.targets, releasedAt: release.releasedAt, links: releaseLinks.get(release.id) || [] })),
     related: related.map((item) => toSoftware(item, versions)),
   }
 }

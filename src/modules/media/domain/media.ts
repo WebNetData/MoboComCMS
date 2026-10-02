@@ -68,7 +68,7 @@ export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
 export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software', 'softwarerelease'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
-export type LinkInput = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number; disabled?: boolean }
+export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number; disabled?: boolean }
 
 /** Validates download/stream links. Only http(s) URLs are accepted. */
 export function cleanLinks(input: unknown, max = 60): LinkInput[] {
@@ -81,11 +81,16 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
     let parsed: URL
     try { parsed = new URL(url) } catch { throw new Error(`لینک نامعتبر / Invalid link: ${url.slice(0, 60)}`) }
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('فقط لینک http/https مجاز است / Only http(s) links are allowed')
+    const checksum = String(r.checksum || '').trim().toLowerCase()
+    if (checksum && !/^[a-f0-9]{64}$/.test(checksum)) throw new Error('SHA-256 فایل باید ۶۴ نویسهٔ هگزادسیمال باشد')
     return [{
       label: String(r.label || '').trim().slice(0, 120),
       kind: r.kind === 'STREAM' ? 'STREAM' : 'DOWNLOAD',
       quality: String(r.quality || '').trim().slice(0, 40),
       size: String(r.size || '').trim().slice(0, 40),
+      platform: String(r.platform || '').trim().slice(0, 60),
+      architecture: String(r.architecture || '').trim().slice(0, 40),
+      checksum,
       audio: r.audio === 'DUBBED' ? 'DUBBED' : r.audio === 'ORIGINAL' ? 'ORIGINAL' : '',
       subtitle: r.subtitle === true || r.subtitle === 'true',
       url: url.slice(0, 2000),

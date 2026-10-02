@@ -1,6 +1,8 @@
 import { db } from '@/platform/database/prisma'
-import { cleanLinks } from '@/modules/media/domain/media'
+import { cleanLinks, cleanRecords } from '@/modules/media/domain/media'
 import { cleanRichText } from '@/shared/content/sanitize'
+import { validateCover } from '@/shared/content/cover'
+import { cleanReleaseTargets } from '@/modules/software/domain/releases'
 import { scheduleSoftwareRelease } from '@/modules/software/server/release-notifications'
 import { contentChanged } from '@/modules/content/server/events'
 
@@ -19,7 +21,7 @@ export async function softwareReleases(softwareId: number, page = 1, size: strin
   const total = await db.softwareRelease.count({ where: { softwareId } })
   const pages = pageSize ? Math.max(1, Math.ceil(total / pageSize)) : 1
   const currentPage = Math.min(pages, Math.max(1, Number.isSafeInteger(page) ? page : 1))
-  const rows = await db.softwareRelease.findMany({ where: { softwareId }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], ...(pageSize ? { skip: (currentPage - 1) * pageSize, take: pageSize } : {}) })
+  const rows = await db.softwareRelease.findMany({ where: { softwareId }, include: { targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], ...(pageSize ? { skip: (currentPage - 1) * pageSize, take: pageSize } : {}) })
   const links = await db.mediaLink.findMany({ where: { ownerType: 'softwarerelease', ownerId: { in: rows.map((row) => row.id) } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
   return { software, total, page: currentPage, pages, size: pageSize ?? 'all', releases: rows.map((row) => ({ ...row, releasedAt: row.releasedAt.toISOString().slice(0, 10), links: links.filter((link) => link.ownerId === row.id) })) }
 }
@@ -49,14 +51,29 @@ export async function saveSoftwareRelease(softwareId: number, input: Record<stri
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(releasedAt.getTime()) || releasedAt.toISOString().slice(0, 10) !== day) throw new SoftwareReleaseError('تاریخ نامعتبر است')
   const checksum = text(input.checksum, 128).toLowerCase()
   if (checksum && !/^[a-f0-9]{64}$/.test(checksum)) throw new SoftwareReleaseError('SHA-256 باید ۶۴ نویسهٔ هگزادسیمال باشد')
-  const data = { version, channel, status, releasedAt, size: text(input.size, 40), checksum, changelog: cleanRichText(text(input.changelog, 20000)) }
-  try { cleanLinks(input.links, 20) } catch (error) { throw new SoftwareReleaseError(error instanceof Error ? error.message : 'لینک نامعتبر است') }
+  const data = { version, channel, status, releasedAt, size: text(input.size, 40), checksum, changelog: cleanRichText(text(input.changelog, 20000)), ...(input.requirements === undefined ? {} : { requirements: text(input.requirements, 3000) }), ...(input.screenshots === undefined ? {} : { screenshots: '[]' }) }
+  let targets
+  try {
+    targets = cleanReleaseTargets(input.targets ?? [])
+    if (input.screenshots !== undefined) data.screenshots = JSON.stringify(cleanRecords(input.screenshots, ['src'], 20, 2048).map((shot) => ({ src: validateCover(shot.src) })))
+  } catch (error) { throw new SoftwareReleaseError(error instanceof Error ? error.message : 'سازگاری یا تصویر نامعتبر است') }
+  try {
+    const links = cleanLinks(input.links, 20)
+    for (const link of links) {
+      if (link.architecture && !link.platform) throw new Error('برای معماری فایل باید سیستم‌عامل هم مشخص شود')
+      if (targets.length && link.platform && !targets.some((target) => target.platform.toLowerCase() === link.platform.toLowerCase() && (!target.architecture || target.architecture.toLowerCase() === link.architecture.toLowerCase()))) throw new Error('سیستم‌عامل و معماری فایل باید با سازگاری نسخه مطابقت داشته باشد')
+    }
+  } catch (error) { throw new SoftwareReleaseError(error instanceof Error ? error.message : 'لینک نامعتبر است') }
   try {
     const row = await db.$transaction(async (tx) => {
       const before = id ? await tx.softwareRelease.findFirst({ where: { id, softwareId }, select: { id: true, status: true, releasedAt: true } }) : null
       if (id && !before) throw new SoftwareReleaseError('نسخه پیدا نشد', 404)
       const saved = id ? await tx.softwareRelease.update({ where: { id }, data }) : await tx.softwareRelease.create({ data: { ...data, softwareId } })
       if (input.links !== undefined) await reconcileLinks(tx, saved.id, input.links)
+      if (input.targets !== undefined) {
+        await tx.softwareReleaseTarget.deleteMany({ where: { releaseId: saved.id } })
+        if (targets.length) await tx.softwareReleaseTarget.createMany({ data: targets.map((target) => ({ ...target, releaseId: saved.id })) })
+      }
       await scheduleSoftwareRelease(tx, saved, before)
       if ((saved.status === 'PUBLISHED' && saved.releasedAt <= new Date()) || (before?.status === 'PUBLISHED' && before.releasedAt <= new Date())) await tx.softwareTitle.update({ where: { id: softwareId }, data: { updatedAt: new Date() } })
       return saved

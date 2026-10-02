@@ -405,7 +405,7 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   </div>
 }
 
-export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
@@ -441,6 +441,11 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
           <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option></select>
           <input className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
           <input className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+          {section === 'software' && <div className="mx-software-link-meta">
+            <label><span>{fa ? 'سیستم‌عامل فایل' : 'File OS'}</span><input className="input" list="software-platform-options" value={row.platform || ''} onChange={(e) => update(index, { platform: e.target.value })} placeholder="Windows" /></label>
+            <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
+            <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
+          </div>}
           <select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>

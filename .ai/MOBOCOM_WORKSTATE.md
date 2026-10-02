@@ -1,7 +1,7 @@
 # MoboCom Work State
 
 Goal: Complete the MoboCom 2.0 capability brief on `codex/mobocom-2`, then open and merge a GitHub PR.
-Current milestone: Add platform-specific compatibility to Software releases and their protected downloads.
+Current milestone: Add deeper Software release discovery and developer/publisher hubs.
 Risk: R4 program; Software releases touch durable data, protected links, admin editing and scheduled publication.
 Owner/contracts: `software` owns release/version semantics; `media` owns protected links and the generic CMS save; `notifications` owns the inbox.
 
@@ -33,9 +33,10 @@ Done (verified):
 - Durable notification delivery was verified and pushed as `36ffbf0`.
 - Scheduled game update publication and direct download gates were verified and pushed as `991fadc`.
 - Scheduled game update follower notices and their additive migration were verified and pushed as `baff9a1`.
+- Software release history and current-version projection were verified and pushed as `0a1bff1` and `e5b745c`.
 
 In progress:
-- Software has `SoftwareRelease` and a durable notification cursor, an admin editor, a due-only public history and protected per-release download links. Existing current versions were backfilled without past notices. A shared due-release projection now covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. Platform-specific compatibility and deeper discovery remain.
+- Software has version history, durable notices, an admin editor, due-only public history and protected per-version links. A shared due-release projection covers public cards, CMS rows, content registry, Software dashboard and picker; release changes refresh search and catalogue freshness. A new additive compatibility slice adds version OS/CPU targets, requirements, screenshots and per-file OS/CPU/checksum. Deeper discovery and developer/publisher hubs remain.
 
 Data/migrations:
 - Both Prisma schemas contain `UserRecentView`. Migration `20261108120000_recent_views` was applied to the local Docker PostgreSQL database; production deployment remains pending.
@@ -44,6 +45,7 @@ Data/migrations:
 - Both Prisma schemas contain `UserNotificationMute`. Additive migration `20261111120000_notification_event_mutes` is applied to the local Docker PostgreSQL database; production deployment remains pending.
 - Both Prisma schemas now contain `GameUpdateReleaseNotification`. Additive migration `20261112120000_game_update_release_notifications` is applied locally; production deployment remains pending. It backfills only future game updates, avoiding surprise notices for old releases.
 - Both Prisma schemas now contain `SoftwareRelease` and `SoftwareReleaseNotification`. Additive migration `20261113120000_software_releases` is applied to local Docker PostgreSQL; production deployment remains pending. It backfills existing current versions as history and queues only future releases.
+- Both Prisma schemas now contain `SoftwareReleaseTarget` and release requirements/screenshots plus per-file compatibility/checksum metadata. Additive migration `20261114120000_software_release_compatibility` is applied locally; production deployment remains pending. Legacy versions inherit current title-level requirements, screenshots and platform targets.
 
 Validation actually run:
 - For recent views: `schema:check`, `source:check`, `arch:check`, `security:check`, `typecheck`, `build:postgres`, connected and browser checks passed on the local port 3000 stack.
@@ -68,9 +70,10 @@ Validation actually run:
 - For game release notices: schema parity, both Prisma validations, local PostgreSQL migration, TypeScript check, full `npm run check`, `build:postgres` and a connected worker check passed. The worker check covered future and draft gates, opted-out and late followers, dedupe collision retry, cursor progress and independent channel job creation.
 - For Software release history: schema parity, both Prisma validations, local PostgreSQL migration, full `npm run check`, PostgreSQL build, connected public/link/notification check, authenticated admin create/list/ownership/delete check, and dark/light browser layout inspection passed. Public and admin pages have no horizontal overflow at tested mobile widths; the admin rich editor was inspected at 360, 390, 768 and 1440 pixels. A local Next.js restart was needed after source changes to avoid stale development assets.
 - For Software current-version projection: `typecheck`, source, architecture and security checks passed. A connected PostgreSQL/browser test confirmed a future version stays off the browse card, then a due version appears; an authenticated API test confirmed the CMS row and Software dashboard show the due version. A release save reindexed search with the due version and removed it again when rescheduled into the future.
+- For Software compatibility: schema parity, SQLite Prisma validation, generated PostgreSQL client, local PostgreSQL migration, full `npm run check`, `build:postgres`, connected release and admin API checks passed. API checks covered invalid SHA-256, duplicate OS/CPU, save/read and public rendering. Browser checks covered public/admin dark/light at 390/1440 pixels with no horizontal overflow; screenshots were inspected. A first visual assertion mistakenly read an input value via `innerText`, then passed after correcting the assertion.
 
 Known blockers/failures:
 - The local Next.js development server had transient long request delays; after restart, review API and browser tests passed. Production preview cannot run with the local HTTP URL because production correctly requires a public HTTPS hostname. Many capabilities remain incomplete. No PR exists yet.
 
 Next concrete action:
-- Add platform and architecture compatibility to Software releases and download selection, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.
+- Add deeper Software release discovery and developer/publisher hubs, then continue the remaining capability map. Do not open a PR until the 2.0 brief is complete.

@@ -98,7 +98,16 @@ export default async function SoftwarePage({ params }: Props) {
     </> },
     ...(s.installGuide ? [{ id: 'install', label: 'آموزش نصب و فعال‌سازی', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.installGuide }} /> }] : []),
     ...(s.requirements ? [{ id: 'requirements', label: 'سیستم مورد نیاز', content: <p className="sw-requirements">{s.requirements}</p> }] : []),
-    ...(data.releases.length ? [{ id: 'changes', label: 'تاریخچهٔ نسخه‌ها', content: <ol className="sp-release-list">{data.releases.map((release) => <li key={release.id} className="sp-release-item"><div className="sp-release-head"><strong><bdi dir="ltr">{release.version}</bdi></strong><span>{release.channel === 'BETA' ? 'آزمایشی' : release.channel === 'NIGHTLY' ? 'شبانه' : 'پایدار'}</span><time dateTime={release.releasedAt.toISOString()}>{date(release.releasedAt)}</time></div>{release.size && <small>حجم: <bdi dir="ltr">{release.size}</bdi></small>}{release.changelog && <div className="md-prose" dangerouslySetInnerHTML={{ __html: release.changelog }} />}{release.checksum && <small>SHA-256: <CopyText value={release.checksum} label="SHA-256" /></small>}{release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}</li>)}</ol> }] : s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
+    ...(data.releases.length ? [{ id: 'changes', label: 'تاریخچهٔ نسخه‌ها', content: <ol className="sp-release-list">{data.releases.map((release) => <li key={release.id} className="sp-release-item">
+      <div className="sp-release-head"><strong><bdi dir="ltr">{release.version}</bdi></strong><span>{release.channel === 'BETA' ? 'آزمایشی' : release.channel === 'NIGHTLY' ? 'شبانه' : 'پایدار'}</span><time dateTime={release.releasedAt.toISOString()}>{date(release.releasedAt)}</time></div>
+      {release.targets.length > 0 && <div className="sp-release-targets" aria-label="سازگاری نسخه">{release.targets.map((target) => <span key={`${target.platform}:${target.architecture}`}><bdi dir="ltr">{target.platform}{target.architecture ? ` · ${target.architecture}` : ''}{target.minVersion ? ` · ${target.minVersion}+` : ''}</bdi>{target.notes && <> · {target.notes}</>}</span>)}</div>}
+      {release.size && <small>حجم: <bdi dir="ltr">{release.size}</bdi></small>}
+      {release.requirements && <p className="sw-requirements"><b>نیازمندی‌ها: </b>{release.requirements}</p>}
+      {release.changelog && <div className="md-prose" dangerouslySetInnerHTML={{ __html: release.changelog }} />}
+      {release.screenshots.length > 0 && <Gallery images={release.screenshots} fa />}
+      {release.checksum && <small>SHA-256: <CopyText value={release.checksum} label="SHA-256" /></small>}
+      {release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}
+    </li>)}</ol> }] : s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
     { id: 'reviews', label: 'نظرات کاربران', content: <ReviewSection item={ref} title={name} path={`/software/${s.slug}`} /> },
   ]
 

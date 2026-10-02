@@ -39,10 +39,12 @@ async function main() {
     return row
   })
   releaseId = release.id
-  const link = await db.mediaLink.create({ data: { ownerType: 'softwarerelease', ownerId: releaseId, label: 'Future file', url: 'https://example.invalid/software-future.zip' } })
+  await db.softwareReleaseTarget.create({ data: { releaseId, platform: 'Windows', architecture: 'arm64', minVersion: '11', notes: 'compatibility-test' } })
+  await db.softwareRelease.update({ where: { id: releaseId }, data: { requirements: 'RAM 8 GB compatibility-test', screenshots: JSON.stringify([{ src: '/og.svg' }]) } })
+  const link = await db.mediaLink.create({ data: { ownerType: 'softwarerelease', ownerId: releaseId, label: 'Future file', url: 'https://example.invalid/software-future.zip', platform: 'Windows', architecture: 'arm64', checksum: 'a'.repeat(64) } })
   linkId = link.id
   const future = rendered(await (await get(`/software/${slug}`)).text())
-  assert.ok(!future.includes('future-9.9') && !future.includes('future-secret'), 'future version and changelog stay off the public page')
+  assert.ok(!future.includes('future-9.9') && !future.includes('future-secret') && !future.includes('compatibility-test'), 'future version, changelog and compatibility stay off the public page')
   const futureBrowse = rendered(await (await get('/software/browse?q=Codex%20software%20release')).text())
   assert.ok(futureBrowse.includes(slug) && !futureBrowse.includes('future-9.9'), 'catalogue card hides the future version')
   assert.equal((await projection.currentSoftwareVersions([softwareId])).get(softwareId), null)
@@ -63,6 +65,7 @@ async function main() {
   await db.softwareRelease.update({ where: { id: releaseId }, data: { status: 'PUBLISHED' } })
   const live = rendered(await (await get(`/software/${slug}`)).text())
   assert.ok(live.includes('future-9.9') && live.includes('future-secret'), 'due version and changelog appear')
+  assert.ok(live.includes('compatibility-test') && live.includes('arm64') && live.includes('SHA-256'), 'due compatibility, requirements and per-file checksum appear')
   const liveBrowse = rendered(await (await get('/software/browse?q=Codex%20software%20release')).text())
   assert.ok(liveBrowse.includes('future-9.9'), 'catalogue card follows the due release')
   assert.equal((await projection.currentSoftwareVersions([softwareId])).get(softwareId)?.version, 'future-9.9')
