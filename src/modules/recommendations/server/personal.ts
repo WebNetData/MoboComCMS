@@ -8,12 +8,15 @@ type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: See
 
 const supported = new Set(['game', 'software', 'title', 'album'])
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+// Admin pause must take effect on the next request, including across separately bundled routes.
+const available = async () => (await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' }, select: { value: true } }))?.value !== 'false'
 
 /** Private, bounded suggestions. No interaction history is read before explicit consent. */
-export async function personalRecommendations(userId: number, take = 6): Promise<{ enabled: boolean; items: PersonalSuggestion[] }> {
-  if (!Number.isSafeInteger(userId) || userId < 1) return { enabled: false, items: [] }
+export async function personalRecommendations(userId: number, take = 6): Promise<{ available: boolean; enabled: boolean; items: PersonalSuggestion[] }> {
+  if (!Number.isSafeInteger(userId) || userId < 1) return { available: false, enabled: false, items: [] }
+  if (!await available()) return { available: false, enabled: false, items: [] }
   const preference = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
-  if (!preference?.recommendationOptIn) return { enabled: false, items: [] }
+  if (!preference?.recommendationOptIn) return { available: true, enabled: false, items: [] }
 
   const [favorites, views] = await Promise.all([
     db.itemFavorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
@@ -27,7 +30,7 @@ export async function personalRecommendations(userId: number, take = 6): Promise
     const key = itemKey(ref)
     if (!seen.has(key)) { seeds.push({ ref, kind }); seen.add(key) }
   }
-  if (!seeds.length) return { enabled: true, items: [] }
+  if (!seeds.length) return { available: true, enabled: true, items: [] }
   const sourceCards = await itemCards(seeds.map((seed) => seed.ref))
   const now = new Date()
   const ranked = new Map<string, { ref: ItemRef; score: number; sourceTitle: string; sourceKind: Seed['kind']; reason: string }>()
@@ -72,8 +75,9 @@ export async function personalRecommendations(userId: number, take = 6): Promise
   const cards = await itemCards(order.map((entry) => entry.ref))
   // A preference changed during calculation must close this private result too.
   const stillEnabled = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
-  if (!stillEnabled?.recommendationOptIn) return { enabled: false, items: [] }
-  return { enabled: true, items: order.flatMap((entry) => {
+  if (!stillEnabled?.recommendationOptIn) return { available: true, enabled: false, items: [] }
+  if (!await available()) return { available: false, enabled: false, items: [] }
+  return { available: true, enabled: true, items: order.flatMap((entry) => {
     const item = cards.get(itemKey(entry.ref))
     return item ? [{ item, sourceTitle: entry.sourceTitle, sourceKind: entry.sourceKind, reason: entry.reason }] : []
   }).slice(0, Math.max(1, Math.min(12, Math.trunc(take) || 6))) }

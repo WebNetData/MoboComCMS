@@ -72,7 +72,8 @@ export default async function LibraryPage() {
 
     <section className="ud-card" aria-labelledby="lb-suggestions-title">
       <header className="ud-card-head"><h2 id="lb-suggestions-title">{fa ? 'پیشنهادهای شما' : 'For you'}</h2><Link href="/dashboard/profile">{fa ? 'تنظیمات' : 'Settings'}</Link></header>
-      {!suggestions.enabled ? <p className="ud-muted">{fa ? 'پیشنهادهای شخصی خاموش‌اند. اگر مایلید، در تنظیمات حساب استفاده از علاقه‌مندی‌ها و بازدیدهای اخیر را فعال کنید.' : 'Personal suggestions are off. You can enable use of favorites and recent views in account settings.'}</p>
+      {!suggestions.available ? <p className="ud-muted">{fa ? 'پیشنهادهای شخصی در حال حاضر از سوی مدیر سایت غیرفعال‌اند.' : 'Personal suggestions are currently disabled by the site administrator.'}</p>
+        : !suggestions.enabled ? <p className="ud-muted">{fa ? 'پیشنهادهای شخصی خاموش‌اند. اگر مایلید، در تنظیمات حساب استفاده از علاقه‌مندی‌ها و بازدیدهای اخیر را فعال کنید.' : 'Personal suggestions are off. You can enable use of favorites and recent views in account settings.'}</p>
         : suggestions.items.length ? <ul className="ulib-items">{suggestions.items.map(({ item, sourceTitle, sourceKind, reason }) => <li key={`${item.type}:${item.id}`}><Link href={item.url}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">{ITEM_LABEL[item.type].icon}</span>}<span><b>{item.title}</b><small>{fa ? `${sourceKind === 'favorite' ? 'بر اساس علاقه‌مندی به' : 'بر اساس بازدید'} «${sourceTitle}» · ${reason}` : `Similar to “${sourceTitle}”`}</small></span></Link></li>)}</ul>
           : <p className="ud-muted">{fa ? 'با ذخیره یا دیدن بازی، نرم‌افزار، فیلم و آلبوم، پیشنهادهای مرتبط اینجا نمایش داده می‌شوند.' : 'Save or view games, software, films and albums to see related suggestions here.'}</p>}
     </section>

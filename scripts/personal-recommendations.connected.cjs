@@ -12,19 +12,31 @@ const db = new PrismaClient()
 const seed = `codex-personal-${Date.now()}`
 const ids = { users: [], games: [] }
 let browser
+let restoreGlobal = async () => {}
 
 function noConsentReadCheck() {
   const source = fs.readFileSync(path.join(__dirname, '../src/modules/recommendations/server/personal.ts'), 'utf8')
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   const forbidden = { findMany: () => { throw new Error('Private activity read without consent') } }
-  const mockDb = { user: { findUnique: async () => ({ recommendationOptIn: false }) }, itemFavorite: forbidden, userRecentView: forbidden }
+  const mockDb = { setting: { findUnique: async () => null }, user: { findUnique: async () => ({ recommendationOptIn: false }) }, itemFavorite: forbidden, userRecentView: forbidden }
   new Function('require', 'module', 'exports', output)((name) => name === '@/platform/database/prisma' ? { db: mockDb } : name === '@/modules/content/server/registry' ? {} : name === '@/modules/content/domain/items' ? {} : name === '@/modules/recommendations/server/contextual' ? {} : require(name), mod, mod.exports)
-  return mod.exports.personalRecommendations(1).then((result) => assert.deepEqual(result, { enabled: false, items: [] }))
+  return mod.exports.personalRecommendations(1).then((result) => assert.deepEqual(result, { available: true, enabled: false, items: [] }))
+}
+
+function globalOffCheck() {
+  const source = fs.readFileSync(path.join(__dirname, '../src/modules/recommendations/server/personal.ts'), 'utf8')
+  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }
+  const forbidden = () => { throw new Error('Private data read while administrator disabled recommendations') }
+  const mockDb = { setting: { findUnique: async () => ({ value: 'false' }) }, user: { findUnique: forbidden }, itemFavorite: { findMany: forbidden }, userRecentView: { findMany: forbidden } }
+  new Function('require', 'module', 'exports', output)((name) => name === '@/platform/database/prisma' ? { db: mockDb } : name === '@/modules/content/server/registry' ? {} : name === '@/modules/content/domain/items' ? {} : name === '@/modules/recommendations/server/contextual' ? {} : require(name), mod, mod.exports)
+  return mod.exports.personalRecommendations(1).then((result) => assert.deepEqual(result, { available: false, enabled: false, items: [] }))
 }
 
 async function main() {
   await noConsentReadCheck()
+  await globalOffCheck()
   // A staff fixture bypasses the unrelated customer address/onboarding gate.
   const user = await db.user.create({ data: { email: `${seed}@example.invalid`, passwordHash: 'test-only', name: 'Personal recommendations test', role: 'ADMIN' } })
   const other = await db.user.create({ data: { email: `${seed}-other@example.invalid`, passwordHash: 'test-only' } })
@@ -43,6 +55,13 @@ async function main() {
   const token = await encode({ token: { uid: String(user.id), sub: String(user.id), email: user.email, name: user.name, role: user.role, authAt: Date.now() }, secret: process.env.NEXTAUTH_SECRET, maxAge: 3600 })
   const cookie = `next-auth.session-token=${token}`
   const request = async (method, url, body) => fetch(`http://127.0.0.1:3000${url}`, { method, headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(60_000) })
+  const originalGlobal = await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' } })
+  restoreGlobal = async () => {
+    await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: originalGlobal?.value || 'true' })
+    if (!originalGlobal) await db.setting.deleteMany({ where: { key: 'personalRecommendationsEnabled' } })
+  }
+  assert.equal((await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: 'true' })).status, 200)
+  assert.equal((await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: 'invalid' })).status, 400)
   let profile = await (await request('GET', '/api/profile')).json()
   assert.equal(profile.recommendationOptIn, false, 'opt-in defaults off')
   let response = await request('PATCH', '/api/profile', { recommendationOptIn: 'true' })
@@ -55,6 +74,7 @@ async function main() {
   await context.addCookies([{ name: 'next-auth.session-token', value: token, url: 'http://127.0.0.1:3000' }, { name: 'theme', value: 'dark', url: 'http://127.0.0.1:3000' }])
   const page = await context.newPage()
   await page.goto('http://127.0.0.1:3000/dashboard/library', { waitUntil: 'networkidle', timeout: 60000 })
+  if (!await page.locator('section[aria-labelledby="lb-suggestions-title"]').count()) throw new Error(`Library shelf missing at ${page.url()}: ${(await page.locator('body').innerText()).slice(0, 500)}`)
   let shelf = page.locator('section[aria-labelledby="lb-suggestions-title"]')
   assert.ok((await shelf.innerText()).includes('خاموش'), 'private library reports opt-out')
   assert.ok(!(await shelf.innerText()).includes(related.title), 'opt-out does not show recommendations')
@@ -69,6 +89,19 @@ async function main() {
   assert.ok(!(await shelf.innerText()).includes(hidden.title), 'draft game is absent')
   assert.ok((await shelf.innerText()).includes(source.title), 'explanation names the source')
   assert.equal((await db.user.findUniqueOrThrow({ where: { id: other.id } })).recommendationOptIn, false, 'another account remains opted out')
+  const pause = await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: 'false' })
+  assert.equal(pause.status, 200)
+  const pausedSettings = await pause.json()
+  assert.equal(pausedSettings.personalRecommendationsEnabled, 'false', 'admin API returns paused setting')
+  assert.equal((await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' } }))?.value, 'false', 'admin pause persists')
+  await page.reload({ waitUntil: 'networkidle' })
+  shelf = page.locator('section[aria-labelledby="lb-suggestions-title"]')
+  const pausedText = await shelf.innerText()
+  assert.ok(pausedText.includes('مدیر سایت'), `admin pause is explained in the library: ${pausedText}`)
+  assert.ok(!(await shelf.innerText()).includes(related.title), 'admin pause hides private suggestions')
+  assert.equal((await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: 'true' })).status, 200)
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.ok((await page.locator('section[aria-labelledby="lb-suggestions-title"]').innerText()).includes(related.title), 'admin resume restores opted-in suggestions')
 
   await context.close()
   for (const theme of ['dark', 'light']) for (const width of [390, 1440]) {
@@ -92,11 +125,14 @@ async function main() {
   assert.equal(response.status, 200)
   const after = await (await request('GET', '/api/profile')).json()
   assert.equal(after.recommendationOptIn, false, 'opt-out persists')
-  console.log('Personal recommendations: default opt-out, no private reads, owner-scoped toggle, live-only suggestions, revocation and dark/light responsive browser OK')
+  await restoreGlobal()
+  restoreGlobal = async () => {}
+  console.log('Personal recommendations: consent, admin pause/resume, no private reads while off, live-only suggestions, revocation and dark/light responsive browser OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
   if (browser) await browser.close()
+  await restoreGlobal().catch((error) => { console.error('Could not restore global recommendation setting:', error); process.exitCode = 1 })
   if (ids.users.length) {
     await db.itemFavorite.deleteMany({ where: { userId: { in: ids.users } } })
     await db.userRecentView.deleteMany({ where: { userId: { in: ids.users } } })
