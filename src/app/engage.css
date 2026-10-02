@@ -19,6 +19,41 @@
   --en-radius: 14px;
 }
 
+/* Entity questions and discussions use the same surface and spacing tokens in every catalogue. */
+.er-section, .er-archive { color: var(--en-text); }
+.er-section { display: grid; gap: 18px; margin-block: 28px; padding: 22px; border: 1px solid var(--en-line); border-radius: var(--en-radius); background: var(--en-card); }
+.er-heading, .er-column-head, .er-column-actions, .er-archive-head, .er-pages { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.er-heading { align-items: flex-start; }
+.er-heading span, .er-archive-head p { color: var(--en-accent); font-size: .78rem; font-weight: 700; }
+.er-heading h2, .er-archive-head h1 { margin: 4px 0; font-size: clamp(1.15rem, 2vw, 1.55rem); }
+.er-heading p { margin: 0; color: var(--en-muted); font-size: .86rem; }
+.er-section a, .er-archive a { text-decoration: none; }
+.er-heading > a, .er-column-actions > a, .er-breadcrumbs a, .er-pages a { color: var(--en-accent); font-size: .84rem; font-weight: 700; }
+.er-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.er-column { display: grid; align-content: start; gap: 12px; min-width: 0; padding: 17px; border: 1px solid var(--en-line); border-radius: 12px; background: var(--en-soft); }
+.er-column-head h3 { margin: 0; font-size: 1rem; }
+.er-column-head span { color: var(--en-muted); font-size: .8rem; }
+.er-topic-list, .er-archive-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.er-topic-list a, .er-archive-list a { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; border: 1px solid var(--en-line); border-radius: 10px; background: var(--en-card); color: var(--en-text); overflow-wrap: anywhere; }
+.er-topic-list a:hover, .er-archive-list a:hover, .er-topic-list a:focus-visible, .er-archive-list a:focus-visible { border-color: var(--en-accent); }
+.er-topic-list strong, .er-archive-list strong { font-size: .88rem; }
+.er-topic-list small, .er-archive-list small { color: var(--en-muted); font-size: .75rem; }
+.er-empty { margin: 0; padding: 14px; border: 1px dashed var(--en-line); border-radius: 10px; color: var(--en-muted); font-size: .84rem; }
+.er-column-actions { flex-wrap: wrap; }
+.er-new { display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; border: 1px solid color-mix(in srgb, var(--en-accent) 40%, var(--en-line)); border-radius: 9px; color: var(--en-accent); font-size: .84rem; font-weight: 700; }
+.er-new:hover, .er-new:focus-visible { background: color-mix(in srgb, var(--en-accent) 10%, transparent); }
+.er-archive { display: grid; gap: 20px; max-width: 1000px; margin-inline: auto; padding: 24px 16px 56px; }
+.er-breadcrumbs, .er-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--en-muted); font-size: .83rem; }
+.er-archive-head { padding: 22px; border: 1px solid var(--en-line); border-radius: var(--en-radius); background: var(--en-card); }
+.er-archive-head p { margin: 0; }
+.er-tabs { gap: 6px; border-bottom: 1px solid var(--en-line); }
+.er-tabs a { padding: 9px 12px; color: var(--en-muted); border-bottom: 2px solid transparent; }
+.er-tabs a.is-active { color: var(--en-accent); border-color: var(--en-accent); }
+.er-pages { justify-content: center; flex-wrap: wrap; color: var(--en-muted); font-size: .83rem; }
+.er-topic-context { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 12px auto; padding: 12px 16px; border: 1px solid var(--en-line); border-radius: 10px; background: var(--en-card); color: var(--en-muted); font-size: .83rem; }
+.er-topic-context a { color: var(--en-accent); font-weight: 700; text-decoration: none; }
+@media (max-width: 700px) { .er-grid { grid-template-columns: 1fr; } .er-section { padding: 16px; } .er-heading, .er-archive-head { flex-wrap: wrap; } .er-archive-head { padding: 17px; } }
+
 /* ---------------- header search ---------------- */
 .ss-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 1px solid var(--en-line); border-radius: 12px; background: var(--en-card); color: var(--en-muted); font: inherit; font-size: 14px; cursor: pointer; transition: border-color .15s, color .15s; }
 .ss-trigger:hover, .ss-trigger:focus-visible { border-color: var(--en-accent); color: var(--en-text); }

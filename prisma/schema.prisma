@@ -1782,6 +1782,9 @@ model ForumCategory {
 
 model ForumThread {
   id             Int           @id @default(autoincrement())
+  itemType       String?
+  itemId         Int?
+  kind           String        @default("DISCUSSION") // DISCUSSION | QUESTION
   categoryId     Int
   category       ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   userId         Int
@@ -1810,6 +1813,7 @@ model ForumThread {
   @@index([categoryId, status, pinned, lastPostAt])
   @@index([userId])
   @@index([status, lastPostAt])
+  @@index([itemType, itemId, kind, status, listed, lastPostAt])
 }
 
 model ForumPost {

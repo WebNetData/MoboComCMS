@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
-import { requireModule } from '@/extensions/server/modules'
+import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
 import { getSoftware, softwareShelf } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
 import { ownerIdsForTermSlug, primaryTerms } from '@/modules/taxonomy/server/taxonomy'
@@ -13,6 +13,7 @@ import LinkBox from '@/components/media/LinkBox'
 import { paywallView } from '@/modules/paywall/server/paywall'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ItemActionBar, ReviewSection, aggregateRating } from '@/components/engage/Engagement'
+import RelatedDiscussions from '@/components/forum/RelatedDiscussions'
 import Gallery from '@/components/media/Gallery'
 import CopyText from '@/components/software/CopyText'
 import DetailTabs from '@/components/software/DetailTabs'
@@ -83,6 +84,7 @@ export default async function SoftwarePage({ params }: Props) {
   }
   const stars = rating ? Math.round(Number(rating.ratingValue)) : 0
 
+  const forumOn = await isModuleEnabled('forum')
   const tabs = [
     { id: 'download', label: 'لینک‌های دانلود', content: <>
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/software/${s.slug}#buy`} noun="نرم‌افزار" />}
@@ -110,6 +112,7 @@ export default async function SoftwarePage({ params }: Props) {
       {release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}
       <Link className="sp-release-more" href={`/software/${s.slug}/releases/${release.id}`}>صفحهٔ این نسخه ←</Link>
     </li>)}</ol><Link className="sp-release-more" href={`/software/releases?software=${encodeURIComponent(s.slug)}`}>همهٔ نسخه‌های این نرم‌افزار ←</Link></> }] : s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
+    ...(forumOn ? [{ id: 'discussions', label: 'پرسش و گفت‌وگو', content: <RelatedDiscussions item={ref} /> }] : []),
     { id: 'reviews', label: 'نظرات کاربران', content: <ReviewSection item={ref} title={name} path={`/software/${s.slug}`} /> },
   ]
 
