@@ -149,7 +149,7 @@ test('search prepares scheduled posts while public item lookups keep them hidden
   const future = new Date(Date.now() + 60_000)
   const post = { id: 41, slug: 'scheduled-search', title: 'Scheduled story', titleEn: '', excerpt: 'Story summary', content: 'Story body', cover: '', status: 'PUBLISHED', access: 'PUBLIC', publishedAt: future, updatedAt: new Date(), views: 0, category: null }
   const queries = []
-  const db = { post: { findMany: async ({ where }) => { queries.push(where); return where.publishedAt ? [] : [post] } } }
+  const db = { post: { findMany: async (query) => { queries.push(query); return query.where.publishedAt || (query.where.id?.gt ?? 0) >= post.id ? [] : [post] } } }
   const registry = load('src/modules/content/server/registry.ts', {
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { getModuleStates: async () => ({}) },
@@ -157,10 +157,13 @@ test('search prepares scheduled posts while public item lookups keep them hidden
   })
   assert.equal(await registry.itemCard({ type: 'post', id: post.id }), null)
   assert.equal((await registry.searchIndexCard({ type: 'post', id: post.id })).id, post.id)
-  assert.equal((await registry.allItems('post')).length, 1)
-  assert.ok(queries[0].publishedAt)
-  assert.equal(queries[1].status, 'PUBLISHED')
-  assert.equal(queries[2].status, 'PUBLISHED')
+  assert.equal((await registry.searchIndexPage('post', 0, 2)).length, 1)
+  assert.equal((await registry.searchIndexPage('post', post.id, 2)).length, 0)
+  assert.ok(queries[0].where.publishedAt)
+  assert.equal(queries[1].where.status, 'PUBLISHED')
+  assert.equal(queries[2].where.status, 'PUBLISHED')
+  assert.equal(queries[2].where.id.gt, 0)
+  assert.deepEqual(queries[2].orderBy, { id: 'asc' })
 })
 
 test('search indexes scheduled posts but excludes them from candidates until due', async () => {

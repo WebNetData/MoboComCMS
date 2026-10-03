@@ -30,18 +30,18 @@ export type ItemCard = {
 const plain = (html: string, max = 300) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 
-type Where = { id?: { in: number[] }; slug?: string }
+type Where = { id?: { in?: number[]; gt?: number }; slug?: string }
 
-async function load(type: ItemType, where: Where, take: number, includeScheduledPosts = false): Promise<ItemCard[]> {
+async function load(type: ItemType, where: Where, take: number, includeScheduledPosts = false, indexScan = false): Promise<ItemCard[]> {
   const card = (row: Omit<ItemCard, 'type' | 'url'>): ItemCard => ({ ...row, type, url: itemPath(type, row) })
   switch (type) {
     case 'software': {
-      const rows = await db.softwareTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
+      const rows = await db.softwareTitle.findMany({ where: { ...where, ...live() }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
       const versions = await currentSoftwareVersions(rows.map((row) => row.id))
       return rows.map((source) => { const r = projectSoftwareVersion(source, versions); return card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.version && `نسخه ${r.version}`, r.developer].filter(Boolean).join(' · '), summary: plain(r.summary || r.content), keywords: [r.titleEn, r.category, r.platforms, r.developer, r.version].join(' '), image: r.icon || r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.downloads + r.views }) })
     }
     case 'game': {
-      const rows = await db.gameTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
+      const rows = await db.gameTitle.findMany({ where: { ...where, ...live() }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.platforms, summary: plain(r.summary || r.content), keywords: [r.titleEn, r.genres, r.platforms, r.developer, r.publisher].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'studio': {
@@ -52,31 +52,31 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       ]
       if (!visible.length) return []
       const ids = where.id?.in || (where.slug ? [Number(where.slug) || 0] : undefined)
-      const rows = await db.studio.findMany({ where: { ...(ids ? { id: { in: ids } } : {}), OR: visible }, take, orderBy: { updatedAt: 'desc' } })
+      const rows = await db.studio.findMany({ where: { ...(ids ? { id: { in: ids } } : where.id ? { id: where.id } : {}), OR: visible }, take, orderBy: indexScan ? { id: 'asc' } : { updatedAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: String(r.id), title: r.name, subtitle: 'سازنده / ناشر', summary: plain(r.summary), keywords: r.name, image: r.logo, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: 0 }))
     }
     case 'title': {
-      const rows = await db.cinemaTitle.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' } })
+      const rows = await db.cinemaTitle.findMany({ where: { ...where, ...live() }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: [r.kind === 'SERIES' ? 'سریال' : 'فیلم', r.year, r.genres].filter(Boolean).join(' · '), summary: plain(r.summary), keywords: [r.titleEn, r.originalTitle, r.genres, r.director, r.countries, r.year].join(' '), image: r.poster, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'album': {
-      const rows = await db.musicAlbum.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } } } })
+      const rows = await db.musicAlbum.findMany({ where: { ...where, ...live() }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.artist.name, summary: plain(r.description), keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.year].join(' '), image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'track': {
-      const rows = await db.musicTrack.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } }, album: { select: { cover: true, title: true } } } })
+      const rows = await db.musicTrack.findMany({ where: { ...where, ...live() }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { artist: { select: { name: true, nameEn: true } }, album: { select: { cover: true, title: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.artist.name, summary: r.album?.title || '', keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.album?.title].join(' '), image: r.cover || r.album?.cover || '', access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.plays + r.downloads }))
     }
     case 'artist': {
-      const rows = await db.musicArtist.findMany({ where, take, orderBy: { createdAt: 'desc' } })
+      const rows = await db.musicArtist.findMany({ where, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'product': {
-      const rows = await db.product.findMany({ where: { ...where, active: true, approval: 'APPROVED' }, take, orderBy: { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await db.product.findMany({ where: { ...where, active: true, approval: 'APPROVED' }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'post': {
-      const rows = await db.post.findMany({ where: { ...where, ...(includeScheduledPosts ? { status: 'PUBLISHED' } : live()) }, take, orderBy: { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await db.post.findMany({ where: { ...where, ...(includeScheduledPosts ? { status: 'PUBLISHED' } : live()) }, take, orderBy: indexScan ? { id: 'asc' } : { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.category?.name || 'مجله', summary: plain(r.excerpt || r.content), keywords: r.titleEn, image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'thread': {
@@ -87,7 +87,7 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       const open = categories.filter((category) => categoryAccess(category, guest).see)
       const names = new Map(open.map((category) => [category.id, category.title]))
       const rows = await db.forumThread.findMany({
-        where: { ...(where.id ? { id: where.id } : {}), status: 'VISIBLE', listed: true, categoryId: { in: [...names.keys()] } }, take, orderBy: { lastPostAt: 'desc' },
+        where: { ...(where.id ? { id: where.id } : {}), status: 'VISIBLE', listed: true, categoryId: { in: [...names.keys()] } }, take, orderBy: indexScan ? { id: 'asc' } : { lastPostAt: 'desc' },
         include: { posts: { where: { postNumber: 1 }, take: 1, select: { content: true } } },
       })
       return rows.map((r) => card({ id: r.id, slug: String(r.id), title: r.title, subtitle: names.get(r.categoryId) || 'تالار', summary: markdownExcerpt(r.posts[0]?.content || '', 300), keywords: '', image: '', access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.lastPostAt, popularity: r.views + r.replyCount * 5 }))
@@ -131,5 +131,5 @@ export async function itemBySlug(type: ItemType, slug: string): Promise<ItemCard
   return rows[0] || null
 }
 
-/** Search index source: public items, plus scheduled posts held until their due time. */
-export const allItems = (type: ItemType, take = 5000) => load(type, {}, take, type === 'post')
+/** One bounded search-index page, ordered by stable id; scheduled posts are prepared privately. */
+export const searchIndexPage = (type: ItemType, afterId = 0, take = 500) => load(type, { id: { gt: afterId } }, Math.max(1, Math.min(500, take)), type === 'post', true)
