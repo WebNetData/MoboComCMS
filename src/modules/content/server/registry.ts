@@ -32,7 +32,7 @@ const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 
 type Where = { id?: { in: number[] }; slug?: string }
 
-async function load(type: ItemType, where: Where, take: number): Promise<ItemCard[]> {
+async function load(type: ItemType, where: Where, take: number, includeScheduledPosts = false): Promise<ItemCard[]> {
   const card = (row: Omit<ItemCard, 'type' | 'url'>): ItemCard => ({ ...row, type, url: itemPath(type, row) })
   switch (type) {
     case 'software': {
@@ -76,7 +76,7 @@ async function load(type: ItemType, where: Where, take: number): Promise<ItemCar
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
     case 'post': {
-      const rows = await db.post.findMany({ where: { ...where, ...live() }, take, orderBy: { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
+      const rows = await db.post.findMany({ where: { ...where, ...(includeScheduledPosts ? { status: 'PUBLISHED' } : live()) }, take, orderBy: { publishedAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, subtitle: r.category?.name || 'مجله', summary: plain(r.excerpt || r.content), keywords: r.titleEn, image: r.cover, access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.views }))
     }
     case 'thread': {
@@ -117,6 +117,13 @@ export async function itemCard(ref: ItemRef): Promise<ItemCard | null> {
   return (await itemCards([ref])).get(itemKey(ref)) || null
 }
 
+/** Search may prepare a scheduled post before it is public; public readers still use itemCard. */
+export async function searchIndexCard(ref: ItemRef): Promise<ItemCard | null> {
+  if (ref.type !== 'post') return itemCard(ref)
+  if (!(await enabledItemTypes()).includes(ref.type)) return null
+  return (await load('post', { id: { in: [ref.id] } }, 1, true))[0] || null
+}
+
 /** Public item by its URL slug (threads use their numeric id). */
 export async function itemBySlug(type: ItemType, slug: string): Promise<ItemCard | null> {
   if (!(await enabledItemTypes()).includes(type)) return null
@@ -124,5 +131,5 @@ export async function itemBySlug(type: ItemType, slug: string): Promise<ItemCard
   return rows[0] || null
 }
 
-/** Every public item of a type, newest first (bounded) — the search index source. */
-export const allItems = (type: ItemType, take = 5000) => load(type, {}, take)
+/** Search index source: public items, plus scheduled posts held until their due time. */
+export const allItems = (type: ItemType, take = 5000) => load(type, {}, take, type === 'post')

@@ -3,7 +3,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { normalizePersian, relevance, searchTokens, searchableText } from '@/shared/text/persian'
 import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
-import { allItems, enabledItemTypes, itemCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
+import { allItems, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 
 /**
@@ -56,7 +56,7 @@ async function ensureFreshIndex() {
 /** Updates (or removes) one item right after it is saved, published or deleted. */
 export async function reindexItem(ref: ItemRef) {
   try {
-    const item = await itemCard(ref)
+    const item = await searchIndexCard(ref)
     if (!item) await db.searchDocument.deleteMany({ where: { itemType: ref.type, itemId: ref.id } })
     else {
       const data = toDocument(item)
@@ -89,7 +89,7 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   await ensureFreshIndex()
 
   const rows = await db.searchDocument.findMany({
-    where: { itemType: { in: types }, AND: tokens.map((token) => ({ text: { contains: token } })) },
+    where: { itemType: { in: types }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) },
     orderBy: { boost: 'desc' }, take: CANDIDATES,
   })
   // The index may lag a publication change; verify bounded candidates now.
