@@ -43,6 +43,12 @@ accepted new writes without reconciliation.
 
 ## Backup settings
 
+The Ubuntu host snapshot script (`deploy/ubuntu/backup.sh`) uses
+`HOST_BACKUP_DIR` (default `/var/backups/mobocom`) for its database and upload
+archives. `BACKUP_DIR` below belongs to the encrypted in-app backup worker and
+must not redirect host snapshots into the application directory. An absolute
+legacy `BACKUP_DIR` outside that directory remains accepted by the host script.
+
 Admin → Telegram → PostgreSQL backups: enable backups, optionally enable Telegram,
 enter the administrator's numeric Telegram user ID, and set retention. Bot token
 and webhook installation remain in the same Telegram page. The recipient must
