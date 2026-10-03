@@ -1,9 +1,14 @@
 import { db } from '@/platform/database/prisma'
+import { createReadStream } from 'node:fs'
+import { appendFile, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { normalizePersian, relevance, searchTokens, searchableText } from '@/shared/text/persian'
 import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
-import { allItems, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
+import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 
 /**
@@ -16,6 +21,7 @@ import { recordSearch } from '@/modules/analytics/server/collect'
 const STALE_MS = 10 * 60_000
 const INDEXED_AT = 'search.indexedAt'
 const CANDIDATES = 400
+const INDEX_PAGE_SIZE = 500
 export const PAGE_SIZE = 20
 
 const toDocument = (item: ItemCard) => ({
@@ -30,16 +36,47 @@ let rebuilding: Promise<number> | null = null
 /** Rebuilds the whole index (single flight). Returns the number of documents. */
 export function rebuildSearchIndex(): Promise<number> {
   rebuilding ??= (async () => {
+    let directory = ''
     try {
       const types = await enabledItemTypes()
-      const documents = (await Promise.all(types.map((type) => allItems(type)))).flat().map(toDocument)
+      directory = await mkdtemp(join(tmpdir(), 'mobocom-search-'))
+      const file = join(directory, 'documents.ndjson')
+      await writeFile(file, '')
+      let count = 0
+      for (const type of types) {
+        let cursor = 0
+        for (;;) {
+          const page = await searchIndexPage(type, cursor, INDEX_PAGE_SIZE)
+          if (!page.length) break
+          if (page.some((item, index) => item.id <= (index ? page[index - 1].id : cursor))) throw new Error(`Search index page is not ordered: ${type}`)
+          await appendFile(file, `${page.map((item) => JSON.stringify(toDocument(item))).join('\n')}\n`)
+          count += page.length
+          cursor = page[page.length - 1].id
+          if (page.length < INDEX_PAGE_SIZE) break
+        }
+      }
       await db.$transaction(async (tx) => {
         await tx.searchDocument.deleteMany({})
-        for (let i = 0; i < documents.length; i += 500) await tx.searchDocument.createMany({ data: documents.slice(i, i + 500) })
+        let batch: ReturnType<typeof toDocument>[] = []
+        const lines = createInterface({ input: createReadStream(file), crlfDelay: Infinity })
+        try {
+          for await (const line of lines) {
+            const row = JSON.parse(line) as Omit<ReturnType<typeof toDocument>, 'publishedAt'> & { publishedAt: string }
+            batch.push({ ...row, publishedAt: new Date(row.publishedAt) })
+            if (batch.length === INDEX_PAGE_SIZE) {
+              await tx.searchDocument.createMany({ data: batch })
+              batch = []
+            }
+          }
+        } finally { lines.close() }
+        if (batch.length) await tx.searchDocument.createMany({ data: batch })
         await tx.setting.upsert({ where: { key: INDEXED_AT }, create: { key: INDEXED_AT, value: new Date().toISOString() }, update: { value: new Date().toISOString() } })
-      }, { timeout: 60_000 })
-      return documents.length
-    } finally { rebuilding = null }
+      }, { timeout: Math.min(300_000, Math.max(60_000, Math.ceil(count / 500) * 500)) })
+      return count
+    } finally {
+      if (directory) await rm(directory, { recursive: true, force: true }).catch((error) => logEvent('warn', 'search.temp_cleanup_failed', { error }))
+      rebuilding = null
+    }
   })()
   return rebuilding
 }
