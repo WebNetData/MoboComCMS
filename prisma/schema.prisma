@@ -642,6 +642,8 @@ model Post {
   category    PostCategory? @relation(fields: [categoryId], references: [id])
   categories  PostCategoryAssignment[]
   comments    PostComment[]
+
+  @@index([status, publishedAt])
 }
 
 model PostComment {
