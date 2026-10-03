@@ -105,10 +105,23 @@ export async function journalDashboard(now = new Date()) {
   }
 }
 
-export async function journalPickers() {
-  const [posts, categories] = await Promise.all([
+export async function journalPickers(selectedIds: readonly number[] = []) {
+  const selected = [...new Set(selectedIds.filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 9)
+  const [posts, selectedPosts, categories] = await Promise.all([
     db.post.findMany({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, take: 800, select: { id: true, title: true, cover: true, publishedAt: true } }),
+    db.post.findMany({ where: { status: 'PUBLISHED', id: { in: selected } }, select: { id: true, title: true, cover: true } }),
     db.postCategory.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, parentId: true } }),
   ])
-  return { posts: posts.map((post) => ({ id: post.id, title: post.title, cover: post.cover })), categories: categories.filter((category) => !category.parentId).map((category) => ({ id: category.id, title: category.name, cover: '' })) }
+  const byId = new Map([...posts, ...selectedPosts].map((post) => [post.id, { id: post.id, title: post.title, cover: post.cover }]))
+  return { posts: [...byId.values()], categories: categories.filter((category) => !category.parentId).map((category) => ({ id: category.id, title: category.name, cover: '' })) }
+}
+
+export async function searchJournalPicker(input: unknown) {
+  const query = String(input ?? '').trim().slice(0, 100)
+  if (query.length < 2) return []
+  const posts = await db.post.findMany({
+    where: { status: 'PUBLISHED', OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { slug: { contains: query } }] },
+    orderBy: { publishedAt: 'desc' }, take: 25, select: { id: true, title: true, cover: true },
+  })
+  return posts.map((post) => ({ id: post.id, title: post.title, cover: post.cover }))
 }

@@ -6,6 +6,51 @@ import { JOURNAL_RAILS, type JournalSettings } from '@/modules/journal/domain/jo
 import { OrderedPicker, RailsEditor, type PickItem } from '../../cms/SectionAdmin'
 import { JournalShell, Notice, send, useJson } from '../shared'
 
+function PostSearchPicker({ posts, ids, max, placeholder, onChange }: { posts: PickItem[]; ids: number[]; max: number; placeholder: string; onChange: (ids: number[]) => void }) {
+  const [query, setQuery] = useState('')
+  const [matches, setMatches] = useState<PickItem[]>([])
+  const [known, setKnown] = useState<PickItem[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState(false)
+
+  useEffect(() => {
+    const q = query.trim()
+    setMatches([])
+    setSearching(false)
+    setSearchError(false)
+    if (q.length < 2) return
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const response = await fetch(`/api/admin/journal/picker?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        if (!response.ok) throw new Error('Search failed')
+        const data: { posts: { id: number; title: string; cover: string }[] } = await response.json()
+        if (!controller.signal.aborted) setMatches(data.posts.map((post) => ({ id: post.id, title: post.title, image: post.cover })))
+      } catch {
+        if (!controller.signal.aborted) setSearchError(true)
+      } finally {
+        if (!controller.signal.aborted) setSearching(false)
+      }
+    }, 300)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [query])
+
+  const normalized = query.trim().toLocaleLowerCase()
+  const visible = normalized ? posts.filter((post) => post.title.toLocaleLowerCase().includes(normalized)).slice(0, 50) : posts
+  const items = [...new Map([...visible, ...matches, ...posts.filter((post) => ids.includes(post.id)), ...known.filter((post) => ids.includes(post.id))].map((post) => [post.id, post])).values()]
+  const change = (next: number[]) => {
+    setKnown((current) => [...new Map([...current, ...items.filter((post) => next.includes(post.id))].map((post) => [post.id, post])).values()])
+    onChange(next)
+  }
+  return <>
+    <label className="sa-field"><span>جست‌وجوی مطلب در آرشیو</span><input className="input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="عنوان یا نشانی مطلب را بنویسید" /></label>
+    {searching && <p className="sa-hint" role="status">در حال جست‌وجو…</p>}
+    {searchError && <p className="sa-hint" role="alert">جست‌وجو انجام نشد. دوباره تلاش کنید.</p>}
+    <OrderedPicker key={normalized} items={items} ids={ids} max={max} placeholder={placeholder} onChange={change} />
+  </>
+}
+
 /** Journal (Liona) home: section order, main story, editor picks, block categories, listing and comments. */
 export default function JournalSettingsPage() {
   const { data, error } = useJson<{ settings: JournalSettings; picker: { posts: { id: number; title: string; cover: string }[]; categories: { id: number; title: string }[] } }>('/api/admin/journal/settings')
@@ -47,11 +92,11 @@ export default function JournalSettingsPage() {
       <div className="sa-stack">
         <section className="sa-card">
           <header className="sa-card-head"><h2>مطلب اصلی اسلایدر</h2><small>اولی مطلب بزرگ، بقیه کنار آن؛ خالی = تازه‌ترین‌ها</small></header>
-          <OrderedPicker items={posts} ids={form.heroIds} max={5} placeholder="افزودن مطلب…" onChange={(heroIds) => set({ heroIds })} />
+          <PostSearchPicker posts={posts} ids={form.heroIds} max={5} placeholder="افزودن مطلب…" onChange={(heroIds) => set({ heroIds })} />
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>انتخاب سردبیر</h2><small>تا ۴ مطلب؛ خالی = مطالب «ویژه»</small></header>
-          <OrderedPicker items={posts} ids={form.editorIds} max={4} placeholder="افزودن مطلب…" onChange={(editorIds) => set({ editorIds })} />
+          <PostSearchPicker posts={posts} ids={form.editorIds} max={4} placeholder="افزودن مطلب…" onChange={(editorIds) => set({ editorIds })} />
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>دسته‌های بلوک‌ها</h2><small>بلوک اول، بلوک دوم، پنل؛ خالی = پرمطلب‌ترین دسته‌ها</small></header>
