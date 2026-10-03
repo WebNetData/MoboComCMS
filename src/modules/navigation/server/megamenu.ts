@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { listTerms } from '@/modules/taxonomy/server/taxonomy'
 import { descendants, termPath, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import {
@@ -108,11 +109,11 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
   },
 
   async shop(cfg) {
-    const categories = await safe(db.productCategory.findMany({ select: { id: true, parentId: true, name: true, slug: true, _count: { select: { products: { where: { active: true } } } } }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }), [])
+    const categories = await safe(db.productCategory.findMany({ select: { id: true, parentId: true, name: true, slug: true, _count: { select: { products: { where: publicProductWhere } } } }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }), [])
     const nodes = categories.map((c) => ({ id: c.id, parentId: c.parentId, label: c.name, href: `/products${q({ category: c.slug })}`, count: c._count.products, slug: c.slug }))
     const items = await itemsFromTree(nodes, cfg, async (root) => {
       const ids = descendants(categories, root.id)
-      const rows = await safe(db.product.findMany({ where: { active: true, categoryId: { in: ids }, image: { not: '' } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: cfg.features, select: { name: true, slug: true, image: true } }), [])
+      const rows = await safe(db.product.findMany({ where: { ...publicProductWhere, categoryId: { in: ids }, image: { not: '' } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: cfg.features, select: { name: true, slug: true, image: true } }), [])
       return rows.map((p) => ({ title: p.name, href: `/products/${p.slug}`, image: p.image, kicker: root.label }))
     })
     return {

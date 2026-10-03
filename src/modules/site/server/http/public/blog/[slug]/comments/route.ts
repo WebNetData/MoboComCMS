@@ -4,13 +4,14 @@ import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { getJournalSettings } from '@/modules/journal/server/admin'
+import { isLivePost } from '@/modules/journal/domain/journal'
 
 type Context = { params: Promise<{ slug: string }> }
 
 export async function GET(req: NextRequest, { params }: Context) {
   const { slug } = await params
-  const post = await db.post.findUnique({ where: { slug }, select: { id: true, status: true } })
-  if (!post || post.status !== 'PUBLISHED') return err('not found', 404)
+  const post = await db.post.findUnique({ where: { slug }, select: { id: true, status: true, publishedAt: true } })
+  if (!post || !isLivePost(post)) return err('not found', 404)
   const requested = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(requested) ? Math.min(1000, Math.max(1, requested)) : 1
   const where = { postId: post.id, status: 'APPROVED', parentId: null }
@@ -38,8 +39,8 @@ export async function POST(req: NextRequest, { params }: Context) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
   const { slug } = await params
-  const post = await db.post.findUnique({ where: { slug }, select: { id: true, status: true } })
-  if (!post || post.status !== 'PUBLISHED') return err('not found', 404)
+  const post = await db.post.findUnique({ where: { slug }, select: { id: true, status: true, publishedAt: true } })
+  if (!post || !isLivePost(post)) return err('not found', 404)
   const body = await req.json().catch(() => null)
   const text = typeof body?.body === 'string' ? body.body.trim() : ''
   if (text.length < 2 || text.length > 2000 || /[<>]/.test(text)) return err('Comment must be 2–2000 plain-text characters / نظر باید متن ساده با طول ۲ تا ۲۰۰۰ کاراکتر باشد')

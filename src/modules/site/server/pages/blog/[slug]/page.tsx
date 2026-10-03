@@ -28,6 +28,7 @@ import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/build
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -39,7 +40,7 @@ function readingMinutes(text: string | null | undefined) {
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await paramsPromise
   const post = await db.post.findUnique({ where: { slug: params.slug }, include: { categories: { include: { category: true } }, category: true } }).catch(() => null)
-  if (!post || post.status !== 'PUBLISHED') return { title: 'Not found', robots: { index: false, follow: false } }
+  if (!post || !isLivePost(post)) return { title: 'Not found', robots: { index: false, follow: false } }
   const locale = await getServerLocale()
   const isFa = locale === 'fa'
   const title = isFa ? post.title : post.titleEn || post.title
@@ -76,7 +77,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       author: { select: { name: true, avatarColor: true, telegramUsername: true, telegramPhoto: true, createdAt: true } },
     },
   })
-  if (!post || (post.status !== 'PUBLISHED' && !isPreview(preview))) notFound()
+  const now = new Date()
+  if (!post || (!isLivePost(post, now) && !isPreview(preview))) notFound()
 
   if (!isPreview(preview)) await db.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } })
   // Members-only articles: guests get a teaser and a VIP call to action; the post's own
@@ -94,21 +96,21 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const ownEditable = editableFor(preview, `post-${post.id}`)
 
   const anchor = post.publishedAt ?? post.createdAt
-  const authorWhere = post.authorId ? { status: 'PUBLISHED' as const, authorId: post.authorId } : null
+  const authorWhere = post.authorId ? { ...livePostWhere(now), authorId: post.authorId } : null
   const [related, newer, older, authorPosts, authorViews] = await Promise.all([
     db.post.findMany({
-      where: { status: 'PUBLISHED', ...categoryMembership(postCategories(post).map((c) => c.id)), id: { not: post.id } },
+      where: { ...livePostWhere(now), ...categoryMembership(postCategories(post).map((c) => c.id)), id: { not: post.id } },
       take: 4,
       orderBy: { publishedAt: 'desc' },
       include: { category: true, categories: { include: { category: true } } },
     }),
     db.post.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { gt: anchor } },
+      where: { status: 'PUBLISHED', publishedAt: { gt: anchor, lte: now } },
       orderBy: { publishedAt: 'asc' },
       select: { slug: true, title: true, titleEn: true, cover: true },
     }),
     db.post.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { lt: anchor } },
+      where: { status: 'PUBLISHED', publishedAt: { lt: anchor, lte: now } },
       orderBy: { publishedAt: 'desc' },
       select: { slug: true, title: true, titleEn: true, cover: true },
     }),

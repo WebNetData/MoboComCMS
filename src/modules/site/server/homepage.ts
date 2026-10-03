@@ -11,6 +11,8 @@ import { recentThreads } from '@/modules/forum/server/forum'
 import type { LandingCommunity, LandingStat, ShowcaseItem } from '@/modules/site/domain/homepage'
 import { plainText } from '@/shared/text/plain'
 import { parseForm, publicForm } from '@/modules/forms/domain/forms'
+import { livePostWhere } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 const SHOWCASE_SIZE = 8
 
@@ -36,7 +38,7 @@ const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 async function getStats(enabled: (id: string) => boolean): Promise<LandingStat[]> {
   const safe = (p: Promise<number>) => p.catch(() => 0)
   const [products, games, titles, tracks, software, threads, members] = await Promise.all([
-    enabled('store') ? safe(db.product.count({ where: { active: true } })) : 0,
+    enabled('store') ? safe(db.product.count({ where: publicProductWhere })) : 0,
     enabled('games') ? safe(db.gameTitle.count({ where: live() })) : 0,
     enabled('cinema') ? safe(db.cinemaTitle.count({ where: live() })) : 0,
     enabled('music') ? safe(db.musicTrack.count({ where: live() })) : 0,
@@ -74,13 +76,13 @@ export async function getLandingData(): Promise<LandingData> {
     getSettings(),
     db.mapLocation.findMany({ where: { active: true } }),
     db.post.findMany({
-      where: { status: 'PUBLISHED' },
+      where: livePostWhere(),
       include: { category: true },
       orderBy: { publishedAt: 'desc' },
       take: 5,
     }),
     db.product.findMany({
-      where: { active: true },
+      where: publicProductWhere,
       include: { category: true },
       orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }],
       take: 8,

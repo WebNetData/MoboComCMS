@@ -6,6 +6,8 @@ import { getSettings } from '@/modules/settings/server'
 import { listPublishedSections } from '@/modules/site/server/theme-templates'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
+import { livePostWhere } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 
 /** Static storefront routes + every published CMS document. */
@@ -24,8 +26,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const [pages, posts, products, postCats, productCats] = await Promise.all([
       db.page.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),
-      db.post.findMany({ where: { status: 'PUBLISHED' }, select: { slug: true, updatedAt: true } }),
-      db.product.findMany({ where: { active: true }, select: { slug: true, updatedAt: true } }),
+      db.post.findMany({ where: livePostWhere(now), select: { slug: true, updatedAt: true } }),
+      db.product.findMany({ where: publicProductWhere, select: { slug: true, updatedAt: true } }),
       db.postCategory.findMany({ select: { slug: true } }),
       db.productCategory.findMany({ select: { slug: true } }),
     ])

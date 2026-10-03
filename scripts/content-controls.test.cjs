@@ -297,7 +297,7 @@ test('journal comments require sign-in, moderation and an approved parent for re
     '@/modules/identity/server/access': { requireUser: async () => user },
     '@/modules/journal/server/admin': { getJournalSettings: async () => ({ autoApproveComments }) },
     '@/platform/database/prisma': { db: {
-      post: { findUnique: async () => ({ id: 5, status: 'PUBLISHED' }) },
+      post: { findUnique: async () => ({ id: 5, status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60_000) }) },
       postComment: { findFirst: async () => null, create: async ({ data }) => { saved = data; return { id: 11, status: 'PENDING' } } },
     } },
   })
@@ -424,6 +424,24 @@ test('disabled storefront blocks new product checkout before inventory or paymen
   const { executeCheckout } = load('src/modules/checkout/server/checkout.ts', mocks)
   const result = await executeCheckout({ userId: 1, productId: 1, idempotencyKey: 'test-store-disabled', siteUrl: 'http://localhost' })
   assert.equal(result.code, 'STORE_DISABLED'); assert.equal(result.status, 403)
+})
+
+test('direct checkout rejects an active product awaiting approval before payment access', async () => {
+  const db = {
+    order: { findUnique: async () => null },
+    product: { findUnique: async () => ({ id: 7, active: true, approval: 'PENDING', name: 'Awaiting approval', variants: [] }) },
+  }
+  const mocks = {
+    '@/platform/database/prisma': { db },
+    '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
+    '@/modules/membership/server/membership': { isMember: async () => false },
+  }
+  for (const name of ['@/modules/billing/server/gateways', '@/modules/billing/server/billing', '@/modules/wallet/server/wallet', '@/modules/subscriptions/server/usernames', '@/modules/fulfillment/server/jobs', '@/modules/catalog/server/inventory', '@/shared/money', '@/extensions/server/runtime']) mocks[name] = {}
+  const { executeCheckout } = load('src/modules/checkout/server/checkout.ts', mocks)
+  const result = await executeCheckout({ userId: 1, productId: 7, idempotencyKey: 'test-pending-product', siteUrl: 'http://localhost' })
+  assert.equal(result.code, 'PRODUCT_NOT_FOUND'); assert.equal(result.status, 404)
+  const malformed = await executeCheckout({ userId: 1, lines: [{ productId: 7, quantity: 0 }, { productId: 8, quantity: 1 }], idempotencyKey: 'test-pending-cart', siteUrl: 'http://localhost' })
+  assert.equal(malformed.code, 'PRODUCT_NOT_FOUND'); assert.doesNotMatch(malformed.message, /Awaiting approval/)
 })
 
 test('authenticated homepage cards hide wallet details while other plan views retain them', () => {

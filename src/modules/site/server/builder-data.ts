@@ -3,6 +3,8 @@ import { getSettings } from '@/modules/settings/server'
 import { categoryDescendants } from '@/modules/site/domain/categories'
 import { categoryMembership } from '@/modules/site/server/categories'
 import type { LandingPost, LandingProduct } from '@/modules/site/domain/homepage'
+import { livePostWhere } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 /** Post query of a builder "posts" block. `categoryId` wins over `category` (slug). */
 export type PostQuery = { category: string; categoryId: number | null; limit: number; exclude: number | null }
@@ -14,7 +16,7 @@ export const productQueryKey = (q: ProductQuery) => `s|${q.categoryId ?? ''}|${q
 const clampLimit = (n: number) => Math.min(12, Math.max(1, Math.round(n) || 3))
 
 export async function getBuilderPosts(q: PostQuery): Promise<LandingPost[]> {
-  let where: Record<string, unknown> = { status: 'PUBLISHED' }
+  let where: Record<string, unknown> = livePostWhere()
   if (q.categoryId || q.category) {
     const nodes = await db.postCategory.findMany({ select: { id: true, parentId: true, slug: true, name: true } }).catch(() => [])
     const selected = q.categoryId ? nodes.find((node) => node.id === q.categoryId) : nodes.find((node) => node.slug === q.category)
@@ -39,7 +41,7 @@ export async function getBuilderPosts(q: PostQuery): Promise<LandingPost[]> {
 export async function getBuilderProducts(q: ProductQuery): Promise<LandingProduct[]> {
   const settings = await getSettings().catch(() => null)
   if (settings?.storeEnabled !== 'true') return []
-  let where: Record<string, unknown> = { active: true }
+  let where: Record<string, unknown> = publicProductWhere
   if (q.kind) where = { ...where, kind: q.kind }
   if (q.categoryId || q.category) {
     const nodes = await db.productCategory.findMany({ select: { id: true, parentId: true, slug: true, name: true } }).catch(() => [])

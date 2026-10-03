@@ -5,6 +5,9 @@ import { requireUser } from '@/modules/identity/server/access'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { cleanRichText } from '@/shared/content/sanitize'
+import { livePostWhere } from '@/modules/journal/domain/journal'
+import { isModuleEnabled } from '@/extensions/server/modules'
+import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 type Context = { params: Promise<{ slug: string }> }
 const criteriaKeys = ['quality', 'value', 'usability'] as const
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest, { params }: Context) {
   if (!await isStoreEnabled()) return err('not found', 404)
   const { slug } = await params
   const product = await db.product.findUnique({ where: { slug }, include: { category: { include: { attributeGroup: true } } } })
-  if (!product?.active) return err('not found', 404)
+  if (!product || !isPublicProduct(product)) return err('not found', 404)
   const tab = req.nextUrl.searchParams.get('tab') || 'description'
   const pageRaw = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(pageRaw) ? Math.min(1000, Math.max(1, pageRaw)) : 1
@@ -74,13 +77,14 @@ export async function GET(req: NextRequest, { params }: Context) {
     return ok({ total, page, pages: Math.max(1, Math.ceil(total / 10)), items: rows.map(row => ({ ...row, user: { name: row.user?.name || row.guestName || 'Guest' } })) })
   }
   if (tab === 'related-products') {
-    const rows = await db.product.findMany({ where: { id: { not: product.id }, active: true, categoryId: product.categoryId || undefined }, orderBy: [{ featured: 'desc' }, { id: 'desc' }], take: 8, select: { id: true, slug: true, name: true, nameEn: true, image: true, price: true, currency: true, kind: true } })
+    const rows = await db.product.findMany({ where: { id: { not: product.id }, ...publicProductWhere, categoryId: product.categoryId || undefined }, orderBy: [{ featured: 'desc' }, { id: 'desc' }], take: 8, select: { id: true, slug: true, name: true, nameEn: true, image: true, price: true, currency: true, kind: true } })
     return ok({ items: rows })
   }
   if (tab === 'related-posts') {
+    if (!await isModuleEnabled('journal')) return ok({ items: [] })
     const token = product.name.split(/\s+/).find(word => word.length >= 4)
-    const rows = await db.post.findMany({ where: { status: 'PUBLISHED', ...(token ? { OR: [{ title: { contains: token } }, { titleEn: { contains: token } }] } : {}) }, orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } })
-    return ok({ items: rows.length ? rows : await db.post.findMany({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } }) })
+    const rows = await db.post.findMany({ where: { ...livePostWhere(), ...(token ? { OR: [{ title: { contains: token } }, { titleEn: { contains: token } }] } : {}) }, orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } })
+    return ok({ items: rows.length ? rows : await db.post.findMany({ where: livePostWhere(), orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } }) })
   }
   return err('unknown tab', 404)
 }

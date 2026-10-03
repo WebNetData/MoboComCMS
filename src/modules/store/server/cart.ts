@@ -7,6 +7,7 @@ import { getDeliverySettings } from '@/modules/shipping/server/shipping'
 import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { getCarrierSettings } from '@/modules/shipping/server/carriers'
 import { minorToNumber } from '@/shared/money'
+import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -110,7 +111,7 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     const price = unitPrice(product, variant, member)
     const limit = lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
     let issue = ''
-    if (!product.active || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
+    if (!isPublicProduct(product) || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
     else if (!row.variantKey && product.variants.some((v) => v.active)) issue = 'نوع کالا را دوباره انتخاب کنید'
     else if (product.access === 'MEMBERS' && !member) issue = 'مخصوص اعضای ویژه'
     else if (limit === 0) issue = 'ناموجود'
@@ -164,7 +165,7 @@ export async function cartCount(owner: CartOwner): Promise<number> {
 
 async function purchasable(productId: number, variantId: number | null) {
   const product = await db.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, stock: true } } } })
-  if (!product || !product.active) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
+  if (!product || !isPublicProduct(product)) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   if (product.variants.length && !variantId) throw new StoreError('نوع کالا را انتخاب کنید', 400, 'VARIANT_REQUIRED')
   const variant = variantId ? product.variants.find((v) => v.id === variantId) : null
   if (variantId && !variant) throw new StoreError('نوع انتخاب‌شده موجود نیست', 404, 'VARIANT_NOT_FOUND')
