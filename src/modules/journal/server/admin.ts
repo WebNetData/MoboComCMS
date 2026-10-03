@@ -1,11 +1,12 @@
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
-import { JOURNAL_HEALTH, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
+import { JOURNAL_HEALTH, livePostWhere, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
 
 // Journal admin: Liona home settings, editorial dashboard and pickers.
 
 const SETTINGS_KEY = 'journal.home.v1'
 const DAY = 86_400_000
+const DASHBOARD_PAGE = 500
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 
 export async function getJournalSettings(): Promise<JournalSettings> {
@@ -20,45 +21,84 @@ export async function saveJournalSettings(input: unknown): Promise<JournalSettin
 
 export async function journalDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
-  const [posts, categories, pending, comments30, pendingRecent] = await Promise.all([
-    db.post.findMany({ select: { id: true, slug: true, title: true, cover: true, excerpt: true, content: true, status: true, publishedAt: true, views: true, access: true, featured: true, categoryId: true, authorId: true, author: { select: { name: true } }, _count: { select: { categories: true, comments: true } } } }),
-    db.postCategory.findMany({ select: { id: true, name: true, parentId: true } }),
+  const [categories, pending, pendingRecent, drafts, scheduled, scheduledPosts] = await Promise.all([
+    db.postCategory.findMany({ select: { id: true, name: true } }),
     db.postComment.count({ where: { status: 'PENDING' } }),
-    db.postComment.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
     db.postComment.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, body: true, createdAt: true, user: { select: { name: true } }, post: { select: { title: true } } } }),
+    db.post.count({ where: { status: { not: 'PUBLISHED' } } }),
+    db.post.count({ where: { status: 'PUBLISHED', publishedAt: { gt: now } } }),
+    db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { gt: now } }, orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }], take: 6, select: { id: true, title: true, cover: true, publishedAt: true } }),
   ])
-  const live = posts.filter((post) => post.status === 'PUBLISHED' && post.publishedAt <= now)
   const health = Object.fromEntries(Object.keys(JOURNAL_HEALTH).map((key) => [key, 0])) as Record<JournalHealth, number>
   const worst: { id: number; title: string; cover: string; issues: JournalHealth[] }[] = []
-  for (const post of live) {
-    const issues = postIssues({ ...post, categories: post._count.categories + (post.categoryId ? 1 : 0) })
-    for (const issue of issues) health[issue]++
-    if (issues.length) worst.push({ id: post.id, title: post.title, cover: post.cover, issues })
-  }
-  worst.sort((a, b) => b.issues.length - a.issues.length)
+  const topViewed: { id: number; slug: string; title: string; cover: string; views: number; comments: number }[] = []
   const days = Array.from({ length: 30 }, (_, i) => tehranDay(new Date(now.getTime() - (29 - i) * DAY)))
   const commentDays = new Map(days.map((day) => [day, 0]))
-  for (const row of comments30) { const key = tehranDay(row.createdAt); if (commentDays.has(key)) commentDays.set(key, commentDays.get(key)! + 1) }
   const postDays = new Map(days.map((day) => [day, 0]))
-  for (const post of live) { const key = tehranDay(post.publishedAt); if (postDays.has(key)) postDays.set(key, postDays.get(key)! + 1) }
   const byCategory = new Map<number, number>()
-  for (const post of live) if (post.categoryId) byCategory.set(post.categoryId, (byCategory.get(post.categoryId) || 0) + 1)
   const catName = new Map(categories.map((category) => [category.id, category.name]))
   const authors = new Map<string, { posts: number; views: number }>()
-  for (const post of live) { const name = post.author?.name || 'بدون نویسنده'; const row = authors.get(name) || { posts: 0, views: 0 }; row.posts++; row.views += post.views; authors.set(name, row) }
-  const scheduled = posts.filter((post) => post.status === 'PUBLISHED' && post.publishedAt > now).sort((a, b) => +a.publishedAt - +b.publishedAt)
+  let published = 0
+  let views = 0
+  let posts30 = 0
+  let vip = 0
+  let featured = 0
+  let postCursor = 0
+  while (true) {
+    const rows = await db.post.findMany({
+      where: { ...livePostWhere(now), id: { gt: postCursor } }, orderBy: { id: 'asc' }, take: DASHBOARD_PAGE,
+      select: { id: true, slug: true, title: true, cover: true, excerpt: true, content: true, publishedAt: true, views: true, access: true, featured: true, categoryId: true, author: { select: { name: true } }, _count: { select: { categories: true, comments: true } } },
+    })
+    if (!rows.length) break
+    for (const post of rows) {
+      published++
+      views += post.views
+      if (post.publishedAt >= since) posts30++
+      if (post.access === 'MEMBERS') vip++
+      if (post.featured) featured++
+      const issues = postIssues({ ...post, categories: post._count.categories + (post.categoryId ? 1 : 0) })
+      for (const issue of issues) health[issue]++
+      if (issues.length) worst.push({ id: post.id, title: post.title, cover: post.cover, issues })
+      topViewed.push({ id: post.id, slug: post.slug, title: post.title, cover: post.cover, views: post.views, comments: post._count.comments })
+      const day = tehranDay(post.publishedAt)
+      if (postDays.has(day)) postDays.set(day, postDays.get(day)! + 1)
+      if (post.categoryId) byCategory.set(post.categoryId, (byCategory.get(post.categoryId) || 0) + 1)
+      const name = post.author?.name || 'بدون نویسنده'
+      const author = authors.get(name) || { posts: 0, views: 0 }
+      author.posts++
+      author.views += post.views
+      authors.set(name, author)
+    }
+    worst.sort((a, b) => b.issues.length - a.issues.length)
+    worst.length = Math.min(worst.length, 8)
+    topViewed.sort((a, b) => b.views - a.views)
+    topViewed.length = Math.min(topViewed.length, 8)
+    if (rows.length < DASHBOARD_PAGE) break
+    postCursor = rows[rows.length - 1].id
+  }
+  let comments30 = 0
+  let commentCursor = 0
+  while (true) {
+    const rows = await db.postComment.findMany({ where: { createdAt: { gte: since }, id: { gt: commentCursor } }, orderBy: { id: 'asc' }, take: DASHBOARD_PAGE, select: { id: true, createdAt: true } })
+    if (!rows.length) break
+    for (const row of rows) {
+      comments30++
+      const day = tehranDay(row.createdAt)
+      if (commentDays.has(day)) commentDays.set(day, commentDays.get(day)! + 1)
+    }
+    if (rows.length < DASHBOARD_PAGE) break
+    commentCursor = rows[rows.length - 1].id
+  }
   return {
     kpis: {
-      published: live.length, drafts: posts.filter((post) => post.status !== 'PUBLISHED').length, scheduled: scheduled.length,
-      views: live.reduce((sum, post) => sum + post.views, 0), posts30: live.filter((post) => post.publishedAt >= since).length,
-      pendingComments: pending, comments30: comments30.length, vip: live.filter((post) => post.access === 'MEMBERS').length,
-      featured: live.filter((post) => post.featured).length, categories: categories.length,
+      published, drafts, scheduled, views, posts30,
+      pendingComments: pending, comments30, vip, featured, categories: categories.length,
     },
     series: days.map((day) => ({ day, comments: commentDays.get(day)!, posts: postDays.get(day)! })),
     health: Object.entries(health).map(([key, count]) => ({ key, label: JOURNAL_HEALTH[key as JournalHealth], count })).filter((row) => row.count).sort((a, b) => b.count - a.count),
-    worst: worst.slice(0, 8),
-    topViewed: [...live].sort((a, b) => b.views - a.views).slice(0, 8).map((post) => ({ id: post.id, slug: post.slug, title: post.title, cover: post.cover, views: post.views, comments: post._count.comments })),
-    scheduledList: scheduled.slice(0, 6).map((post) => ({ id: post.id, title: post.title, cover: post.cover, at: post.publishedAt.toISOString() })),
+    worst,
+    topViewed,
+    scheduledList: scheduledPosts.map((post) => ({ id: post.id, title: post.title, cover: post.cover, at: post.publishedAt.toISOString() })),
     pending: pendingRecent.map((comment) => ({ id: comment.id, body: comment.body.slice(0, 140), author: comment.user.name || 'کاربر', post: comment.post.title, createdAt: comment.createdAt.toISOString() })),
     categories: [...byCategory].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, count]) => ({ name: catName.get(id) || `#${id}`, count })),
     authors: [...authors].sort((a, b) => b[1].posts - a[1].posts).slice(0, 6).map(([name, row]) => ({ name, ...row })),
