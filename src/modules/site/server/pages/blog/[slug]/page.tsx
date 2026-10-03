@@ -29,7 +29,7 @@ import SectionBarSlot from '@/components/site/SectionBarSlot'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
-import { publicPostLinkProducts } from '@/modules/journal/server/item-links'
+import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -98,7 +98,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   const anchor = post.publishedAt ?? post.createdAt
   const authorWhere = post.authorId ? { ...livePostWhere(now), authorId: post.authorId } : null
-  const [related, newer, older, authorPosts, authorViews, linkedProducts] = await Promise.all([
+  const [related, newer, older, authorPosts, authorViews, linkedItems] = await Promise.all([
     db.post.findMany({
       where: { ...livePostWhere(now), ...categoryMembership(postCategories(post).map((c) => c.id)), id: { not: post.id } },
       take: 4,
@@ -117,7 +117,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
     }),
     authorWhere ? db.post.count({ where: authorWhere }) : 0,
     authorWhere ? db.post.aggregate({ where: authorWhere, _sum: { views: true } }) : { _sum: { views: null } },
-    publicPostLinkProducts(post.id),
+    publicPostLinkItems(post.id),
   ])
 
   const title = isFa ? post.title : post.titleEn || post.title
@@ -223,21 +223,21 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   const footerSlot = (
     <>
-      {linkedProducts.length > 0 && (
-        <section className="journal-related" aria-labelledby="journal-linked-products-title">
+      {linkedItems.length > 0 && (
+        <section className="journal-related" aria-labelledby="journal-linked-items-title">
           <div className="ln-head">
             <div className="ln-head-title">
               <div>
-                <h2 id="journal-linked-products-title">{isFa ? 'محصولات مرتبط' : 'Related products'}</h2>
+                <h2 id="journal-linked-items-title">{isFa ? 'مطالب مرتبط' : 'Related content'}</h2>
               </div>
             </div>
           </div>
           <div className="journal-related-grid">
-            {linkedProducts.map((product) => (
-              <Link key={product.id} href={`/products/${product.slug}`} className="ln-card ln-card-plain">
-                {product.image && <span className="ln-card-art"><img src={product.image} alt="" loading="lazy" decoding="async" /></span>}
+            {linkedItems.map((item) => (
+              <Link key={`${item.type}:${item.id}`} href={item.url} className="ln-card ln-card-plain">
+                {item.image && <span className="ln-card-art"><img src={item.image} alt="" loading="lazy" decoding="async" /></span>}
                 <span className="ln-card-body">
-                  <strong className="ln-card-title">{isFa ? product.name : product.nameEn || product.name}</strong>
+                  <strong className="ln-card-title">{isFa ? item.title : item.titleEn || item.title}</strong>
                 </span>
               </Link>
             ))}

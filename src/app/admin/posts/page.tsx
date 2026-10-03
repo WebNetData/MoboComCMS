@@ -6,7 +6,7 @@ import { categoryOptions, postCategories } from '@/modules/site/domain/categorie
 import { useI18n } from '@/i18n/LocaleProvider'
 import AiWritingAssistant from './AiWritingAssistant'
 import PaidAccessPanel from '@/components/admin/PaidAccessPanel'
-import PostProductLinks from './PostProductLinks'
+import PostItemLinks from './PostItemLinks'
 
 export default function AdminPostsPage() {
   const { t, locale } = useI18n()
@@ -50,7 +50,7 @@ export default function AdminPostsPage() {
       type="posts"
       fields={fields}
       editorExtraKeys={['itemLinks']}
-      renderEditorExtra={(form, setForm, editId) => <><PostProductLinks form={form} setForm={setForm} /><AiWritingAssistant form={form} setForm={setForm} /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}
+      renderEditorExtra={(form, setForm, editId) => <><PostItemLinks form={form} setForm={setForm} /><AiWritingAssistant form={form} setForm={setForm} /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}
       extraRows={(row) => ({
         categoryIds: postCategories<any>(row).map(c => locale === 'fa' ? c.name : c.nameEn || c.name).join('، ') || '—',
         author: row.author?.name || row.author?.email || '—',

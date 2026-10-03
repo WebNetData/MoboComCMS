@@ -38,6 +38,8 @@ export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'studio', '
 /** Item types that can be compared side by side (only with the same type). */
 export const COMPARABLE: readonly ItemType[] = ['software', 'game', 'title', 'product']
 export const COMPARE_MAX = 4
+/** Item types editorial content may reference as a related entity (everything except other articles and forum threads). */
+export const LINKABLE: readonly ItemType[] = ITEM_TYPES.filter((type) => type !== 'post' && type !== 'thread')
 
 export function itemPath(type: ItemType, key: { slug?: string | null; id: number }): string {
   const slug = encodeURIComponent(key.slug || String(key.id))

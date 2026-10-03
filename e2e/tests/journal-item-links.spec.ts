@@ -1,32 +1,37 @@
 import { test, expect, hasAdmin } from '../helpers'
 import { ADMIN_STATE } from '../paths'
 
-test('Journal editor selects a product link without changing public page layout', async ({ browser, baseURL }) => {
+test('Journal editor links an entity of any type without changing public page layout', async ({ browser, baseURL }) => {
   test.skip(!hasAdmin(), 'administrator credentials are required')
   const context = await browser.newContext({ baseURL, storageState: ADMIN_STATE })
   const page = await context.newPage()
   try {
-    await page.route('**/api/admin/journal/link-products**', async (route) => {
-      const q = new URL(route.request().url()).searchParams.get('q')
-      const product = { id: 987654, name: 'محصول آزمایشی', nameEn: 'Sample product', slug: 'sample-product', active: true, approval: 'APPROVED' }
-      await route.fulfill({ json: { matches: q === 'sample' ? [product] : [], selected: new URL(route.request().url()).searchParams.get('ids')?.includes(String(product.id)) ? [product] : [] } })
+    await page.route('**/api/admin/journal/link-items**', async (route) => {
+      const params = new URL(route.request().url()).searchParams
+      const type = params.get('type') || 'product'
+      const card = (id: number, title: string) => ({ type, id, title, url: `/${type}/${id}`, image: '' })
+      const game = card(987654, 'Sample game')
+      const q = params.get('q')
+      await route.fulfill({ json: { matches: q === 'sample' && type === 'game' ? [game] : [], selected: (params.get('refs') || '').includes(`game:${game.id}`) ? [game] : [] } })
     })
     await page.goto('/admin/posts', { waitUntil: 'domcontentloaded' })
     await page.locator('.cms-workspace > div').first().locator('button.btn-primary').click()
-    const search = page.locator('#post-product-search')
+    await page.locator('#post-item-type').selectOption('game')
+    const search = page.locator('#post-item-search')
     await expect(search).toBeVisible()
     await search.fill('sample')
-    await page.getByRole('button', { name: /Sample product \+|محصول آزمایشی \+/ }).click()
+    await page.getByRole('button', { name: /Sample game \+/ }).click()
     await search.fill('')
-    await expect(page.getByRole('button', { name: /Remove product Sample product|حذف محصول محصول آزمایشی/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Remove Sample game|حذف Sample game/ })).toBeVisible()
   } finally {
     await context.close()
   }
 })
 
-test('Journal product picker denies a guest', async ({ playwright, baseURL }) => {
+test('Journal entity picker denies a guest', async ({ playwright, baseURL }) => {
   const request = await playwright.request.newContext({ baseURL })
   try {
+    expect((await request.get('/api/admin/journal/link-items?type=game&q=sample')).status()).toBe(403)
     expect((await request.get('/api/admin/journal/link-products?q=sample')).status()).toBe(403)
   } finally {
     await request.dispose()
