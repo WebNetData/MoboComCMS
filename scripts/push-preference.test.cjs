@@ -33,16 +33,16 @@ test('account push respects active status and the member preference', async () =
   const send = module.exports.pushToUser
   const payload = { title: 'Account notice', tag: 'ORDER_STATUS' }
 
-  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0 })
+  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0, retryable: 0 })
   assert.equal(targetReads, 0)
   member = { status: 'BANNED', pushAlerts: true }
-  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0 })
+  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0, retryable: 0 })
   assert.equal(targetReads, 0)
   member = { status: 'ACTIVE', pushAlerts: true }
   channelEnabled = false
-  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0 })
+  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0, retryable: 0 })
   assert.equal(targetReads, 0)
   channelEnabled = true
-  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0 })
+  assert.deepEqual(await send(1, payload), { sent: 0, failed: 0, retryable: 0 })
   assert.equal(targetReads, 1)
 })
