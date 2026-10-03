@@ -4,6 +4,7 @@ import { categoryDescendants } from '@/modules/site/domain/categories'
 import { categoryMembership } from '@/modules/site/server/categories'
 import type { LandingPost, LandingProduct } from '@/modules/site/domain/homepage'
 import { livePostWhere } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 /** Post query of a builder "posts" block. `categoryId` wins over `category` (slug). */
 export type PostQuery = { category: string; categoryId: number | null; limit: number; exclude: number | null }
@@ -40,7 +41,7 @@ export async function getBuilderPosts(q: PostQuery): Promise<LandingPost[]> {
 export async function getBuilderProducts(q: ProductQuery): Promise<LandingProduct[]> {
   const settings = await getSettings().catch(() => null)
   if (settings?.storeEnabled !== 'true') return []
-  let where: Record<string, unknown> = { active: true }
+  let where: Record<string, unknown> = publicProductWhere
   if (q.kind) where = { ...where, kind: q.kind }
   if (q.categoryId || q.category) {
     const nodes = await db.productCategory.findMany({ select: { id: true, parentId: true, slug: true, name: true } }).catch(() => [])

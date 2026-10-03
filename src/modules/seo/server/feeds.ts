@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { getSiteSeo } from '@/modules/site/server/seo'
 import { buildLlmsTxt, buildRss, metaDescription, type LlmsSection } from '@/modules/seo/domain/seo'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 
@@ -30,7 +31,7 @@ export async function llmsTxt(): Promise<string> {
   const url = (path: string) => `${seo.base}${path}`
   const [posts, products, software, pages, boards] = await Promise.all([
     on('journal') ? db.post.findMany({ where: { ...live(), access: 'PUBLIC' }, orderBy: { publishedAt: 'desc' }, take: 25, select: { slug: true, title: true, excerpt: true } }).catch(() => []) : [],
-    on('store') ? db.product.findMany({ where: { active: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 25, select: { slug: true, name: true, description: true } }).catch(() => []) : [],
+    on('store') ? db.product.findMany({ where: publicProductWhere, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 25, select: { slug: true, name: true, description: true } }).catch(() => []) : [],
     on('software') ? db.softwareTitle.findMany({ where: live(), orderBy: { downloads: 'desc' }, take: 20, select: { slug: true, title: true, summary: true } }).catch(() => []) : [],
     db.page.findMany({ where: { status: 'PUBLISHED' }, orderBy: { sortOrder: 'asc' }, take: 20, select: { slug: true, title: true } }).catch(() => []),
     on('forum') ? db.forumCategory.findMany({ where: { access: 'PUBLIC' }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, description: true } }).catch(() => []) : [],

@@ -61,6 +61,8 @@ async function main() {
   assert.equal(cmsProducts.status, 200)
   const cmsProductsBody = JSON.stringify(await cmsProducts.json())
   assert.ok(cmsProductsBody.includes(product.slug) && !cmsProductsBody.includes(pendingProduct.slug), 'public CMS products apply approval')
+  const llms = await (await get('/llms.txt')).text()
+  assert.ok(llms.includes(`/products/${product.slug}`) && !llms.includes(`/products/${pendingProduct.slug}`), 'AI discovery applies product approval')
   const productPosts = await get(`/api/products/${product.slug}/tabs?tab=related-posts`)
   assert.equal(productPosts.status, 200)
   const productPostsBody = JSON.stringify(await productPosts.json())
