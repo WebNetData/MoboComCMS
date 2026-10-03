@@ -14,7 +14,7 @@ Journal owns an additive post-to-item reference table. For the first vertical sl
 
 - Store stable `(itemType, itemId)` refs, with a unique `(postId, itemType, itemId)` key and position. Post deletion cascades links. Product deletion may leave an inert reference; editors can remove it later.
 - Saving an older client payload without a relation field preserves links. An explicit empty list removes links. Existing links remain editable after a target is withdrawn or deleted; new selections must name currently public products. Reject malformed, duplicate, oversized, or unavailable new selections. A failed validation must leave the post and its links unchanged.
-- Product public visibility uses the current store approval and active rules. Article visibility uses the current due-time publication rule. Disabled Journal yields an empty related-posts tab; disabled Store hides its product page without deleting links.
+- Product public visibility uses the current store approval, active, storefront setting and module rules. Article visibility uses the current due-time publication rule. Disabled Journal yields an empty related-posts tab; a closed or disabled Store hides product suggestions without deleting links.
 - The picker shows loading, empty, and error states. Selected refs remain visible after clearing a query. RTL and LTR labels and mobile layout follow existing dark Admin components; protected public page composition remains intact.
 - No new Identity, CRM Contact, shared settings, theme logic, or global relationship system. There is no new legitimate configurable behavior in this slice. Admin Control Plane still governs module state and permissions.
 

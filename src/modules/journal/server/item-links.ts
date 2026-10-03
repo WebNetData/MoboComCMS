@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 
 export type PostItemLinkInput = { type: 'product'; id: number }
 const MAX_LINKS = 12
@@ -22,7 +23,7 @@ export async function validatePostItemLinks(tx: Prisma.TransactionClient, links:
   const known = new Set(existing.map((link) => link.itemId))
   const newIds = links.map((link) => link.id).filter((id) => !known.has(id))
   if (!newIds.length) return
-  if (!await isModuleEnabled('store')) throw new Error('Store module is disabled')
+  if (!await isModuleEnabled('store') || !await isStoreEnabled()) throw new Error('Store is unavailable')
   const products = await tx.product.findMany({ where: { id: { in: newIds }, ...publicProductWhere }, select: { id: true } })
   if (products.length !== newIds.length) throw new Error('Linked public product not found')
 }
@@ -33,7 +34,7 @@ export async function replacePostItemLinks(tx: Prisma.TransactionClient, postId:
 }
 
 export async function searchPostLinkProducts(query: string | null, selectedIds: number[]) {
-  if (!await isModuleEnabled('store')) return { matches: [], selected: [] }
+  if (!await isModuleEnabled('store') || !await isStoreEnabled()) return { matches: [], selected: [] }
   const q = String(query || '').trim().slice(0, 100)
   const [matches, selected] = await Promise.all([
     q.length >= 2 ? db.product.findMany({ where: { ...publicProductWhere, OR: [{ name: { contains: q, mode: 'insensitive' } }, { nameEn: { contains: q, mode: 'insensitive' } }, { slug: { contains: q, mode: 'insensitive' } }] }, orderBy: { id: 'desc' }, take: 25, select: { id: true, name: true, nameEn: true, slug: true, active: true, approval: true } }) : [],

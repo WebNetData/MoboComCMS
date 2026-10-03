@@ -10,7 +10,7 @@ function loadItemLinks() {
   const source = fs.readFileSync(path.resolve(__dirname, '../src/modules/journal/server/item-links.ts'), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', code)((name) => name === '@/platform/database/prisma' ? { db } : name === '@/modules/catalog/domain/product-publication' ? { publicProductWhere: { active: true, approval: 'APPROVED' } } : name === '@/extensions/server/modules' ? { isModuleEnabled: async () => true } : require(name), mod, mod.exports)
+  new Function('require', 'module', 'exports', code)((name) => name === '@/platform/database/prisma' ? { db } : name === '@/modules/catalog/domain/product-publication' ? { publicProductWhere: { active: true, approval: 'APPROVED' } } : name === '@/extensions/server/modules' ? { isModuleEnabled: async () => true } : name === '@/modules/catalog/server/storefront' ? { isStoreEnabled: async () => true } : require(name), mod, mod.exports)
   return mod.exports
 }
 

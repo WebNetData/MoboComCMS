@@ -22,7 +22,7 @@ function load(file, mocks = {}, cache = new Map()) {
 }
 
 test('post links reject malformed or duplicate refs and preserve explicit order', async () => {
-  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db: {} }, '@/extensions/server/modules': { isModuleEnabled: async () => true } })
+  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db: {} }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
   assert.deepEqual(links.parsePostItemLinks([{ type: 'product', id: 5 }, { type: 'product', id: 2 }]), [{ type: 'product', id: 5 }, { type: 'product', id: 2 }])
   for (const input of [null, {}, [{ type: 'game', id: 1 }], [{ type: 'product', id: 0 }], [{ type: 'product', id: 1 }, { type: 'product', id: 1 }], Array.from({ length: 13 }, (_, index) => ({ type: 'product', id: index + 1 }))]) {
     assert.throws(() => links.parsePostItemLinks(input), /Invalid article links/)
@@ -44,7 +44,7 @@ test('post links reject malformed or duplicate refs and preserve explicit order'
 test('product picker searches public products and does not reveal withdrawn selected names', async () => {
   const queries = []
   const db = { product: { findMany: async (args) => { queries.push(args); return [] } } }
-  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true } })
+  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
   assert.deepEqual(await links.searchPostLinkProducts('sample', [8]), { matches: [], selected: [] })
   assert.equal(queries.length, 2)
   assert.ok(queries.every((args) => args.where.active === true && args.where.approval === 'APPROVED'))
@@ -54,11 +54,20 @@ test('product picker searches public products and does not reveal withdrawn sele
 
 test('disabled Store blocks new links while existing references remain intact', async () => {
   const db = { product: { findMany: async () => { throw new Error('should not query products') } } }
-  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => false } })
+  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => false }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
   const tx = { product: db.product, postItemLink: { findMany: async () => [{ itemId: 4 }] } }
   assert.deepEqual(await links.searchPostLinkProducts('sample', [4]), { matches: [], selected: [] })
   await links.validatePostItemLinks(tx, [{ type: 'product', id: 4 }], 7)
-  await assert.rejects(links.validatePostItemLinks(tx, [{ type: 'product', id: 5 }], 7), /Store module is disabled/)
+  await assert.rejects(links.validatePostItemLinks(tx, [{ type: 'product', id: 5 }], 7), /Store is unavailable/)
+})
+
+test('closed storefront hides product suggestions without dropping saved links', async () => {
+  const db = { product: { findMany: async () => { throw new Error('should not query products') } } }
+  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => false } })
+  const tx = { product: db.product, postItemLink: { findMany: async () => [{ itemId: 4 }] } }
+  assert.deepEqual(await links.searchPostLinkProducts('sample', [4]), { matches: [], selected: [] })
+  await links.validatePostItemLinks(tx, [{ type: 'product', id: 4 }], 7)
+  await assert.rejects(links.validatePostItemLinks(tx, [{ type: 'product', id: 5 }], 7), /Store is unavailable/)
 })
 
 test('product related articles prioritize explicit live links and fill remaining slots', async () => {
