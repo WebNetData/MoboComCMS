@@ -106,6 +106,15 @@ function runUpdate(box, ref, extra = {}) {
   return { code: result.status, stderr: result.stderr, state, log, health }
 }
 
+function runManualUpdate(box, extra = {}) {
+  const health = path.join(box.dir, 'manual-healthy')
+  const envFile = path.join(box.dir, 'mobocom.env')
+  fs.writeFileSync(envFile, 'DATABASE_URL=postgresql://fixture:fixture@localhost:5432/fixture\n')
+  const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: envFile, UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'true', ...extra }
+  const result = spawnSync('bash', ['deploy/ubuntu/update.sh'], { cwd: box.app, env, encoding: 'utf8', timeout: 60_000 })
+  return { code: result.status, stdout: result.stdout, stderr: result.stderr, health }
+}
+
 test('update script: checks out the tag, builds, restarts and reports done', () => {
   const box = sandbox()
   fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
@@ -138,14 +147,72 @@ test('update script: requires a successful backup before replacing code', () => 
 test('manual Ubuntu update also stops before checkout when its backup fails', () => {
   const box = sandbox()
   const capturedVersion = path.join(box.dir, 'manual-version-at-backup')
-  const result = spawnSync('bash', ['deploy/ubuntu/update.sh'], {
-    cwd: box.app,
-    env: { ...process.env, UPDATE_BACKUP: `cp VERSION "${capturedVersion}"; exit 9` },
-    encoding: 'utf8', timeout: 60_000,
-  })
-  assert.equal(result.status, 9, result.stderr)
+  const result = runManualUpdate(box, { UPDATE_BACKUP: `cp VERSION "${capturedVersion}"; exit 9` })
+  assert.equal(result.code, 9, result.stderr)
   assert.equal(fs.readFileSync(capturedVersion, 'utf8').trim(), '1.0.0')
   assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+})
+
+test('manual Ubuntu update succeeds after backup and a healthy restart', () => {
+  const box = sandbox()
+  const capturedVersion = path.join(box.dir, 'manual-version-at-backup')
+  fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
+  const result = runManualUpdate(box, { UPDATE_BACKUP: `cp VERSION "${capturedVersion}"` })
+  assert.equal(result.code, 0, result.stderr)
+  assert.equal(fs.readFileSync(capturedVersion, 'utf8').trim(), '1.0.0', 'the old checkout is backed up')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
+  assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+})
+
+test('manual Ubuntu update restores old application code when the new build fails', () => {
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.dir, 'manual-healthy'), 'ok')
+  const result = runManualUpdate(box, { UPDATE_BUILD: "if grep -q '^1.1.0' VERSION; then false; else true; fi" })
+  assert.equal(result.code, 1, result.stderr)
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  assert.match(result.stderr, /application rolled back/)
+  assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false)
+})
+
+test('manual Ubuntu update restores the old branch commit after a failed health check', () => {
+  const box = sandbox()
+  box.git('checkout', '-q', 'main')
+  box.git('reset', '--hard', 'v1.0.0')
+  const health = path.join(box.dir, 'manual-healthy')
+  const restart = `if grep -q '^1.1.0' VERSION; then rm -f "${health}"; else touch "${health}"; fi`
+  const result = runManualUpdate(box, { UPDATE_RESTART: restart })
+  assert.equal(result.code, 1, result.stderr)
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+  assert.equal(box.git('branch', '--show-current').trim(), 'main')
+  assert.match(result.stderr, /application rolled back/)
+})
+
+test('manual Ubuntu update refuses tracked local edits and a concurrent update', () => {
+  const box = sandbox()
+  fs.writeFileSync(path.join(box.app, 'VERSION'), 'local edit\n')
+  const dirty = runManualUpdate(box)
+  assert.equal(dirty.code, 2, dirty.stderr)
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), 'local edit')
+  box.git('checkout', '--', 'VERSION')
+  fs.mkdirSync(path.join(box.dir, 'state', 'lock'), { recursive: true })
+  const locked = runManualUpdate(box)
+  assert.equal(locked.code, 3, locked.stderr)
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
+})
+
+test('manual Ubuntu update preserves local commits that are not on the target branch', () => {
+  const box = sandbox()
+  box.git('checkout', '-q', 'main')
+  fs.writeFileSync(path.join(box.app, 'VERSION'), 'local commit\n')
+  box.git('add', 'VERSION')
+  box.git('commit', '-qm', 'site-specific commit')
+  const localHead = box.git('rev-parse', 'HEAD').trim()
+  const capturedVersion = path.join(box.dir, 'unexpected-backup')
+  const result = runManualUpdate(box, { UPDATE_BACKUP: `cp VERSION "${capturedVersion}"` })
+  assert.equal(result.code, 2, result.stderr)
+  assert.match(result.stderr, /diverges/)
+  assert.equal(box.git('rev-parse', 'HEAD').trim(), localHead)
+  assert.equal(fs.existsSync(capturedVersion), false, 'no backup runs for an ineligible branch')
 })
 
 test('Ubuntu host backup keeps archives outside storage and validates them before publishing', () => {
