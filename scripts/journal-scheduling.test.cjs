@@ -144,3 +144,45 @@ test('seller approval and rejection publish through the shared content event', a
   assert.equal(events[1][1].approval, 'APPROVED')
   assert.equal(events[1][2].approval, 'REJECTED')
 })
+
+test('search prepares scheduled posts while public item lookups keep them hidden', async () => {
+  const future = new Date(Date.now() + 60_000)
+  const post = { id: 41, slug: 'scheduled-search', title: 'Scheduled story', titleEn: '', excerpt: 'Story summary', content: 'Story body', cover: '', status: 'PUBLISHED', access: 'PUBLIC', publishedAt: future, updatedAt: new Date(), views: 0, category: null }
+  const queries = []
+  const db = { post: { findMany: async ({ where }) => { queries.push(where); return where.publishedAt ? [] : [post] } } }
+  const registry = load('src/modules/content/server/registry.ts', {
+    '@/platform/database/prisma': { db },
+    '@/extensions/server/modules': { getModuleStates: async () => ({}) },
+    '@/modules/software/server/current-version': { currentSoftwareVersions: async () => new Map(), projectSoftwareVersion: (row) => row },
+  })
+  assert.equal(await registry.itemCard({ type: 'post', id: post.id }), null)
+  assert.equal((await registry.searchIndexCard({ type: 'post', id: post.id })).id, post.id)
+  assert.equal((await registry.allItems('post')).length, 1)
+  assert.ok(queries[0].publishedAt)
+  assert.equal(queries[1].status, 'PUBLISHED')
+  assert.equal(queries[2].status, 'PUBLISHED')
+})
+
+test('search indexes scheduled posts but excludes them from candidates until due', async () => {
+  const future = new Date(Date.now() + 60_000)
+  const card = { type: 'post', id: 42, title: 'Scheduled story', subtitle: '', summary: '', keywords: '', url: '/journal/scheduled-story', image: '', access: 'PUBLIC', popularity: 0, publishedAt: future }
+  let indexed = null
+  let candidates = null
+  const db = {
+    setting: { findUnique: async () => ({ value: new Date().toISOString() }) },
+    searchDocument: {
+      upsert: async ({ create }) => { indexed = create },
+      findMany: async ({ where }) => { candidates = where; return [] },
+    },
+  }
+  const search = load('src/modules/search/server/search.ts', {
+    '@/platform/database/prisma': { db },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/modules/content/server/registry': { enabledItemTypes: async () => ['post'], searchIndexCard: async () => card, itemCards: async () => new Map() },
+    '@/modules/analytics/server/collect': { recordSearch: async () => {} },
+  })
+  await search.reindexItem({ type: 'post', id: card.id })
+  assert.equal(indexed.publishedAt, future)
+  await search.searchSite({ q: 'Scheduled', log: false })
+  assert.ok(candidates.publishedAt.lte <= future)
+})
