@@ -87,6 +87,7 @@ function sandbox() {
   git(origin, 'init', '-q', '-b', 'main')
   const put = (name, text) => { fs.mkdirSync(path.dirname(path.join(origin, name)), { recursive: true }); fs.writeFileSync(path.join(origin, name), text) }
   put('deploy/ubuntu/self-update.sh', read('deploy/ubuntu/self-update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/self-update.sh'), 0o755)
+  put('deploy/ubuntu/update.sh', read('deploy/ubuntu/update.sh')); fs.chmodSync(path.join(origin, 'deploy/ubuntu/update.sh'), 0o755)
   put('VERSION', '1.0.0\n'); git(origin, 'add', '-A'); git(origin, 'commit', '-qm', 'v1'); git(origin, 'tag', 'v1.0.0')
   put('VERSION', '1.1.0\n'); git(origin, 'add', '-A'); git(origin, 'commit', '-qm', 'v1.1'); git(origin, 'tag', 'v1.1.0')
   git(origin, 'checkout', '-q', 'v1.0.0')
@@ -96,7 +97,7 @@ function sandbox() {
 }
 function runUpdate(box, ref, extra = {}) {
   const health = path.join(box.dir, 'healthy')
-  const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'true', HEALTH_FILE: health, ...extra }
+  const env = { ...process.env, UPDATE_STATE_DIR: path.join(box.dir, 'state'), UPDATE_NPM: 'true', UPDATE_BACKUP: 'true', UPDATE_RESTART: 'true', UPDATE_ENV_FILE: '/nonexistent', UPDATE_HEALTH_URL: `file://${health}`, UPDATE_HEALTH_TRIES: '1', UPDATE_BUILD: 'true', HEALTH_FILE: health, ...extra }
   const result = spawnSync('bash', ['deploy/ubuntu/self-update.sh', ref], { cwd: box.app, env, encoding: 'utf8', timeout: 60_000 })
   let state = {}
   try { state = JSON.parse(fs.readFileSync(path.join(box.dir, 'state', 'state.json'), 'utf8')) } catch { /* none */ }
@@ -114,6 +115,37 @@ test('update script: checks out the tag, builds, restarts and reports done', () 
   assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
   assert.match(r.log, /done/)
   assert.equal(fs.existsSync(path.join(box.dir, 'state', 'lock')), false, 'the lock is released')
+})
+
+test('update script: requires a successful backup before replacing code', () => {
+  const box = sandbox()
+  const capturedVersion = path.join(box.dir, 'version-at-backup')
+  fs.writeFileSync(path.join(box.dir, 'healthy'), 'ok')
+  const ok = runUpdate(box, 'v1.1.0', { UPDATE_BACKUP: `cp VERSION "${capturedVersion}"` })
+  assert.equal(ok.code, 0, ok.stderr + ok.log)
+  assert.equal(fs.readFileSync(capturedVersion, 'utf8').trim(), '1.0.0', 'backup ran against the old checkout')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.1.0')
+
+  const failedBox = sandbox()
+  const failed = runUpdate(failedBox, 'v1.1.0', { UPDATE_BACKUP: 'false' })
+  assert.equal(failed.code, 1)
+  assert.equal(failed.state.status, 'failed')
+  assert.equal(failed.state.step, 'Backup failed before code replacement')
+  assert.equal(fs.readFileSync(path.join(failedBox.app, 'VERSION'), 'utf8').trim(), '1.0.0', 'failed backup leaves the old checkout running')
+  assert.ok(!failed.log.includes('npm ci'), 'build never starts after a failed backup')
+})
+
+test('manual Ubuntu update also stops before checkout when its backup fails', () => {
+  const box = sandbox()
+  const capturedVersion = path.join(box.dir, 'manual-version-at-backup')
+  const result = spawnSync('bash', ['deploy/ubuntu/update.sh'], {
+    cwd: box.app,
+    env: { ...process.env, UPDATE_BACKUP: `cp VERSION "${capturedVersion}"; exit 9` },
+    encoding: 'utf8', timeout: 60_000,
+  })
+  assert.equal(result.status, 9, result.stderr)
+  assert.equal(fs.readFileSync(capturedVersion, 'utf8').trim(), '1.0.0')
+  assert.equal(fs.readFileSync(path.join(box.app, 'VERSION'), 'utf8').trim(), '1.0.0')
 })
 
 test('update script: a new version that does not start is rolled back automatically', () => {
