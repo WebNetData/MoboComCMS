@@ -7,18 +7,27 @@ const seed = `codex-journal-${Date.now()}`
 const base = 'http://127.0.0.1:3000'
 const postIds = []
 let categoryId
+let productId
+let pendingProductId
+let originalStoreSetting
 
 async function get(path) {
   return fetch(`${base}${path}`, { signal: AbortSignal.timeout(60_000), headers: { 'cache-control': 'no-cache' } })
 }
 
 async function main() {
+  originalStoreSetting = await db.setting.findUnique({ where: { key: 'storeEnabled' } })
+  if (originalStoreSetting?.value !== 'true') await db.setting.upsert({ where: { key: 'storeEnabled' }, create: { key: 'storeEnabled', value: 'true' }, update: { value: 'true' } })
   const category = await db.postCategory.create({ data: { slug: seed, name: `${seed} category` } })
   categoryId = category.id
   const live = await db.post.create({ data: { slug: `${seed}-live`, title: `${seed} live story`, content: '<p>Public article</p>', categoryId, status: 'PUBLISHED', publishedAt: new Date(Date.now() - 86_400_000) } })
   const scheduled = await db.post.create({ data: { slug: `${seed}-scheduled`, title: `${seed} scheduled story`, content: '<p>Scheduled article</p>', categoryId, status: 'PUBLISHED', publishedAt: new Date(Date.now() + 86_400_000) } })
   const draft = await db.post.create({ data: { slug: `${seed}-draft`, title: `${seed} draft story`, content: '<p>Draft article</p>', categoryId, status: 'DRAFT', publishedAt: new Date(Date.now() - 86_400_000) } })
   postIds.push(live.id, scheduled.id, draft.id)
+  const product = await db.product.create({ data: { slug: `${seed}-product`, name: `${seed} product`, active: true, approval: 'APPROVED' } })
+  productId = product.id
+  const pendingProduct = await db.product.create({ data: { slug: `${seed}-pending-product`, name: `${seed} pending product`, active: true, approval: 'PENDING' } })
+  pendingProductId = pendingProduct.id
 
   const listing = await get(`/blog?category=${seed}&q=${seed}`)
   assert.equal(listing.status, 200)
@@ -42,17 +51,29 @@ async function main() {
   const sitemap = await (await get('/sitemap.xml')).text()
   assert.ok(sitemap.includes(`/blog/${live.slug}`), 'live story is indexed')
   assert.ok(!sitemap.includes(`/blog/${scheduled.slug}`) && !sitemap.includes(`/blog/${draft.slug}`), 'hidden stories are not indexed')
+  const productPosts = await get(`/api/products/${product.slug}/tabs?tab=related-posts`)
+  assert.equal(productPosts.status, 200)
+  const productPostsBody = JSON.stringify(await productPosts.json())
+  assert.ok(productPostsBody.includes(live.title) && !productPostsBody.includes(scheduled.title) && !productPostsBody.includes(draft.title), 'product related stories observe Journal publication')
+  assert.equal((await get(`/api/products/${pendingProduct.slug}/tabs?tab=description`)).status, 404, 'pending products cannot be read through the tabs API')
+  const relatedProducts = await get(`/api/products/${product.slug}/tabs?tab=related-products`)
+  assert.equal(relatedProducts.status, 200)
+  assert.ok(!JSON.stringify(await relatedProducts.json()).includes(pendingProduct.slug), 'pending products are excluded from related products')
   assert.equal((await db.post.findUniqueOrThrow({ where: { id: scheduled.id } })).views, 0, 'hidden article reads do not increment views')
 
   await db.post.update({ where: { id: scheduled.id }, data: { publishedAt: new Date(Date.now() - 60_000) } })
   assert.equal((await get(`/blog/${scheduled.slug}`)).status, 200, 'scheduled article opens once due without deployment')
   assert.equal((await get(`/api/public/cms?type=post&slug=${scheduled.slug}`)).status, 200)
   assert.equal((await get(`/api/blog/${scheduled.slug}/comments`)).status, 200)
-  console.log('Journal publication: listing, API, detail, comments and sitemap gates OK')
+  console.log('Journal publication and product tabs: listing, API, detail, comments, related items, approval and sitemap gates OK')
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
+  if (productId) await db.product.delete({ where: { id: productId } })
+  if (pendingProductId) await db.product.delete({ where: { id: pendingProductId } })
   if (postIds.length) await db.post.deleteMany({ where: { id: { in: postIds } } })
   if (categoryId) await db.postCategory.delete({ where: { id: categoryId } })
+  if (originalStoreSetting === null) await db.setting.deleteMany({ where: { key: 'storeEnabled' } })
+  else if (originalStoreSetting && originalStoreSetting.value !== 'true') await db.setting.update({ where: { key: 'storeEnabled' }, data: { value: originalStoreSetting.value } })
   await db.$disconnect()
 })
