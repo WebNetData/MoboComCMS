@@ -39,9 +39,10 @@ test('runtime settings file: only allow-listed, shell-safe values are written an
 test('the container start loader exports safely and never overrides real environment', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-'))
   fs.writeFileSync(path.join(dir, 'runtime.env'), "# web-installer\nDATABASE_URL=postgresql://u:p%27q@db:5432/app\nNEXTAUTH_SECRET=fromfile\nINTERNAL_JOBS_SECRET=$(touch /tmp/pwned-by-env)\nEVIL=1\n")
-  const run = (extra) => execFileSync('sh', ['-c', 'eval "$(node scripts/load-runtime-env.cjs)"; echo "DB=$DATABASE_URL|SECRET=$NEXTAUTH_SECRET|JOBS=${INTERNAL_JOBS_SECRET:-none}|EVIL=${EVIL:-none}|KEYS=$INSTALLER_LOADED_KEYS"'], { cwd: root, env: { ...process.env, INSTALL_CONFIG_DIR: dir, DATABASE_URL: '', NEXTAUTH_SECRET: '', ...extra }, encoding: 'utf8' }).trim()
+  const run = (extra) => execFileSync('sh', ['-c', 'eval "$(node scripts/load-runtime-env.cjs)"; echo "DB=$DATABASE_URL|SECRET=$NEXTAUTH_SECRET|JOBS=${INTERNAL_JOBS_SECRET:-none}|EVIL=${EVIL:-none}|KEYS=$INSTALLER_LOADED_KEYS"'], { cwd: root, env: { ...process.env, INSTALL_CONFIG_DIR: dir, DATABASE_URL: '', NEXTAUTH_SECRET: '', INTERNAL_JOBS_SECRET: '', EVIL: '', INSTALLER_LOADED_KEYS: '', ...extra }, encoding: 'utf8' }).trim()
   assert.equal(run({}), 'DB=postgresql://u:p%27q@db:5432/app|SECRET=fromfile|JOBS=none|EVIL=none|KEYS=DATABASE_URL NEXTAUTH_SECRET')
   assert.ok(run({ NEXTAUTH_SECRET: 'fromenv' }).includes('SECRET=fromenv'), 'a real environment variable wins')
+  assert.ok(run({ INTERNAL_JOBS_SECRET: 'fromenv' }).includes('JOBS=fromenv'), 'a real jobs secret wins over the runtime file')
   assert.equal(fs.existsSync('/tmp/pwned-by-env'), false, 'values are never executed')
   const missing = execFileSync('node', ['scripts/load-runtime-env.cjs'], { cwd: root, env: { ...process.env, INSTALL_CONFIG_DIR: path.join(dir, 'none') }, encoding: 'utf8' })
   assert.equal(missing, '', 'no file, no output')
