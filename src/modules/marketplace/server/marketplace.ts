@@ -496,9 +496,9 @@ export async function decideProduct(input: { id: number; action: string; note?: 
   const product = await db.product.findFirst({ where: { id: input.id, sellerId: { not: null } }, include: { seller: true } })
   if (!product || !product.seller) throw new MarketplaceError('محصول پیدا نشد', 404)
   const note = String(input.note ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 500)
-  if (input.action === 'approve') await db.product.update({ where: { id: product.id }, data: { approval: 'APPROVED', approvalNote: '', active: true } })
-  else if (input.action === 'reject') await db.product.update({ where: { id: product.id }, data: { approval: 'REJECTED', approvalNote: note, active: false } })
-  else throw new MarketplaceError('عملیات نامعتبر است')
+  if (input.action !== 'approve' && input.action !== 'reject') throw new MarketplaceError('عملیات نامعتبر است')
+  const saved = await db.product.update({ where: { id: product.id }, data: input.action === 'approve' ? { approval: 'APPROVED', approvalNote: '', active: true } : { approval: 'REJECTED', approvalNote: note, active: false } })
+  contentChanged({ type: 'product', id: product.id }, product, saved)
   await notifySeller(product.seller, input.action === 'approve' ? 'محصول شما تأیید شد' : 'محصول شما رد شد', input.action === 'approve' ? `«${product.name}» منتشر شد.` : `«${product.name}»${note ? `: ${note}` : ''} — پس از اصلاح دوباره بررسی می‌شود.`, `/seller/products/${product.id}`, `product-decision:${product.id}:${Date.now()}`)
 }
 

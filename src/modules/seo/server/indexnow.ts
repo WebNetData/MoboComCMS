@@ -74,10 +74,12 @@ export function queueIndexNow(paths: string[]) {
 }
 
 /** Maps an admin save response to the public path it changed. */
-export function publicPathFor(type: string, row: { id?: unknown; slug?: unknown; status?: unknown } | null): string | null {
+export function publicPathFor(type: string, row: { id?: unknown; slug?: unknown; status?: unknown; publishedAt?: unknown; active?: unknown; approval?: unknown } | null): string | null {
   if (!row || typeof row !== 'object') return null
   const status = typeof row.status === 'string' ? row.status : ''
   if (status && !['PUBLISHED', 'ACTIVE', 'VISIBLE'].includes(status)) return null
+  if (type === 'posts' && !(row.publishedAt && new Date(String(row.publishedAt)).getTime() <= Date.now())) return null
+  if (type === 'products' && (row.active !== true || row.approval !== 'APPROVED')) return null
   const slug = typeof row.slug === 'string' && /^[\w-]+$/.test(row.slug) ? row.slug : ''
   const paths: Record<string, string> = {
     posts: `/blog/${slug}`, products: `/products/${slug}`, pages: `/p/${slug}`,

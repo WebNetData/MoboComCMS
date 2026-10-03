@@ -50,7 +50,7 @@ function channelsFor(settings: SocialSettings, type: AnnounceType): Channel[] {
  * twice — the unique key makes repeated saves harmless). `at` is the publish
  * time; scheduled content is announced when it goes live.
  */
-export async function enqueueAnnouncement(ref: ItemRef, at: Date = new Date(), options: { force?: boolean; channels?: Channel[] } = {}) {
+export async function enqueueAnnouncement(ref: ItemRef, at: Date = new Date(), options: { force?: boolean; reschedulePending?: boolean; channels?: Channel[] } = {}) {
   if (!isAnnounceType(ref.type) || !await isModuleEnabled('social-publisher')) return []
   const settings = await getSocialSettings()
   const channels = options.channels || channelsFor(settings, ref.type)
@@ -59,13 +59,19 @@ export async function enqueueAnnouncement(ref: ItemRef, at: Date = new Date(), o
   for (const channel of channels) {
     const where = { channel_itemType_itemId: { channel, itemType: ref.type, itemId: ref.id } }
     const existing = await db.socialPost.findUnique({ where })
-    if (existing && !options.force) continue
+    if (existing && !options.force && !(options.reschedulePending && ['PENDING', 'SKIPPED'].includes(existing.status))) continue
     const data = { status: 'PENDING', attempts: 0, error: '', nextAttemptAt: due, sentAt: null }
     await db.socialPost.upsert({ where, create: { channel, itemType: ref.type, itemId: ref.id, ...data }, update: data })
     queued.push(channel)
   }
   if (queued.length && due.getTime() <= Date.now() + 1000) void processSocialQueue().catch(() => undefined)
   return queued
+}
+
+/** Unpublishing a scheduled item prevents its pending external announcement. */
+export async function cancelPendingAnnouncement(ref: ItemRef) {
+  if (!isAnnounceType(ref.type)) return
+  await db.socialPost.updateMany({ where: { itemType: ref.type, itemId: ref.id, status: 'PENDING' }, data: { status: 'SKIPPED', error: 'انتشار لغو شد' } })
 }
 
 type Sent = { externalId: string; text: string }

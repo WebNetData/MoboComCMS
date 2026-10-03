@@ -14,6 +14,7 @@ import { itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/i
 export type Snapshot = {
   status?: string | null
   active?: boolean | null
+  approval?: string | null
   publishedAt?: Date | null
   version?: string | null
   title?: string | null
@@ -30,22 +31,24 @@ export const MEDIA_RESOURCE_TYPE: Record<string, ItemType> = {
 
 function live(type: ItemType, row: Snapshot): boolean {
   if (!row) return false
-  if (type === 'product') return row.active !== false
+  if (type === 'product') return row.active === true && row.approval === 'APPROVED'
   if (type === 'artist') return true
   if (type === 'thread') return row.status === 'VISIBLE'
   return row.status === 'PUBLISHED'
 }
 
 async function react(ref: ItemRef, before: Snapshot, after: Snapshot) {
-  const [{ reindexItem }, { enqueueAnnouncement }, { notifyFollowers }] = await Promise.all([
+  const [{ reindexItem }, { enqueueAnnouncement, cancelPendingAnnouncement }, { notifyFollowers }] = await Promise.all([
     import('@/modules/search/server/search'),
     import('@/modules/social/server/social'),
     import('@/modules/reviews/server/reviews'),
   ])
   await reindexItem(ref)
+  if (!after || !live(ref.type, after)) await cancelPendingAnnouncement(ref)
   if (!after) return
   const title = after.title || after.name || ''
-  if (!live(ref.type, before) && live(ref.type, after)) await enqueueAnnouncement(ref, after.publishedAt || new Date())
+  const dateChanged = ref.type === 'post' && before?.publishedAt?.getTime() !== after.publishedAt?.getTime()
+  if ((!live(ref.type, before) && live(ref.type, after)) || (dateChanged && after.status === 'PUBLISHED')) await enqueueAnnouncement(ref, after.publishedAt || new Date(), { reschedulePending: ref.type === 'post' || ref.type === 'product' })
   if (!live(ref.type, after)) return
   if (ref.type === 'product' && before && after.kind === 'PHYSICAL' && (before.stock ?? 0) <= 0 && (after.stock ?? 0) > 0) {
     await notifyFollowers(ref, { key: `restock-${Date.now().toString(36)}`, title: `${title} دوباره موجود شد`, body: `«${title}» که در علاقه‌مندی‌های شماست دوباره موجود است.` })

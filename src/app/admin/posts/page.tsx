@@ -39,6 +39,7 @@ export default function AdminPostsPage() {
         { value: 'DRAFT', label: t.draft },
       ],
     },
+    { key: 'publishedAt', label: locale === 'fa' ? 'زمان انتشار (خالی = اکنون، به وقت دستگاه شما)' : 'Publication time (blank = now, your local time)', type: 'datetime-local', hideInTable: true },
     { key: 'featured', label: t.special, type: 'checkbox' },
     { key: 'access', label: locale === 'fa' ? 'دسترسی' : 'Access', type: 'select', options: [{ value: 'PUBLIC', label: locale === 'fa' ? 'همه' : 'Everyone' }, { value: 'MEMBERS', label: locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only' }] },
   ]

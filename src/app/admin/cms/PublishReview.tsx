@@ -27,7 +27,7 @@ export function previewValue(value: unknown, options?: { value: string; label: s
  * Final review before publishing: every field with its value, AI-filled ones
  * marked, required gaps flagged. Publishing happens only on «تأیید و انتشار».
  */
-export default function PublishReview({ open, title, rows, onCancel, onConfirm, busy }: { open: boolean; title: string; rows: ReviewRow[]; onCancel: () => void; onConfirm: () => void; busy?: boolean }) {
+export default function PublishReview({ open, title, rows, onCancel, onConfirm, busy, scheduled = false }: { open: boolean; title: string; rows: ReviewRow[]; onCancel: () => void; onConfirm: () => void; busy?: boolean; scheduled?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const node = dialog.current
@@ -40,7 +40,7 @@ export default function PublishReview({ open, title, rows, onCancel, onConfirm, 
   const empty = rows.filter((row) => row.state === 'empty')
   return <dialog ref={dialog} className="pr-dialog" dir="rtl" aria-labelledby="pr-title" onCancel={(e) => { e.preventDefault(); onCancel() }}>
     <header className="pr-head">
-      <div><span className="pr-kicker">بازبینی نهایی پیش از انتشار</span><h2 id="pr-title">{title || 'بدون عنوان'}</h2></div>
+      <div><span className="pr-kicker">{scheduled ? 'بازبینی نهایی پیش از زمان‌بندی' : 'بازبینی نهایی پیش از انتشار'}</span><h2 id="pr-title">{title || 'بدون عنوان'}</h2></div>
       <button type="button" className="pr-x" onClick={onCancel} aria-label="بستن و ادامهٔ ویرایش">✕</button>
     </header>
     <div className="pr-summary">
@@ -57,7 +57,7 @@ export default function PublishReview({ open, title, rows, onCancel, onConfirm, 
     </div>)}</dl>
     <footer className="pr-foot">
       <button type="button" className="btn btn-ghost" onClick={onCancel}>بازگشت و ویرایش</button>
-      <button type="button" className="btn btn-primary" disabled={busy || missing.length > 0} onClick={onConfirm}>{busy ? 'در حال انتشار…' : 'تأیید و انتشار'}</button>
+      <button type="button" className="btn btn-primary" disabled={busy || missing.length > 0} onClick={onConfirm}>{busy ? scheduled ? 'در حال زمان‌بندی…' : 'در حال انتشار…' : scheduled ? 'تأیید و زمان‌بندی' : 'تأیید و انتشار'}</button>
     </footer>
   </dialog>
 }

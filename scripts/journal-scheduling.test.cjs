@@ -1,0 +1,146 @@
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const ts = require('typescript')
+const { NextRequest } = require('next/server')
+
+function load(file, mocks = {}, cache = new Map()) {
+  const absolute = path.resolve(__dirname, '..', file)
+  if (cache.has(absolute)) return cache.get(absolute).exports
+  const mod = { exports: {} }; cache.set(absolute, mod)
+  const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
+  const localRequire = name => {
+    if (Object.hasOwn(mocks, name)) return mocks[name]
+    if (name.startsWith('@/') || name.startsWith('.')) {
+      const base = name.startsWith('@/') ? path.resolve(__dirname, '../src', name.slice(2)) : path.resolve(path.dirname(absolute), name)
+      for (const suffix of ['.ts', '/index.ts']) if (fs.existsSync(base + suffix)) return load(path.relative(path.resolve(__dirname, '..'), base + suffix), mocks, cache)
+    }
+    return require(name)
+  }
+  new Function('require', 'module', 'exports', code)(localRequire, mod, mod.exports)
+  return mod.exports
+}
+
+test('publication date accepts an absolute time or an explicit publish-now reset', () => {
+  const { publicationDateInput, isLivePost } = load('src/modules/journal/domain/journal.ts')
+  const now = new Date('2026-10-03T10:00:00.000Z')
+  const due = publicationDateInput('2026-10-03T13:30:00+03:30')
+  assert.equal(due.toISOString(), now.toISOString())
+  assert.equal(publicationDateInput('2026-10-03T13:30+03:30').toISOString(), now.toISOString())
+  assert.equal(publicationDateInput('', now), now)
+  assert.equal(isLivePost({ status: 'PUBLISHED', publishedAt: due }, now), true)
+  assert.equal(isLivePost({ status: 'PUBLISHED', publishedAt: new Date(now.getTime() + 1000) }, now), false)
+  for (const value of ['2026-10-03T13:30', 'tomorrow', '2026-13-03T00:00Z', '2026-02-30T14:30:00Z', 42]) assert.throws(() => publicationDateInput(value), /Invalid publication date/)
+})
+
+test('admin post create and edit preserve schedules and reject ambiguous dates', async () => {
+  let created, updated
+  const scheduled = new Date(Date.now() + 86_400_000).toISOString()
+  const db = {
+    post: {
+      create: async ({ data }) => { created = data; return { id: 7, ...data } },
+      findUnique: async () => ({ status: 'PUBLISHED', publishedAt: new Date(scheduled), title: 'Scheduled article' }),
+      update: async ({ data }) => { updated = data; return { id: 7, status: 'PUBLISHED', publishedAt: new Date(scheduled), ...data } },
+    },
+    $transaction: async (fn) => fn(db),
+  }
+  const mocks = {
+    '@/platform/database/prisma': { db },
+    '@/modules/identity/server/access': { requirePerm: async () => ({ id: 1 }) },
+    '@/modules/content/server/events': { contentChanged() {} },
+    '@/modules/membership/domain/membership': { normalizeAccess: () => 'PUBLIC' },
+    '@/shared/content/sanitize': { cleanRichText: value => value, richTextToPlain: value => value },
+    '@/shared/content/cover': { validateCover: value => value },
+    '@/modules/site/server/categories': { validateCategorySelection: async () => [] },
+  }
+  for (const name of ['@/modules/site/server/page-layout', '@/shared/money', '@/modules/site/domain/categories', '@/modules/catalog/server/product-config', '@/modules/catalog/server/product-input', '@/modules/fx/server/fx', '@/modules/content/server/bulk', '@/platform/audit/server', '@/modules/seo/server/indexnow']) mocks[name] = {}
+  const route = load('src/modules/site/server/http/admin/cms/route.ts', mocks)
+  const request = (method, body) => new NextRequest('http://localhost/api/admin/cms?type=posts', { method, body: JSON.stringify(body) })
+  assert.equal((await route.POST(request('POST', { slug: 'scheduled', title: 'Scheduled article', status: 'PUBLISHED', publishedAt: scheduled }))).status, 200)
+  assert.equal(created.publishedAt.toISOString(), scheduled)
+  assert.equal((await route.PATCH(request('PATCH', { id: 7, title: 'Edited only' }))).status, 200)
+  assert.equal(Object.hasOwn(updated, 'publishedAt'), false, 'old clients and unrelated edits keep the stored schedule')
+  assert.equal((await route.PATCH(request('PATCH', { id: 7, publishedAt: '' }))).status, 200)
+  assert.ok(updated.publishedAt instanceof Date && updated.publishedAt.getTime() <= Date.now())
+  assert.equal((await route.POST(request('POST', { slug: 'bad-date', title: 'Bad date', publishedAt: '2026-10-03T13:30' }))).status, 400)
+})
+
+test('IndexNow receives only due articles and approved products', () => {
+  const { publicPathFor } = load('src/modules/seo/server/indexnow.ts', {
+    '@/platform/database/prisma': { db: {} },
+    '@/modules/settings/server': {},
+    './config': {},
+  })
+  assert.equal(publicPathFor('posts', { slug: 'soon', status: 'PUBLISHED', publishedAt: new Date(Date.now() + 60_000) }), null)
+  assert.equal(publicPathFor('posts', { slug: 'unknown', status: 'PUBLISHED' }), null)
+  assert.equal(publicPathFor('posts', { slug: 'now', status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60_000) }), '/blog/now')
+  assert.equal(publicPathFor('products', { slug: 'pending', active: true, approval: 'PENDING' }), null)
+  assert.equal(publicPathFor('products', { slug: 'unknown', active: true }), null)
+  assert.equal(publicPathFor('products', { slug: 'approved', active: true, approval: 'APPROVED' }), '/products/approved')
+})
+
+test('scheduled announcements move with the date, cancel on draft, and never resend sent rows', async () => {
+  let row = null
+  const db = { socialPost: {
+    findUnique: async () => row,
+    upsert: async ({ create, update }) => { row = row ? { ...row, ...update } : { ...create }; return row },
+    updateMany: async ({ where, data }) => { if (row?.status !== where.status) return { count: 0 }; row = { ...row, ...data }; return { count: 1 } },
+  } }
+  const settings = { delayMinutes: 0, types: { post: true }, telegram: { enabled: false }, instagram: { enabled: false }, push: { enabled: true } }
+  const social = load('src/modules/social/server/social.ts', {
+    '@/platform/database/prisma': { db },
+    '@/platform/observability/logger': { logEvent() {} },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/modules/settings/server': { readJsonSetting: async () => null },
+    '@/modules/providers/server/panel-credentials': {},
+    '@/modules/notifications/server/telegram': {},
+    '@/modules/site/server/seo': {},
+    '@/modules/content/domain/items': {},
+    '@/modules/content/server/registry': {},
+    '@/modules/push/server/push': {},
+    '@/modules/social/domain/social': { DEFAULT_SOCIAL: settings, isAnnounceType: type => type === 'post' },
+  })
+  const ref = { type: 'post', id: 7 }
+  const first = new Date(Date.now() + 86_400_000)
+  const later = new Date(first.getTime() + 86_400_000)
+  await social.enqueueAnnouncement(ref, first, { channels: ['PUSH'] })
+  assert.equal(row.nextAttemptAt.getTime(), first.getTime())
+  await social.enqueueAnnouncement(ref, later, { channels: ['PUSH'] })
+  assert.equal(row.nextAttemptAt.getTime(), first.getTime(), 'normal enqueue is deduplicated')
+  await social.enqueueAnnouncement(ref, later, { channels: ['PUSH'], reschedulePending: true })
+  assert.equal(row.nextAttemptAt.getTime(), later.getTime())
+  await social.cancelPendingAnnouncement(ref)
+  assert.equal(row.status, 'SKIPPED')
+  await social.enqueueAnnouncement(ref, first, { channels: ['PUSH'], reschedulePending: true })
+  assert.equal(row.status, 'PENDING')
+  row.status = 'SENT'
+  await social.enqueueAnnouncement(ref, later, { channels: ['PUSH'], reschedulePending: true })
+  assert.equal(row.status, 'SENT')
+})
+
+test('seller approval and rejection publish through the shared content event', async () => {
+  const events = []
+  let product = { id: 9, slug: 'seller-product', name: 'Seller product', active: true, approval: 'PENDING', seller: { id: 4, userId: 8 } }
+  const db = { product: {
+    findFirst: async () => product,
+    update: async ({ data }) => { product = { ...product, ...data }; return product },
+  } }
+  const marketplace = load('src/modules/marketplace/server/marketplace.ts', {
+    '@/platform/database/prisma': { db },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/modules/settings/server': {},
+    '@/modules/notifications/server/inbox': { createInboxEvent: async () => ({}) },
+    '@/modules/catalog/server/product-input': {},
+    '@/modules/catalog/server/product-config': {},
+    '@/modules/content/server/events': { contentChanged: (...args) => events.push(args) },
+  })
+  await marketplace.decideProduct({ id: 9, action: 'approve' })
+  assert.equal(events.length, 1)
+  assert.equal(events[0][1].approval, 'PENDING')
+  assert.equal(events[0][2].approval, 'APPROVED')
+  await marketplace.decideProduct({ id: 9, action: 'reject', note: 'Needs revision' })
+  assert.equal(events.length, 2)
+  assert.equal(events[1][1].approval, 'APPROVED')
+  assert.equal(events[1][2].approval, 'REJECTED')
+})
