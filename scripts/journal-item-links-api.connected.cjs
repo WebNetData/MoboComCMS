@@ -35,11 +35,18 @@ async function main() {
 
     const related = await json(await guest.get(`/api/products/${slug}/tabs?tab=related-posts`), 200)
     assert.equal(related.items[0].id, postId, 'explicit article has priority')
+    const article = await guest.get(`/blog/${slug}`)
+    assert.equal(article.status(), 200)
+    assert.ok((await article.text()).includes(`/products/${slug}`), 'public article shows its linked product')
     await json(await admin.patch('/api/admin/cms?type=posts', { data: { id: postId, publishedAt: new Date(Date.now() + 86_400_000).toISOString() } }), 200)
     const scheduled = await json(await guest.get(`/api/products/${slug}/tabs?tab=related-posts`), 200)
     assert.equal(scheduled.items.some((item) => item.id === postId), false, 'future article is hidden')
 
+    await json(await admin.patch('/api/admin/cms?type=posts', { data: { id: postId, publishedAt: new Date(Date.now() - 60_000).toISOString() } }), 200)
     await db.product.update({ where: { id: productId }, data: { approval: 'PENDING' } })
+    const withdrawnArticle = await guest.get(`/blog/${slug}`)
+    assert.equal(withdrawnArticle.status(), 200)
+    assert.equal((await withdrawnArticle.text()).includes(`/products/${slug}`), false, 'withdrawn product is hidden from article')
     await json(await admin.patch('/api/admin/cms?type=posts', { data: { id: postId, title: `${slug} withdrawn target`, itemLinks: [{ type: 'product', id: productId }] } }), 200)
     assert.equal(await db.postItemLink.count({ where: { postId } }), 1, 'existing withdrawn link stays editable')
     const picker = await json(await admin.get(`/api/admin/journal/link-products?ids=${productId}`), 200)
@@ -47,7 +54,7 @@ async function main() {
     await json(await admin.patch('/api/admin/cms?type=posts', { data: { id: postId, itemLinks: [] } }), 200)
     assert.equal(await db.postItemLink.count({ where: { postId } }), 0, 'explicit empty list removes links')
     assert.equal((await guest.get(`/api/products/${slug}/tabs?tab=related-posts`)).status(), 404, 'withdrawn product is hidden')
-    console.log('Journal link CMS/API: save, old client, rollback, public priority, schedule, withdrawn target, clear and permission passed')
+    console.log('Journal link CMS/API: save, old client, rollback, public priority, article rail, schedule, withdrawn target, clear and permission passed')
   } finally {
     if (postId) {
       const response = await admin.delete(`/api/admin/cms?type=posts&id=${postId}`).catch(() => null)

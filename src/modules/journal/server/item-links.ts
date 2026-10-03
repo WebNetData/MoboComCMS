@@ -42,3 +42,24 @@ export async function searchPostLinkProducts(query: string | null, selectedIds: 
   ])
   return { matches, selected }
 }
+
+/** Resolve saved article links against current storefront visibility, retaining editor order. */
+export async function publicPostLinkProducts(postId: number) {
+  if (!await isModuleEnabled('store') || !await isStoreEnabled()) return []
+  const links = await db.postItemLink.findMany({
+    where: { postId, itemType: 'product' },
+    orderBy: [{ position: 'asc' }, { id: 'asc' }],
+    take: MAX_LINKS,
+    select: { itemId: true },
+  })
+  if (!links.length) return []
+  const products = await db.product.findMany({
+    where: { id: { in: links.map((link) => link.itemId) }, ...publicProductWhere },
+    select: { id: true, slug: true, name: true, nameEn: true, image: true },
+  })
+  const byId = new Map(products.map((product) => [product.id, product]))
+  return links.flatMap((link) => {
+    const product = byId.get(link.itemId)
+    return product ? [product] : []
+  })
+}

@@ -52,6 +52,37 @@ test('product picker searches public products and does not reveal withdrawn sele
   assert.deepEqual(queries[1].where.id.in, [8])
 })
 
+test('article rail keeps editor order and excludes products withdrawn since linking', async () => {
+  const queries = []
+  const products = [{ id: 8, slug: 'eight', name: 'Eight' }, { id: 3, slug: 'three', name: 'Three' }]
+  const db = {
+    postItemLink: { findMany: async args => {
+      queries.push(args)
+      return [{ itemId: 3 }, { itemId: 5 }, { itemId: 8 }]
+    } },
+    product: { findMany: async args => {
+      queries.push(args)
+      return products
+    } },
+  }
+  const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
+  assert.deepEqual(await links.publicPostLinkProducts(17), [products[1], products[0]])
+  assert.deepEqual(queries[0].where, { postId: 17, itemType: 'product' })
+  assert.equal(queries[0].take, 12)
+  assert.deepEqual(queries[1].where.id.in, [3, 5, 8])
+  assert.equal(queries[1].where.active, true)
+  assert.equal(queries[1].where.approval, 'APPROVED')
+  assert.deepEqual(queries[1].select, { id: true, slug: true, name: true, nameEn: true, image: true })
+})
+
+test('article rail hides saved links while Store or storefront is disabled', async () => {
+  const db = { postItemLink: { findMany: async () => { throw new Error('should not read saved links') } } }
+  const disabledModule = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => false }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
+  assert.deepEqual(await disabledModule.publicPostLinkProducts(17), [])
+  const closedStorefront = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => false } })
+  assert.deepEqual(await closedStorefront.publicPostLinkProducts(17), [])
+})
+
 test('disabled Store blocks new links while existing references remain intact', async () => {
   const db = { product: { findMany: async () => { throw new Error('should not query products') } } }
   const links = load('src/modules/journal/server/item-links.ts', { '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => false }, '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true } })
