@@ -14,15 +14,17 @@ import { recordSearch } from '@/modules/analytics/server/collect'
 /**
  * Site-wide search over one denormalized table (SearchDocument). Documents hold
  * Persian-normalized text so a plain `contains` works on SQLite and PostgreSQL;
- * ranking happens in memory on the matching candidates. The index rebuilds
+ * ranking happens in bounded memory as matching rows are paged. The index rebuilds
  * itself when it is older than STALE_MS and is patched on content saves.
  */
 
 const STALE_MS = 10 * 60_000
 const INDEXED_AT = 'search.indexedAt'
-const CANDIDATES = 400
+const SUGGESTION_CANDIDATES = 400
 const INDEX_PAGE_SIZE = 500
 export const PAGE_SIZE = 20
+const MAX_PAGE = 50
+const MAX_TOP_HITS = PAGE_SIZE * MAX_PAGE
 
 const toDocument = (item: ItemCard) => ({
   itemType: item.type, itemId: item.id, title: item.title.slice(0, 300), subtitle: item.subtitle.slice(0, 300),
@@ -106,6 +108,11 @@ export async function reindexItem(ref: ItemRef) {
 
 export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string }
 export type SearchResult = { query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>> }
+type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number }
+
+function byRank(a: RankedCandidate, b: RankedCandidate): number {
+  return b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime() || b.row.boost - a.row.boost || a.row.id - b.row.id
+}
 
 /** A short piece of the indexed text around the first matching token. */
 function snippet(text: string, tokens: string[]): string {
@@ -115,42 +122,57 @@ function snippet(text: string, tokens: string[]): string {
   return words.slice(Math.max(0, at - 8), at + 18).join(' ')
 }
 
-export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; log?: boolean }): Promise<SearchResult> {
+export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; log?: boolean; suggestion?: boolean }): Promise<SearchResult> {
   const query = String(input.q ?? '').trim().slice(0, 100)
   const tokens = searchTokens(query)
   const types = await enabledItemTypes()
   const type = types.includes(input.type as ItemType) ? input.type as ItemType : 'all'
-  const page = Math.max(1, Math.min(50, Math.floor(Number(input.page) || 1)))
+  const page = Math.max(1, Math.min(MAX_PAGE, Math.floor(Number(input.page) || 1)))
   const empty: SearchResult = { query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {} }
   if (!tokens.length || !await isModuleEnabled('search')) return empty
   await ensureFreshIndex()
 
-  const rows = await db.searchDocument.findMany({
-    where: { itemType: { in: types }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) },
-    orderBy: { boost: 'desc' }, take: CANDIDATES,
-  })
-  // The index may lag a publication change; verify bounded candidates now.
-  const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
+  const queryTypes = input.suggestion && type !== 'all' ? [type] : types
+  const where = { itemType: { in: queryTypes }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) }
   const phrase = normalizePersian(query)
-  const scored = rows.flatMap((row) => {
-    const card = publicCards.get(`${row.itemType}:${row.itemId}`)
-    if (!card) return []
-    const score = relevance(tokens, row.title, row.text, phrase)
-    // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
-    return [{ row, card, score: score ? score + Math.log10(1 + row.boost) : 0 }]
-  }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime())
-
   const counts: Partial<Record<ItemType, number>> = {}
-  for (const { row } of scored) counts[row.itemType as ItemType] = (counts[row.itemType as ItemType] || 0) + 1
-  const filtered = type === 'all' ? scored : scored.filter(({ row }) => row.itemType === type)
-  const pages = Math.ceil(filtered.length / PAGE_SIZE)
+  const top: RankedCandidate[] = []
+  let matchedTotal = 0
+  let afterId = 0
+  while (true) {
+    // Autocomplete retains a small popularity sample to stay responsive on each keystroke.
+    const rows = input.suggestion
+      ? await db.searchDocument.findMany({ where, orderBy: { boost: 'desc' }, take: SUGGESTION_CANDIDATES })
+      : await db.searchDocument.findMany({ where: { ...where, id: { gt: afterId } }, orderBy: { id: 'asc' }, take: INDEX_PAGE_SIZE })
+    if (!rows.length) break
+    // Recheck current source visibility because SearchDocument can lag a publication change.
+    const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
+    for (const row of rows) {
+      const card = publicCards.get(`${row.itemType}:${row.itemId}`)
+      if (!card) continue
+      const relevanceScore = relevance(tokens, row.title, row.text, phrase)
+      if (relevanceScore <= 0) continue
+      matchedTotal++
+      counts[row.itemType as ItemType] = (counts[row.itemType as ItemType] || 0) + 1
+      if (type !== 'all' && row.itemType !== type) continue
+      // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
+      top.push({ row, card, score: relevanceScore + Math.log10(1 + row.boost) })
+    }
+    top.sort(byRank)
+    if (top.length > MAX_TOP_HITS) top.length = MAX_TOP_HITS
+    if (input.suggestion || rows.length < INDEX_PAGE_SIZE) break
+    afterId = rows[rows.length - 1].id
+  }
+  const total = type === 'all' ? matchedTotal : (counts[type] || 0)
+  // The API has always accepted at most 50 pages; report the reachable window.
+  const pages = Math.min(MAX_PAGE, Math.ceil(total / PAGE_SIZE))
   const current = Math.min(page, Math.max(1, pages))
-  const hits = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
+  const hits = top.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
     type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
     score: Math.round(score), snippet: snippet(row.text, tokens),
   }))
-  if (input.log !== false && current === 1) void recordSearch(phrase, scored.length)
-  return { query, tokens, type, hits, total: filtered.length, page: current, pages, counts }
+  if (input.log !== false && current === 1) void recordSearch(phrase, matchedTotal)
+  return { query, tokens, type, hits, total, page: current, pages, counts }
 }
 
 /** Autocomplete: the best few hits across all types. */
@@ -158,8 +180,8 @@ export async function suggest(q: unknown, only: readonly ItemType[] = []) {
   // Section search boxes ask for their own item types only (e.g. the cinema box → titles):
   // one ranked query per type, merged by score.
   const hits = only.length
-    ? (await Promise.all(only.map((type) => searchSite({ q, type, log: false })))).flatMap((result) => (result.type === 'all' ? [] : result.hits)).sort((a, b) => b.score - a.score)
-    : (await searchSite({ q, log: false })).hits
+    ? (await Promise.all(only.map((type) => searchSite({ q, type, log: false, suggestion: true })))).flatMap((result) => (result.type === 'all' ? [] : result.hits)).sort((a, b) => b.score - a.score)
+    : (await searchSite({ q, log: false, suggestion: true })).hits
   return hits.slice(0, 8).map((hit) => ({ type: hit.type, title: hit.title, subtitle: hit.subtitle, url: hit.url, image: hit.image }))
 }
 
