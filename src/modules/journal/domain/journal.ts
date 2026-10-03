@@ -60,6 +60,10 @@ export const JOURNAL_HEALTH = {
 } as const
 export type JournalHealth = keyof typeof JOURNAL_HEALTH
 
+/** Scheduled posts remain private until their publication instant. */
+export const livePostWhere = (now = new Date()) => ({ status: 'PUBLISHED' as const, publishedAt: { lte: now } })
+export const isLivePost = (post: { status: string; publishedAt: Date }, now = new Date()) => post.status === 'PUBLISHED' && post.publishedAt <= now
+
 export const wordCount = (html: string) => html.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length
 
 export function postIssues(post: { cover: string; excerpt: string; content: string; categories: number }): JournalHealth[] {

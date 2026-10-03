@@ -14,6 +14,7 @@ import { resolvePlacedPage } from '@/modules/site/server/theme-templates'
 import { requireModule } from '@/extensions/server/modules'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import { getJournalSettings } from '@/modules/journal/server/admin'
+import { livePostWhere } from '@/modules/journal/domain/journal'
 import { railOrder } from '@/shared/section-layout'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
@@ -36,7 +37,8 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const category = typeof searchParams.category === 'string' ? searchParams.category : ''
   const requestedPage = Number(searchParams.page)
   const pageSize = settings.pageSize
-  const where = { status: 'PUBLISHED', AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
+  const now = new Date()
+  const where = { ...livePostWhere(now), AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
   const total = await db.post.count({ where })
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.min(pages, Math.max(1, Number.isSafeInteger(requestedPage) ? requestedPage : 1))
@@ -75,7 +77,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const [cats, listed, pool] = await Promise.all([
     db.postCategory.findMany({ orderBy: { name: 'asc' } }),
     isLanding ? Promise.resolve([]) : db.post.findMany({ where, take: pageSize, skip: (currentPage - 1) * pageSize, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }),
-    isLanding ? db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, take: 60, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }) : Promise.resolve([]),
+    isLanding ? db.post.findMany({ where: livePostWhere(now), take: 60, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }) : Promise.resolve([]),
   ])
   type Story = typeof pool[number]
 
@@ -90,7 +92,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const rootCounts = new Map<number, number>()
   await Promise.all(roots.map(async (root) => {
     const ids = categoryDescendants(cats, root.id)
-    rootCounts.set(root.id, await db.post.count({ where: { status: 'PUBLISHED', OR: [{ categoryId: { in: ids } }, { categories: { some: { categoryId: { in: ids } } } }] } }))
+    rootCounts.set(root.id, await db.post.count({ where: { ...livePostWhere(now), OR: [{ categoryId: { in: ids } }, { categories: { some: { categoryId: { in: ids } } } }] } }))
   }))
   const ordered = [...roots].sort((a, b) => (rootCounts.get(b.id) || 0) - (rootCounts.get(a.id) || 0))
   const categoryOf = (c: { id: number; name: string; nameEn: string; slug: string }): LionaCategory => {
@@ -129,7 +131,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     }
     const categoriesUi = ordered.filter((c) => (rootCounts.get(c.id) || 0) > 0).map(categoryOf).slice(0, 12)
     const storiesIn = async (rootId: number, count: number) => (await db.post.findMany({
-      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, OR: [{ categoryId: { in: categoryDescendants(cats, rootId) } }, { categories: { some: { categoryId: { in: categoryDescendants(cats, rootId) } } } }] },
+      where: { ...livePostWhere(now), OR: [{ categoryId: { in: categoryDescendants(cats, rootId) } }, { categories: { some: { categoryId: { in: categoryDescendants(cats, rootId) } } } }] },
       take: count, orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }], include,
     })).map(story)
     // Editors can pin the block categories; otherwise the busiest ones are used.
@@ -137,7 +139,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     const busiest = pinned.length ? pinned : categoriesUi.slice(0, 3)
     const picks = async (ids: number[]) => {
       if (!ids.length) return []
-      const rows = await db.post.findMany({ where: { id: { in: ids }, status: 'PUBLISHED', publishedAt: { lte: new Date() } }, include })
+      const rows = await db.post.findMany({ where: { id: { in: ids }, ...livePostWhere(now) }, include })
       const byPost = new Map(rows.map((row) => [row.id, row]))
       return ids.map((id) => byPost.get(id)).filter((row): row is Story => !!row).map(story)
     }

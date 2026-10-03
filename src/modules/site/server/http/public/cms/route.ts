@@ -7,6 +7,7 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
 import { accessFor, paywallEnabled } from '@/modules/paywall/server/paywall'
+import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 
 /** Members-only and paid article bodies are reduced to a teaser for everyone who may not read them. */
 async function gatePosts<T extends { id?: number; access?: string; content?: string; contentEn?: string }>(posts: T[]): Promise<(T & { locked?: boolean })[]> {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (type === 'posts') {
     const category = sp.get('category')
     const posts = await db.post.findMany({
-      where: { status: 'PUBLISHED', ...await categoryFilter(category || '') },
+      where: { ...livePostWhere(), ...await categoryFilter(category || '') },
       include: { categories: { include: { category: true } }, category: true, author: { select: { name: true } } },
       orderBy: { publishedAt: 'desc' },
       take: 50,
@@ -50,10 +51,10 @@ export async function GET(req: NextRequest) {
   if (type === 'post') {
     const slug = sp.get('slug') || ''
     const post = await db.post.findUnique({ where: { slug }, include: { categories: { include: { category: true } }, category: true, author: { select: { name: true } } } })
-    if (!post || post.status !== 'PUBLISHED') return err('not found', 404)
+    if (!post || !isLivePost(post)) return err('not found', 404)
     await db.post.update({ where: { id: post.id }, data: { views: { increment: 1 } } })
     const related = await db.post.findMany({
-      where: { status: 'PUBLISHED', ...categoryMembership(postCategories(post).map(c => c.id)), id: { not: post.id } },
+      where: { ...livePostWhere(), ...categoryMembership(postCategories(post).map(c => c.id)), id: { not: post.id } },
       take: 3,
       orderBy: { publishedAt: 'desc' },
     })
