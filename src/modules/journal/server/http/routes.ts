@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers } from '@/modules/journal/server/admin'
+import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers, searchJournalPicker } from '@/modules/journal/server/admin'
 
 const journalAdmin = (req: NextRequest) => adminGuard(req, 'journal', ['cms.posts'])
 
@@ -17,8 +17,16 @@ export async function GET_dashboard(req: NextRequest) {
 export async function GET_settings(req: NextRequest) {
   const g = await journalAdmin(req)
   if ('response' in g) return g.response
-  const [settings, picker] = await Promise.all([getJournalSettings(), (async () => (await journalPickers()))()])
+  const settings = await getJournalSettings()
+  const picker = await journalPickers([...settings.heroIds, ...settings.editorIds])
   return ok({ settings, picker })
+}
+
+/** GET /api/admin/journal/picker?q=... */
+export async function GET_picker(req: NextRequest) {
+  const g = await journalAdmin(req)
+  if ('response' in g) return g.response
+  return ok({ posts: await searchJournalPicker(new URL(req.url).searchParams.get('q')) })
 }
 
 /** POST /api/admin/journal/settings */
