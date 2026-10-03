@@ -57,6 +57,7 @@ test('Journal picker search keeps the existing admin permission boundary', async
   const routes = load('src/modules/journal/server/http/routes.ts', {
     '@/platform/http/response': { ok: value => value },
     '@/platform/audit/server': { auditAdmin: async () => {} },
+    '@/modules/journal/server/item-links': { searchPostLinkProducts: async () => ({ matches: [], selected: [] }) },
     '@/modules/identity/server/admin-guard': { adminGuard: async (_req, module, permissions) => {
       assert.equal(module, 'journal')
       assert.deepEqual(permissions, ['cms.posts'])
@@ -78,6 +79,7 @@ test('Journal settings preload selected hero and editor posts beyond the recent 
   const routes = load('src/modules/journal/server/http/routes.ts', {
     '@/platform/http/response': { ok: value => value },
     '@/platform/audit/server': { auditAdmin: async () => {} },
+    '@/modules/journal/server/item-links': { searchPostLinkProducts: async () => ({ matches: [], selected: [] }) },
     '@/modules/identity/server/admin-guard': { adminGuard: async () => ({ admin: { id: 1 } }) },
     '@/modules/journal/server/admin': {
       getJournalSettings: async () => settings,

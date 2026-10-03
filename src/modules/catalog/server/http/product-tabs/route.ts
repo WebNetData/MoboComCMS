@@ -82,9 +82,21 @@ export async function GET(req: NextRequest, { params }: Context) {
   }
   if (tab === 'related-posts') {
     if (!await isModuleEnabled('journal')) return ok({ items: [] })
+    const linked = await db.postItemLink.findMany({
+      where: { itemType: 'product', itemId: product.id, post: livePostWhere() },
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      take: 6,
+      select: { post: { select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } } },
+    })
+    const explicit = linked.map((link) => link.post)
+    if (explicit.length === 6) return ok({ items: explicit })
+    const excluded = explicit.map((post) => post.id)
     const token = product.name.split(/\s+/).find(word => word.length >= 4)
-    const rows = await db.post.findMany({ where: { ...livePostWhere(), ...(token ? { OR: [{ title: { contains: token } }, { titleEn: { contains: token } }] } : {}) }, orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } })
-    return ok({ items: rows.length ? rows : await db.post.findMany({ where: livePostWhere(), orderBy: { publishedAt: 'desc' }, take: 6, select: { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true } }) })
+    const where = { ...livePostWhere(), id: { notIn: excluded }, ...(token ? { OR: [{ title: { contains: token } }, { titleEn: { contains: token } }] } : {}) }
+    const select = { id: true, slug: true, title: true, titleEn: true, cover: true, excerpt: true, excerptEn: true }
+    const rows = await db.post.findMany({ where, orderBy: { publishedAt: 'desc' }, take: 6 - explicit.length, select })
+    const contextual = rows.length === 6 - explicit.length ? rows : [...rows, ...await db.post.findMany({ where: { ...livePostWhere(), id: { notIn: [...excluded, ...rows.map((post) => post.id)] } }, orderBy: { publishedAt: 'desc' }, take: 6 - explicit.length - rows.length, select })]
+    return ok({ items: [...explicit, ...contextual] })
   }
   return err('unknown tab', 404)
 }

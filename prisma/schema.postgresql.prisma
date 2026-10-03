@@ -642,8 +642,21 @@ model Post {
   category    PostCategory? @relation(fields: [categoryId], references: [id])
   categories  PostCategoryAssignment[]
   comments    PostComment[]
+  itemLinks   PostItemLink[]
 
   @@index([status, publishedAt])
+}
+
+model PostItemLink {
+  id        Int    @id @default(autoincrement())
+  postId    Int
+  itemType  String
+  itemId    Int
+  position  Int    @default(0)
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, itemType, itemId])
+  @@index([itemType, itemId, position])
 }
 
 model PostComment {
