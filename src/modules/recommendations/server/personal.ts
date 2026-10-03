@@ -42,9 +42,12 @@ export async function personalRecommendations(userId: number, take = 6): Promise
   const now = new Date()
   const ranked = new Map<string, { ref: ItemRef; score: number; sourceTitle: string; sourceKind: Seed['kind']; reason: string }>()
   let used = 0
+  let examined = 0
   for (const seed of seeds) {
     const source = sourceCards.get(itemKey(seed.ref))
     if (!source) continue
+    // Stop after a bounded number of live sources, even when none yields a candidate.
+    if (++examined > 6) break
     let suggestions: { item: ItemRef; score: number; reason: string }[]
     switch (seed.ref.type) {
       case 'artist': {
@@ -92,6 +95,7 @@ export async function personalRecommendations(userId: number, take = 6): Promise
       }
       default: continue
     }
+    const priorCount = ranked.size
     for (const suggestion of suggestions) {
       const key = itemKey(suggestion.item)
       if (seen.has(key)) continue
@@ -99,7 +103,8 @@ export async function personalRecommendations(userId: number, take = 6): Promise
       const previous = ranked.get(key)
       if (!previous || score > previous.score) ranked.set(key, { ref: suggestion.item, score, sourceTitle: source.title, sourceKind: seed.kind, reason: suggestion.reason })
     }
-    if (++used === 2) break
+    // A source with only saved/duplicate candidates must not consume a recommendation slot.
+    if (ranked.size > priorCount && ++used === 2) break
   }
   const order = [...ranked.values()].sort((a, b) => b.score - a.score || a.ref.id - b.ref.id).slice(0, 24)
   const cards = await itemCards(order.map((entry) => entry.ref))
