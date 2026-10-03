@@ -48,7 +48,7 @@ test('reviews require a paid purchase; member questions are open', async () => {
     '@/modules/identity/server/access': { requireUser: async () => ({ id: 9 }) },
     '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
     '@/platform/database/prisma': { db: {
-      product: { findUnique: async () => ({ id: 4, active: true }) },
+      product: { findUnique: async () => ({ id: 4, active: true, approval: 'APPROVED' }) },
       order: { count: async ({ where }) => { reviewWhere = where; return purchased ? 1 : 0 } },
       productReview: { findUnique: async () => null, create: async () => { reviewCreated = true; return { id: 1, status: 'PENDING' } } },
       productQuestion: { create: async () => { questionCreated = true; return { id: 2, status: 'PENDING' } } },
@@ -80,7 +80,7 @@ test('guest questions are moderated and review criteria are server-derived', asy
     '@/modules/identity/server/access': { requireUser: async () => null },
     '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
     '@/platform/database/prisma': { db: {
-      product: { findUnique: async () => ({ id: 4, active: true }) },
+      product: { findUnique: async () => ({ id: 4, active: true, approval: 'APPROVED' }) },
       productQuestion: { create: async ({ data }) => { question = data; return { id: 3, status: 'PENDING' } } },
     } },
   })

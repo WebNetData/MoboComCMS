@@ -8,6 +8,7 @@ import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
 import { accessFor, paywallEnabled } from '@/modules/paywall/server/paywall'
 import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 /** Members-only and paid article bodies are reduced to a teaser for everyone who may not read them. */
 async function gatePosts<T extends { id?: number; access?: string; content?: string; contentEn?: string }>(posts: T[]): Promise<(T & { locked?: boolean })[]> {
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
     if (!await isStoreEnabled()) return err('فروشگاه در حال حاضر غیرفعال است', 404)
     const category = sp.get('category')
     const products = await db.product.findMany({
-      where: { active: true, ...(category ? { category: { slug: category } } : {}) },
+      where: { ...publicProductWhere, ...(category ? { category: { slug: category } } : {}) },
       include: { category: true },
       orderBy: [{ sortOrder: 'asc' }, { id: 'desc' }],
     })

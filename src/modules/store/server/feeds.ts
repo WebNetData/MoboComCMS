@@ -7,6 +7,7 @@ import { richTextToPlain } from '@/shared/content/sanitize'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { normalizeFeeds, toToman, type FeedProduct, type FeedSettings } from '@/modules/store/domain/feeds'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 // Product feeds for Torob, Emalls and a generic XML feed (see domain/feeds.ts).
 
@@ -30,7 +31,7 @@ type Filter = { ids?: number[]; slugs?: string[] }
 async function where(settings: FeedSettings, filter: Filter = {}) {
   const excluded = settings.excludeCategories.length ? (await db.productCategory.findMany({ where: { slug: { in: settings.excludeCategories } }, select: { id: true } })).map((row) => row.id) : []
   return {
-    active: true, access: 'PUBLIC', currency: { in: ['IRT', 'IRR', 'TMN'] },
+    ...publicProductWhere, access: 'PUBLIC', currency: { in: ['IRT', 'IRR', 'TMN'] },
     ...(settings.includeOutOfStock ? {} : { stock: { not: 0 } }),
     ...(excluded.length ? { OR: [{ categoryId: null }, { categoryId: { notIn: excluded } }] } : {}),
     ...(filter.ids ? { id: { in: filter.ids } } : {}),
@@ -98,7 +99,7 @@ export async function feedOverview() {
   const base = await siteBase()
   const sample = await feedProducts({ ...settings, includeOutOfStock: true }, 1)
   const eligible = await db.product.count({ where: await where({ ...settings, includeOutOfStock: true }) })
-  const skippedCurrency = await db.product.count({ where: { active: true, access: 'PUBLIC', currency: { notIn: ['IRT', 'IRR', 'TMN'] } } })
+  const skippedCurrency = await db.product.count({ where: { ...publicProductWhere, access: 'PUBLIC', currency: { notIn: ['IRT', 'IRR', 'TMN'] } } })
   return {
     settings: { ...settings, emallsToken: settings.emallsToken ? '••••' : '', hasEmallsToken: !!settings.emallsToken },
     urls: { torob: `${base}/api/feeds/torob`, emalls: `${base}/api/feeds/emalls${settings.emallsToken ? '?token=…' : ''}`, xml: `${base}/api/feeds/products.xml` },
