@@ -68,6 +68,7 @@ async function main() {
   const productPostsBody = JSON.stringify(await productPosts.json())
   assert.ok(productPostsBody.includes(live.title) && !productPostsBody.includes(scheduled.title) && !productPostsBody.includes(draft.title), 'product related stories observe Journal publication')
   assert.equal((await get(`/api/products/${pendingProduct.slug}/tabs?tab=description`)).status, 404, 'pending products cannot be read through the tabs API')
+  assert.equal((await get(`/checkout/product/${pendingProduct.slug}`)).status, 404, 'pending products cannot open direct checkout')
   const pendingFeedback = await fetch(`${base}/api/products/${pendingProduct.slug}/feedback`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'question', body: 'Is this product available yet?', guestName: 'Test customer' }), signal: AbortSignal.timeout(60_000) })
   assert.equal(pendingFeedback.status, 404, 'pending products cannot receive public feedback')
   const pendingCart = await fetch(`${base}/api/cart`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ productId: pendingProduct.id, quantity: 1 }), signal: AbortSignal.timeout(60_000) })

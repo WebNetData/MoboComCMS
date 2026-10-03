@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
+import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { createGatewayInvoice, customerGatewayLabel, gatewayAcceptsCheckoutCurrency, gatewayCallbackUrl, isInstallmentGateway, resolveCheckoutGateway } from '@/modules/billing/server/gateways'
 import { createInvoiceForOrder, markInvoicePaid, recordProviderEvent, releaseInvoiceCredit } from '@/modules/billing/server/billing'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
@@ -166,9 +167,9 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     for (const [index, want] of requested.entries()) {
       const quantity = Math.floor(Number(want.quantity ?? 1))
       const product = await db.product.findUnique({ where: { id: Number(want.productId) || 0 }, include: { variants: { where: { active: true } } } })
+      if (!product || !isPublicProduct(product)) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
       const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
-      if (!product || !product.active) return fail(404, 'PRODUCT_NOT_FOUND', named('محصول یافت نشد'))
       if (product.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
       if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', named('این محصول ناموجود است'))
       const variantId = Number(want.variantId) || null

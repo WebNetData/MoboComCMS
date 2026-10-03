@@ -8,6 +8,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import ProductCheckout from '@/components/store/ProductCheckout'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
+import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { getViewer } from '@/modules/membership/server/membership'
 import { deliverySchedule } from '@/modules/shipping/server/shipping'
@@ -27,7 +28,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   const [{ slug }, { variant: variantParam }] = await Promise.all([params, searchParams])
   if (!await isStoreEnabled()) notFound()
   const product = await db.product.findUnique({ where: { slug }, include: { variants: { where: { active: true }, orderBy: { id: 'asc' } } } })
-  if (!product?.active) notFound()
+  if (!product || !isPublicProduct(product)) notFound()
   if (product.kind !== 'PHYSICAL') redirect(`/products/${product.slug}`)
   const variantId = Number(variantParam) || 0
   const variant = variantId ? product.variants.find((row) => row.id === variantId) || null : null
