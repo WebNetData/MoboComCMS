@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
-import { ok } from '@/platform/http/response'
+import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers, searchJournalPicker } from '@/modules/journal/server/admin'
+import { searchPostLinkProducts } from '@/modules/journal/server/item-links'
 
 const journalAdmin = (req: NextRequest) => adminGuard(req, 'journal', ['cms.posts'])
 
@@ -27,6 +28,17 @@ export async function GET_picker(req: NextRequest) {
   const g = await journalAdmin(req)
   if ('response' in g) return g.response
   return ok({ posts: await searchJournalPicker(new URL(req.url).searchParams.get('q')) })
+}
+
+/** GET /api/admin/journal/link-products?q=...&ids=1,2 */
+export async function GET_linkProducts(req: NextRequest) {
+  const g = await journalAdmin(req)
+  if ('response' in g) return g.response
+  const params = new URL(req.url).searchParams
+  const rawIds = params.get('ids') || ''
+  const parts = rawIds ? rawIds.split(',') : []
+  if (parts.length > 12 || parts.some((part) => !/^[1-9]\d*$/.test(part) || !Number.isSafeInteger(Number(part)))) return err('invalid ids', 400)
+  return ok(await searchPostLinkProducts(params.get('q'), [...new Set(parts.map(Number))]))
 }
 
 /** POST /api/admin/journal/settings */

@@ -20,6 +20,7 @@ import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/journal'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
 
 const PERM_MAP: Record<string, Permission> = {
   pages: 'cms.pages',
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   }
 
   const model = MODELS[type]()
-  const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } } } : type === 'productcats' ? { attributeGroup: true } : undefined
+  const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
   let result: any[] = rows
-  if (type === 'posts') result = rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)) }))
+  if (type === 'posts') result = rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
   if (type === 'products') result = rows.map((row: any) => ({ ...row, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
@@ -168,9 +169,11 @@ export async function POST(req: NextRequest) {
       return ok(row)
     }
     if (type === 'posts') {
+      const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       const row = await db.$transaction(async tx => {
         const ids = await validateCategorySelection(tx, b || {})
-        return tx.post.create({
+        if (itemLinks) await validatePostItemLinks(tx, itemLinks)
+        const created = await tx.post.create({
         data: sanitizeContent({
           ...pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured']),
           ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
@@ -180,6 +183,8 @@ export async function POST(req: NextRequest) {
           categories: { create: ids.map(categoryId => ({ categoryId })) },
         }) as any,
         })
+        if (itemLinks) await replacePostItemLinks(tx, created.id, itemLinks)
+        return created
       })
       contentChanged({ type: 'post', id: row.id }, null, row)
       return ok(row)
@@ -272,6 +277,7 @@ export async function PATCH(req: NextRequest) {
       return ok(saved)
     }
     if (type === 'posts') {
+      const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
       const before = await db.post.findUnique({ where: { id }, select: { status: true, publishedAt: true, title: true } })
       const saved = await db.$transaction(async tx => {
@@ -280,7 +286,10 @@ export async function PATCH(req: NextRequest) {
           data.categoryId = ids[0] || null
           data.categories = { deleteMany: {}, create: ids.map(categoryId => ({ categoryId })) }
         }
-        return tx.post.update({ where: { id }, data })
+        if (itemLinks) await validatePostItemLinks(tx, itemLinks, id)
+        const row = await tx.post.update({ where: { id }, data })
+        if (itemLinks) await replacePostItemLinks(tx, id, itemLinks)
+        return row
       })
       contentChanged({ type: 'post', id }, before, saved)
       return ok(saved)
