@@ -18,7 +18,7 @@ const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false
 export interface FieldDef {
   key: string
   label: string
-  type?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'multiselect' | 'richtext' | 'image'
+  type?: 'text' | 'textarea' | 'number' | 'datetime-local' | 'checkbox' | 'select' | 'multiselect' | 'richtext' | 'image'
   options?: { value: string; label: string }[]
   optionsFromRows?: (rows: any[], editId: number | null) => { value: string; label: string }[]
   hideInTable?: boolean
@@ -36,6 +36,14 @@ interface Props {
   headerActions?: React.ReactNode
 }
 
+function localDateTime(value: unknown): string {
+  if (!value) return ''
+  const date = new Date(String(value))
+  if (!Number.isFinite(date.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export default function AdminCrud({ type, fields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions }: Props) {
   const { t, locale } = useI18n()
   const fa = locale === 'fa'
@@ -49,6 +57,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [published, setPublished] = useState<number | null>(null)
   const [optionRows, setOptionRows] = useState<any[] | null>(null)
   const loadId = useRef(0)
+  const initialDateValues = useRef<Record<string, string>>({})
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
   const [editId, setEditId] = useState<number | null>(null)
@@ -104,13 +113,15 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? fl.options?.[0]?.value || '' : ''
     for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' ? [] : {}
     setForm(f)
+    initialDateValues.current = {}
     setAiValues({})
     setOriginalStatus('')
   }
 
   function edit(row: any) {
     const f: Record<string, any> = {}
-    for (const fl of fields) f[fl.key] = row[fl.key] ?? (fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : '')
+    for (const fl of fields) f[fl.key] = fl.type === 'datetime-local' ? localDateTime(row[fl.key]) : row[fl.key] ?? (fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : '')
+    initialDateValues.current = Object.fromEntries(fields.filter((fl) => fl.type === 'datetime-local').map((fl) => [fl.key, f[fl.key]]))
     for (const key of editorExtraKeys) f[key] = row[key] ?? (key === 'variants' || key === 'faqs' || key === 'gallery' ? [] : {})
     if (fields.some((x) => x.key === 'categoryId')) f.categoryId = row.categoryId || ''
     setForm(f)
@@ -125,7 +136,9 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const publishable = ['posts', 'pages', 'products'].includes(type)
   const hasStatus = fields.some((fl) => fl.key === 'status')
   // Going live (new, draft → published, or with AI-filled fields) needs a final review and confirmation.
-  const needsReview = publishable && (hasStatus ? form.status === 'PUBLISHED' && (!editId || originalStatus !== 'PUBLISHED' || aiUsed) : !editId || aiUsed)
+  const dateChanged = fields.some((fl) => fl.type === 'datetime-local' && form[fl.key] !== initialDateValues.current[fl.key])
+  const scheduledPost = type === 'posts' && form.status === 'PUBLISHED' && form.publishedAt && new Date(String(form.publishedAt)).getTime() > Date.now()
+  const needsReview = publishable && (hasStatus ? form.status === 'PUBLISHED' && (!editId || originalStatus !== 'PUBLISHED' || aiUsed || dateChanged) : !editId || aiUsed)
   const aiFields: AutofillField[] = publishable ? fields.flatMap((fl): AutofillField[] => {
     if (['status', 'access', 'featured', 'active'].includes(fl.key)) return []
     const base = { key: fl.key, label: fl.label, dir: fl.dir }
@@ -159,12 +172,21 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
 
   async function persist() {
     if (uploading || saving) return
+    const payload = { ...form }
+    for (const fl of fields) if (fl.type === 'datetime-local') {
+      if (editId && payload[fl.key] === initialDateValues.current[fl.key]) { delete payload[fl.key]; continue }
+      if (payload[fl.key]) {
+        const date = new Date(String(payload[fl.key]))
+        if (!Number.isFinite(date.getTime())) { setMsg(fa ? 'زمان انتشار معتبر نیست.' : 'Invalid publication date.'); return }
+        payload[fl.key] = date.toISOString()
+      }
+    }
     setSaving(true)
     setMsg('')
     const res = await fetch(`/api/admin/cms?type=${type}`, {
       method: editId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editId ? { ...form, id: editId } : form),
+      body: JSON.stringify(editId ? { ...payload, id: editId } : payload),
     }).catch(() => null)
     if (!res) { setSaving(false); setMsg(t.errGeneric); return }
     const data = await res.json().catch(() => null)
@@ -273,7 +295,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                 <input
                   className="input"
                   dir={fl.dir}
-                  type={fl.type === 'number' ? 'number' : 'text'}
+                  type={fl.type === 'number' ? 'number' : fl.type === 'datetime-local' ? 'datetime-local' : 'text'}
                   step={fl.key === 'price' ? '0.01' : undefined}
                   value={form[fl.key] ?? ''}
                   onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })}
@@ -284,10 +306,10 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           ))}
           {renderEditorExtra?.(form, setForm, editId)}
           <div className="flex gap-2">
-            <button className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
+            <button className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
             <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
           </div>
-          <PublishReview open={review} title={String(form[titleKey] || form.title || '')} rows={reviewRows} busy={saving} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
+          <PublishReview open={review} title={String(form[titleKey] || form.title || '')} rows={reviewRows} busy={saving} scheduled={Boolean(scheduledPost)} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
         </form>
       )}
 
@@ -309,6 +331,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
             <tbody>
               {visibleRows.map((row) => {
                 const extra = extraRows ? extraRows(row) : {}
+                const scheduled = type === 'posts' && row.status === 'PUBLISHED' && new Date(row.publishedAt).getTime() > Date.now()
                 return (
                   <tr key={row.id} className={selected.has(row.id) ? 'is-selected' : ''}>
                     {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.title || `#${row.id}`}`} checked={selected.has(row.id)} disabled={bulkBusy} onChange={() => toggleSelected(row.id)} /></td>}
@@ -317,6 +340,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                       if (extra[f.key] !== undefined) {
                         return <td key={f.key}>{extra[f.key]}</td>
                       }
+                      if (scheduled && f.key === 'status') return <td key={f.key}><span className="badge badge-purple">{fa ? 'زمان‌بندی‌شده' : 'Scheduled'}</span></td>
                       if (f.optionsFromRows) return <td key={f.key}>{f.optionsFromRows(optionRows || rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
                       const v = row[f.key]
                       if (typeof v === 'boolean') return <td key={f.key}>{v ? '✅' : '—'}</td>
@@ -329,7 +353,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'posts' && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
-                        {publicPath && (row.status === 'PUBLISHED' || row.active === true) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
+                        {publicPath && !scheduled && (row.status === 'PUBLISHED' || (row.active === true && (type !== 'products' || row.approval === 'APPROVED'))) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
                         <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{t.delete}</button>
                       </div>
                     </td>

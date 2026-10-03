@@ -18,6 +18,8 @@ import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin } from '@/platform/audit/server'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
+import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/journal'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 const PERM_MAP: Record<string, Permission> = {
   pages: 'cms.pages',
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest) {
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
   if (type === 'products') result = rows.map((row: any) => ({ ...row, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
-  const published = type === 'posts' || type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: { active: true } }) : null
+  const published = type === 'posts' ? await model.count({ where: livePostWhere() }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
   return ok({ rows: result, total, overall: await model.count(), published, page: slice.page, pages: slice.pages })
 }
 
@@ -171,6 +173,7 @@ export async function POST(req: NextRequest) {
         return tx.post.create({
         data: sanitizeContent({
           ...pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured']),
+          ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
           access: normalizeAccess(b?.access),
           authorId: admin.id,
           categoryId: ids[0] || null,
@@ -257,7 +260,7 @@ export async function PATCH(req: NextRequest) {
       if (b?.attributeGroupId !== undefined) data.attributeGroupId = await productCategoryGroup(b.attributeGroupId)
     }
     if (type === 'products') {
-      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true } })
+      const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true } })
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const saved = await db.$transaction(async tx => {
@@ -269,6 +272,7 @@ export async function PATCH(req: NextRequest) {
       return ok(saved)
     }
     if (type === 'posts') {
+      if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
       const before = await db.post.findUnique({ where: { id }, select: { status: true, publishedAt: true, title: true } })
       const saved = await db.$transaction(async tx => {
         if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
