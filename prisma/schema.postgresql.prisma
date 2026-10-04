@@ -3074,7 +3074,7 @@ model NewsletterDelivery {
   name       String    @default("")
   userId     Int?
   token      String    @unique
-  status     String    @default("PENDING") // PENDING | SENT | FAILED
+  status     String    @default("PENDING") // PENDING | SENDING (claimed; sentAt = claim time) | SENT | FAILED
   error      String    @default("")
   sentAt     DateTime?
   openedAt   DateTime?

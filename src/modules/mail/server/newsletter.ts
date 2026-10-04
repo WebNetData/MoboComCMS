@@ -237,17 +237,38 @@ export async function campaignReport(id: unknown) {
 
 // ------------------------------------------------------------------ sending (job scheduler)
 
+/** A delivery claimed by a sender that stopped is sent again after this long. */
+const CLAIM_MS = 15 * 60_000
+
+/**
+ * Freezes the recipient list of a due campaign. The campaign starts sending
+ * only after every recipient is stored, so a failure here leaves it scheduled
+ * and the next tick completes the list instead of sending to a part of it.
+ */
+async function startCampaign(campaign: { id: number; audience: string }, now: Date) {
+  const people = await recipients(campaign.audience as Audience)
+  const wanted = new Set(people.map((person) => person.email))
+  const stored = (await db.newsletterDelivery.findMany({ where: { campaignId: campaign.id }, select: { email: true } })).map((row) => row.email)
+  // Rows of an earlier attempt for people who are no longer recipients.
+  const stale = stored.filter((email) => !wanted.has(email))
+  for (let i = 0; i < stale.length; i += 500) await db.newsletterDelivery.deleteMany({ where: { campaignId: campaign.id, email: { in: stale.slice(i, i + 500) } } })
+  const have = new Set(stored)
+  const missing = people.filter((person) => !have.has(person.email))
+  for (let i = 0; i < missing.length; i += 500) {
+    await db.newsletterDelivery.createMany({ data: missing.slice(i, i + 500).map((person) => ({ campaignId: campaign.id, email: person.email, name: person.name, userId: person.userId, token: token() })) })
+  }
+  const claimed = await db.newsletterCampaign.updateMany({ where: { id: campaign.id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now, total: people.length } })
+  if (claimed.count) logEvent('info', 'newsletter.campaign_started', { id: campaign.id, recipients: people.length })
+}
+
 export async function runNewsletter(now = new Date()) {
   // 1. Due campaigns: freeze the recipient list and start sending.
   for (const campaign of await db.newsletterCampaign.findMany({ where: { status: 'SCHEDULED', scheduledAt: { lte: now } }, take: 5 })) {
-    const claimed = await db.newsletterCampaign.updateMany({ where: { id: campaign.id, status: 'SCHEDULED' }, data: { status: 'SENDING', startedAt: now } })
-    if (!claimed.count) continue
-    const people = await recipients(campaign.audience as Audience)
-    for (let i = 0; i < people.length; i += 500) {
-      await db.newsletterDelivery.createMany({ data: people.slice(i, i + 500).map((person) => ({ campaignId: campaign.id, email: person.email, name: person.name, userId: person.userId, token: token() })) })
+    try {
+      await startCampaign(campaign, now)
+    } catch (error) {
+      logEvent('warn', 'newsletter.campaign_start_failed', { id: campaign.id, error: String(error) })
     }
-    await db.newsletterCampaign.update({ where: { id: campaign.id }, data: { total: people.length } })
-    logEvent('info', 'newsletter.campaign_started', { id: campaign.id, recipients: people.length })
   }
   // 2. One batch for campaigns being sent.
   const smtp = await getSmtp()
@@ -258,16 +279,34 @@ export async function runNewsletter(now = new Date()) {
   let sent = 0
   for (const campaign of await db.newsletterCampaign.findMany({ where: { status: 'SENDING' }, orderBy: { id: 'asc' } })) {
     if (budget <= 0) break
-    const batch = await db.newsletterDelivery.findMany({ where: { campaignId: campaign.id, status: 'PENDING' }, take: budget })
-    if (!batch.length) { await db.newsletterCampaign.update({ where: { id: campaign.id }, data: { status: 'SENT', finishedAt: now } }); continue }
+    // While a delivery is SENDING its sentAt is the claim time; an interrupted sender's claim expires.
+    await db.newsletterDelivery.updateMany({ where: { campaignId: campaign.id, status: 'SENDING', sentAt: { lt: new Date(now.getTime() - CLAIM_MS) } }, data: { status: 'PENDING', sentAt: null } })
+    const batch = await db.newsletterDelivery.findMany({ where: { campaignId: campaign.id, status: 'PENDING' }, orderBy: { id: 'asc' }, take: budget })
+    if (!batch.length) {
+      // Finished only when no other sender still holds a delivery.
+      if (!await db.newsletterDelivery.count({ where: { campaignId: campaign.id, status: 'SENDING' } })) await db.newsletterCampaign.updateMany({ where: { id: campaign.id, status: 'SENDING' }, data: { status: 'SENT', finishedAt: now } })
+      continue
+    }
     for (const delivery of batch) {
-      const doc = await render(campaign, delivery)
-      const result = await sendMail({
-        to: delivery.email, subject: campaign.subject, text: doc.text, html: doc.html, source: `newsletter:${campaign.id}`,
-        headers: { 'List-Unsubscribe': `<${doc.base}/newsletter/unsubscribe?t=${delivery.token}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click', Precedence: 'bulk' },
-      })
-      if (!result.ok && /سقف|daily/i.test(result.error)) { budget = 0; break } // cap reached: continue next tick
-      await db.newsletterDelivery.update({ where: { id: delivery.id }, data: result.ok ? { status: 'SENT', sentAt: new Date() } : { status: 'FAILED', error: result.error.slice(0, 300) } })
+      // The scheduler and a manual run may overlap: each delivery is sent by the one that claims it.
+      const claimed = await db.newsletterDelivery.updateMany({ where: { id: delivery.id, status: 'PENDING' }, data: { status: 'SENDING', sentAt: new Date() } })
+      if (!claimed.count) continue
+      let result: Awaited<ReturnType<typeof sendMail>>
+      try {
+        const doc = await render(campaign, delivery)
+        result = await sendMail({
+          to: delivery.email, subject: campaign.subject, text: doc.text, html: doc.html, source: `newsletter:${campaign.id}`,
+          headers: { 'List-Unsubscribe': `<${doc.base}/newsletter/unsubscribe?t=${delivery.token}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click', Precedence: 'bulk' },
+        })
+      } catch (error) {
+        result = { ok: false, error: String(error) }
+      }
+      if (!result.ok && /سقف|daily/i.test(result.error)) { // cap reached: continue next tick
+        await db.newsletterDelivery.update({ where: { id: delivery.id }, data: { status: 'PENDING', sentAt: null } })
+        budget = 0
+        break
+      }
+      await db.newsletterDelivery.update({ where: { id: delivery.id }, data: result.ok ? { status: 'SENT', sentAt: new Date() } : { status: 'FAILED', sentAt: null, error: result.error.slice(0, 300) } })
       await db.newsletterCampaign.update({ where: { id: campaign.id }, data: result.ok ? { sent: { increment: 1 } } : { failed: { increment: 1 } } })
       if (result.ok) sent++
       budget--
