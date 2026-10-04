@@ -302,23 +302,46 @@ async function reconcileOne(payment: any) {
  */
 export async function processFrenzyReconciliationBatch(limit = 20) {
   const max = Math.max(1, Math.min(100, Math.floor(limit || 20)))
-  const candidates = await db.payment.findMany({
-    where: { provider: 'FRENZYEX', status: 'PENDING', invoiceId: { not: null }, invoice: { status: 'UNPAID' } },
-    include: { invoice: { include: { gateway: true, order: true } } },
-    orderBy: { id: 'asc' },
-    take: Math.max(max, Math.min(500, max * 10)),
-  })
-
+  const where = { provider: 'FRENZYEX', status: 'PENDING', invoiceId: { not: null }, invoice: { status: 'UNPAID' } }
   const counters = { checked: 0, paid: 0, pending: 0, expired: 0, canceled: 0, failed: 0, untracked: 0, deferred: 0 }
-  for (const payment of candidates) {
-    if (counters.checked >= max) break
-    const nextAt = validDate(parseRaw(payment.raw).reconcile?.nextAt)
-    if (nextAt && nextAt.getTime() > Date.now()) { counters.deferred++; continue }
-    if (!String(payment.providerTxnId || payment.invoice?.providerTxnId || '').trim()) { counters.untracked++; continue }
+
+  // Every pending request is looked at (in id pages), so requests that are not
+  // due yet or cannot be polled never hide the ones that are. The due requests
+  // that waited longest since their last check go first.
+  const due: { id: number; lastCheckedAt: number }[] = []
+  for (let after = 0, pages = 0; pages < 20; pages++) {
+    const page = await db.payment.findMany({
+      where: { ...where, id: { gt: after } },
+      select: { id: true, raw: true, providerTxnId: true, invoice: { select: { providerTxnId: true } } },
+      orderBy: { id: 'asc' }, take: 500,
+    })
+    if (!page.length) break
+    after = page[page.length - 1].id
+    for (const payment of page) {
+      const reconcile = parseRaw(payment.raw).reconcile
+      const nextAt = validDate(reconcile?.nextAt)
+      if (nextAt && nextAt.getTime() > Date.now()) { counters.deferred++; continue }
+      if (!String(payment.providerTxnId || payment.invoice?.providerTxnId || '').trim()) { counters.untracked++; continue }
+      due.push({ id: payment.id, lastCheckedAt: validDate(reconcile?.lastCheckedAt)?.getTime() || 0 })
+    }
+    if (page.length < 500) break
+  }
+  due.sort((a, b) => a.lastCheckedAt - b.lastCheckedAt || a.id - b.id)
+
+  for (const { id } of due.slice(0, max)) {
+    // Re-read: a callback may have settled it since the scan.
+    const payment = await db.payment.findFirst({ where: { ...where, id }, include: { invoice: { include: { gateway: true, order: true } } } })
+    if (!payment) continue
     counters.checked++
-    const result = await reconcileOne(payment)
-    if (result.kind in counters) (counters as any)[result.kind]++
-    else counters.failed++
+    try {
+      const result = await reconcileOne(payment)
+      if (result.kind in counters) (counters as any)[result.kind]++
+      else counters.failed++
+    } catch (error) {
+      // One request that cannot be reconciled must not stop the others or the rest of the order worker.
+      counters.failed++
+      logEvent('error', 'payment.frenzyex_reconcile_crashed', { paymentId: payment.id, invoiceId: payment.invoiceId, error: String(error) })
+    }
   }
 
   const ambiguousUntracked = await db.payment.count({
