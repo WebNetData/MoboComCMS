@@ -153,3 +153,75 @@ test('public search reports all matches while retaining the existing 50-page win
   assert.equal(last.page, 50)
   assert.equal(last.hits.length, 20)
 })
+
+test('cursor navigation crosses page 50, reverses ties and preserves visibility and facets', async () => {
+  const rows = Array.from({ length: 1108 }, (_, index) => ({
+    id: index + 1, itemType: 'post', itemId: index + 1, title: 'Needle', text: 'needle',
+    boost: index % 3, publishedAt: new Date(`2025-01-${String(index % 9 + 1).padStart(2, '0')}T00:00:00Z`),
+  }))
+  rows.push({ ...rows[0], id: 2000, itemId: 2000, itemType: 'product' })
+  let epoch = new Date().toISOString()
+  const search = load('src/modules/search/server/search.ts', {
+    '@/platform/database/prisma': { db: {
+      setting: { findUnique: async () => ({ value: epoch }) },
+      searchDocument: { findMany: async ({ where, take }) => rows.filter(row => row.id > where.id.gt).slice(0, take) },
+    } },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/modules/content/server/registry': {
+      enabledItemTypes: async () => ['post', 'product'],
+      itemCards: async refs => new Map(refs.filter(ref => ref.id !== 5).map(ref => [`${ref.type}:${ref.id}`, { ...card(ref.id), type: ref.type }])),
+    },
+    '@/modules/analytics/server/collect': { recordSearch: async () => {} },
+  })
+  const expected = rows.filter(row => row.itemType === 'post' && row.itemId !== 5)
+    .sort((a, b) => b.boost - a.boost || b.publishedAt - a.publishedAt || a.id - b.id).map(row => row.itemId)
+  let result = await search.searchSite({ q: 'needle', type: 'post', page: 50, log: false })
+  assert.equal(result.pages, 50)
+  assert.equal(result.totalPages, 56)
+  assert.equal(result.total, 1107)
+  assert.deepEqual(result.counts, { post: 1107, product: 1 })
+  const page50 = result.hits.map(hit => hit.id)
+  assert.deepEqual(page50, expected.slice(980, 1000))
+  for (let page = 51; page <= 56; page++) {
+    const previous = result
+    result = await search.searchSite({ q: 'needle', type: 'post', cursor: previous.nextCursor, log: false })
+    assert.equal(result.cursorReset, false)
+    assert.equal(result.page, page)
+    assert.equal(result.pages, 56)
+    assert.deepEqual(result.hits.map(hit => hit.id), expected.slice((page - 1) * 20, page * 20))
+    assert.deepEqual(result.counts, previous.counts)
+    const back = await search.searchSite({ q: 'needle', type: 'post', cursor: result.previousCursor, log: false })
+    assert.deepEqual(back.hits.map(hit => hit.id), previous.hits.map(hit => hit.id))
+    assert.equal(back.page, page - 1)
+  }
+  assert.equal(result.nextCursor, null)
+  const first = await search.searchSite({ q: 'needle', type: 'post', log: false })
+  const second = await search.searchSite({ q: 'needle', type: 'post', cursor: first.nextCursor, log: false })
+  const backFirst = await search.searchSite({ q: 'needle', type: 'post', cursor: second.previousCursor, log: false })
+  assert.deepEqual(backFirst.hits, first.hits)
+  assert.equal(backFirst.previousCursor, null)
+  for (const cursor of ['', '!', 'x'.repeat(1025), first.nextCursor.slice(0, -3)]) {
+    const reset = await search.searchSite({ q: 'needle', type: 'post', page: 50, cursor, log: false })
+    assert.equal(reset.cursorReset, true)
+    assert.deepEqual(reset.hits, first.hits)
+  }
+  const mismatched = await search.searchSite({ q: 'needle', cursor: first.nextCursor, log: false })
+  assert.equal(mismatched.cursorReset, true, 'type scope cannot be reused')
+  const queryMismatch = await search.searchSite({ q: 'needle other', type: 'post', cursor: first.nextCursor, log: false })
+  assert.equal(queryMismatch.cursorReset, true)
+  epoch = new Date(Date.now() + 1000).toISOString()
+  const stale = await search.searchSite({ q: 'needle', type: 'post', cursor: first.nextCursor, log: false })
+  assert.equal(stale.cursorReset, true, 'a rebuilt index invalidates the rank boundary')
+  assert.deepEqual(stale.hits, first.hits)
+})
+
+test('cursor decoder refuses malformed numeric boundaries without trusting navigation state', () => {
+  const { encodeSearchCursor, decodeSearchCursor } = load('src/modules/search/server/cursor.ts')
+  const valid = { direction: 'after', page: 51, score: 40.123, publishedAt: Date.now(), boost: 100, id: 9 }
+  assert.deepEqual(decodeSearchCursor(encodeSearchCursor(valid, 'scope'), 'scope'), valid)
+  for (const delta of [{ page: Infinity }, { page: 0 }, { page: 1.1 }, { score: '40' }, { score: -1 },
+    { publishedAt: 9e15 }, { boost: 1_000_001 }, { id: 0 }, { direction: 'unknown' }]) {
+    assert.equal(decodeSearchCursor(encodeSearchCursor({ ...valid, ...delta }, 'scope'), 'scope'), null)
+  }
+  assert.equal(decodeSearchCursor(Buffer.from('null').toString('base64url'), 'scope'), null)
+})

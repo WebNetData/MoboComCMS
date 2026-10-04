@@ -1,8 +1,8 @@
 # MoboCom Work State
 
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
-Current milestone: Reduce repeated public-search ranking work while retaining existing result semantics.
-Risk: Broad public search queries and dashboard scans still traverse all matching content; search browsing stops after 50 pages, and the Post index migration needs production rollout.
+Current milestone: Extend public-search browsing beyond the existing numeric window with bounded-memory cursors.
+Risk: Broad public search queries and dashboard scans still traverse all matching content; cursor browsing is live rather than a snapshot, and additive migrations need production rollout.
 Owner/contracts: `journal` owns `PostItemLink` and editorial selection; `catalog` owns product publication and its existing related-posts tab; `content` owns canonical item refs and public visibility.
 
 Decisions:
@@ -106,9 +106,11 @@ Validation actually run:
 Current verified checkpoint:
 - PR #37 merged after GitHub E2E passed. Cline multi-type article links were reviewed and corrected to preserve the legacy product response, English titles, transaction-scoped validation and strict refs. A real game/product CMS/API flow, rollback/cascade checks, 27 focused tests, Linux test:site (451/451), two Chromium tests, TypeScript, architecture, source, schema parity, security and a clean-source PostgreSQL build passed. Temporary fixtures were removed. Local port 3000 is the Docker app.
 - The entity rail now keeps a single desktop card within a grid column instead of stretching its image across the article. Persian dark desktop and light mobile screenshots were inspected; the desktop width and absence of horizontal overflow were asserted.
+- PR #38 merged with the scoped entity-rail layout correction. PR #39 merged with bounded-heap ranking after GitHub E2E passed; Linux test:site (453/453), focused ranking checks, connected PostgreSQL search and a clean-source PostgreSQL build passed.
+- The next search slice preserves the legacy numeric 50-page clamp and adds scoped next/previous cursors, retaining only 20 ranked candidates per cursor request. Nine focused tests, Linux test:site (455/455), TypeScript, source, architecture and Spectral passed. A connected PostgreSQL/API/Chromium check traversed 1,021 temporary posts through pages 50–52 and back, confirmed draft exclusion and removed its fixtures. The first browser assertion raced route rendering; explicit result readiness fixed the test and the rerun passed. Clean-source production build and GitHub PR checks are pending at this checkpoint.
 
 Known blockers/failures:
 - Docker Desktop bind-mounted source changes sometimes require restarting the local Next.js server to invalidate an old compiled route. The local deployment offers Persian only, so English titles were verified in data/API and unit checks rather than a bilingual browser environment. Production deployment, backup/restore verification and additive migrations remain pending. Many capabilities remain incomplete.
 
 Next concrete action:
-- Measure and reduce broad-query search ranking work while preserving visibility, ordering, result counts and bounded memory. Evaluate deeper result browsing separately. Verify production backup/restore readiness and apply additive migrations on the real deployment when access is available.
+- Complete the build/PR gates for search continuation. Next, audit remaining production readiness gaps using repository evidence; broad-query database/visibility scans still need measurement. Verify production backup/restore readiness and apply additive migrations on the real deployment when access is available.
