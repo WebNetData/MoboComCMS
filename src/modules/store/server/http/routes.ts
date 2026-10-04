@@ -80,9 +80,11 @@ export async function DELETE_cart(req: NextRequest) {
   const off = await moduleGuard('store')
   if (off) return off
   const who = await owner(req)
-  await clearCart(who)
-  const view = await cartView(who)
-  return withCart({ cart: view }, view.token)
+  try {
+    await clearCart(who)
+    const view = await cartView(who)
+    return withCart({ cart: view }, view.token)
+  } catch (error) { return failure(error) }
 }
 
 /**
