@@ -55,14 +55,16 @@ export async function checkoutCart(payload: { addressId?: number; delivery?: { d
   }
   const response = await fetch('/api/cart/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key }, body: JSON.stringify(payload) })
   const data = await response.json().catch(() => null)
-  if (String(data?.code || '') !== 'GATEWAY_AMBIGUOUS') {
+  const validSuccess = response.ok && Number.isSafeInteger(data?.orderId) && data.orderId > 0
+  // Unresolved outcomes must retry the same order, including malformed replies.
+  if (validSuccess || (response.status >= 400 && response.status < 500 && String(data?.code || '') !== 'GATEWAY_AMBIGUOUS')) {
     try { sessionStorage.removeItem(KEY) } catch { /* private mode */ }
   }
-  if (response.ok) window.dispatchEvent(new CustomEvent(CART_EVENT, { detail: { count: 0 } }))
+  if (validSuccess) void loadCart().then(result => { if (result.ok) broadcast(result.cart) })
   return {
-    ok: response.ok,
-    code: String(data?.code || ''),
-    message: String(data?.error || ''),
+    ok: validSuccess,
+    code: response.ok && !validSuccess ? 'CHECKOUT_RESPONSE_INVALID' : String(data?.code || ''),
+    message: response.ok && !validSuccess ? 'وضعیت سفارش مشخص نشد؛ دوباره تلاش کنید یا سفارش‌ها را بررسی کنید.' : String(data?.error || ''),
     paid: Boolean(data?.paid),
     paymentUrl: String(data?.paymentUrl || ''),
     invoiceUrl: String(data?.invoiceUrl || ''),
