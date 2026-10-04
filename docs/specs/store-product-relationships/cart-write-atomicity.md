@@ -1,0 +1,13 @@
+# Cart write prerequisite
+
+## Audit / ownership
+Store owns Cart/CartLine, quantity/variant/currency validation, pricing and checkout conversion. There is no purchasable bundle implementation. Before adding multiple bundle components, current add writes must serialize: real PostgreSQL reproduced twelve simultaneous increments from one yielding four instead of thirteen. Reads followed by independent updates also race new-line uniqueness and currency/capacity validation.
+
+## Change / compatibility
+Use the existing parent Cart write as the transaction lock on PostgreSQL and SQLite, then read/validate/write lines and reset the existing abandoned-cart cycle in the same transaction. Apply to add, set/remove, clear and purchased-line removal. Resolve concurrent first-cart unique collisions through existing owner lookup, never through a supplied cart ID. Preserve existing API shape, per-line clamping, error codes, stock/variant/member pricing, checkout and data; no schema or configuration change. This is an invariant, not configurable behavior.
+
+## Actual evidence / limits
+Connected PostgreSQL concurrency now returns thirteen. Concurrent new line/first cart, cap/limited response, mixed-currency transaction rollback, ownership rejection and update/clear passed. Actual authenticated HTTP concurrent additions, limited flag, guest denial, set and clear also passed after restarting the local dev server to load current code; the initial stale-runtime attempt failed. The initial readiness check used nonexistent /api/health (404); homepage readiness returned200. An initial mixed-currency fixture used the default USD for both products and was corrected to explicit IRT/USD. Linux site495, TypeScript/source/security/architecture passed. No external deliveries/payment providers are exercised. Clean-source build/CI remain release gates. Guest-cart sign-in merge concurrency and checkout snapshot versus later additions require separate audit; this slice does not claim to solve them.
+
+## Next bundle slice
+Catalog will own bounded named ordered component definitions with explicit product/variant/quantity references. Store must add every component atomically to its canonical cart, revalidate publication/variants/stock/access/currency/capacity, and charge current existing per-line prices through normal checkout. Initial bundles promise no separate discount; discount bundles require explicit future pricing/return allocation design. Store Admin controls default-off rollout. Product UI must clearly show components, prices, availability and independent normal cart lines rather than pretending editorial links are bundles.

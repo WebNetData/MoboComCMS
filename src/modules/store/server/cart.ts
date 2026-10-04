@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { isMember } from '@/modules/membership/server/membership'
 import { MAX_CART_LINES, StoreError, lineLimit, normalizeQuantity } from '@/modules/store/domain/store'
@@ -47,7 +48,22 @@ export async function findCart(owner: CartOwner) {
 export async function ensureCart(owner: CartOwner) {
   const found = await findCart(owner)
   if (found) return found
-  return db.cart.create({ data: { token: validToken(owner.token) && !owner.userId ? owner.token! : newToken(), userId: owner.userId } })
+  try {
+    return await db.cart.create({ data: { token: validToken(owner.token) && !owner.userId ? owner.token! : newToken(), userId: owner.userId } })
+  } catch (error) {
+    // Concurrent first additions can create the same owner's cart. Reuse only
+    // the cart resolved through the existing ownership rules.
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      const concurrent = await findCart(owner)
+      if (concurrent) return concurrent
+    }
+    throw error
+  }
+}
+
+/** The parent write serializes line mutations on PostgreSQL and SQLite. */
+async function lockCart(tx: Prisma.TransactionClient, cartId: number) {
+  await tx.cart.update({ where: { id: cartId }, data: { updatedAt: new Date(), reminderCount: 0 } })
 }
 
 export type CartLineView = {
@@ -163,8 +179,8 @@ export async function cartCount(owner: CartOwner): Promise<number> {
   return sum._sum.quantity || 0
 }
 
-async function purchasable(productId: number, variantId: number | null) {
-  const product = await db.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, stock: true } } } })
+async function purchasable(productId: number, variantId: number | null, client: Pick<Prisma.TransactionClient, 'product'> = db) {
+  const product = await client.product.findUnique({ where: { id: productId }, include: { variants: { where: { active: true }, select: { id: true, stock: true } } } })
   if (!product || !isPublicProduct(product)) throw new StoreError('کالا پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   if (product.variants.length && !variantId) throw new StoreError('نوع کالا را انتخاب کنید', 400, 'VARIANT_REQUIRED')
   const variant = variantId ? product.variants.find((v) => v.id === variantId) : null
@@ -178,47 +194,60 @@ export async function addToCart(owner: CartOwner, input: { productId: unknown; v
   const variantId = Number(input.variantId) || null
   if (!Number.isSafeInteger(productId) || productId <= 0) throw new StoreError('کالا مشخص نیست')
   const quantity = Math.max(1, normalizeQuantity(input.quantity ?? 1))
-  const { product, limit } = await purchasable(productId, variantId)
-  if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
+  // Keep the existing pre-creation validation; recheck after taking the cart lock.
+  const available = await purchasable(productId, variantId)
+  if (available.limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
   const cart = await ensureCart(owner)
-  const lines = await db.cartLine.findMany({ where: { cartId: cart.id }, include: { product: { select: { currency: true } } } })
-  if (lines.some((line) => line.product.currency !== product.currency)) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
-  const existing = lines.find((line) => line.productId === productId && line.variantKey === (variantId || 0))
-  if (!existing && lines.length >= MAX_CART_LINES) throw new StoreError('سبد خرید پر است', 409, 'CART_FULL')
-  const next = Math.min(limit, (existing?.quantity || 0) + quantity)
-  if (existing) await db.cartLine.update({ where: { id: existing.id }, data: { quantity: next } })
-  else await db.cartLine.create({ data: { cartId: cart.id, productId, variantKey: variantId || 0, quantity: next } })
-  // A changed cart starts a fresh abandoned-cart cycle.
-  await db.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date(), reminderCount: 0 } })
-  return { token: cart.token, quantity: next, limited: next < (existing?.quantity || 0) + quantity }
+  return db.$transaction(async tx => {
+    await lockCart(tx, cart.id)
+    const { product, limit } = await purchasable(productId, variantId, tx)
+    if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
+    const lines = await tx.cartLine.findMany({ where: { cartId: cart.id }, include: { product: { select: { currency: true } } } })
+    if (lines.some((line) => line.product.currency !== product.currency)) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
+    const existing = lines.find((line) => line.productId === productId && line.variantKey === (variantId || 0))
+    if (!existing && lines.length >= MAX_CART_LINES) throw new StoreError('سبد خرید پر است', 409, 'CART_FULL')
+    const next = Math.min(limit, (existing?.quantity || 0) + quantity)
+    if (existing) await tx.cartLine.update({ where: { id: existing.id }, data: { quantity: next } })
+    else await tx.cartLine.create({ data: { cartId: cart.id, productId, variantKey: variantId || 0, quantity: next } })
+    return { token: cart.token, quantity: next, limited: next < (existing?.quantity || 0) + quantity }
+  })
 }
 
 /** Sets a line's quantity (0 removes it). */
 export async function updateCartLine(owner: CartOwner, lineId: number, quantityInput: unknown) {
   const cart = await findCart(owner)
-  const line = cart ? await db.cartLine.findFirst({ where: { id: lineId, cartId: cart.id } }) : null
-  if (!cart || !line) throw new StoreError('این ردیف در سبد شما نیست', 404, 'LINE_NOT_FOUND')
-  const quantity = normalizeQuantity(quantityInput)
-  if (quantity === 0) {
-    await db.cartLine.delete({ where: { id: line.id } })
-    return { removed: true }
-  }
-  const { limit } = await purchasable(line.productId, line.variantKey || null).catch(() => ({ limit: 0 }))
-  if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
-  await db.cartLine.update({ where: { id: line.id }, data: { quantity: Math.min(limit, quantity) } })
-  await db.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date(), reminderCount: 0 } })
-  return { removed: false, quantity: Math.min(limit, quantity) }
+  if (!cart) throw new StoreError('این ردیف در سبد شما نیست', 404, 'LINE_NOT_FOUND')
+  return db.$transaction(async tx => {
+    await lockCart(tx, cart.id)
+    const line = await tx.cartLine.findFirst({ where: { id: lineId, cartId: cart.id } })
+    if (!line) throw new StoreError('این ردیف در سبد شما نیست', 404, 'LINE_NOT_FOUND')
+    const quantity = normalizeQuantity(quantityInput)
+    if (quantity === 0) {
+      await tx.cartLine.delete({ where: { id: line.id } })
+      return { removed: true }
+    }
+    const { limit } = await purchasable(line.productId, line.variantKey || null, tx).catch(() => ({ limit: 0 }))
+    if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
+    await tx.cartLine.update({ where: { id: line.id }, data: { quantity: Math.min(limit, quantity) } })
+    return { removed: false, quantity: Math.min(limit, quantity) }
+  })
 }
 
 export async function clearCart(owner: CartOwner) {
   const cart = await findCart(owner)
-  if (cart) await db.cartLine.deleteMany({ where: { cartId: cart.id } })
+  if (cart) await db.$transaction(async tx => {
+    await lockCart(tx, cart.id)
+    await tx.cartLine.deleteMany({ where: { cartId: cart.id } })
+  })
 }
 
 /** Removes the purchased lines once an order was placed from the cart. */
 export async function removePurchasedLines(owner: CartOwner, lineIds: number[]) {
   const cart = await findCart(owner)
-  if (cart && lineIds.length) await db.cartLine.deleteMany({ where: { cartId: cart.id, id: { in: lineIds } } })
+  if (cart && lineIds.length) await db.$transaction(async tx => {
+    await lockCart(tx, cart.id)
+    await tx.cartLine.deleteMany({ where: { cartId: cart.id, id: { in: lineIds } } })
+  })
 }
 
 /** The lines checkout will buy (only lines without issues). */
