@@ -6,22 +6,40 @@ import { processTrackReleaseNotifications } from '@/modules/music/server/release
 import { processGameUpdateReleaseNotifications } from '@/modules/games/server/release-notifications'
 import { processSoftwareReleaseNotifications } from '@/modules/software/server/release-notifications'
 import { processStudioPublicationNotifications } from '@/modules/studios/server/publication-notifications'
+import { logEvent } from '@/platform/observability/logger'
 
 /**
  * Engagement background work. The quick part (announcement queue) runs every
  * minute; `full` adds the search index rebuild and data retention, which the
  * scheduler runs every 15 minutes.
+ *
+ * Every step runs even when an earlier one fails, so one broken announcement or
+ * release cannot hold back the others. The first failure is thrown at the end,
+ * which keeps the run reported as failed (and a queued reindex retried).
  */
 export async function runEngagementJobs(options: { full?: boolean } = {}) {
-  const released = await releaseStuckSocialPosts()
-  const announced = await processSocialQueue(50)
-  const trackNotifications = await processTrackReleaseNotifications()
-  const gameNotifications = await processGameUpdateReleaseNotifications()
-  const softwareNotifications = await processSoftwareReleaseNotifications()
-  const studioNotifications = await processStudioPublicationNotifications()
-  if (!options.full) return { released, announced, trackNotifications, gameNotifications, softwareNotifications, studioNotifications }
-  const indexed = await rebuildSearchIndex()
-  const prunedDownloadLogs = await pruneDownloadLogs()
-  const analytics = await pruneAnalytics()
-  return { released, announced, trackNotifications, gameNotifications, softwareNotifications, studioNotifications, indexed, prunedDownloadLogs, analytics }
+  const errors: unknown[] = []
+  const step = async <T>(name: string, run: () => Promise<T>): Promise<T | null> => {
+    try { return await run() } catch (error) {
+      errors.push(error)
+      logEvent('error', 'engagement.step_failed', { step: name, error: String(error) })
+      return null
+    }
+  }
+  const released = await step('social.release', () => releaseStuckSocialPosts())
+  const announced = await step('social.queue', () => processSocialQueue(50))
+  const trackNotifications = await step('music.releases', () => processTrackReleaseNotifications())
+  const gameNotifications = await step('games.releases', () => processGameUpdateReleaseNotifications())
+  const softwareNotifications = await step('software.releases', () => processSoftwareReleaseNotifications())
+  const studioNotifications = await step('studios.publications', () => processStudioPublicationNotifications())
+  const quick = { released, announced, trackNotifications, gameNotifications, softwareNotifications, studioNotifications }
+  if (!options.full) {
+    if (errors.length) throw errors[0]
+    return quick
+  }
+  const indexed = await step('search.index', () => rebuildSearchIndex())
+  const prunedDownloadLogs = await step('downloads.prune', () => pruneDownloadLogs())
+  const analytics = await step('analytics.prune', () => pruneAnalytics())
+  if (errors.length) throw errors[0]
+  return { ...quick, indexed, prunedDownloadLogs, analytics }
 }
