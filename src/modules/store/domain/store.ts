@@ -201,6 +201,7 @@ export type StoreSettings = {
   showCategories: boolean
   showPriceHistory: boolean
   priceHistoryDays: number
+  priceDropNotifications: boolean
   /** Trust badges under the product buy box. */
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -216,6 +217,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showCategories: true,
   showPriceHistory: false,
   priceHistoryDays: 365,
+  priceDropNotifications: true,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
 }
@@ -265,6 +267,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     showCategories: raw.showCategories === undefined ? base.showCategories : raw.showCategories === true,
     showPriceHistory: raw.showPriceHistory === undefined ? base.showPriceHistory : raw.showPriceHistory === true,
     priceHistoryDays: Number.isSafeInteger(historyDays) && historyDays >= 30 && historyDays <= 730 ? historyDays : base.priceHistoryDays,
+    priceDropNotifications: raw.priceDropNotifications === undefined ? base.priceDropNotifications : raw.priceDropNotifications === true,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
   }

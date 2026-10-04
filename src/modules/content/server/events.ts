@@ -5,7 +5,7 @@ import { itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/i
  * One place that reacts to content being created, edited, published or
  * deleted: the search index is patched, first publication is announced
  * (Telegram / Instagram / push) and followers hear about meaningful updates
- * (a price drop or restock). Software releases use their durable release queue.
+ * (such as restock). Product price drops and software releases use their durable queues.
  * Everything here is best
  * effort and never fails the admin save that triggered it.
  */
@@ -53,9 +53,7 @@ async function react(ref: ItemRef, before: Snapshot, after: Snapshot) {
   if (ref.type === 'product' && before && after.kind === 'PHYSICAL' && (before.stock ?? 0) <= 0 && (after.stock ?? 0) > 0) {
     await notifyFollowers(ref, { key: `restock-${Date.now().toString(36)}`, title: `${title} دوباره موجود شد`, body: `«${title}» که در علاقه‌مندی‌های شماست دوباره موجود است.` })
   }
-  if (ref.type === 'product' && before?.priceMinor && after.priceMinor && after.priceMinor < before.priceMinor) {
-    await notifyFollowers(ref, { key: `price-${after.priceMinor}`, title: `قیمت ${title} کاهش یافت`, body: `قیمت «${title}» که در علاقه‌مندی‌های شماست کمتر شد.` })
-  }
+  // Product price drops are persisted by transactional pricing capture and delivered by the shared queue.
 }
 
 /** Fire-and-forget: call after a successful save or delete (`after` = null when deleted). */

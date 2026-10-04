@@ -69,6 +69,8 @@ async function main() {
   console.log('PostgreSQL existing writers: Marketplace create/full/quick/approval, Store bulk/concurrent/activation, Import apply/product+variant undo, FX conversion/repricing passed; outbound events stubbed.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
+  const pointIds = (await db.productPricePoint.findMany({ where: { productId: { in: products } }, select: { id: true } })).map(row => row.id)
+  await db.backgroundJob.deleteMany({ where: { kind: 'store.price-drop', dedupeKey: { in: pointIds.map(id => `product-price-drop:${id}`) } } })
   await db.product.deleteMany({ where: { id: { in: products } } })
   if (seller) await db.seller.delete({ where: { id: seller.id } })
   if (user) await db.user.delete({ where: { id: user.id } })

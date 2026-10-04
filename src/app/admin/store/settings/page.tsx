@@ -66,6 +66,7 @@ export default function StoreSettingsPage() {
         <label className="sa-check"><input type="checkbox" checked={form.showCategories} onChange={(event) => update('showCategories', event.target.checked)} />نمایش «خرید بر اساس دسته‌بندی»</label>
         <label className="sa-check"><input type="checkbox" checked={form.showBrands} onChange={(event) => update('showBrands', event.target.checked)} />نمایش برندهای محبوب</label>
         <label className="sa-check"><input type="checkbox" checked={form.showPriceHistory} onChange={(event) => update('showPriceHistory', event.target.checked)} />نمایش تاریخچهٔ قیمت عمومی محصول</label>
+        <label className="sa-check"><input type="checkbox" checked={form.priceDropNotifications} onChange={(event) => update('priceDropNotifications', event.target.checked)} />اعلان کاهش قیمت برای دنبال‌کنندگان محصول</label>
         <label className="sa-field"><span>بازهٔ نمایش تاریخچهٔ قیمت (روز)</span><input className="input" type="number" min={30} max={730} step={1} value={form.priceHistoryDays} onChange={(event) => update('priceHistoryDays', Number(event.target.value))} /></label>
         <p className="sa-hint">بین ۳۰ و ۷۳۰ روز؛ خاموش‌کردن نمایش، رکوردهای قیمت را حذف نمی‌کند. فقط قیمت عادیِ عرضه‌شده نمایش داده می‌شود.</p>
         <button type="button" className="btn btn-ghost" disabled={baselineBusy || busy} onClick={() => void baseline()}>{baselineBusy ? 'در حال ثبت کار…' : 'شروع ثبت قیمت‌های فعلی'}</button>
