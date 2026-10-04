@@ -1,9 +1,12 @@
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
-import { authOptions } from '@/modules/identity/auth'
+import { authSecret } from '@/platform/config/env'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
+
+// Match NextAuth's startup secret without importing the authentication-provider graph.
+const tokenSecret = authSecret()
 
 export interface AuthedUser {
   id: number
@@ -33,7 +36,7 @@ export async function adminNeedsTwoFactor(user: AuthedUser) {
 }
 
 export function getRawToken(req: NextRequest) {
-  return getToken({ req, secret: authOptions.secret })
+  return getToken({ req, secret: tokenSecret })
 }
 
 export async function requireUser(req: NextRequest): Promise<AuthedUser | null> {

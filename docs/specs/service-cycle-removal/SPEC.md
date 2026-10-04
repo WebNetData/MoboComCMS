@@ -1,0 +1,15 @@
+# Service dependency cycles — production readiness
+
+## Evidence / invariant
+Dependency-cruiser reports six preexisting cycles: Identity auth/security/access; Forum readers/messages; Import engine/Operations queue; Operations monitoring/queue; Fulfillment/Reseller bot sales (two paths). The lightweight architecture boundary check passes, but that does not prove absence of cycles. Preserve existing public exports, behavior, Identity/auth/session/RBAC, jobs, billing/fulfillment semantics, API and protected visuals. No new architecture or migration is needed: separate leaf dependencies and reuse current owners.
+
+## Safe slices
+1. Identity access imports authOptions only to obtain its secret; authOptions already uses platform authSecret. Access can capture that same secret at module initialization directly, preserving configured/development/production behavior and removing the cycle without changing token claims or permissions.
+2. Audit Forum author helpers and move their existing implementation to a leaf while preserving reader exports; message readers should not import their own aggregator.
+3. Separate Operations enqueue/metadata and CDN purge leaves from dispatch/monitoring, preserving existing queue functions and kind contracts. Import engine should depend on enqueue, not dispatch.
+4. Audit Fulfillment/Reseller completion reactions; move the existing callback leaf without introducing another sales/fulfillment engine or bypassing their money/permission invariants.
+
+## Gates
+After each coherent slice run meaningful focused tests plus TypeScript/relevant architecture checks. Run dependency-cruiser against actual changed dependency roots and compare baseline. Relevant real session/Forum/queue/fulfillment integration and clean-source build/CI must pass before merge. Do not claim all cycles fixed until the actual graph is clean. Goal retains the remaining capability brief and production verification.
+
+Status: Identity leaf slice implemented: access captures the same authSecret at startup, preserving the authOptions timing/configuration contract. Eleven focused security tests, TypeScript and real PostgreSQL/Profile/Admin API checks passed (valid/bad signature, guest, database role/status/current permission, empty custom role denial, legacy super-admin and password revocation). Dependency-cruiser comparison confirms six baseline cycles reduced to five, none added. Other cycles, combined build and PR gates remain; no all-cycle completion claim. PR #48 (durable existing price-drop follow notices) is in CI at b4bd22ae9052bf426c50e69d282286a8a9730389.
