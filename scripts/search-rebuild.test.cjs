@@ -195,6 +195,17 @@ test('cursor navigation crosses page 50, reverses ties and preserves visibility 
     assert.equal(back.page, page - 1)
   }
   assert.equal(result.nextCursor, null)
+  const removedIds = new Set(result.hits.map(hit => hit.id))
+  const lastBoundary = result.previousCursor
+  const previousPage = await search.searchSite({ q: 'needle', type: 'post', cursor: lastBoundary, log: false })
+  const removed = rows.filter(row => removedIds.has(row.itemId))
+  rows.splice(0, rows.length, ...rows.filter(row => !removedIds.has(row.itemId)))
+  const emptied = await search.searchSite({ q: 'needle', type: 'post', cursor: previousPage.nextCursor, log: false })
+  assert.equal(emptied.cursorReset, true)
+  assert.equal(emptied.page, 1)
+  assert.equal(emptied.hits.length, 20)
+  rows.push(...removed)
+  rows.sort((a, b) => a.id - b.id)
   const first = await search.searchSite({ q: 'needle', type: 'post', log: false })
   const second = await search.searchSite({ q: 'needle', type: 'post', cursor: first.nextCursor, log: false })
   const backFirst = await search.searchSite({ q: 'needle', type: 'post', cursor: second.previousCursor, log: false })

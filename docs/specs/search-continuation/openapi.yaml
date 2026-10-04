@@ -33,7 +33,7 @@ paths:
           schema: { type: integer, default: 1 }
         - name: cursor
           in: query
-          description: Opaque nextCursor or previousCursor returned by this same query and type. Invalid cursors restart page one with cursorReset true.
+          description: Opaque nextCursor or previousCursor returned by this same query and type. Invalid cursors and cursor pages emptied by content changes restart page one with cursorReset true.
           schema: { type: string, maxLength: 1024 }
         - name: suggest
           in: query

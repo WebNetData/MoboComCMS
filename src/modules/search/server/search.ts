@@ -183,6 +183,11 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const ranked = top.sorted()
   if (cursor?.direction === 'before') ranked.reverse()
   const selected = cursor ? ranked : ranked.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
+  // Content can disappear between requests. Do not present a stale boundary as "no matches".
+  if (cursor && !selected.length) {
+    const refreshed = total > 0 ? await searchSite({ ...input, cursor: undefined, page: 1, log: false }) : { ...empty, counts }
+    return { ...refreshed, cursorReset: true }
+  }
   const canNext = cursor ? (cursor.direction === 'after' ? eligible > selected.length : true) : total > current * PAGE_SIZE
   const canPrevious = cursor ? (cursor.direction === 'before' ? eligible > selected.length : true) : current > 1
   const nextCursor = selected.length && canNext && !input.suggestion ? encodeSearchCursor({ ...boundary(selected[selected.length - 1]), direction: 'after', page: current + 1 }, scope) : null
