@@ -14,4 +14,4 @@ Three focused tests passed for replay, initial successful checkout and failed/em
 
 This fixes historical-order replay cleanup. Concurrent edits during a newly placed order's snapshot/cleanup and guest sign-in merge still require separate work. Real new-order external settlement/provider execution was not performed.
 
-Linux site505, TypeScript, source1574, architecture boundaries, security invariants and scoped staged whitespace checks passed. Clean committed-source build and PR CI are subsequent release gates.
+Linux site505, TypeScript, source1574, architecture boundaries, security invariants and scoped staged whitespace checks passed. Clean committed-source production build and GitHub CI passed; PR #55 merged as ec0681b.

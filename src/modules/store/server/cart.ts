@@ -20,50 +20,72 @@ export type CartOwner = { userId: number | null; token: string | null }
 const validToken = (token: string | null | undefined) => (token && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? token : null)
 const newToken = () => randomBytes(24).toString('base64url')
 
-async function mergeInto(targetId: number, sourceId: number) {
-  const lines = await db.cartLine.findMany({ where: { cartId: sourceId } })
+async function mergeInto(tx: Prisma.TransactionClient, targetId: number, sourceId: number) {
+  const lines = await tx.cartLine.findMany({ where: { cartId: sourceId } })
   for (const line of lines) {
-    await db.cartLine.upsert({
+    await tx.cartLine.upsert({
       where: { cartId_productId_variantKey: { cartId: targetId, productId: line.productId, variantKey: line.variantKey } },
       create: { cartId: targetId, productId: line.productId, variantKey: line.variantKey, quantity: line.quantity },
       update: {},
     })
   }
-  await db.cart.delete({ where: { id: sourceId } }).catch(() => {})
+  await tx.cart.delete({ where: { id: sourceId } })
 }
 
 /** The owner's cart, or null. Claims/merges a guest cart after sign-in. */
 export async function findCart(owner: CartOwner) {
   const token = validToken(owner.token)
-  const guest = token ? await db.cart.findFirst({ where: { token, userId: null } }) : null
-  if (!owner.userId) return guest
-  const mine = await db.cart.findUnique({ where: { userId: owner.userId } })
-  if (!guest) return mine
-  if (!mine) return db.cart.update({ where: { id: guest.id }, data: { userId: owner.userId } })
-  await mergeInto(mine.id, guest.id)
-  return mine
+  for (let attempt = 0; ; attempt++) {
+    const guest = token ? await db.cart.findFirst({ where: { token, userId: null } }) : null
+    if (!owner.userId) return guest
+    const userId = owner.userId
+    if (!guest) return db.cart.findUnique({ where: { userId } })
+    try {
+      return await db.$transaction(async tx => {
+        // Lock only a still-guest source. Competing claimers cannot overwrite its owner.
+        const held = await tx.cart.updateMany({ where: { id: guest.id, token: token!, userId: null }, data: { updatedAt: new Date() } })
+        const mine = await tx.cart.findUnique({ where: { userId } })
+        if (!held.count) return mine
+        if (!mine) return tx.cart.update({ where: { id: guest.id }, data: { userId } })
+        await lockCart(tx, mine.id, owner)
+        await mergeInto(tx, mine.id, guest.id)
+        return tx.cart.findUnique({ where: { id: mine.id } })
+      })
+    } catch (error) {
+      // Another first request may have created this user's owned cart meanwhile.
+      if (attempt === 0 && error && typeof error === 'object' && 'code' in error && error.code === 'P2002') continue
+      throw error
+    }
+  }
 }
 
 /** Finds or creates the owner's cart; returns the token the browser should keep. */
 export async function ensureCart(owner: CartOwner) {
   const found = await findCart(owner)
   if (found) return found
+  const token = validToken(owner.token)
+  const reusable = !owner.userId && token && !(await db.cart.findUnique({ where: { token }, select: { id: true } }))
   try {
-    return await db.cart.create({ data: { token: validToken(owner.token) && !owner.userId ? owner.token! : newToken(), userId: owner.userId } })
+    return await db.cart.create({ data: { token: reusable ? token : newToken(), userId: owner.userId } })
   } catch (error) {
     // Concurrent first additions can create the same owner's cart. Reuse only
     // the cart resolved through the existing ownership rules.
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       const concurrent = await findCart(owner)
       if (concurrent) return concurrent
+      // A browser token may now belong to the account that claimed it. Start a
+      // fresh guest cart rather than colliding with or reaching that owned cart.
+      if (!owner.userId && validToken(owner.token)) return db.cart.create({ data: { token: newToken(), userId: null } })
     }
     throw error
   }
 }
 
 /** The parent write serializes line mutations on PostgreSQL and SQLite. */
-async function lockCart(tx: Prisma.TransactionClient, cartId: number) {
-  await tx.cart.update({ where: { id: cartId }, data: { updatedAt: new Date(), reminderCount: 0 } })
+async function lockCart(tx: Prisma.TransactionClient, cartId: number, owner: CartOwner) {
+  const binding = owner.userId ? { userId: owner.userId } : { userId: null, token: validToken(owner.token) || '' }
+  const held = await tx.cart.updateMany({ where: { id: cartId, ...binding }, data: { updatedAt: new Date(), reminderCount: 0 } })
+  if (!held.count) throw new StoreError('سبد خرید تغییر کرده است؛ دوباره تلاش کنید', 409, 'CART_CHANGED')
 }
 
 export type CartLineView = {
@@ -191,8 +213,8 @@ async function purchasable(productId: number, variantId: number | null, client: 
 type CartAddition = { productId: number; variantId: number | null; quantity: number }
 
 /** One canonical mutation path for ordinary capped additions and complete bundles. */
-async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, requests: CartAddition[], strict: boolean, member = false) {
-  await lockCart(tx, cartId)
+async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, owner: CartOwner, requests: CartAddition[], strict: boolean, member = false) {
+  await lockCart(tx, cartId, owner)
   const lines = await tx.cartLine.findMany({ where: { cartId }, include: { product: { select: { currency: true } } } })
   const currencies = new Set(lines.map(line => line.product.currency))
   const additions = []
@@ -233,7 +255,7 @@ export async function addCartComponents(owner: CartOwner, requests: CartAddition
   }
   const member = owner.userId ? await isMember(owner.userId) : false
   const cart = await ensureCart(owner)
-  await db.$transaction(tx => writeCartAdditions(tx, cart.id, requests, true, member))
+  await db.$transaction(tx => writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, requests, true, member))
   return { token: cart.token, limited: false }
 }
 
@@ -248,7 +270,7 @@ export async function addToCart(owner: CartOwner, input: { productId: unknown; v
   if (available.limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
   const cart = await ensureCart(owner)
   return db.$transaction(async tx => {
-    const [added] = await writeCartAdditions(tx, cart.id, [{ productId, variantId, quantity }], false)
+    const [added] = await writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, [{ productId, variantId, quantity }], false)
     return { token: cart.token, quantity: added.quantity, limited: added.limited }
   })
 }
@@ -258,7 +280,7 @@ export async function updateCartLine(owner: CartOwner, lineId: number, quantityI
   const cart = await findCart(owner)
   if (!cart) throw new StoreError('این ردیف در سبد شما نیست', 404, 'LINE_NOT_FOUND')
   return db.$transaction(async tx => {
-    await lockCart(tx, cart.id)
+    await lockCart(tx, cart.id, owner)
     const line = await tx.cartLine.findFirst({ where: { id: lineId, cartId: cart.id } })
     if (!line) throw new StoreError('این ردیف در سبد شما نیست', 404, 'LINE_NOT_FOUND')
     const quantity = normalizeQuantity(quantityInput)
@@ -276,7 +298,7 @@ export async function updateCartLine(owner: CartOwner, lineId: number, quantityI
 export async function clearCart(owner: CartOwner) {
   const cart = await findCart(owner)
   if (cart) await db.$transaction(async tx => {
-    await lockCart(tx, cart.id)
+    await lockCart(tx, cart.id, owner)
     await tx.cartLine.deleteMany({ where: { cartId: cart.id } })
   })
 }
@@ -285,7 +307,7 @@ export async function clearCart(owner: CartOwner) {
 export async function removePurchasedLines(owner: CartOwner, lineIds: number[]) {
   const cart = await findCart(owner)
   if (cart && lineIds.length) await db.$transaction(async tx => {
-    await lockCart(tx, cart.id)
+    await lockCart(tx, cart.id, owner)
     await tx.cartLine.deleteMany({ where: { cartId: cart.id, id: { in: lineIds } } })
   })
 }

@@ -52,3 +52,7 @@ Settings remains the canonical scheduler lease owner. Atomic conditional upsert 
 ## Cart checkout replay checkpoint
 
 Existing-order idempotency replay now preserves the current cart instead of deleting fresh items. The actual old behavior was reproduced on PG/HTTP; three focused tests and owner-scoped repeated replay/guest denial/conflict/empty-cart checks passed. No API/schema/UI change. New-checkout snapshot cleanup and guest merge remain partial; see docs/specs/cart-checkout-replay.md.
+
+## Cart ownership release checkpoint
+
+Scheduler leases #54 (9300efa) and historical checkout replay #55 (ec0681b) passed clean production builds and GitHub CI and merged. Guest cart claims/merges now preserve one canonical owner and copy/delete atomically; stale guest writes recheck ownership under the parent lock. Actual PG/HTTP and cart/bundle regression checks plus site506 passed locally; guest build/CI/merge remain pending. Sign-in union limits and new-checkout snapshot cleanup remain partial. See docs/specs/guest-cart-ownership/SPEC.md.

@@ -12,6 +12,6 @@ No migration, configuration, public API or visual change is needed. Lease rows r
 
 - Three focused tests: grant/contention, database outage propagation and invalid duration rejection.
 - Real PostgreSQL and isolated SQLite through Prisma 5.22: 20 concurrent first acquisitions, held acquisitions and expired acquisitions; exactly one winner for available slots, zero while held, unchanged held expiry, one stored row, Settings exclusion and zero Prisma error events. Namespaced fixtures were removed.
-- Linux site502, TypeScript, source1574, architecture boundaries and security invariants passed. Release checks are recorded in the workstate when complete.
+- Linux site502, TypeScript, source1574, architecture boundaries and security invariants passed. Clean committed-source production build and GitHub CI passed; PR #54 merged as 9300efa.
 
 Production deployment and actual external background providers were not exercised.
