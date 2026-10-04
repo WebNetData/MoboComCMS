@@ -181,7 +181,7 @@ export async function viewerCounts(viewer: Viewer) {
     db.forumThread.count({ where: { status: 'VISIBLE', categoryId: { in: categories }, createdAt: { gte: new Date(Date.now() - NEW_DAYS * 86_400_000) }, topicUsers: { none: { userId: viewer.userId } } } }),
     db.forumBookmark.count({ where: { userId: viewer.userId } }),
   ]).catch(() => [[], 0, 0] as [{ lastRead: number; thread: { postCount: number } }[], number, number])
-  const { unreadMessageCount } = await import('@/modules/forum/server/messages')
+  const { unreadMessageCount } = await import('@/modules/forum/server/message-counts')
   const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : Promise.resolve(0)])
   return { unread: states.filter((row) => row.lastRead < row.thread.postCount).length, fresh, bookmarks, messages, review }
 }

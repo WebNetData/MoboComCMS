@@ -89,6 +89,26 @@ test('Store price-drop toggle preserves old-client omissions and existing enable
   assert.equal(normalizeStoreSettings({ priceDropNotifications: true }, off).priceDropNotifications, true)
 })
 
+test('CDN queue delegates to its provider owner and retains failures for retry', async () => {
+  for (const fail of [false, true]) {
+    let selected = false, calls = 0; const updates = []
+    const queue = load('src/modules/operations/server/queue.ts', {
+      '@/platform/database/prisma': { db: { backgroundJob: {
+        updateMany: async () => ({ count: 1 }),
+        findFirst: async () => { if (selected) return null; selected = true; return { id: 1, kind: 'cdn.purge', attempts: 0, payload: '{}' } },
+        update: async args => updates.push(args), deleteMany: async () => ({ count: 0 }),
+      } } },
+      '@/platform/observability/logger': { logEvent: () => {} },
+      '@/modules/server-panel/server/domains': { purgeCloudflareCache: async () => { calls++; if (fail) throw Error('provider unavailable'); return { purged: true } } },
+    })
+    assert.equal((await queue.runQueue(1000)).ran, 1)
+    assert.equal(calls, 1)
+    const terminal = updates.at(-1).data
+    assert.equal(terminal.status, fail ? 'QUEUED' : 'DONE')
+    if (fail) { assert.match(terminal.lastError, /provider unavailable/); assert.ok(terminal.runAt > new Date()) }
+  }
+})
+
 test('existing queue dispatches bounded price-drop continuations and retries worker failures', async () => {
   for (const fail of [false, true]) {
     let selected = false; const updates = [], created = []

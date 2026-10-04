@@ -57,7 +57,7 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
   },
   'images.clear-cache': { label: 'پاک‌کردن کش اندازه‌های تصویر', run: async () => (await import('@/modules/site/server/images')).clearImageCache() },
   'search.reindex': { label: 'بازسازی کامل نمایهٔ جست‌وجو', run: async () => (await import('@/modules/content/server/jobs')).runEngagementJobs({ full: true }) },
-  'cdn.purge': { label: 'پاک‌کردن کش CDN', run: async () => (await import('@/modules/operations/server/monitoring')).purgeCdn() },
+  'cdn.purge': { label: 'پاک‌کردن کش CDN', run: async () => (await import('@/modules/server-panel/server/domains')).purgeCloudflareCache() },
   // Bulk import: one time-boxed slice per queue job; the import's own history is in ImportJob/ImportRecord.
   'imports.run': {
     label: 'ورود گروهی اطلاعات',

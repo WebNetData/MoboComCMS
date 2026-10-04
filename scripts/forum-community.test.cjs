@@ -35,6 +35,7 @@ function messageService({ blocked = [], enabled = true } = {}) {
     '@/platform/http/rate-limit': { rateLimitHit: () => ({ ok: true }) },
     '@/modules/forum/server/community': { getForumSettings: async () => ({ ...c.DEFAULT_FORUM_SETTINGS, messagesEnabled: enabled }), notify: async () => { state.notifications++ } },
     '@/modules/forum/server/forum': {},
+    '@/modules/forum/server/message-counts': { unreadMessageCount: async () => 0 },
     '@/modules/identity/server/profile': { blockedIds: async () => blocked, relationBetween: async () => ({ self: false, signedIn: true, following: false, followedBy: false, blocked: false, blockedBy: false, staff: false }) },
   }
   const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/modules/forum/server/messages.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
@@ -43,6 +44,19 @@ function messageService({ blocked = [], enabled = true } = {}) {
   return { service: mod.exports, state }
 }
 const sender = { userId: 1, moderator: false, trustLevel: 2, silenced: false, suspended: false }
+
+test('shared unread count preserves guest, membership/archive filters and read-position semantics', async () => {
+  let queries = 0
+  const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/modules/forum/server/message-counts.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', source)(name => {
+    assert.equal(name, '@/platform/database/prisma')
+    return { db: { forumConversationUser: { findMany: async ({ where }) => { queries++; assert.deepEqual(where, { userId: 1, left: false, archived: false }); return [{ lastRead: 0, conversation: { postCount: 1 } }, { lastRead: 2, conversation: { postCount: 2 } }, { lastRead: 4, conversation: { postCount: 2 } }] } } } }
+  }, mod, mod.exports)
+  assert.equal(await mod.exports.unreadMessageCount(null), 0); assert.equal(queries, 0)
+  assert.equal(await mod.exports.unreadMessageCount(1), 1)
+  assert.equal(typeof messageService().service.unreadMessageCount, 'function', 'legacy message-module export remains')
+})
 
 test('existing replies honor blocks and the Admin message pause before writes or notifications', async () => {
   for (const config of [{ blocked: [2] }, { enabled: false }]) {
