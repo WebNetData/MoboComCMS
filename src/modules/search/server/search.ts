@@ -10,6 +10,7 @@ import { normalizePersian, relevance, searchTokens, searchableText } from '@/sha
 import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
 import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
+import { RankedWindow } from '@/modules/search/domain/ranked-window'
 
 /**
  * Site-wide search over one denormalized table (SearchDocument). Documents hold
@@ -136,7 +137,7 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const where = { itemType: { in: queryTypes }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) }
   const phrase = normalizePersian(query)
   const counts: Partial<Record<ItemType, number>> = {}
-  const top: RankedCandidate[] = []
+  const top = new RankedWindow<RankedCandidate>(MAX_TOP_HITS, byRank)
   let matchedTotal = 0
   let afterId = 0
   while (true) {
@@ -156,10 +157,8 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
       counts[row.itemType as ItemType] = (counts[row.itemType as ItemType] || 0) + 1
       if (type !== 'all' && row.itemType !== type) continue
       // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
-      top.push({ row, card, score: relevanceScore + Math.log10(1 + row.boost) })
+      top.add({ row, card, score: relevanceScore + Math.log10(1 + row.boost) })
     }
-    top.sort(byRank)
-    if (top.length > MAX_TOP_HITS) top.length = MAX_TOP_HITS
     if (input.suggestion || rows.length < INDEX_PAGE_SIZE) break
     afterId = rows[rows.length - 1].id
   }
@@ -167,7 +166,7 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   // The API has always accepted at most 50 pages; report the reachable window.
   const pages = Math.min(MAX_PAGE, Math.ceil(total / PAGE_SIZE))
   const current = Math.min(page, Math.max(1, pages))
-  const hits = top.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
+  const hits = top.sorted().slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
     type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
     score: Math.round(score), snippet: snippet(row.text, tokens),
   }))
