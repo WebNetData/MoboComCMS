@@ -3,7 +3,7 @@ import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
-import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware, relatedTracks } from '@/modules/recommendations/server/contextual'
 import type { Prisma } from '@prisma/client'
 
 /**
@@ -22,6 +22,7 @@ export type TrackCard = {
   id: number; slug: string; title: string; titleEn: string; cover: string; duration: number; genre: string
   access: string; plays: number; hasAudio: boolean; hasHq: boolean; publishedAt: Date
   artist: ArtistRef; album: { id: number; slug: string; title: string; titleEn: string } | null
+  recommendationReason?: string
 }
 export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number; recommendationReason?: string }
 export type PlaylistCard = { id: number; slug: string; title: string; titleEn: string; cover: string; description: string; access: string; trackCount: number }
@@ -155,14 +156,17 @@ export async function getMusicGenres(): Promise<string[]> {
   return countList(rows.map((row) => row.genre)).slice(0, 24)
 }
 
-export async function getTrack(slug: string) {
+export async function getTrack(slug: string, options: { recommendations?: boolean } = {}) {
   const row = await db.musicTrack.findFirst({ where: { slug, ...live() }, include: trackInclude }).catch(() => null)
   if (!row) return null
   const [albumTracks, artistTracks] = await Promise.all([
     row.albumId ? db.musicTrack.findMany({ where: { albumId: row.albumId, ...live() }, include: trackInclude, orderBy: [{ trackNo: 'asc' }, { id: 'asc' }], take: 50 }) : Promise.resolve([]),
     db.musicTrack.findMany({ where: { artistId: row.artistId, id: { not: row.id }, ...live() }, include: trackInclude, orderBy: { plays: 'desc' }, take: 8 }),
   ])
-  return { track: { ...toTrack(row), lyrics: row.lyrics, downloads: row.downloads }, albumTracks: albumTracks.map(toTrack), moreFromArtist: artistTracks.map(toTrack) }
+  const recommendations = options.recommendations ? await relatedTracks(row, 8, albumTracks.map(track => track.id)) : []
+  const relatedRows = recommendations.length ? await db.musicTrack.findMany({ where: { ...live(), id: { in: recommendations.map(result => result.item.id) } }, include: trackInclude }) : []
+  const relatedById = new Map(relatedRows.map(item => [item.id, item]))
+  return { track: { ...toTrack(row), lyrics: row.lyrics, downloads: row.downloads }, albumTracks: albumTracks.map(toTrack), moreFromArtist: artistTracks.map(toTrack), relatedTracks: recommendations.flatMap(result => { const item = relatedById.get(result.item.id); return item ? [{ ...toTrack(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getAlbum(slug: string) {

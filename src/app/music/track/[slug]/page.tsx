@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TrackPage({ params }: Props) {
   await requireModule('music')
   const [{ slug }, locale, viewer, settings, layout] = await Promise.all([params, getServerLocale(), getViewer(), getModuleSettings('music'), getMusicSettings()])
-  const data = await getTrack(slug)
+  const data = await getTrack(slug, { recommendations: layout.showRelatedTracks })
   if (!data) notFound()
   const fa = locale === 'fa'
   const { track } = data
@@ -111,6 +111,10 @@ export default async function TrackPage({ params }: Props) {
             </section>
           )}
         </div>
+        {data.relatedTracks.length > 0 && <section className="mu-panel" aria-labelledby="music-related-tracks">
+          <header className="md-shelf-head"><h2 id="music-related-tracks">{fa ? 'آهنگ‌های هم‌سبک' : 'Similar tracks'}</h2></header>
+          <TrackList tracks={toPlayerTracks(data.relatedTracks, fa)} reasons={data.relatedTracks.map(item => fa ? item.recommendationReason : 'Shared genre')} />
+        </section>}
         <ReviewSection item={{ type: 'track', id: track.id }} title={name} path={`/music/track/${track.slug}`} />
         {album.length > 1 && data.moreFromArtist.length > 0 && (
           <section className="mu-panel">

@@ -7,6 +7,7 @@ type GameSource = { id: number; genres: string; platforms: string; developerStud
 type SoftwareSource = { id: number; category: string; platforms: string; developerStudioId: number | null; publisherStudioId: number | null }
 type CinemaSource = { id: number; genres: string; kind: string }
 type AlbumSource = { id: number; genre: string; artistId: number }
+type TrackSource = { id: number; genre: string; artistId: number }
 
 /** Game adapter: query a bounded public candidate pool, then rank exact shared terms. */
 export async function relatedGames(source: GameSource, take = 8): Promise<ContextualRecommendation[]> {
@@ -60,4 +61,18 @@ export async function relatedAlbums(source: AlbumSource, take = 8): Promise<Cont
     select: { id: true, genre: true, artistId: true, publishedAt: true },
   })
   return rankContextual({ type: 'album', id: source.id, topics: genres, platforms: [], creators: [source.artistId], publishedAt: now }, rows.map((row) => ({ id: row.id, topics: terms(row.genre), platforms: [], creators: [row.artistId], publishedAt: row.publishedAt })), take)
+}
+
+/** Cross-artist genre discovery complements the existing more-from-artist track list. */
+export async function relatedTracks(source: TrackSource, take = 8, excludedIds: readonly number[] = []): Promise<ContextualRecommendation[]> {
+  const genres = terms(source.genre)
+  if (!genres.length) return []
+  const now = new Date()
+  const insensitive = /^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '') ? { mode: 'insensitive' as const } : {}
+  const rows = await db.musicTrack.findMany({
+    where: { ...live(now), id: { notIn: [source.id, ...excludedIds.filter(id => Number.isSafeInteger(id) && id > 0).slice(0, 50)] }, artistId: { not: source.artistId }, OR: genres.map(genre => ({ genre: { contains: genre, ...insensitive } })) },
+    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 180,
+    select: { id: true, genre: true, artistId: true, publishedAt: true },
+  })
+  return rankContextual({ type: 'track', id: source.id, topics: genres, platforms: [], creators: [source.artistId], publishedAt: now }, rows.map(row => ({ id: row.id, topics: terms(row.genre), platforms: [], creators: [row.artistId], publishedAt: row.publishedAt })), take)
 }

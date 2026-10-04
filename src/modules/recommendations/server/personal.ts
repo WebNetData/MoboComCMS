@@ -1,12 +1,12 @@
 import { db } from '@/platform/database/prisma'
 import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
-import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware } from '@/modules/recommendations/server/contextual'
+import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware, relatedTracks } from '@/modules/recommendations/server/contextual'
 
 type Seed = { ref: ItemRef; kind: 'favorite' | 'view' | 'follow' }
 type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: Seed['kind']; reason: string }
 
-const supported = ['game', 'software', 'title', 'album']
+const supported = ['game', 'software', 'title', 'album', 'track']
 const followedCreators = ['artist', 'studio']
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 // Admin pause must take effect on the next request, including across separately bundled routes.
@@ -91,6 +91,11 @@ export async function personalRecommendations(userId: number, take = 6): Promise
       case 'album': {
         const row = await db.musicAlbum.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
         suggestions = row ? await relatedAlbums(row, 12) : []
+        break
+      }
+      case 'track': {
+        const row = await db.musicTrack.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
+        suggestions = row ? await relatedTracks(row, 12) : []
         break
       }
       default: continue

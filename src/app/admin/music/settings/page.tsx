@@ -57,6 +57,7 @@ export default function MusicSettingsPage() {
         <section className="sa-card">
           <header className="sa-card-head"><h2>نمایش و دسترسی</h2></header>
           <label className="sa-check"><input type="checkbox" checked={form.showLyrics} onChange={(e) => set({ showLyrics: e.target.checked })} />نمایش متن ترانه در صفحهٔ آهنگ</label>
+          <label className="sa-check"><input type="checkbox" checked={form.showRelatedTracks} onChange={(e) => set({ showRelatedTracks: e.target.checked })} />پیشنهاد آهنگ‌های هم‌سبک در صفحهٔ آهنگ</label>
           <p className="sa-hint">کیفیت ۳۲۰ و دانلود فقط برای VIP، و آدرس و سئوی بخش در <Link href="/admin/sections/music" className="sa-link">تنظیمات بخش و آدرس</Link> هستند.</p>
         </section>
       </div>
