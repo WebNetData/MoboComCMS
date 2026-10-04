@@ -5,6 +5,7 @@ import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { richTextToPlain } from '@/shared/content/sanitize'
 import { minorToNumber } from '@/shared/money'
 import { unitPrice } from '@/modules/store/server/pricing'
+import { publicProductRelationshipIds } from '@/modules/catalog/server/product-relationships'
 import {
   DEFAULT_STORE_SETTINGS, discountPercent, normalizeStoreSettings, type ShopQuery, type StoreSettings,
 } from '@/modules/store/domain/store'
@@ -220,10 +221,15 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
 // ------------------------------------------------------------------ product page
 
 export async function relatedProducts(product: { id: number; categoryId: number | null; brandId: number | null }, take = 12) {
-  const same = await productCards({ id: { not: product.id }, ...(product.categoryId ? { categoryId: product.categoryId } : product.brandId ? { brandId: product.brandId } : {}) }, [{ soldCount: 'desc' }, { id: 'desc' }], take)
-  if (same.length >= 4 || !product.categoryId) return same
-  const more = await productCards({ id: { notIn: [product.id, ...same.map((card) => card.id)] } }, [{ soldCount: 'desc' }], take - same.length)
-  return [...same, ...more]
+  const ids = (await getStoreSettings()).showProductRelationships ? await publicProductRelationshipIds(product.id, 'RELATED', take) : []
+  const explicit = ids.length ? await productCards({ id: { in: ids } }, [{ id: 'asc' }], take) : []
+  const cardsById = new Map(explicit.map(card => [card.id, card]))
+  const ordered = ids.flatMap(id => cardsById.has(id) ? [cardsById.get(id)!] : [])
+  if (ordered.length >= take) return ordered.slice(0, take)
+  const same = await productCards({ id: { notIn: [product.id, ...ordered.map(card => card.id)] }, ...(product.categoryId ? { categoryId: product.categoryId } : product.brandId ? { brandId: product.brandId } : {}) }, [{ soldCount: 'desc' }, { id: 'desc' }], take - ordered.length)
+  if (ordered.length + same.length >= 4 || !product.categoryId) return [...ordered, ...same]
+  const more = await productCards({ id: { notIn: [product.id, ...ordered.map(card => card.id), ...same.map(card => card.id)] } }, [{ soldCount: 'desc' }], take - ordered.length - same.length)
+  return [...ordered, ...same, ...more]
 }
 
 /** Best-effort view counter (never blocks the page). */

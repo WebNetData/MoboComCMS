@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: MoboCom editorial product relationships
+  version: 1.0.0
+  description: Scoped additive product tabs; existing URLs and other tab contracts remain unchanged.
+  contact:
+    name: MoboComCMS
+    url: https://github.com/WebNetData/MoboComCMS
+servers:
+  - url: /
+tags:
+  - name: Store
+    description: Directed editorial public product relationships.
+paths:
+  /api/products/{slug}/tabs:
+    get:
+      operationId: editorialProductRelationships
+      tags: [Store]
+      summary: Read complementary or compatible products
+      description: Requires public source, enabled Store and Admin rollout. Returns current public targets in editor order. Compatibility is an explicit directed editorial assertion, never inferred from purchases. Withdrawal and rollout pause preserve saved relationships.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Existing source-product slug.
+          schema: { type: string }
+        - name: tab
+          in: query
+          required: true
+          description: Choose the additive relationship tab.
+          schema: { type: string, enum: [complementary-products, compatible-products] }
+      responses:
+        '200':
+          description: Bounded public product cards; empty items are valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 12
+                    items:
+                      type: object
+                      required: [id, slug, name, nameEn, image, price, currency, kind]
+                      properties:
+                        id: { type: integer, minimum: 1 }
+                        slug: { type: string }
+                        name: { type: string }
+                        nameEn: { type: string }
+                        image: { type: string }
+                        price: { type: number }
+                        currency: { type: string }
+                        kind: { type: string }
+        '404':
+          description: Source missing or private, Store disabled or rollout paused.

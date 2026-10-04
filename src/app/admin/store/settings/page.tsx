@@ -67,6 +67,7 @@ export default function StoreSettingsPage() {
         <label className="sa-check"><input type="checkbox" checked={form.showBrands} onChange={(event) => update('showBrands', event.target.checked)} />نمایش برندهای محبوب</label>
         <label className="sa-check"><input type="checkbox" checked={form.showPriceHistory} onChange={(event) => update('showPriceHistory', event.target.checked)} />نمایش تاریخچهٔ قیمت عمومی محصول</label>
         <label className="sa-check"><input type="checkbox" checked={form.showFrequentlyBoughtTogether} onChange={(event) => update('showFrequentlyBoughtTogether', event.target.checked)} />نمایش محصولات خریداری‌شده همراه هم</label>
+        <label className="sa-check"><input type="checkbox" checked={form.showProductRelationships} onChange={(event) => update('showProductRelationships', event.target.checked)} />نمایش ارتباط‌های مرتبط، مکمل و سازگار محصول</label>
         <div className="sa-grid">
           <label className="sa-field"><span>بازهٔ بررسی خریدهای همراه (روز)</span><input className="input" type="number" min={30} max={365} step={1} value={form.frequentlyBoughtDays} onChange={(event) => update('frequentlyBoughtDays', Number(event.target.value))} /></label>
           <label className="sa-field"><span>حداقل تعداد خریداران مستقل</span><input className="input" type="number" min={3} max={100} step={1} value={form.frequentlyBoughtMinimumBuyers} onChange={(event) => update('frequentlyBoughtMinimumBuyers', Number(event.target.value))} /></label>

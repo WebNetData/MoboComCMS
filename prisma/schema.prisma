@@ -769,6 +769,8 @@ model Product {
   variants      ProductVariant[]
   reviews       ProductReview[]
   pricePoints   ProductPricePoint[]
+  outgoingRelationships ProductRelationship[] @relation("ProductRelationshipSource")
+  incomingRelationships ProductRelationship[] @relation("ProductRelationshipTarget")
   questions     ProductQuestion[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
@@ -785,6 +787,20 @@ model Product {
   @@index([active, soldCount])
   @@index([sellerId])
   @@index([pricingMode])
+}
+
+/// Directed editorial assertions; purchase-derived suggestions remain in Recommendations.
+model ProductRelationship {
+  id Int @id @default(autoincrement())
+  productId Int
+  targetId Int
+  kind String
+  position Int @default(0)
+  product Product @relation("ProductRelationshipSource", fields: [productId], references: [id], onDelete: Cascade)
+  target Product @relation("ProductRelationshipTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  @@unique([productId, kind, targetId])
+  @@index([productId, kind, position, id])
+  @@index([targetId])
 }
 
 /// Observed regular public prices; variantId 0 identifies the base product.
