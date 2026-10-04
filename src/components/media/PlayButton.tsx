@@ -26,7 +26,7 @@ export function PlayButton({ tracks, index = 0, variant = 'round', label }: { tr
 const fmt = (s: number) => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '')
 
 /** Numbered track list (album, playlist, charts). */
-export function TrackList({ tracks, numbered = true, showCover = true, chart = false, history }: { tracks: PlayerTrack[]; numbered?: boolean; showCover?: boolean; chart?: boolean; history?: { lastPlayedAt?: string; playCount?: number; positionSeconds?: number; durationSeconds?: number }[] }) {
+export function TrackList({ tracks, numbered = true, showCover = true, chart = false, history, reasons }: { tracks: PlayerTrack[]; numbered?: boolean; showCover?: boolean; chart?: boolean; reasons?: string[]; history?: { lastPlayedAt?: string; playCount?: number; positionSeconds?: number; durationSeconds?: number }[] }) {
   const player = usePlayer()
   const { locale } = useI18n()
   const fa = locale === 'fa'
@@ -43,6 +43,7 @@ export function TrackList({ tracks, numbered = true, showCover = true, chart = f
             <span className="mu-tl-meta">
               <Link href={`/music/track/${track.slug}`}><b>{track.title}</b></Link>
               <Link href={`/music/artist/${track.artistSlug}`} className="muted">{track.artist}</Link>
+              {reasons?.[i] && <small className="muted">{reasons[i]}</small>}
               {history?.[i] && <small className="muted">{history[i].lastPlayedAt && `${new Date(history[i].lastPlayedAt).toLocaleString(fa ? 'fa-IR' : 'en-US')} · `}{history[i].playCount && `${history[i].playCount.toLocaleString(fa ? 'fa-IR' : 'en-US')} ${fa ? 'بار پخش' : 'plays'}`}{history[i].positionSeconds && history[i].durationSeconds && history[i].durationSeconds - history[i].positionSeconds > 5 ? ` · ${fa ? 'ادامه از' : 'Resume at'} ${fmt(history[i].positionSeconds)}` : ''}</small>}
             </span>
             {track.access === 'MEMBERS' && <span className="vip-chip" title="VIP">♛ VIP</span>}

@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { MUSIC_HEALTH, normalizeMusicSettings, trackIssues, type MusicHealth, type MusicSettings } from '@/modules/music/domain/music'
+import { parseSettingsInput } from '@/shared/section-layout'
 
 // Music admin: home layout settings, catalogue dashboard and pickers.
 
@@ -13,7 +14,9 @@ export async function getMusicSettings(): Promise<MusicSettings> {
 }
 
 export async function saveMusicSettings(input: unknown): Promise<MusicSettings> {
-  const next = normalizeMusicSettings(input)
+  const raw = parseSettingsInput(input)
+  const current = await getMusicSettings()
+  const next = normalizeMusicSettings({ ...raw, showRelatedTracks: raw.showRelatedTracks === undefined ? current.showRelatedTracks : raw.showRelatedTracks })
   await writeJsonSetting(SETTINGS_KEY, next)
   return next
 }
