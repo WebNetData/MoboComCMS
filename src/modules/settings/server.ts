@@ -39,15 +39,18 @@ export async function writeJsonSetting(key: string, value: unknown) {
  * one app instance wins each slot.
  */
 export async function acquireLease(name: string, ttlMs: number): Promise<boolean> {
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new RangeError('Lease duration must be positive and finite')
   const key = `lease.${name}`
   const now = new Date()
   const until = new Date(now.getTime() + ttlMs).toISOString()
-  const { count } = await db.setting.updateMany({ where: { key, value: { lt: now.toISOString() } }, data: { value: until } })
-  if (count) return true
-  try {
-    await db.setting.create({ data: { key, value: until } })
-    return true
-  } catch {
-    return false // held by another instance (or created by it a moment ago)
-  }
+  // Conflict is normal contention, not a failed insert. The conditional upsert
+  // grants either the first slot or an expired one in a single database statement.
+  // Real database failures propagate to the scheduler's jobs.failed handler.
+  const rows = await db.$queryRaw<Array<{ key: string }>>`
+    INSERT INTO "Setting" ("key", "value") VALUES (${key}, ${until})
+    ON CONFLICT ("key") DO UPDATE SET "value" = excluded."value"
+    WHERE "Setting"."value" < ${now.toISOString()}
+    RETURNING "key"
+  `
+  return rows.length === 1
 }
