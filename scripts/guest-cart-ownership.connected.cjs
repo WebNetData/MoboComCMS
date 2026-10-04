@@ -18,7 +18,7 @@ function load(client) {
 const createCart = async userId => {const row = await db.cart.create({data: {userId, token: `${seed}-${carts.length}-cart`}}); carts.push(row.id); return row}
 async function main() {
  for (let i = 0; i < 4; i++) users.push(await db.user.create({data: {email: `${seed}-${i}@example.invalid`, passwordHash: 'test-only'}}))
- for (let i = 0; i < 3; i++) products.push(await db.product.create({data: {slug: `${seed}-${i}`, name: seed, price: 1, priceMinor: 100n, currency: 'USD', stock: 30, approval: 'APPROVED'}}))
+ for (let i = 0; i < 4; i++) products.push(await db.product.create({data: {slug: `${seed}-${i}`, name: seed, price: 1, priceMinor: 100n, currency: 'USD', stock: 30, approval: 'APPROVED'}}))
  const guest = await createCart(null)
  await db.cartLine.create({data: {cartId: guest.id, productId: products[0].id, quantity: 2}})
  let arrived = 0, release; const barrier = new Promise(resolve => {release = resolve})
@@ -41,7 +41,8 @@ async function main() {
  assert.equal(await db.cart.count({where: {id: source.id}}), 0)
  assert.deepEqual((await db.cartLine.findMany({where: {cartId: sameGuest.id}, orderBy: {productId: 'asc'}})).map(row => row.quantity), [1, 3])
  const rollbackSource = await createCart(null)
- await db.cartLine.createMany({data: [{cartId: rollbackSource.id, productId: products[2].id, quantity: 2}, {cartId: rollbackSource.id, productId: products[1].id, quantity: 4}]})
+ await db.cartLine.createMany({data: [{cartId: rollbackSource.id, productId: products[2].id, quantity: 2}, {cartId: rollbackSource.id, productId: products[3].id, quantity: 4}]})
+ // Two source-only lines: owned duplicates are settled without a write, so the second copy is the one that fails.
  const beforeTarget = await db.cartLine.findMany({where: {cartId: sameGuest.id}, orderBy: {id: 'asc'}})
  const beforeSource = await db.cartLine.findMany({where: {cartId: rollbackSource.id}, orderBy: {id: 'asc'}})
  const failure = new Error('owned fixture copy failure')

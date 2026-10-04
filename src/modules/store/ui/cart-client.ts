@@ -11,7 +11,7 @@ export type CartLine = {
 }
 export type Cart = {
   token: string; lines: CartLine[]; count: number; currency: string; itemsTotal: number; listTotal: number; saving: number
-  shipping: number; total: number; hasPhysical: boolean; blocked: boolean; shippingByAddress?: boolean
+  shipping: number; total: number; hasPhysical: boolean; blocked: boolean; shippingByAddress?: boolean; waiting?: number
 }
 export type CartResult = { ok: true; cart: Cart; limited?: boolean } | { ok: false; error: string; code: string; status: number }
 

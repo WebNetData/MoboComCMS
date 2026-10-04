@@ -57,6 +57,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
         <button type="button" className="sx-link is-danger" onClick={() => void clear()} disabled={busy !== null}><StoreIcon name="trash" size={16} />حذف همه</button>
       </header>
       {error && <p className="sx-alert" role="alert">{error}</p>}
+      {!!cart.waiting && <p className="sx-cart-hint is-warn" role="status">سبد خرید پر است. {fa(cart.waiting)} کالا که پیش از ورود انتخاب کرده بودید نگه داشته شده و با خالی شدن جا به سبد اضافه می‌شود.</p>}
       <ul className="sx-cart-lines">
         {cart.lines.map((line) => <li key={line.id} className={line.issue ? 'has-issue' : ''} aria-busy={busy === line.id}>
           <Link href={`/products/${line.slug}`} className="sx-cart-art">{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
