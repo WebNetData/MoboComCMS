@@ -232,7 +232,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
               </div>
             </div>
           </div>
-          <div className="journal-related-grid">
+          <div className="journal-related-grid journal-linked-grid">
             {linkedItems.map((item) => (
               <Link key={`${item.type}:${item.id}`} href={item.url} className="ln-card ln-card-plain">
                 {item.image && <span className="ln-card-art"><img src={item.image} alt="" loading="lazy" decoding="async" /></span>}
