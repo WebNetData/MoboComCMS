@@ -12,6 +12,7 @@ import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-el
 import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
 import { readProductPriceHistory } from '@/modules/catalog/server/price-history-read'
 import { readFrequentlyBoughtProducts } from '@/modules/catalog/server/frequently-bought'
+import { readEditorialProductCards } from '@/modules/catalog/server/product-relationship-read'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -74,8 +75,14 @@ export async function GET(req: NextRequest, { params }: Context) {
     return ok({ total, page, pages: Math.max(1, Math.ceil(total / 10)), items: rows.map(row => ({ ...row, user: { name: row.user?.name || row.guestName || 'Guest' } })) })
   }
   if (tab === 'related-products') {
-    const rows = await db.product.findMany({ where: { id: { not: product.id }, ...publicProductWhere, categoryId: product.categoryId || undefined }, orderBy: [{ featured: 'desc' }, { id: 'desc' }], take: 8, select: { id: true, slug: true, name: true, nameEn: true, image: true, price: true, currency: true, kind: true } })
-    return ok({ items: rows })
+    const explicit = (await readEditorialProductCards(product.id, 'RELATED'))?.items || []
+    if (explicit.length === 8) return ok({ items: explicit })
+    const rows = await db.product.findMany({ where: { id: { notIn: [product.id, ...explicit.map(row => row.id)] }, ...publicProductWhere, categoryId: product.categoryId || undefined }, orderBy: [{ featured: 'desc' }, { id: 'desc' }], take: 8 - explicit.length, select: { id: true, slug: true, name: true, nameEn: true, image: true, price: true, currency: true, kind: true } })
+    return ok({ items: [...explicit, ...rows] })
+  }
+  if (tab === 'complementary-products' || tab === 'compatible-products') {
+    const cards = await readEditorialProductCards(product.id, tab === 'compatible-products' ? 'COMPATIBLE' : 'COMPLEMENTARY')
+    return cards ? ok(cards) : err('not found', 404)
   }
   if (tab === 'related-posts') {
     if (!await isModuleEnabled('journal')) return ok({ items: [] })

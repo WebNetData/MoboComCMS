@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { ITEM_LABEL, LINKABLE } from '@/modules/content/domain/items'
+import { ITEM_LABEL, LINKABLE, type ItemType } from '@/modules/content/domain/items'
 
 type Link = { type: string; id: number }
 type Card = { type: string; id: number; title: string; titleEn?: string; url: string; image: string }
@@ -14,7 +14,8 @@ const EN: Record<string, string> = {
 }
 const linkKey = (link: Link) => `${link.type}:${link.id}`
 
-export default function PostItemLinks({ form, setForm }: { form: Record<string, any>; setForm: Dispatch<SetStateAction<Record<string, any>>> }) {
+export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/journal/link-items', types, heading, hint }: { form: Record<string, any>; setForm: Dispatch<SetStateAction<Record<string, any>>>; endpoint?: string; types?: readonly ItemType[]; heading?: { fa: string; en: string }; hint?: { fa: string; en: string } }) {
+  const inputId = useId()
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const links: Link[] = Array.isArray(form.itemLinks) ? form.itemLinks : []
@@ -38,7 +39,7 @@ export default function PostItemLinks({ form, setForm }: { form: Record<string, 
     setError(false)
     const params = new URLSearchParams({ type, refs: selectedKey })
     if (search.length >= 2) params.set('q', search)
-    fetch(`/api/admin/journal/link-items?${params}`, { signal: controller.signal })
+    fetch(`${endpoint}${endpoint.includes('?') ? '&' : '?'}${params}`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error('picker'); return response.json() })
       .then((data: { matches: Card[]; selected: Card[] }) => {
         if (controller.signal.aborted) return
@@ -48,7 +49,7 @@ export default function PostItemLinks({ form, setForm }: { form: Record<string, 
       .catch(() => { if (!controller.signal.aborted) setError(true) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [type, search, selectedKey])
+  }, [type, search, selectedKey, endpoint])
 
   const chosen = useMemo(() => new Set(links.map(linkKey)), [selectedKey])
   function add(card: Card) {
@@ -61,20 +62,21 @@ export default function PostItemLinks({ form, setForm }: { form: Record<string, 
   const cardTitle = (card: Card) => fa ? card.title : card.titleEn || card.title
   const label = (ref: Link) => { const card = details[linkKey(ref)]; return card ? cardTitle(card) : `#${ref.id}` }
 
-  return <section className="grid-column-span-3 card" aria-label={fa ? 'محتوای مرتبط' : 'Related content'}>
-    <h3>{fa ? 'محتوای مرتبط' : 'Related content'}</h3>
-    <p className="muted">{fa ? 'موارد انتخاب‌شده در صفحهٔ این مقاله نمایش داده می‌شوند.' : 'Selected items appear on this article page.'}</p>
+  const title = heading ? (fa ? heading.fa : heading.en) : fa ? 'محتوای مرتبط' : 'Related content'
+  return <section className="grid-column-span-3 card" aria-label={title}>
+    <h3>{title}</h3>
+    <p className="muted">{hint ? (fa ? hint.fa : hint.en) : fa ? 'موارد انتخاب‌شده در صفحهٔ این مقاله نمایش داده می‌شوند.' : 'Selected items appear on this article page.'}</p>
     <div className="flex flex-wrap gap-2 mb-3">
       {links.map((link) => <button type="button" className="btn btn-secondary" key={linkKey(link)} onClick={() => remove(link)} aria-label={fa ? `حذف ${label(link)}` : `Remove ${label(link)}`}>
         {label(link)} ×
       </button>)}
     </div>
-    <label htmlFor="post-item-type">{fa ? 'نوع محتوا' : 'Content type'}</label>
-    <select id="post-item-type" className="input" value={type} onChange={(event) => setType(event.target.value)}>
-      {LINKABLE.filter((value) => value !== 'post' && value !== 'thread').map((value) => <option key={value} value={value}>{fa ? ITEM_LABEL[value]?.one : EN[value] || value}</option>)}
+    <label htmlFor={`${inputId}-type`}>{fa ? 'نوع محتوا' : 'Content type'}</label>
+    <select id={`${inputId}-type`} className="input" value={type} onChange={(event) => setType(event.target.value)}>
+      {(types || LINKABLE).filter((value) => value !== 'post' && value !== 'thread').map((value) => <option key={value} value={value}>{fa ? ITEM_LABEL[value]?.one : EN[value] || value}</option>)}
     </select>
-    <label htmlFor="post-item-search">{fa ? 'جست‌وجوی مورد' : 'Search items'}</label>
-    <input id="post-item-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={fa ? 'نام یا شناسهٔ مورد' : 'Item name or slug'} autoComplete="off" />
+    <label htmlFor={`${inputId}-search`}>{fa ? 'جست‌وجوی مورد' : 'Search items'}</label>
+    <input id={`${inputId}-search`} className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={fa ? 'نام یا شناسهٔ مورد' : 'Item name or slug'} autoComplete="off" />
     {loading && <p className="muted" role="status">{fa ? 'در حال جست‌وجو…' : 'Searching…'}</p>}
     {error && <p role="alert">{fa ? 'دریافت موارد ناموفق بود.' : 'Could not load items.'}</p>}
     {!loading && !error && search.length >= 2 && matches.length === 0 && <p className="muted">{fa ? 'موردی پیدا نشد.' : 'No items found.'}</p>}

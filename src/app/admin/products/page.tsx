@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import AdminCrud, { type FieldDef } from '../cms/AdminCrud'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ProductExtrasEditor from './ProductExtrasEditor'
+import ProductRelationshipsEditor from './ProductRelationshipsEditor'
 
 export default function AdminProductsPage() {
   const { t, locale } = useI18n()
@@ -43,8 +44,8 @@ export default function AdminProductsPage() {
       type="products"
       fields={fields}
       extraRows={(row) => ({ categoryId: row.category?.name || '—' })}
-      editorExtraKeys={['specifications', 'variants', 'faqs', 'gallery']}
-      renderEditorExtra={(form, setForm) => <ProductExtrasEditor form={form} setForm={setForm} categories={cats} />}
+      editorExtraKeys={['specifications', 'variants', 'faqs', 'gallery', 'relationships']}
+      renderEditorExtra={(form, setForm, editId) => <><ProductExtrasEditor form={form} setForm={setForm} categories={cats} /><ProductRelationshipsEditor form={form} setForm={setForm} sourceId={editId} /></>}
     />
   )
 }
