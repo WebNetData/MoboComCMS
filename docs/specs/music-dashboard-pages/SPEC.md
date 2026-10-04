@@ -1,0 +1,7 @@
+# Music dashboard bounded reads
+
+Audit: the canonical Music admin service materializes every track, album, artist and recent download log for a response containing totals, a 30-day series and eight-row lists. Preserve that service, its authorization/API shape and the existing dashboard UI.
+
+Use database counts for album/draft/scheduled/empty-album totals. Scan live tracks, artists and recent downloads by increasing ID in 500-row pages. Keep eight top/worst cards after each page and accumulate the existing totals/health/Tehran-day series. Artist play sums retain one number per artist, so memory still grows with distinct artists; this does not claim constant memory or faster database scan time. Tie ordering becomes explicit ascending ID. Album publication and artist track/album count semantics remain unchanged. Database failures must fail the response rather than silently report zero downloads. No configuration, schema migration or public visual change.
+
+Verification: 501-row page-boundary and empty/failure tests, exact totals/rankings and Tehran midnight; compare live PostgreSQL totals/health/series against the preceding implementation with namespaced 501-track/download fixtures, authenticated API and guest denial, then cleanup. Run TypeScript/source/architecture/security and relevant full site suite; clean committed-source PostgreSQL build and GitHub gates before merge. Concurrent catalog mutations remain outside snapshot guarantees, as in the preceding implementation.
