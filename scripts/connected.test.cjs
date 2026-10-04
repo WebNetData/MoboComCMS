@@ -816,6 +816,38 @@ test('reseller bot public settings never expose credentials and webhook secrets 
   assert.equal(module.secretMatches('secret',null),false)
 })
 
+test('reseller delivery preserves readiness gates, claim idempotency and send retry states', async () => {
+  for (const scenario of ['missing', 'delivered', 'inactive', 'pending', 'no-link', 'claimed', 'success', 'send-failed']) {
+    const writes = [], sends = []
+    const db = {
+      resellerSale: {
+        findFirst: async () => scenario === 'missing' ? null : { id: 11, botId: 3, telegramChatId: '777', locale: 'fa', deliveredAt: scenario === 'delivered' ? new Date() : null },
+        updateMany: async args => { writes.push(args); return { count: scenario === 'claimed' ? 0 : 1 } },
+        update: async args => { writes.push(args); return args.data },
+      },
+      resellerBot: { findUnique: async () => ({ active: scenario !== 'inactive' }) },
+      subscription: { findFirst: async () => ({ id: 9, status: scenario === 'pending' ? 'PENDING' : 'ACTIVE', subToken: 'private-token' }) },
+    }
+    const module = load('src/modules/reseller/server/sale-delivery.ts', {
+      '@/platform/database/prisma': { db },
+      '@/modules/subscriptions/server/happ-protocol': { safeHappLink: async () => scenario === 'no-link' ? '' : 'https://example.invalid/private' },
+      '@/modules/reseller/server/bot-messages': { localized: (fa, en, text) => fa ? text : en, say: async (...args) => { sends.push(args); return { ok: scenario !== 'send-failed', description: 'unavailable' } } },
+    })
+    await module.deliverResellerSale(5)
+    if (!['claimed', 'success', 'send-failed'].includes(scenario)) { assert.equal(writes.length, 0); assert.equal(sends.length, 0); continue }
+    assert.equal(writes[0].where.deliveredAt, null)
+    assert.deepEqual(writes[0].where.OR.map(row => row.status), ['PROVISIONING', 'DELIVERING'])
+    assert.ok(writes[0].where.OR[1].updatedAt.lt < new Date())
+    if (scenario === 'claimed') { assert.equal(sends.length, 0); continue }
+    assert.equal(sends.length, 1); assert.equal(sends[0][1], '777')
+    assert.match(sends[0][2], /سفارش #11 آماده است/)
+    assert.equal(writes[1].data.status, scenario === 'success' ? 'FULFILLED' : 'PROVISIONING')
+    assert.equal(writes[1].data.subscriptionId, 9)
+    if (scenario === 'success') assert.ok(writes[1].data.deliveredAt instanceof Date)
+    else assert.equal(writes[1].data.lastError, 'unavailable')
+  }
+})
+
 test('reseller bot cannot charge a sale without a receipt or without owner approval',async()=>{
   let charges=0, lookups=0
   const row={id:3,resellerId:8,ownerTelegramId:'999',brandName:'Agency',active:true}

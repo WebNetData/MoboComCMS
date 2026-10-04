@@ -159,7 +159,7 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     if (!order || !customerUserId || !resellerId || !planId) throw new Error('reseller provision payload is incomplete')
     const existing = await db.subscription.findFirst({ where: { orderId: order.id } })
     if (existing && existing.status === 'ACTIVE' && existing.username !== 'pending') {
-      const { deliverResellerSale } = await import('@/modules/reseller/server/reseller-bot-sales')
+      const { deliverResellerSale } = await import('@/modules/reseller/server/sale-delivery')
       await deliverResellerSale(order.id).catch(() => {})
       return
     }
@@ -176,7 +176,7 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     })
     if (!result.ok || !result.subscriptionId) throw new Error(result.message || 'reseller provisioning failed')
     await notifySubscriptionReady(result.subscriptionId).catch(() => {})
-    const { deliverResellerSale } = await import('@/modules/reseller/server/reseller-bot-sales')
+    const { deliverResellerSale } = await import('@/modules/reseller/server/sale-delivery')
     await deliverResellerSale(order.id).catch(() => {})
     return
   }

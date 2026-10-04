@@ -64,7 +64,7 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     run: async (payload) => {
       const jobId = Number(payload.jobId)
       if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
-      const { runSlice } = await import('@/modules/imports/server/engine')
+      const { runSlice } = await import('@/modules/imports/server/execution')
       const result = await runSlice(jobId, 35_000)
       if (result.next) await enqueue('imports.run', { jobId })
       return { jobId, ...result }
@@ -75,7 +75,7 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     run: async (payload) => {
       const jobId = Number(payload.jobId)
       if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
-      const { rollbackSlice } = await import('@/modules/imports/server/engine')
+      const { rollbackSlice } = await import('@/modules/imports/server/execution')
       const result = await rollbackSlice(jobId, 35_000)
       if (result.next) await enqueue('imports.rollback', { jobId })
       return { jobId, ...result }
