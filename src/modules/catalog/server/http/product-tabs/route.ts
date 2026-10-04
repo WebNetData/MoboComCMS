@@ -9,25 +9,9 @@ import { livePostWhere } from '@/modules/journal/domain/journal'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
+import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
 
 type Context = { params: Promise<{ slug: string }> }
-const criteriaKeys = ['quality', 'value', 'usability'] as const
-
-function criteriaAverages(rows: { criteria: string }[]) {
-  const totals: Record<string, { sum: number; count: number }> = {}
-  for (const row of rows.slice(0, 500)) {
-    const parsed = parseJson<Record<string, unknown>>(row.criteria, {})
-    for (const key of criteriaKeys) {
-      const value = Number(parsed[key])
-      if (!Number.isFinite(value) || value < 1 || value > 5) continue
-      const slot = totals[key] || { sum: 0, count: 0 }
-      slot.sum += value
-      slot.count += 1
-      totals[key] = slot
-    }
-  }
-  return Object.fromEntries(criteriaKeys.map(key => [key, totals[key]?.count ? Math.round((totals[key].sum / totals[key].count) * 10) / 10 : 0]))
-}
 
 export async function GET(req: NextRequest, { params }: Context) {
   if (!await isStoreEnabled()) return err('not found', 404)
@@ -47,12 +31,12 @@ export async function GET(req: NextRequest, { params }: Context) {
   if (tab === 'reviews') {
     const where = { productId: product.id, status: 'APPROVED' }
     const user = await requireUser(req)
-    const [total, aggregate, breakdown, rows, criteriaRows, purchased, existing] = await Promise.all([
+    const [total, aggregate, breakdown, rows, criteria, purchased, existing] = await Promise.all([
       db.productReview.count({ where }),
       db.productReview.aggregate({ where, _avg: { rating: true } }),
       db.productReview.groupBy({ by: ['rating'], where, _count: { rating: true } }),
       db.productReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 10, take: 10, select: { id: true, rating: true, criteria: true, title: true, body: true, createdAt: true, user: { select: { name: true } } } }),
-      db.productReview.findMany({ where, select: { criteria: true }, take: 500 }),
+      productReviewCriteria(product.id),
       user ? hasVerifiedProductPurchase(user.id, product.id) : false,
       user ? db.productReview.findUnique({ where: { productId_userId: { productId: product.id, userId: user.id } } }) : null,
     ])
@@ -60,7 +44,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       total,
       average: aggregate._avg.rating || 0,
       breakdown: Object.fromEntries(breakdown.map(row => [row.rating, row._count.rating])),
-      criteria: criteriaAverages(criteriaRows),
+      criteria,
       canReview: Boolean(user) && purchased && !existing,
       signedIn: Boolean(user),
       hasReviewed: Boolean(existing),
