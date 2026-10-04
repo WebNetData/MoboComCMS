@@ -346,6 +346,35 @@ test('downloader: redirects are re-checked, limited, and size/time are enforced 
 
 // ------------------------------------------------------------------ wiring and architecture
 
+test('import commands preserve state guards and immediate background queue nudge', async () => {
+  const updates = [], queued = [], ran = [], logged = []
+  class ImportError extends Error {}
+  const core = { ImportError, adapterFor: () => ({}), ensureModule: async () => {}, settingsFor: () => ({ options: {} }), settingsHash: () => 'current' }
+  const commands = load('src/modules/imports/server/commands.ts', {
+    '@/platform/database/prisma': { db: { importJob: { update: async args => { updates.push(args); return args.data } } } },
+    '@/platform/observability/logger': { logEvent: (...args) => logged.push(args) },
+    '@/modules/imports/server/files': {}, '@/modules/imports/server/execution': core,
+    '@/modules/operations/server/queue': { enqueue: async (kind, payload) => queued.push({ kind, payload }), runQueue: async budget => { ran.push(budget); throw Error('queue nudge failure') } },
+  })
+  await assert.rejects(commands.startJob({ status: 'DONE' }, {}), ImportError)
+  await assert.rejects(commands.startJob({ status: 'DRAFT', dryRun: '{}' }, {}), ImportError)
+  assert.equal(updates.length, 0)
+  const job = { id: 7, status: 'DRAFT', fileHash: 'file', dryRun: JSON.stringify({ settingsHash: 'current', fileHash: 'file', total: 3 }) }
+  assert.equal((await commands.startJob(job, {})).status, 'QUEUED')
+  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'pause')
+  await commands.setJobState({ id: 7, status: 'PAUSED' }, 'resume')
+  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'cancel')
+  await assert.rejects(commands.startRollback({ id: 7, status: 'RUNNING' }), ImportError)
+  await commands.startRollback({ id: 7, status: 'DONE' })
+  assert.deepEqual(updates.map(update => update.data.status), ['QUEUED', 'PAUSED', 'QUEUED', 'CANCELLED', 'ROLLING_BACK'])
+  assert.deepEqual(queued.map(job => job.kind), ['imports.run', 'imports.run', 'imports.rollback'])
+  assert.ok(queued.every(job => job.payload.jobId === 7))
+  await new Promise(resolve => setTimeout(resolve, 150))
+  assert.deepEqual(ran, [40_000, 40_000, 40_000])
+  assert.ok(logged.every(args => args[1] === 'imports.queue_failed'))
+  assert.equal(logged.length, 3)
+})
+
 test('bulk import wiring: own permission, audit, real models, no parallel systems', () => {
   const rbac = read('src/modules/identity/rbac.ts')
   assert.match(rbac, /'imports\.manage'/)
@@ -354,7 +383,7 @@ test('bulk import wiring: own permission, audit, real models, no parallel system
   assert.match(routes, /adminGuard\(req, null, \['imports\.manage'\]\)/)
   assert.ok(!routes.includes('settings.manage'), 'imports never fall back to settings.manage')
   for (const action of ['import.file_uploaded', 'import.mapping_saved', 'import.template_created', 'import.started', 'import.paused', 'import.resumed', 'import.cancelled', 'import.rollback_started', 'import.variants_delete_confirmed']) assert.ok(routes.includes(`'${action}'`) || routes.includes(action.replace(/^import\./, '')), action)
-  const engine = read('src/modules/imports/server/engine.ts')
+  const engine = read('src/modules/imports/server/execution.ts')
   assert.match(engine, /'import\.completed'/)
   assert.match(engine, /'import\.rolled_back'/)
   assert.match(read('src/modules/operations/server/queue.ts'), /'imports\.run'/, 'slices run on the BackgroundJob queue')

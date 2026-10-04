@@ -170,11 +170,7 @@ export async function inbox(viewer: Viewer, boxInput: unknown, pageInput: unknow
   }
 }
 
-export async function unreadMessageCount(userId: number | null) {
-  if (!userId) return 0
-  const rows = await db.forumConversationUser.findMany({ where: { userId, left: false, archived: false }, select: { lastRead: true, conversation: { select: { postCount: true } } } })
-  return rows.filter((row) => row.lastRead < row.conversation.postCount).length
-}
+export { unreadMessageCount } from '@/modules/forum/server/message-counts'
 
 export async function getConversation(viewer: Viewer, conversationId: number, pageInput?: unknown) {
   const member = await membership(viewer, conversationId).catch(() => null)

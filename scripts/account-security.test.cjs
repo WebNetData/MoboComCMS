@@ -22,6 +22,36 @@ const totp = load('src/shared/security/totp')
 const verify = load('src/shared/security/totp-verify')
 const seals = load('src/modules/site/config/trust-seals')
 
+test('request token access uses the same startup auth secret without loading authentication providers', async () => {
+  const originalSecret = process.env.NEXTAUTH_SECRET, originalMode = process.env.NODE_ENV
+  const source = ts.transpileModule(read('src/modules/identity/server/access.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  function access() {
+    const mod = { exports: {} }
+    const requireAccess = name => {
+      if (name === 'next-auth/jwt') return { getToken: async ({ req, secret }) => ({ request: req, secret }) }
+      if (name === '@/platform/config/env') return load('src/platform/config/env')
+      if (name === '@/platform/database/prisma') return { db: {} }
+      if (name === '@/modules/identity/rbac') return { hasPermission: () => false, parsePermissions: () => null }
+      if (name === '@/modules/identity/domain/account-security') return sec
+      throw Error(`Unexpected access dependency: ${name}`)
+    }
+    new Function('require', 'module', 'exports', source)(requireAccess, mod, mod.exports)
+    return mod.exports
+  }
+  try {
+    process.env.NODE_ENV = 'development'; process.env.NEXTAUTH_SECRET = ' configured-test-secret '
+    const configured = access(), req = { fixture: true }
+    process.env.NEXTAUTH_SECRET = 'runtime-change'
+    assert.deepEqual(await configured.getRawToken(req), { request: req, secret: 'configured-test-secret' }, 'same startup snapshot as authOptions')
+    delete process.env.NEXTAUTH_SECRET
+    assert.equal((await access().getRawToken(req)).secret, 'dev-secret-change-me')
+    process.env.NODE_ENV = 'production'; assert.throws(access, /NEXTAUTH_SECRET is required/)
+  } finally {
+    if (originalSecret === undefined) delete process.env.NEXTAUTH_SECRET; else process.env.NEXTAUTH_SECRET = originalSecret
+    if (originalMode === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalMode
+  }
+})
+
 test('password policy refuses short, trivial and account-derived passwords', () => {
   assert.match(sec.passwordProblem('short'), /۸/)
   assert.match(sec.passwordProblem('a'.repeat(129)), /۱۲۸/)

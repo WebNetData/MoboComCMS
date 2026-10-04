@@ -14,11 +14,13 @@ if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Erro
 const m = `imp${Date.now().toString(36)}`
 const M = m.toUpperCase()
 const results = []
+const scope = process.env.IMPORT_TEST_SCOPE || 'full'
+if (!['full', 'modules'].includes(scope)) throw Error('Unknown IMPORT_TEST_SCOPE')
 const pass = (name) => { results.push(name); console.log(`PASS: ${name}`) }
 
 let cookie = ''
 async function session(user, roleId = null) {
-  return `next-auth.session-token=${await encode({ secret: process.env.NEXTAUTH_SECRET || 'dev-secret-change-me', token: { uid: String(user.id), role: 'ADMIN', roleId, email: user.email }, maxAge: 3600 })}`
+  return `next-auth.session-token=${await encode({ secret: process.env.NEXTAUTH_SECRET || 'dev-secret-change-me', token: { uid: String(user.id), role: 'ADMIN', roleId, email: user.email, authAt: Date.now() }, maxAge: 3600 })}`
 }
 async function call(body, as = cookie) {
   const response = await fetch(`${base}/api/admin/imports`, { method: 'POST', headers: { cookie: as, 'content-type': 'application/json', origin: base }, body: JSON.stringify(body) })
@@ -362,6 +364,12 @@ async function magazineCinemaMusic() {
   assert.deepEqual(post.categories.map((c) => c.category.name).sort(), [`Reviews ${m}`, `Tech ${m}`])
   assert.equal(await db.productCategory.count({ where: { name: { in: [`News ${m}`, `Tech ${m}`] } } }), 0, 'magazine categories never become store categories')
   pass('magazine uses Post / PostCategory / PostCategoryAssignment; HTML sanitized')
+  if (scope === 'modules') {
+    ok(await call({ op: 'rollback', id: r.id, confirm: true }), 'module rollback')
+    assert.equal((await waitJob(r.id)).status, 'ROLLED_BACK')
+    assert.equal(await db.post.findUnique({ where: { id: post.id } }), null)
+    pass('existing rollback command dispatches the worker and removes only its imported article')
+  }
 
   // Movie and series on CinemaTitle; seasons/episodes without duplicates
   r = await importFile('movies', `${m}-movies.json`, [{ id: `${m}-mv`, title: `Film ${m}`, imdb: 'tt9990001', year: 2024 }], { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title', imdbId: 'imdb', year: 'year' } })
@@ -455,6 +463,8 @@ async function jobsControl() {
 
 async function cleanup(admin) {
   const byMarker = { contains: m }
+  const jobs = await db.importJob.findMany({ where: { fileName: byMarker }, select: { id: true } })
+  await db.backgroundJob.deleteMany({ where: { kind: { in: ['imports.run', 'imports.rollback'] }, payload: { in: jobs.map(job => JSON.stringify({ jobId: job.id })) } } })
   const productIds = (await db.product.findMany({ where: { OR: [{ name: byMarker }, { sku: { contains: M } }] }, select: { id: true } })).map((p) => p.id)
   await db.productVariant.deleteMany({ where: { productId: { in: productIds } } })
   await db.product.deleteMany({ where: { id: { in: productIds } } })
@@ -477,24 +487,28 @@ async function cleanup(admin) {
 }
 
 async function main() {
-  const admin = await db.user.findFirst({ where: { role: 'ADMIN', status: 'ACTIVE', roleId: null } }) || await db.user.findFirst({ where: { role: 'ADMIN', status: 'ACTIVE' } })
-  assert.ok(admin, 'an admin account is required')
+  const admin = await db.user.create({ data: { email: `${m}-admin@example.invalid`, passwordHash: 'integration-only', role: 'ADMIN', totpEnabledAt: new Date() } })
   cookie = await session(admin, null)
   images = await imageServer()
   try {
-    await fixtures()
-    await security(admin)
-    await variable100()
-    await attributesAndOptions()
-    await variantPolicies()
-    await flatFile()
+    if (scope === 'full') {
+      await fixtures()
+      await security(admin)
+      await variable100()
+      await attributesAndOptions()
+      await variantPolicies()
+      await flatFile()
+    }
     await magazineCinemaMusic()
-    await mediaFailures()
-    await jobsControl()
-    console.log(`\n${results.length} integration scenarios passed`)
+    if (scope === 'full') {
+      await mediaFailures()
+      await jobsControl()
+    }
+    console.log(`\n${results.length} integration scenarios passed (scope: ${scope})`)
   } finally {
     images.server.close()
     await cleanup(admin).catch((error) => console.error('cleanup failed:', error.message))
+    await db.user.delete({ where: { id: admin.id } })
     await db.$disconnect()
   }
 }
