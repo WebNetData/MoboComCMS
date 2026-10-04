@@ -1,8 +1,8 @@
 # MoboCom Work State
 
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
-Current milestone: Complete the remaining brief autonomously under the active Goal; close Community privacy gaps first.
-Risk: Follow-list API previously bypassed private-profile visibility. Existing-conversation message blocks need review. Broad search still scans all matching rows, and production migrations/backup validation remain pending.
+Current milestone: Complete the remaining brief autonomously under the active Goal; validate Community and Forum privacy fixes, then continue capability delivery.
+Risk: Privacy checks are request-time checks rather than serializable ordering with concurrent block edits. Broad search still scans all matching rows, and production migrations/backup validation remain pending.
 Owner/contracts: `identity` owns canonical profiles, privacy and follow/block graph; `community` exposes its APIs/UI; `forum` owns existing private conversations.
 
 Decisions:
@@ -118,3 +118,4 @@ Next concrete action:
 - After the PR gates, audit remaining production readiness gaps using repository evidence; broad-query database/visibility scans still need measurement. Verify production backup/restore readiness and apply additive migrations on the real deployment when access is available.
 - PR #40 has now passed the final build and GitHub E2E (8m44s), merged as bdd65e0, and local main is synchronized. The public search slice is delivered; port 3000 readiness returned 200.
 - The next audit reproduced a private-profile follow-list API bypass. Identity now applies existing profile visibility and showFollows before graph reads; list/directory queries exclude blocked identities before pagination/counting, and follow lists exclude inactive users. Nineteen focused tests, TypeScript, source, architecture and security checks passed. The local PostgreSQL/API test passed guest/member/follower/owner/staff policies, both block directions and exact totals, then removed all six temporary identities. Linux test:site passed 458/458. This branch still needs its clean-source build/PR gates. Next audit: replies in preexisting Forum conversations after a user block.
+- PR #41 is open at 99a0f7e; its clean committed-source PostgreSQL build passed and GitHub E2E is pending. The next Forum audit reproduced block bypass through replies/group recipients and Admin-pause bypass through replies/invites. These now use existing Identity blocks and Forum settings before writes, preserving moderator exemption, low-trust existing replies and readable history/archive. Eighteen focused tests, TypeScript, source, architecture and security passed; connected PostgreSQL/API verified both block directions, group bypass, pause, denied side effects, history/archive and moderator behavior, restored settings and removed temporary identities, conversations, group and notification jobs. Linux test:site passed 462/462. This Forum slice is stacked on the privacy branch and still needs its build/PR gates. Continue the active Goal with remaining capability audits, including Music discovery beyond albums.

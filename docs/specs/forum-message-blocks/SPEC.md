@@ -1,0 +1,9 @@
+# Existing-conversation message controls
+
+Audit evidence: named new recipients use Identity's canMessage policy, but mentionable-group recipients bypassed block checks. Existing replies checked participant membership, suspension and silence, but neither blocks nor the central messagesEnabled setting. Invite also bypassed messagesEnabled.
+
+Extend Forum's existing message service using canonical Identity blockedIds. For ordinary senders, refuse a new/invited recipient or an active existing participant blocked in either direction. A group cannot bypass this check. A rejected reply writes no message, counter, archive state or notification. Preserve existing moderator exemption, participant-only history access, suspension/silence rules and existing low-trust participant reply permission. Recheck current active participants after a successful write before notifications, as before. Authorization is checked at request time; this does not promise serializable ordering with concurrent block changes.
+
+Reuse Admin's existing forum.settings.v1 messagesEnabled for new starts, replies and invitations. Existing history, archive/unarchive and leave remain available during a message pause. Moderator behavior is unchanged. Existing messages policy governs starting conversations; this slice does not apply a new policy to historical threads. No migration, parallel messenger, new identity, setting, route or response shape. Protected visuals remain unchanged.
+
+Acceptance: reproduce blocked reply/group bypass before correction; check denied side effects, both block directions, group recipients, paused reply/invite, history/archive, resumed reply and moderator exemption. Run focused Forum/Community tests, TypeScript/source/architecture/security, local PostgreSQL/API fixtures with setting restoration and queue cleanup, Linux site tests and clean-source PostgreSQL build.
