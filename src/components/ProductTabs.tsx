@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ProductPriceHistory from '@/components/store/ProductPriceHistory'
 
-type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products' | 'price-history'
+type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products' | 'price-history' | 'frequently-bought'
 type CriteriaKey = 'quality' | 'value' | 'usability'
 const tabs: { id: Tab; fa: string; en: string }[] = [
   { id: 'description', fa: 'توضیحات', en: 'Description' },
@@ -17,6 +17,7 @@ const tabs: { id: Tab; fa: string; en: string }[] = [
   { id: 'faq', fa: 'سوالات متداول', en: 'FAQ' },
   { id: 'related-posts', fa: 'مطالب مرتبط', en: 'Related articles' },
   { id: 'related-products', fa: 'محصولات مرتبط', en: 'Related products' },
+  { id: 'frequently-bought', fa: 'خریداری‌شده همراه هم', en: 'Frequently bought together' },
 ]
 // Stroke icons (24px grid) shown beside each tab and in the panel header.
 const tabIcons: Record<Tab, string> = {
@@ -28,6 +29,7 @@ const tabIcons: Record<Tab, string> = {
   faq: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16.5h.01',
   'related-posts': 'M5 4h11l3 3v13H5zM9 9h6M9 13h6M9 17h4',
   'related-products': 'M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8M12 12v8',
+  'frequently-bought': 'M4 8h6v12H4zM14 8h6v12h-6zM7 4v4M17 4v4M10 14h4',
 }
 function TabIcon({ id, size = 18 }: { id: Tab; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={tabIcons[id]} /></svg>
@@ -103,12 +105,13 @@ function panelHint(tab: Tab, fa: boolean) {
     case 'specifications': return fa ? 'جزئیات فنی دقیق برای مقایسه و انتخاب مطمئن' : 'Exact technical details'
     case 'faq': return fa ? 'پاسخ پرسش‌های پرتکرار خریداران' : 'Answers to common questions'
     case 'related-posts': return fa ? 'بررسی‌ها و آموزش‌های مرتبط از مجله' : 'Reviews and guides from the journal'
+    case 'frequently-bought': return fa ? 'محصولاتی که خریداران در یک سفارش همراه این کالا خریده‌اند؛ سازگاری فنی را پیش از خرید بررسی کنید.' : 'Products bought with this item in the same order. Check technical compatibility before purchasing.'
     default: return fa ? 'کالاهایی که شاید بپسندید' : 'Products you may like'
   }
 }
 
-export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating, reviewCount, questionCount = 0, showPriceHistory = false, historyVariants = [] }: { slug: string; descriptionFa: string; descriptionEn: string; rating: number; reviewCount: number; questionCount?: number; showPriceHistory?: boolean; historyVariants?: { id: number; name: string }[] }) {
-  const visibleTabs = tabs.filter(item => item.id !== 'price-history' || showPriceHistory)
+export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating, reviewCount, questionCount = 0, showPriceHistory = false, showFrequentlyBoughtTogether = false, historyVariants = [] }: { slug: string; descriptionFa: string; descriptionEn: string; rating: number; reviewCount: number; questionCount?: number; showPriceHistory?: boolean; showFrequentlyBoughtTogether?: boolean; historyVariants?: { id: number; name: string }[] }) {
+  const visibleTabs = tabs.filter(item => (item.id !== 'price-history' || showPriceHistory) && (item.id !== 'frequently-bought' || showFrequentlyBoughtTogether))
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const { status } = useSession()
@@ -163,7 +166,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
     applyHash()
     window.addEventListener('hashchange', applyHash)
     return () => window.removeEventListener('hashchange', applyHash)
-  }, [showPriceHistory])
+  }, [showPriceHistory, showFrequentlyBoughtTogether])
 
   function selectTab(next: Tab) {
     setTab(next)
@@ -227,7 +230,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
       {loadError && <p className="store-form-message" role="alert">{loadError}</p>}
       {!loading && !content && tab !== 'description' && tab !== 'price-history' && <button className="btn btn-ghost" type="button" onClick={() => void fetchTab(tab, page)}>{fa ? 'تلاش دوباره' : 'Retry'}</button>}
 
-      {(tab === 'description' || tab === 'specifications' || tab === 'faq' || tab === 'related-posts' || tab === 'related-products') && <header className="store-panel-head">
+      {(tab === 'description' || tab === 'specifications' || tab === 'faq' || tab === 'related-posts' || tab === 'related-products' || tab === 'frequently-bought') && <header className="store-panel-head">
         <span className="store-panel-icon"><TabIcon id={tab} size={22} /></span>
         <div><h2>{fa ? tabs.find(item => item.id === tab)?.fa : tabs.find(item => item.id === tab)?.en}</h2><p>{panelHint(tab, fa)}</p></div>
         {tab === 'specifications' && content?.fields?.length ? <span className="store-panel-badge num">{content.fields.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'ویژگی' : 'items'}</span> : null}
@@ -397,7 +400,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
         </div>
       </>}
 
-      {(tab === 'related-posts' || tab === 'related-products') && content && <div className="store-related-grid">{content.items?.length ? content.items.map((item: any) => <Link className="store-related-card" href={tab === 'related-posts' ? `/blog/${item.slug}` : `/products/${item.slug}`} key={item.id}><span className="store-related-art">{(item.image || item.cover) ? <img src={item.image || item.cover} alt="" loading="lazy" /> : <TabIcon id={tab} size={30} />}</span><strong>{fa ? item.title || item.name : item.titleEn || item.nameEn || item.title || item.name}</strong>{item.excerpt && <small>{fa ? item.excerpt : item.excerptEn || item.excerpt}</small>}</Link>) : <p className="store-panel-empty">{fa ? 'موردی یافت نشد.' : 'Nothing to show yet.'}</p>}</div>}
+      {(tab === 'related-posts' || tab === 'related-products' || tab === 'frequently-bought') && content && <div className="store-related-grid">{content.items?.length ? content.items.map((item: any) => <Link className="store-related-card" href={tab === 'related-posts' ? `/blog/${item.slug}` : `/products/${item.slug}`} key={item.id}><span className="store-related-art">{(item.image || item.cover) ? <img src={item.image || item.cover} alt="" loading="lazy" /> : <TabIcon id={tab} size={30} />}</span><strong>{fa ? item.title || item.name : item.titleEn || item.nameEn || item.title || item.name}</strong>{item.excerpt && <small>{fa ? item.excerpt : item.excerptEn || item.excerpt}</small>}</Link>) : <p className="store-panel-empty">{fa ? 'موردی یافت نشد.' : 'Nothing to show yet.'}</p>}</div>}
 
       {(tab === 'reviews' || tab === 'questions') && content?.pages > 1 && <div className="store-pagination"><button className="btn btn-ghost" disabled={page <= 1} onClick={() => setPage(n => n - 1)}>{fa ? 'قبلی' : 'Previous'}</button><span className="num">{page} / {content.pages}</span><button className="btn btn-ghost" disabled={page >= content.pages} onClick={() => setPage(n => n + 1)}>{fa ? 'بعدی' : 'Next'}</button></div>}
       {message && <p className="store-form-message" role="status">{message}</p>}

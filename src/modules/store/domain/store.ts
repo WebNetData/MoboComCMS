@@ -202,6 +202,9 @@ export type StoreSettings = {
   showPriceHistory: boolean
   priceHistoryDays: number
   priceDropNotifications: boolean
+  showFrequentlyBoughtTogether: boolean
+  frequentlyBoughtDays: number
+  frequentlyBoughtMinimumBuyers: number
   /** Trust badges under the product buy box. */
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -218,6 +221,9 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   showPriceHistory: false,
   priceHistoryDays: 365,
   priceDropNotifications: true,
+  showFrequentlyBoughtTogether: false,
+  frequentlyBoughtDays: 90,
+  frequentlyBoughtMinimumBuyers: 3,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
 }
@@ -258,6 +264,8 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
   const badges = raw.badges === undefined ? base.badges : list(raw.badges).map((badge) => cleanText(badge, 40)).filter(Boolean).slice(0, 6)
   const low = raw.lowStockDefault === undefined ? base.lowStockDefault : Math.floor(Number(raw.lowStockDefault))
   const historyDays = raw.priceHistoryDays === undefined ? base.priceHistoryDays : Number(raw.priceHistoryDays)
+  const purchaseDays = raw.frequentlyBoughtDays === undefined ? base.frequentlyBoughtDays : Number(raw.frequentlyBoughtDays)
+  const purchaseBuyers = raw.frequentlyBoughtMinimumBuyers === undefined ? base.frequentlyBoughtMinimumBuyers : Number(raw.frequentlyBoughtMinimumBuyers)
   return {
     slides,
     banners,
@@ -268,6 +276,9 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     showPriceHistory: raw.showPriceHistory === undefined ? base.showPriceHistory : raw.showPriceHistory === true,
     priceHistoryDays: Number.isSafeInteger(historyDays) && historyDays >= 30 && historyDays <= 730 ? historyDays : base.priceHistoryDays,
     priceDropNotifications: raw.priceDropNotifications === undefined ? base.priceDropNotifications : raw.priceDropNotifications === true,
+    showFrequentlyBoughtTogether: raw.showFrequentlyBoughtTogether === undefined ? base.showFrequentlyBoughtTogether : raw.showFrequentlyBoughtTogether === true,
+    frequentlyBoughtDays: Number.isSafeInteger(purchaseDays) && purchaseDays >= 30 && purchaseDays <= 365 ? purchaseDays : base.frequentlyBoughtDays,
+    frequentlyBoughtMinimumBuyers: Number.isSafeInteger(purchaseBuyers) && purchaseBuyers >= 3 && purchaseBuyers <= 100 ? purchaseBuyers : base.frequentlyBoughtMinimumBuyers,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
   }

@@ -176,7 +176,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
     </section>
   )
   const uspNode = <TrustStrip />
-  const tabsNode = <ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} showPriceHistory={storeSettings.showPriceHistory} historyVariants={buyVariants.map(({ id, name }) => ({ id, name }))} />
+  const tabsNode = <ProductTabs slug={product.slug} descriptionFa={htmlFa} descriptionEn={htmlEn} rating={reviewScore._avg.rating || 0} reviewCount={reviewCount} questionCount={questionCount} showPriceHistory={storeSettings.showPriceHistory} showFrequentlyBoughtTogether={storeSettings.showFrequentlyBoughtTogether} historyVariants={buyVariants.map(({ id, name }) => ({ id, name }))} />
   const slots = {
     'product-hero': heroNode,
     'product-gallery': <div className="store-product-hero-part">{galleryNode}</div>,
