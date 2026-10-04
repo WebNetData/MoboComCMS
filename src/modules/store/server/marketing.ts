@@ -10,7 +10,7 @@ import { cartView } from '@/modules/store/server/cart'
 import { legacyNumber, minorToNumber, toMinor } from '@/shared/money'
 import {
   MarketingError, dueStep, giftCardState, giftCode, giftCodeLooksValid, normalizeGift, normalizeGiftCode, normalizeLoyalty, normalizeRecovery, pointsFor, stockAlertAvailable,
-  redeemValue, reversalPoints, tierFor, tomanOf, validGiftAmount, type LoyaltySettings,
+  redeemValue, reversalPoints, tierFor, tomanOf, validGiftAmount, type LoyaltySettings, type RecoverySettings,
 } from '@/modules/store/domain/marketing'
 
 // Store marketing: "let me know when it's back", abandoned cart reminders,
@@ -122,41 +122,60 @@ export async function adminStockAlerts() {
 
 // ------------------------------------------------------------------ abandoned carts
 
-/** Sends the due reminder of every abandoned (signed-in) cart. */
-export async function runCartRecovery(now = new Date()) {
+/**
+ * Sends the due reminder of every abandoned (signed-in) cart. Each step selects
+ * only the carts that are due for it, so carts waiting for a later step never
+ * hold back the ones that are due, and one failing cart does not stop the rest.
+ */
+export async function runCartRecovery(now = new Date(), limit = 200) {
   const settings = await getRecoverySettings()
   if (!settings.enabled) return { sent: 0 }
-  const first = settings.steps[0].afterHours
-  const carts = await db.cart.findMany({
-    where: { userId: { not: null }, reminderCount: { lt: settings.steps.length }, updatedAt: { gte: new Date(now.getTime() - settings.maxAgeDays * 86_400_000), lte: new Date(now.getTime() - first * 3_600_000) }, lines: { some: {} } },
-    orderBy: { updatedAt: 'asc' }, take: 200,
-  })
+  const oldest = new Date(now.getTime() - settings.maxAgeDays * 86_400_000)
+  const handled = new Set<number>()
   let sent = 0
-  for (const cart of carts) {
-    const step = dueStep(settings, cart, now)
-    if (step === null || !cart.userId) continue
-    const stop = () => db.cart.updateMany({ where: { id: cart.id, reminderCount: cart.reminderCount }, data: { reminderCount: settings.steps.length, updatedAt: cart.updatedAt } })
-    // Bought since the cart last changed: nothing to remind about.
-    if (await db.order.count({ where: { userId: cart.userId, createdAt: { gte: cart.updatedAt }, status: { notIn: ['FAILED', 'CANCELLED', 'EXPIRED'] } } })) { await stop(); continue }
-    const view = await cartView({ userId: cart.userId, token: null })
-    const valueMinor = toMinor(view.itemsTotal, view.currency)
-    if (!view.lines.some((line) => !line.issue) || tomanOf(valueMinor, view.currency) < BigInt(settings.minValueToman)) { await stop(); continue }
-    // Claim the step (updatedAt kept, so the schedule is measured from the customer's last change).
-    const claimed = await db.cart.updateMany({ where: { id: cart.id, reminderCount: step }, data: { reminderCount: step + 1, remindedAt: now, updatedAt: cart.updatedAt } })
-    if (!claimed.count) continue
-    const current = settings.steps[step]
-    await db.cartReminder.create({ data: { cartId: cart.id, userId: cart.userId, step, valueMinor, currency: view.currency, couponCode: current.couponCode, sentAt: now } })
-    const items = view.lines.filter((line) => !line.issue)
-    const names = items.slice(0, 2).map((line) => line.name).join('، ') + (items.length > 2 ? ` و ${(items.length - 2).toLocaleString('fa-IR')} کالای دیگر` : '')
-    await notify({
-      userId: cart.userId, kind: 'CART_REMINDER', dedupeKey: `cart:${cart.id}:${step}:${cart.updatedAt.getTime()}`,
-      titleFa: 'سبد خرید شما منتظر شماست', titleEn: 'Your cart is waiting',
-      bodyFa: `${current.message} ${names}.${current.couponCode ? ` با کد تخفیف ${current.couponCode} خریدتان را کامل کنید.` : ''}`.slice(0, 300), bodyEn: 'Items are still in your cart.',
-      href: '/cart',
+  for (const [step, current] of settings.steps.entries()) {
+    const carts = await db.cart.findMany({
+      where: { userId: { not: null }, reminderCount: step, updatedAt: { gte: oldest, lte: new Date(now.getTime() - current.afterHours * 3_600_000) }, lines: { some: {} } },
+      orderBy: { updatedAt: 'asc' }, take: limit,
     })
-    sent++
+    for (const cart of carts) {
+      // At most one reminder per cart in a run, as before.
+      if (handled.has(cart.id) || dueStep(settings, cart, now) !== step || !cart.userId) continue
+      handled.add(cart.id)
+      try {
+        if (await remindCart({ ...cart, userId: cart.userId }, step, current, settings, now)) sent++
+      } catch (error) {
+        logEvent('warn', 'store.cart_reminder_failed', { cartId: cart.id, step, error: String(error) })
+      }
+    }
   }
   return { sent }
+}
+
+async function remindCart(cart: { id: number; userId: number; reminderCount: number; updatedAt: Date }, step: number, current: RecoverySettings['steps'][number], settings: RecoverySettings, now: Date) {
+  const unchanged = { id: cart.id, reminderCount: step, updatedAt: cart.updatedAt }
+  const stop = () => db.cart.updateMany({ where: unchanged, data: { reminderCount: settings.steps.length, updatedAt: cart.updatedAt } })
+  // Bought since the cart last changed: nothing to remind about.
+  if (await db.order.count({ where: { userId: cart.userId, createdAt: { gte: cart.updatedAt }, status: { notIn: ['FAILED', 'CANCELLED', 'EXPIRED'] } } })) { await stop(); return false }
+  const view = await cartView({ userId: cart.userId, token: null })
+  const valueMinor = toMinor(view.itemsTotal, view.currency)
+  if (!view.lines.some((line) => !line.issue) || tomanOf(valueMinor, view.currency) < BigInt(settings.minValueToman)) { await stop(); return false }
+  const items = view.lines.filter((line) => !line.issue)
+  const names = items.slice(0, 2).map((line) => line.name).join('، ') + (items.length > 2 ? ` و ${(items.length - 2).toLocaleString('fa-IR')} کالای دیگر` : '')
+  // The inbox event is deduplicated, so it is written first: a failed write leaves the step due for the next run.
+  await createInboxEvent({
+    userId: cart.userId, kind: 'CART_REMINDER', dedupeKey: `cart:${cart.id}:${step}:${cart.updatedAt.getTime()}`,
+    titleFa: 'سبد خرید شما منتظر شماست', titleEn: 'Your cart is waiting',
+    bodyFa: `${current.message} ${names}.${current.couponCode ? ` با کد تخفیف ${current.couponCode} خریدتان را کامل کنید.` : ''}`.slice(0, 300), bodyEn: 'Items are still in your cart.',
+    href: '/cart',
+  })
+  // Claim the step (updatedAt kept, so the schedule is measured from the customer's last change).
+  return db.$transaction(async (tx) => {
+    const claimed = await tx.cart.updateMany({ where: unchanged, data: { reminderCount: step + 1, remindedAt: now, updatedAt: cart.updatedAt } })
+    if (!claimed.count) return false
+    await tx.cartReminder.create({ data: { cartId: cart.id, userId: cart.userId, step, valueMinor, currency: view.currency, couponCode: current.couponCode, sentAt: now } })
+    return true
+  })
 }
 
 /** Credits the latest reminder with the order placed from the cart. */
