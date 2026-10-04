@@ -98,7 +98,7 @@ test('capture ignores irrelevant writes and persists only changed public observa
     $queryRaw: async () => [],
     product: { findUnique: async () => state },
     productVariant: { findMany: async ({ where, take, orderBy }) => { assert.equal(take, 200); assert.deepEqual(orderBy, { id: 'asc' }); cursors.push(where.id.gt); return variants.filter(row => row.active && row.id > where.id.gt).slice(0, take) } },
-    productPricePoint: { findFirst: async ({ where }) => records.findLast(row => row.variantId === where.variantId) || null, create: async ({ data }) => { records.push(data) } },
+    productPricePoint: { findFirst: async ({ where }) => records.findLast(row => row.variantId === where.variantId) || null, create: async ({ data }) => { records.push(data); return { id: records.length } } },
   }
   const service = load('src/modules/catalog/server/price-history.ts')
   const before = await service.prepareProductPriceCapture(tx, 1)

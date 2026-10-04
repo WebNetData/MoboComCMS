@@ -12,6 +12,15 @@ type Handler = (payload: Record<string, unknown>, job: { id: number; attempts: n
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { label: string; run: Handler }> = {
+  'store.price-drop': {
+    label: 'اعلان کاهش قیمت محصول',
+    run: async payload => {
+      const { deliverProductPriceDrop } = await import('@/modules/catalog/server/price-drop-notifications')
+      const result = await deliverProductPriceDrop(payload)
+      if (!result.done) await enqueue('store.price-drop', { ...payload, cursor: result.cursor }, { dedupeKey: `product-price-drop:${payload.pointId}:after:${result.cursor}` })
+      return result
+    },
+  },
   'store.price-history-baseline': {
     label: 'ثبت نقطهٔ شروع تاریخچهٔ قیمت محصولات',
     run: async payload => {

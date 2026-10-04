@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { publicPriceObservations, priceObservationChanged, type PriceObservation } from '@/modules/catalog/domain/price-history'
 
-type PricingTransaction = Pick<Prisma.TransactionClient, 'product' | 'productVariant' | 'productPricePoint' | '$queryRaw'>
+type PricingTransaction = Pick<Prisma.TransactionClient, 'product' | 'productVariant' | 'productPricePoint' | 'backgroundJob' | '$queryRaw'>
 
 /** Call before price writes in the same transaction, in product ID order for multi-product work. */
 export async function lockProductPricing(tx: PricingTransaction, productId: number) {
@@ -42,7 +42,12 @@ export async function capturePublicProductPrices(tx: PricingTransaction, product
     if (!priceObservationChanged(before.get(point.variantId) || null, point)) continue
     const previous = await tx.productPricePoint.findFirst({ where: { productId, variantId: point.variantId }, orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }], select: { amountMinor: true, currency: true } })
     if (!priceObservationChanged(previous, point)) continue
-    await tx.productPricePoint.create({ data: { productId, ...point, recordedAt: now } })
+    const recorded = await tx.productPricePoint.create({ data: { productId, ...point, recordedAt: now }, select: { id: true } })
+    const priorOffer = before.get(point.variantId)
+    if (point.variantId === 0 && priorOffer && priorOffer.currency === point.currency && point.amountMinor < priorOffer.amountMinor) {
+      // Same durable queue/transaction pattern as central Inbox, with no queue registry dependency.
+      await tx.backgroundJob.create({ data: { kind: 'store.price-drop', dedupeKey: `product-price-drop:${recorded.id}`, payload: JSON.stringify({ pointId: recorded.id, previousMinor: priorOffer.amountMinor.toString(), currency: point.currency, cursor: 0 }) } })
+    }
     changed++
   }
   return changed
