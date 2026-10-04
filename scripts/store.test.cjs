@@ -85,6 +85,23 @@ test('verified purchase lookup rejects invalid identities and products before re
   assert.equal(reads, 1)
 })
 
+test('product dimensions include all approved reviews through bounded pages', async () => {
+  const rows = Array.from({ length: 1001 }, (_, index) => ({ id: index + 1, criteria: JSON.stringify({ quality: index < 500 ? 1 : 5, value: '4' }) }))
+  rows.push({ id: 1002, criteria: 'not-json' }, { id: 1003, criteria: 'null' }, { id: 1004, criteria: '[5]' }, { id: 1005, criteria: '{"quality":8,"usability":3}' })
+  const cursors = []
+  const { productReviewCriteria } = load('src/modules/catalog/server/review-criteria.ts', {
+    '@/platform/database/prisma': { db: { productReview: { findMany: async ({ where, take, orderBy, select }) => {
+      assert.equal(where.productId, 4); assert.equal(where.status, 'APPROVED'); assert.equal(take, 500)
+      assert.deepEqual(orderBy, { id: 'asc' }); assert.deepEqual(select, { id: true, criteria: true })
+      cursors.push(where.id.gt); return rows.filter(row => row.id > where.id.gt).slice(0, take)
+    } } } },
+  })
+  assert.deepEqual(await productReviewCriteria(4), { quality: 3, value: 4, usability: 3 })
+  assert.deepEqual(cursors, [0, 500, 1000])
+  rows.length = 0
+  assert.deepEqual(await productReviewCriteria(4), { quality: 0, value: 0, usability: 0 })
+})
+
 test('guest questions are moderated and review criteria are server-derived', async () => {
   const { reviewScore } = load('src/modules/catalog/domain/review-score.ts')
   assert.deepEqual(reviewScore({ criteria: { quality: 5, value: 3, usability: 4 } }), {
