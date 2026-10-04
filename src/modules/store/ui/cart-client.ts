@@ -39,6 +39,7 @@ async function call(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown)
 
 export const loadCart = () => call('GET')
 export const addToCart = (productId: number, variantId: number | null, quantity = 1) => call('POST', { productId, variantId, quantity })
+export const addBundleToCart = (bundleId: number) => call('POST', { bundleId })
 export const setLineQuantity = (lineId: number, quantity: number) => call('PATCH', { lineId, quantity })
 export const emptyCart = () => call('DELETE')
 

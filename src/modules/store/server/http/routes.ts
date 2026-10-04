@@ -7,6 +7,7 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { getSettings } from '@/modules/settings/server'
 import { executeCheckout } from '@/modules/checkout/server/checkout'
 import { StoreError } from '@/modules/store/domain/store'
+import { addProductBundle } from '@/modules/store/server/bundles'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
 import { markCartRecovered } from '@/modules/store/server/marketing'
@@ -52,7 +53,8 @@ export async function POST_cart(req: NextRequest) {
   const who = await owner(req)
   const body = (await req.json().catch(() => null)) || {}
   try {
-    const added = await addToCart(who, body)
+    if (body.bundleId !== undefined && (body.productId !== undefined || body.variantId !== undefined || body.quantity !== undefined)) throw new StoreError('یک کالا یا یک بسته را انتخاب کنید')
+    const added = body.bundleId === undefined ? await addToCart(who, body) : await addProductBundle(who, body.bundleId)
     const view = await cartView({ ...who, token: added.token })
     return withCart({ cart: view, limited: added.limited }, view.token || added.token)
   } catch (error) { return failure(error) }

@@ -23,6 +23,8 @@ import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/jo
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
+import { parseProductBundles } from '@/modules/catalog/domain/product-bundles'
+import { replaceProductBundles } from '@/modules/catalog/server/product-bundles'
 import { replaceProductRelationships } from '@/modules/catalog/server/product-relationships'
 
 const PERM_MAP: Record<string, Permission> = {
@@ -78,7 +80,7 @@ export async function GET(req: NextRequest) {
   }
 
   const model = MODELS[type]()
-  const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
+  const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
@@ -100,7 +102,7 @@ export async function GET(req: NextRequest) {
   let result: any[] = rows
   if (type === 'posts') result = rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
-  if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
+  if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
   const published = type === 'posts' ? await model.count({ where: livePostWhere() }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
   return ok({ rows: result, total, overall: await model.count(), published, page: slice.page, pages: slice.pages })
@@ -203,6 +205,7 @@ export async function POST(req: NextRequest) {
     if (type === 'products') {
       const input = await productInput(b)
       const relationships = b?.relationships === undefined ? null : parseProductRelationships(b.relationships)
+      if (b?.bundles !== undefined && (!Array.isArray(b.bundles) || b.bundles.length)) throw Error("Save the product before composing bundles")
       const row = await db.$transaction(async tx => {
         const created = await tx.product.create({ data: input.data as any })
         if (input.variants) await saveVariants(tx, created.id, input.variants)
@@ -275,11 +278,13 @@ export async function PATCH(req: NextRequest) {
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const relationships = b?.relationships === undefined ? null : parseProductRelationships(b.relationships, id)
+      const bundles = b?.bundles === undefined ? null : parseProductBundles(b.bundles, id)
       const saved = await db.$transaction(async tx => {
         const pricesBefore = await prepareProductPriceCapture(tx, id)
         const row = await tx.product.update({ where: { id }, data: input.data as any })
         if (input.variants) await saveVariants(tx, id, input.variants)
         if (relationships) await replaceProductRelationships(tx, id, relationships)
+        if (bundles) await replaceProductBundles(tx, id, bundles)
         await capturePublicProductPrices(tx, id, pricesBefore)
         return row
       })

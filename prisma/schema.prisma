@@ -769,6 +769,8 @@ model Product {
   variants      ProductVariant[]
   reviews       ProductReview[]
   pricePoints   ProductPricePoint[]
+  bundles ProductBundle[] @relation("ProductBundleSource")
+  bundleComponents ProductBundleComponent[] @relation("BundleComponentProduct")
   outgoingRelationships ProductRelationship[] @relation("ProductRelationshipSource")
   incomingRelationships ProductRelationship[] @relation("ProductRelationshipTarget")
   questions     ProductQuestion[]
@@ -787,6 +789,35 @@ model Product {
   @@index([active, soldCount])
   @@index([sellerId])
   @@index([pricingMode])
+}
+
+/// Named fixed component selections; Store remains the pricing/cart/order owner.
+model ProductBundle {
+  id Int @id @default(autoincrement())
+  productId Int
+  name String
+  nameEn String @default("")
+  active Boolean @default(false)
+  position Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  product Product @relation("ProductBundleSource", fields: [productId], references: [id], onDelete: Cascade)
+  components ProductBundleComponent[]
+  @@index([productId, active, position, id])
+}
+
+model ProductBundleComponent {
+  id Int @id @default(autoincrement())
+  bundleId Int
+  productId Int?
+  variantKey Int @default(0)
+  quantity Int @default(1)
+  position Int @default(0)
+  bundle ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product Product? @relation("BundleComponentProduct", fields: [productId], references: [id], onDelete: SetNull)
+  @@unique([bundleId, productId, variantKey])
+  @@index([bundleId, position, id])
+  @@index([productId])
 }
 
 /// Directed editorial assertions; purchase-derived suggestions remain in Recommendations.
