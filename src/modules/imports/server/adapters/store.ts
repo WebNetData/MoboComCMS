@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { inheritedAttributeGroup, validateFields, validateSpecifications, type AttributeField } from '@/modules/catalog/server/product-config'
@@ -771,6 +772,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
   const mark = changes.length
   const result = await db.$transaction(async (tx) => {
     let productId: number
+    const pricesBefore = existing ? await prepareProductPriceCapture(tx, existing.id) : new Map()
     if (!existing) {
       row.slug = await uniqueSlug(tx, toText(data.values.slug, 100) || latinSlug(data.values.titleEn || data.values.title, 80) || latinSlug(data.values.sku, 60) || `product-${suffixOf(planned.sourceKey || planned.title)}`, 'product')
       row.approval = 'APPROVED'
@@ -847,6 +849,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
         }
       }
     }
+    await capturePublicProductPrices(tx, productId, pricesBefore)
     return productId
   }, { timeout: 30_000 }).catch((error) => { changes.length = mark; throw error })
   const owners = (ctx.cache.get('variantSkus') as Map<string, number> | undefined) || new Map<string, number>()
@@ -862,13 +865,22 @@ async function rollback(changes: Change[]) {
   for (const change of [...changes].reverse()) {
     let problem: string | null = null
     if (change.entity === 'product') {
-      problem = await undoChange(change, 'product', {
-        label: 'محصول', dates: ['saleEndsAt'], bigints: ['priceMinor', 'compareAtMinor'],
-        canDelete: async (id) => {
-          const [orders, lines, invoices, reviews] = await Promise.all([db.order.count({ where: { productId: id } }), db.orderLine.count({ where: { productId: id } }), db.invoice.count({ where: { productId: id } }), db.productReview.count({ where: { productId: id } })])
-          return orders + lines + invoices + reviews ? 'سفارش، فاکتور یا دیدگاه دارد' : null
-        },
-      })
+      if (change.kind === 'updated') {
+        problem = await db.$transaction(async tx => {
+          const before = await prepareProductPriceCapture(tx, change.id)
+          const conflict = await undoChange(change, 'product', { client: tx, label: 'محصول', dates: ['saleEndsAt'], bigints: ['priceMinor', 'compareAtMinor'] })
+          if (!conflict) await capturePublicProductPrices(tx, change.id, before)
+          return conflict
+        })
+      } else {
+        problem = await undoChange(change, 'product', {
+          label: 'محصول', dates: ['saleEndsAt'], bigints: ['priceMinor', 'compareAtMinor'],
+          canDelete: async (id) => {
+            const [orders, lines, invoices, reviews] = await Promise.all([db.order.count({ where: { productId: id } }), db.orderLine.count({ where: { productId: id } }), db.invoice.count({ where: { productId: id } }), db.productReview.count({ where: { productId: id } })])
+            return orders + lines + invoices + reviews ? 'سفارش، فاکتور یا دیدگاه دارد' : null
+          },
+        })
+      }
     } else if (change.entity === 'productVariant') {
       if (change.kind === 'created') {
         const row = await db.productVariant.findUnique({ where: { id: change.id } })
@@ -879,14 +891,24 @@ async function rollback(changes: Change[]) {
           else if (used) problem = `تنوع #${change.id} در سفارش‌ها استفاده شده؛ حذف نشد`
           else await db.productVariant.delete({ where: { id: change.id } })
         }
-      } else problem = await undoChange(change, 'productVariant', { label: 'تنوع', bigints: ['priceMinor', 'compareAtMinor'] })
+      } else problem = await db.$transaction(async tx => {
+        const variant = await tx.productVariant.findUnique({ where: { id: change.id }, select: { productId: true } })
+        const before = variant ? await prepareProductPriceCapture(tx, variant.productId) : new Map()
+        const conflict = await undoChange(change, 'productVariant', { client: tx, label: 'تنوع', bigints: ['priceMinor', 'compareAtMinor'] })
+        if (!conflict && variant) await capturePublicProductPrices(tx, variant.productId, before)
+        return conflict
+      })
     } else if (change.entity === 'deletedVariant') {
       // A variant this import deleted comes back with its old values.
       const saved = (change.kind === 'created' ? JSON.parse(change.stamp || '{}') : {}) as Record<string, unknown>
       const taken = await db.productVariant.findUnique({ where: { sku: String(saved.sku) } })
       const product = await db.product.findUnique({ where: { id: Number(saved.productId) }, select: { id: true } })
       if (taken || !product) problem = `تنوع حذف‌شدهٔ «${saved.sku}» قابل بازگرداندن نیست`
-      else await db.productVariant.create({ data: { productId: product.id, sku: String(saved.sku), name: String(saved.name), attributes: String(saved.attributes), price: Number(saved.price), priceMinor: BigInt(String(saved.priceMinor)), compareAtMinor: BigInt(String(saved.compareAtMinor)), stock: Number(saved.stock), active: saved.active === true, image: String(saved.image || '') } })
+      else await db.$transaction(async tx => {
+        const before = await prepareProductPriceCapture(tx, product.id)
+        await tx.productVariant.create({ data: { productId: product.id, sku: String(saved.sku), name: String(saved.name), attributes: String(saved.attributes), price: Number(saved.price), priceMinor: BigInt(String(saved.priceMinor)), compareAtMinor: BigInt(String(saved.compareAtMinor)), stock: Number(saved.stock), active: saved.active === true, image: String(saved.image || '') } })
+        await capturePublicProductPrices(tx, product.id, before)
+      })
     } else if (change.entity === 'productCategory') {
       if (change.kind === 'updated') problem = await undoChange(change, 'productCategory', { label: 'دسته' })
       else {

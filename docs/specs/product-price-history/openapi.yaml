@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: MoboCom product price history contract
+  version: 1.0.0
+  description: Additive price-history tab on the existing product tabs endpoint. Other tabs retain their existing responses.
+  contact:
+    name: MoboComCMS
+    url: https://github.com/WebNetData/MoboComCMS
+servers:
+  - url: /
+tags:
+  - name: Store
+    description: Public store price observations.
+paths:
+  /api/products/{slug}/tabs:
+    get:
+      operationId: productPriceHistory
+      tags: [Store]
+      summary: Read recorded public regular prices
+      description: Store and history settings must be enabled and the product approved and active. Only the current currency and configured 30–730-day window are returned. Values are exact minor-unit strings. This scoped contract documents tab=price-history only. Prices before recording began are not reconstructed.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Existing public product slug.
+          schema: { type: string }
+        - name: tab
+          in: query
+          required: true
+          description: Select this additive tab.
+          schema: { type: string, enum: [price-history] }
+        - name: variantId
+          in: query
+          description: Zero or omitted for base product; otherwise an active variant owned by this product.
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: At most 120 recent points, ordered oldest to newest with ID as tie breaker. Empty items are valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [variantId, currency, days, truncated, items]
+                properties:
+                  variantId: { type: integer, minimum: 0 }
+                  currency: { type: string }
+                  days: { type: integer, minimum: 30, maximum: 730 }
+                  truncated: { type: boolean, description: More than 120 observations exist in this window. }
+                  items:
+                    type: array
+                    maxItems: 120
+                    items:
+                      type: object
+                      required: [id, amountMinor, recordedAt]
+                      properties:
+                        id: { type: integer }
+                        amountMinor: { type: string, pattern: '^[0-9]+$' }
+                        recordedAt: { type: string, format: date-time }
+        '404':
+          description: Product or variant missing/private/inactive, Store disabled or public history disabled; no history data returned.

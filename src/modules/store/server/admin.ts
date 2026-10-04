@@ -4,6 +4,7 @@ import { contentChanged } from '@/modules/content/server/events'
 import { legacyNumber, minorToNumber, normalizeCurrency } from '@/shared/money'
 import { StoreError, validateBrand } from '@/modules/store/domain/store'
 import { getStoreSettings } from '@/modules/store/server/catalog'
+import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { ADMIN_TABS, adminOrders } from '@/modules/store/server/orders'
 
 const STORE_ORDER: Prisma.OrderWhereInput = { productId: { not: null } }
@@ -159,6 +160,17 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
   const simple: Partial<Record<BulkAction, Prisma.ProductUpdateManyMutationInput>> = {
     activate: { active: true }, deactivate: { active: false }, feature: { featured: true }, unfeature: { featured: false },
   }
+  if (action === 'activate' || action === 'deactivate') {
+    let changed = 0
+    await db.$transaction(async tx => {
+      for (const id of [...ids].sort((a, b) => a - b)) {
+        const before = await prepareProductPriceCapture(tx, id)
+        const result = await tx.product.updateMany({ where: { id }, data: simple[action]! })
+        if (result.count) { await capturePublicProductPrices(tx, id, before); changed++ }
+      }
+    }, { timeout: 60000 })
+    return { changed }
+  }
   if (simple[action]) return { changed: (await db.product.updateMany({ where, data: simple[action]! })).count }
   if (action === 'category') {
     const categoryId = input.value === '' || input.value === null ? null : Number(input.value)
@@ -206,7 +218,10 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
   const skippedFx = all.length - products.length
   let changed = 0
   await db.$transaction(async (tx) => {
-    for (const product of products) {
+    for (const candidate of [...products].sort((a, b) => a.id - b.id)) {
+      const pricesBefore = await prepareProductPriceCapture(tx, candidate.id)
+      const product = await tx.product.findUnique({ where: { id: candidate.id }, include: { variants: true } })
+      if (!product || product.pricingMode === 'FX') continue
       const currency = normalizeCurrency(product.currency)
       const next = (minor: bigint, compareAt: bigint) => {
         if (action === 'price') return { price: roundTo((minor * (10_000n + bps)) / 10_000n, step), compareAt: compareAt ? roundTo((compareAt * (10_000n + bps)) / 10_000n, step) : 0n }
@@ -230,9 +245,10 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
         await tx.productVariant.update({ where: { id: variant.id }, data: { priceMinor: priced.price, price: legacyNumber(priced.price, currency), compareAtMinor: priced.compareAt, memberPriceMinor } })
       }
       if (product.memberPriceMinor >= own.price) await tx.product.update({ where: { id: product.id }, data: { memberPriceMinor: 0n } })
+      await capturePublicProductPrices(tx, product.id, pricesBefore)
       changed++
     }
-  })
+  }, { timeout: 60000 })
   return { changed, skippedFx }
 }
 

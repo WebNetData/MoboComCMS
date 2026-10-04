@@ -509,3 +509,14 @@
 .sx-stock-alert { display: grid; gap: 6px; }
 .sx-stock-alert .sx-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .sx-stock-note { margin: 0; font-size: 12px; color: var(--sx-muted); text-align: center; line-height: 1.8; }
+/* Product price history follows the existing product-panel colors in both themes. */
+.store-history-select { display: grid; gap: .5rem; max-width: 28rem; margin-block: 1rem; }
+.store-history-note { color: var(--sx-muted); line-height: 2; overflow-wrap: anywhere; }
+.store-price-history { min-width: 0; }
+.store-history-chart { display: block; width: 100%; max-height: 16rem; color: var(--sx-accent); direction: ltr; }
+.store-history-table { overflow: auto; max-height: 24rem; margin-block: 1rem; border: 1px solid var(--sx-line); border-radius: 12px; }
+.store-history-table table { width: 100%; border-collapse: collapse; text-align: start; }
+.store-history-table caption { padding: .75rem; text-align: start; }
+.store-history-table th, .store-history-table td { padding: .75rem 1rem; border-block-start: 1px solid var(--sx-line); text-align: start; }
+.store-history-table th { color: var(--sx-muted); }
+.store-history-table td { white-space: nowrap; }

@@ -768,6 +768,7 @@ model Product {
   seller        Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   variants      ProductVariant[]
   reviews       ProductReview[]
+  pricePoints   ProductPricePoint[]
   questions     ProductQuestion[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
@@ -784,6 +785,19 @@ model Product {
   @@index([active, soldCount])
   @@index([sellerId])
   @@index([pricingMode])
+}
+
+/// Observed regular public prices; variantId 0 identifies the base product.
+model ProductPricePoint {
+  id          Int      @id @default(autoincrement())
+  productId   Int
+  variantId   Int      @default(0)
+  amountMinor BigInt
+  currency    String
+  recordedAt  DateTime @default(now())
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, variantId, recordedAt, id])
 }
 
 model ProductVariant {

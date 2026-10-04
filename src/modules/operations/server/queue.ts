@@ -12,6 +12,15 @@ type Handler = (payload: Record<string, unknown>, job: { id: number; attempts: n
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { label: string; run: Handler }> = {
+  'store.price-history-baseline': {
+    label: 'ثبت نقطهٔ شروع تاریخچهٔ قیمت محصولات',
+    run: async payload => {
+      const { baselineProductPrices } = await import('@/modules/catalog/server/price-history-baseline')
+      const result = await baselineProductPrices(payload.cursor ?? 0)
+      if (!result.done) await enqueue('store.price-history-baseline', { cursor: result.cursor }, { dedupeKey: `price-history-baseline:${result.cursor}` })
+      return result
+    },
+  },
   'notification.deliver': {
     label: 'تحویل اعلان کاربر',
     run: async (payload) => {

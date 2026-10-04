@@ -4,12 +4,14 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import ProductPriceHistory from '@/components/store/ProductPriceHistory'
 
-type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products'
+type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products' | 'price-history'
 type CriteriaKey = 'quality' | 'value' | 'usability'
 const tabs: { id: Tab; fa: string; en: string }[] = [
   { id: 'description', fa: 'توضیحات', en: 'Description' },
   { id: 'specifications', fa: 'مشخصات فنی', en: 'Specifications' },
+  { id: 'price-history', fa: 'تاریخچهٔ قیمت', en: 'Price history' },
   { id: 'reviews', fa: 'دیدگاه کاربران', en: 'Reviews' },
   { id: 'questions', fa: 'پرسش و پاسخ', en: 'Questions' },
   { id: 'faq', fa: 'سوالات متداول', en: 'FAQ' },
@@ -20,6 +22,7 @@ const tabs: { id: Tab; fa: string; en: string }[] = [
 const tabIcons: Record<Tab, string> = {
   description: 'M4 5h16M4 10h16M4 15h10M4 20h7',
   specifications: 'M9 4h6v4H9zM5 8h14v12H5zM9 12h6M9 16h4',
+  'price-history': 'M4 4v16h16M7 15l4-5 4 2 5-7',
   reviews: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z',
   questions: 'M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12zM9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5M12 16.5h.01',
   faq: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16.5h.01',
@@ -104,7 +107,8 @@ function panelHint(tab: Tab, fa: boolean) {
   }
 }
 
-export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating, reviewCount, questionCount = 0 }: { slug: string; descriptionFa: string; descriptionEn: string; rating: number; reviewCount: number; questionCount?: number }) {
+export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating, reviewCount, questionCount = 0, showPriceHistory = false, historyVariants = [] }: { slug: string; descriptionFa: string; descriptionEn: string; rating: number; reviewCount: number; questionCount?: number; showPriceHistory?: boolean; historyVariants?: { id: number; name: string }[] }) {
+  const visibleTabs = tabs.filter(item => item.id !== 'price-history' || showPriceHistory)
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const { status } = useSession()
@@ -128,6 +132,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
   const content = data[cacheKey]
 
   const fetchTab = async (selected: Tab, selectedPage: number) => {
+    if (selected === 'price-history') return
     const key = keyFor(selected, selectedPage)
     if (data[key]) return
     setLoading(true)
@@ -147,8 +152,8 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
   useEffect(() => {
     const applyHash = () => {
       const id = window.location.hash.replace(/^#/, '')
-      const found = tabs.find(item => `store-tab-${item.id}` === id)
-      if (!found || found.id === tab) return
+      const found = visibleTabs.find(item => `store-tab-${item.id}` === id)
+      if (!found) return
       setTab(found.id)
       setPage(1)
       setBody('')
@@ -158,7 +163,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
     applyHash()
     window.addEventListener('hashchange', applyHash)
     return () => window.removeEventListener('hashchange', applyHash)
-  }, [tab])
+  }, [showPriceHistory])
 
   function selectTab(next: Tab) {
     setTab(next)
@@ -170,13 +175,13 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
 
   // WAI-ARIA tabs: arrows move between tabs (reversed in RTL), Home/End jump to the ends.
   function onTabKey(event: KeyboardEvent<HTMLDivElement>) {
-    const index = tabs.findIndex(item => item.id === tab)
+    const index = visibleTabs.findIndex(item => item.id === tab)
     const rtl = getComputedStyle(event.currentTarget).direction === 'rtl'
     const step = event.key === 'ArrowLeft' ? (rtl ? 1 : -1) : event.key === 'ArrowRight' ? (rtl ? -1 : 1) : 0
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : step ? (index + step + tabs.length) % tabs.length : -1
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1 : step ? (index + step + visibleTabs.length) % visibleTabs.length : -1
     if (next < 0) return
     event.preventDefault()
-    selectTab(tabs[next].id)
+    selectTab(visibleTabs[next].id)
     listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
   }
 
@@ -215,12 +220,12 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
 
   return <section className="store-tabs-section" aria-label={fa ? 'جزئیات محصول' : 'Product details'}>
     <div className="store-tab-list" role="tablist" aria-label={fa ? 'بخش‌های محصول' : 'Product sections'} ref={listRef} onKeyDown={onTabKey}>
-      {tabs.map(item => <button type="button" role="tab" id={`store-tab-${item.id}`} aria-controls={`store-panel-${item.id}`} aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} className={`store-tab ${tab === item.id ? 'active' : ''}`} key={item.id} onClick={() => selectTab(item.id)}><TabIcon id={item.id} /><span>{fa ? item.fa : item.en}</span>{counts[item.id] ? <span className="store-tab-count num">{counts[item.id]}</span> : null}</button>)}
+      {visibleTabs.map(item => <button type="button" role="tab" id={`store-tab-${item.id}`} aria-controls={`store-panel-${item.id}`} aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} className={`store-tab ${tab === item.id ? 'active' : ''}`} key={item.id} onClick={() => selectTab(item.id)}><TabIcon id={item.id} /><span>{fa ? item.fa : item.en}</span>{counts[item.id] ? <span className="store-tab-count num">{counts[item.id]}</span> : null}</button>)}
     </div>
     <div className="store-tab-panel" role="tabpanel" id={`store-panel-${tab}`} aria-labelledby={`store-tab-${tab}`} aria-busy={loading}>
       {loading && !content && <div className="store-loading" role="status"><span aria-hidden="true" />{fa ? 'در حال بارگذاری…' : 'Loading…'}</div>}
       {loadError && <p className="store-form-message" role="alert">{loadError}</p>}
-      {!loading && !content && tab !== 'description' && <button className="btn btn-ghost" type="button" onClick={() => void fetchTab(tab, page)}>{fa ? 'تلاش دوباره' : 'Retry'}</button>}
+      {!loading && !content && tab !== 'description' && tab !== 'price-history' && <button className="btn btn-ghost" type="button" onClick={() => void fetchTab(tab, page)}>{fa ? 'تلاش دوباره' : 'Retry'}</button>}
 
       {(tab === 'description' || tab === 'specifications' || tab === 'faq' || tab === 'related-posts' || tab === 'related-products') && <header className="store-panel-head">
         <span className="store-panel-icon"><TabIcon id={tab} size={22} /></span>
@@ -231,6 +236,8 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
       {tab === 'description' && content && (String(fa ? content.htmlFa : content.htmlEn || '').trim() ? <div className="store-description prose" dangerouslySetInnerHTML={{ __html: fa ? content.htmlFa : content.htmlEn }} /> : <p className="store-panel-empty">{fa ? 'توضیحی برای این محصول ثبت نشده است.' : 'No description yet.'}</p>)}
 
       {tab === 'specifications' && content && (content.fields?.length ? <dl className="store-spec-list">{content.fields.map((field: any) => <div key={field.key}><dt>{fa ? field.label : field.labelEn || field.label}</dt><dd>{field.value}</dd></div>)}</dl> : <p className="store-panel-empty">{fa ? 'مشخصاتی برای این محصول ثبت نشده است.' : 'No specifications are available yet.'}</p>)}
+
+      {tab === 'price-history' && <ProductPriceHistory slug={slug} variants={historyVariants} fa={fa} />}
 
       {tab === 'faq' && content && <div className="store-faq-list">{content.items?.length ? content.items.map((item: any, index: number) => <details key={index} open={index === 0}><summary><span className="store-faq-num num">{index + 1}</span><span>{fa ? item.question : item.questionEn || item.question}</span></summary><p>{fa ? item.answer : item.answerEn || item.answer}</p></details>) : <p className="store-panel-empty">{fa ? 'سوال متداولی ثبت نشده است.' : 'No FAQ entries yet.'}</p>}</div>}
 

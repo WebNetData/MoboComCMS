@@ -133,11 +133,12 @@ test('server: FX product prices follow the product fields and repricing skips un
   const db = {
     currencyRate: { findMany: async () => [{ code: 'USD', rate: 100_000 }] },
     setting: { findUnique: async () => null },
-    product: { findMany: async () => products, update: (args) => { updates.push(['product', args]); return args } },
+    product: { findMany: async () => products, findUnique: async ({ where }) => products.find(row => row.id === where.id), update: (args) => { updates.push(['product', args]); return args } },
     productVariant: { update: (args) => { updates.push(['variant', args]); return args } },
-    $transaction: async (ops) => ops,
+    $transaction: async (write) => write(db),
   }
   const server = load('src/modules/fx/server/fx.ts', {
+    '@/modules/catalog/server/price-history': { prepareProductPriceCapture: async () => new Map(), capturePublicProductPrices: async () => 0 },
     '@/platform/database/prisma': { db },
     '@/platform/observability/logger': { logEvent: () => {} },
     '@/modules/settings/server': { readJsonSetting: async () => ({ roundToman: 1000 }), setSetting: async () => {}, writeJsonSetting: async () => {} },
@@ -200,4 +201,32 @@ test('switching a variant product to FX keeps the price differences between vari
   assert.match(fx, /existing\?\.pricingMode !== 'FX'/, 'only when switching from a fixed price')
   assert.match(fx, /export async function convertForeignProducts/)
   assert.match(read('src/modules/store/server/admin.ts'), /pricingMode !== 'FX'/, 'bulk price edits leave FX products alone')
+})
+
+test('foreign conversion commits currency/prices/observations together and rolls back capture failures', async () => {
+  for (const fail of [false, true]) {
+    let state = { id: 1, name: 'Fixture', currency: 'USD', pricingMode: 'FIXED', priceMinor: 1000n, compareAtMinor: 0n, memberPriceMinor: 0n, variants: [{ id: 2, priceMinor: 1500n }] }
+    let captures = 0
+    const db = {
+      currencyRate: { findMany: async () => [{ code: 'USD', rate: 100000 }] },
+      product: { findMany: async () => [structuredClone(state)] },
+      $transaction: async write => {
+        const pending = structuredClone(state)
+        const tx = { pending, product: { findUnique: async () => pending, update: async ({ data }) => Object.assign(pending, data) }, productVariant: { update: async ({ data }) => Object.assign(pending.variants[0], data) } }
+        const result = await write(tx); state = pending; return result
+      },
+    }
+    const server = load('src/modules/fx/server/fx.ts', {
+      '@/platform/database/prisma': { db },
+      '@/modules/catalog/server/price-history': { prepareProductPriceCapture: async () => new Map(), capturePublicProductPrices: async tx => {
+        captures++; assert.equal(tx.pending.currency, 'IRT'); assert.equal(tx.pending.priceMinor, 1000000n); assert.equal(tx.pending.variants[0].priceMinor, 1500000n)
+        if (fail) throw new Error('capture failed')
+      } },
+      '@/modules/settings/server': { readJsonSetting: async () => ({ roundToman: 1000 }) },
+      '@/platform/observability/logger': {}, '@/modules/providers/server/panel-credentials': {}, '@/modules/server-panel/domain/downloads': {}, '@/modules/notifications/server/inbox': {},
+    })
+    if (fail) { await assert.rejects(server.convertForeignProducts(), /capture failed/); assert.equal(state.currency, 'USD'); assert.equal(state.priceMinor, 1000n) }
+    else { assert.equal((await server.convertForeignProducts()).converted, 1); assert.equal(state.currency, 'IRT'); assert.equal(state.variants[0].fxAmountMinor, 1500n) }
+    assert.equal(captures, 1)
+  }
 })

@@ -1,5 +1,6 @@
 import dns from 'node:dns/promises'
 import { db } from '@/platform/database/prisma'
+import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { logEvent } from '@/platform/observability/logger'
 import { readJsonSetting, setSetting, writeJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
@@ -297,23 +298,31 @@ export async function repriceProducts(filter: { currencies?: string[]; ids?: num
   })
   let count = 0
   const byCurrency: Record<string, number> = {}
-  for (const product of products) {
-    let prices: ReturnType<typeof fxProductPrices>
-    try { prices = fxProductPrices(product, rates, config.roundToman) } catch { continue }
-    if (prices.priceMinor <= 0n) continue
-    const variantUpdates = product.variants.flatMap((variant) => {
-      const priceMinor = prices.variant(variant.fxAmountMinor)
-      if (priceMinor === variant.priceMinor) return []
-      return [{ id: variant.id, data: { priceMinor, price: legacyNumber(priceMinor, product.currency), compareAtMinor: scaleAlong(variant.compareAtMinor, variant.priceMinor, priceMinor), memberPriceMinor: scaleAlong(variant.memberPriceMinor, variant.priceMinor, priceMinor) } }]
+  for (const candidate of products) {
+    const repricedCurrency = await db.$transaction(async tx => {
+      const before = await prepareProductPriceCapture(tx, candidate.id)
+      const product = await tx.product.findUnique({ where: { id: candidate.id }, include: { variants: true } })
+      if (!product || product.pricingMode !== 'FX') return null
+      if (filter.currencies && !filter.currencies.includes(product.fxCurrency)) return null
+      let prices: ReturnType<typeof fxProductPrices>
+      try { prices = fxProductPrices(product, rates, config.roundToman) } catch { return null }
+      if (prices.priceMinor <= 0n) return null
+      const variantUpdates = product.variants.flatMap((variant) => {
+        const priceMinor = prices.variant(variant.fxAmountMinor)
+        if (priceMinor === variant.priceMinor) return []
+        return [{ id: variant.id, data: { priceMinor, price: legacyNumber(priceMinor, product.currency), compareAtMinor: scaleAlong(variant.compareAtMinor, variant.priceMinor, priceMinor), memberPriceMinor: scaleAlong(variant.memberPriceMinor, variant.priceMinor, priceMinor) } }]
+      })
+      const changed = prices.priceMinor !== product.priceMinor || prices.compareAtMinor !== product.compareAtMinor || prices.memberPriceMinor !== product.memberPriceMinor
+      if (!changed && !variantUpdates.length) return null
+      await tx.product.update({ where: { id: product.id }, data: { priceMinor: prices.priceMinor, price: legacyNumber(prices.priceMinor, product.currency), compareAtMinor: prices.compareAtMinor, memberPriceMinor: prices.memberPriceMinor, repricedAt: new Date() } })
+      for (const row of variantUpdates) await tx.productVariant.update({ where: { id: row.id }, data: row.data })
+      await capturePublicProductPrices(tx, product.id, before)
+      return product.fxCurrency
     })
-    const changed = prices.priceMinor !== product.priceMinor || prices.compareAtMinor !== product.compareAtMinor || prices.memberPriceMinor !== product.memberPriceMinor
-    if (!changed && !variantUpdates.length) continue
-    await db.$transaction([
-      db.product.update({ where: { id: product.id }, data: { priceMinor: prices.priceMinor, price: legacyNumber(prices.priceMinor, product.currency), compareAtMinor: prices.compareAtMinor, memberPriceMinor: prices.memberPriceMinor, repricedAt: new Date() } }),
-      ...variantUpdates.map((row) => db.productVariant.update({ where: { id: row.id }, data: row.data })),
-    ])
-    count++
-    byCurrency[product.fxCurrency] = (byCurrency[product.fxCurrency] || 0) + 1
+    if (repricedCurrency) {
+      count++
+      byCurrency[repricedCurrency] = (byCurrency[repricedCurrency] || 0) + 1
+    }
   }
   return { count, byCurrency }
 }
@@ -396,7 +405,7 @@ export async function testFxSource(input: Record<string, unknown>) {
  */
 export async function convertForeignProducts(options: { dryRun?: boolean; sell?: 'IRT' | 'IRR' } = {}) {
   const sell = options.sell === 'IRR' ? 'IRR' : 'IRT'
-  const rates = await loadRates()
+  const [rates, config] = await Promise.all([loadRates(), getFxConfig()])
   const rows = await db.product.findMany({
     where: { pricingMode: { not: 'FX' }, currency: { notIn: ['IRT', 'IRR', 'TMN'] } },
     select: { id: true, name: true, currency: true, priceMinor: true, compareAtMinor: true, memberPriceMinor: true, variants: { select: { id: true, priceMinor: true } } },
@@ -404,32 +413,32 @@ export async function convertForeignProducts(options: { dryRun?: boolean; sell?:
   const convertible = rows.filter((row) => FX_CODES.includes(normalizeCurrency(row.currency)) && rates[normalizeCurrency(row.currency)] > 0)
   const missing = [...new Set(rows.filter((row) => !convertible.includes(row)).map((row) => row.currency))]
   if (options.dryRun) return { products: convertible.map((row) => ({ id: row.id, name: row.name, currency: row.currency, price: minorToDecimal(row.priceMinor, row.currency) })), missingRates: missing, converted: 0 }
-  for (const row of convertible) {
-    const code = normalizeCurrency(row.currency)
-    await db.$transaction([
-      db.product.update({ where: { id: row.id }, data: {
+  let converted = 0
+  for (const candidate of convertible) {
+    const didConvert = await db.$transaction(async tx => {
+      const before = await prepareProductPriceCapture(tx, candidate.id)
+      const row = await tx.product.findUnique({ where: { id: candidate.id }, include: { variants: true } })
+      if (!row || row.pricingMode === 'FX' || ['IRT', 'IRR', 'TMN'].includes(row.currency)) return false
+      const code = normalizeCurrency(row.currency)
+      if (!FX_CODES.includes(code) || !(rates[code] > 0)) return false
+      const fields = {
         pricingMode: 'FX', fxCurrency: code, fxAmountMinor: row.priceMinor,
         fxCompareAtMinor: row.compareAtMinor > row.priceMinor ? row.compareAtMinor : 0n,
         fxMemberMinor: row.memberPriceMinor > 0n && row.memberPriceMinor < row.priceMinor ? row.memberPriceMinor : 0n,
         markupBps: 0, markupFixedMinor: 0n, currency: sell,
-      } }),
+      }
+      const prices = fxProductPrices(fields, rates, config.roundToman)
+      await tx.product.update({ where: { id: row.id }, data: { ...fields, priceMinor: prices.priceMinor, price: legacyNumber(prices.priceMinor, sell), compareAtMinor: prices.compareAtMinor, memberPriceMinor: prices.memberPriceMinor, repricedAt: new Date() } })
       // A variant with the product's own price follows the product (0); others keep their own foreign cost.
-      ...row.variants.map((variant) => db.productVariant.update({ where: { id: variant.id }, data: { fxAmountMinor: variant.priceMinor === row.priceMinor ? 0n : variant.priceMinor, compareAtMinor: 0n, memberPriceMinor: 0n } })),
-    ])
+      for (const variant of row.variants) {
+        const fxAmountMinor = variant.priceMinor === row.priceMinor ? 0n : variant.priceMinor
+        const priceMinor = prices.variant(fxAmountMinor)
+        await tx.productVariant.update({ where: { id: variant.id }, data: { fxAmountMinor, priceMinor, price: legacyNumber(priceMinor, sell), compareAtMinor: 0n, memberPriceMinor: 0n } })
+      }
+      await capturePublicProductPrices(tx, row.id, before)
+      return true
+    })
+    if (didConvert) converted++
   }
-  // Every converted price is recomputed, even when the rounded Toman amount happens to equal the old minor amount.
-  if (convertible.length) await forceReprice(convertible.map((row) => row.id))
-  return { products: [], missingRates: missing, converted: convertible.length }
-}
-
-async function forceReprice(ids: number[]) {
-  const [rates, config] = await Promise.all([loadRates(), getFxConfig()])
-  const products = await db.product.findMany({ where: { id: { in: ids }, pricingMode: 'FX' }, select: { id: true, currency: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, variants: { select: { id: true, fxAmountMinor: true } } } })
-  for (const product of products) {
-    const prices = fxProductPrices(product, rates, config.roundToman)
-    await db.$transaction([
-      db.product.update({ where: { id: product.id }, data: { priceMinor: prices.priceMinor, price: legacyNumber(prices.priceMinor, product.currency), compareAtMinor: prices.compareAtMinor, memberPriceMinor: prices.memberPriceMinor, repricedAt: new Date() } }),
-      ...product.variants.map((variant) => { const priceMinor = prices.variant(variant.fxAmountMinor); return db.productVariant.update({ where: { id: variant.id }, data: { priceMinor, price: legacyNumber(priceMinor, product.currency) } }) }),
-    ])
-  }
+  return { products: [], missingRates: missing, converted }
 }
