@@ -215,40 +215,56 @@ export async function scrubAll(cursorInput: unknown, budgetMs = 40_000): Promise
   return { changed, imagesCopied: copied(), imagesFailed: failed(), scanned, done, cursor: done ? '' : `${TARGETS[index].model}:${cursor}` }
 }
 
-/** Background job: new items (by id) and recently edited ones (by updatedAt) since the last run. */
-export async function scrubRecent(): Promise<{ changed: number }> {
+/**
+ * Background job: new items (by id) and the ones edited since the last run (by updatedAt).
+ * Edited items are read in id pages until none is left, so a large edit (an import, a bulk
+ * change) is cleaned in full instead of only its first hundred rows.
+ */
+export async function scrubRecent(budgetMs = 120_000): Promise<{ changed: number }> {
   const p = await plan()
   if (!p.options.words.length && !p.settings.autoLocalize && p.options.links === 'off') return { changed: 0 }
   const state = await readState()
   const since = new Date(state.since)
   const now = new Date()
+  const deadline = Date.now() + budgetMs
   const { copy } = copier(state)
   let changed = 0
+  let complete = true
   for (const target of TARGETS) {
     const table = delegate(target.model)
     if (!table) continue
+    const clean = async (rows: any[]) => {
+      for (const row of rows) {
+        if (!needsWork(row, target, p)) continue
+        try {
+          const data = await cleanRow(row, target, p, copy)
+          if (Object.keys(data).length) { await table.update({ where: { id: row.id }, data }); changed++ }
+        } catch (error) { logEvent('warn', 'downloads.scrub_failed', { model: target.model, id: row.id, error: String(error).slice(0, 200) }) }
+      }
+    }
     // First run: start from the newest row, the admin page handles the backlog.
     if (state.lastIds[target.model] === undefined) {
       const last = await table.findMany({ orderBy: { id: 'desc' }, take: 1, select: { id: true } }).catch(() => [])
       state.lastIds[target.model] = last[0]?.id ?? 0
       if (!target.edited) continue
     }
-    const where = target.edited
-      ? { OR: [{ id: { gt: state.lastIds[target.model] } }, { updatedAt: { gt: since } }] }
-      : { id: { gt: state.lastIds[target.model] } }
-    const rows = await table.findMany({ where, orderBy: { id: 'asc' }, take: 100, select: select(target) }).catch(() => [])
-    for (const row of rows) {
-      state.lastIds[target.model] = Math.max(state.lastIds[target.model], row.id)
-      if (!needsWork(row, target, p)) continue
-      try {
-        const data = await cleanRow(row, target, p, copy)
-        if (Object.keys(data).length) { await table.update({ where: { id: row.id }, data }); changed++ }
-      } catch (error) { logEvent('warn', 'downloads.scrub_failed', { model: target.model, id: row.id, error: String(error).slice(0, 200) }) }
+    const fresh = await table.findMany({ where: { id: { gt: state.lastIds[target.model] } }, orderBy: { id: 'asc' }, take: 100, select: select(target) }).catch(() => [])
+    for (const row of fresh) state.lastIds[target.model] = Math.max(state.lastIds[target.model], row.id)
+    await clean(fresh)
+    if (!target.edited) continue
+    for (let cursor = 0; ;) {
+      if (Date.now() > deadline) { complete = false; break }
+      const rows = await table.findMany({ where: { updatedAt: { gt: since }, id: { gt: cursor } }, orderBy: { id: 'asc' }, take: 100, select: select(target) }).catch(() => null)
+      if (!rows) { complete = false; break }
+      if (!rows.length) break
+      cursor = rows[rows.length - 1].id
+      await clean(rows)
     }
   }
   // Only remember failures for a day, so the list stays small.
   for (const [url, at] of Object.entries(state.failed)) if (Date.now() - at > RETRY_MS) delete state.failed[url]
-  state.since = now.toISOString()
+  // The edit window moves on only when every edited row was read; otherwise the next run reads it again.
+  if (complete) state.since = now.toISOString()
   await writeJsonSetting(STATE_KEY, state)
   return { changed }
 }
