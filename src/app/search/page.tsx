@@ -64,6 +64,7 @@ export default async function SearchPage({ searchParams }: Props) {
           </nav>
         )}
 
+        {data.cursorReset && <p className="muted" role="status">نتایج جست‌وجو به‌روز شده‌اند یا لینک صفحه معتبر نیست؛ نتایج از صفحهٔ اول نمایش داده شدند.</p>}
         {data.hits.length > 0 ? (
           <ol className="sr-list">
             {data.hits.map((hit) => (
@@ -92,7 +93,6 @@ export default async function SearchPage({ searchParams }: Props) {
           </div>
         )}
 
-        {data.cursorReset && <p className="muted" role="status">نتایج جست‌وجو به‌روز شده‌اند یا لینک صفحه معتبر نیست؛ نتایج از صفحهٔ اول نمایش داده شدند.</p>}
         {data.totalPages > 1 && (
           <nav className="sr-pager" aria-label="صفحه‌بندی">
             {previousHref && <Link href={previousHref} prefetch={false} rel="prev">→ قبلی</Link>}

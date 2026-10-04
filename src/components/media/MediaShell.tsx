@@ -27,7 +27,7 @@ export default async function MediaShell({ section, active, nav, children, searc
   return (
     <>
       <ThemeHeader context={context} theme={theme} locale={locale} navPages={navPages} />
-      <main className={`md-page md-${section}`}>
+      <main className={`md-page md-${section === 'search' ? 'search-results' : section}`}>
         {bar ? <SectionMegaBar bar={bar} searchValue={search?.value} /> : nav && (
           <div className="md-subnav-wrap">
             <nav className="md-subnav container" aria-label={section}>
