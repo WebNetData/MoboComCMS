@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: MoboCom public search contract
+  version: 1.1.0
+  description: Additive cursor navigation for the existing search endpoint. This is the search slice of the platform contract.
+  contact:
+    name: MoboComCMS
+    url: https://github.com/WebNetData/MoboComCMS
+servers:
+  - url: /
+tags:
+  - name: Search
+    description: Public search over enabled modules and currently visible content.
+paths:
+  /api/search:
+    get:
+      operationId: searchSite
+      tags: [Search]
+      summary: Search visible content or request autocomplete suggestions
+      description: Numeric pages keep the existing 1–50 clamp. Opaque cursors allow deeper traversal, take precedence over page, and reset on invalid scope or a full index rebuild. Results are live, not a snapshot. Suggestion requests ignore cursor.
+      parameters:
+        - name: q
+          in: query
+          description: Search phrase, trimmed and truncated to 100 characters.
+          schema: { type: string }
+        - name: type
+          in: query
+          description: Enabled item type; unknown or disabled values select all types.
+          schema: { type: string }
+        - name: page
+          in: query
+          description: Legacy numeric page, clamped to 1–50 and the available window.
+          schema: { type: integer, default: 1 }
+        - name: cursor
+          in: query
+          description: Opaque nextCursor or previousCursor returned by this same query and type. Invalid cursors and cursor pages emptied by content changes restart page one with cursorReset true.
+          schema: { type: string, maxLength: 1024 }
+        - name: suggest
+          in: query
+          description: Set to 1 for bounded autocomplete results.
+          schema: { type: string, enum: ['1'] }
+        - name: types
+          in: query
+          description: Comma-separated known types for autocomplete only.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Public search result or autocomplete suggestions. Cache-Control is private, no-store.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SearchResult'
+                  - $ref: '#/components/schemas/Suggestions'
+        '429':
+          description: Existing per-IP search rate limit exceeded.
+components:
+  schemas:
+    SearchResult:
+      type: object
+      required: [query, tokens, type, hits, total, page, pages, counts, totalPages, nextCursor, previousCursor, cursorReset]
+      properties:
+        query: { type: string }
+        tokens:
+          type: array
+          items: { type: string }
+        type: { type: string }
+        hits:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/SearchHit'
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pages:
+          type: integer
+          minimum: 0
+          description: Reachable numeric window, at most 50 without cursor; full page count on valid cursor requests.
+        counts:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        nextCursor: { type: string, nullable: true }
+        previousCursor: { type: string, nullable: true }
+        cursorReset: { type: boolean }
+    SearchHit:
+      type: object
+      required: [type, id, title, subtitle, url, image, access, score, snippet]
+      properties:
+        type: { type: string }
+        id: { type: integer }
+        title: { type: string }
+        subtitle: { type: string }
+        url: { type: string }
+        image: { type: string }
+        access: { type: string }
+        score: { type: integer }
+        snippet: { type: string }
+    Suggestions:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [type, title, subtitle, url, image]
+            properties:
+              type: { type: string }
+              title: { type: string }
+              subtitle: { type: string }
+              url: { type: string }
+              image: { type: string }

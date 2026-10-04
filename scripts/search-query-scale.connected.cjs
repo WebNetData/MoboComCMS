@@ -1,16 +1,16 @@
 // Run only against the local app container: node scripts/search-query-scale.connected.cjs
-// Creates temporary published posts and documents, then verifies search past 400 candidates.
+// Creates temporary published posts and documents, then verifies numeric and cursor pagination.
 const assert = require('node:assert/strict')
 const { PrismaClient } = require('@prisma/client')
 
 const db = new PrismaClient()
 const prefix = `codexquery${Date.now()}`
-const count = 521
+const count = 1021
 let originalStamp = null
 let stampRead = false
 
-async function query(page = 1) {
-  const response = await fetch(`http://localhost:3000/api/search?q=${prefix}&page=${page}`, { signal: AbortSignal.timeout(60_000) })
+async function query(page = 1, cursor = null) {
+  const response = await fetch(`http://localhost:3000/api/search?q=${prefix}&page=${page}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { signal: AbortSignal.timeout(60_000) })
   assert.equal(response.status, 200)
   return response.json()
 }
@@ -37,11 +37,48 @@ async function main() {
   const first = await query()
   assert.equal(first.total, count)
   assert.equal(first.counts.post, count)
-  assert.equal(first.pages, 27)
+  assert.equal(first.pages, 50)
+  assert.equal(first.totalPages, 52)
   assert.equal(first.hits[0].title, prefix)
-  const last = await query(27)
+  const numericLast = await query(51)
+  assert.equal(numericLast.page, 50)
+  assert.equal(numericLast.hits.length, 20)
+  assert.ok(numericLast.nextCursor)
+  const next = await query(1, numericLast.nextCursor)
+  assert.equal(next.page, 51)
+  assert.equal(next.hits.length, 20)
+  assert.equal(next.cursorReset, false)
+  assert.equal(new Set([...numericLast.hits, ...next.hits].map(hit => hit.id)).size, 40)
+  const back = await query(1, next.previousCursor)
+  assert.deepEqual(back.hits, numericLast.hits)
+  const last = await query(1, next.nextCursor)
+  assert.equal(last.page, 52)
   assert.equal(last.hits.length, 1)
-  console.log(`Search query scale: ${count} visible posts counted and ranked across 27 pages`)
+  assert.equal(last.nextCursor, null)
+  await db.post.update({ where: { id: last.hits[0].id }, data: { status: 'DRAFT' } })
+  const hidden = await query(1, next.nextCursor)
+  assert.equal(hidden.total, count - 1)
+  assert.equal(hidden.cursorReset, true, 'an emptied last page restarts rather than claiming no matches')
+  assert.equal(hidden.page, 1)
+  assert.equal(hidden.hits.length, 20)
+  assert.ok(hidden.hits.every(hit => hit.id !== last.hits[0].id), 'cursor cannot expose a withdrawn source through a stale document')
+  await db.post.update({ where: { id: last.hits[0].id }, data: { status: 'PUBLISHED' } })
+  const { chromium } = require('@playwright/test')
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+    await page.goto(`http://localhost:3000/search?q=${prefix}&page=50`, { waitUntil: 'networkidle' })
+    await page.locator('.sr-pager a[rel="next"]').click()
+    await page.waitForURL(/cursor=/)
+    await page.waitForLoadState('networkidle')
+    assert.equal(await page.locator('.sr-list > li').count(), 20)
+    assert.ok((await page.locator('.sr-list h2 a').first().getAttribute('href')).endsWith(next.hits[0].url))
+    await page.locator('.sr-pager a[rel="prev"]').click()
+    await page.waitForFunction(expected => document.querySelector('.sr-list h2 a')?.getAttribute('href')?.endsWith(expected), numericLast.hits[0].url)
+    assert.ok((await page.locator('.sr-list h2 a').first().getAttribute('href')).endsWith(numericLast.hits[0].url))
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+  } finally { await browser.close() }
+  console.log(`Search query scale: ${count} visible posts; API and browser crossed page 50 and returned; draft excluded`)
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {

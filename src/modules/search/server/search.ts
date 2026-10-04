@@ -11,6 +11,7 @@ import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/cont
 import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 import { RankedWindow } from '@/modules/search/domain/ranked-window'
+import { compareSearchBoundary, decodeSearchCursor, encodeSearchCursor, searchCursorScope } from './cursor'
 
 /**
  * Site-wide search over one denormalized table (SearchDocument). Documents hold
@@ -88,9 +89,13 @@ export function rebuildSearchIndex(): Promise<number> {
 async function ensureFreshIndex() {
   const row = await db.setting.findUnique({ where: { key: INDEXED_AT } }).catch(() => null)
   const age = row ? Date.now() - new Date(row.value).getTime() : Infinity
-  if (age < STALE_MS) return
+  if (age < STALE_MS) return row!.value
   const task = rebuildSearchIndex().catch((error) => { logEvent('error', 'search.rebuild_failed', { error }); return 0 })
-  if (!row) await task
+  if (!row) {
+    await task
+    return (await db.setting.findUnique({ where: { key: INDEXED_AT } }).catch(() => null))?.value || ''
+  }
+  return row.value
 }
 
 /** Updates (or removes) one item right after it is saved, published or deleted. */
@@ -108,12 +113,11 @@ export async function reindexItem(ref: ItemRef) {
 }
 
 export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string }
-export type SearchResult = { query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>> }
+export type SearchResult = { query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
 type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number }
 
-function byRank(a: RankedCandidate, b: RankedCandidate): number {
-  return b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime() || b.row.boost - a.row.boost || a.row.id - b.row.id
-}
+const boundary = (candidate: RankedCandidate) => ({ score: candidate.score, publishedAt: candidate.row.publishedAt.getTime(), boost: candidate.row.boost, id: candidate.row.id })
+const byRank = (a: RankedCandidate, b: RankedCandidate) => b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime() || b.row.boost - a.row.boost || a.row.id - b.row.id
 
 /** A short piece of the indexed text around the first matching token. */
 function snippet(text: string, tokens: string[]): string {
@@ -123,21 +127,26 @@ function snippet(text: string, tokens: string[]): string {
   return words.slice(Math.max(0, at - 8), at + 18).join(' ')
 }
 
-export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; log?: boolean; suggestion?: boolean }): Promise<SearchResult> {
+export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean }): Promise<SearchResult> {
   const query = String(input.q ?? '').trim().slice(0, 100)
   const tokens = searchTokens(query)
   const types = await enabledItemTypes()
   const type = types.includes(input.type as ItemType) ? input.type as ItemType : 'all'
   const page = Math.max(1, Math.min(MAX_PAGE, Math.floor(Number(input.page) || 1)))
-  const empty: SearchResult = { query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {} }
+  const empty: SearchResult = { query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {}, totalPages: 0, nextCursor: null, previousCursor: null, cursorReset: false }
   if (!tokens.length || !await isModuleEnabled('search')) return empty
-  await ensureFreshIndex()
+  const epoch = await ensureFreshIndex()
+  const scope = searchCursorScope(normalizePersian(query), type, epoch)
+  const cursorRequested = !input.suggestion && input.cursor != null
+  const cursor = cursorRequested ? decodeSearchCursor(input.cursor, scope) : null
+  const cursorReset = cursorRequested && !cursor
 
   const queryTypes = input.suggestion && type !== 'all' ? [type] : types
   const where = { itemType: { in: queryTypes }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) }
   const phrase = normalizePersian(query)
   const counts: Partial<Record<ItemType, number>> = {}
-  const top = new RankedWindow<RankedCandidate>(MAX_TOP_HITS, byRank)
+  const top = new RankedWindow<RankedCandidate>(cursor ? PAGE_SIZE : MAX_TOP_HITS, cursor?.direction === 'before' ? (a, b) => -byRank(a, b) : byRank)
+  let eligible = 0
   let matchedTotal = 0
   let afterId = 0
   while (true) {
@@ -157,21 +166,38 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
       counts[row.itemType as ItemType] = (counts[row.itemType as ItemType] || 0) + 1
       if (type !== 'all' && row.itemType !== type) continue
       // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
-      top.add({ row, card, score: relevanceScore + Math.log10(1 + row.boost) })
+      const candidate = { row, card, score: relevanceScore + Math.log10(1 + row.boost) }
+      const order = cursor ? compareSearchBoundary(boundary(candidate), cursor) : 0
+      if (cursor && (cursor.direction === 'after' ? order <= 0 : order >= 0)) continue
+      eligible++
+      top.add(candidate)
     }
     if (input.suggestion || rows.length < INDEX_PAGE_SIZE) break
     afterId = rows[rows.length - 1].id
   }
   const total = type === 'all' ? matchedTotal : (counts[type] || 0)
   // The API has always accepted at most 50 pages; report the reachable window.
-  const pages = Math.min(MAX_PAGE, Math.ceil(total / PAGE_SIZE))
-  const current = Math.min(page, Math.max(1, pages))
-  const hits = top.sorted().slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE).map(({ row, card, score }) => ({
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+  const pages = cursor ? totalPages : Math.min(MAX_PAGE, totalPages)
+  const current = cursor ? cursor.page : Math.min(cursorReset ? 1 : page, Math.max(1, pages))
+  const ranked = top.sorted()
+  if (cursor?.direction === 'before') ranked.reverse()
+  const selected = cursor ? ranked : ranked.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
+  // Content can disappear between requests. Do not present a stale boundary as "no matches".
+  if (cursor && !selected.length) {
+    const refreshed = total > 0 ? await searchSite({ ...input, cursor: undefined, page: 1, log: false }) : { ...empty, counts }
+    return { ...refreshed, cursorReset: true }
+  }
+  const canNext = cursor ? (cursor.direction === 'after' ? eligible > selected.length : true) : total > current * PAGE_SIZE
+  const canPrevious = cursor ? (cursor.direction === 'before' ? eligible > selected.length : true) : current > 1
+  const nextCursor = selected.length && canNext && !input.suggestion ? encodeSearchCursor({ ...boundary(selected[selected.length - 1]), direction: 'after', page: current + 1 }, scope) : null
+  const previousCursor = selected.length && canPrevious && !input.suggestion ? encodeSearchCursor({ ...boundary(selected[0]), direction: 'before', page: Math.max(1, current - 1) }, scope) : null
+  const hits = selected.map(({ row, card, score }) => ({
     type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
     score: Math.round(score), snippet: snippet(row.text, tokens),
   }))
-  if (input.log !== false && current === 1) void recordSearch(phrase, matchedTotal)
-  return { query, tokens, type, hits, total, page: current, pages, counts }
+  if (input.log !== false && current === 1 && !cursor) void recordSearch(phrase, matchedTotal)
+  return { query, tokens, type, hits, total, page: current, pages, counts, totalPages, nextCursor, previousCursor, cursorReset }
 }
 
 /** Autocomplete: the best few hits across all types. */

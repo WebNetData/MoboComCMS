@@ -84,7 +84,7 @@
 .sr-head h1 { font-size: clamp(1.4rem, 2.6vw, 2rem); margin: 0 0 12px; }
 .sr-head p { margin: 0; line-height: 1.9; }
 .sr-form { display: flex; gap: 8px; max-width: 720px; }
-.sr-form .input { flex: 1; min-height: 48px; font-size: 16px; }
+.sr-form .input { flex: 1; min-width: 0; min-height: 48px; font-size: 16px; }
 .sr-tabs { display: flex; gap: 6px; overflow-x: auto; padding-block-end: 4px; margin-block: 8px 18px; scrollbar-width: thin; }
 .sr-tabs a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--en-line); border-radius: 999px; white-space: nowrap; color: var(--en-text); font-size: 14px; text-decoration: none; }
 .sr-tabs a span { font-size: 12px; color: var(--en-muted); }

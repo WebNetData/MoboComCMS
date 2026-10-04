@@ -9,7 +9,7 @@ import MediaShell from '@/components/media/MediaShell'
 
 export const dynamic = 'force-dynamic'
 
-type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string }> }
+type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string; cursor?: string }> }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams
@@ -31,9 +31,16 @@ function highlight(title: string, tokens: string[]): ReactNode {
 export default async function SearchPage({ searchParams }: Props) {
   await requireModule('search')
   const params = await searchParams
-  const data = await searchSite({ q: params.q, type: params.type, page: params.page })
+  const data = await searchSite({ q: params.q, type: params.type, page: params.page, cursor: params.cursor })
   const q = data.query
   const href = (type: string, page = 1) => `/search?q=${encodeURIComponent(q)}${type !== 'all' ? `&type=${type}` : ''}${page > 1 ? `&page=${page}` : ''}`
+  const cursorHref = (cursor: string) => `${href(data.type)}&cursor=${encodeURIComponent(cursor)}`
+  const previousHref = params.cursor && !data.cursorReset
+    ? (data.previousCursor ? cursorHref(data.previousCursor) : null)
+    : data.page > 1 ? href(data.type, data.page - 1) : null
+  const nextHref = params.cursor && !data.cursorReset
+    ? (data.nextCursor ? cursorHref(data.nextCursor) : null)
+    : data.page < data.pages ? href(data.type, data.page + 1) : data.nextCursor ? cursorHref(data.nextCursor) : null
   const totalAll = Object.values(data.counts).reduce((sum, count) => sum + (count || 0), 0)
   const types = (Object.keys(data.counts) as ItemType[]).sort((a, b) => (data.counts[b] || 0) - (data.counts[a] || 0))
 
@@ -57,6 +64,7 @@ export default async function SearchPage({ searchParams }: Props) {
           </nav>
         )}
 
+        {data.cursorReset && <p className="muted" role="status">نتایج جست‌وجو به‌روز شده‌اند یا لینک صفحه معتبر نیست؛ نتایج از صفحهٔ اول نمایش داده شدند.</p>}
         {data.hits.length > 0 ? (
           <ol className="sr-list">
             {data.hits.map((hit) => (
@@ -85,11 +93,11 @@ export default async function SearchPage({ searchParams }: Props) {
           </div>
         )}
 
-        {data.pages > 1 && (
+        {data.totalPages > 1 && (
           <nav className="sr-pager" aria-label="صفحه‌بندی">
-            {data.page > 1 && <Link href={href(data.type, data.page - 1)} rel="prev">→ قبلی</Link>}
-            <span>صفحهٔ {num(data.page)} از {num(data.pages)}</span>
-            {data.page < data.pages && <Link href={href(data.type, data.page + 1)} rel="next">بعدی ←</Link>}
+            {previousHref && <Link href={previousHref} prefetch={false} rel="prev">→ قبلی</Link>}
+            <span>صفحهٔ {num(data.page)} از {num(data.totalPages)}</span>
+            {nextHref && <Link href={nextHref} prefetch={false} rel="next">بعدی ←</Link>}
           </nav>
         )}
       </div>
