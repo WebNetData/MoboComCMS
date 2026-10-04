@@ -356,40 +356,54 @@ async function signupBonus(settings: LoyaltySettings, userId: number) {
   if (user && user.createdAt >= new Date(settings.since)) await addPoints(userId, settings.signupBonus, 'BONUS', `signup:${userId}`, 'هدیهٔ عضویت در باشگاه')
 }
 
-/** Points for every paid order since the club started (idempotent per order). */
-export async function runLoyaltyAwards(now = new Date()) {
+/**
+ * Points for every paid order since the club started (idempotent per order).
+ * The recent orders are read in id pages, so orders that already have their
+ * points never hide the ones that do not; one failing order does not stop the rest.
+ */
+export async function runLoyaltyAwards(now = new Date(), limit = 500) {
   const settings = await getLoyaltySettings()
   if (!settings.enabled || !settings.since) return { awarded: 0 }
-  const orders = await db.order.findMany({
-    where: { status: { in: ['PAID', 'COMPLETED'] }, createdAt: { gte: new Date(settings.since) }, updatedAt: { gte: new Date(now.getTime() - 3 * 86_400_000) } },
-    select: { id: true, userId: true, totalMinor: true, currency: true, meta: true }, orderBy: { id: 'asc' }, take: 500,
-  })
-  if (!orders.length) return { awarded: 0 }
-  const done = new Set((await db.loyaltyEntry.findMany({ where: { orderId: { in: orders.map((order) => order.id) }, kind: 'EARN_ORDER' }, select: { orderId: true } })).map((row) => row.orderId))
+  const where = { status: { in: ['PAID', 'COMPLETED'] }, createdAt: { gte: new Date(settings.since) }, updatedAt: { gte: new Date(now.getTime() - 3 * 86_400_000) } }
   let awarded = 0
-  for (const order of orders) {
-    if (done.has(order.id)) continue
-    let shipping = 0n
-    try { shipping = BigInt(JSON.parse(order.meta || '{}').shippingMinor || 0) } catch { shipping = 0n }
-    const before = await tierOf(settings, order.userId)
-    const points = pointsFor(settings, tomanOf(order.totalMinor - shipping, order.currency), before.tier.multiplier)
-    // Zero-point orders still get a row, so they are not looked at again.
-    const entry = points > 0
-      ? await addPoints(order.userId, points, 'EARN_ORDER', `order:${order.id}`, `خرید سفارش #${order.id}`, order.id)
-      : await db.loyaltyEntry.create({ data: { userId: order.userId, points: 0, kind: 'EARN_ORDER', note: `سفارش #${order.id}`, orderId: order.id, idempotencyKey: `order:${order.id}` } }).catch(() => null)
-    if (!entry || points <= 0) continue
-    awarded++
-    await signupBonus(settings, order.userId)
-    const after = await tierOf(settings, order.userId)
-    const upgraded = after.tier.id !== before.tier.id
-    await notify({
-      userId: order.userId, kind: 'LOYALTY', dedupeKey: `loyalty:order:${order.id}`,
-      titleFa: upgraded ? `تبریک! به سطح ${after.tier.name} باشگاه مشتریان رسیدید` : `${points.toLocaleString('fa-IR')} امتیاز باشگاه مشتریان گرفتید`,
-      titleEn: upgraded ? `You reached ${after.tier.name}` : `You earned ${points} points`,
-      bodyFa: `بابت سفارش #${order.id}. موجودی امتیاز: ${(after.account?.balance || 0).toLocaleString('fa-IR')}`, bodyEn: '', href: '/dashboard/club',
-    })
+  for (let after = 0, handled = 0; handled < limit;) {
+    const orders = await db.order.findMany({ where: { ...where, id: { gt: after } }, select: { id: true, userId: true, totalMinor: true, currency: true, meta: true }, orderBy: { id: 'asc' }, take: 500 })
+    if (!orders.length) break
+    after = orders[orders.length - 1].id
+    const done = new Set((await db.loyaltyEntry.findMany({ where: { orderId: { in: orders.map((order) => order.id) }, kind: 'EARN_ORDER' }, select: { orderId: true } })).map((row) => row.orderId))
+    for (const order of orders) {
+      if (done.has(order.id)) continue
+      if (handled++ >= limit) break
+      try {
+        if (await awardOrder(settings, order)) awarded++
+      } catch (error) {
+        logEvent('warn', 'store.loyalty_award_failed', { orderId: order.id, error: String(error) })
+      }
+    }
   }
   return { awarded }
+}
+
+async function awardOrder(settings: LoyaltySettings, order: { id: number; userId: number; totalMinor: bigint; currency: string; meta: string | null }) {
+  let shipping = 0n
+  try { shipping = BigInt(JSON.parse(order.meta || '{}').shippingMinor || 0) } catch { shipping = 0n }
+  const before = await tierOf(settings, order.userId)
+  const points = pointsFor(settings, tomanOf(order.totalMinor - shipping, order.currency), before.tier.multiplier)
+  // Zero-point orders still get a row, so they are not looked at again.
+  const entry = points > 0
+    ? await addPoints(order.userId, points, 'EARN_ORDER', `order:${order.id}`, `خرید سفارش #${order.id}`, order.id)
+    : await db.loyaltyEntry.create({ data: { userId: order.userId, points: 0, kind: 'EARN_ORDER', note: `سفارش #${order.id}`, orderId: order.id, idempotencyKey: `order:${order.id}` } }).catch(() => null)
+  if (!entry || points <= 0) return false
+  await signupBonus(settings, order.userId)
+  const after = await tierOf(settings, order.userId)
+  const upgraded = after.tier.id !== before.tier.id
+  await notify({
+    userId: order.userId, kind: 'LOYALTY', dedupeKey: `loyalty:order:${order.id}`,
+    titleFa: upgraded ? `تبریک! به سطح ${after.tier.name} باشگاه مشتریان رسیدید` : `${points.toLocaleString('fa-IR')} امتیاز باشگاه مشتریان گرفتید`,
+    titleEn: upgraded ? `You reached ${after.tier.name}` : `You earned ${points} points`,
+    bodyFa: `بابت سفارش #${order.id}. موجودی امتیاز: ${(after.account?.balance || 0).toLocaleString('fa-IR')}`, bodyEn: '', href: '/dashboard/club',
+  })
+  return true
 }
 
 /** Takes back the points of a refunded part of an order (cancellation or return). */
