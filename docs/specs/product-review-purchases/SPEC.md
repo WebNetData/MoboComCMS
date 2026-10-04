@@ -1,0 +1,7 @@
+# Product review purchase eligibility
+
+Evidence: ProductReview already stores quality/value/usability criteria and requires a paid order plus paid invoice. Both feedback POST and review-tab GET check only Order.productId. Checkout stores every cart item in OrderLine but puts only the first product in Order.productId; later items cannot be reviewed by their buyers.
+
+Extend Catalog's existing verified-purchase policy through one service reused by GET/POST. A positive user/product ID must match an order belonging to the same user, with status PAID and invoice PAID. Match a positive-quantity, non-cancelled product line; use legacy productId only when the order has no lines. Modern cancelled lines cannot regain eligibility through the first-product mirror. Preserve unique review, moderation, criteria validation, rate limiting, publication/module gates and guest questions. Current refund policy remains based on existing order/invoice status; partial-return eligibility is separate policy work. No schema migration, route/API shape, permission, configuration or visual change. No second review engine or data copy.
+
+Acceptance: both old and multi-product orders, owner isolation, unpaid/refunded/void invoice, cancelled/zero-quantity/unrelated lines and invalid identifiers. Verify real PostgreSQL tab/write behavior with temporary users/products/orders/invoices, cleanup, and focused Store/Review tests plus TypeScript/source/architecture/security. Build and GitHub gates before merge. Preserve existing protected pages and production records.

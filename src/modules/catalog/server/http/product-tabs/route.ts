@@ -8,6 +8,7 @@ import { cleanRichText } from '@/shared/content/sanitize'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 
 type Context = { params: Promise<{ slug: string }> }
 const criteriaKeys = ['quality', 'value', 'usability'] as const
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       db.productReview.groupBy({ by: ['rating'], where, _count: { rating: true } }),
       db.productReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 10, take: 10, select: { id: true, rating: true, criteria: true, title: true, body: true, createdAt: true, user: { select: { name: true } } } }),
       db.productReview.findMany({ where, select: { criteria: true }, take: 500 }),
-      user ? db.order.count({ where: { userId: user.id, productId: product.id, status: 'PAID', invoice: { status: 'PAID' } } }) : 0,
+      user ? hasVerifiedProductPurchase(user.id, product.id) : false,
       user ? db.productReview.findUnique({ where: { productId_userId: { productId: product.id, userId: user.id } } }) : null,
     ])
     return ok({
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       average: aggregate._avg.rating || 0,
       breakdown: Object.fromEntries(breakdown.map(row => [row.rating, row._count.rating])),
       criteria: criteriaAverages(criteriaRows),
-      canReview: Boolean(user) && purchased > 0 && !existing,
+      canReview: Boolean(user) && purchased && !existing,
       signedIn: Boolean(user),
       hasReviewed: Boolean(existing),
       page,
