@@ -1,0 +1,9 @@
+# Follow-list privacy correction
+
+Evidence: the profile page uses canViewProfile before rendering follow tabs, while GET_follows previously checked only showFollows. A private profile with default showFollows exposed its social graph through the API. The people directory and follow lists also returned blocked identities; list totals counted inactive accounts.
+
+Canonical owner: Identity's existing profile service, UserFollow/UserBlock and profile privacy. Enforce canViewProfile and showFollows before reading graph rows. Preserve the existing owner override for showFollows and staff override for profile visibility; staff still cannot bypass explicit hidden follow lists. Active profile headers remain public as the current domain contract specifies. Anonymous/member/follower/owner/staff access follows existing policies; no new identity or privacy system.
+
+Filter both block directions and inactive list members in SQL before pagination and count. The directory excludes both block directions. Preserve response shapes, routes, existing follow records, module guards and protected visuals. Unauthorized graph reads now return existing ProfileError 403; inactive/missing owners return 404. This is a security correction, not a new configurable policy: existing member privacy settings remain the control plane for this behavior. No migration or new event.
+
+Acceptance: reproduce the old denial failure; verify private/member/follower scopes, showFollows, owner/staff behavior, SQL row/count filter parity, both blocks and inactive identities. Run focused Community/Profile/Forum tests, TypeScript, source/architecture/security, connected local PostgreSQL/API fixtures with cleanup, Linux site tests and clean-source PostgreSQL build. Continue with a focused audit of block behavior in existing private conversations.
