@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cart-merge-cap-${Date.now()}`, products = [], carts = []
 const baseline = process.env.CART_MERGE_BASELINE
-let user
+let user, legacyUser
 // CART_MERGE_BASELINE=<git ref> runs the cart service of that revision to reproduce the old behaviour.
 const source = file => baseline && file === 'src/modules/store/server/cart.ts' ? execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'}) : fs.readFileSync(file, 'utf8')
 function load(file, cache = new Map()) {
@@ -82,6 +82,19 @@ async function main() {
  await service.cartView({userId: user.id, token: empty.token})
  assert.equal(await db.cart.count({where: {id: empty.id}}), 0)
  assert.deepEqual((await lines(owned.id)).map(row => [row.productId, row.quantity]), rows.map(row => [row.productId, row.quantity]))
+ // A cart that passed the limit before it applied is explained, takes no guest lines and recovers once trimmed.
+ legacyUser = await db.user.create({data: {email: `${seed}-legacy@example.invalid`, passwordHash: 'test-only'}})
+ const legacy = await createCart(legacyUser.id), extra = await createCart(null), legacyOwner = {userId: legacyUser.id, token: extra.token}
+ await db.cartLine.createMany({data: products.slice(0, MAX_CART_LINES + 2).map(row => ({cartId: legacy.id, productId: row.id, quantity: 1}))})
+ await db.cartLine.create({data: {cartId: extra.id, productId: id(MAX_CART_LINES + 3), quantity: 1}})
+ view = await service.cartView(legacyOwner)
+ assert.equal(view.overLimit, 2); assert.equal(view.blocked, true); assert.equal(view.waiting, 1); assert.equal(view.lines.length, MAX_CART_LINES + 2)
+ assert.ok(view.lines.every(line => !line.issue), 'the lines themselves stay buyable')
+ await assert.rejects(service.cartCheckoutLines(legacyOwner), error => error.code === 'CART_FULL' && error.status === 409)
+ for (const line of view.lines.slice(0, 3)) await service.updateCartLine(legacyOwner, line.id, 0)
+ view = await service.cartView(legacyOwner)
+ assert.equal(view.overLimit, undefined); assert.equal(view.blocked, false); assert.equal(view.waiting, undefined); assert.equal(view.lines.length, MAX_CART_LINES)
+ assert.equal((await service.cartCheckoutLines(legacyOwner)).lines.length, MAX_CART_LINES)
  if (process.env.CART_MERGE_API) {
   // Actual HTTP against a running site (CART_MERGE_API=http://localhost:3100): DTO, cookie and refill.
   const {encode} = require('next-auth/jwt'), base = process.env.CART_MERGE_API, late = await createCart(null)
@@ -101,8 +114,8 @@ async function main() {
   assert.equal(await db.cart.count({where: {id: late.id}}), 0)
   console.log('Actual HTTP waiting count, guest-token cookie, signed-out view of the waiting line, refill after removal and owned-token cookie passed')
  }
- console.log('PostgreSQL capped sign-in merge, oldest-first order, waiting guest lines, untouched full cart, refill after removal, concurrent single move and duplicate/empty guest settlement passed')
+ console.log('PostgreSQL capped sign-in merge, oldest-first order, waiting guest lines, untouched full cart, refill after removal, concurrent single move, duplicate/empty guest settlement and over-limit cart recovery passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
- try {await db.cart.deleteMany({where: {id: {in: carts}}}); await db.product.deleteMany({where: {slug: {startsWith: seed}}}); if (user) await db.user.deleteMany({where: {id: user.id}})} finally {await db.$disconnect()}
+ try {await db.cart.deleteMany({where: {id: {in: carts}}}); await db.product.deleteMany({where: {slug: {startsWith: seed}}}); await db.user.deleteMany({where: {id: {in: [user, legacyUser].filter(Boolean).map(row => row.id)}}})} finally {await db.$disconnect()}
 })

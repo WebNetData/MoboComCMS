@@ -10,7 +10,7 @@ The merge moves guest-only lines into the owned cart oldest first until the limi
 
 While lines wait, a full owned cart is only read: no lock, no `updatedAt`/reminder change. The cart DTO gains an optional `waiting` count (absent when zero), and its `token` is the guest token while lines wait so the browser cookie keeps pointing at them; it returns to the owned token afterwards. Signed out, the same browser sees the waiting lines as its guest cart. The cart page shows one notice with the waiting count. The change is additive for existing clients; no migration, setting or URL change.
 
-Owned carts that already exceed the limit from earlier merges are not shrunk; they receive no further guest lines until they are below the limit.
+Owned carts that already exceed the limit from earlier merges are not shrunk; they receive no further guest lines until they are below the limit. Their lines are never removed automatically. The cart DTO reports optional `overLimit` (lines above the limit) and `blocked`, the cart page says how many lines to remove, and cart checkout answers `CART_FULL` (409) with that count instead of the generic checkout `BAD_ITEM`. Once trimmed, the cart checks out and takes waiting lines again.
 
 ## Acceptance
 

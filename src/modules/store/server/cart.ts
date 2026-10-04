@@ -147,6 +147,8 @@ export type CartView = {
   blocked: boolean
   /** Lines from before sign-in that wait in the browser's cart until this cart has room. */
   waiting?: number
+  /** Lines above the cart size limit (carts merged before the limit applied); checkout needs them removed. */
+  overLimit?: number
 }
 
 const EMPTY = (token: string): CartView => ({ token, lines: [], count: 0, currency: 'IRT', itemsTotal: 0, listTotal: 0, saving: 0, shipping: 0, total: 0, hasPhysical: false, blocked: false })
@@ -165,6 +167,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
   snapshot?.push(...rows.map(row => ({ lineId: row.id, quantity: row.quantity, updatedAt: row.updatedAt })))
   // A guest cart that survived the sign-in merge holds the lines that did not fit.
   const guestToken = owner.userId ? validToken(owner.token) : null
+  const overLimit = Math.max(0, rows.length - MAX_CART_LINES)
   const waiting = guestToken ? await db.cartLine.count({ where: { cart: { token: guestToken, userId: null } } }) : 0
   const member = owner.userId ? await isMember(owner.userId) : false
   const currency = rows[0]?.product.currency || 'IRT'
@@ -218,8 +221,9 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     total: minorToNumber(itemsMinor + shippingMinor, currency),
     hasPhysical: lines.some((line) => line.kind === 'PHYSICAL' && !line.issue),
     shippingByAddress: byAddress,
-    blocked,
+    blocked: blocked || overLimit > 0,
     ...(waiting ? { waiting } : {}),
+    ...(overLimit ? { overLimit } : {}),
   }
 }
 
@@ -356,6 +360,7 @@ export async function cartCheckoutLines(owner: CartOwner) {
   const snapshot: CartLineSnapshot[] = []
   const view = await readCart(owner, snapshot)
   if (!view.lines.length) throw new StoreError('سبد خرید شما خالی است', 409, 'CART_EMPTY')
+  if (view.overLimit) throw new StoreError(`سبد خرید بیش از ${MAX_CART_LINES.toLocaleString('fa-IR')} ردیف دارد؛ ${view.overLimit.toLocaleString('fa-IR')} ردیف را حذف کنید`, 409, 'CART_FULL')
   if (view.blocked) throw new StoreError('بعضی کالاهای سبد قابل خرید نیستند؛ سبد را بررسی کنید', 409, 'CART_BLOCKED')
   return { view, snapshot, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
 }
