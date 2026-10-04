@@ -83,9 +83,11 @@ export function ensureInventoryReservation(input: { orderId: number; holdMinutes
       const row = existing.find((reservation) => reservation.line === item.line)
       if (row?.status === 'CONSUMED') continue
       if (row?.status === 'HELD') {
-        // Past its lease but not yet released: the stock is still ours, extend it.
-        if (row.expiresAt <= now) await tx.inventoryReservation.update({ where: { id: row.id }, data: { expiresAt: holdFor(input.holdMinutes) } })
-        continue
+        if (row.expiresAt > now) continue
+        // Past its lease but not yet released: the stock is still ours, extend it. If the expiry
+        // job released it at this very moment, the line is taken again below.
+        const extended = await tx.inventoryReservation.updateMany({ where: { id: row.id, status: 'HELD' }, data: { expiresAt: holdFor(input.holdMinutes) } })
+        if (extended.count) continue
       }
       const taken = await takeStock(tx, item)
       const data = { productId: item.productId, variantId: taken.variantId, quantity: item.quantity, finite: taken.finite, variantFinite: taken.variantFinite, status: 'HELD', expiresAt: holdFor(input.holdMinutes) }
@@ -130,15 +132,43 @@ export function restockConsumedInventory(orderId: number) {
   return returnStock(orderId, 'CONSUMED')
 }
 
+/** Order states whose stock is sold: the hold waits for delivery and must not expire. */
+const PAID_ORDER = ['PAID', 'COMPLETED']
+
+/**
+ * Returns the stock of unpaid orders whose hold has run out. A paid order keeps its
+ * hold until delivery consumes it, however long delivery is delayed; and a hold that
+ * was extended (a payment arriving) after it was listed here is left alone.
+ */
 export async function releaseExpiredReservations(limit = 100) {
+  const now = new Date()
   const rows = await db.inventoryReservation.findMany({
-    where: { status: 'HELD', expiresAt: { lt: new Date() } },
+    where: { status: 'HELD', expiresAt: { lt: now } },
     orderBy: { expiresAt: 'asc' },
     distinct: ['orderId'],
     select: { orderId: true },
     take: Math.max(1, Math.min(500, limit)),
   })
   let released = 0
-  for (const row of rows) if ((await releaseInventoryReservation(row.orderId)).released) released++
+  for (const { orderId } of rows) {
+    released += await db.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, select: { status: true } })
+      const expired = { orderId, status: 'HELD', expiresAt: { lt: now } }
+      if (order && PAID_ORDER.includes(order.status)) {
+        // Keeps the paid hold and moves it out of this job's window.
+        await tx.inventoryReservation.updateMany({ where: expired, data: { expiresAt: holdFor(60) } })
+        return 0
+      }
+      let count = 0
+      for (const row of await tx.inventoryReservation.findMany({ where: expired })) {
+        const changed = await tx.inventoryReservation.updateMany({ where: { id: row.id, status: 'HELD', expiresAt: { lt: now } }, data: { status: 'RELEASED' } })
+        if (changed.count !== 1) continue
+        count++
+        if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
+        if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
+      }
+      return count ? 1 : 0
+    })
+  }
   return released
 }
