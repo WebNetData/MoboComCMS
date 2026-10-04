@@ -21,6 +21,102 @@ const c = load('src/modules/community/domain/community')
 
 const rel = (patch = {}) => ({ self: false, staff: false, signedIn: true, following: false, followedBy: false, blocked: false, blockedBy: false, ...patch })
 
+function loadService(mocks, relative = 'src/modules/identity/server/profile.ts', serviceCache = new Map()) {
+  const file = path.resolve(__dirname, '..', relative)
+  if (serviceCache.has(file)) return serviceCache.get(file).exports
+  const mod = { exports: {} }; serviceCache.set(file, mod)
+  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const localRequire = name => {
+    if (Object.hasOwn(mocks, name)) return mocks[name]
+    if (name.startsWith('@/')) return loadService(mocks, `src/${name.slice(2)}.ts`, serviceCache)
+    return require(name)
+  }
+  new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
+  return mod.exports
+}
+
+test('follow lists enforce profile visibility before reading the social graph', async () => {
+  for (const scenario of [
+    { privacy: { profile: 'PRIVATE' }, viewer: null },
+    { privacy: { profile: 'MEMBERS' }, viewer: null },
+    { privacy: { profile: 'FOLLOWERS' }, viewer: 2 },
+    { privacy: { showFollows: false }, viewer: 2 },
+    { privacy: {}, viewer: 2, blockedBy: true },
+  ]) {
+    let reads = 0
+    const service = loadService({
+      '@/platform/database/prisma': { db: {
+        userProfile: { findUnique: async () => ({ privacy: JSON.stringify(scenario.privacy), user: { status: 'ACTIVE' } }) },
+        user: { findUnique: async () => ({ role: 'USER', status: 'ACTIVE' }) },
+        userFollow: { count: async ({ where }) => {
+          if (Object.keys(where).length === 2) return 0
+          reads++; return 0
+        }, findMany: async () => { reads++; return [] } },
+        userBlock: { count: async ({ where }) => scenario.blockedBy && where.blockerId === 1 ? 1 : 0 },
+      } },
+      '@/modules/settings/server': {},
+      '@/platform/http/rate-limit': {},
+    })
+    await assert.rejects(service.followList(1, 'following', scenario.viewer), error => error.status === 403)
+    assert.equal(reads, 0, 'denied callers must not read follow-list rows')
+  }
+})
+
+test('authorized follow lists filter blocked and inactive identities before pagination and counting', async () => {
+  for (const scenario of [
+    { privacy: {}, viewer: null },
+    { privacy: { profile: 'PRIVATE', showFollows: false }, viewer: 1 },
+    { privacy: { profile: 'MEMBERS' }, viewer: 2 },
+    { privacy: { profile: 'FOLLOWERS' }, viewer: 2, following: true },
+    { privacy: { profile: 'PRIVATE' }, viewer: 2, staff: true },
+  ]) {
+    const queries = []
+    const counts = []
+    const service = loadService({
+      '@/platform/database/prisma': { db: {
+        userProfile: { findUnique: async () => ({ privacy: JSON.stringify(scenario.privacy), user: { status: 'ACTIVE' } }) },
+        user: { findUnique: async () => ({ role: scenario.staff ? 'ADMIN' : 'USER', status: 'ACTIVE' }) },
+        userBlock: { count: async () => 0, findMany: async () => [{ blockerId: scenario.viewer, blockedId: 3 }, { blockerId: 4, blockedId: scenario.viewer }] },
+        userFollow: {
+          findMany: async args => { if ('skip' in args) queries.push(args); return [] },
+          count: async ({ where }) => {
+            if (Object.keys(where).length === 2 && typeof where.followerId === 'number' && typeof where.followingId === 'number') return scenario.following && where.followerId === 2 ? 1 : 0
+            counts.push(where); return 0
+          },
+        },
+      } },
+      '@/modules/settings/server': {}, '@/platform/http/rate-limit': {},
+    })
+    for (const direction of ['followers', 'following']) {
+      const result = await service.followList(1, direction, scenario.viewer, 2)
+      assert.deepEqual(result, { total: 0, page: 2, pages: 1, people: [] })
+      const query = queries.at(-1)
+      const edge = direction === 'followers' ? 'follower' : 'following'
+      assert.equal(query.skip, 30)
+      assert.equal(query.take, 30)
+      assert.deepEqual(query.where[`${edge}Id`], { notIn: scenario.viewer ? [3, 4] : [] })
+      assert.deepEqual(query.where[edge], { status: 'ACTIVE' })
+      assert.deepEqual(counts.at(-1), query.where)
+    }
+  }
+})
+
+test('people directory excludes both block directions in rows and totals', async () => {
+  let rowsWhere, countWhere
+  const service = loadService({
+    '@/platform/database/prisma': { db: {
+      userBlock: { findMany: async () => [{ blockerId: 1, blockedId: 2 }, { blockerId: 3, blockedId: 1 }] },
+      userProfile: { findMany: async ({ where }) => { rowsWhere = where; return [] }, count: async ({ where }) => { countWhere = where; return 0 } },
+      userFollow: { findMany: async () => [] },
+    } },
+    '@/modules/settings/server': {}, '@/platform/http/rate-limit': {},
+  })
+  const result = await service.peopleDirectory({}, 1)
+  assert.equal(result.total, 0)
+  assert.deepEqual(rowsWhere.userId, { notIn: [2, 3] })
+  assert.deepEqual(countWhere, rowsWhere)
+})
+
 test('usernames and seeds', () => {
   assert.equal(p.normalizeUsername('@Ali_Rz'), 'ali_rz')
   assert.throws(() => p.normalizeUsername('ab'), /نام کاربری/)

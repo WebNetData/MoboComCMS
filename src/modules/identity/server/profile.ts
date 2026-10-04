@@ -258,8 +258,16 @@ export async function followingIds(userId: number): Promise<number[]> {
 }
 
 export async function followList(userId: number, direction: 'followers' | 'following', viewerId: number | null, page = 1) {
+  const owner = await db.userProfile.findUnique({ where: { userId }, select: { privacy: true, user: { select: { status: true } } } })
+  if (!owner || owner.user.status !== 'ACTIVE') throw new ProfileError('کاربر پیدا نشد', 404, 'NOT_FOUND')
+  const relation = await relationBetween(viewerId, userId)
+  const privacy = normalizePrivacy(owner.privacy)
+  if (!canViewProfile(privacy, relation) || (!privacy.showFollows && !relation.self)) throw new ProfileError('این فهرست خصوصی است', 403, 'PRIVATE')
+  const hidden = await blockedIds(viewerId)
   const size = 30
-  const where = direction === 'followers' ? { followingId: userId } : { followerId: userId }
+  const where = direction === 'followers'
+    ? { followingId: userId, followerId: { notIn: hidden }, follower: { status: 'ACTIVE' } }
+    : { followerId: userId, followingId: { notIn: hidden }, following: { status: 'ACTIVE' } }
   const [rows, total] = await Promise.all([
     db.userFollow.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (Math.max(1, page) - 1) * size, take: size, select: { followerId: true, followingId: true } }),
     db.userFollow.count({ where }),
@@ -293,7 +301,8 @@ export async function peopleDirectory(input: { q?: string; sort?: string; page?:
   const size = 24
   const page = Math.max(1, Math.min(200, Number(input.page) || 1))
   const q = cleanText(input.q, 40).toLowerCase()
-  const where = { user: { status: 'ACTIVE' }, ...(q ? { OR: [{ username: { contains: q } }, { user: { name: { contains: q } } }, { headline: { contains: q } }] } : {}) }
+  const hidden = await blockedIds(viewerId)
+  const where = { userId: { notIn: hidden }, user: { status: 'ACTIVE' }, ...(q ? { OR: [{ username: { contains: q } }, { user: { name: { contains: q } } }, { headline: { contains: q } }] } : {}) }
   const orderBy = input.sort === 'new' ? [{ createdAt: 'desc' as const }] : input.sort === 'posts' ? [{ postCount: 'desc' as const }] : [{ followerCount: 'desc' as const }, { postCount: 'desc' as const }]
   const [rows, total] = await Promise.all([db.userProfile.findMany({ where, orderBy, skip: (page - 1) * size, take: size, select: { userId: true } }), db.userProfile.count({ where })])
   const [cards, mine] = await Promise.all([profileCards(rows.map((row) => row.userId)), viewerId ? followingIds(viewerId) : Promise.resolve([] as number[])])

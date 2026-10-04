@@ -1,9 +1,9 @@
 # MoboCom Work State
 
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
-Current milestone: Extend public-search browsing beyond the existing numeric window with bounded-memory cursors.
-Risk: Broad public search queries and dashboard scans still traverse all matching content; cursor browsing is live rather than a snapshot, and additive migrations need production rollout.
-Owner/contracts: `journal` owns `PostItemLink` and editorial selection; `catalog` owns product publication and its existing related-posts tab; `content` owns canonical item refs and public visibility.
+Current milestone: Complete the remaining brief autonomously under the active Goal; close Community privacy gaps first.
+Risk: Follow-list API previously bypassed private-profile visibility. Existing-conversation message blocks need review. Broad search still scans all matching rows, and production migrations/backup validation remain pending.
+Owner/contracts: `identity` owns canonical profiles, privacy and follow/block graph; `community` exposes its APIs/UI; `forum` owns existing private conversations.
 
 Decisions:
 - Preserve the modular monolith, path-based public URLs, and the dark MoboCom visual identity.
@@ -116,3 +116,5 @@ Next concrete action:
 - PR #40 is open for search continuation. A final edge-case correction restarts page one when content removal empties a cursor page; focused and full site tests, TypeScript, source checks and Spectral passed again. The connected PostgreSQL/API/Chromium check passed again, including empty-last-page recovery. One attempt started before the restarted server was ready and failed with ECONNREFUSED; after readiness returned 200, the rerun passed and fixtures were removed. The first build passed; the final committed build and GitHub E2E must pass before merge.
 - The 3f95d7c build and GitHub E2E subsequently passed. A dark/light visual check then found an existing mobile search overflow: the main section reused `md-search`, colliding with header-form CSS. The main now uses `md-search-results`, the search input can shrink, and reset feedback precedes results. TypeScript, source, architecture, the connected 1,021-post flow and a new permanent Chromium test passed; the latter checks dark desktop/mobile and light mobile at 1440/360/390px. Final dark desktop/light mobile screenshots were inspected without overflow. The final layout commit still needs its build and GitHub checks before merge.
 - After the PR gates, audit remaining production readiness gaps using repository evidence; broad-query database/visibility scans still need measurement. Verify production backup/restore readiness and apply additive migrations on the real deployment when access is available.
+- PR #40 has now passed the final build and GitHub E2E (8m44s), merged as bdd65e0, and local main is synchronized. The public search slice is delivered; port 3000 readiness returned 200.
+- The next audit reproduced a private-profile follow-list API bypass. Identity now applies existing profile visibility and showFollows before graph reads; list/directory queries exclude blocked identities before pagination/counting, and follow lists exclude inactive users. Nineteen focused tests, TypeScript, source, architecture and security checks passed. The local PostgreSQL/API test passed guest/member/follower/owner/staff policies, both block directions and exact totals, then removed all six temporary identities. Linux test:site passed 458/458. This branch still needs its clean-source build/PR gates. Next audit: replies in preexisting Forum conversations after a user block.

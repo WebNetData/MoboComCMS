@@ -120,7 +120,6 @@ export async function GET_follows(req: NextRequest, ctx: Ctx) {
   const user = await requireUser(req)
   try {
     const owner = await target(username)
-    if (!owner.privacy.showFollows && user?.id !== owner.profile.userId) return err('این فهرست خصوصی است', 403)
     return ok(await followList(owner.profile.userId, list, user?.id ?? null, Number(req.nextUrl.searchParams.get('page')) || 1))
   } catch (error) { return failure(error) }
 }
