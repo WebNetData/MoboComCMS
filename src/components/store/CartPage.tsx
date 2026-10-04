@@ -57,6 +57,8 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
         <button type="button" className="sx-link is-danger" onClick={() => void clear()} disabled={busy !== null}><StoreIcon name="trash" size={16} />حذف همه</button>
       </header>
       {error && <p className="sx-alert" role="alert">{error}</p>}
+      {!!cart.overLimit && <p className="sx-cart-hint is-warn" role="status">سبد خرید بیش از حد مجاز ردیف دارد؛ برای ادامهٔ خرید {fa(cart.overLimit)} ردیف را حذف کنید.</p>}
+      {!!cart.waiting && <p className="sx-cart-hint is-warn" role="status">سبد خرید پر است. {fa(cart.waiting)} کالا که پیش از ورود انتخاب کرده بودید نگه داشته شده و با خالی شدن جا به سبد اضافه می‌شود.</p>}
       <ul className="sx-cart-lines">
         {cart.lines.map((line) => <li key={line.id} className={line.issue ? 'has-issue' : ''} aria-busy={busy === line.id}>
           <Link href={`/products/${line.slug}`} className="sx-cart-art">{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
@@ -93,7 +95,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
       </dl>
       {cart.hasPhysical && <p className="sx-cart-hint"><StoreIcon name="truck" size={16} />{cart.shippingByAddress ? 'هزینهٔ ارسال بر اساس شهر، وزن و روش ارسال (پست، تیپاکس، پیک…) در مرحلهٔ بعد محاسبه می‌شود' : cart.shipping > 0 ? <>هزینهٔ ارسال: <Amount value={cart.shipping} currency={cart.currency} /> (در مرحلهٔ بعد محاسبه می‌شود)</> : 'ارسال این سفارش رایگان است'}</p>}
       <button type="button" className="sx-btn is-primary is-block is-large" onClick={proceed} disabled={cart.blocked || busy !== null}>تأیید و تکمیل سفارش</button>
-      {cart.blocked && <p className="sx-cart-hint is-warn">برای ادامه، کالاهای دارای هشدار را حذف یا اصلاح کنید.</p>}
+      {cart.blocked && !cart.overLimit && <p className="sx-cart-hint is-warn">برای ادامه، کالاهای دارای هشدار را حذف یا اصلاح کنید.</p>}
       {note && <p className="sx-cart-hint">{note}</p>}
       <p className="sx-cart-fine">کالاهای سبد رزرو نشده‌اند؛ برای ثبت سفارش، مراحل خرید را تکمیل کنید.</p>
     </aside>

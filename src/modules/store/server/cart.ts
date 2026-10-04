@@ -20,16 +20,35 @@ export type CartOwner = { userId: number | null; token: string | null }
 const validToken = (token: string | null | undefined) => (token && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? token : null)
 const newToken = () => randomBytes(24).toString('base64url')
 
-async function mergeInto(tx: Prisma.TransactionClient, targetId: number, sourceId: number) {
-  const lines = await tx.cartLine.findMany({ where: { cartId: sourceId } })
+/**
+ * Moves the guest lines into the owned cart, oldest first, up to the cart size
+ * limit. Lines that do not fit stay in the guest cart and move on a later
+ * read once the customer has made room; nothing is dropped.
+ */
+async function mergeInto(tx: Prisma.TransactionClient, targetId: number, sourceId: number, apply = true) {
+  const lines = await tx.cartLine.findMany({ where: { cartId: sourceId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+  const owned = await tx.cartLine.findMany({ where: { cartId: targetId }, select: { productId: true, variantKey: true } })
+  const taken = new Set(owned.map(line => `${line.productId}:${line.variantKey}`))
+  let room = MAX_CART_LINES - owned.length
+  // Dry run: is there anything to move or settle (an empty guest cart is simply removed)?
+  if (!apply) return !lines.length || room > 0 || lines.some(line => taken.has(`${line.productId}:${line.variantKey}`))
+  const settled: number[] = []
   for (const line of lines) {
-    await tx.cartLine.upsert({
-      where: { cartId_productId_variantKey: { cartId: targetId, productId: line.productId, variantKey: line.variantKey } },
-      create: { cartId: targetId, productId: line.productId, variantKey: line.variantKey, quantity: line.quantity },
-      update: {},
-    })
+    // An owned line of the same product keeps its quantity; the guest copy is settled.
+    if (!taken.has(`${line.productId}:${line.variantKey}`)) {
+      if (room <= 0) continue
+      await tx.cartLine.upsert({
+        where: { cartId_productId_variantKey: { cartId: targetId, productId: line.productId, variantKey: line.variantKey } },
+        create: { cartId: targetId, productId: line.productId, variantKey: line.variantKey, quantity: line.quantity },
+        update: {},
+      })
+      room--
+    }
+    settled.push(line.id)
   }
-  await tx.cart.delete({ where: { id: sourceId } })
+  if (settled.length === lines.length) await tx.cart.delete({ where: { id: sourceId } })
+  else if (settled.length) await tx.cartLine.deleteMany({ where: { cartId: sourceId, id: { in: settled } } })
+  return true
 }
 
 /** The owner's cart, or null. Claims/merges a guest cart after sign-in. */
@@ -47,6 +66,8 @@ export async function findCart(owner: CartOwner) {
         const mine = await tx.cart.findUnique({ where: { userId } })
         if (!held.count) return mine
         if (!mine) return tx.cart.update({ where: { id: guest.id }, data: { userId } })
+        // Waiting lines must not touch a full owned cart (its lock restarts the reminder cycle).
+        if (!await mergeInto(tx, mine.id, guest.id, false)) return mine
         await lockCart(tx, mine.id, owner)
         await mergeInto(tx, mine.id, guest.id)
         return tx.cart.findUnique({ where: { id: mine.id } })
@@ -124,12 +145,18 @@ export type CartView = {
   shippingByAddress?: boolean
   /** Lines that block checkout (stock, availability, mixed currency). */
   blocked: boolean
+  /** Lines from before sign-in that wait in the browser's cart until this cart has room. */
+  waiting?: number
+  /** Lines above the cart size limit (carts merged before the limit applied); checkout needs them removed. */
+  overLimit?: number
 }
 
 const EMPTY = (token: string): CartView => ({ token, lines: [], count: 0, currency: 'IRT', itemsTotal: 0, listTotal: 0, saving: 0, shipping: 0, total: 0, hasPhysical: false, blocked: false })
 
 /** Prices and availability of every line, recomputed from the catalogue. */
-export async function cartView(owner: CartOwner): Promise<CartView> {
+export type CartLineSnapshot = { lineId: number; quantity: number; updatedAt: Date }
+
+async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promise<CartView> {
   const cart = await findCart(owner)
   if (!cart) return EMPTY(validToken(owner.token) || '')
   const rows = await db.cartLine.findMany({
@@ -137,6 +164,11 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     orderBy: { createdAt: 'asc' },
     include: { product: { include: { brand: { select: { name: true } }, variants: true } } },
   })
+  snapshot?.push(...rows.map(row => ({ lineId: row.id, quantity: row.quantity, updatedAt: row.updatedAt })))
+  // A guest cart that survived the sign-in merge holds the lines that did not fit.
+  const guestToken = owner.userId ? validToken(owner.token) : null
+  const overLimit = Math.max(0, rows.length - MAX_CART_LINES)
+  const waiting = guestToken ? await db.cartLine.count({ where: { cart: { token: guestToken, userId: null } } }) : 0
   const member = owner.userId ? await isMember(owner.userId) : false
   const currency = rows[0]?.product.currency || 'IRT'
   let itemsMinor = 0n
@@ -177,7 +209,8 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
   const byAddress = physicalMinor > 0n && (await getCarrierSettings()).enabled
   const shippingMinor = physicalMinor > 0n && !byAddress ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
   return {
-    token: cart.token,
+    // The browser keeps the guest token while lines wait, so they can still move.
+    token: waiting && guestToken ? guestToken : cart.token,
     lines,
     count: lines.reduce((sum, line) => sum + line.quantity, 0),
     currency,
@@ -188,8 +221,15 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     total: minorToNumber(itemsMinor + shippingMinor, currency),
     hasPhysical: lines.some((line) => line.kind === 'PHYSICAL' && !line.issue),
     shippingByAddress: byAddress,
-    blocked,
+    blocked: blocked || overLimit > 0,
+    ...(waiting ? { waiting } : {}),
+    ...(overLimit ? { overLimit } : {}),
   }
+}
+
+/** Public cart DTO excludes the internal cleanup revisions. */
+export async function cartView(owner: CartOwner): Promise<CartView> {
+  return readCart(owner)
 }
 
 /** Number of items for the header badge (no pricing work). */
@@ -304,20 +344,25 @@ export async function clearCart(owner: CartOwner) {
 }
 
 /** Removes the purchased lines once an order was placed from the cart. */
-export async function removePurchasedLines(owner: CartOwner, lineIds: number[]) {
+export async function removePurchasedLines(owner: CartOwner, lineIds: number[], snapshot?: CartLineSnapshot[]) {
   const cart = await findCart(owner)
   if (cart && lineIds.length) await db.$transaction(async tx => {
     await lockCart(tx, cart.id, owner)
-    await tx.cartLine.deleteMany({ where: { cartId: cart.id, id: { in: lineIds } } })
+    await tx.cartLine.deleteMany({ where: {
+      cartId: cart.id, id: { in: lineIds },
+      ...(snapshot ? { OR: snapshot.map(row => ({ id: row.lineId, quantity: row.quantity, updatedAt: row.updatedAt })) } : {}),
+    } })
   })
 }
 
 /** The lines checkout will buy (only lines without issues). */
 export async function cartCheckoutLines(owner: CartOwner) {
-  const view = await cartView(owner)
+  const snapshot: CartLineSnapshot[] = []
+  const view = await readCart(owner, snapshot)
   if (!view.lines.length) throw new StoreError('سبد خرید شما خالی است', 409, 'CART_EMPTY')
+  if (view.overLimit) throw new StoreError(`سبد خرید بیش از ${MAX_CART_LINES.toLocaleString('fa-IR')} ردیف دارد؛ ${view.overLimit.toLocaleString('fa-IR')} ردیف را حذف کنید`, 409, 'CART_FULL')
   if (view.blocked) throw new StoreError('بعضی کالاهای سبد قابل خرید نیستند؛ سبد را بررسی کنید', 409, 'CART_BLOCKED')
-  return { view, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
+  return { view, snapshot, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
 }
 
 /** Old guest carts are deleted after 60 days, owned carts after 180 days of inactivity. */

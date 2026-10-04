@@ -21,7 +21,7 @@ const dayMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric',
 const fullDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`)
 /** Codes whose server message is already written for the customer. */
-const PLAIN_CODES = new Set(['NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
+const PLAIN_CODES = new Set(['NO_CARRIER', 'CARRIER_UNAVAILABLE', 'SHIPPING_REQUIRED', 'ADDRESS_NOT_FOUND', 'DELIVERY_REQUIRED', 'DELIVERY_SLOT_INVALID', 'DELIVERY_SLOT_FULL', 'OUT_OF_STOCK', 'VARIANT_NOT_FOUND', 'MEMBERS_ONLY', 'QUANTITY_LIMIT', 'CART_EMPTY', 'CART_BLOCKED', 'CART_FULL', 'MIXED_CURRENCY', 'PRODUCT_NOT_FOUND', 'VARIANT_REQUIRED'])
 const PROMO_MESSAGES: Record<string, string> = {
   PROMOTION_INVALID: 'کد تخفیف نامعتبر است', PROMOTION_NOT_FOUND: 'کد تخفیف پیدا نشد', PROMOTION_INACTIVE: 'این کد تخفیف فعال نیست یا منقضی شده',
   PROMOTION_SCOPE: 'این کد برای این سفارش قابل استفاده نیست', PROMOTION_MINIMUM: 'مبلغ سفارش به حداقل لازم برای این کد نرسیده', PROMOTION_EXHAUSTED: 'ظرفیت استفاده از این کد تمام شده',
