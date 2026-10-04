@@ -3,6 +3,8 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { err, ok } from '@/platform/http/response'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { itemCards, searchItemCards } from '@/modules/content/server/registry'
+import { db } from '@/platform/database/prisma'
+import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 /** Catalog editor lookup reuses the public Content registry; never relaxes CMS permissions. */
 export async function GET(req: NextRequest) {
@@ -17,5 +19,6 @@ export async function GET(req: NextRequest) {
   const query = String(params.get('q') || '').trim().slice(0, 100)
   const [found, selected] = await Promise.all([searchItemCards(query.length >= 2 ? query : '', ['product'], 20), itemCards(refs)])
   const card = (row: { type: string; id: number; title: string; titleEn?: string; url: string; image: string }) => ({ type: row.type, id: row.id, title: row.title, titleEn: row.titleEn || '', url: row.url, image: row.image })
-  return ok({ matches: found.filter(row => row.id !== sourceId).map(card), selected: [...selected.values()].filter(row => row.id !== sourceId).map(card) })
+  const choices = params.get('variants') === '1' ? await db.product.findMany({ where: { ...publicProductWhere, id: { in: refs.map(ref => ref.id) } }, select: { id: true, variants: { where: { active: true }, orderBy: { id: 'asc' }, select: { id: true, name: true } } } }) : undefined
+  return ok({ matches: found.filter(row => row.id !== sourceId).map(card), selected: [...selected.values()].filter(row => row.id !== sourceId).map(card), ...(choices ? { variantChoices: choices } : {}) })
 }

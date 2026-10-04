@@ -111,7 +111,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   function emptyForm() {
     const f: Record<string, any> = {}
     for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? fl.options?.[0]?.value || '' : ''
-    for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' ? [] : {}
+    for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {}
     setForm(f)
     initialDateValues.current = {}
     setAiValues({})
@@ -122,7 +122,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     const f: Record<string, any> = {}
     for (const fl of fields) f[fl.key] = fl.type === 'datetime-local' ? localDateTime(row[fl.key]) : row[fl.key] ?? (fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : '')
     initialDateValues.current = Object.fromEntries(fields.filter((fl) => fl.type === 'datetime-local').map((fl) => [fl.key, f[fl.key]]))
-    for (const key of editorExtraKeys) f[key] = row[key] ?? (key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' ? [] : {})
+    for (const key of editorExtraKeys) f[key] = row[key] ?? (key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {})
+    if (Array.isArray(f.bundles)) f.bundles = f.bundles.map((bundle: any) => ({ ...bundle, clientKey: crypto.randomUUID(), components: bundle.components.map((component: any) => ({ ...component, clientKey: crypto.randomUUID() })) }))
     if (fields.some((x) => x.key === 'categoryId')) f.categoryId = row.categoryId || ''
     setForm(f)
     setEditId(row.id)

@@ -206,6 +206,7 @@ export type StoreSettings = {
   frequentlyBoughtDays: number
   frequentlyBoughtMinimumBuyers: number
   showProductRelationships: boolean
+  showProductBundles: boolean
   /** Trust badges under the product buy box. */
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -226,6 +227,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   frequentlyBoughtDays: 90,
   frequentlyBoughtMinimumBuyers: 3,
   showProductRelationships: false,
+  showProductBundles: false,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
 }
@@ -282,6 +284,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     frequentlyBoughtDays: Number.isSafeInteger(purchaseDays) && purchaseDays >= 30 && purchaseDays <= 365 ? purchaseDays : base.frequentlyBoughtDays,
     frequentlyBoughtMinimumBuyers: Number.isSafeInteger(purchaseBuyers) && purchaseBuyers >= 3 && purchaseBuyers <= 100 ? purchaseBuyers : base.frequentlyBoughtMinimumBuyers,
     showProductRelationships: raw.showProductRelationships === undefined ? base.showProductRelationships : raw.showProductRelationships === true,
+    showProductBundles: raw.showProductBundles === undefined ? base.showProductBundles : raw.showProductBundles === true,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
   }

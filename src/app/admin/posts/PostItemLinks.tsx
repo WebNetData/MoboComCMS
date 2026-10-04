@@ -14,7 +14,7 @@ const EN: Record<string, string> = {
 }
 const linkKey = (link: Link) => `${link.type}:${link.id}`
 
-export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/journal/link-items', types, heading, hint }: { form: Record<string, any>; setForm: Dispatch<SetStateAction<Record<string, any>>>; endpoint?: string; types?: readonly ItemType[]; heading?: { fa: string; en: string }; hint?: { fa: string; en: string } }) {
+export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/journal/link-items', types, heading, hint, maxItems = 12 }: { form: Record<string, any>; setForm: Dispatch<SetStateAction<Record<string, any>>>; endpoint?: string; types?: readonly ItemType[]; heading?: { fa: string; en: string }; hint?: { fa: string; en: string }; maxItems?: number }) {
   const inputId = useId()
   const { locale } = useI18n()
   const fa = locale === 'fa'
@@ -53,7 +53,7 @@ export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/jo
 
   const chosen = useMemo(() => new Set(links.map(linkKey)), [selectedKey])
   function add(card: Card) {
-    if (chosen.has(linkKey(card)) || links.length >= 12) return
+    if (chosen.has(linkKey(card)) || links.length >= maxItems) return
     setForm((current) => ({ ...current, itemLinks: [...(Array.isArray(current.itemLinks) ? current.itemLinks : []), { type: card.type, id: card.id }] }))
   }
   function remove(link: Link) {
@@ -80,6 +80,6 @@ export default function PostItemLinks({ form, setForm, endpoint = '/api/admin/jo
     {loading && <p className="muted" role="status">{fa ? 'در حال جست‌وجو…' : 'Searching…'}</p>}
     {error && <p role="alert">{fa ? 'دریافت موارد ناموفق بود.' : 'Could not load items.'}</p>}
     {!loading && !error && search.length >= 2 && matches.length === 0 && <p className="muted">{fa ? 'موردی پیدا نشد.' : 'No items found.'}</p>}
-    {!error && matches.length > 0 && <div className="flex flex-wrap gap-2 mt-2">{matches.filter((card) => !chosen.has(linkKey(card))).map((card) => <button type="button" className="btn btn-secondary" key={linkKey(card)} onClick={() => add(card)} disabled={links.length >= 12}>{cardTitle(card)} +</button>)}</div>}
+    {!error && matches.length > 0 && <div className="flex flex-wrap gap-2 mt-2">{matches.filter((card) => !chosen.has(linkKey(card))).map((card) => <button type="button" className="btn btn-secondary" key={linkKey(card)} onClick={() => add(card)} disabled={links.length >= maxItems}>{cardTitle(card)} +</button>)}</div>}
   </section>
 }

@@ -188,6 +188,55 @@ async function purchasable(productId: number, variantId: number | null, client: 
   return { product, limit: lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder) }
 }
 
+type CartAddition = { productId: number; variantId: number | null; quantity: number }
+
+/** One canonical mutation path for ordinary capped additions and complete bundles. */
+async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, requests: CartAddition[], strict: boolean, member = false) {
+  await lockCart(tx, cartId)
+  const lines = await tx.cartLine.findMany({ where: { cartId }, include: { product: { select: { currency: true } } } })
+  const currencies = new Set(lines.map(line => line.product.currency))
+  const additions = []
+  const productTotals = new Map<number, number>()
+  for (const line of lines) productTotals.set(line.productId, (productTotals.get(line.productId) || 0) + line.quantity)
+  for (const request of requests) {
+    const { product, limit } = await purchasable(request.productId, request.variantId, tx)
+    if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
+    if (strict && product.access === 'MEMBERS' && !member) throw new StoreError('این بسته مخصوص اعضای ویژه است', 403, 'MEMBERS_ONLY')
+    currencies.add(product.currency)
+    if (currencies.size > 1) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
+    const existing = lines.find(line => line.productId === request.productId && line.variantKey === (request.variantId || 0))
+    const wanted = (existing?.quantity || 0) + request.quantity
+    const quantity = Math.min(limit, wanted)
+    if (strict && quantity < wanted) throw new StoreError('تعداد کامل بسته قابل خرید نیست', 409, 'QUANTITY_LIMIT')
+    productTotals.set(product.id, (productTotals.get(product.id) || 0) + quantity - (existing?.quantity || 0))
+    if (strict && productTotals.get(product.id)! > lineLimit(product.stock, null, product.maxPerOrder)) throw new StoreError('موجودی یا سقف خرید محصول برای کل بسته کافی نیست', 409, 'QUANTITY_LIMIT')
+    additions.push({ request, existing, quantity, limited: quantity < wanted })
+  }
+  if (lines.length + additions.filter(item => !item.existing).length > MAX_CART_LINES) throw new StoreError('سبد خرید پر است', 409, 'CART_FULL')
+  for (const { request, existing, quantity } of additions) {
+    if (existing) await tx.cartLine.update({ where: { id: existing.id }, data: { quantity } })
+    else await tx.cartLine.create({ data: { cartId, productId: request.productId, variantKey: request.variantId || 0, quantity } })
+  }
+  return additions
+}
+
+/** Adds an entire fixed selection or nothing; normal pricing/checkout stay unchanged. */
+export async function addCartComponents(owner: CartOwner, requests: CartAddition[]) {
+  if (!Array.isArray(requests) || requests.length < 2 || requests.length > 12) throw new StoreError('بسته نامعتبر است')
+  const seen = new Set<string>()
+  for (const request of requests) {
+    if (!Number.isSafeInteger(request.productId) || request.productId <= 0 || (request.variantId !== null && (!Number.isSafeInteger(request.variantId) || request.variantId <= 0)) || !Number.isSafeInteger(request.quantity) || normalizeQuantity(request.quantity) < 1) throw new StoreError('بسته نامعتبر است')
+    const key = `${request.productId}:${request.variantId || 0}`
+    if (seen.has(key)) throw new StoreError('بسته دارای کالای تکراری است')
+    seen.add(key)
+    await purchasable(request.productId, request.variantId)
+  }
+  const member = owner.userId ? await isMember(owner.userId) : false
+  const cart = await ensureCart(owner)
+  await db.$transaction(tx => writeCartAdditions(tx, cart.id, requests, true, member))
+  return { token: cart.token, limited: false }
+}
+
 /** Adds (or increases) a line. Returns the cart token. */
 export async function addToCart(owner: CartOwner, input: { productId: unknown; variantId?: unknown; quantity?: unknown }) {
   const productId = Number(input.productId)
@@ -199,17 +248,8 @@ export async function addToCart(owner: CartOwner, input: { productId: unknown; v
   if (available.limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
   const cart = await ensureCart(owner)
   return db.$transaction(async tx => {
-    await lockCart(tx, cart.id)
-    const { product, limit } = await purchasable(productId, variantId, tx)
-    if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
-    const lines = await tx.cartLine.findMany({ where: { cartId: cart.id }, include: { product: { select: { currency: true } } } })
-    if (lines.some((line) => line.product.currency !== product.currency)) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
-    const existing = lines.find((line) => line.productId === productId && line.variantKey === (variantId || 0))
-    if (!existing && lines.length >= MAX_CART_LINES) throw new StoreError('سبد خرید پر است', 409, 'CART_FULL')
-    const next = Math.min(limit, (existing?.quantity || 0) + quantity)
-    if (existing) await tx.cartLine.update({ where: { id: existing.id }, data: { quantity: next } })
-    else await tx.cartLine.create({ data: { cartId: cart.id, productId, variantKey: variantId || 0, quantity: next } })
-    return { token: cart.token, quantity: next, limited: next < (existing?.quantity || 0) + quantity }
+    const [added] = await writeCartAdditions(tx, cart.id, [{ productId, variantId, quantity }], false)
+    return { token: cart.token, quantity: added.quantity, limited: added.limited }
   })
 }
 
