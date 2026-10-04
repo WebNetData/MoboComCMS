@@ -127,7 +127,7 @@ export async function POST_cartCheckout(req: NextRequest) {
   if (!result.ok) return err(result.message, result.status, { code: result.code, ...(result.meta || {}) })
   // A replay returns the old order; today's cart may contain a new purchase.
   if (!result.data.replayed) {
-    await removePurchasedLines(who, lines.lines.map((line) => line.lineId)).catch(() => {})
+    await removePurchasedLines(who, lines.lines.map((line) => line.lineId), lines.snapshot).catch(() => {})
     if (typeof result.data.orderId === 'number') await markCartRecovered(user.id, result.data.orderId).catch(() => {})
   }
   return ok(result.data)

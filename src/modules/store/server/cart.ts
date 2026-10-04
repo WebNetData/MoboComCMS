@@ -129,7 +129,9 @@ export type CartView = {
 const EMPTY = (token: string): CartView => ({ token, lines: [], count: 0, currency: 'IRT', itemsTotal: 0, listTotal: 0, saving: 0, shipping: 0, total: 0, hasPhysical: false, blocked: false })
 
 /** Prices and availability of every line, recomputed from the catalogue. */
-export async function cartView(owner: CartOwner): Promise<CartView> {
+export type CartLineSnapshot = { lineId: number; quantity: number; updatedAt: Date }
+
+async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promise<CartView> {
   const cart = await findCart(owner)
   if (!cart) return EMPTY(validToken(owner.token) || '')
   const rows = await db.cartLine.findMany({
@@ -137,6 +139,7 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     orderBy: { createdAt: 'asc' },
     include: { product: { include: { brand: { select: { name: true } }, variants: true } } },
   })
+  snapshot?.push(...rows.map(row => ({ lineId: row.id, quantity: row.quantity, updatedAt: row.updatedAt })))
   const member = owner.userId ? await isMember(owner.userId) : false
   const currency = rows[0]?.product.currency || 'IRT'
   let itemsMinor = 0n
@@ -190,6 +193,11 @@ export async function cartView(owner: CartOwner): Promise<CartView> {
     shippingByAddress: byAddress,
     blocked,
   }
+}
+
+/** Public cart DTO excludes the internal cleanup revisions. */
+export async function cartView(owner: CartOwner): Promise<CartView> {
+  return readCart(owner)
 }
 
 /** Number of items for the header badge (no pricing work). */
@@ -304,20 +312,24 @@ export async function clearCart(owner: CartOwner) {
 }
 
 /** Removes the purchased lines once an order was placed from the cart. */
-export async function removePurchasedLines(owner: CartOwner, lineIds: number[]) {
+export async function removePurchasedLines(owner: CartOwner, lineIds: number[], snapshot?: CartLineSnapshot[]) {
   const cart = await findCart(owner)
   if (cart && lineIds.length) await db.$transaction(async tx => {
     await lockCart(tx, cart.id, owner)
-    await tx.cartLine.deleteMany({ where: { cartId: cart.id, id: { in: lineIds } } })
+    await tx.cartLine.deleteMany({ where: {
+      cartId: cart.id, id: { in: lineIds },
+      ...(snapshot ? { OR: snapshot.map(row => ({ id: row.lineId, quantity: row.quantity, updatedAt: row.updatedAt })) } : {}),
+    } })
   })
 }
 
 /** The lines checkout will buy (only lines without issues). */
 export async function cartCheckoutLines(owner: CartOwner) {
-  const view = await cartView(owner)
+  const snapshot: CartLineSnapshot[] = []
+  const view = await readCart(owner, snapshot)
   if (!view.lines.length) throw new StoreError('سبد خرید شما خالی است', 409, 'CART_EMPTY')
   if (view.blocked) throw new StoreError('بعضی کالاهای سبد قابل خرید نیستند؛ سبد را بررسی کنید', 409, 'CART_BLOCKED')
-  return { view, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
+  return { view, snapshot, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
 }
 
 /** Old guest carts are deleted after 60 days, owned carts after 180 days of inactivity. */
