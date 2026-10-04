@@ -6,6 +6,7 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { reviewScore } from '@/modules/catalog/domain/review-score'
 import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: Context) {
   const score = reviewScore(input)
   const title = String(input?.title || '').trim()
   if (!score || title.length > 150 || /[<>]/.test(title)) return err('Invalid rating or title')
-  const purchased = await db.order.count({ where: { userId: user.id, productId: product.id, status: 'PAID', invoice: { status: 'PAID' } } })
+  const purchased = await hasVerifiedProductPurchase(user.id, product.id)
   if (!purchased) return err('Only verified buyers can review this product / فقط خریداران این محصول می‌توانند نظر ثبت کنند', 403)
   const existing = await db.productReview.findUnique({ where: { productId_userId: { productId: product.id, userId: user.id } } })
   if (existing) return err('You have already reviewed this product / قبلاً برای این محصول نظر ثبت کرده‌اید', 409)

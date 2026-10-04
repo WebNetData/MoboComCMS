@@ -49,7 +49,7 @@ test('reviews require a paid purchase; member questions are open', async () => {
     '@/platform/http/rate-limit': { clientIp: () => '127.0.0.1', rateLimitHit: () => ({ ok: true }) },
     '@/platform/database/prisma': { db: {
       product: { findUnique: async () => ({ id: 4, active: true, approval: 'APPROVED' }) },
-      order: { count: async ({ where }) => { reviewWhere = where; return purchased ? 1 : 0 } },
+      order: { findFirst: async ({ where }) => { reviewWhere = where; return purchased ? { id: 1 } : null } },
       productReview: { findUnique: async () => null, create: async () => { reviewCreated = true; return { id: 1, status: 'PENDING' } } },
       productQuestion: { create: async () => { questionCreated = true; return { id: 2, status: 'PENDING' } } },
     } },
@@ -58,7 +58,10 @@ test('reviews require a paid purchase; member questions are open', async () => {
   assert.equal((await submit('review')).status, 403)
   assert.equal(reviewCreated, false)
   assert.equal(reviewWhere.userId, 9)
-  assert.equal(reviewWhere.productId, 4)
+  assert.deepEqual(reviewWhere.OR, [
+    { lines: { some: { productId: 4, quantity: { gt: 0 }, sellerStatus: { not: 'CANCELLED' } } } },
+    { productId: 4, lines: { none: {} } },
+  ])
   assert.equal(reviewWhere.status, 'PAID')
   assert.equal(reviewWhere.invoice.status, 'PAID')
   assert.equal((await submit('question')).status, 201)
@@ -66,6 +69,20 @@ test('reviews require a paid purchase; member questions are open', async () => {
   purchased = true
   assert.equal((await submit('review')).status, 201)
   assert.equal(reviewCreated, true)
+})
+
+test('verified purchase lookup rejects invalid identities and products before reading orders', async () => {
+  let reads = 0
+  const { hasVerifiedProductPurchase } = load('src/modules/catalog/server/purchase-eligibility.ts', {
+    '@/platform/database/prisma': { db: { order: { findFirst: async ({ select }) => { reads++; assert.deepEqual(select, { id: true }); return { id: 1 } } } } },
+  })
+  for (const value of [0, -1, NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(await hasVerifiedProductPurchase(value, 4), false)
+    assert.equal(await hasVerifiedProductPurchase(9, value), false)
+  }
+  assert.equal(reads, 0)
+  assert.equal(await hasVerifiedProductPurchase(9, 4), true)
+  assert.equal(reads, 1)
 })
 
 test('guest questions are moderated and review criteria are server-derived', async () => {
