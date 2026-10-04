@@ -1,7 +1,7 @@
 # MoboCom Work State
 
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
-Current milestone: Polish the Journal entity rail after merging multi-type authoring (PRs #36 and #37).
+Current milestone: Reduce repeated public-search ranking work while retaining existing result semantics.
 Risk: Broad public search queries and dashboard scans still traverse all matching content; search browsing stops after 50 pages, and the Post index migration needs production rollout.
 Owner/contracts: `journal` owns `PostItemLink` and editorial selection; `catalog` owns product publication and its existing related-posts tab; `content` owns canonical item refs and public visibility.
 
