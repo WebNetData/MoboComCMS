@@ -148,15 +148,16 @@ export function processSocialQueue(limit = 20): Promise<number> {
         // Claim the row so a parallel worker cannot send it twice.
         const claimed = await db.socialPost.updateMany({ where: { id: post.id, status: 'PENDING' }, data: { status: 'SENDING', attempts: { increment: 1 } } })
         if (!claimed.count) continue
-        const item = isAnnounceType(post.itemType) ? await itemCard({ type: post.itemType, id: post.itemId }) : null
-        if (!item) {
-          // Unpublished or deleted meanwhile: nothing to announce.
-          await db.socialPost.update({ where: { id: post.id }, data: { status: 'SKIPPED', error: 'مورد منتشر نیست یا حذف شده است' } })
-          continue
-        }
         const channel = post.channel as Channel
-        const url = withUtm(absolute(base, item.url), channel, settings.utm)
         try {
+          // Reading the item is part of the attempt: a failure here is retried with backoff like a failed send.
+          const item = isAnnounceType(post.itemType) ? await itemCard({ type: post.itemType, id: post.itemId }) : null
+          if (!item) {
+            // Unpublished or deleted meanwhile: nothing to announce.
+            await db.socialPost.update({ where: { id: post.id }, data: { status: 'SKIPPED', error: 'مورد منتشر نیست یا حذف شده است' } })
+            continue
+          }
+          const url = withUtm(absolute(base, item.url), channel, settings.utm)
           const sent = channel === 'TELEGRAM' ? await sendTelegram(settings, item, url, base) : channel === 'INSTAGRAM' ? await sendInstagram(settings, item, url, base) : await sendPush(settings, item, url)
           await db.socialPost.update({ where: { id: post.id }, data: { status: 'SENT', sentAt: new Date(), externalId: sent.externalId, text: sent.text.slice(0, 5000), error: '' } })
         } catch (error) {
@@ -174,9 +175,14 @@ export function processSocialQueue(limit = 20): Promise<number> {
   return running
 }
 
-/** Rows stuck in SENDING (process died mid-send) go back to the queue after 15 minutes. */
+/**
+ * Rows stuck in SENDING (process died mid-send) go back to the queue after 15 minutes.
+ * A row that was interrupted on its last attempt is failed instead, so it stops retrying.
+ */
 export async function releaseStuckSocialPosts() {
-  const { count } = await db.socialPost.updateMany({ where: { status: 'SENDING', updatedAt: { lt: new Date(Date.now() - 15 * 60_000) } }, data: { status: 'PENDING', nextAttemptAt: new Date() } })
+  const stuck = { status: 'SENDING', updatedAt: { lt: new Date(Date.now() - 15 * 60_000) } }
+  await db.socialPost.updateMany({ where: { ...stuck, attempts: { gte: MAX_ATTEMPTS } }, data: { status: 'FAILED', error: 'ارسال در همهٔ تلاش‌ها ناتمام ماند' } })
+  const { count } = await db.socialPost.updateMany({ where: stuck, data: { status: 'PENDING', nextAttemptAt: new Date() } })
   return count
 }
 
