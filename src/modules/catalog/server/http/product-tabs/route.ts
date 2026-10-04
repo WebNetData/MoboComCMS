@@ -11,6 +11,7 @@ import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/pr
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
 import { readProductPriceHistory } from '@/modules/catalog/server/price-history-read'
+import { readFrequentlyBoughtProducts } from '@/modules/catalog/server/frequently-bought'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -27,6 +28,10 @@ export async function GET(req: NextRequest, { params }: Context) {
     if (rawVariant !== null && !/^\d+$/.test(rawVariant)) return err('not found', 404)
     const history = await readProductPriceHistory(product.id, Number(rawVariant || 0))
     return history ? ok(history) : err('not found', 404)
+  }
+  if (tab === 'frequently-bought') {
+    const recommendations = await readFrequentlyBoughtProducts(product.id)
+    return recommendations ? ok(recommendations) : err('not found', 404)
   }
   if (tab === 'description') return ok({ htmlFa: cleanRichText(product.description), htmlEn: cleanRichText(product.descriptionEn || product.description) })
   if (tab === 'specifications') {

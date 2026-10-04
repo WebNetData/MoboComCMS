@@ -1,0 +1,54 @@
+openapi: 3.0.3
+info:
+  title: MoboCom joint-purchase product suggestions
+  version: 1.0.0
+  description: Additive scoped frequently-bought tab; other product tabs keep their existing contracts.
+  contact:
+    name: MoboComCMS
+    url: https://github.com/WebNetData/MoboComCMS
+servers:
+  - url: /
+tags:
+  - name: Store
+    description: Public product suggestions without purchaser data.
+paths:
+  /api/products/{slug}/tabs:
+    get:
+      operationId: frequentlyBoughtProducts
+      tags: [Store]
+      summary: Read products purchased together
+      description: Store and Admin rollout must be enabled and source public. Ranked by distinct buyers in recent paid/invoiced same-order purchases, excluding cancelled/zero/free lines and approved/refunded return orders. Minimum buyer threshold is configurable (3–100). No counts or buyer/order identifiers returned. This is purchase evidence, not a technical compatibility guarantee.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Existing public source-product slug.
+          schema: { type: string }
+        - name: tab
+          in: query
+          required: true
+          description: Select this additive tab.
+          schema: { type: string, enum: [frequently-bought] }
+      responses:
+        '200':
+          description: At most eight public current product cards; empty results are valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 8
+                    items:
+                      type: object
+                      required: [id, slug, name, nameEn, image]
+                      properties:
+                        id: { type: integer, minimum: 1 }
+                        slug: { type: string }
+                        name: { type: string }
+                        nameEn: { type: string }
+                        image: { type: string }
+        '404':
+          description: Missing/private source, Store disabled or rollout paused; no purchase evidence returned.
