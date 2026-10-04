@@ -6,7 +6,7 @@ import { MAX_GROUP_RECIPIENTS, RuleError, canStartMessage, censorText, findWatch
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { getForumSettings, notify } from '@/modules/forum/server/community'
 import { authorsFor, fallbackAuthor } from '@/modules/forum/server/forum'
-import { relationBetween } from '@/modules/identity/server/profile'
+import { blockedIds, relationBetween } from '@/modules/identity/server/profile'
 import { canMessage, normalizePrivacy } from '@/modules/identity/domain/profile'
 
 // Personal messages: private conversations kept apart from topics, so they
@@ -36,6 +36,16 @@ async function checkBody(content: string) {
   if (blocked) throw new ForumError(`متن شما شامل واژهٔ غیرمجاز «${blocked}» است`, 422)
 }
 
+async function requireMessagingEnabled(viewer: Viewer) {
+  if (!viewer.moderator && !(await getForumSettings()).messagesEnabled) throw new ForumError('پیام خصوصی در تالار غیرفعال است', 403)
+}
+
+async function checkRecipientBlocks(viewer: Viewer, recipients: readonly number[]) {
+  if (viewer.moderator) return // Preserve the existing staff messaging exemption.
+  const hidden = new Set(await blockedIds(viewer.userId!))
+  if (recipients.some(id => hidden.has(id))) throw new ForumError('امکان ارسال پیام به یکی از اعضای این گفت‌وگو وجود ندارد', 403)
+}
+
 /** Users behind the given usernames and messageable group slugs (excluding the sender). */
 async function resolveRecipients(viewer: Viewer, input: { to?: unknown; groups?: unknown }) {
   const names = input.to === undefined || input.to === '' || (Array.isArray(input.to) && !input.to.length) ? [] : (() => { try { return parseRecipients(input.to) } catch (error) { if (error instanceof RuleError) throw new ForumError(error.message); throw error } })()
@@ -54,6 +64,7 @@ async function resolveRecipients(viewer: Viewer, input: { to?: unknown; groups?:
   }
   ids.delete(viewer.userId!)
   if (!ids.size) throw new ForumError('دست‌کم یک گیرندهٔ دیگر لازم است')
+  await checkRecipientBlocks(viewer, [...ids])
   // Named recipients decide who may message them (profile privacy, blocks); staff are exempt.
   if (!viewer.moderator) {
     const named = new Set(profiles.map((profile) => profile.userId))
@@ -100,6 +111,9 @@ async function membership(viewer: Viewer, conversationId: number) {
 export async function replyConversation(viewer: Viewer, conversationId: number, input: { content?: unknown }) {
   const userId = requireSender(viewer)
   const member = await membership(viewer, conversationId)
+  await requireMessagingEnabled(viewer)
+  const recipients = await db.forumConversationUser.findMany({ where: { conversationId, userId: { not: userId }, left: false }, select: { userId: true } })
+  await checkRecipientBlocks(viewer, recipients.map(other => other.userId))
   const content = cleanContent(input.content)
   await checkBody(content)
   throttle(viewer, 'reply')
@@ -202,6 +216,7 @@ export async function conversationAction(viewer: Viewer, conversationId: number,
       await db.forumConversationUser.update({ where: { conversationId_userId: { conversationId, userId } }, data: { left: true, archived: true } })
       return { left: true }
     case 'invite': {
+      await requireMessagingEnabled(viewer)
       const ids = await resolveRecipients(viewer, { to: input.to })
       const current = await db.forumConversationUser.count({ where: { conversationId } })
       if (current + ids.length > 30) throw new ForumError('حداکثر ۳۰ نفر در یک گفت‌وگو', 422)

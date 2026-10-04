@@ -14,6 +14,70 @@ function load(relative) {
 const md = load('src/modules/forum/domain/markdown.ts')
 const c = load('src/modules/forum/domain/community.ts')
 
+function messageService({ blocked = [], enabled = true } = {}) {
+  const state = { writes: 0, notifications: 0 }
+  const db = {
+    forumConversationUser: { findUnique: async () => ({ left: false, conversation: { id: 9, title: 'Conversation' } }), findMany: async () => [{ userId: 2 }] },
+    forumProfile: { findUnique: async () => ({ username: 'sender' }), findMany: async () => [{ userId: 2, username: 'recipient' }] },
+    userProfile: { findMany: async () => [{ userId: 2, username: 'recipient', privacy: '{}' }] },
+    forumGroup: { findMany: async () => [{ name: 'Members', mentionable: true, members: [{ userId: 2 }] }] },
+    $transaction: async fn => {
+      state.writes++
+      return fn({
+        forumConversation: { update: async () => ({ postCount: 2 }), create: async () => ({ id: 9 }) },
+        forumMessage: { create: async ({ data }) => ({ id: 8, number: data.number }) },
+        forumConversationUser: { update: async () => ({}), updateMany: async () => ({}), createMany: async () => ({}) },
+      })
+    },
+  }
+  const mocks = {
+    '@/platform/database/prisma': { db },
+    '@/platform/http/rate-limit': { rateLimitHit: () => ({ ok: true }) },
+    '@/modules/forum/server/community': { getForumSettings: async () => ({ ...c.DEFAULT_FORUM_SETTINGS, messagesEnabled: enabled }), notify: async () => { state.notifications++ } },
+    '@/modules/forum/server/forum': {},
+    '@/modules/identity/server/profile': { blockedIds: async () => blocked, relationBetween: async () => ({ self: false, signedIn: true, following: false, followedBy: false, blocked: false, blockedBy: false, staff: false }) },
+  }
+  const source = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/modules/forum/server/messages.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', source)(name => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('@/') ? load(`src/${name.slice(2)}.ts`) : require(name), mod, mod.exports)
+  return { service: mod.exports, state }
+}
+const sender = { userId: 1, moderator: false, trustLevel: 2, silenced: false, suspended: false }
+
+test('existing replies honor blocks and the Admin message pause before writes or notifications', async () => {
+  for (const config of [{ blocked: [2] }, { enabled: false }]) {
+    const { service, state } = messageService(config)
+    await assert.rejects(service.replyConversation(sender, 9, { content: 'A valid private reply' }), error => error.status === 403)
+    assert.deepEqual(state, { writes: 0, notifications: 0 })
+  }
+})
+
+test('group recipients cannot bypass member blocks', async () => {
+  const { service, state } = messageService({ blocked: [2] })
+  await assert.rejects(service.startConversation(sender, { groups: ['members'], title: 'Valid group title', content: 'A valid private message' }), error => error.status === 403)
+  assert.deepEqual(state, { writes: 0, notifications: 0 })
+})
+
+test('Admin message pause blocks new invitations while preserving moderator messaging', async () => {
+  const paused = messageService({ enabled: false })
+  await assert.rejects(paused.service.conversationAction(sender, 9, { action: 'invite', to: 'recipient' }), error => error.status === 403)
+  assert.deepEqual(paused.state, { writes: 0, notifications: 0 })
+  const staff = messageService({ enabled: false, blocked: [2] })
+  assert.deepEqual(await staff.service.startConversation({ ...sender, moderator: true }, { groups: ['members'], title: 'Valid group title', content: 'A valid private message' }), { id: 9 })
+  assert.deepEqual(staff.state, { writes: 1, notifications: 1 })
+})
+
+test('unblocked existing participants and the established moderator exemption can still reply', async () => {
+  for (const scenario of [
+    { config: {}, viewer: { ...sender, trustLevel: 0 } },
+    { config: { blocked: [2], enabled: false }, viewer: { ...sender, moderator: true } },
+  ]) {
+    const { service, state } = messageService(scenario.config)
+    assert.deepEqual(await service.replyConversation(scenario.viewer, 9, { content: 'A valid private reply' }), { id: 8, number: 2 })
+    assert.deepEqual(state, { writes: 1, notifications: 1 })
+  }
+})
+
 test('markdown escapes user HTML and only links http(s) or same-site paths', () => {
   const attacks = [
     '<script>alert(1)</script>', '<img src=x onerror=alert(1)>', '[x](javascript:alert(1))', '![a](javascript:alert(1))', '[x](//evil.example)',
