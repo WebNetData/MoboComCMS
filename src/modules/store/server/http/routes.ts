@@ -12,6 +12,7 @@ import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/cata
 import { markCartRecovered } from '@/modules/store/server/marketing'
 import { addOrderNote, adminOrder, adminOrders, transitionOrder } from '@/modules/store/server/orders'
 import { adminProducts, bulkProducts, deleteBrand, inventoryList, listBrands, saveBrand, storeCustomers, storeDashboard, updateStock } from '@/modules/store/server/admin'
+import { enqueue } from '@/modules/operations/server/queue'
 
 function failure(error: unknown) {
   if (error instanceof StoreError) return err(error.message, error.status, { code: error.code })
@@ -285,6 +286,11 @@ export async function POST_storeSettings(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['settings.manage', 'cms.products'])
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
+  if (body.op === 'price-history-baseline') {
+    const job = await enqueue('store.price-history-baseline', {}, { dedupeKey: 'price-history-baseline:0' })
+    await auditAdmin({ req, actor: g.admin, action: 'store.price-history.baseline', targetType: 'job', targetId: job.id })
+    return ok({ jobId: job.id })
+  }
   const settings = await saveStoreSettings(body)
   await auditAdmin({ req, actor: g.admin, action: 'store.settings.update', targetType: 'setting', targetId: 0, metadata: { slides: settings.slides.length, banners: settings.banners.length } })
   return ok({ settings })

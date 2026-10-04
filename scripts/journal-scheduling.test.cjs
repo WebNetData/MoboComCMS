@@ -127,7 +127,9 @@ test('seller approval and rejection publish through the shared content event', a
     findFirst: async () => product,
     update: async ({ data }) => { product = { ...product, ...data }; return product },
   } }
+  db.$transaction = async write => write(db)
   const marketplace = load('src/modules/marketplace/server/marketplace.ts', {
+    '@/modules/catalog/server/price-history': { prepareProductPriceCapture: async () => new Map(), capturePublicProductPrices: async () => 0 },
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/modules/settings/server': {},

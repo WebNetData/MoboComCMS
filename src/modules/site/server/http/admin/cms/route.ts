@@ -13,6 +13,7 @@ import { validateCategoryParent, validateCategorySelection } from '@/modules/sit
 import { postCategories } from '@/modules/site/domain/categories'
 import { parseJson, validateFields } from '@/modules/catalog/server/product-config'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
+import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { fxFormFields } from '@/modules/fx/server/fx'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin } from '@/platform/audit/server'
@@ -202,6 +203,7 @@ export async function POST(req: NextRequest) {
       const row = await db.$transaction(async tx => {
         const created = await tx.product.create({ data: input.data as any })
         if (input.variants) await saveVariants(tx, created.id, input.variants)
+        await capturePublicProductPrices(tx, created.id, new Map())
         return created
       })
       contentChanged({ type: 'product', id: row.id }, null, row)
@@ -269,8 +271,10 @@ export async function PATCH(req: NextRequest) {
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const saved = await db.$transaction(async tx => {
+        const pricesBefore = await prepareProductPriceCapture(tx, id)
         const row = await tx.product.update({ where: { id }, data: input.data as any })
         if (input.variants) await saveVariants(tx, id, input.variants)
+        await capturePublicProductPrices(tx, id, pricesBefore)
         return row
       })
       contentChanged({ type: 'product', id }, current, saved)

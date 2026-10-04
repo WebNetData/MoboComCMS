@@ -5,6 +5,7 @@ import { isModuleEnabled } from '@/extensions/server/modules'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
+import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { attributeGroupForCategory } from '@/modules/catalog/server/product-config'
 import { contentChanged } from '@/modules/content/server/events'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
@@ -192,8 +193,10 @@ export async function saveSellerProduct(seller: SellerRow, input: Record<string,
     // A rejected product goes back to review when edited.
     const approval = current.approval === 'REJECTED' ? (settings.autoApproveProducts ? 'APPROVED' : 'PENDING') : current.approval
     const saved = await db.$transaction(async (tx) => {
+      const pricesBefore = await prepareProductPriceCapture(tx, id)
       const row = await tx.product.update({ where: { id }, data: { ...(parsed.data as Prisma.ProductUpdateInput), approval, ...(approval !== 'APPROVED' ? { active: false } : {}) } })
       if (parsed.variants) await saveVariants(tx, id, parsed.variants)
+      await capturePublicProductPrices(tx, id, pricesBefore)
       return row
     }).catch((error: { code?: string }) => { throw error?.code === 'P2002' ? new MarketplaceError('این نامک یا کد تنوع (SKU) تکراری است', 409) : error })
     contentChanged({ type: 'product', id }, current, saved)
@@ -205,6 +208,7 @@ export async function saveSellerProduct(seller: SellerRow, input: Record<string,
   const created = await db.$transaction(async (tx) => {
     const row = await tx.product.create({ data: { ...(parsed.data as Prisma.ProductUncheckedCreateInput), sellerId: seller.id, approval, active: approval === 'APPROVED', featured: false } })
     if (parsed.variants) await saveVariants(tx, row.id, parsed.variants)
+    await capturePublicProductPrices(tx, row.id, new Map())
     return row
   }).catch((error: { code?: string }) => { throw error?.code === 'P2002' ? new MarketplaceError('این نامک یا SKU تکراری است', 409) : error })
   contentChanged({ type: 'product', id: created.id }, null, created)
@@ -233,7 +237,12 @@ export async function quickUpdate(seller: SellerRow, id: number, input: { active
     data.priceMinor = priceMinor
     data.price = minorToNumber(priceMinor, product.currency)
   }
-  return db.product.update({ where: { id }, data })
+  return db.$transaction(async tx => {
+    const pricesBefore = await prepareProductPriceCapture(tx, id)
+    const saved = await tx.product.update({ where: { id }, data })
+    await capturePublicProductPrices(tx, id, pricesBefore)
+    return saved
+  })
 }
 
 // ------------------------------------------------------------------ orders
@@ -497,7 +506,12 @@ export async function decideProduct(input: { id: number; action: string; note?: 
   if (!product || !product.seller) throw new MarketplaceError('محصول پیدا نشد', 404)
   const note = String(input.note ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 500)
   if (input.action !== 'approve' && input.action !== 'reject') throw new MarketplaceError('عملیات نامعتبر است')
-  const saved = await db.product.update({ where: { id: product.id }, data: input.action === 'approve' ? { approval: 'APPROVED', approvalNote: '', active: true } : { approval: 'REJECTED', approvalNote: note, active: false } })
+  const saved = await db.$transaction(async tx => {
+    const pricesBefore = await prepareProductPriceCapture(tx, product.id)
+    const row = await tx.product.update({ where: { id: product.id }, data: input.action === 'approve' ? { approval: 'APPROVED', approvalNote: '', active: true } : { approval: 'REJECTED', approvalNote: note, active: false } })
+    await capturePublicProductPrices(tx, product.id, pricesBefore)
+    return row
+  })
   contentChanged({ type: 'product', id: product.id }, product, saved)
   await notifySeller(product.seller, input.action === 'approve' ? 'محصول شما تأیید شد' : 'محصول شما رد شد', input.action === 'approve' ? `«${product.name}» منتشر شد.` : `«${product.name}»${note ? `: ${note}` : ''} — پس از اصلاح دوباره بررسی می‌شود.`, `/seller/products/${product.id}`, `product-decision:${product.id}:${Date.now()}`)
 }

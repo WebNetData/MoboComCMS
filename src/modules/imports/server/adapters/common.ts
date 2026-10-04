@@ -149,9 +149,9 @@ export const delegate = (client: Client, model: string) => (client as unknown as
 export async function undoChange(
   change: Change,
   model: string,
-  options: { dates?: string[]; bigints?: string[]; canDelete?: (id: number) => Promise<string | null>; label: string },
+  options: { dates?: string[]; bigints?: string[]; canDelete?: (id: number) => Promise<string | null>; label: string; client?: Client },
 ): Promise<string | null> {
-  const table = delegate(db, model)
+  const table = delegate(options.client || db, model)
   const row = await table.findUnique({ where: { id: change.id } })
   if (change.kind === 'updated') {
     if (!row) return `${options.label} #${change.id} دیگر وجود ندارد`

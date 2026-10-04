@@ -11,6 +11,7 @@ export default function StoreSettingsPage() {
   const { data, error } = useJson<{ settings: StoreSettings }>('/api/admin/store/settings')
   const [form, setForm] = useState<StoreSettings | null>(null)
   const [busy, setBusy] = useState(false)
+  const [baselineBusy, setBaselineBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   useEffect(() => { if (data) setForm(data.settings) }, [data])
   if (!form) return <StoreShell title="ویترین فروشگاه">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</StoreShell>
@@ -22,6 +23,12 @@ export default function StoreSettingsPage() {
     setBusy(false)
     if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings); setResult({ tone: 'ok', text: 'تنظیمات ویترین ذخیره شد' })
+  }
+  async function baseline() {
+    setBaselineBusy(true); setResult(null)
+    const response = await send<{ jobId: number }>('/api/admin/store/settings', 'POST', { op: 'price-history-baseline' })
+    setBaselineBusy(false)
+    setResult(response.ok ? { tone: 'ok', text: `ثبت قیمت‌های فعلی به صف اضافه شد؛ کار شمارهٔ ${response.data.jobId}` } : { tone: 'error', text: response.error })
   }
 
   return <StoreShell title="ویترین فروشگاه" actions={<><Link href="/products" target="_blank" className="btn btn-ghost">پیش‌نمایش</Link><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
@@ -58,6 +65,11 @@ export default function StoreSettingsPage() {
         </div>
         <label className="sa-check"><input type="checkbox" checked={form.showCategories} onChange={(event) => update('showCategories', event.target.checked)} />نمایش «خرید بر اساس دسته‌بندی»</label>
         <label className="sa-check"><input type="checkbox" checked={form.showBrands} onChange={(event) => update('showBrands', event.target.checked)} />نمایش برندهای محبوب</label>
+        <label className="sa-check"><input type="checkbox" checked={form.showPriceHistory} onChange={(event) => update('showPriceHistory', event.target.checked)} />نمایش تاریخچهٔ قیمت عمومی محصول</label>
+        <label className="sa-field"><span>بازهٔ نمایش تاریخچهٔ قیمت (روز)</span><input className="input" type="number" min={30} max={730} step={1} value={form.priceHistoryDays} onChange={(event) => update('priceHistoryDays', Number(event.target.value))} /></label>
+        <p className="sa-hint">بین ۳۰ و ۷۳۰ روز؛ خاموش‌کردن نمایش، رکوردهای قیمت را حذف نمی‌کند. فقط قیمت عادیِ عرضه‌شده نمایش داده می‌شود.</p>
+        <button type="button" className="btn btn-ghost" disabled={baselineBusy || busy} onClick={() => void baseline()}>{baselineBusy ? 'در حال ثبت کار…' : 'شروع ثبت قیمت‌های فعلی'}</button>
+        <p className="sa-hint">برای محصولات قبلی یک نقطه از قیمت فعلی ثبت می‌کند؛ قیمت‌های گذشته بازسازی نمی‌شوند. پیشرفت کار در مدیریت عملکرد و صف کارها قابل پیگیری است.</p>
         <label className="sa-field"><span>یادداشت زیر سبد خرید (قوانین مرجوعی، زمان ارسال…)</span><textarea className="input" rows={2} maxLength={300} value={form.cartNote} onChange={(event) => update('cartNote', event.target.value)} /></label>
         <label className="sa-field"><span>نشان‌های اعتماد زیر جعبهٔ خرید (هر خط یک مورد، حداکثر ۶)</span><textarea className="input" rows={4} value={form.badges.join('\n')} onChange={(event) => update('badges', event.target.value.split('\n').slice(0, 6))} /></label>
       </section>

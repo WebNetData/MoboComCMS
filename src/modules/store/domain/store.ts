@@ -199,6 +199,8 @@ export type StoreSettings = {
   lowStockDefault: number
   showBrands: boolean
   showCategories: boolean
+  showPriceHistory: boolean
+  priceHistoryDays: number
   /** Trust badges under the product buy box. */
   badges: string[]
   /** Free-text note under the cart total (return policy, shipping note…). */
@@ -212,6 +214,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   lowStockDefault: 3,
   showBrands: true,
   showCategories: true,
+  showPriceHistory: false,
+  priceHistoryDays: 365,
   badges: ['ضمانت اصل بودن کالا', 'هفت روز ضمانت بازگشت', 'پرداخت امن', 'پشتیبانی ۷ روز هفته'],
   cartNote: '',
 }
@@ -251,6 +255,7 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
   }).filter((banner) => banner.image)
   const badges = raw.badges === undefined ? base.badges : list(raw.badges).map((badge) => cleanText(badge, 40)).filter(Boolean).slice(0, 6)
   const low = raw.lowStockDefault === undefined ? base.lowStockDefault : Math.floor(Number(raw.lowStockDefault))
+  const historyDays = raw.priceHistoryDays === undefined ? base.priceHistoryDays : Number(raw.priceHistoryDays)
   return {
     slides,
     banners,
@@ -258,6 +263,8 @@ export function normalizeStoreSettings(input: unknown, base: StoreSettings = DEF
     lowStockDefault: Number.isSafeInteger(low) && low >= 0 && low <= 10_000 ? low : base.lowStockDefault,
     showBrands: raw.showBrands === undefined ? base.showBrands : raw.showBrands === true,
     showCategories: raw.showCategories === undefined ? base.showCategories : raw.showCategories === true,
+    showPriceHistory: raw.showPriceHistory === undefined ? base.showPriceHistory : raw.showPriceHistory === true,
+    priceHistoryDays: Number.isSafeInteger(historyDays) && historyDays >= 30 && historyDays <= 730 ? historyDays : base.priceHistoryDays,
     badges,
     cartNote: raw.cartNote === undefined ? base.cartNote : cleanText(raw.cartNote, 300),
   }

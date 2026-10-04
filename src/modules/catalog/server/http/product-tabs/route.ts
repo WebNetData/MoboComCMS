@@ -10,6 +10,7 @@ import { isModuleEnabled } from '@/extensions/server/modules'
 import { isPublicProduct, publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { hasVerifiedProductPurchase } from '@/modules/catalog/server/purchase-eligibility'
 import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
+import { readProductPriceHistory } from '@/modules/catalog/server/price-history-read'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -21,6 +22,12 @@ export async function GET(req: NextRequest, { params }: Context) {
   const tab = req.nextUrl.searchParams.get('tab') || 'description'
   const pageRaw = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(pageRaw) ? Math.min(1000, Math.max(1, pageRaw)) : 1
+  if (tab === 'price-history') {
+    const rawVariant = req.nextUrl.searchParams.get('variantId')
+    if (rawVariant !== null && !/^\d+$/.test(rawVariant)) return err('not found', 404)
+    const history = await readProductPriceHistory(product.id, Number(rawVariant || 0))
+    return history ? ok(history) : err('not found', 404)
+  }
   if (tab === 'description') return ok({ htmlFa: cleanRichText(product.description), htmlEn: cleanRichText(product.descriptionEn || product.description) })
   if (tab === 'specifications') {
     const fields = await attributeFieldsForCategory(product.categoryId)
