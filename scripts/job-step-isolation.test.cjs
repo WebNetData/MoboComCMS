@@ -22,6 +22,7 @@ const ENGAGEMENT = {
  '@/modules/analytics/server/collect': {pruneAnalytics: 1},
 }
 const WORKER = {
+ '@/modules/billing/server/billing': {recoverVoidInvoiceCredit: {checked: 0, released: 0, failed: 0}},
  '@/modules/billing/server/frenzyex-reconciliation': {processFrenzyReconciliationBatch: {checked: 1, paid: 1, pending: 0, expired: 0, canceled: 0, failed: 0, untracked: 0, deferred: 0}},
  '@/modules/fulfillment/server/jobs': {recoverPaidWalletTopups: {checked: 0, credited: 0, failed: 0}, recoverMissingPaidFulfillment: {checked: 0, enqueued: 0, failed: 0}, processFulfillmentBatch: {checked: 2, done: 2, failed: 0}},
  '@/modules/notifications/server/inbox': {syncRecentInvoiceEvents: {checked: 0}},

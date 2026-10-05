@@ -158,8 +158,11 @@ export async function markInvoicePaid(input: MarkPaidInput) {
       },
     })
     if (claimed.count !== 1) {
+      // Lost the claim: only "another settlement got there first" is a success. An invoice that was
+      // voided meanwhile is not paid, and reporting it as paid would have its order fulfilled.
       const fresh = await tx.invoice.findUnique({ where: { id: invoice.id } })
-      return { ok: true as const, alreadyPaid: true, invoice: fresh || invoice }
+      if (fresh?.status === 'PAID') return { ok: true as const, alreadyPaid: true, invoice: fresh }
+      return { ok: false as const, message: `invoice is ${fresh?.status || 'missing'}` }
     }
 
     const gateway = input.gatewayId ? await tx.gateway.findUnique({ where: { id: input.gatewayId } }) : null
@@ -238,6 +241,35 @@ export async function markInvoicePaid(input: MarkPaidInput) {
   }
   return result
 }
+/**
+ * Closes an open invoice for good and gives back the wallet credit reserved on it. The invoice is
+ * claimed first (UNPAID or DRAFT to VOID): settlement claims the same states, so an invoice is
+ * either paid or voided, never both, and the credit is only released for one that can no longer be
+ * paid. `voided` is false when the invoice was not open any more (already paid, voided, refunded).
+ * A release that fails leaves the invoice void with its credit still recorded; the order worker
+ * releases it later (`recoverVoidInvoiceCredit`).
+ */
+export async function voidOpenInvoice(invoiceId: number, description?: string) {
+  const claimed = await db.invoice.updateMany({ where: { id: invoiceId, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID', paymentUrl: '' } })
+  if (claimed.count !== 1) return { voided: false as const, released: 0, creditOk: true }
+  const credit = await releaseInvoiceCredit(invoiceId, description)
+  if (!credit.ok) logEvent('error', 'invoice.void_credit_release_failed', { invoiceId, message: credit.message })
+  return { voided: true as const, released: credit.ok ? credit.released : 0, creditOk: credit.ok }
+}
+
+/** Worker step: void invoices whose reserved wallet credit was not given back (the release failed or never ran). */
+export async function recoverVoidInvoiceCredit(limit = 20, now = new Date()) {
+  const rows = await db.invoice.findMany({ where: { status: 'VOID', walletAppliedMinor: { gt: 0n }, updatedAt: { lte: new Date(now.getTime() - 10 * 60_000) } }, orderBy: { id: 'asc' }, take: Math.max(1, Math.min(100, Math.trunc(limit) || 20)), select: { id: true, number: true } })
+  let released = 0
+  let failed = 0
+  for (const row of rows) {
+    const credit = await releaseInvoiceCredit(row.id, `credit released ${row.number} (void)`).catch((error) => ({ ok: false as const, message: String(error) }))
+    if (credit.ok) released++
+    else { failed++; logEvent('error', 'invoice.void_credit_recovery_failed', { invoiceId: row.id, message: credit.message }) }
+  }
+  return { checked: rows.length, released, failed }
+}
+
 export async function releaseInvoiceCredit(invoiceId: number, description?: string) {
   const invoice = await db.invoice.findUnique({ where: { id: invoiceId } })
   if (!invoice) return { ok: false as const, message: 'invoice not found', released: 0 }

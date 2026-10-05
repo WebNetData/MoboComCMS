@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
-import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, releaseInvoiceCredit } from '@/modules/billing/server/billing'
+import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, releaseInvoiceCredit, voidOpenInvoice } from '@/modules/billing/server/billing'
 import { settleInvoiceManually } from '@/modules/billing/server/settle'
 import { ensureInventoryReservation, releaseInventoryReservation } from '@/modules/catalog/server/inventory'
 import { moveWallet } from '@/modules/wallet/server/wallet'
@@ -190,10 +190,12 @@ export async function PATCH(req: NextRequest) {
 
   if (action === 'void') {
     if (invoice.status === 'PAID') return err('a paid invoice cannot be voided — refund it instead')
-    const released = await releaseInvoiceCredit(id, `credit released ${invoice.number} (voided by ${admin.email})`)
+    // Claimed first: an invoice paid since this page was loaded is not voided over its payment.
+    const closed = invoice.status === 'VOID' ? { voided: true, released: 0, creditOk: true } : await voidOpenInvoice(id, `credit released ${invoice.number} (voided by ${admin.email})`)
+    if (!closed.voided) return err('the invoice is no longer open — reload it', 409)
+    const released = { ok: closed.creditOk, released: closed.released }
     if (invoice.orderId) await releaseInventoryReservation(invoice.orderId).catch(() => {})
-    await db.invoice.update({ where: { id }, data: { status: 'VOID' } })
-    if (invoice.orderId) await db.order.update({ where: { id: invoice.orderId }, data: { status: 'CANCELLED' } }).catch(() => {})
+    if (invoice.orderId) await db.order.updateMany({ where: { id: invoice.orderId, status: { notIn: ['PAID', 'REFUNDED'] } }, data: { status: 'CANCELLED' } }).catch(() => {})
     await auditAdmin({ req, actor: admin, action: 'invoice.void', targetType: 'invoice', targetId: id, metadata: { orderId: invoice.orderId, currency, creditReleased: released.ok ? released.released : 0 } })
     return ok({ ok: true, creditReleased: released.ok ? released.released : 0 })
   }
@@ -250,9 +252,19 @@ export async function DELETE(req: NextRequest) {
   const invoice = await db.invoice.findUnique({ where: { id } })
   if (!invoice) return err('not found', 404)
   if (invoice.status === 'PAID' || invoice.status === 'REFUNDED') return err('settled invoices are kept for accounting', 400)
-  await releaseInvoiceCredit(id, `credit released ${invoice.number} (deleted by ${admin.email})`)
+  // Close it before deleting: a payment arriving now finds a void invoice, and a credit that could
+  // not be given back keeps its record instead of being deleted with the invoice.
+  if (invoice.status !== 'VOID') {
+    const closed = await voidOpenInvoice(id, `credit released ${invoice.number} (deleted by ${admin.email})`)
+    if (!closed.voided) return err('the invoice is no longer open — reload it', 409)
+    if (!closed.creditOk) return err('the wallet credit of this invoice could not be released; it was voided and kept', 409)
+  } else {
+    const credit = await releaseInvoiceCredit(id, `credit released ${invoice.number} (deleted by ${admin.email})`)
+    if (!credit.ok) return err('the wallet credit of this invoice could not be released; it was kept', 409)
+  }
   if (invoice.orderId) await releaseInventoryReservation(invoice.orderId).catch(() => {})
-  await db.invoice.delete({ where: { id } })
+  const removed = await db.invoice.deleteMany({ where: { id, status: 'VOID' } })
+  if (removed.count !== 1) return err('the invoice is no longer open — reload it', 409)
   if (invoice.orderId) await db.order.delete({ where: { id: invoice.orderId } }).catch(() => {})
   await auditAdmin({ req, actor: admin, action: 'invoice.delete', targetType: 'invoice', targetId: id, metadata: { number: invoice.number, orderId: invoice.orderId, currency: invoice.currency } })
   return ok({ deleted: true })
