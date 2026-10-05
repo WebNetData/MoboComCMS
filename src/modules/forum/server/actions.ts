@@ -390,6 +390,15 @@ export async function recount(tx: Tx, threadId: number, categoryId: number) {
 
 const requireModerator = (viewer: Viewer) => { if (!viewer.moderator) throw new ForumError('دسترسی مدیریت تالار ندارید', 403) }
 
+/**
+ * A moderator hiding or showing content has answered the flags waiting on it. Left pending, they
+ * keep the item in the flag queue and their weight still counts, so one more flag would hide
+ * again what a moderator had just restored.
+ */
+async function settleFlags(tx: Tx, viewer: Viewer, where: Prisma.ForumFlagWhereInput, agreed: boolean) {
+  await tx.forumFlag.updateMany({ where: { ...where, status: 'PENDING' }, data: { status: agreed ? 'AGREED' : 'DISAGREED', handledBy: viewer.userId, handledAt: new Date() } })
+}
+
 export async function moderateThread(viewer: Viewer, threadId: number, patch: { pinned?: unknown; locked?: unknown; status?: unknown; categoryId?: unknown }) {
   requireModerator(viewer)
   const thread = await db.forumThread.findUnique({ where: { id: threadId } })
@@ -406,6 +415,8 @@ export async function moderateThread(viewer: Viewer, threadId: number, patch: { 
   }
   await db.$transaction(async (tx) => {
     await tx.forumThread.update({ where: { id: threadId }, data })
+    // A topic is flagged through its first post; replies keep their own flags.
+    if (data.status && data.status !== thread.status) await settleFlags(tx, viewer, { post: { threadId, postNumber: 1 } }, data.status === 'HIDDEN')
     await recount(tx, threadId, thread.categoryId)
     if (target !== thread.categoryId) await recount(tx, threadId, target)
   })
@@ -436,7 +447,10 @@ export async function moderatePost(viewer: Viewer, postId: number, action: 'hide
   if (post.postNumber === 1 && action !== 'show') throw new ForumError('پیام اول موضوع را با پنهان یا حذف‌کردن خود موضوع مدیریت کنید', 409)
   await db.$transaction(async (tx) => {
     if (action === 'delete') await tx.forumPost.delete({ where: { id: postId } })
-    else await tx.forumPost.update({ where: { id: postId }, data: { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' } })
+    else {
+      await tx.forumPost.update({ where: { id: postId }, data: { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' } })
+      await settleFlags(tx, viewer, { postId }, action === 'hide')
+    }
     await recount(tx, post.threadId, post.thread.categoryId)
   })
   void refreshStats(post.userId).catch(() => undefined)
