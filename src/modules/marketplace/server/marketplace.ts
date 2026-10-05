@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
@@ -335,6 +336,40 @@ export async function recordMarketplaceSale(orderId: number) {
 }
 
 /**
+ * Scheduled step: seller lines of paid, delivered orders whose sale never reached the seller's
+ * ledger. The sale is recorded once, as a follow-up of the delivery job, and a failure there is
+ * only logged; without this the seller was never credited. Looks at lines of the last days that
+ * are at least ten minutes old (the delivery job may still be at work) and records the orders
+ * that miss an entry. Recording is idempotent per line. One order that fails does not stop the others.
+ */
+export async function recoverMarketplaceSales(days = 3, now = new Date()) {
+  const counters = { checked: 0, recorded: 0, failed: 0 }
+  if (!await marketplaceEnabled()) return counters
+  const window = { gte: new Date(now.getTime() - (Number(days) > 0 ? Number(days) : 3) * DAY), lte: new Date(now.getTime() - 10 * 60_000) }
+  const missing = new Set<number>()
+  for (let after = 0, pages = 0; pages < 4; pages++) {
+    const lines = await db.orderLine.findMany({ where: { sellerId: { not: null }, createdAt: window, id: { gt: after }, order: { status: 'PAID', productDelivery: { isNot: null } } }, orderBy: { id: 'asc' }, take: 500, select: { id: true, orderId: true } })
+    if (!lines.length) break
+    after = lines[lines.length - 1].id
+    const recorded = new Set((await db.sellerLedger.findMany({ where: { dedupeKey: { in: lines.map((line) => `sale:line:${line.id}`) } }, select: { dedupeKey: true } })).map((row) => row.dedupeKey))
+    for (const line of lines) if (!recorded.has(`sale:line:${line.id}`)) missing.add(line.orderId)
+    if (lines.length < 500) break
+  }
+  for (const orderId of missing) {
+    counters.checked++
+    try {
+      const before = await db.sellerLedger.count({ where: { orderId, kind: 'SALE' } })
+      await recordMarketplaceSale(orderId)
+      if (await db.sellerLedger.count({ where: { orderId, kind: 'SALE' } }) > before) counters.recorded++
+    } catch (error) {
+      counters.failed++
+      logEvent('error', 'marketplace.sale_recovery_failed', { orderId, error: String(error) })
+    }
+  }
+  return counters
+}
+
+/**
  * A refund (cancel or return) takes the refunded part back from the seller
  * and returns the matching commission. `lines` narrows it to returned lines.
  */
@@ -376,10 +411,13 @@ export async function sellerFinance(seller: SellerRow, page = 1) {
 export async function requestPayout(seller: SellerRow, amountInput: unknown) {
   const settings = await getMarketplaceSettings()
   const amount = BigInt(Math.floor(Number(String(amountInput ?? '').replace(/[,،٬\s]/g, '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))) || 0))
-  if (await db.sellerPayout.count({ where: { sellerId: seller.id, status: 'REQUESTED' } })) throw new MarketplaceError('یک درخواست برداشت در حال بررسی دارید', 409)
-  const money = balanceOf(await db.sellerLedger.findMany({ where: { sellerId: seller.id }, select: { kind: true, amountMinor: true, availableAt: true } }))
-  checkPayout(amount, money.available, BigInt(settings.minPayoutToman), seller.iban)
   const payout = await db.$transaction(async (tx) => {
+    // The "one open request" rule and the balance are checked under the seller's lock, so two
+    // requests sent together cannot both pass and reserve more than the seller has.
+    if (/^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) await tx.$queryRaw`SELECT "id" FROM "Seller" WHERE "id" = ${seller.id} FOR UPDATE`
+    if (await tx.sellerPayout.count({ where: { sellerId: seller.id, status: 'REQUESTED' } })) throw new MarketplaceError('یک درخواست برداشت در حال بررسی دارید', 409)
+    const money = balanceOf(await tx.sellerLedger.findMany({ where: { sellerId: seller.id }, select: { kind: true, amountMinor: true, availableAt: true } }))
+    checkPayout(amount, money.available, BigInt(settings.minPayoutToman), seller.iban)
     const row = await tx.sellerPayout.create({ data: { sellerId: seller.id, amountMinor: amount, currency: 'IRT', iban: seller.iban, ibanOwner: seller.ibanOwner } })
     await tx.sellerLedger.create({ data: { sellerId: seller.id, kind: 'PAYOUT', amountMinor: -amount, currency: 'IRT', payoutId: row.id, dedupeKey: `payout:${row.id}`, note: 'درخواست برداشت' } })
     return row
