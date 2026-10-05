@@ -15,7 +15,8 @@ export async function GET(req: NextRequest, { params }: Context) {
   if (!post || !isLivePost(post)) return err('not found', 404)
   const requested = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(requested) ? Math.min(1000, Math.max(1, requested)) : 1
-  const where = { postId: post.id, status: 'APPROVED', parentId: null }
+  // A comment its author deleted stays as an empty placeholder while it still has published answers.
+  const where = { postId: post.id, parentId: null, OR: [{ status: 'APPROVED' }, { status: 'DELETED', replies: { some: { status: 'APPROVED' } } }] }
   const [total, comments] = await Promise.all([
     db.postComment.count({ where }),
     db.postComment.findMany({
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       skip: (page - 1) * 20,
       take: 20,
       select: {
-        id: true, body: true, createdAt: true,
+        id: true, body: true, createdAt: true, status: true,
         user: { select: { name: true } },
         replies: {
           where: { status: 'APPROVED' }, orderBy: { createdAt: 'asc' }, take: 100,
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       },
     }),
   ])
-  return ok({ comments: comments.map(comment => ({ ...comment, user: { name: comment.user.name || 'Member' }, replies: comment.replies.map(reply => ({ ...reply, user: { name: reply.user.name || 'Member' } })) })), total, page, pages: Math.max(1, Math.ceil(total / 20)) })
+  return ok({ comments: comments.map(({ status, ...comment }) => ({ ...comment, ...(status === 'DELETED' ? { body: '', deleted: true, user: { name: '' } } : { user: { name: comment.user.name || 'Member' } }), replies: comment.replies.map(reply => ({ ...reply, user: { name: reply.user.name || 'Member' } })) })), total, page, pages: Math.max(1, Math.ceil(total / 20)) })
 }
 
 export async function POST(req: NextRequest, { params }: Context) {

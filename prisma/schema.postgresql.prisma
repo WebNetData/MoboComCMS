@@ -666,7 +666,7 @@ model PostComment {
   userId    Int
   parentId  Int?
   body      String
-  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  status    String    @default("PENDING") // PENDING | APPROVED | REJECTED | DELETED (by its author; an empty placeholder kept only while it has replies)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)

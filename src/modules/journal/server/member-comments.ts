@@ -2,12 +2,13 @@ import { db } from '@/platform/database/prisma'
 import { isLivePost } from '@/modules/journal/domain/journal'
 
 /**
- * The member's own article comments, last changed first, whatever their moderation state.
+ * The member's own article comments, last changed first, whatever their moderation state
+ * (placeholders left by a deletion are not theirs to see any more).
  * `post` is null when the article is not live (draft, scheduled or withdrawn), so its title
  * is not shown even to the commenter.
  */
 export async function memberPostComments(userId: number, take: number) {
-  const where = { userId }
+  const where = { userId, status: { not: 'DELETED' } }
   const [total, rows] = await Promise.all([
     db.postComment.count({ where }),
     db.postComment.findMany({

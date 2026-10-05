@@ -30,6 +30,8 @@ export type MemberReview = {
   target: { title: string; url: string; image: string } | null
   /** Shared reviews only: what the member's edit and delete address ("game:12"), its type, badge and dimension scores. */
   manage: { item: string; itemType: ItemType; verified: string; scores: Record<string, number> } | null
+  /** Article comments only: the id the member's delete addresses. */
+  commentId?: number
 }
 
 export async function memberReviewPage(userId: number, pageInput: unknown) {
@@ -51,7 +53,7 @@ export async function memberReviewPage(userId: number, pageInput: unknown) {
       key: `product:${row.id}`, kind: 'product', label: 'محصول', rating: row.rating, title: row.title, body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.product, manage: null,
     })),
     ...comments.comments.map((row): MemberReview => ({
-      key: `comment:${row.id}`, kind: 'comment', label: row.reply ? 'پاسخ زیر مقاله' : 'دیدگاه مقاله', rating: 0, title: '', body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.post, manage: null,
+      key: `comment:${row.id}`, kind: 'comment', label: row.reply ? 'پاسخ زیر مقاله' : 'دیدگاه مقاله', rating: 0, title: '', body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.post, manage: null, commentId: row.id,
     })),
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || (a.key < b.key ? 1 : -1))
   const total = items.total + products.total + comments.total

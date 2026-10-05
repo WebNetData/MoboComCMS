@@ -12,6 +12,7 @@ import {
   type AiConfig,
 } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig } from '@/modules/ai/server/client'
+import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
 import { autofillPrompt, cleanSchema, parseAutofill } from '@/modules/ai/domain/autofill'
 
 // Everything the assistant writes is a suggestion: posts are saved as drafts,
@@ -178,10 +179,15 @@ export async function publishCommentReply(adminId: number, commentId: number, re
     const parent = await db.postComment.findFirst({ where: { id: comment.parentId, status: 'APPROVED' }, select: { id: true } })
     if (!parent) throw new AiError('ابتدا دیدگاه والد را تأیید کنید', 409)
   }
-  return db.$transaction(async (tx) => {
+  if (comment.status === 'DELETED') throw new AiError('این دیدگاه را نویسنده‌اش حذف کرده است', 409)
+  const created = await db.$transaction(async (tx) => {
     if (comment.status !== 'APPROVED') await tx.postComment.update({ where: { id: comment.id }, data: { status: 'APPROVED' } })
     return tx.postComment.create({ data: { postId: comment.postId, userId: adminId, parentId: comment.id, body, status: 'APPROVED' }, select: { id: true } })
   })
+  // The same notices as an approval and a reply made by hand.
+  if (comment.status !== 'APPROVED') await notifyCommentPublished(comment.id, 'moderator')
+  await notifyCommentPublished(created.id, 'auto')
+  return created
 }
 
 // ------------------------------------------------------------------ forum
