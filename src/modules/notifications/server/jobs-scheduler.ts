@@ -40,6 +40,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/mail/server/newsletter')).runNewsletter(),
   },
   {
+    // Membership: VIP gift days of paid orders that were never granted.
+    name: 'membership-gifts', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/membership/server/membership')).recoverGiftMemberships(),
+  },
+  {
     // Background queue (heavy admin tasks) and a week of performance samples.
     name: 'queue', everyMs: 60_000,
     run: async (tick) => {
