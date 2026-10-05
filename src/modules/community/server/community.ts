@@ -43,12 +43,19 @@ export type CommentView = { id: number; html: string; createdAt: string; author:
 
 type PostRow = { id: number; authorId: number; content: string; images: string; itemType: string; itemId: number | null; visibility: string; likeCount: number; commentCount: number; editedAt: Date | null; createdAt: Date }
 
+/** Comments the viewer may see: a block hides the two members' comments from each other, like their posts. */
+async function visibleComments(viewerId: number | null) {
+  const hidden = await blockedIds(viewerId)
+  return { status: 'VISIBLE', ...(hidden.length ? { authorId: { notIn: hidden } } : {}) }
+}
+
 async function toViews(rows: PostRow[], viewerId: number | null, withComments = 2): Promise<PostView[]> {
   if (!rows.length) return []
   const ids = rows.map((row) => row.id)
+  const commentWhere = withComments ? await visibleComments(viewerId) : null
   const [liked, comments, pinned] = await Promise.all([
     viewerId ? db.communityLike.findMany({ where: { postId: { in: ids }, userId: viewerId }, select: { postId: true } }) : Promise.resolve([]),
-    withComments ? db.communityComment.findMany({ where: { postId: { in: ids }, status: 'VISIBLE' }, orderBy: { createdAt: 'desc' }, take: ids.length * 6 }) : Promise.resolve([]),
+    commentWhere ? db.communityComment.findMany({ where: { postId: { in: ids }, ...commentWhere }, orderBy: { createdAt: 'desc' }, take: ids.length * 6 }) : Promise.resolve([]),
     db.userProfile.findMany({ where: { pinnedPostId: { in: ids } }, select: { pinnedPostId: true } }),
   ])
   const refs = rows.flatMap((row) => (row.itemId && isItemType(row.itemType) ? [{ type: row.itemType, id: row.itemId } as ItemRef] : []))
@@ -115,7 +122,9 @@ async function filterByProfilePrivacy<T extends { authorId: number }>(rows: T[],
 
 export async function profilePosts(ownerId: number, viewerId: number | null, cursor?: string) {
   const before = parseCursor(cursor)
-  const relation = await relationBetween(viewerId, ownerId)
+  const [relation, owner] = await Promise.all([relationBetween(viewerId, ownerId), db.userProfile.findUnique({ where: { userId: ownerId }, select: { privacy: true } })])
+  // The same gate as the profile page: a private profile, or one whose owner blocked the viewer, lists nothing.
+  if (!owner || !canViewProfile(normalizePrivacy(owner.privacy), relation)) return { posts: [], next: null }
   const where = { authorId: ownerId, status: 'VISIBLE', ...(relation.self || relation.following || relation.staff ? {} : { visibility: 'PUBLIC' }), ...(before ? { createdAt: { lt: before } } : {}) }
   const rows = await db.communityPost.findMany({ where, orderBy: { createdAt: 'desc' }, take: PAGE })
   return { posts: await toViews(rows, viewerId), next: rows.length === PAGE ? rows[rows.length - 1].createdAt.toISOString() : null }
@@ -131,7 +140,7 @@ export async function getPost(id: number, viewerId: number | null) {
   const row = await db.communityPost.findFirst({ where: { id, ...(await visibilityWhere(viewerId)) } })
   if (!row || !(await filterByProfilePrivacy([row], viewerId)).length) throw new CommunityError('پست پیدا نشد', 404, 'NOT_FOUND')
   const [view] = await toViews([row], viewerId, 0)
-  const comments = await db.communityComment.findMany({ where: { postId: id, status: 'VISIBLE' }, orderBy: { createdAt: 'asc' }, take: 300 })
+  const comments = await db.communityComment.findMany({ where: { postId: id, ...(await visibleComments(viewerId)) }, orderBy: { createdAt: 'asc' }, take: 300 })
   const cards = await profileCards(comments.map((c) => c.authorId))
   return { ...view, all: comments.flatMap((comment) => (cards.get(comment.authorId) ? [{ id: comment.id, html: renderBody(comment.content), createdAt: comment.createdAt.toISOString(), author: cards.get(comment.authorId)!, own: comment.authorId === viewerId }] : [])) }
 }
