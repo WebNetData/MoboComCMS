@@ -33,6 +33,7 @@ model User {
   emailAlerts    Boolean         @default(true)
   pushAlerts     Boolean         @default(true)
   recommendationOptIn Boolean    @default(false)
+  recommendationListeningOptIn Boolean @default(false) // separate consent: listening history may shape private suggestions
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
   passwordChangedAt DateTime?
