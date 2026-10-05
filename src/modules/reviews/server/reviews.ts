@@ -1,11 +1,14 @@
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
 import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
 import { FAVORITABLE, ITEM_LABEL, REVIEWABLE, itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
 import { itemCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
+import { memberItemExperience } from '@/modules/content/server/experience'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { ReviewError, initialReviewStatus, normalizeRating, normalizeReviewBody, summarizeDistribution, type RatingSummary } from '@/modules/reviews/domain/reviews'
+import { dimensionsFor, isExperienceKind, normalizeScores, reviewSort, type ExperienceKind, type ReviewScores, type ReviewSort } from '@/modules/reviews/domain/dimensions'
 
 const PAGE = 10
 const counted = { status: { not: 'REJECTED' } }
@@ -30,21 +33,61 @@ export async function refreshItemStat(ref: ItemRef) {
   await db.itemStat.upsert({ where: { itemType_itemId: { itemType: ref.type, itemId: ref.id } }, create: { itemType: ref.type, itemId: ref.id, ...data }, update: data })
 }
 
-export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string }; mine: boolean; helpfulCount: number; helpfulByMe: boolean }
+export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string }; mine: boolean; helpfulCount: number; helpfulByMe: boolean; verified: ExperienceKind | ''; scores: ReviewScores }
+export type DimensionSummary = { key: string; label: string; average: number; count: number }
 
-/** Everything an item page shows: summary, the viewer's own review/favorite and a page of reviews. */
-export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1) {
+const verifiedOf = (value: string): ExperienceKind | '' => isExperienceKind(value) ? value : ''
+/** Stored scores limited to the dimensions the type currently shows. */
+const scoresOf = (type: ItemRef['type'], rows: { key: string; score: number }[]): ReviewScores => {
+  const known = new Set(dimensionsFor(type).map((dimension) => dimension.key))
+  return Object.fromEntries(rows.filter((row) => known.has(row.key)).map((row) => [row.key, row.score]))
+}
+const LIST_ORDER: Record<ReviewSort, Prisma.ItemReviewOrderByWithRelationInput[]> = {
+  new: [{ createdAt: 'desc' }, { id: 'desc' }],
+  helpful: [{ helpfulVotes: { _count: 'desc' } }, { createdAt: 'desc' }, { id: 'desc' }],
+  high: [{ rating: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+  low: [{ rating: 'asc' }, { createdAt: 'desc' }, { id: 'desc' }],
+}
+
+/**
+ * The badge is kept once earned: download logs are pruned, so a later look must not take it back.
+ * Returns the stored value, upgrading an unbadged review when the site now has a record of use.
+ */
+async function earnedBadge(review: { id: number; userId: number; verified: string; updatedAt: Date }, ref: ItemRef): Promise<ExperienceKind | ''> {
+  if (verifiedOf(review.verified)) return verifiedOf(review.verified)
+  const experience = await memberItemExperience(review.userId, ref).catch(() => '' as const)
+  // The edit date is the member's; earning a badge is not an edit.
+  if (experience) await db.itemReview.updateMany({ where: { id: review.id, verified: '' }, data: { verified: experience, updatedAt: review.updatedAt } }).catch(() => undefined)
+  return experience
+}
+
+/**
+ * Everything an item page shows: summary, the viewer's own review/favorite and a page of reviews.
+ * `viewerExperience` also reports whether the viewer would get the verified badge (review form only).
+ */
+export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1, options: { sort?: unknown; verifiedOnly?: boolean; viewerExperience?: boolean } = {}) {
   const reviewable = REVIEWABLE.includes(ref.type)
   const where = { itemType: ref.type, itemId: ref.id }
   const safePage = Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000) : 1
-  const [ratings, mine, favorite, favorites, total, rows] = await Promise.all([
+  const sort = reviewSort(options.sort)
+  const listed = { ...where, status: 'APPROVED', NOT: { body: '' }, ...(options.verifiedOnly ? { verified: { not: '' } } : {}) }
+  const [ratings, mine, favorite, favorites, total, rows, dimensionRows, verifiedCount] = await Promise.all([
     reviewable ? db.itemReview.groupBy({ by: ['rating'], where: { ...where, ...counted }, _count: { rating: true } }) : Promise.resolve([]),
-    reviewable && userId ? db.itemReview.findUnique({ where: { itemType_itemId_userId: { ...where, userId } } }) : Promise.resolve(null),
+    reviewable && userId ? db.itemReview.findUnique({ where: { itemType_itemId_userId: { ...where, userId } }, include: { scores: true } }) : Promise.resolve(null),
     userId ? db.itemFavorite.findUnique({ where: { userId_itemType_itemId: { userId, ...where } } }) : Promise.resolve(null),
     db.itemFavorite.count({ where }),
-    reviewable ? db.itemReview.count({ where: { ...where, status: 'APPROVED', NOT: { body: '' } } }) : Promise.resolve(0),
-    reviewable ? db.itemReview.findMany({ where: { ...where, status: 'APPROVED', NOT: { body: '' } }, orderBy: { createdAt: 'desc' }, skip: (safePage - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true } } } }) : Promise.resolve([]),
+    reviewable ? db.itemReview.count({ where: listed }) : Promise.resolve(0),
+    reviewable ? db.itemReview.findMany({ where: listed, orderBy: LIST_ORDER[sort], skip: (safePage - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true } }, scores: true } }) : Promise.resolve([]),
+    reviewable ? db.itemReviewScore.groupBy({ by: ['key'], where: { review: { ...where, ...counted } }, _avg: { score: true }, _count: { score: true } }) : Promise.resolve([]),
+    reviewable ? db.itemReview.count({ where: { ...where, ...counted, verified: { not: '' } } }) : Promise.resolve(0),
   ])
+  const dimensionByKey = new Map(dimensionRows.map((row) => [row.key, row]))
+  const dimensions = dimensionsFor(ref.type).flatMap((dimension): DimensionSummary[] => {
+    const row = dimensionByKey.get(dimension.key)
+    return row && row._count.score && row._avg.score !== null ? [{ key: dimension.key, label: dimension.label, average: Math.round(row._avg.score * 10) / 10, count: row._count.score }] : []
+  })
+  const mineVerified = mine ? await earnedBadge(mine, ref) : ''
+  const experience = !reviewable || !userId || !options.viewerExperience ? '' : mineVerified || (mine ? '' : await memberItemExperience(userId, ref).catch(() => '' as const))
   const distribution: RatingSummary['distribution'] = [0, 0, 0, 0, 0]
   for (const row of ratings) if (row.rating >= 1 && row.rating <= 5) distribution[row.rating - 1] = row._count.rating
   const summary = summarizeDistribution(distribution)
@@ -56,10 +99,11 @@ export async function itemEngagement(ref: ItemRef, userId: number | null, page =
   const helpfulById = new Map(helpfulCounts.map((row) => [row.reviewId, row._count.reviewId]))
   const helpfulByMe = new Set(myHelpful.map((row) => row.reviewId))
   return {
-    reviewable, summary, favorites, total, page: safePage, pages: Math.ceil(total / PAGE),
-    mine: mine ? { rating: mine.rating, body: mine.body, status: mine.status } : null,
+    reviewable, summary, dimensions, verifiedCount, favorites, total, page: safePage, pages: Math.ceil(total / PAGE), sort, verifiedOnly: !!options.verifiedOnly,
+    mine: mine ? { rating: mine.rating, body: mine.body, status: mine.status, verified: mineVerified, scores: scoresOf(ref.type, mine.scores) } : null,
+    experience,
     favorite: favorite ? { notify: favorite.notify } : null,
-    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId, helpfulCount: helpfulById.get(row.id) || 0, helpfulByMe: helpfulByMe.has(row.id) })),
+    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId, helpfulCount: helpfulById.get(row.id) || 0, helpfulByMe: helpfulByMe.has(row.id), verified: row.userId === userId && mineVerified ? mineVerified : verifiedOf(row.verified), scores: scoresOf(ref.type, row.scores) })),
   }
 }
 
@@ -78,28 +122,34 @@ export async function setReviewHelpful(userId: number, reviewId: number, on: boo
   return { reviewId, on, count: await db.itemReviewHelpful.count({ where: { reviewId } }) }
 }
 
-export async function saveReview(userId: number, ref: ItemRef, input: { rating: unknown; body?: unknown }) {
+export async function saveReview(userId: number, ref: ItemRef, input: { rating: unknown; body?: unknown; scores?: unknown }) {
   await assertOn()
   if (!REVIEWABLE.includes(ref.type)) throw new ReviewError('برای این مورد امکان امتیازدهی نیست')
   if (!rateLimitHit(`review:${userId}`, 20, 3_600_000).ok) throw new ReviewError('کمی بعد دوباره امتحان کنید', 429)
   await publicItem(ref)
   const rating = normalizeRating(input.rating)
   const body = normalizeReviewBody(input.body)
+  // Not sent (a client that only knows stars): stored dimension scores stay as they are.
+  const scores = normalizeScores(ref.type, input.scores)
   const settings = await getModuleSettings('reviews').catch(() => ({} as Record<string, unknown>))
   const where = { itemType_itemId_userId: { itemType: ref.type, itemId: ref.id, userId } }
   const previous = await db.itemReview.findUnique({ where })
   // An unchanged approved text stays approved when only the stars change.
   const status = previous && previous.body === body && previous.status === 'APPROVED' ? 'APPROVED' : initialReviewStatus(body, settings['moderate-text'] !== false)
-  if (previous && previous.body !== body) {
-    await db.$transaction([
-      db.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status }, update: { rating, body, status } }),
-      db.itemReviewHelpful.deleteMany({ where: { reviewId: previous.id } }),
-    ])
-  } else {
-    await db.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status }, update: { rating, body, status } })
-  }
+  // Kept once earned; otherwise taken from the site's own record of a purchase, download, watch or listen.
+  const verified = (previous && verifiedOf(previous.verified)) || await memberItemExperience(userId, ref).catch(() => '' as const)
+  const saved = await db.$transaction(async (tx) => {
+    const review = await tx.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status, verified }, update: { rating, body, status, verified } })
+    if (previous && previous.body !== body) await tx.itemReviewHelpful.deleteMany({ where: { reviewId: review.id } })
+    if (scores) {
+      await tx.itemReviewScore.deleteMany({ where: { reviewId: review.id } })
+      const data = Object.entries(scores).map(([key, score]) => ({ reviewId: review.id, key, score }))
+      if (data.length) await tx.itemReviewScore.createMany({ data })
+    }
+    return scoresOf(ref.type, await tx.itemReviewScore.findMany({ where: { reviewId: review.id } }))
+  })
   await refreshItemStat(ref)
-  return { rating, body, status }
+  return { rating, body, status, verified, scores: saved }
 }
 
 export async function deleteReview(userId: number, ref: ItemRef) {
@@ -204,7 +254,7 @@ export async function reviewQueue(status: string, page = 1) {
   const where = status === 'ALL' ? { NOT: { body: '' } } : { status: ['PENDING', 'APPROVED', 'REJECTED'].includes(status) ? status : 'PENDING' }
   const [total, rows] = await Promise.all([
     db.itemReview.count({ where }),
-    db.itemReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30, include: { user: { select: { id: true, name: true, email: true } } } }),
+    db.itemReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30, include: { user: { select: { id: true, name: true, email: true } }, scores: true } }),
   ])
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
   return {
@@ -212,7 +262,7 @@ export async function reviewQueue(status: string, page = 1) {
     pending: await db.itemReview.count({ where: { status: 'PENDING' } }),
     reviews: rows.map((row) => {
       const card = cards.get(`${row.itemType}:${row.itemId}`)
-      return { id: row.id, rating: row.rating, body: row.body, status: row.status, createdAt: row.createdAt, user: row.user, item: { key: `${row.itemType}:${row.itemId}`, title: card?.title || '(حذف‌شده)', url: card?.url || '', label: ITEM_LABEL[row.itemType as keyof typeof ITEM_LABEL]?.one || row.itemType } }
+      return { id: row.id, rating: row.rating, body: row.body, status: row.status, verified: verifiedOf(row.verified), scores: dimensionsFor(row.itemType as ItemRef['type']).flatMap((dimension) => { const hit = row.scores.find((score) => score.key === dimension.key); return hit ? [{ label: dimension.label, score: hit.score }] : [] }), createdAt: row.createdAt, user: row.user, item: { key: `${row.itemType}:${row.itemId}`, title: card?.title || '(حذف‌شده)', url: card?.url || '', label: ITEM_LABEL[row.itemType as keyof typeof ITEM_LABEL]?.one || row.itemType } }
     }),
   }
 }

@@ -2267,14 +2267,26 @@ model ItemReview {
   rating    Int
   body      String   @default("")
   status    String   @default("APPROVED") // text moderation: PENDING | APPROVED | REJECTED (rejected ratings are not counted)
+  verified  String   @default("") // the site's own record that the reviewer used the item: PURCHASE | DOWNLOAD | WATCH | LISTEN
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   helpfulVotes ItemReviewHelpful[]
+  scores    ItemReviewScore[]
 
   @@unique([itemType, itemId, userId])
   @@index([itemType, itemId, status, createdAt])
   @@index([status, createdAt])
+}
+
+// Optional per-type dimension scores (gameplay, story, …); keys live in reviews/domain/dimensions.
+model ItemReviewScore {
+  reviewId Int
+  key      String
+  score    Int
+  review   ItemReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, key])
 }
 
 model ItemReviewHelpful {

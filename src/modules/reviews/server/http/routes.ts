@@ -26,7 +26,7 @@ async function member(req: NextRequest) {
 
 const refOf = (value: unknown) => parseItemKey(value)
 
-/** GET /api/engage?item=software:12&page=2 */
+/** GET /api/engage?item=software:12&page=2&sort=new|helpful|high|low&verified=1 */
 export async function GET(req: NextRequest) {
   const off = await moduleGuard('reviews')
   if (off) return off
@@ -34,10 +34,10 @@ export async function GET(req: NextRequest) {
   if (!ref) return err('invalid item')
   if (!await itemCard(ref)) return err('Item unavailable', 404)
   const viewer = await getViewer()
-  return ok(await itemEngagement(ref, viewer.userId, Number(req.nextUrl.searchParams.get('page'))))
+  return ok(await itemEngagement(ref, viewer.userId, Number(req.nextUrl.searchParams.get('page')), { sort: req.nextUrl.searchParams.get('sort'), verifiedOnly: req.nextUrl.searchParams.get('verified') === '1' }))
 }
 
-/** POST /api/engage/review { item, rating, body } */
+/** POST /api/engage/review { item, rating, body, scores? } — scores: optional per-type dimension scores, e.g. { gameplay: 5 } */
 export async function POST_review(req: NextRequest) {
   const g = await member(req)
   if ('response' in g) return g.response
