@@ -18,6 +18,7 @@ const ENGAGEMENT = {
  '@/modules/studios/server/publication-notifications': {processStudioPublicationNotifications: {checked: 0, sent: 0}},
  '@/modules/search/server/search': {rebuildSearchIndex: 7},
  '@/modules/downloads/server/guard': {pruneDownloadLogs: 1},
+ '@/modules/reviews/server/reviews': {backfillVerifiedBadges: {checked: 0, badged: 0, failed: 0}},
  '@/modules/analytics/server/collect': {pruneAnalytics: 1},
 }
 const WORKER = {
@@ -32,7 +33,7 @@ const WORKER = {
 test('a failing release step does not hold back the other engagement steps, and the run still fails', async () => {
  const jobs = load('src/modules/content/server/jobs.ts', ENGAGEMENT, ['processTrackReleaseNotifications'])
  await assert.rejects(jobs.runEngagementJobs({full: true}), /processTrackReleaseNotifications failed/)
- assert.deepEqual(jobs.calls, ['releaseStuckSocialPosts', 'processSocialQueue', 'processTrackReleaseNotifications', 'processGameUpdateReleaseNotifications', 'processSoftwareReleaseNotifications', 'processStudioPublicationNotifications', 'rebuildSearchIndex', 'pruneDownloadLogs', 'pruneAnalytics'])
+ assert.deepEqual(jobs.calls, ['releaseStuckSocialPosts', 'processSocialQueue', 'processTrackReleaseNotifications', 'processGameUpdateReleaseNotifications', 'processSoftwareReleaseNotifications', 'processStudioPublicationNotifications', 'rebuildSearchIndex', 'backfillVerifiedBadges', 'pruneDownloadLogs', 'pruneAnalytics'])
  assert.deepEqual(jobs.logs, [['error', 'engagement.step_failed', 'music.releases']])
 })
 test('a quick engagement run with a failing step also finishes its steps and fails', async () => {

@@ -73,6 +73,12 @@ Real PostgreSQL: each kind of record for each item type including children (epis
 
 The comparison table for software, games and films has a group "members' specialist scores (out of 5)": one row per dimension of the type with each item's average, the higher value marked like every other numeric row, and a row with the number of raters who have the badge when any item has one. A dimension nobody scored on any compared item is left out; rejected reviews do not count. With the reviews module off the group is absent. Store products are compared on their own review system as before.
 
+## Badge backfill (third slice)
+
+A review got its badge only when its author saved it or opened the item page again. Reviews written before the badge existed, and members who used the item after reviewing it and never came back, stayed unbadged, and the download logs that would have earned the badge are pruned after 120 days.
+
+The scheduled engagement job (the 15-minute full run) now has a step, placed before the download-log prune, that walks the unbadged reviews in id order, at most 200 per run, and gives each the badge the site's records support. It remembers where it stopped (`Setting reviewBadgeBackfillCursor`) and starts over after the last review, so a review is looked at again on a later pass. Earning a badge does not change the review's edit date; a badge is never taken back; one review that cannot be checked is logged and does not stop the others; with the reviews module off the step does nothing.
+
 ## Not in this slice
 
-A backfill of badges for reviews nobody opens again; dimension averages in search; English labels in the page (they exist in the dimension list, the page is Persian as before); the same for store products, which keep their own system.
+Dimension averages in search; English labels in the page (they exist in the dimension list, the page is Persian as before); the same for store products, which keep their own system.
