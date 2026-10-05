@@ -14,6 +14,19 @@ npm run build
 
 Do not deploy if any gate fails.
 
+## PostgreSQL behaviour gate
+
+`release:check` runs without a database. The cart, checkout cleanup, stock holds, payment reconciliation selection, club points, abandoned-cart reminders, newsletter sending, background queue, announcement queue and source-trace cleaning are checked against a real PostgreSQL database by:
+
+```bash
+DATABASE_URL=postgresql://… npm run test:pg          # all checks
+DATABASE_URL=postgresql://… npm run test:pg -- cart-merge-cap queue-jobs   # selected ones
+```
+
+Run it against a development or staging database, never production: each check creates its own namespaced rows and deletes them, and replaces e-mail, SMS, payment-provider and social channels with test doubles, but the cart-reminder, club-points, reconciliation, queue and scrub checks call jobs that are global, and they rely on test-only scoping to leave other rows alone.
+
+On Windows the shell-based updater tests in `test:site` cannot run; the Linux run is the applicable one (`docker run --rm -v "$PWD:/app:ro" --tmpfs /tmp:exec -w /app node:24-bookworm npm run test:site`).
+
 ## Database / financial gate
 
 Before a production database cutover:
