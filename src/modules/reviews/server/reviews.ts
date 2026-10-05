@@ -124,6 +124,27 @@ export async function setFavorite(userId: number, ref: ItemRef, input: { on: boo
   return { favorite: favorite ? { notify: favorite.notify } : null }
 }
 
+/**
+ * The member's own ratings and reviews, last changed first, whatever their moderation state.
+ * `item` is the current public card; it is null when the item is no longer public, so a
+ * withdrawn item's title is not shown even to its reviewer.
+ */
+export async function memberItemReviews(userId: number, take: number) {
+  const where = { userId }
+  const [total, rows] = await Promise.all([
+    db.itemReview.count({ where }),
+    db.itemReview.findMany({ where, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: Math.max(1, Math.min(500, Math.trunc(take) || 1)) }),
+  ])
+  const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
+  return {
+    total,
+    reviews: rows.map((row) => {
+      const card = cards.get(`${row.itemType}:${row.itemId}`)
+      return { id: row.id, itemType: row.itemType, rating: row.rating, body: row.body, status: row.status, updatedAt: row.updatedAt, item: card ? { title: card.title, url: card.url, image: card.image } : null }
+    }),
+  }
+}
+
 /** The member's favorites as cards, newest first (items that are gone are skipped). */
 export async function listFavorites(userId: number) {
   const rows = await db.itemFavorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 500 })
