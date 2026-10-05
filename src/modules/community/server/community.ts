@@ -216,7 +216,8 @@ export async function editPost(userId: number, postId: number, input: { content?
 
 export async function deletePost(userId: number, postId: number) {
   const row = await ownPost(userId, postId)
-  await db.communityPost.update({ where: { id: postId }, data: { status: 'HIDDEN' } })
+  // The author's own removal is final: staff can hide and restore a post, but not bring back one its author deleted.
+  await db.communityPost.update({ where: { id: postId }, data: { status: row.authorId === userId ? 'DELETED' : 'HIDDEN' } })
   await db.userProfile.updateMany({ where: { pinnedPostId: postId }, data: { pinnedPostId: null } })
   await refreshPostCount(row.authorId)
   return { deleted: true, moderated: row.authorId !== userId }
@@ -287,7 +288,12 @@ export async function report(userId: number, input: { postId?: unknown; commentI
   const commentId = Number(input.commentId) || null
   if (!postId && !commentId) throw new CommunityError('موردی برای گزارش انتخاب نشده است')
   if (postId) await visiblePost(postId, userId)
-  if (commentId && !await db.communityComment.findFirst({ where: { id: commentId, status: 'VISIBLE' } })) throw new CommunityError('دیدگاه پیدا نشد', 404)
+  if (commentId) {
+    const comment = await db.communityComment.findFirst({ where: { id: commentId, status: 'VISIBLE' }, select: { postId: true } })
+    if (!comment) throw new CommunityError('دیدگاه پیدا نشد', 404)
+    // A comment is reported from its post; a post the member cannot open has no comments to report.
+    if (!postId) await visiblePost(comment.postId, userId).catch(() => { throw new CommunityError('دیدگاه پیدا نشد', 404) })
+  }
   const duplicate = await db.communityReport.findFirst({ where: { reporterId: userId, status: 'OPEN', ...(postId ? { postId } : { commentId }) } })
   if (duplicate) return { reported: true, duplicate: true }
   await db.communityReport.create({ data: { reporterId: userId, postId, commentId, reason, note: String(input.note || '').trim().slice(0, 500) } })

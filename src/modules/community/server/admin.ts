@@ -70,7 +70,8 @@ export async function resolveReport(reportId: number, action: 'resolve' | 'dismi
   const status = action === 'resolve' ? 'RESOLVED' : 'DISMISSED'
   if (hide && action === 'resolve') {
     if (row.postId) {
-      await db.communityPost.update({ where: { id: row.postId }, data: { status: 'HIDDEN' } })
+      // A post its author already deleted stays "deleted by author".
+      await db.communityPost.updateMany({ where: { id: row.postId, status: 'VISIBLE' }, data: { status: 'HIDDEN' } })
       await db.userProfile.updateMany({ where: { pinnedPostId: row.postId }, data: { pinnedPostId: null } })
       await refreshCounts(row.postId)
     }
@@ -88,7 +89,7 @@ export async function moderationPosts(input: { q?: string; status?: string; page
   const size = 30
   const page = Math.max(1, Number(input.page) || 1)
   const q = String(input.q || '').trim().slice(0, 80)
-  const where = { ...(input.status === 'HIDDEN' || input.status === 'VISIBLE' ? { status: input.status } : {}), ...(q ? { content: { contains: q } } : {}) }
+  const where = { ...(input.status === 'HIDDEN' || input.status === 'VISIBLE' || input.status === 'DELETED' ? { status: input.status } : {}), ...(q ? { content: { contains: q } } : {}) }
   const [rows, total] = await Promise.all([db.communityPost.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * size, take: size, include: { _count: { select: { reports: { where: { status: 'OPEN' } } } } } }), db.communityPost.count({ where })])
   const cards = await profileCards(rows.map((row) => row.authorId))
   return { total, page, pages: Math.max(1, Math.ceil(total / size)), posts: rows.map((row) => ({ id: row.id, text: row.content.slice(0, 300), images: (() => { try { return JSON.parse(row.images) as string[] } catch { return [] } })(), status: row.status, visibility: row.visibility, likes: row.likeCount, comments: row.commentCount, reports: row._count.reports, createdAt: row.createdAt.toISOString(), author: cards.get(row.authorId) || null })) }
@@ -97,8 +98,13 @@ export async function moderationPosts(input: { q?: string; status?: string; page
 export async function moderatePost(postId: number, action: 'hide' | 'restore') {
   const row = await db.communityPost.findUnique({ where: { id: postId } })
   if (!row) throw new CommunityError('پست پیدا نشد', 404)
+  if (row.status === 'DELETED') throw new CommunityError('این پست را نویسنده‌اش حذف کرده است و بازگردانده نمی‌شود', 409)
   await db.communityPost.update({ where: { id: postId }, data: { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' } })
-  if (action === 'hide') await db.userProfile.updateMany({ where: { pinnedPostId: postId }, data: { pinnedPostId: null } })
+  if (action === 'hide') {
+    await db.userProfile.updateMany({ where: { pinnedPostId: postId }, data: { pinnedPostId: null } })
+    // The decision the open reports were waiting for has been made.
+    await db.communityReport.updateMany({ where: { postId, status: 'OPEN' }, data: { status: 'RESOLVED' } })
+  }
   await refreshCounts(postId)
   return { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' }
 }

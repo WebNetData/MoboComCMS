@@ -2761,7 +2761,7 @@ model CommunityPost {
   itemType     String          @default("") // shared site item: game | software | product | post | thread …
   itemId       Int?
   visibility   String          @default("PUBLIC") // PUBLIC | FOLLOWERS
-  status       String          @default("VISIBLE") // VISIBLE | HIDDEN
+  status       String          @default("VISIBLE") // VISIBLE | HIDDEN (by staff, reversible) | DELETED (by its author, final)
   likeCount    Int             @default(0)
   commentCount Int             @default(0)
   editedAt     DateTime?
