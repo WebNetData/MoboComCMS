@@ -20,7 +20,7 @@ export default function CommunityPostsPage() {
   return <CommunityShell title="پست‌های کاربران">
     <form className="sa-toolbar" role="search" onSubmit={(e) => { e.preventDefault(); setPage(1); setQuery(q.trim()) }}>
       <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="جست‌وجو در متن پست‌ها" aria-label="جست‌وجو" />
-      <label className="sa-inline"><span>وضعیت</span><select className="select" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }}><option value="">همه</option><option value="VISIBLE">نمایش</option><option value="HIDDEN">پنهان</option></select></label>
+      <label className="sa-inline"><span>وضعیت</span><select className="select" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value) }}><option value="">همه</option><option value="VISIBLE">نمایش</option><option value="HIDDEN">پنهان</option><option value="DELETED">حذف‌شده توسط نویسنده</option></select></label>
       <button className="btn btn-ghost" type="submit">جست‌وجو</button>
     </form>
     {error && <Notice tone="error">{error}</Notice>}
@@ -30,8 +30,8 @@ export default function CommunityPostsPage() {
         <td><Who person={row.author} /></td>
         <td><p className="ca-text" dir="auto">{row.text || '(تصویر)'}</p><small className="sa-sub">{faDate(row.createdAt, true)}{row.images.length ? ` · ${fa(row.images.length)} تصویر` : ''}{row.visibility === 'FOLLOWERS' ? ' · فقط دنبال‌کنندگان' : ''}</small></td>
         <td className="num"><small>♥ {fa(row.likes)} · 💬 {fa(row.comments)}</small>{row.reports > 0 && <small className="ga-issues">⚠ {fa(row.reports)} گزارش باز</small>}</td>
-        <td><span className={`sa-state ${row.status === 'VISIBLE' ? 'is-ok' : 'is-bad'}`}>{row.status === 'VISIBLE' ? 'نمایش' : 'پنهان'}</span></td>
-        <td><div className="sa-row-actions"><a href={`/feed/p/${row.id}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a>{row.status === 'VISIBLE' ? <button type="button" className="sa-link is-danger" onClick={() => void act(row, 'hide')}>پنهان کردن</button> : <button type="button" className="sa-link" onClick={() => void act(row, 'restore')}>بازگرداندن</button>}</div></td>
+        <td><span className={`sa-state ${row.status === 'VISIBLE' ? 'is-ok' : 'is-bad'}`}>{row.status === 'VISIBLE' ? 'نمایش' : row.status === 'DELETED' ? 'حذف‌شده توسط نویسنده' : 'پنهان'}</span></td>
+        <td><div className="sa-row-actions"><a href={`/feed/p/${row.id}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a>{row.status === 'VISIBLE' ? <button type="button" className="sa-link is-danger" onClick={() => void act(row, 'hide')}>پنهان کردن</button> : row.status === 'DELETED' ? null : <button type="button" className="sa-link" onClick={() => void act(row, 'restore')}>بازگرداندن</button>}</div></td>
       </tr>)}
       {data && !data.posts.length && <tr><td colSpan={5} className="sa-empty">پستی پیدا نشد.</td></tr>}
     </tbody></table></div>
