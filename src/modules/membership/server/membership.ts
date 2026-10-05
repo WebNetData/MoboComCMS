@@ -6,6 +6,7 @@ import { extendMembership, parsePerks, type Perk } from '@/modules/membership/do
 import { legacyNumber } from '@/shared/money'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { logEvent } from '@/platform/observability/logger'
 
 export type ActiveMembership = { id: number; endsAt: Date; startsAt: Date; source: string; planId: number | null }
 
@@ -108,6 +109,39 @@ export async function grantGiftForOrder(orderId: number): Promise<void> {
     ? (await db.plan.findUnique({ where: { id: order.planId }, select: { vipGiftDays: true } }))?.vipGiftDays || 0
     : order.productId ? (await db.product.findUnique({ where: { id: order.productId }, select: { vipGiftDays: true } }))?.vipGiftDays || 0 : 0
   if (days > 0) await grantMembership({ userId: order.userId, days, source: 'GIFT', orderId: order.id, dedupeKey: `gift:order:${order.id}` })
+}
+
+/**
+ * Scheduled step: VIP gift days that come with a paid plan or product but were never granted.
+ * The gift is granted once, as a follow-up of the fulfillment job, and a failure there is only
+ * logged; without this the customer never received it. Looks at paid orders of the last days
+ * that are at least ten minutes old and whose plan or product carries gift days, and grants the
+ * ones that have no gift period. The grant is idempotent per order. One order that fails does
+ * not stop the others.
+ */
+export async function recoverGiftMemberships(days = 3, now = new Date()) {
+  const counters = { checked: 0, granted: 0, failed: 0 }
+  if (!await isModuleEnabled('membership')) return counters
+  const window = { gte: new Date(now.getTime() - (Number(days) > 0 ? Number(days) : 3) * 86_400_000), lte: new Date(now.getTime() - 10 * 60_000) }
+  for (let after = 0, pages = 0; pages < 4; pages++) {
+    const orders = await db.order.findMany({ where: { status: 'PAID', createdAt: window, id: { gt: after }, OR: [{ product: { vipGiftDays: { gt: 0 } } }, { plan: { vipGiftDays: { gt: 0 } } }] }, orderBy: { id: 'asc' }, take: 500, select: { id: true } })
+    if (!orders.length) break
+    after = orders[orders.length - 1].id
+    const granted = new Set((await db.userMembership.findMany({ where: { dedupeKey: { in: orders.map((order) => `gift:order:${order.id}`) } }, select: { dedupeKey: true } })).map((row) => row.dedupeKey))
+    for (const order of orders) {
+      if (granted.has(`gift:order:${order.id}`)) continue
+      counters.checked++
+      try {
+        await grantGiftForOrder(order.id)
+        if (await db.userMembership.count({ where: { dedupeKey: `gift:order:${order.id}` } })) counters.granted++
+      } catch (error) {
+        counters.failed++
+        logEvent('error', 'membership.gift_recovery_failed', { orderId: order.id, error: String(error) })
+      }
+    }
+    if (orders.length < 500) break
+  }
+  return counters
 }
 
 export type Viewer = { userId: number | null; member: boolean; endsAt: Date | null }
