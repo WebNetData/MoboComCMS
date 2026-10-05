@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
   if (!['PENDING', 'APPROVED', 'REJECTED', 'ALL'].includes(status)) return err('invalid status')
   const requested = Number(req.nextUrl.searchParams.get('page') || 1)
   const page = Number.isSafeInteger(requested) ? Math.min(1000, Math.max(1, requested)) : 1
-  const where = status === 'ALL' ? undefined : { status }
+  // Placeholders of comments their authors deleted hold no text and are not moderated.
+  const where = status === 'ALL' ? { status: { not: 'DELETED' } } : { status }
   const [total, comments] = await Promise.all([db.postComment.count({ where }), db.postComment.findMany({
     where,
     orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30,
@@ -29,6 +30,7 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isSafeInteger(id) || id <= 0 || !['APPROVED', 'REJECTED', 'PENDING'].includes(status)) return err('invalid input')
   const existing = await db.postComment.findUnique({ where: { id }, select: { id: true, parentId: true, postId: true, status: true } })
   if (!existing) return err('not found', 404)
+  if (existing.status === 'DELETED') return err('This comment was deleted by its author / این دیدگاه را نویسنده‌اش حذف کرده است', 409)
   if (status === 'APPROVED' && existing.parentId) {
     const parent = await db.postComment.findFirst({ where: { id: existing.parentId, postId: existing.postId, status: 'APPROVED' }, select: { id: true } })
     if (!parent) return err('approve the parent first', 409)

@@ -111,7 +111,7 @@ async function main() {
   ['comment', 'دیدگاه مقاله', 'APPROVED', 'under an article that is not live'],
   ['item', 'بازی', 'APPROVED', 'someone else wrote this'],
  ], 'comments are merged by last change with the reviews')
- assert.deepEqual(page.reviews[0], {key: `comment:${top.id}`, kind: 'comment', label: 'دیدگاه مقاله', rating: 0, title: '', body: 'a waiting comment', status: 'PENDING', updatedAt: at(70), target: {title: 'Live article', url: `/blog/${encodeURIComponent(livePost.slug)}`, image: '/cover.jpg'}, manage: null})
+ assert.deepEqual(page.reviews[0], {key: `comment:${top.id}`, kind: 'comment', label: 'دیدگاه مقاله', rating: 0, title: '', body: 'a waiting comment', status: 'PENDING', updatedAt: at(70), target: {title: 'Live article', url: `/blog/${encodeURIComponent(livePost.slug)}`, image: '/cover.jpg'}, manage: null, commentId: top.id})
  assert.equal(page.reviews[3].target, null); assert.ok(!JSON.stringify(page).includes('Secret article'), 'an article that is not live is not named')
  assert.ok(!JSON.stringify(page).includes('the first member commented too'), 'nobody else\'s comment is listed')
  // The journal module off: comments are left out, and kept.
@@ -120,6 +120,22 @@ async function main() {
  assert.equal(page.total, 2); assert.ok(page.reviews.every(row => row.kind !== 'comment'))
  state.journal = true
  assert.equal(await db.postComment.count({where: {userId: other.id}}), 3)
+ // --- deleting an own comment: gone when nobody answered, an empty placeholder when someone did; never someone else's
+ const {deleteOwnPostComment} = load('src/modules/journal/server/comment-delete.ts')
+ const mine = await db.postComment.findFirstOrThrow({where: {userId: member.id, postId: livePost.id}})
+ assert.deepEqual(await deleteOwnPostComment(other.id, mine.id), {deleted: false, placeholder: false}, 'not the member\'s comment')
+ assert.equal((await db.postComment.findUniqueOrThrow({where: {id: mine.id}})).body, 'the first member commented too')
+ assert.deepEqual(await deleteOwnPostComment(other.id, top.id), {deleted: true, placeholder: true}, 'it has a reply, so a placeholder stays')
+ const placeholder = await db.postComment.findUniqueOrThrow({where: {id: top.id}})
+ assert.deepEqual([placeholder.status, placeholder.body], ['DELETED', ''], 'the text is erased')
+ assert.equal(await db.postComment.count({where: {parentId: top.id}}), 1, 'the answer keeps its place')
+ assert.deepEqual(await deleteOwnPostComment(other.id, top.id), {deleted: false, placeholder: false}, 'deleting twice changes nothing')
+ page = await account.memberReviewPage(other.id, 1)
+ assert.equal(page.total, 4); assert.ok(page.reviews.every(row => row.commentId !== top.id), 'the placeholder leaves the member\'s list')
+ const reply = await db.postComment.findFirstOrThrow({where: {parentId: top.id}})
+ assert.deepEqual(await deleteOwnPostComment(other.id, reply.id), {deleted: true, placeholder: false}, 'nobody answered a reply: it is removed')
+ assert.equal(await db.postComment.count({where: {id: reply.id}}), 0)
+ for (const bad of [0, -1, 1.5, NaN]) assert.deepEqual(await deleteOwnPostComment(other.id, bad), {deleted: false, placeholder: false})
  console.log('PostgreSQL merged order across shared reviews, product reviews and article comments, pagination, own rows only, unpublished targets unnamed, rejected and rating-only rows, disabled modules passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {

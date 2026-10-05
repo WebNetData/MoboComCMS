@@ -34,6 +34,12 @@ No schema change and no new endpoint; `memberItemReviews` returns the item refer
 
 The list also shows the member's own article comments and replies (`PostComment`), read through `journal`'s `memberPostComments`, merged by last change with the reviews. They carry no rating. This is the only place a member can see that a comment is still waiting for a moderator or was not approved. An article that is not live (draft, scheduled or withdrawn) is not named or linked. With the journal module off the comments are left out and kept; the menu link is shown when the reviews module, the store or the journal is on. Read-only: there is no member edit or delete for article comments.
 
+## Deleting an article comment (fourth slice)
+
+A comment row has **Delete** (`DELETE /api/account/article-comments/:id`, signed-in, same-origin, rate-limited, the member's own comment only; anything else answers "not found"). It works in every moderation state and also when the article is no longer live.
+
+The text is always erased. A comment nobody answered is removed. A comment with answers stays as an empty placeholder (`status = DELETED`) so the answers keep their place: under the article it reads "deleted by its author" without a name, for as long as it still has a published answer, and cannot be answered. Moderation does not list placeholders and refuses to change them; they leave the member's own list. There is no undo and no edit.
+
 ## Not covered
 
 Editing or deleting product reviews (a store policy decision); an API for apps beyond the existing review endpoints.

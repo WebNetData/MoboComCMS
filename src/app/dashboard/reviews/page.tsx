@@ -6,6 +6,7 @@ import { getViewer } from '@/modules/membership/server/membership'
 import { memberReviewPage } from '@/modules/account/server/reviews'
 import Icon from '@/components/site/Icon'
 import MyReviewManage from '@/components/engage/MyReviewManage'
+import MyCommentDelete from '@/components/engage/MyCommentDelete'
 import { EXPERIENCE_LABEL, dimensionsFor, isExperienceKind } from '@/modules/reviews/domain/dimensions'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,8 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
     {data.reviews.length ? <section className="ud-card recent-card" aria-labelledby="myrev-title">
       <header className="ud-card-head"><h2 id="myrev-title">{fa ? 'آخرین تغییرها' : 'Latest changes'}</h2><span className="recent-page-count">{fa ? `${data.total.toLocaleString('fa-IR')} نظر` : `${data.total} reviews`}</span></header>
       <ul className="myrev-list">{data.reviews.map((review) => {
-        const state = STATUS[review.status] || { fa: review.status, en: review.status, tone: 'is-wait' }
+        // An approved comment under an article that is not live is not public either.
+        const state = review.kind === 'comment' && review.status === 'APPROVED' && !review.target ? { fa: 'تأییدشده؛ مقاله منتشر نیست', en: 'Approved; article not live', tone: 'is-wait' } : STATUS[review.status] || { fa: review.status, en: review.status, tone: 'is-wait' }
         const stars = Math.max(0, Math.min(5, review.rating))
         const dimensions = review.manage ? dimensionsFor(review.manage.itemType) : []
         const scores = dimensions.filter((dimension) => review.manage!.scores[dimension.key])
@@ -55,6 +57,7 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
           {review.status === 'REJECTED' && <p className="myrev-note">{review.kind === 'comment' ? (fa ? 'این دیدگاه تأیید نشد و منتشر نشده است.' : 'This comment was not approved and is not published.') : review.manage
             ? (review.target ? (fa ? 'این متن منتشر نشده است. می‌توانید آن را همین‌جا ویرایش کنید.' : 'This text was not published. You can edit it here.') : (fa ? 'این متن منتشر نشده است.' : 'This text was not published.'))
             : (fa ? 'این متن منتشر نشده است. نظر محصول پس از ثبت قابل ویرایش نیست.' : 'This text was not published. A product review cannot be edited after it is written.')}</p>}
+          {review.commentId && <MyCommentDelete id={review.commentId} fa={fa} />}
           {review.manage && <MyReviewManage item={review.manage.item} mine={{ rating: review.rating, body: review.body, status: review.status, verified: review.manage.verified, scores: review.manage.scores }} editable={!!review.target} title={review.target?.title || ''} path={review.target?.url || '/dashboard/reviews'} dimensions={dimensions.map(({ key, label, hint }) => ({ key, label, hint }))} fa={fa} />}
         </li>
       })}</ul>
