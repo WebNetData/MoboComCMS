@@ -1,10 +1,14 @@
 // Real PostgreSQL FrenzyEx reconciliation selection; the provider is a test double that reports every request as still pending,
 // so no invoice is settled, and the run only sees this script's invoices.
+// Its payments are stored under a provider name of their own, so a worker of another process using the same
+// database (a local app container, for instance) never selects them: such a worker once polled six of the
+// due test requests between two batches and made the order assertions fail.
 const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `frenzy-reconcile-${Date.now()}`
 const baseline = process.env.FRENZY_RECONCILE_BASELINE
 const state = {throwFor: ''}, polled = []
-const own = args => ({...args, where: {...args.where, invoice: {...(args.where.invoice || {}), number: {startsWith: seed}}}})
+const PROVIDER = `TEST-${seed}`
+const own = args => ({...args, where: {...args.where, ...(args.where.provider === 'FRENZYEX' ? {provider: PROVIDER} : {}), invoice: {...(args.where.invoice || {}), number: {startsWith: seed}}}})
 const payment = new Proxy(prisma.payment, {get(target, key) {return ['findMany', 'findFirst', 'count'].includes(key) ? args => target[key](own(args)) : typeof target[key] === 'function' ? target[key].bind(target) : target[key]}})
 const db = new Proxy(prisma, {get(target, key) {return key === 'payment' ? payment : typeof target[key] === 'function' ? target[key].bind(target) : target[key]}})
 // FRENZY_RECONCILE_BASELINE=<git ref> runs the reconciliation service of that revision to reproduce the old behaviour.
@@ -34,7 +38,7 @@ let user, count = 0
 async function pending(reconcile, tracked = true) {
  const number = `${seed}-${String(count++).padStart(4, '0')}`
  const invoice = await prisma.invoice.create({data: {number, userId: user.id, status: 'UNPAID', providerTxnId: tracked ? `req-${number}` : ''}})
- return prisma.payment.create({data: {userId: user.id, invoiceId: invoice.id, provider: 'FRENZYEX', providerTxnId: tracked ? `req-${number}` : '', amountMinor: 1000n, currency: 'TMN', status: 'PENDING', raw: JSON.stringify(reconcile ? {reconcile} : {})}})
+ return prisma.payment.create({data: {userId: user.id, invoiceId: invoice.id, provider: PROVIDER, providerTxnId: tracked ? `req-${number}` : '', amountMinor: 1000n, currency: 'TMN', status: 'PENDING', raw: JSON.stringify(reconcile ? {reconcile} : {})}})
 }
 const meta = async row => JSON.parse((await prisma.payment.findUniqueOrThrow({where: {id: row.id}})).raw).reconcile || {}
 const future = () => new Date(Date.now() + 10 * 60_000).toISOString()
@@ -46,7 +50,7 @@ async function main() {
  const invoices = Array.from({length: 205}, () => `${seed}-${String(count++).padStart(4, '0')}`)
  await prisma.invoice.createMany({data: invoices.map(number => ({number, userId: user.id, status: 'UNPAID', providerTxnId: `req-${number}`}))})
  const stored = await prisma.invoice.findMany({where: {number: {in: invoices}}, select: {id: true, number: true}})
- await prisma.payment.createMany({data: stored.map(invoice => ({userId: user.id, invoiceId: invoice.id, provider: 'FRENZYEX', providerTxnId: `req-${invoice.number}`, amountMinor: 1000n, currency: 'TMN', status: 'PENDING', raw: JSON.stringify({reconcile: {nextAt: future()}})}))})
+ await prisma.payment.createMany({data: stored.map(invoice => ({userId: user.id, invoiceId: invoice.id, provider: PROVIDER, providerTxnId: `req-${invoice.number}`, amountMinor: 1000n, currency: 'TMN', status: 'PENDING', raw: JSON.stringify({reconcile: {nextAt: future()}})}))})
  const fresh = await pending(null)
  let result = await service.processFrenzyReconciliationBatch(20)
  if (baseline) {
