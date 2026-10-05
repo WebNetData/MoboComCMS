@@ -30,6 +30,7 @@
     "example:install": "node scripts/install-example.mjs",
     "test:connected": "node --test scripts/connected.test.cjs",
     "test:pg": "node scripts/run-pg-checks.cjs",
+    "integrity:report": "node scripts/integrity-report.cjs",
     "i18n:check": "node scripts/i18n-audit.cjs",
     "test:integration": "node --env-file=.env scripts/site.integration.cjs && node --env-file=.env scripts/content.integration.cjs",
     "money-ui:check": "node scripts/check-money-ui.mjs",

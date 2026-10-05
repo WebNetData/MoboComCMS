@@ -10,6 +10,7 @@ const CHECKS = [
   'gift-card-integrity',
   'forum-flag-queue',
   'marketplace-seller-money',
+  'integrity-report',
   'recommendations-listening', 'community-block-coverage',
   'gift-membership-recovery',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
