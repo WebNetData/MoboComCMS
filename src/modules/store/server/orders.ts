@@ -64,6 +64,26 @@ export async function recordStoreSale(orderId: number) {
   })
 }
 
+/**
+ * Worker step: delivered store orders whose sale was never recorded. The record (sold counters and
+ * the "paid" entry of the order's timeline) is written once, as a follow-up of the delivery job,
+ * and a failure there is only logged. Looks at deliveries created in the last days that are at
+ * least ten minutes old and have no "paid" entry; recording is guarded by that entry, so it
+ * happens once. One order that fails does not stop the others.
+ */
+export async function recoverStoreSaleRecords(limit = 20, days = 3, now = new Date()) {
+  const rows = await db.productDelivery.findMany({
+    where: { createdAt: { gte: new Date(now.getTime() - (Number(days) > 0 ? Number(days) : 3) * 86_400_000), lte: new Date(now.getTime() - 10 * 60_000) }, order: { status: 'PAID', events: { none: { status: 'PAID' } } } },
+    orderBy: { id: 'asc' }, take: Math.max(1, Math.min(100, Math.trunc(limit) || 20)), select: { orderId: true },
+  })
+  let recorded = 0
+  let failed = 0
+  for (const row of rows) {
+    try { await recordStoreSale(row.orderId); recorded++ } catch { failed++ }
+  }
+  return { checked: rows.length, recorded, failed }
+}
+
 // ------------------------------------------------------------------ customer
 
 export const CUSTOMER_TABS = [
