@@ -25,7 +25,7 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
   const date = new Intl.DateTimeFormat(fa ? 'fa-IR-u-ca-persian' : 'en', { dateStyle: 'medium' })
   return <div className="ud ulib-page recent-home myrev">
     <header className="ulib-head">
-      <div className="recent-heading"><span className="ulib-head-icon"><Icon name="chat" size={25} /></span><div><span className="md-eyebrow">{fa ? 'فقط شما این صفحه را می‌بینید' : 'Only you can see this page'}</span><h1>{fa ? 'نظرهای من' : 'My reviews'}</h1><p className="muted">{fa ? 'امتیازها و نظرهایی که ثبت کرده‌اید، همراه با وضعیت بررسی هرکدام.' : 'The ratings and reviews you have written, with the state of each.'}</p></div></div>
+      <div className="recent-heading"><span className="ulib-head-icon"><Icon name="chat" size={25} /></span><div><span className="md-eyebrow">{fa ? 'فقط شما این صفحه را می‌بینید' : 'Only you can see this page'}</span><h1>{fa ? 'نظرهای من' : 'My reviews'}</h1><p className="muted">{fa ? 'امتیازها، نظرها و دیدگاه‌هایی که ثبت کرده‌اید، همراه با وضعیت بررسی هرکدام.' : 'The ratings, reviews and article comments you have written, with the state of each.'}</p></div></div>
     </header>
     {data.reviews.length ? <section className="ud-card recent-card" aria-labelledby="myrev-title">
       <header className="ud-card-head"><h2 id="myrev-title">{fa ? 'آخرین تغییرها' : 'Latest changes'}</h2><span className="recent-page-count">{fa ? `${data.total.toLocaleString('fa-IR')} نظر` : `${data.total} reviews`}</span></header>
@@ -43,7 +43,7 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
             <span className={`myrev-state ${state.tone}`}>{fa ? state.fa : state.en}</span>
           </div>
           <div className="myrev-meta">
-            <span className="myrev-stars" role="img" aria-label={fa ? `${stars.toLocaleString('fa-IR')} از ۵ ستاره` : `${stars} of 5 stars`}><span aria-hidden="true">{'★'.repeat(stars)}<i>{'★'.repeat(5 - stars)}</i></span></span>
+            {review.kind !== 'comment' && <span className="myrev-stars" role="img" aria-label={fa ? `${stars.toLocaleString('fa-IR')} از ۵ ستاره` : `${stars} of 5 stars`}><span aria-hidden="true">{'★'.repeat(stars)}<i>{'★'.repeat(5 - stars)}</i></span></span>}
             <time dateTime={review.updatedAt.toISOString()}>{date.format(review.updatedAt)}</time>
           </div>
           {review.title && <h3>{review.title}</h3>}
@@ -52,13 +52,13 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
             {badge && <li><span className="rv-badge">✓ {fa ? EXPERIENCE_LABEL[badge].label : EXPERIENCE_LABEL[badge].labelEn}</span></li>}
             {scores.map((dimension) => <li key={dimension.key}>{fa ? dimension.label : dimension.labelEn} <b>{fa ? review.manage!.scores[dimension.key].toLocaleString('fa-IR') : review.manage!.scores[dimension.key]}</b></li>)}
           </ul>}
-          {review.status === 'REJECTED' && <p className="myrev-note">{review.manage
+          {review.status === 'REJECTED' && <p className="myrev-note">{review.kind === 'comment' ? (fa ? 'این دیدگاه تأیید نشد و منتشر نشده است.' : 'This comment was not approved and is not published.') : review.manage
             ? (review.target ? (fa ? 'این متن منتشر نشده است. می‌توانید آن را همین‌جا ویرایش کنید.' : 'This text was not published. You can edit it here.') : (fa ? 'این متن منتشر نشده است.' : 'This text was not published.'))
             : (fa ? 'این متن منتشر نشده است. نظر محصول پس از ثبت قابل ویرایش نیست.' : 'This text was not published. A product review cannot be edited after it is written.')}</p>}
           {review.manage && <MyReviewManage item={review.manage.item} mine={{ rating: review.rating, body: review.body, status: review.status, verified: review.manage.verified, scores: review.manage.scores }} editable={!!review.target} title={review.target?.title || ''} path={review.target?.url || '/dashboard/reviews'} dimensions={dimensions.map(({ key, label, hint }) => ({ key, label, hint }))} fa={fa} />}
         </li>
       })}</ul>
-    </section> : <section className="ud-card recent-empty"><span className="recent-empty-icon"><Icon name="chat" size={28} /></span><h2>{fa ? 'هنوز نظری ثبت نکرده‌اید' : 'You have not written a review yet'}</h2><p className="muted">{fa ? 'در صفحهٔ هر بازی، فیلم، آهنگ، نرم‌افزار یا محصول می‌توانید امتیاز بدهید و نظرتان را بنویسید.' : 'Rate and review from the page of any game, film, track, app or product.'}</p></section>}
+    </section> : <section className="ud-card recent-empty"><span className="recent-empty-icon"><Icon name="chat" size={28} /></span><h2>{fa ? 'هنوز نظری ثبت نکرده‌اید' : 'You have not written a review yet'}</h2><p className="muted">{fa ? 'در صفحهٔ هر بازی، فیلم، آهنگ، نرم‌افزار یا محصول می‌توانید امتیاز بدهید و نظرتان را بنویسید، و زیر مقاله‌ها دیدگاه بگذارید.' : 'Rate and review from the page of any game, film, track, app or product, and comment under articles.'}</p></section>}
     {data.pages > 1 && <nav className="collections-pages" aria-label={fa ? 'صفحه‌بندی' : 'Pagination'}>{data.page > 1 && <Link href={`/dashboard/reviews?page=${data.page - 1}`}>{fa ? 'قبلی' : 'Previous'}</Link>}<span>{fa ? `${data.page.toLocaleString('fa-IR')} از ${data.pages.toLocaleString('fa-IR')}` : `${data.page} of ${data.pages}`}</span>{data.page < data.pages && <Link href={`/dashboard/reviews?page=${data.page + 1}`}>{fa ? 'بعدی' : 'Next'}</Link>}</nav>}
   </div>
 }

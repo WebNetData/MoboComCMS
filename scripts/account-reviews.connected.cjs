@@ -1,12 +1,12 @@
 // Real PostgreSQL "My reviews" account read; module switches and the public item registry are test doubles.
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `account-reviews-${Date.now()}`, base = 800_000_000 + (Date.now() % 50_000_000)
-const state = {reviews: true, store: true, hidden: new Set()}
+const state = {reviews: true, store: true, journal: true, hidden: new Set()}
 const mocks = {
  '@/platform/database/prisma': {db},
  '@/platform/http/rate-limit': {rateLimitHit: () => ({ok: true})},
  '@/platform/observability/logger': {logEvent: () => {}},
- '@/extensions/server/modules': {isModuleEnabled: async id => id === 'reviews' ? state.reviews : true, getModuleSettings: async () => ({})},
+ '@/extensions/server/modules': {isModuleEnabled: async id => id === 'reviews' ? state.reviews : id === 'journal' ? state.journal : true, getModuleSettings: async () => ({})},
  '@/modules/catalog/server/storefront': {isStoreEnabled: async () => state.store},
  '@/modules/notifications/server/inbox': {createInboxEvent: async () => ({})},
  // Public cards only: an item in `hidden` is unpublished.
@@ -93,12 +93,39 @@ async function main() {
  page = await account.memberReviewPage(other.id, 1)
  assert.deepEqual(page.reviews.map(row => [row.kind, row.body]), [['product', 'someone else on the product'], ['item', 'someone else wrote this']])
  assert.deepEqual(await account.memberReviewPage(999_999_999, 1), {total: 0, page: 1, pages: 0, reviews: []})
- console.log('PostgreSQL merged order across shared and product reviews, pagination, own rows only, unpublished targets unnamed, rejected and rating-only rows, disabled modules passed')
+ // --- article comments join the list: every state, no rating, and no title for an article that is not live
+ const livePost = await db.post.create({data: {slug: `${seed}-مقاله`, title: 'Live article', content: 'x', cover: '/cover.jpg', status: 'PUBLISHED', publishedAt: at(0)}})
+ const laterPost = await db.post.create({data: {slug: `${seed}-later`, title: 'Secret article', content: 'x', status: 'PUBLISHED', publishedAt: new Date(Date.now() + 86_400_000)}})
+ const top = await db.postComment.create({data: {postId: livePost.id, userId: other.id, body: 'a waiting comment', status: 'PENDING', updatedAt: at(70)}})
+ await db.postComment.createMany({data: [
+  {postId: livePost.id, userId: other.id, body: 'a rejected reply', status: 'REJECTED', parentId: top.id, updatedAt: at(65)},
+  {postId: laterPost.id, userId: other.id, body: 'under an article that is not live', status: 'APPROVED', updatedAt: at(55)},
+  {postId: livePost.id, userId: member.id, body: 'the first member commented too', status: 'APPROVED', updatedAt: at(80)},
+ ]})
+ page = await account.memberReviewPage(other.id, 1)
+ assert.equal(page.total, 5)
+ assert.deepEqual(page.reviews.map(row => [row.kind, row.label, row.status, row.body]), [
+  ['comment', 'دیدگاه مقاله', 'PENDING', 'a waiting comment'],
+  ['comment', 'پاسخ زیر مقاله', 'REJECTED', 'a rejected reply'],
+  ['product', 'محصول', 'APPROVED', 'someone else on the product'],
+  ['comment', 'دیدگاه مقاله', 'APPROVED', 'under an article that is not live'],
+  ['item', 'بازی', 'APPROVED', 'someone else wrote this'],
+ ], 'comments are merged by last change with the reviews')
+ assert.deepEqual(page.reviews[0], {key: `comment:${top.id}`, kind: 'comment', label: 'دیدگاه مقاله', rating: 0, title: '', body: 'a waiting comment', status: 'PENDING', updatedAt: at(70), target: {title: 'Live article', url: `/blog/${encodeURIComponent(livePost.slug)}`, image: '/cover.jpg'}, manage: null})
+ assert.equal(page.reviews[3].target, null); assert.ok(!JSON.stringify(page).includes('Secret article'), 'an article that is not live is not named')
+ assert.ok(!JSON.stringify(page).includes('the first member commented too'), 'nobody else\'s comment is listed')
+ // The journal module off: comments are left out, and kept.
+ state.journal = false
+ page = await account.memberReviewPage(other.id, 1)
+ assert.equal(page.total, 2); assert.ok(page.reviews.every(row => row.kind !== 'comment'))
+ state.journal = true
+ assert.equal(await db.postComment.count({where: {userId: other.id}}), 3)
+ console.log('PostgreSQL merged order across shared reviews, product reviews and article comments, pagination, own rows only, unpublished targets unnamed, rejected and rating-only rows, disabled modules passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
  try {
   const ids = (await db.user.findMany({where: {email: {startsWith: seed}}, select: {id: true}})).map(user => user.id)
   await db.itemReview.deleteMany({where: {userId: {in: ids}}}); await db.itemStat.deleteMany({where: {itemType: 'game', itemId: {gte: base, lt: base + 12}}}); await db.productReview.deleteMany({where: {userId: {in: ids}}})
-  await db.product.deleteMany({where: {slug: {startsWith: seed}}}); await db.user.deleteMany({where: {id: {in: ids}}})
+  await db.post.deleteMany({where: {slug: {startsWith: seed}}}); await db.product.deleteMany({where: {slug: {startsWith: seed}}}); await db.user.deleteMany({where: {id: {in: ids}}})
  } finally {await db.$disconnect()}
 })

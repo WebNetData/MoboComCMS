@@ -30,6 +30,10 @@ A store product review has neither button: the store accepts one review per veri
 
 No schema change and no new endpoint; `memberItemReviews` returns the item reference, badge and scores as well.
 
+## Article comments (third slice)
+
+The list also shows the member's own article comments and replies (`PostComment`), read through `journal`'s `memberPostComments`, merged by last change with the reviews. They carry no rating. This is the only place a member can see that a comment is still waiting for a moderator or was not approved. An article that is not live (draft, scheduled or withdrawn) is not named or linked. With the journal module off the comments are left out and kept; the menu link is shown when the reviews module, the store or the journal is on. Read-only: there is no member edit or delete for article comments.
+
 ## Not covered
 
 Editing or deleting product reviews (a store policy decision); an API for apps beyond the existing review endpoints.
