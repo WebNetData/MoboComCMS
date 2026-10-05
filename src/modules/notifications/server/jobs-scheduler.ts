@@ -30,6 +30,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/store/server/marketing')).runMarketingJobs(),
   },
   {
+    // Marketplace: seller sales that were paid and delivered but never reached the seller's ledger.
+    name: 'marketplace', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/marketplace/server/marketplace')).recoverMarketplaceSales(),
+  },
+  {
     // Newsletter campaigns, a batch per minute within the email daily cap.
     name: 'newsletter', everyMs: 60_000,
     run: async () => (await import('@/modules/mail/server/newsletter')).runNewsletter(),

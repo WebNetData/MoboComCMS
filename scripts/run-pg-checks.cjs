@@ -7,6 +7,7 @@ const CHECKS = [
   'return-refund-integrity',
   'gift-card-integrity',
   'forum-flag-queue',
+  'marketplace-seller-money',
   'recommendations-listening', 'community-block-coverage',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
   'inventory-hold-expiry', 'frenzyex-reconciliation', 'newsletter-send', 'queue-jobs', 'social-queue', 'scrub-recent', 'account-reviews', 'review-dimensions', 'compare-dimensions', 'review-badge-backfill',
