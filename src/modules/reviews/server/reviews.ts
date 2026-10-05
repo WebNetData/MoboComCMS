@@ -228,6 +228,28 @@ export async function ratingsFor(refs: ItemRef[]): Promise<Map<string, { average
 }
 
 /**
+ * Dimension averages and the number of verified raters for a few items at once (comparison).
+ * Keyed by "type:id"; an item nobody scored has no dimensions. Empty when the reviews module is off.
+ */
+export async function dimensionSummariesFor(refs: ItemRef[]): Promise<Map<string, { dimensions: DimensionSummary[]; verifiedCount: number }>> {
+  const reviewable = refs.filter((ref) => REVIEWABLE.includes(ref.type)).slice(0, 8)
+  if (!reviewable.length || !await isModuleEnabled('reviews')) return new Map()
+  return new Map(await Promise.all(reviewable.map(async (ref) => {
+    const where = { itemType: ref.type, itemId: ref.id, ...counted }
+    const [rows, verifiedCount] = await Promise.all([
+      db.itemReviewScore.groupBy({ by: ['key'], where: { review: where }, _avg: { score: true }, _count: { score: true } }),
+      db.itemReview.count({ where: { ...where, verified: { not: '' } } }),
+    ])
+    const byKey = new Map(rows.map((row) => [row.key, row]))
+    const dimensions = dimensionsFor(ref.type).flatMap((dimension): DimensionSummary[] => {
+      const row = byKey.get(dimension.key)
+      return row && row._count.score && row._avg.score !== null ? [{ key: dimension.key, label: dimension.label, average: Math.round(row._avg.score * 10) / 10, count: row._count.score }] : []
+    })
+    return [itemKey(ref), { dimensions, verifiedCount }] as const
+  })))
+}
+
+/**
  * Tells members who follow an item (favorite with notify on) about an update,
  * e.g. a new software version. The dedupe key makes repeats harmless.
  */

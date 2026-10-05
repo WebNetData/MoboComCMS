@@ -2,7 +2,8 @@ import { db } from '@/platform/database/prisma'
 import { formatMoney, normalizeCurrency } from '@/shared/money'
 import { COMPARABLE, COMPARE_MAX, ITEM_LABEL, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
 import { itemCards } from '@/modules/content/server/registry'
-import { ratingsFor } from '@/modules/reviews/server/reviews'
+import { dimensionSummariesFor, ratingsFor } from '@/modules/reviews/server/reviews'
+import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 import { formatRuntime, licenseLabel, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 
@@ -58,6 +59,14 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
     row('تعداد امتیاز', ids.map((id) => rating(id)?.count || 0)),
     numeric('علاقه‌مندی', ids.map((id) => rating(id)?.favorites || 0), 'high'),
   ]
+  // Members' specialist scores per dimension, in the type's order; a dimension nobody scored on any compared item is left out with the other empty rows.
+  const summaries = await dimensionSummariesFor(present)
+  const summary = (id: number) => summaries.get(`${type}:${id}`)
+  const DIMENSION_GROUP = 'امتیاز تخصصی کاربران (از ۵)'
+  const dimensionRows: CompareRow[] = [
+    ...dimensionsFor(type).map((dimension) => numeric(dimension.label, ids.map((id) => summary(id)?.dimensions.find((entry) => entry.key === dimension.key)?.average ?? null), 'high', (n) => n.toLocaleString('fa-IR', { minimumFractionDigits: 1 }), DIMENSION_GROUP)),
+    ...(ids.some((id) => summary(id)?.verifiedCount) ? [{ ...row('امتیازدهندگان با تجربهٔ تأییدشده', ids.map((id) => summary(id)?.verifiedCount || 0)), group: DIMENSION_GROUP }] : []),
+  ]
   const rows: CompareRow[] = []
 
   if (type === 'software') {
@@ -71,6 +80,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       ...ratingRows,
       row('پیش‌نیازها', s.map((r) => r?.requirements)),
       row('دسترسی', s.map((r) => (r?.access === 'MEMBERS' ? '♛ ویژهٔ VIP' : 'رایگان برای همه'))),
+      ...dimensionRows,
     )
   } else if (type === 'game') {
     const map = new Map((await db.gameTitle.findMany({ where: { id: { in: ids } } })).map((r) => [r.id, r]))
@@ -85,6 +95,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       ...ratingRows,
       ...REQ.map(([key, label]) => ({ ...row(`${label} (حداقل)`, req.map((r) => r.min?.[key])), group: 'سیستم مورد نیاز' })),
       ...REQ.map(([key, label]) => ({ ...row(`${label} (پیشنهادی)`, req.map((r) => r.rec?.[key])), group: 'سیستم مورد نیاز' })),
+      ...dimensionRows,
     )
   } else if (type === 'title') {
     const map = new Map((await db.cinemaTitle.findMany({ where: { id: { in: ids } }, include: { seasons: { select: { _count: { select: { episodes: true } } } } } })).map((r) => [r.id, r]))
@@ -98,6 +109,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       row('زبان', t.map((r) => splitList(r?.languages).join('، '))), row('کیفیت', t.map((r) => r?.quality)), row('دوبلهٔ فارسی', t.map((r) => yes(!!r?.dubbed))), row('زیرنویس فارسی', t.map((r) => yes(!!r?.subtitle))),
       row('ردهٔ سنی', t.map((r) => r?.ageRating)), numeric('بازدید', t.map((r) => r?.views ?? null), 'high'),
       ...ratingRows,
+      ...dimensionRows,
     )
   } else if (type === 'product') {
     const products = await db.product.findMany({ where: { id: { in: ids } }, include: { category: { select: { name: true } }, variants: { where: { active: true }, select: { priceMinor: true } } } })
