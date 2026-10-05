@@ -44,6 +44,16 @@ export async function enqueueOrderFulfillment(input: {
     if (renewal.kind === 'renewal' && Number(renewal.subscriptionId)) {
       return enqueueFulfillment({ kind: 'RENEW_SUBSCRIPTION', dedupeKey: `RENEW_SUBSCRIPTION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId, subscriptionId: Number(renewal.subscriptionId), payload: renewal })
     }
+    // A reseller's sale is an account for the reseller's customer, with the allowance the reseller chose.
+    // Queued as an ordinary order it would be provisioned for the reseller's own user at the plan's defaults.
+    if (renewal.kind === 'reseller') {
+      const customerUserId = Number(renewal.customerUserId), resellerId = Number(renewal.resellerId)
+      if (!customerUserId || !resellerId) throw new Error('reseller order has no customer or reseller')
+      return enqueueFulfillment({
+        kind: 'RESELLER_PROVISION', dedupeKey: `RESELLER_PROVISION:order:${input.orderId}`, orderId: input.orderId, invoiceId: input.invoiceId ?? null,
+        payload: { customerUserId, resellerId, planId: input.planId, username: String(renewal.username || ''), trafficGB: Number(renewal.trafficGB), days: Number(renewal.days), deviceLimit: Number(renewal.deviceLimit) },
+      })
+    }
     return enqueueFulfillment({
       kind: 'PROVISION_SUBSCRIPTION',
       dedupeKey: `PROVISION_SUBSCRIPTION:order:${input.orderId}`,
