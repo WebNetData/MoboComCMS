@@ -54,6 +54,11 @@ const JOBS: Job[] = [
     },
   },
   {
+    // Subscriptions: wallet renewals that stopped part-way and were not retried.
+    name: 'renewals', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/subscriptions/server/renewal-recovery')).recoverPendingRenewals(),
+  },
+  {
     // Bulk import: restarts import jobs whose queue chain was lost and prunes week-old drafts (the work itself runs on the queue).
     name: 'imports', everyMs: 5 * 60_000,
     run: async () => (await import('@/modules/imports/server/engine')).sweepImportJobs(),

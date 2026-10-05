@@ -120,7 +120,10 @@ export async function subscriptionAction(
       }
       const orderKey = `renew:${sub.id}:${idempotencyKey}`
       const previous = await db.order.findUnique({ where: { idempotencyKey: orderKey }, include: { invoice: true } })
-      if (previous) {
+      if (previous?.status === 'FAILED') return { ok: false, code: 'WALLET_FAILED', message: 'this renewal attempt failed; start a new one' }
+      // A previous attempt that is still pending stopped part-way (possibly after the wallet was charged):
+      // the same request carries on from there instead of answering "in progress" for ever.
+      if (previous && previous.status !== 'PENDING') {
         const job = await db.fulfillmentJob.findUnique({ where: { dedupeKey: `RENEW_SUBSCRIPTION:order:${previous.id}` } })
         const fresh = await db.subscription.findUnique({ where: { id: sub.id } })
         return {
@@ -138,13 +141,16 @@ export async function subscriptionAction(
         }
       }
 
-      if (payload.expectedTerms !== undefined && payload.expectedTerms !== renewalTerms(sub.plan)) return { ok: false, code: 'RENEWAL_CHANGED', message: 'Renewal terms changed; refresh the preview before paying.' }
+      if (!previous && payload.expectedTerms !== undefined && payload.expectedTerms !== renewalTerms(sub.plan)) return { ok: false, code: 'RENEWAL_CHANGED', message: 'Renewal terms changed; refresh the preview before paying.' }
 
-      const currency = normalizeCurrency(sub.plan.currency)
-      const priceMinor = sub.plan.priceMinor || toMinor(sub.plan.price, currency)
+      // A resumed attempt keeps the price and allowance it froze when it started.
+      const frozen = previous ? (() => { try { return JSON.parse(previous.meta || '{}') as Record<string, unknown> } catch { return {} } })() : null
+      const currency = normalizeCurrency(previous ? previous.currency : sub.plan.currency)
+      const priceMinor = previous ? previous.totalMinor : sub.plan.priceMinor || toMinor(sub.plan.price, currency)
       const price = legacyNumber(priceMinor, currency)
       const balance = await walletBalance(sub.userId, currency)
-      if (toMinor(balance, currency) < priceMinor) {
+      // Not asked again on a resume: the wallet may already have been charged for it; the charge itself decides.
+      if (!previous && toMinor(balance, currency) < priceMinor) {
         return {
           ok: false,
           code: 'INSUFFICIENT_FUNDS',
@@ -153,12 +159,15 @@ export async function subscriptionAction(
         }
       }
 
-      if (!Number.isFinite(sub.plan.days) || sub.plan.days <= 0 || !Number.isFinite(sub.plan.trafficGB) || sub.plan.trafficGB < 0) {
+      if (!previous && (!Number.isFinite(sub.plan.days) || sub.plan.days <= 0 || !Number.isFinite(sub.plan.trafficGB) || sub.plan.trafficGB < 0)) {
         return { ok: false, code: 'INVALID_RENEWAL_PLAN', message: 'renewal plan allowance is invalid' }
       }
       // Freeze the purchased allowance; later plan edits must not change a paid renewal.
-      const renewal = { subscriptionId: sub.id, days: sub.plan.days, trafficGB: sub.plan.trafficGB, renewalVersion: 2 }
-      const order = await db.order.create({
+      const renewal = frozen
+        ? { subscriptionId: sub.id, days: Number(frozen.days), trafficGB: Number(frozen.trafficGB), renewalVersion: Number(frozen.renewalVersion) || 2 }
+        : { subscriptionId: sub.id, days: sub.plan.days, trafficGB: sub.plan.trafficGB, renewalVersion: 2 }
+      if (!Number.isFinite(renewal.days) || renewal.days <= 0 || !Number.isFinite(renewal.trafficGB) || renewal.trafficGB < 0) return { ok: false, code: 'INVALID_RENEWAL_PLAN', message: 'renewal plan allowance is invalid' }
+      const order = previous || await db.order.create({
         data: {
           userId: sub.userId,
           planId: sub.planId,
@@ -192,8 +201,9 @@ export async function subscriptionAction(
         idempotencyKey: `renew-wallet:${sub.id}:${idempotencyKey}`,
       })
       if (!debit.ok) {
-        await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
-        await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+        // Nothing was charged, so there is no credit to give back; only an invoice that is still open is closed.
+        await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
+        await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } }).catch(() => {})
         return { ok: false, code: 'WALLET_FAILED', message: debit.message || 'wallet charge failed' }
       }
       const settled = await markInvoicePaid({ invoiceId: invoice.id, amount: 0, provider: 'WALLET', raw: { source: 'renewal' } })
@@ -219,6 +229,7 @@ export async function subscriptionAction(
           currency,
           invoiceNumber: invoice.number,
           fulfillmentPending: !processed.ok,
+          ...(previous ? { replayed: true } : {}),
         },
       }
     }
