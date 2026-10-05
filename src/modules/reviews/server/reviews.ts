@@ -227,6 +227,38 @@ export async function ratingsFor(refs: ItemRef[]): Promise<Map<string, { average
   return new Map(rows.map((row) => [`${row.itemType}:${row.itemId}`, { average: row.ratingCount ? Math.round((row.ratingSum / row.ratingCount) * 10) / 10 : null, count: row.ratingCount, favorites: row.favorites }]))
 }
 
+const BADGE_CURSOR = 'reviewBadgeBackfillCursor'
+
+/**
+ * Gives the verified-experience badge to reviews that have earned it but were never opened again
+ * by their author: older reviews, and members who used the item after reviewing it. Walks the
+ * unbadged reviews in id order, a bounded number per run, and starts over after the last one,
+ * so a review becomes eligible again when its author uses the item later. Run before download
+ * logs are pruned. One review that cannot be checked does not stop the others.
+ */
+export async function backfillVerifiedBadges(limit = 200) {
+  if (!await isModuleEnabled('reviews')) return { checked: 0, badged: 0, failed: 0 }
+  const take = Math.max(1, Math.min(1000, Math.trunc(limit) || 200))
+  const after = Number((await db.setting.findUnique({ where: { key: BADGE_CURSOR } }))?.value) || 0
+  const rows = await db.itemReview.findMany({ where: { verified: '', id: { gt: after } }, orderBy: { id: 'asc' }, take, select: { id: true, userId: true, itemType: true, itemId: true, updatedAt: true } })
+  let badged = 0
+  let failed = 0
+  for (const row of rows) {
+    try {
+      const ref = parseItemKey(`${row.itemType}:${row.itemId}`)
+      const experience = ref ? await memberItemExperience(row.userId, ref) : ''
+      // Not an edit: the review keeps its date. A badge written meanwhile is left alone.
+      if (experience) badged += (await db.itemReview.updateMany({ where: { id: row.id, verified: '' }, data: { verified: experience, updatedAt: row.updatedAt } })).count
+    } catch (error) {
+      failed++
+      logEvent('error', 'reviews.badge_backfill_failed', { reviewId: row.id, error: String(error) })
+    }
+  }
+  const next = rows.length === take ? rows[rows.length - 1].id : 0
+  await db.setting.upsert({ where: { key: BADGE_CURSOR }, create: { key: BADGE_CURSOR, value: String(next) }, update: { value: String(next) } })
+  return { checked: rows.length, badged, failed }
+}
+
 /**
  * Dimension averages and the number of verified raters for a few items at once (comparison).
  * Keyed by "type:id"; an item nobody scored has no dimensions. Empty when the reviews module is off.

@@ -1,6 +1,7 @@
 import { processSocialQueue, releaseStuckSocialPosts } from '@/modules/social/server/social'
 import { rebuildSearchIndex } from '@/modules/search/server/search'
 import { pruneDownloadLogs } from '@/modules/downloads/server/guard'
+import { backfillVerifiedBadges } from '@/modules/reviews/server/reviews'
 import { pruneAnalytics } from '@/modules/analytics/server/collect'
 import { processTrackReleaseNotifications } from '@/modules/music/server/release-notifications'
 import { processGameUpdateReleaseNotifications } from '@/modules/games/server/release-notifications'
@@ -38,8 +39,10 @@ export async function runEngagementJobs(options: { full?: boolean } = {}) {
     return quick
   }
   const indexed = await step('search.index', () => rebuildSearchIndex())
+  // Before the prune: a badge is read from download logs that are about to go.
+  const reviewBadges = await step('reviews.badges', () => backfillVerifiedBadges())
   const prunedDownloadLogs = await step('downloads.prune', () => pruneDownloadLogs())
   const analytics = await step('analytics.prune', () => pruneAnalytics())
   if (errors.length) throw errors[0]
-  return { ...quick, indexed, prunedDownloadLogs, analytics }
+  return { ...quick, reviewBadges, indexed, prunedDownloadLogs, analytics }
 }
