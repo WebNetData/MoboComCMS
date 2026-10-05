@@ -446,11 +446,23 @@ async function awardOrder(settings: LoyaltySettings, order: { id: number; userId
 export async function reverseOrderPoints(orderId: number, refundedMinor: bigint, key: string) {
   const order = await db.order.findUnique({ where: { id: orderId }, select: { userId: true, totalMinor: true } })
   if (!order) return
-  const entries = await db.loyaltyEntry.findMany({ where: { orderId }, select: { points: true, kind: true } })
-  const earned = entries.filter((row) => row.kind === 'EARN_ORDER').reduce((sum, row) => sum + row.points, 0)
-  const reversed = -entries.filter((row) => row.kind === 'REVERSE_ORDER').reduce((sum, row) => sum + row.points, 0)
-  const points = Math.min(earned - reversed, reversalPoints(earned, refundedMinor, order.totalMinor))
-  if (points > 0) await addPoints(order.userId, -points, 'REVERSE_ORDER', `order:${orderId}:reverse:${key}`, `برگشت امتیاز سفارش #${orderId}`, orderId)
+  const idempotencyKey = `order:${orderId}:reverse:${key}`
+  try {
+    await db.$transaction(async (tx) => {
+      // Take the member's account row first: a second refund of the same order waits here and then
+      // reads the first one's reversal, so two refunds together never take back more than was earned.
+      await tx.loyaltyAccount.updateMany({ where: { userId: order.userId }, data: { balance: { increment: 0 } } })
+      const entries = await tx.loyaltyEntry.findMany({ where: { orderId }, select: { points: true, kind: true } })
+      const earned = entries.filter((row) => row.kind === 'EARN_ORDER').reduce((sum, row) => sum + row.points, 0)
+      const reversed = -entries.filter((row) => row.kind === 'REVERSE_ORDER').reduce((sum, row) => sum + row.points, 0)
+      const points = Math.min(earned - reversed, reversalPoints(earned, refundedMinor, order.totalMinor))
+      if (points <= 0) return
+      await tx.loyaltyEntry.create({ data: { userId: order.userId, points: -points, kind: 'REVERSE_ORDER', note: `برگشت امتیاز سفارش #${orderId}`, orderId, idempotencyKey } })
+      await tx.loyaltyAccount.update({ where: { userId: order.userId }, data: { balance: { decrement: points }, lifetime: { decrement: points } } })
+    })
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'P2002') throw error // this refund's reversal is already recorded
+  }
 }
 
 export async function awardReviewBonus(userId: number, reviewId: number) {
@@ -492,6 +504,47 @@ export async function redeemPoints(userId: number, pointsInput: unknown) {
   return { points, toman, balance: credit.balance }
 }
 
+/**
+ * Finishes point redemptions that took the points but never reached the wallet (the process
+ * stopped between the two). Looks at redemptions of the last week that are at least ten minutes
+ * old, so a request still in flight is left to finish or undo itself. The wallet credit is keyed
+ * by the ledger entry, so nothing is ever paid twice; a redemption that was undone is skipped.
+ * When points no longer have a wallet value, they are given back instead.
+ */
+export async function recoverPointRedemptions(now = new Date()) {
+  const settings = await getLoyaltySettings()
+  const counters = { checked: 0, credited: 0, returned: 0, failed: 0 }
+  const window = { gte: new Date(now.getTime() - 7 * 86_400_000), lte: new Date(now.getTime() - 10 * 60_000) }
+  for (let after = 0, pages = 0; pages < 4; pages++) {
+    const rows = await db.loyaltyEntry.findMany({ where: { kind: 'REDEEM', createdAt: window, id: { gt: after } }, orderBy: { id: 'asc' }, take: 500, select: { id: true, userId: true, points: true } })
+    if (!rows.length) break
+    after = rows[rows.length - 1].id
+    const [paid, undone] = await Promise.all([
+      db.walletTx.findMany({ where: { idempotencyKey: { in: rows.map((row) => `loyalty:redeem:${row.id}`) }, status: 'DONE' }, select: { idempotencyKey: true } }),
+      db.loyaltyEntry.findMany({ where: { idempotencyKey: { in: rows.map((row) => `redeem-undo:${row.id}`) } }, select: { idempotencyKey: true } }),
+    ])
+    const settled = new Set([...paid.map((row) => String(row.idempotencyKey).replace('loyalty:redeem:', '')), ...undone.map((row) => row.idempotencyKey.replace('redeem-undo:', ''))])
+    for (const row of rows) {
+      if (settled.has(String(row.id)) || row.points >= 0) continue
+      counters.checked++
+      try {
+        const points = -row.points
+        const toman = Number(redeemValue(settings, points))
+        if (toman > 0) {
+          const credit = await moveWallet({ userId: row.userId, amount: toman, currency: 'IRT', type: 'LOYALTY', description: `تبدیل ${points.toLocaleString('fa-IR')} امتیاز باشگاه`, idempotencyKey: `loyalty:redeem:${row.id}` })
+          if (!credit.ok) throw new Error(credit.message || 'wallet credit failed')
+          counters.credited++
+        } else if (await addPoints(row.userId, points, 'ADMIN', `redeem-undo:${row.id}`, 'برگشت تبدیل ناموفق')) counters.returned++
+      } catch (error) {
+        counters.failed++
+        logEvent('error', 'store.point_redemption_recovery_failed', { entryId: row.id, error: String(error) })
+      }
+    }
+    if (rows.length < 500) break
+  }
+  return counters
+}
+
 export async function adjustPoints(userIdInput: unknown, pointsInput: unknown, noteInput: unknown, adminId: number) {
   const userId = positive(userIdInput)
   const points = Math.round(Number(pointsInput))
@@ -523,7 +576,7 @@ export async function adminLoyalty() {
 
 /** Every minute from the job scheduler. */
 export async function runMarketingJobs() {
-  const results = await Promise.allSettled([runStockAlerts(), runCartRecovery(), runLoyaltyAwards()])
+  const results = await Promise.allSettled([runStockAlerts(), runCartRecovery(), runLoyaltyAwards(), recoverPointRedemptions()])
   for (const result of results) if (result.status === 'rejected') logEvent('error', 'store.marketing_job_failed', { error: String(result.reason) })
   return results.map((result) => (result.status === 'fulfilled' ? result.value : null))
 }
