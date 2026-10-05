@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { cancelFrenzyPayment, getFrenzyPayment, type FrenzyPaymentSnapshot } from '@/modules/billing/infrastructure/frenzyex'
-import { invoiceDueMinor, markInvoicePaid, releaseInvoiceCredit } from '@/modules/billing/server/billing'
+import { invoiceDueMinor, markInvoicePaid, voidOpenInvoice } from '@/modules/billing/server/billing'
 import { releaseInventoryReservation } from '@/modules/catalog/server/inventory'
 import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { moveWallet } from '@/modules/wallet/server/wallet'
@@ -185,12 +185,12 @@ async function closeTerminalInvoice(input: {
   const checked = validateFrenzySnapshot({ invoice, expected, requestId, snapshot })
   if (!checked.ok) return checked
 
-  const credit = await releaseInvoiceCredit(invoice.id, `FrenzyEx ${status}: ${invoice.number}`)
-  if (!credit.ok && credit.message !== 'a paid invoice keeps its credit') return { ok: false as const, message: credit.message || 'wallet credit release failed' }
+  // Claimed first: a payment settling at the same moment either wins the invoice or finds it void.
+  const closed = await voidOpenInvoice(invoice.id, `FrenzyEx ${status}: ${invoice.number}`)
+  if (!closed.voided) return { ok: true as const, skipped: true }
   if (invoice.orderId) await releaseInventoryReservation(invoice.orderId)
 
-  const changed = await db.invoice.updateMany({ where: { id: invoice.id, status: 'UNPAID' }, data: { status: 'VOID', paymentUrl: '' } })
-  if (changed.count === 1 && invoice.orderId) {
+  if (invoice.orderId) {
     await db.order.updateMany({ where: { id: invoice.orderId, status: 'PENDING' }, data: { status: 'FAILED', paymentUrl: '' } })
   }
   if (invoice.kind === 'WALLET_TOPUP') {

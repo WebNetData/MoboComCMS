@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { verifyCallback, mapPlisioStatus, type PlisioCallbackData } from '@/modules/billing/infrastructure/plisio'
-import { markInvoicePaid, recordProviderEvent, releaseInvoiceCredit, invoiceDueMinor } from '@/modules/billing/server/billing'
+import { markInvoicePaid, recordProviderEvent, voidOpenInvoice, invoiceDueMinor } from '@/modules/billing/server/billing'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { enqueueOrderFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { releaseInventoryReservation } from '@/modules/catalog/server/inventory'
@@ -143,10 +143,12 @@ export async function POST(req: NextRequest) {
         if (job) await processFulfillmentJob(job.id) // best effort; durable job remains on failure
       }
     } else if (railStatus !== 'PENDING' && invoice.status === 'UNPAID') {
-      await releaseInvoiceCredit(invoice.id, `credit released ${invoice.number} (${String(payload.status || 'failed')})`)
-      if (invoice.orderId) await releaseInventoryReservation(invoice.orderId)
-      await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID' } })
-      if (order?.status === 'PENDING') await db.order.update({ where: { id: order.id }, data: { status: railStatus } })
+      // Claimed first: a payment settling at the same moment either wins the invoice or finds it void.
+      const closed = await voidOpenInvoice(invoice.id, `credit released ${invoice.number} (${String(payload.status || 'failed')})`)
+      if (closed.voided) {
+        if (invoice.orderId) await releaseInventoryReservation(invoice.orderId)
+        if (order?.status === 'PENDING') await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: railStatus } })
+      }
     }
 
     await finishInbox(inbox.id, 'DONE')

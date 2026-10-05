@@ -4,6 +4,7 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'invoice-void-settle',
   'return-refund-integrity',
   'gift-card-integrity',
   'forum-flag-queue',
