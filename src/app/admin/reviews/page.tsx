@@ -2,8 +2,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 
-type Review = { id: number; rating: number; body: string; status: string; createdAt: string; user: { id: number; name: string; email: string }; item: { key: string; title: string; url: string; label: string } }
+type Review = { id: number; rating: number; body: string; status: string; verified: string; scores: { label: string; score: number }[]; createdAt: string; user: { id: number; name: string; email: string }; item: { key: string; title: string; url: string; label: string } }
 type Data = { total: number; page: number; pages: number; pending: number; reviews: Review[] }
+const VERIFIED: Record<string, string> = { PURCHASE: 'خریدار', DOWNLOAD: 'دانلود کرده', WATCH: 'تماشا کرده', LISTEN: 'شنیده' }
 const STATUSES = [{ key: 'PENDING', label: 'در انتظار تأیید' }, { key: 'APPROVED', label: 'منتشرشده' }, { key: 'REJECTED', label: 'ردشده' }, { key: 'ALL', label: 'همهٔ نظرهای متنی' }]
 
 /** Moderation queue for item reviews (software, games, films, music). */
@@ -46,6 +47,10 @@ export default function AdminReviewsPage() {
           <span className="rv-stars" aria-label={`${review.rating} از ۵`}>{'★'.repeat(review.rating)}<i>{'★'.repeat(5 - review.rating)}</i></span>
         </header>
         <p className="fa-excerpt" dir="auto">{review.body || <span className="muted">(فقط امتیاز)</span>}</p>
+        {(review.verified || review.scores.length > 0) && <ul className="rv-scores">
+          {review.verified && <li><span className="rv-badge">✓ {VERIFIED[review.verified] || 'تجربهٔ تأییدشده'}</span></li>}
+          {review.scores.map((score) => <li key={score.label}>{score.label} <b>{score.score.toLocaleString('fa-IR')}</b></li>)}
+        </ul>}
         <small className="muted">{review.user.name || 'بی‌نام'} · <bdi>{review.user.email}</bdi> · {new Date(review.createdAt).toLocaleString('fa-IR')} · {review.status === 'PENDING' ? 'در انتظار' : review.status === 'APPROVED' ? 'منتشرشده' : 'ردشده'}</small>
         <div className="fa-inline fa-wrap">
           {review.status !== 'APPROVED' && <button type="button" className="btn btn-primary btn-sm" disabled={busy === review.id} onClick={() => void act(review.id, 'approve')}>✓ انتشار</button>}

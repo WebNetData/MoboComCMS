@@ -21,6 +21,7 @@ const fa = load('src/shared/text/persian')
 const items = load('src/modules/content/domain/items')
 const dl = load('src/modules/downloads/domain/downloads')
 const rv = load('src/modules/reviews/domain/reviews')
+const dims = load('src/modules/reviews/domain/dimensions')
 const social = load('src/modules/social/domain/social')
 const an = load('src/modules/analytics/domain/analytics')
 const cr = load('src/modules/copyright/domain/copyright')
@@ -84,6 +85,30 @@ test('reviews: ratings, text rules and summaries', () => {
   assert.deepEqual(rv.summarize([5, 4, 4, 1, 9]), { average: 3.5, count: 4, distribution: [1, 0, 0, 2, 1] })
   assert.deepEqual(rv.summarize([]), { average: null, count: 0, distribution: [0, 0, 0, 0, 0] })
   assert.deepEqual(rv.summarizeDistribution([1, 0, 0, 1, 1]), { average: 3.3, count: 3, distribution: [1, 0, 0, 1, 1] })
+})
+
+test('reviews: every reviewable type has its own dimensions, scores are validated per type', () => {
+  for (const type of items.REVIEWABLE) {
+    const list = dims.dimensionsFor(type)
+    assert.ok(list.length >= 4 && list.length <= 6, type)
+    assert.equal(new Set(list.map((dimension) => dimension.key)).size, list.length)
+    for (const dimension of list) assert.ok(/^[a-z]+$/.test(dimension.key) && dimension.label && dimension.labelEn && dimension.hint, `${type}.${dimension.key}`)
+  }
+  for (const type of items.ITEM_TYPES.filter((type) => !items.REVIEWABLE.includes(type))) assert.deepEqual(dims.dimensionsFor(type), [])
+  assert.equal(dims.normalizeScores('game', undefined), undefined)
+  assert.equal(dims.normalizeScores('game', null), undefined)
+  assert.deepEqual(dims.normalizeScores('game', {}), {})
+  assert.deepEqual(dims.normalizeScores('game', { gameplay: '5', story: 1, usability: 4, graphics: '', audio: null, replay: 0, __proto__: { performance: 5 } }), { gameplay: 5, story: 1 })
+  assert.deepEqual(dims.normalizeScores('post', { gameplay: 5 }), {})
+  for (const bad of [{ gameplay: 6 }, { gameplay: -1 }, { gameplay: 2.5 }, { gameplay: 'x' }, { gameplay: true }, { gameplay: [3] }]) assert.throws(() => dims.normalizeScores('game', bad), rv.ReviewError)
+  for (const bad of [[5], 'gameplay', 5]) assert.throws(() => dims.normalizeScores('game', bad), rv.ReviewError)
+  assert.equal(dims.suggestedRating({ a: 5, b: 4, c: 4 }), 4)
+  assert.equal(dims.suggestedRating({ a: 5, b: 4 }), 5)
+  assert.equal(dims.suggestedRating({}), null)
+  assert.equal(dims.reviewSort('helpful'), 'helpful')
+  assert.equal(dims.reviewSort('drop table'), 'new')
+  assert.ok(dims.isExperienceKind('WATCH') && !dims.isExperienceKind('') && !dims.isExperienceKind('watch'))
+  assert.deepEqual(Object.keys(dims.EXPERIENCE_LABEL), [...dims.EXPERIENCE_KINDS])
 })
 
 test('social posts escape HTML, respect limits and tag links', () => {
