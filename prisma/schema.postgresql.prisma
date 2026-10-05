@@ -2988,6 +2988,8 @@ model GiftCard {
   recipientEmail String    @default("")
   message        String    @default("")
   note           String    @default("")
+  /// One card per paid purchase request: the wallet debit's idempotency marker.
+  purchaseKey    String?   @unique
   expiresAt      DateTime?
   redeemedBy     Int?
   redeemedAt     DateTime?

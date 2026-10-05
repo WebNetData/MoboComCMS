@@ -215,17 +215,22 @@ export async function adminCartRecovery() {
 const codeHash = (code: string) => createHmac('sha256', authSecret()).update(`gift-card:${code}`).digest('hex')
 const newCode = () => giftCode((max) => randomInt(max))
 
-async function createCard(data: { toman: number; source: 'ADMIN' | 'PURCHASE'; purchaserId?: number | null; recipientName?: string; recipientEmail?: string; message?: string; note?: string; expiresAt: Date | null; createdBy?: number | null }) {
+async function createCard(data: { toman: number; source: 'ADMIN' | 'PURCHASE'; purchaserId?: number | null; recipientName?: string; recipientEmail?: string; message?: string; note?: string; purchaseKey?: string; expiresAt: Date | null; createdBy?: number | null }): Promise<{ card: Awaited<ReturnType<typeof db.giftCard.create>>; code: string; existed?: boolean }> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = newCode()
     const plain = code.replace(/-/g, '')
     try {
       const card = await db.giftCard.create({ data: {
         codeHash: codeHash(plain), last4: plain.slice(-4), codeEnc: encryptPanelCredential(code), currency: GIFT_CURRENCY, amountMinor: BigInt(data.toman), source: data.source,
-        purchaserId: data.purchaserId ?? null, recipientName: data.recipientName || '', recipientEmail: data.recipientEmail || '', message: data.message || '', note: data.note || '', expiresAt: data.expiresAt, createdBy: data.createdBy ?? null,
+        purchaserId: data.purchaserId ?? null, recipientName: data.recipientName || '', recipientEmail: data.recipientEmail || '', message: data.message || '', note: data.note || '', purchaseKey: data.purchaseKey ?? null, expiresAt: data.expiresAt, createdBy: data.createdBy ?? null,
       } })
       return { card, code }
-    } catch (error) { if (attempt === 4) throw error }
+    } catch (error) {
+      // Another request of the same purchase got there first: its card is the purchase's only card.
+      const first = data.purchaseKey ? await db.giftCard.findUnique({ where: { purchaseKey: data.purchaseKey } }) : null
+      if (first) return { card: first, code: decryptPanelCredential(first.codeEnc), existed: true }
+      if (attempt === 4) throw error
+    }
   }
   throw new MarketingError('ساخت کد انجام نشد', 500)
 }
@@ -269,7 +274,8 @@ export async function purchaseGiftCard(userId: number, input: { toman?: unknown;
   const key = String(input.idempotencyKey ?? '')
   if (!/^[A-Za-z0-9._:-]{8,80}$/.test(key)) throw new MarketingError('درخواست نامعتبر است')
   const marker = `buy:${userId}:${key}`
-  const existing = await db.giftCard.findFirst({ where: { note: marker } })
+  // Cards bought before the key existed are found by their note.
+  const existing = await db.giftCard.findFirst({ where: { OR: [{ purchaseKey: marker }, { note: marker }] }, orderBy: { id: 'asc' } })
   if (existing) return { id: existing.id, code: decryptPanelCredential(existing.codeEnc), toman: Number(existing.amountMinor), replayed: true }
   const toman = validGiftAmount(settings, input.toman)
   const recipientEmail = cleanEmail(input.recipientEmail)
@@ -277,7 +283,9 @@ export async function purchaseGiftCard(userId: number, input: { toman?: unknown;
   const debit = await moveWallet({ userId, amount: -toman, currency: GIFT_CURRENCY, type: 'GIFT_CARD', description: `خرید کارت هدیه ${toman.toLocaleString('fa-IR')} تومانی`, idempotencyKey: `gift-card:buy:${userId}:${key}` })
   if (!debit.ok) throw new MarketingError(/insufficient|کافی/i.test(debit.message || '') ? 'موجودی کیف پول کافی نیست؛ ابتدا کیف پول را شارژ کنید' : debit.message || 'برداشت از کیف پول انجام نشد', 402, 'INSUFFICIENT_FUNDS')
   const buyer = await db.user.findUnique({ where: { id: userId }, select: { name: true } })
-  const { card, code } = await createCard({ toman, source: 'PURCHASE', purchaserId: userId, recipientName: cleanText(input.recipientName, 80), recipientEmail, message: cleanText(input.message, 300), note: marker, expiresAt: expiry(settings.validityDays) })
+  const { card, code, existed } = await createCard({ toman, source: 'PURCHASE', purchaserId: userId, recipientName: cleanText(input.recipientName, 80), recipientEmail, message: cleanText(input.message, 300), note: marker, purchaseKey: marker, expiresAt: expiry(settings.validityDays) })
+  // The request that created the card emails and notifies; a concurrent duplicate only reports it.
+  if (existed) return { id: card.id, code, toman: Number(card.amountMinor), replayed: true }
   const emailed = recipientEmail ? await emailGiftCard(code, toman, cleanText(input.recipientName, 80), recipientEmail, cleanText(input.message, 300), buyer?.name || '').catch(() => false) : false
   await notify({ userId, kind: 'GIFT_CARD', dedupeKey: `gift-card:bought:${card.id}`, titleFa: `کارت هدیهٔ ${toman.toLocaleString('fa-IR')} تومانی خریداری شد`, titleEn: 'Gift card purchased', bodyFa: emailed ? `کد برای ${recipientEmail} ایمیل شد و در «کارت‌های هدیهٔ من» هم هست.` : 'کد کارت در «کارت‌های هدیهٔ من» در دسترس است.', bodyEn: '', href: '/dashboard/gift-cards' })
   return { id: card.id, code, toman, emailed }
@@ -290,14 +298,21 @@ export async function redeemGiftCard(userId: number, codeInput: unknown) {
   const card = await db.giftCard.findUnique({ where: { codeHash: codeHash(code) } })
   if (!card) throw new MarketingError('کارت هدیه‌ای با این کد پیدا نشد', 404, 'NOT_FOUND')
   const state = giftCardState(card)
-  if (state === 'REDEEMED') throw new MarketingError(card.redeemedBy === userId ? 'این کارت را قبلاً استفاده کرده‌اید' : 'این کارت هدیه قبلاً استفاده شده است', 409, 'USED')
+  if (state === 'REDEEMED' && card.redeemedBy === userId) {
+    // The card was claimed for this member; if that attempt stopped before the wallet credit, finish it now.
+    // The credit's key is the card's, so it can only ever be paid once.
+    const credit = await moveWallet({ userId, amount: legacyNumber(card.amountMinor, card.currency), currency: card.currency, type: 'GIFT_CARD', description: `کارت هدیه ••••${card.last4}`, idempotencyKey: `gift-card:redeem:${card.id}` })
+    if (credit.ok && !credit.idempotent) return { amount: minorToNumber(card.amountMinor, card.currency), currency: card.currency, balance: credit.balance }
+    throw new MarketingError('این کارت را قبلاً استفاده کرده‌اید', 409, 'USED')
+  }
+  if (state === 'REDEEMED') throw new MarketingError('این کارت هدیه قبلاً استفاده شده است', 409, 'USED')
   if (state === 'DISABLED') throw new MarketingError('این کارت هدیه غیرفعال شده است', 409, 'DISABLED')
   if (state === 'EXPIRED') throw new MarketingError('مهلت استفاده از این کارت هدیه تمام شده است', 409, 'EXPIRED')
   const claimed = await db.giftCard.updateMany({ where: { id: card.id, status: 'ACTIVE' }, data: { status: 'REDEEMED', redeemedBy: userId, redeemedAt: new Date() } })
   if (!claimed.count) throw new MarketingError('این کارت هدیه قبلاً استفاده شده است', 409, 'USED')
   const credit = await moveWallet({ userId, amount: legacyNumber(card.amountMinor, card.currency), currency: card.currency, type: 'GIFT_CARD', description: `کارت هدیه ••••${card.last4}`, idempotencyKey: `gift-card:redeem:${card.id}` })
   if (!credit.ok) {
-    await db.giftCard.update({ where: { id: card.id }, data: { status: 'ACTIVE', redeemedBy: null, redeemedAt: null } })
+    await db.giftCard.updateMany({ where: { id: card.id, status: 'REDEEMED', redeemedBy: userId }, data: { status: 'ACTIVE', redeemedBy: null, redeemedAt: null } })
     throw new MarketingError('شارژ کیف پول انجام نشد؛ دوباره تلاش کنید', 500)
   }
   return { amount: minorToNumber(card.amountMinor, card.currency), currency: card.currency, balance: credit.balance }
@@ -337,7 +352,9 @@ export async function setGiftCardStatus(id: unknown, disabled: boolean) {
   const card = await db.giftCard.findUnique({ where: { id: positive(id) } })
   if (!card) throw new MarketingError('کارت پیدا نشد', 404)
   if (card.status === 'REDEEMED') throw new MarketingError('کارت استفاده‌شده قابل تغییر نیست', 409)
-  await db.giftCard.update({ where: { id: card.id }, data: { status: disabled ? 'DISABLED' : 'ACTIVE' } })
+  // Conditional: a card redeemed since the read must not be made active again.
+  const changed = await db.giftCard.updateMany({ where: { id: card.id, status: { not: 'REDEEMED' } }, data: { status: disabled ? 'DISABLED' : 'ACTIVE' } })
+  if (!changed.count) throw new MarketingError('کارت استفاده‌شده قابل تغییر نیست', 409)
 }
 
 export async function revealGiftCard(id: unknown) {
