@@ -27,6 +27,10 @@ Run it against a development or staging database, never production: each check c
 
 On Windows the shell-based updater tests in `test:site` cannot run; the Linux run is the applicable one (`docker run --rm -v "$PWD:/app:ro" --tmpfs /tmp:exec -w /app node:24-bookworm npm run test:site`).
 
+## Integrity report
+
+`npm run integrity:report` is read-only and lists records that need a business decision (an order refunded for more than its total, duplicate gift cards, unpaid referral rewards, unrecorded seller sales, accounts provisioned for the wrong user and so on); see `docs/INTEGRITY-REPORT.md`. Run it against production after the release that introduces it and whenever one of the recovery steps of the order worker reports failures. A non-empty report does not block a release by itself; each finding says what happens automatically and what does not.
+
 ## Database / financial gate
 
 Before a production database cutover:
