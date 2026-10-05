@@ -5,6 +5,7 @@ import { requireUser } from '@/modules/identity/server/access'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { isLivePost } from '@/modules/journal/domain/journal'
+import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -53,5 +54,6 @@ export async function POST(req: NextRequest, { params }: Context) {
   if (!rateLimitHit(`post-comment:${user.id}`, 3, 60_000).ok) return err('Please wait before commenting again / کمی بعد دوباره تلاش کنید', 429)
   const { autoApproveComments } = await getJournalSettings()
   const comment = await db.postComment.create({ data: { postId: post.id, userId: user.id, parentId, body: text, status: autoApproveComments ? 'APPROVED' : 'PENDING' } })
+  if (comment.status === 'APPROVED') await notifyCommentPublished(comment.id, 'auto')
   return ok({ id: comment.id, status: comment.status }, 201)
 }

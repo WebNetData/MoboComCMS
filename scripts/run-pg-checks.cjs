@@ -8,7 +8,7 @@ const CHECKS = [
   'recommendations-listening', 'community-block-coverage',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
   'inventory-hold-expiry', 'frenzyex-reconciliation', 'newsletter-send', 'queue-jobs', 'social-queue', 'scrub-recent', 'account-reviews', 'review-dimensions', 'compare-dimensions',
-  'community-moderation',
+  'community-moderation', 'journal-comment-notifications',
 ]
 
 if (!process.env.DATABASE_URL) {
