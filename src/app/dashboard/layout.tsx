@@ -25,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const gamesOn = useModuleEnabled('games')
   const musicOn = useModuleEnabled('music')
   const reviewsOn = useModuleEnabled('reviews')
+  const journalOn = useModuleEnabled('journal')
   const adsOn = useModuleEnabled('ads')
   const repoOn = useModuleEnabled('repository')
   const [hasLicenses, setHasLicenses] = useState(false)
@@ -97,7 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { href: '/dashboard/collections', label: locale === 'fa' ? 'مجموعه‌های من' : 'My collections', icon: 'grid' },
         { href: '/dashboard/recent', label: locale === 'fa' ? 'اخیراً مشاهده‌شده' : 'Recently viewed', icon: 'sparkles' },
-        ...(reviewsOn || storeOn ? [{ href: '/dashboard/reviews', label: locale === 'fa' ? 'نظرهای من' : 'My reviews', icon: 'chat' }] : []),
+        ...(reviewsOn || storeOn || journalOn ? [{ href: '/dashboard/reviews', label: locale === 'fa' ? 'نظرهای من' : 'My reviews', icon: 'chat' }] : []),
         { href: '/dashboard/notifications', label: locale === 'fa' ? 'اعلان‌ها' : 'Notifications', icon: 'bell' },
         { href: '/dashboard/tickets', label: t.supportCenter, icon: 'chat' },
         { href: '/dashboard/referrals', label: locale === 'fa' ? 'دعوت از دوستان' : 'Invite friends', icon: 'sparkles' },
