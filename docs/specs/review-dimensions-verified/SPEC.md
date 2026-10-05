@@ -69,6 +69,10 @@ Disabling the reviews module hides all of this and keeps the data.
 
 Real PostgreSQL: each kind of record for each item type including children (episode, album track), other members' and anonymous records, revoked purchase, score validation per type, partial and cleared scores, stars-only client, averages with a rejected review, badge kept after the log is gone, badge earned later without changing the edit date, every order and the filter, moderation queue, scores removed with the review, database check. Browser, RTL, dark and light, desktop and mobile: summary, form with suggested stars, save, badge, order and filter, a film's own dimensions, signed-out view. TypeScript, architecture, source, schema, security and i18n checks, production build.
 
+## Comparison (second slice)
+
+The comparison table for software, games and films has a group "members' specialist scores (out of 5)": one row per dimension of the type with each item's average, the higher value marked like every other numeric row, and a row with the number of raters who have the badge when any item has one. A dimension nobody scored on any compared item is left out; rejected reviews do not count. With the reviews module off the group is absent. Store products are compared on their own review system as before.
+
 ## Not in this slice
 
-A backfill of badges for reviews nobody opens again; dimension averages in comparison tables and search; English labels in the page (they exist in the dimension list, the page is Persian as before); the same for store products, which keep their own system.
+A backfill of badges for reviews nobody opens again; dimension averages in search; English labels in the page (they exist in the dimension list, the page is Persian as before); the same for store products, which keep their own system.
