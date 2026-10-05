@@ -183,14 +183,14 @@ export async function memberItemReviews(userId: number, take: number) {
   const where = { userId }
   const [total, rows] = await Promise.all([
     db.itemReview.count({ where }),
-    db.itemReview.findMany({ where, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: Math.max(1, Math.min(500, Math.trunc(take) || 1)) }),
+    db.itemReview.findMany({ where, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: Math.max(1, Math.min(500, Math.trunc(take) || 1)), include: { scores: true } }),
   ])
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
   return {
     total,
     reviews: rows.map((row) => {
       const card = cards.get(`${row.itemType}:${row.itemId}`)
-      return { id: row.id, itemType: row.itemType, rating: row.rating, body: row.body, status: row.status, updatedAt: row.updatedAt, item: card ? { title: card.title, url: card.url, image: card.image } : null }
+      return { id: row.id, itemType: row.itemType, itemId: row.itemId, rating: row.rating, body: row.body, status: row.status, verified: verifiedOf(row.verified), scores: scoresOf(row.itemType as ItemRef['type'], row.scores), updatedAt: row.updatedAt, item: card ? { title: card.title, url: card.url, image: card.image } : null }
     }),
   }
 }

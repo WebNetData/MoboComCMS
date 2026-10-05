@@ -5,6 +5,8 @@ import { getServerLocale } from '@/i18n/server'
 import { getViewer } from '@/modules/membership/server/membership'
 import { memberReviewPage } from '@/modules/account/server/reviews'
 import Icon from '@/components/site/Icon'
+import MyReviewManage from '@/components/engage/MyReviewManage'
+import { EXPERIENCE_LABEL, dimensionsFor, isExperienceKind } from '@/modules/reviews/domain/dimensions'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'نظرهای من | My reviews', robots: { index: false, follow: false } }
@@ -30,6 +32,9 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
       <ul className="myrev-list">{data.reviews.map((review) => {
         const state = STATUS[review.status] || { fa: review.status, en: review.status, tone: 'is-wait' }
         const stars = Math.max(0, Math.min(5, review.rating))
+        const dimensions = review.manage ? dimensionsFor(review.manage.itemType) : []
+        const scores = dimensions.filter((dimension) => review.manage!.scores[dimension.key])
+        const badge = review.manage && isExperienceKind(review.manage.verified) ? review.manage.verified : null
         return <li key={review.key}>
           <div className="myrev-top">
             {review.target
@@ -43,7 +48,14 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
           </div>
           {review.title && <h3>{review.title}</h3>}
           {review.body ? <p>{review.body}</p> : <p className="muted">{fa ? 'فقط امتیاز داده‌اید.' : 'Rating only.'}</p>}
-          {review.status === 'REJECTED' && <p className="myrev-note">{fa ? 'این متن منتشر نشده است. می‌توانید آن را در صفحهٔ همان مورد ویرایش کنید.' : 'This text was not published. You can edit it on the item page.'}</p>}
+          {(badge || scores.length > 0) && <ul className="rv-scores" aria-label={fa ? 'نشان و امتیازهای تخصصی' : 'Badge and dimension scores'}>
+            {badge && <li><span className="rv-badge">✓ {fa ? EXPERIENCE_LABEL[badge].label : EXPERIENCE_LABEL[badge].labelEn}</span></li>}
+            {scores.map((dimension) => <li key={dimension.key}>{fa ? dimension.label : dimension.labelEn} <b>{fa ? review.manage!.scores[dimension.key].toLocaleString('fa-IR') : review.manage!.scores[dimension.key]}</b></li>)}
+          </ul>}
+          {review.status === 'REJECTED' && <p className="myrev-note">{review.manage
+            ? (review.target ? (fa ? 'این متن منتشر نشده است. می‌توانید آن را همین‌جا ویرایش کنید.' : 'This text was not published. You can edit it here.') : (fa ? 'این متن منتشر نشده است.' : 'This text was not published.'))
+            : (fa ? 'این متن منتشر نشده است. نظر محصول پس از ثبت قابل ویرایش نیست.' : 'This text was not published. A product review cannot be edited after it is written.')}</p>}
+          {review.manage && <MyReviewManage item={review.manage.item} mine={{ rating: review.rating, body: review.body, status: review.status, verified: review.manage.verified, scores: review.manage.scores }} editable={!!review.target} title={review.target?.title || ''} path={review.target?.url || '/dashboard/reviews'} dimensions={dimensions.map(({ key, label, hint }) => ({ key, label, hint }))} fa={fa} />}
         </li>
       })}</ul>
     </section> : <section className="ud-card recent-empty"><span className="recent-empty-icon"><Icon name="chat" size={28} /></span><h2>{fa ? 'هنوز نظری ثبت نکرده‌اید' : 'You have not written a review yet'}</h2><p className="muted">{fa ? 'در صفحهٔ هر بازی، فیلم، آهنگ، نرم‌افزار یا محصول می‌توانید امتیاز بدهید و نظرتان را بنویسید.' : 'Rate and review from the page of any game, film, track, app or product.'}</p></section>}

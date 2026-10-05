@@ -276,3 +276,7 @@ a.myrev-target:focus-visible { outline: 2px solid var(--primary); outline-offset
 .myrev-list h3 { margin: 0; font-size: 14px; }
 .myrev-list p { margin: 0; font-size: 13.5px; line-height: 1.9; overflow-wrap: anywhere; white-space: pre-line; }
 .myrev-note { color: var(--muted); font-size: 12.5px; }
+.myrev-list .rv-scores { margin: 0; }
+.myrev-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.myrev-actions .btn { min-height: 36px; }
+.myrev-edit { min-width: 0; }

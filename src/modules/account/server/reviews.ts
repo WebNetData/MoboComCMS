@@ -1,5 +1,5 @@
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { ITEM_LABEL, isItemType } from '@/modules/content/domain/items'
+import { ITEM_LABEL, isItemType, type ItemType } from '@/modules/content/domain/items'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { memberProductReviews } from '@/modules/catalog/server/member-reviews'
 import { memberItemReviews } from '@/modules/reviews/server/reviews'
@@ -8,6 +8,8 @@ import { memberItemReviews } from '@/modules/reviews/server/reviews'
 // reviews (software, games, films, music) and the store's product reviews,
 // in one private list. Each owner keeps its own records and rules; this only
 // reads them. A disabled module's reviews are left out, not deleted.
+// Shared reviews can be edited and deleted from the list through the reviews
+// module's own API; a product review is written once, by the store's rule.
 
 const PAGE = 10
 const MAX_PAGES = 50
@@ -23,6 +25,8 @@ export type MemberReview = {
   updatedAt: Date
   /** The reviewed item as it is public now; null when it is no longer available. */
   target: { title: string; url: string; image: string } | null
+  /** Shared reviews only: what the member's edit and delete address ("game:12"), its type, badge and dimension scores. */
+  manage: { item: string; itemType: ItemType; verified: string; scores: Record<string, number> } | null
 }
 
 export async function memberReviewPage(userId: number, pageInput: unknown) {
@@ -37,9 +41,10 @@ export async function memberReviewPage(userId: number, pageInput: unknown) {
   const merged: MemberReview[] = [
     ...items.reviews.map((row): MemberReview => ({
       key: `item:${row.id}`, kind: 'item', label: isItemType(row.itemType) ? ITEM_LABEL[row.itemType].one : '', rating: row.rating, title: '', body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.item,
+      manage: isItemType(row.itemType) ? { item: `${row.itemType}:${row.itemId}`, itemType: row.itemType, verified: row.verified, scores: row.scores } : null,
     })),
     ...products.reviews.map((row): MemberReview => ({
-      key: `product:${row.id}`, kind: 'product', label: 'محصول', rating: row.rating, title: row.title, body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.product,
+      key: `product:${row.id}`, kind: 'product', label: 'محصول', rating: row.rating, title: row.title, body: row.body, status: row.status, updatedAt: row.updatedAt, target: row.product, manage: null,
     })),
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || (a.key < b.key ? 1 : -1))
   const total = items.total + products.total
