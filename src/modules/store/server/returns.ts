@@ -27,6 +27,16 @@ import { transitionOrder } from '@/modules/store/server/orders'
 
 const SETTINGS_KEY = 'store.returns.v1'
 const OPEN: ReturnStatus[] = ['REQUESTED', 'APPROVED']
+
+/**
+ * Everything that decides how much of an order may go back (opening a request, refunding one)
+ * runs under this lock, in a transaction: two requests or two refunds of one order arriving
+ * together are handled one after the other and the second sees what the first did.
+ */
+async function lockOrder(tx: Prisma.TransactionClient, orderId: number) {
+  if (/^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`
+  // SQLite serializes writes through its existing transaction/file lock.
+}
 export const returnsDirectory = () => join(process.cwd(), 'storage', 'returns')
 
 export async function getReturnSettings(): Promise<ReturnSettings> {
@@ -183,6 +193,7 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
   try {
     row = await db.$transaction(async (tx) => {
       // One open request per order, even under double submission.
+      await lockOrder(tx, orderId)
       const open = await tx.returnRequest.count({ where: { orderId, status: { in: OPEN } } })
       if (open) throw new StoreError('یک درخواست باز برای این سفارش در حال بررسی است', 409, 'OPEN_REQUEST')
       const created = await tx.returnRequest.create({ data: {
@@ -310,28 +321,43 @@ export async function decideReturn(input: { id: number; action: 'approve' | 'rej
 
 /**
  * Refunds a request to the wallet (amount defaults to what was requested,
- * never more than the order's unrefunded balance). The status is claimed
- * first so two clicks cannot refund twice; the wallet credit itself is
- * idempotent per request, so a retry after a crash is safe.
+ * never more than the order's unrefunded balance). The amount is decided and
+ * the status claimed together under the order's lock, so neither two clicks
+ * on one request nor two requests of one order can refund more than the order
+ * holds. The wallet credit is idempotent per request, and a request that was
+ * claimed but never credited (the process stopped in between) is finished by
+ * calling this again.
  */
 export async function refundReturn(input: { id: number; actorId: number | null; amount?: unknown; restock?: boolean; note?: unknown }) {
   const row = await db.returnRequest.findUnique({ where: { id: input.id } })
   if (!row) throw new StoreError('درخواست پیدا نشد', 404)
-  if (!OPEN.includes(row.status as ReturnStatus)) throw new StoreError('این درخواست قابل بازپرداخت نیست', 409)
+  // Claimed as refunded but no wallet movement recorded: finish that refund with the amount it claimed.
+  const resuming = row.status === 'REFUNDED' && !row.walletTxId && row.refundMinor > 0n
+  if (!resuming && !OPEN.includes(row.status as ReturnStatus)) throw new StoreError('این درخواست قابل بازپرداخت نیست', 409)
   const order = await loadOrder(row.orderId)
   if (!order) throw new StoreError('سفارش پیدا نشد', 404)
   const currency = normalizeCurrency(order.currency, 'IRT')
-  const book = ledger(order)
   let requested = row.requestedMinor
   if (input.amount !== undefined && input.amount !== null && String(input.amount).trim() !== '') {
     try { requested = toMinor(String(input.amount), currency) } catch { throw new StoreError('مبلغ بازپرداخت معتبر نیست') }
   }
-  const amount = clampRefund(requested, book.remaining)
-  if (amount <= 0n) throw new StoreError('مبلغی برای بازپرداخت باقی نمانده است')
   const note = plain(input.note, 1000)
 
-  const claimed = await db.returnRequest.updateMany({ where: { id: row.id, status: row.status }, data: { status: 'REFUNDED', refundMinor: amount, refundedAt: new Date(), decidedBy: input.actorId ?? row.decidedBy, decidedAt: row.decidedAt || new Date(), ...(note ? { adminNote: note } : {}) } })
-  if (claimed.count !== 1) throw new StoreError('وضعیت درخواست تغییر کرده است؛ صفحه را تازه کنید', 409, 'CONFLICT')
+  // What the order still holds, not counting this request, read under the lock.
+  const settled = resuming
+    ? { amount: row.refundMinor, before: order.totalMinor - order.returns.filter((other) => other.status === 'REFUNDED' && other.id !== row.id).reduce((sum, other) => sum + other.refundMinor, 0n) }
+    : await db.$transaction(async (tx) => {
+      await lockOrder(tx, row.orderId)
+      const others = await tx.returnRequest.aggregate({ where: { orderId: row.orderId, status: 'REFUNDED', id: { not: row.id } }, _sum: { refundMinor: true } })
+      const before = order.totalMinor - (others._sum.refundMinor || 0n)
+      const amount = clampRefund(requested, before)
+      if (amount <= 0n) throw new StoreError('مبلغی برای بازپرداخت باقی نمانده است')
+      const claimed = await tx.returnRequest.updateMany({ where: { id: row.id, status: row.status }, data: { status: 'REFUNDED', refundMinor: amount, refundedAt: new Date(), decidedBy: input.actorId ?? row.decidedBy, decidedAt: row.decidedAt || new Date(), ...(note ? { adminNote: note } : {}) } })
+      if (claimed.count !== 1) throw new StoreError('وضعیت درخواست تغییر کرده است؛ صفحه را تازه کنید', 409, 'CONFLICT')
+      return { amount, before }
+    })
+  const amount = settled.amount
+  const book = { remaining: settled.before }
 
   const credit = await moveWallet({
     userId: row.userId, amount: minorToNumber(amount, currency), currency, type: 'REFUND',
@@ -339,17 +365,24 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     orderId: row.orderId, invoiceId: order.invoice?.id ?? null, adminId: input.actorId, idempotencyKey: `return-refund:${row.id}`,
   })
   if (!credit.ok) {
-    await db.returnRequest.update({ where: { id: row.id }, data: { status: row.status, refundMinor: 0n, refundedAt: null } })
+    // A resumed refund stays claimed, so it is tried again; a new one is released for another attempt.
+    if (!resuming) await db.returnRequest.updateMany({ where: { id: row.id, status: 'REFUNDED', walletTxId: null }, data: { status: row.status, refundMinor: 0n, refundedAt: null } })
     logEvent('error', 'store.return_refund_failed', { returnId: row.id, message: credit.message })
     throw new StoreError(`واریز به کیف پول انجام نشد: ${credit.message}`, 502)
   }
   await db.returnRequest.update({ where: { id: row.id }, data: { walletTxId: credit.txId } })
+  if (resuming && credit.idempotent) {
+    // The money had already been credited; only the record of it was missing. Whether the order-level
+    // effects ran cannot be told from here, and repeating them could restock twice, so they are left.
+    logEvent('warn', 'store.return_refund_record_repaired', { returnId: row.id, orderId: row.orderId })
+    return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })
+  }
 
   // Order-level effects: fulfilment state, stock, and a fully refunded order/invoice.
   const fullyRefunded = book.remaining - amount <= 0n
   const fulfilment = order.productDelivery?.status || ''
   const target = row.kind === 'CANCEL' ? 'CANCELLED' : fullyRefunded ? 'RETURNED' : ''
-  const restock = input.restock !== false
+  const restock = input.restock !== false && !row.restocked
   if (target && canMoveTo(fulfilment, target)) {
     await transitionOrder({ orderId: row.orderId, to: target, actorId: input.actorId, notify: false, restock: restock && row.kind === 'CANCEL', note: `${RETURN_KIND_LABEL[row.kind as ReturnKind]} ${row.number}` }).catch((error) => logEvent('warn', 'store.return_transition_failed', { returnId: row.id, error: error instanceof Error ? error.message : String(error) }))
   } else if (row.kind === 'CANCEL' && restock) {
@@ -370,6 +403,25 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
   await notifyCustomer(row, 'REFUNDED', `برگشت وجه ${row.number}`, `${shown} ${currency === 'IRT' ? 'تومان' : currency} بابت ${RETURN_KIND_LABEL[row.kind as ReturnKind]} سفارش ${row.orderId.toLocaleString('fa-IR')} به کیف پول شما واریز شد.`)
   logEvent('info', 'store.return_refunded', { returnId: row.id, orderId: row.orderId, amount: amount.toString(), currency })
   return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })
+}
+
+/**
+ * Worker step: refunds that were claimed but never credited because the process stopped in
+ * between. Requests marked refunded for at least ten minutes with no wallet movement recorded
+ * are finished through the ordinary refund path, which credits once. One that fails is
+ * logged and tried again on a later pass.
+ */
+export async function recoverInterruptedRefunds(limit = 20, now = new Date()) {
+  const rows = await db.returnRequest.findMany({ where: { status: 'REFUNDED', walletTxId: null, refundMinor: { gt: 0n }, refundedAt: { lte: new Date(now.getTime() - 10 * 60_000) } }, orderBy: { id: 'asc' }, take: Math.max(1, Math.min(100, Math.trunc(limit) || 20)), select: { id: true } })
+  let finished = 0
+  let failed = 0
+  for (const row of rows) {
+    try { await refundReturn({ id: row.id, actorId: null, note: '' }); finished++ } catch (error) {
+      failed++
+      logEvent('error', 'store.return_refund_recovery_failed', { returnId: row.id, error: String(error) })
+    }
+  }
+  return { checked: rows.length, finished, failed }
 }
 
 /** Returned items back on the shelf (finite stock only), line by line. */

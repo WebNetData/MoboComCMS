@@ -57,6 +57,18 @@ export async function moveWallet(input: WalletMoveInput): Promise<WalletMoveResu
   }
   if (amountMinor === 0n) return { ok: false, message: 'amount must not be zero' }
 
+  // Two movements can meet on a unique key: a member's first two movements both creating the
+  // account, or the same idempotency key sent twice at once. The loser's transaction is rolled
+  // back whole, so it is simply run again: the account now exists, and a repeated key is
+  // answered from the recorded movement instead of failing the caller.
+  for (let attempt = 0; ; attempt++) {
+    try { return await moveOnce(input, currency, amountMinor) } catch (error) {
+      if ((error as { code?: string })?.code !== 'P2002' || attempt >= 2) throw error
+    }
+  }
+}
+
+async function moveOnce(input: WalletMoveInput, currency: string, amountMinor: bigint): Promise<WalletMoveResult> {
   return db.$transaction(async (tx) => {
     if (input.idempotencyKey) {
       const previous = await tx.walletTx.findUnique({ where: { idempotencyKey: input.idempotencyKey } })

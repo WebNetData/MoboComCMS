@@ -7,6 +7,7 @@ import { releaseTerminalPromotionReservations } from '@/modules/promotions/serve
 import { logEvent } from '@/platform/observability/logger'
 import { syncRecentInvoiceEvents } from '@/modules/notifications/server/inbox'
 import { recoverReferralRewards } from '@/modules/referrals/server/referrals'
+import { recoverInterruptedRefunds } from '@/modules/store/server/returns'
 
 /**
  * One pass of the order worker: reconcile payments, retry fulfillment and
@@ -21,6 +22,7 @@ export async function runFulfillmentWorker(limit = 20, requestId?: string) {
   const payments = await processFrenzyReconciliationBatch(limit).catch(failedStep('payments', { checked: 0, paid: 0, pending: 0, expired: 0, canceled: 0, failed: 1, untracked: 0, deferred: 0 }))
   const topups = await recoverPaidWalletTopups(limit).catch(failedStep('topups', { checked: 0, credited: 0, failed: 1 }))
   const referrals = await recoverReferralRewards().catch(failedStep('referrals', { checked: 0, paid: 0, failed: 1 }))
+  const refunds = await recoverInterruptedRefunds(limit).catch(failedStep('refunds', { checked: 0, finished: 0, failed: 1 }))
   const recovered = await recoverMissingPaidFulfillment(limit).catch(failedStep('recovery', { checked: 0, enqueued: 0, failed: 1 }))
   const fulfillment = await processFulfillmentBatch(limit).catch(failedStep('fulfillment', { checked: 0, done: 0, failed: 1 }))
   const inbox = await syncRecentInvoiceEvents().catch(error => { logEvent('error', 'inbox.sync_failed', { error }); return { checked: -1 } })
@@ -35,7 +37,7 @@ export async function runFulfillmentWorker(limit = 20, requestId?: string) {
     return { sent: 0, failed: 1 }
   })
   const releasedReservations = await releaseExpiredReservations(Math.max(100, limit * 5)).catch(failedStep('reservations', -1))
-  const warn = Boolean(payments.failed || payments.untracked || topups.failed || referrals.failed || recovered.failed || fulfillment.failed || inbox.checked < 0 || alerts.failed || resellerDeliveries < 0 || releasedReservations < 0)
-  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, recovered, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations })
-  return { payments, topups, referrals, recovered, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations }
+  const warn = Boolean(payments.failed || payments.untracked || topups.failed || referrals.failed || refunds.failed || recovered.failed || fulfillment.failed || inbox.checked < 0 || alerts.failed || resellerDeliveries < 0 || releasedReservations < 0)
+  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, refunds, recovered, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations })
+  return { payments, topups, referrals, refunds, recovered, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations }
 }
