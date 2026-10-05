@@ -3,31 +3,45 @@ import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
 import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware, relatedTracks } from '@/modules/recommendations/server/contextual'
 
-type Seed = { ref: ItemRef; kind: 'favorite' | 'view' | 'follow' }
+type Seed = { ref: ItemRef; kind: 'favorite' | 'view' | 'follow' | 'listen' }
 type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: Seed['kind']; reason: string }
 
 const supported = ['game', 'software', 'title', 'album', 'track']
 const followedCreators = ['artist', 'studio']
+const HISTORY_DAYS = 180
+// A track counts as a listening signal once it was finished or played again, not on a single start.
+const LISTEN_SEEDS = 12
+// Tracks the member already played are not suggested back to them.
+const HEARD_LIMIT = 300
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 // Admin pause must take effect on the next request, including across separately bundled routes.
 const available = async () => (await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' }, select: { value: true } }))?.value !== 'false'
 
-/** Private, bounded suggestions. No interaction history is read before explicit consent. */
+/**
+ * Private, bounded suggestions. No interaction history is read before explicit consent, and
+ * listening history only with its own, separate consent.
+ */
 export async function personalRecommendations(userId: number, take = 6): Promise<{ available: boolean; enabled: boolean; items: PersonalSuggestion[] }> {
   if (!Number.isSafeInteger(userId) || userId < 1) return { available: false, enabled: false, items: [] }
   if (!await available()) return { available: false, enabled: false, items: [] }
-  const preference = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
+  const preference = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true, recommendationListeningOptIn: true } })
   if (!preference?.recommendationOptIn) return { available: true, enabled: false, items: [] }
+  const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000)
+  const useListening = preference.recommendationListeningOptIn
 
-  const [follows, favorites, views] = await Promise.all([
+  const [follows, favorites, views, listens, heard] = await Promise.all([
     db.itemFavorite.findMany({ where: { userId, itemType: { in: followedCreators } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
     db.itemFavorite.findMany({ where: { userId, itemType: { in: supported } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
-    db.userRecentView.findMany({ where: { userId, lastViewedAt: { gte: new Date(Date.now() - 180 * 86_400_000) } }, orderBy: { lastViewedAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+    db.userRecentView.findMany({ where: { userId, lastViewedAt: { gte: since } }, orderBy: { lastViewedAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
+    useListening ? db.musicListenHistory.findMany({ where: { userId, lastPlayedAt: { gte: since }, OR: [{ completedAt: { not: null } }, { playCount: { gte: 2 } }] }, orderBy: [{ playCount: 'desc' }, { lastPlayedAt: 'desc' }, { trackId: 'desc' }], take: LISTEN_SEEDS, select: { trackId: true } }) : [],
+    useListening ? db.musicListenHistory.findMany({ where: { userId }, orderBy: [{ lastPlayedAt: 'desc' }, { trackId: 'desc' }], take: HEARD_LIMIT, select: { trackId: true } }) : [],
   ])
   const creatorSeeds: Seed[] = []
   const contentSeeds: Seed[] = []
   const seen = new Set<string>()
-  for (const [kind, rows] of [['follow', follows], ['favorite', favorites], ['view', views]] as const) for (const row of rows) {
+  // What the member listens to repeatedly says more than a page view, less than a deliberate favorite.
+  const listened = listens.map((row) => ({ itemType: 'track', itemId: row.trackId }))
+  for (const [kind, rows] of [['follow', follows], ['favorite', favorites], ['listen', listened], ['view', views]] as const) for (const row of rows) {
     const ref = parseItemKey(`${row.itemType}:${row.itemId}`)
     if (!ref) continue
     const key = itemKey(ref)
@@ -35,6 +49,7 @@ export async function personalRecommendations(userId: number, take = 6): Promise
       (kind === 'follow' ? creatorSeeds : contentSeeds).push({ ref, kind })
     seen.add(key)
   }
+  for (const row of heard) seen.add(itemKey({ type: 'track', id: row.trackId }))
   // Reserve room for a followed creator even when newer content favorites fill the history window.
   const seeds = [creatorSeeds[0], contentSeeds[0], ...creatorSeeds.slice(1), ...contentSeeds.slice(1)].filter((seed): seed is Seed => !!seed)
   if (!seeds.length) return { available: true, enabled: true, items: [] }
@@ -104,7 +119,7 @@ export async function personalRecommendations(userId: number, take = 6): Promise
     for (const suggestion of suggestions) {
       const key = itemKey(suggestion.item)
       if (seen.has(key)) continue
-      const score = suggestion.score + (seed.kind === 'view' ? 0 : 3)
+      const score = suggestion.score + (seed.kind === 'view' ? 0 : seed.kind === 'listen' ? 2 : 3)
       const previous = ranked.get(key)
       if (!previous || score > previous.score) ranked.set(key, { ref: suggestion.item, score, sourceTitle: source.title, sourceKind: seed.kind, reason: suggestion.reason })
     }
@@ -114,11 +129,13 @@ export async function personalRecommendations(userId: number, take = 6): Promise
   const order = [...ranked.values()].sort((a, b) => b.score - a.score || a.ref.id - b.ref.id).slice(0, 24)
   const cards = await itemCards(order.map((entry) => entry.ref))
   // A preference changed during calculation must close this private result too.
-  const stillEnabled = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true } })
+  const stillEnabled = await db.user.findUnique({ where: { id: userId }, select: { recommendationOptIn: true, recommendationListeningOptIn: true } })
   if (!stillEnabled?.recommendationOptIn) return { available: true, enabled: false, items: [] }
+  // Listening consent withdrawn meanwhile: nothing derived from listening is shown.
+  const listeningStillOn = stillEnabled.recommendationListeningOptIn
   if (!await available()) return { available: false, enabled: false, items: [] }
   return { available: true, enabled: true, items: order.flatMap((entry) => {
     const item = cards.get(itemKey(entry.ref))
-    return item ? [{ item, sourceTitle: entry.sourceTitle, sourceKind: entry.sourceKind, reason: entry.reason }] : []
+    return item && (entry.sourceKind !== 'listen' || listeningStillOn) ? [{ item, sourceTitle: entry.sourceTitle, sourceKind: entry.sourceKind, reason: entry.reason }] : []
   }).slice(0, Math.max(1, Math.min(12, Math.trunc(take) || 6))) }
 }

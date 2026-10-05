@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!user) return err('unauthorized', 401)
   const u = await db.user.findUnique({ where: { id: user.id } })
   if (!u) return err('not found', 404)
-  return ok({ id: u.id, email: u.email, name: u.name, phone: u.phone, phoneVerified: !!u.phoneVerifiedAt, smsAlerts: u.smsAlerts, emailAlerts: u.emailAlerts, pushAlerts: u.pushAlerts, recommendationOptIn: u.recommendationOptIn, avatarColor: u.avatarColor, subscriptionAlerts: u.subscriptionAlerts, locale: await getUserLocale(u.id) })
+  return ok({ id: u.id, email: u.email, name: u.name, phone: u.phone, phoneVerified: !!u.phoneVerifiedAt, smsAlerts: u.smsAlerts, emailAlerts: u.emailAlerts, pushAlerts: u.pushAlerts, recommendationOptIn: u.recommendationOptIn, recommendationListeningOptIn: u.recommendationListeningOptIn, avatarColor: u.avatarColor, subscriptionAlerts: u.subscriptionAlerts, locale: await getUserLocale(u.id) })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -56,6 +56,10 @@ export async function PATCH(req: NextRequest) {
     if (typeof b.recommendationOptIn !== 'boolean') return err(L('Invalid recommendation preference', 'تنظیم پیشنهادهای شخصی معتبر نیست'), 400)
     data.recommendationOptIn = b.recommendationOptIn
   }
+  if (b?.recommendationListeningOptIn !== undefined) {
+    if (typeof b.recommendationListeningOptIn !== 'boolean') return err(L('Invalid recommendation preference', 'تنظیم پیشنهادهای شخصی معتبر نیست'), 400)
+    data.recommendationListeningOptIn = b.recommendationListeningOptIn
+  }
   if (typeof b?.avatarColor === 'string') {
     if (!/^#[0-9a-fA-F]{6}$/.test(b.avatarColor)) return err(L('Invalid color', 'رنگ نامعتبر است'))
     data.avatarColor = b.avatarColor
@@ -75,5 +79,5 @@ export async function PATCH(req: NextRequest) {
 
   const updated = Object.keys(data).length ? await db.user.update({ where: { id: user.id }, data }) : await db.user.findUniqueOrThrow({ where: { id: user.id } })
   if (b?.locale) await setUserLocale(user.id, b.locale)
-  return ok({ id: updated.id, name: updated.name, phone: updated.phone, phoneVerified: !!updated.phoneVerifiedAt, smsAlerts: updated.smsAlerts, emailAlerts: updated.emailAlerts, pushAlerts: updated.pushAlerts, recommendationOptIn: updated.recommendationOptIn, avatarColor: updated.avatarColor, subscriptionAlerts: updated.subscriptionAlerts, locale: b?.locale || await getUserLocale(user.id) })
+  return ok({ id: updated.id, name: updated.name, phone: updated.phone, phoneVerified: !!updated.phoneVerifiedAt, smsAlerts: updated.smsAlerts, emailAlerts: updated.emailAlerts, pushAlerts: updated.pushAlerts, recommendationOptIn: updated.recommendationOptIn, recommendationListeningOptIn: updated.recommendationListeningOptIn, avatarColor: updated.avatarColor, subscriptionAlerts: updated.subscriptionAlerts, locale: b?.locale || await getUserLocale(user.id) })
 }
