@@ -26,6 +26,7 @@ const WORKER = {
  '@/modules/fulfillment/server/jobs': {recoverPaidWalletTopups: {checked: 0, credited: 0, failed: 0}, recoverMissingPaidFulfillment: {checked: 0, enqueued: 0, failed: 0}, processFulfillmentBatch: {checked: 2, done: 2, failed: 0}},
  '@/modules/notifications/server/inbox': {syncRecentInvoiceEvents: {checked: 0}},
  '@/modules/referrals/server/referrals': {recoverReferralRewards: {checked: 0, paid: 0, failed: 0}},
+ '@/modules/store/server/returns': {recoverInterruptedRefunds: {checked: 0, finished: 0, failed: 0}},
  '@/modules/reseller/server/reseller-bot-sales': {retryResellerDeliveries: 0, cleanupResellerBotUpdates: 0},
  '@/modules/promotions/server/promotions': {releaseTerminalPromotionReservations: 0},
  '@/modules/fulfillment/server/alerts': {alertStuckFulfillment: {sent: 0, failed: 0}},
