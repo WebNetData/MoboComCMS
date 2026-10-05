@@ -9,7 +9,7 @@ type Dimension = { key: string; label: string; hint: string }
 const LABELS = ['', 'ضعیف', 'متوسط', 'خوب', 'خیلی خوب', 'عالی']
 
 /** Star rating, optional per-type dimension scores and optional text review for the signed-in member (create, edit, delete). */
-export default function ReviewForm({ item, mine, loggedIn, title, path, dimensions = [], experience = '', badgeHint = '' }: { item: string; mine: Mine; loggedIn: boolean; title: string; path: string; dimensions?: Dimension[]; experience?: string; badgeHint?: string }) {
+export default function ReviewForm({ item, mine, loggedIn, title, path, dimensions = [], experience = '', badgeHint = '', startEditing = false, onDone }: { item: string; mine: Mine; loggedIn: boolean; title: string; path: string; dimensions?: Dimension[]; experience?: string; badgeHint?: string; /** Open the editor for an existing review (account list). */ startEditing?: boolean; /** Called when the editor is left: saved, cancelled or deleted. */ onDone?: () => void }) {
   const router = useRouter()
   const [rating, setRating] = useState(mine?.rating || 0)
   const [hover, setHover] = useState(0)
@@ -17,7 +17,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
   const [scores, setScores] = useState<ReviewScores>(mine?.scores || {})
   // Until the member picks the stars themselves, they follow the dimension scores.
   const [ratingChosen, setRatingChosen] = useState(!!mine)
-  const [editing, setEditing] = useState(!mine)
+  const [editing, setEditing] = useState(!mine || startEditing)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
@@ -45,6 +45,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
     setRatingChosen(true)
     setMessage({ text: data.status === 'PENDING' ? 'امتیاز ثبت شد. متن نظر پس از بررسی نمایش داده می‌شود.' : 'ممنون! نظر شما ثبت شد.', error: false })
     router.refresh()
+    onDone?.()
   }
 
   async function remove() {
@@ -110,7 +111,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
       {message && <p className={message.error ? 'error-text' : 'rv-ok'} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
       <div className="rv-form-actions">
         <button className="btn btn-primary btn-sm" disabled={busy || !rating}>{busy ? 'در حال ثبت…' : mine ? 'ذخیرهٔ تغییرات' : 'ثبت امتیاز و نظر'}</button>
-        {mine && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setRating(mine.rating); setBody(mine.body); setScores(mine.scores || {}) }}>انصراف</button>}
+        {mine && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setRating(mine.rating); setBody(mine.body); setScores(mine.scores || {}); onDone?.() }}>انصراف</button>}
         <small className="muted">{body.length.toLocaleString('fa-IR')} / ۲٬۰۰۰</small>
       </div>
     </form>

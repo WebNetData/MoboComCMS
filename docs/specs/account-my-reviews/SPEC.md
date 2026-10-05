@@ -22,6 +22,14 @@ Additive: one page, one menu link, two read functions (`memberItemReviews`, `mem
 
 Real PostgreSQL: merged order across both sources, pagination and page bounds, own rows only, unpublished item and non-public product unnamed, rejected and rating-only rows, each module disabled in turn with rows preserved. Browser, RTL, dark and light, desktop and mobile: empty state, list with every state, link to a public item opens, no horizontal overflow, signed-out visitor is sent to login. TypeScript, source, architecture, security, money-UI and i18n checks, production build.
 
-## Not in this slice
+## Managing from the list (second slice)
 
-Verified-reviewer eligibility and per-type rating dimensions for shared items; editing or deleting from this page; an API for apps.
+A shared review's row also shows its verified-experience badge and dimension scores, and has **Edit** and **Delete**. Edit opens the same form as the item page in place (stars, dimension scores, text) and saves through the same `POST /api/engage/review`; an edited text goes back to moderation by the existing rule and the row moves to the top. Delete uses the same `DELETE /api/engage/review`. When the item is no longer public the review can be deleted but not edited, and the item is still not named.
+
+A store product review has neither button: the store accepts one review per verified buyer and has no edit or delete for members. Its rejected hint says so.
+
+No schema change and no new endpoint; `memberItemReviews` returns the item reference, badge and scores as well.
+
+## Not covered
+
+Editing or deleting product reviews (a store policy decision); an API for apps beyond the existing review endpoints.

@@ -40,17 +40,38 @@ async function main() {
   {productId: live.id, userId: other.id, rating: 1, title: 'Other', body: 'someone else on the product', status: 'APPROVED', updatedAt: at(60)},
  ]})
  state.hidden.add(base + 7)
+ const scored = await db.itemReview.findFirstOrThrow({where: {userId: member.id, itemId: base + 11}})
+ await db.itemReviewScore.createMany({data: [{reviewId: scored.id, key: 'gameplay', score: 5}, {reviewId: scored.id, key: 'story', score: 2}, {reviewId: scored.id, key: 'usability', score: 4}]})
+ await db.itemReview.updateMany({where: {id: scored.id}, data: {verified: 'DOWNLOAD', updatedAt: scored.updatedAt}})
  let page = await account.memberReviewPage(member.id, 1)
  assert.equal(page.total, 14); assert.equal(page.pages, 2); assert.equal(page.page, 1); assert.equal(page.reviews.length, 10)
  // Both sources are merged by last change, newest first.
  assert.deepEqual(page.reviews.map(row => row.updatedAt.getUTCMinutes()), [20, 12, 11, 10, 9, 8, 7, 6, 6, 5])
- assert.deepEqual(page.reviews[0], {key: page.reviews[0].key, kind: 'product', label: 'محصول', rating: 5, title: 'Great', body: 'works well for me', status: 'APPROVED', updatedAt: at(20), target: {title: 'Live product', url: `/products/${seed}-live`, image: ''}})
+ assert.deepEqual(page.reviews[0], {key: page.reviews[0].key, kind: 'product', label: 'محصول', rating: 5, title: 'Great', body: 'works well for me', status: 'APPROVED', updatedAt: at(20), target: {title: 'Live product', url: `/products/${seed}-live`, image: ''}, manage: null})
  assert.ok(page.reviews.every(row => !row.body.includes('someone else')), 'nobody else\'s review is listed')
  const hiddenItem = page.reviews.find(row => row.kind === 'item' && row.updatedAt.getUTCMinutes() === 8)
  assert.equal(hiddenItem.target, null, 'an unpublished item is not named'); assert.equal(hiddenItem.label, 'بازی')
  const secret = page.reviews.find(row => row.kind === 'product' && row.status === 'PENDING')
  assert.equal(secret.target, null, 'a product that is not public is not named'); assert.equal(secret.body, 'not what I expected')
  assert.ok(!JSON.stringify(page).includes('Secret product'))
+ // What edit and delete need: shared reviews carry their address, badge and dimension scores; product reviews are written once.
+ assert.ok(page.reviews.filter(row => row.kind === 'product').every(row => row.manage === null))
+ assert.deepEqual(page.reviews.find(row => row.updatedAt.getUTCMinutes() === 12).manage, {item: `game:${base + 11}`, itemType: 'game', verified: 'DOWNLOAD', scores: {gameplay: 5, story: 2}}, 'unknown and other types\' keys are not shown')
+ assert.deepEqual(hiddenItem.manage, {item: `game:${base + 7}`, itemType: 'game', verified: '', scores: {}}, 'a withdrawn item can still be deleted')
+ // Edit and delete go through the reviews module's own write path and show up in the list.
+ const reviews = load('src/modules/reviews/server/reviews.ts')
+ const edited = await reviews.saveReview(member.id, {type: 'game', id: base + 2}, {rating: 1, body: 'edited from the account list', scores: {graphics: 4}})
+ assert.equal(edited.status, 'PENDING', 'an edited text goes back to moderation')
+ let first = (await account.memberReviewPage(member.id, 1)).reviews[0]
+ assert.deepEqual([first.kind, first.rating, first.body, first.manage.scores], ['item', 1, 'edited from the account list', {graphics: 4}], 'an edited review moves to the top')
+ await assert.rejects(reviews.saveReview(member.id, {type: 'game', id: base + 7}, {rating: 5}), error => error.status === 404, 'a withdrawn item cannot be edited')
+ await reviews.deleteReview(member.id, {type: 'game', id: base + 7})
+ await reviews.deleteReview(other.id, {type: 'game', id: base + 2})
+ let after = await account.memberReviewPage(member.id, 1)
+ assert.equal(after.total, 13); assert.ok(after.reviews.every(row => row.manage?.item !== `game:${base + 7}`)); assert.equal(await db.itemReview.count({where: {userId: member.id, itemId: base + 2}}), 1, 'deleting addresses only the member\'s own review')
+ // Put the two back so the rest of the script reads the original set.
+ await db.itemReview.deleteMany({where: {userId: member.id, itemId: base + 2}})
+ await db.itemReview.createMany({data: [{itemType: 'game', itemId: base + 2, userId: member.id, rating: 3, body: 'review text number 2', status: 'APPROVED', updatedAt: at(3)}, {itemType: 'game', itemId: base + 7, userId: member.id, rating: 3, body: 'review text number 7', status: 'APPROVED', updatedAt: at(8)}]})
  page = await account.memberReviewPage(member.id, 2)
  assert.deepEqual(page.reviews.map(row => [row.updatedAt.getUTCMinutes(), row.status]), [[4, 'PENDING'], [3, 'APPROVED'], [2, 'APPROVED'], [1, 'APPROVED']])
  assert.equal(page.reviews.at(-1).body, '', 'a rating without text is listed too')
@@ -77,7 +98,7 @@ async function main() {
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
  try {
   const ids = (await db.user.findMany({where: {email: {startsWith: seed}}, select: {id: true}})).map(user => user.id)
-  await db.itemReview.deleteMany({where: {userId: {in: ids}}}); await db.productReview.deleteMany({where: {userId: {in: ids}}})
+  await db.itemReview.deleteMany({where: {userId: {in: ids}}}); await db.itemStat.deleteMany({where: {itemType: 'game', itemId: {gte: base, lt: base + 12}}}); await db.productReview.deleteMany({where: {userId: {in: ids}}})
   await db.product.deleteMany({where: {slug: {startsWith: seed}}}); await db.user.deleteMany({where: {id: {in: ids}}})
  } finally {await db.$disconnect()}
 })
