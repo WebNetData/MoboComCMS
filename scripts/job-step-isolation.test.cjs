@@ -28,6 +28,7 @@ const WORKER = {
  '@/modules/notifications/server/inbox': {syncRecentInvoiceEvents: {checked: 0}},
  '@/modules/referrals/server/referrals': {recoverReferralRewards: {checked: 0, paid: 0, failed: 0}},
  '@/modules/store/server/returns': {recoverInterruptedRefunds: {checked: 0, finished: 0, failed: 0}},
+ '@/modules/store/server/orders': {recoverStoreSaleRecords: {checked: 0, recorded: 0, failed: 0}},
  '@/modules/reseller/server/reseller-bot-sales': {retryResellerDeliveries: 0, cleanupResellerBotUpdates: 0},
  '@/modules/promotions/server/promotions': {releaseTerminalPromotionReservations: 0},
  '@/modules/fulfillment/server/alerts': {alertStuckFulfillment: {sent: 0, failed: 0}},

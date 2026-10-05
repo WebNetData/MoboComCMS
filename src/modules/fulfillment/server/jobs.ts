@@ -282,32 +282,42 @@ export async function processFulfillmentBatch(limit = 20) {
 
 /** Heal the gap if a webhook committed payment but crashed before enqueueing delivery. */
 export async function recoverMissingPaidFulfillment(limit = 20) {
-  const paid = await db.invoice.findMany({
-    where: { status: 'PAID', orderId: { not: null }, OR: [{ planId: { not: null } }, { productId: { not: null } }] },
-    orderBy: { id: 'desc' }, take: 500,
-    select: { id: true, orderId: true, planId: true, productId: true },
-  })
-  const orderIds = paid.map(invoice => invoice.orderId).filter((id): id is number => id !== null)
-  const [jobs, subscriptions] = await Promise.all([
-    db.fulfillmentJob.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true } }),
-    db.subscription.findMany({ where: { orderId: { in: orderIds }, status: 'ACTIVE', username: { not: 'pending' } }, select: { orderId: true } }),
-  ])
-  const covered = new Set([...jobs.map(job => job.orderId), ...subscriptions.map(sub => sub.orderId)])
+  const room = Math.max(1, Math.min(limit, 100))
+  let checked = 0
   let enqueued = 0
   let failed = 0
-  for (const invoice of paid) {
-    if (enqueued + failed >= Math.max(1, Math.min(limit, 100))) break
-    if (!invoice.orderId || covered.has(invoice.orderId)) continue
-    try {
-      await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId })
-      covered.add(invoice.orderId)
-      enqueued++
-    } catch (error) {
-      failed++
-      logEvent('error', 'fulfillment.recovery_failed', { invoiceId: invoice.id, orderId: invoice.orderId, error })
+  // Paid invoices are read newest first in pages, not as one fixed window: on a busy site more than
+  // one page of newer, already fulfilled invoices must not hide a paid order that still has no job.
+  for (let before = 0, pages = 0; pages < 6 && enqueued + failed < room; pages++) {
+    const paid = await db.invoice.findMany({
+      where: { status: 'PAID', orderId: { not: null }, OR: [{ planId: { not: null } }, { productId: { not: null } }], ...(before ? { id: { lt: before } } : {}) },
+      orderBy: { id: 'desc' }, take: 500,
+      select: { id: true, orderId: true, planId: true, productId: true },
+    })
+    if (!paid.length) break
+    before = paid[paid.length - 1].id
+    checked += paid.length
+    const orderIds = paid.map(invoice => invoice.orderId).filter((id): id is number => id !== null)
+    const [jobs, subscriptions] = await Promise.all([
+      db.fulfillmentJob.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true } }),
+      db.subscription.findMany({ where: { orderId: { in: orderIds }, status: 'ACTIVE', username: { not: 'pending' } }, select: { orderId: true } }),
+    ])
+    const covered = new Set([...jobs.map(job => job.orderId), ...subscriptions.map(sub => sub.orderId)])
+    for (const invoice of paid) {
+      if (enqueued + failed >= room) break
+      if (!invoice.orderId || covered.has(invoice.orderId)) continue
+      try {
+        await enqueueOrderFulfillment({ orderId: invoice.orderId, invoiceId: invoice.id, planId: invoice.planId, productId: invoice.productId })
+        covered.add(invoice.orderId)
+        enqueued++
+      } catch (error) {
+        failed++
+        logEvent('error', 'fulfillment.recovery_failed', { invoiceId: invoice.id, orderId: invoice.orderId, error })
+      }
     }
+    if (paid.length < 500) break
   }
-  return { checked: paid.length, enqueued, failed }
+  return { checked, enqueued, failed }
 }
 
 /** A paid top-up must not remain uncredited after a callback interruption. */
