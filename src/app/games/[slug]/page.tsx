@@ -158,7 +158,7 @@ export default async function GamePage({ params }: Props) {
           <UpdatesTimeline updates={extras.updates} member={viewer.member} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} paywall={paywall} />
           <NewsList posts={extras.news} title={`اخبار و مقالات ${g.title}`} />
           <RelatedDiscussions item={ref} />
-          <div id="reviews" className="gv-anchor"><ReviewSection item={ref} title={g.title} path={`/games/${g.slug}`} /></div>
+          <div id="reviews" className="gv-anchor"><ReviewSection item={ref} title={g.title} path={`/games/${g.slug}`} anchor={false} /></div>
         </div>
         <aside className="gv-aside">
           <ScoreCard score={g.score} verdict={g.verdict} member={extras.member} showMember={extras.settings.showMemberScore} />

@@ -69,7 +69,7 @@ export function InfoCard({ facts, releases, play, stores }: { facts: Fact[]; rel
       <dl className="gv-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
     </section>
     {releases.length > 0 && <section className="gv-card"><h2 className="gv-card-title">انتشار روی پلتفرم‌ها</h2>
-      <ul className="gv-releases">{releases.map((release) => <li key={release.platform}><span><Icon name={platformIcon(release.platform)} size={14} />{release.platform}</span><time dateTime={release.date}>{longDay(release.date)}</time></li>)}</ul>
+      <ul className="gv-releases">{releases.map((release, index) => <li key={`${release.platform}:${release.date}:${index}`}><span><Icon name={platformIcon(release.platform)} size={14} />{release.platform}</span><time dateTime={release.date}>{longDay(release.date)}</time></li>)}</ul>
     </section>}
     {hasPlay ? <section className="gv-card"><h2 className="gv-card-title">چقدر طول می‌کشد؟</h2>
       <ul className="gv-play">

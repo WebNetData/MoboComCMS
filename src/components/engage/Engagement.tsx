@@ -29,8 +29,11 @@ export async function ItemActionBar({ item, title, image, followLabel, favoriteL
   return <><ItemActions item={itemKey(item)} title={title} image={image} loggedIn={!!viewer.userId} favorite={data?.favorite || null} favorites={data?.favorites || 0} canFavorite={canFavorite} canCompare={canCompare} followLabel={followLabel} favoriteLabels={favoriteLabels} />{viewer.userId && <RecentViewTracker item={itemKey(item)} />}</>
 }
 
-/** Rating summary, the member's review form and approved reviews for an item. */
-export async function ReviewSection({ item, title, path }: { item: ItemRef; title: string; path: string }) {
+/**
+ * Rating summary, the member's review form and approved reviews for an item.
+ * `anchor={false}` leaves out the `reviews` id for a page that already wraps the section in its own anchor.
+ */
+export async function ReviewSection({ item, title, path, anchor = true }: { item: ItemRef; title: string; path: string; anchor?: boolean }) {
   if (!REVIEWABLE.includes(item.type) || !await isModuleEnabled('reviews')) return null
   const viewer = await getViewer()
   const data = await itemEngagement(item, viewer.userId, 1, { viewerExperience: true })
@@ -38,7 +41,7 @@ export async function ReviewSection({ item, title, path }: { item: ItemRef; titl
   const max = Math.max(1, ...summary.distribution)
   const dimensions = dimensionsFor(item.type).map(({ key, label, hint }) => ({ key, label, hint }))
   return (
-    <section className="rv-section" id="reviews" aria-labelledby="reviews-title">
+    <section className="rv-section" id={anchor ? 'reviews' : undefined} aria-labelledby="reviews-title">
       <h2 id="reviews-title">امتیاز و نظر کاربران</h2>
       <div className="rv-top">
         <div className="rv-score">
