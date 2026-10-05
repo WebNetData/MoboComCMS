@@ -76,6 +76,8 @@ test('Catalog picker retains cms.products, bounds refs and filters source throug
     '@/modules/identity/server/admin-guard': { adminGuard: async (req, moduleId, permissions) => { assert.deepEqual(permissions, ['cms.products']); return denied ? { response: { status: 403 } } : { admin: { id: 1 } } } },
     '@/platform/http/response': { err: (error, status) => ({ error, status }), ok: body => body },
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
+    // The route imports the database client for its variant lookup; without this the real client starts in the background.
+    '@/platform/database/prisma': { db: {} },
     '@/modules/content/server/registry': {
       searchItemCards: async (q, types, take) => { lookups++; assert.deepEqual(types, ['product']); assert.equal(take, 20); return [1, 2].map(id => ({ id, type: 'product', title: `P${id}`, url: `/products/p${id}`, image: '' })) },
       itemCards: async () => new Map(),
