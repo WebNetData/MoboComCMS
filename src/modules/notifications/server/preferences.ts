@@ -10,6 +10,8 @@ const INBOX_ONLY: KindLabel[] = [
   { kind: 'ORDER_STATUS', labelEn: 'Order status', labelFa: 'وضعیت سفارش' },
   { kind: 'FOLLOWED_UPDATE', labelEn: 'Followed content update', labelFa: 'محتوای دنبال‌شده' },
   { kind: 'REVIEW_APPROVED', labelEn: 'Review approved', labelFa: 'انتشار نظر' },
+  { kind: 'COMMENT_APPROVED', labelEn: 'Article comment approved', labelFa: 'انتشار دیدگاه مقاله' },
+  { kind: 'COMMENT_REPLY', labelEn: 'Replies to my article comments', labelFa: 'پاسخ به دیدگاه مقاله' },
   { kind: 'FORUM_REPLY', labelEn: 'Forum replies', labelFa: 'پاسخ در تالار' },
   { kind: 'FORUM_MENTION', labelEn: 'Forum mentions', labelFa: 'نام‌بردن در تالار' },
   { kind: 'FORUM_POSTED', labelEn: 'Watched forum topics', labelFa: 'موضوع‌های دنبال‌شدهٔ تالار' },
