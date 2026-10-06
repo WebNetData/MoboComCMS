@@ -12,7 +12,7 @@ import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
 import AdminPagination from './AdminPagination'
 import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
-import { playbackKind } from '@/modules/media/domain/media'
+import { TRACK_LANGUAGES, playbackKind } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 
 /**
@@ -418,7 +418,7 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   </div>
 }
 
-export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; url: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
+export type LinkRow = { label: string; kind: string; quality: string; size: string; audio: string; subtitle: boolean; language?: string; url: string; access: string; platform?: string; architecture?: string; checksum?: string; disabled?: boolean; clicks?: number; price?: string; priceVip?: string; sales?: number }
 const blankLink = (): LinkRow => ({ label: '', kind: 'DOWNLOAD', quality: '1080p', size: '', audio: '', subtitle: false, url: '', access: 'PUBLIC' })
 
 function move<T>(list: T[], index: number, delta: number): T[] {
@@ -451,7 +451,7 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
       {value.map((row, index) => (
         <div key={index} className="mx-link-row">
           <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
-          <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option></select>
+          <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
           <input className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
           <input className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
           {section === 'software' && <div className="mx-software-link-meta">
@@ -459,8 +459,8 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
             <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
             <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
           </div>}
-          <select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
-          <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label>
+          {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
+          <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
           <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
           {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
             <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />

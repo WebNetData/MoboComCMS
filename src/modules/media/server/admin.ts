@@ -151,7 +151,7 @@ async function linksFor(ownerType: LinkOwner, ids: number[]) {
   for (const row of rows) {
     const rule = priced.get(row.id)
     const price = rule ? { price: rule.priceMinor.toString(), priceVip: rule.vipAccess === 'NONE' ? 'NONE' : 'FREE', sales: rule.sales } : {}
-    map.set(row.ownerId, [...(map.get(row.ownerId) || []), { id: row.id, label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, url: row.url, access: row.access, sortOrder: row.sortOrder, disabled: row.disabled, clicks: row.clicks, ...price }])
+    map.set(row.ownerId, [...(map.get(row.ownerId) || []), { id: row.id, label: row.label, kind: row.kind, quality: row.quality, size: row.size, audio: row.audio, subtitle: row.subtitle, language: row.language, url: row.url, access: row.access, sortOrder: row.sortOrder, disabled: row.disabled, clicks: row.clicks, ...price }])
   }
   return map
 }

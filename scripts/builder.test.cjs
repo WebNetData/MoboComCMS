@@ -256,6 +256,8 @@ test('media links, trailers, requirements and scores are validated', () => {
   assert.equal(links[0].kind, 'DOWNLOAD')
   assert.equal(links[0].access, 'MEMBERS')
   assert.deepEqual(groupLinks(links).map(g => g.audio), ['DUBBED', 'ORIGINAL'])
+  const media = load('src/modules/media/domain/media.ts'), withTracks = cleanLinks([{ url: 'https://dl.example.com/a.mkv', audio: 'DUBBED' }, { url: 'https://dl.example.com/en.srt', kind: 'SUBTITLE', language: 'en', audio: 'DUBBED' }, { url: 'https://dl.example.com/fa.srt', kind: 'SUBTITLE', language: 'fa' }, { url: 'https://dl.example.com/fa.mka', kind: 'AUDIO', language: 'xx' }])
+  assert.deepEqual([groupLinks(withTracks).map(g => g.items.length), media.trackLinks(withTracks).subtitles.map(l => l.language), media.trackLinks(withTracks).audio.map(l => [l.language, l.audio]), media.playbackKind('https://dl.example.com/x.mp4', 'SUBTITLE')], [[1], ['fa', 'en'], [['', '']], 'none'])
   const { toEmbedUrl } = domain()
   assert.deepEqual(trailerSource('https://youtu.be/dQw4w9WgXcQ', toEmbedUrl), { embed: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ' })
   assert.deepEqual(trailerSource('https://cdn.example.com/t.mp4', toEmbedUrl), { src: 'https://cdn.example.com/t.mp4' })

@@ -1,5 +1,5 @@
 import Link from '@/components/AppLink'
-import { groupLinks } from '@/modules/media/domain/media'
+import { groupLinks, isTrack, trackLanguage, trackLinks } from '@/modules/media/domain/media'
 import { getViewer } from '@/modules/membership/server/membership'
 import { linkHref } from '@/modules/downloads/server/guard'
 import { playableLinks } from '@/modules/media/server/links'
@@ -8,11 +8,11 @@ import { linkPaywalls } from '@/modules/paywall/server/paywall'
 import BuyLinkButton from '@/components/paywall/BuyLinkButton'
 import CopyText from '@/components/software/CopyText'
 
-type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform?: string; architecture?: string; checksum?: string; audio: string; subtitle: boolean; access: string }
+type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform?: string; architecture?: string; checksum?: string; audio: string; subtitle: boolean; language?: string; access: string }
 
 /**
  * Download / stream box (hexdl / melofilm style): grouped by dub vs original audio,
- * one row per quality. Members-only rows show a lock and send guests to /vip.
+ * one row per quality; separate subtitle and audio files follow in groups of their own. Members-only rows show a lock and send guests to /vip.
  * Open rows carry a short-lived signed token (download protection module) and
  * a "report a problem" button.
  */
@@ -28,13 +28,19 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
   // The in-site player reuses the download token (same link, same viewer).
   const watchHref = (id: number) => { const token = new URL(hrefs.get(id) || '/', 'http://x').searchParams.get('t'); return `/watch/${id}${token ? `?t=${encodeURIComponent(token)}` : ''}` }
   const audioName = (audio: string) => (audio === 'DUBBED' ? (fa ? '🎙 دوبله فارسی' : '🎙 Persian dub') : audio === 'ORIGINAL' ? (fa ? '🌐 زبان اصلی' : '🌐 Original audio') : (fa ? 'لینک‌ها' : 'Links'))
+  const tracks = trackLinks(links)
+  const groups = [
+    ...groupLinks(links).map((group) => ({ key: group.audio || 'all', head: audioName(group.audio), track: false, items: group.items })),
+    ...(tracks.subtitles.length ? [{ key: 'subtitles', head: fa ? '💬 زیرنویس جدا' : '💬 Subtitle files', track: true, items: tracks.subtitles }] : []),
+    ...(tracks.audio.length ? [{ key: 'audio-tracks', head: fa ? '🎧 صوت جدا (برای افزودن به فیلم)' : '🎧 Separate audio tracks', track: true, items: tracks.audio }] : []),
+  ]
   return (
     <div className={`md-links${compact ? ' is-compact' : ''}`} id={compact ? undefined : 'downloads'}>
       {!compact && <DownloadNotice />}
       {title && <h3 className="md-links-title">{title}</h3>}
-      {groupLinks(links).map((group) => (
-        <div key={group.audio || 'all'} className="md-links-group">
-          {!compact && <div className="md-links-group-head">{audioName(group.audio)}</div>}
+      {groups.map((group) => (
+        <div key={group.key} className="md-links-group">
+          {(!compact || group.track) && <div className="md-links-group-head">{group.head}</div>}
           <ul>
             {group.items.map((link) => {
               // A priced item: buying (or VIP, when the admin made it free for members) opens every link.
@@ -45,10 +51,11 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
               const href = locked ? (paywall ? '#buy' : loggedIn ? '/vip' : `/login?next=${encodeURIComponent('/vip')}`) : hrefs.get(link.id) || `/api/media/link/${link.id}`
               return (
                 <li key={link.id} className={locked ? 'is-locked' : ''}>
-                  <span className="md-q" dir="ltr">{link.quality || '—'}</span>
+                  <span className="md-q" dir={isTrack(link.kind) && link.language ? undefined : 'ltr'}>{isTrack(link.kind) ? trackLanguage(link.language || '', fa) || link.quality || '—' : link.quality || '—'}</span>
                   <span className="md-l">
-                    <b>{link.label || (link.kind === 'STREAM' ? (fa ? 'پخش آنلاین' : 'Watch online') : (fa ? 'دانلود مستقیم' : 'Direct download'))}</b>
+                    <b>{link.label || (link.kind === 'STREAM' ? (fa ? 'پخش آنلاین' : 'Watch online') : link.kind === 'SUBTITLE' ? (fa ? 'فایل زیرنویس' : 'Subtitle file') : link.kind === 'AUDIO' ? (fa ? 'فایل صوت' : 'Audio file') : (fa ? 'دانلود مستقیم' : 'Direct download'))}</b>
                     <small>
+                      {isTrack(link.kind) && link.language && link.quality && <span dir="ltr">{link.quality}</span>}
                       {link.size && <span dir="ltr">{link.size}</span>}
                       {(link.platform || link.architecture) && <span dir="ltr">{[link.platform, link.architecture].filter(Boolean).join(' · ')}</span>}
                       {compact && link.audio === 'DUBBED' && <span>{fa ? 'دوبله' : 'Dubbed'}</span>}

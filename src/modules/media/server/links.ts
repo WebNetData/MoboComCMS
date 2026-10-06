@@ -139,7 +139,7 @@ export async function openMediaLink(request: Request, rawId: string) {
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   if (link.ownerType === 'software') await db.softwareTitle.update({ where: { id: link.ownerId }, data: { downloads: { increment: 1 } } }).catch(() => undefined)
   if (link.kind === 'DOWNLOAD') await logDownload(who, { linkId: id, ownerType: link.ownerType, ownerId: link.ownerId })
-  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind === 'DOWNLOAD', { title: owner.title, label: link.label, quality: link.quality })
+  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind !== 'STREAM', { title: owner.title, label: link.label, quality: link.quality })
 }
 
 /**

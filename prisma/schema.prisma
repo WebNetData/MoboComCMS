@@ -1979,7 +1979,7 @@ model MediaLink {
   ownerType String // title | episode | game | software
   ownerId   Int
   label     String   @default("")
-  kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM
+  kind      String   @default("DOWNLOAD") // DOWNLOAD | STREAM | SUBTITLE | AUDIO
   quality   String   @default("")
   size      String   @default("")
   platform  String   @default("") // software downloads: Windows/macOS/Linux/Android/iOS
@@ -1987,6 +1987,7 @@ model MediaLink {
   checksum  String   @default("") // per-file SHA-256 when supplied
   audio     String   @default("") // ORIGINAL | DUBBED | ''
   subtitle  Boolean  @default(false)
+  language  String   @default("") // of a separate subtitle or audio file (kind SUBTITLE | AUDIO): fa, en, ...
   url       String
   access    String   @default("PUBLIC")
   clicks    Int      @default(0)
