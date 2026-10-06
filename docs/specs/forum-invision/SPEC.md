@@ -38,9 +38,16 @@ Rules. Only groups the viewer may see are offered as a filter; the slug of a hid
 
 Acceptance: `scripts/forum-members-groups.connected.cjs` in `npm run test:pg` (an outsider, a member of a members-only group and a visitor). Removing the visibility rule from the filter, or the status rule from the faces, fails it.
 
+## Slice 5: the member profile
+`/forum/u/<username>` in the wide layout: cover, avatar, name and handle, trust rank, title and standing by reputation ("rank N"), a bar of the numbers a visitor looks for (reputation, posts, topics, solutions, followers, following), tabs of what the member wrote, and a side column with about, facts, groups and badges.
+
+Following is not the forum's. The page reads followers, following, feed posts and the viewer's relation from the shared identity (`profileCards`, `profileByUsername`, `relationBetween`) by user id, and the button calls the endpoint the feed already uses, so a follow made here is the same follow everywhere. While the social module is off none of it is shown and the forum profile stands alone. A visitor is offered the button and sent to sign in; a blocked pair is offered nothing, in either direction. Standing counts active members only and is absent before the first like. Owner: `getProfile` in `src/modules/forum/server/people.ts`, `src/components/forum/FollowMember.tsx`; no schema change.
+
+Acceptance: `scripts/forum-member-profile.connected.cjs` in `npm run test:pg`. Counting suspended accounts in the standing, offering the button to a blocked pair, or ignoring the module switch each fails it.
+
 ## Next slices
 1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
-2. Member profile: cover, rank and reputation, content tabs, followers, about; one profile for the forum and the feed.
+2. Member profile, remaining: one page for the forum profile and the feed profile (today they link to each other).
 3. Activity stream, remaining: reviews and follows as entries, and a "people I follow" filter.
 4. Leaderboard and reputation: points per reaction, ranks, past leaders.
 5. Status updates and the feed merged with the forum identity; clubs (member-run groups with their own forums).

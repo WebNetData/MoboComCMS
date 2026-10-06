@@ -8,8 +8,9 @@ import { ForumError } from '@/modules/forum/domain/forum'
 import { TRUST_NAMES, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { ensureProfiles, notify, refreshStats } from '@/modules/forum/server/community'
-import { updateUserProfile } from '@/modules/identity/server/profile'
-import { ProfileError } from '@/modules/identity/domain/profile'
+import { profileByUsername, profileCards, relationBetween, updateUserProfile } from '@/modules/identity/server/profile'
+import { ProfileError, canFollow } from '@/modules/identity/domain/profile'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/server/forum'
 
 // Profiles, the member directory, avatars and groups.
@@ -18,13 +19,35 @@ import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/s
 
 export type ProfileTab = 'summary' | 'activity' | 'topics' | 'badges'
 
+/**
+ * The member's place in the social layer, read from the one shared identity: followers, following, feed
+ * posts and how the viewer stands to them. Null while the social module is off, so the page shows none of it.
+ */
+async function socialOf(userId: number, viewerId: number | null) {
+  if (!await isModuleEnabled('community')) return null
+  const card = (await profileCards([userId])).get(userId)
+  const found = card ? await profileByUsername(card.username) : null
+  if (!found) return null
+  const relation = await relationBetween(viewerId, userId)
+  return {
+    username: found.profile.username, headline: found.profile.headline, verified: found.profile.verified,
+    followers: found.profile.followers, following: found.profile.following, posts: found.profile.posts,
+    isFollowing: relation.following, followsViewer: relation.followedBy,
+    // A visitor is offered the button and sent to sign in; a blocked pair is offered nothing.
+    canFollow: !relation.signedIn || canFollow(relation),
+  }
+}
+
 export async function getProfile(username: string, viewer: Viewer, tab: ProfileTab = 'summary') {
   const profile = await db.forumProfile.findUnique({ where: { username: String(username || '').toLowerCase() }, include: { user: { select: { id: true, name: true, createdAt: true, role: true, status: true, avatarColor: true } } } })
   if (!profile || profile.user.status !== 'ACTIVE') return null
   const userId = profile.userId
   const categories = (await visibleCategories(viewer)).map((c) => c.id)
   const visiblePost = { userId, status: 'VISIBLE', thread: { status: 'VISIBLE', categoryId: { in: categories } } }
-  const [author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+  const [social, ahead, author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+    socialOf(userId, viewer.userId).catch(() => null),
+    // Standing by reputation among active members; a member nobody has liked yet has no standing.
+    profile.likesReceived > 0 ? db.forumProfile.count({ where: { likesReceived: { gt: profile.likesReceived }, user: { status: 'ACTIVE' } } }) : Promise.resolve(-1),
     authorsFor([userId]).then((map) => map.get(userId) || fallbackAuthor(userId)),
     db.forumGroupMember.findMany({ where: { userId, status: 'ACTIVE', group: { visibility: 'PUBLIC', automatic: null } }, include: { group: true } }),
     db.forumUserBadge.findMany({ where: { userId, badge: { enabled: true } }, include: { badge: true }, orderBy: { grantedAt: 'desc' } }),
@@ -35,7 +58,7 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
   ])
   const now = Date.now()
   return {
-    author, own: viewer.userId === userId, staffView: viewer.moderator,
+    author, own: viewer.userId === userId, staffView: viewer.moderator, social, rank: ahead < 0 ? null : ahead + 1,
     profile: {
       userId, username: profile.username, bio: profile.bio, bioHtml: renderMarkdown(profile.bio, { images: false }), location: profile.location, website: profile.website, cover: profile.cover,
       trustLevel: profile.trustLevel, trustName: TRUST_NAMES[profile.trustLevel] || '', joinedAt: profile.user.createdAt, lastSeenAt: profile.lastSeenAt,
