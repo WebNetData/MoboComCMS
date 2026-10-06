@@ -22,7 +22,7 @@ const CHECKS = [
   'reseller-recovery-provision',
   'community-moderation', 'journal-comment-notifications',
   'referral-reward-recovery', 'loyalty-redemption-recovery',
-  'renewal-resume',
+  'renewal-resume', 'notification-policy',
   'cinema-calendar',
   'episode-air-alerts',
 ]

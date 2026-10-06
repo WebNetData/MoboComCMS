@@ -14,3 +14,6 @@ Acceptance: unit tests in `scripts/media-admin.test.cjs` (range and page parsing
 
 ## Not included
 Reminders for followed series, a personal calendar, a film release calendar (needs a release date on titles), iCal export and a calendar block on the cinema home page.
+
+## Added: film releases (2026-10-07)
+`CinemaTitle.releaseDate` (migration `20261207120000_cinema_release_date`, additive, with an index on kind, status and release day), set on the title form. `/cinema/calendar?kind=films`: published films whose publication time has passed and that have a release day; upcoming soonest first, released latest first; series, drafts, scheduled and undated films are left out. Acceptance: `scripts/cinema-calendar.connected.cjs`, six deliberate breaks. Still not included: a reminder for a followed film, a personal calendar, iCal.

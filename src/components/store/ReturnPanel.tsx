@@ -6,7 +6,7 @@ import { StoreIcon } from '@/components/store/StoreIcons'
 import { Money } from '@/components/store/Storefront'
 
 type Reason = { key: string; label: string; photos: boolean }
-type Line = { line: number; name: string; variantName: string; image: string; kind: string; quantity: number; returnable: number; unitRefund: number }
+type Line = { line: number; name: string; variantName: string; image: string; kind: string; quantity: number; returnable: number; code: boolean; off: string; unitRefund: number }
 type Request = {
   id: number; number: string; kind: 'CANCEL' | 'RETURN'; kindLabel: string; status: string; statusLabel: string; reasonLabel: string; description: string
   photos: string[]; lines: { line: number; quantity: number; name: string }[]; requested: number; refund: number; currency: string; adminNote: string; createdAt: string
@@ -105,11 +105,11 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
         <legend>کدام کالا و چند عدد؟</legend>
         {info.lines.map((line) => {
           const value = chosen[line.line] || 0
-          const disabled = line.returnable <= 0 || line.kind !== 'PHYSICAL'
+          const disabled = line.returnable <= 0
           return <div key={line.line} className={`rp-line${value ? ' is-on' : ''}${disabled ? ' is-off' : ''}`}>
             <label><input type="checkbox" disabled={disabled} checked={value > 0} onChange={(e) => setChosen({ ...chosen, [line.line]: e.target.checked ? 1 : 0 })} />
               {line.image ? <img src={line.image} alt="" /> : <span className="rp-ph"><StoreIcon name="box" size={18} /></span>}
-              <span><b>{line.name}</b>{line.variantName && <small>{line.variantName}</small>}{disabled && <small>{line.kind !== 'PHYSICAL' ? 'کالای مجازی' : 'قبلاً مرجوع شده'}</small>}</span>
+              <span><b>{line.name}</b>{line.variantName && <small>{line.variantName}</small>}{disabled ? <small>{line.off}</small> : line.code && <small>کد تحویل‌شده؛ پس از تأیید باطل می‌شود</small>}</span>
             </label>
             {value > 0 && line.returnable > 1 && <span className="rp-qty" role="group" aria-label={`تعداد ${line.name}`}>
               <button type="button" onClick={() => setChosen({ ...chosen, [line.line]: Math.max(1, value - 1) })} aria-label="کم کردن">−</button>
@@ -125,7 +125,7 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
       </fieldset>
       <label className="rp-field"><span>توضیحات {reason === 'other' ? '(الزامی)' : '(اختیاری)'}</span><textarea className="input" rows={3} maxLength={1500} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={mode === 'RETURN' ? 'مثلاً کدام قسمت کالا آسیب دیده است' : ''} /></label>
 
-      {mode === 'RETURN' && <div className="rp-field"><span>عکس از کالا و بسته‌بندی {needsPhotos ? '(الزامی)' : '(اختیاری)'} — حداکثر ۵ عکس</span>
+      {mode === 'RETURN' && info.lines.some((line) => !line.code && (chosen[line.line] || 0) > 0) && <div className="rp-field"><span>عکس از کالا و بسته‌بندی {needsPhotos ? '(الزامی)' : '(اختیاری)'} — حداکثر ۵ عکس</span>
         <div className="rp-photos">
           {previews.map((url, index) => <figure key={url}><img src={url} alt={`عکس ${fa(index + 1)}`} /><button type="button" onClick={() => setPhotos(photos.filter((_, i) => i !== index))} aria-label={`حذف عکس ${fa(index + 1)}`}>×</button></figure>)}
           {photos.length < 5 && <label className="rp-add"><StoreIcon name="plus" size={20} /><span>افزودن عکس</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => { const files = [...(e.target.files || [])].filter((file) => file.size <= 5 * 1024 * 1024); setPhotos([...photos, ...files].slice(0, 5)); setError(''); e.target.value = '' }} /></label>}
@@ -136,7 +136,7 @@ export default function ReturnPanel({ orderId }: { orderId: number }) {
         <span>{mode === 'CANCEL' ? (info.autoRefundCancel ? 'مبلغی که فوراً به کیف پول برمی‌گردد' : 'مبلغی که پس از تأیید به کیف پول برمی‌گردد') : 'مبلغ تقریبی بازپرداخت به کیف پول'}</span>
         <Money amount={estimate} currency={info.currency} />
       </div>
-      {mode === 'RETURN' && info.policy && <p className="rp-policy">{info.policy}</p>}
+      {mode === 'RETURN' && info.policy && info.lines.some((line) => !line.code && (chosen[line.line] || 0) > 0) && <p className="rp-policy">{info.policy}</p>}
       {error && <p className="rp-error" role="alert">{error}</p>}
       <div className="rp-actions">
         <button type="button" className="sx-btn" onClick={() => setMode('')}>انصراف</button>

@@ -157,6 +157,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/social', label: L('انتشار در تلگرام و اینستاگرام', 'Social auto-publish'), icon: 'chat', perm: ['social.manage', 'settings.manage'] },
       { href: '/admin/push', label: L('اعلان مرورگر', 'Web push'), icon: 'bolt', perm: ['push.manage', 'settings.manage'] },
+      { href: '/admin/notifications', label: L('اعلان‌های کاربران', 'Member notifications'), icon: 'bolt', perm: 'settings.manage' },
     ] },
     { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },

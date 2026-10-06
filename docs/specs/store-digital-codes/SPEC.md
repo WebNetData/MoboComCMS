@@ -36,3 +36,11 @@ Products without a pool behave exactly as before.
 
 ## Not included
 Returning a delivered code to the shelf after a refund (a revealed code cannot be sold again), a pool managed by marketplace sellers, low-pool alerts to staff by SMS, importing codes from a file, and codes with an expiry date.
+
+## Added: a code is replaced or sent back (2026-10-07)
+- Storage: `returnedAt`, `returnId`, `returnNote` on `ProductDigitalCode` (migration `20261206120000_digital_code_returns`, additive). A returned code keeps its order; it counts neither as on the shelf nor as held by the buyer.
+- Replace (staff, pool screen → latest deliveries): refused when the shelf of that variant is empty, when the code is not with a buyer, or when the order is no longer paid. The order's delivery text is written again from the codes held now.
+- Send back (buyer, order page): only when `codeReturnDays` > 0 and within that many days of delivery; reasons "does not work", "was already used", "other"; no photos asked; staff approve and refund as with any return. Shipped goods of the same order keep their own window.
+- Cancellation: with a code already read, the request waits for staff even when cancellations refund by themselves.
+- Acceptance: `scripts/digital-codes.connected.cjs` (replacement, return off and on, partial refund, repeat, window, cancellation), `scripts/returns-invoice.test.cjs` (rules), ten deliberate breaks.
+- Still not included: a pool managed by marketplace sellers, low-pool alerts by SMS, importing codes from a file.

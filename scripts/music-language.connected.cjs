@@ -8,12 +8,16 @@ function load(file) {
   const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
   if (cache.has(full)) return cache.get(full).exports
   const mod = { exports: {} }; cache.set(full, mod)
-  const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  // The file name tells the compiler a .ts file is not JSX: a type argument is otherwise read as a tag.
+  const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { fileName: full, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
   new Function('require', 'module', 'exports', source)(name => {
     if (name === '@/platform/database/prisma') return { db: prisma }
     if (name === '@/platform/observability/logger') return { logEvent: () => {} }
     if (name === '@/extensions/server/modules') return { isModuleEnabled: async () => true, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
     if (name === 'react') return { ...require('react'), cache: fn => fn }
+    // Saving an item announces the change to search and feeds; nothing here listens.
+    if (name === '@/modules/content/server/events') return { contentChanged: () => {}, MEDIA_RESOURCE_TYPE: {} }
+    if (name === '@/modules/notifications/server/inbox') return { createInboxEvent: async () => {} }
     if (name.endsWith('.json')) return JSON.parse(fs.readFileSync(name.startsWith('@/') ? `src/${name.slice(2)}` : path.join(path.dirname(full), name), 'utf8'))
     if (name.startsWith('@/')) return load(`src/${name.slice(2)}`)
     if (name.startsWith('.')) return load(path.join(path.dirname(full), name))
@@ -58,6 +62,28 @@ async function main() {
   const named = await taxonomy.primaryTerms(LANG, [newer.id, plain.id])
   assert.deepEqual([named.get(newer.id).name, named.get(newer.id).path, named.get(newer.id).chain.length, named.has(plain.id)], [`${seed} dialect`, `/music/language/${seed}-language/${seed}-dialect`, 2, false])
   assert.ok((await taxonomy.termTree(LANG)).some(node => node.id === language.id && node.children.some(child => child.id === dialect.id)))
+
+  // ---- browse: a language narrows the same list a genre does, and the two combine
+  await prisma.musicTrack.update({ where: { id: older.id }, data: { genre: `${seed}pop` } }); await prisma.musicTrack.update({ where: { id: plain.id }, data: { genre: `${seed}pop` } })
+  const ids = await taxonomy.ownerIdsForTermSlug(LANG, `${seed}-language`)
+  const titles = async input => (await queries.browseMusic(input)).tracks.map(row => row.title.split(' ')[1]).filter(name => ['older', 'newer', 'draft', 'future', 'plain'].includes(name)).sort()
+  assert.deepEqual([await titles({ ids }), await titles({ ids, genre: `${seed}pop` }), await titles({ genre: `${seed}pop` }), await titles({ ids: [] })], [['newer', 'older'], ['older'], ['older', 'plain'], []], 'language alone, language with genre, genre alone; a language without songs shows none, not all')
+  assert.equal(await taxonomy.ownerIdsForTermSlug(LANG, `${seed}-nothing`), null)
+
+  // ---- an album files the language of every song it holds, in its own save
+  const media = load('src/modules/media/server/admin.ts')
+  const record = await prisma.musicAlbum.create({ data: { slug: `${seed}-record`, title: `${seed} record`, artistId: artist.id } })
+  const [one, two] = [await track('one', { albumId: record.id }), await track('two', { albumId: record.id })]
+  await prisma.$transaction(tx => taxonomy.assignTerms(tx, LANG, two.id, [language.id]))
+  await media.saveMediaItem('music-albums', { title: `${seed} record`, trackTerms: { ids: [other.id], primary: other.id } }, record.id)
+  const filed = await taxonomy.assignmentsFor(LANG, [one.id, two.id, older.id])
+  assert.deepEqual([filed.get(one.id).ids, filed.get(two.id).ids, filed.get(older.id).ids], [[other.id], [other.id], [language.id]], 'every song of the album, and no song outside it')
+  await media.recountMediaTaxonomy('music-albums')
+  assert.equal(await count(other.id), 2, 'the language counts them after the album is saved')
+  // saved again without a language, or with none ticked: the songs keep theirs
+  await media.saveMediaItem('music-albums', { title: `${seed} record` }, record.id); await media.saveMediaItem('music-albums', { trackTerms: { ids: [], primary: null } }, record.id)
+  assert.deepEqual((await taxonomy.assignmentsFor(LANG, [one.id])).get(one.id).ids, [other.id])
+  await prisma.$transaction(async tx => { await taxonomy.removeOwner(tx, LANG, one.id); await taxonomy.removeOwner(tx, LANG, two.id) }); await taxonomy.recount(LANG)
 
   // ---- the two ways of filing music keep apart, even with equal ids
   const album = await prisma.musicAlbum.create({ data: { slug: `${seed}-album`, title: `${seed} album`, artistId: artist.id } })

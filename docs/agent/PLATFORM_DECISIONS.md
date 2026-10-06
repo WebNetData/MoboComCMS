@@ -4,7 +4,7 @@ Decisions the owner made, and rules that came out of the work, **after** the v4 
 
 Keep it short and current. When a decision changes, change the entry; do not append history (git and `.ai/MOBOCOM_WORKSTATE.md` hold that). Each entry: the rule, why, where, and what guards it.
 
-Last revised: 2026-10-07 (main `7ff91be`, PRs #95–#117, and the music language taxonomy).
+Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices of the capability map's open gaps).
 
 ---
 
@@ -92,15 +92,33 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 
 **Clubs**
 - A club = a forum group (joining, requests, owners) + a forum under the section `clubs` whose access is that group's + the founder as that forum's moderator. Linked by the nullable `ForumGroup.clubCategoryId` (migration `20261204120000_forum_clubs`). Open: everyone reads, members write. Private: members only, joining by request.
-- From trust level 1, three per founder (`CLUB_MIN_TRUST`, `CLUB_MAX_OWNED`, fixed in code for now). Clubs have their own page and are laid out neither on the board index nor among user groups.
+- Who may start one is the forum's settings (`clubsEnabled`, `clubsMinTrust`, `clubsMaxOwned`; forum admin → settings); staff are not limited. Clubs have their own page and are laid out neither on the board index nor among user groups.
+- The founder **closes** a club (nobody joins, no topic starts, waiting requests are withdrawn; nothing is deleted) and opens it again as the kind it was; closed is `joinMode = CLOSED` with the forum locked, and the kind is read from the forum's permission rows, not from the join mode. The founder **hands it over** to one of its members. A club's forum is moderated by exactly its owners (`syncClubModerators`, also called by the group's own owner toggle).
 
 ## 6A. Filing content: more than one taxonomy per section
 
 - The shared taxonomy (`TaxonomyTerm`, `TaxonomyAssignment`; rules in `src/modules/taxonomy/domain/taxonomy.ts`) files a section's items under a tree of terms. **A section may have more than one taxonomy.** Music has two (owner, 2026-10-07): `music` — categories of **albums** — and `music-language` — the language or dialect of a **song** (فارسی، ترکی، لری، مازندرانی to start; more from the admin).
 - **One taxonomy, one kind of item.** Assignments are keyed by term and a bare item id, so a taxonomy must never file two kinds of item (albums and songs share ids). A new way of filing is a new taxonomy with its own terms, not a second owner type in an old one.
 - To add one: add its id and `TAXONOMY_INFO` entry (label, item word, public base path, module — the module decides the permission, `<module>.manage`); name it in `liveOwnerIds` (which table its items live in); set `taxonomy` on the media resource in `src/modules/media/server/admin.ts`; add the `terms` field to that item's admin form; give it a public archive under its base path; add it to `LEGACY_SOURCES` only if an old free-text field exists to build it from. **Every branch on a taxonomy names it**: an `else` that means "cinema" silently swallows a new one (it did, twice).
-- Public: `/music/language` (index), `/music/language/<language>[/<dialect>]` (songs), a link on the song page, a row on `/music/browse`, an entry in the music mega menu (`src/modules/navigation/server/megamenu.ts`). Admin: Categories → «زبان و گویش موزیک», and the song form.
+- Public: `/music/language` (index), `/music/language/<language>[/<dialect>]` (songs), a link on the song page, a filter on `/music/browse` (`?lang=`, combining with genre, search and order), an entry in the music mega menu (`src/modules/navigation/server/megamenu.ts`). Admin: Categories → «زبان و گویش موزیک», the song form, and the album form's "language of every song in this album" (`trackTerms`: files each song the album holds in the same save; an album has no language of its own).
+- A resource whose save changes another taxonomy's counts names it in `alsoCounts` (`src/modules/media/server/admin.ts`).
 - Guard: `scripts/music-language.connected.cjs` (counts and lists published songs only; albums and songs with equal ids stay apart).
+
+## 6B. Slices from the capability map's open gaps (2026-10-07)
+
+**Store: a delivered code.** A code leaves the shelf once. Taken back from its buyer it keeps its order and is marked returned (`ProductDigitalCode.returnedAt`, `returnId`, `returnNote`; migration `20261206120000`): void, not the buyer's any more, never sold again.
+- Staff **replace** a code that did not work from the product's pool screen (`replaceCode`): the old one is void and a code of the same shelf takes its place on the same order line, in one step; the buyer is told without the code in the notice.
+- **Sending a code back** is a return like any other, by its own window: `codeReturnDays` in the return rules, 0 (never) by default, because a code the buyer has read cannot be resold and that is the owner's call. Every such request is reviewed by staff; a line gives back no more units than the codes its buyer still holds, and the reasons offered fit what goes back (`reasonsForGoods`). On refund the codes of the returned units are void (`takeBackCodes`, the ones given last first; safe to repeat).
+- A **cancellation** of an order whose codes the buyer has already read is never refunded by itself; it waits for staff.
+- Stock of a product that sells from its pool is the pool's count, also after stock is returned (`returnStock` → `syncCodeStock`).
+
+**Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
+
+**Notifications: policy.** `src/modules/notifications/{domain,server}/policy.ts`, admin at `/admin/notifications` (`settings.manage`). Everything is **off until the owner sets it**:
+- Keeping times: read notices by when they were read, any notice by its age; removed in bounded passes by the `notification-policy` scheduler step. An unread notice is never removed sooner than a read one.
+- Daily summary: one email a day (kind `INBOX_DIGEST`, so the site's mail settings and each member's own switch apply) listing the unread notices of the last day **that have no email of their own**; queued once a day per member (`notification.digest` job, deduped), skipped when read in the meantime.
+- Delivery receipts are **read from the channel jobs** (`notification:<id>:<channel>`), not stored again: sent, not sent (the member's switch, no address, channel not set up: not a fault), waiting, failed. Finished jobs live a week, so receipts do.
+- A check that prunes or enumerates site-wide state narrows every read and delete to its own fixtures and keeps site-wide cursors in memory (`scripts/notification-policy.connected.cjs`).
 
 ## 7. Engineering rules learnt here
 
@@ -111,10 +129,12 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - Register unit tests by appending to a file already in `test:site`; put `CHECKS` entries on non-adjacent lines so parallel PRs do not conflict.
 - **Local site:** `docker compose -f docker-compose.local.yml` (app on 3000, PostgreSQL on 127.0.0.1:5435). The container copies the working tree at start, so **restart it after every code change**.
 - Persian dates are built with `formatToParts` and `timeZone: 'Asia/Tehran'`; relative-time components must not differ between server and browser.
+- **A deliberate break that widens a write is run only against fixtures.** Breaking "file the songs of this album" into "file every song" rewrote the language of every real song on the local database before the check failed. Break the rule so that it reads more, or run it in a transaction that is rolled back.
+- **Staff overview decisions stay with their owners.** A batch in `/admin/moderation` is one request per item to the owning module's admin API (`batchIds`, `batchOutcome`, at most `BATCH_LIMIT`); the overview never decides by itself.
 - Floating helpers (translate prompt, support chat, manage bar) step aside while the forum's reply editor is docked (`body:has(.fx-dock)`); anything new that floats at the bottom joins that rule.
 
 ## 8. Open, by the owner's decision or still owed
 
-- Production: run `npm run deploy:migrate` (through `20261205120000`), set `STORE_DELIVERY_KEY`, configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
-- Not yet built: closing or handing over a club; settings for who may start one; a weight per kind of reaction; one address for a member's profile (`/u/<username>` and `/forum/u/<username>` both exist).
+- Production: run `npm run deploy:migrate` (through `20261207120000`), set `STORE_DELIVERY_KEY`, decide the return window for codes, the keeping times of notifications and whether the daily summary goes out (`/admin/store/returns`, `/admin/notifications`), configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
+- Not yet built (from the capability map's open gaps, owner's order of 2026-10-07 to do them except the seller ones): **needs the owner's decision first** — one address for a member's profile (`/u/<username>` is the social profile with privacy and shelves, `/forum/u/<username>` the forum one; they are two pages of two optional modules, so one address means choosing which page is the member's profile and folding the other in), a weight per kind of reaction (all-time counts are stored unweighted, so a weight changes history or splits it). **Needs its own design** — subtitle and audio tracks with playback preferences (`MediaLink` has only `audio` ORIGINAL/DUBBED and a subtitle flag); review dimensions and richer facets in search (`SearchDocument` has no facet columns and the query is a measured ranked window); one model across product and content reviews; an editorial tool for collections; more signals and a provider contract for recommendations; entity hubs beyond studios; one case lifecycle across moderation sources; the universal library and lists.
 - Not yet verified in a browser: the full buyer's walk through the store, magazine and media sections; a section manager saving content with a single-section account; split/merge, polls and private messages in the forum.

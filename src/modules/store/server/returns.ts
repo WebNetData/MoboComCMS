@@ -16,10 +16,13 @@ import { restockConsumedInventory } from '@/modules/catalog/server/inventory'
 import { StoreError, canMoveTo } from '@/modules/store/domain/store'
 import {
   MAX_RETURN_PHOTOS, MAX_RETURN_PHOTO_BYTES, RETURN_KIND_LABEL, RETURN_STATUS_LABEL, clampRefund, eligibility, normalizeChoices,
-  normalizeReturnSettings, reasonLabel, reasonsFor, returnNumber, returnRefundMinor,
+  normalizeReturnSettings, reasonLabel, reasonsFor, reasonsForGoods, returnNumber, returnRefundMinor,
+  type Eligibility,
   type LineChoice, type RefundLine, type ReturnKind, type ReturnSettings, type ReturnStatus,
 } from '@/modules/store/domain/returns'
 import { transitionOrder } from '@/modules/store/server/orders'
+import { heldCodes, takeBackCodes } from '@/modules/store/server/digital-codes'
+import { syncCodeStock } from '@/modules/catalog/server/code-stock'
 
 // Cancellations and returns. A request is reviewed by staff (or, for a
 // cancellation before shipping, refunded at once when the shop allows it);
@@ -99,7 +102,20 @@ function requestView(row: { id: number; number: string; kind: string; status: st
   }
 }
 
-function orderEligibility(order: LoadedOrder, settings: ReturnSettings) {
+/**
+ * How many units of each line a return may hold right now. A shipped line: what has not gone back yet.
+ * A line of delivered codes: no more than the codes the buyer still holds, and only while the shop takes
+ * codes back. Any other virtual line: nothing.
+ */
+function returnableUnits(order: LoadedOrder, lines: RefundLine[], held: Map<number, number>, goods: Eligibility['goods']) {
+  return new Map(order.lines.map((line) => {
+    const left = Math.max(0, line.quantity - (lines.find((item) => item.line === line.line)?.returnedQuantity || 0))
+    const code = held.has(line.line)
+    return [line.line, code ? (goods.codes ? Math.min(left, held.get(line.line) || 0) : 0) : line.kind === 'PHYSICAL' && goods.physical ? left : 0]
+  }))
+}
+
+function orderEligibility(order: LoadedOrder, settings: ReturnSettings, held: Map<number, number>) {
   const book = ledger(order)
   return eligibility({
     paid: order.status === 'PAID',
@@ -108,6 +124,7 @@ function orderEligibility(order: LoadedOrder, settings: ReturnSettings) {
     open: order.returns.some((row) => OPEN.includes(row.status as ReturnStatus)),
     fullyRefunded: book.remaining <= 0n || order.status === 'REFUNDED',
     physical: order.lines.some((line) => line.kind === 'PHYSICAL'),
+    codes: held.size > 0,
   }, settings)
 }
 
@@ -118,21 +135,26 @@ export async function customerReturnInfo(userId: number, orderId: number) {
   const [order, settings] = await Promise.all([loadOrder(orderId, userId), getReturnSettings()])
   if (!order) return null
   const book = ledger(order)
-  const allowed = orderEligibility(order, settings)
+  const held = await heldCodes(order.id)
+  const allowed = orderEligibility(order, settings, held)
+  const units = returnableUnits(order, book.lines, held, allowed.goods)
   const currency = normalizeCurrency(order.currency, 'IRT')
   return {
     eligibility: allowed,
     policy: settings.policy,
     windowDays: settings.windowDays,
     requirePhotos: settings.requirePhotos,
-    autoRefundCancel: settings.autoRefundCancel,
-    reasons: { CANCEL: reasonsFor('CANCEL'), RETURN: reasonsFor('RETURN') },
+    // A cancellation of an order whose codes the buyer has already read is looked at by staff first.
+    autoRefundCancel: settings.autoRefundCancel && !held.size,
+    reasons: { CANCEL: reasonsFor('CANCEL'), RETURN: reasonsForGoods('RETURN', allowed.goods) },
     cancelRefund: minorToNumber(book.remaining > 0n ? book.remaining : 0n, currency),
     currency,
     lines: order.lines.map((line) => {
-      const left = line.quantity - (book.lines.find((item) => item.line === line.line)?.returnedQuantity || 0)
+      const left = units.get(line.line) || 0
+      const code = held.has(line.line)
+      const gone = line.quantity - (book.lines.find((item) => item.line === line.line)?.returnedQuantity || 0) <= 0
       const unit = line.quantity > 0 ? returnRefundMinor([{ line: line.line, quantity: 1 }], book.lines.map((item) => ({ ...item, returnedQuantity: 0 })), book) : 0n
-      return { line: line.line, name: line.name, variantName: line.variantName, image: line.image, kind: line.kind, quantity: line.quantity, returnable: Math.max(0, left), unitRefund: minorToNumber(unit, currency) }
+      return { line: line.line, name: line.name, variantName: line.variantName, image: line.image, kind: line.kind, quantity: line.quantity, returnable: left, code, off: left > 0 ? '' : gone ? 'قبلاً مرجوع شده' : code ? 'کد تحویل‌شده' : line.kind !== 'PHYSICAL' ? 'کالای مجازی' : 'مهلت مرجوعی گذشته', unitRefund: minorToNumber(unit, currency) }
     }),
     requests: order.returns.map((row) => requestView(row, order)),
   }
@@ -169,19 +191,23 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
   const [order, settings] = await Promise.all([loadOrder(orderId, userId), getReturnSettings()])
   if (!order) throw new StoreError('سفارش پیدا نشد', 404, 'ORDER_NOT_FOUND')
   const kind: ReturnKind = field('kind') === 'CANCEL' ? 'CANCEL' : 'RETURN'
-  const allowed = orderEligibility(order, settings)
+  const held = await heldCodes(orderId)
+  const allowed = orderEligibility(order, settings, held)
   if (kind === 'CANCEL' ? !allowed.cancel : !allowed.return) throw new StoreError(allowed.reason || (kind === 'CANCEL' ? 'لغو این سفارش دیگر ممکن نیست' : 'مرجوع کردن این سفارش ممکن نیست'), 409, 'NOT_ALLOWED')
 
-  const reason = reasonsFor(kind).find((item) => item.key === field('reason'))
+
+  const book = ledger(order)
+  const units = returnableUnits(order, book.lines, held, allowed.goods)
+  const choices = kind === 'CANCEL'
+    ? order.lines.map((line) => ({ line: line.line, quantity: line.quantity }))
+    : normalizeChoices(parseJson(field('lines'), []), book.lines.map((line) => ({ ...line, returnedQuantity: line.quantity - (units.get(line.line) || 0) })))
+  if (!choices.length) throw new StoreError('کالا و تعداد مرجوعی را انتخاب کنید')
+  // The reason has to fit what is going back: codes, shipped goods, or both.
+  const going = { physical: choices.some((choice) => !held.has(choice.line)), codes: choices.some((choice) => held.has(choice.line)) }
+  const reason = (kind === 'CANCEL' ? reasonsFor(kind) : reasonsForGoods(kind, going)).find((item) => item.key === field('reason'))
   if (!reason) throw new StoreError('دلیل درخواست را انتخاب کنید')
   const description = plain(field('description'), 1500)
   if (reason.key === 'other' && description.length < 5) throw new StoreError('لطفاً دلیل را کوتاه توضیح دهید')
-
-  const book = ledger(order)
-  const choices = kind === 'CANCEL'
-    ? order.lines.map((line) => ({ line: line.line, quantity: line.quantity }))
-    : normalizeChoices(parseJson(field('lines'), []), book.lines)
-  if (!choices.length) throw new StoreError('کالا و تعداد مرجوعی را انتخاب کنید')
 
   const photos = form.getAll('photos').filter((item): item is File => typeof item !== 'string' && item.size > 0)
   if (photos.length > MAX_RETURN_PHOTOS) throw new StoreError(`حداکثر ${MAX_RETURN_PHOTOS.toLocaleString('fa-IR')} تصویر`)
@@ -210,7 +236,8 @@ export async function createReturnRequest(req: NextRequest, userId: number, orde
   }
   logEvent('info', 'store.return_requested', { returnId: row.id, orderId, kind })
 
-  if (kind === 'CANCEL' && settings.autoRefundCancel) {
+  // Codes the buyer has already read cannot be un-read: such a cancellation waits for staff.
+  if (kind === 'CANCEL' && settings.autoRefundCancel && !held.size) {
     await refundReturn({ id: row.id, actorId: null, restock: true, note: 'لغو پیش از ارسال؛ بازپرداخت خودکار' })
   } else {
     void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_RETURN', { order: String(orderId), kind: RETURN_KIND_LABEL[kind], name: order.user.name || order.user.email }))
@@ -371,6 +398,9 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
     throw new StoreError(`واریز به کیف پول انجام نشد: ${credit.message}`, 502)
   }
   await db.returnRequest.update({ where: { id: row.id }, data: { walletTxId: credit.txId } })
+  // The codes that were paid back are void from here on (never back on the shelf). Repeating it takes nothing twice.
+  const choices = parseJson<LineChoice[]>(row.lines, [])
+  const voided = await takeBackCodes(row.orderId, row.kind === 'CANCEL' ? null : choices, { returnId: row.id, note: row.number }).catch((error) => { logEvent('error', 'store.return_codes_failed', { returnId: row.id, error: String(error) }); return 0 })
   if (resuming && credit.idempotent) {
     // The money had already been credited; only the record of it was missing. Whether the order-level
     // effects ran cannot be told from here, and repeating them could restock twice, so they are left.
@@ -399,7 +429,7 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
   // Customer club points earned on the refunded part go back.
   await import('@/modules/store/server/marketing').then((m) => m.reverseOrderPoints(row.orderId, amount, `return:${row.id}`)).catch((error) => logEvent('warn', 'store.loyalty_reverse_failed', { returnId: row.id, error: String(error) }))
   const shown = minorToNumber(amount, currency).toLocaleString('fa-IR')
-  await db.orderEvent.create({ data: { orderId: row.orderId, status: 'REFUNDED', note: `${row.number}: ${shown} ${currency === 'IRT' ? 'تومان' : currency} به کیف پول برگشت${note ? ` — ${note}` : ''}`, visible: true, actorId: input.actorId } })
+  await db.orderEvent.create({ data: { orderId: row.orderId, status: 'REFUNDED', note: `${row.number}: ${shown} ${currency === 'IRT' ? 'تومان' : currency} به کیف پول برگشت${voided ? `؛ ${voided.toLocaleString('fa-IR')} کد باطل شد` : ''}${note ? ` — ${note}` : ''}`, visible: true, actorId: input.actorId } })
   await notifyCustomer(row, 'REFUNDED', `برگشت وجه ${row.number}`, `${shown} ${currency === 'IRT' ? 'تومان' : currency} بابت ${RETURN_KIND_LABEL[row.kind as ReturnKind]} سفارش ${row.orderId.toLocaleString('fa-IR')} به کیف پول شما واریز شد.`)
   logEvent('info', 'store.return_refunded', { returnId: row.id, orderId: row.orderId, amount: amount.toString(), currency })
   return db.returnRequest.findUniqueOrThrow({ where: { id: row.id } })
@@ -427,11 +457,17 @@ export async function recoverInterruptedRefunds(limit = 20, now = new Date()) {
 /** Returned items back on the shelf (finite stock only), line by line. */
 async function restockLines(orderId: number, choices: LineChoice[]) {
   const reservations = await db.inventoryReservation.findMany({ where: { orderId, status: 'CONSUMED', line: { in: choices.map((choice) => choice.line) } } })
-  const lines = await db.orderLine.findMany({ where: { orderId, line: { in: choices.map((choice) => choice.line) } }, select: { line: true, productId: true } })
+  const lines = await db.orderLine.findMany({ where: { orderId, line: { in: choices.map((choice) => choice.line) } }, select: { line: true, productId: true, product: { select: { digitalMode: true } } } })
   for (const choice of choices) {
     const reservation = reservations.find((row) => row.line === choice.line)
     const productId = reservation?.productId ?? lines.find((line) => line.line === choice.line)?.productId
     if (!productId) continue
+    // A product that sells from its code pool has no stock of its own to give back: the returned code is void.
+    if (lines.find((line) => line.line === choice.line)?.product?.digitalMode === 'CODES') {
+      await db.$transaction((tx) => syncCodeStock(tx, productId))
+      await db.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })
+      continue
+    }
     if (!reservation || reservation.finite) await db.product.updateMany({ where: { id: productId, stock: { gte: 0 } }, data: { stock: { increment: choice.quantity } } })
     if (reservation?.variantFinite && reservation.variantId) await db.productVariant.updateMany({ where: { id: reservation.variantId }, data: { stock: { increment: choice.quantity } } })
     await db.product.updateMany({ where: { id: productId, soldCount: { gte: choice.quantity } }, data: { soldCount: { decrement: choice.quantity } } })

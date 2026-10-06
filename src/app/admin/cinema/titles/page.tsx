@@ -15,6 +15,7 @@ export default function AdminCinemaPage() {
     { key: 'titleEn', label: fa ? 'عنوان انگلیسی' : 'English title', dir: 'ltr' },
     { key: 'originalTitle', label: fa ? 'نام اصلی' : 'Original title', dir: 'ltr' },
     { key: 'year', label: fa ? 'سال ساخت' : 'Year', type: 'number', table: true },
+    { key: 'releaseDate', label: fa ? 'تاریخ اکران فیلم (برای تقویم اکران؛ خالی = در تقویم نمی‌آید)' : 'Film release day (for the release calendar; empty = not listed)', type: 'date' },
     { key: 'endYear', label: fa ? 'سال پایان (سریال)' : 'End year (series)', type: 'number' },
     { key: 'seriesStatus', label: fa ? 'وضعیت پخش سریال' : 'Series status', type: 'select', options: [{ value: '', label: '—' }, { value: 'ONGOING', label: fa ? 'در حال پخش' : 'Ongoing' }, { value: 'ENDED', label: fa ? 'پایان یافته' : 'Ended' }] },
     { key: 'imdbRating', label: fa ? 'امتیاز IMDb' : 'IMDb rating', type: 'number', table: true },

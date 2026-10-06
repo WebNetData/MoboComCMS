@@ -1320,3 +1320,10 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 .fk-colors button.is-on { border-color: var(--md-card); box-shadow: 0 0 0 2px var(--md-text); }
 @media (max-width: 640px) { .fk-grid { grid-template-columns: 1fr; } .fk-kind { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .fk-card { transition: none; } .fk-card:hover { transform: none; } }
+
+/* A club on its group page: its state, the way into its forum, and the founder's controls. */
+.fk-club-bar { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-block: 0 14px; padding: 12px 16px; border: 1px solid var(--md-line); border-radius: 16px; background: var(--md-card); }
+.fk-club-bar .fk-kind-tag { position: static; border: 1px solid var(--md-line); }
+.fk-manage { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
+.fk-hand { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.fk-hand .input { width: 200px; max-width: 60vw; }

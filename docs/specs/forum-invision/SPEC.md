@@ -97,7 +97,12 @@ A club is a group a member starts, with a forum of its own. Nothing new carries 
 
 Acceptance: `scripts/forum-clubs.connected.cjs` and the extended `scripts/forum-activity-stream.connected.cjs` in `npm run test:pg`; seven and five deliberate breaks each fail them.
 
+## Slice 11: a club's founder closes it, opens it again and hands it over; who may start one is a setting
+- Forum settings `clubsEnabled`, `clubsMinTrust`, `clubsMaxOwned` replace the constants; staff are not limited by them.
+- **Close:** the group stops taking members (`joinMode = CLOSED`), the forum stops taking new topics (`locked`), waiting requests are withdrawn. Members read on and can finish discussions under way. Nothing is deleted. **Reopen** gives back the way in it had; the kind (open or private) is read from the forum's permission rows, so closing does not lose it.
+- **Hand over:** to an active member of the club who has room for one more; they become its owner, the giver an ordinary member. The forum's moderators are always exactly the club's owners (`syncClubModerators`), whichever way ownership changed.
+- Only the founder (an owner) or staff may do either. Acceptance: `scripts/forum-clubs.connected.cjs`; five deliberate breaks fail it.
+
 ## Next slices
-1. Clubs: closing and handing over; settings for who may start one.
 2. A weight per kind of reaction on the leaderboard, if the owner wants some to count for more.
 3. One address for a member's profile: `/u/<username>` and `/forum/u/<username>` still both exist.

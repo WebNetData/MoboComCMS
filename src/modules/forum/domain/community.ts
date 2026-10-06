@@ -31,6 +31,10 @@ export interface ForumSettings {
   pollsMinTrust: number
   /** Watched words: block the post, send it to review, or hide the word when shown. */
   watchedWords: WatchedWords
+  /** Clubs: whether members may start them, from which trust level, and how many one member may found. */
+  clubsEnabled: boolean
+  clubsMinTrust: number
+  clubsMaxOwned: number
 }
 
 export interface WatchedWords { block: string[]; approve: string[]; censor: string[] }
@@ -55,6 +59,9 @@ export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
   messagesMinTrust: 1,
   pollsMinTrust: 1,
   watchedWords: { block: [], approve: [], censor: [] },
+  clubsEnabled: true,
+  clubsMinTrust: 1,
+  clubsMaxOwned: 3,
 }
 
 /** Lowercased, trimmed, unique words or phrases (max 200 per list, 40 characters each). */
@@ -96,6 +103,9 @@ export function normalizeForumSettings(input: Record<string, any> = {}): ForumSe
     messagesEnabled: input.messagesEnabled === undefined ? d.messagesEnabled : input.messagesEnabled === true,
     messagesMinTrust: int(input.messagesMinTrust, 0, 4, d.messagesMinTrust),
     pollsMinTrust: int(input.pollsMinTrust, 0, 4, d.pollsMinTrust),
+    clubsEnabled: input.clubsEnabled === undefined ? d.clubsEnabled : input.clubsEnabled === true,
+    clubsMinTrust: int(input.clubsMinTrust, 0, 4, d.clubsMinTrust),
+    clubsMaxOwned: int(input.clubsMaxOwned, 1, 20, d.clubsMaxOwned),
     watchedWords: {
       block: normalizeWordList(input.watchedWords?.block),
       approve: normalizeWordList(input.watchedWords?.approve),

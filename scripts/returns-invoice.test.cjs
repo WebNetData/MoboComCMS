@@ -36,6 +36,25 @@ test('cancel before shipping, return within the window after delivery', () => {
   assert.equal(r.eligibility({ ...delivered, physical: false }, settings, now).return, false)
 })
 
+test('a delivered code goes back only when the owner allows it, within its own window', () => {
+  const now = new Date('2026-10-10T10:00:00Z')
+  const codeOrder = { ...base, physical: false, codes: true, fulfilment: 'DELIVERED', deliveredAt: new Date('2026-10-08T10:00:00Z') }
+  const off = r.eligibility(codeOrder, settings, now)
+  assert.deepEqual([settings.codeReturnDays, off.return, off.goods], [0, false, { physical: false, codes: false }]); assert.match(off.reason, /کد تحویل‌شده/)
+  const on = { ...settings, codeReturnDays: 3 }
+  assert.deepEqual([r.eligibility(codeOrder, on, now).return, r.eligibility(codeOrder, on, now).goods], [true, { physical: false, codes: true }])
+  assert.equal(r.eligibility({ ...codeOrder, deliveredAt: new Date('2026-10-06T10:00:00Z') }, on, now).return, false)
+  // goods and codes in one order: each by its own window
+  const both = r.eligibility({ ...codeOrder, physical: true, deliveredAt: new Date('2026-10-05T10:00:00Z') }, on, now)
+  assert.deepEqual([both.return, both.goods], [true, { physical: true, codes: false }])
+  assert.deepEqual(r.eligibility({ ...codeOrder, physical: true }, { ...on, windowDays: 1 }, now).goods, { physical: false, codes: true })
+  assert.equal(r.eligibility({ ...codeOrder, codes: false }, on, now).return, false, 'a virtual order without pool codes is as before')
+  assert.deepEqual(r.reasonsForGoods('RETURN', { physical: false, codes: true }).map((reason) => reason.key), ['code_invalid', 'code_used', 'other'])
+  assert.ok(!r.reasonsForGoods('RETURN', { physical: true, codes: false }).some((reason) => reason.key.startsWith('code_')))
+  assert.ok(r.reasonsForGoods('RETURN', { physical: true, codes: true }).length > r.reasonsForGoods('RETURN', { physical: true, codes: false }).length)
+  assert.deepEqual([r.normalizeReturnSettings({ codeReturnDays: 7 }).codeReturnDays, r.normalizeReturnSettings({ codeReturnDays: 999 }).codeReturnDays, r.normalizeReturnSettings({ codeReturnDays: -1 }).codeReturnDays], [7, 0, 0])
+})
+
 test('no request when unpaid, already open, refunded or switched off', () => {
   for (const patch of [{ paid: false }, { open: true }, { fullyRefunded: true }, { fulfilment: 'CANCELLED' }]) {
     const e = r.eligibility({ ...base, ...patch }, settings)

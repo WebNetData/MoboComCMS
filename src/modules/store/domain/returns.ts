@@ -26,6 +26,8 @@ export const RETURN_REASONS = [
   { key: 'wrong_item', label: 'کالای اشتباه ارسال شد', photos: true, forKinds: ['RETURN'] },
   { key: 'not_as_described', label: 'با توضیحات و تصاویر سایت مطابقت ندارد', photos: true, forKinds: ['RETURN'] },
   { key: 'missing_parts', label: 'قطعه یا لوازم جانبی ناقص است', photos: true, forKinds: ['RETURN'] },
+  { key: 'code_invalid', label: 'کد کار نمی‌کند یا نامعتبر است', photos: false, forKinds: ['RETURN'] },
+  { key: 'code_used', label: 'کد پیش از من استفاده شده بود', photos: false, forKinds: ['RETURN'] },
   { key: 'changed_mind', label: 'از خرید منصرف شدم', photos: false, forKinds: ['RETURN', 'CANCEL'] },
   { key: 'late_delivery', label: 'ارسال بیش از حد طول کشید', photos: false, forKinds: ['CANCEL'] },
   { key: 'better_price', label: 'قیمت بهتری پیدا کردم', photos: false, forKinds: ['CANCEL'] },
@@ -35,6 +37,11 @@ export const RETURN_REASONS = [
 
 export const reasonLabel = (key: string) => RETURN_REASONS.find((reason) => reason.key === key)?.label || key
 export const reasonsFor = (kind: ReturnKind) => RETURN_REASONS.filter((reason) => (reason.forKinds as readonly string[]).includes(kind))
+
+/** Reasons that are only about a delivered code; the others (but "other") are only about goods that were shipped. */
+const CODE_REASONS: readonly string[] = ['code_invalid', 'code_used']
+/** The reasons offered for what is being sent back: a code is never "damaged in transit", a parcel never "already used". */
+export const reasonsForGoods = (kind: ReturnKind, goods: { physical: boolean; codes: boolean }) => reasonsFor(kind).filter((reason) => kind !== 'RETURN' ? true : CODE_REASONS.includes(reason.key) ? goods.codes : reason.key === 'other' || goods.physical)
 
 export const MAX_RETURN_PHOTOS = 5
 export const MAX_RETURN_PHOTO_BYTES = 5 * 1024 * 1024
@@ -49,6 +56,11 @@ export type ReturnSettings = {
   autoRefundCancel: boolean
   /** A damaged / wrong item return also needs at least one photo. */
   requirePhotos: boolean
+  /**
+   * Days after delivery during which a code the shop delivered by itself may be sent back. 0 = never
+   * (the default): a code the buyer has read cannot be sold again, so this is the owner's call.
+   */
+  codeReturnDays: number
   /** Shown on the request form and the product page. */
   policy: string
 }
@@ -59,6 +71,7 @@ export const DEFAULT_RETURN_SETTINGS: ReturnSettings = {
   cancelBefore: 'SHIPPED',
   autoRefundCancel: true,
   requirePhotos: true,
+  codeReturnDays: 0,
   policy: 'کالا باید در بسته‌بندی اصلی، سالم و همراه همهٔ لوازم و فاکتور بازگردانده شود. پس از دریافت و بررسی کالا، مبلغ به کیف پول شما برمی‌گردد.',
 }
 
@@ -67,6 +80,7 @@ const clean = (value: unknown, max: number) => String(value ?? '').replace(/[\u0
 export function normalizeReturnSettings(input: unknown): ReturnSettings {
   const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
   const days = Math.floor(Number(raw.windowDays))
+  const codeDays = Math.floor(Number(raw.codeReturnDays))
   const bool = (key: 'enabled' | 'autoRefundCancel' | 'requirePhotos') => typeof raw[key] === 'boolean' ? raw[key] as boolean : DEFAULT_RETURN_SETTINGS[key]
   return {
     enabled: bool('enabled'),
@@ -74,6 +88,7 @@ export function normalizeReturnSettings(input: unknown): ReturnSettings {
     cancelBefore: raw.cancelBefore === 'PROCESSING' || raw.cancelBefore === 'PACKED' || raw.cancelBefore === 'SHIPPED' ? raw.cancelBefore : DEFAULT_RETURN_SETTINGS.cancelBefore,
     autoRefundCancel: bool('autoRefundCancel'),
     requirePhotos: bool('requirePhotos'),
+    codeReturnDays: Number.isSafeInteger(codeDays) && codeDays >= 0 && codeDays <= 60 ? codeDays : DEFAULT_RETURN_SETTINGS.codeReturnDays,
     policy: raw.policy === undefined ? DEFAULT_RETURN_SETTINGS.policy : clean(raw.policy, 1200),
   }
 }
@@ -83,7 +98,8 @@ export function normalizeReturnSettings(input: unknown): ReturnSettings {
 const STAGE = ['PENDING', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'] as const
 const stageIndex = (status: string) => STAGE.indexOf(status as (typeof STAGE)[number])
 
-export type Eligibility = { cancel: boolean; return: boolean; reason: string; returnUntil: Date | null }
+/** `goods`: what a return may hold right now, shipped goods and delivered codes each by its own window. */
+export type Eligibility = { cancel: boolean; return: boolean; reason: string; returnUntil: Date | null; goods: { physical: boolean; codes: boolean } }
 
 /**
  * What the customer may ask for right now. `open` = an unfinished request
@@ -91,20 +107,29 @@ export type Eligibility = { cancel: boolean; return: boolean; reason: string; re
  */
 export function eligibility(input: {
   paid: boolean; fulfilment: string; deliveredAt: Date | null; open: boolean; fullyRefunded: boolean; physical: boolean
+  /** The order holds codes delivered from a product's pool that the buyer still has. */
+  codes?: boolean
 }, settings: ReturnSettings, now = new Date()): Eligibility {
-  const none = (reason: string): Eligibility => ({ cancel: false, return: false, reason, returnUntil: null })
+  const nothing = { physical: false, codes: false }
+  const none = (reason: string): Eligibility => ({ cancel: false, return: false, reason, returnUntil: null, goods: nothing })
   if (!settings.enabled) return none('ثبت درخواست لغو یا مرجوعی فعلاً فعال نیست.')
   if (!input.paid) return none('سفارش پرداخت‌نشده نیاز به لغو ندارد؛ پس از مدتی خودکار بسته می‌شود.')
   if (input.fullyRefunded) return none('مبلغ این سفارش قبلاً کامل برگشت داده شده است.')
   if (input.open) return none('یک درخواست باز برای این سفارش در حال بررسی است.')
   const stage = stageIndex(input.fulfilment || 'PENDING')
   if (stage < 0) return none('این سفارش بسته شده است.')
-  if (stage < stageIndex(settings.cancelBefore)) return { cancel: true, return: false, reason: '', returnUntil: null }
+  if (stage < stageIndex(settings.cancelBefore)) return { cancel: true, return: false, reason: '', returnUntil: null, goods: nothing }
   if (input.fulfilment !== 'DELIVERED') return none('سفارش در راه است؛ پس از تحویل می‌توانید درخواست مرجوعی ثبت کنید.')
-  if (!input.physical) return none('کالای مجازی پس از تحویل قابل مرجوع کردن نیست؛ در صورت مشکل تیکت ثبت کنید.')
-  const until = new Date((input.deliveredAt || now).getTime() + settings.windowDays * 86_400_000)
-  if (settings.windowDays === 0 || now > until) return { ...none(`مهلت ${settings.windowDays.toLocaleString('fa-IR')} روزهٔ مرجوعی این سفارش تمام شده است.`), returnUntil: until }
-  return { cancel: false, return: true, reason: '', returnUntil: until }
+  const window = (days: number) => { const until = new Date((input.deliveredAt || now).getTime() + days * 86_400_000); return { days, until, open: days > 0 && now <= until } }
+  const physical = input.physical ? window(settings.windowDays) : null
+  const codes = input.codes ? window(settings.codeReturnDays) : null
+  if (!physical && (!codes || codes.days === 0)) return none(codes ? 'کد تحویل‌شده قابل مرجوع کردن نیست؛ در صورت مشکل تیکت ثبت کنید.' : 'کالای مجازی پس از تحویل قابل مرجوع کردن نیست؛ در صورت مشکل تیکت ثبت کنید.')
+  if (!physical?.open && !codes?.open) {
+    const closed = physical || codes!
+    return { ...none(`مهلت ${closed.days.toLocaleString('fa-IR')} روزهٔ مرجوعی این سفارش تمام شده است.`), returnUntil: closed.until }
+  }
+  const until = [physical, codes].filter((item) => item?.open).map((item) => item!.until).sort((a, b) => b.getTime() - a.getTime())[0]
+  return { cancel: false, return: true, reason: '', returnUntil: until, goods: { physical: Boolean(physical?.open), codes: Boolean(codes?.open) } }
 }
 
 // ------------------------------------------------------------------ amounts

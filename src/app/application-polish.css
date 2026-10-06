@@ -277,3 +277,12 @@ html[dir=ltr] .admin-attention-arrow{transform:scaleX(-1)}
 .fa-team-add { display: flex; flex-wrap: wrap; gap: 8px; }
 .fa-team-add .input { flex: 1 1 200px; max-width: 320px; }
 .fa-team-foot { margin: 0; }
+
+/* Moderation overview: one decision for several ticked items. */
+.mq-batch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 8px 4px 10px; font-size: .86rem; }
+.mq-batch label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.mq-pick { margin-inline-end: 8px; vertical-align: middle; }
+
+/* Code pool: a delivered code with its "replace" action beside the link to its order. */
+.sa-code-row { display: flex; align-items: center; gap: 10px; }
+.sa-code-row > a { flex: 1; min-width: 0; }

@@ -58,6 +58,7 @@ export default function AdminMusicPage() {
         artist,
         { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
         { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },
+        { key: 'trackTerms', label: fa ? 'زبان و گویش همهٔ آهنگ‌های این آلبوم (اگر انتخاب کنید روی همهٔ آهنگ‌هایش ثبت می‌شود)' : 'Language of every song in this album (applied to all its songs when chosen)', type: 'terms', taxonomy: 'music-language' },
         { key: 'genre', label: fa ? 'سبک' : 'Genre' },
         { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
         { key: 'description', label: fa ? 'توضیحات' : 'Description', type: 'textarea' },

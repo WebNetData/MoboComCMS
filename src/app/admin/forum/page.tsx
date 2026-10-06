@@ -14,7 +14,7 @@ type Badge = { id: number; slug: string; name: string; description: string; icon
 type Author = { id: number; name: string; username: string }
 type Flag = { post: { id: number; number: number; excerpt: string; status: string; createdAt: string; thread: { id: number; title: string } }; author: Author; weight: number; flags: { reason: string; note: string; weight: number; createdAt: string; by: Author }[] }
 type Trust = { daysVisited: number; topicsEntered: number; postCount: number; likesGiven: number; likesReceived: number }
-type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
+type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
   approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
 type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
@@ -294,6 +294,9 @@ function AdminForumPage() {
         <Num label="حداکثر برچسب هر موضوع" value={settings.maxTagsPerTopic} max={10} onChange={(v) => setSettings({ ...settings, maxTagsPerTopic: v })} />
         <label className="studio-switch"><input type="checkbox" checked={settings.membersCreateTags} onChange={(e) => setSettings({ ...settings, membersCreateTags: e.target.checked })} />کاربران (سطح ۲ به بالا) برچسب تازه بسازند</label>
         <Num label="پیام‌های نخست تازه‌واردها که نیاز به تأیید دارند (۰ = خاموش)" value={settings.approveNewUserPosts} max={20} onChange={(v) => setSettings({ ...settings, approveNewUserPosts: v })} />
+        <label className="studio-switch"><input type="checkbox" checked={settings.clubsEnabled} onChange={(e) => setSettings({ ...settings, clubsEnabled: e.target.checked })} />اعضا بتوانند کلوب بسازند</label>
+        <Num label="حداقل سطح اعتماد برای ساخت کلوب" value={settings.clubsMinTrust} max={4} onChange={(v) => setSettings({ ...settings, clubsMinTrust: v })} />
+        <Num label="حداکثر کلوب برای هر بنیان‌گذار" value={settings.clubsMaxOwned} min={1} max={20} onChange={(v) => setSettings({ ...settings, clubsMaxOwned: v })} />
         <label className="studio-switch"><input type="checkbox" checked={settings.messagesEnabled} onChange={(e) => setSettings({ ...settings, messagesEnabled: e.target.checked })} />پیام خصوصی بین اعضا فعال باشد</label>
         <Num label="سطح لازم برای شروع پیام خصوصی" value={settings.messagesMinTrust} max={4} onChange={(v) => setSettings({ ...settings, messagesMinTrust: v })} />
         <Num label="سطح لازم برای ساخت نظرسنجی" value={settings.pollsMinTrust} max={4} onChange={(v) => setSettings({ ...settings, pollsMinTrust: v })} />

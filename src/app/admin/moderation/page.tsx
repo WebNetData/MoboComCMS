@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { Notice, fa as faNumber, faDate, send, useJson } from '../store/shared'
-import { QUEUE_SOURCES, waitingTone, type QueueDecision, type QueueGroup, type QueueItem, type QueueSourceKey } from '@/modules/moderation/domain/queue'
+import { QUEUE_SOURCES, waitingTone, type QueueDecision, type QueueGroup, type QueueItem, type QueueSourceKey, BATCH_LIMIT, batchIds, batchOutcome } from '@/modules/moderation/domain/queue'
 
 type Queue = { total: number; groups: QueueGroup[]; failed: QueueSourceKey[] }
 
@@ -20,6 +20,8 @@ export default function ModerationPage() {
   const L = (faText: string, en: string) => isFa ? faText : en
   const { data, error, loading, reload } = useJson<Queue>('/api/admin/moderation')
   const [busy, setBusy] = useState('')
+  // Items ticked for one decision on all of them, per source.
+  const [picked, setPicked] = useState<Record<string, number[]>>({})
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const now = new Date()
   const num = (value: number) => isFa ? faNumber(value) : value.toLocaleString('en-US')
@@ -47,6 +49,24 @@ export default function ModerationPage() {
     await reload()
   }
 
+  /** The same decision for every ticked item of a source: one request each, to the owning module, in order. */
+  async function decideMany(group: QueueGroup, decision: QueueDecision) {
+    const ids = batchIds(picked[group.key] || [], group.items.map((item) => item.id))
+    if (!ids.length) return
+    const name = isFa ? decision.label : decision.labelEn
+    if (!window.confirm(L(`«${name}» برای ${num(ids.length)} مورد ثبت شود؟`, `${name} ${ids.length} item(s)?`))) return
+    setBusy(`${group.key}:batch`); setMessage(null)
+    const results = []
+    for (const id of ids) { const request = decision.request(id); results.push(await send(request.url, request.method, request.body)) }
+    const outcome = batchOutcome(results)
+    setBusy(''); setPicked((current) => ({ ...current, [group.key]: [] }))
+    setMessage(outcome.failed
+      ? { tone: 'error', text: L(`«${name}» برای ${num(outcome.done)} مورد ثبت شد و ${num(outcome.failed)} مورد نشد: ${outcome.reasons.join('؛ ')}`, `${name}: ${outcome.done} saved, ${outcome.failed} not: ${outcome.reasons.join('; ')}`) }
+      : { tone: 'ok', text: L(`«${name}» برای ${num(outcome.done)} مورد ثبت شد.`, `${name} saved for ${outcome.done} item(s).`) })
+    await reload()
+  }
+  const toggle = (key: string, id: number) => setPicked((current) => { const list = current[key] || []; return { ...current, [key]: list.includes(id) ? list.filter((item) => item !== id) : [...list, id] } })
+
   return <div className="sa" dir={isFa ? 'rtl' : 'ltr'}>
     <header className="sa-head">
       <h1>{L('صف بررسی', 'Moderation queue')}</h1>
@@ -73,11 +93,19 @@ export default function ModerationPage() {
               <Link href={group.href} className="sa-link">{L('صفحهٔ این بخش', 'Open section')}</Link>
             </div>
           </header>
+          {decisions.length > 0 && group.items.length > 1 && (() => {
+            const ids = batchIds(picked[group.key] || [], group.items.map((item) => item.id)), all = group.items.slice(0, BATCH_LIMIT).map((item) => item.id)
+            return <div className="mq-batch">
+              <label><input type="checkbox" checked={ids.length > 0 && ids.length === all.length} onChange={(event) => setPicked((current) => ({ ...current, [group.key]: event.target.checked ? all : [] }))} disabled={!!busy} />{L('انتخاب همهٔ این فهرست', 'Select all listed')}</label>
+              {ids.length > 0 && <span className="sa-sub">{L(`${num(ids.length)} مورد انتخاب شده`, `${ids.length} selected`)}</span>}
+              {ids.length > 0 && <span className="sa-head-actions">{decisions.map((decision) => <button key={decision.key} type="button" className={`btn btn-sm ${decision.key === 'approve' ? 'btn-primary' : 'btn-ghost'}`} disabled={!!busy} aria-busy={busy === `${group.key}:batch`} onClick={() => void decideMany(group, decision)}>{isFa ? decision.label : decision.labelEn} {L('انتخاب‌شده‌ها', 'selected')}</button>)}</span>}
+            </div>
+          })()}
           {decisions.length ? <ul className="mq-items">
             {group.items.map((item) => {
               const working = busy === `${group.key}:${item.id}`
               return <li key={item.id} className="mq-item">
-                <p className="mq-text">{item.full || item.text || '—'}</p>
+                <p className="mq-text">{group.items.length > 1 && <input type="checkbox" className="mq-pick" checked={(picked[group.key] || []).includes(item.id)} onChange={() => toggle(group.key, item.id)} disabled={!!busy} aria-label={L('انتخاب این مورد', 'Select this item')} />}{item.full || item.text || '—'}</p>
                 <div className="mq-foot">
                   <small className="sa-sub">{[item.by, item.about].filter(Boolean).join(' · ') || '—'} · <time dateTime={item.at}>{when(item.at)}</time></small>
                   <div className="sa-head-actions">{decisions.map((decision) => <button key={decision.key} type="button" className={`btn btn-sm ${decision.key === 'approve' ? 'btn-primary' : 'btn-ghost'}`} disabled={!!busy} aria-busy={working} onClick={() => void decide(group, item, decision)}>{isFa ? decision.label : decision.labelEn}</button>)}</div>

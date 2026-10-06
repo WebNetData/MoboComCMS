@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getForumSettings } from '@/modules/forum/server/community'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer } from '@/modules/forum/server/forum'
@@ -16,8 +17,8 @@ const STATE: Record<string, string> = { OWNER: 'بنیان‌گذار', ACTIVE: 
 export default async function ClubsPage() {
   await requireModule('forum')
   const viewer = await getForumViewer()
-  const clubs = await listClubs(viewer)
-  const refusal = clubRefusal(viewer)
+  const [clubs, settings] = await Promise.all([listClubs(viewer), getForumSettings()])
+  const refusal = clubRefusal(viewer, settings)
   return (
     <ForumShell viewer={viewer} active="clubs" wide>
       <header className="fm-head">
@@ -29,7 +30,7 @@ export default async function ClubsPage() {
           <li key={club.slug} className="fk-card" style={{ ['--g' as string]: club.color }}>
             <span className="fk-cover" aria-hidden="true" />
             <span className="fk-icon" aria-hidden="true">{club.icon || '🎪'}</span>
-            <span className={`fk-kind-tag is-${club.kind}`}>{club.kind === 'open' ? 'باز' : 'خصوصی'}</span>
+            <span className={`fk-kind-tag is-${club.closed ? 'private' : club.kind}`}>{club.closed ? 'بسته‌شده' : club.kind === 'open' ? 'باز' : 'خصوصی'}</span>
             <h2><Link href={`/forum/g/${club.slug}`}>{club.name}</Link>{club.membership !== 'NONE' && <small className={`fk-state is-${club.membership.toLowerCase()}`}>{STATE[club.membership]}</small>}</h2>
             <p className="fk-desc">{club.description || 'کلوبی از اعضای جامعه.'}</p>
             <dl className="fk-stats">
@@ -43,7 +44,7 @@ export default async function ClubsPage() {
             </div>
             <div className="fk-actions">
               {club.open && <Link href={`/forum/c/${club.slug}`} className="btn btn-primary btn-sm">ورود به انجمن</Link>}
-              <Link href={`/forum/g/${club.slug}`} className="btn btn-ghost btn-sm">{club.membership === 'NONE' ? club.kind === 'open' ? 'پیوستن' : 'درخواست عضویت' : 'صفحهٔ کلوب'}</Link>
+              <Link href={`/forum/g/${club.slug}`} className="btn btn-ghost btn-sm">{club.membership !== 'NONE' || club.closed ? 'صفحهٔ کلوب' : club.kind === 'open' ? 'پیوستن' : 'درخواست عضویت'}</Link>
             </div>
           </li>
         ))}

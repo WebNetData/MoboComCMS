@@ -280,6 +280,8 @@ export async function groupAction(viewer: Viewer, slug: string, input: { action?
   } else if (action === 'owner' || action === 'unowner') {
     if (!row || row.status !== 'ACTIVE') throw new ForumError('این کاربر عضو گروه نیست', 404)
     await db.forumGroupMember.update({ where: { id: row.id }, data: { owner: action === 'owner' } })
+    // A club's forum is moderated by its owners.
+    if (group.clubCategoryId) await (await import('@/modules/forum/server/clubs')).syncClubModerators(group.id)
   } else throw new ForumError('عملیات نامعتبر')
   await recountGroup(group.id)
   return { ok: true }

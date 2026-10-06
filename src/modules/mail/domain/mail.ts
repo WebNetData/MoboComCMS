@@ -53,6 +53,7 @@ export const EMAIL_EVENTS: { id: string; label: string }[] = [
   { id: 'CONTENT_PURCHASE', label: 'خرید فایل یا مقالهٔ پولی' },
   { id: 'MARKETPLACE', label: 'فروشندگان (سفارش تازه، تسویه، وضعیت فروشگاه)' },
   { id: 'LIVECHAT', label: 'گفت‌وگوی آنلاین (پاسخ اپراتور)' },
+  { id: 'INBOX_DIGEST', label: 'خلاصهٔ روزانهٔ اعلان‌های خوانده‌نشده' },
   { id: 'FX_RATE', label: 'نرخ ارز منتظر تأیید (مدیر)' },
   { id: 'ADS', label: 'تبلیغات (تأیید و وضعیت کمپین)' },
   { id: 'FORM', label: 'پاسخ تازهٔ فرم‌ها (مدیر)' },

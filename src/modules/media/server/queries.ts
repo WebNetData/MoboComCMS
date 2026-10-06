@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { CALENDAR_PAGE, calendarPage, groupByDay, normalizeWhen, type CalendarEpisode } from '@/modules/cinema/domain/calendar'
+import { CALENDAR_PAGE, calendarPage, groupByDay, groupDays, normalizeWhen, type CalendarEpisode, type CalendarFilm } from '@/modules/cinema/domain/calendar'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
@@ -127,11 +127,13 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
   }
 }
 
-export async function browseMusic(input: { q?: string; genre?: string; sort?: string; page?: number }) {
+/** `ids`, when given, narrows the songs to those (a language's songs); an empty list means none, not all. */
+export async function browseMusic(input: { q?: string; genre?: string; sort?: string; page?: number; ids?: number[] | null }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const q = String(input.q || '').trim().slice(0, 80)
   const where: any = { ...live() }
   if (input.genre) where.genre = { contains: String(input.genre).slice(0, 60) }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { artist: { name: { contains: q } } }, { artist: { nameEn: { contains: q } } }]
   const orderBy = input.sort === 'popular' ? [{ plays: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
   const [rows, total] = await Promise.all([
@@ -344,6 +346,27 @@ export async function episodeCalendar(input: { when?: unknown; page?: unknown },
     series: { slug: row.season.title.slug, title: row.season.title.title, titleEn: row.season.title.titleEn, poster: row.season.title.poster },
   }] : [])
   return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupByDay(episodes) }
+}
+
+/**
+ * Film release calendar: published films with a release day, the ones opening next (soonest first) or the
+ * ones that opened last (latest first), by day. A film without a release day is not on it.
+ */
+export async function filmCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
+  const when = normalizeWhen(input.when)
+  const page = calendarPage(input.page)
+  const films = { kind: 'MOVIE', status: 'PUBLISHED', publishedAt: { lte: now } }
+  const where = { ...films, releaseDate: when === 'upcoming' ? { gt: now } : { lte: now } }
+  const [rows, total, upcoming] = await Promise.all([
+    db.cinemaTitle.findMany({
+      where, orderBy: [{ releaseDate: when === 'upcoming' ? 'asc' : 'desc' }, { id: 'asc' }], skip: (page - 1) * CALENDAR_PAGE, take: CALENDAR_PAGE,
+      select: { id: true, slug: true, title: true, titleEn: true, poster: true, year: true, access: true, releaseDate: true },
+    }),
+    db.cinemaTitle.count({ where }),
+    when === 'upcoming' ? Promise.resolve(-1) : db.cinemaTitle.count({ where: { ...films, releaseDate: { gt: now } } }),
+  ]).catch(() => [[], 0, 0] as [never[], number, number])
+  const list: CalendarFilm[] = rows.flatMap((row) => row.releaseDate ? [{ id: row.id, at: row.releaseDate.toISOString(), slug: row.slug, title: row.title, titleEn: row.titleEn, poster: row.poster, year: row.year, members: row.access === 'MEMBERS' }] : [])
+  return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupDays(list) }
 }
 
 // ------------------------------------------------------------------ games

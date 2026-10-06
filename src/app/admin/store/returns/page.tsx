@@ -10,7 +10,7 @@ type Row = {
   requested: number; refund: number; currency: string; createdAt: string; orderId: number; photos: string[]
   lines: { name: string; quantity: number; image: string }[]; customer: { name: string; email: string; phone: string }
 }
-type Settings = { enabled: boolean; windowDays: number; cancelBefore: 'PROCESSING' | 'PACKED' | 'SHIPPED'; autoRefundCancel: boolean; requirePhotos: boolean; policy: string }
+type Settings = { enabled: boolean; windowDays: number; cancelBefore: 'PROCESSING' | 'PACKED' | 'SHIPPED'; autoRefundCancel: boolean; requirePhotos: boolean; codeReturnDays: number; policy: string }
 type List = { tab: string; page: number; pages: number; counts: Record<string, number>; tabs: { key: string; label: string }[]; rows: Row[]; settings: Settings }
 
 function SettingsCard({ initial }: { initial: Settings }) {
@@ -31,6 +31,7 @@ function SettingsCard({ initial }: { initial: Settings }) {
     <label className="sa-check"><input type="checkbox" checked={settings.enabled} onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })} />مشتری بتواند از صفحهٔ سفارش درخواست لغو یا مرجوعی ثبت کند</label>
     <div className="sa-grid">
       <label className="sa-field"><span>مهلت مرجوعی پس از تحویل (روز)</span><input className="input num" type="number" min={0} max={365} value={settings.windowDays} onChange={(e) => setSettings({ ...settings, windowDays: Number(e.target.value) })} /></label>
+      <label className="sa-field"><span>مهلت برگشت کدِ تحویل‌شده (روز؛ صفر یعنی کد برگشت ندارد)</span><input className="input num" type="number" min={0} max={60} value={settings.codeReturnDays ?? 0} onChange={(e) => setSettings({ ...settings, codeReturnDays: Number(e.target.value) })} /><small className="sa-sub">کدی که برگشت می‌خورد باطل می‌شود و دوباره فروخته نمی‌شود؛ هر درخواست را خودتان بررسی و تأیید می‌کنید.</small></label>
       <label className="sa-field"><span>لغو توسط مشتری تا پیش از</span><select className="select" value={settings.cancelBefore} onChange={(e) => setSettings({ ...settings, cancelBefore: e.target.value as Settings['cancelBefore'] })}>
         <option value="PROCESSING">شروع پردازش</option><option value="PACKED">بسته‌بندی</option><option value="SHIPPED">تحویل به مرسوله‌رسان</option>
       </select></label>

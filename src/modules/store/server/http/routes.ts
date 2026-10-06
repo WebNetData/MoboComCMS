@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { addCodes, listCodes, removeCode, setDigitalMode } from '@/modules/store/server/digital-codes'
+import { addCodes, listCodes, removeCode, replaceCode, setDigitalMode } from '@/modules/store/server/digital-codes'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
@@ -224,6 +224,7 @@ export async function GET_productCodes(req: NextRequest, { params }: IdContext) 
 /**
  * POST /api/admin/store/products/:id/codes
  *   { action: 'mode', mode: MANUAL | CODES } · { action: 'add', text, variantId? } · { action: 'remove', codeId }
+ *   { action: 'replace', codeId, note? } — a delivered code that did not work: void it and give the buyer another
  */
 export async function POST_productCodes(req: NextRequest, { params }: IdContext) {
   const g = await catalogAdmin(req)
@@ -237,6 +238,7 @@ export async function POST_productCodes(req: NextRequest, { params }: IdContext)
     if (action === 'mode') result = await setDigitalMode(id, body.mode)
     else if (action === 'add') result = await addCodes({ productId: id, variantId: body.variantId, text: body.text })
     else if (action === 'remove') result = await removeCode(id, positiveId(body.codeId))
+    else if (action === 'replace') result = await replaceCode({ productId: id, codeId: positiveId(body.codeId), actorId: g.admin.id, note: body.note })
     else return err('عملیات ناشناخته است', 400)
     // The codes themselves are never written to the audit log.
     await auditAdmin({ req, actor: g.admin, action: `store.product.codes.${action}`, targetType: 'product', targetId: id, metadata: action === 'add' ? { added: Number(result.added) || 0 } : action === 'mode' ? { mode: String(result.mode) } : { codeId: positiveId(body.codeId) } })
