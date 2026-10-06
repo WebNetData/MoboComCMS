@@ -45,6 +45,19 @@ Following is not the forum's. The page reads followers, following, feed posts an
 
 Acceptance: `scripts/forum-member-profile.connected.cjs` in `npm run test:pg`. Counting suspended accounts in the standing, offering the button to a blocked pair, or ignoring the module switch each fails it.
 
+## Slice 6: sections, forums and subforums; the topic list and the topic heading
+Owner feedback on the first slices: the board did not look professional, it had no real sections, forums had no subforums, and the topic list and the topic page needed a far stronger design.
+
+**Structure.** The category tree has three levels: section, forum, subforum (`MAX_CATEGORY_DEPTH` in `src/modules/forum/domain/tree.ts`, with `categoryTree`, `categoryFamily`, `categoryPath`). No schema change: `ForumCategory.parentId` already allowed it; the admin rule that refused a second level now refuses a fourth, counting the children a moved category brings along. A forum is sized and dated over itself and every subforum the viewer may see, and its page lists its own topics and theirs. The composer's picker, the sidebar, the move dialog and the admin table walk the same tree. New installs are seeded with three sections; existing installs keep their categories and arrange them in the admin panel.
+
+**Board index.** Each section is a foldable card (`<details>`, no script) with its sign, description and totals. A forum row shows its sign in the forum's colour (dimmed when quiet for a month), description, subforums as links with their topic counts, topics and posts, and the last post. The same row (`ForumRow`) lists subforums on a forum's page.
+
+**Forum page and topic lists.** Wide layout, breadcrumb, a banner in the forum's colour with its numbers, new-topic and watch buttons, the subforums, then the topics as rows of a card: who started it, state (pinned, solved, closed, hot, new, unread count), forum and tags, replies and views, and who wrote last. Pinned topics stand first on a tinted band. The table is gone, on phones too.
+
+**Topic heading.** Breadcrumb through forums the viewer may open, state, title, who started it and when, forum and tags, and a bar of replies, views, likes, participants and the last reply. Posts carry their number and the starter is marked.
+
+Rules. A subforum the viewer may not see adds nothing to its parent: not to the counts, not to the last post, not to the breadcrumb. Acceptance: `scripts/forum-board-index.connected.cjs` (subforums, sizes over the family, a private subforum, `subforumRows`, a forum's and a section's topic list) and the tree tests in `scripts/forum.test.cjs`.
+
 ## Next slices
 1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
 2. Member profile, remaining: one page for the forum profile and the feed profile (today they link to each other).

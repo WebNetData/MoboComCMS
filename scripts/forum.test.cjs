@@ -54,3 +54,35 @@ test('board slugs are normalized', () => {
   assert.equal(forum.boardSlug(' VIP Lounge!! '), 'vip-lounge')
   assert.throws(() => forum.boardSlug('سلام'), forum.ForumError)
 })
+
+// ---- the forum's structure: section, forum, subforum
+const tree = load('src/modules/forum/domain/tree.ts')
+const BOARD = [
+  { id: 1, parentId: null }, { id: 2, parentId: 1 }, { id: 3, parentId: 2 }, { id: 4, parentId: 2 }, { id: 5, parentId: 1 },
+  { id: 6, parentId: null }, { id: 7, parentId: 99 }, // 99 is hidden from this viewer
+]
+
+test('the category tree is walked in reading order with depths, and an orphan stands at the top', () => {
+  assert.deepEqual(tree.categoryTree(BOARD).map((row) => [row.category.id, row.depth]), [[1, 0], [2, 1], [3, 2], [4, 2], [5, 1], [6, 0], [7, 0]])
+  assert.deepEqual(tree.categoryTree([]), [])
+})
+
+test('nothing vanishes from the tree: deeper rows and loops still show', () => {
+  const deep = [...BOARD, { id: 8, parentId: 3 }, { id: 10, parentId: 11 }, { id: 11, parentId: 10 }]
+  const ids = tree.categoryTree(deep).map((row) => row.category.id)
+  assert.deepEqual([...ids].sort((a, b) => a - b), deep.map((row) => row.id).sort((a, b) => a - b))
+  assert.equal(new Set(ids).size, ids.length)
+  assert.ok(tree.categoryTree(deep).every((row) => row.depth < tree.MAX_CATEGORY_DEPTH))
+})
+
+test('a family is the category with everything under it, and a path leads down to it', () => {
+  assert.deepEqual(tree.categoryFamily(BOARD, 1), [1, 2, 5, 3, 4])
+  assert.deepEqual(tree.categoryFamily(BOARD, 2), [2, 3, 4])
+  assert.deepEqual(tree.categoryFamily(BOARD, 6), [6])
+  assert.deepEqual(tree.categoryPath(BOARD, 4).map((row) => row.id), [1, 2, 4])
+  assert.deepEqual(tree.categoryPath(BOARD, 7).map((row) => row.id), [7], 'a hidden parent is not part of the way back')
+  assert.deepEqual(tree.categoryPath(BOARD, 404), [])
+  // A loop in the data must end.
+  assert.ok(tree.categoryFamily([{ id: 1, parentId: 2 }, { id: 2, parentId: 1 }], 1).length === 2)
+  assert.ok(tree.categoryPath([{ id: 1, parentId: 2 }, { id: 2, parentId: 1 }], 1).length <= 2)
+})

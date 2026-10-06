@@ -1,33 +1,9 @@
 import Link from '@/components/AppLink'
 import type { Viewer } from '@/modules/forum/domain/community'
-import { boardIndex, type BoardForum } from '@/modules/forum/server/board'
+import { boardIndex } from '@/modules/forum/server/board'
+import ForumRow, { ForumRowsHead } from '@/components/forum/ForumRow'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, TimeAgo, compact, num } from '@/components/forum/shared'
-
-const Bubble = () => <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /><path d="M9 11h6M9 14h3" /></svg>
-
-function ForumRow({ forum }: { forum: BoardForum }) {
-  return <li className={`fb-forum${forum.quiet ? ' is-quiet' : ''}`} style={{ ['--cat' as string]: forum.color }}>
-    <span className="fb-forum-icon" aria-hidden="true">{forum.icon || <Bubble />}</span>
-    <div className="fb-forum-main">
-      <h3><Link href={`/forum/c/${forum.slug}`}>{forum.title}</Link>{forum.vip && <small className="fx-vip">VIP</small>}{forum.locked && <small className="fb-tag">فقط اطلاعیه</small>}</h3>
-      {forum.description && <p>{forum.description}</p>}
-    </div>
-    <dl className="fb-forum-stats">
-      <div><dt>موضوع</dt><dd>{compact(forum.threadCount)}</dd></div>
-      <div><dt>پیام</dt><dd>{compact(forum.postCount)}</dd></div>
-    </dl>
-    <div className="fb-forum-last">
-      {forum.last ? <>
-        <Link href={`/forum/u/${forum.last.author.username}`} className="fb-forum-last-avatar" aria-label={`پروفایل ${forum.last.author.name}`}><Avatar author={forum.last.author} size={38} /></Link>
-        <div>
-          <Link href={`/forum/t/${forum.last.topicId}`} className="fb-forum-last-title">{forum.last.title}</Link>
-          <small><Link href={`/forum/u/${forum.last.author.username}`}>{forum.last.author.name}</Link> · <TimeAgo date={forum.last.at} /></small>
-        </div>
-      </> : <small className="fb-forum-empty">هنوز موضوعی ندارد — <Link href={`/forum/new?category=${forum.slug}`}>اولین موضوع را شما بسازید</Link></small>}
-    </div>
-  </li>
-}
 
 /** The forum's front page in the manner of a board index: sections of forums with their last post, and what is happening beside them. */
 export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
@@ -53,13 +29,20 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
 
     <div className="fb-layout">
       <div className="fb-sections">
-        {board.sections.map((section) => <section key={section.id} className="fb-section" style={section.color ? { ['--cat' as string]: section.color } : undefined} aria-labelledby={`fb-section-${section.id}`}>
-          <header className="fb-section-head">
-            <h2 id={`fb-section-${section.id}`}><Link href={section.slug ? `/forum/c/${section.slug}` : '/forum/categories'}>{section.title}</Link>{section.vip && <small className="fx-vip">VIP</small>}</h2>
-            {!section.own && section.description && <p>{section.description}</p>}
-          </header>
-          <ul className="fb-forums">{section.forums.map((forum) => <ForumRow key={forum.id} forum={forum} />)}</ul>
-        </section>)}
+        {/* A section folds away with its heading; the browser keeps that, no script. */}
+        {board.sections.map((section) => <details key={section.id} open className="bi-section" style={section.color ? { ['--cat' as string]: section.color } : undefined}>
+          <summary className="bi-section-head">
+            <span className="bi-section-sign" aria-hidden="true">{section.icon || '▦'}</span>
+            <span className="bi-section-title">
+              <h2>{section.slug ? <Link href={`/forum/c/${section.slug}`}>{section.title}</Link> : section.title}{section.vip && <small className="bi-tag is-vip">VIP</small>}</h2>
+              {section.description && <small>{section.description}</small>}
+            </span>
+            <span className="bi-section-count">{num(section.forums.length)} انجمن<i aria-hidden="true">·</i>{compact(section.topics)} موضوع<i aria-hidden="true">·</i>{compact(section.posts)} پیام</span>
+            <span className="bi-fold" aria-hidden="true" />
+          </summary>
+          <ForumRowsHead />
+          <ul className="bi-forums">{section.forums.map((forum) => <ForumRow key={forum.id} forum={forum} />)}</ul>
+        </details>)}
         {!board.sections.length && <div className="fx-empty"><p>هنوز انجمنی ساخته نشده است.</p></div>}
       </div>
 

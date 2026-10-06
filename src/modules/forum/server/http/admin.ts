@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { MAX_CATEGORY_DEPTH } from '@/modules/forum/domain/tree'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
@@ -102,6 +103,9 @@ async function users(q: string) {
 
 // ------------------------------------------------------------------ writes
 
+/** 1 for a section (no parent), 2 for a forum inside it. */
+const categoryDepth = (category: { parentId: number | null }) => category.parentId ? 2 : 1
+
 async function saveCategory(body: Record<string, any>, creating: boolean) {
   const title = text(body.title, 120)
   if (creating && !title) throw new ForumError('عنوان دسته لازم است')
@@ -109,10 +113,12 @@ async function saveCategory(body: Record<string, any>, creating: boolean) {
   const parentId = body.parentId === undefined ? undefined : Number(body.parentId) || null
   if (parentId) {
     if (parentId === id) throw new ForumError('دسته نمی‌تواند زیردستهٔ خودش باشد')
-    const parent = await db.forumCategory.findUnique({ where: { id: parentId }, select: { parentId: true } })
+    const parent = await db.forumCategory.findUnique({ where: { id: parentId }, select: { parentId: true, parent: { select: { parentId: true } } } })
     if (!parent) throw new ForumError('دستهٔ والد پیدا نشد', 404)
-    if (parent.parentId) throw new ForumError('فقط یک سطح زیردسته پشتیبانی می‌شود')
-    if (id && await db.forumCategory.count({ where: { parentId: id } })) throw new ForumError('دسته‌ای که خودش زیردسته دارد نمی‌تواند زیردسته شود')
+    // Three levels at most: section, forum, subforum. What is being moved brings its own children along.
+    const children = id ? await db.forumCategory.findMany({ where: { parentId: id }, select: { _count: { select: { children: true } } } }) : []
+    const height = !children.length ? 1 : children.some((child) => child._count.children > 0) ? 3 : 2
+    if (parent.parent?.parentId || categoryDepth(parent) + height > MAX_CATEGORY_DEPTH) throw new ForumError('ساختار انجمن حداکثر سه سطح دارد: بخش، انجمن و زیرانجمن')
   }
   const data = {
     ...(title ? { title } : {}),

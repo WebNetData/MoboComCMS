@@ -19,7 +19,7 @@ function load(file) {
   }, mod, mod.exports)
   return mod.exports
 }
-const board = load('src/modules/forum/server/board.ts')
+const board = load('src/modules/forum/server/board.ts'), forum = load('src/modules/forum/server/forum.ts')
 const now = new Date(), ago = minutes => new Date(now.getTime() - minutes * 60_000)
 
 async function main() {
@@ -30,6 +30,8 @@ async function main() {
   const category = (name, data = {}) => prisma.forumCategory.create({ data: { slug: `${seed}-${name}`, title: `${seed} ${name}`, sortOrder: 9000, ...data } })
   const parent = await category('games', { description: 'section' })
   const [pc, consoleForum] = [await category('pc', { parentId: parent.id, threadCount: 2, postCount: 5 }), await category('console', { parentId: parent.id })]
+  // Subforums of a forum: one open, one for the private group only.
+  const mods = await category('pc-mods', { parentId: pc.id, threadCount: 3, postCount: 4 })
   const lone = await category('lounge', { threadCount: 1, postCount: 1 })
   const secret = await category('staff-room', { permissions: { create: [{ groupId: group.id, level: 'CREATE' }] } })
   const topic = (cat, title, user, minutes, data = {}) => prisma.forumThread.create({ data: { categoryId: cat.id, userId: user.id, title, lastPostAt: ago(minutes), replyCount: 1, ...data } })
@@ -38,6 +40,8 @@ async function main() {
   await topic(pc, 'hidden topic', writer, 1, { status: 'HIDDEN' }); await topic(pc, 'unlisted topic', writer, 1, { listed: false })
   const stale = await topic(lone, 'stale topic', writer, 60 * 24 * 45)
   const classified = await topic(secret, 'classified topic', writer, 5)
+  const vault = await category('pc-vault', { parentId: pc.id, threadCount: 9, postCount: 9, permissions: { create: [{ groupId: group.id, level: 'CREATE' }] } })
+  const modTopic = await topic(mods, 'mod topic', writer, 10); await topic(vault, 'vault topic', writer, 3)
   const post = (thread, user, n, data = {}) => prisma.forumPost.createMany({ data: Array.from({ length: n }, () => ({ threadId: thread.id, userId: user.id, content: 'x', ...data })) })
   // Enough posts to lead the site-wide list whatever else the database holds.
   await post(newer, writer, 60); await post(older, replier, 50); await post(classified, lurker, 90); await post(newer, lurker, 80, { status: 'HIDDEN' }); await post(stale, insider, 70, { createdAt: ago(60 * 24 * 45) })
@@ -56,27 +60,38 @@ async function main() {
   const section = member.sections.find(row => row.slug === parent.slug)
   assert.deepEqual(section.forums.map(forum => forum.slug), [pc.slug, consoleForum.slug], 'a section lists its subforums in order')
   const first = section.forums[0]
-  assert.deepEqual([first.threadCount, first.postCount, first.last.topicId, first.last.title, first.last.author.name, first.quiet], [2, 5, newer.id, 'newer topic', `${seed} replier`, false], 'the last post is the newest visible topic, by who posted last')
+  assert.deepEqual([first.threadCount, first.postCount, first.topics, first.posts, first.last.topicId, first.last.title, first.quiet], [2, 5, 5, 9, modTopic.id, 'mod topic', false], 'a forum is sized and dated over itself and the subforums the viewer may see')
+  assert.deepEqual(first.subforums.map(sub => [sub.slug, sub.topics, sub.quiet]), [[mods.slug, 3, false]], 'its subforums, without the private one')
+  assert.deepEqual([section.topics, section.posts], [5, 9], 'a section adds up its forums')
+  const rows = await board.subforumRows(viewer(lurker.id), pc.id, now)
+  assert.deepEqual(rows.map(row => [row.slug, row.last.title]), [[mods.slug, 'mod topic']], 'the forum page lists the same subforums')
+  const listed = await forum.topicList({ viewer: viewer(lurker.id), categorySlug: pc.slug })
+  assert.deepEqual(listed.rows.map(row => row.title).sort(), ['mod topic', 'newer topic', 'older topic'], 'a forum lists its own topics and those of visible subforums')
+  assert.deepEqual((await forum.topicList({ viewer: viewer(lurker.id), categorySlug: parent.slug })).rows.map(row => row.title).sort(), ['mod topic', 'newer topic', 'older topic'], 'a section reaches down through both levels')
   assert.deepEqual([section.forums[1].last, section.forums[1].quiet], [null, true], 'an empty forum has no last post')
   const shared = member.sections.find(row => row.id === 0)
-  assert.ok(shared.forums.some(forum => forum.slug === lone.slug), 'a forum without subforums sits in the shared first section')
+  assert.ok(shared.forums.some(forum => forum.slug === lone.slug), 'a forum without subforums sits in the shared section')
+  assert.equal(member.sections[member.sections.length - 1].id, 0, 'which comes after the real sections')
   assert.equal(shared.forums.find(forum => forum.slug === lone.slug).quiet, true, 'nothing for a month: quiet')
-  assert.ok(!member.text.includes('classified topic') && !member.text.includes(secret.slug) && !member.text.includes('hidden topic') && !member.text.includes('unlisted topic'), 'nothing of a forum the viewer cannot see, nor hidden or unlisted topics')
-  assert.deepEqual(member.topics, ['newer topic', 'older topic'])
+  assert.ok(!member.text.includes('classified topic') && !member.text.includes(secret.slug) && !member.text.includes('vault') && !member.text.includes('hidden topic') && !member.text.includes('unlisted topic'), 'nothing of a forum the viewer cannot see, nor hidden or unlisted topics')
+  assert.deepEqual(member.topics, ['mod topic', 'newer topic', 'older topic'])
   assert.deepEqual(member.contributors, [['writer', 60], ['replier', 50]], 'posts of the last 30 days in visible forums; hidden posts and private forums do not count')
   assert.deepEqual(member.online, ['lurker', 'writer'], 'seen in the last ten minutes')
 
   // ---- a member of the private group
   const inside = mine(await board.boardIndex(viewer(insider.id, [group.id]), now))
   assert.ok(inside.sections.some(row => row.forums.some(forum => forum.slug === secret.slug && forum.last.title === 'classified topic')))
-  assert.equal(inside.topics[0], 'classified topic')
+  assert.equal(inside.topics[0], 'vault topic')
+  const insidePc = inside.sections.find(row => row.slug === parent.slug).forums[0]
+  assert.deepEqual([insidePc.topics, insidePc.last.title, insidePc.subforums.map(sub => sub.slug)], [14, 'vault topic', [mods.slug, vault.slug]], 'a member of the group gets the private subforum counted in')
+  assert.equal((await board.subforumRows(viewer(insider.id, [group.id]), pc.id, now)).length, 2)
   assert.deepEqual(inside.contributors[0], ['lurker', 90])
 
   // ---- a visitor: the same public forums, and no names of who is online
   const guest = mine(await board.boardIndex(viewer(null), now))
-  assert.deepEqual(guest.topics, ['newer topic', 'older topic'])
+  assert.deepEqual(guest.topics, ['mod topic', 'newer topic', 'older topic'])
   assert.deepEqual(guest.online, [])
-  assert.ok(!guest.text.includes('classified topic'))
+  assert.ok(!guest.text.includes('classified topic') && !guest.text.includes('vault'))
   assert.equal(board.isQuiet(ago(60 * 24 * 29), now), false); assert.equal(board.isQuiet(ago(60 * 24 * 31), now), true); assert.equal(board.isQuiet(null, now), true)
   console.log('PostgreSQL forum board index: sections and forums, last post, quiet forums, contributors, presence, and nothing from forums a viewer cannot see passed')
 }

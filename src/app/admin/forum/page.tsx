@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import { MAX_CATEGORY_DEPTH, categoryFamily, categoryTree } from '@/modules/forum/domain/tree'
 import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
@@ -87,8 +88,12 @@ function AdminForumPage() {
 
   if (!data || !settings) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
 
-  const tops = data.categories.filter((c) => !c.parentId)
-  const ordered = tops.flatMap((c) => [c, ...data.categories.filter((child) => child.parentId === c.id)])
+  const tree = categoryTree(data.categories)
+  const depthOf = new Map(tree.map((row) => [row.category.id, row.depth]))
+  const ordered = tree.map((row) => row.category)
+  // A parent may be a section or a forum, never a subforum, and never the category itself or something under it.
+  const under = category.id ? categoryFamily(data.categories, category.id) : []
+  const parents = tree.filter((row) => row.depth < MAX_CATEGORY_DEPTH - 1 && !under.includes(row.category.id))
   const groupName = (id: number) => data.groups.find((g) => g.id === id)
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
@@ -161,7 +166,7 @@ function AdminForumPage() {
       <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(category.id ? 'PATCH' : 'POST', { section: 'categories', ...category }, category.id ? 'دسته به‌روز شد' : 'دسته ساخته شد')) setCategory(EMPTY_CATEGORY) }}>
         <label className="studio-field"><span>عنوان</span><input className="input" value={category.title} onChange={(e) => setCategory({ ...category, title: e.target.value })} required maxLength={120} /></label>
         <label className="studio-field"><span>نشانی (انگلیسی)</span><input className="input" dir="ltr" value={category.slug} onChange={(e) => setCategory({ ...category, slug: e.target.value })} placeholder="general" maxLength={60} /></label>
-        <label className="studio-field"><span>دستهٔ والد</span><select className="input" value={category.parentId || 0} onChange={(e) => setCategory({ ...category, parentId: Number(e.target.value) })}><option value={0}>— دستهٔ اصلی —</option>{tops.filter((c) => c.id !== category.id).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label>
+        <label className="studio-field"><span>دستهٔ والد</span><select className="input" value={category.parentId || 0} onChange={(e) => setCategory({ ...category, parentId: Number(e.target.value) })}><option value={0}>— بخش (سطح اول) —</option>{parents.map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}</select></label>
         <label className="studio-field"><span>آیکون و رنگ</span><div className="fa-inline"><input className="input" value={category.icon} onChange={(e) => setCategory({ ...category, icon: e.target.value })} maxLength={8} aria-label="آیکون" /><input type="color" value={category.color} onChange={(e) => setCategory({ ...category, color: e.target.value })} aria-label="رنگ" /></div></label>
         <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} maxLength={400} /></label>
         <label className="studio-field"><span>ترتیب</span><input className="input" type="number" value={category.sortOrder} onChange={(e) => setCategory({ ...category, sortOrder: Number(e.target.value) })} /></label>
@@ -186,7 +191,7 @@ function AdminForumPage() {
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>دسته</th><th>دسترسی</th><th>موضوع</th><th>پیام</th><th /></tr></thead><tbody>
         {ordered.map((c) => <tr key={c.id}>
-          <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: c.parentId ? 18 : 0 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
+          <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: (depthOf.get(c.id) || 0) * 18 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
           <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? '♛ VIP' : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
           <td>{fa(c.threadCount)}</td><td>{fa(c.postCount)}</td>
           <td className="fr-admin-row-actions">

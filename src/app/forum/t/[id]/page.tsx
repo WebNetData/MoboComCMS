@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { categoryPath } from '@/modules/forum/domain/tree'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer, getTopic, visibleCategories } from '@/modules/forum/server/forum'
@@ -36,7 +37,10 @@ export default async function TopicPage({ params, searchParams }: Props) {
   if (!data) notFound()
   const relatedRef = data.thread.itemType && data.thread.itemId ? parseItemKey(`${data.thread.itemType}:${data.thread.itemId}`) : null
   const relatedItem = relatedRef ? await itemCard(relatedRef) : null
-  const categories = (await visibleCategories(viewer)).filter((c) => c.access.create || c.id === data.category.id).map((c) => ({ id: c.id, title: c.title, color: c.color, parentId: c.parentId }))
+  const visible = await visibleCategories(viewer)
+  // The way back up: only through forums this viewer may open.
+  const trail = categoryPath(visible, data.category.id).map((step) => ({ slug: step.slug, title: step.title }))
+  const categories = visible.filter((c) => c.access.create || c.id === data.category.id).map((c) => ({ id: c.id, title: c.title, color: c.color, parentId: c.parentId }))
   // Dates → strings for the client component.
   const serialized = JSON.parse(JSON.stringify(data)) as TopicData
   const first = data.posts.find((p) => p.number === 1)
@@ -50,7 +54,7 @@ export default async function TopicPage({ params, searchParams }: Props) {
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
       {viewer.userId && data.thread.status === 'VISIBLE' && data.thread.listed && <RecentViewTracker item={`thread:${data.thread.id}`} />}
       {relatedItem && <nav className="er-topic-context" aria-label="موضوع مرتبط"><span>{data.thread.kind === 'QUESTION' ? 'پرسش دربارهٔ' : 'گفت‌وگو دربارهٔ'}</span><Link href={relatedItem.url}>{relatedItem.title} ←</Link></nav>}
-      <TopicView data={serialized} categories={categories} focusPost={Number(post) || undefined} />
+      <TopicView data={serialized} categories={categories} focusPost={Number(post) || undefined} trail={trail} />
     </ForumShell>
   )
 }
