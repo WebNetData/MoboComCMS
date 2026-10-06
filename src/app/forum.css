@@ -726,3 +726,50 @@ ul.fd-list li { display: flex; justify-content: space-between; gap: 8px; }
   .fb-side { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .fb-forum, .fx-strip a { transition: none; } }
+
+/* ------------------------------------------------------------------
+   Topic page as cards: every post is a card with the author's panel
+   (avatar, group or rank, standing) beside what they wrote.
+   ------------------------------------------------------------------ */
+.fx-stream .fx-post { grid-template-columns: 188px minmax(0, 1fr); gap: 0; padding: 0; margin-block-end: 16px; border: 1px solid var(--md-line); border-radius: 18px; background: var(--md-card); overflow: hidden; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+.fx-stream .fx-post:first-of-type { border-block-start: 1px solid var(--md-line); padding-top: 0; }
+.fx-stream .fx-post.is-highlight { background: var(--md-card); box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-accent) 55%, transparent); border-radius: 18px; }
+.fx-stream .fx-post.is-solution { border-color: color-mix(in srgb, var(--fx-ok) 55%, var(--md-line)); }
+.fx-stream .fx-post.is-solution .fx-post-main { border-inline-start: 0; padding-inline-start: 22px; }
+.fx-post-author { display: grid; justify-items: center; align-content: start; gap: 8px; padding: 22px 14px; text-align: center; background: linear-gradient(180deg, color-mix(in srgb, var(--md-accent) 7%, var(--md-soft)), var(--md-soft)); border-inline-end: 1px solid var(--md-line); }
+.fx-post-author .fx-post-avatar { padding: 0; border-radius: 50%; box-shadow: 0 0 0 3px var(--md-card), 0 0 0 5px color-mix(in srgb, var(--md-accent) 28%, transparent); }
+.fx-post-author .fx-post-avatar .fx-avatar { display: grid; }
+.fx-author-name { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: .96rem; overflow-wrap: anywhere; }
+.fx-author-name:hover { color: var(--md-accent); }
+.fx-author-group { --group: var(--md-accent); display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; font-size: .72rem; font-weight: 800; color: var(--group); background: color-mix(in srgb, var(--group) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--group) 26%, transparent); }
+.fx-author-title { font-size: .76rem; color: var(--md-muted); }
+.fx-author-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; margin: 6px 0 0; }
+.fx-author-stats div { display: grid; gap: 1px; padding: 7px 4px; border-radius: 10px; background: var(--md-card); box-shadow: inset 0 0 0 1px var(--md-line); }
+.fx-author-stats dt { order: 2; font-size: .66rem; color: var(--md-muted); }
+.fx-author-stats dd { margin: 0; font-size: .92rem; font-weight: 800; }
+.fx-author-joined { font-size: .7rem; color: var(--md-muted); }
+.fx-stream .fx-post-main { display: flex; flex-direction: column; padding: 16px 22px 14px; }
+/* A short post keeps its reactions and tools at the foot of the card, level with the author panel. */
+.fx-stream .fx-post-main > .fx-post-actions { margin-top: auto; }
+.fx-stream .fx-post-main > .fx-post-actions::before { content: ''; flex-basis: 100%; height: 14px; }
+.fx-topic-head { padding: 18px 22px; border: 1px solid var(--md-line); border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--md-accent) 9%, var(--md-card)), var(--md-card) 60%); box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+.fx-topic-head h1 { margin-block-start: 0; }
+/* The panel carries the name; the header keeps the reply mark, edits and time. */
+.fx-stream .fx-post-head { justify-content: flex-end; padding-block-end: 10px; margin-bottom: 12px; border-block-end: 1px dashed var(--md-line); }
+.fx-stream .fx-post-head .fx-user { display: none; }
+.fx-stream .fx-post.is-op .fx-author-name::after { content: 'نویسنده'; font-size: .64rem; font-weight: 700; color: var(--md-accent); background: color-mix(in srgb, var(--md-accent) 12%, transparent); padding: 1px 7px; border-radius: 999px; }
+.fx-stream .fx-post-actions { margin-top: 16px; padding-top: 12px; border-block-start: 1px solid var(--md-line); }
+.fx-stream .fx-select-post { position: absolute; z-index: 1; margin: 10px; }
+.fx-stream .fx-post { position: relative; }
+
+@media (max-width: 900px) {
+  .fx-stream .fx-post { grid-template-columns: minmax(0, 1fr); border-radius: 14px; }
+  .fx-post-author { grid-template-columns: auto minmax(0, 1fr) auto; justify-items: start; align-items: center; text-align: start; gap: 2px 12px; padding: 12px 14px; border-inline-end: 0; border-block-end: 1px solid var(--md-line); }
+  .fx-post-author .fx-post-avatar { display: block; grid-row: 1 / span 2; }
+  .fx-post-author .fx-post-avatar .fx-avatar { width: 44px !important; height: 44px !important; font-size: 18px !important; }
+  .fx-author-group { grid-column: 2; grid-row: 2; justify-self: start; }
+  .fx-author-title, .fx-author-joined { display: none; }
+  .fx-author-stats { grid-column: 3; grid-row: 1 / span 2; width: auto; margin: 0; }
+  .fx-author-stats div { padding: 5px 9px; }
+  .fx-stream .fx-post-main { padding: 12px 14px; }
+}

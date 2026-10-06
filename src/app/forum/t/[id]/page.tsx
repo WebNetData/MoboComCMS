@@ -46,7 +46,7 @@ export default async function TopicPage({ params, searchParams }: Props) {
     interactionStatistic: [{ '@type': 'InteractionCounter', interactionType: 'https://schema.org/CommentAction', userInteractionCount: data.thread.replyCount }, { '@type': 'InteractionCounter', interactionType: 'https://schema.org/LikeAction', userInteractionCount: data.thread.likeCount }],
   } : null
   return (
-    <ForumShell viewer={viewer} category={data.category.slug}>
+    <ForumShell viewer={viewer} category={data.category.slug} wide>
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />}
       {viewer.userId && data.thread.status === 'VISIBLE' && data.thread.listed && <RecentViewTracker item={`thread:${data.thread.id}`} />}
       {relatedItem && <nav className="er-topic-context" aria-label="موضوع مرتبط"><span>{data.thread.kind === 'QUESTION' ? 'پرسش دربارهٔ' : 'گفت‌وگو دربارهٔ'}</span><Link href={relatedItem.url}>{relatedItem.title} ←</Link></nav>}

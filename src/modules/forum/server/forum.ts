@@ -16,6 +16,8 @@ export { getForumViewer, viewerFor }
 export type AuthorView = {
   id: number; username: string; name: string; avatar: string; avatarColor: string; title: string
   trustLevel: number; staff: boolean; joinedAt: Date; flair: { icon: string; color: string; name: string } | null
+  /** Posts written and likes received: the author's standing, shown beside every post. */
+  posts: number; reputation: number
 }
 
 /** Author cards (profile, title, flair) for a set of users. */
@@ -33,11 +35,12 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: profile?.avatar || '', avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
+      posts: profile?.postCount ?? 0, reputation: profile?.likesReceived ?? 0,
     }]
   }))
 }
 
-export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null })
+export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, posts: 0, reputation: 0 })
 
 // ------------------------------------------------------------------ categories
 
