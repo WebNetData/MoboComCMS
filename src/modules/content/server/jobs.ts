@@ -5,6 +5,7 @@ import { backfillVerifiedBadges } from '@/modules/reviews/server/reviews'
 import { pruneAnalytics } from '@/modules/analytics/server/collect'
 import { processTrackReleaseNotifications } from '@/modules/music/server/release-notifications'
 import { processGameUpdateReleaseNotifications } from '@/modules/games/server/release-notifications'
+import { processEpisodeAirNotifications } from '@/modules/cinema/server/episode-notifications'
 import { processSoftwareReleaseNotifications } from '@/modules/software/server/release-notifications'
 import { processStudioPublicationNotifications } from '@/modules/studios/server/publication-notifications'
 import { logEvent } from '@/platform/observability/logger'
@@ -33,7 +34,8 @@ export async function runEngagementJobs(options: { full?: boolean } = {}) {
   const gameNotifications = await step('games.releases', () => processGameUpdateReleaseNotifications())
   const softwareNotifications = await step('software.releases', () => processSoftwareReleaseNotifications())
   const studioNotifications = await step('studios.publications', () => processStudioPublicationNotifications())
-  const quick = { released, announced, trackNotifications, gameNotifications, softwareNotifications, studioNotifications }
+  const episodeNotifications = await step('cinema.episodes', () => processEpisodeAirNotifications())
+  const quick = { released, announced, trackNotifications, gameNotifications, softwareNotifications, studioNotifications, episodeNotifications }
   if (!options.full) {
     if (errors.length) throw errors[0]
     return quick

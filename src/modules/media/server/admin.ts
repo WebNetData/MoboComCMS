@@ -18,6 +18,7 @@ import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
+import { scheduleEpisodeAirings, type AiringEpisode } from '@/modules/cinema/server/episode-notifications'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 import { resolveStudioId } from '@/modules/studios/server/identity'
 import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
@@ -279,6 +280,7 @@ const RESOURCES: Record<string, Resource> = {
       if (oldEpisodes.length) await tx.mediaLink.deleteMany({ where: { ownerType: 'episode', ownerId: { in: oldEpisodes } } })
       await tx.cinemaSeason.deleteMany({ where: { titleId: id } })
       const seenSeasons = new Set<number>()
+      const airings: AiringEpisode[] = []
       for (const [index, raw] of seasons.entries()) {
         const s = (raw && typeof raw === 'object' ? raw : {}) as Input
         const number = int(s.number, 0, 999, index + 1) ?? index + 1
@@ -297,8 +299,11 @@ const RESOURCES: Record<string, Resource> = {
             still: e.still ? validateCover(e.still) : '', runtime: int(e.runtime, 0, 1000, 0) ?? 0, airDate: date(e.airDate), access: normalizeAccess(e.access),
           } })
           if (e.links) await saveLinks(tx, 'episode', episode.id, e.links)
+          airings.push({ season: number, number: epNumber, airDate: episode.airDate })
         }
       }
+      // Followers of the series hear about episodes that air from now on.
+      await scheduleEpisodeAirings(tx, id, airings)
     },
     onDelete: async (tx, id) => {
       const seasons = await tx.cinemaSeason.findMany({ where: { titleId: id }, select: { episodes: { select: { id: true } } } })

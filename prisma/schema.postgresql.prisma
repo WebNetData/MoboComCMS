@@ -1535,6 +1535,7 @@ model CinemaTitle {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @default(now()) @updatedAt
   seasons       CinemaSeason[]
+  airNotifications CinemaEpisodeAirNotification[]
 
   @@index([kind, status, publishedAt])
 }
@@ -1566,6 +1567,22 @@ model CinemaEpisode {
 
   @@unique([seasonId, number])
   @@index([airDate])
+}
+
+// One line per episode whose airing is announced to the members who follow the series. The episode is
+// named by series, season and number: saving a series rebuilds its episode rows, so their ids do not last.
+model CinemaEpisodeAirNotification {
+  id          Int         @id @default(autoincrement())
+  titleId     Int
+  season      Int
+  episode     Int
+  dueAt       DateTime
+  lastUserId  Int         @default(0)
+  completedAt DateTime?
+  title       CinemaTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+
+  @@unique([titleId, season, episode])
+  @@index([completedAt, dueAt])
 }
 
 model CinemaWatchProgress {

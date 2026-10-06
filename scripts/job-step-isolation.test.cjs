@@ -16,6 +16,7 @@ const ENGAGEMENT = {
  '@/modules/games/server/release-notifications': {processGameUpdateReleaseNotifications: {checked: 0, sent: 0}},
  '@/modules/software/server/release-notifications': {processSoftwareReleaseNotifications: {checked: 0, sent: 0}},
  '@/modules/studios/server/publication-notifications': {processStudioPublicationNotifications: {checked: 0, sent: 0}},
+ '@/modules/cinema/server/episode-notifications': {processEpisodeAirNotifications: {checked: 0, sent: 0}},
  '@/modules/search/server/search': {rebuildSearchIndex: 7},
  '@/modules/downloads/server/guard': {pruneDownloadLogs: 1},
  '@/modules/reviews/server/reviews': {backfillVerifiedBadges: {checked: 0, badged: 0, failed: 0}},
@@ -37,17 +38,17 @@ const WORKER = {
 test('a failing release step does not hold back the other engagement steps, and the run still fails', async () => {
  const jobs = load('src/modules/content/server/jobs.ts', ENGAGEMENT, ['processTrackReleaseNotifications'])
  await assert.rejects(jobs.runEngagementJobs({full: true}), /processTrackReleaseNotifications failed/)
- assert.deepEqual(jobs.calls, ['releaseStuckSocialPosts', 'processSocialQueue', 'processTrackReleaseNotifications', 'processGameUpdateReleaseNotifications', 'processSoftwareReleaseNotifications', 'processStudioPublicationNotifications', 'rebuildSearchIndex', 'backfillVerifiedBadges', 'pruneDownloadLogs', 'pruneAnalytics'])
+ assert.deepEqual(jobs.calls, ['releaseStuckSocialPosts', 'processSocialQueue', 'processTrackReleaseNotifications', 'processGameUpdateReleaseNotifications', 'processSoftwareReleaseNotifications', 'processStudioPublicationNotifications', 'processEpisodeAirNotifications', 'rebuildSearchIndex', 'backfillVerifiedBadges', 'pruneDownloadLogs', 'pruneAnalytics'])
  assert.deepEqual(jobs.logs, [['error', 'engagement.step_failed', 'music.releases']])
 })
 test('a quick engagement run with a failing step also finishes its steps and fails', async () => {
  const jobs = load('src/modules/content/server/jobs.ts', ENGAGEMENT, ['processSocialQueue'])
  await assert.rejects(jobs.runEngagementJobs(), /processSocialQueue failed/)
- assert.equal(jobs.calls.at(-1), 'processStudioPublicationNotifications'); assert.ok(!jobs.calls.includes('rebuildSearchIndex'))
+ assert.equal(jobs.calls.at(-1), 'processEpisodeAirNotifications'); assert.ok(!jobs.calls.includes('rebuildSearchIndex'))
 })
 test('a healthy engagement run keeps its result', async () => {
  const jobs = load('src/modules/content/server/jobs.ts', ENGAGEMENT, [])
- assert.deepEqual(await jobs.runEngagementJobs(), {released: 0, announced: 2, trackNotifications: {checked: 1, sent: 1}, gameNotifications: {checked: 0, sent: 0}, softwareNotifications: {checked: 0, sent: 0}, studioNotifications: {checked: 0, sent: 0}})
+ assert.deepEqual(await jobs.runEngagementJobs(), {released: 0, announced: 2, trackNotifications: {checked: 1, sent: 1}, gameNotifications: {checked: 0, sent: 0}, softwareNotifications: {checked: 0, sent: 0}, studioNotifications: {checked: 0, sent: 0}, episodeNotifications: {checked: 0, sent: 0}})
  assert.deepEqual(Object.keys(await jobs.runEngagementJobs({full: true})).slice(-3), ['indexed', 'prunedDownloadLogs', 'analytics'])
 })
 test('paid orders are delivered and holds released while payment reconciliation fails', async () => {

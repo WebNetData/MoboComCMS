@@ -21,6 +21,7 @@ const CHECKS = [
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume',
   'cinema-calendar',
+  'episode-air-alerts',
 ]
 
 if (!process.env.DATABASE_URL) {
