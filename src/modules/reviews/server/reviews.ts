@@ -349,3 +349,25 @@ export async function waitingForModeration(take = 5) {
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
   return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), full: plainText(row.body, 2000), by: row.user.name || '', about: cards.get(`${row.itemType}:${row.itemId}`)?.title || '', at: row.createdAt })) }
 }
+
+/**
+ * The newest approved reviews that say something (a bare rating is not news), with the public card of what
+ * was reviewed. A review of an item that is no longer public is left out. `byUsers` narrows to those authors;
+ * `notUsers` leaves some out (the viewer's blocks).
+ */
+export async function recentReviews(input: { before?: Date | null; take?: number; byUsers?: number[]; notUsers?: number[] } = {}) {
+  if (input.byUsers && !input.byUsers.length) return []
+  const take = Math.max(1, Math.min(60, Math.trunc(input.take || 30)))
+  const rows = await db.itemReview.findMany({
+    where: {
+      status: 'APPROVED', body: { not: '' }, user: { status: 'ACTIVE' }, ...(input.before ? { createdAt: { lt: input.before } } : {}),
+      ...(input.byUsers ? { userId: { in: input.byUsers } } : {}), ...(input.notUsers?.length ? { NOT: { userId: { in: input.notUsers } } } : {}),
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take, select: { id: true, itemType: true, itemId: true, userId: true, rating: true, body: true, createdAt: true },
+  })
+  const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
+  return rows.flatMap((row) => {
+    const card = cards.get(`${row.itemType}:${row.itemId}`)
+    return card ? [{ id: row.id, userId: row.userId, rating: row.rating, text: plainText(row.body, 280), at: row.createdAt, item: { title: card.title, url: card.url, image: card.image || '' } }] : []
+  })
+}

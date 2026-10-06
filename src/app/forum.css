@@ -1252,3 +1252,18 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 .fl-past li > span:last-child { font-size: .78rem; color: var(--md-muted); }
 @media (max-width: 860px) { .fl-boards { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .fl-board { padding: 16px; } .fl-first { grid-template-columns: auto minmax(0, 1fr); } .fl-first > p { grid-column: 1 / -1; grid-auto-flow: column; justify-content: center; align-items: baseline; gap: 6px; } .fl-past ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Topic heading actions, and quoting several posts in one reply. */
+.tp-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-block-start: 16px; }
+.tp-follow { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--md-line); background: var(--md-card); font: inherit; font-size: .84rem; font-weight: 700; color: var(--md-text); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.tp-follow:hover { border-color: color-mix(in srgb, var(--md-accent) 55%, var(--md-line)); }
+.tp-follow.is-on { color: var(--md-accent); border-color: color-mix(in srgb, var(--md-accent) 45%, transparent); background: color-mix(in srgb, var(--md-accent) 10%, var(--md-card)); }
+.tp-follow:focus-visible { outline: 2px solid var(--md-accent); outline-offset: 2px; }
+.fx-act.tp-mq { font-size: .78rem; letter-spacing: -1px; }
+.fx-act.tp-mq.is-on { color: var(--on-primary, #fff); background: var(--md-accent); border-radius: 8px; }
+.tp-mq-bar { position: sticky; inset-block-end: 14px; z-index: 5; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-block: 14px; padding: 10px 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--md-accent) 40%, var(--md-line)); background: var(--md-card); box-shadow: 0 14px 30px -14px rgba(15, 23, 42, .35); font-size: .88rem; font-weight: 700; }
+.tp-mq-bar span { margin-inline-end: auto; }
+@media (prefers-reduced-motion: reduce) { .tp-follow { transition: none; } }
+
+.fs-entry.is-review .fs-avatar i { background: #f59e0b; }
+.fs-stars { margin-inline-start: 8px; font-style: normal; font-size: .8rem; letter-spacing: 1px; color: #f59e0b; white-space: nowrap; }
