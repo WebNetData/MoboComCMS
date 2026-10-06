@@ -58,6 +58,23 @@ Owner feedback on the first slices: the board did not look professional, it had 
 
 Rules. A subforum the viewer may not see adds nothing to its parent: not to the counts, not to the last post, not to the breadcrumb. Acceptance: `scripts/forum-board-index.connected.cjs` (subforums, sizes over the family, a private subforum, `subforumRows`, a forum's and a section's topic list) and the tree tests in `scripts/forum.test.cjs`.
 
+## Slice 7: a moderator for each section or forum; sections take no topics
+Owner request: name a moderator for any section or forum, with the right to check, delete and move there, working on the page itself; and sections, as in Invision, only hold forums.
+
+**Audited first.** Moderation was all-or-nothing: `Viewer.moderator` is true for staff (role permission `forum.moderate` or `cms.posts`) and for members of a group marked "moderator", everywhere. The moderator tools on the topic page already exist and are driven by that flag.
+
+**Model.** `ForumCategoryModerator(categoryId, userId)`, migration `20261202120000_forum_category_moderators` (additive; nothing changes until someone is assigned). `Viewer.moderates` lists the forums a member was assigned, with everything under them. `inCategory(viewer, categoryId)` gives the viewer as they stand in one forum: a moderator there, an ordinary member elsewhere. Every entry point that loads a topic or post applies it, so the rules already written for "moderator" hold for an assigned moderator inside their forums and nowhere else. This is forum-local standing, not a second authorization system: staff roles and permissions are untouched, and an assigned moderator gets no access to the admin panel or its API.
+
+**What an assigned moderator can do**, in their forum and under it: see hidden and waiting posts, pin, lock, hide, delete, set timers and slow mode, split and merge, mark solutions, edit, and work the review queue (`/forum/review` shows only their forums). Moving a topic: into a forum they moderate or could post in anyway; never into one hidden from them. Moving posts into another topic: only a topic of a forum they moderate. Not theirs: suspending or silencing members, groups, badges, settings.
+
+**Sections.** A top-level category that holds forums takes no topics: not offered by the composer, refused by `createTopic`, refused as a move target, for staff too. A top-level forum without children still takes topics.
+
+**Admin.** Forum → Categories: a "moderators" field of usernames per section or forum; an unknown name stops the save and is named. The forum's page names its moderators (its own and those of what it sits under).
+
+Acceptance: `scripts/forum-category-moderators.connected.cjs` in `npm run test:pg`. Five deliberate breaks (any forum instead of their own, the whole queue, moving anywhere, sections taking topics, posts into any topic) each fail it.
+
+Not in this slice: inline "manage" links for the rest of the site (magazine, music, cinema, games, store) and ready-made roles per site section. The permissions for those exist already (`cms.posts`, `music.manage`, `cinema.manage`, `games.manage`, `software.manage`, `cms.products`).
+
 ## Next slices
 1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
 2. Member profile, remaining: one page for the forum profile and the feed profile (today they link to each other).

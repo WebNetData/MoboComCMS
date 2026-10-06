@@ -9,6 +9,7 @@ import {
   DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings,
   type ForumSettings, type Viewer,
 } from '@/modules/forum/domain/community'
+import { categoryFamily } from '@/modules/forum/domain/tree'
 
 // Shared forum services: settings, the current viewer (groups, trust level,
 // staff), profiles, counters, trust promotion, badges and notifications.
@@ -77,7 +78,8 @@ export async function viewerFor(userId: number | null | undefined, knownMember?:
   const byKey = new Map(automatic.map((group) => [group.automatic!, group]))
   if (!userId) return { ...GUEST, groupIds: byKey.get('everyone') ? [byKey.get('everyone')!.id] : [] }
   await ensureProfiles([userId])
-  const [profile, staff, member, memberships] = await Promise.all([
+  const [assigned, profile, staff, member, memberships] = await Promise.all([
+    db.forumCategoryModerator.findMany({ where: { userId }, select: { categoryId: true } }).catch(() => []),
     db.forumProfile.findUnique({ where: { userId } }),
     isStaff(userId),
     knownMember ?? isMember(userId).catch(() => false),
@@ -88,8 +90,11 @@ export async function viewerFor(userId: number | null | undefined, knownMember?:
   const groupIds = [...new Set([...keys.map((key) => byKey.get(key)?.id).filter((id): id is number => !!id), ...memberships.map((row) => row.groupId)])]
   const now = Date.now()
   const moderator = staff || memberships.some((row) => row.group.moderator)
+  // A moderator of a section or a forum moderates what is under it too.
+  const tree = assigned.length && !moderator ? await db.forumCategory.findMany({ select: { id: true, parentId: true } }).catch(() => []) : []
+  const moderates = [...new Set(assigned.flatMap((row) => categoryFamily(tree, row.categoryId)))].filter((id) => tree.some((row) => row.id === id))
   return {
-    userId, groupIds, trustLevel, moderator, member,
+    userId, groupIds, trustLevel, moderator, member, moderates,
     silenced: !!profile?.silencedUntil && profile.silencedUntil.getTime() > now,
     suspended: !!profile?.suspendedUntil && profile.suspendedUntil.getTime() > now,
   }

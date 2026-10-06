@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { plainText } from '@/shared/text/plain'
 import { contentChanged } from '@/modules/content/server/events'
 import { ForumError, cleanTitle } from '@/modules/forum/domain/forum'
-import { categoryAccess, normalizeCategoryLevel, type Viewer } from '@/modules/forum/domain/community'
+import { categoryAccess, moderatesAnything, moderatesCategory, normalizeCategoryLevel, type Viewer } from '@/modules/forum/domain/community'
 import { RuleError, SLOW_MODE_CHOICES, normalizeMoveSelection, parseCloseAt } from '@/modules/forum/domain/discourse'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { afterPost, recount } from '@/modules/forum/server/actions'
@@ -13,15 +13,17 @@ import { authorsFor, fallbackAuthor } from '@/modules/forum/server/forum'
 // posts between topics (split / merge), topic timers, slow mode, unlisting,
 // wiki posts; plus members' category notification levels.
 
-const requireModerator = (viewer: Viewer) => { if (!viewer.moderator) throw new ForumError('دسترسی مدیریت تالار ندارید', 403) }
+const requireModerator = (viewer: Viewer, categoryId: number) => { if (!moderatesCategory(viewer, categoryId)) throw new ForumError('دسترسی مدیریت این انجمن را ندارید', 403) }
+const denied = () => new ForumError('دسترسی مدیریت تالار ندارید', 403)
 const asForumError = (error: unknown) => (error instanceof RuleError ? new ForumError(error.message, error.status) : error)
 
 // ------------------------------------------------------------------ review queue
 
 export async function reviewQueue(viewer: Viewer) {
-  requireModerator(viewer)
+  if (!moderatesAnything(viewer)) throw denied()
   const posts = await db.forumPost.findMany({
-    where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take: 100,
+    // An assigned moderator reviews what waits in their own forums.
+    where: { status: 'PENDING', ...(viewer.moderator ? {} : { thread: { categoryId: { in: viewer.moderates || [] } } }) }, orderBy: { createdAt: 'asc' }, take: 100,
     include: { thread: { select: { id: true, title: true, status: true, category: { select: { title: true, color: true } } } } },
   })
   const authors = await authorsFor(posts.map((post) => post.userId))
@@ -37,9 +39,10 @@ export const pendingReviewCount = () => db.forumPost.count({ where: { status: 'P
 
 /** Approve (publish, notify, count) or reject (delete) a held post. */
 export async function reviewPost(viewer: Viewer, postId: number, decision: 'approve' | 'reject', note = '') {
-  requireModerator(viewer)
+  if (!moderatesAnything(viewer)) throw denied()
   const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: true } })
   if (!post || post.status !== 'PENDING') throw new ForumError('این پیام در صف بررسی نیست', 404)
+  requireModerator(viewer, post.thread.categoryId)
   const first = post.postNumber === 1
   if (decision === 'reject') {
     await db.$transaction(async (tx) => {
@@ -70,9 +73,10 @@ export async function reviewPost(viewer: Viewer, postId: number, decision: 'appr
  * moved set lose their reply link; a moved solution is unset.
  */
 export async function movePosts(viewer: Viewer, threadId: number, input: { postNumbers?: unknown; all?: unknown; target?: unknown; title?: unknown; categoryId?: unknown }) {
-  requireModerator(viewer)
+  if (!moderatesAnything(viewer)) throw denied()
   const source = await db.forumThread.findUnique({ where: { id: threadId } })
   if (!source) throw new ForumError('موضوع پیدا نشد', 404)
+  requireModerator(viewer, source.categoryId)
   const all = input.all === true
   let numbers: number[]
   try {
@@ -84,10 +88,14 @@ export async function movePosts(viewer: Viewer, threadId: number, input: { postN
   if (targetId === threadId) throw new ForumError('مقصد با موضوع فعلی یکی است')
   const target = targetId ? await db.forumThread.findUnique({ where: { id: targetId } }) : null
   if (targetId && !target) throw new ForumError('موضوع مقصد پیدا نشد', 404)
+  // Posts go only where this moderator moderates too: into a topic of their forums, or a new topic in one.
+  if (target) requireModerator(viewer, target.categoryId)
   let categoryId = source.categoryId
-  if (!target && input.categoryId !== undefined) {
-    const category = await db.forumCategory.findUnique({ where: { id: Number(input.categoryId) }, select: { id: true } })
+  if (!target && input.categoryId !== undefined && Number(input.categoryId) !== source.categoryId) {
+    const category = await db.forumCategory.findUnique({ where: { id: Number(input.categoryId) }, select: { id: true, parentId: true, _count: { select: { children: true } } } })
     if (!category) throw new ForumError('دستهٔ مقصد پیدا نشد', 404)
+    if (category.parentId == null && category._count.children > 0) throw new ForumError('موضوع را در یکی از انجمن‌های این بخش بسازید، نه خود بخش', 409)
+    requireModerator(viewer, category.id)
     categoryId = category.id
   }
   const title = target ? target.title : cleanTitle(input.title)
@@ -129,9 +137,10 @@ export async function movePosts(viewer: Viewer, threadId: number, input: { postN
 // ------------------------------------------------------------------ timers, slow mode, listing, wiki
 
 export async function topicSettings(viewer: Viewer, threadId: number, input: { closeHours?: unknown; closeAt?: unknown; slowMode?: unknown; listed?: unknown }) {
-  requireModerator(viewer)
-  const thread = await db.forumThread.findUnique({ where: { id: threadId }, select: { id: true } })
+  if (!moderatesAnything(viewer)) throw denied()
+  const thread = await db.forumThread.findUnique({ where: { id: threadId }, select: { id: true, categoryId: true } })
   if (!thread) throw new ForumError('موضوع پیدا نشد', 404)
+  requireModerator(viewer, thread.categoryId)
   const data: { closeAt?: Date | null; slowModeSeconds?: number; listed?: boolean } = {}
   try {
     if (input.closeHours !== undefined || input.closeAt !== undefined) data.closeAt = parseCloseAt({ hours: input.closeHours, at: input.closeAt })
@@ -149,9 +158,9 @@ export async function topicSettings(viewer: Viewer, threadId: number, input: { c
 
 /** Staff (and the author from trust level 2) turn a post into a wiki any member from trust level 1 can edit. */
 export async function setWiki(viewer: Viewer, postId: number, wiki: boolean) {
-  const post = await db.forumPost.findUnique({ where: { id: postId }, select: { id: true, userId: true, status: true } })
+  const post = await db.forumPost.findUnique({ where: { id: postId }, select: { id: true, userId: true, status: true, thread: { select: { categoryId: true } } } })
   if (!post || post.status !== 'VISIBLE') throw new ForumError('پیام پیدا نشد', 404)
-  if (!viewer.moderator && !(post.userId === viewer.userId && viewer.trustLevel >= 2)) throw new ForumError('ویکی کردن این پیام برای شما مجاز نیست', 403)
+  if (!moderatesCategory(viewer, post.thread.categoryId) && !(post.userId === viewer.userId && viewer.trustLevel >= 2)) throw new ForumError('ویکی کردن این پیام برای شما مجاز نیست', 403)
   await db.forumPost.update({ where: { id: postId }, data: { wiki } })
   return { id: postId, wiki }
 }

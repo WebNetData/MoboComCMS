@@ -116,11 +116,25 @@ export interface Viewer {
   /** Group ids the viewer belongs to, including automatic ones (everyone, vip, staff, trust levels). */
   groupIds: number[]
   trustLevel: number
+  /** Moderates the whole forum: staff and members of a moderator group. */
   moderator: boolean
+  /** Forums this member was made a moderator of, with everything under them. Empty for most members. */
+  moderates?: number[]
   member: boolean
   silenced: boolean
   suspended: boolean
 }
+
+/** Whether the viewer moderates this forum: everywhere for staff, in their own forums for an assigned moderator. */
+export const moderatesCategory = (viewer: Pick<Viewer, 'moderator' | 'moderates'>, categoryId: number) => viewer.moderator || !!viewer.moderates?.includes(categoryId)
+/** Whether the viewer moderates anything at all: what opens the review queue to them. */
+export const moderatesAnything = (viewer: Pick<Viewer, 'moderator' | 'moderates'>) => viewer.moderator || !!viewer.moderates?.length
+/**
+ * The viewer as they stand inside one forum. An assigned moderator is a moderator there and an ordinary
+ * member everywhere else, so every rule written for "moderator" holds for them within their forums only.
+ */
+export const inCategory = <T extends Pick<Viewer, 'moderator' | 'moderates'>>(viewer: T, categoryId: number): T =>
+  viewer.moderator || !viewer.moderates?.includes(categoryId) ? viewer : { ...viewer, moderator: true }
 
 export const GUEST: Viewer = { userId: null, groupIds: [], trustLevel: 0, moderator: false, member: false, silenced: false, suspended: false }
 

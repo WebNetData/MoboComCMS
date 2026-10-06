@@ -7,7 +7,7 @@ import ForumDashboard from './ForumDashboard'
 import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
-type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[] }
+type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[]; moderators: string[] }
 type Group = { id: number; slug: string; name: string; description: string; icon: string; color: string; title: string; automatic: string | null; visibility: string; joinMode: string; moderator: boolean; mentionable: boolean; memberCount: number }
 type Badge = { id: number; slug: string; name: string; description: string; icon: string; tier: string; rule: string; enabled: boolean; grantCount: number }
 type Author = { id: number; name: string; username: string }
@@ -20,7 +20,7 @@ type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: F
 type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
 const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'groups', 'badges', 'users', 'words', 'settings']
 
-const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[] }
+const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[], moderators: '' }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
 const EMPTY_BADGE = { id: 0, slug: '', name: '', description: '', icon: '🏅', tier: 'BRONZE', rule: '', enabled: true }
 const LEVEL_LABEL: Record<Level, string> = { SEE: 'فقط دیدن', REPLY: 'دیدن و پاسخ', CREATE: 'دسترسی کامل' }
@@ -170,6 +170,7 @@ function AdminForumPage() {
         <label className="studio-field"><span>آیکون و رنگ</span><div className="fa-inline"><input className="input" value={category.icon} onChange={(e) => setCategory({ ...category, icon: e.target.value })} maxLength={8} aria-label="آیکون" /><input type="color" value={category.color} onChange={(e) => setCategory({ ...category, color: e.target.value })} aria-label="رنگ" /></div></label>
         <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} maxLength={400} /></label>
         <label className="studio-field"><span>ترتیب</span><input className="input" type="number" value={category.sortOrder} onChange={(e) => setCategory({ ...category, sortOrder: Number(e.target.value) })} /></label>
+        <label className="studio-field fr-admin-wide"><span>مدیران این {category.parentId ? 'انجمن' : 'بخش'}</span><input className="input" dir="ltr" value={category.moderators} onChange={(e) => setCategory({ ...category, moderators: e.target.value })} placeholder="sara, kian" aria-describedby="fa-mods-help" /><small id="fa-mods-help" className="muted">نام کاربری اعضا را با ویرگول جدا کنید. مدیر در همین‌جا و هر چه زیر آن است می‌تواند موضوع و پیام را پنهان، حذف، قفل، سنجاق و منتقل کند و صف بررسی را ببیند؛ بیرون از آن عضو عادی است و به پنل مدیریت راه ندارد.</small></label>
         <fieldset className="fa-perms fr-admin-wide">
           <legend>دسترسی گروه‌ها</legend>
           <small className="muted">اگر هیچ گروهی تنظیم نشود، دسترسی ساده اعمال می‌شود: {category.access === 'MEMBERS' ? 'فقط VIP' : 'همه'}{category.locked ? '، ساخت موضوع فقط برای تیم' : ''}. با افزودن ردیف، فقط گروه‌های فهرست‌شده به این دسته دسترسی دارند (تیم مدیریت همیشه دسترسی کامل دارد).</small>
@@ -195,7 +196,7 @@ function AdminForumPage() {
           <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? '♛ VIP' : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
           <td>{fa(c.threadCount)}</td><td>{fa(c.postCount)}</td>
           <td className="fr-admin-row-actions">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })) }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })), moderators: c.moderators.join('، ') }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
             <Link className="btn btn-ghost btn-sm" href={`/forum/c/${c.slug}`} target="_blank">مشاهده ↗</Link>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('categories', c.id, c.title)}>حذف</button>
           </td>

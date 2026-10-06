@@ -9,7 +9,7 @@ const CHECKS = [
   'return-refund-integrity',
   'gift-card-integrity',
   'digital-codes',
-  'forum-flag-queue',
+  'forum-flag-queue', 'forum-category-moderators',
   'forum-board-index',
   'forum-activity-stream',
   'moderation-queue',

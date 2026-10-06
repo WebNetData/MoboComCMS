@@ -2,7 +2,7 @@ import Link from '@/components/AppLink'
 import { categoryTree } from '@/modules/forum/domain/tree'
 import type { ReactNode } from 'react'
 import MediaShell from '@/components/media/MediaShell'
-import type { Viewer } from '@/modules/forum/domain/community'
+import { moderatesAnything, type Viewer } from '@/modules/forum/domain/community'
 import { popularTags, viewerCounts, visibleCategories } from '@/modules/forum/server/forum'
 import { shellIdentity } from '@/modules/forum/server/people'
 import { Avatar, num } from '@/components/forum/shared'
@@ -46,7 +46,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
         {signedIn && link('bookmarks', '/forum/bookmarks', 'نشان‌شده‌ها', '🔖', counts.bookmarks)}
         {signedIn && link('mine', '/forum/mine', 'فعالیت من', '✎')}
         {signedIn && link('messages', '/forum/messages', 'پیام‌های خصوصی', '✉', counts.messages)}
-        {viewer.moderator && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
+        {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
       </nav>
       <nav className="fx-side-group" aria-label="دسته‌بندی‌ها">
         <h3><Link href="/forum/categories" className={active === 'categories' ? 'is-active' : ''}>دسته‌بندی‌ها</Link></h3>
@@ -103,7 +103,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
               {link('users', '/forum/users', 'اعضا', '👤')}
               {link('groups', '/forum/g', 'گروه‌ها', '👥')}
               {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
-              {viewer.moderator && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
+              {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
             </nav>
             <div className="fx-main">{children}</div>
           </div>
