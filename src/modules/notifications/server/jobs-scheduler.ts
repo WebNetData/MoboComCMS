@@ -86,6 +86,11 @@ const JOBS: Job[] = [
     run: async () => { await (await import('@/modules/updater/server/service')).notifyNewVersion() },
   },
   {
+    // Member notifications: removes notices past their keeping time and queues the day's summary emails (both off until set).
+    name: 'notification-policy', everyMs: 30 * 60_000,
+    run: async () => (await import('@/modules/notifications/server/policy')).runNotificationPolicy(),
+  },
+  {
     // Forms: attachments that were uploaded but never submitted are removed after a day.
     name: 'forms', everyMs: 3_600_000,
     run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads() },

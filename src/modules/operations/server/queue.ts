@@ -37,6 +37,13 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
       return deliverInboxCopy(Number(payload.notificationId), String(payload.channel || ''))
     },
   },
+  'notification.digest': {
+    label: 'خلاصهٔ روزانهٔ اعلان‌ها',
+    run: async (payload) => {
+      const { deliverInboxDigest } = await import('@/modules/notifications/server/policy')
+      return deliverInboxDigest(Number(payload.userId), String(payload.day || ''))
+    },
+  },
   'images.optimize': {
     label: 'بهینه‌سازی همهٔ تصاویر',
     run: async (payload) => {
