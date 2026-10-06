@@ -4,7 +4,8 @@ const prisma = new PrismaClient(), seed = `cal-${Date.now()}`
 const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
 const mine = where => ({ AND: [where || {}, { season: { title: { slug: { startsWith: seed } } } }] })
 const episodes = new Proxy(prisma.cinemaEpisode, { get: (target, key) => key === 'findMany' || key === 'count' ? args => target[key]({ ...args, where: mine(args.where) }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
-const db = new Proxy(prisma, { get: (target, key) => key === 'cinemaEpisode' ? episodes : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
+const titles = new Proxy(prisma.cinemaTitle, { get: (target, key) => key === 'findMany' || key === 'count' ? args => target[key]({ ...args, where: { AND: [args.where || {}, { slug: { startsWith: seed } }] } }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
+const db = new Proxy(prisma, { get: (target, key) => key === 'cinemaEpisode' ? episodes : key === 'cinemaTitle' ? titles : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
 function load(file, real = {}) {
   const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : () => { throw new Error(`test double called: ${String(key)}`) } })
   const mod = { exports: {} }
@@ -46,7 +47,20 @@ async function main() {
   const first = await queries.episodeCalendar({ page: 1 }, later), second = await queries.episodeCalendar({ page: '2' }, later)
   assert.deepEqual([first.total, first.pages, flat(first).length, flat(second).length], [38, 2, 30, 8])
   assert.equal(new Set([...flat(first), ...flat(second)].map(String)).size, 38, 'no episode is repeated or lost between pages')
-  console.log('PostgreSQL episode calendar: upcoming and recent episodes of published series only, in order, with member flags and paging passed')
+
+  // ---- the day films open
+  const film = (name, data) => title(name, { kind: 'MOVIE', ...data })
+  await film('opens-soon', { releaseDate: at(20), year: 2026 }); await film('opens-later', { releaseDate: at(24 * 9), access: 'MEMBERS' }); await film('opened', { releaseDate: at(-30) }); await film('opened-long-ago', { releaseDate: at(-24 * 90) })
+  await film('undated', {}); await film('film-draft', { status: 'DRAFT', releaseDate: at(10) }); await film('film-scheduled', { publishedAt: at(48), releaseDate: at(10) }); await title('a-series', { releaseDate: at(10) })
+  const at2 = new Date(), names = result => result.days.flatMap(day => day.items.map(item => [item.title, item.members]))
+  const opening = await queries.filmCalendar({}, at2)
+  assert.deepEqual(names(opening), [['opens-soon', false], ['opens-later', true]], 'soonest first; undated, unpublished and scheduled films and series are left out')
+  assert.deepEqual([opening.when, opening.total, opening.upcomingTotal, opening.pages, opening.days.length, opening.days[0].items[0].year], ['upcoming', 2, 2, 1, 2, 2026])
+  const opened = await queries.filmCalendar({ when: 'recent' }, at2)
+  assert.deepEqual([names(opened), opened.total, opened.upcomingTotal], [[['opened', false], ['opened-long-ago', false]], 2, 2], 'latest first')
+  assert.deepEqual(names(await queries.filmCalendar({ when: 'recent' }, new Date(at2.getTime() + 21 * 3_600_000))).slice(0, 1), [['opens-soon', false]], 'the moment decides the side')
+  assert.deepEqual(flat(await queries.episodeCalendar({}, at2)).filter(row => /opens|opened|a-series/.test(row[0])), [], 'films are not on the episode side')
+  console.log('PostgreSQL episode calendar: upcoming and recent episodes of published series only, in order, with member flags and paging; film releases by day, published and dated films only passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try { await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } }) } finally { await prisma.$disconnect() }

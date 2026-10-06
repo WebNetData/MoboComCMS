@@ -42,3 +42,32 @@ export function daysAway(iso: string, now: Date): number {
   const utc = (day: string) => Date.parse(`${day}T00:00:00Z`)
   return Math.round((utc(tehranDay(iso)) - utc(tehranDay(now.toISOString()))) / 86_400_000)
 }
+
+// ---- the other side of the calendar: the day a film opens
+
+export type CalendarKind = 'episodes' | 'films'
+export const normalizeKind = (value: unknown): CalendarKind => (value === 'films' ? 'films' : 'episodes')
+
+export interface CalendarFilm {
+  id: number
+  /** Release day, ISO. */
+  at: string
+  slug: string
+  title: string
+  titleEn: string
+  poster: string
+  year: number | null
+  members: boolean
+}
+
+/** Consecutive items of one day become one group, whatever they are; the order they came in is kept. */
+export function groupDays<T extends { at: string }>(items: readonly T[]): { day: string; items: T[] }[] {
+  const groups: { day: string; items: T[] }[] = []
+  for (const item of items) {
+    const day = tehranDay(item.at)
+    const last = groups[groups.length - 1]
+    if (last && last.day === day) last.items.push(item)
+    else groups.push({ day, items: [item] })
+  }
+  return groups
+}

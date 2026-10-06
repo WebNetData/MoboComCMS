@@ -261,6 +261,7 @@ const RESOURCES: Record<string, Resource> = {
       backdrop: when(b, 'backdrop', validateCover),
       year: when(b, 'year', (v) => int(v, 1880, 2100)),
       endYear: when(b, 'endYear', (v) => int(v, 1880, 2100)),
+      releaseDate: when(b, 'releaseDate', date),
       imdbRating: when(b, 'imdbRating', (v) => float(v, 0, 10)),
       imdbId: when(b, 'imdbId', (v) => text(v, 20).replace(/[^a-z0-9]/gi, '')),
       runtime: when(b, 'runtime', (v) => int(v, 0, 1000, 0) ?? 0),

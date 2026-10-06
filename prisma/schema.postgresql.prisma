@@ -1537,6 +1537,8 @@ model CinemaTitle {
   backdrop      String         @default("")
   year          Int?
   endYear       Int?
+  // The day a film opens (cinemas or streaming); the release calendar is built from it. Unset: not on the calendar.
+  releaseDate   DateTime?
   imdbRating    Float?
   imdbId        String         @default("")
   runtime       Int            @default(0)
@@ -1564,6 +1566,7 @@ model CinemaTitle {
   airNotifications CinemaEpisodeAirNotification[]
 
   @@index([kind, status, publishedAt])
+  @@index([kind, status, releaseDate])
 }
 
 model CinemaSeason {

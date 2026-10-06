@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { CALENDAR_PAGE, calendarPage, groupByDay, normalizeWhen, type CalendarEpisode } from '@/modules/cinema/domain/calendar'
+import { CALENDAR_PAGE, calendarPage, groupByDay, groupDays, normalizeWhen, type CalendarEpisode, type CalendarFilm } from '@/modules/cinema/domain/calendar'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
@@ -346,6 +346,27 @@ export async function episodeCalendar(input: { when?: unknown; page?: unknown },
     series: { slug: row.season.title.slug, title: row.season.title.title, titleEn: row.season.title.titleEn, poster: row.season.title.poster },
   }] : [])
   return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupByDay(episodes) }
+}
+
+/**
+ * Film release calendar: published films with a release day, the ones opening next (soonest first) or the
+ * ones that opened last (latest first), by day. A film without a release day is not on it.
+ */
+export async function filmCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
+  const when = normalizeWhen(input.when)
+  const page = calendarPage(input.page)
+  const films = { kind: 'MOVIE', status: 'PUBLISHED', publishedAt: { lte: now } }
+  const where = { ...films, releaseDate: when === 'upcoming' ? { gt: now } : { lte: now } }
+  const [rows, total, upcoming] = await Promise.all([
+    db.cinemaTitle.findMany({
+      where, orderBy: [{ releaseDate: when === 'upcoming' ? 'asc' : 'desc' }, { id: 'asc' }], skip: (page - 1) * CALENDAR_PAGE, take: CALENDAR_PAGE,
+      select: { id: true, slug: true, title: true, titleEn: true, poster: true, year: true, access: true, releaseDate: true },
+    }),
+    db.cinemaTitle.count({ where }),
+    when === 'upcoming' ? Promise.resolve(-1) : db.cinemaTitle.count({ where: { ...films, releaseDate: { gt: now } } }),
+  ]).catch(() => [[], 0, 0] as [never[], number, number])
+  const list: CalendarFilm[] = rows.flatMap((row) => row.releaseDate ? [{ id: row.id, at: row.releaseDate.toISOString(), slug: row.slug, title: row.title, titleEn: row.titleEn, poster: row.poster, year: row.year, members: row.access === 'MEMBERS' }] : [])
+  return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupDays(list) }
 }
 
 // ------------------------------------------------------------------ games
