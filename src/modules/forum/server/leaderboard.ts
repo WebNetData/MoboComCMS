@@ -1,11 +1,12 @@
 import { db } from '@/platform/database/prisma'
-import type { Viewer } from '@/modules/forum/domain/community'
+import { reactionWeight, type Viewer } from '@/modules/forum/domain/community'
+import { getForumSettings } from '@/modules/forum/server/community'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { authorsFor, fallbackAuthor, visibleCategories, type AuthorView } from '@/modules/forum/server/forum'
 
 // The leaderboard: who earned the most reputation in a period, who wrote the most, which posts were liked the
-// most, and who led each of the last days. Reputation is one point for each reaction a member's post receives
-// from someone else. Everything is counted in the forums this viewer may see, so a private forum adds neither
+// most, and who led each of the last days. Reputation is what each reaction a member's post receives from someone
+// else is worth by its kind (forum settings; 1 unless set). Everything is counted in the forums this viewer may see, so a private forum adds neither
 // a point nor a post to what an outsider is shown.
 
 export const LEADER_PERIODS = ['today', 'week', 'month', 'all'] as const
@@ -38,8 +39,9 @@ export async function leaderboard(viewer: Viewer, input: { period?: unknown } = 
   const from = period === 'today' ? null : period === 'week' ? new Date(now.getTime() - 7 * DAY) : period === 'month' ? since : null
   const within = (at: Date) => period === 'today' ? leaderDay(at) === today : !!from && at >= from
 
+  const settings = await getForumSettings()
   const [reactions, posts] = categoryIds.length ? await Promise.all([
-    db.forumReaction.findMany({ where: { createdAt: { gte: since, lte: now }, post: { is: inForums } }, orderBy: { createdAt: 'desc' }, take: MAX_ROWS, select: { userId: true, createdAt: true, post: { select: { id: true, userId: true } } } }),
+    db.forumReaction.findMany({ where: { createdAt: { gte: since, lte: now }, post: { is: inForums } }, orderBy: { createdAt: 'desc' }, take: MAX_ROWS, select: { userId: true, emoji: true, createdAt: true, post: { select: { id: true, userId: true } } } }),
     period === 'all' ? Promise.resolve([]) : db.forumPost.findMany({ where: { ...inForums, createdAt: { gte: since, lte: now } }, orderBy: { createdAt: 'desc' }, take: MAX_ROWS, select: { userId: true, createdAt: true } }),
   ]).catch(() => [[], []] as const) : [[], []] as const
   // A point is a reaction from someone else.
@@ -48,10 +50,12 @@ export async function leaderboard(viewer: Viewer, input: { period?: unknown } = 
   const reputation = new Map<number, number>(), written = new Map<number, number>(), liked = new Map<number, number>()
   const days = new Map<string, Map<number, number>>()
   for (const row of earned) {
-    if (period !== 'all' && within(row.createdAt)) { bump(reputation, row.post.userId); bump(liked, row.post.id) }
+    // Reputation is weighed by the kind of reaction; "most liked" stays a count of reactions.
+    const worth = reactionWeight(settings, row.emoji)
+    if (period !== 'all' && within(row.createdAt)) { if (worth) bump(reputation, row.post.userId, worth); bump(liked, row.post.id) }
     const day = leaderDay(row.createdAt)
     if (!days.has(day)) days.set(day, new Map())
-    bump(days.get(day)!, row.post.userId)
+    if (worth) bump(days.get(day)!, row.post.userId, worth)
   }
   for (const row of posts) if (within(row.createdAt)) bump(written, row.userId)
 
@@ -59,11 +63,11 @@ export async function leaderboard(viewer: Viewer, input: { period?: unknown } = 
   if (period === 'all') {
     // All time is what the profiles and posts already carry; it is not recounted from every reaction ever made.
     const [profiles, writers, best] = await Promise.all([
-      db.forumProfile.findMany({ where: { likesReceived: { gt: 0 }, user: { status: 'ACTIVE' } }, orderBy: [{ likesReceived: 'desc' }, { userId: 'asc' }], take: TOP, select: { userId: true, likesReceived: true } }),
+      db.forumProfile.findMany({ where: { reputation: { gt: 0 }, user: { status: 'ACTIVE' } }, orderBy: [{ reputation: 'desc' }, { userId: 'asc' }], take: TOP, select: { userId: true, reputation: true } }),
       db.forumProfile.findMany({ where: { postCount: { gt: 0 }, user: { status: 'ACTIVE' } }, orderBy: [{ postCount: 'desc' }, { userId: 'asc' }], take: TOP, select: { userId: true, postCount: true } }),
       categoryIds.length ? db.forumPost.findMany({ where: { ...inForums, likeCount: { gt: 0 } }, orderBy: [{ likeCount: 'desc' }, { id: 'asc' }], take: 10, select: { id: true, likeCount: true } }) : Promise.resolve([]),
     ]).catch(() => [[], [], []] as const)
-    reputationRows = profiles.map((row) => [row.userId, row.likesReceived]); writtenRows = writers.map((row) => [row.userId, row.postCount]); likedRows = best.map((row) => [row.id, row.likeCount])
+    reputationRows = profiles.map((row) => [row.userId, row.reputation]); writtenRows = writers.map((row) => [row.userId, row.postCount]); likedRows = best.map((row) => [row.id, row.likeCount])
   }
 
   // The leader of each of the last days, newest first; today is still open and is not a "past" day.

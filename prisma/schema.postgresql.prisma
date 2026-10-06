@@ -2097,6 +2097,8 @@ model ForumProfile {
   postCount     Int          @default(0)
   likesGiven    Int          @default(0)
   likesReceived Int          @default(0)
+  // Reactions received, each by the weight of its kind (forum settings). Recounted from the reactions themselves.
+  reputation    Int          @default(0)
   solvedCount   Int          @default(0)
   topicsEntered Int          @default(0)
   daysVisited   Int          @default(0)
@@ -2110,6 +2112,7 @@ model ForumProfile {
 
   @@index([trustLevel])
   @@index([postCount])
+  @@index([reputation])
 }
 
 /// Forum groups: custom (open, by request or invite-only) and automatic ones

@@ -38,7 +38,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const here = `/forum/u/${profile.username}`
   // The numbers a visitor looks for first; the social ones only while that module is on.
   const lead: { label: string; value: number; href?: string }[] = [
-    { label: 'اعتبار', value: profile.stats.likesReceived }, { label: 'پیام', value: profile.stats.postCount }, { label: 'موضوع', value: profile.stats.topicCount }, { label: 'راه‌حل', value: profile.stats.solvedCount },
+    { label: 'اعتبار', value: profile.stats.reputation }, { label: 'پیام', value: profile.stats.postCount }, { label: 'موضوع', value: profile.stats.topicCount }, { label: 'راه‌حل', value: profile.stats.solvedCount },
     ...(social ? [{ label: 'دنبال‌کننده', value: social.followers, href: `${here}?tab=followers` }, { label: 'دنبال‌شونده', value: social.following, href: `${here}?tab=following` }] : []),
   ]
   const more: [string, number][] = [['روز بازدید', profile.stats.daysVisited], ['موضوع خوانده', profile.stats.topicsEntered], ['پسند داده', profile.stats.likesGiven]]

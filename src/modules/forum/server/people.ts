@@ -47,7 +47,7 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
   const [social, ahead, author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
     socialOf(userId, viewer.userId).catch(() => null),
     // Standing by reputation among active members; a member nobody has liked yet has no standing.
-    profile.likesReceived > 0 ? db.forumProfile.count({ where: { likesReceived: { gt: profile.likesReceived }, user: { status: 'ACTIVE' } } }) : Promise.resolve(-1),
+    profile.reputation > 0 ? db.forumProfile.count({ where: { reputation: { gt: profile.reputation }, user: { status: 'ACTIVE' } } }) : Promise.resolve(-1),
     authorsFor([userId]).then((map) => map.get(userId) || fallbackAuthor(userId)),
     db.forumGroupMember.findMany({ where: { userId, status: 'ACTIVE', group: { visibility: 'PUBLIC', automatic: null } }, include: { group: true } }),
     db.forumUserBadge.findMany({ where: { userId, badge: { enabled: true } }, include: { badge: true }, orderBy: { grantedAt: 'desc' } }),
@@ -62,7 +62,7 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
     profile: {
       userId, username: profile.username, bio: profile.bio, bioHtml: renderMarkdown(profile.bio, { images: false }), location: profile.location, website: profile.website, cover: profile.cover,
       trustLevel: profile.trustLevel, trustName: TRUST_NAMES[profile.trustLevel] || '', joinedAt: profile.user.createdAt, lastSeenAt: profile.lastSeenAt,
-      stats: { daysVisited: profile.daysVisited, topicsEntered: profile.topicsEntered, topicCount: profile.topicCount, postCount: profile.postCount, likesGiven: profile.likesGiven, likesReceived: profile.likesReceived, solvedCount: profile.solvedCount },
+      stats: { reputation: profile.reputation, daysVisited: profile.daysVisited, topicsEntered: profile.topicsEntered, topicCount: profile.topicCount, postCount: profile.postCount, likesGiven: profile.likesGiven, likesReceived: profile.likesReceived, solvedCount: profile.solvedCount },
       silenced: !!profile.silencedUntil && profile.silencedUntil.getTime() > now, suspended: !!profile.suspendedUntil && profile.suspendedUntil.getTime() > now,
       silencedUntil: profile.silencedUntil, suspendedUntil: profile.suspendedUntil, primaryGroupId: profile.primaryGroupId, title: profile.title,
     },
@@ -161,7 +161,7 @@ export async function userDirectory(input: { sort?: string; q?: string; page?: n
     ...(q ? { username: { contains: q } } : group ? {} : { OR: [{ postCount: { gt: 0 } }, { daysVisited: { gt: 0 } }] }),
   }
   const [rows, total] = await Promise.all([
-    db.forumProfile.findMany({ where, orderBy: sort === 'recent' ? { lastSeenAt: 'desc' } : [{ [sort]: 'desc' }, { postCount: 'desc' }], skip: (page - 1) * 30, take: 30 }),
+    db.forumProfile.findMany({ where, orderBy: sort === 'recent' ? { lastSeenAt: 'desc' } : [{ [sort === 'likesReceived' ? 'reputation' : sort]: 'desc' }, { postCount: 'desc' }], skip: (page - 1) * 30, take: 30 }),
     db.forumProfile.count({ where }),
   ])
   const authors = await authorsFor(rows.map((row) => row.userId))
@@ -169,7 +169,7 @@ export async function userDirectory(input: { sort?: string; q?: string; page?: n
     sort, q, page, pages: Math.max(1, Math.ceil(total / 30)), total,
     group: group ? { slug: group.slug, name: group.name, color: group.color } : null,
     groups: groups.filter((row) => row.memberCount > 0).map((row) => ({ slug: row.slug, name: row.name, color: row.color, memberCount: row.memberCount })),
-    users: rows.map((row) => ({ author: authors.get(row.userId) || fallbackAuthor(row.userId), likesReceived: row.likesReceived, likesGiven: row.likesGiven, postCount: row.postCount, topicCount: row.topicCount, solvedCount: row.solvedCount, daysVisited: row.daysVisited, lastSeenAt: row.lastSeenAt })),
+    users: rows.map((row) => ({ author: authors.get(row.userId) || fallbackAuthor(row.userId), reputation: row.reputation, likesReceived: row.likesReceived, likesGiven: row.likesGiven, postCount: row.postCount, topicCount: row.topicCount, solvedCount: row.solvedCount, daysVisited: row.daysVisited, lastSeenAt: row.lastSeenAt })),
   }
 }
 

@@ -46,6 +46,7 @@ append('docs/agent/SESSION_BOOTSTRAP.md', 'Decisions in force', [
   '- Section managers come from `/admin/section-managers`; forum ranks (admin, deputy, forum moderator) from the forum admin\'s team tab.',
   '- Forum: section → forum → subforum, sections take no topics, moderation is scoped with `inCategory`, the social side is composed from identity, community and reviews, never re-implemented.',
   '- The forum is not a protected visual surface. Homepage, Magazine, Music, Games, Movies and TV Series still are.',
+  '- History: before launch a rule that changes a stored number is applied to everything already stored; after launch no update ignores or resets the past (recount from the stored events, or a data-safe backfill).',
   '- Every pull request targets `main`; the owner merges and deploys. A slice is done when a connected PostgreSQL check and, for anything visible, a browser check have actually run.',
 ].join('\n'))
 
@@ -111,7 +112,7 @@ const SKILLS = {
   ],
   'mobocom-release': [
     '## This repository',
-    '- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs), `20261205120000` (data only: the first four music languages), `20261206120000` (a delivered code can be taken back), `20261207120000` (film release day). All additive or data-preserving.',
+    '- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs), `20261205120000` (data only: the first four music languages), `20261206120000` (a delivered code can be taken back), `20261207120000` (film release day), `20261208120000` (forum reputation, set from the reactions already stored). All additive or data-preserving.',
     '- Server settings still needed: `STORE_DELIVERY_KEY` for digital codes; SMTP or SMS for password recovery.',
     '- After deploy: arrange forum categories into sections, and narrow any role that held `cms.posts` if it should be the magazine alone (`/admin/section-managers`).',
     '- SQLite installs have no migration runner here: a data migration must be repeated by hand there.',
@@ -129,6 +130,7 @@ for (const file of ['AGENTS.md', 'CLAUDE.md']) insertBefore(file, '## Tool routi
   '- Staff standing changes only through the staff guard; standing and role change together; staff without a role is full access.',
   '- Managers per site section come from `/admin/section-managers`; forum ranks (admin, deputy, forum moderator) name access that already exists.',
   '- Forum: section → forum → subforum; a section takes no topics; moderation is scoped with `inCategory`; follow, feed and reviews are composed from their owner modules. The forum is not a protected visual surface.',
+  '- History: before launch a rule that changes a stored number is applied to everything already stored; after launch no update ignores or resets the past (recount from the stored events, or a data-safe backfill).',
   '- Every pull request targets `main`; the owner merges and deploys. Done means a connected PostgreSQL check and, for anything visible, a browser check actually ran.',
   '',
   '## Tool routing',

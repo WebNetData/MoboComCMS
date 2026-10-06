@@ -14,7 +14,7 @@ type Badge = { id: number; slug: string; name: string; description: string; icon
 type Author = { id: number; name: string; username: string }
 type Flag = { post: { id: number; number: number; excerpt: string; status: string; createdAt: string; thread: { id: number; title: string } }; author: Author; weight: number; flags: { reason: string; note: string; weight: number; createdAt: string; by: Author }[] }
 type Trust = { daysVisited: number; topicsEntered: number; postCount: number; likesGiven: number; likesReceived: number }
-type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
+type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactionWeights: Record<string, number>; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
   approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
 type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
@@ -303,6 +303,11 @@ function AdminForumPage() {
         <fieldset className="fa-perms fr-admin-wide">
           <legend>واکنش‌های مجاز</legend>
           <div className="fa-inline fa-wrap">{Object.entries(REACTIONS).map(([key, emoji]) => <label key={key} className="studio-switch"><input type="checkbox" checked={settings.reactions.includes(key)} onChange={(e) => setSettings({ ...settings, reactions: e.target.checked ? [...settings.reactions, key] : settings.reactions.filter((r) => r !== key) })} />{emoji}</label>)}</div>
+        </fieldset>
+        <fieldset className="fa-perms fr-admin-wide">
+          <legend>وزن هر واکنش در اعتبار</legend>
+          <div className="fa-inline fa-wrap">{Object.entries(REACTIONS).map(([key, emoji]) => <label key={key} className="fa-weight"><span aria-hidden="true">{emoji}</span><input className="input num" type="number" min={0} max={10} aria-label={`وزن ${key}`} value={settings.reactionWeights?.[key] ?? 1} onChange={(e) => setSettings({ ...settings, reactionWeights: { ...settings.reactionWeights, [key]: Math.max(0, Math.min(10, Math.trunc(Number(e.target.value)) || 0)) } })} /></label>)}</div>
+          <small className="muted">هر واکنش به نویسندهٔ پیام همین‌قدر اعتبار می‌دهد (صفر یعنی هیچ). با تغییر وزن، اعتبار همهٔ اعضا از روی همهٔ واکنش‌های ثبت‌شده، از اول تا امروز، دوباره حساب می‌شود.</small>
         </fieldset>
         {(['1', '2', '3'] as const).map((level) => <fieldset key={level} className="fa-perms fr-admin-wide">
           <legend>ارتقا به سطح {fa(Number(level))} — {data.trustNames[Number(level)]}</legend>

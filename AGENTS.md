@@ -26,6 +26,7 @@ Decided by the owner after the v4 prompt; full text, code locations and guards i
 - Staff standing changes only through the staff guard; standing and role change together; staff without a role is full access.
 - Managers per site section come from `/admin/section-managers`; forum ranks (admin, deputy, forum moderator) name access that already exists.
 - Forum: section → forum → subforum; a section takes no topics; moderation is scoped with `inCategory`; follow, feed and reviews are composed from their owner modules. The forum is not a protected visual surface.
+- History: before launch a rule that changes a stored number is applied to everything already stored; after launch no update ignores or resets the past (recount from the stored events, or a data-safe backfill).
 - Every pull request targets `main`; the owner merges and deploys. Done means a connected PostgreSQL check and, for anything visible, a browser check actually ran.
 
 ## Tool routing
