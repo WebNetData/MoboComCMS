@@ -13,7 +13,7 @@ export function TimeAgo({ date, fa = true, short = false }: { date: Date | strin
   for (const step of steps) { label = step; if (amount < step[0]) break; amount = Math.floor(amount / step[0]) }
   const n = amount.toLocaleString(fa ? 'fa-IR' : 'en-US')
   const text = seconds < 45 ? (fa ? 'همین حالا' : 'just now') : fa ? `${n} ${label[1]}${short ? '' : ' پیش'}` : `${n} ${label[2]}${amount === 1 ? '' : 's'}${short ? '' : ' ago'}`
-  return <time dateTime={value.toISOString()} title={value.toLocaleString(fa ? 'fa-IR' : 'en-US', { dateStyle: 'full', timeStyle: 'short' })}>{text}</time>
+  return <time dateTime={value.toISOString()} title={value.toLocaleString(fa ? 'fa-IR' : 'en-US', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Asia/Tehran' })}>{text}</time>
 }
 
 type AvatarAuthor = Pick<AuthorView, 'name' | 'avatarColor'> & Partial<Pick<AuthorView, 'avatar' | 'username'>>

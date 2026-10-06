@@ -220,7 +220,7 @@ export function PostCard({ post: initial, signedIn, meId, onRemoved, expanded = 
       <Link href={`/u/${post.author.username}`} tabIndex={-1} aria-hidden="true"><Avatar person={post.author} size={44} /></Link>
       <div className="cm-post-who" id={`post-${post.id}-by`}>
         <NameLine person={post.author} />
-        <span className="cm-post-meta"><Link href={`/feed/p/${post.id}`}><time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString('fa-IR')}>{ago(post.createdAt)}</time></Link>{post.editedAt && ' · ویرایش‌شده'}{post.visibility === 'FOLLOWERS' && <span title="فقط دنبال‌کنندگان"> · <CmIcon name="users" size={13} /></span>}</span>
+        <span className="cm-post-meta"><Link href={`/feed/p/${post.id}`}><time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}>{ago(post.createdAt)}</time></Link>{post.editedAt && ' · ویرایش‌شده'}{post.visibility === 'FOLLOWERS' && <span title="فقط دنبال‌کنندگان"> · <CmIcon name="users" size={13} /></span>}</span>
       </div>
       <div className="cm-menu">
         <button type="button" className="cm-btn is-icon is-ghost" aria-label="گزینه‌های پست" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}><CmIcon name="more" size={18} /></button>
