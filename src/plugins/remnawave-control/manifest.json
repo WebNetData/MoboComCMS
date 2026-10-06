@@ -10,6 +10,7 @@
   "capabilities": ["admin", "settings"],
   "defaultEnabled": true,
   "requiresCore": "^1.3.0",
+  "requires": ["vpn"],
   "adminNavigation": [{ "href": "/admin/extensions/remnawave-control", "label": "مرکز کنترل RemnaWave", "labelEn": "RemnaWave Control Center", "icon": "shield", "permission": "panels.manage" }],
   "settings": [
     { "key": "auto-repair", "label": "تعمیر خودکار ایمن", "labelEn": "Safe automatic repair", "description": "فقط اسکواد خالی و حسابی را که محلی غیرفعال اما روی پنل فعال است اصلاح می‌کند؛ حجم و زمان را تغییر نمی‌دهد.", "descriptionEn": "Repairs only missing squads and locally disabled accounts still active on the panel; purchased traffic and expiry stay unchanged.", "type": "boolean", "default": false },

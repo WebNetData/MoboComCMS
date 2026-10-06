@@ -4,6 +4,8 @@ import { requireUser } from '@/modules/identity/server/access'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { err, ok } from '@/platform/http/response'
 import { notificationPreferenceCatalog, validNotificationPreference } from '@/modules/notifications/server/preferences'
+import { notificationOffered } from '@/modules/notifications/domain/event-modules'
+import { getModuleStates } from '@/extensions/server/modules'
 
 function privateOk(data: unknown) {
   const response = ok(data)
@@ -15,7 +17,8 @@ export async function GET(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
   const muted = await db.userNotificationMute.findMany({ where: { userId: user.id }, select: { kind: true, channel: true } })
-  return privateOk({ catalog: notificationPreferenceCatalog, muted })
+  const states = await getModuleStates()
+  return privateOk({ catalog: notificationPreferenceCatalog.filter((event) => notificationOffered(event.kind, states)), muted })
 }
 
 export async function PATCH(req: NextRequest) {

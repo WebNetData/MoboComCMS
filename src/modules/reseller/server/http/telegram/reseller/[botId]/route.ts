@@ -2,10 +2,13 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { handleResellerUpdate } from '@/modules/reseller/server/reseller-bot-sales'
 import { secretMatches } from '@/modules/reseller/server/reseller-bot'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 export async function POST(req: NextRequest, context: { params: Promise<{ botId: string }> }) {
   const { botId } = await context.params
   if (!/^\d+$/.test(botId)) return new Response(null, { status: 404 })
+  // Module off: the update is acknowledged (Telegram would otherwise keep resending it) and nothing is sold.
+  if (!await isModuleEnabled('reseller')) return Response.json({ ok: true, disabled: true })
   const row = await db.resellerBot.findUnique({ where: { botId } })
   if (!row?.active || !secretMatches(row.webhookSecret, req.headers.get('x-telegram-bot-api-secret-token'))) return new Response(null, { status: 403 })
   const length = Number(req.headers.get('content-length') || 0)

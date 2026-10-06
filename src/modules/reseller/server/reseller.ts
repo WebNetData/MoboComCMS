@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto'
 import { db } from '@/platform/database/prisma'
 import { err } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
 import { createInvoiceForOrder, markInvoicePaid } from '@/modules/billing/server/billing'
 import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
@@ -50,6 +51,8 @@ const round = (n: number) => Math.round((n || 0) * 100) / 100
 
 /** Admin panel and reseller panel share these guards. */
 export async function requireReseller(req: NextRequest) {
+  // The whole reseller panel is closed while the module (or the VPN service it sells) is off; contracts and accounts stay as they are.
+  if (!await isModuleEnabled('reseller')) return { ok: false as const, response: err('نمایندگی در حال حاضر فعال نیست', 404, { code: 'RESELLER_DISABLED' }) }
   const auth = await requireUser(req)
   if (!auth) return { ok: false as const, response: err('unauthorized', 401) }
   const owned = await loadResellerByUser(auth.id)

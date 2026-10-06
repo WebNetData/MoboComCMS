@@ -4,6 +4,8 @@ import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { SMS_EVENTS } from '@/modules/sms/domain/sms'
+import { notificationOffered } from '@/modules/notifications/domain/event-modules'
+import { getModuleStates } from '@/extensions/server/modules'
 import { SmsError, broadcast, getSmsConfig, publicSmsConfig, saveSmsConfig, sendSms, smsCredit } from '@/modules/sms/server/sms'
 
 const guard = (req: NextRequest) => requirePerm(req, 'settings.manage')
@@ -11,6 +13,7 @@ const fail = (error: unknown) => error instanceof SmsError ? err(error.message, 
 
 export async function GET(req: NextRequest) {
   if (!await guard(req)) return err('forbidden', 403)
+  const states = await getModuleStates()
   const [config, log, stats, verified] = await Promise.all([
     getSmsConfig(),
     db.smsLog.findMany({ orderBy: { id: 'desc' }, take: 60 }),
@@ -18,7 +21,7 @@ export async function GET(req: NextRequest) {
     db.user.count({ where: { phoneVerifiedAt: { not: null }, smsAlerts: true, status: 'ACTIVE' } }),
   ])
   return ok({
-    config: publicSmsConfig(config), events: SMS_EVENTS, log, verifiedUsers: verified,
+    config: publicSmsConfig(config), events: SMS_EVENTS.filter((event) => notificationOffered(event.id, states)), log, verifiedUsers: verified,
     stats: Object.fromEntries(stats.map((row) => [row.status, row._count._all])),
   })
 }

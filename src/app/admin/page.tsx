@@ -52,7 +52,7 @@ export default function AdminDashboard() {
   const attention = [
     { label: isFa ? 'سفارش‌های معلق' : 'Pending orders', count: s.pendingOrders, value: String(s.pendingOrders), href: '/admin/orders?status=PENDING' },
     { label: isFa ? 'تیکت‌های باز' : 'Open tickets', count: s.openTickets, value: String(s.openTickets), href: '/admin/tickets' },
-    { label: isFa ? 'اشتراک رو به انقضا (۷ روز)' : 'Expiring subscriptions (7 days)', count: s.expiringSoon || 0, value: String(s.expiringSoon || 0), href: '/admin/subscriptions' },
+    ...(vpnOn ? [{ label: isFa ? 'اشتراک رو به انقضا (۷ روز)' : 'Expiring subscriptions (7 days)', count: s.expiringSoon || 0, value: String(s.expiringSoon || 0), href: '/admin/subscriptions' }] : []),
     ...(fin ? [{ label: isFa ? 'مبلغ پرداخت‌نشده' : 'Unpaid amount', count: unpaid, value: money(unpaid, fin.currency), href: '/admin/invoices' }] : []),
   ].filter(item => item.count > 0)
 

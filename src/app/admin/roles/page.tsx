@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 interface RoleRow {
   id: number
@@ -35,6 +36,10 @@ export default function AdminRolesPage() {
   const [roles, setRoles] = useState<RoleRow[]>([])
   const [allPerms, setAllPerms] = useState<string[]>([])
   const [presets, setPresets] = useState<Record<string, string[]>>({})
+  const vpnOn = useModuleEnabled('vpn')
+  const resellerOn = useModuleEnabled('reseller')
+  // Permissions and presets that only serve a switched-off module are not offered; a role keeps what it already has.
+  const offered = (permission: string) => (vpnOn || !['subs.manage', 'panels.manage'].includes(permission)) && (resellerOn || permission !== 'resellers.manage')
   const [form, setForm] = useState({ name: '', nameFa: '', preset: '' })
   const [editing, setEditing] = useState<RoleRow | null>(null)
   const [editPerms, setEditPerms] = useState<string[]>([])
@@ -102,7 +107,7 @@ export default function AdminRolesPage() {
   return (
     <div>
       <h1 className="h2 mb-2">{t.rolesPermissions}</h1>
-      <p className="muted mb-6">{t.panelsHint ? '' : ''}نقش‌ها را بسازید و برای هر بخش سایت دسترسی تعیین کنید: پشتیبان، نماینده، ادمین و…</p>
+      <p className="muted mb-6">{t.panelsHint ? '' : ''}نقش‌ها را بسازید و برای هر بخش سایت دسترسی تعیین کنید: پشتیبان، حسابدار، ادمین و…</p>
 
       {msg && <p className="error-text mb-4">{msg}</p>}
 
@@ -119,7 +124,7 @@ export default function AdminRolesPage() {
           <label className="label">Preset</label>
           <select className="select" value={form.preset} onChange={(e) => setForm({ ...form, preset: e.target.value })}>
             <option value="">—</option>
-            {Object.keys(presets).map((p) => (
+            {Object.keys(presets).filter((p) => resellerOn || p !== 'reseller').map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
@@ -143,7 +148,7 @@ export default function AdminRolesPage() {
             {editing?.id === r.id ? (
               <>
                 <div className="grid-2 mb-4">
-                  {allPerms.map((p) => (
+                  {allPerms.filter((p) => offered(p) || editPerms.includes(p)).map((p) => (
                     <label key={p} className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={editPerms.includes(p)} onChange={() => togglePerm(p)} />
                       {PERM_LABELS[p] || p}

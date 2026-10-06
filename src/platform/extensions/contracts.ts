@@ -63,7 +63,7 @@ export interface ExtensionManifest {
   adminNavigation?: readonly ExtensionAdminNavigation[]
   settings?: readonly ExtensionSettingDefinition[]
   // ---- feature modules (kind: 'module') -------------------------------
-  /** Other modules that must be enabled for this one to work. */
+  /** Modules that must be enabled for this module or plugin to work; it counts as off while one of them is off. */
   requires?: readonly string[]
   /** Public URL prefixes owned by the module; they 404 and leave menus while it is off. */
   publicPaths?: readonly string[]
@@ -97,8 +97,8 @@ export function assertValidExtensionManifest(manifest: ExtensionManifest) {
   for (const nav of manifest.adminNavigation || []) {
     if (!nav.href.startsWith('/admin/extensions/')) throw new Error(`Extension admin navigation must live under /admin/extensions/: ${nav.href}`)
   }
-  if (manifest.kind !== 'module' && (manifest.requires?.length || manifest.publicPaths?.length || manifest.adminPaths?.length || manifest.stateSetting)) {
-    throw new Error(`Only feature modules may declare requires/publicPaths/adminPaths/stateSetting: ${manifest.id}`)
+  if (manifest.kind !== 'module' && (manifest.publicPaths?.length || manifest.adminPaths?.length || manifest.stateSetting)) {
+    throw new Error(`Only feature modules may declare publicPaths/adminPaths/stateSetting: ${manifest.id}`)
   }
   for (const path of [...(manifest.publicPaths || []), ...(manifest.adminPaths || [])]) {
     if (!/^\/[a-z0-9/_-]*$/.test(path)) throw new Error(`Extension "${manifest.id}" has an invalid path "${path}".`)
@@ -129,7 +129,7 @@ export function assertUniqueExtensionIds(manifests: readonly ExtensionManifest[]
     if (seen.has(manifest.id)) throw new Error(`Duplicate extension id: ${manifest.id}`)
     seen.add(manifest.id)
     for (const dependency of manifest.requires || []) {
-      if (!manifests.some((other) => other.id === dependency)) throw new Error(`Extension "${manifest.id}" requires missing module "${dependency}"`)
+      if (!manifests.some((other) => other.id === dependency && other.kind === 'module')) throw new Error(`Extension "${manifest.id}" requires missing module "${dependency}"`)
     }
     for (const permission of manifest.permissions || []) {
       if (permissions.has(permission.id)) throw new Error(`Duplicate extension permission: ${permission.id}`)

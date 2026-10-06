@@ -4,6 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { adminNeedsTwoFactor, requireUser } from '@/modules/identity/server/access'
 import { walletBalances } from '@/modules/wallet/server/wallet'
 import { parseResellerPermissions, RESELLER_PERMISSIONS } from '@/modules/reseller/server/reseller'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 /** Current user with freshly resolved role + permissions (used by the panel shells). */
 export async function GET(req: NextRequest) {
@@ -27,8 +28,10 @@ export async function GET(req: NextRequest) {
   const balances = await walletBalances(user.id)
 
   // resellers reach their own panel without any admin permission
-  const reseller = await db.reseller.findUnique({ where: { userId: user.id }, select: { id: true, active: true } })
-  const membership = reseller ? null : await db.resellerMember.findUnique({ where: { userId: user.id }, include: { reseller: { select: { active: true } } } })
+  // … and nobody does while the reseller module is off.
+  const resellerOn = await isModuleEnabled('reseller')
+  const reseller = resellerOn ? await db.reseller.findUnique({ where: { userId: user.id }, select: { id: true, active: true } }) : null
+  const membership = reseller || !resellerOn ? null : await db.resellerMember.findUnique({ where: { userId: user.id }, include: { reseller: { select: { active: true } } } })
   const teamActive = Boolean(membership?.active && membership.reseller.active)
 
   return ok({

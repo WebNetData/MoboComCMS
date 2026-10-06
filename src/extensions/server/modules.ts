@@ -29,6 +29,11 @@ export async function moduleGuard(id: string): Promise<NextResponse | null> {
   return await isModuleEnabled(id) ? null : NextResponse.json({ error: 'This feature is disabled', module: id }, { status: 404 })
 }
 
+/** API route files: the handler answers only while the module is on (404 otherwise). */
+export function whenModuleOn<A extends unknown[]>(id: string, handler: (...args: A) => Response | Promise<Response>) {
+  return async (...args: A): Promise<Response> => (await moduleGuard(id)) ?? handler(...args)
+}
+
 /** Admin paths owned by disabled modules (hidden from the admin menu). */
 export async function disabledAdminPaths(): Promise<string[]> {
   const states = await getModuleStates()

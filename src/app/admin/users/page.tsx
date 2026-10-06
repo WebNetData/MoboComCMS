@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 interface UserRow {
   id: number
@@ -36,6 +37,7 @@ interface Note {
 
 export default function AdminUsersPage() {
   const { t, locale } = useI18n()
+  const vpnOn = useModuleEnabled('vpn')
   const [users, setUsers] = useState<UserRow[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [q, setQ] = useState('')
@@ -172,7 +174,7 @@ export default function AdminUsersPage() {
                 <th>{t.status}</th>
                 <th>{t.walletBalance}</th>
                 <th>{t.ordersShort}</th>
-                <th>{t.subsShort}</th>
+                {vpnOn && <th>{t.subsShort}</th>}
                 <th>{t.actions}</th>
               </tr>
             </thead>
@@ -202,7 +204,7 @@ export default function AdminUsersPage() {
                   <td><StatusBadge value={u.status} /></td>
                   <td className="num">{u.walletBalances?.length ? u.walletBalances.map((b) => formatCurrency(b.balance, b.currency, locale === 'fa' ? 'fa-IR' : 'en-US')).join(' · ') : '—'}</td>
                   <td className="num">{u.orders}</td>
-                  <td className="num">{u.subs}</td>
+                  {vpnOn && <td className="num">{u.subs}</td>}
                   <td>
                     <div className="flex gap-1 flex-wrap">
                       <Link href={`/admin/users/${u.id}`} className="badge badge-primary">{t.manageCustomer}</Link>
@@ -227,7 +229,7 @@ export default function AdminUsersPage() {
             <>
               <h3 className="font-bold mb-1">{selected.name || selected.email}</h3>
               <p className="muted mb-4">
-                <span className="num">{selected.orders}</span> {t.ordersShort} · <span className="num">{selected.subs}</span> {t.subsShort} · <span className="num">{selected.tickets}</span> {t.ticketsShort}
+                <span className="num">{selected.orders}</span> {t.ordersShort}{vpnOn && <> · <span className="num">{selected.subs}</span> {t.subsShort}</>} · <span className="num">{selected.tickets}</span> {t.ticketsShort}
               </p>
               <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
                 {notes.length === 0 && <p className="muted">{t.noNotes}</p>}
