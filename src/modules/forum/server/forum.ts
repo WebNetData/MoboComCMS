@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
-import { canEditPost, categoryAccess, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
+import { categoryFamily } from '@/modules/forum/domain/tree'
+import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
@@ -16,6 +17,8 @@ export { getForumViewer, viewerFor }
 export type AuthorView = {
   id: number; username: string; name: string; avatar: string; avatarColor: string; title: string
   trustLevel: number; staff: boolean; joinedAt: Date; flair: { icon: string; color: string; name: string } | null
+  /** Posts written and likes received: the author's standing, shown beside every post. */
+  posts: number; reputation: number
 }
 
 /** Author cards (profile, title, flair) for a set of users. */
@@ -33,11 +36,12 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: profile?.avatar || '', avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
+      posts: profile?.postCount ?? 0, reputation: profile?.likesReceived ?? 0,
     }]
   }))
 }
 
-export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null })
+export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, posts: 0, reputation: 0 })
 
 // ------------------------------------------------------------------ categories
 
@@ -45,11 +49,18 @@ const loadCategories = () => db.forumCategory.findMany({ orderBy: [{ sortOrder: 
 
 export type CategoryView = { id: number; slug: string; title: string; description: string; icon: string; color: string; parentId: number | null; access: CategoryAccess; threadCount: number; postCount: number; lastPostAt: Date | null; restricted: boolean; vip: boolean; locked: boolean }
 
+// A family is always taken from the list the viewer may see, so a hidden subforum is never part of it.
+export { categoryFamily }
+
 /** Categories the viewer can see, with what they may do in each. */
 export async function visibleCategories(viewer: Viewer): Promise<CategoryView[]> {
   const rows = await loadCategories().catch(() => [])
+  // A section (a top-level category that holds forums) lists them and takes no topics of its own, from anyone.
+  const parents = new Set(rows.map((row) => row.parentId))
+  const section = (row: { id: number; parentId: number | null }) => row.parentId == null && parents.has(row.id)
   return rows
-    .map((row) => ({ row, access: categoryAccess(row, viewer) }))
+    .map((row) => ({ row, access: categoryAccess(row, inCategory(viewer, row.id)) }))
+    .map(({ row, access }) => ({ row, access: section(row) ? { ...access, create: false } : access }))
     .filter(({ access }) => access.see)
     .map(({ row, access }) => ({
       id: row.id, slug: row.slug, title: row.title, description: row.description, icon: row.icon, color: row.color, parentId: row.parentId, access,
@@ -66,11 +77,12 @@ export async function categoryIndex(viewer: Viewer) {
   const tops = categories.filter((category) => !category.parentId || !visibleIds.has(category.parentId))
   return tops.map((category) => {
     const children = categories.filter((child) => child.parentId === category.id)
-    const family = [category.id, ...children.map((child) => child.id)]
+    const family = categoryFamily(categories, category.id)
+    const members = categories.filter((row) => family.includes(row.id))
     return {
       ...category, children,
-      topics: category.threadCount + children.reduce((sum, child) => sum + child.threadCount, 0),
-      posts: category.postCount + children.reduce((sum, child) => sum + child.postCount, 0),
+      topics: members.reduce((sum, row) => sum + row.threadCount, 0),
+      posts: members.reduce((sum, row) => sum + row.postCount, 0),
       latest: latest.filter((topic) => family.includes(topic.categoryId)).slice(0, 3),
     }
   })
@@ -107,7 +119,7 @@ export async function topicList(input: { viewer: Viewer; filter?: TopicFilter; c
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   if (PERSONAL.includes(filter) && !viewer.userId) return { filter, category, rows: [] as TopicRow[], page, pages: 1, total: 0, categories }
 
-  const scope = category ? [category.id, ...categories.filter((c) => c.parentId === category.id).map((c) => c.id)] : categories.map((c) => c.id)
+  const scope = category ? categoryFamily(categories, category.id) : categories.map((c) => c.id)
   // Muted categories drop out of the general lists (still open when browsed directly).
   const muted = viewer.userId && !category ? new Set((await db.forumCategoryUser.findMany({ where: { userId: viewer.userId, level: 'MUTED' }, select: { categoryId: true } })).map((row) => row.categoryId)) : new Set<number>()
   const inScope = ['mine', 'bookmarks'].includes(filter) ? scope : scope.filter((id) => !muted.has(id))
@@ -182,7 +194,7 @@ export async function viewerCounts(viewer: Viewer) {
     db.forumBookmark.count({ where: { userId: viewer.userId } }),
   ]).catch(() => [[], 0, 0] as [{ lastRead: number; thread: { postCount: number } }[], number, number])
   const { unreadMessageCount } = await import('@/modules/forum/server/message-counts')
-  const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : Promise.resolve(0)])
+  const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : viewer.moderates?.length ? db.forumPost.count({ where: { status: 'PENDING', thread: { categoryId: { in: viewer.moderates } } } }).catch(() => 0) : Promise.resolve(0)])
   return { unread: states.filter((row) => row.lastRead < row.thread.postCount).length, fresh, bookmarks, messages, review }
 }
 
@@ -205,6 +217,8 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   if (!Number.isSafeInteger(id) || id <= 0) return null
   const thread = await db.forumThread.findUnique({ where: { id }, include: { category: { include: { permissions: { select: { groupId: true, level: true } }, parent: { select: { slug: true, title: true, color: true } } } }, tags: { include: { tag: true } } } }).catch(() => null)
   if (!thread) return null
+  // Inside their own forum an assigned moderator sees and may do what a moderator does.
+  viewer = inCategory(viewer, thread.categoryId)
   const access = categoryAccess(thread.category, viewer)
   // A topic waiting for review is visible to its author (with a notice) and staff.
   const ownPending = thread.status === 'PENDING' && !!viewer.userId && thread.userId === viewer.userId

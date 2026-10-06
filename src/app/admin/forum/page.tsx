@@ -1,12 +1,13 @@
 'use client'
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import { MAX_CATEGORY_DEPTH, categoryFamily, categoryTree } from '@/modules/forum/domain/tree'
 import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
 import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
-type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[] }
+type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[]; moderators: string[] }
 type Group = { id: number; slug: string; name: string; description: string; icon: string; color: string; title: string; automatic: string | null; visibility: string; joinMode: string; moderator: boolean; mentionable: boolean; memberCount: number }
 type Badge = { id: number; slug: string; name: string; description: string; icon: string; tier: string; rule: string; enabled: boolean; grantCount: number }
 type Author = { id: number; name: string; username: string }
@@ -19,7 +20,7 @@ type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: F
 type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
 const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'groups', 'badges', 'users', 'words', 'settings']
 
-const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[] }
+const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[], moderators: '' }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
 const EMPTY_BADGE = { id: 0, slug: '', name: '', description: '', icon: '🏅', tier: 'BRONZE', rule: '', enabled: true }
 const LEVEL_LABEL: Record<Level, string> = { SEE: 'فقط دیدن', REPLY: 'دیدن و پاسخ', CREATE: 'دسترسی کامل' }
@@ -87,8 +88,12 @@ function AdminForumPage() {
 
   if (!data || !settings) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
 
-  const tops = data.categories.filter((c) => !c.parentId)
-  const ordered = tops.flatMap((c) => [c, ...data.categories.filter((child) => child.parentId === c.id)])
+  const tree = categoryTree(data.categories)
+  const depthOf = new Map(tree.map((row) => [row.category.id, row.depth]))
+  const ordered = tree.map((row) => row.category)
+  // A parent may be a section or a forum, never a subforum, and never the category itself or something under it.
+  const under = category.id ? categoryFamily(data.categories, category.id) : []
+  const parents = tree.filter((row) => row.depth < MAX_CATEGORY_DEPTH - 1 && !under.includes(row.category.id))
   const groupName = (id: number) => data.groups.find((g) => g.id === id)
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
@@ -161,10 +166,11 @@ function AdminForumPage() {
       <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(category.id ? 'PATCH' : 'POST', { section: 'categories', ...category }, category.id ? 'دسته به‌روز شد' : 'دسته ساخته شد')) setCategory(EMPTY_CATEGORY) }}>
         <label className="studio-field"><span>عنوان</span><input className="input" value={category.title} onChange={(e) => setCategory({ ...category, title: e.target.value })} required maxLength={120} /></label>
         <label className="studio-field"><span>نشانی (انگلیسی)</span><input className="input" dir="ltr" value={category.slug} onChange={(e) => setCategory({ ...category, slug: e.target.value })} placeholder="general" maxLength={60} /></label>
-        <label className="studio-field"><span>دستهٔ والد</span><select className="input" value={category.parentId || 0} onChange={(e) => setCategory({ ...category, parentId: Number(e.target.value) })}><option value={0}>— دستهٔ اصلی —</option>{tops.filter((c) => c.id !== category.id).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label>
+        <label className="studio-field"><span>دستهٔ والد</span><select className="input" value={category.parentId || 0} onChange={(e) => setCategory({ ...category, parentId: Number(e.target.value) })}><option value={0}>— بخش (سطح اول) —</option>{parents.map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}</select></label>
         <label className="studio-field"><span>آیکون و رنگ</span><div className="fa-inline"><input className="input" value={category.icon} onChange={(e) => setCategory({ ...category, icon: e.target.value })} maxLength={8} aria-label="آیکون" /><input type="color" value={category.color} onChange={(e) => setCategory({ ...category, color: e.target.value })} aria-label="رنگ" /></div></label>
         <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} maxLength={400} /></label>
         <label className="studio-field"><span>ترتیب</span><input className="input" type="number" value={category.sortOrder} onChange={(e) => setCategory({ ...category, sortOrder: Number(e.target.value) })} /></label>
+        <label className="studio-field fr-admin-wide"><span>مدیران این {category.parentId ? 'انجمن' : 'بخش'}</span><input className="input" dir="ltr" value={category.moderators} onChange={(e) => setCategory({ ...category, moderators: e.target.value })} placeholder="sara, kian" aria-describedby="fa-mods-help" /><small id="fa-mods-help" className="muted">نام کاربری اعضا را با ویرگول جدا کنید. مدیر در همین‌جا و هر چه زیر آن است می‌تواند موضوع و پیام را پنهان، حذف، قفل، سنجاق و منتقل کند و صف بررسی را ببیند؛ بیرون از آن عضو عادی است و به پنل مدیریت راه ندارد.</small></label>
         <fieldset className="fa-perms fr-admin-wide">
           <legend>دسترسی گروه‌ها</legend>
           <small className="muted">اگر هیچ گروهی تنظیم نشود، دسترسی ساده اعمال می‌شود: {category.access === 'MEMBERS' ? 'فقط VIP' : 'همه'}{category.locked ? '، ساخت موضوع فقط برای تیم' : ''}. با افزودن ردیف، فقط گروه‌های فهرست‌شده به این دسته دسترسی دارند (تیم مدیریت همیشه دسترسی کامل دارد).</small>
@@ -186,11 +192,11 @@ function AdminForumPage() {
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>دسته</th><th>دسترسی</th><th>موضوع</th><th>پیام</th><th /></tr></thead><tbody>
         {ordered.map((c) => <tr key={c.id}>
-          <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: c.parentId ? 18 : 0 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
+          <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: (depthOf.get(c.id) || 0) * 18 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
           <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? '♛ VIP' : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
           <td>{fa(c.threadCount)}</td><td>{fa(c.postCount)}</td>
           <td className="fr-admin-row-actions">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })) }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })), moderators: c.moderators.join('، ') }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
             <Link className="btn btn-ghost btn-sm" href={`/forum/c/${c.slug}`} target="_blank">مشاهده ↗</Link>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('categories', c.id, c.title)}>حذف</button>
           </td>

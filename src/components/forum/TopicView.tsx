@@ -1,14 +1,22 @@
 'use client'
 
 import Link from '@/components/AppLink'
+import { categoryTree } from '@/modules/forum/domain/tree'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
 import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
+import { TRUST_NAMES } from '@/modules/forum/domain/community'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; joinedAt?: string | Date; flair: { icon: string; color: string; name: string } | null }
+/** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
+function joinedLabel(value: string | Date) {
+  const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || ''
+  return `${part('month')} ${part('year')}`
+}
 type Reaction = { emoji: string; count: number; mine: boolean }
 export type TopicPost = {
   id: number; number: number; html: string; raw: string | null; status: string; createdAt: string; editedAt: string | null; editCount: number
@@ -58,7 +66,7 @@ async function api(url: string, method: string, body?: unknown): Promise<{ ok: b
 
 type ComposerState = { mode: 'reply' | 'edit'; replyTo?: TopicPost; edit?: TopicPost; initial?: string; key: number } | null
 
-export default function TopicView({ data, categories, focusPost }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number }) {
+export default function TopicView({ data, categories, focusPost, trail = [] }: { data: TopicData; categories: ComposerCategory[]; focusPost?: number; trail?: { slug: string; title: string }[] }) {
   const router = useRouter()
   const { thread } = data
   const [posts, setPosts] = useState(data.posts)
@@ -245,23 +253,38 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
   }
 
   const canReply = data.access.reply && (!thread.locked || data.moderator)
+  // Who opened the topic: the first post when this page holds it, else found among those who took part.
+  const starter = posts.find((post) => post.number === 1)?.author || data.participants.find((person) => person.id === thread.userId) || null
 
   return (
     <div className="fx-topic">
-      <header className="fx-topic-head">
-        <h1>
-          {thread.pinned && <span title="سنجاق‌شده" aria-label="سنجاق‌شده">📌 </span>}
-          {thread.locked && <span title="بسته‌شده" aria-label="بسته‌شده">🔒 </span>}
-          {thread.title}
-          {data.solution && <span className="fx-solved-badge">✓ حل‌شده</span>}
-          {thread.status === 'PENDING' ? <span className="fx-hidden-badge">در انتظار تأیید</span> : thread.status !== 'VISIBLE' && <span className="fx-hidden-badge">پنهان</span>}
-          {!thread.listed && <span className="fx-hidden-badge" title="فقط با پیوند در دسترس است">فهرست‌نشده</span>}
-        </h1>
-        <div className="fx-topic-meta">
-          {data.category.parent && <Link href={`/forum/c/${data.category.parent.slug}`} className="fx-cat"><i style={{ background: data.category.parent.color }} />{data.category.parent.title}</Link>}
-          <Link href={`/forum/c/${data.category.slug}`} className="fx-cat"><i style={{ background: data.category.color }} />{data.category.title}</Link>
-          {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
+      <nav className="fc-crumbs" aria-label="مسیر">
+        <Link href="/forum">انجمن‌ها</Link>
+        {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={`/forum/c/${step.slug}`}>{step.title}</Link>)}
+      </nav>
+      <header className="tp-head" style={{ ['--cat' as string]: data.category.color }}>
+        {(thread.pinned || thread.locked || data.solution || thread.status !== 'VISIBLE' || !thread.listed) && <p className="tp-flags">
+          {thread.pinned && <span className="tl-flag is-pin">سنجاق‌شده</span>}
+          {data.solution && <span className="tl-flag is-ok">✓ حل‌شده</span>}
+          {thread.locked && <span className="tl-flag is-lock">بسته‌شده</span>}
+          {thread.status === 'PENDING' ? <span className="tl-flag is-warn">در انتظار تأیید</span> : thread.status !== 'VISIBLE' && <span className="tl-flag is-warn">پنهان</span>}
+          {!thread.listed && <span className="tl-flag is-warn" title="فقط با پیوند در دسترس است">فهرست‌نشده</span>}
+        </p>}
+        <h1>{thread.title}</h1>
+        <div className="tp-by">
+          {starter && <Link href={`/forum/u/${starter.username}`} className="tp-starter"><Avatar author={starter} size={44} /><span><b>{starter.name}</b><small>شروع‌کنندهٔ موضوع · {ago(thread.createdAt)}</small></span></Link>}
+          <span className="tp-where">
+            <Link href={`/forum/c/${data.category.slug}`} className="fx-cat"><i style={{ background: data.category.color }} />{data.category.title}</Link>
+            {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
+          </span>
         </div>
+        <dl className="tp-stats">
+          <div><dd>{fa(thread.replyCount)}</dd><dt>پاسخ</dt></div>
+          <div><dd>{fa(thread.views)}</dd><dt>بازدید</dt></div>
+          <div><dd>{fa(thread.likeCount)}</dd><dt>پسند</dt></div>
+          <div><dd>{fa(data.participants.length)}</dd><dt>مشارکت‌کننده</dt></div>
+          <div className="tp-last"><dd>{ago(thread.lastPostAt)}</dd><dt>آخرین پاسخ</dt></div>
+        </dl>
       </header>
 
       {(thread.closeAt || thread.slowModeSeconds > 0) && <div className="fx-notices">
@@ -282,7 +305,21 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
           {posts.map((post) => (
             <article key={post.id} id={`post-${post.number}`} tabIndex={-1} data-post-number={post.number} className={`fx-post${post.status !== 'VISIBLE' ? ' is-hidden' : ''}${post.solution ? ' is-solution' : ''}${post.author.id === thread.userId && post.number > 1 ? ' is-op' : ''}${posts[focusIndex]?.id === post.id ? ' is-focused' : ''}${selected.includes(post.number) ? ' is-selected' : ''}`}>
               {selecting && post.number > 1 && <label className="fx-select-post"><input type="checkbox" checked={selected.includes(post.number)} onChange={() => setSelected((list) => list.includes(post.number) ? list.filter((n) => n !== post.number) : [...list, post.number])} aria-label={`انتخاب پیام ${fa(post.number)}`} /></label>}
-              <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} /></Link>
+              {/* Who is speaking: avatar, group and rank, and their standing in the forum. */}
+              <aside className="fx-post-author" aria-label={`نویسنده: ${post.author.name}`}>
+                <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
+                <Link href={`/forum/u/${post.author.username}`} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
+                {post.author.flair
+                  ? <span className="fx-author-group" style={{ ['--group' as string]: post.author.flair.color }}>{post.author.flair.icon && <span aria-hidden="true">{post.author.flair.icon}</span>}{post.author.flair.name}</span>
+                  : <span className="fx-author-group">{TRUST_NAMES[post.author.trustLevel] || TRUST_NAMES[0]}</span>}
+                {post.author.title && post.author.title !== (post.author.flair?.name || TRUST_NAMES[post.author.trustLevel]) && <span className="fx-author-title">{post.author.title}</span>}
+                {post.author.id === thread.userId && <span className="tp-op">نویسندهٔ موضوع</span>}
+                <dl className="fx-author-stats">
+                  <div><dt>پیام</dt><dd>{fa(post.author.posts)}</dd></div>
+                  <div><dt>اعتبار</dt><dd>{fa(post.author.reputation)}</dd></div>
+                </dl>
+                {post.author.joinedAt && <small className="fx-author-joined">عضو از {joinedLabel(post.author.joinedAt)}</small>}
+              </aside>
               <div className="fx-post-main">
                 <header className="fx-post-head">
                   <span className="fx-user">
@@ -296,6 +333,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
                     {post.replyTo && <Link href={`/forum/t/${thread.id}?post=${post.replyTo.number}`} className="fx-reply-to" title="در پاسخ به">↩ <bdi dir="ltr">@{post.replyTo.username}</bdi></Link>}
                     {post.editCount > 0 && <button type="button" className="fx-edited" onClick={() => void showHistory(post)} title="تاریخچهٔ ویرایش">✎ {fa(post.editCount)}</button>}
                     <Link href={`/forum/t/${thread.id}?post=${post.number}`} title={new Date(post.createdAt).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}>{ago(post.createdAt)}</Link>
+                    <Link href={`/forum/t/${thread.id}?post=${post.number}`} className="tp-num" title="پیوند این پیام">#{fa(post.number)}</Link>
                   </span>
                 </header>
                 {post.solution && <div className="fx-solution-mark">✓ راه‌حل انتخاب‌شده</div>}
@@ -386,7 +424,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
               <button type="button" onClick={() => void moderateTopic({ locked: !thread.locked })}>{thread.locked ? '🔓 باز کردن' : '🔒 بستن موضوع'}</button>
               <button type="button" onClick={() => void moderateTopic({ status: thread.status === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE' })}>{thread.status === 'VISIBLE' ? 'پنهان‌کردن موضوع' : 'نمایش موضوع'}</button>
               <select className="select" value={data.category.id} onChange={(e) => void moderateTopic({ categoryId: Number(e.target.value) })} aria-label="انتقال به دستهٔ دیگر">
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.parentId ? '— ' : ''}{c.title}</option>)}
+                {categoryTree(categories).map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}
               </select>
               <button type="button" onClick={() => void topicSettings({ listed: !thread.listed })}>{thread.listed ? '🙈 فهرست‌نکردن' : '👁 فهرست‌کردن'}</button>
               <label className="fx-mod-field"><span>⏱ بستن خودکار</span>
@@ -466,7 +504,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
             <h2>انتقال {fa(selected.length)} پیام {moveTarget.mode === 'new' ? 'به موضوع جدید' : 'به موضوع موجود'}</h2>
             {moveTarget.mode === 'new' ? <>
               <label className="fx-field"><span>عنوان موضوع جدید</span><input className="input" required minLength={5} maxLength={150} value={moveTarget.title} onChange={(e) => setMoveTarget({ ...moveTarget, title: e.target.value })} /></label>
-              <label className="fx-field"><span>دسته</span><select className="select" value={moveTarget.categoryId} onChange={(e) => setMoveTarget({ ...moveTarget, categoryId: Number(e.target.value) })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.parentId ? '— ' : ''}{c.title}</option>)}</select></label>
+              <label className="fx-field"><span>دسته</span><select className="select" value={moveTarget.categoryId} onChange={(e) => setMoveTarget({ ...moveTarget, categoryId: Number(e.target.value) })}>{categoryTree(categories).map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}</select></label>
             </> : <label className="fx-field"><span>شناسه یا نشانی موضوع مقصد</span><input className="input" dir="ltr" required value={moveTarget.topic} onChange={(e) => setMoveTarget({ ...moveTarget, topic: e.target.value })} placeholder="/forum/t/123" /></label>}
             <p className="fx-muted">پیام‌ها با همان نویسنده و تاریخ، به انتهای موضوع مقصد اضافه می‌شوند و به نویسندگان اطلاع داده می‌شود.</p>
             <div className="fx-modal-actions"><button className="btn btn-primary">انتقال</button><button type="button" className="btn btn-ghost" onClick={() => setMoveTarget(null)}>انصراف</button></div>

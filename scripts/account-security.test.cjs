@@ -158,3 +158,33 @@ test('sign-in wiring: 2-step code, unspent SMS codes, revocation and staff polic
   const middleware = read('src/middleware.ts')
   assert.match(middleware, /\/reset-password' \? 'no-referrer'/)
 })
+
+// ---- ready-made roles: a manager of one part of the site gets that part only
+test('section manager presets hold known permissions and stay inside their own section', () => {
+  // The permission list includes what plugins declare, so their manifests are read too.
+  const seen = new Map()
+  const open = (file) => {
+    const full = fs.existsSync(file) && fs.statSync(file).isFile() ? file : `${file}.ts`
+    if (seen.has(full)) return seen.get(full).exports
+    if (full.endsWith('.json')) return JSON.parse(fs.readFileSync(full, 'utf8'))
+    const mod = { exports: {} }; seen.set(full, mod)
+    const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true } }).outputText
+    new Function('require', 'module', 'exports', source)((name) => name.startsWith('@/') ? open(path.resolve(__dirname, '..', 'src', name.slice(2))) : name.startsWith('.') ? open(path.resolve(path.dirname(full), name)) : require(name), mod, mod.exports)
+    return mod.exports
+  }
+  const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
+  const known = new Set(rbac.ALL_PERMISSIONS)
+  for (const [name, permissions] of Object.entries(rbac.ROLE_PRESETS)) {
+    assert.ok(permissions.every((permission) => known.has(permission)), `${name} names a permission that does not exist`)
+    assert.ok(rbac.ROLE_PRESET_LABELS[name], `${name} has no name in the role form`)
+  }
+  const own = { 'music-manager': 'music.manage', 'cinema-manager': 'cinema.manage', 'games-manager': 'games.manage', 'software-manager': 'software.manage', 'forum-manager': 'forum.moderate' }
+  for (const [name, permission] of Object.entries(own)) {
+    // dashboard.view opens the panel; the section's own permission is all else it gets.
+    assert.deepEqual([...rbac.ROLE_PRESETS[name]].sort(), ['dashboard.view', permission].sort(), name)
+    assert.equal(rbac.isFullAccess(rbac.ROLE_PRESETS[name].join(',')), false)
+  }
+  // cms.posts reaches every content section, so no single-section preset may carry it.
+  for (const name of [...Object.keys(own), 'store-manager']) assert.equal(rbac.ROLE_PRESETS[name].includes('cms.posts'), false, name)
+  assert.deepEqual(rbac.parsePermissions(rbac.ROLE_PRESETS['music-manager'].join(',')).sort(), ['dashboard.view', 'music.manage'])
+})

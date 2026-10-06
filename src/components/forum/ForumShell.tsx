@@ -1,7 +1,8 @@
 import Link from '@/components/AppLink'
+import { categoryTree } from '@/modules/forum/domain/tree'
 import type { ReactNode } from 'react'
 import MediaShell from '@/components/media/MediaShell'
-import type { Viewer } from '@/modules/forum/domain/community'
+import { moderatesAnything, type Viewer } from '@/modules/forum/domain/community'
 import { popularTags, viewerCounts, visibleCategories } from '@/modules/forum/server/forum'
 import { shellIdentity } from '@/modules/forum/server/people'
 import { Avatar, num } from '@/components/forum/shared'
@@ -9,7 +10,7 @@ import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
-export type ForumNavKey = 'home' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
+export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
 
 /**
  * Forum chrome: site header/footer, a sticky community sidebar (filters,
@@ -29,12 +30,13 @@ export default async function ForumShell({ viewer, active = '', category, wide =
       <span aria-hidden="true">{icon}</span>{label}{badge ? <em>{num(badge)}</em> : null}
     </Link>
   )
-  const tops = categories.filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))
+  const tree = categoryTree(categories)
 
   const sidebar = (
     <>
       <nav className="fx-side-group" aria-label="موضوع‌ها">
         {link('home', '/forum', 'انجمن‌ها', '▦')}
+        {link('activity', '/forum/activity', 'فعالیت‌ها', '⚡')}
         {link('latest', '/forum/latest', 'همهٔ موضوع‌ها', '☰')}
         {signedIn && link('unread', '/forum/unread', 'خوانده‌نشده', '●', counts.unread)}
         {signedIn && link('new', '/forum/new-topics', 'تازه', '✦', counts.fresh)}
@@ -44,17 +46,12 @@ export default async function ForumShell({ viewer, active = '', category, wide =
         {signedIn && link('bookmarks', '/forum/bookmarks', 'نشان‌شده‌ها', '🔖', counts.bookmarks)}
         {signedIn && link('mine', '/forum/mine', 'فعالیت من', '✎')}
         {signedIn && link('messages', '/forum/messages', 'پیام‌های خصوصی', '✉', counts.messages)}
-        {viewer.moderator && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
+        {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
       </nav>
       <nav className="fx-side-group" aria-label="دسته‌بندی‌ها">
         <h3><Link href="/forum/categories" className={active === 'categories' ? 'is-active' : ''}>دسته‌بندی‌ها</Link></h3>
-        {tops.map((c) => (
-          <div key={c.id}>
-            <Link href={`/forum/c/${c.slug}`} className={category === c.slug ? 'is-active' : ''}><i className="fx-dot" style={{ background: c.color }} aria-hidden="true" />{c.title}{c.vip && <small className="fx-vip">VIP</small>}</Link>
-            {categories.filter((child) => child.parentId === c.id).map((child) => (
-              <Link key={child.id} href={`/forum/c/${child.slug}`} className={`fx-sub${category === child.slug ? ' is-active' : ''}`}><i className="fx-dot" style={{ background: child.color }} aria-hidden="true" />{child.title}</Link>
-            ))}
-          </div>
+        {tree.map(({ category: c, depth }) => (
+          <Link key={c.id} href={`/forum/c/${c.slug}`} className={`${depth ? `fx-sub is-depth-${depth}` : ''}${category === c.slug ? ' is-active' : ''}`}><i className="fx-dot" style={{ background: c.color }} aria-hidden="true" />{c.title}{c.vip && <small className="fx-vip">VIP</small>}</Link>
         ))}
       </nav>
       {tags.length > 0 && (
@@ -96,6 +93,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
           <div className="container fx-layout fx-layout-wide">
             <nav className="fx-strip" aria-label="بخش‌های تالار">
               {link('home', '/forum', 'انجمن‌ها', '▦')}
+              {link('activity', '/forum/activity', 'فعالیت‌ها', '⚡')}
               {link('latest', '/forum/latest', 'همهٔ موضوع‌ها', '☰')}
               {signedIn && link('unread', '/forum/unread', 'خوانده‌نشده', '●', counts.unread)}
               {link('top', '/forum/top', 'برترین‌ها', '▲')}
@@ -105,7 +103,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
               {link('users', '/forum/users', 'اعضا', '👤')}
               {link('groups', '/forum/g', 'گروه‌ها', '👥')}
               {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
-              {viewer.moderator && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
+              {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
             </nav>
             <div className="fx-main">{children}</div>
           </div>

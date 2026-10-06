@@ -26,7 +26,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
   const { group } = data
   return (
     <ForumShell viewer={viewer} active="groups">
-      <header className="fx-group-head" style={{ ['--g' as string]: group.color }}>
+      <header className="fx-group-head fg-hero" style={{ ['--g' as string]: group.color }}>
         <span className="fx-group-icon is-large" aria-hidden="true">{group.icon || '👥'}</span>
         <div>
           <h1>{group.name}</h1>

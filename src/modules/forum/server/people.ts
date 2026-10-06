@@ -8,8 +8,9 @@ import { ForumError } from '@/modules/forum/domain/forum'
 import { TRUST_NAMES, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { ensureProfiles, notify, refreshStats } from '@/modules/forum/server/community'
-import { updateUserProfile } from '@/modules/identity/server/profile'
-import { ProfileError } from '@/modules/identity/domain/profile'
+import { profileByUsername, profileCards, relationBetween, updateUserProfile } from '@/modules/identity/server/profile'
+import { ProfileError, canFollow } from '@/modules/identity/domain/profile'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/server/forum'
 
 // Profiles, the member directory, avatars and groups.
@@ -18,13 +19,35 @@ import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/s
 
 export type ProfileTab = 'summary' | 'activity' | 'topics' | 'badges'
 
+/**
+ * The member's place in the social layer, read from the one shared identity: followers, following, feed
+ * posts and how the viewer stands to them. Null while the social module is off, so the page shows none of it.
+ */
+async function socialOf(userId: number, viewerId: number | null) {
+  if (!await isModuleEnabled('community')) return null
+  const card = (await profileCards([userId])).get(userId)
+  const found = card ? await profileByUsername(card.username) : null
+  if (!found) return null
+  const relation = await relationBetween(viewerId, userId)
+  return {
+    username: found.profile.username, headline: found.profile.headline, verified: found.profile.verified,
+    followers: found.profile.followers, following: found.profile.following, posts: found.profile.posts,
+    isFollowing: relation.following, followsViewer: relation.followedBy,
+    // A visitor is offered the button and sent to sign in; a blocked pair is offered nothing.
+    canFollow: !relation.signedIn || canFollow(relation),
+  }
+}
+
 export async function getProfile(username: string, viewer: Viewer, tab: ProfileTab = 'summary') {
   const profile = await db.forumProfile.findUnique({ where: { username: String(username || '').toLowerCase() }, include: { user: { select: { id: true, name: true, createdAt: true, role: true, status: true, avatarColor: true } } } })
   if (!profile || profile.user.status !== 'ACTIVE') return null
   const userId = profile.userId
   const categories = (await visibleCategories(viewer)).map((c) => c.id)
   const visiblePost = { userId, status: 'VISIBLE', thread: { status: 'VISIBLE', categoryId: { in: categories } } }
-  const [author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+  const [social, ahead, author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+    socialOf(userId, viewer.userId).catch(() => null),
+    // Standing by reputation among active members; a member nobody has liked yet has no standing.
+    profile.likesReceived > 0 ? db.forumProfile.count({ where: { likesReceived: { gt: profile.likesReceived }, user: { status: 'ACTIVE' } } }) : Promise.resolve(-1),
     authorsFor([userId]).then((map) => map.get(userId) || fallbackAuthor(userId)),
     db.forumGroupMember.findMany({ where: { userId, status: 'ACTIVE', group: { visibility: 'PUBLIC', automatic: null } }, include: { group: true } }),
     db.forumUserBadge.findMany({ where: { userId, badge: { enabled: true } }, include: { badge: true }, orderBy: { grantedAt: 'desc' } }),
@@ -35,7 +58,7 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
   ])
   const now = Date.now()
   return {
-    author, own: viewer.userId === userId, staffView: viewer.moderator,
+    author, own: viewer.userId === userId, staffView: viewer.moderator, social, rank: ahead < 0 ? null : ahead + 1,
     profile: {
       userId, username: profile.username, bio: profile.bio, bioHtml: renderMarkdown(profile.bio, { images: false }), location: profile.location, website: profile.website, cover: profile.cover,
       trustLevel: profile.trustLevel, trustName: TRUST_NAMES[profile.trustLevel] || '', joinedAt: profile.user.createdAt, lastSeenAt: profile.lastSeenAt,
@@ -124,12 +147,19 @@ export async function removeProfileImage(name: string) {
 
 export type DirectorySort = 'likesReceived' | 'postCount' | 'topicCount' | 'solvedCount' | 'daysVisited' | 'recent'
 
-export async function userDirectory(input: { sort?: string; q?: string; page?: number }) {
+/** The member directory. With a viewer it can be narrowed to one group, among the groups that viewer may see. */
+export async function userDirectory(input: { sort?: string; q?: string; page?: number; group?: string }, viewer?: Viewer) {
   const sorts: DirectorySort[] = ['likesReceived', 'postCount', 'topicCount', 'solvedCount', 'daysVisited', 'recent']
   const sort = sorts.includes(input.sort as DirectorySort) ? input.sort as DirectorySort : 'likesReceived'
   const page = Math.max(1, Math.min(200, Number(input.page) || 1))
   const q = clean(input.q, 40).toLowerCase()
-  const where = { user: { status: 'ACTIVE' }, ...(q ? { username: { contains: q } } : { OR: [{ postCount: { gt: 0 } }, { daysVisited: { gt: 0 } }] }) }
+  const groups = viewer ? await listGroups(viewer, 0) : []
+  const group = groups.find((row) => row.slug === clean(input.group, 80)) || null
+  // Quiet accounts stay out of the plain list, but a group shows all of its members.
+  const where = {
+    user: { status: 'ACTIVE', ...(group ? { forumGroups: { some: { groupId: group.id, status: 'ACTIVE' } } } : {}) },
+    ...(q ? { username: { contains: q } } : group ? {} : { OR: [{ postCount: { gt: 0 } }, { daysVisited: { gt: 0 } }] }),
+  }
   const [rows, total] = await Promise.all([
     db.forumProfile.findMany({ where, orderBy: sort === 'recent' ? { lastSeenAt: 'desc' } : [{ [sort]: 'desc' }, { postCount: 'desc' }], skip: (page - 1) * 30, take: 30 }),
     db.forumProfile.count({ where }),
@@ -137,6 +167,8 @@ export async function userDirectory(input: { sort?: string; q?: string; page?: n
   const authors = await authorsFor(rows.map((row) => row.userId))
   return {
     sort, q, page, pages: Math.max(1, Math.ceil(total / 30)), total,
+    group: group ? { slug: group.slug, name: group.name, color: group.color } : null,
+    groups: groups.filter((row) => row.memberCount > 0).map((row) => ({ slug: row.slug, name: row.name, color: row.color, memberCount: row.memberCount })),
     users: rows.map((row) => ({ author: authors.get(row.userId) || fallbackAuthor(row.userId), likesReceived: row.likesReceived, likesGiven: row.likesGiven, postCount: row.postCount, topicCount: row.topicCount, solvedCount: row.solvedCount, daysVisited: row.daysVisited, lastSeenAt: row.lastSeenAt })),
   }
 }
@@ -155,13 +187,17 @@ export async function mentionSearch(q: string) {
 const groupVisible = (group: { visibility: string }, viewer: Viewer, isMember: boolean) =>
   group.visibility === 'PUBLIC' || viewer.moderator || (group.visibility === 'MEMBERS' && isMember)
 
-export async function listGroups(viewer: Viewer) {
+/** Groups this viewer may see, each with the first few of its members to show as faces. */
+export async function listGroups(viewer: Viewer, faces = 5) {
   const groups = await db.forumGroup.findMany({ where: { OR: [{ automatic: null }, { automatic: { in: ['staff', 'vip'] } }] }, orderBy: [{ automatic: 'asc' }, { memberCount: 'desc' }, { name: 'asc' }] })
   const mine = viewer.userId ? await db.forumGroupMember.findMany({ where: { userId: viewer.userId }, select: { groupId: true, status: true, owner: true } }) : []
   const state = new Map(mine.map((row) => [row.groupId, row]))
-  return groups
-    .filter((group) => groupVisible(group, viewer, state.get(group.id)?.status === 'ACTIVE'))
-    .map((group) => ({ id: group.id, slug: group.slug, name: group.name, description: group.description, icon: group.icon, color: group.color, title: group.title, automatic: group.automatic, joinMode: group.joinMode, memberCount: group.memberCount, membership: state.get(group.id) ?? null }))
+  const visible = groups.filter((group) => groupVisible(group, viewer, state.get(group.id)?.status === 'ACTIVE'))
+  // Members are read only for groups that passed the visibility rule above: owners first, then the earliest.
+  const first = faces > 0 ? await Promise.all(visible.map((group) => db.forumGroupMember.findMany({ where: { groupId: group.id, status: 'ACTIVE', user: { status: 'ACTIVE' } }, orderBy: [{ owner: 'desc' }, { createdAt: 'asc' }], take: faces, select: { userId: true } }))) : []
+  const authors = await authorsFor(first.flat().map((row) => row.userId))
+  return visible
+    .map((group, index) => ({ faces: (first[index] || []).map((row) => authors.get(row.userId) || fallbackAuthor(row.userId)), id: group.id, slug: group.slug, name: group.name, description: group.description, icon: group.icon, color: group.color, title: group.title, automatic: group.automatic, joinMode: group.joinMode, memberCount: group.memberCount, membership: state.get(group.id) ?? null }))
 }
 
 export async function getGroup(slug: string, viewer: Viewer, page = 1) {

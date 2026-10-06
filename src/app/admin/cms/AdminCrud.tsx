@@ -132,6 +132,19 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     setOriginalStatus(row.status || '')
   }
 
+  // Opened from a public page ("edit this post"): ?edit=<id> loads that one row and opens its form.
+  const linked = useRef(false)
+  useEffect(() => {
+    if (linked.current) return
+    linked.current = true
+    const id = Number(new URLSearchParams(window.location.search).get('edit'))
+    if (!Number.isSafeInteger(id) || id <= 0) return
+    fetch(`/api/admin/cms?type=${type}&id=${id}`).then((res) => res.ok ? res.json() : null).then((data) => {
+      const row = (Array.isArray(data) ? data : data?.rows || []).find((item: any) => item.id === id)
+      if (row) edit(row); else setMsg(t.errGeneric)
+    }).catch(() => undefined)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const isAi = (key: string) => key in aiValues && JSON.stringify(form[key]) === JSON.stringify(aiValues[key])
   const aiUsed = Object.keys(aiValues).some(isAi)
   const publishable = ['posts', 'pages', 'products'].includes(type)
