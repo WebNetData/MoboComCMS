@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { termTree } from '@/modules/taxonomy/server/taxonomy'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { browseMusic, getMusicGenres } from '@/modules/media/server/queries'
@@ -25,7 +26,7 @@ export default async function MusicBrowsePage({ searchParams }: { searchParams: 
   await requireModule('music')
   const [params, locale] = await Promise.all([searchParams, getServerLocale()])
   const fa = locale === 'fa'
-  const [result, genres] = await Promise.all([browseMusic({ q: params.q, genre: params.genre, sort: params.sort, page: Number(params.page) }), getMusicGenres()])
+  const [result, genres, languages] = await Promise.all([browseMusic({ q: params.q, genre: params.genre, sort: params.sort, page: Number(params.page) }), getMusicGenres(), termTree('music-language').catch(() => [])])
   const query = (patch: Partial<Search>) => {
     const next = new URLSearchParams(Object.entries({ ...params, page: undefined, ...patch }).filter(([, v]) => v) as [string, string][])
     const text = next.toString()
@@ -44,6 +45,7 @@ export default async function MusicBrowsePage({ searchParams }: { searchParams: 
             <Link href={query({ sort: 'popular' })} className={params.sort === 'popular' ? 'is-active' : ''}>{fa ? 'محبوب‌ترین' : 'Most played'}</Link>
           </div>
         </header>
+        {languages.length > 0 && <nav className="mu-lang-row" aria-label={fa ? 'زبان و گویش' : 'Language'}><span>{fa ? 'زبان و گویش' : 'Language'}</span>{languages.map((term) => <Link key={term.id} href={term.path}>{term.name}</Link>)}</nav>}
         <Chips items={genres} active={params.genre} hrefFor={(g) => query({ genre: g })} all={{ label: fa ? 'همه' : 'All', href: query({ genre: undefined }) }} />
         {result.tracks.length ? <div className="mu-panel"><TrackList tracks={toPlayerTracks(result.tracks, fa)} /></div> : <EmptyState fa={fa} title={fa ? 'آهنگی پیدا نشد' : 'No songs found'} text={fa ? 'عبارت دیگری را جست‌وجو کنید.' : 'Try another search.'} />}
         <Pager page={result.page} pages={result.pages} href={(page) => { const q = new URLSearchParams(Object.entries({ ...params, page: String(page) }).filter(([, v]) => v) as [string, string][]); return `/music/browse?${q}` }} fa={fa} />

@@ -18,5 +18,6 @@
 | Cinema calendar and episode alerts | `cinema` | GOOD | `domain/calendar.ts`, `server/episode-notifications.ts`, migrations `20261129120000`, `20261130120000` | connected `cinema-calendar`, `episode-air-alerts` | |
 | Digital code delivery | `store`, `catalog` | GOOD | `ProductDigitalCode`, `store/server/digital-codes.ts`, `catalog/server/code-stock.ts`, worker step `codeStock`, migration `20261201120000` | connected `digital-codes`; integrity finding `codes-waiting` | Needs `STORE_DELIVERY_KEY` on the server. |
 | Account entry | `identity` | GOOD | register/login forms, profile password change, default required profile fields | unit `scripts/profile-fields.test.cjs` | Password recovery needs SMTP or SMS configured. |
+| Music by language or dialect | `taxonomy` (shared), `music` | GOOD | taxonomy `music-language` (songs), `media/server/admin.ts` (`music-tracks`), `tracksByIds`, `/music/language/[[...slug]]`, song page link, browse row, mega menu entry, migration `20261205120000_music_language_terms` | connected `scripts/music-language.connected.cjs` (4 deliberate breaks), browser: admin tab and song form, index, language page, song page, browse, 404, 390 px | Albums carry no language of their own; a song inside an album is filed song by song. |
 
 Statuses: GOOD, WEAK_UX, WEAK_BACKEND, WEAK_SECURITY, PARTIAL, DISCONNECTED, DUPLICATE, MISSING, REGRESSED.

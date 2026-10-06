@@ -84,8 +84,11 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
   },
 
   async music(cfg) {
-    const { nodes } = await taxonomyNodes('music')
+    const [{ nodes }, languages] = await Promise.all([taxonomyNodes('music'), taxonomyNodes('music-language')])
     const items = nodes.length ? await itemsFromTree(nodes, cfg, async () => []) : []
+    // Music is filed a second way, by the language or dialect of a song: one entry that opens the list of them.
+    const languageLinks = languages.nodes.filter((node) => node.parentId === null).slice(0, Math.max(6, cfg.linksPerColumn * 2)).map((node) => ({ label: node.label, href: node.href, count: node.count }))
+    if (languageLinks.length) items.push({ key: 'languages', label: 'زبان و گویش', href: '/music/language', features: [], columns: [{ title: 'آهنگ‌ها به زبان', href: '/music/language', links: languageLinks }] })
     return { items, quick: [{ label: 'تازه‌ترین آهنگ‌ها', href: '/music/browse' }, { label: 'پربازدیدها', href: '/music/browse?sort=popular' }, { label: 'آلبوم‌ها', href: '/music/albums' }, { label: 'هنرمندان', href: '/music/artists' }, { label: 'پلی‌لیست‌ها', href: '/music/playlists' }, { label: 'پلی‌لیست‌های من', href: '/music/my-playlists' }, { label: 'آهنگ‌های دلخواه', href: '/favorites?type=track' }], searchCategories: [] }
   },
 

@@ -18,7 +18,7 @@ description: Prepare, validate, migrate, deploy, update, or recover MoboCom safe
 11. Never claim a check passed unless it actually did.
 
 ## This repository
-- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs). All additive or data-preserving.
+- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs), `20261205120000` (data only: the first four music languages). All additive or data-preserving.
 - Server settings still needed: `STORE_DELIVERY_KEY` for digital codes; SMTP or SMS for password recovery.
 - After deploy: arrange forum categories into sections, and narrow any role that held `cms.posts` if it should be the magazine alone (`/admin/section-managers`).
 - SQLite installs have no migration runner here: a data migration must be repeated by hand there.

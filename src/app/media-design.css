@@ -959,3 +959,18 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .mx-link-price { display: inline-flex; align-items: center; gap: 6px; grid-column: span 2; }
 .mx-link-price .input { min-width: 0; }
 .mx-link-price.is-on .input { border-color: var(--primary); }
+
+/* Music by language or dialect: the index of languages and the row of links on the browse page. */
+.mu-langs { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.mu-lang { --lang: var(--primary); display: grid; gap: 4px; padding: 18px; border-radius: 18px; border: 1px solid var(--border); background: linear-gradient(135deg, color-mix(in srgb, var(--lang) 16%, var(--card)), var(--card) 70%); color: var(--text) !important; transition: border-color .15s, transform .15s; }
+.mu-lang:hover { border-color: color-mix(in srgb, var(--lang) 60%, var(--border)); transform: translateY(-2px); }
+.mu-lang b { font-size: 1.08rem; font-weight: 800; }
+.mu-lang small { color: var(--muted); font-size: .8rem; }
+.mu-lang-subs { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 4px 0; font-size: .82rem; }
+.mu-lang-subs a { color: var(--muted) !important; }
+.mu-lang-subs a:hover { color: var(--primary) !important; }
+.mu-lang-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-block: 4px 12px; font-size: .86rem; }
+.mu-lang-row span { color: var(--muted); font-weight: 600; }
+.mu-lang-row a { padding: 4px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text) !important; font-weight: 600; }
+.mu-lang-row a:hover { border-color: var(--primary); color: var(--primary) !important; }
+@media (prefers-reduced-motion: reduce) { .mu-lang { transition: none; } .mu-lang:hover { transform: none; } }

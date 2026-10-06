@@ -4,7 +4,7 @@ Decisions the owner made, and rules that came out of the work, **after** the v4 
 
 Keep it short and current. When a decision changes, change the entry; do not append history (git and `.ai/MOBOCOM_WORKSTATE.md` hold that). Each entry: the rule, why, where, and what guards it.
 
-Last revised: 2026-10-07 (main `ee8f668`, PRs #95–#116).
+Last revised: 2026-10-07 (main `7ff91be`, PRs #95–#117, and the music language taxonomy).
 
 ---
 
@@ -94,6 +94,14 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - A club = a forum group (joining, requests, owners) + a forum under the section `clubs` whose access is that group's + the founder as that forum's moderator. Linked by the nullable `ForumGroup.clubCategoryId` (migration `20261204120000_forum_clubs`). Open: everyone reads, members write. Private: members only, joining by request.
 - From trust level 1, three per founder (`CLUB_MIN_TRUST`, `CLUB_MAX_OWNED`, fixed in code for now). Clubs have their own page and are laid out neither on the board index nor among user groups.
 
+## 6A. Filing content: more than one taxonomy per section
+
+- The shared taxonomy (`TaxonomyTerm`, `TaxonomyAssignment`; rules in `src/modules/taxonomy/domain/taxonomy.ts`) files a section's items under a tree of terms. **A section may have more than one taxonomy.** Music has two (owner, 2026-10-07): `music` — categories of **albums** — and `music-language` — the language or dialect of a **song** (فارسی، ترکی، لری، مازندرانی to start; more from the admin).
+- **One taxonomy, one kind of item.** Assignments are keyed by term and a bare item id, so a taxonomy must never file two kinds of item (albums and songs share ids). A new way of filing is a new taxonomy with its own terms, not a second owner type in an old one.
+- To add one: add its id and `TAXONOMY_INFO` entry (label, item word, public base path, module — the module decides the permission, `<module>.manage`); name it in `liveOwnerIds` (which table its items live in); set `taxonomy` on the media resource in `src/modules/media/server/admin.ts`; add the `terms` field to that item's admin form; give it a public archive under its base path; add it to `LEGACY_SOURCES` only if an old free-text field exists to build it from. **Every branch on a taxonomy names it**: an `else` that means "cinema" silently swallows a new one (it did, twice).
+- Public: `/music/language` (index), `/music/language/<language>[/<dialect>]` (songs), a link on the song page, a row on `/music/browse`, an entry in the music mega menu (`src/modules/navigation/server/megamenu.ts`). Admin: Categories → «زبان و گویش موزیک», and the song form.
+- Guard: `scripts/music-language.connected.cjs` (counts and lists published songs only; albums and songs with equal ids stay apart).
+
 ## 7. Engineering rules learnt here
 
 - **A pull request always targets `main`**, even when its branch sits on an unmerged one (it then shows the earlier commits and shrinks once they merge). Stacked bases made six merges land in each other instead of `main`. After the owner reports merges, confirm with `git merge-base --is-ancestor <branch> origin/main`.
@@ -107,6 +115,6 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 
 ## 8. Open, by the owner's decision or still owed
 
-- Production: run `npm run deploy:migrate` (through `20261204120000`), set `STORE_DELIVERY_KEY`, configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
+- Production: run `npm run deploy:migrate` (through `20261205120000`), set `STORE_DELIVERY_KEY`, configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
 - Not yet built: closing or handing over a club; settings for who may start one; a weight per kind of reaction; one address for a member's profile (`/u/<username>` and `/forum/u/<username>` both exist).
 - Not yet verified in a browser: the full buyer's walk through the store, magazine and media sections; a section manager saving content with a single-section account; split/merge, polls and private messages in the forum.

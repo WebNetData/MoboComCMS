@@ -3,15 +3,20 @@
  * content section, like WordPress custom taxonomies. Pure rules only.
  */
 
-export const TAXONOMIES = ['software', 'games', 'music', 'cinema'] as const
+export const TAXONOMIES = ['software', 'games', 'music', 'music-language', 'cinema'] as const
 export type Taxonomy = typeof TAXONOMIES[number]
 
 export const TAXONOMY_INFO: Record<Taxonomy, { label: string; item: string; base: string; module: string }> = {
   software: { label: 'دسته‌بندی نرم‌افزار', item: 'نرم‌افزار', base: '/software/category', module: 'software' },
   games: { label: 'دسته‌بندی بازی', item: 'بازی', base: '/games/category', module: 'games' },
-  music: { label: 'دسته‌بندی موزیک', item: 'آهنگ و آلبوم', base: '/music/category', module: 'music' },
+  music: { label: 'دسته‌بندی موزیک', item: 'آلبوم', base: '/music/category', module: 'music' },
+  // A second way to file music, beside its categories: the language or dialect of a song. Its items are songs.
+  'music-language': { label: 'زبان و گویش موزیک', item: 'آهنگ', base: '/music/language', module: 'music' },
   cinema: { label: 'دسته‌بندی فیلم و سریال', item: 'فیلم و سریال', base: '/cinema/category', module: 'cinema' },
 }
+
+/** Taxonomies that replaced an old free-text field and can be filled from it once. The language of music has none. */
+export const LEGACY_SOURCES: readonly Taxonomy[] = ['software', 'games', 'music', 'cinema']
 
 export const MAX_DEPTH = 4
 export const MAX_TERMS = 1000
