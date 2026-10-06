@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `stream-${Date.now()}`
 const cache = new Map()
-let community = true
+let community = true, reviewsOn = true
 function load(file) {
   const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
   if (cache.has(full)) return cache.get(full).exports
@@ -14,7 +14,7 @@ function load(file) {
     if (name === '@/platform/observability/logger') return { logEvent: () => {} }
     if (name === '@/modules/notifications/server/inbox') return { createInboxEvent: async () => {} }
     // The module switch is the script's to turn; settings of modules come back empty.
-    if (name === '@/extensions/server/modules') return { isModuleEnabled: async id => id !== 'community' || community, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
+    if (name === '@/extensions/server/modules') return { isModuleEnabled: async id => id === 'community' ? community : id === 'reviews' ? reviewsOn : true, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
     if (name.endsWith('.json')) return JSON.parse(fs.readFileSync(name.startsWith('@/') ? `src/${name.slice(2)}` : path.join(path.dirname(full), name), 'utf8'))
     if (name.startsWith('@/')) return load(`src/${name.slice(2)}`)
     if (name.startsWith('.')) return load(path.join(path.dirname(full), name))
@@ -65,17 +65,49 @@ async function main() {
   assert.deepEqual(mine(await stream.activityStream(viewer(stranger.id), { before: at(55).toISOString() })), [['reply', 'public topic'], ['topic', 'public topic']])
   assert.deepEqual(mine(await stream.activityStream(viewer(stranger.id), { before: 'not a date' })), mine(all))
 
+  // ---- reviews of content: approved ones that say something, of items still public
+  const [game, draft] = [await prisma.gameTitle.create({ data: { slug: `${seed}-game`, title: `${seed} public game` } }), await prisma.gameTitle.create({ data: { slug: `${seed}-draft`, title: `${seed} draft game`, status: 'DRAFT' } })]
+  const review = (user, item, seconds, data = {}) => prisma.itemReview.create({ data: { itemType: 'game', itemId: item.id, userId: user.id, rating: 4, body: 'worth <b>playing</b>', createdAt: at(seconds), ...data } })
+  await review(writer, game, 90); await review(writer, draft, 91); await review(friend, game, 92, { body: '' }); await review(stranger, game, 93, { status: 'PENDING' })
+  await post(publicTopic, 4, 'a reply by someone else', 95, { userId: stranger.id })
+  const withReviews = await stream.activityStream(viewer(friend.id))
+  assert.deepEqual(mine(withReviews).slice(0, 2), [['reply', 'public topic'], ['review', `${seed} public game`]], 'a review is an entry; a bare rating, a pending one and one of an unpublished item are not')
+  const entry = withReviews.entries.find(item => item.kind === 'review' && item.person.name.startsWith(seed))
+  assert.deepEqual([entry.rating, entry.text, entry.href.includes(`${seed}-game`), entry.person.href, withReviews.reviews], [4, 'worth playing', true, `/forum/u/${seed}${writer.id}`, true])
+  assert.deepEqual(mine(await stream.activityStream(viewer(friend.id), { filter: 'reviews' })), [['review', `${seed} public game`]])
+  assert.ok(!JSON.stringify(await stream.activityStream(viewer(friend.id), { filter: 'reviews' })).includes('draft game'))
+
+  // ---- "people I follow": the same stream, only from them, and not one's own
+  await prisma.communityPost.create({ data: { authorId: friend.id, content: 'my own post', createdAt: at(96) } })
+  const following = await stream.activityStream(viewer(friend.id), { filter: 'following' })
+  assert.deepEqual([following.filter, following.following, following.followingCount, mine(following)], ['following', true, 1, [['review', `${seed} public game`], ['post', 'for followers only'], ['post', 'a public feed post'], ['reply', 'public topic'], ['topic', 'public topic']]], 'forum, feed and reviews of the followed member; nothing of others, nothing of one\'s own')
+  const lonely = await stream.activityStream(viewer(stranger.id), { filter: 'following' })
+  assert.deepEqual([lonely.filter, lonely.followingCount, lonely.entries], ['following', 0, []], 'following nobody: nothing, not everything')
+  const asGuest = await stream.activityStream(viewer(null), { filter: 'following' })
+  assert.deepEqual([asGuest.filter, asGuest.following], ['all', false], 'a visitor follows nobody: the whole stream, and no such tab')
+  // someone the viewer blocked has no review in their stream
+  await prisma.userBlock.create({ data: { blockerId: stranger.id, blockedId: writer.id } })
+  assert.deepEqual(mine(await stream.activityStream(viewer(stranger.id), { filter: 'reviews' })), [])
+  await prisma.userBlock.deleteMany({ where: { blockerId: stranger.id } })
+  // the reviews module off: no reviews, no tab
+  reviewsOn = false
+  const noReviews = await stream.activityStream(viewer(friend.id))
+  assert.deepEqual([noReviews.reviews, mine(noReviews).some(row => row[0] === 'review'), mine(await stream.activityStream(viewer(friend.id), { filter: 'reviews' }))], [false, false, []])
+  reviewsOn = true
+  await prisma.itemReview.deleteMany({ where: { itemType: 'game', itemId: { in: [game.id, draft.id] } } }); await prisma.forumPost.deleteMany({ where: { threadId: publicTopic.id, postNumber: 4 } }); await prisma.communityPost.deleteMany({ where: { authorId: friend.id } })
+
   // ---- the feed switched off: forum only, and no "posts" tab
   community = false
   const forumOnly = await stream.activityStream(viewer(stranger.id))
   assert.deepEqual([mine(forumOnly), forumOnly.posts], [[['reply', 'public topic'], ['topic', 'public topic']], false])
   assert.deepEqual(mine(await stream.activityStream(viewer(stranger.id), { filter: 'posts' })), [])
-  console.log('PostgreSQL activity stream: forum and feed merged newest first, limited to what each viewer may see, filters, cursor and the feed switch passed')
+  console.log('PostgreSQL activity stream: forum, feed and reviews merged newest first, limited to what each viewer may see, filters, the people one follows, cursor and the module switches passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {
     const users = (await prisma.user.findMany({ where: { email: { startsWith: seed } }, select: { id: true } })).map(row => row.id)
     await prisma.communityPost.deleteMany({ where: { authorId: { in: users } } }); await prisma.userFollow.deleteMany({ where: { OR: [{ followerId: { in: users } }, { followingId: { in: users } }] } })
+    await prisma.gameTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.forumCategory.deleteMany({ where: { slug: { startsWith: seed } } }); await prisma.forumGroup.deleteMany({ where: { slug: seed } })
     await prisma.user.deleteMany({ where: { id: { in: users } } })
   } finally { await prisma.$disconnect() }

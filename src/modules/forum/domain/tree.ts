@@ -2,6 +2,8 @@
 // (the composer's picker, the sidebar, the admin table) walk it the same way.
 
 export const MAX_CATEGORY_DEPTH = 3
+/** The section every club's forum sits under. */
+export const CLUBS_SECTION = 'clubs'
 
 type Node = { id: number; parentId: number | null }
 

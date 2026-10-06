@@ -1,7 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { categoryTree } from '@/modules/forum/domain/tree'
+import { CLUBS_SECTION, categoryTree } from '@/modules/forum/domain/tree'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
@@ -73,6 +73,8 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
   const [composer, setComposer] = useState<ComposerState>(null)
   const [toast, setToast] = useState('')
   const [level, setLevel] = useState(data.level)
+  // Posts picked to be quoted together, by post number.
+  const [quoted, setQuoted] = useState<number[]>([])
   const [menu, setMenu] = useState<string>('')
   const [flagging, setFlagging] = useState<TopicPost | null>(null)
   const [history, setHistory] = useState<{ post: TopicPost; items: { id: number; content: string; createdAt: string; editor: string }[]; current: string } | null>(null)
@@ -182,9 +184,19 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
     if (requireLogin()) return
     const selection = window.getSelection()
     const inPost = selection && selection.rangeCount && document.getElementById(`post-${post.number}`)?.contains(selection.anchorNode)
-    const text = (inPost ? selection!.toString() : '').trim() || new DOMParser().parseFromString(post.html, 'text/html').body.textContent?.trim().slice(0, 600) || ''
-    const block = `[quote="${post.author.username}, post:${post.number}, topic:${thread.id}"]\n${text}\n[/quote]\n\n`
-    setComposer({ mode: 'reply', replyTo: post, initial: block, key: Date.now() })
+    const text = (inPost ? selection!.toString() : '').trim() || plainOf(post)
+    setComposer({ mode: 'reply', replyTo: post, initial: quoteBlock(post, text), key: Date.now() })
+  }
+
+  const quoteBlock = (post: TopicPost, text: string) => `[quote="${post.author.username}, post:${post.number}, topic:${thread.id}"]\n${text}\n[/quote]\n\n`
+  const plainOf = (post: TopicPost) => new DOMParser().parseFromString(post.html, 'text/html').body.textContent?.trim().slice(0, 600) || ''
+  /** One reply that quotes every picked post, in the order they were written. */
+  function quoteSelected() {
+    if (requireLogin()) return
+    const picked = posts.filter((post) => quoted.includes(post.number))
+    if (!picked.length) { setQuoted([]); return }
+    setComposer({ mode: 'reply', replyTo: picked.length === 1 ? picked[0] : undefined, initial: picked.map((post) => quoteBlock(post, plainOf(post))).join(''), key: Date.now() })
+    setQuoted([])
   }
 
   async function solve(post: TopicPost) {
@@ -260,7 +272,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
     <div className="fx-topic">
       <nav className="fc-crumbs" aria-label="مسیر">
         <Link href="/forum">انجمن‌ها</Link>
-        {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={`/forum/c/${step.slug}`}>{step.title}</Link>)}
+        {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={step.slug === CLUBS_SECTION ? '/forum/clubs' : `/forum/c/${step.slug}`}>{step.title}</Link>)}
       </nav>
       <header className="tp-head" style={{ ['--cat' as string]: data.category.color }}>
         {(thread.pinned || thread.locked || data.solution || thread.status !== 'VISIBLE' || !thread.listed) && <p className="tp-flags">
@@ -278,6 +290,12 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
             {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
           </span>
         </div>
+        {(data.signedIn || canReply) && <div className="tp-actions">
+          {canReply && <button type="button" className="btn btn-primary btn-sm" onClick={() => { if (!requireLogin()) setComposer({ mode: 'reply', key: Date.now() }) }}>↩ پاسخ</button>}
+          {data.signedIn && <button type="button" className={`tp-follow${level === 'WATCHING' ? ' is-on' : ''}`} aria-pressed={level === 'WATCHING'} onClick={() => void changeLevel(level === 'WATCHING' ? 'NORMAL' : 'WATCHING')} title={level === 'WATCHING' ? 'برای هر پاسخ تازه اعلان می‌گیرید' : 'با دنبال‌کردن، برای هر پاسخ تازه اعلان می‌گیرید'}>
+            <span aria-hidden="true">{level === 'WATCHING' ? '🔔' : '🔕'}</span>{level === 'WATCHING' ? 'دنبال می‌کنید' : 'دنبال‌کردن موضوع'}
+          </button>}
+        </div>}
         <dl className="tp-stats">
           <div><dd>{fa(thread.replyCount)}</dd><dt>پاسخ</dt></div>
           <div><dd>{fa(thread.views)}</dd><dt>بازدید</dt></div>
@@ -376,6 +394,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
                       </span>
                     )}
                     {canReply && <button type="button" className="fx-act" onClick={() => quote(post)} title="نقل‌قول (متن را انتخاب کنید)">❝</button>}
+                    {canReply && <button type="button" className={`fx-act tp-mq${quoted.includes(post.number) ? ' is-on' : ''}`} aria-pressed={quoted.includes(post.number)} onClick={() => setQuoted((list) => list.includes(post.number) ? list.filter((n) => n !== post.number) : [...list, post.number])} title={quoted.includes(post.number) ? 'برداشتن از نقل‌قول‌ها' : 'افزودن به نقل‌قول چندتایی'}>＋❝</button>}
                     {canReply && <button type="button" className="fx-act is-reply" onClick={() => { if (!requireLogin()) setComposer({ mode: 'reply', replyTo: post, key: Date.now() }) }}>↩<span>پاسخ</span></button>}
                   </div>
                 </footer>
@@ -384,6 +403,11 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
           ))}
           {data.page < data.pages && <Link className="fx-load" href={`/forum/t/${thread.id}?page=${data.page + 1}`}>پیام‌های بعدی ↓</Link>}
 
+          {quoted.length > 0 && <div className="tp-mq-bar" role="status">
+            <span>{fa(quoted.length)} پیام برای نقل‌قول انتخاب شده</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={quoteSelected}>❝ پاسخ با نقل‌قول</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setQuoted([])}>پاک‌کردن</button>
+          </div>}
           <div className="fx-topic-foot">
             {canReply ? <button type="button" className="btn btn-primary" onClick={() => { if (!requireLogin()) setComposer({ mode: 'reply', key: Date.now() }) }}>↩ پاسخ به موضوع</button>
               : !data.signedIn ? <Link href={`/login?next=${encodeURIComponent(`/forum/t/${thread.id}`)}`} className="btn btn-primary">برای پاسخ وارد شوید</Link>

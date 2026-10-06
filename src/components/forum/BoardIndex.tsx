@@ -67,7 +67,7 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
             <div><Link href={`/forum/u/${row.author.username}`}>{row.author.name}</Link>{row.author.title && <small>{row.author.title}</small>}</div>
             <span className="fb-count">{num(row.posts)}<small>پیام</small></span>
           </li>)}</ol>
-          <Link href="/forum/users" className="fb-widget-more">همهٔ اعضا</Link>
+          <Link href="/forum/leaderboard" className="fb-widget-more">جدول برترین‌ها</Link>
         </section>}
 
         <section className="fb-widget" aria-labelledby="fb-online">

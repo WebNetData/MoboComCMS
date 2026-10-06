@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import type { Viewer } from '@/modules/forum/domain/community'
 import { forumTeamIds } from '@/modules/forum/server/team'
+import { CLUBS_SECTION } from '@/modules/forum/domain/tree'
 import { authorsFor, categoryFamily, fallbackAuthor, forumStats, visibleCategories, type AuthorView, type CategoryView } from '@/modules/forum/server/forum'
 
 // The board index: the forum's front page. Sections (top-level categories) hold forums (their
@@ -92,7 +93,9 @@ export async function boardIndex(viewer: Viewer, now = new Date()) {
   const forum = (category: CategoryView) => boardForum(category, categories, lastOf, author, now)
   // A top-level category with subcategories is a section of its own. Those without any are forums
   // themselves and share the first section, instead of each sitting alone under a heading that repeats its name.
-  const tops = categories.filter((category) => !category.parentId || !visible.has(category.parentId))
+  // Clubs have their own page; their section and its many forums are not laid out on the board.
+  const clubsId = categories.find((category) => category.slug === CLUBS_SECTION && !category.parentId)?.id
+  const tops = categories.filter((category) => (!category.parentId || !visible.has(category.parentId)) && category.id !== clubsId && category.parentId !== clubsId)
   const childrenOf = (top: CategoryView) => categories.filter((child) => child.parentId === top.id)
   const standalone = tops.filter((top) => !childrenOf(top).length)
   const sized = (section: Omit<BoardSection, 'topics' | 'posts'>, own = 0, ownPosts = 0): BoardSection => ({ ...section, topics: own + section.forums.reduce((sum, row) => sum + row.topics, 0), posts: ownPosts + section.forums.reduce((sum, row) => sum + row.posts, 0) })

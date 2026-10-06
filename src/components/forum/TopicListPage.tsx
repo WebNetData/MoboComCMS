@@ -7,7 +7,7 @@ import { Avatar, Pager, num } from '@/components/forum/shared'
 import CategoryWatch from '@/components/forum/CategoryWatch'
 import { categoryLevels } from '@/modules/forum/server/moderation'
 import { forumModerators, subforumRows } from '@/modules/forum/server/board'
-import { categoryFamily, categoryPath } from '@/modules/forum/domain/tree'
+import { CLUBS_SECTION, categoryFamily, categoryPath } from '@/modules/forum/domain/tree'
 import ForumRow, { ForumRowsHead } from '@/components/forum/ForumRow'
 
 const FILTER_TABS: { key: TopicFilter; label: string; personal?: boolean }[] = [
@@ -51,7 +51,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
       {category ? <>
         <nav className="fc-crumbs" aria-label="مسیر">
           <Link href="/forum">انجمن‌ها</Link>
-          {trail.map((step, index) => index < trail.length - 1 ? <Link key={step.id} href={`/forum/c/${step.slug}`}>{step.title}</Link> : <span key={step.id} aria-current="page">{step.title}</span>)}
+          {trail.map((step, index) => index < trail.length - 1 ? <Link key={step.id} href={step.slug === CLUBS_SECTION ? '/forum/clubs' : `/forum/c/${step.slug}`}>{step.title}</Link> : <span key={step.id} aria-current="page">{step.title}</span>)}
         </nav>
         <header className="fc-head" style={{ ['--cat' as string]: category.color }}>
           <span className="fc-sign" aria-hidden="true">{category.icon || '💬'}</span>

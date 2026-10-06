@@ -10,6 +10,7 @@ import { Avatar, TimeAgo, num } from '@/components/forum/shared'
 import { getForumSettings } from '@/modules/forum/server/community'
 import { canStartMessage } from '@/modules/forum/domain/discourse'
 import { FORUM_RANK_LABELS } from '@/modules/forum/domain/community'
+import { ProfileSocial, SOCIAL_TABS, type SocialTab } from '@/modules/community/server/pages/profile-social'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ tab?: string }> }
@@ -26,16 +27,19 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   await requireModule('forum')
   const [{ username }, { tab }] = await Promise.all([params, searchParams])
   const viewer = await getForumViewer()
+  // The member's posts and follow lists are tabs of this same page while the social module is on.
+  const wanted = (SOCIAL_TABS as readonly string[]).includes(String(tab)) ? tab as SocialTab : null
   const active = TABS.some((item) => item.key === tab) ? tab as ProfileTab : 'summary'
-  const data = await getProfile(username, viewer, active)
+  const data = await getProfile(username, viewer, wanted ? 'badges' : active)
   const canMessage = canStartMessage(viewer, await getForumSettings())
   if (!data) notFound()
   const { author, profile, social } = data
+  const socialTab = social ? wanted : null
   const here = `/forum/u/${profile.username}`
   // The numbers a visitor looks for first; the social ones only while that module is on.
   const lead: { label: string; value: number; href?: string }[] = [
     { label: 'اعتبار', value: profile.stats.likesReceived }, { label: 'پیام', value: profile.stats.postCount }, { label: 'موضوع', value: profile.stats.topicCount }, { label: 'راه‌حل', value: profile.stats.solvedCount },
-    ...(social ? [{ label: 'دنبال‌کننده', value: social.followers, href: `/u/${social.username}?tab=followers` }, { label: 'دنبال‌شونده', value: social.following, href: `/u/${social.username}?tab=following` }] : []),
+    ...(social ? [{ label: 'دنبال‌کننده', value: social.followers, href: `${here}?tab=followers` }, { label: 'دنبال‌شونده', value: social.following, href: `${here}?tab=following` }] : []),
   ]
   const more: [string, number][] = [['روز بازدید', profile.stats.daysVisited], ['موضوع خوانده', profile.stats.topicsEntered], ['پسند داده', profile.stats.likesGiven]]
 
@@ -70,21 +74,22 @@ export default async function ProfilePage({ params, searchParams }: Props) {
       <div className="fp-layout">
         <div className="fp-main">
           <nav className="fx-strip fp-tabs" aria-label="بخش‌های پروفایل">
-            {TABS.map((item) => <Link key={item.key} href={`${here}${item.key === 'summary' ? '' : `?tab=${item.key}`}`} className={active === item.key ? 'is-active' : ''} aria-current={active === item.key ? 'page' : undefined}>{item.label}{item.key === 'badges' && data.badges.length ? <em>{num(data.badges.length)}</em> : null}</Link>)}
-            {social && social.posts > 0 && <Link href={`/u/${social.username}?tab=posts`}>پست‌ها<em>{num(social.posts)}</em></Link>}
+            {TABS.map((item) => <Link key={item.key} href={`${here}${item.key === 'summary' ? '' : `?tab=${item.key}`}`} className={!socialTab && active === item.key ? 'is-active' : ''} aria-current={!socialTab && active === item.key ? 'page' : undefined}>{item.label}{item.key === 'badges' && data.badges.length ? <em>{num(data.badges.length)}</em> : null}</Link>)}
+            {social && ([['posts', 'پست‌ها', social.posts], ['followers', 'دنبال‌کننده‌ها', social.followers], ['following', 'دنبال‌شونده‌ها', social.following]] as [SocialTab, string, number][]).map(([key, label, count]) => <Link key={key} href={`${here}?tab=${key}`} className={socialTab === key ? 'is-active' : ''} aria-current={socialTab === key ? 'page' : undefined}>{label}<em>{num(count)}</em></Link>)}
           </nav>
 
-          {active === 'summary' && <>
+          {socialTab && social && <section className="fp-card fp-social md-community"><ProfileSocial username={social.username} tab={socialTab} viewerId={viewer.userId} /></section>}
+          {!socialTab && active === 'summary' && <>
             <section className="fp-card"><h2>محبوب‌ترین موضوع‌ها</h2>{data.topTopics.length ? <ul className="fp-list">{data.topTopics.map((topic) => <li key={topic.id}><Link href={`/forum/t/${topic.id}`}><b>{topic.title}</b><small>{num(topic.likeCount)} پسند · {num(topic.replyCount)} پاسخ · <TimeAgo date={topic.createdAt} /></small></Link></li>)}</ul> : <p className="fx-muted">موضوعی ندارد.</p>}</section>
             <section className="fp-card"><h2>بهترین پاسخ‌ها</h2>{data.topReplies.length ? <ul className="fp-list">{data.topReplies.map((post) => <li key={post.id}><Link href={`/forum/t/${post.thread.id}?post=${post.postNumber}`}><b>{post.thread.title}</b><span>{post.excerpt}</span><small>{num(post.likeCount)} پسند</small></Link></li>)}</ul> : <p className="fx-muted">پاسخی ندارد.</p>}</section>
           </>}
-          {active === 'activity' && <section className="fp-card"><h2>تازه‌ترین نوشته‌ها</h2>{data.activity.length ? <ul className="fp-list">{data.activity.map((post) => (
+          {!socialTab && active === 'activity' && <section className="fp-card"><h2>تازه‌ترین نوشته‌ها</h2>{data.activity.length ? <ul className="fp-list">{data.activity.map((post) => (
             <li key={post.id}><Link href={`/forum/t/${post.thread.id}?post=${post.postNumber}`}><b>{post.thread.title}</b><span>{post.excerpt}</span><small><TimeAgo date={post.createdAt} />{post.likeCount ? ` · ${num(post.likeCount)} پسند` : ''}</small></Link></li>
           ))}</ul> : <p className="fx-muted">فعالیتی نیست.</p>}</section>}
-          {active === 'topics' && <section className="fp-card"><h2>موضوع‌ها</h2>{data.topics.length ? <ul className="fp-list">{data.topics.map((topic) => (
+          {!socialTab && active === 'topics' && <section className="fp-card"><h2>موضوع‌ها</h2>{data.topics.length ? <ul className="fp-list">{data.topics.map((topic) => (
             <li key={topic.id}><Link href={`/forum/t/${topic.id}`}><b>{topic.solvedPostId ? '✓ ' : ''}{topic.title}</b><small><TimeAgo date={topic.createdAt} /> · {num(topic.replyCount)} پاسخ · {num(topic.views)} بازدید</small></Link></li>
           ))}</ul> : <p className="fx-muted">موضوعی نیست.</p>}</section>}
-          {active === 'badges' && <section className="fp-card"><h2>نشان‌ها</h2><div className="fx-badge-grid">{data.badges.map((badge) => (
+          {!socialTab && active === 'badges' && <section className="fp-card"><h2>نشان‌ها</h2><div className="fx-badge-grid">{data.badges.map((badge) => (
             <Link key={badge.slug} href={`/forum/badges/${badge.slug}`} className={`fx-badge-card is-${badge.tier.toLowerCase()}`}><span aria-hidden="true">{badge.icon}</span><b>{badge.name}</b><small>{badge.description}</small><em>{TIER[badge.tier]} · <TimeAgo date={badge.grantedAt} /></em></Link>
           ))}{!data.badges.length && <p className="fx-muted">هنوز نشانی نگرفته است.</p>}</div></section>}
         </div>
@@ -102,7 +107,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             </ul>
           </section>
           {data.groups.length > 0 && <section className="fp-card"><h2>گروه‌ها</h2><div className="fp-groups">{data.groups.map((group) => <Link key={group.id} href={`/forum/g/${group.slug}`} style={{ ['--g' as string]: group.color }}><i aria-hidden="true">{group.icon || '👥'}</i>{group.name}{group.owner && <small>مدیر</small>}</Link>)}</div></section>}
-          {active !== 'badges' && <section className="fp-card"><h2>نشان‌های اخیر</h2>{data.badges.length ? <div className="fx-badge-row">{data.badges.slice(0, 8).map((badge) => <Link key={badge.slug} href={`/forum/badges/${badge.slug}`} className={`fx-badge is-${badge.tier.toLowerCase()}`} title={badge.description}><span aria-hidden="true">{badge.icon}</span>{badge.name}</Link>)}</div> : <p className="fx-muted">هنوز نشانی نگرفته است.</p>}</section>}
+          {(socialTab || active !== 'badges') && <section className="fp-card"><h2>نشان‌های اخیر</h2>{data.badges.length ? <div className="fx-badge-row">{data.badges.slice(0, 8).map((badge) => <Link key={badge.slug} href={`/forum/badges/${badge.slug}`} className={`fx-badge is-${badge.tier.toLowerCase()}`} title={badge.description}><span aria-hidden="true">{badge.icon}</span>{badge.name}</Link>)}</div> : <p className="fx-muted">هنوز نشانی نگرفته است.</p>}</section>}
         </aside>
       </div>
     </ForumShell>

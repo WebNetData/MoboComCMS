@@ -1897,6 +1897,7 @@ model ForumCategory {
   permissions ForumCategoryPermission[]
   watchers    ForumCategoryUser[]
   moderators  ForumCategoryModerator[]
+  club        ForumGroup?   @relation("ForumClubForum")
 }
 
 model ForumThread {
@@ -2120,6 +2121,9 @@ model ForumGroup {
   moderator   Boolean              @default(false) // members moderate the forum
   mentionable Boolean              @default(false)
   memberCount Int                  @default(0)
+  /// Set for a club: a group made by a member, with this forum of its own.
+  clubCategoryId Int?              @unique
+  clubCategory ForumCategory?      @relation("ForumClubForum", fields: [clubCategoryId], references: [id], onDelete: SetNull)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @default(now()) @updatedAt
   members     ForumGroupMember[]
