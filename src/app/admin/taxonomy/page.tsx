@@ -2,7 +2,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
-import { TAXONOMIES, TAXONOMY_INFO, descendants, flatten, isTaxonomy, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
+import { LEGACY_SOURCES, TAXONOMIES, TAXONOMY_INFO, descendants, flatten, isTaxonomy, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 
 type Node = {
   id: number; parentId: number | null; slug: string; name: string; sortOrder: number; description: string; icon: string; image: string
@@ -100,7 +100,7 @@ function TaxonomyManager() {
         <header className="sh-panel-head"><h2>{info.label}</h2>
           <div className="sh-actions">
             <button type="button" className="sh-btn sh-btn-primary" onClick={() => setDraft({ ...EMPTY })}>+ دستهٔ اصلی</button>
-            <button type="button" className="sh-btn sh-btn-ghost" disabled={busy} onClick={() => void call({ method: 'POST', body: JSON.stringify({ action: 'import' }) }, 'دسته‌ها از اطلاعات فعلی ساخته و به محتوا وصل شدند')} title="از فیلدهای متنی قدیمی (پلتفرم، دسته، سبک) درخت می‌سازد">ساخت از اطلاعات فعلی</button>
+            {LEGACY_SOURCES.includes(taxonomy) && <button type="button" className="sh-btn sh-btn-ghost" disabled={busy} onClick={() => void call({ method: 'POST', body: JSON.stringify({ action: 'import' }) }, 'دسته‌ها از اطلاعات فعلی ساخته و به محتوا وصل شدند')} title="از فیلدهای متنی قدیمی (پلتفرم، دسته، سبک) درخت می‌سازد">ساخت از اطلاعات فعلی</button>}
             <button type="button" className="sh-btn sh-btn-ghost" disabled={busy} onClick={() => void call({ method: 'POST', body: JSON.stringify({ action: 'recount' }) }, 'شمارش به‌روز شد')}>شمارش دوباره</button>
           </div>
         </header>

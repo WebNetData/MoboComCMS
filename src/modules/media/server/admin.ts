@@ -191,7 +191,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   'music-tracks': {
-    module: 'music', perms: ['music.manage'],
+    taxonomy: 'music-language', module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicTrack, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } }, album: { select: { title: true } } },
     label: (row) => row.title,
     parse: (b, existing) => {

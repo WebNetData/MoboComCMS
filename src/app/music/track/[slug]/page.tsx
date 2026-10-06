@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import ManageBar from '@/components/admin/ManageBar'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import Link from '@/components/AppLink'
@@ -43,6 +44,7 @@ export default async function TrackPage({ params }: Props) {
   if (!data) notFound()
   const fa = locale === 'fa'
   const { track } = data
+  const language = (await primaryTerms('music-language', [track.id])).get(track.id) || null
   const self = toPlayerTracks([track], fa)
   const album = toPlayerTracks(data.albumTracks, fa)
   const inAlbum = album.findIndex((item) => item.id === track.id)
@@ -72,6 +74,7 @@ export default async function TrackPage({ params }: Props) {
             <Link href={`/music/artist/${track.artist.slug}`} className="mu-detail-artist">{track.artist.image && <img src={track.artist.image} alt="" />}{artistName}</Link>
             <div className="mu-hero-tags">
               {track.genre && <Link href={`/music/browse?genre=${encodeURIComponent(track.genre.split(',')[0].trim())}`}>{track.genre}</Link>}
+              {language && <Link href={language.path}>{fa ? 'زبان' : 'Language'}: {language.name}</Link>}
               {track.duration > 0 && <span dir="ltr">⏱ {formatDuration(track.duration)}</span>}
               <span>▶ {track.plays.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'پخش' : 'plays'}</span>
               {track.access === 'MEMBERS' && <VipBadge fa={fa} />}

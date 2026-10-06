@@ -152,6 +152,17 @@ export async function albumsByIds(ids: number[], page = 1) {
   return { albums: rows.map(toAlbum), total, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
 }
 
+/** Published songs among these ids, newest first: the archive of a language or dialect. */
+export async function tracksByIds(ids: number[], page = 1) {
+  const current = Math.max(1, Math.min(500, Number(page) || 1))
+  const where = { ...live(), id: { in: ids.slice(0, 5000) } }
+  const [rows, total] = await Promise.all([
+    db.musicTrack.findMany({ where, include: trackInclude, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.musicTrack.count({ where }),
+  ]).catch(() => [[], 0] as [any[], number])
+  return { tracks: rows.map(toTrack), total, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+}
+
 export async function getMusicGenres(): Promise<string[]> {
   const rows = await db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 800, orderBy: { publishedAt: 'desc' } }).catch(() => [])
   return countList(rows.map((row) => row.genre)).slice(0, 24)

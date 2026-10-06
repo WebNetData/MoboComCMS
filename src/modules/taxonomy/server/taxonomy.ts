@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import {
-  MAX_TERMS, TaxonomyError, assertParent, buildTree, descendants, flatten, normalizeAssignment, slugify, termBySlugs, termPath, validateTerm,
+  LEGACY_SOURCES, MAX_TERMS, TaxonomyError, assertParent, buildTree, descendants, flatten, normalizeAssignment, slugify, termBySlugs, termPath, validateTerm,
   type Taxonomy,
 } from '@/modules/taxonomy/domain/taxonomy'
 
@@ -18,7 +18,9 @@ async function liveOwnerIds(client: Client, taxonomy: Taxonomy, ids?: number[]):
   const rows = taxonomy === 'software' ? await client.softwareTitle.findMany({ where, select })
     : taxonomy === 'games' ? await client.gameTitle.findMany({ where, select })
       : taxonomy === 'music' ? await client.musicAlbum.findMany({ where, select })
-        : await client.cinemaTitle.findMany({ where, select })
+        // The language of music is filed on songs, not albums.
+        : taxonomy === 'music-language' ? await client.musicTrack.findMany({ where, select })
+          : await client.cinemaTitle.findMany({ where, select })
   return rows.map((row) => row.id)
 }
 
@@ -185,8 +187,10 @@ async function ensureTerm(tx: Tx, taxonomy: Taxonomy, name: string, parentId: nu
  * Builds the tree from the old free-text fields and assigns every item —
  * software: platform › category; games: genres; music: album genre;
  * cinema: movies/series › genre. Existing terms and assignments are kept.
+ * A taxonomy with no old field behind it (the language of music) has nothing to import.
  */
 export async function importLegacy(taxonomy: Taxonomy) {
+  if (!LEGACY_SOURCES.includes(taxonomy)) throw new TaxonomyError('این دسته‌بندی فیلد قدیمی‌ای ندارد که از آن ساخته شود')
   let assigned = 0
   await db.$transaction(async (tx) => {
     const add = async (ownerId: number, termIds: number[]) => {
@@ -220,7 +224,7 @@ export async function importLegacy(taxonomy: Taxonomy) {
         for (const genre of split(row.genre).slice(0, 4)) ids.push(await ensureTerm(tx, taxonomy, genre, null))
         await add(row.id, ids)
       }
-    } else {
+    } else if (taxonomy === 'cinema') {
       const roots = { MOVIE: await ensureTerm(tx, taxonomy, 'فیلم', null), SERIES: await ensureTerm(tx, taxonomy, 'سریال', null) }
       for (const row of await tx.cinemaTitle.findMany({ select: { id: true, kind: true, genres: true } })) {
         const parent = row.kind === 'SERIES' ? roots.SERIES : roots.MOVIE

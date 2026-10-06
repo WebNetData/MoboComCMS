@@ -47,7 +47,7 @@ function boardForum(category: CategoryView, categories: CategoryView[], lastOf: 
  */
 export async function forumModerators(categoryIds: number[]): Promise<AuthorView[]> {
   if (!categoryIds.length) return []
-  const rows = await db.forumCategoryModerator.findMany({ where: { categoryId: { in: categoryIds }, user: { status: 'ACTIVE' } }, orderBy: { createdAt: 'asc' }, select: { userId: true } }).catch(() => [])
+  const rows = await db.forumCategoryModerator.findMany({ where: { categoryId: { in: categoryIds }, user: { status: 'ACTIVE' } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { userId: true } }).catch(() => [])
   const ids = [...new Set(rows.map((row) => row.userId))]
   const authors = await authorsFor(ids)
   return ids.map((id) => authors.get(id)).filter((author): author is AuthorView => !!author)

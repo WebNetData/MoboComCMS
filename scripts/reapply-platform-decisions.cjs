@@ -91,6 +91,7 @@ const SKILLS = {
     '- **Access:** guard with the section\'s own permission (`requirePerm` / `adminGuard`); never accept `cms.posts` outside the magazine. A route that changes a user\'s role, status or password calls `accountChangeRefusal`. Staff standing and role change in the same write.',
     '- **Forum:** walk categories with `categoryTree` / `categoryFamily` / `categoryPath`; limit everything public with `visibleCategories(viewer)`; decide moderation with `inCategory` / `moderatesCategory`; compose follow, feed and reviews from identity, community and reviews. New forum styles are an appended block in `src/app/forum.css` under their own prefix.',
     '- **Public item pages** carry a `ManageBar` with the section\'s permission; shared admin editors honour `?edit=<id>`.',
+    '- **Taxonomies:** a new way of filing content is a new taxonomy with one kind of item (see PLATFORM_DECISIONS §6A); name it in every branch on the taxonomy, never rely on an `else`.',
     '- **Evidence:** add `scripts/<name>.connected.cjs` (same functions as the page, several viewers, cleanup in `finally`), register it in `scripts/run-pg-checks.cjs`, then break each rule on purpose and see it fail (back the file up and copy it back). Unit tests go into a file already in `test:site`. Open visible changes in a browser at 1440 light/dark and 390.',
     '- **Local site:** `docker compose -f docker-compose.local.yml`; restart the app container after every change. Host scripts reach PostgreSQL on `127.0.0.1:5435`.',
     '- **Delivery:** branch from fresh `main`; the pull request targets `main`; do not merge. Leave the owner\'s four unstaged files (`.gitignore`, `next-env.d.ts`, `package.json`, `package-lock.json`) out of commits.',
@@ -110,7 +111,7 @@ const SKILLS = {
   ],
   'mobocom-release': [
     '## This repository',
-    '- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs). All additive or data-preserving.',
+    '- Deploy step for the owner: `npm run deploy:migrate`. Migrations added since 2026-10-06: `20261129120000` and `20261130120000` (cinema calendar and episode alerts), `20261201120000` (digital codes), `20261202120000` (forum moderators), `20261203120000` (data only: roles holding `cms.posts` keep what it used to open), `20261204120000` (clubs), `20261205120000` (data only: the first four music languages). All additive or data-preserving.',
     '- Server settings still needed: `STORE_DELIVERY_KEY` for digital codes; SMTP or SMS for password recovery.',
     '- After deploy: arrange forum categories into sections, and narrow any role that held `cms.posts` if it should be the magazine alone (`/admin/section-managers`).',
     '- SQLite installs have no migration runner here: a data migration must be repeated by hand there.',
