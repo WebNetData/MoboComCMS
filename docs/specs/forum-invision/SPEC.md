@@ -75,9 +75,16 @@ Acceptance: `scripts/forum-category-moderators.connected.cjs` in `npm run test:p
 
 Not in this slice: inline "manage" links for the rest of the site (magazine, music, cinema, games, store) and ready-made roles per site section. The permissions for those exist already (`cms.posts`, `music.manage`, `cinema.manage`, `games.manage`, `software.manage`, `cms.products`).
 
+## Slice 8: leaderboard and reputation
+`/forum/leaderboard`: who earned the most reputation, who wrote the most, the most liked posts, and the leader of each of the last seven days, for today, the week, 30 days or all time, with the viewer's own place.
+
+Reputation is one point for each reaction a member's post receives from someone else (a member cannot react to their own post; a stray one would count for nothing). Days turn at midnight in Tehran. Periods up to 30 days are counted from the reactions and posts themselves; all time is what profiles and posts already carry (`likesReceived`, `postCount`, `likeCount`), active accounts only. Everything is counted in the forums the viewer may see: a private forum adds neither a point nor a post to what an outsider is shown, and hidden posts never count. Owner: `src/modules/forum/server/leaderboard.ts`; no schema change.
+
+Acceptance: `scripts/forum-leaderboard.connected.cjs` in `npm run test:pg`, with fixtures dated years ahead so the window holds nothing else. Four deliberate breaks (own reactions counted, days in UTC, private forums counted, suspended accounts listed) each fail it.
+
 ## Next slices
 1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
 2. Member profile, remaining: one page for the forum profile and the feed profile (today they link to each other).
 3. Activity stream, remaining: reviews and follows as entries, and a "people I follow" filter.
-4. Leaderboard and reputation: points per reaction, ranks, past leaders.
+4. Leaderboard, remaining: a weight per kind of reaction, if the owner wants some to count for more.
 5. Status updates and the feed merged with the forum identity; clubs (member-run groups with their own forums).
