@@ -136,5 +136,5 @@ export async function waitingForModeration(take = 5) {
     db.copyrightReport.count({ where }),
     db.copyrightReport.findMany({ where, orderBy: { createdAt: 'asc' }, take, select: { id: true, workTitle: true, name: true, organization: true, createdAt: true } }),
   ])
-  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.workTitle, 160), by: row.organization || row.name, about: '', at: row.createdAt })) }
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.workTitle, 160), full: plainText(row.workTitle, 2000), by: row.organization || row.name, about: '', at: row.createdAt })) }
 }

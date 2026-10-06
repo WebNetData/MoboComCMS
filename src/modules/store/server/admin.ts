@@ -368,7 +368,7 @@ export async function waitingForModeration(take = 5) {
     db.productQuestion.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, guestName: true, createdAt: true, user: { select: { name: true } }, product: { select: { name: true } } } }),
   ])
   return {
-    reviews: { count: reviewCount, items: reviews.map((row) => ({ id: row.id, text: plainText(row.body || row.title, 160), by: row.user.name || '', about: row.product.name, at: row.createdAt })) },
-    questions: { count: questionCount, items: questions.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user?.name || row.guestName, about: row.product.name, at: row.createdAt })) },
+    reviews: { count: reviewCount, items: reviews.map((row) => ({ id: row.id, text: plainText(row.body || row.title, 160), full: plainText([row.title, row.body].filter(Boolean).join(' — '), 2000), by: row.user.name || '', about: row.product.name, at: row.createdAt })) },
+    questions: { count: questionCount, items: questions.map((row) => ({ id: row.id, text: plainText(row.body, 160), full: plainText(row.body, 2000), by: row.user?.name || row.guestName, about: row.product.name, at: row.createdAt })) },
   }
 }

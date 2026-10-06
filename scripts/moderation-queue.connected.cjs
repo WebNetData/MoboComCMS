@@ -66,6 +66,7 @@ async function main() {
   assert.deepEqual(f.posts.items.map(item => item.at.toISOString()), [old(1), old(2)].map(d => d.toISOString()), 'oldest first, limited')
   assert.deepEqual([f.posts.items[0].by, f.posts.items[0].about], [`${seed} author`, `${seed} topic`])
   assert.ok(f.posts.items[0].text.startsWith('held post 1') && f.posts.items[0].text.length <= 161, 'markdown is reduced to a short plain excerpt')
+  assert.ok(f.posts.items[0].full.startsWith('held post 1') && f.posts.items[0].full.endsWith('x'.repeat(50)) && f.posts.items[0].full.length > 300, 'the whole text comes along for the decision')
   assert.equal(f.flags.count, before.forum.flags.count + 2)
   assert.deepEqual(f.flags.items.map(item => item.by), [`${seed} author`, `${seed} reporter`])
   assert.ok(f.flags.items[0].text.startsWith('held post 1'), 'a flag without a note shows what was flagged')
@@ -74,6 +75,7 @@ async function main() {
   const j = await journal.waitingForModeration(5)
   assert.equal(j.count, before.journal.count + 2)
   assert.deepEqual(j.items.slice(0, 2).map(item => [item.text, item.about]), [['first comment', `${seed} article`], ['second comment', `${seed} article`]])
+  assert.deepEqual(j.items.slice(0, 2).map(item => item.full), ['first comment', 'second comment'], 'plain text only')
   // ---- community
   const c = await community.waitingForModeration(5)
   assert.equal(c.count, before.community.count + 1)
@@ -86,6 +88,7 @@ async function main() {
   const s = await store.waitingForModeration(5)
   assert.deepEqual([s.reviews.count, s.questions.count], [before.store.reviews.count + 1, before.store.questions.count + 1])
   assert.deepEqual([s.reviews.items[0].text, s.reviews.items[0].about], ['waiting product review', `${seed} product`])
+  assert.equal(s.reviews.items[0].full, 'title — waiting product review')
   assert.deepEqual([s.questions.items[0].text, s.questions.items[0].by], ['does it fit?', 'a guest'])
   // ---- copyright
   const k = await copyright.waitingForModeration(5)

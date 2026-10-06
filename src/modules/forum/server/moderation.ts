@@ -183,7 +183,7 @@ export async function waitingForModeration(take = 5) {
     db.forumFlag.count({ where: { status: 'PENDING' } }),
   ])
   return {
-    posts: { count: postCount, items: posts.map((row) => ({ id: row.id, text: markdownExcerpt(row.content, 160), by: row.user.name || '', about: row.thread.title, at: row.createdAt })) },
-    flags: { count: flagCount, items: flags.map((row) => ({ id: row.id, text: plainText(row.note, 160) || markdownExcerpt(row.post.content, 160), by: row.user.name || '', about: row.post.thread.title, at: row.createdAt })) },
+    posts: { count: postCount, items: posts.map((row) => ({ id: row.id, text: markdownExcerpt(row.content, 160), full: markdownExcerpt(row.content, 2000), by: row.user.name || '', about: row.thread.title, at: row.createdAt })) },
+    flags: { count: flagCount, items: flags.map((row) => ({ id: row.id, text: plainText(row.note, 160) || markdownExcerpt(row.post.content, 160), full: markdownExcerpt(row.post.content, 2000), by: row.user.name || '', about: row.post.thread.title, at: row.createdAt })) },
   }
 }
