@@ -63,12 +63,23 @@ export function formatRuntime(minutes: number, fa: boolean): string {
   return h ? `${h}h ${rest ? `${rest}m` : ''}`.trim() : `${rest}m`
 }
 
-export const LINK_KINDS = ['DOWNLOAD', 'STREAM'] as const
+export const LINK_KINDS = ['DOWNLOAD', 'STREAM', 'SUBTITLE', 'AUDIO'] as const
+/** A file that goes with the video instead of being it: a subtitle, or a separate audio track (a dub to add to another release). */
+export const TRACK_KINDS = ['SUBTITLE', 'AUDIO'] as const
+export const isTrack = (kind: string) => (TRACK_KINDS as readonly string[]).includes(kind)
+/** Languages a track can be filed under; the order is the order they are offered and shown in. */
+export const TRACK_LANGUAGES: Record<string, { fa: string; en: string }> = {
+  fa: { fa: 'فارسی', en: 'Persian' }, en: { fa: 'انگلیسی', en: 'English' }, ar: { fa: 'عربی', en: 'Arabic' }, tr: { fa: 'ترکی', en: 'Turkish' },
+  ku: { fa: 'کردی', en: 'Kurdish' }, fr: { fa: 'فرانسوی', en: 'French' }, de: { fa: 'آلمانی', en: 'German' }, es: { fa: 'اسپانیایی', en: 'Spanish' },
+  it: { fa: 'ایتالیایی', en: 'Italian' }, ru: { fa: 'روسی', en: 'Russian' }, hi: { fa: 'هندی', en: 'Hindi' }, ko: { fa: 'کره‌ای', en: 'Korean' },
+  ja: { fa: 'ژاپنی', en: 'Japanese' }, zh: { fa: 'چینی', en: 'Chinese' },
+}
+export const trackLanguage = (code: string, fa: boolean) => (TRACK_LANGUAGES[code] ? (fa ? TRACK_LANGUAGES[code].fa : TRACK_LANGUAGES[code].en) : '')
 export const LINK_AUDIO = ['', 'ORIGINAL', 'DUBBED'] as const
 export const LINK_OWNERS = ['title', 'episode', 'game', 'gameupdate', 'software', 'softwarerelease'] as const
 export type LinkOwner = typeof LINK_OWNERS[number]
 
-export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; url: string; access: string; sortOrder: number; disabled?: boolean }
+export type LinkInput = { label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; language: string; url: string; access: string; sortOrder: number; disabled?: boolean }
 
 /** Validates download/stream links. Only http(s) URLs are accepted. */
 export function cleanLinks(input: unknown, max = 60): LinkInput[] {
@@ -83,16 +94,20 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('فقط لینک http/https مجاز است / Only http(s) links are allowed')
     const checksum = String(r.checksum || '').trim().toLowerCase()
     if (checksum && !/^[a-f0-9]{64}$/.test(checksum)) throw new Error('SHA-256 فایل باید ۶۴ نویسهٔ هگزادسیمال باشد')
+    const kind = (LINK_KINDS as readonly string[]).includes(String(r.kind)) ? String(r.kind) : 'DOWNLOAD'
+    const track = isTrack(kind)
     return [{
       label: String(r.label || '').trim().slice(0, 120),
-      kind: r.kind === 'STREAM' ? 'STREAM' : 'DOWNLOAD',
+      kind,
       quality: String(r.quality || '').trim().slice(0, 40),
       size: String(r.size || '').trim().slice(0, 40),
       platform: String(r.platform || '').trim().slice(0, 60),
       architecture: String(r.architecture || '').trim().slice(0, 40),
       checksum,
-      audio: r.audio === 'DUBBED' ? 'DUBBED' : r.audio === 'ORIGINAL' ? 'ORIGINAL' : '',
-      subtitle: r.subtitle === true || r.subtitle === 'true',
+      // A track is not a release of the video: it has a language, not a dub/original side or a "has subtitles" mark.
+      audio: track ? '' : r.audio === 'DUBBED' ? 'DUBBED' : r.audio === 'ORIGINAL' ? 'ORIGINAL' : '',
+      subtitle: !track && (r.subtitle === true || r.subtitle === 'true'),
+      language: track && String(r.language || '') in TRACK_LANGUAGES ? String(r.language) : '',
       url: url.slice(0, 2000),
       access: r.access === 'MEMBERS' ? 'MEMBERS' : 'PUBLIC',
       sortOrder: Number.isSafeInteger(Number(r.sortOrder)) ? Number(r.sortOrder) : index,
@@ -102,12 +117,20 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
   })
 }
 
-/** Groups links for display: by audio (original/dubbed) then quality. */
-export function groupLinks<T extends { audio: string; quality: string }>(links: T[]): { audio: string; items: T[] }[] {
+/** Groups the releases for display: by audio (original/dubbed) then quality. Separate tracks are not releases and are left out. */
+export function groupLinks<T extends { audio: string; quality: string; kind?: string }>(links: T[]): { audio: string; items: T[] }[] {
   const order = ['DUBBED', 'ORIGINAL', '']
   const groups = new Map<string, T[]>()
-  for (const link of links) groups.set(link.audio, [...(groups.get(link.audio) || []), link])
+  for (const link of links) if (!isTrack(link.kind || '')) groups.set(link.audio, [...(groups.get(link.audio) || []), link])
   return [...groups.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([audio, items]) => ({ audio, items }))
+}
+
+/** The separate tracks of an item, each kind in the order of the language list (unfiled ones last), keeping the editor's order within a language. */
+export function trackLinks<T extends { kind: string; language?: string }>(links: T[]): { subtitles: T[]; audio: T[] } {
+  const codes = Object.keys(TRACK_LANGUAGES)
+  const place = (link: T) => { const at = codes.indexOf(link.language || ''); return at < 0 ? codes.length : at }
+  const of = (kind: string) => links.filter((link) => link.kind === kind).map((link, index) => ({ link, index })).sort((a, b) => place(a.link) - place(b.link) || a.index - b.index).map((row) => row.link)
+  return { subtitles: of('SUBTITLE'), audio: of('AUDIO') }
 }
 
 export const GAME_PLATFORMS = ['PC', 'PS5', 'PS4', 'Xbox Series', 'Xbox One', 'Switch', 'Android', 'iOS', 'Mac', 'Linux'] as const
@@ -159,6 +182,8 @@ const OTHER_EXT = /\.(avi|wmv|flv|rmvb|ts|zip|rar|7z|iso|exe|apk|dmg|srt|ass)$/i
  * (archives, AVI, plain http on an https site, …).
  */
 export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string) => string = (raw) => raw): PlaybackKind {
+  // A subtitle or a separate audio file is fetched, never played as the video.
+  if (isTrack(kind)) return 'none'
   let url: URL
   try { url = new URL(String(rawUrl || '').trim()) } catch { return 'none' }
   const embed = toEmbed(url.toString())
