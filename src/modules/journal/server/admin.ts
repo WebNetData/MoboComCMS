@@ -133,5 +133,5 @@ export async function waitingForModeration(take = 5) {
     db.postComment.count({ where: { status: 'PENDING' } }),
     db.postComment.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, createdAt: true, user: { select: { name: true } }, post: { select: { title: true } } } }),
   ])
-  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user.name || '', about: row.post.title, at: row.createdAt })) }
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), full: plainText(row.body, 2000), by: row.user.name || '', about: row.post.title, at: row.createdAt })) }
 }

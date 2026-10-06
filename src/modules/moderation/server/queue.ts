@@ -8,7 +8,7 @@ import { waitingForModeration as copyrightWaiting } from '@/modules/copyright/se
 
 // The staff moderation overview. Each module reads its own waiting items; nothing is decided here.
 
-type Waiting = { count: number; items: { id: number; text: string; by: string; about: string; at: Date }[] }
+type Waiting = { count: number; items: { id: number; text: string; full: string; by: string; about: string; at: Date }[] }
 
 const TAKE = 5
 

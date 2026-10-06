@@ -347,5 +347,5 @@ export async function waitingForModeration(take = 5) {
     db.itemReview.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, itemType: true, itemId: true, createdAt: true, user: { select: { name: true } } } }),
   ])
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
-  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user.name || '', about: cards.get(`${row.itemType}:${row.itemId}`)?.title || '', at: row.createdAt })) }
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), full: plainText(row.body, 2000), by: row.user.name || '', about: cards.get(`${row.itemType}:${row.itemId}`)?.title || '', at: row.createdAt })) }
 }

@@ -33,6 +33,7 @@ test('a staff member gets only the sources of modules that are on and that they 
   assert.deepEqual(keys({}, ['forum.moderate']), ['forum-posts', 'forum-flags'])
   assert.deepEqual(keys({}, ['cms.posts']), ['article-comments', 'item-reviews'])
   assert.deepEqual(keys({}, ['cms.products']), ['product-reviews', 'product-questions'])
+  assert.deepEqual(keys({}, ['settings.manage']), ['copyright'], 'the product feedback API asks for cms.products only')
   assert.deepEqual(keys({}, ['tickets.handle', 'orders.manage']), [])
   assert.deepEqual(keys({ forum: false, store: false }, null), ['article-comments', 'item-reviews', 'community-reports', 'copyright'])
 })
@@ -51,7 +52,7 @@ test('sources with the longest wait come first and the wait is graded', () => {
 test('the overview asks only the modules it may show and one failing module does not hide the others', async () => {
   const calls = []
   const at = (day) => new Date(`2026-10-0${day}T00:00:00.000Z`)
-  const waiting = (count, day) => ({ count, items: count ? [{ id: day, text: 'text', by: 'member', about: 'about', at: at(day) }] : [] })
+  const waiting = (count, day) => ({ count, items: count ? [{ id: day, text: 'text', full: 'the whole text', by: 'member', about: 'about', at: at(day) }] : [] })
   const owner = (name, result) => ({ waitingForModeration: async (take) => { calls.push([name, take]); if (result instanceof Error) throw result; return result } })
   const queue = load('src/modules/moderation/server/queue.ts', {
     '@/modules/moderation/domain/queue': domain,
@@ -70,11 +71,34 @@ test('the overview asks only the modules it may show and one failing module does
   assert.deepEqual(all.groups.map((group) => [group.key, group.count]), [['copyright', 1], ['article-comments', 7], ['product-questions', 2], ['forum-posts', 3], ['product-reviews', 1], ['forum-flags', 0], ['community-reports', 0]])
   assert.equal(all.groups[0].oldestAt, '2026-10-01T00:00:00.000Z')
   assert.equal(typeof all.groups[0].items[0].at, 'string')
+  assert.equal(all.groups[0].items[0].full, 'the whole text')
 
   calls.length = 0
   const forumOnly = await queue.moderationQueue({ store: false }, (permission) => permission === 'forum.moderate' || permission === 'cms.products')
   assert.deepEqual(calls.map(([name]) => name), ['forum'], 'no module is read for a source that will not be shown')
   assert.deepEqual(forumOnly.groups.map((group) => group.key), ['forum-posts', 'forum-flags'])
+})
+
+test('a yes or no from the overview is exactly the request the owning admin API understands', () => {
+  const requests = Object.fromEntries(domain.QUEUE_SOURCES.filter((source) => source.decisions).map((source) => [source.key, Object.fromEntries(source.decisions.map((decision) => [decision.key, decision.request(7)]))]))
+  assert.deepEqual(requests, {
+    'forum-posts': { approve: { url: '/api/forum/review', method: 'POST', body: { postId: 7, decision: 'approve', note: '' } }, reject: { url: '/api/forum/review', method: 'POST', body: { postId: 7, decision: 'reject', note: '' } } },
+    'article-comments': { approve: { url: '/api/admin/comments', method: 'PATCH', body: { id: 7, status: 'APPROVED' } }, reject: { url: '/api/admin/comments', method: 'PATCH', body: { id: 7, status: 'REJECTED' } } },
+    'item-reviews': { approve: { url: '/api/admin/reviews', method: 'POST', body: { id: 7, action: 'approve' } }, reject: { url: '/api/admin/reviews', method: 'POST', body: { id: 7, action: 'reject' } } },
+    'product-reviews': { approve: { url: '/api/admin/product-feedback', method: 'PATCH', body: { id: 7, kind: 'review', status: 'APPROVED' } }, reject: { url: '/api/admin/product-feedback', method: 'PATCH', body: { id: 7, kind: 'review', status: 'REJECTED' } } },
+  })
+  // The owning handlers still read these fields and values; a change there must be followed here.
+  const read = (file) => fs.readFileSync(path.join(root, file), 'utf8')
+  assert.ok(read('src/modules/forum/server/http/public.ts').includes("const decision = input.decision === 'reject' ? 'reject' : 'approve'") && read('src/modules/forum/server/http/public.ts').includes('reviewPost(g.viewer, Number(input.postId), decision'))
+  assert.ok(read('src/modules/site/server/http/admin/comments/route.ts').includes("['APPROVED', 'REJECTED', 'PENDING'].includes(status)"))
+  assert.ok(read('src/modules/reviews/server/http/routes.ts').includes("['approve', 'reject', 'delete'].includes(body.action)"))
+  assert.ok(read('src/modules/catalog/server/http/admin/product-feedback/route.ts').includes("['review', 'question'].includes(kind) || !['PENDING', 'APPROVED', 'REJECTED'].includes(status)"))
+  for (const route of ['forum/review', 'admin/comments', 'admin/reviews', 'admin/product-feedback']) assert.ok(fs.existsSync(path.join(root, 'src/app/api', route, 'route.ts')), route)
+  // Rejecting a held forum post deletes it, so it asks first; the reversible decisions do not.
+  const confirms = domain.QUEUE_SOURCES.flatMap((source) => (source.decisions || []).filter((decision) => decision.confirm).map((decision) => `${source.key}:${decision.key}`))
+  assert.deepEqual(confirms, ['forum-posts:reject'])
+  // Sources whose decision needs more than a yes or no offer none.
+  assert.deepEqual(domain.QUEUE_SOURCES.filter((source) => !source.decisions).map((source) => source.key), ['forum-flags', 'product-questions', 'community-reports', 'copyright'])
 })
 
 test('the admin menu offers the page to everyone who can moderate something', () => {

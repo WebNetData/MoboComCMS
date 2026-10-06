@@ -133,5 +133,5 @@ export async function waitingForModeration(take = 5) {
     db.communityReport.count({ where: { status: 'OPEN' } }),
     db.communityReport.findMany({ where: { status: 'OPEN' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, reason: true, note: true, createdAt: true, reporter: { select: { name: true } }, post: { select: { content: true } }, comment: { select: { content: true } } } }),
   ])
-  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.note, 160) || row.reason, by: row.reporter.name || '', about: plainText(row.comment?.content || row.post?.content || '', 80), at: row.createdAt })) }
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.note, 160) || row.reason, full: plainText(row.comment?.content || row.post?.content || '', 2000), by: row.reporter.name || '', about: plainText(row.comment?.content || row.post?.content || '', 80), at: row.createdAt })) }
 }

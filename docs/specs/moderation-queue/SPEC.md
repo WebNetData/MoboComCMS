@@ -14,5 +14,14 @@ Rules: "waiting" is what each owner already treats as undecided (forum post `PEN
 
 Acceptance: `scripts/moderation-queue.test.cjs` (catalogue against module manifests and admin paths, visibility by module state and permission, ordering and grading, composition with a failing owner, only visible modules read, menu wiring); `scripts/moderation-queue.connected.cjs` in `npm run test:pg` (real rows in all eight tables: counts, oldest first, limit, decided items left out, excerpts); browser check of the page at desktop and phone width.
 
+## Slice 2: a yes or no from the overview
+Outcome: for held forum posts, article comments, content reviews and product reviews each waiting item shows its whole text (plain, up to 2,000 characters) with two buttons, approve and reject. The other four sources keep leading to their own page, because their decision needs more than a yes or no: a flag is settled per post with its reasons in view, a product question usually gets an answer, a community report is judged against the reported content, a copyright report needs a resolution text.
+
+Ownership: the overview sends the very request the owning admin page sends, to the owning module's own API (`/api/forum/review`, `/api/admin/comments`, `/api/admin/reviews`, `/api/admin/product-feedback`). Permission, rules, audit entry, notifications and bonuses stay that module's; the moderation module adds no decision code. The catalogue holds the request for each decision as data.
+
+Rules: rejecting a held forum post deletes it, so it asks for confirmation; the other decisions can be changed later on the owning page and do not ask. After a decision, accepted or refused, the queue is read again, since someone else may have decided the item meanwhile. The product sources are now shown for `cms.products` only, which is what their admin API asks for (the first slice also listed `settings.manage`, which that API refuses).
+
+Acceptance: unit test that every decision is exactly the request its owning handler reads, that those handlers still read those fields and values, which decisions ask first and which sources offer none; the connected check also covers the whole text; in a browser on the running site an administrator approved a comment, rejected a comment, approved a review and rejected a held forum post from the overview, and the database showed APPROVED, REJECTED, APPROVED and the post deleted with its topic's first post untouched.
+
 ## Not included
-Decisions from the overview, bulk actions, assignment, one case lifecycle across domains, counts in the admin menu, and notifications to staff about long waits.
+Bulk decisions, assignment, one case lifecycle across domains, counts in the admin menu, and notifications to staff about long waits.
