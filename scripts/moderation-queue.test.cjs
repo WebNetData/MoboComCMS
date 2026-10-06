@@ -106,3 +106,12 @@ test('the admin menu offers the page to everyone who can moderate something', ()
   const layout = fs.readFileSync(path.join(root, 'src/app/admin/layout.tsx'), 'utf8')
   assert.match(layout, /href: '\/admin\/moderation'[^\n]*perm: \[\.\.\.QUEUE_PERMISSIONS\]/)
 })
+
+test('a batch of decisions reports what went through and why the rest did not', () => {
+  assert.deepEqual(domain.batchOutcome([{ ok: true }, { ok: true }]), { done: 2, failed: 0, reasons: [] })
+  assert.deepEqual(domain.batchOutcome([{ ok: true }, { ok: false, error: 'gone' }, { ok: false, error: 'gone' }, { ok: false, error: 'not allowed' }, { ok: false }]), { done: 1, failed: 4, reasons: ['gone', 'not allowed'] })
+  assert.deepEqual(domain.batchOutcome([]), { done: 0, failed: 0, reasons: [] })
+  // only what is ticked and still listed, each once, and no more than the limit
+  assert.deepEqual(domain.batchIds([3, 3, 9, 1], [1, 2, 3]), [3, 1])
+  assert.equal(domain.batchIds(Array.from({ length: 80 }, (_, i) => i), Array.from({ length: 80 }, (_, i) => i)).length, domain.BATCH_LIMIT)
+})

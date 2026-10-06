@@ -85,3 +85,19 @@ export function orderGroups(groups: readonly QueueGroup[]): QueueGroup[] {
   const waiting = groups.filter((group) => group.count > 0).sort((a, b) => String(a.oldestAt).localeCompare(String(b.oldestAt)))
   return [...waiting, ...groups.filter((group) => group.count === 0)]
 }
+
+/** How many items one batch may carry: each is still its own request to the owning module. */
+export const BATCH_LIMIT = 30
+
+/**
+ * What a batch of decisions came to. Every item is decided by its own request, so some may be refused
+ * (already decided by someone else, no longer there): the outcome says how many went through and gives the
+ * first reasons of those that did not.
+ */
+export function batchOutcome(results: readonly { ok: boolean; error?: string }[]): { done: number; failed: number; reasons: string[] } {
+  const failures = results.filter((result) => !result.ok)
+  return { done: results.length - failures.length, failed: failures.length, reasons: [...new Set(failures.map((result) => result.error || '').filter(Boolean))].slice(0, 3) }
+}
+
+/** The ids of a batch: those picked that are still in the list, each once, capped. */
+export const batchIds = (picked: readonly number[], present: readonly number[]): number[] => [...new Set(picked)].filter((id) => present.includes(id)).slice(0, BATCH_LIMIT)
