@@ -31,9 +31,16 @@ Each source keeps its own rules. Forum entries come only from categories the vie
 
 Acceptance: `scripts/forum-activity-stream.connected.cjs` in `npm run test:pg` (a stranger, a follower, a member of a private group and a visitor; the three filters; the cursor; the module switch). It caught that a feed post came through without its text before the page was ever shown.
 
+## Slice 4: members and user groups
+`/forum/users` is a directory of member cards in place of a table: avatar, name and handle, the member's title, group or trust rank, posts, reputation and solutions, and last visit. Six orders (reputation, posts, topics, solutions, days visited, last seen); while the list is a ranking its first three stand on a podium. The directory can be narrowed to one user group. `/forum/g` shows each group as a card in its own colour with its icon, description, the first members as faces, member count, how to join, and the viewer's own state in it.
+
+Rules. Only groups the viewer may see are offered as a filter; the slug of a hidden group is ignored and the plain list is returned, so the filter cannot be used to learn who is in a members-only group. Faces are read only for visible groups, owners first, and never include a pending request or a suspended account. A group shows all of its members, including those who have never posted; the plain list still leaves quiet accounts out. Owner: `src/modules/forum/server/people.ts` (`userDirectory`, `listGroups`); no schema change.
+
+Acceptance: `scripts/forum-members-groups.connected.cjs` in `npm run test:pg` (an outsider, a member of a members-only group and a visitor). Removing the visibility rule from the filter, or the status rule from the faces, fails it.
+
 ## Next slices
 1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
-2. Member profile: cover, rank and reputation, content tabs, followers, about.
+2. Member profile: cover, rank and reputation, content tabs, followers, about; one profile for the forum and the feed.
 3. Activity stream, remaining: reviews and follows as entries, and a "people I follow" filter.
 4. Leaderboard and reputation: points per reaction, ranks, past leaders.
 5. Status updates and the feed merged with the forum identity; clubs (member-run groups with their own forums).
