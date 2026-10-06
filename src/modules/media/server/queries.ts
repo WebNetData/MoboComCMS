@@ -127,11 +127,13 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
   }
 }
 
-export async function browseMusic(input: { q?: string; genre?: string; sort?: string; page?: number }) {
+/** `ids`, when given, narrows the songs to those (a language's songs); an empty list means none, not all. */
+export async function browseMusic(input: { q?: string; genre?: string; sort?: string; page?: number; ids?: number[] | null }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const q = String(input.q || '').trim().slice(0, 80)
   const where: any = { ...live() }
   if (input.genre) where.genre = { contains: String(input.genre).slice(0, 60) }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { artist: { name: { contains: q } } }, { artist: { nameEn: { contains: q } } }]
   const orderBy = input.sort === 'popular' ? [{ plays: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
   const [rows, total] = await Promise.all([

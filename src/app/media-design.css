@@ -974,3 +974,5 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .mu-lang-row a { padding: 4px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text) !important; font-weight: 600; }
 .mu-lang-row a:hover { border-color: var(--primary); color: var(--primary) !important; }
 @media (prefers-reduced-motion: reduce) { .mu-lang { transition: none; } .mu-lang:hover { transform: none; } }
+
+.mu-lang-row a.is-active { border-color: var(--primary); background: var(--primary); color: var(--sds-theme-accent-on, #fff) !important; }

@@ -46,6 +46,8 @@ type Resource = {
   label: (row: Record<string, any>) => string
   /** Section taxonomy the items are filed under (`terms` in the form). */
   taxonomy?: Taxonomy
+  /** Other taxonomies a save of this resource can change the counts of (an album files its songs' language). */
+  alsoCounts?: Taxonomy[]
 }
 
 const text = (value: unknown, max = 300) => String(value ?? '').trim().slice(0, max)
@@ -84,6 +86,8 @@ function pickDefined(input: Input): Input {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined))
 }
 const has = (body: Input, key: string) => Object.prototype.hasOwnProperty.call(body, key)
+/** Stored term counts follow what was just saved, in the resource's own taxonomy and any it files into. */
+const recountFor = async (resource: Resource) => { for (const taxonomy of [resource.taxonomy, ...(resource.alsoCounts || [])]) if (taxonomy) await recount(taxonomy).catch(() => undefined) }
 const when = <T>(body: Input, key: string, fn: (value: unknown) => T): T | undefined => (has(body, key) ? fn(body[key]) : undefined)
 
 /**
@@ -168,9 +172,17 @@ const RESOURCES: Record<string, Resource> = {
     }),
   },
   'music-albums': {
-    taxonomy: 'music', module: 'music', perms: ['music.manage'],
+    taxonomy: 'music', alsoCounts: ['music-language'], module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicAlbum, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } } },
     label: (row) => row.title,
+    // Language is filed per song. `trackTerms` on an album files every song it holds at once; left out, the
+    // songs keep what they have. An album has no language of its own, so nothing is read back into the form.
+    afterSave: async (tx, id, body) => {
+      if (!has(body, 'trackTerms')) return
+      const picked = body.trackTerms as { ids?: unknown } | null
+      if (!picked || !Array.isArray(picked.ids) || !picked.ids.length) return
+      for (const track of await tx.musicTrack.findMany({ where: { albumId: id }, select: { id: true } })) await assignTerms(tx, 'music-language', track.id, picked)
+    },
     parse: async (b, existing) => {
       const artistId = when(b, 'artistId', (v) => int(v, 1, 2 ** 31 - 1))
       if (!existing && !artistId) throw new Error('هنرمند را انتخاب کنید / Choose an artist')
@@ -569,7 +581,7 @@ export async function deleteMediaItem(type: string, id: number) {
 /** Recounts a resource's section categories after many writes. */
 export async function recountMediaTaxonomy(type: string) {
   const resource = RESOURCES[type]
-  if (resource?.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+  if (resource) await recountFor(resource)
 }
 
 /** Existing download links of an item (import merges new links with them instead of dropping them). */
@@ -592,7 +604,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
   try {
     if (mode === 'update' && !await resource.delegate(db).findUnique({ where: { id } })) return err('not found', 404)
     const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null)
-    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+    await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     return ok({ id: row.id, slug: row.slug, status: row.status }, mode === 'create' ? 201 : 200)
   } catch (error) {
@@ -618,7 +630,7 @@ export async function DELETE(req: NextRequest) {
       if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
       return resource.delegate(tx).delete({ where: { id } })
     })
-    if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+    await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
     return ok({ deleted: true })
@@ -660,7 +672,7 @@ export async function BULK(req: NextRequest) {
             for (const row of rows) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
         })
-        if (resource.taxonomy) await recount(resource.taxonomy).catch(() => undefined)
+        await recountFor(resource)
         const paths: string[] = []
         for (const row of rows) {
           succeeded.push(row.id)
