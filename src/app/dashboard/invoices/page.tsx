@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { formatCurrency } from '@/shared/money/client'
 
 interface Invoice {
@@ -31,6 +32,7 @@ interface Invoice {
 
 export default function CustomerInvoicesPage() {
   const { t, locale } = useI18n()
+  const vpnOn = useModuleEnabled('vpn')
   const isFa = locale === 'fa'
   const [rows, setRows] = useState<Invoice[]>([])
   const [totals, setTotals] = useState<{ currency: string; paid: number; unpaid: number }[]>([])
@@ -65,7 +67,7 @@ export default function CustomerInvoicesPage() {
           <h1 className="h2">{t.myInvoices}</h1>
           <p className="muted">{t.myInvoicesHint}</p>
         </div>
-        <Link href="/plans" className="btn btn-primary">{t.newPlan}</Link>
+        {vpnOn && <Link href="/plans" className="btn btn-primary">{t.newPlan}</Link>}
       </div>
 
       <div className="grid-3 mb-6">
@@ -99,7 +101,7 @@ export default function CustomerInvoicesPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-10">
             <p className="muted mb-3">{t.noInvoices}</p>
-            <Link href="/plans" className="btn btn-primary">{t.viewPlans}</Link>
+            {vpnOn && <Link href="/plans" className="btn btn-primary">{t.viewPlans}</Link>}
           </div>
         ) : (
           <table className="data">

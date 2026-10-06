@@ -1,0 +1,17 @@
+{
+  "id": "reseller",
+  "name": "نمایندگی فروش",
+  "nameEn": "Resellers",
+  "description": "قرارداد نمایندگان، پنل نماینده، ربات فروش نماینده و گزارش فروش نمایندگان. به «سرویس VPN» وابسته است.",
+  "descriptionEn": "Reseller contracts, the reseller panel, reseller sales bots and reseller sales reports. Needs the VPN service.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "commerce",
+  "icon": "globe",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "requires": ["vpn"],
+  "publicPaths": [],
+  "adminPaths": ["/admin/resellers", "/admin/reseller-sales"]
+}

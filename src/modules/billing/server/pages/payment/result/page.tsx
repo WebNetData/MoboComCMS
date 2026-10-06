@@ -7,6 +7,7 @@ import { dict } from '@/i18n/config'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import { formatAmount } from '@/shared/money/format'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 
 /**
@@ -117,7 +118,7 @@ export default async function PaymentResultPage({
             {view && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{t.viewInvoice}</Link>}
             {view && paid && !delivered && <Link href={`/payment/result?invoice=${encodeURIComponent(view.number)}`} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
             {view && !paid && view.status === 'UNPAID' && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}
-            {failed && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : '/plans'} className="btn btn-ghost">{t.tryAgain}</Link>}
+            {failed && <Link href={view?.kind === 'WALLET_TOPUP' ? '/dashboard/wallet' : await isModuleEnabled('vpn') ? '/plans' : '/dashboard/invoices'} className="btn btn-ghost">{t.tryAgain}</Link>}
           </div>
         </div>
       </main>

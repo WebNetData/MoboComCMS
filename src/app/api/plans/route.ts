@@ -1,8 +1,10 @@
 import { getPublicPlans } from '@/modules/catalog/server/public-plans'
 import { err, ok } from '@/platform/http/response'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 export async function GET() {
-  return ok(await getPublicPlans())
+  // Nothing is on sale while the VPN module is off; callers (the invoice form, the mini app) get an empty list.
+  return ok(await isModuleEnabled('vpn') ? await getPublicPlans() : [])
 }
 
 export async function POST(req: Request) {
