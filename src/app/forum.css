@@ -1177,3 +1177,7 @@ header.bi-section-head { cursor: default; }
 .fc-mods a { display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 4px; border-radius: 999px; border: 1px solid var(--md-line); background: var(--md-card); font-weight: 700; color: var(--md-text) !important; }
 [dir="rtl"] .fc-mods a { padding: 3px 4px 3px 12px; }
 .fc-mods a:hover { border-color: color-mix(in srgb, var(--md-accent) 55%, var(--md-line)); }
+
+/* The reply editor is docked along the bottom of the screen. The floating helpers that live there (translate
+   prompt, support chat, staff bar) step aside while it is open, so nothing sits on its send button. */
+body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-dock) .support-dock, body:has(.fx-dock) .mgr-bar { display: none; }
