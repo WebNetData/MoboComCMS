@@ -10,7 +10,7 @@ import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
-export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'staff' | 'leaderboard' | 'search' | 'messages' | 'review' | ''
+export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'staff' | 'leaderboard' | 'clubs' | 'search' | 'messages' | 'review' | ''
 
 /**
  * Forum chrome: site header/footer, a sticky community sidebar (filters,
@@ -104,6 +104,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
               {link('leaderboard', '/forum/leaderboard', 'جدول برترین‌ها', '🏆')}
               {link('users', '/forum/users', 'اعضا', '👤')}
               {link('groups', '/forum/g', 'گروه‌ها', '👥')}
+              {link('clubs', '/forum/clubs', 'کلوب‌ها', '🎪')}
               {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
               {link('staff', '/forum/staff', 'تیم تالار', '🛡')}
               {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}

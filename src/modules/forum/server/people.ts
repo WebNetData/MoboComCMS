@@ -189,7 +189,8 @@ const groupVisible = (group: { visibility: string }, viewer: Viewer, isMember: b
 
 /** Groups this viewer may see, each with the first few of its members to show as faces. */
 export async function listGroups(viewer: Viewer, faces = 5) {
-  const groups = await db.forumGroup.findMany({ where: { OR: [{ automatic: null }, { automatic: { in: ['staff', 'vip'] } }] }, orderBy: [{ automatic: 'asc' }, { memberCount: 'desc' }, { name: 'asc' }] })
+  // Clubs are groups too, but they have a page of their own and are not listed among the user groups.
+  const groups = await db.forumGroup.findMany({ where: { clubCategoryId: null, OR: [{ automatic: null }, { automatic: { in: ['staff', 'vip'] } }] }, orderBy: [{ automatic: 'asc' }, { memberCount: 'desc' }, { name: 'asc' }] })
   const mine = viewer.userId ? await db.forumGroupMember.findMany({ where: { userId: viewer.userId }, select: { groupId: true, status: true, owner: true } }) : []
   const state = new Map(mine.map((row) => [row.groupId, row]))
   const visible = groups.filter((group) => groupVisible(group, viewer, state.get(group.id)?.status === 'ACTIVE'))

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { categoryTree } from '@/modules/forum/domain/tree'
+import { CLUBS_SECTION, categoryTree } from '@/modules/forum/domain/tree'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Composer, { type ComposerCategory } from '@/components/forum/Composer'
@@ -272,7 +272,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
     <div className="fx-topic">
       <nav className="fc-crumbs" aria-label="مسیر">
         <Link href="/forum">انجمن‌ها</Link>
-        {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={`/forum/c/${step.slug}`}>{step.title}</Link>)}
+        {(trail.length ? trail : [data.category]).map((step) => <Link key={step.slug} href={step.slug === CLUBS_SECTION ? '/forum/clubs' : `/forum/c/${step.slug}`}>{step.title}</Link>)}
       </nav>
       <header className="tp-head" style={{ ['--cat' as string]: data.category.color }}>
         {(thread.pinned || thread.locked || data.solution || thread.status !== 'VISIBLE' || !thread.listed) && <p className="tp-flags">

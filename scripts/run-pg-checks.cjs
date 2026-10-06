@@ -10,7 +10,7 @@ const CHECKS = [
   'gift-card-integrity',
   'digital-codes',
   'forum-flag-queue', 'forum-category-moderators',
-  'forum-board-index',
+  'forum-board-index', 'forum-clubs',
   'forum-activity-stream', 'forum-leaderboard',
   'moderation-queue', 'posts-permission-migration',
   'marketplace-seller-money', 'staff-teams',

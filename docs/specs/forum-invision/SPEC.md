@@ -82,9 +82,22 @@ Reputation is one point for each reaction a member's post receives from someone 
 
 Acceptance: `scripts/forum-leaderboard.connected.cjs` in `npm run test:pg`, with fixtures dated years ahead so the window holds nothing else. Four deliberate breaks (own reactions counted, days in UTC, private forums counted, suspended accounts listed) each fail it.
 
+## Slice 9: the topic heading, the stream and the profile, completed
+- **Topic:** several posts can be picked and answered in one reply (a bar appears with the count); the heading has a reply button and a follow button (the existing notification level, WATCHING or NORMAL).
+- **Activity stream:** approved reviews that say something, of items still public, are entries (`recentReviews` in the reviews module, its owner). A "people I follow" filter narrows forum, feed and reviews to them, without one's own posts; following nobody shows nothing, not everything; a visitor is given the whole stream and no such tab. A blocked member's reviews are left out. Follows themselves are not entries: who follows whom is private for members who chose so.
+- **Profile:** the member's feed posts, followers and following are tabs of the forum profile, drawn by the feed's own components under its own rules (`ProfileSocial` in the community module); the owner can write a post there. With the social module off the tabs are not offered.
+
+## Slice 10: clubs
+A club is a group a member starts, with a forum of its own. Nothing new carries it: a forum group (joining, requests, owners), a forum under the "clubs" section whose access is that group's, and the founder assigned as the forum's moderator (slice 7). One nullable column links the two: `ForumGroup.clubCategoryId` (migration `20261204120000_forum_clubs`, additive).
+
+- **Open:** anyone reads the forum and joins freely; members write. **Private:** the forum is seen by members only; joining is by request, accepted by the founder. A private club is still listed, without its numbers, so that one can ask to join.
+- **Who may start one:** a signed-in member from trust level 1, not silenced or suspended; three clubs per founder; three a day. Staff are not limited. These are fixed in code for now (`CLUB_MIN_TRUST`, `CLUB_MAX_OWNED`), not settings.
+- Group, forum, founder and moderator are created in one transaction. The clubs section holds forums and takes no topics. Clubs have their own page (`/forum/clubs`) and are laid out neither on the board index nor among the user groups; their topics still appear in the lists and the stream for those who may see them.
+- Not yet: closing a club by its founder (staff can, from the forum admin), handing a club over when the founder leaves, and a club page of its own beyond the group page.
+
+Acceptance: `scripts/forum-clubs.connected.cjs` and the extended `scripts/forum-activity-stream.connected.cjs` in `npm run test:pg`; seven and five deliberate breaks each fail them.
+
 ## Next slices
-1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
-2. Member profile, remaining: one page for the forum profile and the feed profile (today they link to each other).
-3. Activity stream, remaining: reviews and follows as entries, and a "people I follow" filter.
-4. Leaderboard, remaining: a weight per kind of reaction, if the owner wants some to count for more.
-5. Status updates and the feed merged with the forum identity; clubs (member-run groups with their own forums).
+1. Clubs: closing and handing over; settings for who may start one.
+2. A weight per kind of reaction on the leaderboard, if the owner wants some to count for more.
+3. One address for a member's profile: `/u/<username>` and `/forum/u/<username>` still both exist.

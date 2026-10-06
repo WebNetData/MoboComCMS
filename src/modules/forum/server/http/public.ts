@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createClub } from '@/modules/forum/server/clubs'
 import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
 import { moduleGuard } from '@/extensions/server/modules'
@@ -153,6 +154,13 @@ export async function POST_group(req: NextRequest, { params }: Ctx<'slug'>) {
   const g = await guard(req)
   if ('response' in g) return g.response
   try { return ok(await groupAction(g.viewer, (await params).slug, await body(req))) } catch (error) { return failure(error) }
+}
+
+/** POST /api/forum/clubs { name, slug, description, kind: open | private, icon, color } */
+export async function POST_club(req: NextRequest) {
+  const g = await guard(req)
+  if ('response' in g) return g.response
+  try { return ok(await createClub(g.viewer, await body(req)), 201) } catch (error) { return failure(error) }
 }
 
 // ------------------------------------------------------------------ polls
