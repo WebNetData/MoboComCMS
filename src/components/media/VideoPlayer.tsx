@@ -13,7 +13,13 @@ type Props = {
   serverResume?: number | null
   nextEpisode?: { href: string; label: string } | null
   downloadHref?: string
+  /** Subtitle files of this film or episode, served by the site as WebVTT. */
+  subtitles?: { id: number; language: string; label: string; src: string }[]
 }
+
+const SUBTITLE_KEY = 'vp:subtitle'
+/** The subtitle a viewer picked last on this device ('off' when they turned subtitles off); Persian when they never chose. */
+const preferredSubtitle = () => { try { return localStorage.getItem(SUBTITLE_KEY) || 'fa' } catch { return 'fa' } }
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -31,7 +37,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = [] }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
@@ -43,6 +49,25 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   const [pip, setPip] = useState(false)
   const [nextCountdown, setNextCountdown] = useState<number | null>(null)
   useEffect(() => { setPip('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) }, [])
+  // Subtitles: the one in the viewer's language is switched on, and what they switch to is remembered.
+  useEffect(() => {
+    const element = video.current
+    if (!element || !subtitles.length) return
+    const tracks = element.textTracks
+    const wanted = preferredSubtitle()
+    const apply = () => { for (let i = 0; i < tracks.length; i++) tracks[i].mode = wanted !== 'off' && tracks[i].language === wanted ? 'showing' : 'disabled' }
+    apply()
+    let settled = false
+    const timer = window.setTimeout(() => { settled = true }, 1500)
+    const remember = () => {
+      if (!settled) return
+      let showing = 'off'
+      for (let i = 0; i < tracks.length; i++) if (tracks[i].mode === 'showing') showing = tracks[i].language || 'off'
+      try { localStorage.setItem(SUBTITLE_KEY, showing) } catch { /* private mode */ }
+    }
+    tracks.addEventListener('change', remember)
+    return () => { window.clearTimeout(timer); tracks.removeEventListener('change', remember) }
+  }, [subtitles])
   useEffect(() => {
     if (nextCountdown === null || !nextEpisode) return
     if (nextCountdown === 0) { window.location.assign(nextEpisode.href); return }
@@ -142,7 +167,9 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
 
   return <div className="vp">
     <div className="vp-frame">
-      <video ref={video} controls playsInline preload="metadata" poster={poster || undefined} aria-label={title} />
+      <video ref={video} controls playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
+        {subtitles.map((track) => <track key={track.id} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
+      </video>
       {resume > 0 && !error && <div className="vp-resume" role="status">
         <span>از {clock(resume)} ادامه می‌دهید؟</span>
         <button type="button" onClick={() => { if (video.current) { video.current.currentTime = resume; void video.current.play() } setResume(0) }}>ادامهٔ پخش</button>

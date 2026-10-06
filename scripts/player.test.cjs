@@ -39,6 +39,16 @@ test('video sites are embedded, archives and plain http are download-only', () =
   assert.equal(kind('https://dl.example.com/get/123'), 'none')
 })
 
+test('subtitles: what the player can show, and SubRip as WebVTT', () => {
+  assert.deepEqual(['https://dl.example.com/a%20b.SRT', 'https://dl.example.com/a.vtt?x=1', 'https://dl.example.com/a.ass', 'nonsense'].map(media.subtitleFormat), ['srt', 'vtt', '', ''])
+  assert.equal(media.toWebVtt('1\r\n00:00:01,5 --> 00:00:02,000\r\n<b>a</b><script>x</script>\r\n', 'srt'), 'WEBVTT\n\n00:00:01.5 --> 00:00:02.000\n<b>a</b>x\n')
+  assert.equal(media.toWebVtt('just text', 'srt'), '')
+  assert.equal(media.decodeSubtitle(Uint8Array.from([0xD3, 0xE1, 0xC7, 0xE3])), 'سلام')
+  assert.equal(media.decodeSubtitle(new TextEncoder().encode('سلام')), 'سلام')
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/links.ts'), 'utf8'), served = source.slice(source.indexOf('export async function openSubtitle'), source.indexOf('export async function saveCinemaWatchProgress'))
+  assert.match(served, /await gate\(viewer, \[\{ ownerType: 'link', ownerId: id \}, \.\.\.owner\.chain\]/); assert.match(served, /checkPageToken\(/); assert.match(served, /fetchRemoteBytes/, 'read through the guarded fetch of the downloads module')
+})
+
 test('player page keeps the same access rules and quota exemption', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/media/server/links.ts'), 'utf8')
   const watch = source.slice(source.indexOf('export async function watchSource'))

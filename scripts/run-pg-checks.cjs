@@ -23,7 +23,7 @@ const CHECKS = [
   'community-moderation', 'journal-comment-notifications',
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume', 'notification-policy',
-  'cinema-calendar', 'media-tracks',
+  'cinema-calendar', 'media-tracks', 'player-subtitles',
   'episode-air-alerts',
 ]
 

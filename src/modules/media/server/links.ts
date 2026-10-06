@@ -7,7 +7,7 @@ import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
 import {
   checkPageToken, downloadGuardEnabled, downloaderOf, getDownloadSettings, linkHref, logDownload, remainingDownloads, signOriginUrl, trackDownloadHref,
 } from '@/modules/downloads/server/guard'
-import { playbackKind, type PlaybackKind } from '@/modules/media/domain/media'
+import { MAX_SUBTITLE_BYTES, decodeSubtitle, playbackKind, subtitleFormat, toWebVtt, trackLanguage, trackLinks, type PlaybackKind } from '@/modules/media/domain/media'
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -187,8 +187,11 @@ export async function openTrack(request: Request, rawId: string) {
 
 // ------------------------------------------------------------------ online player
 
+/** A subtitle the player can load: served by this site as WebVTT, under the same rules as the file it belongs to. */
+export type PlayerSubtitle = { id: number; language: string; label: string; src: string }
+
 export type WatchResult =
-  | { ok: true; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
+  | { ok: true; subtitles: PlayerSubtitle[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -256,13 +259,53 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const nextEpisode = link.ownerType === 'episode' && playback !== 'embed' ? await nextPlayableEpisode(link.ownerId, viewer) : null
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, context: { title: owner.title, label: link.label, quality: link.quality } })
+  // The subtitle files of the same film or episode that this viewer may open and the player can show.
+  const subtitles: PlayerSubtitle[] = []
+  if (playback !== 'embed' && link.ownerType !== 'game') {
+    const rows = await db.mediaLink.findMany({ where: { ownerType: link.ownerType, ownerId: link.ownerId, kind: 'SUBTITLE', disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, language: true, label: true, url: true, access: true } })
+    for (const row of trackLinks(rows).subtitles) {
+      if (!subtitleFormat(row.url)) continue
+      if (await gate(viewer, [{ ownerType: 'link', ownerId: row.id }, ...owner.chain], row.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') continue
+      const pageToken = new URL(await linkHref(row.id, viewer.userId), 'http://x').searchParams.get('t')
+      subtitles.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'زیرنویس', src: `/api/media/subtitle/${row.id}${pageToken ? `?t=${encodeURIComponent(pageToken)}` : ''}` })
+    }
+  }
   return {
-    ok: true, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    ok: true, subtitles, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,
     progressEnabled, serverResume: progress ? (progress.completedAt ? 0 : progress.positionSeconds) : null, nextEpisode,
   }
+}
+
+/**
+ * GET /api/media/subtitle/:id?t=<token> → the subtitle file as WebVTT, for the player. The same checks as the
+ * link route (module, takedown, price or VIP, page token); the file is read by the server, so its address
+ * never reaches the browser, and it is converted so a SubRip file plays too.
+ */
+export async function openSubtitle(request: Request, rawId: string) {
+  const refuse = (error: string, status: number) => NextResponse.json({ error }, { status })
+  const id = Number(rawId)
+  const link = Number.isSafeInteger(id) && id > 0 ? await db.mediaLink.findUnique({ where: { id } }).catch(() => null) : null
+  const format = link && link.kind === 'SUBTITLE' && !link.disabled ? subtitleFormat(link.url) : ''
+  if (!link || !format) return refuse('NOT_FOUND', 404)
+  const module = OWNER_MODULE[link.ownerType]
+  const owner = module && await isModuleEnabled(module) ? await ownerOf(link.ownerType, link.ownerId).catch(() => null) : null
+  if (!owner) return refuse('NOT_FOUND', 404)
+  const viewer = await getViewer()
+  const access = await gate(viewer, [{ ownerType: 'link', ownerId: id }, ...owner.chain], link.access === 'MEMBERS' || owner.access === 'MEMBERS')
+  if (access !== 'ok') return refuse(access === 'login' ? 'LOGIN_REQUIRED' : access === 'buy' ? 'PURCHASE_REQUIRED' : 'MEMBERS_ONLY', access === 'login' ? 401 : access === 'buy' ? 402 : 403)
+  const settings = await downloadGuardEnabled() ? await getDownloadSettings() : null
+  if (settings?.enforceTokens && checkPageToken(new URL(request.url).searchParams.get('t'), `l${id}`, viewer.userId) !== 'ok') return refuse('EXPIRED', 403)
+  if (settings?.requireLogin && !viewer.userId) return refuse('LOGIN_REQUIRED', 401)
+  let vtt = ''
+  try {
+    const { fetchRemoteBytes } = await import('@/modules/downloads/server/files')
+    vtt = toWebVtt(decodeSubtitle(await fetchRemoteBytes(settings ? signOriginUrl(link.url, settings, request.headers) : link.url, MAX_SUBTITLE_BYTES)), format)
+  } catch { return refuse('UNAVAILABLE', 502) }
+  if (!vtt) return refuse('UNAVAILABLE', 502)
+  return new NextResponse(vtt, { headers: { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'private, max-age=600', 'X-Content-Type-Options': 'nosniff' } })
 }
 
 export async function saveCinemaWatchProgress(userId: number, linkId: number, positionSeconds: number, durationSeconds: number) {
