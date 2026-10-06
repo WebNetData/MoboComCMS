@@ -40,7 +40,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: profile?.avatar || '', avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
-      posts: profile?.postCount ?? 0, reputation: profile?.likesReceived ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
+      posts: profile?.postCount ?? 0, reputation: profile?.reputation ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]
   }))
 }

@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { parsePermissions } from '@/modules/identity/rbac'
@@ -6,7 +7,7 @@ import { getViewer as getSessionViewer, isMember } from '@/modules/membership/se
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { ensureUserProfiles } from '@/modules/identity/server/profile'
 import {
-  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings,
+  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, reactionWeight, sameReactionWeights,
   type ForumSettings, type Viewer,
 } from '@/modules/forum/domain/community'
 import { categoryFamily } from '@/modules/forum/domain/tree'
@@ -16,17 +17,56 @@ import { categoryFamily } from '@/modules/forum/domain/tree'
 
 const SETTINGS_KEY = 'forum.settings.v1'
 
-export const getForumSettings = cache(async (): Promise<ForumSettings> => {
+/** The settings as stored now (not the copy a request already holds): for work that compares or outlives a request. */
+async function readForumSettings(): Promise<ForumSettings> {
   const row = await db.setting.findUnique({ where: { key: SETTINGS_KEY } }).catch(() => null)
   if (!row) return DEFAULT_FORUM_SETTINGS
   try { return normalizeForumSettings(JSON.parse(row.value)) } catch { return DEFAULT_FORUM_SETTINGS }
-})
+}
+
+export const getForumSettings = cache(readForumSettings)
 
 export async function saveForumSettings(input: Record<string, unknown>) {
+  const before = await readForumSettings()
   const settings = normalizeForumSettings(input)
   const value = JSON.stringify(settings)
   await db.setting.upsert({ where: { key: SETTINGS_KEY }, create: { key: SETTINGS_KEY, value }, update: { value } })
+  // A changed weight applies to every reaction ever given, not only to the ones to come: everybody is recounted.
+  if (!sameReactionWeights(before, settings)) {
+    await db.backgroundJob.create({ data: { kind: 'forum.reputation-recount', payload: JSON.stringify({ cursor: 0 }), dedupeKey: `forum-reputation:${Date.now()}` } })
+  }
   return settings
+}
+
+/**
+ * Reputation of these members from the reactions themselves: every reaction others gave to their posts, by
+ * the weight its kind has now. One grouped query for the whole batch.
+ */
+export async function reputationOf(userIds: number[], settings: Pick<ForumSettings, 'reactionWeights'>): Promise<Map<number, number>> {
+  const totals = new Map<number, number>(userIds.map((id) => [id, 0]))
+  if (!userIds.length) return totals
+  const rows = await db.$queryRaw<{ uid: number; emoji: string; n: bigint | number }[]>`SELECT p."userId" AS uid, r."emoji" AS emoji, COUNT(*) AS n FROM "ForumReaction" r JOIN "ForumPost" p ON p."id" = r."postId" WHERE p."userId" IN (${Prisma.join(userIds)}) AND r."userId" <> p."userId" GROUP BY p."userId", r."emoji"`
+  for (const row of rows) totals.set(Number(row.uid), (totals.get(Number(row.uid)) || 0) + Number(row.n) * reactionWeight(settings, row.emoji))
+  return totals
+}
+
+/**
+ * Queue step: recounts reputation for the next members after `cursor`, in id order. Returns the cursor to
+ * continue from, or null when everybody is done. Safe to repeat and to interrupt: each value is set, never added to.
+ */
+export async function recountReputation(cursor: number, limit = 500): Promise<{ changed: number; next: number | null }> {
+  const settings = await readForumSettings()
+  const profiles = await db.forumProfile.findMany({ where: { userId: { gt: Math.max(0, Math.trunc(cursor) || 0) } }, orderBy: { userId: 'asc' }, take: limit, select: { userId: true, reputation: true } })
+  if (!profiles.length) return { changed: 0, next: null }
+  const totals = await reputationOf(profiles.map((row) => row.userId), settings)
+  let changed = 0
+  for (const row of profiles) {
+    const reputation = totals.get(row.userId) || 0
+    if (reputation === row.reputation) continue
+    await db.forumProfile.update({ where: { userId: row.userId }, data: { reputation } })
+    changed++
+  }
+  return { changed, next: profiles.length < limit ? null : profiles[profiles.length - 1].userId }
 }
 
 // ------------------------------------------------------------------ profiles
@@ -139,9 +179,10 @@ export async function refreshStats(userId: number) {
     db.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
   ])
   const settings = await getForumSettings()
+  const reputation = (await reputationOf([userId], settings)).get(userId) || 0
   const stats = { daysVisited: profile.daysVisited, topicsEntered, postCount, topicCount, likesGiven, likesReceived, solvedCount }
   const trustLevel = computeTrustLevel(profile.trustLevel, stats, settings, profile.trustLocked)
-  await db.forumProfile.update({ where: { userId }, data: { topicCount, postCount, likesGiven, likesReceived, solvedCount, topicsEntered, trustLevel } })
+  await db.forumProfile.update({ where: { userId }, data: { topicCount, postCount, likesGiven, likesReceived, reputation, solvedCount, topicsEntered, trustLevel } })
   if (trustLevel > profile.trustLevel) {
     await notify(userId, 'FORUM_TRUST', `trust:${userId}:${trustLevel}`, 'سطح اعتماد شما بالا رفت', `به سطح اعتماد ${trustLevel.toLocaleString('fa-IR')} رسیدید و امکانات بیشتری در تالار دارید.`, `/forum/u/${profile.username}`)
   }

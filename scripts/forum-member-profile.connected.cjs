@@ -30,7 +30,7 @@ async function main() {
   const users = {}
   for (const name of Object.keys(likes)) {
     users[name] = await prisma.user.create({ data: { email: `${seed}-${name}@example.invalid`, passwordHash: 'test-only', name: `${seed} ${name}`, status: name === 'banned' ? 'SUSPENDED' : 'ACTIVE' } })
-    await prisma.forumProfile.create({ data: { userId: users[name].id, username: `${seed}${name}`.slice(0, 20), likesReceived: likes[name] } })
+    await prisma.forumProfile.create({ data: { userId: users[name].id, username: `${seed}${name}`.slice(0, 20), likesReceived: likes[name], reputation: likes[name] } })
   }
   const handle = name => `${seed}${name}`.slice(0, 20)
   const viewer = userId => ({ userId, member: false, moderator: false, staff: false, trustLevel: 0, groupIds: [], silenced: false, suspended: false })

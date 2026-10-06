@@ -21,6 +21,8 @@ export interface ForumSettings {
   /** Only staff may create new tags when false. */
   membersCreateTags: boolean
   reactions: string[]
+  /** Reputation a reaction of each kind gives the author of the post (0 = none). A kind not named counts 1. */
+  reactionWeights: Record<string, number>
   trust: { 1: TrustRequirement; 2: TrustRequirement; 3: TrustRequirement }
   /** First N posts of a trust level 0 member wait in the review queue (0 = off). */
   approveNewUserPosts: number
@@ -49,6 +51,7 @@ export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
   maxTagsPerTopic: 5,
   membersCreateTags: true,
   reactions: ['heart', '+1', 'laughing', 'open_mouth', 'cry', 'clap'],
+  reactionWeights: {},
   trust: {
     1: { daysVisited: 1, topicsEntered: 5, postCount: 0, likesGiven: 0, likesReceived: 0 },
     2: { daysVisited: 10, topicsEntered: 20, postCount: 3, likesGiven: 1, likesReceived: 1 },
@@ -98,6 +101,8 @@ export function normalizeForumSettings(input: Record<string, any> = {}): ForumSe
     maxTagsPerTopic: int(input.maxTagsPerTopic, 0, 10, d.maxTagsPerTopic),
     membersCreateTags: input.membersCreateTags === undefined ? d.membersCreateTags : input.membersCreateTags === true,
     reactions: reactions.includes('heart') ? reactions : ['heart', ...reactions].slice(0, 8),
+    // Kept for every known kind, also one that is switched off: its past reactions still count by its weight.
+    reactionWeights: Object.fromEntries(Object.keys(REACTION_EMOJI).map((name) => [name, int((input.reactionWeights as Record<string, unknown> | undefined)?.[name], 0, MAX_REACTION_WEIGHT, 1)]).filter(([, weight]) => weight !== 1)),
     trust: { 1: trust(1), 2: trust(2), 3: trust(3) },
     approveNewUserPosts: int(input.approveNewUserPosts, 0, 20, d.approveNewUserPosts),
     messagesEnabled: input.messagesEnabled === undefined ? d.messagesEnabled : input.messagesEnabled === true,
@@ -316,3 +321,16 @@ export function relativeTime(date: Date | string, now = Date.now()): string {
   if (seconds < 365 * 86400) return `${fa(Math.floor(seconds / (30 * 86400)))} ماه`
   return `${fa(Math.floor(seconds / (365 * 86400)))} سال`
 }
+
+// ------------------------------------------------------------------ reputation
+
+export const MAX_REACTION_WEIGHT = 10
+
+/** What one reaction of this kind is worth to the author of the post. */
+export const reactionWeight = (settings: Pick<ForumSettings, 'reactionWeights'>, emoji: string) => settings.reactionWeights[emoji] ?? 1
+
+/** Reputation from counts of reactions by kind. */
+export const weighReactions = (settings: Pick<ForumSettings, 'reactionWeights'>, counts: readonly { emoji: string; count: number }[]) => counts.reduce((sum, row) => sum + row.count * reactionWeight(settings, row.emoji), 0)
+
+/** Whether two settings weigh any kind differently: only then is everybody's reputation recounted. */
+export const sameReactionWeights = (a: Pick<ForumSettings, 'reactionWeights'>, b: Pick<ForumSettings, 'reactionWeights'>) => Object.keys(REACTION_EMOJI).every((name) => reactionWeight(a, name) === reactionWeight(b, name))

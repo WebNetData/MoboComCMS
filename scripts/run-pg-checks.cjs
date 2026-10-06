@@ -11,7 +11,7 @@ const CHECKS = [
   'digital-codes',
   'forum-flag-queue', 'forum-category-moderators',
   'forum-board-index', 'forum-clubs',
-  'forum-activity-stream', 'forum-leaderboard',
+  'forum-activity-stream', 'forum-leaderboard', 'forum-reputation',
   'moderation-queue', 'posts-permission-migration',
   'marketplace-seller-money', 'staff-teams',
   'integrity-report', 'forum-member-profile',

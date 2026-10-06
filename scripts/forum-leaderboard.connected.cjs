@@ -32,7 +32,7 @@ async function main() {
   const users = {}
   for (const name of ['ana', 'bob', 'cyd', 'dan', 'eve', 'gone']) {
     users[name] = await prisma.user.create({ data: { email: `${seed}-${name}@example.invalid`, passwordHash: 'test-only', name: `${seed} ${name}`, status: name === 'gone' ? 'SUSPENDED' : 'ACTIVE' } })
-    await prisma.forumProfile.create({ data: { userId: users[name].id, username: `${seed}${name}`.slice(0, 20), likesReceived: { ana: 2_000_000_000, bob: 1_999_999_999, gone: 2_000_000_001 }[name] || 0, postCount: { bob: 2_000_000_000 }[name] || 0 } })
+    await prisma.forumProfile.create({ data: { userId: users[name].id, username: `${seed}${name}`.slice(0, 20), reputation: { ana: 2_000_000_000, bob: 1_999_999_999, gone: 2_000_000_001 }[name] || 0, postCount: { bob: 2_000_000_000 }[name] || 0 } })
   }
   const group = await prisma.forumGroup.create({ data: { slug: seed, name: seed } })
   const open = await prisma.forumCategory.create({ data: { slug: `${seed}-open`, title: `${seed} open`, sortOrder: 9000 } })

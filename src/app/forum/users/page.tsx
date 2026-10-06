@@ -74,7 +74,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           <small className="fm-role">{roleOf(row)}</small>
           <dl className="fm-stats">
             <div className={data.sort === 'postCount' ? 'is-lead' : ''}><dt>پیام</dt><dd>{num(row.postCount)}</dd></div>
-            <div className={data.sort === 'likesReceived' ? 'is-lead' : ''}><dt>اعتبار</dt><dd>{num(row.likesReceived)}</dd></div>
+            <div className={data.sort === 'likesReceived' ? 'is-lead' : ''}><dt>اعتبار</dt><dd>{num(row.reputation)}</dd></div>
             {data.sort === 'topicCount' ? <div className="is-lead"><dt>موضوع</dt><dd>{num(row.topicCount)}</dd></div>
               : data.sort === 'daysVisited' ? <div className="is-lead"><dt>روز بازدید</dt><dd>{num(row.daysVisited)}</dd></div>
               : <div className={data.sort === 'solvedCount' ? 'is-lead' : ''}><dt>راه‌حل</dt><dd>{num(row.solvedCount)}</dd></div>}

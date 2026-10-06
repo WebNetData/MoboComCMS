@@ -44,6 +44,22 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
       return deliverInboxDigest(Number(payload.userId), String(payload.day || ''))
     },
   },
+  'forum.reputation-recount': {
+    label: 'بازشماری اعتبار اعضای تالار',
+    run: async (payload) => {
+      const { recountReputation } = await import('@/modules/forum/server/community')
+      let cursor = Number(payload.cursor) || 0, changed = 0
+      const deadline = Date.now() + 35_000
+      while (Date.now() < deadline) {
+        const page = await recountReputation(cursor)
+        changed += page.changed
+        if (page.next === null) return { changed, done: true }
+        cursor = page.next
+      }
+      await enqueue('forum.reputation-recount', { cursor }, { dedupeKey: `forum-reputation:after:${cursor}:${Date.now()}` })
+      return { changed, done: false, continuedFrom: cursor }
+    },
+  },
   'images.optimize': {
     label: 'بهینه‌سازی همهٔ تصاویر',
     run: async (payload) => {

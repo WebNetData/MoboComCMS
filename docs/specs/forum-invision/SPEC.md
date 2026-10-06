@@ -103,6 +103,12 @@ Acceptance: `scripts/forum-clubs.connected.cjs` and the extended `scripts/forum-
 - **Hand over:** to an active member of the club who has room for one more; they become its owner, the giver an ordinary member. The forum's moderators are always exactly the club's owners (`syncClubModerators`), whichever way ownership changed.
 - Only the founder (an owner) or staff may do either. Acceptance: `scripts/forum-clubs.connected.cjs`; five deliberate breaks fail it.
 
+## Slice 12: reputation weighs each reaction by its kind
+- `reactionWeights` in the forum settings: 0 to 10 for each known kind, 1 unless set; kept also for a kind that is switched off, because its past reactions still count.
+- `ForumProfile.reputation` is recounted from the reactions themselves (others' reactions only). The migration sets it from the reactions already stored; a changed weight queues a recount of everybody in batches.
+- Read by the leaderboard (period: each reaction by its weight; all time: the stored number), the profile's standing and number, and the member directory's default order. `likesReceived` remains the plain count for trust levels and badges.
+- Acceptance: `scripts/forum-reputation.connected.cjs`; twelve deliberate breaks fail it.
+
 ## Next slices
 2. A weight per kind of reaction on the leaderboard, if the owner wants some to count for more.
 3. One address for a member's profile: `/u/<username>` and `/forum/u/<username>` still both exist.
