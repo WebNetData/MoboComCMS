@@ -124,12 +124,19 @@ export async function removeProfileImage(name: string) {
 
 export type DirectorySort = 'likesReceived' | 'postCount' | 'topicCount' | 'solvedCount' | 'daysVisited' | 'recent'
 
-export async function userDirectory(input: { sort?: string; q?: string; page?: number }) {
+/** The member directory. With a viewer it can be narrowed to one group, among the groups that viewer may see. */
+export async function userDirectory(input: { sort?: string; q?: string; page?: number; group?: string }, viewer?: Viewer) {
   const sorts: DirectorySort[] = ['likesReceived', 'postCount', 'topicCount', 'solvedCount', 'daysVisited', 'recent']
   const sort = sorts.includes(input.sort as DirectorySort) ? input.sort as DirectorySort : 'likesReceived'
   const page = Math.max(1, Math.min(200, Number(input.page) || 1))
   const q = clean(input.q, 40).toLowerCase()
-  const where = { user: { status: 'ACTIVE' }, ...(q ? { username: { contains: q } } : { OR: [{ postCount: { gt: 0 } }, { daysVisited: { gt: 0 } }] }) }
+  const groups = viewer ? await listGroups(viewer, 0) : []
+  const group = groups.find((row) => row.slug === clean(input.group, 80)) || null
+  // Quiet accounts stay out of the plain list, but a group shows all of its members.
+  const where = {
+    user: { status: 'ACTIVE', ...(group ? { forumGroups: { some: { groupId: group.id, status: 'ACTIVE' } } } : {}) },
+    ...(q ? { username: { contains: q } } : group ? {} : { OR: [{ postCount: { gt: 0 } }, { daysVisited: { gt: 0 } }] }),
+  }
   const [rows, total] = await Promise.all([
     db.forumProfile.findMany({ where, orderBy: sort === 'recent' ? { lastSeenAt: 'desc' } : [{ [sort]: 'desc' }, { postCount: 'desc' }], skip: (page - 1) * 30, take: 30 }),
     db.forumProfile.count({ where }),
@@ -137,6 +144,8 @@ export async function userDirectory(input: { sort?: string; q?: string; page?: n
   const authors = await authorsFor(rows.map((row) => row.userId))
   return {
     sort, q, page, pages: Math.max(1, Math.ceil(total / 30)), total,
+    group: group ? { slug: group.slug, name: group.name, color: group.color } : null,
+    groups: groups.filter((row) => row.memberCount > 0).map((row) => ({ slug: row.slug, name: row.name, color: row.color, memberCount: row.memberCount })),
     users: rows.map((row) => ({ author: authors.get(row.userId) || fallbackAuthor(row.userId), likesReceived: row.likesReceived, likesGiven: row.likesGiven, postCount: row.postCount, topicCount: row.topicCount, solvedCount: row.solvedCount, daysVisited: row.daysVisited, lastSeenAt: row.lastSeenAt })),
   }
 }
@@ -155,13 +164,17 @@ export async function mentionSearch(q: string) {
 const groupVisible = (group: { visibility: string }, viewer: Viewer, isMember: boolean) =>
   group.visibility === 'PUBLIC' || viewer.moderator || (group.visibility === 'MEMBERS' && isMember)
 
-export async function listGroups(viewer: Viewer) {
+/** Groups this viewer may see, each with the first few of its members to show as faces. */
+export async function listGroups(viewer: Viewer, faces = 5) {
   const groups = await db.forumGroup.findMany({ where: { OR: [{ automatic: null }, { automatic: { in: ['staff', 'vip'] } }] }, orderBy: [{ automatic: 'asc' }, { memberCount: 'desc' }, { name: 'asc' }] })
   const mine = viewer.userId ? await db.forumGroupMember.findMany({ where: { userId: viewer.userId }, select: { groupId: true, status: true, owner: true } }) : []
   const state = new Map(mine.map((row) => [row.groupId, row]))
-  return groups
-    .filter((group) => groupVisible(group, viewer, state.get(group.id)?.status === 'ACTIVE'))
-    .map((group) => ({ id: group.id, slug: group.slug, name: group.name, description: group.description, icon: group.icon, color: group.color, title: group.title, automatic: group.automatic, joinMode: group.joinMode, memberCount: group.memberCount, membership: state.get(group.id) ?? null }))
+  const visible = groups.filter((group) => groupVisible(group, viewer, state.get(group.id)?.status === 'ACTIVE'))
+  // Members are read only for groups that passed the visibility rule above: owners first, then the earliest.
+  const first = faces > 0 ? await Promise.all(visible.map((group) => db.forumGroupMember.findMany({ where: { groupId: group.id, status: 'ACTIVE', user: { status: 'ACTIVE' } }, orderBy: [{ owner: 'desc' }, { createdAt: 'asc' }], take: faces, select: { userId: true } }))) : []
+  const authors = await authorsFor(first.flat().map((row) => row.userId))
+  return visible
+    .map((group, index) => ({ faces: (first[index] || []).map((row) => authors.get(row.userId) || fallbackAuthor(row.userId)), id: group.id, slug: group.slug, name: group.name, description: group.description, icon: group.icon, color: group.color, title: group.title, automatic: group.automatic, joinMode: group.joinMode, memberCount: group.memberCount, membership: state.get(group.id) ?? null }))
 }
 
 export async function getGroup(slug: string, viewer: Viewer, page = 1) {
