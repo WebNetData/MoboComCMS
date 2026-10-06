@@ -19,6 +19,7 @@ const CHECKS = [
   'community-moderation', 'journal-comment-notifications',
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume',
+  'cinema-calendar',
 ]
 
 if (!process.env.DATABASE_URL) {

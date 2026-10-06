@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { CALENDAR_PAGE, calendarPage, groupByDay, normalizeWhen, type CalendarEpisode } from '@/modules/cinema/domain/calendar'
 import { parseJsonList, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
 import { cleanRichText } from '@/shared/content/sanitize'
@@ -307,6 +308,31 @@ export async function getTitle(slug: string) {
     })),
     similar: recommendations.flatMap((result) => { const item = similarById.get(result.item.id); return item ? [{ ...toTitle(item), recommendationReason: result.reason }] : [] }),
   }
+}
+
+/**
+ * Episode calendar: episodes of published series by air time. "upcoming" is what has not aired yet,
+ * soonest first; "recent" is what has, latest first. An episode without an air date is in neither.
+ */
+export async function episodeCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
+  const when = normalizeWhen(input.when)
+  const page = calendarPage(input.page)
+  const series = { season: { title: { status: 'PUBLISHED', publishedAt: { lte: now }, kind: 'SERIES' } } }
+  const where = { ...series, airDate: when === 'upcoming' ? { gt: now } : { lte: now } }
+  const [rows, total, upcoming] = await Promise.all([
+    db.cinemaEpisode.findMany({
+      where, orderBy: [{ airDate: when === 'upcoming' ? 'asc' : 'desc' }, { id: 'asc' }], skip: (page - 1) * CALENDAR_PAGE, take: CALENDAR_PAGE,
+      select: { id: true, number: true, title: true, titleEn: true, airDate: true, access: true, season: { select: { number: true, title: { select: { slug: true, title: true, titleEn: true, poster: true, access: true } } } } },
+    }),
+    db.cinemaEpisode.count({ where }),
+    when === 'upcoming' ? Promise.resolve(-1) : db.cinemaEpisode.count({ where: { ...series, airDate: { gt: now } } }),
+  ]).catch(() => [[], 0, 0] as [never[], number, number])
+  const episodes: CalendarEpisode[] = rows.flatMap((row) => row.airDate ? [{
+    id: row.id, at: row.airDate.toISOString(), season: row.season.number, number: row.number, title: row.title, titleEn: row.titleEn,
+    members: row.access === 'MEMBERS' || row.season.title.access === 'MEMBERS',
+    series: { slug: row.season.title.slug, title: row.season.title.title, titleEn: row.season.title.titleEn, poster: row.season.title.poster },
+  }] : [])
+  return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupByDay(episodes) }
 }
 
 // ------------------------------------------------------------------ games

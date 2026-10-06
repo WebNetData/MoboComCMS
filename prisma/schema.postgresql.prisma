@@ -1565,6 +1565,7 @@ model CinemaEpisode {
   season   CinemaSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
   @@unique([seasonId, number])
+  @@index([airDate])
 }
 
 model CinemaWatchProgress {
