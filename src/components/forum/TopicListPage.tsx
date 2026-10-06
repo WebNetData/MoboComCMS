@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation'
 import { getForumViewer, topicList, type TopPeriod, type TopicFilter } from '@/modules/forum/server/forum'
 import ForumShell, { type ForumNavKey } from '@/components/forum/ForumShell'
 import TopicList from '@/components/forum/TopicList'
-import { Pager, num } from '@/components/forum/shared'
+import { Avatar, Pager, num } from '@/components/forum/shared'
 import CategoryWatch from '@/components/forum/CategoryWatch'
 import { categoryLevels } from '@/modules/forum/server/moderation'
-import { subforumRows } from '@/modules/forum/server/board'
+import { forumModerators, subforumRows } from '@/modules/forum/server/board'
 import { categoryFamily, categoryPath } from '@/modules/forum/domain/tree'
 import ForumRow, { ForumRowsHead } from '@/components/forum/ForumRow'
 
@@ -38,6 +38,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
   const pageHref = (n: number) => hrefFor(data.filter, { ...(data.filter === 'top' && period ? { period } : {}), ...(n > 1 ? { page: String(n) } : {}) })
   const children = category ? await subforumRows(viewer, category.id) : []
   const trail = category ? categoryPath(data.categories, category.id) : []
+  const moderators = category ? await forumModerators(trail.map((step) => step.id)) : []
   // A forum is sized with its subforums, as the board index sizes it.
   const family = category ? categoryFamily(data.categories, category.id).map((id) => data.categories.find((c) => c.id === id)!) : []
   const topics = family.reduce((sum, row) => sum + row.threadCount, 0), posts = family.reduce((sum, row) => sum + row.postCount, 0)
@@ -73,6 +74,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
           <ForumRowsHead />
           <ul className="bi-forums">{children.map((child) => <ForumRow key={child.id} forum={child} />)}</ul>
         </section>}
+        {moderators.length > 0 && <p className="fc-mods"><span>مدیران این {children.length > 0 && !category.parentId ? 'بخش' : 'انجمن'}</span>{moderators.map((person) => <Link key={person.id} href={`/forum/u/${person.username}`}><Avatar author={person} size={26} />{person.name}</Link>)}</p>}
       </> : (
         <header className="fc-plain">
           <div>

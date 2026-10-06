@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { categoryFamily } from '@/modules/forum/domain/tree'
-import { canEditPost, categoryAccess, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
+import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
@@ -55,8 +55,12 @@ export { categoryFamily }
 /** Categories the viewer can see, with what they may do in each. */
 export async function visibleCategories(viewer: Viewer): Promise<CategoryView[]> {
   const rows = await loadCategories().catch(() => [])
+  // A section (a top-level category that holds forums) lists them and takes no topics of its own, from anyone.
+  const parents = new Set(rows.map((row) => row.parentId))
+  const section = (row: { id: number; parentId: number | null }) => row.parentId == null && parents.has(row.id)
   return rows
-    .map((row) => ({ row, access: categoryAccess(row, viewer) }))
+    .map((row) => ({ row, access: categoryAccess(row, inCategory(viewer, row.id)) }))
+    .map(({ row, access }) => ({ row, access: section(row) ? { ...access, create: false } : access }))
     .filter(({ access }) => access.see)
     .map(({ row, access }) => ({
       id: row.id, slug: row.slug, title: row.title, description: row.description, icon: row.icon, color: row.color, parentId: row.parentId, access,
@@ -190,7 +194,7 @@ export async function viewerCounts(viewer: Viewer) {
     db.forumBookmark.count({ where: { userId: viewer.userId } }),
   ]).catch(() => [[], 0, 0] as [{ lastRead: number; thread: { postCount: number } }[], number, number])
   const { unreadMessageCount } = await import('@/modules/forum/server/message-counts')
-  const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : Promise.resolve(0)])
+  const [messages, review] = await Promise.all([unreadMessageCount(viewer.userId).catch(() => 0), viewer.moderator ? db.forumPost.count({ where: { status: 'PENDING' } }).catch(() => 0) : viewer.moderates?.length ? db.forumPost.count({ where: { status: 'PENDING', thread: { categoryId: { in: viewer.moderates } } } }).catch(() => 0) : Promise.resolve(0)])
   return { unread: states.filter((row) => row.lastRead < row.thread.postCount).length, fresh, bookmarks, messages, review }
 }
 
@@ -213,6 +217,8 @@ export async function getTopic(id: number, viewer: Viewer, input: { page?: numbe
   if (!Number.isSafeInteger(id) || id <= 0) return null
   const thread = await db.forumThread.findUnique({ where: { id }, include: { category: { include: { permissions: { select: { groupId: true, level: true } }, parent: { select: { slug: true, title: true, color: true } } } }, tags: { include: { tag: true } } } }).catch(() => null)
   if (!thread) return null
+  // Inside their own forum an assigned moderator sees and may do what a moderator does.
+  viewer = inCategory(viewer, thread.categoryId)
   const access = categoryAccess(thread.category, viewer)
   // A topic waiting for review is visible to its author (with a notice) and staff.
   const ownPending = thread.status === 'PENDING' && !!viewer.userId && thread.userId === viewer.userId

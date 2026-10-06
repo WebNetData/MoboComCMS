@@ -1172,3 +1172,8 @@ header.bi-section-head { cursor: default; }
   .tp-stats dd { font-size: 1rem; }
 }
 @media (prefers-reduced-motion: reduce) { .bi-forum, .bi-sign, .bi-fold, .tl-row, .fc-new { transition: none; } .bi-forum:hover .bi-sign, .fc-new:hover { transform: none; } }
+
+.fc-mods { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 4px 0; font-size: .84rem; color: var(--md-muted); }
+.fc-mods a { display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 4px; border-radius: 999px; border: 1px solid var(--md-line); background: var(--md-card); font-weight: 700; color: var(--md-text) !important; }
+[dir="rtl"] .fc-mods a { padding: 3px 4px 3px 12px; }
+.fc-mods a:hover { border-color: color-mix(in srgb, var(--md-accent) 55%, var(--md-line)); }

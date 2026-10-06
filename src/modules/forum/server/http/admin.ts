@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     return ok({ items: await reviewQueue(await viewerFor(g.admin.id)) })
   }
   const [categories, groups, badges, flags, settings, stats] = await Promise.all([
-    db.forumCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: { permissions: { select: { groupId: true, level: true } } } }),
+    categoriesWithModerators(),
     db.forumGroup.findMany({ orderBy: [{ automatic: 'asc' }, { name: 'asc' }] }),
     db.forumBadge.findMany({ orderBy: [{ tier: 'asc' }, { id: 'asc' }] }),
     flagQueue(),
@@ -103,6 +103,24 @@ async function users(q: string) {
 
 // ------------------------------------------------------------------ writes
 
+/** Categories as the admin table shows them: with the usernames of the moderators assigned to each. */
+async function categoriesWithModerators() {
+  const rows = await db.forumCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: { permissions: { select: { groupId: true, level: true } }, moderators: { select: { userId: true }, orderBy: { createdAt: 'asc' } } } })
+  const profiles = await db.forumProfile.findMany({ where: { userId: { in: rows.flatMap((row) => row.moderators.map((item) => item.userId)) } }, select: { userId: true, username: true } })
+  const names = new Map(profiles.map((row) => [row.userId, row.username]))
+  return rows.map((row) => ({ ...row, moderators: row.moderators.map((item) => names.get(item.userId)).filter((name): name is string => !!name) }))
+}
+
+/** Usernames typed by the admin, resolved to members; a name that matches nobody stops the save and is named. */
+async function moderatorIds(input: unknown): Promise<number[]> {
+  const names = [...new Set((Array.isArray(input) ? input : String(input ?? '').split(/[\s,،]+/)).map((name) => String(name).trim().replace(/^@/, '').toLowerCase()).filter(Boolean))].slice(0, 30)
+  if (!names.length) return []
+  const found = await db.forumProfile.findMany({ where: { username: { in: names }, user: { status: 'ACTIVE' } }, select: { userId: true, username: true } })
+  const missing = names.find((name) => !found.some((row) => row.username === name))
+  if (missing) throw new ForumError(`کاربری با نام «${missing}» پیدا نشد`, 404)
+  return found.map((row) => row.userId)
+}
+
 /** 1 for a section (no parent), 2 for a forum inside it. */
 const categoryDepth = (category: { parentId: number | null }) => category.parentId ? 2 : 1
 
@@ -131,6 +149,7 @@ async function saveCategory(body: Record<string, any>, creating: boolean) {
     ...(body.sortOrder !== undefined ? { sortOrder: int(body.sortOrder, -999, 999) } : {}),
     ...(parentId !== undefined ? { parentId } : {}),
   }
+  const moderators = body.moderators === undefined ? null : await moderatorIds(body.moderators)
   return db.$transaction(async (tx) => {
     const category = creating ? await tx.forumCategory.create({ data: data as { title: string; slug: string } }) : await tx.forumCategory.update({ where: { id }, data })
     if (Array.isArray(body.permissions)) {
@@ -139,6 +158,13 @@ async function saveCategory(body: Record<string, any>, creating: boolean) {
       for (const row of body.permissions) if (groupIds.has(Number(row?.groupId))) rows.set(Number(row.groupId), normalizeLevel(row.level))
       await tx.forumCategoryPermission.deleteMany({ where: { categoryId: category.id } })
       if (rows.size) await tx.forumCategoryPermission.createMany({ data: [...rows].map(([groupId, level]) => ({ categoryId: category.id, groupId, level })) })
+    }
+    if (moderators) {
+      // Keep the rows of those who stay, so the day they were assigned is not lost.
+      await tx.forumCategoryModerator.deleteMany({ where: { categoryId: category.id, userId: { notIn: moderators } } })
+      const kept = new Set((await tx.forumCategoryModerator.findMany({ where: { categoryId: category.id }, select: { userId: true } })).map((row) => row.userId))
+      const added = moderators.filter((userId) => !kept.has(userId))
+      if (added.length) await tx.forumCategoryModerator.createMany({ data: added.map((userId) => ({ categoryId: category.id, userId })) })
     }
     return category
   })

@@ -39,6 +39,18 @@ function boardForum(category: CategoryView, categories: CategoryView[], lastOf: 
   }
 }
 
+/**
+ * Who moderates a forum, as its page names them: those assigned to it and to what it sits under. Staff and
+ * moderator groups moderate everywhere and are not listed here.
+ */
+export async function forumModerators(categoryIds: number[]): Promise<AuthorView[]> {
+  if (!categoryIds.length) return []
+  const rows = await db.forumCategoryModerator.findMany({ where: { categoryId: { in: categoryIds }, user: { status: 'ACTIVE' } }, orderBy: { createdAt: 'asc' }, select: { userId: true } }).catch(() => [])
+  const ids = [...new Set(rows.map((row) => row.userId))]
+  const authors = await authorsFor(ids)
+  return ids.map((id) => authors.get(id)).filter((author): author is AuthorView => !!author)
+}
+
 /** The forums directly under a category, as rows of the index: what a forum page lists above its topics. */
 export async function subforumRows(viewer: Viewer, parentId: number, now = new Date()): Promise<BoardForum[]> {
   const categories = await visibleCategories(viewer)

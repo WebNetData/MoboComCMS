@@ -6,6 +6,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { ForumError, cleanContent, cleanTitle } from '@/modules/forum/domain/forum'
 import {
   canEditPost, categoryAccess, flagWeight, normalizeFlagReason, normalizeNotificationLevel, normalizeTags, postLimits, type Viewer,
+  inCategory, moderatesAnything, moderatesCategory,
 } from '@/modules/forum/domain/community'
 import { countLinks, extractMentions, markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { getForumSettings, notify, refreshStats } from '@/modules/forum/server/community'
@@ -91,7 +92,10 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
   const userId = requireUser(viewer)
   const category = await categoryWithPermissions(Number(input.categoryId)).catch(() => null)
   if (!category) throw new ForumError('دسته‌بندی پیدا نشد', 404)
+  viewer = inCategory(viewer, category.id)
   const access = categoryAccess(category, viewer)
+  // A section only holds forums; topics are written in the forums under it.
+  if (access.see && await isSection(category)) throw new ForumError('در «بخش» نمی‌توان موضوع ساخت؛ یکی از انجمن‌های آن را انتخاب کنید', 409)
   if (!access.create) throw new ForumError(access.see ? 'ایجاد موضوع در این دسته برای شما مجاز نیست' : 'دسته‌بندی پیدا نشد', access.see ? 403 : 404)
   const ref = input.item == null || input.item === '' ? null : parseItemKey(input.item)
   if (input.item && (!ref || !ENTITY_TOPIC_TYPES.includes(ref.type as (typeof ENTITY_TOPIC_TYPES)[number]) || !await itemCard(ref))) throw new ForumError('مورد مرتبط در دسترس نیست', 404)
@@ -128,6 +132,7 @@ export async function createTopic(viewer: Viewer, input: { categoryId: unknown; 
 export async function createReply(viewer: Viewer, threadId: number, input: { content: unknown; replyToId?: unknown }) {
   const userId = requireUser(viewer)
   const thread = Number.isSafeInteger(threadId) ? await db.forumThread.findUnique({ where: { id: threadId }, include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } }) : null
+  if (thread) viewer = inCategory(viewer, thread.categoryId)
   if (!thread || (thread.status !== 'VISIBLE' && !viewer.moderator)) throw new ForumError('موضوع پیدا نشد', 404)
   const access = categoryAccess(thread.category, viewer)
   if (!access.see) throw new ForumError('موضوع پیدا نشد', 404)
@@ -228,6 +233,8 @@ export async function afterPost(viewer: Viewer, post: { threadId: number; title:
 export async function editPost(viewer: Viewer, postId: number, input: { content?: unknown; title?: unknown; tags?: unknown; categoryId?: unknown }) {
   requireUser(viewer)
   const post = Number.isSafeInteger(postId) ? await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } }) : null
+  const everywhere = viewer
+  if (post) viewer = inCategory(viewer, post.thread.categoryId)
   if (!post || (post.status !== 'VISIBLE' && !viewer.moderator)) throw new ForumError('پیام پیدا نشد', 404)
   const settings = await getForumSettings()
   if (!categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
@@ -241,7 +248,8 @@ export async function editPost(viewer: Viewer, postId: number, input: { content?
   let categoryId: number | undefined
   if (first && input.categoryId !== undefined && Number(input.categoryId) !== post.thread.categoryId) {
     const target = await categoryWithPermissions(Number(input.categoryId))
-    if (!target || !categoryAccess(target, viewer).create) throw new ForumError('انتقال به این دسته مجاز نیست', 403)
+    // The way in is judged by who they are in the forum they move it to, not the one they move it from.
+    if (!target || !categoryAccess(target, inCategory(everywhere, target.id)).create || await isSection(target)) throw new ForumError('انتقال به این دسته مجاز نیست', 403)
     categoryId = target.id
   }
   await db.$transaction(async (tx) => {
@@ -270,6 +278,7 @@ async function afterMentions(viewer: Viewer, threadId: number, number: number, t
 
 export async function postRevisions(viewer: Viewer, postId: number) {
   const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } })
+  if (post) viewer = inCategory(viewer, post.thread.categoryId)
   if (!post || (post.status !== 'VISIBLE' && !viewer.moderator) || !categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
   const revisions = await db.forumPostRevision.findMany({ where: { postId }, orderBy: { createdAt: 'desc' }, take: 30 })
   const editors = new Map((await db.forumProfile.findMany({ where: { userId: { in: revisions.map((row) => row.userId) } }, select: { userId: true, username: true } })).map((row) => [row.userId, row.username]))
@@ -280,7 +289,7 @@ export async function postRevisions(viewer: Viewer, postId: number) {
 
 async function visiblePost(viewer: Viewer, postId: number) {
   const post = Number.isSafeInteger(postId) ? await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } } } }) : null
-  if (!post || post.status !== 'VISIBLE' || post.thread.status !== 'VISIBLE' || !categoryAccess(post.thread.category, viewer).see) throw new ForumError('پیام پیدا نشد', 404)
+  if (!post || post.status !== 'VISIBLE' || post.thread.status !== 'VISIBLE' || !categoryAccess(post.thread.category, inCategory(viewer, post.thread.categoryId)).see) throw new ForumError('پیام پیدا نشد', 404)
   return post
 }
 
@@ -343,7 +352,7 @@ export async function flag(viewer: Viewer, postId: number, input: { reason?: unk
 export async function setSolution(viewer: Viewer, postId: number, on: boolean) {
   const userId = requireUser(viewer)
   const post = await visiblePost(viewer, postId)
-  if (!viewer.moderator && post.thread.userId !== userId) throw new ForumError('فقط نویسندهٔ موضوع یا ناظران راه‌حل را انتخاب می‌کنند', 403)
+  if (!moderatesCategory(viewer, post.thread.categoryId) && post.thread.userId !== userId) throw new ForumError('فقط نویسندهٔ موضوع یا ناظران راه‌حل را انتخاب می‌کنند', 403)
   if (post.postNumber === 1) throw new ForumError('پیام اول موضوع نمی‌تواند راه‌حل باشد')
   const previous = post.thread.solvedPostId
   await db.forumThread.update({ where: { id: post.threadId }, data: { solvedPostId: on ? postId : null } })
@@ -362,7 +371,7 @@ export async function setSolution(viewer: Viewer, postId: number, on: boolean) {
 export async function setTopicState(viewer: Viewer, threadId: number, input: { level?: unknown }) {
   const userId = requireUser(viewer)
   const thread = await db.forumThread.findUnique({ where: { id: threadId }, include: { category: { include: { permissions: { select: { groupId: true, level: true } } } } } })
-  if (!thread || !categoryAccess(thread.category, viewer).see) throw new ForumError('موضوع پیدا نشد', 404)
+  if (!thread || !categoryAccess(thread.category, inCategory(viewer, thread.categoryId)).see) throw new ForumError('موضوع پیدا نشد', 404)
   const level = normalizeNotificationLevel(input.level)
   await db.forumTopicUser.upsert({ where: { userId_threadId: { userId, threadId } }, create: { userId, threadId, level }, update: { level } })
   return { level }
@@ -388,7 +397,18 @@ export async function recount(tx: Tx, threadId: number, categoryId: number) {
   await tx.forumCategory.update({ where: { id: categoryId }, data: { threadCount: threads, postCount: posts, lastPostAt: latest?.lastPostAt ?? null } })
 }
 
-const requireModerator = (viewer: Viewer) => { if (!viewer.moderator) throw new ForumError('دسترسی مدیریت تالار ندارید', 403) }
+/** Moderation of a topic or post is allowed to whoever moderates the forum it is in. */
+const requireModerator = (viewer: Viewer, categoryId: number) => { if (!moderatesCategory(viewer, categoryId)) throw new ForumError('دسترسی مدیریت این انجمن را ندارید', 403) }
+/** A section is a top-level category that holds forums: it lists them and takes no topics of its own. */
+const isSection = async (category: { id: number; parentId: number | null }) => category.parentId == null && await db.forumCategory.count({ where: { parentId: category.id } }) > 0
+/** Whether a moderator may move a topic into this forum: one they moderate, or one they could post in anyway. */
+async function mayMoveInto(viewer: Viewer, categoryId: number) {
+  const target = await categoryWithPermissions(categoryId)
+  if (!target) throw new ForumError('دستهٔ مقصد پیدا نشد', 404)
+  if (await isSection(target)) throw new ForumError('موضوع را به یکی از انجمن‌های این بخش منتقل کنید، نه خود بخش', 409)
+  if (!moderatesCategory(viewer, target.id) && !categoryAccess(target, viewer).create) throw new ForumError('انتقال به این انجمن برای شما مجاز نیست', 403)
+  return target.id
+}
 
 /**
  * A moderator hiding or showing content has answered the flags waiting on it. Left pending, they
@@ -400,18 +420,16 @@ async function settleFlags(tx: Tx, viewer: Viewer, where: Prisma.ForumFlagWhereI
 }
 
 export async function moderateThread(viewer: Viewer, threadId: number, patch: { pinned?: unknown; locked?: unknown; status?: unknown; categoryId?: unknown }) {
-  requireModerator(viewer)
   const thread = await db.forumThread.findUnique({ where: { id: threadId } })
-  if (!thread) throw new ForumError('موضوع پیدا نشد', 404)
+  if (!thread || !moderatesAnything(viewer)) throw new ForumError(thread ? 'دسترسی مدیریت تالار ندارید' : 'موضوع پیدا نشد', thread ? 403 : 404)
+  requireModerator(viewer, thread.categoryId)
   const data: Record<string, unknown> = {}
   if (typeof patch.pinned === 'boolean') data.pinned = patch.pinned
   if (typeof patch.locked === 'boolean') data.locked = patch.locked
   if (patch.status === 'VISIBLE' || patch.status === 'HIDDEN') data.status = patch.status
   let target = thread.categoryId
   if (patch.categoryId !== undefined) {
-    const category = await db.forumCategory.findUnique({ where: { id: Number(patch.categoryId) }, select: { id: true } })
-    if (!category) throw new ForumError('دستهٔ مقصد پیدا نشد', 404)
-    data.categoryId = target = category.id
+    if (Number(patch.categoryId) !== thread.categoryId) data.categoryId = target = await mayMoveInto(viewer, Number(patch.categoryId))
   }
   await db.$transaction(async (tx) => {
     await tx.forumThread.update({ where: { id: threadId }, data })
@@ -426,9 +444,9 @@ export async function moderateThread(viewer: Viewer, threadId: number, patch: { 
 }
 
 export async function deleteThread(viewer: Viewer, threadId: number) {
-  requireModerator(viewer)
   const thread = await db.forumThread.findUnique({ where: { id: threadId }, select: { id: true, categoryId: true, title: true, userId: true, tags: { select: { tagId: true } } } })
-  if (!thread) throw new ForumError('موضوع پیدا نشد', 404)
+  if (!thread || !moderatesAnything(viewer)) throw new ForumError(thread ? 'دسترسی مدیریت تالار ندارید' : 'موضوع پیدا نشد', thread ? 403 : 404)
+  requireModerator(viewer, thread.categoryId)
   const authors = await db.forumPost.findMany({ where: { threadId }, distinct: ['userId'], select: { userId: true } })
   await db.$transaction(async (tx) => {
     if (thread.tags.length) await tx.forumTag.updateMany({ where: { id: { in: thread.tags.map((row) => row.tagId) } }, data: { topicCount: { decrement: 1 } } })
@@ -441,9 +459,9 @@ export async function deleteThread(viewer: Viewer, threadId: number) {
 }
 
 export async function moderatePost(viewer: Viewer, postId: number, action: 'hide' | 'show' | 'delete') {
-  requireModerator(viewer)
   const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { select: { id: true, categoryId: true } } } })
-  if (!post) throw new ForumError('پیام پیدا نشد', 404)
+  if (!post || !moderatesAnything(viewer)) throw new ForumError(post ? 'دسترسی مدیریت تالار ندارید' : 'پیام پیدا نشد', post ? 403 : 404)
+  requireModerator(viewer, post.thread.categoryId)
   if (post.postNumber === 1 && action !== 'show') throw new ForumError('پیام اول موضوع را با پنهان یا حذف‌کردن خود موضوع مدیریت کنید', 409)
   await db.$transaction(async (tx) => {
     if (action === 'delete') await tx.forumPost.delete({ where: { id: postId } })
@@ -459,9 +477,9 @@ export async function moderatePost(viewer: Viewer, postId: number, action: 'hide
 
 /** Staff decision on a post's pending flags: agree (keep hidden), disagree (restore) or delete. */
 export async function resolveFlags(viewer: Viewer, postId: number, action: 'agree' | 'disagree' | 'delete') {
-  requireModerator(viewer)
   const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { select: { id: true, categoryId: true } } } })
-  if (!post) throw new ForumError('پیام پیدا نشد', 404)
+  if (!post || !moderatesAnything(viewer)) throw new ForumError(post ? 'دسترسی مدیریت تالار ندارید' : 'پیام پیدا نشد', post ? 403 : 404)
+  requireModerator(viewer, post.thread.categoryId)
   const status = action === 'disagree' ? 'DISAGREED' : 'AGREED'
   await db.forumFlag.updateMany({ where: { postId, status: 'PENDING' }, data: { status, handledBy: viewer.userId, handledAt: new Date() } })
   if (action === 'delete') {
