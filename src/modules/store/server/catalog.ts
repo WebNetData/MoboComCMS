@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
@@ -35,6 +36,8 @@ export type ProductCard = {
   brand: string
   category: string
   kind: string
+  /** A virtual product that hands over its code by itself on payment (and has one to give). */
+  instant: boolean
   price: number
   listPrice: number
   discount: number
@@ -77,7 +80,7 @@ function toCard(row: CardRow, rating: { rating: number; count: number } | undefi
   const stock = row.stock >= 0 ? (variantStock >= 0 ? Math.min(row.stock, variantStock) : row.stock) : variantStock
   const threshold = row.lowStockAt || lowStockDefault
   return {
-    id: row.id, slug: row.slug, name: row.name, image: row.image, brand: row.brand?.name || '', category: row.category?.name || '', kind: row.kind,
+    id: row.id, slug: row.slug, name: row.name, image: row.image, brand: row.brand?.name || '', category: row.category?.name || '', kind: row.kind, instant: deliversInstantly(row),
     price: minorToNumber(best.unitMinor, best.currency), listPrice: best.listMinor ? minorToNumber(best.listMinor, best.currency) : 0,
     discount: best.listMinor ? discountPercent(best.unitMinor, best.listMinor) : 0, currency: best.currency,
     inStock, lowStock: inStock && stock >= 0 && stock <= threshold ? stock : 0,

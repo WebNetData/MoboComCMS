@@ -9,6 +9,7 @@ import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { getCarrierSettings } from '@/modules/shipping/server/carriers'
 import { minorToNumber } from '@/shared/money'
 import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -120,6 +121,8 @@ export type CartLineView = {
   image: string
   brand: string
   kind: string
+  /** A virtual product that hands over its code by itself on payment. */
+  instant: boolean
   quantity: number
   maxQuantity: number
   unitPrice: number
@@ -199,7 +202,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     try { attributes = variant ? JSON.parse(variant.attributes || '{}') : {} } catch { attributes = {} }
     return {
       id: row.id, productId: product.id, variantId: variant?.id ?? null, slug: product.slug, name: product.name,
-      variantName: variant?.name || '', attributes, image: product.image, brand: product.brand?.name || '', kind: product.kind,
+      variantName: variant?.name || '', attributes, image: product.image, brand: product.brand?.name || '', kind: product.kind, instant: deliversInstantly(product),
       quantity, maxQuantity: limit,
       unitPrice: minorToNumber(price.unitMinor, price.currency), listPrice: price.listMinor ? minorToNumber(price.listMinor, price.currency) : 0,
       lineTotal: minorToNumber(lineMinor, price.currency), currency: price.currency, issue,

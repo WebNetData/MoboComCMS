@@ -23,6 +23,8 @@ export type BuyBoxProps = {
   productId: number
   slug: string
   kind: string
+  /** The product hands over its code by itself on payment. */
+  instant?: boolean
   currency: string
   price: number
   listPrice: number
@@ -184,7 +186,7 @@ export default function BuyBox(props: BuyBoxProps) {
       <ul className="sx-buy-facts">
         <li><StoreIcon name="store" size={18} /><span>{props.seller ? <Link href={props.seller.href}><b>{props.seller.name}</b></Link> : <b>فروشگاه {site.brand}</b>}<small>{props.seller ? props.seller.label : 'فروشندهٔ رسمی'}</small></span></li>
         {props.warranty && <li><StoreIcon name="shield" size={18} /><span>{props.warranty}</span></li>}
-        <li>{props.kind === 'PHYSICAL' ? <StoreIcon name="truck" size={18} /> : <StoreIcon name="bolt" size={18} />}<span>{props.kind === 'PHYSICAL' ? props.shipping : 'تحویل آنی پس از پرداخت در حساب کاربری'}</span></li>
+        <li>{props.kind === 'PHYSICAL' ? <StoreIcon name="truck" size={18} /> : <StoreIcon name="bolt" size={18} />}<span>{props.kind === 'PHYSICAL' ? props.shipping : props.instant ? 'تحویل آنی پس از پرداخت در حساب کاربری' : 'تحویل دیجیتال در حساب کاربری پس از تأیید سفارش'}</span></li>
       </ul>
 
       {available && <div className="sx-buy-price">

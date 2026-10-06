@@ -6,6 +6,7 @@ import { dimensionSummariesFor, ratingsFor } from '@/modules/reviews/server/revi
 import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 import { formatRuntime, licenseLabel, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
+import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 
 /**
  * Side-by-side comparison of up to four items of one type. Each row is a label
@@ -126,7 +127,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
         numbers: sameCurrency ? p.map((r) => { const minor = priceMinor(r); return minor === null ? null : Number(minor) }) : undefined,
       },
       row('قیمت ویژهٔ VIP', p.map((r) => (r && r.memberPriceMinor > 0n ? formatMoney(r.memberPriceMinor, normalizeCurrency(r.currency), 'fa-IR') : ''))),
-      row('موجودی', p.map((r) => (!r ? '' : r.kind !== 'PHYSICAL' ? 'تحویل آنی' : r.stock > 0 ? `${fa(r.stock)} عدد` : 'ناموجود'))),
+      row('موجودی', p.map((r) => (!r ? '' : r.kind !== 'PHYSICAL' ? (deliversInstantly(r) ? 'تحویل آنی' : r.digitalMode === 'CODES' ? 'ناموجود' : 'تحویل دیجیتال') : r.stock > 0 ? `${fa(r.stock)} عدد` : 'ناموجود'))),
       row('نوع', p.map((r) => (r?.kind === 'PHYSICAL' ? 'کالای فیزیکی' : r ? 'محصول دیجیتال' : ''))), row('دسته', p.map((r) => r?.category?.name)),
       numeric('امتیاز خریداران (از ۵)', ids.map((id) => { const avg = reviewOf(id)?._avg.rating; return avg == null ? null : Math.round(avg * 10) / 10 }), 'high', (n) => `${n.toLocaleString('fa-IR', { minimumFractionDigits: 1 })} ★`),
       row('تعداد نظر', ids.map((id) => reviewOf(id)?._count || 0)),

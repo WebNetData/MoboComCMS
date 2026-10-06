@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { syncCodeStock } from '@/modules/catalog/server/code-stock'
 
 // Stock is held per order line while an invoice is open, so concurrent
 // checkouts cannot oversell the last unit. Store orders list their lines in
@@ -25,8 +26,13 @@ async function orderStockLines(tx: Tx, orderId: number): Promise<StockLine[]> {
 
 /** Takes stock for one line; throws OutOfStock when it cannot. */
 async function takeStock(tx: Tx, item: StockLine) {
-  const product = await tx.product.findUnique({ where: { id: item.productId }, select: { id: true, active: true, stock: true } })
+  let product = await tx.product.findUnique({ where: { id: item.productId }, select: { id: true, active: true, stock: true, digitalMode: true } })
   if (!product || !product.active) throw new OutOfStock('product unavailable')
+  // A product that delivers codes sells what its pool holds: its stock is recomputed, under its row lock, before it is taken from.
+  if (product.digitalMode === 'CODES') {
+    await syncCodeStock(tx, product.id)
+    product = (await tx.product.findUnique({ where: { id: item.productId }, select: { id: true, active: true, stock: true, digitalMode: true } }))!
+  }
   const variant = item.variantId ? await tx.productVariant.findFirst({ where: { id: item.variantId, productId: product.id, active: true }, select: { id: true, stock: true } }) : null
   if (item.variantId && !variant) throw new OutOfStock('variant unavailable')
   const finite = product.stock >= 0

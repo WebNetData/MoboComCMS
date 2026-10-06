@@ -31,7 +31,7 @@ test('baseline admin action keeps the existing Store permission and queue owner 
     '@/platform/audit/server': { auditAdmin: async input => { assert.equal(input.action, 'store.price-history.baseline'); assert.equal(input.targetId, 7); audited++ } },
     '@/extensions/server/modules': {}, '@/modules/identity/server/access': {}, '@/modules/settings/server': {},
     '@/modules/checkout/server/checkout': {}, '@/modules/store/server/cart': {}, '@/modules/store/server/marketing': {}, '@/modules/store/server/bundles': {},
-    '@/modules/store/server/orders': {}, '@/modules/store/server/admin': {},
+    '@/modules/store/server/orders': {}, '@/modules/store/server/admin': {}, '@/modules/store/server/digital-codes': {},
     '@/modules/identity/server/admin-guard': { adminGuard: async (_req, module, permissions) => {
       assert.equal(module, 'store'); assert.deepEqual(permissions, ['settings.manage', 'cms.products'])
       return denied ? { response } : { admin: { id: 1 } }

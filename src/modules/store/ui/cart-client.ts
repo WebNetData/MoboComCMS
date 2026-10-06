@@ -7,7 +7,7 @@ import { newIdempotencyKey } from '@/shared/security/idempotency'
 
 export type CartLine = {
   id: number; productId: number; variantId: number | null; slug: string; name: string; variantName: string; attributes: Record<string, string>
-  image: string; brand: string; kind: string; quantity: number; maxQuantity: number; unitPrice: number; listPrice: number; lineTotal: number; currency: string; issue: string
+  image: string; brand: string; kind: string; instant?: boolean; quantity: number; maxQuantity: number; unitPrice: number; listPrice: number; lineTotal: number; currency: string; issue: string
 }
 export type Cart = {
   token: string; lines: CartLine[]; count: number; currency: string; itemsTotal: number; listTotal: number; saving: number

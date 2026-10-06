@@ -68,7 +68,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
               {Object.entries(line.attributes).map(([key, value]) => <li key={key}>{value}</li>)}
               {!Object.keys(line.attributes).length && line.variantName && <li>{line.variantName}</li>}
               {line.brand && <li><StoreIcon name="store" size={14} />{line.brand}</li>}
-              <li>{line.kind === 'PHYSICAL' ? <><StoreIcon name="truck" size={14} />ارسال فروشگاه</> : <><StoreIcon name="bolt" size={14} />تحویل آنی</>}</li>
+              <li>{line.kind === 'PHYSICAL' ? <><StoreIcon name="truck" size={14} />ارسال فروشگاه</> : <><StoreIcon name="bolt" size={14} />{line.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</>}</li>
             </ul>
             {line.issue && <p className="sx-cart-issue" role="status">{line.issue}</p>}
           </div>

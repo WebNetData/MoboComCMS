@@ -158,3 +158,54 @@ test('virtual product delivery details are encrypted and authenticated', () => {
     else process.env.STORE_DELIVERY_KEY = previous
   }
 })
+
+// ---- codes a virtual product delivers by itself
+test('pasted codes are split one per line, repeats are counted and anything doubtful refuses the whole paste', () => {
+  const codes = load('src/modules/store/domain/digital-codes.ts')
+  assert.deepEqual(codes.parseCodes('AAAA-1\r\n  BBBB-2  \n\n\nAAAA-1\nCC  CC'), { codes: ['AAAA-1', 'BBBB-2', 'CC CC'], repeated: 1 })
+  assert.deepEqual(codes.parseCodes(''), { codes: [], repeated: 0 })
+  assert.deepEqual(codes.parseCodes(null), { codes: [], repeated: 0 })
+  assert.throws(() => codes.parseCodes('ok\n<script>x</script>'), /خط ۲/)
+  assert.throws(() => codes.parseCodes(`ok\n${'x'.repeat(codes.MAX_CODE_LENGTH + 1)}`), /طولانی/)
+  assert.throws(() => codes.parseCodes(Array.from({ length: codes.MAX_CODES_PER_REQUEST + 1 }, (_, i) => `c${i}`).join('\n')), /حداکثر/)
+  assert.equal(codes.parseCodes(Array.from({ length: codes.MAX_CODES_PER_REQUEST }, (_, i) => `c${i}`).join('\n')).codes.length, codes.MAX_CODES_PER_REQUEST)
+})
+
+test('staff see a code masked, the buyer gets each item with its codes', () => {
+  const codes = load('src/modules/store/domain/digital-codes.ts')
+  assert.deepEqual(['ABCD-EFGH-1234', 'AB12', 'X', 'A'.repeat(40) + '9876'].map(codes.maskCode), ['••••••••••1234', '••••', '•', '••••••••••••9876'])
+  assert.equal(codes.composeDelivery([{ name: 'گیفت کارت', variantName: '', codes: ['A', 'B'] }, { name: 'لایسنس', variantName: 'خانگی', codes: ['C'] }, { name: 'بدون کد', variantName: '', codes: [] }]), 'گیفت کارت\nA\nB\n\nلایسنس (خانگی)\nC')
+  assert.deepEqual([codes.missingCodes(3, 1), codes.missingCodes(1, 1), codes.missingCodes(0, 0), codes.missingCodes(2, 5)], [2, 0, 1, 0])
+  assert.deepEqual(['CODES', 'MANUAL', 'codes', undefined, 7].map(codes.normalizeDigitalMode), ['CODES', 'MANUAL', 'MANUAL', 'MANUAL', 'MANUAL'])
+})
+
+test('"instant delivery" is said only of a product that hands over a code by itself and has one', () => {
+  const codes = load('src/modules/store/domain/digital-codes.ts')
+  const says = (kind, digitalMode, stock) => codes.deliversInstantly({ kind, digitalMode, stock })
+  assert.deepEqual([says('VIRTUAL', 'CODES', 3), says('VIRTUAL', 'CODES', 0), says('VIRTUAL', 'MANUAL', -1), says('VIRTUAL', 'MANUAL', 5), says('PHYSICAL', 'CODES', 3)], [true, false, false, false, false])
+  // No screen prints the promise without asking.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  for (const file of ['src/components/store/BuyBox.tsx', 'src/components/store/CartPage.tsx', 'src/components/store/CartCheckout.tsx', 'src/components/store/Storefront.tsx', 'src/modules/catalog/server/pages/products/[slug]/page.tsx', 'src/modules/compare/server/compare.ts']) {
+    const source = read(file)
+    for (const line of source.split('\n').filter((item) => item.includes('تحویل آنی'))) assert.ok(/instant|deliversInstantly/.test(line), `${file}: ${line.trim().slice(0, 90)}`)
+  }
+})
+
+test('the same code is recognised again without being stored readable', () => {
+  const previous = process.env.STORE_DELIVERY_KEY
+  process.env.STORE_DELIVERY_KEY = 'cd'.repeat(32)
+  try {
+    const { digitalFingerprint } = load('src/modules/catalog/server/digital-delivery.ts')
+    assert.equal(digitalFingerprint('AAAA-1111'), digitalFingerprint('  AAAA-1111 '))
+    assert.notEqual(digitalFingerprint('AAAA-1111'), digitalFingerprint('AAAA-1112'))
+    assert.match(digitalFingerprint('AAAA-1111'), /^[0-9a-f]{64}$/)
+    assert.ok(!digitalFingerprint('AAAA-1111').includes('AAAA'))
+    process.env.STORE_DELIVERY_KEY = 'ef'.repeat(32)
+    const other = load('src/modules/catalog/server/digital-delivery.ts').digitalFingerprint('AAAA-1111')
+    process.env.STORE_DELIVERY_KEY = 'cd'.repeat(32)
+    assert.notEqual(other, digitalFingerprint('AAAA-1111'), 'keyed: not a plain hash anyone can compute')
+  } finally {
+    if (previous === undefined) delete process.env.STORE_DELIVERY_KEY
+    else process.env.STORE_DELIVERY_KEY = previous
+  }
+})

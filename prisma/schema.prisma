@@ -755,6 +755,7 @@ model Product {
   views         Int @default(0)
   soldCount     Int @default(0)
   faqs          String @default("[]")
+  digitalMode   String @default("MANUAL") // VIRTUAL goods: MANUAL (staff delivers each order) | CODES (a code from the pool is delivered on payment)
   sellerId      Int? // marketplace seller; null = the site itself
   approval      String @default("APPROVED") // APPROVED | PENDING | REJECTED (seller products are reviewed)
   approvalNote  String @default("")
@@ -775,6 +776,7 @@ model Product {
   outgoingRelationships ProductRelationship[] @relation("ProductRelationshipSource")
   incomingRelationships ProductRelationship[] @relation("ProductRelationshipTarget")
   questions     ProductQuestion[]
+  digitalCodes  ProductDigitalCode[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @default(now()) @updatedAt
   category      ProductCategory? @relation(fields: [categoryId], references: [id])
@@ -846,6 +848,25 @@ model ProductPricePoint {
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, variantId, recordedAt, id])
+}
+
+// The pool of codes (gift cards, licence keys) a product delivers by itself. A row without an order is on the
+// shelf; Product.stock of a CODES product always equals the rows on the shelf minus the units held by open orders.
+model ProductDigitalCode {
+  id          Int       @id @default(autoincrement())
+  productId   Int
+  variantId   Int?
+  secret      String // encrypted; shown to the buyer of the order and to store staff only
+  fingerprint String // keyed hash of the code: the same code is refused twice for one product
+  orderId     Int?
+  orderLine   Int?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, fingerprint])
+  @@index([productId, variantId, orderId])
+  @@index([orderId])
 }
 
 model ProductVariant {

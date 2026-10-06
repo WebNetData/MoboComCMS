@@ -42,7 +42,7 @@ export function ProductTile({ product, rank }: { product: ProductCard; rank?: nu
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
         {product.inStock && product.discount > 0 && <span className="sx-tile-off num">{fa(product.discount)}٪</span>}
         {product.vipOnly && <span className="sx-flag is-vip">VIP</span>}
-        {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />تحویل آنی</span>}
+        {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />{product.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</span>}
       </span>
       <span className="sx-tile-body">
         {product.brand && <small className="sx-tile-brand">{product.brand}</small>}

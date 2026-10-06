@@ -25,6 +25,7 @@ Each finding prints a count and up to 20 records. A finding stops scanning at 5,
 | Reseller sales provisioned for the wrong user | The account of the sale is owned by someone other than the customer the sale names (recovered before #91) | Nothing | Move or recreate the account for the customer |
 | Club points taken without wallet credit | Points were redeemed, no credit and no undo | The marketing job finishes the last 7 days | Older ones |
 | Paid orders with no fulfillment job | Paid and never queued for delivery | The order worker queues the most recent ones | Older ones |
+| Paid orders waiting for a digital code | The product delivers codes from its own pool and had none left when the order was paid | Adding codes to the product delivers the waiting orders at once, oldest first | Add codes, or deliver the order by hand and refund if the code cannot be supplied |
 
 The longer windows are arguments of the recovery functions (`recoverReferralRewards(days)`, `recoverMarketplaceSales(days)`, `recoverGiftMemberships(days)`); running them with a larger value is a write and is left to the operator.
 

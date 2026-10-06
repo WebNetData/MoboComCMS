@@ -62,10 +62,16 @@ async function main() {
  const taken = await points('lost'), paidPoints = await points('paid'), undonePoints = await points('undone')
  await done(`loyalty:redeem:${paidPoints.id}`); await prisma.loyaltyEntry.create({data: {userId: buyer.id, points: 100, kind: 'ADMIN', idempotencyKey: `redeem-undo:${undonePoints.id}`}})
 
+ // 14: a paid order that found the code shelf empty; its twin was delivered since
+ const waitingCode = await order({status: 'PAID'}), servedCode = await order({status: 'PAID'})
+ await prisma.productDelivery.create({data: {orderId: waitingCode.id}}); await prisma.productDelivery.create({data: {orderId: servedCode.id, status: 'DELIVERED', deliveredAt: new Date()}})
+ for (const row of [waitingCode, servedCode]) await prisma.orderEvent.create({data: {orderId: row.id, status: 'CODES_SHORT', note: 'x', visible: false}})
+
  const result = Object.fromEntries((await findings(readOnly)).map(row => [row.key, row]))
  const has = (key, test) => result[key].sample.concat([]).some(test) || (() => { throw new Error(`${key}: planted record not reported: ${JSON.stringify(result[key].sample.slice(0, 3))}`) })()
  const lacks = (key, test, why) => assert.ok(!result[key].sample.some(test), `${key}: ${why}`)
- assert.equal(Object.keys(result).length, 13)
+ assert.equal(Object.keys(result).length, 14)
+ has('codes-waiting', row => row.orderId === waitingCode.id); lacks('codes-waiting', row => row.orderId === servedCode.id, 'an order delivered since is not waiting')
  has('order-over-refunded', row => row.orderId === over.id && row.refunded === '1300' && row.total === '1000'); lacks('order-over-refunded', row => row.orderId === fine.id, 'an order refunded exactly its total is fine')
  has('refund-without-credit', row => row.returnId === uncredited.id)
  has('gift-card-duplicate', row => row.cards.length === 2 && row.cards.some(c => c.id === twin1.id) && row.cards.some(c => c.id === twin2.id)); lacks('gift-card-duplicate', row => row.purchase.endsWith('-single'), 'a single card is fine')
@@ -79,7 +85,7 @@ async function main() {
  has('reseller-account-wrong-owner', row => row.orderId === wrongOwner.id && row.ownedBy === referrer.id && row.soldFor === friend.id); assert.equal(result['reseller-account-wrong-owner'].sample.filter(row => row.soldFor === friend.id).length, 1, 'the sale owned by its customer is fine')
  has('points-redeemed-uncredited', row => row.entryId === taken.id && row.points === 100); lacks('points-redeemed-uncredited', row => [paidPoints.id, undonePoints.id].includes(row.entryId), 'a credited or undone redemption is fine')
  has('paid-without-fulfillment', row => row.invoice === unqueued.number); lacks('paid-without-fulfillment', row => row.orderId === healthy.id, 'an order with a job is fine')
- console.log('PostgreSQL integrity report: each of the 13 findings reports its planted record and not its healthy twin, on a client that refuses writes passed')
+ console.log('PostgreSQL integrity report: each of the 14 findings reports its planted record and not its healthy twin, on a client that refuses writes passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
  try {

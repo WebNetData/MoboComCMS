@@ -8,6 +8,8 @@ import { Money } from '@/components/store/Storefront'
 import ReturnPanel from '@/components/store/ReturnPanel'
 import RateSellers from '@/components/marketplace/RateSellers'
 import { orderShipment } from '@/modules/shipping/server/carriers'
+import { buyerCodes } from '@/modules/store/server/digital-codes'
+import CopyText from '@/components/software/CopyText'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const persian = (value: Date | string, time = false) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'long', year: 'numeric', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}), timeZone: 'Asia/Tehran' }).format(new Date(value))
@@ -65,6 +67,8 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
   const order = Number.isSafeInteger(id) && id > 0 ? await customerOrder(user, id) : null
   if (!order) notFound()
   const shipment = await orderShipment(order.id).catch(() => null)
+  // Codes delivered by the product's own pool are the buyer's as soon as the order is paid.
+  const codes = await buyerCodes(user, order.id).catch(() => [])
   const closed = order.fulfilment === 'CANCELLED' || order.fulfilment === 'RETURNED' || order.state.key === 'CANCELLED'
   const step = order.state.key === 'UNPAID' ? -1 : order.fulfilment === 'DELIVERED' ? TRACKING_STEPS.length : trackingIndex(order.fulfilment || 'PENDING')
   return <div className="sx-my sx-my-detail" dir="rtl">
@@ -82,6 +86,14 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
     {!closed && step >= 0 && <ol className="sx-track" aria-label="مراحل سفارش">{TRACKING_STEPS.map((item, index) => <li key={item.status} className={index < step ? 'is-done' : index === step ? 'is-current' : ''} aria-current={index === step ? 'step' : undefined}>
       <span className="sx-track-dot">{index < step ? <StoreIcon name="check" size={14} /> : fa(index + 1)}</span><b>{item.label}</b>
     </li>)}</ol>}
+    {codes.length > 0 && <section className="sx-my-card sx-my-codes" aria-label="کدهای خریداری‌شده">
+      <h2><StoreIcon name="bolt" size={17} />کدهای شما</h2>
+      <p className="sx-my-codes-note">این کدها فقط به شما نشان داده می‌شوند؛ آن‌ها را در اختیار دیگران نگذارید.</p>
+      {codes.map((line, index) => <div key={index} className="sx-my-code-line">
+        <b>{line.name}{line.variantName && <small> · {line.variantName}</small>}</b>
+        <ul>{line.codes.map((code) => <li key={code}><CopyText value={code} label="کد" /></li>)}</ul>
+      </div>)}
+    </section>}
     <div className="sx-my-grid">
       <section className="sx-my-card">
         <h2>کالاها <small className="num">({fa(order.lines.reduce((sum, line) => sum + line.quantity, 0))})</small></h2>

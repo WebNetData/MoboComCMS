@@ -8,6 +8,7 @@ const CHECKS = [
   'invoice-void-settle',
   'return-refund-integrity',
   'gift-card-integrity',
+  'digital-codes',
   'forum-flag-queue',
   'moderation-queue',
   'marketplace-seller-money',

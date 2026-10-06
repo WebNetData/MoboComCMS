@@ -209,7 +209,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
         </section>}
 
         {!physical && <section className="sh-panel" aria-labelledby="sh-items-title">
-          <header className="sh-panel-head"><h2 id="sh-items-title">کالاهای سفارش</h2><span className="sh-muted">تحویل آنی پس از پرداخت</span></header>
+          <header className="sh-panel-head"><h2 id="sh-items-title">کالاهای سفارش</h2><span className="sh-muted">{cart.lines.every((line) => line.instant) ? 'تحویل آنی پس از پرداخت' : 'تحویل دیجیتال در حساب کاربری پس از تأیید سفارش'}</span></header>
           <ul className="sx-review-lines">{cart.lines.map((line) => <li key={line.id}>{line.image ? <img src={line.image} alt="" /> : <StoreIcon name="box" size={22} />}<span><b>{line.name}</b>{line.variantName && <small>{line.variantName}</small>}</span><span className="num">{line.quantity.toLocaleString('fa-IR')}×</span></li>)}</ul>
         </section>}
 
