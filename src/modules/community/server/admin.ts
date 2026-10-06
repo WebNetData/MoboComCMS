@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { plainText } from '@/shared/text/plain'
 import { CommunityError, REPORT_REASONS, hashtagsIn } from '@/modules/community/domain/community'
 import { ensureUserProfiles, profileCards } from '@/modules/identity/server/profile'
 
@@ -124,4 +125,13 @@ export async function setVerified(userId: number, verified: boolean) {
   const row = await db.userProfile.update({ where: { userId }, data: { verified } }).catch(() => null)
   if (!row) throw new CommunityError('کاربر پیدا نشد', 404)
   return { verified: row.verified }
+}
+
+/** For the staff moderation overview: open reports of posts and comments, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const [count, rows] = await Promise.all([
+    db.communityReport.count({ where: { status: 'OPEN' } }),
+    db.communityReport.findMany({ where: { status: 'OPEN' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, reason: true, note: true, createdAt: true, reporter: { select: { name: true } }, post: { select: { content: true } }, comment: { select: { content: true } } } }),
+  ])
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.note, 160) || row.reason, by: row.reporter.name || '', about: plainText(row.comment?.content || row.post?.content || '', 80), at: row.createdAt })) }
 }

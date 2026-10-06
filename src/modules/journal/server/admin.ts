@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { plainText } from '@/shared/text/plain'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { JOURNAL_HEALTH, livePostWhere, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
 
@@ -124,4 +125,13 @@ export async function searchJournalPicker(input: unknown) {
     orderBy: { publishedAt: 'desc' }, take: 25, select: { id: true, title: true, cover: true },
   })
   return posts.map((post) => ({ id: post.id, title: post.title, cover: post.cover }))
+}
+
+/** For the staff moderation overview: article comments waiting for approval, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const [count, rows] = await Promise.all([
+    db.postComment.count({ where: { status: 'PENDING' } }),
+    db.postComment.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, createdAt: true, user: { select: { name: true } }, post: { select: { title: true } } } }),
+  ])
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user.name || '', about: row.post.title, at: row.createdAt })) }
 }

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { ITEM_LABEL, parseItemKey, parseItemPath, type ItemRef } from '@/modules/content/domain/items'
@@ -126,4 +127,14 @@ export async function decideReport(id: number, input: { status: unknown; resolut
     resolvedAt: status === 'REVIEWING' ? null : new Date(),
   } })
   return { id, status, actions: log }
+}
+
+/** For the staff moderation overview: copyright reports that are new or under review, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const where = { status: { in: ['NEW', 'REVIEWING'] } }
+  const [count, rows] = await Promise.all([
+    db.copyrightReport.count({ where }),
+    db.copyrightReport.findMany({ where, orderBy: { createdAt: 'asc' }, take, select: { id: true, workTitle: true, name: true, organization: true, createdAt: true } }),
+  ])
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.workTitle, 160), by: row.organization || row.name, about: '', at: row.createdAt })) }
 }
