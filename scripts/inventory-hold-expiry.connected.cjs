@@ -17,9 +17,10 @@ const db = new Proxy(prisma, {get(target, key) {return key === 'inventoryReserva
 // INVENTORY_HOLD_BASELINE=<git ref> runs the inventory service of that revision to reproduce the old behaviour.
 const file = 'src/modules/catalog/server/inventory.ts'
 const source = baseline ? execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'}) : fs.readFileSync(file, 'utf8')
-function load() {
+function load(text = source) {
  const mod = {exports: {}}
- new Function('require', 'module', 'exports', ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => name === '@/platform/database/prisma' ? {db} : require(name), mod, mod.exports)
+ // The stock rule of code-delivered products is part of the inventory code and runs on the same database client.
+ new Function('require', 'module', 'exports', ts.transpileModule(text, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => name === '@/platform/database/prisma' ? {db} : name === '@/modules/catalog/server/code-stock' ? load(fs.readFileSync('src/modules/catalog/server/code-stock.ts', 'utf8')) : require(name), mod, mod.exports)
  return mod.exports
 }
 let user, product

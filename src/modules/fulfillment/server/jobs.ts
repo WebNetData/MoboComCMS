@@ -133,6 +133,9 @@ async function handle(job: { id: number; kind: string; orderId: number | null; s
     // Marketplace: seller share and commission of each seller line.
     await import('@/modules/marketplace/server/marketplace').then((m) => m.recordMarketplaceSale(job.orderId!)).catch((error) => logEvent('error', 'marketplace.sale_record_failed', { orderId: job.orderId, error }))
     await grantGiftForOrder(job.orderId).catch((error) => logEvent('error', 'membership.gift_failed', { orderId: job.orderId, error }))
+    // Products with their own code pool deliver themselves. A failure here fails the job, so it is tried again:
+    // every step above is safe to repeat and a code is given to a line once.
+    await import('@/modules/store/server/digital-codes').then((m) => m.deliverDigitalCodes(job.orderId!))
     return
   }
 

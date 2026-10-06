@@ -11,6 +11,7 @@ import AiAutofill from '../../../cms/AiAutofill'
 import FxPricing from '../FxPricing'
 import PublishReview, { previewValue, type ReviewRow } from '../../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
+import ProductCodes from './Codes'
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -51,6 +52,8 @@ export default function ProductEditorPage() {
   const [aiValues, setAiValues] = useState<Form>({})
   const [review, setReview] = useState(false)
   const [originalActive, setOriginalActive] = useState<boolean | null>(isNew ? null : true)
+  // A product that delivers codes takes its stock from its code shelf; the stock field is then read-only.
+  const [codesOn, setCodesOn] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/cms?type=productcats').then((r) => (r.ok ? r.json() : [])).then(setCategories).catch(() => {})
@@ -61,6 +64,7 @@ export default function ProductEditorPage() {
       const row = Array.isArray(rows) ? rows[0] : null
       if (!row) { setError('محصول پیدا نشد'); return }
       setOriginalActive(row.active !== false)
+      setCodesOn(row.digitalMode === 'CODES')
       setForm({ ...EMPTY, ...row, categoryId: row.categoryId ? String(row.categoryId) : '', brandId: row.brandId ? String(row.brandId) : '', saleEndsAt: localInput(row.saleEndsAt), description: row.description || '', descriptionEn: row.descriptionEn || '' })
     }).catch(() => setError('بارگذاری محصول انجام نشد'))
   }, [id, isNew])
@@ -183,13 +187,17 @@ export default function ProductEditorPage() {
           <header className="sa-card-head"><h2>انبار و ارسال</h2></header>
           <div className="sa-grid">
             {field('sku', 'کد کالا (SKU)', { dir: 'ltr', maxLength: 80 })}
-            {field('stock', 'موجودی (۱- = نامحدود)', { type: 'number', min: -1 })}
+            {codesOn
+              ? <label className="sa-field"><span>موجودی</span><input className="input" value={form.stock} readOnly disabled aria-describedby="sa-stock-codes" /><small id="sa-stock-codes" className="sa-sub">برابر با کدهای روی قفسه است (بخش «تحویل خودکار کد»).</small></label>
+              : field('stock', 'موجودی (۱- = نامحدود)', { type: 'number', min: -1 })}
             {field('lowStockAt', 'هشدار موجودی کم (۰ = پیش‌فرض فروشگاه)', { type: 'number', min: 0 })}
             {field('maxPerOrder', 'حداکثر تعداد در هر سفارش (۰ = بدون محدودیت)', { type: 'number', min: 0 })}
             {form.kind === 'PHYSICAL' && field('weightGrams', 'وزن بسته (گرم)', { type: 'number', min: 0 })}
             {field('warranty', 'گارانتی / ضمانت', { maxLength: 160, placeholder: 'گارانتی ۱۸ ماهه' })}
           </div>
         </section>
+
+        {!isNew && form.kind === 'VIRTUAL' && <ProductCodes productId={Number(id)} onStock={(stock) => { setCodesOn(stock >= 0); setForm((current) => current && { ...current, stock }) }} />}
 
         <section id="sa-media" className="sa-card">
           <header className="sa-card-head"><h2>تصاویر</h2></header>

@@ -99,6 +99,11 @@ async function findings(db, now = new Date()) {
     const covered = new Set([...(await db.fulfillmentJob.findMany({ where: { orderId: { in: ids } }, select: { orderId: true } })).map((row) => row.orderId), ...(await db.subscription.findMany({ where: { orderId: { in: ids }, status: 'ACTIVE', username: { not: 'pending' } }, select: { orderId: true } })).map((row) => row.orderId)])
     add('paid-without-fulfillment', 'Paid orders with no fulfillment job', 'paid and never queued for delivery; the worker queues the most recent ones', paid.filter((row) => !covered.has(row.orderId)).map((row) => ({ invoice: row.number, orderId: row.orderId, userId: row.userId })), paid.length === SCAN)
   }
+  {
+    // Products with a code pool deliver themselves; an order paid while the shelf was empty waits for a refill.
+    const short = await db.orderEvent.findMany({ where: { status: 'CODES_SHORT', createdAt: { gte: since }, order: { status: 'PAID', productDelivery: { is: { status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] } } } } }, orderBy: { id: 'asc' }, take: SCAN, select: { orderId: true, createdAt: true } })
+    add('codes-waiting', 'Paid orders waiting for a digital code', 'the product delivers codes by itself and had none left; adding codes to the product delivers these orders at once', short.map((row) => ({ orderId: row.orderId, since: row.createdAt.toISOString() })), short.length === SCAN)
+  }
   return out
 }
 

@@ -35,6 +35,7 @@ import { productSeller } from '@/modules/marketplace/server/marketplace'
 import SellerCard from '@/components/marketplace/SellerCard'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -144,7 +145,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
         {reviewCount > 0 && <a href="#store-tab-reviews"><StoreIcon name="star" size={15} /><b className="num">{(reviewScore._avg.rating || 0).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}</b><small className="num">({reviewCount.toLocaleString('fa-IR')} دیدگاه)</small></a>}
         {questionCount > 0 && <a href="#store-tab-questions"><StoreIcon name="chevron" size={13} />{questionCount.toLocaleString('fa-IR')} پرسش</a>}
         {product.soldCount > 0 && <span className="num">{product.soldCount.toLocaleString('fa-IR')} فروش</span>}
-        {product.kind === 'VIRTUAL' && <span className="sx-pill is-accent"><StoreIcon name="bolt" size={13} />تحویل آنی</span>}
+        {product.kind === 'VIRTUAL' && <span className="sx-pill is-accent"><StoreIcon name="bolt" size={13} />{deliversInstantly(product) ? 'تحویل آنی' : 'تحویل دیجیتال'}</span>}
       </div>
       {(product.shortDescription || html) && <p className="sx-pinfo-lead">{product.shortDescription || richTextToPlain(html, 320)}</p>}
       {highlights.length > 0 && <div className="sx-pinfo-specs"><h2>ویژگی‌ها</h2><ul>{highlights.map(field => <li key={field.key}><span>{isFa ? field.label : field.labelEn || field.label}</span><b>{specificationValues[field.key]}</b></li>)}</ul>{fields.some(field => !field.variant && specificationValues[field.key]) && <a href="#store-tab-specifications" className="sx-link">مشاهدهٔ همهٔ مشخصات</a>}</div>}
@@ -156,7 +157,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
     <aside className="sx-pbuy" aria-label="خرید کالا">
       <BuyBox
         seller={seller ? { name: seller.shopName, label: seller.performance.label, href: `/shop/${seller.slug}` } : null}
-        productId={product.id} slug={product.slug} kind={product.kind} currency={regular.currency}
+        productId={product.id} slug={product.slug} kind={product.kind} instant={deliversInstantly(product)} currency={regular.currency}
         price={minorToNumber(regular.unitMinor, regular.currency)} listPrice={regular.listMinor ? minorToNumber(regular.listMinor, regular.currency) : 0}
         memberPrice={vipOn && product.memberPriceMinor > 0n ? minorToNumber(product.memberPriceMinor, regular.currency) : 0}
         limit={lineLimit(product.stock, null, product.maxPerOrder)} inStock={inStock} lowStockAt={product.lowStockAt || storeSettings.lowStockDefault}

@@ -193,9 +193,10 @@ export async function bulkProducts(input: { ids: unknown; action: unknown; value
     let deleted = 0
     let kept = 0
     for (const id of ids) {
-      const used = await db.product.findUnique({ where: { id }, select: { _count: { select: { orders: true, invoices: true, orderLines: true } } } })
+      const used = await db.product.findUnique({ where: { id }, select: { _count: { select: { orders: true, invoices: true, orderLines: true, digitalCodes: true } } } })
       if (!used) continue
-      if (used._count.orders || used._count.invoices || used._count.orderLines) {
+      // A product that was sold, or still holds delivery codes, is kept (switched off) instead of deleted.
+      if (used._count.orders || used._count.invoices || used._count.orderLines || used._count.digitalCodes) {
         await db.product.update({ where: { id }, data: { active: false } })
         kept++
       } else {

@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { addCodes, listCodes, removeCode, setDigitalMode } from '@/modules/store/server/digital-codes'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
@@ -209,6 +210,42 @@ export async function POST_products(req: NextRequest) {
     await auditAdmin({ req, actor: g.admin, action: 'store.products.bulk', targetType: 'product', targetId: 0, metadata: { action: String(body.action), count: Array.isArray(body.ids) ? body.ids.length : 0, value: String(body.value ?? '') } })
     return ok(result)
   } catch (error) { return failure(error) }
+}
+
+/** GET /api/admin/store/products/:id/codes — the code pool of a virtual product (codes masked). */
+export async function GET_productCodes(req: NextRequest, { params }: IdContext) {
+  const g = await catalogAdmin(req)
+  if ('response' in g) return g.response
+  const id = positiveId((await params).id)
+  if (!id) return err('شناسهٔ محصول معتبر نیست', 400)
+  try { return ok(await listCodes(id)) } catch (error) { return failure(error) }
+}
+
+/**
+ * POST /api/admin/store/products/:id/codes
+ *   { action: 'mode', mode: MANUAL | CODES } · { action: 'add', text, variantId? } · { action: 'remove', codeId }
+ */
+export async function POST_productCodes(req: NextRequest, { params }: IdContext) {
+  const g = await catalogAdmin(req)
+  if ('response' in g) return g.response
+  const id = positiveId((await params).id)
+  if (!id) return err('شناسهٔ محصول معتبر نیست', 400)
+  const body = (await req.json().catch(() => null)) || {}
+  try {
+    const action = String(body.action || '')
+    let result: Record<string, unknown>
+    if (action === 'mode') result = await setDigitalMode(id, body.mode)
+    else if (action === 'add') result = await addCodes({ productId: id, variantId: body.variantId, text: body.text })
+    else if (action === 'remove') result = await removeCode(id, positiveId(body.codeId))
+    else return err('عملیات ناشناخته است', 400)
+    // The codes themselves are never written to the audit log.
+    await auditAdmin({ req, actor: g.admin, action: `store.product.codes.${action}`, targetType: 'product', targetId: id, metadata: action === 'add' ? { added: Number(result.added) || 0 } : action === 'mode' ? { mode: String(result.mode) } : { codeId: positiveId(body.codeId) } })
+    return ok(result)
+  } catch (error) {
+    // No encryption key configured: say so instead of a bare server error.
+    if (error instanceof Error && /STORE_DELIVERY_KEY/.test(error.message)) return err('برای ذخیرهٔ کد، کلید رمزنگاری فروشگاه (STORE_DELIVERY_KEY) باید روی سرور تنظیم شود', 503)
+    return failure(error)
+  }
 }
 
 /** GET /api/admin/store/inventory?q=&filter=&page= */

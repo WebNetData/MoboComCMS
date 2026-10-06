@@ -33,6 +33,7 @@ const WORKER = {
  '@/modules/promotions/server/promotions': {releaseTerminalPromotionReservations: 0},
  '@/modules/fulfillment/server/alerts': {alertStuckFulfillment: {sent: 0, failed: 0}},
  '@/modules/catalog/server/inventory': {releaseExpiredReservations: 3},
+ '@/modules/store/server/digital-codes': {syncAllCodeStock: {checked: 0, changed: 0, failed: 0}},
 }
 test('a failing release step does not hold back the other engagement steps, and the run still fails', async () => {
  const jobs = load('src/modules/content/server/jobs.ts', ENGAGEMENT, ['processTrackReleaseNotifications'])
@@ -53,7 +54,7 @@ test('a healthy engagement run keeps its result', async () => {
 test('paid orders are delivered and holds released while payment reconciliation fails', async () => {
  const worker = load('src/modules/fulfillment/server/worker.ts', WORKER, ['processFrenzyReconciliationBatch', 'recoverPaidWalletTopups'])
  const result = await worker.runFulfillmentWorker(20, 'test')
- assert.ok(worker.calls.includes('processFulfillmentBatch')); assert.equal(worker.calls.at(-1), 'releaseExpiredReservations')
+ assert.ok(worker.calls.includes('processFulfillmentBatch')); assert.equal(worker.calls.at(-1), 'syncAllCodeStock'); assert.ok(worker.calls.includes('releaseExpiredReservations'))
  assert.equal(result.payments.failed, 1); assert.equal(result.payments.checked, 0); assert.equal(result.topups.failed, 1)
  assert.deepEqual(result.fulfillment, {checked: 2, done: 2, failed: 0}); assert.equal(result.releasedReservations, 3)
  assert.deepEqual(worker.logs.slice(0, 2), [['error', 'worker.step_failed', 'payments'], ['error', 'worker.step_failed', 'topups']])

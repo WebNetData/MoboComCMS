@@ -1,6 +1,7 @@
 import { processFulfillmentBatch, recoverMissingPaidFulfillment, recoverPaidWalletTopups } from '@/modules/fulfillment/server/jobs'
 import { alertStuckFulfillment } from '@/modules/fulfillment/server/alerts'
 import { releaseExpiredReservations } from '@/modules/catalog/server/inventory'
+import { syncAllCodeStock } from '@/modules/store/server/digital-codes'
 import { processFrenzyReconciliationBatch } from '@/modules/billing/server/frenzyex-reconciliation'
 import { recoverVoidInvoiceCredit } from '@/modules/billing/server/billing'
 import { cleanupResellerBotUpdates, retryResellerDeliveries } from '@/modules/reseller/server/reseller-bot-sales'
@@ -41,7 +42,9 @@ export async function runFulfillmentWorker(limit = 20, requestId?: string) {
     return { sent: 0, failed: 1 }
   })
   const releasedReservations = await releaseExpiredReservations(Math.max(100, limit * 5)).catch(failedStep('reservations', -1))
+  // Products that deliver codes: stock follows the pool again if something else wrote the stock column.
+  const codeStock = await syncAllCodeStock().catch(failedStep('codeStock', { checked: 0, changed: 0, failed: 1 }))
   const warn = Boolean(payments.failed || payments.untracked || topups.failed || referrals.failed || refunds.failed || voidCredit.failed || recovered.failed || saleRecords.failed || fulfillment.failed || inbox.checked < 0 || alerts.failed || resellerDeliveries < 0 || releasedReservations < 0)
-  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations })
-  return { payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations }
+  logEvent(warn ? 'warn' : 'info', 'worker.batch', { requestId, limit, payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, codeStock })
+  return { payments, topups, referrals, refunds, voidCredit, recovered, saleRecords, fulfillment, inbox, resellerDeliveries, resellerUpdatesCleaned, promotionsReleased, alerts, releasedReservations, codeStock }
 }

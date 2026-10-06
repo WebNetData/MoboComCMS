@@ -30,3 +30,8 @@ export function decryptDigitalDelivery(value: string) {
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
 }
+
+/** Keyed hash of a secret, to recognise the same secret again without storing it readable. */
+export function digitalFingerprint(value: string) {
+  return crypto.createHmac('sha256', key()).update(value.trim(), 'utf8').digest('hex')
+}
