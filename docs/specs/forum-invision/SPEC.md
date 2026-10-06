@@ -19,8 +19,13 @@ Owner: `src/modules/forum/server/board.ts` on top of the existing `visibleCatego
 
 Acceptance: `scripts/forum-board-index.connected.cjs` in `npm run test:pg` (three viewers on real PostgreSQL: sections and order, last post and its author, quiet forums, contributor counts, presence, and nothing from a private forum; three deliberate faults each make it fail); browser at 1440 px light and dark and at 390 px without horizontal overflow or script errors.
 
+## Slice 2: the topic page as cards
+Every post is a card with the author beside it: avatar, name, group (or the trust rank when the member has no group), title, posts written, reputation (likes received) and the month they joined. The post keeps its header (reply mark, edits, time), body, reactions and tools, with the tools at the foot of the card. The topic title sits in a framed header and the page uses the whole width, with the filters as a strip above. On a phone the author panel folds into a row above the post. `AuthorView` gained `posts` and `reputation` from the forum profile; no schema change and no change to what a member may do.
+
+Checked in a browser as a member: five posts with five author panels, a reaction added and taken back, the reply composer opening, 1440 px light and dark and 390 px without overflow or script errors.
+
 ## Next slices
-1. Topic page in the Invision manner: author column (avatar, rank, group, post count, joined), reactions with reputation, quote and multi-quote, post tools.
+1. Topic page, remaining: multi-quote and a topic header with the starter, follow button and counts.
 2. Member profile: cover, rank and reputation, content tabs, followers, about.
 3. Activity stream for the whole site (posts, topics, reviews, community posts, follows) with "content I follow" and "unread".
 4. Leaderboard and reputation: points per reaction, ranks, past leaders.

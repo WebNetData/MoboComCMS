@@ -7,8 +7,15 @@ import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
 import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
+import { TRUST_NAMES } from '@/modules/forum/domain/community'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; joinedAt?: string | Date; flair: { icon: string; color: string; name: string } | null }
+/** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
+function joinedLabel(value: string | Date) {
+  const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || ''
+  return `${part('month')} ${part('year')}`
+}
 type Reaction = { emoji: string; count: number; mine: boolean }
 export type TopicPost = {
   id: number; number: number; html: string; raw: string | null; status: string; createdAt: string; editedAt: string | null; editCount: number
@@ -282,7 +289,20 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
           {posts.map((post) => (
             <article key={post.id} id={`post-${post.number}`} tabIndex={-1} data-post-number={post.number} className={`fx-post${post.status !== 'VISIBLE' ? ' is-hidden' : ''}${post.solution ? ' is-solution' : ''}${post.author.id === thread.userId && post.number > 1 ? ' is-op' : ''}${posts[focusIndex]?.id === post.id ? ' is-focused' : ''}${selected.includes(post.number) ? ' is-selected' : ''}`}>
               {selecting && post.number > 1 && <label className="fx-select-post"><input type="checkbox" checked={selected.includes(post.number)} onChange={() => setSelected((list) => list.includes(post.number) ? list.filter((n) => n !== post.number) : [...list, post.number])} aria-label={`انتخاب پیام ${fa(post.number)}`} /></label>}
-              <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} /></Link>
+              {/* Who is speaking: avatar, group and rank, and their standing in the forum. */}
+              <aside className="fx-post-author" aria-label={`نویسنده: ${post.author.name}`}>
+                <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
+                <Link href={`/forum/u/${post.author.username}`} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
+                {post.author.flair
+                  ? <span className="fx-author-group" style={{ ['--group' as string]: post.author.flair.color }}>{post.author.flair.icon && <span aria-hidden="true">{post.author.flair.icon}</span>}{post.author.flair.name}</span>
+                  : <span className="fx-author-group">{TRUST_NAMES[post.author.trustLevel] || TRUST_NAMES[0]}</span>}
+                {post.author.title && <span className="fx-author-title">{post.author.title}</span>}
+                <dl className="fx-author-stats">
+                  <div><dt>پیام</dt><dd>{fa(post.author.posts)}</dd></div>
+                  <div><dt>اعتبار</dt><dd>{fa(post.author.reputation)}</dd></div>
+                </dl>
+                {post.author.joinedAt && <small className="fx-author-joined">عضو از {joinedLabel(post.author.joinedAt)}</small>}
+              </aside>
               <div className="fx-post-main">
                 <header className="fx-post-head">
                   <span className="fx-user">
