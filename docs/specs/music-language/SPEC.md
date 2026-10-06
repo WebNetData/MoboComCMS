@@ -49,9 +49,9 @@ Nothing new is exposed: only published songs are listed.
 ## Migration & compatibility
 Migration `20261205120000_music_language_terms` (data only) inserts فارسی، ترکی، لری، مازندرانی where they do not exist. Existing albums, categories and songs are untouched; songs start without a language.
 
-## Not in this slice
-- A language for an album as a whole (a song inside an album is filed song by song), and filing many songs at once.
-- A language filter combined with genre on the browse page (the row links to the language's own page).
+## Added after the first slice
+- The browse page filters by language (`?lang=<slug>`) together with genre, search and order; a language without songs shows none, an unknown one is ignored.
+- The album form can file a language on every song the album holds, in the same save (`trackTerms`). Left empty, the songs keep theirs. An album still has no language of its own.
 
 ## Acceptance verification
 - `scripts/music-language.connected.cjs` in `npm run test:pg`; four deliberate breaks fail it (languages counting albums, drafts listed, import with nothing to import, wrong public address).

@@ -4,7 +4,7 @@ Decisions the owner made, and rules that came out of the work, **after** the v4 
 
 Keep it short and current. When a decision changes, change the entry; do not append history (git and `.ai/MOBOCOM_WORKSTATE.md` hold that). Each entry: the rule, why, where, and what guards it.
 
-Last revised: 2026-10-07 (main `7ff91be`, PRs #95–#117, and the music language taxonomy).
+Last revised: 2026-10-07 (main `7483e01`, PRs #95–#119, and the first slices of the capability map's open gaps).
 
 ---
 
@@ -92,14 +92,16 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 
 **Clubs**
 - A club = a forum group (joining, requests, owners) + a forum under the section `clubs` whose access is that group's + the founder as that forum's moderator. Linked by the nullable `ForumGroup.clubCategoryId` (migration `20261204120000_forum_clubs`). Open: everyone reads, members write. Private: members only, joining by request.
-- From trust level 1, three per founder (`CLUB_MIN_TRUST`, `CLUB_MAX_OWNED`, fixed in code for now). Clubs have their own page and are laid out neither on the board index nor among user groups.
+- Who may start one is the forum's settings (`clubsEnabled`, `clubsMinTrust`, `clubsMaxOwned`; forum admin → settings); staff are not limited. Clubs have their own page and are laid out neither on the board index nor among user groups.
+- The founder **closes** a club (nobody joins, no topic starts, waiting requests are withdrawn; nothing is deleted) and opens it again as the kind it was; closed is `joinMode = CLOSED` with the forum locked, and the kind is read from the forum's permission rows, not from the join mode. The founder **hands it over** to one of its members. A club's forum is moderated by exactly its owners (`syncClubModerators`, also called by the group's own owner toggle).
 
 ## 6A. Filing content: more than one taxonomy per section
 
 - The shared taxonomy (`TaxonomyTerm`, `TaxonomyAssignment`; rules in `src/modules/taxonomy/domain/taxonomy.ts`) files a section's items under a tree of terms. **A section may have more than one taxonomy.** Music has two (owner, 2026-10-07): `music` — categories of **albums** — and `music-language` — the language or dialect of a **song** (فارسی، ترکی، لری، مازندرانی to start; more from the admin).
 - **One taxonomy, one kind of item.** Assignments are keyed by term and a bare item id, so a taxonomy must never file two kinds of item (albums and songs share ids). A new way of filing is a new taxonomy with its own terms, not a second owner type in an old one.
 - To add one: add its id and `TAXONOMY_INFO` entry (label, item word, public base path, module — the module decides the permission, `<module>.manage`); name it in `liveOwnerIds` (which table its items live in); set `taxonomy` on the media resource in `src/modules/media/server/admin.ts`; add the `terms` field to that item's admin form; give it a public archive under its base path; add it to `LEGACY_SOURCES` only if an old free-text field exists to build it from. **Every branch on a taxonomy names it**: an `else` that means "cinema" silently swallows a new one (it did, twice).
-- Public: `/music/language` (index), `/music/language/<language>[/<dialect>]` (songs), a link on the song page, a row on `/music/browse`, an entry in the music mega menu (`src/modules/navigation/server/megamenu.ts`). Admin: Categories → «زبان و گویش موزیک», and the song form.
+- Public: `/music/language` (index), `/music/language/<language>[/<dialect>]` (songs), a link on the song page, a filter on `/music/browse` (`?lang=`, combining with genre, search and order), an entry in the music mega menu (`src/modules/navigation/server/megamenu.ts`). Admin: Categories → «زبان و گویش موزیک», the song form, and the album form's "language of every song in this album" (`trackTerms`: files each song the album holds in the same save; an album has no language of its own).
+- A resource whose save changes another taxonomy's counts names it in `alsoCounts` (`src/modules/media/server/admin.ts`).
 - Guard: `scripts/music-language.connected.cjs` (counts and lists published songs only; albums and songs with equal ids stay apart).
 
 ## 7. Engineering rules learnt here
@@ -111,10 +113,12 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - Register unit tests by appending to a file already in `test:site`; put `CHECKS` entries on non-adjacent lines so parallel PRs do not conflict.
 - **Local site:** `docker compose -f docker-compose.local.yml` (app on 3000, PostgreSQL on 127.0.0.1:5435). The container copies the working tree at start, so **restart it after every code change**.
 - Persian dates are built with `formatToParts` and `timeZone: 'Asia/Tehran'`; relative-time components must not differ between server and browser.
+- **A deliberate break that widens a write is run only against fixtures.** Breaking "file the songs of this album" into "file every song" rewrote the language of every real song on the local database before the check failed. Break the rule so that it reads more, or run it in a transaction that is rolled back.
+- **Staff overview decisions stay with their owners.** A batch in `/admin/moderation` is one request per item to the owning module's admin API (`batchIds`, `batchOutcome`, at most `BATCH_LIMIT`); the overview never decides by itself.
 - Floating helpers (translate prompt, support chat, manage bar) step aside while the forum's reply editor is docked (`body:has(.fx-dock)`); anything new that floats at the bottom joins that rule.
 
 ## 8. Open, by the owner's decision or still owed
 
 - Production: run `npm run deploy:migrate` (through `20261205120000`), set `STORE_DELIVERY_KEY`, configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
-- Not yet built: closing or handing over a club; settings for who may start one; a weight per kind of reaction; one address for a member's profile (`/u/<username>` and `/forum/u/<username>` both exist).
+- Not yet built (from the capability map's open gaps, owner's order of 2026-10-07 to do them except the seller ones): a weight per kind of reaction and one address for a member's profile; returning a delivered digital code; a film release date and calendar, subtitle and audio tracks, playback preferences; review dimensions in search and one model for product and content reviews; richer search facets; delivery receipts, digests and retention for notifications; an editorial tool for collections; more signals and a provider contract for recommendations; entity hubs beyond studios; one case lifecycle across moderation sources; the universal library and lists beyond what exists.
 - Not yet verified in a browser: the full buyer's walk through the store, magazine and media sections; a section manager saving content with a single-section account; split/merge, polls and private messages in the forum.
