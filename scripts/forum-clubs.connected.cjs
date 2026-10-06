@@ -82,13 +82,59 @@ async function main() {
   await refused(clubs.createClub(await as('founder'), { name: `${seed} fourth club`, slug: `${seed}-fourth` }), 409, 'a fourth club')
   assert.equal(await prisma.forumCategory.count({ where: { slug: `club-${seed}-fourth` } }), 0, 'a refused club leaves nothing behind')
 
+  // ---- the rules are the forum's settings, not constants
+  const rules = { clubsEnabled: true, clubsMinTrust: 1, clubsMaxOwned: 3 }
+  const v = (trustLevel, extra = {}) => ({ userId: 1, groupIds: [], trustLevel, moderator: false, member: false, silenced: false, suspended: false, ...extra })
+  assert.deepEqual([clubs.clubRefusal(v(1), rules), typeof clubs.clubRefusal(v(0), rules), clubs.clubRefusal(v(0), { ...rules, clubsMinTrust: 0 }), typeof clubs.clubRefusal(v(3), { ...rules, clubsMinTrust: 4 })], [null, 'string', null, 'string'])
+  assert.deepEqual([typeof clubs.clubRefusal(v(4), { ...rules, clubsEnabled: false }), clubs.clubRefusal(v(0, { moderator: true }), { ...rules, clubsEnabled: false }), typeof clubs.clubRefusal({ ...v(4), userId: null }, rules)], ['string', null, 'string'], 'switched off for members, never for staff; a visitor signs in first')
+
+  // ---- closing and reopening: nothing is deleted, and the way in comes back as it was
+  await people.groupAction(await as('newbie'), priv.slug, { action: 'request' })
+  await refused(clubs.setClubClosed(await as('joiner'), open.slug, true), 403, 'a member closing the club')
+  await refused(clubs.setClubClosed(await as('founder'), 'club-no-such-club', true), 404, 'an unknown club')
+  for (const [club, kind, mode] of [[open, 'open', 'OPEN'], [priv, 'private', 'REQUEST']]) {
+    assert.deepEqual(await clubs.setClubClosed(await as('founder'), club.slug, true), { slug: club.slug, closed: true })
+    let row = await prisma.forumGroup.findUnique({ where: { slug: club.slug }, include: { clubCategory: true, members: true } })
+    assert.deepEqual([row.joinMode, row.clubCategory.locked, row.members.some(m => m.status === 'PENDING')], ['CLOSED', true, false], 'closed: nobody joins, no topic starts, waiting requests are withdrawn')
+    assert.deepEqual((await card(await as('founder'), club.slug)).slice(0, 1).concat((await clubs.listClubs(await as('founder'))).find(item => item.slug === club.slug).closed), [kind, true], 'still listed as the kind it is, marked closed')
+    await refused(people.groupAction(await as('newbie'), club.slug, { action: 'join' }), 403, 'joining a closed club')
+    await clubs.setClubClosed(await as('founder'), club.slug, false)
+    row = await prisma.forumGroup.findUnique({ where: { slug: club.slug }, include: { clubCategory: true } })
+    assert.deepEqual([row.joinMode, row.clubCategory.locked], [mode, false], 'opened again as it was')
+  }
+  const memberOfOpen = await as('joiner')
+  await clubs.setClubClosed(await as('founder'), open.slug, true)
+  assert.deepEqual(await sees(memberOfOpen, open.slug), [true, false], 'a member of a closed club reads on and starts nothing')
+  await refused(actions.createTopic(memberOfOpen, { categoryId: group.clubCategory.id, title: 'into a closed club', content: 'this must be refused' }), 403, 'a topic in a closed club')
+  await actions.createReply(memberOfOpen, topic.id, { content: 'finishing what was under way' })
+  await clubs.setClubClosed(await as('founder'), open.slug, false)
+
+  // ---- handing over: the new owner runs it and moderates its forum; the giver becomes a member
+  await refused(clubs.transferClub(await as('joiner'), open.slug, `${seed}joiner`.slice(0, 20)), 403, 'a member taking the club')
+  await refused(clubs.transferClub(await as('founder'), open.slug, `${seed}founder`.slice(0, 20)), 409, 'to oneself')
+  await refused(clubs.transferClub(await as('founder'), open.slug, `${seed}newbie`.slice(0, 20)), 409, 'to someone who is not a member')
+  await refused(clubs.transferClub(await as('founder'), open.slug, `${seed}nobody`), 404, 'to an unknown name')
+  await people.groupAction(await as('newbie'), priv.slug, { action: 'request' })
+  await refused(clubs.transferClub(await as('founder'), priv.slug, `${seed}newbie`.slice(0, 20)), 409, 'to someone whose request is still waiting')
+  assert.deepEqual(await clubs.transferClub(await as('founder'), open.slug, `@${seed}joiner`.slice(0, 21).toUpperCase()), { slug: open.slug, ownerId: users.joiner.id })
+  const handed = await prisma.forumGroup.findUnique({ where: { slug: open.slug }, include: { members: { orderBy: { userId: 'asc' } }, clubCategory: { include: { moderators: true } } } })
+  assert.deepEqual([handed.members.filter(m => m.owner).map(m => m.userId), handed.clubCategory.moderators.map(m => m.userId), handed.members.find(m => m.userId === users.founder.id).status], [[users.joiner.id], [users.joiner.id], 'ACTIVE'])
+  assert.deepEqual([(await as('joiner')).moderates.includes(handed.clubCategory.id), (await as('founder')).moderates.includes(handed.clubCategory.id), (await clubs.clubOf(await as('joiner'), open.slug)).runs, (await clubs.clubOf(await as('founder'), open.slug)).runs], [true, false, true, false])
+  await refused(clubs.setClubClosed(await as('founder'), open.slug, true), 403, 'the former founder closing it')
+  // the group's own "make owner" keeps the forum's moderators in step too
+  await people.groupAction(await as('joiner'), open.slug, { action: 'owner', username: `${seed}founder`.slice(0, 20) })
+  assert.deepEqual((await prisma.forumCategoryModerator.findMany({ where: { categoryId: handed.clubCategory.id }, orderBy: { userId: 'asc' } })).map(m => m.userId), [users.founder.id, users.joiner.id].sort((a, b) => a - b))
+  await people.groupAction(await as('joiner'), open.slug, { action: 'unowner', username: `${seed}founder`.slice(0, 20) })
+  assert.deepEqual((await prisma.forumCategoryModerator.findMany({ where: { categoryId: handed.clubCategory.id } })).map(m => m.userId), [users.joiner.id])
+  assert.deepEqual([await clubs.clubOf(await as('founder'), `${seed}-not-a-club`), (await clubs.clubOf(guest, priv.slug)).kind], [null, 'private'])
+
   // ---- clubs keep to their own page
   const section = await prisma.forumCategory.findUnique({ where: { slug: 'clubs' } })
   await refused(actions.createTopic(await as('founder'), { categoryId: section.id, title: 'a topic on the section', content: 'this must be refused' }), 409, 'the clubs section takes no topics')
   const index = await board.boardIndex(await as('founder'))
   assert.ok(!JSON.stringify(index.sections).includes(`club-${seed}`) && !index.sections.some(row => row.slug === 'clubs'), 'the board index does not lay clubs out')
   assert.ok(!(await people.listGroups(await as('founder'), 0)).some(row => row.slug.startsWith('club-')), 'nor does the list of user groups')
-  console.log('PostgreSQL forum clubs: who may start one, open and private clubs for visitors, askers, members and the founder, limits, and clubs kept to their own page passed')
+  console.log('PostgreSQL forum clubs: who may start one (by the forum settings), open and private clubs for visitors, askers, members and the founder, closing and reopening, handing over, limits, and clubs kept to their own page passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {

@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import ClubManage from '@/components/forum/ClubManage'
+import { clubOf } from '@/modules/forum/server/clubs'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
@@ -24,6 +26,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
   const data = await getGroup(slug, viewer, Number(page) || 1)
   if (!data) notFound()
   const { group } = data
+  const club = await clubOf(viewer, slug)
   return (
     <ForumShell viewer={viewer} active="groups">
       <header className="fx-group-head fg-hero" style={{ ['--g' as string]: group.color }}>
@@ -34,6 +37,12 @@ export default async function GroupPage({ params, searchParams }: Props) {
         </div>
         {!group.automatic && <GroupActions slug={group.slug} joinMode={group.joinMode} status={data.membership?.status || 'NONE'} owner={!!data.membership?.owner} signedIn={!!viewer.userId} manager={data.manager} />}
       </header>
+      {club && <div className="fk-club-bar">
+        <span className={`fk-kind-tag is-${club.closed ? 'private' : club.kind}`}>{club.closed ? 'کلوب بسته‌شده' : club.kind === 'open' ? 'کلوب باز' : 'کلوب خصوصی'}</span>
+        {club.closed && <span className="fx-muted">عضو تازه نمی‌پذیرد و موضوع تازه در آن ساخته نمی‌شود.</span>}
+        <Link href={`/forum/c/${club.forum}`} className="btn btn-primary btn-sm">ورود به انجمن کلوب</Link>
+        {club.runs && <ClubManage slug={group.slug} closed={club.closed} />}
+      </div>}
       {group.description && <div className="fx-cooked fx-group-desc" dangerouslySetInnerHTML={{ __html: group.descriptionHtml }} />}
       {data.categories.length > 0 && <p className="fx-group-access">دسترسی ویژه: {data.categories.map((c) => <Link key={c.id} href={`/forum/c/${c.slug}`} className="fx-cat"><i style={{ background: c.color }} />{c.title} <small>({LEVEL[c.level]})</small></Link>)}</p>}
       {data.manager && data.requests.length > 0 && (
