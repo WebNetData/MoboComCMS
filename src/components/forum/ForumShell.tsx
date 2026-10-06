@@ -9,7 +9,7 @@ import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
-export type ForumNavKey = 'home' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
+export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
 
 /**
  * Forum chrome: site header/footer, a sticky community sidebar (filters,
@@ -35,6 +35,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
     <>
       <nav className="fx-side-group" aria-label="موضوع‌ها">
         {link('home', '/forum', 'انجمن‌ها', '▦')}
+        {link('activity', '/forum/activity', 'فعالیت‌ها', '⚡')}
         {link('latest', '/forum/latest', 'همهٔ موضوع‌ها', '☰')}
         {signedIn && link('unread', '/forum/unread', 'خوانده‌نشده', '●', counts.unread)}
         {signedIn && link('new', '/forum/new-topics', 'تازه', '✦', counts.fresh)}
@@ -96,6 +97,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
           <div className="container fx-layout fx-layout-wide">
             <nav className="fx-strip" aria-label="بخش‌های تالار">
               {link('home', '/forum', 'انجمن‌ها', '▦')}
+              {link('activity', '/forum/activity', 'فعالیت‌ها', '⚡')}
               {link('latest', '/forum/latest', 'همهٔ موضوع‌ها', '☰')}
               {signedIn && link('unread', '/forum/unread', 'خوانده‌نشده', '●', counts.unread)}
               {link('top', '/forum/top', 'برترین‌ها', '▲')}
