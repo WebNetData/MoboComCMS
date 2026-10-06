@@ -1,0 +1,5 @@
+interface:
+  display_name: "mobocom-spec"
+  short_description: "MoboCom v4 workflow"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,39 @@
+---
+name: mobocom-develop
+description: Implement, debug, refactor, or review MoboCom frontend/backend features with low-context tooling and production-quality architecture. Use for day-to-day work across CMS, CRM, specialist modules, Admin, APIs, database, identity, permissions and integrations.
+---
+
+# Development workflow
+
+1. Read root instructions and focused repo map.
+2. Audit before adding; repository truth beats prompts.
+3. Use the smallest context path:
+   - exact → `trs search`
+   - conceptual → Probe
+   - references/symbol-aware edit → Serena
+   - verbose command → `trs`
+4. Prefer reuse → extend → refactor → consolidate; no parallel shared platform systems.
+5. Maintain canonical module ownership and the single MoboCom Identity/UserId invariant.
+6. Implement a vertical slice: data/domain → application → authorization/settings → API/UI → tests.
+7. Keep presentation thin; business rules belong outside React/routes.
+8. Admin-control legitimate configurable behavior; keep secrets out of normal settings.
+9. Validate disabled-module behavior when relevant.
+10. Frontend: Storybook for new component states, React Doctor review, Playwright CLI for real user flow, a11y/visual checks as relevant.
+11. Backend: architecture gates, Hurl/Testcontainers/fast-check when they add evidence.
+12. API contract changes: load `mobocom-contracts`.
+13. Run narrow checks first; broader gates only when impact justifies them.
+14. Review diff for unrelated changes, security, compatibility, data and visual regressions.
+15. Report only actual changes/checks/risks.
+
+Protected UI: Homepage, Magazine, Music, Games, Movies, TV Series are preserve-and-enhance.
+
+Load references progressively; do not read every reference for every task.
+
+## This repository
+Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the forum or delivery. The rules that most often matter:
+- **Access:** guard with the section's own permission (`requirePerm` / `adminGuard`); never accept `cms.posts` outside the magazine. A route that changes a user's role, status or password calls `accountChangeRefusal`. Staff standing and role change in the same write.
+- **Forum:** walk categories with `categoryTree` / `categoryFamily` / `categoryPath`; limit everything public with `visibleCategories(viewer)`; decide moderation with `inCategory` / `moderatesCategory`; compose follow, feed and reviews from identity, community and reviews. New forum styles are an appended block in `src/app/forum.css` under their own prefix.
+- **Public item pages** carry a `ManageBar` with the section's permission; shared admin editors honour `?edit=<id>`.
+- **Evidence:** add `scripts/<name>.connected.cjs` (same functions as the page, several viewers, cleanup in `finally`), register it in `scripts/run-pg-checks.cjs`, then break each rule on purpose and see it fail (back the file up and copy it back). Unit tests go into a file already in `test:site`. Open visible changes in a browser at 1440 light/dark and 390.
+- **Local site:** `docker compose -f docker-compose.local.yml`; restart the app container after every change. Host scripts reach PostgreSQL on `127.0.0.1:5435`.
+- **Delivery:** branch from fresh `main`; the pull request targets `main`; do not merge. Leave the owner's four unstaged files (`.gitignore`, `next-env.d.ts`, `package.json`, `package-lock.json`) out of commits.
