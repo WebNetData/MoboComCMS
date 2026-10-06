@@ -245,3 +245,35 @@ html[dir=ltr] .admin-attention-arrow{transform:scaleX(-1)}
 @media (max-width: 640px) { .mgr-bar { inset-block-end: 76px; overflow-x: auto; scrollbar-width: none; } .mgr-bar-title { display: none; } }
 @media (prefers-reduced-motion: reduce) { .mgr-bar a { transition: none; } }
 @media print { .mgr-bar { display: none; } }
+
+/* Section managers (admin): who manages which part of the site. */
+.sm-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.sm-section h2 { margin: 0 0 2px; font-size: 1rem; font-weight: 800; }
+.sm-section > p { margin: 0 0 10px; font-size: .8rem; line-height: 1.8; }
+.sm-section ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sm-section li { display: grid; padding: 7px 10px; border-radius: 10px; background: var(--bg-soft, rgba(127, 127, 127, .08)); font-size: .88rem; }
+.sm-section li small { color: var(--muted); font-size: .74rem; }
+.sm-section .sm-none { margin: 0; font-size: .8rem; color: var(--muted); }
+.sm-add { display: grid; gap: 10px; max-width: 760px; }
+.sm-add h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+.sm-ticks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0; padding: 0; border: 0; }
+.sm-ticks legend { flex-basis: 100%; padding: 0; }
+.sm-ticks label { display: inline-flex; align-items: center; gap: 6px; font-size: .88rem; cursor: pointer; white-space: nowrap; }
+.sm-ticks.is-row { gap: 6px 14px; }
+.sm-actions { white-space: nowrap; display: flex; gap: 6px; justify-content: flex-end; }
+.sm-notice { padding: 10px 14px; border-radius: 12px; font-size: .9rem; color: #047857; background: color-mix(in srgb, #10b981 13%, transparent); }
+
+/* Forum team (admin): the three ranks. */
+.fa-team-intro { margin: 0 0 14px; }
+.fa-team { display: grid; gap: 10px; margin-block-end: 14px; }
+.fa-team header h3 { margin: 0 0 2px; font-size: 1rem; font-weight: 800; }
+.fa-team header p { margin: 0; font-size: .84rem; line-height: 1.9; }
+.fa-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fa-team li { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; background: var(--bg-soft, rgba(127, 127, 127, .08)); }
+.fa-team-forums { display: flex; flex-wrap: wrap; gap: 6px; }
+.fa-team-forums .badge { display: inline-flex; align-items: center; gap: 6px; }
+.fa-team-forums button { border: 0; background: transparent; color: inherit; font-size: 1rem; line-height: 1; cursor: pointer; opacity: .65; }
+.fa-team-forums button:hover { opacity: 1; }
+.fa-team-add { display: flex; flex-wrap: wrap; gap: 8px; }
+.fa-team-add .input { flex: 1 1 200px; max-width: 320px; }
+.fa-team-foot { margin: 0; }

@@ -10,7 +10,7 @@ import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
-export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'search' | 'messages' | 'review' | ''
+export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'staff' | 'search' | 'messages' | 'review' | ''
 
 /**
  * Forum chrome: site header/footer, a sticky community sidebar (filters,
@@ -65,6 +65,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
         {link('users', '/forum/users', 'کاربران', '👤')}
         {link('groups', '/forum/g', 'گروه‌ها', '👥')}
         {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
+              {link('staff', '/forum/staff', 'تیم تالار', '🛡')}
       </nav>
     </>
   )
@@ -103,6 +104,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
               {link('users', '/forum/users', 'اعضا', '👤')}
               {link('groups', '/forum/g', 'گروه‌ها', '👥')}
               {link('badges', '/forum/badges', 'نشان‌ها', '🏅')}
+              {link('staff', '/forum/staff', 'تیم تالار', '🛡')}
               {moderatesAnything(viewer) && link('review', '/forum/review', 'صف بررسی', '⚖', counts.review)}
             </nav>
             <div className="fx-main">{children}</div>

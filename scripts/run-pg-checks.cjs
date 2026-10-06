@@ -13,7 +13,7 @@ const CHECKS = [
   'forum-board-index',
   'forum-activity-stream',
   'moderation-queue', 'posts-permission-migration',
-  'marketplace-seller-money',
+  'marketplace-seller-money', 'staff-teams',
   'integrity-report', 'forum-member-profile',
   'recommendations-listening', 'community-block-coverage',
   'gift-membership-recovery', 'forum-members-groups',

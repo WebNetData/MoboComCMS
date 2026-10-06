@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { categoryFamily } from '@/modules/forum/domain/tree'
-import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
+import { forumRanks } from '@/modules/forum/server/team'
+import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type ForumRank, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
@@ -19,6 +20,8 @@ export type AuthorView = {
   trustLevel: number; staff: boolean; joinedAt: Date; flair: { icon: string; color: string; name: string } | null
   /** Posts written and likes received: the author's standing, shown beside every post. */
   posts: number; reputation: number
+  /** Their rank in the forum's team, when they have one. */
+  rank?: ForumRank
 }
 
 /** Author cards (profile, title, flair) for a set of users. */
@@ -29,6 +32,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarColor: true, role: true, createdAt: true, forumProfile: true } })
   const groupIds = [...new Set(users.map((user) => user.forumProfile?.primaryGroupId).filter((id): id is number => !!id))]
   const groups = new Map((groupIds.length ? await db.forumGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, icon: true, color: true, name: true } }) : []).map((group) => [group.id, group]))
+  const ranks = await forumRanks(ids)
   return new Map(users.map((user) => {
     const profile = user.forumProfile
     const group = profile?.primaryGroupId ? groups.get(profile.primaryGroupId) : undefined
@@ -36,7 +40,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: profile?.avatar || '', avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
-      posts: profile?.postCount ?? 0, reputation: profile?.likesReceived ?? 0,
+      posts: profile?.postCount ?? 0, reputation: profile?.likesReceived ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]
   }))
 }

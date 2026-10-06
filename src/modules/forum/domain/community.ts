@@ -136,6 +136,10 @@ export const moderatesAnything = (viewer: Pick<Viewer, 'moderator' | 'moderates'
 export const inCategory = <T extends Pick<Viewer, 'moderator' | 'moderates'>>(viewer: T, categoryId: number): T =>
   viewer.moderator || !viewer.moderates?.includes(categoryId) ? viewer : { ...viewer, moderator: true }
 
+/** A person's place in the forum's team; the highest they hold. */
+export type ForumRank = 'admin' | 'deputy' | 'moderator'
+export const FORUM_RANK_LABELS: Record<ForumRank, string> = { admin: 'مدیر کل تالار', deputy: 'معاون تالار', moderator: 'مدیر انجمن' }
+
 export const GUEST: Viewer = { userId: null, groupIds: [], trustLevel: 0, moderator: false, member: false, silenced: false, suspended: false }
 
 export interface CategoryAccess { see: boolean; reply: boolean; create: boolean }

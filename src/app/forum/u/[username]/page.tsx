@@ -9,6 +9,7 @@ import FollowMember from '@/components/forum/FollowMember'
 import { Avatar, TimeAgo, num } from '@/components/forum/shared'
 import { getForumSettings } from '@/modules/forum/server/community'
 import { canStartMessage } from '@/modules/forum/domain/discourse'
+import { FORUM_RANK_LABELS } from '@/modules/forum/domain/community'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ tab?: string }> }
@@ -49,6 +50,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
             <p className="fp-line"><bdi dir="ltr" className="fx-handle">@{profile.username}</bdi>{social?.followsViewer && <span className="fp-chip">شما را دنبال می‌کند</span>}</p>
             {social?.headline && <p className="fp-headline">{social.headline}</p>}
             <p className="fp-ranks">
+              {author.rank && <span className={`tp-rank is-${author.rank}`}>{FORUM_RANK_LABELS[author.rank]}</span>}
               <span className={`fp-rank is-${profile.trustLevel}`}>{profile.trustName}</span>
               {profile.title && <span className="fp-rank is-title">{profile.title}</span>}
               {data.rank && <span className="fp-rank is-place">رتبهٔ {num(data.rank)} در اعتبار</span>}

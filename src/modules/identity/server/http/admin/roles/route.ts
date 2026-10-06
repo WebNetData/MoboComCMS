@@ -2,7 +2,23 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS } from '@/modules/identity/rbac'
+import { ALL_PERMISSIONS, FULL_ACCESS, ROLE_PRESETS, isFullAccess, parsePermissions } from '@/modules/identity/rbac'
+import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
+import type { AuthedUser } from '@/modules/identity/server/access'
+import { auditAdmin } from '@/platform/audit/server'
+
+/**
+ * A role is shaped only up to what its maker holds: someone with "roles" but not full access can neither make
+ * a full-access role nor put into a role a permission they do not have, nor edit the role they hold themselves.
+ * Otherwise "roles" alone would be full access by one edit.
+ */
+function roleRefusal(actor: AuthedUser, permissions: string, roleId?: number): string | null {
+  if (actorHasFullAccess(actor)) return null
+  if (roleId && roleId === actor.roleId) return 'نمی‌توانید نقش خودتان را تغییر دهید'
+  if (isFullAccess(permissions)) return 'نقش با دسترسی کامل را فقط مدیر کل می‌سازد یا تغییر می‌دهد'
+  const beyond = parsePermissions(permissions).find((permission) => !actor.permissions?.includes(permission))
+  return beyond ? `دسترسی «${beyond}» را خودتان ندارید و نمی‌توانید به نقشی بدهید` : null
+}
 
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'roles.manage')
@@ -27,7 +43,10 @@ export async function POST(req: NextRequest) {
       : preset && ROLE_PRESETS[preset]
         ? ROLE_PRESETS[preset].join(',')
       : ''
+  const refusal = roleRefusal(admin, perms)
+  if (refusal) return err(refusal, 403)
   const role = await db.role.create({ data: { name, nameFa: String(b?.nameFa || ''), nameEn: String(b?.nameEn || name), permissions: perms } })
+  await auditAdmin({ req, actor: admin, action: 'role.create', targetType: 'role', targetId: role.id, metadata: { name: role.name, permissions: role.permissions } })
   return ok(role)
 }
 
@@ -44,7 +63,11 @@ export async function PATCH(req: NextRequest) {
   if (typeof b?.nameFa === 'string') data.nameFa = b.nameFa
   if (typeof b?.nameEn === 'string') data.nameEn = b.nameEn
   if (Array.isArray(b?.permissions)) data.permissions = b.permissions.join(',')
+  // Both what the role held and what it would hold must be within the editor's reach.
+  const refusal = roleRefusal(admin, role.permissions, id) || (typeof data.permissions === 'string' ? roleRefusal(admin, data.permissions, id) : null)
+  if (refusal) return err(refusal, 403)
   const updated = await db.role.update({ where: { id }, data })
+  await auditAdmin({ req, actor: admin, action: 'role.update', targetType: 'role', targetId: id, metadata: { name: role.name, before: role.permissions, after: updated.permissions } })
   return ok(updated)
 }
 
@@ -56,6 +79,9 @@ export async function DELETE(req: NextRequest) {
   if (!role) return err('not found', 404)
   if (role.isSystem) return err('نقش سیستمی قابل حذف نیست', 400)
   if (role._count.users > 0) return err('ابتدا کاربران این نقش را تغییر دهید', 400)
+  const refusal = roleRefusal(admin, role.permissions, id)
+  if (refusal) return err(refusal, 403)
   await db.role.delete({ where: { id } })
+  await auditAdmin({ req, actor: admin, action: 'role.delete', targetType: 'role', targetId: id, metadata: { name: role.name } })
   return ok({ deleted: true })
 }
