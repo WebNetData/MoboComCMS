@@ -193,6 +193,14 @@ async function fetchRemote(raw: string, maxBytes: number) {
   throw new FileError('انتقال بیش از حد')
 }
 
+/** The bytes of a small remote file (a subtitle), through the same public-address check and redirect limit as every copy from another site. */
+export async function fetchRemoteBytes(raw: string, maxBytes: number): Promise<Uint8Array> {
+  const { response } = await fetchRemote(raw, maxBytes)
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length > maxBytes) throw new FileError('فایل بزرگ‌تر از سقف مجاز است', 413)
+  return buffer
+}
+
 /** Copies a remote image into the content images (WebP, max 2400px) and returns its address on this site. */
 export async function importImage(raw: string): Promise<string> {
   const { response } = await fetchRemote(raw, 25 * 1024 * 1024)

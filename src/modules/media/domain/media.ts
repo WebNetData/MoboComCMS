@@ -218,3 +218,49 @@ export function licenseLabel(value: string, fa: boolean): string {
   const labels: Record<string, [string, string]> = { FREE: ['رایگان', 'Free'], FREEMIUM: ['رایگان با امکانات پولی', 'Freemium'], TRIAL: ['نسخهٔ آزمایشی', 'Trial'], PAID: ['پولی', 'Paid'], OPEN_SOURCE: ['متن‌باز', 'Open source'] }
   return (labels[value] || labels.FREE)[fa ? 0 : 1]
 }
+
+// ------------------------------------------------------------------ subtitles in the player
+
+/** What the site's own player can show: WebVTT as it is, SubRip after conversion. Anything else is download only. */
+export function subtitleFormat(rawUrl: string): 'vtt' | 'srt' | '' {
+  let path = ''
+  try { path = decodeURIComponent(new URL(rawUrl).pathname).toLowerCase() } catch { return '' }
+  return path.endsWith('.vtt') ? 'vtt' : path.endsWith('.srt') ? 'srt' : ''
+}
+
+export const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024
+
+/** The text of a subtitle file. Persian subtitles are often not UTF-8: bytes that are not valid UTF-8 are read as Windows-1256. */
+export function decodeSubtitle(bytes: Uint8Array): string {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes) } catch { return new TextDecoder('windows-1256').decode(bytes) }
+}
+const CUE_TIME = /^(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s+-->\s+(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}/
+
+/**
+ * A subtitle file as WebVTT for the browser. SubRip differs in its header, its decimal comma and its cue
+ * numbers; both may carry markup, of which only italics, bold and underline are kept. A file without a
+ * single timed cue is not a subtitle and gives ''.
+ */
+export function toWebVtt(text: string, format: 'vtt' | 'srt'): string {
+  const lines = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n')
+  const out: string[] = []
+  let cues = 0
+  let inHeader = format === 'vtt'
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]
+    if (inHeader) {
+      // The header block of a WebVTT file (WEBVTT, NOTE, STYLE, REGION) is written again by us, not passed on.
+      if (!CUE_TIME.test(line) && !CUE_TIME.test(lines[index + 1] || '')) continue
+      inHeader = false
+    }
+    if (CUE_TIME.test(line)) {
+      cues++
+      out.push(line.replace(/(\d),(\d{1,3})/g, '$1.$2').replace(/^(\d{1,2}:\d{2}\.\d{1,3})/, '00:$1').replace(/(-->\s+)(\d{1,2}:\d{2}\.\d{1,3})(\s|$)/, '$100:$2$3'))
+      continue
+    }
+    // A cue number stands alone just before its timing line; WebVTT does not need it.
+    if (/^\d+$/.test(line.trim()) && CUE_TIME.test(lines[index + 1] || '')) continue
+    out.push(line.replace(/<(?!\/?[ibu]>)[^>]*>/gi, '').replace(/\{\\[^}]*\}/g, ''))
+  }
+  return cues ? `WEBVTT\n\n${out.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n` : ''
+}
