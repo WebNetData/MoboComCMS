@@ -75,6 +75,9 @@ export async function PATCH(req: NextRequest) {
     const okPass = await bcrypt.compare(String(b?.currentPassword || ''), u.passwordHash)
     if (!okPass) return err(L('Current password is incorrect', 'رمز فعلی اشتباه است'), 403)
     data.passwordHash = await bcrypt.hash(next, 10)
+    // As after a reset: every session that signed in before this moment ends, on every device. Someone who
+    // changes a password because another person knows it must not leave that person signed in.
+    data.passwordChangedAt = new Date()
   }
 
   const updated = Object.keys(data).length ? await db.user.update({ where: { id: user.id }, data }) : await db.user.findUniqueOrThrow({ where: { id: user.id } })
