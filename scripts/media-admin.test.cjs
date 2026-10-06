@@ -148,3 +148,45 @@ test('plain text drops tags, separates blocks and decodes entities', () => {
   assert.equal(plain.plainText('<p>یک دو سه چهار</p>', 8), 'یک دو س…')
   assert.equal(plain.plainText(null), '')
 })
+
+// ---- episode calendar (cinema)
+const calendarRoot = path.resolve(__dirname, '..')
+const calendarSource = ts.transpileModule(fs.readFileSync(path.join(calendarRoot, 'src/modules/cinema/domain/calendar.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+const calendar = { exports: {} }
+new Function('require', 'module', 'exports', calendarSource)(require, calendar, calendar.exports)
+const c = calendar.exports
+const episode = (id, at) => ({ id, at, season: 1, number: id, title: '', titleEn: '', members: false, series: { slug: 's', title: 's', titleEn: '', poster: '' } })
+
+test('range and page come from the address and fall back safely', () => {
+  assert.deepEqual(['recent', 'upcoming', undefined, 'x', ['recent']].map(c.normalizeWhen), ['recent', 'upcoming', 'upcoming', 'upcoming', 'upcoming'])
+  assert.deepEqual(['3', 0, -2, 'abc', 501, 2.9, undefined].map(c.calendarPage), [3, 1, 1, 1, 1, 2, 1])
+})
+
+test('an episode belongs to the calendar day of its air time in Tehran', () => {
+  // 21:00 UTC is already the next day in Tehran (+03:30).
+  assert.equal(c.tehranDay('2026-10-06T21:00:00.000Z'), '2026-10-07')
+  assert.equal(c.tehranDay('2026-10-06T20:29:00.000Z'), '2026-10-06')
+  assert.equal(c.tehranDay('2026-10-06T00:00:00.000Z'), '2026-10-06', 'a date entered without a time stays on its day')
+})
+
+test('episodes are grouped by day in the order they arrive', () => {
+  const groups = c.groupByDay([episode(1, '2026-10-06T08:00:00.000Z'), episode(2, '2026-10-06T19:00:00.000Z'), episode(3, '2026-10-06T21:30:00.000Z'), episode(4, '2026-10-09T08:00:00.000Z')])
+  assert.deepEqual(groups.map((group) => [group.day, group.episodes.map((item) => item.id)]), [['2026-10-06', [1, 2]], ['2026-10-07', [3]], ['2026-10-09', [4]]])
+  assert.deepEqual(c.groupByDay([]), [])
+})
+
+test('distance is counted in calendar days, not in 24-hour spans', () => {
+  const now = new Date('2026-10-06T19:00:00.000Z') // 22:30 in Tehran
+  assert.equal(c.daysAway('2026-10-06T05:00:00.000Z', now), 0)
+  assert.equal(c.daysAway('2026-10-06T21:00:00.000Z', now), 1, 'two hours later, but tomorrow')
+  assert.equal(c.daysAway('2026-10-05T19:30:00.000Z', now), -1)
+  assert.equal(c.daysAway('2026-10-16T08:00:00.000Z', now), 10)
+})
+
+test('episode code and wiring', () => {
+  assert.deepEqual([c.episodeCode(1, 2), c.episodeCode(12, 104)], ['S01E02', 'S12E104'])
+  assert.match(fs.readFileSync(path.join(calendarRoot, 'src/components/media/nav.ts'), 'utf8'), /key: 'calendar', href: '\/cinema\/calendar'/)
+  const page = fs.readFileSync(path.join(calendarRoot, 'src/app/cinema/calendar/page.tsx'), 'utf8')
+  assert.match(page, /await requireModule\('cinema'\)/)
+  for (const schema of ['prisma/schema.postgresql.prisma', 'prisma/schema.prisma']) assert.match(fs.readFileSync(path.join(calendarRoot, schema), 'utf8'), /model CinemaEpisode \{[\s\S]*?@@index\(\[airDate\]\)[\s\S]*?\n\}/)
+})
