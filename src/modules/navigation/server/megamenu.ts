@@ -105,7 +105,7 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
   async forum(cfg) {
     const categories = await safe(db.forumCategory.findMany({ select: { id: true, parentId: true, title: true, slug: true, threadCount: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }), [])
     const nodes = categories.map((c) => ({ id: c.id, parentId: c.parentId, label: c.title, href: `/forum/c/${c.slug}`, count: c.threadCount, slug: c.slug }))
-    return { items: await itemsFromTree(nodes, cfg, async () => []), quick: [{ label: 'تازه‌ترین‌ها', href: '/forum' }, { label: 'برترین‌ها', href: '/forum/top' }, { label: 'بی‌پاسخ‌ها', href: '/forum/unanswered' }, { label: 'موضوع جدید', href: '/forum/new' }], searchCategories: [] }
+    return { items: await itemsFromTree(nodes, cfg, async () => []), quick: [{ label: 'تازه‌ترین‌ها', href: '/forum/latest' }, { label: 'برترین‌ها', href: '/forum/top' }, { label: 'بی‌پاسخ‌ها', href: '/forum/unanswered' }, { label: 'موضوع جدید', href: '/forum/new' }], searchCategories: [] }
   },
 
   async shop(cfg) {
