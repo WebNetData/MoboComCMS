@@ -25,7 +25,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
   const base = category ? `/forum/c/${category.slug}` : tag ? `/forum/tag/${encodeURIComponent(tag)}` : ''
   const hrefFor = (key: TopicFilter, extra: Record<string, string> = {}) => {
     if (!base) {
-      const paths: Record<TopicFilter, string> = { latest: '/forum', top: '/forum/top', unread: '/forum/unread', new: '/forum/new-topics', bookmarks: '/forum/bookmarks', mine: '/forum/mine', unanswered: '/forum/unanswered', solved: '/forum/solved' }
+      const paths: Record<TopicFilter, string> = { latest: '/forum/latest', top: '/forum/top', unread: '/forum/unread', new: '/forum/new-topics', bookmarks: '/forum/bookmarks', mine: '/forum/mine', unanswered: '/forum/unanswered', solved: '/forum/solved' }
       const query = new URLSearchParams(extra).toString()
       return `${paths[key]}${query ? `?${query}` : ''}`
     }

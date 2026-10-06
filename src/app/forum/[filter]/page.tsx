@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 
 // /forum/top, /forum/unread, /forum/new-topics, /forum/bookmarks, /forum/mine, /forum/unanswered, /forum/solved
 const FILTERS: Record<string, { filter: TopicFilter; title: string; index: boolean }> = {
+  latest: { filter: 'latest', title: 'همهٔ موضوع‌ها', index: true },
   top: { filter: 'top', title: 'برترین موضوع‌ها', index: true },
   unread: { filter: 'unread', title: 'خوانده‌نشده‌ها', index: false },
   'new-topics': { filter: 'new', title: 'موضوع‌های تازه', index: false },
