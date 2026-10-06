@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Notice, Pager, fa, faDate } from '../store/shared'
+import { useExtensions } from '@/extensions/client/ExtensionProvider'
+import { notificationOffered } from '@/modules/notifications/domain/event-modules'
 
 type Smtp = {
   enabled: boolean; mode: 'local' | 'smtp'; host: string; port: number; security: 'tls' | 'starttls' | 'none'; user: string; hasPassword: boolean
@@ -39,6 +41,9 @@ function GmailGuide({ onUse }: { onUse: () => void }) {
 }
 
 export default function EmailPage() {
+  const extensions = useExtensions()
+  // Kinds of a switched-off module are not offered (their saved choice is kept).
+  const offered = EVENTS.filter(([id]) => notificationOffered(id, Object.fromEntries(Object.entries(extensions).map(([key, value]) => [key, value.enabled]))))
   const [smtp, setSmtp] = useState<Smtp | null>(null)
   const [form, setForm] = useState<(Smtp & { password: string }) | null>(null)
   const [error, setError] = useState('')
@@ -136,7 +141,7 @@ export default function EmailPage() {
       <section className="sa-card sa-form">
         <header className="sa-card-head"><h2>اطلاع‌رسانی به کاربران</h2><label className="sa-check"><input type="checkbox" checked={form.notifyUsers} onChange={(e) => set('notifyUsers', e.target.checked)} />فعال</label></header>
         <p className="sa-hint">وقتی برای کاربر اعلانی ثبت می‌شود (پرداخت، تحویل، پاسخ تیکت…) یک ایمیل هم برایش فرستاده می‌شود. ایمیل‌ها پس‌زمینه ارسال می‌شوند و سرعت سایت را کم نمی‌کنند. کاربرانی که در پروفایل خود ایمیل‌ها را خاموش کرده‌اند و حساب‌هایی که با شماره موبایل ساخته شده‌اند (بدون ایمیل واقعی) ایمیل نمی‌گیرند.</p>
-        <div className="em-events">{EVENTS.map(([id, label]) => <label key={id} className="sa-check"><input type="checkbox" disabled={!form.notifyUsers} checked={form.events[id] !== false} onChange={(e) => set('events', { ...form.events, [id]: e.target.checked })} />{label}</label>)}</div>
+        <div className="em-events">{offered.map(([id, label]) => <label key={id} className="sa-check"><input type="checkbox" disabled={!form.notifyUsers} checked={form.events[id] !== false} onChange={(e) => set('events', { ...form.events, [id]: e.target.checked })} />{label}</label>)}</div>
         <div className="sa-head-actions">
           <button type="button" className="btn btn-primary" disabled={!!busy || !dirty} onClick={() => void save()}>ذخیره</button>
           <button type="button" className="btn btn-ghost" onClick={() => setPreview(!preview)}>{preview ? 'بستن پیش‌نمایش' : 'پیش‌نمایش ایمیل'}</button>

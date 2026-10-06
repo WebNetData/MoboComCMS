@@ -136,11 +136,11 @@ test('the admin sections and APIs of the VPN, reseller and marketplace modules b
   // Every item of the built-in admin menu that leads into one of these sections is covered by a module's adminPaths.
   const layout = fs.readFileSync(path.resolve(__dirname, '..', 'src/app/admin/layout.tsx'), 'utf8')
   const owned = [...vpn.adminPaths, ...reseller.adminPaths, ...manifestOf('marketplace').adminPaths]
-  for (const href of ['/admin/plans', '/admin/service-offers', '/admin/trial', '/admin/subscriptions', '/admin/panels', '/admin/resellers', '/admin/reseller-sales', '/admin/happ', '/admin/connection-guide', '/admin/locations']) {
+  for (const href of ['/admin/plans', '/admin/service-offers', '/admin/trial', '/admin/subscriptions', '/admin/panels', '/admin/resellers', '/admin/reseller-sales', '/admin/happ', '/admin/connection-guide', '/admin/locations', '/admin/incidents']) {
     assert.ok(layout.includes(`href: '${href}'`), href)
     assert.ok(owned.includes(href), href)
   }
-  const guarded = { vpn: ['admin/plans', 'admin/service-offers', 'admin/trial', 'admin/subscriptions', 'admin/panels', 'admin/panels/groups', 'admin/happ', 'admin/connection-guide', 'trial'], reseller: ['admin/resellers', 'admin/reseller-sales'] }
+  const guarded = { vpn: ['admin/plans', 'admin/service-offers', 'admin/trial', 'admin/subscriptions', 'admin/panels', 'admin/panels/groups', 'admin/happ', 'admin/connection-guide', 'admin/incidents', 'trial'], reseller: ['admin/resellers', 'admin/reseller-sales'] }
   for (const [id, routes] of Object.entries(guarded)) for (const route of routes) {
     const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/app/api', route, 'route.ts'), 'utf8')
     const handlers = source.match(/^export const (GET|POST|PUT|PATCH|DELETE) = .*$/gm) || []
@@ -148,4 +148,16 @@ test('the admin sections and APIs of the VPN, reseller and marketplace modules b
     for (const line of handlers) assert.ok(line.includes(`whenModuleOn('${id}', handlers.`), `${route}: ${line}`)
     assert.ok(!/^export \{/m.test(source), `${route} re-exports an unguarded handler`)
   }
+})
+
+test('notification kinds of a switched-off module are not offered', () => {
+  const n = load('src/modules/notifications/domain/event-modules')
+  const off = { vpn: false, marketplace: false, forum: true }
+  assert.deepEqual(['SUBSCRIPTION_EXPIRING', 'SUBSCRIPTION_READY', 'MARKETPLACE', 'PAYMENT_PAID', 'TICKET_REPLY', 'FORUM_REPLY', 'MEMBERSHIP', 'PRODUCT_DELIVERED'].filter((kind) => n.notificationOffered(kind, off)), ['PAYMENT_PAID', 'TICKET_REPLY', 'FORUM_REPLY', 'MEMBERSHIP', 'PRODUCT_DELIVERED'])
+  assert.equal(n.notificationOffered('FORUM_REPLY', { forum: false }), false)
+  assert.equal(n.notificationOffered('SUBSCRIPTION_EXPIRED', {}), true, 'a module that is not listed counts as on')
+  // Every kind with an owner names a module that exists.
+  const ids = fs.readdirSync(path.resolve(__dirname, '..', 'src/plugins')).filter((dir) => fs.existsSync(path.resolve(__dirname, '..', 'src/plugins', dir, 'manifest.json'))).map((dir) => manifestOf(dir).id)
+  const kinds = [...load('src/modules/mail/domain/mail').EMAIL_EVENTS, ...load('src/modules/sms/domain/sms').SMS_EVENTS].map((event) => event.id)
+  for (const kind of [...kinds, 'FORUM_REPLY', 'COMMUNITY_LIKE']) { const owner = n.notificationModule(kind); if (owner) assert.ok(ids.includes(owner), `${kind} → ${owner}`) }
 })

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { formatCurrency } from '@/shared/money/client'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 import type { CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
@@ -20,7 +21,7 @@ function topupKey(currency:string, amount:number) {
 }
 
 export default function WalletPage() {
-  const {t,locale}=useI18n(); const isFa=locale==='fa'
+  const {t,locale}=useI18n(); const isFa=locale==='fa'; const vpnOn=useModuleEnabled('vpn')
   const [balances,setBalances]=useState<Balance[]>([]); const [txs,setTxs]=useState<Tx[]>([]); const [totals,setTotals]=useState<Record<string,{toppedUp:number;spent:number;count:number}>>({})
   const [topupCurrencies,setTopupCurrencies]=useState<string[]>([]); const [topupGateways,setTopupGateways]=useState<CheckoutGatewayChoice[]>([]); const [currency,setCurrency]=useState('USD'); const [gatewayRef,setGatewayRef]=useState(''); const [amount,setAmount]=useState(25)
   const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [loading,setLoading]=useState(true)
@@ -44,7 +45,7 @@ export default function WalletPage() {
         <div className="flex flex-wrap gap-2 mb-4">{QUICK.map(q=><button key={q} type="button" onClick={()=>setAmount(q)} className={`badge ${amount===q?'badge-primary':'badge-gray'}`}>{money(q)}</button>)}</div>
         <label className="label">{t.amountLabel} ({currency})</label><input className="input num mb-4" dir="ltr" inputMode="decimal" value={amount} onChange={e=>setAmount(Number(e.target.value))}/>
         {compatibleGateways.length>0&&<><label className="label">{isFa?'درگاه پرداخت':'Payment gateway'}</label><select className="select mb-4" value={gatewayRef} onChange={e=>setGatewayRef(e.target.value)}>{compatibleGateways.map(g=><option key={g.ref} value={g.ref}>{g.label}{g.feePercent?` · ${g.feePercent}%`:''}</option>)}</select></>}
-        {error&&<p className="error-text mb-3">{error}</p>}<button className="btn btn-primary w-full" disabled={busy||amount<=0||!topupCurrencies.includes(currency)||compatibleGateways.length===0} onClick={topUp}>{busy?t.loading:`⚡ ${t.payNow}`}</button><p className="muted text-xs mt-3">{t.topUpNote}</p>
+        {error&&<p className="error-text mb-3">{error}</p>}<button className="btn btn-primary w-full" disabled={busy||amount<=0||!topupCurrencies.includes(currency)||compatibleGateways.length===0} onClick={topUp}>{busy?t.loading:`⚡ ${t.payNow}`}</button><p className="muted text-xs mt-3">{vpnOn ? t.topUpNote : locale === 'fa' ? 'از موجودی کیف پول برای پرداخت سفارش‌ها و خریدهای سایت استفاده می‌شود.' : 'Wallet balance can be used to pay for orders and purchases on the site.'}</p>
       </div>
       <div className="card"><div className="flex items-center justify-between mb-4"><h2 className="h3">{t.txHistory}</h2><button className="btn btn-ghost" onClick={load}>↻ {t.refresh}</button></div>
         {loading&&<p className="muted">{t.loading}</p>}{!loading&&visible.length===0&&<p className="muted">{t.noTx}</p>}{visible.length>0&&<div className="overflow-x-auto"><table className="data"><thead><tr><th>{t.date}</th><th>{t.type}</th><th>{t.description}</th><th>{t.amountLabel}</th><th>{t.balanceAfter}</th><th>{t.status}</th></tr></thead><tbody>{visible.map(tx=><tr key={tx.id}><td className="num text-xs whitespace-nowrap">{fmt(tx.createdAt)}</td><td><StatusBadge value={tx.type}/></td><td className="text-sm">{transactionLabel(tx.type,locale)}{tx.invoiceId&&<Link href="/dashboard/invoices" className="muted text-xs ms-2">#{tx.invoiceId}</Link>}</td><td className={`num font-semibold ${tx.amount>=0?'success-text':'error-text'}`}>{tx.amount>=0?'+':'−'}{money(Math.abs(tx.amount),tx.currency)}</td><td className="num">{money(tx.balanceAfter,tx.currency)}</td><td><StatusBadge value={tx.status}/></td></tr>)}</tbody></table></div>}

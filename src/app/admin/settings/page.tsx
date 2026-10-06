@@ -5,10 +5,12 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
   const { t, locale } = useI18n()
+  const vpnOn = useModuleEnabled('vpn')
   const theme = getCookie('theme') || 'dark'
   const [s, setS] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
@@ -36,7 +38,7 @@ export default function AdminSettingsPage() {
     ['supportTelegram', t.supportTelegram],
     ['supportEmail', t.supportEmail],
     ['siteUrl', t.siteUrl],
-    ['subscriptionPrefix', 'پیشوند نام خودکار اشتراک (مثلاً happ)'],
+    ...(vpnOn ? [['subscriptionPrefix', 'پیشوند نام خودکار اشتراک (مثلاً happ)'] as [string, string]] : []),
     ['usdRateToman', t.usdRate],
     ['seoDescription', 'توضیحات موتور جستجو'],
     ['ogImage', 'نشانی تصویر اشتراک‌گذاری'],
@@ -61,7 +63,7 @@ export default function AdminSettingsPage() {
             <input type="checkbox" checked={s.storeEnabled === 'true'} onChange={e => setS({ ...s, storeEnabled: e.target.checked ? 'true' : 'false' })} />
             <strong>{locale === 'fa' ? 'فعال بودن فروشگاه' : 'Enable storefront'}</strong>
           </label>
-          <p className="muted text-sm mt-3">{locale === 'fa' ? 'با غیرفعال کردن، منو و محصولات فروشگاه پنهان و خرید محصولات متوقف می‌شود. فروش پلن‌های VPN فعال می‌ماند.' : 'When disabled, shop links and products are hidden and product purchases are blocked. VPN plans remain available.'}</p>
+          <p className="muted text-sm mt-3">{locale === 'fa' ? 'با غیرفعال کردن، منو و محصولات فروشگاه پنهان و خرید محصولات متوقف می‌شود.' + (vpnOn ? ' فروش پلن‌های VPN فعال می‌ماند.' : '') : 'When disabled, shop links and products are hidden and product purchases are blocked. VPN plans remain available.'}</p>
         </div>
         {fields.map(([key, label]) => (
           <div key={key} className="mb-4">
@@ -84,7 +86,7 @@ export default function AdminSettingsPage() {
       <div className="card max-w-xl mt-6">
         <h3 className="font-bold mb-2">.env</h3>
         <p className="muted leading-7 text-sm">
-          {t.envHint}
+          {vpnOn ? t.envHint : locale === 'fa' ? 'کلیدهای Plisio در فایل .env مدیریت می‌شوند.' : 'Plisio keys live in the .env file.'}
           <br />
           <code dir="ltr">{t.keysIn}</code>
         </p>
