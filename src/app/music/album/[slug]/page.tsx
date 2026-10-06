@@ -45,7 +45,7 @@ export default async function AlbumPage({ params }: Props) {
   const locked = paywall ? !paywall.open : album.access === 'MEMBERS' && !viewer.member
   return (
     <MediaShell section="music" active="albums" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      <ManageBar title="مدیریت آلبوم" anyOf={['music.manage', 'cms.posts']} links={[{ href: `/admin/music/library?tab=albums&edit=${album.id}`, label: 'ویرایش آلبوم' }, { href: '/admin/music/library?tab=albums', label: 'همهٔ آلبوم‌ها' }]} />
+      <ManageBar title="مدیریت آلبوم" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=albums&edit=${album.id}`, label: 'ویرایش آلبوم' }, { href: '/admin/music/library?tab=albums', label: 'همهٔ آلبوم‌ها' }]} />
       <section className="mu-detail-hero">
         <div className="mu-hero-bg" style={album.cover ? { backgroundImage: `url("${album.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="container mu-detail-inner">

@@ -44,7 +44,7 @@ export const QUEUE_SOURCES: readonly QueueSource[] = [
   { key: 'forum-flags', module: 'forum', permissions: ['forum.moderate'], label: 'گزارش‌های تالار', labelEn: 'Forum flags', href: '/admin/forum?tab=flags' },
   { key: 'article-comments', module: 'journal', permissions: ['cms.posts'], label: 'دیدگاه‌های مقاله', labelEn: 'Article comments', href: '/admin/comments',
     decisions: yesNo((id) => ({ url: '/api/admin/comments', method: 'PATCH', body: { id, status: 'APPROVED' } }), (id) => ({ url: '/api/admin/comments', method: 'PATCH', body: { id, status: 'REJECTED' } })) },
-  { key: 'item-reviews', module: 'reviews', permissions: ['reviews.moderate', 'cms.posts'], label: 'نظرهای محتوا (بازی، فیلم، موزیک، نرم‌افزار)', labelEn: 'Content reviews', href: '/admin/reviews',
+  { key: 'item-reviews', module: 'reviews', permissions: ['reviews.moderate'], label: 'نظرهای محتوا (بازی، فیلم، موزیک، نرم‌افزار)', labelEn: 'Content reviews', href: '/admin/reviews',
     decisions: yesNo((id) => ({ url: '/api/admin/reviews', method: 'POST', body: { id, action: 'approve' } }), (id) => ({ url: '/api/admin/reviews', method: 'POST', body: { id, action: 'reject' } })) },
   { key: 'product-reviews', module: 'store', permissions: ['cms.products'], label: 'دیدگاه‌های محصول', labelEn: 'Product reviews', href: '/admin/product-feedback',
     decisions: yesNo((id) => ({ url: '/api/admin/product-feedback', method: 'PATCH', body: { id, kind: 'review', status: 'APPROVED' } }), (id) => ({ url: '/api/admin/product-feedback', method: 'PATCH', body: { id, kind: 'review', status: 'REJECTED' } })) },

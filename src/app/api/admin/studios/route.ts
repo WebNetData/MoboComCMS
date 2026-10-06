@@ -4,8 +4,12 @@ import { auditAdmin } from '@/platform/audit/server'
 import { err, ok } from '@/platform/http/response'
 import { adminStudios, updateStudio } from '@/modules/studios/server/admin'
 
-// A shared profile can affect both catalogues, so a single-section editor cannot modify it.
-const guard = (req: NextRequest) => adminGuard(req, null, ['cms.posts'])
+// A studio's profile is shared by the games and the film catalogues, so changing it takes the right to both;
+// the manager of one of them alone cannot.
+async function guard(req: NextRequest) {
+  const games = await adminGuard(req, null, ['games.manage'])
+  return 'response' in games ? games : adminGuard(req, null, ['cinema.manage'])
+}
 
 export async function GET(req: NextRequest) {
   const access = await guard(req)

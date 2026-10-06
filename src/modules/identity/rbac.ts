@@ -30,12 +30,22 @@ export type CorePermission = (typeof PERMISSIONS)[number]
 export type Permission = string
 export const ALL_PERMISSIONS: readonly string[] = [...PERMISSIONS, ...extensionPermissionIds]
 
+/**
+ * `cms.posts` is the magazine: posts, their categories and comments, the journal, post templates. Until
+ * migration 20261203120000 it also opened these; roles that held it then were given them by that migration, so
+ * nobody lost access when the two were told apart.
+ */
+export const FORMERLY_OPENED_BY_POSTS = ['music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'forum.moderate', 'reviews.moderate'] as const
+
+/** Permissions that let their holder edit some content, and so upload a picture for it. */
+export const CONTENT_EDIT_PERMISSIONS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] as const
+
 export const ROLE_PRESETS: Record<string, string[]> = {
   admin: [...ALL_PERMISSIONS],
   accountant: ['dashboard.view', 'finance.manage', 'invoices.manage', 'orders.manage'],
   support: ['dashboard.view', 'users.manage', 'subs.manage', 'orders.manage', 'invoices.manage', 'tickets.handle'],
   reseller: ['dashboard.view', 'subs.manage'],
-  backup: ['dashboard.view', 'cms.pages', 'cms.posts', 'cms.products', 'settings.manage'],
+  backup: ['dashboard.view', 'cms.pages', 'cms.posts', 'cms.products', 'settings.manage', ...FORMERLY_OPENED_BY_POSTS],
   // One part of the site each: the manager of a section gets that section and nothing else.
   'music-manager': ['dashboard.view', 'music.manage'],
   'cinema-manager': ['dashboard.view', 'cinema.manage'],
@@ -43,15 +53,16 @@ export const ROLE_PRESETS: Record<string, string[]> = {
   'software-manager': ['dashboard.view', 'software.manage'],
   'forum-manager': ['dashboard.view', 'forum.moderate'],
   'store-manager': ['dashboard.view', 'cms.products', 'orders.manage'],
-  // cms.posts is the magazine's permission and also opens music, films, games, software and forum moderation.
-  'content-editor': ['dashboard.view', 'cms.posts'],
+  'magazine-manager': ['dashboard.view', 'cms.posts'],
+  // Every content section at once, for an editor-in-chief.
+  'content-manager': ['dashboard.view', 'cms.posts', ...FORMERLY_OPENED_BY_POSTS],
 }
 
 /** What the role form calls each preset. */
 export const ROLE_PRESET_LABELS: Record<string, string> = {
   admin: 'مدیر کل (همهٔ دسترسی‌ها)', accountant: 'حسابدار', support: 'پشتیبان', reseller: 'نماینده', backup: 'جانشین مدیر محتوا و تنظیمات',
   'music-manager': 'مدیر موزیک', 'cinema-manager': 'مدیر فیلم و سریال', 'games-manager': 'مدیر بازی', 'software-manager': 'مدیر نرم‌افزار',
-  'forum-manager': 'مدیر تالار گفتمان', 'store-manager': 'مدیر فروشگاه (محصولات و سفارش‌ها)', 'content-editor': 'ویراستار محتوا (مجله و همهٔ بخش‌های محتوایی)',
+  'forum-manager': 'مدیر تالار گفتمان', 'store-manager': 'مدیر فروشگاه (محصولات و سفارش‌ها)', 'magazine-manager': 'مدیر مجله (نوشته‌ها، دسته‌ها و دیدگاه‌ها)', 'content-manager': 'مدیر محتوا (مجله و همهٔ بخش‌های محتوایی)',
 }
 
 /** Stored as the whole permission list: every capability, including ones plugins add later. */

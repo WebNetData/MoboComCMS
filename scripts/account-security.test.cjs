@@ -188,3 +188,51 @@ test('section manager presets hold known permissions and stay inside their own s
   for (const name of [...Object.keys(own), 'store-manager']) assert.equal(rbac.ROLE_PRESETS[name].includes('cms.posts'), false, name)
   assert.deepEqual(rbac.parsePermissions(rbac.ROLE_PRESETS['music-manager'].join(',')).sort(), ['dashboard.view', 'music.manage'])
 })
+
+// ---- cms.posts is the magazine, and only the magazine
+test('the magazine permission is named only where the magazine is guarded', () => {
+  const files = []
+  const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { if (entry.name !== 'generated') walk(full) } else if (/\.(ts|tsx|json)$/.test(entry.name) && fs.readFileSync(full, 'utf8').includes('cms.posts')) files.push(path.relative(path.resolve(__dirname, '..'), full).split(path.sep).join('/')) } }
+  walk(path.resolve(__dirname, '..', 'src'))
+  // Each of these is the magazine itself (posts, their categories, comments, templates, newsletter, journal), the
+  // editorial collections its editors feature, or a list of "any content editor" that names every section.
+  assert.deepEqual(files.sort(), [
+    'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx', 'src/app/api/admin/collections/[id]/feature/route.ts', 'src/app/api/admin/collections/route.ts',
+    'src/modules/ai/server/http/admin.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/http/routes.ts',
+    'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',
+    'src/modules/site/server/http/admin/builder/post-template/route.ts', 'src/modules/site/server/http/admin/cms/route.ts', 'src/modules/site/server/http/admin/comments/route.ts',
+    'src/modules/site/server/http/builder/post-template.ts', 'src/modules/site/server/http/theme/templates.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/plugins/journal/manifest.json',
+  ].sort(), 'a new place accepts cms.posts: make sure it is the magazine, then list it here')
+  // No section's own guard takes it: not as a second choice, not in a menu.
+  for (const file of ['src/modules/music/server/http/routes.ts', 'src/modules/cinema/server/http/routes.ts', 'src/modules/games/server/http/routes.ts', 'src/modules/software/server/http/routes.ts', 'src/modules/media/server/admin.ts', 'src/modules/taxonomy/server/http/routes.ts', 'src/modules/reviews/server/http/routes.ts', 'src/modules/forum/server/community.ts', 'src/modules/forum/server/http/admin.ts', 'src/app/api/admin/studios/route.ts'])
+    assert.equal(read(file).includes('cms.posts'), false, file)
+  for (const plugin of ['music', 'cinema', 'games', 'software', 'forum']) assert.equal(read(`src/plugins/${plugin}/manifest.json`).includes('cms.posts'), false, plugin)
+  // Where it still sits beside other permissions, it guards a post and nothing else.
+  assert.match(read('src/modules/paywall/server/http/paywall.ts'), /post: \['cms\.posts'\], software: \['software\.manage'\], game: \['games\.manage'\]/)
+  assert.match(read('src/modules/moderation/domain/queue.ts'), /key: 'item-reviews', module: 'reviews', permissions: \['reviews\.moderate'\]/)
+})
+
+test('roles that held the magazine permission keep what it used to open', () => {
+  const seen = new Map()
+  const open = (file) => {
+    const full = fs.existsSync(file) && fs.statSync(file).isFile() ? file : `${file}.ts`
+    if (seen.has(full)) return seen.get(full).exports
+    if (full.endsWith('.json')) return JSON.parse(fs.readFileSync(full, 'utf8'))
+    const mod = { exports: {} }; seen.set(full, mod)
+    const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true } }).outputText
+    new Function('require', 'module', 'exports', source)((name) => name.startsWith('@/') ? open(path.resolve(__dirname, '..', 'src', name.slice(2))) : name.startsWith('.') ? open(path.resolve(path.dirname(full), name)) : require(name), mod, mod.exports)
+    return mod.exports
+  }
+  const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
+  const sql = read('prisma/migrations/20261203120000_posts_permission_is_the_magazine/migration.sql')
+  const granted = [...sql.matchAll(/\|\| ',([a-z.]+)' WHERE/g)].map((match) => match[1])
+  assert.deepEqual(granted.sort(), [...rbac.FORMERLY_OPENED_BY_POSTS].sort(), 'the migration grants exactly what cms.posts used to open')
+  assert.equal(/\b(DROP|DELETE|ALTER|CREATE|TRUNCATE)\b/i.test(sql.replace(/^--.*$/gm, '')), false, 'data only: nothing is removed or restructured')
+  assert.ok(granted.every((permission) => rbac.ALL_PERMISSIONS.includes(permission)))
+  // The magazine manager is the magazine alone; the seeded "content backup" role and its preset agree.
+  assert.deepEqual([...rbac.ROLE_PRESETS['magazine-manager']].sort(), ['cms.posts', 'dashboard.view'])
+  const seeded = JSON.parse(read('prisma/system-roles.json')).find((role) => role.name === 'backup').permissions.split(',')
+  assert.deepEqual(seeded.sort(), [...rbac.ROLE_PRESETS.backup].sort())
+  for (const permission of rbac.FORMERLY_OPENED_BY_POSTS) assert.ok(rbac.ROLE_PRESETS['content-manager'].includes(permission))
+  assert.equal(rbac.ROLE_PRESETS['content-editor'], undefined)
+})

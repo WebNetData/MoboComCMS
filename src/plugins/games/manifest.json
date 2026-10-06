@@ -35,8 +35,7 @@
         "labelEn": "Games dashboard",
         "icon": "grid",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ],
         "exact": true
       },
@@ -46,8 +45,7 @@
         "labelEn": "All games",
         "icon": "grid",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ]
       },
       {
@@ -56,8 +54,7 @@
         "labelEn": "Add game",
         "icon": "plus",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ]
       },
       {
@@ -66,8 +63,7 @@
         "labelEn": "Release calendar",
         "icon": "sliders",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ]
       },
       {
@@ -76,8 +72,7 @@
         "labelEn": "Franchises",
         "icon": "grid",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ]
       },
       {
@@ -86,8 +81,7 @@
         "labelEn": "Game categories",
         "icon": "grid",
         "permissions": [
-          "games.manage",
-          "cms.posts"
+          "games.manage"
         ]
       },
       {

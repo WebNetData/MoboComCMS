@@ -36,7 +36,7 @@ export default async function ArtistPage({ params }: Props) {
   const banner = artist.cover || artist.image
   return (
     <MediaShell section="music" active="artists" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      <ManageBar title="مدیریت هنرمند" anyOf={['music.manage', 'cms.posts']} links={[{ href: `/admin/music/library?tab=artists&edit=${artist.id}`, label: 'ویرایش هنرمند' }, { href: '/admin/music/library?tab=artists', label: 'همهٔ هنرمندان' }]} />
+      <ManageBar title="مدیریت هنرمند" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=artists&edit=${artist.id}`, label: 'ویرایش هنرمند' }, { href: '/admin/music/library?tab=artists', label: 'همهٔ هنرمندان' }]} />
       <section className="mu-artist-hero" style={banner ? { backgroundImage: `url("${banner.replace(/"/g, '%22')}")` } : undefined}>
         <div className="container mu-artist-inner">
           <span className="mu-artist-avatar">{artist.image ? <img src={artist.image} alt={name} /> : <i>{name.slice(0, 1)}</i>}</span>

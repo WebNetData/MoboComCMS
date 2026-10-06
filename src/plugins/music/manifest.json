@@ -65,8 +65,7 @@
         "labelEn": "Music dashboard",
         "icon": "grid",
         "permissions": [
-          "music.manage",
-          "cms.posts"
+          "music.manage"
         ],
         "exact": true
       },
@@ -76,8 +75,7 @@
         "labelEn": "Tracks, albums & artists",
         "icon": "grid",
         "permissions": [
-          "music.manage",
-          "cms.posts"
+          "music.manage"
         ]
       },
       {
@@ -86,8 +84,7 @@
         "labelEn": "Categories",
         "icon": "grid",
         "permissions": [
-          "music.manage",
-          "cms.posts"
+          "music.manage"
         ]
       },
       {

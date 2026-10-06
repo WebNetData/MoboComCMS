@@ -4,7 +4,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { cinemaDashboard, getCinemaSettings, saveCinemaSettings, cinemaPicker } from '@/modules/cinema/server/admin'
 
-const cinemaAdmin = (req: NextRequest) => adminGuard(req, 'cinema', ['cinema.manage', 'cms.posts'])
+const cinemaAdmin = (req: NextRequest) => adminGuard(req, 'cinema', ['cinema.manage'])
 
 /** GET /api/admin/cinema/dashboard */
 export async function GET_dashboard(req: NextRequest) {

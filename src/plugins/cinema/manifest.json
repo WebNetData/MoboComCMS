@@ -35,8 +35,7 @@
         "labelEn": "Film dashboard",
         "icon": "grid",
         "permissions": [
-          "cinema.manage",
-          "cms.posts"
+          "cinema.manage"
         ],
         "exact": true
       },
@@ -46,8 +45,7 @@
         "labelEn": "Titles",
         "icon": "grid",
         "permissions": [
-          "cinema.manage",
-          "cms.posts"
+          "cinema.manage"
         ]
       },
       {
@@ -56,8 +54,7 @@
         "labelEn": "Categories",
         "icon": "grid",
         "permissions": [
-          "cinema.manage",
-          "cms.posts"
+          "cinema.manage"
         ]
       },
       {

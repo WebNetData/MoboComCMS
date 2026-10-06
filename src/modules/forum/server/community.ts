@@ -69,7 +69,7 @@ async function isStaff(userId: number): Promise<boolean> {
   if (!user || user.role !== 'ADMIN' || user.status !== 'ACTIVE') return false
   if (user.roleId == null) return true
   const permissions = parsePermissions(user.roleRef?.permissions || '')
-  return permissions.includes('forum.moderate') || permissions.includes('cms.posts')
+  return permissions.includes('forum.moderate')
 }
 
 /** Resolve a user into a forum viewer (API routes pass the authenticated user id). */

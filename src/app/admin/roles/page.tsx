@@ -26,7 +26,7 @@ const PERM_LABELS: Record<string, string> = {
   'tickets.departments.manage': '🎛 Ticket departments',
   'settings.manage': '⚙️ Settings',
   'cms.pages': '📄 Pages',
-  'cms.posts': '📝 Posts',
+  'cms.posts': '📝 مجله (نوشته‌ها و دیدگاه‌ها)',
   'cms.products': '🛒 Products',
   'roles.manage': '🔑 Roles',
   'imports.manage': '📥 Bulk import',

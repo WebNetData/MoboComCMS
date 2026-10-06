@@ -39,7 +39,7 @@ export default async function PlaylistPage({ params }: Props) {
   const cover = playlist.cover || data.tracks[0]?.cover || ''
   return (
     <MediaShell section="music" active="playlists" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      <ManageBar title="مدیریت پلی‌لیست" anyOf={['music.manage', 'cms.posts']} links={[{ href: `/admin/music/library?tab=playlists&edit=${playlist.id}`, label: 'ویرایش پلی‌لیست' }, { href: '/admin/music/library?tab=playlists', label: 'همهٔ پلی‌لیست‌ها' }]} />
+      <ManageBar title="مدیریت پلی‌لیست" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=playlists&edit=${playlist.id}`, label: 'ویرایش پلی‌لیست' }, { href: '/admin/music/library?tab=playlists', label: 'همهٔ پلی‌لیست‌ها' }]} />
       <section className="mu-detail-hero is-playlist">
         <div className="mu-hero-bg" style={cover ? { backgroundImage: `url("${cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
         <div className="container mu-detail-inner">

@@ -12,7 +12,7 @@ const CHECKS = [
   'forum-flag-queue', 'forum-category-moderators',
   'forum-board-index',
   'forum-activity-stream',
-  'moderation-queue',
+  'moderation-queue', 'posts-permission-migration',
   'marketplace-seller-money',
   'integrity-report', 'forum-member-profile',
   'recommendations-listening', 'community-block-coverage',
