@@ -81,7 +81,7 @@ export default async function TitlePage({ params }: Props) {
 
   return (
     <MediaShell section="cinema" active={ti.kind === 'SERIES' ? 'series' : 'movies'} nav={cinemaNav(fa)} search={{ action: '/cinema/browse', placeholder: fa ? 'نام فیلم، سریال یا کارگردان…' : 'Film, series or director…' }}>
-      <ManageBar title={ti.kind === 'SERIES' ? 'مدیریت سریال' : 'مدیریت فیلم'} anyOf={['cinema.manage', 'cms.posts']} links={[{ href: `/admin/cinema/titles?edit=${ti.id}`, label: 'ویرایش' }, { href: '/admin/cinema/titles', label: 'همهٔ فیلم‌ها و سریال‌ها' }]} />
+      <ManageBar title={ti.kind === 'SERIES' ? 'مدیریت سریال' : 'مدیریت فیلم'} anyOf={['cinema.manage']} links={[{ href: `/admin/cinema/titles?edit=${ti.id}`, label: 'ویرایش' }, { href: '/admin/cinema/titles', label: 'همهٔ فیلم‌ها و سریال‌ها' }]} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="cn-detail-hero">
         <div className="cn-hero-bg is-active" style={ti.backdrop ? { backgroundImage: `url("${ti.backdrop.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />

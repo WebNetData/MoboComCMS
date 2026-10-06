@@ -79,14 +79,14 @@ export async function POST_favorite(req: NextRequest) {
 
 /** GET /api/admin/reviews?status=PENDING&page=1 */
 export async function GET_admin(req: NextRequest) {
-  const g = await adminGuard(req, 'reviews', ['reviews.moderate', 'cms.posts'])
+  const g = await adminGuard(req, 'reviews', ['reviews.moderate'])
   if ('response' in g) return g.response
   return ok(await reviewQueue(req.nextUrl.searchParams.get('status') || 'PENDING', Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1)))
 }
 
 /** POST /api/admin/reviews { id, action: approve | reject | delete } */
 export async function POST_admin(req: NextRequest) {
-  const g = await adminGuard(req, 'reviews', ['reviews.moderate', 'cms.posts'])
+  const g = await adminGuard(req, 'reviews', ['reviews.moderate'])
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
   const id = Number(body.id)

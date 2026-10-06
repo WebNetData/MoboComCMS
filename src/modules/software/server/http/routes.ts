@@ -6,7 +6,7 @@ import { softwareDashboard, getSoftwareSettings, saveSoftwareSettings, softwareP
 import { deleteSoftwareRelease, saveSoftwareRelease, softwareReleases, SoftwareReleaseError } from '@/modules/software/server/releases'
 import { db } from '@/platform/database/prisma'
 
-const softwareAdmin = (req: NextRequest) => adminGuard(req, 'software', ['software.manage', 'cms.posts'])
+const softwareAdmin = (req: NextRequest) => adminGuard(req, 'software', ['software.manage'])
 const positive = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
 const failure = (error: unknown) => error instanceof SoftwareReleaseError ? err(error.message, error.status) : (console.error('[software releases]', error), err('خطای داخلی؛ دوباره تلاش کنید', 500))
 

@@ -48,7 +48,7 @@ export async function POST_library(req: NextRequest) {
 
 // ------------------------------------------------------------------ admin
 
-const gamesAdmin = (req: NextRequest) => adminGuard(req, 'games', ['games.manage', 'cms.posts'])
+const gamesAdmin = (req: NextRequest) => adminGuard(req, 'games', ['games.manage'])
 
 /** GET /api/admin/games/dashboard */
 export async function GET_dashboard(req: NextRequest) {

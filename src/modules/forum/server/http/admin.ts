@@ -19,7 +19,7 @@ import { authorsFor, fallbackAuthor, type AuthorView } from '@/modules/forum/ser
 async function guard(req: NextRequest) {
   const off = await moduleGuard('forum')
   if (off) return { response: off }
-  const admin = await requirePerm(req, 'forum.moderate') || await requirePerm(req, 'cms.posts')
+  const admin = await requirePerm(req, 'forum.moderate')
   return admin ? { admin } : { response: err('forbidden', 403) }
 }
 

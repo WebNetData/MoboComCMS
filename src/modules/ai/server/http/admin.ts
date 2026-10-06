@@ -66,8 +66,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const action = ACTIONS[String(body?.action || '')]
   if (!action) return err('unknown action', 404)
-  // forum.moderate or cms.posts both moderate the forum (same rule as the forum module).
-  const admin = await anyPerm(req, Array.isArray(action.perm) ? action.perm : action.perm === 'forum.moderate' ? ['forum.moderate', 'cms.posts'] : [action.perm])
+  const admin = await anyPerm(req, Array.isArray(action.perm) ? action.perm : [action.perm])
   if (!admin) return err('forbidden', 403)
   if (action.generates && !rateLimitHit(`ai:generate:${admin.id}`, 30, 10 * 60_000).ok) return err('درخواست‌های زیادی فرستادید؛ چند دقیقه صبر کنید', 429)
   try {

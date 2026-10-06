@@ -154,7 +154,7 @@ async function linksFor(ownerType: LinkOwner, ids: number[]) {
 
 const RESOURCES: Record<string, Resource> = {
   'music-artists': {
-    module: 'music', perms: ['music.manage', 'cms.posts'],
+    module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicArtist, orderBy: { id: 'desc' },
     label: (row) => row.name,
     parse: (b, existing) => pickDefined({
@@ -168,7 +168,7 @@ const RESOURCES: Record<string, Resource> = {
     }),
   },
   'music-albums': {
-    taxonomy: 'music', module: 'music', perms: ['music.manage', 'cms.posts'],
+    taxonomy: 'music', module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicAlbum, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } } },
     label: (row) => row.title,
     parse: async (b, existing) => {
@@ -191,7 +191,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   'music-tracks': {
-    module: 'music', perms: ['music.manage', 'cms.posts'],
+    module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicTrack, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } }, album: { select: { title: true } } },
     label: (row) => row.title,
     parse: (b, existing) => {
@@ -218,7 +218,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   'music-playlists': {
-    module: 'music', perms: ['music.manage', 'cms.posts'],
+    module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicPlaylist, orderBy: [{ sortOrder: 'asc' }, { id: 'desc' }],
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -236,7 +236,7 @@ const RESOURCES: Record<string, Resource> = {
     expand: async (rows) => rows.map((row) => ({ ...row, trackIds: (() => { try { return (JSON.parse(row.trackIds || '[]') as number[]).map(String) } catch { return [] } })() })),
   },
   'cinema-titles': {
-    taxonomy: 'cinema', module: 'cinema', perms: ['cinema.manage', 'cms.posts'],
+    taxonomy: 'cinema', module: 'cinema', perms: ['cinema.manage'],
     delegate: (t) => t.cinemaTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -329,7 +329,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   games: {
-    taxonomy: 'games', module: 'games', perms: ['games.manage', 'cms.posts'],
+    taxonomy: 'games', module: 'games', perms: ['games.manage'],
     delegate: (t) => t.gameTitle, orderBy: { publishedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({
@@ -391,7 +391,7 @@ const RESOURCES: Record<string, Resource> = {
     },
   },
   software: {
-    taxonomy: 'software', module: 'software', perms: ['software.manage', 'cms.posts'],
+    taxonomy: 'software', module: 'software', perms: ['software.manage'],
     delegate: (t) => t.softwareTitle, orderBy: { updatedAt: 'desc' },
     label: (row) => row.title,
     parse: (b, existing) => pickDefined({

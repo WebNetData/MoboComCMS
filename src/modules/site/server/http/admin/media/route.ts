@@ -1,11 +1,14 @@
 import { NextRequest } from 'next/server'
 import { requirePerm } from '@/modules/identity/server/access'
+import { CONTENT_EDIT_PERMISSIONS } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
 import { coverFormat, storeCoverImage } from '@/modules/site/server/cover-store'
 
 export async function POST(req: NextRequest) {
   if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) return err('forbidden', 403)
-  const admin = await requirePerm(req, 'cms.pages') || await requirePerm(req, 'cms.posts') || await requirePerm(req, 'settings.manage')
+  // A cover or picture for something the caller may edit: any content section's manager, or settings.
+  let admin = null
+  for (const permission of [...CONTENT_EDIT_PERMISSIONS, 'settings.manage']) { admin = await requirePerm(req, permission); if (admin) break }
   if (!admin) return err('forbidden', 403)
   return receiveImage(req)
 }

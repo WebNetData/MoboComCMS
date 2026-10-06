@@ -32,6 +32,6 @@
     "nameFa": "پشتیبان محتوا",
     "nameEn": "Content backup",
     "isSystem": false,
-    "permissions": "dashboard.view,cms.pages,cms.posts,cms.products,settings.manage"
+    "permissions": "dashboard.view,cms.pages,cms.posts,cms.products,settings.manage,music.manage,cinema.manage,games.manage,software.manage,forum.moderate,reviews.moderate"
   }
 ]

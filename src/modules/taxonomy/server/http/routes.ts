@@ -18,7 +18,7 @@ async function guard(req: NextRequest): Promise<{ taxonomy: Taxonomy; admin: Adm
   const taxonomy = req.nextUrl.searchParams.get('tax')
   if (!isTaxonomy(taxonomy)) return { response: err('invalid taxonomy') }
   const module = TAXONOMY_INFO[taxonomy].module
-  const g = await adminGuard(req, module, [`${module}.manage`, 'cms.posts'])
+  const g = await adminGuard(req, module, [`${module}.manage`])
   return 'response' in g ? g : { taxonomy, admin: g.admin }
 }
 

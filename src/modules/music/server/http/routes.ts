@@ -4,7 +4,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { musicDashboard, getMusicSettings, saveMusicSettings, musicPickers } from '@/modules/music/server/admin'
 
-const musicAdmin = (req: NextRequest) => adminGuard(req, 'music', ['music.manage', 'cms.posts'])
+const musicAdmin = (req: NextRequest) => adminGuard(req, 'music', ['music.manage'])
 
 /** GET /api/admin/music/dashboard */
 export async function GET_dashboard(req: NextRequest) {

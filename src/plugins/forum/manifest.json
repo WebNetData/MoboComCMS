@@ -35,8 +35,7 @@
         "labelEn": "Community dashboard",
         "icon": "grid",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ],
         "exact": true
       },
@@ -46,8 +45,7 @@
         "labelEn": "Review queue",
         "icon": "shield",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {
@@ -56,8 +54,7 @@
         "labelEn": "Flags",
         "icon": "shield",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {
@@ -66,8 +63,7 @@
         "labelEn": "Categories",
         "icon": "grid",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {
@@ -76,8 +72,7 @@
         "labelEn": "Members & groups",
         "icon": "devices",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {
@@ -86,8 +81,7 @@
         "labelEn": "Watched words",
         "icon": "sliders",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {
@@ -96,8 +90,7 @@
         "labelEn": "Forum settings",
         "icon": "sliders",
         "permissions": [
-          "forum.moderate",
-          "cms.posts"
+          "forum.moderate"
         ]
       },
       {

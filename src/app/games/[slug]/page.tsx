@@ -96,7 +96,7 @@ export default async function GamePage({ params }: Props) {
 
   return (
     <MediaShell section="games">
-      <ManageBar title="مدیریت بازی" anyOf={['games.manage', 'cms.posts']} links={[{ href: `/admin/games/${g.id}`, label: 'ویرایش بازی' }, { href: '/admin/games/titles', label: 'همهٔ بازی‌ها' }]} />
+      <ManageBar title="مدیریت بازی" anyOf={['games.manage']} links={[{ href: `/admin/games/${g.id}`, label: 'ویرایش بازی' }, { href: '/admin/games/titles', label: 'همهٔ بازی‌ها' }]} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="gm-detail-hero gv-hero" style={g.backdrop ? { backgroundImage: `url("${g.backdrop.replace(/"/g, '%22')}")` } : undefined}>
         <span className="gm-hero-shade" aria-hidden="true" />

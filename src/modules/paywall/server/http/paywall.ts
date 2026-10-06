@@ -10,8 +10,8 @@ import { adminGrant, getPaidItem, myPurchases, paywallOverview, removePaidItem, 
 
 /** Section editors may price their own items; the paid content page needs its own permission. */
 const SECTION_PERMS: Record<OwnerType, string[]> = {
-  post: ['cms.posts'], software: ['software.manage', 'cms.posts'], game: ['games.manage', 'cms.posts'],
-  title: ['cinema.manage', 'cms.posts'], album: ['music.manage', 'cms.posts'], track: ['music.manage', 'cms.posts'],
+  post: ['cms.posts'], software: ['software.manage'], game: ['games.manage'],
+  title: ['cinema.manage'], album: ['music.manage'], track: ['music.manage'],
   link: [],
 }
 const LINK_PERMS: Record<string, string[]> = { title: SECTION_PERMS.title, episode: SECTION_PERMS.title, game: SECTION_PERMS.game, gameupdate: SECTION_PERMS.game, software: SECTION_PERMS.software }
