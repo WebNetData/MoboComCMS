@@ -1,6 +1,7 @@
 // Admin "customer 360" endpoint: one place to see and operate on a single user —
 // wallet, subscriptions, invoices, orders, tickets and CRM notes.
 import { NextRequest } from 'next/server'
+import { accountChangeRefusal } from '@/modules/identity/server/staff-guard'
 import { memberProfileData } from '@/modules/identity/server/profile-fields'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -323,6 +324,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
 
   if (action === 'status') {
     const status = body?.status === 'BANNED' ? 'BANNED' : 'ACTIVE'
+    const refusal = await accountChangeRefusal(admin, id, { sensitive: true })
+    if (refusal) return err(refusal, 403)
     await db.user.update({ where: { id }, data: { status } })
     await auditAdmin({ req, actor: admin, action: 'user.status', targetType: 'user', targetId: id, metadata: { status } })
     return ok({ ok: true, status })
@@ -331,6 +334,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   if (action === 'role') {
     const role = body?.role === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
     const roleId = body?.roleId ? Number(body.roleId) : null
+    const refusal = await accountChangeRefusal(admin, id, { role, roleId: role === 'ADMIN' ? roleId : null })
+    if (refusal) return err(refusal, 403)
     await db.user.update({ where: { id }, data: { role, roleId: role === 'ADMIN' ? roleId : null } })
     await auditAdmin({ req, actor: admin, action: 'user.role', targetType: 'user', targetId: id, metadata: { role, roleId: role === 'ADMIN' ? roleId : null } })
     return ok({ ok: true, role, roleId })

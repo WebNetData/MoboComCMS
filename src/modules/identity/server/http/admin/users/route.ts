@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { accountChangeRefusal } from '@/modules/identity/server/staff-guard'
 import { db } from '@/platform/database/prisma'
 import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
@@ -71,6 +72,11 @@ export async function POST(req: NextRequest) {
 
   const exists = await db.user.findUnique({ where: { email } })
   if (exists) return err('این ایمیل قبلاً ثبت شده است')
+  // A staff account is made only by someone who may give roles, and full access only by full access.
+  if (role === 'ADMIN') {
+    const refusal = await accountChangeRefusal(admin, null, { role, roleId: body?.roleId ? Number(body.roleId) : null })
+    if (refusal) return err(refusal, 403)
+  }
 
   const password = String(body?.password || '') || randomPassword(10)
   const user = await db.user.create({
@@ -95,6 +101,13 @@ export async function PATCH(req: NextRequest) {
   if (typeof body?.password === 'string' && body.password.length >= 6) {
     data.passwordHash = await bcrypt.hash(body.password, 10)
   }
+  const refusal = await accountChangeRefusal(admin, id, {
+    ...(data.role !== undefined ? { role: data.role as 'ADMIN' | 'CUSTOMER' } : {}), ...(data.roleId !== undefined ? { roleId: data.roleId as number | null } : {}),
+    sensitive: data.status !== undefined || data.passwordHash !== undefined,
+  })
+  if (refusal) return err(refusal, 403)
+  // Standing and role move together: leaving the staff clears the role, and staff without a role is full access.
+  if (data.role === 'CUSTOMER') data.roleId = null
   const user = await db.user.update({ where: { id }, data })
   await auditAdmin({ req, actor: admin, action: 'user.update', targetType: 'user', targetId: user.id, metadata: { fields: Object.keys(data), status: user.status, role: user.role, roleId: user.roleId } })
   return ok({ id: user.id, status: user.status, role: user.role })

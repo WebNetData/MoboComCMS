@@ -1181,3 +1181,34 @@ header.bi-section-head { cursor: default; }
 /* The reply editor is docked along the bottom of the screen. The floating helpers that live there (translate
    prompt, support chat, staff bar) step aside while it is open, so nothing sits on its send button. */
 body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-dock) .support-dock, body:has(.fx-dock) .mgr-bar { display: none; }
+
+/* ------------------------------------------------------------------
+   The forum's team (ft-) and the rank shown beside a member (tp-rank).
+   ------------------------------------------------------------------ */
+.tp-rank { --rank: var(--md-accent); display: inline-flex; align-items: center; gap: 5px; padding: 2px 11px; border-radius: 999px; font-size: .72rem; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--rank), color-mix(in srgb, var(--rank) 70%, #0f172a)); box-shadow: 0 4px 10px -4px var(--rank); white-space: nowrap; }
+.tp-rank.is-admin { --rank: #e11d48; }
+.tp-rank.is-deputy { --rank: #d97706; }
+.tp-rank.is-moderator { --rank: #059669; }
+.ft-rank { --rank: var(--md-accent); margin-block-start: 22px; }
+.ft-rank.is-admin { --rank: #e11d48; }
+.ft-rank.is-deputy { --rank: #d97706; }
+.ft-rank.is-moderator { --rank: #059669; }
+.ft-rank > header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin-block-end: 12px; padding-inline-start: 12px; border-inline-start: 4px solid var(--rank); }
+.ft-rank h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 900; }
+.ft-rank h2 em { font-style: normal; padding: 1px 9px; border-radius: 999px; font-size: .74rem; color: var(--md-muted); background: var(--md-soft); }
+.ft-rank > header p { margin: 0; color: var(--md-muted); font-size: .86rem; }
+.ft-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.ft-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 18px; border: 1px solid var(--md-line); border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, var(--rank) 7%, var(--md-card)), var(--md-card) 60%); box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, transform .15s; }
+.ft-card:hover { border-color: color-mix(in srgb, var(--rank) 50%, var(--md-line)); transform: translateY(-2px); }
+.ft-face { line-height: 0; border-radius: 50%; padding: 3px; background: var(--rank); }
+.ft-face .fx-avatar { box-shadow: 0 0 0 3px var(--md-card); }
+.ft-id { min-width: 0; display: grid; justify-items: start; gap: 3px; }
+.ft-name { font-weight: 800; color: var(--md-text) !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ft-name:hover { color: var(--rank) !important; }
+.ft-id .fx-handle { font-size: .78rem; color: var(--md-muted); }
+.ft-forums { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-block-start: 4px; }
+.ft-stats { display: grid; gap: 6px; margin: 0; text-align: center; }
+.ft-stats dd { margin: 0; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ft-stats dt { font-size: .7rem; color: var(--md-muted); }
+@media (max-width: 640px) { .ft-grid { grid-template-columns: 1fr; } .ft-card { padding: 14px; gap: 12px; } .ft-face .fx-avatar { width: 52px !important; height: 52px !important; font-size: 22px !important; } }
+@media (prefers-reduced-motion: reduce) { .ft-card { transition: none; } .ft-card:hover { transform: none; } }

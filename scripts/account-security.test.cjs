@@ -198,7 +198,7 @@ test('the magazine permission is named only where the magazine is guarded', () =
   // editorial collections its editors feature, or a list of "any content editor" that names every section.
   assert.deepEqual(files.sort(), [
     'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx', 'src/app/api/admin/collections/[id]/feature/route.ts', 'src/app/api/admin/collections/route.ts',
-    'src/modules/ai/server/http/admin.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/http/routes.ts',
+    'src/modules/ai/server/http/admin.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/http/routes.ts',
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',
     'src/modules/site/server/http/admin/builder/post-template/route.ts', 'src/modules/site/server/http/admin/cms/route.ts', 'src/modules/site/server/http/admin/comments/route.ts',
     'src/modules/site/server/http/builder/post-template.ts', 'src/modules/site/server/http/theme/templates.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/plugins/journal/manifest.json',
@@ -235,4 +235,35 @@ test('roles that held the magazine permission keep what it used to open', () => 
   assert.deepEqual(seeded.sort(), [...rbac.ROLE_PRESETS.backup].sort())
   for (const permission of rbac.FORMERLY_OPENED_BY_POSTS) assert.ok(rbac.ROLE_PRESETS['content-manager'].includes(permission))
   assert.equal(rbac.ROLE_PRESETS['content-editor'], undefined)
+})
+
+// ---- managers of the site's sections
+test('a choice of sections stands for one role with exactly their permissions', () => {
+  const sections = load('src/modules/identity/domain/sections')
+  assert.deepEqual(sections.SITE_SECTIONS.map((section) => section.id), ['magazine', 'music', 'cinema', 'games', 'software', 'store', 'forum', 'reviews'])
+  assert.deepEqual(sections.sectionRole(['games', 'music']), { name: 'sections:music+games', nameFa: 'مدیر موزیک و بازی', nameEn: 'Manager: music, games', permissions: ['dashboard.view', 'music.manage', 'games.manage'] })
+  assert.deepEqual(sections.sectionRole(['store']).permissions, ['dashboard.view', 'cms.products', 'orders.manage'])
+  assert.deepEqual(sections.normalizeSections(['music', 'nonsense', 'music', 'magazine']), ['magazine', 'music'])
+  assert.deepEqual(sections.normalizeSections('music'), [])
+  assert.deepEqual(sections.sectionsOf(['dashboard.view', 'cms.products']), [], 'half a section is not the section')
+  assert.deepEqual(sections.sectionsOf(['cms.products', 'orders.manage', 'cms.posts']), ['magazine', 'store'])
+  // Only the panel plus whole sections is a section role; anything else belongs to the role form.
+  assert.equal(sections.isSectionRole(['dashboard.view', 'music.manage']), true)
+  assert.equal(sections.isSectionRole(['music.manage', 'cms.products', 'orders.manage']), true)
+  assert.equal(sections.isSectionRole(['dashboard.view', 'music.manage', 'users.manage']), false)
+  assert.equal(sections.isSectionRole(['dashboard.view', 'cms.products']), false, 'half of the store')
+  assert.equal(sections.isSectionRole(['dashboard.view']), false)
+  assert.equal(sections.isSectionRole([]), false)
+  // No section hands out the power to manage accounts, roles or settings.
+  for (const section of sections.SITE_SECTIONS) for (const permission of section.permissions) assert.equal(['users.manage', 'roles.manage', 'settings.manage', 'extensions.code', 'finance.manage'].includes(permission), false, section.id)
+})
+
+test('every way of changing a staff account goes through the staff guard', () => {
+  const list = read('src/modules/identity/server/http/admin/users/route.ts'), one = read('src/modules/identity/server/http/admin/users/[id]/route.ts'), roles = read('src/modules/identity/server/http/admin/roles/route.ts')
+  assert.equal(list.split('accountChangeRefusal(').length - 1, 2, 'create and update')
+  assert.equal(one.split('accountChangeRefusal(').length - 1, 2, 'status and role')
+  assert.equal(roles.split('roleRefusal(admin').length - 1, 4, 'create, update (before and after) and delete')
+  // Leaving the staff clears the role in the same write; staff without a role would be full access.
+  assert.ok(list.includes("if (data.role === 'CUSTOMER') data.roleId = null"))
+  assert.ok(one.includes("roleId: role === 'ADMIN' ? roleId : null"))
 })

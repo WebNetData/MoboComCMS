@@ -3,7 +3,7 @@ import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getForumViewer } from '@/modules/forum/server/forum'
 import { userDirectory, type DirectorySort } from '@/modules/forum/server/people'
-import { TRUST_NAMES } from '@/modules/forum/domain/community'
+import { FORUM_RANK_LABELS, TRUST_NAMES } from '@/modules/forum/domain/community'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, Pager, TimeAgo, UserName, num } from '@/components/forum/shared'
 import { toPublicPath } from '@/platform/routing/aliases'
@@ -19,7 +19,7 @@ const MEDALS = ['نفر اول', 'نفر دوم', 'نفر سوم']
 
 type Row = Awaited<ReturnType<typeof userDirectory>>['users'][number]
 /** What stands under a member's name: their own title, else their group, else their trust rank. */
-const roleOf = (row: Row) => row.author.staff ? 'تیم موبوکام' : row.author.title || row.author.flair?.name || TRUST_NAMES[row.author.trustLevel] || TRUST_NAMES[0]
+const roleOf = (row: Row) => row.author.rank ? FORUM_RANK_LABELS[row.author.rank] : row.author.staff ? 'تیم موبوکام' : row.author.title || row.author.flair?.name || TRUST_NAMES[row.author.trustLevel] || TRUST_NAMES[0]
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ sort?: string; q?: string; page?: string; group?: string }> }) {
   await requireModule('forum')

@@ -8,9 +8,9 @@ import Composer, { type ComposerCategory } from '@/components/forum/Composer'
 import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
 import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
-import { TRUST_NAMES } from '@/modules/forum/domain/community'
+import { FORUM_RANK_LABELS, TRUST_NAMES, type ForumRank } from '@/modules/forum/domain/community'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; joinedAt?: string | Date; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; joinedAt?: string | Date; rank?: ForumRank; flair: { icon: string; color: string; name: string } | null }
 /** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
 function joinedLabel(value: string | Date) {
   const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
@@ -309,6 +309,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
               <aside className="fx-post-author" aria-label={`نویسنده: ${post.author.name}`}>
                 <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
                 <Link href={`/forum/u/${post.author.username}`} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
+                {post.author.rank && <span className={`tp-rank is-${post.author.rank}`}>{FORUM_RANK_LABELS[post.author.rank]}</span>}
                 {post.author.flair
                   ? <span className="fx-author-group" style={{ ['--group' as string]: post.author.flair.color }}>{post.author.flair.icon && <span aria-hidden="true">{post.author.flair.icon}</span>}{post.author.flair.name}</span>
                   : <span className="fx-author-group">{TRUST_NAMES[post.author.trustLevel] || TRUST_NAMES[0]}</span>}

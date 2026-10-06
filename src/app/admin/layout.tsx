@@ -191,6 +191,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
     { title: L('تنظیمات و دسترسی‌ها', 'Settings & access'), items: [
       { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/section-managers', label: L('مدیران بخش‌ها', 'Section managers'), icon: 'shield', perm: 'roles.manage' },
       { href: '/admin/roles', label: t.rolesPermissions, icon: 'shield', perm: 'roles.manage' },
       { href: '/admin/audit', label: L('گزارش فعالیت‌ها', 'Audit log'), icon: 'sliders', perm: 'audit.view' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },

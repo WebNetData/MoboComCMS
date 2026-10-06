@@ -11,6 +11,7 @@ import { markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { getForumSettings, refreshStats, saveForumSettings, setBadge, viewerFor } from '@/modules/forum/server/community'
 import { resolveFlags } from '@/modules/forum/server/actions'
 import { groupAction } from '@/modules/forum/server/people'
+import { forumTeamIds, setDeputy, setForumModerator } from '@/modules/forum/server/team'
 import { authorsFor, fallbackAuthor, type AuthorView } from '@/modules/forum/server/forum'
 
 // Forum administration: categories (subcategories, colors, group permissions),
@@ -50,7 +51,8 @@ export async function GET(req: NextRequest) {
     const { reviewQueue } = await import('@/modules/forum/server/moderation')
     return ok({ items: await reviewQueue(await viewerFor(g.admin.id)) })
   }
-  const [categories, groups, badges, flags, settings, stats] = await Promise.all([
+  const [team, categories, groups, badges, flags, settings, stats] = await Promise.all([
+    teamForAdmin(),
     categoriesWithModerators(),
     db.forumGroup.findMany({ orderBy: [{ automatic: 'asc' }, { name: 'asc' }] }),
     db.forumBadge.findMany({ orderBy: [{ tier: 'asc' }, { id: 'asc' }] }),
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
     Promise.all([db.forumThread.count(), db.forumPost.count(), db.forumProfile.count({ where: { postCount: { gt: 0 } } }), db.forumFlag.count({ where: { status: 'PENDING' } }), db.forumPost.count({ where: { status: 'PENDING' } })]),
   ])
   return ok({
-    categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
+    team, categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
     stats: { topics: stats[0], posts: stats[1], members: stats[2], pendingFlags: stats[3], pendingReview: stats[4] },
   })
 }
@@ -102,6 +104,18 @@ async function users(q: string) {
 }
 
 // ------------------------------------------------------------------ writes
+
+/** The team as the admin tab lists it: names and usernames per rank, and each moderator's forums. */
+async function teamForAdmin() {
+  const ids = await forumTeamIds()
+  const authors = await authorsFor([...ids.admins, ...ids.deputies, ...ids.moderators.map((row) => row.userId)])
+  const person = (id: number) => { const author = authors.get(id); return author ? { id, name: author.name, username: author.username } : null }
+  const present = <T,>(row: T | null): row is T => !!row
+  return {
+    admins: ids.admins.map(person).filter(present), deputies: ids.deputies.map(person).filter(present),
+    moderators: ids.moderators.map((row) => { const who = person(row.userId); return who ? { ...who, categoryIds: row.categoryIds } : null }).filter(present),
+  }
+}
 
 /** Categories as the admin table shows them: with the usernames of the moderators assigned to each. */
 async function categoriesWithModerators() {
@@ -237,6 +251,12 @@ export async function POST(req: NextRequest) {
     let result: unknown
     switch (body.section) {
       case 'categories': result = await saveCategory(body, true); break
+      // The forum's team: deputies (moderators of every forum) and the moderators of single forums.
+      case 'team':
+        if (body.action === 'deputy-add' || body.action === 'deputy-remove') result = await setDeputy(body.username, body.action === 'deputy-add')
+        else if (body.action === 'moderator-add' || body.action === 'moderator-remove') result = await setForumModerator(body.username, body.categoryId, body.action === 'moderator-add')
+        else throw new ForumError('عملیات نامعتبر است')
+        break
       case 'groups': result = await saveGroup(body, true); break
       case 'badges': result = await saveBadge(body, true); break
       case 'members': result = await groupAction(viewer, String(body.slug || ''), { action: body.action, username: body.username }); break

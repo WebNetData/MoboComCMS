@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import type { Viewer } from '@/modules/forum/domain/community'
+import { forumTeamIds } from '@/modules/forum/server/team'
 import { authorsFor, categoryFamily, fallbackAuthor, forumStats, visibleCategories, type AuthorView, type CategoryView } from '@/modules/forum/server/forum'
 
 // The board index: the forum's front page. Sections (top-level categories) hold forums (their
@@ -111,5 +112,31 @@ export async function boardIndex(viewer: Viewer, now = new Date()) {
     online: viewer.userId ? onlineRows.map((row) => author(row.userId)) : [],
     newest: newest ? author(newest.userId) : null,
     days: CONTRIBUTOR_DAYS,
+  }
+}
+
+export type TeamMember = AuthorView & { forums: { slug: string; title: string; color: string }[] }
+
+/**
+ * The forum's team as its public page shows it: who runs the forum, who moderates all of it, and who
+ * moderates which forum. A forum the viewer may not see is not named, and a moderator of only such forums
+ * is not listed.
+ */
+export async function forumTeam(viewer: Viewer): Promise<{ admins: TeamMember[]; deputies: TeamMember[]; moderators: TeamMember[] }> {
+  const [ids, categories] = await Promise.all([forumTeamIds().catch(() => ({ admins: [] as number[], deputies: [] as number[], moderators: [] as { userId: number; categoryIds: number[] }[] })), visibleCategories(viewer)])
+  const authors = await authorsFor([...ids.admins, ...ids.deputies, ...ids.moderators.map((row) => row.userId)])
+  const byId = new Map(categories.map((category) => [category.id, category]))
+  const plain = (id: number): TeamMember | null => { const author = authors.get(id); return author ? { ...author, forums: [] } : null }
+  const present = (row: TeamMember | null): row is TeamMember => !!row
+  const higher = new Set([...ids.admins, ...ids.deputies])
+  return {
+    admins: ids.admins.map(plain).filter(present),
+    deputies: ids.deputies.map(plain).filter(present),
+    // Someone already listed above is not repeated as a forum's moderator.
+    moderators: ids.moderators.filter((row) => !higher.has(row.userId)).map((row) => {
+      const author = authors.get(row.userId)
+      const forums = row.categoryIds.map((id) => byId.get(id)).filter((category): category is CategoryView => !!category).map((category) => ({ slug: category.slug, title: category.title, color: category.color }))
+      return author && forums.length ? { ...author, forums } : null
+    }).filter(present),
   }
 }

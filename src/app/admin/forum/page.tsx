@@ -1,5 +1,6 @@
 'use client'
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import TeamTab, { type ForumTeam } from './TeamTab'
 import { MAX_CATEGORY_DEPTH, categoryFamily, categoryTree } from '@/modules/forum/domain/tree'
 import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
@@ -16,9 +17,9 @@ type Trust = { daysVisited: number; topicsEntered: number; postCount: number; li
 type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
   approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
-type Data = { categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
-type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
-const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'groups', 'badges', 'users', 'words', 'settings']
+type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
+type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'team' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
+const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'team', 'groups', 'badges', 'users', 'words', 'settings']
 
 const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[], moderators: '' }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
@@ -97,7 +98,7 @@ function AdminForumPage() {
   const groupName = (id: number) => data.groups.find((g) => g.id === id)
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
-    { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags }, { key: 'categories', label: 'دسته‌ها', count: data.categories.length }, { key: 'groups', label: 'گروه‌ها', count: data.groups.length },
+    { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags }, { key: 'categories', label: 'دسته‌ها', count: data.categories.length }, { key: 'team', label: 'تیم تالار', count: data.team.deputies.length + data.team.moderators.length }, { key: 'groups', label: 'گروه‌ها', count: data.groups.length },
     { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
   ]
   const wordLists = words || { block: settings.watchedWords.block.join('\n'), approve: settings.watchedWords.approve.join('\n'), censor: settings.watchedWords.censor.join('\n') }
@@ -204,6 +205,8 @@ function AdminForumPage() {
         {!ordered.length && <tr><td colSpan={5} className="muted">هنوز دسته‌ای ساخته نشده است.</td></tr>}
       </tbody></table></div>
     </section>}
+
+    {tab === 'team' && <TeamTab team={data.team} forums={tree.map((row) => ({ id: row.category.id, title: row.category.title, depth: row.depth }))} busy={busy} call={call} />}
 
     {tab === 'groups' && <section className="xm-section">
       <h2>{group.id ? `ویرایش گروه «${group.name}»` : 'گروه تازه'}</h2>
