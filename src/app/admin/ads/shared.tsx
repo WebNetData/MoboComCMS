@@ -49,7 +49,8 @@ export function Trend({ title, data, field, unit }: { title: string; data: Day[]
   const y = (value: number) => PT + (1 - value / max) * (H - PT - PB)
   const line = values.map((value, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(value).toFixed(1)}`).join(' ')
   const area = `${line} L${x(values.length - 1).toFixed(1)},${H - PB} L${x(0).toFixed(1)},${H - PB} Z`
-  const ticks = [0, 0.5, 1].map((f) => ({ value: Math.round(max * f), y: y(max * f) }))
+  // With a small maximum the middle line rounds onto another one: each value gets one line, drawn where that value is.
+  const ticks = [...new Set([0, 0.5, 1].map((f) => Math.round(max * f)))].map((value) => ({ value, y: y(value) }))
   const pick = (event: React.PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect()
     const px = ((event.clientX - box.left) / box.width) * W
