@@ -14,7 +14,7 @@ const CHECKS = [
   'forum-activity-stream',
   'moderation-queue',
   'marketplace-seller-money',
-  'integrity-report',
+  'integrity-report', 'forum-member-profile',
   'recommendations-listening', 'community-block-coverage',
   'gift-membership-recovery', 'forum-members-groups',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
