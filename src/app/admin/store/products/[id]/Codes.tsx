@@ -5,10 +5,10 @@ import Link from '@/components/AppLink'
 import { Notice, fa, faDate, send, useJson } from '../../shared'
 
 type Pool = {
-  kind: string; mode: 'MANUAL' | 'CODES'; stock: number; available: number; delivered: number
+  kind: string; mode: 'MANUAL' | 'CODES'; stock: number; available: number; delivered: number; returned: number
   variants: { id: number; name: string; stock: number }[]
   shelf: { id: number; variant: string; code: string; createdAt: string }[]
-  recent: { id: number; variant: string; code: string; orderId: number; deliveredAt: string }[]
+  recent: { id: number; variant: string; code: string; orderId: number; deliveredAt: string; returnedAt: string | null; note: string }[]
 }
 
 /**
@@ -63,7 +63,7 @@ export default function ProductCodes({ productId, onStock }: { productId: number
         if (on && !window.confirm('تحویل خودکار خاموش شود؟ کدهای روی قفسه می‌مانند و محصول دوباره با تحویل دستی و بدون محدودیت موجودی فروخته می‌شود.')) return
         void act({ action: 'mode', mode: on ? 'MANUAL' : 'CODES' }, () => on ? 'تحویل خودکار خاموش شد.' : 'تحویل خودکار روشن شد. تا وقتی کدی اضافه نکنید، محصول ناموجود است.')
       }}>{on ? 'خاموش کردن تحویل خودکار' : 'روشن کردن تحویل خودکار'}</button>
-      <small className="sa-sub">تحویل‌شده تا امروز: {fa(data.delivered)}</small>
+      <small className="sa-sub">دستِ خریداران: {fa(data.delivered)}{data.returned > 0 ? ` · پس‌گرفته‌شده: ${fa(data.returned)}` : ''}</small>
     </div>
 
     {on && <>
@@ -94,7 +94,14 @@ export default function ProductCodes({ productId, onStock }: { productId: number
       </table>{data.available > data.shelf.length && <p className="sa-sub">و {fa(data.available - data.shelf.length)} کد دیگر</p>}</div>}
 
       {data.recent.length > 0 && <details><summary className="sa-link">آخرین تحویل‌ها</summary>
-        <ul className="sa-rows">{data.recent.map((row) => <li key={row.id}><Link href={`/admin/store/orders/${row.orderId}`}><span className="sa-grow"><b dir="ltr">{row.code}</b><small>سفارش {fa(row.orderId)}{row.variant ? ` · ${row.variant}` : ''}</small></span><small className="sa-sub">{row.deliveredAt ? faDate(row.deliveredAt, true) : ''}</small></Link></li>)}</ul>
+        <p className="sa-sub">کدی که برای خریدار کار نکرده را می‌توانید جایگزین کنید: کد قبلی باطل می‌شود و یک کد از قفسه به همان سفارش می‌رسد. برگشتِ پول از بخش مرجوعی‌ها انجام می‌شود.</p>
+        <ul className="sa-rows">{data.recent.map((row) => <li key={row.id} className="sa-code-row">
+          <Link href={`/admin/store/orders/${row.orderId}`}><span className="sa-grow"><b dir="ltr">{row.code}</b><small>سفارش {fa(row.orderId)}{row.variant ? ` · ${row.variant}` : ''}{row.returnedAt ? ` · پس گرفته شد${row.note ? ` (${row.note})` : ''}` : ''}</small></span><small className="sa-sub">{row.deliveredAt ? faDate(row.deliveredAt, true) : ''}</small></Link>
+          {!row.returnedAt && <button type="button" className="sa-link" disabled={busy || !data.available} title={data.available ? '' : 'کدی روی قفسه نیست'} onClick={() => {
+            const note = window.prompt('این کد باطل و یک کد تازه از قفسه به همین سفارش داده شود؟ دلیل (اختیاری):', '')
+            if (note !== null) void act({ action: 'replace', codeId: row.id, note }, () => 'کد جایگزین شد و به خریدار خبر داده شد.')
+          }}>جایگزینی</button>}
+        </li>)}</ul>
       </details>}
     </>}
   </section>

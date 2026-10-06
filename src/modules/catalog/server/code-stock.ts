@@ -27,7 +27,7 @@ export async function syncCodeStock(tx: Tx, productId: number) {
   const [shelf, held, given] = await Promise.all([
     tx.productDigitalCode.groupBy({ by: ['variantId'], where: { productId, orderId: null }, _count: { _all: true } }),
     tx.inventoryReservation.findMany({ where: { productId, status: { in: ['HELD', 'CONSUMED'] } }, select: { orderId: true, line: true, variantId: true, quantity: true, status: true } }),
-    tx.productDigitalCode.groupBy({ by: ['orderId', 'orderLine'], where: { productId, orderId: { not: null } }, _count: { _all: true } }),
+    tx.productDigitalCode.groupBy({ by: ['orderId', 'orderLine'], where: { productId, orderId: { not: null }, returnedAt: null }, _count: { _all: true } }),
   ])
   const givenTo = new Map(given.map((row) => [`${row.orderId}:${row.orderLine}`, row._count._all]))
   const open = await openOrders(tx, held.filter((row) => row.status === 'CONSUMED').map((row) => row.orderId))

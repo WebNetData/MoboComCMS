@@ -124,6 +124,9 @@ async function returnStock(orderId: number, from: 'HELD' | 'CONSUMED') {
       if (row.finite) await tx.product.updateMany({ where: { id: row.productId }, data: { stock: { increment: row.quantity } } })
       if (row.variantFinite && row.variantId) await tx.productVariant.updateMany({ where: { id: row.variantId }, data: { stock: { increment: row.quantity } } })
     }
+    // A product that sells from its code pool has no stock of its own: what came back is whatever its pool says now
+    // (a code already given to the buyer does not return to the shelf with the order).
+    for (const productId of new Set(rows.map((row) => row.productId))) await syncCodeStock(tx, productId)
     return count
   })
 }

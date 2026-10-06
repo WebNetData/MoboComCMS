@@ -862,6 +862,10 @@ model ProductDigitalCode {
   orderId     Int?
   orderLine   Int?
   deliveredAt DateTime?
+  // Taken back from the buyer (a refund, or replaced by staff): void, and never on the shelf again.
+  returnedAt  DateTime?
+  returnId    Int?
+  returnNote  String    @default("")
   createdAt   DateTime  @default(now())
   product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
 

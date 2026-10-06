@@ -5,12 +5,17 @@ import { StoreError } from '@/modules/store/domain/store'
 import { composeDelivery, maskCode, missingCodes, normalizeDigitalMode, parseCodes, type DeliveredLine, type DigitalMode } from '@/modules/store/domain/digital-codes'
 import { transitionOrder } from '@/modules/store/server/orders'
 import { lockProduct, openOrders, syncCodeStock } from '@/modules/catalog/server/code-stock'
+import { createInboxEvent } from '@/modules/notifications/server/inbox'
 
 // The code pool of virtual products: staff fill it, a paid order takes from it by itself.
 //
 // Stock of a CODES product is not typed in by anyone: it is the codes on the shelf minus the units open
 // orders already hold (see catalog/server/code-stock), written after every change to the pool, before
 // every checkout takes from it and by a worker step.
+//
+// A code leaves the shelf once and for good. One that is taken back from its buyer (the order was refunded,
+// or staff replaced a code that did not work) keeps its order and is marked returned: it is void, it is
+// not the buyer's any more, and it is never sold again.
 
 const postgres = () => /^postgres/.test(process.env.DATABASE_URL || '')
 const sameVariant = (variantId: number | null) => (variantId === null ? { variantId: null } : { variantId })
@@ -78,17 +83,18 @@ export async function listCodes(productId: number) {
   if (!product) throw new StoreError('محصول پیدا نشد', 404, 'PRODUCT_NOT_FOUND')
   const [available, delivered, shelf, recent] = await Promise.all([
     db.productDigitalCode.count({ where: { productId, orderId: null } }),
-    db.productDigitalCode.count({ where: { productId, orderId: { not: null } } }),
+    db.productDigitalCode.count({ where: { productId, orderId: { not: null }, returnedAt: null } }),
     db.productDigitalCode.findMany({ where: { productId, orderId: null }, orderBy: { id: 'asc' }, take: 100, select: { id: true, variantId: true, secret: true, createdAt: true } }),
-    db.productDigitalCode.findMany({ where: { productId, orderId: { not: null } }, orderBy: { deliveredAt: 'desc' }, take: 20, select: { id: true, variantId: true, secret: true, orderId: true, deliveredAt: true } }),
+    db.productDigitalCode.findMany({ where: { productId, orderId: { not: null } }, orderBy: [{ deliveredAt: 'desc' }, { id: 'desc' }], take: 20, select: { id: true, variantId: true, secret: true, orderId: true, deliveredAt: true, returnedAt: true, returnNote: true } }),
   ])
+  const returned = await db.productDigitalCode.count({ where: { productId, returnedAt: { not: null } } })
   const masked = (secret: string) => { try { return maskCode(decryptDigitalDelivery(secret)) } catch { return '••••' } }
   const variantName = (id: number | null) => product.variants.find((variant) => variant.id === id)?.name || ''
   return {
-    kind: product.kind, mode: normalizeDigitalMode(product.digitalMode), stock: product.stock, available, delivered,
+    kind: product.kind, mode: normalizeDigitalMode(product.digitalMode), stock: product.stock, available, delivered, returned,
     variants: product.variants,
     shelf: shelf.map((row) => ({ id: row.id, variant: variantName(row.variantId), code: masked(row.secret), createdAt: row.createdAt })),
-    recent: recent.map((row) => ({ id: row.id, variant: variantName(row.variantId), code: masked(row.secret), orderId: row.orderId, deliveredAt: row.deliveredAt })),
+    recent: recent.map((row) => ({ id: row.id, variant: variantName(row.variantId), code: masked(row.secret), orderId: row.orderId, deliveredAt: row.deliveredAt, returnedAt: row.returnedAt, note: row.returnNote })),
   }
 }
 
@@ -130,7 +136,7 @@ async function codeLines(orderId: number) {
 /** Gives one line the codes it still misses; returns how many it is still short of. Safe to repeat. */
 async function assignLine(orderId: number, item: CodeLine): Promise<number> {
   return db.$transaction(async (tx) => {
-    const have = await tx.productDigitalCode.count({ where: { orderId, orderLine: item.line } })
+    const have = await tx.productDigitalCode.count({ where: { orderId, orderLine: item.line, returnedAt: null } })
     const need = missingCodes(item.quantity, have)
     if (!need) return 0
     // Rows another delivery is taking at this moment are skipped, not waited for.
@@ -177,7 +183,7 @@ export async function deliverDigitalCodes(orderId: number) {
 }
 
 async function deliveredLines(orderId: number, lines: readonly CodeLine[]): Promise<DeliveredLine[]> {
-  const rows = await db.productDigitalCode.findMany({ where: { orderId }, orderBy: { id: 'asc' }, select: { orderLine: true, secret: true } })
+  const rows = await db.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'asc' }, select: { orderLine: true, secret: true } })
   return lines.map((line) => ({ name: line.name, variantName: line.variantName, codes: rows.filter((row) => row.orderLine === line.line).map((row) => decryptDigitalDelivery(row.secret)) }))
 }
 
@@ -187,7 +193,7 @@ export async function deliverWaitingOrders(productId: number, limit = 50) {
   const open = await openOrders(db, sold.map((row) => row.orderId))
   const waiting = sold.filter((row) => open.has(row.orderId)).reverse()
   if (!waiting.length) return { delivered: 0 }
-  const given = await db.productDigitalCode.groupBy({ by: ['orderId', 'orderLine'], where: { productId, orderId: { in: waiting.map((row) => row.orderId) } }, _count: { _all: true } })
+  const given = await db.productDigitalCode.groupBy({ by: ['orderId', 'orderLine'], where: { productId, orderId: { in: waiting.map((row) => row.orderId) }, returnedAt: null }, _count: { _all: true } })
   const have = new Map(given.map((row) => [`${row.orderId}:${row.orderLine}`, row._count._all]))
   const orders = [...new Set(waiting.filter((row) => missingCodes(row.quantity, have.get(`${row.orderId}:${row.line}`) || 0) > 0).map((row) => row.orderId))].slice(0, limit)
   let delivered = 0
@@ -206,4 +212,77 @@ export async function buyerCodes(userId: number, orderId: number): Promise<Deliv
   const lines = await codeLines(orderId)
   if (!lines?.lines.length) return []
   try { return (await deliveredLines(orderId, lines.lines)).filter((line) => line.codes.length) } catch { return [] }
+}
+
+/** Codes of an order the buyer still holds, per line: what a code line can send back. */
+export async function heldCodes(orderId: number): Promise<Map<number, number>> {
+  const rows = await db.productDigitalCode.groupBy({ by: ['orderLine'], where: { orderId, returnedAt: null }, _count: { _all: true } })
+  return new Map(rows.map((row) => [row.orderLine ?? 0, row._count._all]))
+}
+
+/**
+ * The delivery text of an order made of code lines only is its codes: after one is taken back or replaced
+ * it is written again from the codes the buyer still holds. A delivery typed by staff is left alone.
+ */
+async function refreshDelivery(orderId: number) {
+  const delivery = await db.productDelivery.findUnique({ where: { orderId }, select: { digitalDelivery: true } })
+  if (!delivery?.digitalDelivery) return
+  const order = await codeLines(orderId)
+  if (!order || order.other || !order.lines.length) return
+  const text = composeDelivery(await deliveredLines(orderId, order.lines))
+  await db.productDelivery.update({ where: { orderId }, data: { digitalDelivery: text ? encryptDigitalDelivery(text) : '' } })
+}
+
+/**
+ * Takes delivered codes back from a refunded order: `choices` names lines and quantities (a return), null
+ * means every code of the order (a cancellation). The codes are marked returned, not put on the shelf: the
+ * buyer has read them. Of a line, the codes given last go first. Safe to repeat for the same request.
+ */
+export async function takeBackCodes(orderId: number, choices: readonly { line: number; quantity: number }[] | null, input: { returnId: number; note: string }): Promise<number> {
+  const taken = await db.$transaction(async (tx) => {
+    const held = await tx.productDigitalCode.findMany({ where: { orderId, returnedAt: null }, orderBy: { id: 'desc' }, select: { id: true, orderLine: true } })
+    if (!held.length) return 0
+    let ids = held.map((row) => row.id)
+    if (choices) {
+      const already = await tx.productDigitalCode.groupBy({ by: ['orderLine'], where: { orderId, returnId: input.returnId }, _count: { _all: true } })
+      const done = (line: number) => already.find((row) => (row.orderLine ?? 0) === line)?._count._all || 0
+      ids = choices.flatMap((choice) => held.filter((row) => (row.orderLine ?? 0) === choice.line).slice(0, Math.max(0, choice.quantity - done(choice.line))).map((row) => row.id))
+    }
+    if (!ids.length) return 0
+    return (await tx.productDigitalCode.updateMany({ where: { id: { in: ids }, returnedAt: null }, data: { returnedAt: new Date(), returnId: input.returnId, returnNote: input.note.slice(0, 200) } })).count
+  })
+  if (taken) await refreshDelivery(orderId)
+  return taken
+}
+
+/**
+ * Staff give the buyer another code for one that did not work: the old one is marked returned and a code
+ * from the same shelf takes its place on the same order line, in one step. Refused when the shelf is empty
+ * or the order is no longer a paid one. The buyer is told; the notice does not carry the code.
+ */
+export async function replaceCode(input: { productId: number; codeId: number; actorId: number | null; note?: unknown }) {
+  const note = String(input.note ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
+  const result = await db.$transaction(async (tx) => {
+    await lockProduct(tx, input.productId)
+    const old = await tx.productDigitalCode.findFirst({ where: { id: input.codeId, productId: input.productId, orderId: { not: null }, returnedAt: null }, select: { id: true, variantId: true, orderId: true, orderLine: true } })
+    if (!old || !old.orderId) throw new StoreError('این کد دستِ خریدار نیست (تحویل نشده یا قبلاً پس گرفته شده است)', 409, 'CONFLICT')
+    const order = await tx.order.findUnique({ where: { id: old.orderId }, select: { status: true, userId: true } })
+    if (!order || order.status !== 'PAID') throw new StoreError('این سفارش دیگر پرداخت‌شده نیست؛ کدی برایش جایگزین نمی‌شود', 409, 'CONFLICT')
+    const picked: { id: number }[] = postgres()
+      ? await tx.$queryRaw`SELECT id FROM "ProductDigitalCode" WHERE "productId" = ${input.productId} AND "variantId" IS NOT DISTINCT FROM ${old.variantId} AND "orderId" IS NULL ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`
+      : await tx.productDigitalCode.findMany({ where: { productId: input.productId, ...sameVariant(old.variantId), orderId: null }, orderBy: { id: 'asc' }, take: 1, select: { id: true } })
+    if (!picked.length) throw new StoreError('کدی روی قفسه نیست؛ اول کد اضافه کنید', 409, 'NO_CODE')
+    const given = await tx.productDigitalCode.updateMany({ where: { id: picked[0].id, orderId: null }, data: { orderId: old.orderId, orderLine: old.orderLine, deliveredAt: new Date() } })
+    if (given.count !== 1) throw new StoreError('کدِ قفسه همین حالا تحویل شد؛ دوباره تلاش کنید', 409, 'CONFLICT')
+    await tx.productDigitalCode.update({ where: { id: old.id }, data: { returnedAt: new Date(), returnNote: note || 'جایگزین شد' } })
+    await tx.orderEvent.create({ data: { orderId: old.orderId, status: 'CODE_REPLACED', note: `یک کد با کد تازه جایگزین شد${note ? ` — ${note}` : ''}`, visible: true, actorId: input.actorId } })
+    return { orderId: old.orderId, userId: order.userId, codeId: picked[0].id, stock: await syncCodeStock(tx, input.productId) }
+  })
+  await refreshDelivery(result.orderId)
+  await createInboxEvent({
+    userId: result.userId, kind: 'PRODUCT_DELIVERED', dedupeKey: `code-replaced:${result.codeId}`,
+    titleEn: 'A code of your order was replaced', titleFa: 'کد سفارش شما جایگزین شد',
+    bodyEn: 'The new code is on the order page.', bodyFa: 'کد تازه در صفحهٔ سفارش شماست.', href: `/dashboard/orders/${result.orderId}`,
+  }).catch((error) => logEvent('error', 'store.code_replace_notice_failed', { orderId: result.orderId, error }))
+  return { orderId: result.orderId, stock: result.stock }
 }
