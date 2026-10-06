@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { categoryFamily } from '@/modules/forum/domain/tree'
 import { canEditPost, categoryAccess, postLimits, type CategoryAccess, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
@@ -48,6 +49,9 @@ const loadCategories = () => db.forumCategory.findMany({ orderBy: [{ sortOrder: 
 
 export type CategoryView = { id: number; slug: string; title: string; description: string; icon: string; color: string; parentId: number | null; access: CategoryAccess; threadCount: number; postCount: number; lastPostAt: Date | null; restricted: boolean; vip: boolean; locked: boolean }
 
+// A family is always taken from the list the viewer may see, so a hidden subforum is never part of it.
+export { categoryFamily }
+
 /** Categories the viewer can see, with what they may do in each. */
 export async function visibleCategories(viewer: Viewer): Promise<CategoryView[]> {
   const rows = await loadCategories().catch(() => [])
@@ -69,11 +73,12 @@ export async function categoryIndex(viewer: Viewer) {
   const tops = categories.filter((category) => !category.parentId || !visibleIds.has(category.parentId))
   return tops.map((category) => {
     const children = categories.filter((child) => child.parentId === category.id)
-    const family = [category.id, ...children.map((child) => child.id)]
+    const family = categoryFamily(categories, category.id)
+    const members = categories.filter((row) => family.includes(row.id))
     return {
       ...category, children,
-      topics: category.threadCount + children.reduce((sum, child) => sum + child.threadCount, 0),
-      posts: category.postCount + children.reduce((sum, child) => sum + child.postCount, 0),
+      topics: members.reduce((sum, row) => sum + row.threadCount, 0),
+      posts: members.reduce((sum, row) => sum + row.postCount, 0),
       latest: latest.filter((topic) => family.includes(topic.categoryId)).slice(0, 3),
     }
   })
@@ -110,7 +115,7 @@ export async function topicList(input: { viewer: Viewer; filter?: TopicFilter; c
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   if (PERSONAL.includes(filter) && !viewer.userId) return { filter, category, rows: [] as TopicRow[], page, pages: 1, total: 0, categories }
 
-  const scope = category ? [category.id, ...categories.filter((c) => c.parentId === category.id).map((c) => c.id)] : categories.map((c) => c.id)
+  const scope = category ? categoryFamily(categories, category.id) : categories.map((c) => c.id)
   // Muted categories drop out of the general lists (still open when browsed directly).
   const muted = viewer.userId && !category ? new Set((await db.forumCategoryUser.findMany({ where: { userId: viewer.userId, level: 'MUTED' }, select: { categoryId: true } })).map((row) => row.categoryId)) : new Set<number>()
   const inScope = ['mine', 'bookmarks'].includes(filter) ? scope : scope.filter((id) => !muted.has(id))

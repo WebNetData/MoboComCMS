@@ -385,16 +385,37 @@ async function main() {
   }
 
   // --- Forum boards (created once; admins manage them afterwards) ---
+  // Three levels: sections hold forums, and a forum may hold subforums.
   const boards = [
-    { slug: 'announcements', title: 'اطلاعیه‌های موبوکام', description: 'خبرها و اطلاعیه‌های رسمی تیم موبوکام', icon: '📣', locked: true, sortOrder: 0 },
-    { slug: 'general', title: 'گفت‌وگوی آزاد', description: 'هر چیزی که دوست دارید دربارهٔ آن حرف بزنید', icon: '💬', sortOrder: 10 },
-    { slug: 'help', title: 'پرسش و پاسخ فنی', description: 'مشکلات نرم‌افزار، سخت‌افزار و گوشی را اینجا بپرسید', icon: '🛠️', sortOrder: 20 },
-    { slug: 'shop', title: 'فروشگاه و سفارش‌ها', description: 'پیش از خرید بپرسید و تجربهٔ خریدتان را بگویید', icon: '🛒', sortOrder: 30 },
-    { slug: 'entertainment', title: 'فیلم، موزیک و بازی', description: 'پیشنهاد، نقد و گفت‌وگو دربارهٔ سرگرمی', icon: '🎬', sortOrder: 40 },
-    { slug: 'vip-lounge', title: 'سالن اعضای ویژه', description: 'گفت‌وگوی اختصاصی اعضای VIP', icon: '♛', access: 'MEMBERS', sortOrder: 50 },
+    { slug: 'mobocom', title: 'موبوکام', description: 'خبرهای رسمی و گفت‌وگوی عمومی جامعه', icon: '🏠', color: '#6366f1', sortOrder: 0, children: [
+      { slug: 'announcements', title: 'اطلاعیه‌های موبوکام', description: 'خبرها و اطلاعیه‌های رسمی تیم موبوکام', icon: '📣', color: '#6366f1', locked: true, sortOrder: 0 },
+      { slug: 'general', title: 'گفت‌وگوی آزاد', description: 'هر چیزی که دوست دارید دربارهٔ آن حرف بزنید', icon: '💬', color: '#0ea5e9', sortOrder: 10 },
+      { slug: 'vip-lounge', title: 'سالن اعضای ویژه', description: 'گفت‌وگوی اختصاصی اعضای VIP', icon: '♛', color: '#d97706', access: 'MEMBERS', sortOrder: 20 },
+    ] },
+    { slug: 'support', title: 'پشتیبانی و فروشگاه', description: 'پرسش‌های فنی، سفارش‌ها و تجربهٔ خرید', icon: '🛟', color: '#f59e0b', sortOrder: 10, children: [
+      { slug: 'help', title: 'پرسش و پاسخ فنی', description: 'مشکلات نرم‌افزار، سخت‌افزار و گوشی را اینجا بپرسید', icon: '🛠️', color: '#f59e0b', sortOrder: 0, children: [
+        { slug: 'help-mobile', title: 'موبایل و اندروید', description: 'گوشی، تبلت و اپلیکیشن‌ها', icon: '📱', color: '#f97316', sortOrder: 0 },
+        { slug: 'help-software', title: 'ویندوز و نرم‌افزار', description: 'نصب، خطاها و تنظیمات', icon: '💻', color: '#eab308', sortOrder: 10 },
+        { slug: 'help-hardware', title: 'سخت‌افزار', description: 'قطعات، مودم و تجهیزات', icon: '🔧', color: '#a16207', sortOrder: 20 },
+      ] },
+      { slug: 'shop', title: 'فروشگاه و سفارش‌ها', description: 'پیش از خرید بپرسید و تجربهٔ خریدتان را بگویید', icon: '🛒', color: '#10b981', sortOrder: 10 },
+    ] },
+    { slug: 'fun', title: 'سرگرمی', description: 'فیلم، سریال، موزیک و بازی', icon: '🎉', color: '#ec4899', sortOrder: 20, children: [
+      { slug: 'entertainment', title: 'فیلم، موزیک و بازی', description: 'پیشنهاد، نقد و گفت‌وگو دربارهٔ سرگرمی', icon: '🎬', color: '#ec4899', sortOrder: 0, children: [
+        { slug: 'ent-movies', title: 'فیلم و سریال', description: 'نقد، پیشنهاد و خبر', icon: '🎞️', color: '#ef4444', sortOrder: 0 },
+        { slug: 'ent-music', title: 'موزیک', description: 'آلبوم‌ها، پلی‌لیست‌ها و هنرمندان', icon: '🎧', color: '#8b5cf6', sortOrder: 10 },
+        { slug: 'ent-games', title: 'بازی', description: 'کنسول، کامپیوتر و موبایل', icon: '🎮', color: '#22c55e', sortOrder: 20 },
+      ] },
+    ] },
   ]
   if (await prisma.forumCategory.count().catch(() => -1) === 0) {
-    for (const board of boards) await prisma.forumCategory.create({ data: board })
+    const plant = async (rows, parentId) => {
+      for (const { children, ...board } of rows) {
+        const created = await prisma.forumCategory.create({ data: { ...board, parentId } })
+        if (children) await plant(children, created.id)
+      }
+    }
+    await plant(boards, null)
   }
 
   // --- Settings ---

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { categoryTree } from '@/modules/forum/domain/tree'
 import { renderMarkdown } from '@/modules/forum/domain/markdown'
 
 export type ComposerCategory = { id: number; title: string; color: string; parentId: number | null }
@@ -143,7 +144,7 @@ export default function Composer(props: ComposerProps) {
   }
 
   const preview = useMemo(() => (tab === 'preview' ? renderMarkdown(content) : ''), [tab, content])
-  const tops = categories.filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))
+  const tree = categoryTree(categories)
 
   return (
     <form className="fx-composer" onSubmit={submit}>
@@ -153,7 +154,7 @@ export default function Composer(props: ComposerProps) {
           <input className="input fx-title-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان موضوع — در یک جمله بگویید دربارهٔ چیست" aria-label="عنوان موضوع" required minLength={5} maxLength={150} />
           {categories.length > 0 && (
             <select className="select" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} aria-label="دسته‌بندی">
-              {tops.map((c) => [<option key={c.id} value={c.id}>{c.title}</option>, ...categories.filter((child) => child.parentId === c.id).map((child) => <option key={child.id} value={child.id}>— {child.title}</option>)])}
+              {tree.map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}
             </select>
           )}
           <input className="input" dir="auto" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="برچسب‌ها (با فاصله جدا کنید)" aria-label="برچسب‌ها" />

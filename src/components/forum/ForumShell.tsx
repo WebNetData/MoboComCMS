@@ -1,4 +1,5 @@
 import Link from '@/components/AppLink'
+import { categoryTree } from '@/modules/forum/domain/tree'
 import type { ReactNode } from 'react'
 import MediaShell from '@/components/media/MediaShell'
 import type { Viewer } from '@/modules/forum/domain/community'
@@ -29,7 +30,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
       <span aria-hidden="true">{icon}</span>{label}{badge ? <em>{num(badge)}</em> : null}
     </Link>
   )
-  const tops = categories.filter((c) => !c.parentId || !categories.some((p) => p.id === c.parentId))
+  const tree = categoryTree(categories)
 
   const sidebar = (
     <>
@@ -49,13 +50,8 @@ export default async function ForumShell({ viewer, active = '', category, wide =
       </nav>
       <nav className="fx-side-group" aria-label="دسته‌بندی‌ها">
         <h3><Link href="/forum/categories" className={active === 'categories' ? 'is-active' : ''}>دسته‌بندی‌ها</Link></h3>
-        {tops.map((c) => (
-          <div key={c.id}>
-            <Link href={`/forum/c/${c.slug}`} className={category === c.slug ? 'is-active' : ''}><i className="fx-dot" style={{ background: c.color }} aria-hidden="true" />{c.title}{c.vip && <small className="fx-vip">VIP</small>}</Link>
-            {categories.filter((child) => child.parentId === c.id).map((child) => (
-              <Link key={child.id} href={`/forum/c/${child.slug}`} className={`fx-sub${category === child.slug ? ' is-active' : ''}`}><i className="fx-dot" style={{ background: child.color }} aria-hidden="true" />{child.title}</Link>
-            ))}
-          </div>
+        {tree.map(({ category: c, depth }) => (
+          <Link key={c.id} href={`/forum/c/${c.slug}`} className={`${depth ? `fx-sub is-depth-${depth}` : ''}${category === c.slug ? ' is-active' : ''}`}><i className="fx-dot" style={{ background: c.color }} aria-hidden="true" />{c.title}{c.vip && <small className="fx-vip">VIP</small>}</Link>
         ))}
       </nav>
       {tags.length > 0 && (
