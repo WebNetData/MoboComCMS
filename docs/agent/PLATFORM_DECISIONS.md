@@ -104,6 +104,22 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - A resource whose save changes another taxonomy's counts names it in `alsoCounts` (`src/modules/media/server/admin.ts`).
 - Guard: `scripts/music-language.connected.cjs` (counts and lists published songs only; albums and songs with equal ids stay apart).
 
+## 6B. Slices from the capability map's open gaps (2026-10-07)
+
+**Store: a delivered code.** A code leaves the shelf once. Taken back from its buyer it keeps its order and is marked returned (`ProductDigitalCode.returnedAt`, `returnId`, `returnNote`; migration `20261206120000`): void, not the buyer's any more, never sold again.
+- Staff **replace** a code that did not work from the product's pool screen (`replaceCode`): the old one is void and a code of the same shelf takes its place on the same order line, in one step; the buyer is told without the code in the notice.
+- **Sending a code back** is a return like any other, by its own window: `codeReturnDays` in the return rules, 0 (never) by default, because a code the buyer has read cannot be resold and that is the owner's call. Every such request is reviewed by staff; a line gives back no more units than the codes its buyer still holds, and the reasons offered fit what goes back (`reasonsForGoods`). On refund the codes of the returned units are void (`takeBackCodes`, the ones given last first; safe to repeat).
+- A **cancellation** of an order whose codes the buyer has already read is never refunded by itself; it waits for staff.
+- Stock of a product that sells from its pool is the pool's count, also after stock is returned (`returnStock` → `syncCodeStock`).
+
+**Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
+
+**Notifications: policy.** `src/modules/notifications/{domain,server}/policy.ts`, admin at `/admin/notifications` (`settings.manage`). Everything is **off until the owner sets it**:
+- Keeping times: read notices by when they were read, any notice by its age; removed in bounded passes by the `notification-policy` scheduler step. An unread notice is never removed sooner than a read one.
+- Daily summary: one email a day (kind `INBOX_DIGEST`, so the site's mail settings and each member's own switch apply) listing the unread notices of the last day **that have no email of their own**; queued once a day per member (`notification.digest` job, deduped), skipped when read in the meantime.
+- Delivery receipts are **read from the channel jobs** (`notification:<id>:<channel>`), not stored again: sent, not sent (the member's switch, no address, channel not set up: not a fault), waiting, failed. Finished jobs live a week, so receipts do.
+- A check that prunes or enumerates site-wide state narrows every read and delete to its own fixtures and keeps site-wide cursors in memory (`scripts/notification-policy.connected.cjs`).
+
 ## 7. Engineering rules learnt here
 
 - **A pull request always targets `main`**, even when its branch sits on an unmerged one (it then shows the earlier commits and shrinks once they merge). Stacked bases made six merges land in each other instead of `main`. After the owner reports merges, confirm with `git merge-base --is-ancestor <branch> origin/main`.
@@ -119,6 +135,6 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 
 ## 8. Open, by the owner's decision or still owed
 
-- Production: run `npm run deploy:migrate` (through `20261205120000`), set `STORE_DELIVERY_KEY`, configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
-- Not yet built (from the capability map's open gaps, owner's order of 2026-10-07 to do them except the seller ones): a weight per kind of reaction and one address for a member's profile; returning a delivered digital code; a film release date and calendar, subtitle and audio tracks, playback preferences; review dimensions in search and one model for product and content reviews; richer search facets; delivery receipts, digests and retention for notifications; an editorial tool for collections; more signals and a provider contract for recommendations; entity hubs beyond studios; one case lifecycle across moderation sources; the universal library and lists beyond what exists.
+- Production: run `npm run deploy:migrate` (through `20261207120000`), set `STORE_DELIVERY_KEY`, decide the return window for codes, the keeping times of notifications and whether the daily summary goes out (`/admin/store/returns`, `/admin/notifications`), configure SMTP/SMS for password recovery, arrange forums into sections, narrow roles that held `cms.posts`.
+- Not yet built (from the capability map's open gaps, owner's order of 2026-10-07 to do them except the seller ones): **needs the owner's decision first** — one address for a member's profile (`/u/<username>` is the social profile with privacy and shelves, `/forum/u/<username>` the forum one; they are two pages of two optional modules, so one address means choosing which page is the member's profile and folding the other in), a weight per kind of reaction (all-time counts are stored unweighted, so a weight changes history or splits it). **Needs its own design** — subtitle and audio tracks with playback preferences (`MediaLink` has only `audio` ORIGINAL/DUBBED and a subtitle flag); review dimensions and richer facets in search (`SearchDocument` has no facet columns and the query is a measured ranked window); one model across product and content reviews; an editorial tool for collections; more signals and a provider contract for recommendations; entity hubs beyond studios; one case lifecycle across moderation sources; the universal library and lists.
 - Not yet verified in a browser: the full buyer's walk through the store, magazine and media sections; a section manager saving content with a single-section account; split/merge, polls and private messages in the forum.
