@@ -137,6 +137,19 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
     })
   }, [form === null, sourceTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Opened from a public page ("edit this film"): ?edit=<id> loads that one row and opens its form.
+  const linked = useRef(false)
+  useEffect(() => {
+    if (linked.current) return
+    linked.current = true
+    const id = Number(new URLSearchParams(window.location.search).get('edit'))
+    if (!Number.isSafeInteger(id) || id <= 0) return
+    fetch(`${API}?type=${type}&id=${id}`).then((res) => res.ok ? res.json() : null).then((data) => {
+      const row = (Array.isArray(data) ? data : data?.rows || []).find((item: any) => item.id === id)
+      if (row) open(row); else setMsg({ tone: 'err', text: fa ? 'این مورد پیدا نشد' : 'Item not found' })
+    }).catch(() => undefined)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   function open(row?: any) {
     const next: Record<string, any> = {}
     for (const field of fields) next[field.key] = row ? toFormValue(field, row[field.key]) : emptyValue(field)

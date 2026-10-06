@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import ManageBar from '@/components/admin/ManageBar'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -59,6 +60,7 @@ export default async function TrackPage({ params }: Props) {
 
   return (
     <MediaShell section="music" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
+      <ManageBar title="مدیریت آهنگ" anyOf={['music.manage', 'cms.posts']} links={[{ href: `/admin/music/library?tab=tracks&edit=${track.id}`, label: 'ویرایش آهنگ' }, { href: '/admin/music/library?tab=tracks', label: 'همهٔ آهنگ‌ها' }]} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="mu-detail-hero">
         <div className="mu-hero-bg" style={track.cover ? { backgroundImage: `url("${track.cover.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />

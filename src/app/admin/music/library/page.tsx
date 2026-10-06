@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import MediaCrud, { type MediaField } from '../../cms/MediaCrud'
 import { commonFields } from '../../cms/media-fields'
 import { useI18n } from '@/i18n/LocaleProvider'
@@ -12,6 +12,13 @@ export default function AdminMusicPage() {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const [tab, setTab] = useState<Tab>('tracks')
+  // A link from a public page names the tab it wants: ?tab=albums&edit=12.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('tab')
+    if (wanted === 'tracks' || wanted === 'albums' || wanted === 'artists' || wanted === 'playlists') setTab(wanted)
+    setReady(true)
+  }, [])
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
   const artist: MediaField = { key: 'artistId', label: fa ? 'هنرمند' : 'Artist', type: 'select', required: true, source: { type: 'music-artists', label: (row) => row.name + (row.nameEn ? ` — ${row.nameEn}` : ''), empty: fa ? '— انتخاب هنرمند —' : '— choose artist —' }, table: (row) => row.artist?.name || '—' }
 
@@ -90,7 +97,7 @@ export default function AdminMusicPage() {
         {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => setTab(item.id)}>{item.label}</button>)}
         <a className="mx-tabs-link" href="/music" target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده بخش موزیک ↗' : 'Open music site ↗'}</a>
       </nav>
-      <MediaCrud key={view.type} type={view.type} paywall={view.type === 'music-tracks' ? { ownerType: 'track', noun: 'این آهنگ' } : view.type === 'music-albums' ? { ownerType: 'album', noun: 'این آلبوم' } : undefined} title={view.title} fields={view.fields} publicPath={view.publicPath} titleKey={view.titleKey} subtitle={fa ? 'آهنگ‌ها با پخش‌کننده سراسری سایت پخش می‌شوند. کیفیت ۳۲۰ و دانلود طبق تنظیمات ماژول موزیک می‌تواند مخصوص VIP باشد.' : 'Tracks play in the site-wide player. HQ and downloads can be VIP-only in the music module settings.'} />
+      {ready && <MediaCrud key={view.type} type={view.type} paywall={view.type === 'music-tracks' ? { ownerType: 'track', noun: 'این آهنگ' } : view.type === 'music-albums' ? { ownerType: 'album', noun: 'این آلبوم' } : undefined} title={view.title} fields={view.fields} publicPath={view.publicPath} titleKey={view.titleKey} subtitle={fa ? 'آهنگ‌ها با پخش‌کننده سراسری سایت پخش می‌شوند. کیفیت ۳۲۰ و دانلود طبق تنظیمات ماژول موزیک می‌تواند مخصوص VIP باشد.' : 'Tracks play in the site-wide player. HQ and downloads can be VIP-only in the music module settings.'} />}
     </MusicShell>
   )
 }

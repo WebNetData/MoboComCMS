@@ -1,4 +1,5 @@
 import { categoryMembership } from '@/modules/site/server/categories'
+import ManageBar from '@/components/admin/ManageBar'
 import { postCategories } from '@/modules/site/domain/categories'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -373,6 +374,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   return (
     <>
+      {!isPreview(preview) && <ManageBar title="مدیریت نوشته" anyOf={['cms.posts']} links={[{ href: `/admin/posts?edit=${post.id}`, label: 'ویرایش نوشته' }, { href: '/admin/comments', label: 'نظرها' }, { href: '/admin/posts', label: 'همهٔ نوشته‌ها' }]} />}
       <ThemeHeader
         context={renderContext} choice={chromeDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages}
         builderContext={builderContext} preview={preview}

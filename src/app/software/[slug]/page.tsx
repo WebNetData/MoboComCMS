@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
 import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
@@ -115,6 +116,7 @@ export default async function SoftwarePage({ params }: Props) {
 
   return (
     <MediaShell section="software">
+      <ManageBar title="مدیریت نرم‌افزار" anyOf={['software.manage', 'cms.posts']} links={[{ href: `/admin/software/titles?edit=${s.id}`, label: 'ویرایش نرم‌افزار' }, { href: '/admin/software/titles', label: 'همهٔ نرم‌افزارها' }]} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <header className="sp-hero-band">
         <div className="container sp-hero-band-inner">

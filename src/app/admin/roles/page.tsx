@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { ROLE_PRESET_LABELS } from '@/modules/identity/rbac'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
@@ -121,11 +122,11 @@ export default function AdminRolesPage() {
           <input className="input" value={form.nameFa} onChange={(e) => setForm({ ...form, nameFa: e.target.value })} />
         </div>
         <div>
-          <label className="label">Preset</label>
+          <label className="label">الگوی آماده</label>
           <select className="select" value={form.preset} onChange={(e) => setForm({ ...form, preset: e.target.value })}>
             <option value="">—</option>
             {Object.keys(presets).filter((p) => resellerOn || p !== 'reseller').map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p} value={p}>{ROLE_PRESET_LABELS[p] || p}</option>
             ))}
           </select>
         </div>

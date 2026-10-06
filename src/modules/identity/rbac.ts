@@ -36,6 +36,22 @@ export const ROLE_PRESETS: Record<string, string[]> = {
   support: ['dashboard.view', 'users.manage', 'subs.manage', 'orders.manage', 'invoices.manage', 'tickets.handle'],
   reseller: ['dashboard.view', 'subs.manage'],
   backup: ['dashboard.view', 'cms.pages', 'cms.posts', 'cms.products', 'settings.manage'],
+  // One part of the site each: the manager of a section gets that section and nothing else.
+  'music-manager': ['dashboard.view', 'music.manage'],
+  'cinema-manager': ['dashboard.view', 'cinema.manage'],
+  'games-manager': ['dashboard.view', 'games.manage'],
+  'software-manager': ['dashboard.view', 'software.manage'],
+  'forum-manager': ['dashboard.view', 'forum.moderate'],
+  'store-manager': ['dashboard.view', 'cms.products', 'orders.manage'],
+  // cms.posts is the magazine's permission and also opens music, films, games, software and forum moderation.
+  'content-editor': ['dashboard.view', 'cms.posts'],
+}
+
+/** What the role form calls each preset. */
+export const ROLE_PRESET_LABELS: Record<string, string> = {
+  admin: 'مدیر کل (همهٔ دسترسی‌ها)', accountant: 'حسابدار', support: 'پشتیبان', reseller: 'نماینده', backup: 'جانشین مدیر محتوا و تنظیمات',
+  'music-manager': 'مدیر موزیک', 'cinema-manager': 'مدیر فیلم و سریال', 'games-manager': 'مدیر بازی', 'software-manager': 'مدیر نرم‌افزار',
+  'forum-manager': 'مدیر تالار گفتمان', 'store-manager': 'مدیر فروشگاه (محصولات و سفارش‌ها)', 'content-editor': 'ویراستار محتوا (مجله و همهٔ بخش‌های محتوایی)',
 }
 
 /** Stored as the whole permission list: every capability, including ones plugins add later. */

@@ -1,4 +1,5 @@
 import Link from '@/components/AppLink'
+import ManageBar from '@/components/admin/ManageBar'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -200,6 +201,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   </>
   return (
     <>
+      {!isPreview(preview) && <ManageBar title="مدیریت محصول" anyOf={['cms.products']} links={[{ href: `/admin/store/products/${product.id}`, label: 'ویرایش محصول' }, { href: '/admin/store/products', label: 'همهٔ محصولات' }]} />}
       <ThemeHeader context={renderContext} choice={chromeDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} builderContext={builderContext} preview={preview} />
       <SectionBarSlot section="shop" />
       {layoutDoc ? (
