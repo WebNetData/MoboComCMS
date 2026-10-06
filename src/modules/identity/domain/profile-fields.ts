@@ -47,8 +47,10 @@ const builtin = (key: BuiltinKey, required: boolean, enabled = true): FieldDef =
 export const DEFAULT_FIELDS_CONFIG: FieldsConfig = {
   enforce: true,
   usernamePrefix: 'mobocomuser',
-  intro: 'برای استفاده از حساب و ارسال سفارش‌ها، چند مشخصهٔ ضروری را یک بار تکمیل کنید.',
-  fields: [builtin('firstName', true), builtin('lastName', true), builtin('address', true), builtin('email', false), builtin('username', false)],
+  intro: 'برای استفاده از حساب، چند مشخصهٔ ضروری را یک بار تکمیل کنید.',
+  // The address is offered, not demanded: a new member may only want to read, review or buy digital goods,
+  // and checkout asks for an address whenever an order needs one. The owner can make it required in the admin.
+  fields: [builtin('firstName', true), builtin('lastName', true), builtin('address', false), builtin('email', false), builtin('username', false)],
 }
 
 const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f‪-‮⁦-⁩]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)

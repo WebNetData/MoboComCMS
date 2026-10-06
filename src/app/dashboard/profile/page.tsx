@@ -11,6 +11,7 @@ import TwoFactorCard from '@/components/TwoFactorCard'
 import RecommendationPreference from '@/components/RecommendationPreference'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { signOut } from 'next-auth/react'
 
 const COLORS = ['#4b45ee', '#7c3aed', '#db2777', '#e11d48', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#0284c7', '#475569']
 
@@ -54,7 +55,11 @@ export default function ProfilePage() {
     const data = await res?.json().catch(() => null)
     setBusy('')
     setMsg({ ok: !!res?.ok, text: res?.ok ? t.passChanged : data?.error || t.passWrong, where: 'password' })
-    if (res?.ok) setPass({ currentPassword: '', newPassword: '', confirm: '' })
+    if (res?.ok) {
+      setPass({ currentPassword: '', newPassword: '', confirm: '' })
+      // The change ended every session of the account, this one included: sign in again with the new password.
+      await signOut({ callbackUrl: '/login?changed=1' })
+    }
   }
 
   const dirty = !!account && JSON.stringify(account) !== JSON.stringify(saved)

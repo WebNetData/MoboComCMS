@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
+import { signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
 import BrandMark from '@/components/BrandMark'
 import { useSite } from '@/components/site/SiteProvider'
@@ -141,6 +142,8 @@ export default function WelcomePage() {
 
       {message && <p className="dash-note is-error" role="alert">{message}</p>}
       <footer className="wl-foot">
+        {/* A member who cannot finish now, or signed in with the wrong account, must be able to leave. */}
+        {status.needsCompletion && <button type="button" className="btn btn-ghost" onClick={() => void signOut({ callbackUrl: '/' })}>خروج از حساب</button>}
         {!status.needsCompletion && <Link href={next} className="btn btn-ghost">بازگشت</Link>}
         <button type="submit" className="btn btn-primary wl-submit" disabled={busy}>{busy ? 'در حال ذخیره…' : status.needsCompletion ? 'ذخیره و ادامه' : 'ذخیره'}</button>
       </footer>

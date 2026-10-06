@@ -20,7 +20,8 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
   const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const [turnstileToken, setTurnstileToken] = useState(turnstileRequired ? '' : 'not-configured')
   const [turnstileReset, setTurnstileReset] = useState(0)
-  const [mode, setMode] = useState<'phone' | 'email'>(otp ? 'phone' : 'email')
+  // Someone who has just signed up did so with an email and a password: show that form, with its confirmation.
+  const [mode, setMode] = useState<'phone' | 'email'>(otp && params.get('registered') !== '1' && params.get('changed') !== '1' ? 'phone' : 'email')
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState('')
@@ -158,8 +159,9 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
   return (
     <form onSubmit={submit} className="auth-form" aria-busy={loading}>
       {heading}
-      <p className="auth-form-intro">{locale === 'fa' ? 'وارد شوید و اتصال‌های خود را مدیریت کنید.' : 'Sign in to manage your connected world.'}</p>
+      <p className="auth-form-intro">{locale === 'fa' ? 'با ایمیل و رمز عبور وارد شوید.' : 'Sign in with your email and password.'}</p>
       {params.get('registered') === '1' && <p className="success-text mb-4" role="status">{locale === 'fa' ? 'حساب ساخته شد؛ حالا وارد شوید.' : 'Account created. You can now sign in.'}</p>}
+      {params.get('changed') === '1' && <p className="success-text mb-4" role="status">{locale === 'fa' ? 'رمز عبور تغییر کرد و همهٔ دستگاه‌ها از حساب خارج شدند. با رمز تازه وارد شوید.' : 'Your password was changed and every device was signed out. Sign in with the new password.'}</p>}
       {switcher}
       {!otp && telegramLogin}
       {!otp && <div className="auth-divider auth-credential-divider"><span>{locale === 'fa' ? 'یا با ایمیل وارد شوید' : 'or sign in with email'}</span></div>}

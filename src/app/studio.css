@@ -147,5 +147,7 @@ button,a,input,textarea,select,summary { -webkit-tap-highlight-color:transparent
 /* Hide Google's own banner and tooltip; the page must not jump down. */
 body{top:0!important}.goog-te-banner-frame,.skiptranslate>iframe,#goog-gt-tt,.goog-te-balloon-frame{display:none!important}.goog-text-highlight{background:none!important;box-shadow:none!important}
 @media(max-width:600px){.mc-translate{bottom:16px;inset-inline-start:16px}.mc-translate-button span{display:none}.mc-translate-button{padding:12px}}
+/* In the account, admin and reseller panels the side menu ends at that corner with the sign-out button: the widget moves to the other side. */
+@media(min-width:901px){body:has(.app-shell) .mc-translate{inset-inline-start:auto;inset-inline-end:24px;justify-items:end}}
 
 .studio-item-move{display:flex;gap:6px;justify-content:flex-end}
