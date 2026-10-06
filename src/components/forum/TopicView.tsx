@@ -265,7 +265,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
       </header>
 
       {(thread.closeAt || thread.slowModeSeconds > 0) && <div className="fx-notices">
-        {thread.closeAt && !thread.locked && <p>⏱ این موضوع {new Date(thread.closeAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })} به‌طور خودکار بسته می‌شود.</p>}
+        {thread.closeAt && !thread.locked && <p>⏱ این موضوع {new Date(thread.closeAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tehran' })} به‌طور خودکار بسته می‌شود.</p>}
         {thread.slowModeSeconds > 0 && <p>🐢 حالت کند: هر عضو هر {SLOW_MODES.find(([s]) => s === thread.slowModeSeconds)?.[1] || `${fa(thread.slowModeSeconds)} ثانیه`} یک پاسخ می‌تواند بفرستد.</p>}
       </div>}
 
@@ -295,7 +295,7 @@ export default function TopicView({ data, categories, focusPost }: { data: Topic
                   <span className="fx-post-when">
                     {post.replyTo && <Link href={`/forum/t/${thread.id}?post=${post.replyTo.number}`} className="fx-reply-to" title="در پاسخ به">↩ <bdi dir="ltr">@{post.replyTo.username}</bdi></Link>}
                     {post.editCount > 0 && <button type="button" className="fx-edited" onClick={() => void showHistory(post)} title="تاریخچهٔ ویرایش">✎ {fa(post.editCount)}</button>}
-                    <Link href={`/forum/t/${thread.id}?post=${post.number}`} title={new Date(post.createdAt).toLocaleString('fa-IR')}>{ago(post.createdAt)}</Link>
+                    <Link href={`/forum/t/${thread.id}?post=${post.number}`} title={new Date(post.createdAt).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}>{ago(post.createdAt)}</Link>
                   </span>
                 </header>
                 {post.solution && <div className="fx-solution-mark">✓ راه‌حل انتخاب‌شده</div>}
