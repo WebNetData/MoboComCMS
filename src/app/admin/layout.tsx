@@ -10,6 +10,7 @@ import { getCookie } from '@/platform/browser/preferences'
 import { useSite } from '@/components/site/SiteProvider'
 import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
+import { QUEUE_PERMISSIONS } from '@/modules/moderation/domain/queue'
 
 interface NavItem {
   href: string
@@ -163,6 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/security', label: L('امنیت ورود و بازیابی رمز', 'Sign-in security'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/resellers', label: t.resellers, icon: 'globe', perm: 'resellers.manage' },
       { href: '/admin/reseller-sales', label: L('فروش نمایندگان', 'Reseller sales'), icon: 'wallet', perm: 'resellers.manage' },
+      { href: '/admin/moderation', label: L('صف بررسی (همهٔ بخش‌ها)', 'Moderation queue'), icon: 'shield', perm: [...QUEUE_PERMISSIONS] },
       { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },
       { href: '/admin/ticket-departments', label: L('دپارتمان‌های تیکت', 'Ticket departments'), icon: 'sliders', perm: 'tickets.departments.manage' },
       { href: '/admin/incidents', label: L('وضعیت و اختلال سرویس', 'Service incidents'), icon: 'shield', perm: 'tickets.handle' },

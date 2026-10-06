@@ -9,6 +9,7 @@ const CHECKS = [
   'return-refund-integrity',
   'gift-card-integrity',
   'forum-flag-queue',
+  'moderation-queue',
   'marketplace-seller-money',
   'integrity-report',
   'recommendations-listening', 'community-block-coverage',

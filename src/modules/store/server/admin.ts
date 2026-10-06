@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
 import { contentChanged } from '@/modules/content/server/events'
 import { legacyNumber, minorToNumber, normalizeCurrency } from '@/shared/money'
@@ -355,5 +356,19 @@ export async function storeCustomers(input: { q?: string; page?: number; sort?: 
         orders: row._count._all, spent: minorToNumber(row._sum.totalMinor || 0n, currency), currency, lastOrder: row._max.createdAt,
       }
     }),
+  }
+}
+
+/** For the staff moderation overview: product reviews and questions waiting for approval, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const [reviewCount, reviews, questionCount, questions] = await Promise.all([
+    db.productReview.count({ where: { status: 'PENDING' } }),
+    db.productReview.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, title: true, body: true, createdAt: true, user: { select: { name: true } }, product: { select: { name: true } } } }),
+    db.productQuestion.count({ where: { status: 'PENDING' } }),
+    db.productQuestion.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, guestName: true, createdAt: true, user: { select: { name: true } }, product: { select: { name: true } } } }),
+  ])
+  return {
+    reviews: { count: reviewCount, items: reviews.map((row) => ({ id: row.id, text: plainText(row.body || row.title, 160), by: row.user.name || '', about: row.product.name, at: row.createdAt })) },
+    questions: { count: questionCount, items: questions.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user?.name || row.guestName, about: row.product.name, at: row.createdAt })) },
   }
 }

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
@@ -337,4 +338,14 @@ export async function moderateReview(id: number, action: 'approve' | 'reject' | 
     if (item) await createInboxEvent({ userId: review.userId, kind: 'REVIEW_APPROVED', dedupeKey: `review:${id}:approved`, titleFa: 'نظر شما منتشر شد', titleEn: 'Your review is live', bodyFa: `نظر شما دربارهٔ «${item.title}» تأیید و منتشر شد.`, bodyEn: `Your review of ${item.title} was published.`, href: item.url }).catch(() => undefined)
   }
   return { id, action }
+}
+
+/** For the staff moderation overview: review texts waiting for approval, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const [count, rows] = await Promise.all([
+    db.itemReview.count({ where: { status: 'PENDING' } }),
+    db.itemReview.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, itemType: true, itemId: true, createdAt: true, user: { select: { name: true } } } }),
+  ])
+  const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), by: row.user.name || '', about: cards.get(`${row.itemType}:${row.itemId}`)?.title || '', at: row.createdAt })) }
 }

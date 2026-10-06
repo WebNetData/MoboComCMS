@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { plainText } from '@/shared/text/plain'
 import { contentChanged } from '@/modules/content/server/events'
 import { ForumError, cleanTitle } from '@/modules/forum/domain/forum'
 import { categoryAccess, normalizeCategoryLevel, type Viewer } from '@/modules/forum/domain/community'
@@ -171,4 +172,18 @@ export async function categoryLevels(userId: number | null) {
   if (!userId) return new Map<number, string>()
   const rows = await db.forumCategoryUser.findMany({ where: { userId }, select: { categoryId: true, level: true } })
   return new Map(rows.map((row) => [row.categoryId, row.level]))
+}
+
+/** For the staff moderation overview: posts held for approval and flags waiting for a decision, oldest first. */
+export async function waitingForModeration(take = 5) {
+  const [posts, postCount, flags, flagCount] = await Promise.all([
+    db.forumPost.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, content: true, createdAt: true, user: { select: { name: true } }, thread: { select: { title: true } } } }),
+    db.forumPost.count({ where: { status: 'PENDING' } }),
+    db.forumFlag.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, reason: true, note: true, createdAt: true, user: { select: { name: true } }, post: { select: { content: true, thread: { select: { title: true } } } } } }),
+    db.forumFlag.count({ where: { status: 'PENDING' } }),
+  ])
+  return {
+    posts: { count: postCount, items: posts.map((row) => ({ id: row.id, text: markdownExcerpt(row.content, 160), by: row.user.name || '', about: row.thread.title, at: row.createdAt })) },
+    flags: { count: flagCount, items: flags.map((row) => ({ id: row.id, text: plainText(row.note, 160) || markdownExcerpt(row.post.content, 160), by: row.user.name || '', about: row.post.thread.title, at: row.createdAt })) },
+  }
 }
