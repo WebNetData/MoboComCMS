@@ -3,13 +3,14 @@ import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
 import { searchSite } from '@/modules/search/server/search'
+import { NO_FACETS, facetParams, hasFacets, type SearchFacets } from '@/modules/search/domain/facets'
 import { ITEM_LABEL, type ItemType } from '@/modules/content/domain/items'
 import { normalizePersian } from '@/shared/text/persian'
 import MediaShell from '@/components/media/MediaShell'
 
 export const dynamic = 'force-dynamic'
 
-type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string; cursor?: string }> }
+type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string; cursor?: string; access?: string; rated?: string; since?: string }> }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams
@@ -31,9 +32,13 @@ function highlight(title: string, tokens: string[]): ReactNode {
 export default async function SearchPage({ searchParams }: Props) {
   await requireModule('search')
   const params = await searchParams
-  const data = await searchSite({ q: params.q, type: params.type, page: params.page, cursor: params.cursor })
+  const data = await searchSite({ q: params.q, type: params.type, page: params.page, cursor: params.cursor, facets: params })
   const q = data.query
-  const href = (type: string, page = 1) => `/search?q=${encodeURIComponent(q)}${type !== 'all' ? `&type=${type}` : ''}${page > 1 ? `&page=${page}` : ''}`
+  const narrowed = facetParams(data.facets)
+  const href = (type: string, page = 1) => `/search?q=${encodeURIComponent(q)}${type !== 'all' ? `&type=${type}` : ''}${narrowed ? `&${narrowed}` : ''}${page > 1 ? `&page=${page}` : ''}`
+  // The same search with one facet changed (the page starts again from the first).
+  const facetHref = (patch: Partial<SearchFacets>) => { const next = facetParams({ ...data.facets, ...patch }); return `/search?q=${encodeURIComponent(q)}${data.type !== 'all' ? `&type=${data.type}` : ''}${next ? `&${next}` : ''}` }
+  const chip = (label: string, patch: Partial<SearchFacets>, on: boolean) => <Link key={label} href={facetHref(patch)} className={on ? 'is-active' : ''} aria-pressed={on} rel="nofollow">{label}</Link>
   const cursorHref = (cursor: string) => `${href(data.type)}&cursor=${encodeURIComponent(cursor)}`
   const previousHref = params.cursor && !data.cursorReset
     ? (data.previousCursor ? cursorHref(data.previousCursor) : null)
@@ -64,6 +69,19 @@ export default async function SearchPage({ searchParams }: Props) {
           </nav>
         )}
 
+        {(totalAll > 0 || hasFacets(data.facets)) && data.tokens.length > 0 && (
+          <nav className="sr-tabs sr-facets" aria-label="محدودکردن نتیجه‌ها">
+            {chip('امتیاز ۴ و بالاتر', { rated: data.facets.rated === 4 ? 0 : 4 }, data.facets.rated === 4)}
+            {chip('امتیاز ۳ و بالاتر', { rated: data.facets.rated === 3 ? 0 : 3 }, data.facets.rated === 3)}
+            {chip('رایگان', { access: data.facets.access === 'free' ? '' : 'free' }, data.facets.access === 'free')}
+            {chip('ویژهٔ اعضا', { access: data.facets.access === 'members' ? '' : 'members' }, data.facets.access === 'members')}
+            {chip('هفتهٔ اخیر', { since: data.facets.since === 'week' ? '' : 'week' }, data.facets.since === 'week')}
+            {chip('ماه اخیر', { since: data.facets.since === 'month' ? '' : 'month' }, data.facets.since === 'month')}
+            {chip('سال اخیر', { since: data.facets.since === 'year' ? '' : 'year' }, data.facets.since === 'year')}
+            {hasFacets(data.facets) && <Link href={facetHref(NO_FACETS)} rel="nofollow">× برداشتن فیلترها</Link>}
+          </nav>
+        )}
+
         {data.cursorReset && <p className="muted" role="status">نتایج جست‌وجو به‌روز شده‌اند یا لینک صفحه معتبر نیست؛ نتایج از صفحهٔ اول نمایش داده شدند.</p>}
         {data.hits.length > 0 ? (
           <ol className="sr-list">
@@ -71,7 +89,7 @@ export default async function SearchPage({ searchParams }: Props) {
               <li key={`${hit.type}:${hit.id}`} className="sr-item">
                 <Link href={hit.url} className="sr-thumb" tabIndex={-1} aria-hidden="true">{hit.image ? <img src={hit.image} alt="" loading="lazy" /> : <span>{ITEM_LABEL[hit.type].icon}</span>}</Link>
                 <div className="sr-body">
-                  <span className="sr-type">{ITEM_LABEL[hit.type].one}{hit.access === 'MEMBERS' && <b className="vip-chip is-small">♛ VIP</b>}</span>
+                  <span className="sr-type">{ITEM_LABEL[hit.type].one}{hit.access === 'MEMBERS' && <b className="vip-chip is-small">♛ VIP</b>}{hit.rating && hit.rating.average !== null && <span className="sr-rating" title={`${num(hit.rating.count)} نظر`}>★ {hit.rating.average.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <small>({num(hit.rating.count)})</small></span>}</span>
                   <h2><Link href={hit.url}>{highlight(hit.title, data.tokens)}</Link></h2>
                   {hit.subtitle && <p className="sr-sub">{hit.subtitle}</p>}
                   {hit.snippet && <p className="sr-snippet">…{hit.snippet}…</p>}
@@ -83,7 +101,7 @@ export default async function SearchPage({ searchParams }: Props) {
           <div className="sr-empty">
             <span aria-hidden="true">🔍</span>
             <h2>چیزی برای «<bdi>{q}</bdi>» پیدا نشد</h2>
-            <p className="muted">املای دیگری امتحان کنید، کلمهٔ کوتاه‌تری بنویسید یا نام انگلیسی را جست‌وجو کنید.</p>
+            <p className="muted">{hasFacets(data.facets) ? <>با این فیلترها نتیجه‌ای نیست. <Link href={facetHref(NO_FACETS)} rel="nofollow">فیلترها را بردارید</Link>.</> : 'املای دیگری امتحان کنید، کلمهٔ کوتاه‌تری بنویسید یا نام انگلیسی را جست‌وجو کنید.'}</p>
             <div className="sr-chips">{SUGGESTED.map((term) => <Link key={term} href={`/search?q=${encodeURIComponent(term)}`}>{term}</Link>)}</div>
           </div>
         ) : (

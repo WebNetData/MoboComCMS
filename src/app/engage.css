@@ -435,3 +435,9 @@ body:has(.cmp-tray) .pwa-chip { inset-block-end: 92px; }
   .sl-track > *:hover { transform: none; }
   .sl-dot i { animation: none; }
 }
+
+/* Search: facets under the kinds, and the members' rating beside a result's kind. */
+.sr-facets { margin-block: -8px 18px; }
+.sr-facets a { font-size: 13px; padding: 5px 12px; }
+.sr-rating { margin-inline-start: 8px; font-weight: 600; color: var(--en-text, inherit); white-space: nowrap; }
+.sr-rating small { font-weight: 400; color: var(--en-muted); }
