@@ -28,7 +28,16 @@ test.describe('guest page cache', () => {
     const second = await guest.get('/blog')
     expect(first.headers()['x-cache']).toBe('MISS')
     expect(second.headers()['x-cache']).toBe('HIT')
-    expect(await second.text()).toBe(await first.text())
+    // The same page, each copy carrying the nonce of the response it came in: nothing else differs.
+    const nonce = (response: { headers: () => Record<string, string> }) => /'nonce-([A-Za-z0-9_-]{22})'/.exec(response.headers()['content-security-policy'] || '')?.[1] || ''
+    const [one, two] = [nonce(first), nonce(second)]
+    expect(one).not.toBe('')
+    expect(two).not.toBe(one)
+    const [a, b] = [await first.text(), await second.text()]
+    expect(a).toContain(`nonce="${one}"`)
+    expect(b).toContain(`nonce="${two}"`)
+    expect(b).not.toContain(one)
+    expect(b.split(two).join(one)).toBe(a)
     await guest.dispose()
   })
 
