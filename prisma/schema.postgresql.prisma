@@ -636,6 +636,10 @@ model Post {
   excerptEn   String        @default("")
   content     String
   contentEn   String        @default("")
+  // How this article is written: "legacy" (HTML in content) or "blocks-v1" (a MoboCom document in contentDocument;
+  // content then holds HTML generated from it for search, feeds and readers that only know HTML).
+  editorFormat    String        @default("legacy")
+  contentDocument String        @default("")
   cover       String        @default("")
   status      String        @default("PUBLISHED") // DRAFT | PUBLISHED
   featured    Boolean       @default(false)

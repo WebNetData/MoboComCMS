@@ -256,6 +256,7 @@ export async function PATCH(req: NextRequest) {
     Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'content', 'contentEn', 'status', 'showInNav', 'sortOrder'])))
   }
   if (type === 'posts') {
+    if (b?.content !== undefined && (await db.post.findUnique({ where: { id }, select: { editorFormat: true } }))?.editorFormat === 'blocks-v1') return err('this article is written in blocks; its body is edited in the block editor', 409)
     Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured'])))
     if (b?.access !== undefined) data.access = normalizeAccess(b.access)
   }
