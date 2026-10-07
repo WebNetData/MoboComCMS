@@ -108,6 +108,7 @@ test('track signals use the existing consent gate and publication recheck for pr
       user: { findUnique: async () => ({ recommendationOptIn: opted }) },
       itemFavorite: { findMany: async ({ where }) => { signalReads++; return where.itemType.in.includes('track') ? [{ itemType: 'track', itemId: 1 }] : [] } },
       userRecentView: { findMany: async () => { signalReads++; return [] } },
+      itemReview: { findMany: async () => { signalReads++; return [] } },
       musicTrack: { findFirst: async ({ where }) => { assert.equal(where.status, 'PUBLISHED'); assert.ok(where.publishedAt.lte instanceof Date); return { id: 1, artistId: 10, genre: 'Pop' } } },
     } },
     '@/modules/content/server/registry': { itemCards: async refs => new Map(refs.map(ref => [`track:${ref.id}`, ref.id === 1 ? source : suggestion])) },

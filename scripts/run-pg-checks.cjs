@@ -15,7 +15,7 @@ const CHECKS = [
   'moderation-queue', 'posts-permission-migration',
   'marketplace-seller-money', 'staff-teams',
   'integrity-report', 'forum-member-profile', 'editorial-collections',
-  'recommendations-listening', 'community-block-coverage', 'music-language',
+  'recommendations-listening', 'recommendation-providers', 'community-block-coverage', 'music-language',
   'gift-membership-recovery', 'forum-members-groups',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
   'inventory-hold-expiry', 'frenzyex-reconciliation', 'newsletter-send', 'queue-jobs', 'social-queue', 'scrub-recent', 'account-reviews', 'review-dimensions', 'compare-dimensions', 'review-badge-backfill',
