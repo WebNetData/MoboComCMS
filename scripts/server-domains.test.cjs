@@ -73,7 +73,7 @@ test('site address and DNS records', () => {
 
 const helper = path.resolve(__dirname, '..', 'deploy/ubuntu/mobocom-webctl')
 function webctl(args, dir) {
-  return spawnSync('bash', [helper, ...args], { encoding: 'utf8', env: { ...process.env, WEBCTL_DRY: '1', WEBCTL_NGINX_DIR: dir, WEBCTL_ENV_FILE: path.join(dir, 'app.env') } })
+  return spawnSync('bash', [helper, ...args], { encoding: 'utf8', env: { ...process.env, WEBCTL_DRY: '1', WEBCTL_NGINX_DIR: dir, WEBCTL_ENV_FILE: path.join(dir, 'app.env'), WEBCTL_ACME_ROOT: path.join(dir, 'acme') } })
 }
 
 test('root helper writes nginx from templates and refuses bad input', { skip: process.platform === 'win32' }, () => {
