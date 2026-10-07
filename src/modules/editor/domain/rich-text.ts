@@ -30,6 +30,25 @@ const CHILDREN: Record<string, readonly string[]> = {
 
 export const emptyRichText = (): RichTextDoc => ({ type: 'doc', content: [] })
 
+const NOT_A_LETTER = /[؀-؟ـً-ٟ٠-٭۔-ۭ۰-۹]/
+const RTL_LETTER = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/, LTR_LETTER = /[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u052f]/
+
+/**
+ * The direction a piece of text reads in: that of its first letter. Persian, Arabic and Hebrew read
+ * right to left, Latin, Greek and Cyrillic left to right; digits, spaces and punctuation say nothing.
+ * Text with no letter has no direction of its own (null) and takes that of the page, which is right to left.
+ */
+export function textDirection(text: unknown): 'rtl' | 'ltr' | null {
+  if (typeof text !== 'string') return null
+  for (const char of text) {
+    // Persian and Arabic digits and punctuation sit in the same range as the letters and are not letters.
+    if (NOT_A_LETTER.test(char)) continue
+    if (RTL_LETTER.test(char)) return 'rtl'
+    if (LTR_LETTER.test(char)) return 'ltr'
+  }
+  return null
+}
+
 /** A link target a page may carry: http(s), a site path, an anchor, mail or phone. Nothing that runs. */
 export function safeLinkHref(value: unknown): string | null {
   const raw = typeof value === 'string' ? value.trim() : ''
@@ -142,9 +161,18 @@ function textHtml(node: RichTextNode): string {
   return html
 }
 
+const plainOf = (node: RichTextNode): string => (node.type === 'text' ? node.text || '' : (node.content || []).map(plainOf).join(' '))
+
+/** The direction written on a block: the one the writer chose, or the one its own text reads in. Nothing when it has no letter. */
+function dirAttr(node: RichTextNode): string {
+  const chosen = oneOf(TEXT_DIRECTIONS, node.attrs?.dir)
+  const dir = chosen && chosen !== 'auto' ? chosen : textDirection(plainOf(node))
+  return dir ? ` dir="${dir}"` : ''
+}
+
 function blockAttrs(node: RichTextNode): string {
-  const align = oneOf(TEXT_ALIGNS, node.attrs?.textAlign), dir = oneOf(TEXT_DIRECTIONS, node.attrs?.dir)
-  return `${align ? ` class="mcb-align-${align}"` : ''}${dir ? ` dir="${dir}"` : ''}`
+  const align = oneOf(TEXT_ALIGNS, node.attrs?.textAlign)
+  return `${align ? ` class="mcb-align-${align}"` : ''}${dirAttr(node)}`
 }
 
 function nodeHtml(node: RichTextNode): string {
@@ -155,12 +183,12 @@ function nodeHtml(node: RichTextNode): string {
     case 'horizontalRule': return '<hr>'
     case 'paragraph': return `<p${blockAttrs(node)}>${inner()}</p>`
     case 'heading': { const level = Math.min(6, Math.max(2, Number(node.attrs?.level) || 2)); return `<h${level}${blockAttrs(node)}>${inner()}</h${level}>` }
-    case 'bulletList': return `<ul>${inner()}</ul>`
-    case 'orderedList': { const start = Number(node.attrs?.start); return `<ol${Number.isInteger(start) && start > 1 ? ` start="${start}"` : ''}>${inner()}</ol>` }
+    case 'bulletList': return `<ul${dirAttr(node)}>${inner()}</ul>`
+    case 'orderedList': { const start = Number(node.attrs?.start); return `<ol${Number.isInteger(start) && start > 1 ? ` start="${start}"` : ''}${dirAttr(node)}>${inner()}</ol>` }
     case 'listItem': return `<li>${inner()}</li>`
-    case 'taskList': return `<ul class="mcb-tasks">${inner()}</ul>`
+    case 'taskList': return `<ul class="mcb-tasks"${dirAttr(node)}>${inner()}</ul>`
     case 'taskItem': return `<li class="mcb-task${node.attrs?.checked === true ? ' is-done' : ''}"><input type="checkbox" disabled${node.attrs?.checked === true ? ' checked' : ''}><div>${inner()}</div></li>`
-    case 'blockquote': return `<blockquote>${inner()}</blockquote>`
+    case 'blockquote': return `<blockquote${dirAttr(node)}>${inner()}</blockquote>`
     case 'codeBlock': { const language = oneOf(CODE_LANGUAGES, node.attrs?.language) || 'plain'; return `<pre dir="ltr"><code class="language-${language}">${(node.content || []).map((child) => escapeHtml(child.text || '')).join('')}</code></pre>` }
     default: return ''
   }

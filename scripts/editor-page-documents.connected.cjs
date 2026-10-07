@@ -61,7 +61,7 @@ async function main() {
  assert.equal(stored.editorFormat, 'blocks-v1')
  assert.deepEqual(JSON.parse(stored.contentDocument).blocks[0].children.map(child => child.type), ['content.heading', 'content.richText'])
  assert.deepEqual(JSON.parse(stored.contentDocument).blocks[0].props, {width: 'narrow', space: 'md', tone: 'none', anchor: ''}, 'what is stored is the checked document, defaults included')
- assert.match(stored.content, /<h2 class="mcb mcb-content-heading mcb-align-start">سلام دنیا<\/h2>/, 'the HTML column holds a copy generated from the document')
+ assert.match(stored.content, /<h2 class="mcb mcb-content-heading mcb-align-start" dir="rtl">سلام دنیا<\/h2>/, 'the HTML column holds a copy generated from the document')
  assert.equal(saved.updatedAt, stored.updatedAt.toISOString()); assert.notEqual(saved.updatedAt, opened.updatedAt)
  assert.match(editor.pageBlocksHtml(stored), /متن فارسی و English با هم ۱۲۳/)
  const reopened = await editor.loadPageDocument(first.id)
@@ -133,7 +133,7 @@ async function main() {
  for (const broken of ['not json', '{"version":1', '{"version":4,"blocks":[]}', '[]']) assert.equal(editor.pageBlocksHtml({id: 1, editorFormat: 'blocks-v1', contentDocument: broken}), '')
 
  // ---- the page form leaves the body of a blocks page alone, and the public page reads the document
- const form = fs.readFileSync('src/modules/site/server/http/admin/cms/route.ts', 'utf8'), publicPage = fs.readFileSync('src/modules/site/server/pages/p/[slug]/page.tsx', 'utf8')
+ const form = fs.readFileSync('src/modules/site/server/http/admin/cms/route.ts', 'utf8'), publicPage = fs.readFileSync('src/modules/site/server/pages/p/[slug]/page.tsx', 'utf8').replace(/\r\n/g, '\n')
  assert.match(form, /b\?\.content !== undefined && \(await db\.page\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
  assert.match(publicPage, /const blocks = pageBlocksHtml\(page\)\n\s+const content = blocks === null \? cleanRichText\(/)
 
@@ -147,7 +147,7 @@ async function main() {
  const savedArticle = await editor.saveDocument({entity: 'posts', id: article.id, document: doc(block('content.heading', {text: 'تیتر مقاله'}), block('content.richText', {content: rich('بدنهٔ مقاله')})), expectedUpdatedAt: openedArticle.updatedAt, actor: staff})
  const storedArticle = await prisma.post.findUniqueOrThrow({where: {id: article.id}})
  assert.equal(storedArticle.editorFormat, 'blocks-v1'); assert.match(storedArticle.content, /تیتر مقاله[\s\S]*بدنهٔ مقاله/)
- assert.match(editor.blocksHtml(storedArticle), /<h2 class="mcb mcb-content-heading mcb-align-start">تیتر مقاله<\/h2>/)
+ assert.match(editor.blocksHtml(storedArticle), /<h2 class="mcb mcb-content-heading mcb-align-start" dir="rtl">تیتر مقاله<\/h2>/)
  assert.deepEqual(changes, [['post', article.id, 'legacy', 'blocks-v1']], 'the site is told the article changed')
  assert.deepEqual((await prisma.contentRevision.findMany({where: {entityType: 'posts', entityId: article.id}, orderBy: {version: 'asc'}})).map(v => v.source), ['baseline', 'edit'])
  assert.equal((await failure(() => editor.saveDocument({entity: 'posts', id: article.id, document: doc(), expectedUpdatedAt: openedArticle.updatedAt, actor: staff})))?.code, 'CHANGED')
@@ -158,7 +158,7 @@ async function main() {
  await raws({editorFormat: 'gutenberg'}, /Post_editorFormat_check/)
  await raws({contentDocument: ''}, /Post_document_matches_format/)
  assert.match(form, /b\?\.content !== undefined && \(await db\.post\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
- const articlePage = fs.readFileSync('src/modules/site/server/pages/blog/[slug]/page.tsx', 'utf8')
+ const articlePage = fs.readFileSync('src/modules/site/server/pages/blog/[slug]/page.tsx', 'utf8').replace(/\r\n/g, '\n')
  assert.match(articlePage, /const articleBlocks = !locked && \(isFa \|\| !post\.contentEn\) \? blocksHtml\(post\) : null/, 'a locked article never shows its document')
 
  console.log('PostgreSQL documents: a plugin that is on by default, and switched off saves nothing; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched row; an article is written the same way under its own permission passed')

@@ -118,7 +118,7 @@ test('rich text is Tiptap JSON checked against a closed list, and rendered with 
   assert.deepEqual(checked.issues, [])
   assert.deepEqual(rich.normalizeRichText(checked.doc).doc, checked.doc)
   const html = rich.richTextHtml(persian)
-  assert.equal(html, '<h2 class="mcb-align-center" dir="rtl">عنوان</h2><p>متن <strong><em>پررنگ</em></strong> و English mixed 123 <a href="/blog/x">پیوند</a><br><code>کد</code></p><ul><li><p>یک</p></li><li><p>دو</p><ol start="3"><li><p>سه</p></li></ol></li></ul><ul class="mcb-tasks"><li class="mcb-task is-done"><input type="checkbox" disabled checked><div><p>انجام شد</p></div></li></ul><blockquote><p>نقل</p></blockquote><pre dir="ltr"><code class="language-bash">echo &quot;&lt;b&gt;&quot; &amp;&amp; ls</code></pre><hr>')
+  assert.equal(html, '<h2 class="mcb-align-center" dir="rtl">عنوان</h2><p dir="rtl">متن <strong><em>پررنگ</em></strong> و English mixed 123 <a href="/blog/x">پیوند</a><br><code>کد</code></p><ul dir="rtl"><li><p dir="rtl">یک</p></li><li><p dir="rtl">دو</p><ol start="3" dir="rtl"><li><p dir="rtl">سه</p></li></ol></li></ul><ul class="mcb-tasks" dir="rtl"><li class="mcb-task is-done"><input type="checkbox" disabled checked><div><p dir="rtl">انجام شد</p></div></li></ul><blockquote dir="rtl"><p dir="rtl">نقل</p></blockquote><pre dir="ltr"><code class="language-bash">echo &quot;&lt;b&gt;&quot; &amp;&amp; ls</code></pre><hr>')
   // What a hostile value may try.
   const issuesOf = (value) => rich.normalizeRichText(value).issues.map((issue) => issue.code)
   const hostile = richDoc(
@@ -131,7 +131,7 @@ test('rich text is Tiptap JSON checked against a closed list, and rendered with 
     { type: 'codeBlock', attrs: { language: '"><script>' }, content: [text('code', [{ type: 'bold' }])] },
   )
   const out = rich.richTextHtml(hostile)
-  assert.equal(out, '<p>&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;</p><p>x<a href="https://example.com/" target="_blank" rel="noopener noreferrer nofollow">y</a></p><p>p</p><p>c</p><h2>h1</h2><pre dir="ltr"><code class="language-plain">code</code></pre>')
+  assert.equal(out, '<p dir="ltr">&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;</p><p dir="ltr">x<a href="https://example.com/" target="_blank" rel="noopener noreferrer nofollow">y</a></p><p dir="ltr">p</p><p dir="ltr">c</p><h2 dir="ltr">h1</h2><pre dir="ltr"><code class="language-plain">code</code></pre>')
   assert.doesNotMatch(out, /<script|<iframe|<img| on[a-z]+="|href="javascript|style="/)
   assert.deepEqual([...new Set(issuesOf(hostile))].sort(), ['rich-text.color', 'rich-text.heading', 'rich-text.link', 'rich-text.mark', 'rich-text.node'])
   const kept = rich.normalizeRichText(hostile).doc
@@ -144,7 +144,7 @@ test('rich text is Tiptap JSON checked against a closed list, and rendered with 
   assert.ok(issuesOf(richDoc(nested)).includes('rich-text.depth'))
   assert.equal(rich.richTextHtml(null), ''); assert.equal(rich.richTextHtml('<p>html is not rich text</p>'), '')
   // Text colours are theme names; a mark listed twice is written once; mark order never changes the HTML.
-  assert.equal(rich.richTextHtml(richDoc(para(text('a', [{ type: 'textStyle', attrs: { color: 'accent' } }, { type: 'highlight' }])))), '<p><span class="mcb-color-accent"><mark>a</mark></span></p>')
+  assert.equal(rich.richTextHtml(richDoc(para(text('a', [{ type: 'textStyle', attrs: { color: 'accent' } }, { type: 'highlight' }])))), '<p dir="ltr"><span class="mcb-color-accent"><mark>a</mark></span></p>')
   assert.equal(rich.richTextHtml(richDoc(para(text('a', [{ type: 'italic' }, { type: 'bold' }, { type: 'bold' }])))), rich.richTextHtml(richDoc(para(text('a', [{ type: 'bold' }, { type: 'italic' }])))))
   const facts = rich.richTextFacts(persian)
   assert.deepEqual([facts.headings, facts.links], [[{ level: 2, text: 'عنوان' }], [{ href: '/blog/x', text: 'پیوند' }]])
@@ -238,11 +238,11 @@ test('a document reads as facts for search and SEO, and as plain HTML with nothi
   assert.equal(facts.headings.some((h) => h.level === 1), false, 'a document never brings an H1')
   const html = r.documentHtml(page.document, registry)
   assert.match(html, /^<section class="mcb mcb-layout-section mcb-width-narrow mcb-space-md mcb-tone-accent" id="intro">/)
-  assert.match(html, /<h2 class="mcb mcb-content-heading mcb-align-start" id="install">راهنمای &lt;نصب&gt;<\/h2>/)
+  assert.match(html, /<h2 class="mcb mcb-content-heading mcb-align-start" id="install" dir="rtl">راهنمای &lt;نصب&gt;<\/h2>/)
   assert.match(html, /<div class="mcb mcb-layout-columns mcb-cols-desktop-2 mcb-cols-tablet-2 mcb-cols-mobile-1 mcb-gap-md mcb-align-stretch">/)
   assert.match(html, /<a href="\/software\/x"><figure><img src="\/uploads\/a\.webp" alt="نمای برنامه" width="640" height="360" loading="lazy" decoding="async"><figcaption>تصویر ۱<\/figcaption><\/figure><\/a>/)
   assert.match(html, /<a class="mcb mcb-content-button mcb-variant-primary mcb-size-md" href="\/dl\/x">دانلود &quot;نسخهٔ جدید&quot;<\/a>/)
-  assert.match(html, /<details open><summary>رایگان است؟<\/summary><p>بله<\/p><\/details><details><summary>لینوکس؟/)
+  assert.match(html, /<details open><summary>رایگان است؟<\/summary><p dir="rtl">بله<\/p><\/details><details><summary>لینوکس؟/)
   assert.match(html, /<iframe src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ" title="معرفی" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation"><\/iframe>/)
   assert.match(html, /<aside class="mcb mcb-content-callout mcb-tone-warning" role="note"><strong>توجه<\/strong>/)
   assert.doesNotMatch(html, /style=|<script| on[a-z]+=|javascript:/)
@@ -354,4 +354,32 @@ test('WordPress packages are imported only where the editor adapts to them', () 
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'modules/editor/adapters/gutenberg/convert.ts'), 'utf8'), /from '@wordpress/)
   // And the public page never loads the editor.
   for (const file of ['modules/site/server/pages/p/[slug]/page.tsx', 'modules/editor/server/documents.ts', 'app/layout.tsx']) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /adapters\/gutenberg|components\/editor\/gutenberg|@wordpress|@tiptap/, file)
+})
+
+test('text reads in the direction of its first letter: Persian from the right, English from the left', () => {
+  for (const [value, dir] of [['سلام world', 'rtl'], ['Hello دنیا', 'ltr'], ['۱۲۳ سلام', 'rtl'], ['123 hello', 'ltr'], ['  «نقل»', 'rtl'], ['(note)', 'ltr'], ['שלום', 'rtl'], ['Привет', 'ltr'], ['', null], ['   ', null], ['123 ۴۵۶ !?', null], [null, null], [5, null]]) assert.equal(rich.textDirection(value), dir, JSON.stringify(value))
+  // Each paragraph of one block reads in its own direction; an empty one says nothing and takes the page's, which is right to left.
+  const mixed = richDoc(para(text('این فارسی است')), para(text('This one is English')), { type: 'paragraph' }, para(text('2024 - ')), { type: 'bulletList', content: [{ type: 'listItem', content: [para(text('first'))] }] })
+  assert.equal(rich.richTextHtml(mixed), '<p dir="rtl">این فارسی است</p><p dir="ltr">This one is English</p><p></p><p>2024 - </p><ul dir="ltr"><li><p dir="ltr">first</p></li></ul>')
+  // A direction the writer chose wins over the text; "auto" means the text decides.
+  assert.equal(rich.richTextHtml(richDoc({ type: 'paragraph', attrs: { dir: 'ltr' }, content: [text('فارسی')] }, { type: 'paragraph', attrs: { dir: 'auto' }, content: [text('فارسی')] })), '<p dir="ltr">فارسی</p><p dir="rtl">فارسی</p>')
+  // The block itself takes the page's direction unless one was chosen for it; a heading block reads by its own text.
+  const html = (blocks) => r.documentHtml({ version: 1, blocks }, registry)
+  assert.equal(html([block('content.richText', { content: richDoc(para(text('Hi'))) })]), '<div class="mcb mcb-content-richText"><p dir="ltr">Hi</p></div>')
+  assert.match(html([block('content.richText', { dir: 'ltr', content: richDoc(para(text('سلام'))) })]), /^<div class="mcb mcb-content-richText" dir="ltr"><p dir="rtl">سلام<\/p><\/div>$/)
+  assert.match(html([block('content.heading', { text: 'Release notes' })]), /<h2 class="mcb mcb-content-heading" dir="ltr">Release notes<\/h2>/)
+  assert.match(html([block('content.heading', { text: '2024' })]), /<h2 class="mcb mcb-content-heading">2024<\/h2>/)
+  // The editor shows what the page will show, from the same rule, and starts right to left.
+  const field = fs.readFileSync(path.resolve(__dirname, '..', 'src/components/editor/gutenberg/RichTextField.tsx'), 'utf8')
+  const src = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  assert.match(src('src/components/editor/TypedDirection.ts'), /const dir = chosen \|\| textDirection\(node\.textContent\)/)
+  assert.match(field, /BlockAttributes, TypedDirection\]/)
+  // The older HTML editor follows the same rule, starts right to left, and its body field is not mistaken for an English one.
+  const old = src('src/components/RichEditor.tsx')
+  assert.match(old, /dir = 'rtl', minHeight/); assert.match(old, /\n      TypedDirection,\n/)
+  const crud = src('src/app/admin/cms/AdminCrud.tsx').match(/dir=\{fl\.dir \|\| \((.+?) \? 'ltr' : 'rtl'\)\}/)[1]
+  const isLtr = (key) => new Function('fl', `return ${crud}`)({ key })
+  for (const [key, ltr] of [['content', false], ['excerpt', false], ['contentEn', true], ['titleEn', true], ['agenda', false]]) assert.equal(isLtr(key), ltr, key)
+  assert.match(field, /class: 'mcb-content-richText mc-rich-input', dir: 'rtl'/)
+  assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/components/editor/gutenberg/blocks.tsx'), 'utf8'), /dir=\{textDirection\(attributes\.text\) \|\| 'rtl'\}/)
 })

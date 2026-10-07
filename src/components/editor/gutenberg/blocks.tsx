@@ -8,7 +8,7 @@ import { UNSUPPORTED_BLOCK, engineName, newEngineAttributes, type EngineBlock } 
 import { fieldDefault, type FieldSpec } from '@/modules/editor/domain/fields'
 import type { BlockDefinition, BlockRegistry } from '@/modules/editor/domain/registry'
 import { documentHtml } from '@/modules/editor/domain/render'
-import type { RichTextDoc } from '@/modules/editor/domain/rich-text'
+import { textDirection, type RichTextDoc } from '@/modules/editor/domain/rich-text'
 import FieldControls from './FieldControls'
 import RichTextField from './RichTextField'
 
@@ -47,7 +47,7 @@ function LeafCanvas({ definition, attributes, setAttributes, registry, className
   if (definition.type === 'content.richText') return <div {...blockProps}><RichTextField label={definition.label.fa} value={(attributes.content as RichTextDoc) || (fieldDefault(definition.fields.content) as RichTextDoc)} onChange={(content) => setAttributes({ content })} /></div>
   if (definition.type === 'content.heading') {
     const Tag = `h${Math.min(6, Math.max(2, Number(attributes.level) || 2))}` as 'h2'
-    return <Tag {...blockProps}><input className="mc-heading-input" dir="auto" aria-label="متن تیتر" placeholder="تیتر…" value={String(attributes.text ?? '')} onChange={(event) => setAttributes({ text: event.target.value })} onKeyDown={(event) => event.stopPropagation()} /></Tag>
+    return <Tag {...blockProps}><input className="mc-heading-input" dir={textDirection(attributes.text) || 'rtl'} aria-label="متن تیتر" placeholder="تیتر…" value={String(attributes.text ?? '')} onChange={(event) => setAttributes({ text: event.target.value })} onKeyDown={(event) => event.stopPropagation()} /></Tag>
   }
   void registry
   return <div {...blockProps}>{html ? <div className="mc-block-preview-body" dangerouslySetInnerHTML={{ __html: html }} /> : <div className="mc-block-empty">{definition.label.fa}: از پنل تنظیمات پر کنید</div>}</div>

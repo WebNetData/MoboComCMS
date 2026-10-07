@@ -70,6 +70,8 @@ Tiptap JSON is the stored value of a rich text field. It is checked against a cl
 
 H1 is not allowed anywhere in a document: the page's own title is the H1.
 
+**Direction.** The site is right to left, and so is an empty editor. A paragraph, heading, list or quote reads in the direction of its first letter (`textDirection`: Persian, Arabic and Hebrew from the right; Latin, Greek and Cyrillic from the left; digits and punctuation decide nothing). The rule is applied when reading, so `richTextHtml` and the heading block write `dir` on each of them, and nothing about it is stored; a direction the writer chose is stored and wins. While writing, `src/components/editor/TypedDirection.ts` shows the same thing from the same rule in both editors (the block editor's rich text and the older `RichEditor`). A wrapper around rendered blocks must not say `dir="auto"`: the browser skips children that carry their own `dir`, so it would fall back to left to right.
+
 `richTextHtml` builds HTML from the checked JSON with every text escaped. `richTextFacts` gives plain text, headings and links. HTML from a browser is never stored.
 
 ## The registry (`domain/registry.ts`, `domain/core-blocks.ts`)

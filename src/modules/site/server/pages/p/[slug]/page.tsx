@@ -68,7 +68,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
       <main>
         {layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
         {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}
-        {blocks !== null && <div className="mcb-document container page-main" dir="auto" dangerouslySetInnerHTML={{ __html: blocks }} />}
+        {blocks !== null && <div className="mcb-document container page-main" dangerouslySetInnerHTML={{ __html: blocks }} />}
         {hasLegacy && (
           <div className={`container page-main content-surface managed-page managed-page-${layout.pageLayout} covered-page-body`}>
             <div className={layout.pageLayout === 'sidebar' ? 'article-layout' : 'managed-page-body'}>

@@ -316,7 +316,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                   value={form[fl.key] || ''}
                   onChange={(html) => setForm({ ...form, [fl.key]: html })}
                   placeholder={fl.label}
-                  dir={fl.dir || (fl.key.toLowerCase().includes('en') ? 'ltr' : 'rtl')}
+                  dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
                 />
               ) : fl.type === 'textarea' ? (
                 <textarea className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
