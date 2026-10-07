@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
+import { nonceOf } from '@/platform/http/csp'
 import { publish, subscribe } from '@/platform/realtime/bus'
 import {
   DEFAULT_PAGECACHE, cacheControl, decide, freshness, mbToBytes, normalizePageCache, viewTarget, warmPaths,
@@ -29,7 +30,7 @@ const MAX_BODY = 2_000_000
 const FILL_TIMEOUT_MS = 25_000
 const CONFIG_TTL_MS = 5_000
 
-interface Entry { gz: Buffer; status: number; type: string; robots: string; at: number; ttl: number; size: number; hits: number; path: string; fillMs: number }
+interface Entry { gz: Buffer; nonce: string; status: number; type: string; robots: string; at: number; ttl: number; size: number; hits: number; path: string; fillMs: number }
 interface Stats { hits: number; misses: number; stale: number; errorServes: number; fills: number; fillErrors: number; bypass: Record<string, number>; evictions: number; purges: number }
 interface State {
   entries: Map<string, Entry>
@@ -220,7 +221,9 @@ async function render(key: string, d: Extract<Decision, { cache: true }>, ctx: {
     const gz = gzipSync(body, { level: 6 })
     // A missing page is remembered briefly so crawlers cannot make the app render it again and again.
     const ttl = response.status === 404 ? Math.min(d.ttl, 30) : d.ttl
-    const entry: Entry = { gz, status: response.status, type, robots: response.headers.get('x-robots-tag') || '', at: Date.now(), ttl, size: gz.length + key.length + 200, hits: 0, path: d.path, fillMs: ms }
+    // The nonce this page was rendered with: on the way out it is replaced by the nonce of that response.
+    const nonce = nonceOf(response.headers.get('content-security-policy')) || ''
+    const entry: Entry = { gz, nonce, status: response.status, type, robots: response.headers.get('x-robots-tag') || '', at: Date.now(), ttl, size: gz.length + key.length + 200, hits: 0, path: d.path, fillMs: ms }
     put(key, entry, config)
     s.stats.fills++
     s.fillTimes.push(ms)
@@ -245,13 +248,23 @@ function fillOnce(key: string, d: Extract<Decision, { cache: true }>, ctx: Param
 
 // ------------------------------------------------------------------ serving
 
-function serve(entry: Entry, state: 'HIT' | 'MISS' | 'STALE' | 'STALE-ERROR', config: PageCacheConfig): Response {
+/** The stored page with every copy of the nonce it was rendered with replaced by `nonce` (both are the same length). */
+export function withNonce(body: Buffer, stored: string, nonce: string | null | undefined): Buffer {
+  if (!stored || !nonce || stored === nonce || stored.length !== nonce.length) return body
+  const from = Buffer.from(stored, 'latin1'), to = Buffer.from(nonce, 'latin1')
+  for (let at = body.indexOf(from); at !== -1; at = body.indexOf(from, at + from.length)) to.copy(body, at)
+  return body
+}
+
+function serve(entry: Entry, state: 'HIT' | 'MISS' | 'STALE' | 'STALE-ERROR', config: PageCacheConfig, nonce?: string | null): Response {
   // The body goes out plain: Next compresses middleware responses itself and drops a Content-Encoding
   // set here, which would leave the browser with unreadable gzip bytes. Memory keeps the compressed copy.
   const headers = new Headers({ 'content-type': entry.type, 'cache-control': cacheControl(config, entry.ttl), vary: config.edgeHeaders ? 'Accept-Encoding, Cookie' : 'Accept-Encoding' })
   if (entry.robots) headers.set('x-robots-tag', entry.robots)
   if (config.debugHeaders) { headers.set('x-cache', state); headers.set('x-cache-age', String(Math.round((Date.now() - entry.at) / 1000))) }
-  return new Response(new Uint8Array(gunzipSync(entry.gz)), { status: entry.status, headers })
+  // A page stored with a nonce and sent without a new one keeps its own, and says so in its policy (the middleware reads it there).
+  if (entry.nonce && !nonce) headers.set('content-security-policy', `script-src 'nonce-${entry.nonce}'`)
+  return new Response(new Uint8Array(withNonce(gunzipSync(entry.gz), entry.nonce, nonce)), { status: entry.status, headers })
 }
 
 export interface HandleInput {
@@ -264,6 +277,8 @@ export interface HandleInput {
   host: string
   port: string
   proto: string
+  /** The nonce of the response being built; a stored page is sent with it. */
+  nonce?: string | null
 }
 
 /**
@@ -292,12 +307,12 @@ export async function pageCacheHandle(input: HandleInput): Promise<Response | nu
 
   if (entry && state === 'fresh') {
     entry.hits++; s.stats.hits++; touch(d.key, entry); countView(d.path)
-    return serve(entry, 'HIT', config)
+    return serve(entry, 'HIT', config, input.nonce)
   }
   if (entry && state === 'stale') {
     entry.hits++; s.stats.stale++; touch(d.key, entry); countView(d.path)
     void fillOnce(d.key, d, ctx, config)
-    return serve(entry, 'STALE', config)
+    return serve(entry, 'STALE', config, input.nonce)
   }
   // The visitor whose request starts the render is counted by the app; those who join it are counted here.
   const joined = s.inflight.has(d.key)
@@ -305,13 +320,13 @@ export async function pageCacheHandle(input: HandleInput): Promise<Response | nu
   if ('entry' in result) {
     s.stats.misses++
     if (joined) countView(d.path)
-    return serve(result.entry, 'MISS', config)
+    return serve(result.entry, 'MISS', config, input.nonce)
   }
   if ('pass' in result) return result.pass
   // The app could not render: the last good copy keeps the page available.
   if (entry && state !== 'expired') {
     s.stats.errorServes++
-    return serve(entry, 'STALE-ERROR', config)
+    return serve(entry, 'STALE-ERROR', config, input.nonce)
   }
   return null
 }

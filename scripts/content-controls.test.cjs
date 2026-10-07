@@ -839,3 +839,74 @@ test('a write must show where it was made: Origin, Sec-Fetch-Site, Referer, or n
   // Callbacks that prove themselves another way stay open.
   for (const path of ['/api/auth/callback/credentials', '/api/payment/zarinpal/callback', '/api/telegram/webhook', '/api/internal/jobs', '/api/newsletter/unsubscribe']) assert.equal(await send(path, session), 200, path)
 })
+
+test('scripts run by nonce: one per response, on the request for Next and in the policy for the browser', async () => {
+  const csp = load('src/platform/http/csp.ts')
+  const a = csp.newNonce(), b = csp.newNonce()
+  assert.match(a, /^[A-Za-z0-9_-]{22}$/); assert.notEqual(a, b)
+  assert.equal(csp.isNonce(a), true)
+  for (const bad of ['', 'short', a + '"', "x' 'unsafe-eval", a.slice(0, 21) + '+', null, undefined, 5]) assert.equal(csp.isNonce(bad), false, String(bad))
+  const policy = (path, nonce = a, production = true) => csp.contentSecurityPolicy({ path, nonce, production })
+  const scripts = (text) => text.split('; ').find((part) => part.startsWith('script-src '))
+  assert.equal(scripts(policy('/blog/x')), "script-src 'self' 'nonce-" + a + "' 'strict-dynamic' 'unsafe-inline' https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com")
+  assert.match(policy('/blog/x'), /; script-src-attr 'none'; /, 'inline handlers never run')
+  assert.match(policy('/blog/x'), /; object-src 'none'; /)
+  assert.match(policy('/blog/x'), /; base-uri 'self'; /)
+  assert.doesNotMatch(policy('/admin/posts'), /unsafe-eval/, 'no eval in production')
+  assert.match(scripts(policy('/admin/posts', a, false)), /'unsafe-eval'/, 'the development server needs it')
+  assert.equal(csp.nonceOf(policy('/x')), a)
+  assert.equal(csp.nonceOf("default-src 'self'; style-src 'nonce-" + a + "'"), null, 'only the nonce of script-src')
+  assert.equal(csp.nonceOf("script-src 'nonce-bad value'"), null)
+  assert.equal(csp.nonceOf(null), null)
+  // A value that is not a nonce is never written into the policy.
+  assert.doesNotMatch(policy('/x', "x' 'unsafe-eval' 'nonce-y"), /nonce-|strict-dynamic/)
+  // The one page that shows pasted ad-network code keeps the older policy, and says so by having no nonce.
+  for (const path of ['/forwarder', '/forwarder/abc']) { assert.equal(csp.usesNonce(path), false); assert.doesNotMatch(policy(path), /nonce-|strict-dynamic|script-src-attr/); assert.match(scripts(policy(path)), /'unsafe-inline'.* https:$/) }
+  assert.equal(csp.usesNonce('/forwarders'), true)
+  assert.match(policy('/miniapp/x'), /frame-ancestors 'self' https:\/\/web\.telegram\.org/)
+  assert.match(policy('/login'), /challenges\.cloudflare\.com/)
+
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async () => null, purgeSoon: () => {} } })
+  const get = (path, headers = {}) => middleware(new NextRequest('http://localhost:3002' + path, { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-12345', ...headers } }))
+  const first = await get('/blog/x'), second = await get('/blog/x')
+  const sent = csp.nonceOf(first.headers.get('content-security-policy'))
+  assert.ok(sent); assert.notEqual(sent, csp.nonceOf(second.headers.get('content-security-policy')), 'a new nonce for every response')
+  // What Next is given on the request is the same nonce the browser is told.
+  assert.equal(first.headers.get('x-middleware-request-x-nonce'), sent)
+  assert.equal(csp.nonceOf(first.headers.get('x-middleware-request-content-security-policy')), sent)
+  // A nonce sent by the visitor is never the one used.
+  const forged = await get('/blog/x', { 'x-nonce': 'A'.repeat(22), 'content-security-policy': "script-src 'nonce-" + 'A'.repeat(22) + "'" })
+  assert.notEqual(csp.nonceOf(forged.headers.get('content-security-policy')), 'A'.repeat(22))
+  assert.notEqual(forged.headers.get('x-middleware-request-x-nonce'), 'A'.repeat(22))
+  const ads = await get('/forwarder/abc', { 'x-nonce': 'A'.repeat(22), 'content-security-policy': "script-src 'nonce-" + 'A'.repeat(22) + "'" })
+  assert.equal(ads.headers.get('x-middleware-request-content-security-policy'), null, 'nor a policy the visitor sent, which Next would read a nonce from')
+  assert.doesNotMatch(ads.headers.get('x-middleware-override-headers') || '', /content-security-policy/)
+  assert.equal(csp.nonceOf(ads.headers.get('content-security-policy')), null)
+  assert.notEqual(ads.headers.get('x-middleware-request-x-nonce'), 'A'.repeat(22), 'no nonce reaches the app on a page without one')
+})
+
+test('a stored page goes out with the nonce of the response that carries it', async () => {
+  const csp = load('src/platform/http/csp.ts')
+  const { withNonce } = load('src/modules/performance/server/pagecache.ts', { '@/platform/database/prisma': { db: {} }, '@/platform/realtime/bus': { publish: async () => {}, subscribe: async () => () => {} } })
+  const stored = csp.newNonce(), fresh = csp.newNonce()
+  const page = Buffer.from('<script nonce="' + stored + '">a()</script><p>سلام ' + stored.slice(0, 21) + '</p><script nonce="' + stored + '" src="/x.js"></script>{"nonce":"' + stored + '"}')
+  const out = withNonce(Buffer.from(page), stored, fresh).toString()
+  assert.equal(out.split(fresh).length - 1, 3, 'every copy is replaced')
+  assert.equal(out.includes(stored), false)
+  assert.equal(out.length, page.toString().length); assert.match(out, /سلام/)
+  assert.equal(out.includes(stored.slice(0, 21) + '<'), true, 'a string that is only like the nonce stays')
+  for (const [from, to] of [['', fresh], [stored, null], [stored, stored], [stored, fresh + 'x']]) assert.equal(withNonce(Buffer.from(page), from, to).toString(), page.toString())
+
+  // Through the middleware: a page from the cache carries the nonce of this response, and one passed on as rendered keeps its own.
+  const body = (nonce) => '<script nonce="' + nonce + '">a()</script>'
+  let answer
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async (input) => answer(input), purgeSoon: () => {} } })
+  const get = () => middleware(new NextRequest('http://localhost:3002/blog/x', { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-67890' } }))
+  answer = (input) => new Response(withNonce(Buffer.from(body(stored)), stored, input.nonce), { headers: { 'content-type': 'text/html' } })
+  const cached = await get(), cachedNonce = csp.nonceOf(cached.headers.get('content-security-policy'))
+  assert.equal(await cached.text(), body(cachedNonce)); assert.notEqual(cachedNonce, stored)
+  answer = () => new Response(body(stored), { headers: { 'content-type': 'text/html', 'content-security-policy': csp.contentSecurityPolicy({ path: '/blog/x', nonce: stored, production: true }) } })
+  const passed = await get()
+  assert.equal(csp.nonceOf(passed.headers.get('content-security-policy')), stored, 'the policy names the nonce the body carries')
+  assert.equal(await passed.text(), body(stored))
+})

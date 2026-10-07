@@ -45,6 +45,8 @@ import LocaleSetter from '@/i18n/LocaleSetter'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dirOf } from '@/i18n/config'
 import { deviceLocaleBootstrap } from '@/i18n/device-locale'
+import { headers } from 'next/headers'
+import { isNonce } from '@/platform/http/csp'
 import { siteLocales } from '@/i18n/policy'
 import { applyTitleTemplate } from '@/modules/seo/domain/seo'
 import { getSiteSeo, organizationJsonLd } from '@/modules/site/server/seo'
@@ -132,6 +134,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
+  // The nonce of this response (set by the middleware); the one inline script written here carries it.
+  const sent = (await headers()).get('x-nonce')
+  const nonce = isNonce(sent) ? sent : undefined
   const [jsonLd, siteConfig, extensions, packages, routeAliases] = await Promise.all([organizationJsonLd(locale), getPublicSiteConfig(), getPublicExtensionRuntime(), getPackageRuntime(locale).catch(() => null), loadRouteAliases()])
   setRouteAliases(routeAliases)
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
@@ -155,7 +160,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
       <head>
-        {locales.length > 1 && <script dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
+        {locales.length > 1 && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
         {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}
         {site.customCss?.trim() ? <style data-site-custom dangerouslySetInnerHTML={{ __html: safeCustomCss(site.customCss) }} /> : null}
       </head>
