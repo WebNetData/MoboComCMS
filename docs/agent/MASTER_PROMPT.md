@@ -919,6 +919,12 @@ In short, as of 2026-10-07:
 6. **The forum is an Invision-class board with the social layer built in**: sections, forums and subforums; a section takes no topics; moderation is scoped to a forum and what is under it; leaderboard, activity stream, member directory, groups, clubs. It composes Identity (follow, block, privacy), the feed and reviews from their owner modules (§19).
 7. **Protected visual areas (§3) are unchanged.** The forum is not one of them and is built on the site's tokens.
 8. **Evidence and delivery** (§26, §27): a slice is done when a connected PostgreSQL check that asks the page's own functions as several viewers has run, its rules have been proven by deliberate breaks, and anything visible has been opened in a browser. Every pull request targets `main`; the owner merges and deploys. Data migrations preserve existing access and are safe to repeat.
+9. **A security floor every change keeps** (§24): limits that guard a secret are counted atomically (`rateLimitStrict`); a write to `/api` must show where it was made, a session cookie alone never writes; scripts run by nonce and inline handlers do not run; the server panel follows links before it decides and checks an archive before unpacking it.
+10. **The database holds the states and amounts of money rows** (§5, §22): declared states, non-negative money, and triggers that refuse to unsettle what is settled. Code changes such a state with a claim.
+11. **Content is a MoboCom document** (§7): the block editor (a plugin, on by default) is the editor of pages and magazine articles; the stored format belongs to MoboCom, an editing engine is replaceable, and a block is a registry definition. An unknown block is kept, never dropped.
+12. **One language.** The site is written in one language and translated by Google Translate; forms carry no English fields.
+13. **A section can be in maintenance by itself**: visitors get the owner's notice, only full access and that section's managers see it.
+14. **Delivery is gated** (§26, §27): every migration belongs to one release (`prisma/release-manifest.json`); every pull request passes the checks workflow (static checks and unit suites, a first deploy on an empty PostgreSQL with the connected checks, the production build) and the browser suite; a test passes without a `.env`, on an empty database and as a user who is not root.
 
 ## 28. Final principle
 
