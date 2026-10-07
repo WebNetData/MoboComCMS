@@ -1,0 +1,35 @@
+/* The notice shown in place of a section that is in maintenance. Colours come from the theme's tokens. */
+.mnt { position: relative; display: grid; place-items: center; min-height: 72vh; padding: 3rem 1rem; overflow: hidden; isolation: isolate; }
+.mnt-glow { position: absolute; inset: -20% -10% auto; height: 70%; z-index: -1; filter: blur(70px); opacity: .55;
+  background: radial-gradient(40% 60% at 30% 40%, color-mix(in srgb, var(--accent, #6d5efc) 55%, transparent), transparent 70%), radial-gradient(35% 55% at 70% 30%, color-mix(in srgb, #22d3ee 45%, transparent), transparent 70%);
+  animation: mnt-drift 14s ease-in-out infinite alternate; }
+.mnt-card { width: min(100%, 560px); padding: 2.5rem 2rem; text-align: center; border-radius: 28px;
+  background: color-mix(in srgb, var(--surface, #fff) 82%, transparent); backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--accent, #6d5efc) 22%, transparent); box-shadow: 0 30px 80px -40px color-mix(in srgb, var(--accent, #6d5efc) 60%, transparent); }
+.mnt-art { display: grid; place-items: center; color: var(--accent, #6d5efc); margin-block-end: .5rem; }
+.mnt-ring { transform-origin: 60px 60px; animation: mnt-spin 18s linear infinite; opacity: .45; }
+.mnt-gear { transform-origin: 60px 60px; animation: mnt-spin 7s linear infinite reverse; }
+.mnt-chip { display: inline-block; padding: .25rem .9rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
+  color: var(--accent, #6d5efc); background: color-mix(in srgb, var(--accent, #6d5efc) 12%, transparent); }
+.mnt-title { margin: 1rem 0 .75rem; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.5; }
+.mnt-text { margin: 0 auto; max-width: 44ch; line-height: 2; color: var(--muted, #64748b); white-space: pre-line; }
+.mnt-bar { height: 6px; margin: 1.75rem auto 1.5rem; max-width: 260px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--accent, #6d5efc) 14%, transparent); }
+.mnt-bar span { display: block; height: 100%; width: 40%; border-radius: inherit; background: linear-gradient(90deg, var(--accent, #6d5efc), #22d3ee); animation: mnt-slide 2.4s ease-in-out infinite; }
+.mnt-home { display: inline-flex; padding: .7rem 1.5rem; border-radius: 14px; font-weight: 600; text-decoration: none; color: #fff; background: var(--accent, #6d5efc); }
+.mnt-home:focus-visible { outline: 2px solid var(--accent, #6d5efc); outline-offset: 3px; }
+@keyframes mnt-spin { to { transform: rotate(360deg); } }
+@keyframes mnt-slide { 0% { transform: translateX(160%); } 100% { transform: translateX(-260%); } }
+@keyframes mnt-drift { to { transform: translate3d(4%, 6%, 0) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .mnt-ring, .mnt-gear, .mnt-bar span, .mnt-glow { animation: none; } .mnt-bar span { width: 100%; opacity: .5; } }
+
+/* The strip the people who run a section see while it is in maintenance. */
+.mnt-preview { position: sticky; top: 0; z-index: 60; padding: .45rem 1rem; text-align: center; font-size: .85rem; font-weight: 600; color: #78350f; background: #fde68a; }
+.mnt-preview a { color: inherit; text-decoration: underline; margin-inline-start: .5rem; }
+
+/* admin: section maintenance */
+.mnt-admin { display: grid; gap: 1rem; }
+.mnt-admin-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.mnt-admin-card { display: grid; gap: .5rem; align-content: start; }
+.mnt-admin-card.is-on { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b inset; }
+.mnt-admin-head { display: flex; justify-content: space-between; align-items: start; gap: .75rem; }
+.mnt-admin-actions { flex-wrap: wrap; margin-block-start: .5rem; }

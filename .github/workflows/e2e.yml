@@ -19,6 +19,9 @@ jobs:
       SEED_DEMO_DATA: 'true'
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: CiAdmin!Password-2026
+      # The development server restarts itself when it nears its memory limit, and a test that arrives during the restart
+      # is refused. Compiling the block editor's packages brought it there; with a larger limit it does not restart.
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

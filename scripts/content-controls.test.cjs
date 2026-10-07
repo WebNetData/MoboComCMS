@@ -910,3 +910,77 @@ test('a stored page goes out with the nonce of the response that carries it', as
   assert.equal(csp.nonceOf(passed.headers.get('content-security-policy')), stored, 'the policy names the nonce the body carries')
   assert.equal(await passed.text(), body(stored))
 })
+
+test('a section in maintenance shows its notice to visitors and itself to the people who run it', async () => {
+  const m = load('src/modules/site/domain/maintenance.ts')
+  const bases = { store: ['/products', '/cart', '/checkout/product'], magazine: ['/blog'], games: ['/games'], cinema: ['/cinema', '/watch'], music: ['/music'], software: ['/software'], forum: ['/forum'] }
+  // What is stored is read whatever it is: every section present, off unless it clearly says on, words as plain bounded text.
+  const state = m.normalizeMaintenance({ games: { enabled: true, title: '  بازی‌ها بسته است  ', message: 'خط یک\r\nخط دو\u0000' }, music: { enabled: 'yes', title: 5 }, nope: { enabled: true }, forum: { enabled: true, title: 'x'.repeat(500) } })
+  assert.deepEqual(Object.keys(state), ['store', 'magazine', 'games', 'cinema', 'music', 'software', 'forum'])
+  assert.deepEqual(state.games, { enabled: true, title: 'بازی‌ها بسته است', message: 'خط یک\nخط دو' })
+  assert.deepEqual(state.music, { enabled: false, title: '', message: '' }, 'only true switches a section off for visitors')
+  assert.equal(state.forum.title.length, m.MAINTENANCE_LIMITS.title)
+  for (const junk of [null, 'x', [], 7]) assert.equal(Object.values(m.normalizeMaintenance(junk)).some((section) => section.enabled), false)
+  assert.deepEqual(m.noticeOf(state.games), { title: 'بازی‌ها بسته است', message: 'خط یک\nخط دو' })
+  assert.deepEqual(m.noticeOf(state.music), { title: m.DEFAULT_TITLE, message: m.DEFAULT_MESSAGE }, 'the default words where the owner wrote none')
+  // Paths.
+  for (const [path, section] of [['/games', 'games'], ['/games/x/y', 'games'], ['/gamesx', null], ['/watch/5', 'cinema'], ['/cart', 'store'], ['/checkout/product', 'store'], ['/checkout', null], ['/', null], ['/admin/games', null], ['/blog/a', 'magazine']]) assert.equal(m.sectionOfPath(path, bases), section, path)
+  // Who runs a section.
+  const owner = { role: 'ADMIN', roleId: null, permissions: null }, ownerEmpty = { role: 'ADMIN', roleId: null, permissions: [] }
+  const gamesManager = { role: 'ADMIN', roleId: 4, permissions: ['dashboard.view', 'games.manage'] }
+  const storeHalf = { role: 'ADMIN', roleId: 5, permissions: ['dashboard.view', 'cms.products'] }, storeManager = { role: 'ADMIN', roleId: 6, permissions: ['dashboard.view', 'cms.products', 'orders.manage'] }
+  const roleWithNothing = { role: 'ADMIN', roleId: 9, permissions: [] }, member = { role: 'CUSTOMER', roleId: null, permissions: null }
+  assert.deepEqual([owner, ownerEmpty, gamesManager, storeHalf, storeManager, roleWithNothing, member, null, undefined].map((viewer) => m.runsSection(viewer, 'games')), [true, true, true, false, false, false, false, false, false])
+  assert.deepEqual([owner, gamesManager, storeHalf, storeManager].map((viewer) => m.runsSection(viewer, 'store')), [true, false, false, true], 'a section with two permissions needs both')
+  assert.equal(m.runsSection({ role: 'CUSTOMER', roleId: null, permissions: ['games.manage'] }, 'games'), false, 'permissions without being staff are nothing')
+  const decide = (path, viewer) => m.maintenanceDecision({ path, state, bases, viewer })
+  assert.deepEqual(decide('/games/doom', null), { action: 'notice', section: 'games' })
+  assert.deepEqual(decide('/games/doom', member), { action: 'notice', section: 'games' })
+  assert.deepEqual(decide('/games/doom', storeManager), { action: 'notice', section: 'games' })
+  assert.deepEqual(decide('/games/doom', gamesManager), { action: 'pass', preview: 'games' })
+  assert.deepEqual(decide('/games/doom', owner), { action: 'pass', preview: 'games' })
+  assert.deepEqual(decide('/music', null), { action: 'pass' }); assert.deepEqual(decide('/', null), { action: 'pass' })
+  assert.equal(m.isMaintenanceSection('games'), true); assert.equal(m.isMaintenanceSection('constructor'), false)
+
+  // ---- through the middleware
+  let stored = state, token = null, tokenReads = 0
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED,
+    '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/play' }) },
+    '@/modules/performance/server/pagecache': { pageCacheHandle: async () => (token ? null : new Response('cached page', { headers: { 'content-type': 'text/html' } })), purgeSoon: () => {} }, // the page cache serves visitors only
+    '@/modules/identity/server/access': { requireUser: async () => { tokenReads += 1; return token } },
+    '@/modules/site/server/maintenance': { loadMaintenance: async () => stored, maintenanceBases: () => bases },
+  })
+  const get = (path, headers = {}) => middleware(new NextRequest('http://localhost:3002' + path, { headers: { host: '127.0.0.1:3002', 'x-request-id': 'maintenance-test-1', ...headers } }))
+  const noticed = await get('/play/doom')
+  assert.equal(noticed.status, 503)
+  assert.match(noticed.headers.get('x-middleware-rewrite') || '', /\/maintenance\?section=games$/, 'the notice is shown under the address the section is published at')
+  assert.deepEqual([noticed.headers.get('retry-after'), noticed.headers.get('x-robots-tag'), noticed.headers.get('cache-control')], ['3600', 'noindex', 'no-store'])
+  assert.ok(noticed.headers.get('content-security-policy'), 'the notice carries the security headers of every page')
+  assert.notEqual(await noticed.text(), 'cached page', 'a stored copy of the page is not served in its place')
+  token = gamesManager
+  const seen = await get('/play/doom')
+  assert.equal(seen.status, 200); assert.equal(seen.headers.get('x-middleware-request-x-maintenance-preview'), 'games')
+  token = member; assert.equal((await get('/play/doom')).status, 503)
+  // A visitor cannot claim the preview by sending the header.
+  token = null
+  const forged = await get('/play/doom', { 'x-maintenance-preview': 'games' })
+  assert.equal(forged.status, 503)
+  assert.equal((await get('/music', { 'x-maintenance-preview': 'games' })).headers.get('x-middleware-request-x-maintenance-preview'), null)
+  // Nor does a header sent by somebody signed in reach the page: only the middleware says who is previewing.
+  token = storeManager
+  const sent = await get('/music', { 'x-maintenance-preview': 'games' })
+  assert.equal(sent.headers.get('x-middleware-request-x-maintenance-preview'), null)
+  assert.doesNotMatch(sent.headers.get('x-middleware-override-headers') || '', /x-maintenance-preview/)
+  token = null
+  // Other sections, the home page, the admin and the API are untouched; the old address still redirects.
+  for (const path of ['/music', '/', '/admin/games', '/api/games/list', '/maintenance']) assert.notEqual((await get(path)).status, 503, path)
+  assert.equal((await get('/games/doom')).status, 308)
+  // The session is read only for a request that would otherwise get a notice.
+  tokenReads = 0; await get('/music'); await get('/'); assert.equal(tokenReads, 0)
+  await get('/play/doom'); assert.equal(tokenReads, 1)
+  // With no section in maintenance nothing is asked and nothing changes.
+  stored = m.normalizeMaintenance(null); tokenReads = 0
+  assert.equal((await get('/play/doom')).status, 200); assert.equal(tokenReads, 0)
+  // A store that cannot be read closes nothing.
+  stored = null; assert.equal((await get('/play/doom')).status, 200)
+})

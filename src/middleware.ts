@@ -5,6 +5,9 @@ import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecac
 import { installGate } from '@/modules/installer/server/gate'
 import { mutationOrigin } from '@/platform/http/origin-policy'
 import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
+import { requireUser } from '@/modules/identity/server/access'
+import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
+import { maintenanceDecision } from '@/modules/site/domain/maintenance'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -84,11 +87,40 @@ export async function middleware(req: NextRequest) {
   let redirected = false
   if ((req.method === 'GET' || req.method === 'HEAD') && !NOT_ALIASED.test(req.nextUrl.pathname)) {
     const decision = routeDecision(req.nextUrl.pathname, await loadRouteAliases().catch(() => ({})))
+    if (decision?.kind === 'rewrite') canonicalPath = decision.path
+    else if (decision) redirected = true
+
+    // A section in maintenance shows its notice to everybody but the people who run it. Asked under the section's own
+    // address, whatever address it is published under. Who is asking is read from the account as it is now (its role today,
+    // not the one it signed in with), and only for a request that would otherwise get the notice.
+    headers.delete('x-maintenance-preview')
+    if (!redirected) {
+      const state = await loadMaintenance().catch(() => null)
+      if (state && Object.values(state).some((section) => section.enabled)) {
+        const bases = maintenanceBases()
+        const closed = maintenanceDecision({ path: canonicalPath, state, bases, viewer: null })
+        const account = closed.action === 'notice' ? await requireUser(req).catch(() => null) : null
+        const verdict = account ? maintenanceDecision({ path: canonicalPath, state, bases, viewer: { role: account.role, roleId: account.roleId ?? null, permissions: account.permissions } }) : closed
+        if (verdict.action === 'notice') {
+          const url = req.nextUrl.clone()
+          url.pathname = '/maintenance'
+          url.search = `?section=${verdict.section}`
+          // 503 with Retry-After: a search engine keeps the page it knows and comes back later.
+          const notice = NextResponse.rewrite(url, { request: { headers }, status: 503 })
+          notice.headers.set('retry-after', '3600')
+          notice.headers.set('x-robots-tag', 'noindex')
+          notice.headers.set('cache-control', 'no-store')
+          notice.headers.set('x-request-id', requestId)
+          applySecurityHeaders(req, notice, nonce)
+          return notice
+        }
+        // The people who run the section see it as it is, and are told nobody else does.
+        if (verdict.action === 'pass' && verdict.preview) headers.set('x-maintenance-preview', verdict.preview)
+      }
+    }
     if (decision) {
       const url = req.nextUrl.clone()
       url.pathname = decision.path
-      if (decision.kind === 'rewrite') canonicalPath = decision.path
-      else redirected = true
       response = decision.kind === 'redirect' ? NextResponse.redirect(url, 308) : NextResponse.rewrite(url, { request: { headers } })
     }
   }

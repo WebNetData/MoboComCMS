@@ -14,7 +14,6 @@ export default function AdminPagesPage() {
   const fields: FieldDef[] = [
     { key: 'slug', label: t.slug, required: true, dir: 'ltr' },
     { key: 'title', label: t.title, required: true },
-    { key: 'titleEn', label: t.englishTitle, dir: 'ltr' },
     { key: 'cover', label: t.cover, type: 'image', hideInTable: true },
     { key: 'content', label: t.content, type: 'richtext', hideInTable: true },
     {
