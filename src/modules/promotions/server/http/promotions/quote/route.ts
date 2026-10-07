@@ -4,14 +4,14 @@ import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
 import { promotionCode, promotionDiscount } from '@/modules/promotions/server/promotions'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { isMember } from '@/modules/membership/server/membership'
 import { memberPrice } from '@/modules/membership/domain/membership'
 
 export async function POST(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('sign in to check a discount', 401)
-  if (!rateLimitHit(`promotion:quote:${clientIp(req.headers)}:${user.id}`, 20, 10 * 60_000).ok) return err('too many attempts', 429)
+  if (!(await rateLimitStrict(`promotion:quote:${clientIp(req.headers)}:${user.id}`, 20, 10 * 60_000)).ok) return err('too many attempts', 429)
   const body = await req.json().catch(() => null)
   const code = promotionCode(body?.code)
   const planId = Number(body?.planId)

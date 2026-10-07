@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { err } from '@/platform/http/response'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { InstallError } from '@/modules/installer/domain/installer'
 import { installMode, isSetupMode } from './state'
 import { buildProvider } from '@/platform/database/migrate'
@@ -30,7 +30,7 @@ async function gate(req: NextRequest) {
   if (mode === 'installed') return { response: err('not found', 404) }
   // A working site that cannot reach its database says nothing to strangers.
   if (mode === 'unknown') return { response: err('پایگاه داده پاسخ نمی‌دهد. تنظیم DATABASE_URL و اجرای سرویس پایگاه داده را بررسی کنید.', 503) }
-  if (!rateLimitHit(`install:${clientIp(req.headers)}`, 90, 60_000).ok) return { response: err('درخواست‌ها زیاد است؛ کمی صبر کنید', 429) }
+  if (!(await rateLimitStrict(`install:${clientIp(req.headers)}`, 90, 60_000)).ok) return { response: err('درخواست‌ها زیاد است؛ کمی صبر کنید', 429) }
   if (!tokenOk(req)) return { response: Response.json({ error: 'کد نصب لازم است', tokenRequired: true }, { status: 401, headers: NO_STORE }) }
   return { mode }
 }

@@ -6,7 +6,7 @@ import { parsePermissions } from '@/modules/identity/rbac'
 import { telegramConfig, verifyInitData, verifyLoginWidget } from '@/modules/notifications/server/telegram'
 import { userForTelegram } from '@/modules/identity/telegram-account'
 import { authSecret } from '@/platform/config/env'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { verifyTurnstile } from '@/modules/identity/server/turnstile'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
 
@@ -52,8 +52,8 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.toLowerCase()
         // Brute-force guard: throttle per IP and per account+IP.
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
-        if (!rateLimitHit(`login:ip:${ip}`, 30, 10 * 60_000).ok) return null
-        if (!rateLimitHit(`login:acc:${ip}:${email}`, 8, 10 * 60_000).ok) return null
+        if (!(await rateLimitStrict(`login:ip:${ip}`, 30, 10 * 60_000)).ok) return null
+        if (!(await rateLimitStrict(`login:acc:${ip}:${email}`, 8, 10 * 60_000)).ok) return null
         if (!await verifyTurnstile(credentials.turnstileToken, new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}), 'login')) return null
         const user = await db.user.findUnique({
           where: { email },
@@ -78,7 +78,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, req) {
         if (!credentials?.phone || !credentials?.code) return null
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
-        if (!rateLimitHit(`login:otp:ip:${ip}`, 30, 10 * 60_000).ok) return null
+        if (!(await rateLimitStrict(`login:otp:ip:${ip}`, 30, 10 * 60_000)).ok) return null
         const { userForPhone, verifyOtp } = await import('@/modules/sms/server/sms')
         let phone: string
         try {

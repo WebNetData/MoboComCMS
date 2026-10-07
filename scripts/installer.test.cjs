@@ -105,7 +105,7 @@ test('wiring: the installer is gated, standalone and cannot brick a site', () =>
   const state = read('src/modules/installer/server/state.ts')
   assert.match(state, /P2021/); assert.match(state, /installed\.lock/); assert.match(state, /INSTALL_DISABLED/)
   const http = read('src/modules/installer/server/http.ts')
-  assert.match(http, /mode === 'installed'.*404|404/s); assert.match(http, /timingSafeEqual/); assert.match(http, /rateLimitHit/)
+  assert.match(http, /mode === 'installed'.*404|404/s); assert.match(http, /timingSafeEqual/); assert.match(http, /rateLimitStrict/)
   assert.match(read('src/modules/installer/server/page.ts'), /noindex/)
   // Passwords for the database and secrets never reach logs: errors are scrubbed.
   assert.match(read('src/modules/installer/server/setup.ts'), /scrubMessage/)

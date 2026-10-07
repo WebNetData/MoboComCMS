@@ -15,6 +15,8 @@ export interface Kv {
   delPrefix(prefix: string): Promise<void>
   /** Increments a counter that expires `windowMs` after its first hit. */
   incr(key: string, windowMs: number): Promise<number>
+  /** Counts one hit in a fixed window as one atomic step; `ttlMs` is what is left of the window. */
+  hit(key: string, windowMs: number): Promise<{ count: number; ttlMs: number }>
   /** Sets `key` only when absent (a lock); true when this caller got it. */
   lock(key: string, ttlMs: number): Promise<boolean>
   /** Round-trip time in ms (-1 when unreachable). */
@@ -51,6 +53,10 @@ class MemoryKv implements Kv {
     this.store.set(key, { value: String(next), expires: row?.expires ?? Date.now() + windowMs })
     return next
   }
+  async hit(key: string, windowMs: number) {
+    const count = await this.incr(key, windowMs)
+    return { count, ttlMs: Math.max(0, (this.store.get(key)?.expires ?? Date.now()) - Date.now()) }
+  }
   async lock(key: string, ttlMs: number) { if (this.live(key)) return false; await this.set(key, '1', ttlMs); return true }
   async ping() { return 0 }
 }
@@ -76,6 +82,19 @@ class RedisKv implements Kv {
     // SET NX starts the window on the first hit (works on every Redis version), INCR counts.
     const results = await this.client.multi().set(full, '0', 'PX', Math.max(1, Math.round(windowMs)), 'NX').incr(full).exec()
     return Number(results?.[1]?.[1] ?? 0)
+  }
+  async hit(key: string, windowMs: number) {
+    const full = PREFIX + key, window = Math.max(1, Math.round(windowMs))
+    // One MULTI: the window starts, the hit is counted and the time left is read with nothing in between.
+    const results = await this.client.multi().set(full, '0', 'PX', window, 'NX').incr(full).pttl(full).exec()
+    if (!results) throw new Error('redis transaction was discarded')
+    const failed = results.find((entry) => entry[0])
+    if (failed) throw failed[0]
+    const count = Number(results[1][1]), left = Number(results[2][1])
+    if (!Number.isFinite(count) || count < 1) throw new Error('redis counter returned no count')
+    // A counter without an expiry would block for ever; give it its window back.
+    if (left < 0) await this.client.pexpire(full, window)
+    return { count, ttlMs: left < 0 ? window : left }
   }
   async lock(key: string, ttlMs: number) { return (await this.client.set(PREFIX + key, '1', 'PX', Math.max(1, Math.round(ttlMs)), 'NX')) === 'OK' }
   async ping() {

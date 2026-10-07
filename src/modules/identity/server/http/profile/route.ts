@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
-import { rateLimitHit } from '@/platform/http/rate-limit'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { getUserLocale, setUserLocale } from '@/modules/notifications/server/telegram-locale'
 
 export async function GET(req: NextRequest) {
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest) {
     const next = String(b.newPassword)
     if (next.length < 8 || next.length > 128) return err(L('New password must be between 8 and 128 characters', 'رمز جدید باید بین ۸ تا ۱۲۸ کاراکتر باشد'))
     // Throttle password-guessing against the current-password check.
-    if (!rateLimitHit(`pwd-change:${user.id}`, 5, 10 * 60_000).ok) return err(L('Too many attempts. Please try again later.', 'تلاش بیش از حد مجاز است؛ کمی بعد دوباره امتحان کنید'), 429)
+    if (!(await rateLimitStrict(`pwd-change:${user.id}`, 5, 10 * 60_000)).ok) return err(L('Too many attempts. Please try again later.', 'تلاش بیش از حد مجاز است؛ کمی بعد دوباره امتحان کنید'), 429)
     const u = await db.user.findUnique({ where: { id: user.id } })
     if (!u) return err('not found', 404)
     const okPass = await bcrypt.compare(String(b?.currentPassword || ''), u.passwordHash)
