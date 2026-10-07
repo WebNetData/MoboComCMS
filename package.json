@@ -78,7 +78,7 @@
     "ioredis": "^5.11.1",
     "leaflet": "1.9.4",
     "mailparser": "3.9.30",
-    "next": "15.5.25",
+    "next": "15.5.27",
     "next-auth": "4.24.15",
     "nodemailer": "10.0.12",
     "prisma": "5.22.0",
