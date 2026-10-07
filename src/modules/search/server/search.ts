@@ -12,6 +12,8 @@ import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type Ite
 import { recordSearch } from '@/modules/analytics/server/collect'
 import { RankedWindow } from '@/modules/search/domain/ranked-window'
 import { compareSearchBoundary, decodeSearchCursor, encodeSearchCursor, searchCursorScope } from './cursor'
+import { NO_FACETS, facetKey, meetsRating, normalizeFacets, sinceDate, type SearchFacets } from '@/modules/search/domain/facets'
+import { ratingsOfItems, type ItemRating } from '@/modules/reviews/server/ratings'
 
 /**
  * Site-wide search over one denormalized table (SearchDocument). Documents hold
@@ -112,8 +114,8 @@ export async function reindexItem(ref: ItemRef) {
   }
 }
 
-export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string }
-export type SearchResult = { query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
+export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string; rating: ItemRating | null }
+export type SearchResult = { facets: SearchFacets; query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
 type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number }
 
 const boundary = (candidate: RankedCandidate) => ({ score: candidate.score, publishedAt: candidate.row.publishedAt.getTime(), boost: candidate.row.boost, id: candidate.row.id })
@@ -127,22 +129,31 @@ function snippet(text: string, tokens: string[]): string {
   return words.slice(Math.max(0, at - 8), at + 18).join(' ')
 }
 
-export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean }): Promise<SearchResult> {
+export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean; facets?: { access?: unknown; rated?: unknown; since?: unknown } | null }): Promise<SearchResult> {
   const query = String(input.q ?? '').trim().slice(0, 100)
   const tokens = searchTokens(query)
   const types = await enabledItemTypes()
   const type = types.includes(input.type as ItemType) ? input.type as ItemType : 'all'
   const page = Math.max(1, Math.min(MAX_PAGE, Math.floor(Number(input.page) || 1)))
-  const empty: SearchResult = { query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {}, totalPages: 0, nextCursor: null, previousCursor: null, cursorReset: false }
+  // Autocomplete is never narrowed: it answers what is typed.
+  const facets = input.suggestion ? NO_FACETS : normalizeFacets(input.facets)
+  const empty: SearchResult = { facets, query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {}, totalPages: 0, nextCursor: null, previousCursor: null, cursorReset: false }
   if (!tokens.length || !await isModuleEnabled('search')) return empty
   const epoch = await ensureFreshIndex()
-  const scope = searchCursorScope(normalizePersian(query), type, epoch)
+  // A page cursor belongs to the facets it was made under: with other facets it is another list.
+  const narrowed = facetKey(facets)
+  const scope = searchCursorScope(normalizePersian(query), narrowed ? `${type}|${narrowed}` : type, epoch)
   const cursorRequested = !input.suggestion && input.cursor != null
   const cursor = cursorRequested ? decodeSearchCursor(input.cursor, scope) : null
   const cursorReset = cursorRequested && !cursor
 
   const queryTypes = input.suggestion && type !== 'all' ? [type] : types
-  const where = { itemType: { in: queryTypes }, publishedAt: { lte: new Date() }, AND: tokens.map((token) => ({ text: { contains: token } })) }
+  const now = new Date()
+  const since = sinceDate(facets, now)
+  const where = {
+    itemType: { in: queryTypes }, publishedAt: { lte: now, ...(since ? { gte: since } : {}) }, AND: tokens.map((token) => ({ text: { contains: token } })),
+    ...(facets.access ? { access: facets.access === 'members' ? 'MEMBERS' : { not: 'MEMBERS' } } : {}),
+  }
   const phrase = normalizePersian(query)
   const counts: Partial<Record<ItemType, number>> = {}
   const top = new RankedWindow<RankedCandidate>(cursor ? PAGE_SIZE : MAX_TOP_HITS, cursor?.direction === 'before' ? (a, b) => -byRank(a, b) : byRank)
@@ -157,9 +168,14 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
     if (!rows.length) break
     // Recheck current source visibility because SearchDocument can lag a publication change.
     const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
+    // Ratings are asked of their owners for this batch only, and only when the search is narrowed by them.
+    const rated = facets.rated ? await ratingsOfItems([...publicCards.values()].map((card) => ({ type: card.type, id: card.id }))) : null
     for (const row of rows) {
       const card = publicCards.get(`${row.itemType}:${row.itemId}`)
       if (!card) continue
+      // The source decides who may open an item; the index can lag behind a change of it.
+      if (facets.access && (card.access === 'MEMBERS') !== (facets.access === 'members')) continue
+      if (rated && !meetsRating(rated.get(`${row.itemType}:${row.itemId}`), facets.rated)) continue
       const relevanceScore = relevance(tokens, row.title, row.text, phrase)
       if (relevanceScore <= 0) continue
       matchedTotal++
@@ -192,12 +208,17 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const canPrevious = cursor ? (cursor.direction === 'before' ? eligible > selected.length : true) : current > 1
   const nextCursor = selected.length && canNext && !input.suggestion ? encodeSearchCursor({ ...boundary(selected[selected.length - 1]), direction: 'after', page: current + 1 }, scope) : null
   const previousCursor = selected.length && canPrevious && !input.suggestion ? encodeSearchCursor({ ...boundary(selected[0]), direction: 'before', page: Math.max(1, current - 1) }, scope) : null
-  const hits = selected.map(({ row, card, score }) => ({
-    type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
-    score: Math.round(score), snippet: snippet(row.text, tokens),
-  }))
+  // What members think of what is shown: one question for the page, to both owners of ratings.
+  const ratings = input.suggestion || !selected.length ? null : await ratingsOfItems(selected.map(({ card }) => ({ type: card.type, id: card.id }))).catch(() => null)
+  const hits = selected.map(({ row, card, score }) => {
+    const rating = ratings?.get(`${card.type}:${card.id}`)
+    return {
+      type: card.type, id: card.id, title: card.title, subtitle: card.subtitle, url: card.url, image: card.image, access: card.access,
+      score: Math.round(score), snippet: snippet(row.text, tokens), rating: rating && rating.count > 0 ? rating : null,
+    }
+  })
   if (input.log !== false && current === 1 && !cursor) void recordSearch(phrase, matchedTotal)
-  return { query, tokens, type, hits, total, page: current, pages, counts, totalPages, nextCursor, previousCursor, cursorReset }
+  return { facets, query, tokens, type, hits, total, page: current, pages, counts, totalPages, nextCursor, previousCursor, cursorReset }
 }
 
 /** Autocomplete: the best few hits across all types. */

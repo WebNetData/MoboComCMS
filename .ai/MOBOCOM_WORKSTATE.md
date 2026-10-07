@@ -194,3 +194,5 @@ Next concrete action:
 - 2026-10-07 (fifth): #121 and #122 merged (main 78db076). feat/player-subtitles: the site's player loads WebVTT/SubRip subtitles of the film or episode, served by the site under the link rules and converted (Windows-1256 read too). No migration. Verified: connected player-subtitles (16 breaks).
 
 - 2026-10-07 (sixth): feat/editorial-collections (on feat/player-subtitles, PR #123 open): staff write the site's collections in the admin panel (migration 20261210120000); collections admin now takes any content permission instead of cms.posts. Verified: connected editorial-collections (15 breaks).
+
+- 2026-10-07 (seventh): #123 merged; #124 (staff collections) open. feat/search-facets (on it): search narrowed by rating, access and recency; ratings read from both owners by ratingsOfItems. No migration. Verified: connected search-facets (12 breaks).

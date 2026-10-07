@@ -19,7 +19,7 @@ const CHECKS = [
   'gift-membership-recovery', 'forum-members-groups',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
   'inventory-hold-expiry', 'frenzyex-reconciliation', 'newsletter-send', 'queue-jobs', 'social-queue', 'scrub-recent', 'account-reviews', 'review-dimensions', 'compare-dimensions', 'review-badge-backfill',
-  'reseller-recovery-provision',
+  'reseller-recovery-provision', 'search-facets',
   'community-moderation', 'journal-comment-notifications',
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume', 'notification-policy',
