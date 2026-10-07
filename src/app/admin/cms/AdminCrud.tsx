@@ -61,6 +61,10 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
   const [editId, setEditId] = useState<number | null>(null)
+  // Pages and articles are written in the block editor. The old body field is shown only for an item still written the old way, when asked for.
+  const blockDriven = type === 'pages' || type === 'posts'
+  const [editFormat, setEditFormat] = useState('legacy')
+  const [legacyBody, setLegacyBody] = useState(false)
   const [msg, setMsg] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -127,6 +131,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     if (fields.some((x) => x.key === 'categoryId')) f.categoryId = row.categoryId || ''
     setForm(f)
     setEditId(row.id)
+    setEditFormat(row.editorFormat === 'blocks-v1' ? 'blocks-v1' : 'legacy')
+    setLegacyBody(false)
     setShowForm(true)
     setAiValues({})
     setOriginalStatus(row.status || '')
@@ -187,6 +193,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   async function persist() {
     if (uploading || saving) return
     const payload = { ...form }
+    // The body is the block editor's: a new item starts empty, and this form does not send a body it did not edit.
+    if (blockDriven) { if (!editId) payload.content = ''; else if (!legacyBody) delete payload.content }
     for (const fl of fields) if (fl.type === 'datetime-local') {
       if (editId && payload[fl.key] === initialDateValues.current[fl.key]) { delete payload[fl.key]; continue }
       if (payload[fl.key]) {
@@ -210,6 +218,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
       setMsg(data?.error || t.errGeneric)
       return
     }
+    // A new page or article goes straight to the block editor for its body.
+    if (blockDriven && !editId && data?.id) { window.location.assign(`/admin/editor/${type}/${data.id}`); return }
     setEditId(null)
     setShowForm(false)
     emptyForm()
@@ -286,7 +296,12 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           {fields.map((fl) => (
             <div key={fl.key} className={`${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
               <label className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>
-              {fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
+              {blockDriven && fl.key === 'content' && !legacyBody ? (
+                <div className="cms-block-body">
+                  {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
+                  {editId && editFormat === 'legacy' ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود. ' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save. '}<button type="button" className="link" onClick={() => setLegacyBody(true)}>{fa ? 'ادامه با ویرایشگر قدیمی' : 'Keep using the old editor'}</button></p> : null}
+                </div>
+              ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
                 <RichEditor
                   value={form[fl.key] || ''}
                   onChange={(html) => setForm({ ...form, [fl.key]: html })}
@@ -365,6 +380,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                     <td>
                       <div className="flex gap-1">
                         <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
+                        {blockDriven && <Link className="badge badge-blue" href={`/admin/editor/${type}/${row.id}`}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</Link>}
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'posts' && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}

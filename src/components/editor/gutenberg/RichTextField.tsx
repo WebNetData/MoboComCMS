@@ -21,6 +21,9 @@ const BlockAttributes = Extension.create({
   },
 })
 
+/** The Tiptap extensions of MoboCom rich text: what the field edits with, and what an old HTML body is read with. */
+export const richTextExtensions = [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), BlockAttributes]
+
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 /**
@@ -31,7 +34,7 @@ export default function RichTextField({ value, onChange, label, compact = false 
   const latest = useRef(value)
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), BlockAttributes],
+    extensions: richTextExtensions,
     content: value?.content?.length ? value : { type: 'doc', content: [{ type: 'paragraph' }] },
     editorProps: { attributes: { class: 'mcb-content-richText mc-rich-input', dir: 'auto', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
     onUpdate: ({ editor: current }) => { const json = current.getJSON() as RichTextDoc; latest.current = json; onChange(json) },

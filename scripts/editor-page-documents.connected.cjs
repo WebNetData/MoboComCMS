@@ -1,13 +1,15 @@
-// Real PostgreSQL: a page written as a MoboCom document. The service is the real one; the site-wide switch is kept in
+// Real PostgreSQL: a page, and a magazine article, written as a MoboCom document. The service is the real one; the site-wide switch is kept in
 // memory so the check never turns the editor on for the local site. Pages are namespaced and removed.
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `editor-doc-${Date.now()}`
-const settings = new Map()
+const settings = new Map(), changes = []
 const mocks = {
  '@/platform/database/prisma': {db: prisma},
  '@/platform/observability/logger': {logEvent: () => {}},
  // The role catalogue pulls in every plugin manifest; the one function used here is this.
  '@/modules/identity/rbac': {hasPermission: (permissions, needed) => Boolean(permissions?.includes(needed))},
+ // What the rest of the site does when an article changes (search, notifications) is not this check's subject; that it is told is.
+ '@/modules/content/server/events': {contentChanged: (ref, before, after) => { changes.push([ref.type, ref.id, before.editorFormat, after.editorFormat]) }},
  '@/modules/settings/server': {readJsonSetting: async key => settings.get(key), writeJsonSetting: async (key, value) => { settings.set(key, value) }},
 }
 const cache = new Map()
@@ -40,7 +42,9 @@ async function main() {
  assert.deepEqual([opened.editorFormat, opened.document, opened.legacyHtml, opened.updatedAt], ['legacy', {version: 1, blocks: []}, '<p>نوشتهٔ قدیمی</p>', first.updatedAt.toISOString()])
  assert.equal(editor.pageBlocksHtml(first), null, 'a legacy page is rendered the old way')
 
- // ---- the switch is off: nothing is saved
+ // ---- the block editor is the site's editor: on unless switched off. Switched off, nothing is saved.
+ assert.equal(await editor.blockEditorEnabled(), true, 'on by default')
+ await editor.setBlockEditorEnabled(false)
  const good = doc(block('layout.section', {width: 'narrow'}, [block('content.heading', {text: 'سلام دنیا', level: 2}), block('content.richText', {content: rich('متن فارسی و English با هم ۱۲۳')})]))
  const off = await failure(() => editor.savePageDocument({id: first.id, document: good, expectedUpdatedAt: opened.updatedAt, actor: staff}))
  assert.deepEqual([off?.status, off?.code], [404, 'EDITOR_OFF'])
@@ -130,9 +134,31 @@ async function main() {
  assert.match(form, /b\?\.content !== undefined && \(await db\.page\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
  assert.match(publicPage, /const blocks = pageBlocksHtml\(page\)\n\s+const content = blocks === null \? cleanRichText\(/)
 
- await editor.setBlockEditorEnabled(false)
- assert.equal(await editor.blockEditorEnabled(), false)
- console.log('PostgreSQL page documents: off by default; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched page passed')
+ // ---- a magazine article is written the same way, under the magazine's own permission
+ const article = await prisma.post.create({data: {slug: `${seed}-article`, title: 'article', content: '<p>متن قدیمی مقاله</p>', status: 'DRAFT'}})
+ const openedArticle = await editor.loadDocument('posts', article.id)
+ assert.deepEqual([openedArticle.entity, openedArticle.editorFormat, openedArticle.legacyHtml], ['posts', 'legacy', '<p>متن قدیمی مقاله</p>'])
+ assert.deepEqual([editor.documentPermission('posts'), editor.documentPermission('pages')], ['cms.posts', 'cms.pages'])
+ assert.deepEqual([editor.isDocumentEntity('posts'), editor.isDocumentEntity('products'), editor.isDocumentEntity('constructor')], [true, false, false])
+ changes.length = 0
+ const savedArticle = await editor.saveDocument({entity: 'posts', id: article.id, document: doc(block('content.heading', {text: 'تیتر مقاله'}), block('content.richText', {content: rich('بدنهٔ مقاله')})), expectedUpdatedAt: openedArticle.updatedAt, actor: staff})
+ const storedArticle = await prisma.post.findUniqueOrThrow({where: {id: article.id}})
+ assert.equal(storedArticle.editorFormat, 'blocks-v1'); assert.match(storedArticle.content, /تیتر مقاله[\s\S]*بدنهٔ مقاله/)
+ assert.match(editor.blocksHtml(storedArticle), /<h2 class="mcb mcb-content-heading mcb-align-start">تیتر مقاله<\/h2>/)
+ assert.deepEqual(changes, [['post', article.id, 'legacy', 'blocks-v1']], 'the site is told the article changed')
+ assert.deepEqual((await prisma.contentRevision.findMany({where: {entityType: 'posts', entityId: article.id}, orderBy: {version: 'asc'}})).map(v => v.source), ['baseline', 'edit'])
+ assert.equal((await failure(() => editor.saveDocument({entity: 'posts', id: article.id, document: doc(), expectedUpdatedAt: openedArticle.updatedAt, actor: staff})))?.code, 'CHANGED')
+ assert.ok(savedArticle.updatedAt)
+ // A page's id is not an article's: the same number names another row, or none.
+ assert.equal((await failure(() => editor.loadDocument('posts', 2147483000)))?.status, 404)
+ const raws = (data, pattern) => failure(() => prisma.post.update({where: {id: article.id}, data})).then(error => assert.match(String(error?.message), pattern))
+ await raws({editorFormat: 'gutenberg'}, /Post_editorFormat_check/)
+ await raws({contentDocument: ''}, /Post_document_matches_format/)
+ assert.match(form, /b\?\.content !== undefined && \(await db\.post\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
+ const articlePage = fs.readFileSync('src/modules/site/server/pages/blog/[slug]/page.tsx', 'utf8')
+ assert.match(articlePage, /const articleBlocks = !locked && \(isFa \|\| !post\.contentEn\) \? blocksHtml\(post\) : null/, 'a locked article never shows its document')
+
+ console.log('PostgreSQL documents: on by default, switched off nothing is saved; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched row; an article is written the same way under its own permission passed')
 }
 
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
@@ -140,5 +166,8 @@ main().catch(error => {console.error(error); process.exitCode = 1}).finally(asyn
   const ids = (await prisma.page.findMany({where: {slug: {startsWith: seed}}, select: {id: true}})).map(item => item.id)
   await prisma.contentRevision.deleteMany({where: {entityType: 'pages', entityId: {in: ids}}})
   await prisma.page.deleteMany({where: {id: {in: ids}}})
+  const posts = (await prisma.post.findMany({where: {slug: {startsWith: seed}}, select: {id: true}})).map(item => item.id)
+  await prisma.contentRevision.deleteMany({where: {entityType: 'posts', entityId: {in: posts}}})
+  await prisma.post.deleteMany({where: {id: {in: posts}}})
  } finally {await prisma.$disconnect()}
 })

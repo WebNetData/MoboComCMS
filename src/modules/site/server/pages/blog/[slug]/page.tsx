@@ -23,6 +23,7 @@ import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
 import { VipGate } from '@/components/media/MediaCards'
 import { isPaid, paywallView } from '@/modules/paywall/server/paywall'
+import { blocksHtml } from '@/modules/editor/server/documents'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
@@ -194,13 +195,16 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
     </figure>
   )
 
+  // An article written in blocks shows its document (every value escaped by the renderer). A locked article still shows the teaser cut
+  // from its HTML copy, and a visitor reading in English gets the English body when the article has one.
+  const articleBlocks = !locked && (isFa || !post.contentEn) ? blocksHtml(post) : null
   const contentSlot = (
     <>
       <ArticleToc />
       <article
         id="article-body"
-        className={`prose journal-prose${locked ? ' vip-teaser' : ''}`}
-        dangerouslySetInnerHTML={{ __html: cleanRichText(locked ? teaserHtml(content) : content) }}
+        className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
+        dangerouslySetInnerHTML={{ __html: articleBlocks ?? cleanRichText(locked ? teaserHtml(content) : content) }}
       />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
       {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
