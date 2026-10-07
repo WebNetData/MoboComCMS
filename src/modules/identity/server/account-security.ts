@@ -4,7 +4,7 @@ import QRCode from 'qrcode'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
-import { rateLimitHit } from '@/platform/http/rate-limit'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonSetting, writeJsonSetting, getSettings } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { base32Encode, totpUri } from '@/shared/security/totp'
@@ -93,7 +93,7 @@ export async function confirmTwoFactor(userId: number, code: unknown) {
   let pending: { secret?: string; at?: number } = {}
   try { pending = row ? JSON.parse(decryptPanelCredential(row.value)) : {} } catch { pending = {} }
   if (!pending.secret || Date.now() - Number(pending.at || 0) > 30 * 60_000) throw new SecurityError('زمان راه‌اندازی تمام شد؛ دوباره شروع کنید', 410)
-  if (!rateLimitHit(`2fa:setup:${userId}`, 10, 10 * 60_000).ok) throw new SecurityError('تعداد تلاش زیاد است؛ چند دقیقه بعد', 429)
+  if (!(await rateLimitStrict(`2fa:setup:${userId}`, 10, 10 * 60_000)).ok) throw new SecurityError('تعداد تلاش زیاد است؛ چند دقیقه بعد', 429)
   const step = matchTotp(pending.secret, normalizeTotpInput(code))
   if (step === null) throw new SecurityError('کد وارد شده درست نیست؛ ساعت گوشی را هم بررسی کنید')
   const backup = newBackupCodes(userId)
@@ -108,7 +108,7 @@ export async function confirmTwoFactor(userId: number, code: unknown) {
  * accepted once) or an unused backup code (burned on use).
  */
 export async function checkSecondFactor(userId: number, input: unknown): Promise<boolean> {
-  if (!rateLimitHit(`2fa:check:${userId}`, 10, 10 * 60_000).ok) return false
+  if (!(await rateLimitStrict(`2fa:check:${userId}`, 10, 10 * 60_000)).ok) return false
   const user = await db.user.findUnique({ where: { id: userId }, select: { totpSecret: true, totpEnabledAt: true, totpBackup: true, totpLastStep: true } })
   if (!user?.totpEnabledAt) return true
   const code = normalizeTotpInput(input)
@@ -172,7 +172,7 @@ export async function requestEmailReset(input: { email: unknown; ip: string }) {
   if (!policy.emailReset) throw new SecurityError('بازیابی رمز با ایمیل غیرفعال است', 403)
   const email = String(input.email ?? '').trim().toLowerCase().slice(0, 320)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new SecurityError('نشانی ایمیل معتبر نیست')
-  if (!rateLimitHit(`reset:ip:${input.ip}`, 10, 60 * 60_000).ok || !rateLimitHit(`reset:mail:${email}`, 3, 60 * 60_000).ok) {
+  if (!(await rateLimitStrict(`reset:ip:${input.ip}`, 10, 60 * 60_000)).ok || !(await rateLimitStrict(`reset:mail:${email}`, 3, 60 * 60_000)).ok) {
     throw new SecurityError('درخواست زیادی ثبت شده است؛ کمی بعد دوباره تلاش کنید', 429)
   }
   const user = await db.user.findUnique({ where: { email }, select: { id: true, name: true, status: true, email: true } })
@@ -203,7 +203,7 @@ export async function requestSmsReset(input: { phone: unknown; ip: string }) {
   const user = await db.user.findFirst({ where: { phone, phoneVerifiedAt: { not: null }, status: 'ACTIVE' }, orderBy: { id: 'asc' }, select: { id: true } })
   const generic = { message: 'اگر این شماره به حسابی متصل باشد، کد بازیابی برای آن پیامک می‌شود.', expiresIn: 120, resendIn: 60 }
   if (!user) {
-    if (!rateLimitHit(`reset:ip:${input.ip}`, 10, 60 * 60_000).ok) throw new SecurityError('درخواست زیادی ثبت شده است؛ کمی بعد دوباره تلاش کنید', 429)
+    if (!(await rateLimitStrict(`reset:ip:${input.ip}`, 10, 60 * 60_000)).ok) throw new SecurityError('درخواست زیادی ثبت شده است؛ کمی بعد دوباره تلاش کنید', 429)
     return generic
   }
   try {
@@ -248,7 +248,7 @@ export async function inspectResetToken(token: unknown) {
 
 /** Completes an emailed reset. 2-step accounts also need their code, so a stolen mailbox alone is not enough. */
 export async function resetWithToken(input: { token: unknown; password: unknown; code?: unknown; ip: string }) {
-  if (!rateLimitHit(`reset:use:${input.ip}`, 20, 60 * 60_000).ok) throw new SecurityError('تلاش زیادی انجام شد؛ کمی بعد', 429)
+  if (!(await rateLimitStrict(`reset:use:${input.ip}`, 20, 60 * 60_000)).ok) throw new SecurityError('تلاش زیادی انجام شد؛ کمی بعد', 429)
   const token = String(input.token ?? '')
   if (!/^[A-Za-z0-9_-]{40,50}$/.test(token)) throw new SecurityError('پیوند بازیابی معتبر نیست', 400)
   const row = await db.passwordReset.findUnique({ where: { tokenHash: tokenHash(token) } })

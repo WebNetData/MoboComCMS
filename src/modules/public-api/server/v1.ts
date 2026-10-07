@@ -30,7 +30,7 @@ export async function authorize(
     }
   }
   if (caller.keyId) {
-    const limit = rateLimit(caller.keyId)
+    const limit = await rateLimit(caller.keyId)
     if (!limit.ok) {
       return { ok: false, response: apiErr(`rate limit exceeded, retry in ${limit.retryAfter}s`, 429) }
     }

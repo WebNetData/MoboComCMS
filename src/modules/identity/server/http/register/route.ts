@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { claimTelegramAccount } from '@/modules/identity/telegram-account'
 import { verifyTelegramWebLinkToken } from '@/modules/notifications/server/telegram'
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const locale = offeredLocale(req.cookies.get('lang')?.value)
   const L = (en: string, fa: string) => locale === 'fa' ? fa : en
   // Registration is a spam/enumeration vector: keep it slow per IP.
-  const limiter = rateLimitHit(`register:${clientIp(req.headers)}`, 5, 60 * 60_000)
+  const limiter = await rateLimitStrict(`register:${clientIp(req.headers)}`, 5, 60 * 60_000)
   if (!limiter.ok) return err(L('Too many registration attempts. Please try again later.', 'تلاش‌های ثبت‌نام بیش از حد مجاز است؛ کمی بعد دوباره امتحان کنید'), 429)
 
   const body = await req.json().catch(() => null)

@@ -88,3 +88,52 @@ test('settings are cached and invalidated on writes from anywhere; queue and CDN
   assert.match(config, /assetPrefix: process\.env\.CDN_URL/)
   assert.ok(fs.existsSync(path.join(root, 'scripts/load-test.mjs')))
 })
+
+test('the strict rate limit: Redis decides, an outage falls back to what this process counted', async () => {
+  const { rateLimitStrict } = load('src/platform/http/rate-limit')
+  const before = globalThis.__mobocomKv
+  // A stand-in for Redis that already holds hits made through other instances.
+  const counts = new Map()
+  let down = false, calls = 0
+  const fake = { kind: 'redis', hit: async (key) => { calls += 1; if (down) throw new Error('connection lost'); counts.set(key, (counts.get(key) || 0) + 1); return { count: counts.get(key), ttlMs: 42_000 } } }
+  try {
+    globalThis.__mobocomKv = Promise.resolve(fake)
+    counts.set('rls:strict-a', 4)
+    assert.deepEqual(await rateLimitStrict('strict-a', 5, 60_000), { ok: true, retryAfter: 0 })
+    assert.deepEqual(await rateLimitStrict('strict-a', 5, 60_000), { ok: false, retryAfter: 42 }, 'the shared count refuses although this process saw two hits')
+    // Hits counted while Redis answered still count when it stops answering.
+    for (let i = 0; i < 3; i++) assert.equal((await rateLimitStrict('strict-b', 3, 60_000)).ok, true)
+    down = true
+    assert.equal((await rateLimitStrict('strict-b', 3, 60_000)).ok, false, 'an outage is not a fresh allowance')
+    assert.equal((await rateLimitStrict('strict-c', 1, 60_000)).ok, true)
+    assert.equal((await rateLimitStrict('strict-c', 1, 60_000)).ok, false, 'during an outage the process still limits by itself')
+    down = false
+    // Without Redis the process count is the whole truth and the shared counter is not asked.
+    calls = 0
+    globalThis.__mobocomKv = Promise.resolve({ kind: 'memory', hit: async () => { calls += 1; return { count: 1, ttlMs: 1 } } })
+    assert.equal((await rateLimitStrict('strict-d', 1, 60_000)).ok, true)
+    assert.equal((await rateLimitStrict('strict-d', 1, 60_000)).ok, false)
+    assert.equal(calls, 0)
+  } finally { globalThis.__mobocomKv = before }
+})
+
+test('the memory store counts a hit with the time left in its window', async () => {
+  delete process.env.REDIS_URL
+  const before = globalThis.__mobocomKv
+  delete globalThis.__mobocomKv
+  try {
+    const store = await load('src/platform/cache/kv').kv()
+    const first = await store.hit('hit-test', 5_000), second = await store.hit('hit-test', 5_000)
+    assert.deepEqual([first.count, second.count], [1, 2])
+    assert.ok(second.ttlMs > 0 && second.ttlMs <= 5_000)
+  } finally { globalThis.__mobocomKv = before }
+})
+
+test('every limit that guards a secret is the strict one', () => {
+  const guarded = /rateLimitHit\(`(login:|2fa:|reset:|pwd-change:|register:|gift-redeem|club-redeem:|api-key:|install:|promotion:quote:)/
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? walk(path.join(dir, entry.name)) : /\.tsx?$/.test(entry.name) ? [path.join(dir, entry.name)] : [])
+  const loose = walk(path.join(root, 'src')).filter((file) => guarded.test(fs.readFileSync(file, 'utf8')))
+  assert.deepEqual(loose.map((file) => path.relative(root, file)), [])
+  const strict = (file) => (fs.readFileSync(path.join(root, file), 'utf8').match(/await rateLimitStrict\(/g) || []).length
+  assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [3, 6, 3, 1])
+})

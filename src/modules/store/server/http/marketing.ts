@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { moduleGuard } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
@@ -65,8 +65,8 @@ export async function POST_giftCards(req: NextRequest) {
   try {
     if (body.op === 'redeem') {
       // Codes are 80-bit random, but guessing is still throttled per account and IP.
-      const limit = rateLimitHit(`gift-redeem:${who.user.id}`, 8, 10 * 60_000)
-      const ipLimit = rateLimitHit(`gift-redeem-ip:${clientIp(req.headers)}`, 20, 10 * 60_000)
+      const limit = await rateLimitStrict(`gift-redeem:${who.user.id}`, 8, 10 * 60_000)
+      const ipLimit = await rateLimitStrict(`gift-redeem-ip:${clientIp(req.headers)}`, 20, 10 * 60_000)
       if (!limit.ok || !ipLimit.ok) return err('تلاش‌های زیادی انجام شد؛ چند دقیقهٔ دیگر دوباره امتحان کنید', 429)
       return ok(await redeemGiftCard(who.user.id, body.code))
     }
@@ -89,7 +89,7 @@ export async function POST_club(req: NextRequest) {
   if ('response' in who) return who.response
   const body = (await req.json().catch(() => null)) || {}
   if (body.op !== 'redeem') return err('عملیات نامعتبر است')
-  if (!rateLimitHit(`club-redeem:${who.user.id}`, 10, 60_000).ok) return err('کمی صبر کنید', 429)
+  if (!(await rateLimitStrict(`club-redeem:${who.user.id}`, 10, 60_000)).ok) return err('کمی صبر کنید', 429)
   try { return ok(await redeemPoints(who.user.id, body.points)) } catch (error) { return failure(error) }
 }
 

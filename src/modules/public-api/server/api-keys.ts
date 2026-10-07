@@ -2,7 +2,7 @@
 import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
-import { rateLimitHit } from '@/platform/http/rate-limit'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
 
 export const API_KEY_PREFIX = 'kv_'
 
@@ -68,7 +68,7 @@ export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | nu
 }
 
 // --- per-key rate limiting (per minute) ---
-export function rateLimit(keyId: number, limit = 120) {
-  const result = rateLimitHit(`api-key:${keyId}`, limit, 60_000)
+export async function rateLimit(keyId: number, limit = 120) {
+  const result = await rateLimitStrict(`api-key:${keyId}`, limit, 60_000)
   return { ok: result.ok, remaining: result.ok ? limit : 0, retryAfter: result.ok ? undefined : result.retryAfter }
 }
