@@ -8,6 +8,7 @@ import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
+import { entitySitemap, forumSitemap } from '@/modules/seo/server/sitemap-entities'
 
 
 /** Static storefront routes + every published CMS document. */
@@ -74,15 +75,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Software downloads and public forum boards/threads (VIP boards stay out).
   try {
-    const [software, boards, threads] = await Promise.all([
+    const [software, forum, entities] = await Promise.all([
       db.softwareTitle.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now } }, select: { slug: true, updatedAt: true }, take: 5000 }),
-      db.forumCategory.findMany({ where: { access: 'PUBLIC' }, select: { slug: true, updatedAt: true } }),
-      db.forumThread.findMany({ where: { status: 'VISIBLE', listed: true, category: { access: 'PUBLIC' } }, select: { id: true, lastPostAt: true }, orderBy: { lastPostAt: 'desc' }, take: 5000 }),
+      // Forums and topics come from the forum's own rule for what a visitor may read (a forum of one group, a club, a section are not public by a column).
+      forumSitemap().catch(() => []),
+      entitySitemap(now).catch(() => []),
     ])
     entries.push({ url: `${base}/software`, lastModified: now, changeFrequency: 'daily', priority: 0.8 }, { url: `${base}/forum`, lastModified: now, changeFrequency: 'hourly', priority: 0.7 })
     for (const row of software) entries.push({ url: `${base}/software/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'weekly', priority: 0.7 })
-    for (const row of boards) entries.push({ url: `${base}/forum/c/${row.slug}`, lastModified: row.updatedAt, changeFrequency: 'daily', priority: 0.5 })
-    for (const row of threads) entries.push({ url: `${base}/forum/t/${row.id}`, lastModified: row.lastPostAt, changeFrequency: 'weekly', priority: 0.4 })
+    for (const row of [...forum, ...entities]) entries.push({ url: `${base}${row.path}`, ...(row.lastModified ? { lastModified: row.lastModified } : {}), changeFrequency: row.changeFrequency, priority: row.priority })
+    entries.push({ url: `${base}/cinema/calendar`, lastModified: now, changeFrequency: 'daily', priority: 0.5 })
   } catch {
     // tables may not be migrated yet
   }

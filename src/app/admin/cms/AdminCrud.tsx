@@ -281,6 +281,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
 
       {showForm && (
         <form onSubmit={save} className="card mb-6 grid-3 items-end">
+          {editId && (type === 'posts' || type === 'pages') && <div className="grid-column-span-3"><a className="text-sm" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a></div>}
           {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
           {fields.map((fl) => (
             <div key={fl.key} className={`${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>

@@ -4,8 +4,8 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
-  'fulfillment-recovery-window',
-  'invoice-void-settle',
+  'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
+  'invoice-void-settle', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
   'gift-card-integrity',
   'digital-codes',

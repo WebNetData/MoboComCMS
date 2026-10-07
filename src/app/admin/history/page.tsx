@@ -1,0 +1,76 @@
+'use client'
+
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from '@/components/AppLink'
+
+type Version = { version: number; changed: string[]; source: string; by: string; at: string }
+type Provenance = { sources: { source: string; externalId: string }[]; imports: { job: number; adapter: string; file: string; by: string; at: string; action: string; undone: boolean; fields: string[] }[]; editedSince: string[] | boolean } | null
+type Detail = { version: number; source: string; by: string; at: string; diff: { field: string; before: string; after: string }[] }
+const SOURCE: Record<string, string> = { baseline: 'وضعیت پیش از ثبت نسخه‌ها', edit: 'ویرایش', restore: 'بازگردانی', import: 'ورود گروهی' }
+const fa = (value: number) => value.toLocaleString('fa-IR')
+const when = (iso: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' }).format(new Date(iso))
+
+function History() {
+  const params = useSearchParams()
+  const type = params.get('type') || '', id = params.get('id') || ''
+  const base = `/api/admin/history?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`
+  const [versions, setVersions] = useState<Version[] | null>(null)
+  const [detail, setDetail] = useState<Detail | null>(null)
+  const [provenance, setProvenance] = useState<Provenance>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
+
+  const load = useCallback(async () => {
+    const response = await fetch(base, { cache: 'no-store' }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    if (response?.ok) { setVersions(body.versions); setProvenance(body.provenance || null) } else setMessage({ text: body?.error || 'تاریخچه بارگذاری نشد.', error: true })
+  }, [base])
+  useEffect(() => { void load() }, [load])
+
+  async function open(version: number) {
+    const response = await fetch(`${base}&version=${version}`, { cache: 'no-store' }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    if (response?.ok) setDetail(body); else setMessage({ text: body?.error || 'این نسخه باز نشد.', error: true })
+  }
+
+  async function restore(version: number) {
+    if (!window.confirm(`فیلدهای این مورد به وضعیت نسخهٔ ${fa(version)} برگردد؟ خودِ این بازگردانی هم یک نسخه می‌شود و قابل برگشت است. لینک‌ها، فصل‌ها و دسته‌بندی‌ها تغییر نمی‌کنند.`)) return
+    setBusy(true); setMessage(null)
+    const response = await fetch('/api/admin/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, id: Number(id), version }) }).catch(() => null)
+    const body = await response?.json().catch(() => null)
+    setBusy(false)
+    if (!response?.ok) { setMessage({ text: body?.error || 'بازگردانی انجام نشد.', error: true }); return }
+    setMessage({ text: body.version ? `به نسخهٔ ${fa(version)} برگشت (نسخهٔ تازه: ${fa(body.version)}).` : 'این مورد همین حالا مثل آن نسخه است؛ چیزی تغییر نکرد.', error: false })
+    setDetail(null); await load()
+  }
+
+  const newest = versions?.[0]?.version
+  return <div className="sa" dir="rtl">
+    <header className="sa-head"><div><h1>تاریخچهٔ نسخه‌ها</h1><p className="sa-sub"><bdi dir="ltr">{type} #{id}</bdi> · پس از هر ذخیره، فیلدهای خودِ مورد به‌صورت یک نسخه نگه داشته می‌شود.</p></div><Link className="btn btn-ghost btn-sm" href={`/admin/audit?targetType=${encodeURIComponent(type)}&targetId=${encodeURIComponent(id)}`}>رخدادهای ممیزی این مورد</Link></header>
+    {message && <p className={`sa-notice ${message.error ? 'is-error' : 'is-ok'}`} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
+    <section className="sa-card" aria-label="نسخه‌ها">
+      {!versions ? <p className="sa-sub">در حال دریافت…</p> : versions.length ? <ul className="sa-rows">{versions.map((row) => <li key={row.version} className="sa-code-row">
+        <button type="button" className="sa-link" onClick={() => void open(row.version)} aria-expanded={detail?.version === row.version}><span className="sa-grow"><b>نسخهٔ {fa(row.version)} · {SOURCE[row.source] || row.source}</b><small>{row.changed.length ? `تغییر در: ${row.changed.join('، ')}` : row.source === 'baseline' ? 'نقطهٔ شروع تاریخچه' : 'ایجاد'}</small></span></button>
+        <small className="sa-sub">{row.by || '—'} · {when(row.at)}</small>
+        {row.version !== newest && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void restore(row.version)}>بازگردانی</button>}
+      </li>)}</ul> : <p className="sa-sub">برای این مورد هنوز نسخه‌ای ثبت نشده است؛ با اولین ویرایش، وضعیت فعلی و وضعیت تازه هر دو نگه داشته می‌شوند.</p>}
+    </section>
+    {provenance && <section className="sa-card" aria-label="منبع داده">
+      <header className="sa-card-head"><h2>منبع داده</h2>{provenance.editedSince === true || (Array.isArray(provenance.editedSince) && provenance.editedSince.length > 0) ? <span className="sa-state is-warn">پس از آخرین ورود، این‌جا ویرایش شده</span> : <span className="sa-state is-ok">همان است که آخرین ورود نوشت</span>}</header>
+      {Array.isArray(provenance.editedSince) && provenance.editedSince.length > 0 && <p className="sa-sub">فیلدهایی که با مقدار ورودی فرق دارند: <bdi dir="ltr">{provenance.editedSince.join(', ')}</bdi>. ورود دوباره با حالت «به‌روزرسانی» این ویرایش‌ها را بازنویسی می‌کند.</p>}
+      {provenance.sources.length > 0 && <p className="sa-sub">شناسه در منبع: {provenance.sources.map((row) => <bdi key={`${row.source}:${row.externalId}`} dir="ltr" className="sa-tag">{row.source}: {row.externalId}</bdi>)}</p>}
+      <ul className="sa-rows">{provenance.imports.map((row) => <li key={`${row.job}-${row.at}`}><Link href="/admin/imports"><span className="sa-grow"><b>{row.action === 'CREATE' ? 'ساخته شد' : 'به‌روز شد'} · ورود شمارهٔ {fa(row.job)}{row.undone ? ' (برگردانده‌شده)' : ''}</b><small>{row.file || row.adapter}{row.fields.length ? ` · ${row.fields.join('، ')}` : ''}</small></span><small className="sa-sub">{row.by || '—'} · {when(row.at)}</small></Link></li>)}</ul>
+    </section>}
+    {detail && <section className="sa-card" aria-label={`تغییرات نسخهٔ ${detail.version}`}>
+      <header className="sa-card-head"><h2>نسخهٔ {fa(detail.version)} چه چیزی را عوض کرد</h2></header>
+      {detail.diff.length ? <div className="sa-table-wrap"><table className="data sa-table" style={{ minWidth: 0 }}>
+        <thead><tr><th>فیلد</th><th>قبل</th><th>بعد</th></tr></thead>
+        <tbody>{detail.diff.map((row) => <tr key={row.field}><td dir="ltr">{row.field}</td><td dir="auto">{row.before || '—'}</td><td dir="auto">{row.after || '—'}</td></tr>)}</tbody>
+      </table></div> : <p className="sa-sub">این نسخه نقطهٔ شروع است و نسخهٔ قبلی ندارد.</p>}
+    </section>}
+  </div>
+}
+
+/** /admin/history?type=&id= — the versions of one edited item, what each changed, and putting one back. */
+export default function HistoryPage() { return <Suspense fallback={null}><History /></Suspense> }

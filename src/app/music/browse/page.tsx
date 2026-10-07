@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { listingMeta } from '@/modules/seo/domain/seo'
+import { toPublicPath } from '@/platform/routing/aliases'
 import { ownerIdsForTermSlug, termTree } from '@/modules/taxonomy/server/taxonomy'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
@@ -19,7 +21,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const [params, locale] = await Promise.all([searchParams, getServerLocale()])
   const fa = locale === 'fa'
   const bits = [params.genre, params.lang, params.q].filter(Boolean).join(' · ')
-  return { title: bits ? `${fa ? 'موزیک' : 'Music'}: ${bits}` : fa ? 'همه آهنگ‌ها' : 'All songs', robots: params.q ? { index: false } : undefined }
+  return { title: bits ? `${fa ? 'موزیک' : 'Music'}: ${bits}` : fa ? 'همه آهنگ‌ها' : 'All songs', ...(() => { const seo = listingMeta('/music/browse', params, ['genre', 'lang', 'page']); return { alternates: { canonical: toPublicPath(seo.canonical) }, robots: seo.index ? undefined : { index: false, follow: true } } })() }
 }
 
 export default async function MusicBrowsePage({ searchParams }: { searchParams: Promise<Search> }) {

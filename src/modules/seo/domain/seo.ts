@@ -156,3 +156,19 @@ ${items}
 </rss>
 `
 }
+
+// ---- listing pages: one address per list worth indexing
+
+/**
+ * The canonical address and indexability of a listing page reached with filters. The filters in `keep`
+ * make a list of its own (a genre, a page of it) and stay in the canonical address, in that order; those in
+ * `same` only reorder the same list and are dropped from it; any other filter in use makes a one-off
+ * combination that is not indexed.
+ */
+export function listingMeta(path: string, params: Record<string, string | string[] | undefined>, keep: readonly string[], same: readonly string[] = ['sort']): { canonical: string; index: boolean } {
+  const value = (key: string) => { const raw = params[key]; const text = Array.isArray(raw) ? raw[0] : raw; return typeof text === 'string' ? text.trim() : '' }
+  const used = Object.keys(params).filter((key) => value(key))
+  const kept = keep.filter((key) => value(key) && !(key === 'page' && value(key) === '1'))
+  const query = kept.map((key) => `${key}=${encodeURIComponent(value(key))}`).join('&')
+  return { canonical: query ? `${path}?${query}` : path, index: used.every((key) => keep.includes(key) || same.includes(key)) }
+}
