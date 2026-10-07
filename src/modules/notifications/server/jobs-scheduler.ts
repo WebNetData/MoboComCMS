@@ -91,6 +91,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/notifications/server/policy')).runNotificationPolicy(),
   },
   {
+    // Moderation: claims on waiting items that nobody finished for a week are closed.
+    name: 'moderation-cases', everyMs: 6 * 3_600_000,
+    run: async () => (await import('@/modules/moderation/server/cases')).closeAbandonedCases(),
+  },
+  {
     // Forms: attachments that were uploaded but never submitted are removed after a day.
     name: 'forms', everyMs: 3_600_000,
     run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads() },

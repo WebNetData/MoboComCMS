@@ -6,7 +6,10 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import { Notice, fa as faNumber, faDate, send, useJson } from '../store/shared'
 import { QUEUE_SOURCES, waitingTone, type QueueDecision, type QueueGroup, type QueueItem, type QueueSourceKey, BATCH_LIMIT, batchIds, batchOutcome } from '@/modules/moderation/domain/queue'
 
-type Queue = { total: number; groups: QueueGroup[]; failed: QueueSourceKey[] }
+type Case = { status: string; assignee: { id: number; name: string } | null; mine: boolean; note: string } | null
+type Item = QueueItem & { case: Case }
+type Group = Omit<QueueGroup, 'items'> & { items: Item[] }
+type Queue = { total: number; groups: Group[]; failed: QueueSourceKey[]; decided: { id: number; source: QueueSourceKey; itemId: number; decision: string; by: string; at: string; note: string }[]; mine: { source: QueueSourceKey; itemId: number; claimedAt: string }[] }
 
 const TONE = { none: '', ok: 'is-ok', warn: 'is-warn', late: 'is-bad' } as const
 
@@ -35,12 +38,26 @@ export default function ModerationPage() {
   const failedLabel = (key: QueueSourceKey) => { const source = sourceOf(key); return source ? (isFa ? source.label : source.labelEn) : key }
   const when = (iso: string) => isFa ? faDate(iso, true) : new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Tehran' })
 
-  async function decide(group: QueueGroup, item: QueueItem, decision: QueueDecision) {
+  /** The staff work around an item (taking it, letting go, a note, the record of a decision): never the decision itself. */
+  const caseAction = (group: Group, id: number, body: Record<string, unknown>) => send('/api/admin/moderation', 'POST', { source: group.key, id, ...body })
+  async function work(group: Group, item: Item, body: Record<string, unknown>, done: string) {
+    setBusy(`${group.key}:${item.id}`); setMessage(null)
+    let result = await caseAction(group, item.id, body)
+    // A colleague holds it: taking it over is a deliberate second step.
+    if (!result.ok && body.action === 'claim' && window.confirm(L(`${result.error}. با این حال برمی‌دارید؟`, `${result.error}. Take it over anyway?`))) result = await caseAction(group, item.id, { ...body, takeOver: true })
+    setBusy('')
+    setMessage(result.ok ? { tone: 'ok', text: done } : { tone: 'error', text: result.error })
+    await reload()
+  }
+
+  async function decide(group: Group, item: Item, decision: QueueDecision) {
     const question = isFa ? decision.confirm : decision.confirmEn || decision.confirm
     if (question && !window.confirm(question)) return
     const request = decision.request(item.id)
     setBusy(`${group.key}:${item.id}`); setMessage(null)
     const result = await send(request.url, request.method, request.body)
+    // The owner accepted the decision: the case records who sent it from here.
+    if (result.ok) await caseAction(group, item.id, { action: 'decided', decision: decision.key })
     setBusy('')
     setMessage(result.ok
       ? { tone: 'ok', text: L(`«${isFa ? decision.label : decision.labelEn}» ثبت شد.`, `${decision.labelEn} saved.`) }
@@ -50,14 +67,14 @@ export default function ModerationPage() {
   }
 
   /** The same decision for every ticked item of a source: one request each, to the owning module, in order. */
-  async function decideMany(group: QueueGroup, decision: QueueDecision) {
+  async function decideMany(group: Group, decision: QueueDecision) {
     const ids = batchIds(picked[group.key] || [], group.items.map((item) => item.id))
     if (!ids.length) return
     const name = isFa ? decision.label : decision.labelEn
     if (!window.confirm(L(`«${name}» برای ${num(ids.length)} مورد ثبت شود؟`, `${name} ${ids.length} item(s)?`))) return
     setBusy(`${group.key}:batch`); setMessage(null)
     const results = []
-    for (const id of ids) { const request = decision.request(id); results.push(await send(request.url, request.method, request.body)) }
+    for (const id of ids) { const request = decision.request(id); const result = await send(request.url, request.method, request.body); if (result.ok) await caseAction(group, id, { action: 'decided', decision: decision.key }); results.push(result) }
     const outcome = batchOutcome(results)
     setBusy(''); setPicked((current) => ({ ...current, [group.key]: [] }))
     setMessage(outcome.failed
@@ -106,6 +123,14 @@ export default function ModerationPage() {
               const working = busy === `${group.key}:${item.id}`
               return <li key={item.id} className="mq-item">
                 <p className="mq-text">{group.items.length > 1 && <input type="checkbox" className="mq-pick" checked={(picked[group.key] || []).includes(item.id)} onChange={() => toggle(group.key, item.id)} disabled={!!busy} aria-label={L('انتخاب این مورد', 'Select this item')} />}{item.full || item.text || '—'}</p>
+                <div className="mq-case">
+                  {item.case?.assignee && <span className={`sa-state ${item.case.mine ? 'is-ok' : 'is-warn'}`}>{item.case.mine ? L('در دست شما', 'You are on it') : L(`در دست ${item.case.assignee.name}`, `${item.case.assignee.name} is on it`)}</span>}
+                  {item.case?.note && <span className="mq-note" dir="auto">📝 {item.case.note}</span>}
+                  {item.case?.mine
+                    ? <button type="button" className="sa-link" disabled={!!busy} onClick={() => void work(group, item, { action: 'release' }, L('رها شد.', 'Released.'))}>{L('رها می‌کنم', 'Release')}</button>
+                    : <button type="button" className="sa-link" disabled={!!busy} onClick={() => void work(group, item, { action: 'claim' }, L('این مورد در دست شماست.', 'You are on it.'))}>{L('برمی‌دارم', 'I\'ll take it')}</button>}
+                  <button type="button" className="sa-link" disabled={!!busy} onClick={() => { const note = window.prompt(L('یادداشت برای همکاران (خالی = پاک‌کردن):', 'A note for colleagues (empty removes it):'), item.case?.note || ''); if (note !== null) void work(group, item, { action: 'note', note }, L('یادداشت ذخیره شد.', 'Note saved.')) }}>{item.case?.note ? L('ویرایش یادداشت', 'Edit note') : L('یادداشت', 'Note')}</button>
+                </div>
                 <div className="mq-foot">
                   <small className="sa-sub">{[item.by, item.about].filter(Boolean).join(' · ') || '—'} · <time dateTime={item.at}>{when(item.at)}</time></small>
                   <div className="sa-head-actions">{decisions.map((decision) => <button key={decision.key} type="button" className={`btn btn-sm ${decision.key === 'approve' ? 'btn-primary' : 'btn-ghost'}`} disabled={!!busy} aria-busy={working} onClick={() => void decide(group, item, decision)}>{isFa ? decision.label : decision.labelEn}</button>)}</div>
@@ -122,6 +147,10 @@ export default function ModerationPage() {
           </ul>}
         </section>
       })}
+      {data.decided.length > 0 && <section className="sa-card" aria-label={L('تصمیم‌های اخیر', 'Recent decisions')}>
+        <header className="sa-card-head"><h2>{L('تصمیم‌های اخیر از همین صفحه', 'Recent decisions from this page')}</h2></header>
+        <ul className="sa-rows">{data.decided.map((row) => <li key={row.id}><span className="sa-grow"><b>{row.decision === 'approve' ? L('تأیید', 'Approved') : L('رد', 'Rejected')} · {failedLabel(row.source)} #{num(row.itemId)}</b><small>{row.by || '—'}{row.note ? ` · 📝 ${row.note}` : ''}</small></span><small className="sa-sub">{row.at ? <time dateTime={row.at}>{when(row.at)}</time> : ''}</small></li>)}</ul>
+      </section>}
       {/* Sources with nothing waiting share one compact card. */}
       {data.groups.some((group) => group.count === 0) && <section className="sa-card" aria-label={L('بخش‌های بدون مورد', 'Sources with nothing waiting')}>
         <header className="sa-card-head"><h2>{L('بدون مورد منتظر', 'Nothing waiting')}</h2></header>

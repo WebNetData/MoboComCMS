@@ -3355,6 +3355,27 @@ model CrmTag {
 // ---------------------------------------------------------------- Operations
 
 /// Background queue for heavy work (image optimization, re-indexing…), run by the job scheduler.
+/// What staff do about one waiting item of any section: who has taken it, their note, and the decision sent
+/// from the overview. The item and its decision stay with the owning module (moderation/domain/cases).
+model ModerationCase {
+  id          Int       @id @default(autoincrement())
+  source      String // a QueueSourceKey: forum-posts, article-comments, item-reviews, ...
+  itemId      Int
+  status      String    @default("OPEN") // OPEN | CLAIMED | DECIDED | CLOSED
+  assigneeId  Int?
+  claimedAt   DateTime?
+  note        String    @default("")
+  decision    String    @default("") // approve | reject, once decided from the overview
+  decidedById Int?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@unique([source, itemId])
+  @@index([status, claimedAt])
+  @@index([status, decidedAt])
+}
+
 model BackgroundJob {
   id         Int       @id @default(autoincrement())
   kind       String

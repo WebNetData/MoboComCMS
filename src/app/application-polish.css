@@ -286,3 +286,7 @@ html[dir=ltr] .admin-attention-arrow{transform:scaleX(-1)}
 /* Code pool: a delivered code with its "replace" action beside the link to its order. */
 .sa-code-row { display: flex; align-items: center; gap: 10px; }
 .sa-code-row > a { flex: 1; min-width: 0; }
+
+/* Moderation overview: the staff work around an item (who has it, a note). */
+.mq-case { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding-block: 2px 8px; font-size: .84rem; }
+.mq-note { color: var(--muted); max-width: 60ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
