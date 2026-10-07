@@ -1,6 +1,6 @@
 # The block editor
 
-Status: **Phase 1, steps 1 and 2 of 3 are in the code**: the document, the registry, validation and reading (step 1); storing a page as a document, saving it safely and showing it on the public page (step 2). Step 3, the editor itself (Gutenberg and Tiptap in the admin), is not built: today a document reaches a page only through the API. The switch is off by default.
+Status: **Phase 1 is in the code**: the document, registry, validation and reading (step 1); pages stored as documents with versioned saves and public rendering (step 2); the editor in the admin, Gutenberg for blocks and Tiptap for rich text (step 3). The switch is off by default. Phase 2 has not been started.
 
 ## What was found in the repository first
 
@@ -157,23 +157,57 @@ The public page `/p/<slug>` renders a blocks page from its document into `.mcb-d
 
 Check: `scripts/editor-page-documents.connected.cjs` (in `npm run test:pg`).
 
+## The editor in the admin (step 3)
+
+`/admin/editor` lists the site's pages and holds the switch. `/admin/editor/pages/<id>` is the editor.
+
+### Where WordPress code is allowed
+
+| Folder | What is there | Imports `@wordpress/*` |
+| --- | --- | --- |
+| `src/modules/editor/domain` | the format and its rules | never |
+| `src/modules/editor/adapters/gutenberg/convert.ts` | document <-> the engine's block objects | **no**: it knows their shape only, and is tested in Node |
+| `src/components/editor/gutenberg` | the editing screen | yes |
+
+A unit test fails when `@wordpress/` appears in any other file under `src`, and when the public page or the document service imports the editor.
+
+Packages (all GPL-2.0-or-later; used as dependencies, nothing copied): `@wordpress/block-editor`, `@wordpress/blocks`, `@wordpress/components`, `@wordpress/compose`, `@wordpress/data`, `@wordpress/element`, `@wordpress/i18n`, `@wordpress/keyboard-shortcuts`. `@wordpress/block-library` is **not** installed: MoboCom has no WordPress block. `@wordpress/block-editor` ships no types; `wordpress-block-editor.d.ts` declares the parts used.
+
+### The adapter (`convert.ts`)
+
+- A type `owner.name` is the engine block `mobocom/owner-name`. The MoboCom id and version travel in the attributes `mcId` and `mcVersion`.
+- A block MoboCom does not know goes in as `mobocom/unsupported` holding the stored block whole, shows as "unsupported block", cannot be opened, and comes out exactly as it went in.
+- On the way out, a block the engine made (inserted, duplicated, pasted) gets an id of its own; a block the engine cannot name (pasted from another editor) is left out. The server checks the result like any other document.
+- Nothing the engine serializes is stored: every block's `save` returns nothing.
+
+### The screen (`src/components/editor/gutenberg`)
+
+- `blocks.tsx` registers every type of the registry with one generic editing component. **A block type needs no editor code**: its settings panel is built from its fields (`FieldControls.tsx`), and what it shows on the canvas is the HTML the public renderer builds for it. The two blocks people write in, rich text and heading, are edited where they stand. A broken block shows its own fault inside a boundary; the rest of the page stays editable.
+- `RichTextField.tsx` is Tiptap, storing Tiptap JSON. Keys typed in it stay in it: the block editor around it does not take Backspace, Enter or the arrows.
+- Media: an image or file field uploads through the site's own upload API (`uploadFile` of `src/components/admin/FileUpload.tsx`) or takes an address; the image's size is read from the image.
+- `BlockEditorApp.tsx`: inserter, undo and redo, the list of blocks, the selected block's tools (move, duplicate, remove), the settings panel, and saving. A save names the version the page was opened at. It saves by itself four seconds after the last change, one save at a time; a change made during a save is saved right after it. States shown: unchanged, unsaved, saving, saved, error, changed elsewhere. When the page changed elsewhere, saving stops instead of overwriting. Leaving with unsaved work asks first.
+- The engine is loaded only on the editing page, in the browser (`next/dynamic`, no server rendering). Its stylesheets are imported there and nowhere else.
+
+### Adding a block
+
+1. Define it (see "The registry") and hand it in with `registerModuleBlocks` on the server.
+2. That is all for editing and validation: it appears in the inserter with a settings panel.
+3. For its look on a page, add its case to the renderer. (A way for a module to supply a component without touching the renderer is not built yet.)
+
+Browser test: `e2e/tests/block-editor.spec.ts`.
+
 ## What is not built
 
-Step 3 (the editor itself):
-- `@wordpress/block-editor` and its companions, imported only under `src/modules/editor/adapters/gutenberg` and `src/components/editor/gutenberg`, loaded only on the admin editing page.
-- The adapter between the document and Gutenberg's block list; unknown blocks carried through untouched.
-- The rich text block's editing component with Tiptap, storing JSON.
-- The media picker over the existing upload API.
-- Autosave with a dirty/saved/error state, and a way to start a blocks page from a legacy one.
-- Browser tests: insert, nest, type Persian text, add an image, reorder, save, reload, view the page.
+- **Blocks from modules in the editor's browser side.** The editing screen builds its registry from the core blocks; `registerModuleBlocks` is known to the server only. A module's block is validated and stored, and shows as unsupported in the editor until the screen is given the same list.
+- React components for blocks that modules register; one renderer shared by the canvas and the page exists for the core blocks only.
+- A document for the English body of a page. Posts, products and media items.
+- Extensions registering blocks.
+- Picking an existing file from a gallery: a field uploads a new file or takes an address.
+- Labels for the values of a choice (`container`, `narrow`, …) are shown as they are stored. Field names have Persian labels.
+- Text colour and highlight are in the format and are rendered, but the rich text toolbar has no button for them. Tables are not in the format.
+- Converting a legacy page's HTML into blocks: the editor starts empty and says the old body will be replaced and kept in the page's history.
 
-Also not built:
-- React components for blocks that modules register. A page is rendered from `documentHtml`; a module's block leaves a marked empty element there. This comes with the first real domain block.
-- A document for the English body (`contentEn`) of a page. A blocks page has one document.
-- Posts and other items. The magazine's article page is a protected surface and is not touched by this.
-- Extensions registering blocks (modules can, through `registerModuleBlocks`).
-
-Later phases (patterns, templates, locking, reusable blocks, responsive controls in the inspector, domain blocks beyond a proof) start after step 3 is stable.
+Phase 2 (patterns, templates, locking, reusable blocks, responsive previews, domain blocks) and Phase 3 start after this has been used.
 
 ## Known limits
 
