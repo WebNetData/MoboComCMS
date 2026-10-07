@@ -280,3 +280,11 @@ a.myrev-target:focus-visible { outline: 2px solid var(--primary); outline-offset
 .myrev-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .myrev-actions .btn { min-height: 36px; }
 .myrev-edit { min-width: 0; }
+
+/* Admin: writing a collection for the site. */
+.collections-admin-new { display: flex; gap: 10px; align-items: center; margin-block: 4px 12px; }
+.collections-admin-new .input { flex: 1; min-width: 0; }
+.collections-admin-thumb { width: 38px; height: 52px; border-radius: 6px; object-fit: cover; background: var(--surface-2, rgba(127,127,127,.15)); flex: none; }
+.collections-admin-list li { display: flex; align-items: center; gap: 10px; }
+.collections-admin-list li > a { flex: 1; min-width: 0; }
+@media (max-width: 600px) { .collections-admin-new { flex-wrap: wrap; } }

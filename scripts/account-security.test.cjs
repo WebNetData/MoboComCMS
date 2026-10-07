@@ -195,9 +195,9 @@ test('the magazine permission is named only where the magazine is guarded', () =
   const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { if (entry.name !== 'generated') walk(full) } else if (/\.(ts|tsx|json)$/.test(entry.name) && fs.readFileSync(full, 'utf8').includes('cms.posts')) files.push(path.relative(path.resolve(__dirname, '..'), full).split(path.sep).join('/')) } }
   walk(path.resolve(__dirname, '..', 'src'))
   // Each of these is the magazine itself (posts, their categories, comments, templates, newsletter, journal), the
-  // editorial collections its editors feature, or a list of "any content editor" that names every section.
+  // or a list of "any content editor" that names every section (collections hold items of every section and take that list).
   assert.deepEqual(files.sort(), [
-    'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx', 'src/app/api/admin/collections/[id]/feature/route.ts', 'src/app/api/admin/collections/route.ts',
+    'src/app/admin/layout.tsx', 'src/app/admin/roles/page.tsx',
     'src/modules/ai/server/http/admin.ts', 'src/modules/downloads/server/http/files.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/identity/rbac.ts', 'src/modules/journal/server/http/routes.ts',
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',
     'src/modules/site/server/http/admin/builder/post-template/route.ts', 'src/modules/site/server/http/admin/cms/route.ts', 'src/modules/site/server/http/admin/comments/route.ts',

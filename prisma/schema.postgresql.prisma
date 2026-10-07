@@ -1454,6 +1454,8 @@ model UserCollection {
   cover       String   @default("")
   shareToken  String?  @unique
   visibility  String   @default("PRIVATE") // PRIVATE | UNLISTED | PUBLIC | EDITORIAL
+  // Written by the site's staff in the admin panel: a draft while PRIVATE, published as EDITORIAL; any staff member with a content permission edits it.
+  staffAuthored Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
   owner       User     @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
