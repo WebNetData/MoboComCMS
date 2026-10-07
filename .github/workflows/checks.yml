@@ -72,7 +72,6 @@ jobs:
           --health-retries 20
     env:
       DATABASE_URL: postgresql://ci:ci-only-password@localhost:5432/mobocom?schema=public
-      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -94,6 +93,9 @@ jobs:
         run: npm run test:pg
       - name: Strict rate limit against Redis
         run: npm run test:redis
+        env:
+          # Only this step: a check that opens the shared store keeps its connection, and would not end.
+          REDIS_URL: redis://localhost:6379
 
   build:
     name: Production build
