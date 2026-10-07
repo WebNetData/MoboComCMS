@@ -38,12 +38,13 @@ test('a page is built in the block editor, saved, reopened and shown to visitors
   const errors = watchErrors(page)
   const { insertTop, insertInto, save } = tools(page)
   try {
-    // Switched off: the editor opens and lays out, and does not save.
+    // The plugin switched off: the admin says its screen is off instead of opening the editor.
     await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: false } })
-    await openEditor(page, `/admin/editor/pages/${created.id}`)
-    await expect(page.locator('.mc-editor-save')).toBeDisabled()
+    await page.goto(`/admin/editor/pages/${created.id}`, { waitUntil: 'domcontentloaded', timeout: 240_000 })
+    await expect(page.locator('.module-off-card')).toBeVisible({ timeout: 240_000 })
+    await expect(page.locator('.mc-editor-bar')).toHaveCount(0)
     await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: true } })
-    await page.reload({ waitUntil: 'domcontentloaded' })
+    await openEditor(page, `/admin/editor/pages/${created.id}`)
     await expect(page.locator('.mc-editor-save')).toBeEnabled({ timeout: 240_000 })
 
     await insertTop('بخش')
