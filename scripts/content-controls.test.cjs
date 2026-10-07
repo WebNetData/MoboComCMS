@@ -794,3 +794,45 @@ test('Turnstile fails closed and verifies action and hostname when configured', 
     global.fetch = previous.fetch
   }
 })
+
+test('a write must show where it was made: Origin, Sec-Fetch-Site, Referer, or no cookies at all', async () => {
+  const { mutationOrigin } = load('src/platform/http/origin-policy.ts')
+  const hosts = ['shop.example', 'www.shop.example']
+  const from = (source) => mutationOrigin({ origin: null, secFetchSite: null, referer: null, hasCookies: true, hosts, ...source })
+  // Origin decides when it is there.
+  assert.equal(from({ origin: 'https://shop.example' }), 'allow')
+  assert.equal(from({ origin: 'https://WWW.shop.example' }), 'allow')
+  assert.equal(from({ origin: 'https://evil.example' }), 'foreign-origin')
+  assert.equal(from({ origin: 'https://shop.example.evil.example' }), 'foreign-origin')
+  assert.equal(from({ origin: 'null' }), 'foreign-origin', 'a sandboxed frame is not this site')
+  assert.equal(from({ origin: 'https://evil.example', secFetchSite: 'same-origin', referer: 'https://shop.example/' }), 'foreign-origin', 'nothing overrules a foreign Origin')
+  // Without Origin the browser's own word decides.
+  assert.equal(from({ secFetchSite: 'same-origin' }), 'allow')
+  for (const site of ['cross-site', 'same-site', 'none', 'anything']) assert.equal(from({ secFetchSite: site }), 'foreign-origin', site)
+  assert.equal(from({ secFetchSite: 'cross-site', referer: 'https://shop.example/' }), 'foreign-origin', 'a Referer does not overrule the browser')
+  // An old browser: the Referer.
+  assert.equal(from({ referer: 'https://shop.example/cart?x=1' }), 'allow')
+  assert.equal(from({ referer: 'https://evil.example/?https://shop.example/' }), 'foreign-origin')
+  assert.equal(from({ referer: 'not a url' }), 'foreign-origin')
+  // Nothing at all: cookies alone are never enough; without cookies there is nobody to impersonate.
+  assert.equal(from({}), 'origin-required')
+  assert.equal(from({ origin: '  ', secFetchSite: '', referer: '' }), 'origin-required')
+  assert.equal(from({ hasCookies: false }), 'allow')
+  assert.equal(from({ hasCookies: false, origin: 'https://evil.example' }), 'foreign-origin', 'a named foreign site is refused with or without cookies')
+  assert.equal(mutationOrigin({ origin: 'https://shop.example', secFetchSite: null, referer: null, hasCookies: true, hosts: [null, undefined] }), 'foreign-origin', 'no known host, nothing is ours')
+
+  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const send = (path, headers, method = 'POST') => middleware(new NextRequest('http://localhost:3002' + path, { method, headers: { host: '127.0.0.1:3002', 'x-request-id': 'origin-test-456', ...headers } })).then((response) => response.status)
+  const session = { cookie: 'next-auth.session-token=abc' }
+  assert.equal(await send('/api/account/x', session), 403, 'a session cookie and no word on the source')
+  assert.equal(await send('/api/account/x', { ...session, 'sec-fetch-site': 'same-origin' }), 200)
+  assert.equal(await send('/api/account/x', { ...session, 'sec-fetch-site': 'cross-site' }), 403)
+  assert.equal(await send('/api/account/x', { ...session, referer: 'http://127.0.0.1:3002/account' }), 200)
+  assert.equal(await send('/api/account/x', { ...session, origin: 'http://127.0.0.1:3002' }), 200)
+  assert.equal(await send('/api/account/x', {}), 200, 'no cookies: a script or an API-key client')
+  assert.equal(await send('/api/account/x', { authorization: 'Bearer key' }), 200)
+  for (const method of ['PUT', 'PATCH', 'DELETE']) assert.equal(await send('/api/account/x', session, method), 403, method)
+  assert.equal(await send('/api/account/x', session, 'GET'), 200, 'reading is not a write')
+  // Callbacks that prove themselves another way stay open.
+  for (const path of ['/api/auth/callback/credentials', '/api/payment/zarinpal/callback', '/api/telegram/webhook', '/api/internal/jobs', '/api/newsletter/unsubscribe']) assert.equal(await send(path, session), 200, path)
+})

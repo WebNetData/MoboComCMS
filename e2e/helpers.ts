@@ -15,7 +15,7 @@ export function watchErrors(page: Page) {
 export const test = base.extend<{ admin: APIRequestContext }>({
   admin: async ({ playwright, baseURL }, use) => {
     test.skip(!hasAdmin(), 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run administrator tests')
-    const context = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const context = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     await use(context)
     await context.dispose()
   },

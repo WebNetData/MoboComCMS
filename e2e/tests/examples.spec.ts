@@ -13,7 +13,7 @@ test.describe('sample plugin', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin()) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     const list = await (await admin.get('/api/admin/extensions')).json()
     installed = (list.extensions || []).some((e: { manifest: { id: string } }) => e.manifest.id === 'sample-feedback')
     await admin.dispose()
@@ -22,7 +22,7 @@ test.describe('sample plugin', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin() || !installed) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     await admin.post('/api/extensions/sample-feedback/reset')
     await admin.patch('/api/admin/extensions', { data: { id: 'sample-feedback', enabled: false } })
     await admin.dispose()

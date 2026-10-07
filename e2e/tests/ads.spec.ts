@@ -17,7 +17,7 @@ test.describe('advertising', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin()) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     // A campaign with impressions is kept for the reports (it cannot be deleted); ending it frees the placement.
     if (campaignId) {
       await admin.post('/api/admin/ads', { data: { op: 'campaign.status', id: campaignId, status: 'ENDED' } })

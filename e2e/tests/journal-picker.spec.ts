@@ -35,7 +35,7 @@ test('Journal settings can retain an older post found through archive search', a
 
 test('Journal picker API finds a published post for an administrator', async ({ playwright, baseURL }) => {
   test.skip(!hasAdmin(), 'administrator credentials are required')
-  const request = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+  const request = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
   try {
     const settingsResponse = await request.get('/api/admin/journal/settings')
     expect(settingsResponse.status()).toBe(200)
