@@ -159,6 +159,8 @@ The system is being written from zero and has not launched. **Until launch, a ru
 
 ## 7. Engineering rules learnt here
 
+- **Every migration belongs to exactly one release** (`prisma/release-manifest.json`, checked by `npm run release:migrations`, part of `npm run check`). A pull request that adds a migration adds its name to `unreleased` in the same commit. At a release the owner runs `node scripts/release-migrations.cjs seal <version>`, which closes the unreleased migrations as that version with the hash of each file; from then on editing one of them fails the check — a fix is a new migration. `node scripts/release-migrations.cjs list [version]` answers "what does this release run on the database". Release `1.6.0` in the manifest is the baseline: everything merged before the rule existed.
+
 - **A pull request always targets `main`**, even when its branch sits on an unmerged one (it then shows the earlier commits and shrinks once they merge). Stacked bases made six merges land in each other instead of `main`. After the owner reports merges, confirm with `git merge-base --is-ancestor <branch> origin/main`.
 - **The agent does not merge**; the owner does. Deploy and production actions are the owner's.
 - **Evidence standard for a slice:** a connected PostgreSQL script (`scripts/<name>.connected.cjs`, registered in `scripts/run-pg-checks.cjs`, run by `npm run test:pg`) that asks the same functions the pages call, as several viewers; then deliberate breaks of each rule to prove the script catches them (back the file up and copy it back; never `git checkout --` an uncommitted file). Browser check with Playwright for anything visible, at 1440 light/dark and 390.
