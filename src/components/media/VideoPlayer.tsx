@@ -15,6 +15,8 @@ type Props = {
   downloadHref?: string
   /** Subtitle files of this film or episode, served by the site as WebVTT. */
   subtitles?: { id: number; language: string; label: string; src: string }[]
+  /** The signed-in member's choice kept with the account ('' = never chose); null for a visitor. */
+  subtitlePreference?: string | null
 }
 
 const SUBTITLE_KEY = 'vp:subtitle'
@@ -37,7 +39,7 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = [] }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = [], subtitlePreference = null }: Props) {
   const video = useRef<HTMLVideoElement>(null)
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
@@ -54,7 +56,8 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
     const element = video.current
     if (!element || !subtitles.length) return
     const tracks = element.textTracks
-    const wanted = preferredSubtitle()
+    // The account's choice comes first; a member who never chose, and a visitor, get what this device remembers.
+    const wanted = subtitlePreference || preferredSubtitle()
     const apply = () => { for (let i = 0; i < tracks.length; i++) tracks[i].mode = wanted !== 'off' && tracks[i].language === wanted ? 'showing' : 'disabled' }
     apply()
     let settled = false
@@ -64,10 +67,12 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       let showing = 'off'
       for (let i = 0; i < tracks.length; i++) if (tracks[i].mode === 'showing') showing = tracks[i].language || 'off'
       try { localStorage.setItem(SUBTITLE_KEY, showing) } catch { /* private mode */ }
+      // A member's choice goes with the account, so the next device starts the same way.
+      if (subtitlePreference !== null) void fetch('/api/media/playback-prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subtitle: showing }), keepalive: true }).catch(() => undefined)
     }
     tracks.addEventListener('change', remember)
     return () => { window.clearTimeout(timer); tracks.removeEventListener('change', remember) }
-  }, [subtitles])
+  }, [subtitles, subtitlePreference])
   useEffect(() => {
     if (nextCountdown === null || !nextEpisode) return
     if (nextCountdown === 0) { window.location.assign(nextEpisode.href); return }

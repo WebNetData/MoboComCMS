@@ -5,6 +5,8 @@ import { linkHref } from '@/modules/downloads/server/guard'
 import { playableLinks } from '@/modules/media/server/links'
 import { DownloadNotice, ReportLinkButton } from '@/components/media/DownloadExtras'
 import { linkPaywalls } from '@/modules/paywall/server/paywall'
+import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
+import { audioOrder } from '@/modules/media/domain/playback-prefs'
 import BuyLinkButton from '@/components/paywall/BuyLinkButton'
 import CopyText from '@/components/software/CopyText'
 
@@ -19,6 +21,8 @@ type PublicLink = { id: number; label: string; kind: string; quality: string; si
 export default async function LinkBox({ links, fa, member, loggedIn, parentLocked = false, title, compact, paywall }: { links: PublicLink[]; fa: boolean; member: boolean; loggedIn: boolean; parentLocked?: boolean; title?: string; compact?: boolean; paywall?: { open: boolean } | null }) {
   if (!links.length) return <p className="muted md-nolinks">{fa ? 'لینکی برای این مورد ثبت نشده است.' : 'No links yet.'}</p>
   const viewer = await getViewer()
+  // A member who prefers the original audio (or the dub) sees those releases first; nothing is hidden.
+  const order = audioOrder(await getPlaybackPrefs(viewer.userId))
   const [hrefs, playable, ownPrices] = await Promise.all([
     Promise.all(links.map(async (link) => [link.id, await linkHref(link.id, viewer.userId)] as const)).then((rows) => new Map(rows)),
     playableLinks(links.map((link) => link.id)),
@@ -30,7 +34,7 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
   const audioName = (audio: string) => (audio === 'DUBBED' ? (fa ? '🎙 دوبله فارسی' : '🎙 Persian dub') : audio === 'ORIGINAL' ? (fa ? '🌐 زبان اصلی' : '🌐 Original audio') : (fa ? 'لینک‌ها' : 'Links'))
   const tracks = trackLinks(links)
   const groups = [
-    ...groupLinks(links).map((group) => ({ key: group.audio || 'all', head: audioName(group.audio), track: false, items: group.items })),
+    ...groupLinks(links, order).map((group) => ({ key: group.audio || 'all', head: audioName(group.audio), track: false, items: group.items })),
     ...(tracks.subtitles.length ? [{ key: 'subtitles', head: fa ? '💬 زیرنویس جدا' : '💬 Subtitle files', track: true, items: tracks.subtitles }] : []),
     ...(tracks.audio.length ? [{ key: 'audio-tracks', head: fa ? '🎧 صوت جدا (برای افزودن به فیلم)' : '🎧 Separate audio tracks', track: true, items: tracks.audio }] : []),
   ]

@@ -118,8 +118,7 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
 }
 
 /** Groups the releases for display: by audio (original/dubbed) then quality. Separate tracks are not releases and are left out. */
-export function groupLinks<T extends { audio: string; quality: string; kind?: string }>(links: T[]): { audio: string; items: T[] }[] {
-  const order = ['DUBBED', 'ORIGINAL', '']
+export function groupLinks<T extends { audio: string; quality: string; kind?: string }>(links: T[], order: readonly string[] = ['DUBBED', 'ORIGINAL', '']): { audio: string; items: T[] }[] {
   const groups = new Map<string, T[]>()
   for (const link of links) if (!isTrack(link.kind || '')) groups.set(link.audio, [...(groups.get(link.audio) || []), link])
   return [...groups.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([audio, items]) => ({ audio, items }))

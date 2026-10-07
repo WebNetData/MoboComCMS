@@ -33,6 +33,7 @@ model User {
   emailAlerts    Boolean         @default(true)
   pushAlerts     Boolean         @default(true)
   recommendationOptIn Boolean    @default(false)
+  playbackPrefs  String          @default("{}") // how the member likes to watch: audio side first, subtitle language (media/domain/playback-prefs)
   recommendationListeningOptIn Boolean @default(false) // separate consent: listening history may shape private suggestions
   profileData    String          @default("{}")
   profileCompletedAt DateTime?
