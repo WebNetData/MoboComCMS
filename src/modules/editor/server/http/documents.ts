@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
-import { EditorError, blockEditorEnabled, documentPermission, isDocumentEntity, loadDocument, saveDocument, setBlockEditorEnabled } from '@/modules/editor/server/documents'
+import { EditorError, blockEditorEnabled, documentPermission, isDocumentEntity, loadDocument, saveDocument } from '@/modules/editor/server/documents'
 
 type Context = { params: Promise<{ entity: string; id: string }> }
 const failure = (error: unknown) => (error instanceof EditorError ? err(error.message, error.status, { code: error.code, ...error.details }) : err('the document could not be saved', 500))
@@ -34,15 +34,4 @@ export async function PUT(req: NextRequest, context: Context) {
 export async function settingsGET(req: NextRequest) {
   if (!(await requirePerm(req, 'cms.pages')) && !(await requirePerm(req, 'cms.posts'))) return err('forbidden', 403)
   return ok({ enabled: await blockEditorEnabled() })
-}
-
-/** POST /api/admin/editor { enabled } — turns it on or off (site settings). */
-export async function settingsPOST(req: NextRequest) {
-  const admin = await requirePerm(req, 'settings.manage')
-  if (!admin) return err('forbidden', 403)
-  const body = await req.json().catch(() => null)
-  if (typeof body?.enabled !== 'boolean') return err('enabled must be true or false')
-  const saved = await setBlockEditorEnabled(body.enabled)
-  await auditAdmin({ req, actor: admin, action: 'editor.blocks.switch', targetType: 'setting', targetId: 'editor.blocks', metadata: saved })
-  return ok(saved)
 }

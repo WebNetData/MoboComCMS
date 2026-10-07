@@ -5,7 +5,7 @@
  */
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { hasPermission } from '@/modules/identity/rbac'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { contentChanged } from '@/modules/content/server/events'
@@ -36,19 +36,15 @@ export function editorRegistry(): BlockRegistry {
 
 // ------------------------------------------------------------------ the switch
 
-const SETTING = 'editor.blocks'
+/** The block editor is a plugin (src/plugins/block-editor), switched on and off on the extensions page like any other. */
+export const BLOCK_EDITOR_PLUGIN = 'block-editor'
 
 /**
- * The block editor is the site's editor: on unless an administrator switched it off. Off stops
- * saving; items already written in blocks keep rendering either way.
+ * Whether the plugin is on. Off stops saving and brings the old editor back to the forms; what was
+ * written in blocks is kept and keeps rendering either way.
  */
 export async function blockEditorEnabled(): Promise<boolean> {
-  return (await readJsonSetting(SETTING).catch(() => undefined))?.enabled !== false
-}
-
-export async function setBlockEditorEnabled(enabled: boolean) {
-  await writeJsonSetting(SETTING, { enabled: enabled === true })
-  return { enabled: enabled === true }
+  return isModuleEnabled(BLOCK_EDITOR_PLUGIN)
 }
 
 // ------------------------------------------------------------------ items written in blocks
