@@ -134,6 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
+      { href: '/admin/editor', label: locale === 'fa' ? 'ویرایشگر بلوکی' : 'Block editor', icon: 'layout', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
       { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },

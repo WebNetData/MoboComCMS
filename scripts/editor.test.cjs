@@ -283,3 +283,75 @@ test('the editor domain depends on nothing but itself: no editing engine, no Rea
     assert.doesNotMatch(source, /@wordpress|@tiptap|dangerouslySetInnerHTML|innerHTML/, name)
   }
 })
+
+// ------------------------------------------------------------------ the Gutenberg adapter
+
+const gb = load('src/modules/editor/adapters/gutenberg/convert')
+
+test('a document goes into the editing engine and comes back the same document', () => {
+  const stranger = { id: 'ext_block_9', type: 'gallery-pro.carousel', version: 4, props: { slides: [1, 2] }, children: [{ id: 'ext_child_9', type: 'gallery-pro.slide', version: 1, props: {} }] }
+  const future = { ...block('content.heading', { text: 'newer' }), version: 9 }
+  const source = v.checkDocument(document(
+    block('layout.section', { width: 'wide' }, [
+      block('layout.columns', { columns: { desktop: 3, tablet: 2, mobile: 1 } }, [block('layout.column', {}, [block('content.richText', { content: richDoc(para(text('سلام'))) })]), block('layout.column', {}, [block('content.image', { image: { src: '/uploads/a.png', alt: 'a' } })])]),
+      stranger, future,
+      block('content.buttonGroup', {}, [block('content.button', { label: 'برو', href: '/x' })]),
+    ]),
+  ), registry).document
+  const engine = gb.toEngineBlocks(source, registry)
+  assert.equal(engine[0].name, 'mobocom/layout-section')
+  assert.deepEqual(engine[0].innerBlocks.map((b) => b.name), ['mobocom/layout-columns', 'mobocom/unsupported', 'mobocom/unsupported', 'mobocom/content-button-group'])
+  assert.equal(gb.engineName('content.richText'), 'mobocom/content-rich-text')
+  assert.equal(gb.typeOfEngineName('mobocom/content-rich-text', registry), 'content.richText')
+  assert.equal(gb.typeOfEngineName('core/paragraph', registry), null)
+  for (const definition of registry.list()) { assert.match(gb.engineName(definition.type), /^mobocom\/[a-z][a-z0-9-]*$/); assert.equal(gb.typeOfEngineName(gb.engineName(definition.type), registry), definition.type) }
+  assert.equal(new Set(registry.list().map((d) => gb.engineName(d.type))).size, registry.list().length, 'no two types share an engine name')
+  assert.deepEqual(engine[0].attributes, { width: 'wide', space: 'md', tone: 'none', anchor: '', mcId: source.blocks[0].id, mcVersion: 1 })
+  // Through the engine and back, as many times as an editor is opened: the same document.
+  let round = source
+  for (let i = 0; i < 3; i += 1) round = gb.fromEngineBlocks(JSON.parse(JSON.stringify(gb.toEngineBlocks(round, registry))), registry)
+  assert.deepEqual(round, source)
+  assert.deepEqual(v.checkDocument(round, registry).issues, [])
+  // The engine's own copy is never the stored one: changing it does not reach the document.
+  engine[0].attributes.width = 'full'; engine[0].innerBlocks[1].attributes.stored.props.slides.push(3)
+  assert.equal(source.blocks[0].props.width, 'wide'); assert.deepEqual(source.blocks[0].children[1].props.slides, [1, 2])
+})
+
+test('what the engine makes becomes blocks with ids of their own; what it cannot name is left out', () => {
+  let next = 0
+  const id = () => 'new_' + String(++next).padStart(4, '0')
+  const heading = (attrs) => ({ name: 'mobocom/content-heading', attributes: { text: 'h', level: 2, align: 'start', anchor: '', ...attrs }, innerBlocks: [] })
+  const carried = { name: 'mobocom/unsupported', attributes: { mcId: 'ext_block_9', stored: { id: 'ext_block_9', type: 'x.y', version: 1, props: { k: 1 }, children: [{ id: 'new_0001', type: 'x.z', version: 1, props: {} }] } }, innerBlocks: [] }
+  const out = gb.fromEngineBlocks([
+    heading({ mcId: 'kept_0001' }),          // an existing block
+    heading({}),                              // inserted: no id yet
+    heading({ mcId: 'kept_0001' }),          // duplicated: shares an id
+    carried, JSON.parse(JSON.stringify(carried)), // an unsupported block, and a copy of it made in the editor
+    { name: 'core/paragraph', attributes: { content: '<script>x</script>' }, innerBlocks: [] }, // pasted from somewhere else
+    { name: 'mobocom/layout-section', attributes: { width: 'container' }, innerBlocks: [heading({}), { name: 'core/html', attributes: {}, innerBlocks: [] }] },
+    { name: 'mobocom/content-heading', attributes: { text: 'leaf', mcId: 'leaf_0001' }, innerBlocks: [heading({})] }, // a leaf never keeps inner blocks
+  ], registry, id)
+  assert.deepEqual(out.blocks.map((b) => [b.id, b.type]), [['kept_0001', 'content.heading'], ['new_0002', 'content.heading'], ['new_0003', 'content.heading'], ['ext_block_9', 'x.y'], ['new_0004', 'layout.section'], ['leaf_0001', 'content.heading']])
+  assert.equal(out.blocks.some((b) => b.id === 'new_0001'), false, 'an id held inside a carried block is not given to a new block')
+  assert.deepEqual(out.blocks[3], carried.attributes.stored)
+  assert.deepEqual(out.blocks[4].children.map((b) => b.type), ['content.heading'])
+  assert.equal('children' in out.blocks[5], false)
+  assert.equal('mcId' in out.blocks[0].props || 'mcVersion' in out.blocks[0].props, false, 'the travelling attributes are not props')
+  const ids = []; doc.walkBlocks(out.blocks, (b) => ids.push(b.id)); assert.equal(new Set(ids).size, ids.length)
+  assert.deepEqual(v.checkDocument(out, registry).issues.filter((i) => i.level === 'error'), [])
+  assert.deepEqual(gb.newEngineAttributes('layout.columns', registry), { columns: { desktop: 2, tablet: 2, mobile: 2 }, gap: 'md', align: 'stretch', mcVersion: 1 })
+  assert.deepEqual(gb.newEngineAttributes('no.such', registry), {})
+  assert.deepEqual(gb.fromEngineBlocks([], registry), { version: 1, blocks: [] })
+})
+
+test('WordPress packages are imported only where the editor adapts to them', () => {
+  const root = path.resolve(__dirname, '..', 'src')
+  const allowed = [path.join('modules', 'editor', 'adapters', 'gutenberg'), path.join('components', 'editor', 'gutenberg')]
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? walk(path.join(dir, entry.name)) : /\.(tsx?|css)$/.test(entry.name) ? [path.join(dir, entry.name)] : [])
+  const outside = walk(root).filter((file) => /@wordpress\//.test(fs.readFileSync(file, 'utf8')) && !allowed.some((dir) => path.relative(root, file).startsWith(dir)))
+  assert.deepEqual(outside.map((file) => path.relative(root, file)), [])
+  // The adapter that is tested here knows the shape of engine blocks and nothing of the engine's code.
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'modules/editor/adapters/gutenberg/convert.ts'), 'utf8'), /from '@wordpress/)
+  // And the public page never loads the editor.
+  for (const file of ['modules/site/server/pages/p/[slug]/page.tsx', 'modules/editor/server/documents.ts', 'app/layout.tsx']) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /adapters\/gutenberg|components\/editor\/gutenberg|@wordpress|@tiptap/, file)
+})
