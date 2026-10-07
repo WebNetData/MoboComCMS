@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { listingMeta } from '@/modules/seo/domain/seo'
+import { toPublicPath } from '@/platform/routing/aliases'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { browseGames, gameFacets } from '@/modules/media/server/queries'
@@ -23,7 +25,7 @@ function heading(p: Search, genreName?: string) {
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
   const p = await searchParams
-  return { title: heading(p), robots: p.q || p.developer || p.publisher || p.mode || p.year ? { index: false } : undefined }
+  return { title: heading(p), ...(() => { const seo = listingMeta('/games/browse', p as Record<string, string | undefined>, ['genre', 'platform', 'page']); return { alternates: { canonical: toPublicPath(seo.canonical) }, robots: seo.index ? undefined : { index: false, follow: true } } })() }
 }
 
 /** GameUp browser: big search, filter selects (platform, genre, publisher, developer), cover grid. */

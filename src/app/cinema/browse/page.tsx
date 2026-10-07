@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { listingMeta } from '@/modules/seo/domain/seo'
+import { toPublicPath } from '@/platform/routing/aliases'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { browseCinema } from '@/modules/media/server/queries'
@@ -16,7 +18,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const [p, locale] = await Promise.all([searchParams, getServerLocale()])
   const fa = locale === 'fa'
   const kind = p.kind === 'SERIES' ? (fa ? 'سریال‌ها' : 'Series') : p.kind === 'MOVIE' ? (fa ? 'فیلم‌ها' : 'Movies') : (fa ? 'فیلم و سریال' : 'Films & series')
-  return { title: [kind, p.genre, p.year, p.dubbed === '1' ? (fa ? 'دوبله فارسی' : 'Persian dub') : ''].filter(Boolean).join(' · '), robots: p.q ? { index: false } : undefined }
+  return { title: [kind, p.genre, p.year, p.dubbed === '1' ? (fa ? 'دوبله فارسی' : 'Persian dub') : ''].filter(Boolean).join(' · '), ...(() => { const seo = listingMeta('/cinema/browse', p, ['kind', 'genre', 'page']); return { alternates: { canonical: toPublicPath(seo.canonical) }, robots: seo.index ? undefined : { index: false, follow: true } } })() }
 }
 
 export default async function CinemaBrowsePage({ searchParams }: { searchParams: Promise<Search> }) {
