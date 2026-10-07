@@ -32,12 +32,16 @@ export async function profileMeta(username: string): Promise<Metadata> {
   }
 }
 
-export async function ProfilePage({ username, tab: tabParam, viewerId, forum }: { username: string; tab?: string; viewerId: number | null; forum: boolean }) {
+/** A part of the profile that another module owns (the forum's), shown as one more tab. Built only when it is the tab asked for. */
+export type ProfilePart = { key: string; label: string; icon: string; body: () => Promise<React.ReactNode> }
+
+export async function ProfilePage({ username, tab: tabParam, viewerId, forum, part = null }: { username: string; tab?: string; viewerId: number | null; forum: boolean; part?: ProfilePart | null }) {
   const found = await profileByUsername(username)
   if (!found) return null
   const { profile: p, privacy } = found
   const relation = await relationBetween(viewerId, p.userId)
   const visible = canViewProfile(privacy, relation)
+  const onPart = !!part && tabParam === part.key
   const tab: Tab = (TABS.some(([key]) => key === tabParam) ? tabParam : 'activity') as Tab
   const [settings, shelves, me, suggested] = await Promise.all([
     communitySettings(),
@@ -46,11 +50,17 @@ export async function ProfilePage({ username, tab: tabParam, viewerId, forum }: 
     suggestions(viewerId, 5),
   ])
   const own = relation.self
+  let shownPart = false
   const card: Card = { userId: p.userId, username: p.username, name: p.name, avatar: p.avatar, avatarColor: p.avatarColor, headline: p.headline, verified: p.verified, staff: p.staff }
   let body: React.ReactNode = null
   if (!visible) {
     body = <div className="cm-locked"><CmIcon name="lock" size={34} /><b>{relation.blockedBy ? 'این پروفایل در دسترس نیست' : 'این پروفایل خصوصی است'}</b><p>{privacy.profile === 'FOLLOWERS' ? `برای دیدن پست‌ها و فعالیت‌های ${p.name} باید دنبالش کنید.` : privacy.profile === 'MEMBERS' ? 'برای دیدن این پروفایل وارد حساب کاربری شوید.' : ''}</p></div>
-  } else if (tab === 'activity') {
+  } else if (onPart) {
+    // What the other module shows of this member; when it has nothing, the member's activity is shown instead.
+    body = await part!.body()
+    shownPart = body !== null
+  }
+  if (visible && !shownPart) { if (tab === 'activity') {
     const [items, pinned] = await Promise.all([activityFor(p.userId, privacy, viewerId, 40), pinnedPost(found.pinnedPostId, viewerId)])
     body = <>
       {pinned && <PostCard post={pinned} signedIn={!!viewerId} meId={viewerId} />}
@@ -79,11 +89,11 @@ export async function ProfilePage({ username, tab: tabParam, viewerId, forum }: 
       : <div className="cm-empty"><CmIcon name="bookmark" size={30} /><b>{shelves?.showsFavorites ? 'هنوز چیزی ذخیره نشده' : 'علاقه‌مندی‌ها خصوصی است'}</b></div>
   } else {
     body = privacy.showFollows || own ? <PeopleList people={(await followList(p.userId, tab, viewerId)).people} signedIn={!!viewerId} variant="list" /> : <div className="cm-empty"><CmIcon name="lock" size={30} /><b>این فهرست خصوصی است</b></div>
-  }
+  } }
 
   const stats: [string, number, string][] = [
     ['پست', p.posts, `/u/${p.username}?tab=posts`],
-    ...(forum && shelves?.forum ? [['پیام در تالار', shelves.forum.postCount, `/forum/u/${p.username}`] as [string, number, string]] : []),
+    ...(forum && shelves?.forum ? [['پیام در تالار', shelves.forum.postCount, `/u/${p.username}?tab=${part?.key || 'forum'}`] as [string, number, string]] : []),
     ...(shelves ? [['نقد و امتیاز', shelves.reviews, `/u/${p.username}?tab=activity`] as [string, number, string]] : []),
     ...(shelves?.showsLibrary ? [['بازی', shelves.games.length, `/u/${p.username}?tab=games`] as [string, number, string]] : []),
   ]
@@ -119,7 +129,7 @@ export async function ProfilePage({ username, tab: tabParam, viewerId, forum }: 
           </ul>
         </div>
       </section>
-      <nav className="cm-tabs" aria-label="بخش‌های پروفایل"><div className="container">{TABS.filter(([key]) => (key !== 'games' || shelves?.showsLibrary !== false) && (key !== 'favorites' || shelves?.showsFavorites)).map(([key, label, icon]) => <Link key={key} href={`/u/${p.username}${key === 'activity' ? '' : `?tab=${key}`}`} className={tab === key ? 'is-active' : ''} aria-current={tab === key ? 'page' : undefined}><CmIcon name={icon} size={16} />{label}</Link>)}</div></nav>
+      <nav className="cm-tabs" aria-label="بخش‌های پروفایل"><div className="container">{TABS.filter(([key]) => (key !== 'games' || shelves?.showsLibrary !== false) && (key !== 'favorites' || shelves?.showsFavorites)).map(([key, label, icon]) => <Link key={key} href={`/u/${p.username}${key === 'activity' ? '' : `?tab=${key}`}`} className={!shownPart && tab === key ? 'is-active' : ''} aria-current={tab === key ? 'page' : undefined}><CmIcon name={icon} size={16} />{label}</Link>)}{part && visible && <Link href={`/u/${p.username}?tab=${part.key}`} className={shownPart ? 'is-active' : ''} aria-current={shownPart ? 'page' : undefined}><CmIcon name={part.icon} size={16} />{part.label}</Link>}</div></nav>
       <div className="container cm-layout">
         <div className="cm-main">{body}</div>
         <aside className="cm-aside">

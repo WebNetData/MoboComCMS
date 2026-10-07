@@ -1327,3 +1327,8 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 .fk-manage { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-inline-start: auto; }
 .fk-hand { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .fk-hand .input { width: 200px; max-width: 60vw; }
+
+/* The forum part of a member's profile inside the member's one profile page. */
+.fp-embedded { display: grid; gap: 14px; }
+.fp-embedded .fp-stats { margin-block: 12px; }
+.fp-embedded .fp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
