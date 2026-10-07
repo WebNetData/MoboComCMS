@@ -250,7 +250,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   const data: Record<string, unknown> = {}
-  if (type === 'pages') Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'content', 'contentEn', 'status', 'showInNav', 'sortOrder'])))
+  if (type === 'pages') {
+    // The HTML of a page written in blocks is a copy generated from its document: the page form may change its title, address and state, not its body.
+    if (b?.content !== undefined && (await db.page.findUnique({ where: { id }, select: { editorFormat: true } }))?.editorFormat === 'blocks-v1') return err('this page is written in blocks; its body is edited in the block editor', 409)
+    Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'content', 'contentEn', 'status', 'showInNav', 'sortOrder'])))
+  }
   if (type === 'posts') {
     Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured'])))
     if (b?.access !== undefined) data.access = normalizeAccess(b.access)

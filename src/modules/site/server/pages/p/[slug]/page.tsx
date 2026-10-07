@@ -15,6 +15,7 @@ import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { pageBlocksHtml } from '@/modules/editor/server/documents'
 
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -49,7 +50,9 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
   const attachedForm = layout.formSlug ? await db.siteForm.findUnique({ where: { slug: layout.formSlug } }) : null
 
   const title = isFa ? page.title : page.titleEn || page.title
-  const content = cleanRichText(isFa ? page.content : page.contentEn || page.content)
+  // A page written in blocks is rendered from its document; the HTML built there has every value escaped and is not passed through the HTML cleaner.
+  const blocks = pageBlocksHtml(page)
+  const content = blocks === null ? cleanRichText(isFa ? page.content : page.contentEn || page.content) : ''
   const base = await siteBase()
   const crumbsLd = breadcrumbJsonLd(base, [
     { name: isFa ? 'خانه' : 'Home', path: '/' },
@@ -65,6 +68,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
       <main>
         {layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
         {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}
+        {blocks !== null && <div className="mcb-document container page-main" dir="auto" dangerouslySetInnerHTML={{ __html: blocks }} />}
         {hasLegacy && (
           <div className={`container page-main content-surface managed-page managed-page-${layout.pageLayout} covered-page-body`}>
             <div className={layout.pageLayout === 'sidebar' ? 'article-layout' : 'managed-page-body'}>

@@ -601,6 +601,10 @@ model Page {
   titleEn   String   @default("")
   content   String   @default("")
   contentEn String   @default("")
+  // How this page is written: "legacy" (HTML in content) or "blocks-v1" (a MoboCom document in contentDocument;
+  // content then holds HTML generated from it for search, feeds and readers that only know HTML).
+  editorFormat    String   @default("legacy")
+  contentDocument String   @default("")
   status    String   @default("PUBLISHED") // DRAFT | PUBLISHED
   showInNav Boolean  @default(false)
   sortOrder Int      @default(0)

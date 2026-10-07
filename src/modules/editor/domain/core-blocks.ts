@@ -42,7 +42,7 @@ export const CORE_BLOCKS: BlockDefinition[] = [
     fields: { image: { kind: 'asset', accept: 'image' }, link: { kind: 'url' }, width: { kind: 'enum', values: WIDTHS, default: 'container' }, rounded: { kind: 'boolean', default: true } } },
   { type: 'content.gallery', version: 1, category: 'media', kind: 'static', icon: 'gallery', label: { fa: 'گالری', en: 'Gallery' },
     fields: { images: { kind: 'list', max: 60, item: { image: { kind: 'asset', accept: 'image' } } }, columns: { kind: 'responsive', of: { kind: 'int', min: 1, max: 6, default: 3 } }, gap: { kind: 'enum', values: SPACES, default: 'sm' } } },
-  { type: 'content.embed', version: 1, category: 'media', kind: 'static', icon: 'video', label: { fa: 'ویدئو', en: 'Video' }, permission: 'editor.embed',
+  { type: 'content.embed', version: 1, category: 'media', kind: 'static', icon: 'video', label: { fa: 'ویدئو', en: 'Video' },
     fields: { embed: { kind: 'embed' }, title: { kind: 'string', max: 200, role: 'text' }, ratio: { kind: 'enum', values: ['16:9', '4:3', '1:1', '9:16'], default: '16:9' } } },
   { type: 'content.button', version: 1, category: 'content', kind: 'static', icon: 'button', label: { fa: 'دکمه', en: 'Button' },
     fields: { label: { kind: 'string', max: 80, role: 'text' }, href: { kind: 'url' }, variant: { kind: 'enum', values: ['primary', 'secondary', 'ghost'], default: 'primary' }, size: { kind: 'enum', values: ['sm', 'md', 'lg'], default: 'md' }, newTab: { kind: 'boolean', default: false } } },

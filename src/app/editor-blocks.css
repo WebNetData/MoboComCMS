@@ -1,0 +1,73 @@
+/* Pages written in blocks (src/modules/editor). Every class here is written by the document renderer
+   from a closed list of names; nothing in a document can add a class or a style of its own.
+   Colours and radii come from the theme's tokens. */
+.mcb-document { display: flow-root; }
+.mcb-document > * + * { margin-block-start: var(--mcb-flow, 1.5rem); }
+.mcb { min-width: 0; }
+
+/* layout */
+.mcb-layout-section { padding-block: var(--mcb-space, 2.5rem); margin-inline: auto; }
+.mcb-layout-section > * + *, .mcb-layout-container > * + *, .mcb-layout-column > * + * { margin-block-start: 1.25rem; }
+.mcb-width-container { max-width: 1120px; margin-inline: auto; }
+.mcb-width-narrow { max-width: 720px; margin-inline: auto; }
+.mcb-width-wide { max-width: 1360px; margin-inline: auto; }
+.mcb-width-full { max-width: none; }
+.mcb-space-none { --mcb-space: 0; } .mcb-space-sm { --mcb-space: 1rem; } .mcb-space-md { --mcb-space: 2.5rem; } .mcb-space-lg { --mcb-space: 4rem; } .mcb-space-xl { --mcb-space: 6rem; }
+.mcb-gap-none { --mcb-gap: 0; } .mcb-gap-sm { --mcb-gap: .75rem; } .mcb-gap-md { --mcb-gap: 1.5rem; } .mcb-gap-lg { --mcb-gap: 2.5rem; } .mcb-gap-xl { --mcb-gap: 4rem; }
+.mcb-tone-surface { background: var(--surface, rgba(127, 127, 127, .08)); border-radius: var(--radius-lg, 16px); padding-inline: 1.5rem; }
+.mcb-tone-accent { background: color-mix(in srgb, var(--accent, #2563eb) 12%, transparent); border-radius: var(--radius-lg, 16px); padding-inline: 1.5rem; }
+.mcb-tone-dark { background: #0f172a; color: #f8fafc; border-radius: var(--radius-lg, 16px); padding-inline: 1.5rem; }
+.mcb-align-start { text-align: start; justify-content: flex-start; } .mcb-align-center { text-align: center; justify-content: center; } .mcb-align-end { text-align: end; justify-content: flex-end; }
+.mcb-align-justify { text-align: justify; } .mcb-align-left { text-align: left; } .mcb-align-right { text-align: right; }
+
+.mcb-layout-columns, .mcb-content-gallery { display: grid; gap: var(--mcb-gap, 1.5rem); grid-template-columns: repeat(var(--mcb-cols, 2), minmax(0, 1fr)); }
+.mcb-layout-columns.mcb-align-stretch { align-items: stretch; } .mcb-layout-columns.mcb-align-start { align-items: start; } .mcb-layout-columns.mcb-align-center { align-items: center; } .mcb-layout-columns.mcb-align-end { align-items: end; }
+.mcb-cols-desktop-1 { --mcb-cols: 1; } .mcb-cols-desktop-2 { --mcb-cols: 2; } .mcb-cols-desktop-3 { --mcb-cols: 3; } .mcb-cols-desktop-4 { --mcb-cols: 4; } .mcb-cols-desktop-5 { --mcb-cols: 5; } .mcb-cols-desktop-6 { --mcb-cols: 6; }
+.mcb-span-2 { grid-column: span 2; } .mcb-span-3 { grid-column: span 3; } .mcb-span-4 { grid-column: span 4; } .mcb-span-5 { grid-column: span 5; } .mcb-span-6 { grid-column: span 6; }
+.mcb-layout-stack, .mcb-content-buttonGroup { display: flex; flex-wrap: wrap; gap: var(--mcb-gap, 1.5rem); }
+.mcb-dir-desktop-vertical { flex-direction: column; } .mcb-dir-desktop-horizontal { flex-direction: row; }
+.mcb-layout-spacer { block-size: var(--mcb-size, 2.5rem); }
+.mcb-size-desktop-none { --mcb-size: 0; } .mcb-size-desktop-sm { --mcb-size: 1rem; } .mcb-size-desktop-md { --mcb-size: 2.5rem; } .mcb-size-desktop-lg { --mcb-size: 4rem; } .mcb-size-desktop-xl { --mcb-size: 6rem; }
+.mcb-layout-divider { border: 0; border-block-start: 1px solid var(--border, rgba(127, 127, 127, .3)); }
+.mcb-layout-divider.mcb-line-dashed { border-block-start-style: dashed; } .mcb-layout-divider.mcb-line-dots { border-block-start-style: dotted; border-block-start-width: 3px; }
+
+@media (max-width: 1023px) {
+  .mcb-cols-tablet-1 { --mcb-cols: 1; } .mcb-cols-tablet-2 { --mcb-cols: 2; } .mcb-cols-tablet-3 { --mcb-cols: 3; } .mcb-cols-tablet-4 { --mcb-cols: 4; } .mcb-cols-tablet-5 { --mcb-cols: 5; } .mcb-cols-tablet-6 { --mcb-cols: 6; }
+  .mcb-dir-tablet-vertical { flex-direction: column; } .mcb-dir-tablet-horizontal { flex-direction: row; }
+  .mcb-size-tablet-none { --mcb-size: 0; } .mcb-size-tablet-sm { --mcb-size: 1rem; } .mcb-size-tablet-md { --mcb-size: 2.5rem; } .mcb-size-tablet-lg { --mcb-size: 4rem; } .mcb-size-tablet-xl { --mcb-size: 6rem; }
+  .mcb-span-4, .mcb-span-5, .mcb-span-6 { grid-column: 1 / -1; }
+}
+@media (max-width: 639px) {
+  .mcb-cols-mobile-1 { --mcb-cols: 1; } .mcb-cols-mobile-2 { --mcb-cols: 2; } .mcb-cols-mobile-3 { --mcb-cols: 3; } .mcb-cols-mobile-4 { --mcb-cols: 4; } .mcb-cols-mobile-5 { --mcb-cols: 5; } .mcb-cols-mobile-6 { --mcb-cols: 6; }
+  .mcb-dir-mobile-vertical { flex-direction: column; } .mcb-dir-mobile-horizontal { flex-direction: row; }
+  .mcb-size-mobile-none { --mcb-size: 0; } .mcb-size-mobile-sm { --mcb-size: 1rem; } .mcb-size-mobile-md { --mcb-size: 2.5rem; } .mcb-size-mobile-lg { --mcb-size: 4rem; } .mcb-size-mobile-xl { --mcb-size: 6rem; }
+  .mcb-span-2, .mcb-span-3 { grid-column: 1 / -1; }
+  .mcb-layout-section { padding-inline: 1rem; }
+}
+
+/* content */
+.mcb-content-richText > * + * { margin-block-start: .9em; }
+.mcb-content-richText ul, .mcb-content-richText ol { padding-inline-start: 1.5em; }
+.mcb-content-richText pre, .mcb-content-quote pre, .mcb-content-callout pre { overflow-x: auto; padding: 1rem; border-radius: var(--radius, 12px); background: rgba(127, 127, 127, .12); text-align: left; }
+.mcb-content-richText blockquote, .mcb-content-quote blockquote { margin: 0; padding-inline-start: 1rem; border-inline-start: 3px solid var(--accent, #2563eb); }
+.mcb-tasks { list-style: none; padding-inline-start: 0; }
+.mcb-task { display: flex; gap: .6rem; align-items: flex-start; } .mcb-task.is-done > div { opacity: .65; text-decoration: line-through; }
+.mcb-color-accent { color: var(--accent, #2563eb); } .mcb-color-muted { color: var(--muted, #64748b); } .mcb-color-success { color: #16a34a; } .mcb-color-warning { color: #d97706; } .mcb-color-danger { color: #dc2626; }
+.mcb-content-heading { margin: 0; scroll-margin-block-start: 6rem; }
+.mcb-content-image img, .mcb-content-gallery img { display: block; max-width: 100%; height: auto; }
+.mcb-content-image.is-rounded img, .mcb-content-gallery img { border-radius: var(--radius-lg, 16px); }
+.mcb-content-image figure, .mcb-content-gallery figure, .mcb-content-quote { margin: 0; }
+.mcb-content-image figcaption, .mcb-content-gallery figcaption, .mcb-content-quote figcaption { margin-block-start: .5rem; font-size: .875rem; color: var(--muted, #64748b); }
+.mcb-content-embed { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius-lg, 16px); overflow: hidden; background: #000; }
+.mcb-content-embed.mcb-ratio-4x3 { aspect-ratio: 4 / 3; } .mcb-content-embed.mcb-ratio-1x1 { aspect-ratio: 1; } .mcb-content-embed.mcb-ratio-9x16 { aspect-ratio: 9 / 16; max-width: 420px; margin-inline: auto; }
+.mcb-content-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.mcb-content-button { display: inline-flex; align-items: center; justify-content: center; padding: .7rem 1.4rem; border-radius: var(--radius, 12px); font-weight: 600; text-decoration: none; border: 1px solid transparent; }
+.mcb-content-button:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+.mcb-variant-primary { background: var(--accent, #2563eb); color: #fff; } .mcb-variant-secondary { background: transparent; color: inherit; border-color: currentColor; } .mcb-variant-ghost { background: transparent; color: var(--accent, #2563eb); }
+.mcb-content-button.mcb-size-sm { padding: .45rem 1rem; font-size: .875rem; } .mcb-content-button.mcb-size-lg { padding: .95rem 1.9rem; font-size: 1.1rem; }
+.mcb-content-callout { padding: 1rem 1.25rem; border-radius: var(--radius, 12px); border-inline-start: 4px solid var(--mcb-callout, #2563eb); background: color-mix(in srgb, var(--mcb-callout, #2563eb) 10%, transparent); }
+.mcb-content-callout > strong { display: block; margin-block-end: .35rem; }
+.mcb-content-callout.mcb-tone-info { --mcb-callout: #2563eb; } .mcb-content-callout.mcb-tone-success { --mcb-callout: #16a34a; } .mcb-content-callout.mcb-tone-warning { --mcb-callout: #d97706; } .mcb-content-callout.mcb-tone-danger { --mcb-callout: #dc2626; }
+.mcb-content-faq details { border-block-end: 1px solid var(--border, rgba(127, 127, 127, .3)); padding-block: .85rem; }
+.mcb-content-faq summary { cursor: pointer; font-weight: 600; }
+.mcb-content-faq details > * + * { margin-block-start: .6rem; }
