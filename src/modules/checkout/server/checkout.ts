@@ -347,7 +347,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (productId) {
     const reserved = await reserveInventory({ orderId: order.id })
     if (!reserved.ok) {
-      await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+      await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } }).catch(() => {})
       await releasePromotionForOrder(order.id)
       return fail(409, 'OUT_OF_STOCK', reserved.message || 'out of stock')
     }
@@ -380,8 +380,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     })
     if (!debit.ok) {
       await releaseInventoryReservation(order.id)
-      await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
-      await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+      await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
+      await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } }).catch(() => {})
       await releasePromotionForOrder(order.id)
       return fail(409, 'WALLET_FAILED', debit.message || 'wallet debit failed')
     }
@@ -468,8 +468,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     }
     await releaseInvoiceCredit(invoice.id, `credit released ${invoice.number}`)
     await releaseInventoryReservation(order.id)
-    await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
-    await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID' } }).catch(() => {})
+    await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } }).catch(() => {})
+    await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID' } }).catch(() => {})
     await releasePromotionForOrder(order.id)
     return fail(502, 'GATEWAY_ERROR', 'خطا در ایجاد پرداخت: ' + (result.message || ''))
   }

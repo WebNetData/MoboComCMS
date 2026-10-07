@@ -239,7 +239,11 @@ export async function PATCH(req: NextRequest) {
     } catch (e) { return err(e instanceof Error ? e.message : 'invalid amount') }
   }
   if (!Object.keys(data).length) return err('nothing to update')
-  await db.invoice.update({ where: { id }, data })
+  // What was charged on a paid or refunded invoice is settled: its state and amounts stay (the database refuses them too); a note may still be added.
+  const settles = 'status' in data || 'totalMinor' in data
+  if (settles && ['PAID', 'REFUNDED'].includes(invoice.status)) return err('a paid or refunded invoice cannot be reopened or re-priced — refund it instead', 409)
+  const saved = await db.invoice.updateMany({ where: settles ? { id, status: { notIn: ['PAID', 'REFUNDED'] } } : { id }, data })
+  if (saved.count !== 1) return err('the invoice was paid meanwhile — reload it', 409)
   await auditAdmin({ req, actor: admin, action: 'invoice.update', targetType: 'invoice', targetId: id, metadata: { fields: Object.keys(data), currency } })
   return ok({ ok: true })
 }

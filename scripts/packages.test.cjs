@@ -146,3 +146,22 @@ test('every migration belongs to exactly one release, and a shipped one is never
   // The repository's own manifest agrees with its migrations.
   assert.deepEqual(verify(JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'prisma/release-manifest.json'), 'utf8')), readMigrations()), [])
 })
+
+test('the states the database accepts are the states the code declares', () => {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const sql = read('prisma/migrations/20261216120000_money_state_rules/migration.sql')
+  const allowed = (constraint) => { const m = sql.match(new RegExp('"' + constraint + '" CHECK \\("\\w+" IN \\(([^)]*)\\)\\)')); assert.ok(m, constraint); return m[1].split(',').map((value) => value.trim().replace(/'/g, '')).sort() }
+  const union = (source, name) => { const m = source.match(new RegExp('type ' + name + ' = ([^\\n]+)')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
+  const list = (source, name) => { const m = source.match(new RegExp(name + ' = \\[([^\\]]+)\\]')); assert.ok(m, name); return [...m[1].matchAll(/'([A-Z_]*)'/g)].map((x) => x[1]).sort() }
+  // A wallet row type or an invoice state added in code needs a migration that lets the database accept it.
+  assert.deepEqual(allowed('WalletTx_type_check'), union(read('src/modules/wallet/server/wallet.ts'), 'WalletTxType'))
+  assert.deepEqual(allowed('Invoice_status_check'), list(read('src/modules/billing/server/billing.ts'), 'INVOICE_STATUSES'))
+  assert.deepEqual(allowed('ReturnRequest_status_check'), union(read('src/modules/store/domain/returns.ts'), 'ReturnStatus'))
+  assert.deepEqual(allowed('Order_status_check'), ['CANCELLED', 'EXPIRED', 'FAILED', 'PAID', 'PENDING', 'REFUNDED'])
+  // Every state the payment rail can report is a state an order may hold.
+  const rail = read('src/modules/billing/infrastructure/plisio.ts').match(/mapPlisioStatus\(status: string\): ([^{]+)\{/)[1]
+  for (const [, state] of rail.matchAll(/'([A-Z_]+)'/g)) assert.ok(allowed('Order_status_check').includes(state), state)
+  // Code that closes or reopens money rows claims the state it decided on; the database refuses the rest.
+  const unconditional = /\.(invoice|order)\.update\(\{ where: \{ id[^}]*\}, data: \{ status: /
+  for (const file of ['src/modules/checkout/server/checkout.ts', 'src/modules/reseller/server/reseller.ts', 'src/modules/wallet/server/topup.ts', 'src/modules/store/server/returns.ts', 'src/modules/orders/server/http/admin/orders/route.ts', 'src/modules/identity/server/http/admin/users/[id]/route.ts']) assert.doesNotMatch(read(file), unconditional, file)
+})

@@ -421,8 +421,9 @@ export async function refundReturn(input: { id: number; actorId: number | null; 
   if (restock && row.kind === 'RETURN') await restockLines(row.orderId, parseJson<LineChoice[]>(row.lines, []))
   if (restock) await db.returnRequest.update({ where: { id: row.id }, data: { restocked: true } })
   if (fullyRefunded) {
-    await db.order.update({ where: { id: row.orderId }, data: { status: 'REFUNDED' } })
-    if (order.invoice) await db.invoice.update({ where: { id: order.invoice.id }, data: { status: 'REFUNDED' } })
+    await db.order.updateMany({ where: { id: row.orderId, status: { not: 'REFUNDED' } }, data: { status: 'REFUNDED' } })
+    // Only a paid invoice is refunded; one that was never paid (or is refunded already) stays as it is.
+    if (order.invoice) await db.invoice.updateMany({ where: { id: order.invoice.id, status: 'PAID' }, data: { status: 'REFUNDED' } })
   }
   // Marketplace sellers give back their share of the refunded part (and get the commission back).
   await import('@/modules/marketplace/server/marketplace').then((m) => m.reverseSellerShare(row.orderId, amount, `return:${row.id}`, row.kind === 'RETURN' ? parseJson<LineChoice[]>(row.lines, []).map((choice) => choice.line) : undefined)).catch((error) => logEvent('error', 'marketplace.refund_reverse_failed', { returnId: row.id, error: String(error) }))

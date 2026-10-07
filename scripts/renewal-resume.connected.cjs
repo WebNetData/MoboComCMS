@@ -44,7 +44,7 @@ async function main() {
  const plan = await prisma.plan.create({data: {name: seed, trafficGB: 50, days: 30, price: 100_000, priceMinor: 100_000n, currency: 'IRT', panelId: panel.id}})
  const customer = async name => {
   const user = await prisma.user.create({data: {email: `${seed}-${name}@example.invalid`, passwordHash: 'test-only'}}); state.users.push(user.id)
-  assert.ok((await wallet.moveWallet({userId: user.id, amount: 250_000, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-fund-${name}`})).ok)
+  assert.ok((await wallet.moveWallet({userId: user.id, amount: 250_000, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-fund-${name}`})).ok)
   return {user, sub: await prisma.subscription.create({data: {userId: user.id, planId: plan.id, username: `${seed}-${name}`, expiresAt: new Date(Date.now() + 86_400_000), subToken: `${seed}-${name}`}})}
  }
  const balance = async user => Number((await prisma.walletAccount.findUnique({where: {userId_currency: {userId: user.id, currency: 'IRT'}}}))?.balanceMinor || 0n)

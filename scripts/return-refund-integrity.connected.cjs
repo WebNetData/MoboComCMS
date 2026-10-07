@@ -60,9 +60,9 @@ async function main() {
  {
   const fresh = await customer('fresh')
   const real = one.__wallet, other = two.__wallet
-  const pair = await Promise.all([real.moveWallet({userId: fresh.id, amount: 1000, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-first-1`}), other.moveWallet({userId: fresh.id, amount: 2000, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-first-2`})])
+  const pair = await Promise.all([real.moveWallet({userId: fresh.id, amount: 1000, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-first-1`}), other.moveWallet({userId: fresh.id, amount: 2000, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-first-2`})])
   assert.deepEqual(pair.map(result => result.ok), [true, true], 'neither of two first movements fails'); assert.equal(await wallet(fresh), 3000)
-  const same = await Promise.all([real.moveWallet({userId: fresh.id, amount: 500, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-same`}), other.moveWallet({userId: fresh.id, amount: 500, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-same`})])
+  const same = await Promise.all([real.moveWallet({userId: fresh.id, amount: 500, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-same`}), other.moveWallet({userId: fresh.id, amount: 500, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-same`})])
   assert.deepEqual(same.map(result => result.ok), [true, true]); assert.equal(await wallet(fresh), 3500, 'one key is paid once')
  }
 
@@ -119,7 +119,8 @@ async function main() {
  assert.equal((await prisma.order.findUniqueOrThrow({where: {id: stopped.id}})).status, 'REFUNDED')
  assert.deepEqual(await one.recoverInterruptedRefunds(), {checked: 0, finished: 0, failed: 0})
  // Credited but the record of it missing: the record is repaired, nothing is paid or restocked again.
- await prisma.returnRequest.update({where: {id: claimed.id}, data: {walletTxId: null}})
+ // The database refuses to unlink a paid refund from its wallet row; the crash is staged with the rule lifted for this one statement.
+ await prisma.$transaction([prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" DISABLE TRIGGER "ReturnRequest_state_rules"'), prisma.returnRequest.update({where: {id: claimed.id}, data: {walletTxId: null}}), prisma.$executeRawUnsafe('ALTER TABLE "ReturnRequest" ENABLE TRIGGER "ReturnRequest_state_rules"')])
  state.effects.length = 0
  assert.deepEqual(await one.recoverInterruptedRefunds(), {checked: 1, finished: 1, failed: 0})
  assert.equal(await wallet(d), 100_000); assert.deepEqual(state.effects, []); assert.ok((await prisma.returnRequest.findUniqueOrThrow({where: {id: claimed.id}})).walletTxId)

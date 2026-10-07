@@ -417,8 +417,8 @@ export async function createResellerAccount(
     idempotencyKey: `reseller-wallet:${reseller.id}:${input.idempotencyKey}`,
   })
   if (!debit.ok) {
-    await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
-    await db.order.update({ where: { id: order.id }, data: { status: 'FAILED' } }).catch(() => {})
+    await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID', walletApplied: 0, walletAppliedMinor: 0n } }).catch(() => {})
+    await db.order.updateMany({ where: { id: order.id, status: 'PENDING' }, data: { status: 'FAILED' } }).catch(() => {})
     return { ok: false, code: 'WALLET_FAILED', message: debit.message || 'wallet charge failed', currency }
   }
   const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'reseller' } })

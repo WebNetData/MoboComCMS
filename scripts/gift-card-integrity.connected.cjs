@@ -40,7 +40,7 @@ async function main() {
  const [buyer, friend, stranger] = await Promise.all(['buyer', 'friend', 'stranger'].map(name => prisma.user.create({data: {email: `${seed}-${name}@example.invalid`, passwordHash: 'test-only'}})))
  const balance = async user => Number((await prisma.walletAccount.findUnique({where: {userId_currency: {userId: user.id, currency: 'IRT'}}}))?.balanceMinor || 0n)
  const cardsOf = key => prisma.giftCard.count({where: {note: `buy:${buyer.id}:${key}`}})
- assert.ok((await wallet.moveWallet({userId: buyer.id, amount: 500_000, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-topup`})).ok)
+ assert.ok((await wallet.moveWallet({userId: buyer.id, amount: 500_000, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-topup`})).ok)
 
  // --- one purchase, one card: a duplicate request that got past the "already bought?" lookup
  const first = await service.purchaseGiftCard(buyer.id, {toman: 100_000, idempotencyKey: `${seed}-k1`})
@@ -71,7 +71,7 @@ async function main() {
   assert.equal(recovered.amount, 100_000, 'the member the card was claimed for gets its value'); assert.equal(await balance(friend), 100_000)
   await refuses(service.redeemGiftCard(friend.id, first.code), 'USED')
   assert.equal(await balance(friend), 100_000, 'and only once')
- } else await wallet.moveWallet({userId: friend.id, amount: 100_000, currency: 'IRT', type: 'TEST', idempotencyKey: `${seed}-skip`})
+ } else await wallet.moveWallet({userId: friend.id, amount: 100_000, currency: 'IRT', type: 'ADMIN_CREDIT', idempotencyKey: `${seed}-skip`})
  // The ordinary path is unchanged.
  assert.equal((await service.redeemGiftCard(friend.id, other.code)).amount, 50_000); assert.equal(await balance(friend), 150_000)
  await refuses(service.redeemGiftCard(stranger.id, other.code), 'USED')
