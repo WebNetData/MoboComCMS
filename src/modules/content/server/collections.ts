@@ -7,6 +7,9 @@ import { randomBytes } from 'node:crypto'
 const PAGE_SIZE = 24
 const MAX_ITEMS = 500
 const VISIBILITY = ['PRIVATE', 'UNLISTED', 'PUBLIC'] as const
+/** A collection written by staff is signed by the site, not by the staff member who typed it. */
+export const EDITORIAL_BYLINE = 'تحریریه'
+const signed = <T extends { staffAuthored: boolean; owner: { name: string | null } }>(row: T): T => (row.staffAuthored ? { ...row, owner: { ...row.owner, name: EDITORIAL_BYLINE } } : row)
 type Visibility = typeof VISIBILITY[number]
 
 export class CollectionError extends Error {
@@ -44,7 +47,8 @@ function page(raw: unknown) {
 
 export async function myCollections(userId: number) {
   return db.userCollection.findMany({
-    where: { OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }] },
+    // A collection written for the site is edited in the admin panel, not among the member's own lists.
+    where: { staffAuthored: false, OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }] },
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 100,
     select: { id: true, ownerId: true, title: true, description: true, cover: true, visibility: true, updatedAt: true, _count: { select: { items: true } } },
   })
@@ -55,38 +59,39 @@ export async function publicCollections(rawPage: unknown) {
   const where = { visibility: { in: ['PUBLIC', 'EDITORIAL'] } }
   const [total, rows] = await Promise.all([
     db.userCollection.count({ where }),
-    db.userCollection.findMany({ where, orderBy: [{ visibility: 'asc' }, { updatedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE, select: { id: true, title: true, description: true, cover: true, visibility: true, updatedAt: true, owner: { select: { name: true } }, _count: { select: { items: true, followers: true, reactions: true } } } }),
+    db.userCollection.findMany({ where, orderBy: [{ visibility: 'asc' }, { updatedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE, select: { id: true, title: true, description: true, cover: true, visibility: true, staffAuthored: true, updatedAt: true, owner: { select: { name: true } }, _count: { select: { items: true, followers: true, reactions: true } } } }),
   ])
-  return { items: rows, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), total }
+  return { items: rows.map(signed), page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), total }
 }
 
 export async function collectionPublicMetadata(id: number) {
   return db.userCollection.findFirst({ where: { id, visibility: { in: ['PUBLIC', 'EDITORIAL'] } }, select: { title: true, description: true } })
 }
 
-/** Staff curation of a public member list. The owner retains ownership and can withdraw it. */
+/** Staff curation of a public member list. The owner retains ownership and can withdraw it. A collection staff wrote is published and withdrawn by `publishEditorialCollection` instead. */
 export async function featureCollection(id: number, on: boolean) {
   if (on) {
-    const row = await db.userCollection.findFirst({ where: { id, visibility: 'PUBLIC' }, select: { id: true } })
+    const row = await db.userCollection.findFirst({ where: { id, visibility: 'PUBLIC', staffAuthored: false }, select: { id: true } })
     if (!row) throw new CollectionError('Public collection unavailable', 404)
     const detail = await getCollection(id, null)
     if (!detail.items.length) throw new CollectionError('Collection needs a published item')
   }
-  const result = await db.userCollection.updateMany({ where: { id, visibility: on ? 'PUBLIC' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PUBLIC' } })
+  const result = await db.userCollection.updateMany({ where: { id, staffAuthored: false, visibility: on ? 'PUBLIC' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PUBLIC' } })
   if (!result.count) throw new CollectionError('Collection unavailable', 404)
   return { editorial: on }
 }
 
-export async function getCollection(id: number, viewerId: number | null, shareToken?: string) {
+export async function getCollection(id: number, viewerId: number | null, shareToken?: string, staff = false) {
   const row = await db.userCollection.findUnique({
     where: { id },
     include: { owner: { select: { name: true } }, collaborators: { include: { user: { select: { name: true, email: true } } } }, items: { orderBy: { position: 'asc' }, take: MAX_ITEMS, select: { id: true, itemType: true, itemId: true, position: true } }, _count: { select: { followers: true, reactions: true } } },
   })
-  const member = row && (row.ownerId === viewerId || row.collaborators.some((entry) => entry.userId === viewerId))
+  // Staff see the drafts of the collections written for the site; a member's private list stays the member's.
+  const member = row && (row.staffAuthored ? staff : row.ownerId === viewerId || row.collaborators.some((entry) => entry.userId === viewerId))
   if (!row || (row.visibility === 'PRIVATE' && !member) || (row.visibility === 'UNLISTED' && !member && (!shareToken || shareToken !== row.shareToken))) throw new CollectionError('Collection unavailable', 404)
   const refs = row.items.map((item) => parseItemKey(`${item.itemType}:${item.itemId}`)).filter((ref): ref is ItemRef => !!ref)
   const cards = await itemCards(refs)
-  return { id: row.id, ownerId: row.ownerId, ownerName: row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, followerCount: row._count.followers, reactionCount: row._count.reactions, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
+  return { id: row.id, staffAuthored: row.staffAuthored, ownerId: row.ownerId, ownerName: row.staffAuthored ? EDITORIAL_BYLINE : row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, followerCount: row._count.followers, reactionCount: row._count.reactions, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
 }
 
 export async function createCollection(userId: number, input: { title?: unknown; description?: unknown; cover?: unknown; visibility?: unknown }) {
@@ -99,7 +104,7 @@ export async function updateCollection(userId: number, id: number, input: { titl
   if (!Object.keys(data).length) throw new CollectionError('Nothing to update')
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR UPDATE`
-    const current = await tx.userCollection.findFirst({ where: { id, ownerId: userId }, select: { visibility: true } })
+    const current = await tx.userCollection.findFirst({ where: { id, ownerId: userId, staffAuthored: false }, select: { visibility: true } })
     if (!current) throw new CollectionError('Collection unavailable', 404)
     await tx.userCollection.update({ where: { id }, data: { ...data, ...(data.visibility === 'UNLISTED' && current.visibility !== 'UNLISTED' ? { shareToken: randomBytes(24).toString('base64url') } : {}) } })
     if (data.visibility && data.visibility !== current.visibility && ['PRIVATE', 'UNLISTED'].includes(data.visibility)) {
@@ -110,14 +115,16 @@ export async function updateCollection(userId: number, id: number, input: { titl
 }
 
 export async function deleteCollection(userId: number, id: number) {
-  const result = await db.userCollection.deleteMany({ where: { id, ownerId: userId } })
+  const result = await db.userCollection.deleteMany({ where: { id, ownerId: userId, staffAuthored: false } })
   if (!result.count) throw new CollectionError('Collection unavailable', 404)
   return { deleted: true }
 }
 
+/** Who may change what a collection holds: its owner and collaborators, or (`STAFF`) the staff for a collection written for the site. */
+const STAFF = 0
 async function writableCollection(tx: Prisma.TransactionClient, id: number, userId: number) {
   await tx.$queryRaw`SELECT id FROM "UserCollection" WHERE id = ${id} FOR UPDATE`
-  const collection = await tx.userCollection.findFirst({ where: { id, OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }] }, select: { id: true } })
+  const collection = await tx.userCollection.findFirst({ where: userId === STAFF ? { id, staffAuthored: true } : { id, staffAuthored: false, OR: [{ ownerId: userId }, { collaborators: { some: { userId } } }] }, select: { id: true } })
   if (!collection) throw new CollectionError('Collection unavailable', 404)
 }
 
@@ -244,3 +251,55 @@ export async function saveCollection(userId: number, id: number, on: boolean, sh
     return { saved: true }
   })
 }
+
+// ------------------------------------------------------------------ collections written by staff
+
+/** The admin list: collections written for the site (drafts first), then members' public lists that can be selected. */
+export async function adminCollections(rawPage: unknown) {
+  const current = page(rawPage)
+  const where = { OR: [{ staffAuthored: true }, { visibility: { in: ['PUBLIC', 'EDITORIAL'] } }] }
+  const [total, rows] = await Promise.all([
+    db.userCollection.count({ where }),
+    db.userCollection.findMany({ where, orderBy: [{ staffAuthored: 'desc' }, { visibility: 'asc' }, { updatedAt: 'desc' }, { id: 'desc' }], skip: (current - 1) * PAGE_SIZE, take: PAGE_SIZE, select: { id: true, title: true, description: true, cover: true, visibility: true, staffAuthored: true, updatedAt: true, owner: { select: { name: true } }, _count: { select: { items: true, reactions: true } } } }),
+  ])
+  return { items: rows, page: current, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), total }
+}
+
+/** A new collection of the site, as a draft. The staff member is recorded as its owner; the public sees the site's byline. */
+export async function createEditorialCollection(staffId: number, input: { title?: unknown; description?: unknown; cover?: unknown }) {
+  return db.userCollection.create({ data: { ownerId: staffId, staffAuthored: true, visibility: 'PRIVATE', title: text(input.title, 120, true), description: text(input.description ?? '', 2000), cover: coverUrl(input.cover ?? '') }, select: { id: true } })
+}
+
+export async function updateEditorialCollection(id: number, input: { title?: unknown; description?: unknown; cover?: unknown }) {
+  const data = { ...(input.title !== undefined ? { title: text(input.title, 120, true) } : {}), ...(input.description !== undefined ? { description: text(input.description, 2000) } : {}), ...(input.cover !== undefined ? { cover: coverUrl(input.cover) } : {}) }
+  if (!Object.keys(data).length) throw new CollectionError('Nothing to update')
+  const result = await db.userCollection.updateMany({ where: { id, staffAuthored: true }, data })
+  if (!result.count) throw new CollectionError('Collection unavailable', 404)
+  return { saved: true }
+}
+
+/**
+ * Publishes a staff collection (it needs at least one item the public can open) or takes it back to a draft.
+ * Taking it back keeps who followed, saved and liked it: they see it again when it is published again.
+ */
+export async function publishEditorialCollection(id: number, on: boolean) {
+  if (on) {
+    const detail = await getCollection(id, null, undefined, true)
+    if (!detail.staffAuthored) throw new CollectionError('Collection unavailable', 404)
+    if (!detail.items.length) throw new CollectionError('Collection needs a published item')
+  }
+  const result = await db.userCollection.updateMany({ where: { id, staffAuthored: true, visibility: on ? 'PRIVATE' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PRIVATE' } })
+  if (!result.count) throw new CollectionError('Collection unavailable', 404)
+  return { published: on }
+}
+
+export async function deleteEditorialCollection(id: number) {
+  const result = await db.userCollection.deleteMany({ where: { id, staffAuthored: true } })
+  if (!result.count) throw new CollectionError('Collection unavailable', 404)
+  return { deleted: true }
+}
+
+/** What a staff collection holds, changed by staff: the same rules as a member's own list (published items only, no repeats, the size limit). */
+export const addEditorialItem = (id: number, ref: unknown) => addCollectionItem(STAFF, id, ref)
+export const removeEditorialItem = (id: number, ref: unknown) => removeCollectionItem(STAFF, id, ref)
+export const moveEditorialItem = (id: number, ref: unknown, direction: unknown) => moveCollectionItem(STAFF, id, ref, direction)

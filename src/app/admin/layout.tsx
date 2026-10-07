@@ -142,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'] },
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate'] },
-      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: 'cms.posts' },
+      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] },
     ] },
     { title: L('سرویس VPN', 'VPN service'), items: [
       { href: '/admin/plans', label: t.plansAdmin, icon: 'globe', perm: 'plans.manage' },
