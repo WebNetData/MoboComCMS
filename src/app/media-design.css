@@ -987,3 +987,12 @@ a.cn-person { color: inherit; text-decoration: none; }
 .cn-person.is-large img, .cn-person.is-large i { width: 120px; height: 120px; }
 .cn-person-bio { max-width: 70ch; }
 @media (max-width: 600px) { .cn-person-head { flex-direction: column; align-items: flex-start; } }
+
+/* The public timeline of an item. */
+.it-timeline ol { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 10px; max-width: 760px; }
+.it-timeline li { display: grid; grid-template-columns: 130px 110px 1fr; align-items: baseline; gap: 12px; padding: 12px 14px; border: 1px solid var(--md-line, var(--border)); border-radius: 12px; }
+.it-timeline time { color: var(--md-muted, var(--muted)); font-size: .86rem; }
+.it-timeline .it-kind { font-size: .8rem; font-weight: 600; }
+.it-timeline li a { color: inherit; text-decoration: none; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.it-timeline li small { color: var(--md-muted, var(--muted)); }
+@media (max-width: 600px) { .it-timeline li { grid-template-columns: 1fr; gap: 4px; } }

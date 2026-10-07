@@ -118,7 +118,8 @@ test('private messages and unlisted/pending topics stay out of public surfaces',
   const forum = read('src/modules/forum/server/forum.ts')
   assert.match(forum, /where\.listed = true/)
   assert.match(forum, /listed: true, categoryId: \{ in: scope \}/, 'search skips unlisted topics')
-  assert.match(read('src/modules/site/server/pages/sitemap.ts'), /status: 'VISIBLE', listed: true/)
+  // The sitemap's forum entries are built by the SEO module from what a visitor may read.
+  assert.match(read('src/modules/seo/server/sitemap-entities.ts'), /visibleCategories\(GUEST\)[\s\S]*status: 'VISIBLE', listed: true/)
   assert.match(read('src/modules/content/server/registry.ts'), /listed: true/)
   const messages = read('src/modules/forum/server/messages.ts')
   assert.match(messages, /conversationId_userId: \{ conversationId, userId: viewer\.userId \}/, 'conversations load through the viewer membership')
