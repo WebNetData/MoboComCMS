@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { recordRevision } from '@/modules/content/server/revisions'
 import { syncCredits } from '@/modules/cinema/server/people'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
@@ -546,7 +547,8 @@ export async function GET(req: NextRequest) {
  * Saves one item exactly as the admin form does (validation, nested links/seasons,
  * section categories). Shared with the bulk import engine; the caller recounts taxonomy.
  */
-export async function saveMediaItem(type: string, body: Input, id: number | null): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
+/** `actor` is the staff member saving through the admin form; an import passes none and is recorded as such. */
+export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
   const existing = id ? await resource.delegate(db).findUnique({ where: { id } }) : null
@@ -566,7 +568,31 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     return saved
   }, { timeout: 30_000 })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
+  await recordRevision({ entityType: type, entityId: row.id, before: existing, after: row, actor, source: actor ? 'edit' : 'import' })
   return { row, existing }
+}
+
+/** The permissions and module of a kind of item, for the history of its items. */
+export const mediaResource = (type: string) => (Object.hasOwn(RESOURCES, type) ? { perms: RESOURCES[type].perms, module: RESOURCES[type].module } : null)
+
+/**
+ * Puts an item's own columns back to an earlier state. `values` is given the item as it is and returns what
+ * to write. Categories, links and seasons are not part of a version and stay as they are. Everything that
+ * follows a change of the item (search, feeds, the people of a film) follows this one too.
+ */
+export async function restoreMediaItem(type: string, id: number, values: (current: Record<string, unknown>) => Record<string, unknown>) {
+  const resource = RESOURCES[type]
+  if (!resource) throw new Error(`Unknown resource: ${type}`)
+  const before = await resource.delegate(db).findUnique({ where: { id } })
+  if (!before) throw Object.assign(new Error('not found'), { status: 404 })
+  const after = await db.$transaction(async (tx) => {
+    const saved = await resource.delegate(tx).update({ where: { id }, data: values(before) })
+    if (type === 'cinema-titles') await syncCredits(tx, id)
+    return saved
+  })
+  if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, before, after)
+  await recountFor(resource)
+  return { before, after }
 }
 
 /** Deletes one item with its links and section categories (import rollback). */
@@ -607,7 +633,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
   if (mode === 'update' && (!Number.isSafeInteger(id) || id <= 0)) return err('invalid id')
   try {
     if (mode === 'update' && !await resource.delegate(db).findUnique({ where: { id } })) return err('not found', 404)
-    const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null)
+    const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null, { id: admin.id, email: admin.email })
     await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     return ok({ id: row.id, slug: row.slug, status: row.status }, mode === 'create' ? 201 : 200)

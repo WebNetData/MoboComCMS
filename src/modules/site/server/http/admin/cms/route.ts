@@ -17,6 +17,7 @@ import { capturePublicProductPrices, prepareProductPriceCapture } from '@/module
 import { fxFormFields } from '@/modules/fx/server/fx'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin } from '@/platform/audit/server'
+import { recordRevision } from '@/modules/content/server/revisions'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/journal'
@@ -192,6 +193,7 @@ export async function POST(req: NextRequest) {
         return created
       })
       contentChanged({ type: 'post', id: row.id }, null, row)
+      await recordRevision({ entityType: 'posts', entityId: row.id, before: null, after: row, actor: admin })
       return ok(row)
     }
     if (type === 'postcats' || type === 'productcats') {
@@ -294,7 +296,7 @@ export async function PATCH(req: NextRequest) {
     if (type === 'posts') {
       const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
-      const before = await db.post.findUnique({ where: { id }, select: { status: true, publishedAt: true, title: true } })
+      const before = await db.post.findUnique({ where: { id } })
       const saved = await db.$transaction(async tx => {
         if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
           const ids = await validateCategorySelection(tx, b)
@@ -307,6 +309,7 @@ export async function PATCH(req: NextRequest) {
         return row
       })
       contentChanged({ type: 'post', id }, before, saved)
+      await recordRevision({ entityType: 'posts', entityId: id, before, after: saved, actor: admin })
       return ok(saved)
     }
     if (type === 'postcats') return ok(await db.$transaction(async tx => {
@@ -315,11 +318,13 @@ export async function PATCH(req: NextRequest) {
     }, { isolationLevel: 'Serializable' }))
     if (type === 'pages') {
       const layout = validatePageLayout({ ...await getPageLayout(id), ...b })
+      const pageBefore = await db.page.findUnique({ where: { id } })
       const row = await db.$transaction(async tx => {
         const page = await tx.page.update({ where: { id }, data })
         await tx.setting.upsert({ where: { key: `page.layout.${id}` }, create: { key: `page.layout.${id}`, value: JSON.stringify(layout) }, update: { value: JSON.stringify(layout) } })
         return page
       })
+      await recordRevision({ entityType: 'pages', entityId: id, before: pageBefore, after: row, actor: admin })
       return ok(row)
     }
     const row = await model.update({ where: { id }, data })

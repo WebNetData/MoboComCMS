@@ -3381,6 +3381,24 @@ model CrmTag {
 // ---------------------------------------------------------------- Operations
 
 /// Background queue for heavy work (image optimization, re-indexing…), run by the job scheduler.
+/// A version of an item staff edit (a post, a page, a film, a game, ...): its own columns after a save,
+/// kept so its history can be read and an earlier state put back (content/domain/revisions).
+model ContentRevision {
+  id         Int      @id @default(autoincrement())
+  entityType String // posts | pages | a media resource (cinema-titles, games, software, music-albums, ...)
+  entityId   Int
+  version    Int
+  snapshot   String // the item's own columns as JSON; never a secret
+  changed    String   @default("") // columns that differ from the version before, comma separated
+  source     String   @default("edit") // baseline | edit | restore | import
+  actorId    Int?
+  actorEmail String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@unique([entityType, entityId, version])
+  @@index([entityType, entityId, createdAt])
+}
+
 /// What staff do about one waiting item of any section: who has taken it, their note, and the decision sent
 /// from the overview. The item and its decision stay with the owning module (moderation/domain/cases).
 model ModerationCase {

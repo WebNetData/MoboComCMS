@@ -286,7 +286,7 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
 
       {form && (
         <form onSubmit={save} className="card mb-6 mx-form">
-          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong></div>
+          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           <div className="mx-grid">
             {fields.map((field) => (
