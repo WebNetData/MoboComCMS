@@ -1,9 +1,10 @@
 import { db } from '@/platform/database/prisma'
 import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { itemKey, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
-import { relatedAlbums, relatedCinema, relatedGames, relatedSoftware, relatedTracks } from '@/modules/recommendations/server/contextual'
+import { RATED_SEED_MIN, SEED_WEIGHT, cleanSuggestions, type Seed } from '@/modules/recommendations/domain/provider'
+import { recommendationProvider } from '@/modules/recommendations/server/providers'
+import { logEvent } from '@/platform/observability/logger'
 
-type Seed = { ref: ItemRef; kind: 'favorite' | 'view' | 'follow' | 'listen' }
 type PersonalSuggestion = { item: ItemCard; sourceTitle: string; sourceKind: Seed['kind']; reason: string }
 
 const supported = ['game', 'software', 'title', 'album', 'track']
@@ -13,13 +14,16 @@ const HISTORY_DAYS = 180
 const LISTEN_SEEDS = 12
 // Tracks the member already played are not suggested back to them.
 const HEARD_LIMIT = 300
-const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+// How many candidates one seed is asked for.
+const PER_SEED = 12
 // Admin pause must take effect on the next request, including across separately bundled routes.
 const available = async () => (await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' }, select: { value: true } }))?.value !== 'false'
 
 /**
  * Private, bounded suggestions. No interaction history is read before explicit consent, and
- * listening history only with its own, separate consent.
+ * listening history only with its own, separate consent. What goes with a seed is asked of the
+ * provider for its kind of item (`providers.ts`); consent, bounds, what the member already has
+ * and what is shown stay here whichever provider answers.
  */
 export async function personalRecommendations(userId: number, take = 6): Promise<{ available: boolean; enabled: boolean; items: PersonalSuggestion[] }> {
   if (!Number.isSafeInteger(userId) || userId < 1) return { available: false, enabled: false, items: [] }
@@ -29,19 +33,22 @@ export async function personalRecommendations(userId: number, take = 6): Promise
   const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000)
   const useListening = preference.recommendationListeningOptIn
 
-  const [follows, favorites, views, listens, heard] = await Promise.all([
+  const [follows, favorites, views, listens, heard, reviews] = await Promise.all([
     db.itemFavorite.findMany({ where: { userId, itemType: { in: followedCreators } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
     db.itemFavorite.findMany({ where: { userId, itemType: { in: supported } }, orderBy: { createdAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
     db.userRecentView.findMany({ where: { userId, lastViewedAt: { gte: since } }, orderBy: { lastViewedAt: 'desc' }, take: 12, select: { itemType: true, itemId: true } }),
     useListening ? db.musicListenHistory.findMany({ where: { userId, lastPlayedAt: { gte: since }, OR: [{ completedAt: { not: null } }, { playCount: { gte: 2 } }] }, orderBy: [{ playCount: 'desc' }, { lastPlayedAt: 'desc' }, { trackId: 'desc' }], take: LISTEN_SEEDS, select: { trackId: true } }) : [],
     useListening ? db.musicListenHistory.findMany({ where: { userId }, orderBy: [{ lastPlayedAt: 'desc' }, { trackId: 'desc' }], take: HEARD_LIMIT, select: { trackId: true } }) : [],
+    // The member's own published reviews: a high rating is a deliberate "more like this"; whatever they rated is not suggested back.
+    db.itemReview.findMany({ where: { userId, status: 'APPROVED', itemType: { in: supported } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 60, select: { itemType: true, itemId: true, rating: true } }),
   ])
   const creatorSeeds: Seed[] = []
   const contentSeeds: Seed[] = []
   const seen = new Set<string>()
   // What the member listens to repeatedly says more than a page view, less than a deliberate favorite.
   const listened = listens.map((row) => ({ itemType: 'track', itemId: row.trackId }))
-  for (const [kind, rows] of [['follow', follows], ['favorite', favorites], ['listen', listened], ['view', views]] as const) for (const row of rows) {
+  const rated = reviews.filter((row) => row.rating >= RATED_SEED_MIN).slice(0, 12)
+  for (const [kind, rows] of [['follow', follows], ['favorite', favorites], ['rated', rated], ['listen', listened], ['view', views]] as const) for (const row of rows) {
     const ref = parseItemKey(`${row.itemType}:${row.itemId}`)
     if (!ref) continue
     const key = itemKey(ref)
@@ -50,6 +57,7 @@ export async function personalRecommendations(userId: number, take = 6): Promise
     seen.add(key)
   }
   for (const row of heard) seen.add(itemKey({ type: 'track', id: row.trackId }))
+  for (const row of reviews) seen.add(`${row.itemType}:${row.itemId}`)
   // Reserve room for a followed creator even when newer content favorites fill the history window.
   const seeds = [creatorSeeds[0], contentSeeds[0], ...creatorSeeds.slice(1), ...contentSeeds.slice(1)].filter((seed): seed is Seed => !!seed)
   if (!seeds.length) return { available: true, enabled: true, items: [] }
@@ -63,63 +71,15 @@ export async function personalRecommendations(userId: number, take = 6): Promise
     if (!source) continue
     // Stop after a bounded number of live sources, even when none yields a candidate.
     if (++examined > 6) break
-    let suggestions: { item: ItemRef; score: number; reason: string }[]
-    switch (seed.ref.type) {
-      case 'artist': {
-        const [albums, tracks] = await Promise.all([
-          db.musicAlbum.findMany({ where: { artistId: seed.ref.id, ...live(now) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 12, select: { id: true } }),
-          db.musicTrack.findMany({ where: { artistId: seed.ref.id, ...live(now) }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 12, select: { id: true } }),
-        ])
-        suggestions = [
-          ...albums.map((row) => ({ item: { type: 'album' as const, id: row.id }, score: 18, reason: 'از هنرمندی که دنبال می‌کنید' })),
-          ...tracks.map((row) => ({ item: { type: 'track' as const, id: row.id }, score: 18, reason: 'از هنرمندی که دنبال می‌کنید' })),
-        ]
-        break
-      }
-      case 'studio': {
-        const creator = { OR: [{ developerStudioId: seed.ref.id }, { publisherStudioId: seed.ref.id }], ...live(now) }
-        const [games, software] = await Promise.all([
-          db.gameTitle.findMany({ where: creator, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 12, select: { id: true } }),
-          db.softwareTitle.findMany({ where: creator, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: 12, select: { id: true } }),
-        ])
-        suggestions = [
-          ...games.map((row) => ({ item: { type: 'game' as const, id: row.id }, score: 18, reason: 'از سازنده یا ناشری که دنبال می‌کنید' })),
-          ...software.map((row) => ({ item: { type: 'software' as const, id: row.id }, score: 18, reason: 'از سازنده یا ناشری که دنبال می‌کنید' })),
-        ]
-        break
-      }
-      case 'game': {
-        const row = await db.gameTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genres: true, platforms: true, developerStudioId: true, publisherStudioId: true } })
-        suggestions = row ? await relatedGames(row, 12) : []
-        break
-      }
-      case 'software': {
-        const row = await db.softwareTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, category: true, platforms: true, developerStudioId: true, publisherStudioId: true } })
-        suggestions = row ? await relatedSoftware(row, 12) : []
-        break
-      }
-      case 'title': {
-        const row = await db.cinemaTitle.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genres: true, kind: true } })
-        suggestions = row ? await relatedCinema(row, 12) : []
-        break
-      }
-      case 'album': {
-        const row = await db.musicAlbum.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
-        suggestions = row ? await relatedAlbums(row, 12) : []
-        break
-      }
-      case 'track': {
-        const row = await db.musicTrack.findFirst({ where: { id: seed.ref.id, ...live(now) }, select: { id: true, genre: true, artistId: true } })
-        suggestions = row ? await relatedTracks(row, 12) : []
-        break
-      }
-      default: continue
-    }
+    const provider = recommendationProvider(seed.ref.type)
+    if (!provider) continue
+    // A provider that fails or answers nonsense costs its seed, not the member's whole list.
+    const suggestions = cleanSuggestions(await provider.suggest(seed.ref, { now, take: PER_SEED }).catch((error) => { logEvent('error', 'recommendations.provider_failed', { provider: provider.id, error }); return [] }), PER_SEED * 2)
     const priorCount = ranked.size
     for (const suggestion of suggestions) {
       const key = itemKey(suggestion.item)
       if (seen.has(key)) continue
-      const score = suggestion.score + (seed.kind === 'view' ? 0 : seed.kind === 'listen' ? 2 : 3)
+      const score = suggestion.score + SEED_WEIGHT[seed.kind]
       const previous = ranked.get(key)
       if (!previous || score > previous.score) ranked.set(key, { ref: suggestion.item, score, sourceTitle: source.title, sourceKind: seed.kind, reason: suggestion.reason })
     }
