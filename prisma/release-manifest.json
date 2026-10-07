@@ -1,0 +1,392 @@
+{
+  "releases": {
+    "1.6.0": {
+      "migrations": [
+        {
+          "name": "20260922000000_postgresql_baseline",
+          "sha256": "f1f89000cc1c63af1c075ddc531b74444aadfb06ff7f3fbc699ecf5eba415636"
+        },
+        {
+          "name": "20260922120000_panel_adapter_config",
+          "sha256": "aabddcf4a63cf9e30082d6872c266bb1a38bb6dae0086c479e121052d317b89b"
+        },
+        {
+          "name": "20260923120000_plan_localizations",
+          "sha256": "20233c8c34495196048eeb22508448970a3048c615164bb1661e1e833af72401"
+        },
+        {
+          "name": "20260923130000_ticket_departments",
+          "sha256": "d3547d5415a7130b605f53ab67db9c87778168bceee93e3b8922cc112d1fdd5c"
+        },
+        {
+          "name": "20260923140000_ticket_department_management",
+          "sha256": "5ecafd2e536b3401fb0dd8840ed699470fd2161e7bbfb7e9b94fd2a6e6f0773e"
+        },
+        {
+          "name": "20260924120000_ticket_operations",
+          "sha256": "2368565e9eea5ceb31c6f034f0c93136184a2a2fa668704f9e28fea061ada4b8"
+        },
+        {
+          "name": "20260924130000_trial_claims",
+          "sha256": "e04fd4b059a336231f9afb557d263417fa1868862c62a8478ddb4dd27433f1d9"
+        },
+        {
+          "name": "20260924140000_promotions",
+          "sha256": "8f68561b97506bced4614fd03f39552dafeed68e920b10fa43bfc1460395d244"
+        },
+        {
+          "name": "20260924150000_referrals",
+          "sha256": "f87cf9703167b76e129a31476161931faa96133e5a33469766b8db9836ef17cb"
+        },
+        {
+          "name": "20260924160000_service_offers_reseller_bots",
+          "sha256": "e0e5e82dd626029045527a45f00cda1eb86859d3b3d3b6d06cf77149ed4c153a"
+        },
+        {
+          "name": "20260924170000_reseller_bot_sales",
+          "sha256": "dddfc41b6877bafec6caba100ac1443c59fb0e491dadcb552988d2d5f3952269"
+        },
+        {
+          "name": "20260924180000_reseller_team",
+          "sha256": "bb5c7fbe198ba175cc96e67e6233a80f7ed96f276d22c6d78935da1028445438"
+        },
+        {
+          "name": "20260924190000_ticket_subscription_context",
+          "sha256": "693b1fda774cee10c5b05ab5dc84f41eb6624102f77f21c5eb108f94d8d5365a"
+        },
+        {
+          "name": "20260924200000_post_comments",
+          "sha256": "b4e5e2deacea1bc310dcbc9b7553672f019020d99fe5df9fb8aba9079ca69d8b"
+        },
+        {
+          "name": "20260924210000_ticket_sender_correction",
+          "sha256": "0c373a0641c28d498808b23d194e67c55638f0ad6d5330c65834e03c6701f462"
+        },
+        {
+          "name": "20260924220000_ticket_attachments",
+          "sha256": "f5e633669dcfa10786339482db616268b93c37c3bae4a40617a27f8a78fac473"
+        },
+        {
+          "name": "20260925120000_user_notifications",
+          "sha256": "c99af460141e091481c57f098a6bf13923f6fc965bf3a339b307804878b5aef3"
+        },
+        {
+          "name": "20260925150000_professional_store",
+          "sha256": "54e8e0bf97e32e9494b715f43bfbdd63835f4a4df629483f1b472133ce0759e4"
+        },
+        {
+          "name": "20260925180000_store_feedback_v145",
+          "sha256": "f5f602b680dc3b035d4406b2a6e02575f37fa98613304a2a8f700b9e31cb8fdf"
+        },
+        {
+          "name": "20260926120000_vip_media",
+          "sha256": "fb0ae158cab7fb88ab6ee794cba3a68c102bb3d06ef955aa59bf06aa8742d5be"
+        },
+        {
+          "name": "20260927120000_software_forum",
+          "sha256": "57b7ae74d857d38deb160b870b99ac8152a4def8527925389159c748ed8db1f2"
+        },
+        {
+          "name": "20260928120000_payments_sms_software",
+          "sha256": "915db919c5d0c44840b5f77a69eea6a06259476d7141e0b02def2b6dc35f1b5f"
+        },
+        {
+          "name": "20260929120000_forum_v2",
+          "sha256": "eb3b57fdb49e46f763895d20833ed1df2befeefc070aa683e50bf78f2f56a87c"
+        },
+        {
+          "name": "20260930120000_engagement_platform",
+          "sha256": "540e1ed3a3d37bcb3927344ee1fe70f469e43024241e7698f37e107e828f895b"
+        },
+        {
+          "name": "20260930190000_user_music_playlists",
+          "sha256": "7632bc889e3ce9c70dac5cfc51140c99e366b142ebe9d4670be782a592485fd3"
+        },
+        {
+          "name": "20261001120000_shipping_addresses",
+          "sha256": "5555b1eba9a7314ab021e2bacdfe4506e7d488cd09d73c9fedc3810df44f920c"
+        },
+        {
+          "name": "20261002120000_section_taxonomy",
+          "sha256": "aa678c528f19edb509094f499e124f8dc9d27d8bf560deb3937211dfcc7eb119"
+        },
+        {
+          "name": "20261003120000_store_v2",
+          "sha256": "acea5415f2d847e04bf5ab91ddfc8e7834387a8cc44f8d23860aae2ec51f4f1f"
+        },
+        {
+          "name": "20261004120000_forum_v3",
+          "sha256": "4b9381516f8ceeb24fb8f745657f4beb3f0c28b0340c050c858cd30c25c39758"
+        },
+        {
+          "name": "20261005120000_games_v2",
+          "sha256": "ce26b5cac487450cd9fcfd523557dd04c05c384b2d6ffd47055ac7871b4ff4c1"
+        },
+        {
+          "name": "20261006120000_profiles_community",
+          "sha256": "a136e6e77cb25c9d6d727d87e1e6bdca7b4a970ed5179ea80fa099d9f6a7d7d2"
+        },
+        {
+          "name": "20261007120000_mail_log",
+          "sha256": "bc886bf9ba08dde8cecb9c8f734463badec256d4311e0972bf6849f3f0555acd"
+        },
+        {
+          "name": "20261008120000_user_email_alerts",
+          "sha256": "714a93ee5e49425fc5cbf1401fe56766d92ab20cf01b1306d453442fd701a1cc"
+        },
+        {
+          "name": "20261009120000_profile_fields",
+          "sha256": "7ae473719da159cc242599c1865d0ce72c5f58c89fb831441d38db892403a378"
+        },
+        {
+          "name": "20261010120000_gateway_account_user",
+          "sha256": "119db5a5cdce44f410de3e7f72628dfb97e42786e9ac455c58aeb3b16cce99a8"
+        },
+        {
+          "name": "20261011120000_password_reset_2fa",
+          "sha256": "5aa3dd9345a828341c63b9b34da8a2b974712f2e31d81aa4f1b4f8975164fd1e"
+        },
+        {
+          "name": "20261012120000_return_requests",
+          "sha256": "af2284dcb561cb0779ce831357904ef86ab2f0c4fbcd6f5524b9c3de170566b7"
+        },
+        {
+          "name": "20261013120000_shipments",
+          "sha256": "edfee627ccf512a77e3cdb8ace034f8c961394483991405187ebd37972c167a8"
+        },
+        {
+          "name": "20261014120000_short_links",
+          "sha256": "445c88a4d6cb26709acd27eb46108cdb7e7c7dc1b247f64437411d9afe642ac0"
+        },
+        {
+          "name": "20261015120000_download_jobs",
+          "sha256": "0b54603e7762973e19691d594dc7e62e65c32676c29ba34cf2733f85a8bd4568"
+        },
+        {
+          "name": "20261016120000_store_marketing",
+          "sha256": "19286044bda7399128705d8d32b2335dac6c644bea895951cb5609ea99f78ebb"
+        },
+        {
+          "name": "20261017120000_newsletter",
+          "sha256": "756c69d0d1ab958faa80b74be5804cad397cac5f1a5037f2e3e60f2e3b83e116"
+        },
+        {
+          "name": "20261018120000_paid_content",
+          "sha256": "7ad4af55160ba1a168bad6449dd2d134086bd0cb148747408ef0eb06ad8ce5ab"
+        },
+        {
+          "name": "20261019120000_marketplace",
+          "sha256": "617cad812582a28a48962e3ac672e59700258197539f79093ccbbfaa09df4317"
+        },
+        {
+          "name": "20261020120000_live_chat_crm",
+          "sha256": "f9b0bb3d12de4b37baf7fd5e8cc1f2a62caf2b409b5eee4affd523dbaf06b9e1"
+        },
+        {
+          "name": "20261021120000_operations",
+          "sha256": "e6a01f6be151930d8130e9aed88c53bd3de5a76091046ef11b17d53912f37634"
+        },
+        {
+          "name": "20261022120000_fx_pricing",
+          "sha256": "b49d4ec84f1460ea5acafc98c33e9e8a3b0a387b23824cfec28459a5c7eb3eb8"
+        },
+        {
+          "name": "20261023120000_ads_manager",
+          "sha256": "bd5432cbc86380cbaaea8fc4cea9128c2f0593128ed29623879d650835d52ada"
+        },
+        {
+          "name": "20261024120000_form_builder",
+          "sha256": "d01cc62ffd5326a5df8ca3fcb6cd308c17a18f2ae91233281faac9427c3de662"
+        },
+        {
+          "name": "20261025120000_plugin_repository",
+          "sha256": "7393eaa391a053d483a7b322a66c72cb7ccfdf28476d60eaa769388282c3ee20"
+        },
+        {
+          "name": "20261030120000_bulk_import",
+          "sha256": "92cdcc387907d5d114c9b9c002ef2bc37d2968600e2772942d2c514d2daacf12"
+        },
+        {
+          "name": "20261031120000_music_track_release_notifications",
+          "sha256": "c384dd447a89325e0f7e525b8d75e98bd62e8f6c786268a0641473e63676a833"
+        },
+        {
+          "name": "20261101120000_music_listen_history",
+          "sha256": "edaea918cb842e793c5510a15376086bb052327575f1e9cfc76ec42610a69f36"
+        },
+        {
+          "name": "20261102120000_music_playback_progress",
+          "sha256": "64677a0c7d85bd1fc253dda084c5c27593aca1fbf9cc3baeb2e6b26a5570056d"
+        },
+        {
+          "name": "20261103120000_user_collections",
+          "sha256": "8897ffd75daa6ec4050636956601131b845e796e39c69fd750f1214449717dcb"
+        },
+        {
+          "name": "20261104120000_user_collection_saves",
+          "sha256": "5b43587ce860020c758aad2c42dc8d87662d888c909e48ccb7fe92842d6f4a6d"
+        },
+        {
+          "name": "20261105120000_collection_unlisted_tokens",
+          "sha256": "b3e40306dd6a76b4172786a820b3bf21a380d6979b9717aa612411f4de72f88d"
+        },
+        {
+          "name": "20261106120000_collection_reactions",
+          "sha256": "849c3b223312dd63f01a9f2591d604e7dbb781c572334148c12c0740685362bf"
+        },
+        {
+          "name": "20261107120000_cinema_watch_progress",
+          "sha256": "f11c95d94031dcb834a0a9719c960ca68637dd6e5fe6bf14dccea14a1560dd58"
+        },
+        {
+          "name": "20261108120000_recent_views",
+          "sha256": "5a7bbd1c466bf109ea9902607d32920ccaab27dfa36b766c615e547571b66452"
+        },
+        {
+          "name": "20261109120000_item_review_helpful",
+          "sha256": "f9e61ae37fb312a82e1295d20d040512ec38f9dfcd9c05ff73d337ae73915875"
+        },
+        {
+          "name": "20261110120000_push_alert_preference",
+          "sha256": "e549145c9a758511125b6651cf7454fd4bdfc12d15cd588bed96bef21597680e"
+        },
+        {
+          "name": "20261111120000_notification_event_mutes",
+          "sha256": "e9bf9d6c2245f9a0b0c300b9cf31d482ccad7c7ab19b0fecc71fa542ac57bb47"
+        },
+        {
+          "name": "20261112120000_game_update_release_notifications",
+          "sha256": "eee8271a51e1df07ae96616444aa27f3a19d7063e649ac02b20d0e67ae0a3d67"
+        },
+        {
+          "name": "20261113120000_software_releases",
+          "sha256": "45afcc8f25f8d7a8a902c58b519161a8f6ad5a3bebd25030faf0b985e0508604"
+        },
+        {
+          "name": "20261114120000_software_release_compatibility",
+          "sha256": "fbbc84ae5f04491ab738e5fe6c5bdbb9d256070a69d6b1d41ddf40ebbe90c0d7"
+        },
+        {
+          "name": "20261115120000_software_release_archive_index",
+          "sha256": "a4eadd43a795c3ee24f6108842725dac0263b24d6b0b1f63dcf91731672015df"
+        },
+        {
+          "name": "20261116120000_shared_studios",
+          "sha256": "3d4d012d71c96202cf15c0da6bbe6d620f996424d4ab93ddce98a5805ae1ddde"
+        },
+        {
+          "name": "20261117120000_studio_publication_notifications",
+          "sha256": "96b5aadc4f2f91e29f9e690dae61f56780d4967a5b4935f334cd3c5f8975a733"
+        },
+        {
+          "name": "20261118120000_forum_entity_topics",
+          "sha256": "4e0936a03b8fe3c7455148c40d3b0d2f31d792c4f09a2464726b906baa1fa92d"
+        },
+        {
+          "name": "20261119120000_recommendation_consent",
+          "sha256": "3c77639a751464b19df7931c9e9a10a66cf849a3645aa8a1e4cdb2bf11eb3f43"
+        },
+        {
+          "name": "20261120120000_post_publication_index",
+          "sha256": "5e0cdd48dc98dc23189dabca13cb21c5c6cba69c7f3db3f51c705febe5c32f48"
+        },
+        {
+          "name": "20261121120000_post_item_links",
+          "sha256": "09f43c6e7dea1528dd1fbfbe0e05e70eb650cfb652a681e0b6e239e0577b4c06"
+        },
+        {
+          "name": "20261122120000_product_price_history",
+          "sha256": "3d7765b94c7be6234ad6812f3aab2b7bfbdde6f402ee8ff1b76c60ad688d47ae"
+        },
+        {
+          "name": "20261123120000_product_relationships",
+          "sha256": "c28bc50784652eec72901b36336a3bc926d86d91bee45a5847e2956c033a3b38"
+        },
+        {
+          "name": "20261124120000_product_bundles",
+          "sha256": "cd5ffc5f8f0847695e4cdfe7fb2a5120b27b40b73db1f036acc821a700840ce5"
+        },
+        {
+          "name": "20261125120000_item_review_dimensions",
+          "sha256": "528c6b44909d9525d582df4d7848e2a166fd64b0f30e426b3bc86d88adbb656c"
+        },
+        {
+          "name": "20261126120000_recommendation_listening_consent",
+          "sha256": "b49df7b0d025172b716fe3ba5f249547256a14df8fb1ba902952d49044ee2e8a"
+        },
+        {
+          "name": "20261127120000_gift_card_purchase_key",
+          "sha256": "f2f6b4615ec8bb4e90be8f6314b5c917f1a5d2f0728c045e69fa2fad590e8b02"
+        },
+        {
+          "name": "20261128120000_loyalty_entry_kind_index",
+          "sha256": "23cec19ab9b83020b2c15b0573905d5801ebb43376b057f83be0f717e979246d"
+        },
+        {
+          "name": "20261129120000_cinema_episode_air_date_index",
+          "sha256": "69d69f26d3350dd8ab58a223e24381a97bae82bb61ef2a15b013e27b50abfc17"
+        },
+        {
+          "name": "20261130120000_cinema_episode_air_notifications",
+          "sha256": "19d892e7b13a59007e0576dc226139edc23a550cff237217507eb86bee3c1a48"
+        },
+        {
+          "name": "20261201120000_product_digital_codes",
+          "sha256": "f916554d92a3714e32361f7375a49d18e3049786fc6a7f3269ff90c3906d26d9"
+        },
+        {
+          "name": "20261202120000_forum_category_moderators",
+          "sha256": "4b821809e8a61ca3fe1aaaea89e73bd26385e1260c1bca7a411ef13d96562f60"
+        },
+        {
+          "name": "20261203120000_posts_permission_is_the_magazine",
+          "sha256": "c67d31a28525c7a12d7fbd93670004befbd7a81076602f034248cb8eaeb9601d"
+        },
+        {
+          "name": "20261204120000_forum_clubs",
+          "sha256": "e1a6dc10c497de083e99ac16d78c80dddefa598c7184f7b733d08468bba4e299"
+        },
+        {
+          "name": "20261205120000_music_language_terms",
+          "sha256": "9734f465719e25247ae8c317a5347603f7c2ef0117df826ebcb33790b31ea9dc"
+        },
+        {
+          "name": "20261206120000_digital_code_returns",
+          "sha256": "fd2e64cce3491c0b17c9c767efb5b19b3a167099ac37531606a735a19146b174"
+        },
+        {
+          "name": "20261207120000_cinema_release_date",
+          "sha256": "3ff61c9fb6d9813ea59d8bf702f5bd932a5685526db552326b79b7f4222465f2"
+        },
+        {
+          "name": "20261208120000_forum_reputation",
+          "sha256": "d8b12b394fcbcc3ee366abecb81358b2a0cfadc78de33eba2bf1fb685739fc15"
+        },
+        {
+          "name": "20261209120000_media_link_language",
+          "sha256": "b45508c2a2e7ca342db4c6527a108697969599fdd5f16cd0c6569b38151e3ec3"
+        },
+        {
+          "name": "20261210120000_staff_authored_collections",
+          "sha256": "08d44fec3298427b33fbaa759ebb76ba8073ba5af2757f789eccaf0716624011"
+        },
+        {
+          "name": "20261211120000_user_playback_prefs",
+          "sha256": "e1a7279041b6d12155fbe64a6b962173457ac6b7906e2e6673b4dad95bd7bc6c"
+        },
+        {
+          "name": "20261212120000_moderation_cases",
+          "sha256": "7b4e969eaf0964cb40637293e269590461e496728fd6a843eab877cf9d96ea49"
+        },
+        {
+          "name": "20261213120000_cinema_people",
+          "sha256": "d00dba9d3e78a3f05ed06ce8a0a8e682b77aab6b5788474896cf3ec1cac15481"
+        }
+      ]
+    }
+  },
+  "unreleased": [
+    "20261214120000_content_revisions",
+    "20261215120000_admin_saved_views"
+  ]
+}

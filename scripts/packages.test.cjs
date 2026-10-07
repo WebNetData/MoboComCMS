@@ -119,3 +119,30 @@ test('code packages need apiVersion and may carry build-time settings', () => {
   assert.throws(() => parseManifest({ ...manifest, apiVersion: undefined }, files), /apiVersion/)
   assert.equal(validPackagePath('client.tsx', 'declarative'), false)
 })
+
+test('every migration belongs to exactly one release, and a shipped one is never edited', () => {
+  const { verify, seal, readMigrations, compareVersions } = require('./release-migrations.cjs')
+  const m = (name, sha256 = name) => ({ name, sha256 })
+  const disk = [m('2026_a'), m('2026_b'), m('2026_c')]
+  const manifest = { releases: { '1.0.0': { migrations: [m('2026_a'), m('2026_b')] } }, unreleased: ['2026_c'] }
+  assert.deepEqual(verify(manifest, disk), [])
+  const says = (changed, diskNow = disk) => verify(changed, diskNow).join(' | ')
+  assert.match(says({ ...manifest, unreleased: [] }), /2026_c belongs to no release/)
+  assert.match(says({ ...manifest, unreleased: ['2026_c', '2026_b'] }), /2026_b is listed twice/)
+  assert.match(says(manifest, [m('2026_a', 'edited'), m('2026_b'), m('2026_c')]), /2026_a of release 1\.0\.0 was edited after it shipped/)
+  assert.match(says(manifest, [m('2026_b'), m('2026_c')]), /2026_a of release 1\.0\.0 is missing/)
+  assert.match(says({ ...manifest, unreleased: ['2026_c', '2026_d'] }), /2026_d is listed as unreleased but is not in prisma\/migrations/)
+  assert.match(says({ releases: { '1.0.0': { migrations: [m('2026_b'), m('2026_c')] } }, unreleased: ['2026_a'] }), /2026_a is unreleased but sorts before 2026_c, which already shipped/)
+  assert.match(says({ releases: { '1.0.0': { migrations: [m('2026_c')] }, '1.1.0': { migrations: [m('2026_a'), m('2026_b')] } }, unreleased: [] }), /release 1\.1\.0 holds 2026_a, which sorts before a migration of an earlier release/)
+  assert.match(says({ releases: { next: { migrations: [m('2026_a'), m('2026_b')] } }, unreleased: ['2026_c'] }), /"next" is not a release version/)
+  // An edit of an unreleased migration is allowed: it has not shipped.
+  assert.deepEqual(verify(manifest, [m('2026_a'), m('2026_b'), m('2026_c', 'still being written')]), [])
+  const closed = seal(manifest, disk, '1.1.0')
+  assert.deepEqual([closed.unreleased, closed.releases['1.1.0'].migrations, verify(closed, disk)], [[], [m('2026_c')], []])
+  assert.throws(() => seal(manifest, disk, '1.0.0'), /already closed/)
+  assert.throws(() => seal(manifest, disk, '0.9.0'), /not newer/)
+  assert.throws(() => seal(manifest, disk, 'soon'), /not a release version/)
+  assert.ok(compareVersions('1.10.0', '1.9.0') > 0)
+  // The repository's own manifest agrees with its migrations.
+  assert.deepEqual(verify(JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'prisma/release-manifest.json'), 'utf8')), readMigrations()), [])
+})
