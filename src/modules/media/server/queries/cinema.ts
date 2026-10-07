@@ -1,0 +1,162 @@
+import { db } from '@/platform/database/prisma'
+import { CALENDAR_PAGE, calendarPage, groupByDay, groupDays, normalizeWhen, type CalendarEpisode, type CalendarFilm } from '@/modules/cinema/domain/calendar'
+import { parseJsonList, splitList } from '@/modules/media/domain/media'
+import { plainText } from '@/shared/text/plain'
+import { relatedCinema } from '@/modules/recommendations/server/contextual'
+import { allOrEmpty } from '@/modules/media/server/queries/music'
+import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
+import { countList } from '@/modules/media/server/queries/shared'
+
+export type TitleCard = {
+  id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
+  year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean
+  access: string; runtime: number; summary: string; summaryEn: string; ageRating: string; seasonsCount: number
+  recommendationReason?: string
+}
+
+export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; access: string }
+
+export function toTitle(row: any): TitleCard {
+  return {
+    id: row.id, slug: row.slug, kind: row.kind, title: row.title, titleEn: row.titleEn, originalTitle: row.originalTitle, poster: row.poster, backdrop: row.backdrop || row.poster,
+    year: row.year, imdbRating: row.imdbRating, genres: splitList(row.genres, 6), quality: row.quality, dubbed: row.dubbed, subtitle: row.subtitle,
+    access: row.access, runtime: row.runtime, summary: plainText(row.summary), summaryEn: plainText(row.summaryEn), ageRating: row.ageRating, seasonsCount: row._count?.seasons ?? 0,
+  }
+}
+
+export const titleInclude = { _count: { select: { seasons: true } } } as const
+
+export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
+  const map = new Map<number, PublicLink[]>()
+  if (!ids.length) return map
+  const rows = await db.mediaLink.findMany({ where: { ownerType, ownerId: { in: ids }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, ownerId: true, label: true, kind: true, quality: true, size: true, platform: true, architecture: true, checksum: true, audio: true, subtitle: true, language: true, access: true } }).catch(() => [])
+  for (const { ownerId, ...link } of rows) map.set(ownerId, [...(map.get(ownerId) || []), link])
+  return map
+}
+
+/** Cinema home read model; layout options come from the cinema section settings. */
+export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: number; topRatedMin?: number; heroIds?: number[] } = {}) {
+  const take = Math.min(24, Math.max(6, opts.shelfSize || 16))
+  const shelves = Math.min(6, Math.max(0, opts.genreShelves ?? 3))
+  const heroIds = (opts.heroIds || []).slice(0, 8)
+  const [featured, movies, series, topRated, members, dubbed, genreRows, picked] = await allOrEmpty([
+    db.cinemaTitle.findMany({ where: { ...live(), featured: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take: 6 }),
+    db.cinemaTitle.findMany({ where: { ...live(), kind: 'MOVIE' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), kind: 'SERIES' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), imdbRating: opts.topRatedMin ? { gte: opts.topRatedMin } : { not: null } }, include: titleInclude, orderBy: { imdbRating: 'desc' }, take: Math.min(take, 10) }),
+    db.cinemaTitle.findMany({ where: { ...live(), access: 'MEMBERS' }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: { ...live(), dubbed: true }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }),
+    db.cinemaTitle.findMany({ where: live(), select: { genres: true }, take: 600 }),
+    heroIds.length ? db.cinemaTitle.findMany({ where: { ...live(), id: { in: heroIds } }, include: titleInclude }) : Promise.resolve([]),
+  ])
+  const genres = countList(genreRows.map((row: { genres: string }) => row.genres)).slice(0, 16)
+  const genreShelves = await Promise.all(genres.slice(0, shelves).map(async (genre) => ({
+    genre,
+    titles: (await db.cinemaTitle.findMany({ where: { ...live(), genres: { contains: genre } }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }).catch(() => [])).map(toTitle),
+  })))
+  const byId = new Map(picked.map((row: any) => [row.id, row]))
+  const chosen = heroIds.map((id) => byId.get(id)).filter(Boolean)
+  const hero = chosen.length ? chosen : featured.length ? featured : [...movies, ...series].sort((a: any, b: any) => +b.publishedAt - +a.publishedAt).slice(0, 5)
+  return {
+    hero: hero.map(toTitle), movies: movies.map(toTitle), series: series.map(toTitle), topRated: topRated.map(toTitle),
+    members: members.map(toTitle), dubbed: dubbed.map(toTitle), genres, genreShelves,
+  }
+}
+
+export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
+  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+  const where: any = { ...live() }
+  if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
+  if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
+  if (input.genre) where.genres = { contains: String(input.genre).slice(0, 60) }
+  if (input.country) where.countries = { contains: String(input.country).slice(0, 60) }
+  if (input.dubbed === '1') where.dubbed = true
+  const year = Number(input.year)
+  if (Number.isSafeInteger(year) && year > 1880) where.year = year
+  const q = String(input.q || '').trim().slice(0, 80)
+  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { originalTitle: { contains: q } }, { director: { contains: q } }]
+  const orderBy = input.sort === 'imdb' ? [{ imdbRating: 'desc' as const }] : input.sort === 'year' ? [{ year: 'desc' as const }] : input.sort === 'popular' ? [{ views: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
+  const [rows, total, facets] = await Promise.all([
+    db.cinemaTitle.findMany({ where, include: titleInclude, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.cinemaTitle.count({ where }),
+    db.cinemaTitle.findMany({ where: live(), select: { genres: true, countries: true, year: true }, take: 1500 }),
+  ]).catch(() => [[], 0, []] as [any[], number, any[]])
+  return {
+    titles: rows.map(toTitle), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    genres: countList(facets.map((f: any) => f.genres)).slice(0, 40),
+    countries: countList(facets.map((f: any) => f.countries)).slice(0, 40),
+    years: [...new Set(facets.map((f: any) => f.year).filter(Boolean) as number[])].sort((a, b) => b - a).slice(0, 60),
+  }
+}
+
+export async function getTitle(slug: string) {
+  const row = await db.cinemaTitle.findFirst({ where: { slug, ...live() }, include: { ...titleInclude, seasons: { orderBy: { number: 'asc' }, include: { episodes: { orderBy: { number: 'asc' } } } } } }).catch(() => null)
+  if (!row) return null
+  await db.cinemaTitle.update({ where: { id: row.id }, data: { views: { increment: 1 } } }).catch(() => undefined)
+  const episodeIds = row.seasons.flatMap((season) => season.episodes.map((episode) => episode.id))
+  const [titleLinks, episodeLinks, recommendations] = await Promise.all([
+    publicLinks('title', [row.id]),
+    publicLinks('episode', episodeIds),
+    relatedCinema(row),
+  ])
+  const similarRows = recommendations.length ? await db.cinemaTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: titleInclude }) : []
+  const similarById = new Map(similarRows.map((item) => [item.id, item]))
+  return {
+    title: {
+      ...toTitle(row), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
+      cast: parseJsonList<{ name: string; role?: string; image?: string }>(row.cast), trailerUrl: row.trailerUrl, seriesStatus: row.seriesStatus, views: row.views, publishedAt: row.publishedAt,
+    },
+    links: titleLinks.get(row.id) || [],
+    seasons: row.seasons.map((season) => ({
+      id: season.id, number: season.number, name: season.name, poster: season.poster,
+      episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
+    })),
+    similar: recommendations.flatMap((result) => { const item = similarById.get(result.item.id); return item ? [{ ...toTitle(item), recommendationReason: result.reason }] : [] }),
+  }
+}
+
+/**
+ * Episode calendar: episodes of published series by air time. "upcoming" is what has not aired yet,
+ * soonest first; "recent" is what has, latest first. An episode without an air date is in neither.
+ */
+export async function episodeCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
+  const when = normalizeWhen(input.when)
+  const page = calendarPage(input.page)
+  const series = { season: { title: { status: 'PUBLISHED', publishedAt: { lte: now }, kind: 'SERIES' } } }
+  const where = { ...series, airDate: when === 'upcoming' ? { gt: now } : { lte: now } }
+  const [rows, total, upcoming] = await Promise.all([
+    db.cinemaEpisode.findMany({
+      where, orderBy: [{ airDate: when === 'upcoming' ? 'asc' : 'desc' }, { id: 'asc' }], skip: (page - 1) * CALENDAR_PAGE, take: CALENDAR_PAGE,
+      select: { id: true, number: true, title: true, titleEn: true, airDate: true, access: true, season: { select: { number: true, title: { select: { slug: true, title: true, titleEn: true, poster: true, access: true } } } } },
+    }),
+    db.cinemaEpisode.count({ where }),
+    when === 'upcoming' ? Promise.resolve(-1) : db.cinemaEpisode.count({ where: { ...series, airDate: { gt: now } } }),
+  ]).catch(() => [[], 0, 0] as [never[], number, number])
+  const episodes: CalendarEpisode[] = rows.flatMap((row) => row.airDate ? [{
+    id: row.id, at: row.airDate.toISOString(), season: row.season.number, number: row.number, title: row.title, titleEn: row.titleEn,
+    members: row.access === 'MEMBERS' || row.season.title.access === 'MEMBERS',
+    series: { slug: row.season.title.slug, title: row.season.title.title, titleEn: row.season.title.titleEn, poster: row.season.title.poster },
+  }] : [])
+  return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupByDay(episodes) }
+}
+
+/**
+ * Film release calendar: published films with a release day, the ones opening next (soonest first) or the
+ * ones that opened last (latest first), by day. A film without a release day is not on it.
+ */
+export async function filmCalendar(input: { when?: unknown; page?: unknown }, now = new Date()) {
+  const when = normalizeWhen(input.when)
+  const page = calendarPage(input.page)
+  const films = { kind: 'MOVIE', status: 'PUBLISHED', publishedAt: { lte: now } }
+  const where = { ...films, releaseDate: when === 'upcoming' ? { gt: now } : { lte: now } }
+  const [rows, total, upcoming] = await Promise.all([
+    db.cinemaTitle.findMany({
+      where, orderBy: [{ releaseDate: when === 'upcoming' ? 'asc' : 'desc' }, { id: 'asc' }], skip: (page - 1) * CALENDAR_PAGE, take: CALENDAR_PAGE,
+      select: { id: true, slug: true, title: true, titleEn: true, poster: true, year: true, access: true, releaseDate: true },
+    }),
+    db.cinemaTitle.count({ where }),
+    when === 'upcoming' ? Promise.resolve(-1) : db.cinemaTitle.count({ where: { ...films, releaseDate: { gt: now } } }),
+  ]).catch(() => [[], 0, 0] as [never[], number, number])
+  const list: CalendarFilm[] = rows.flatMap((row) => row.releaseDate ? [{ id: row.id, at: row.releaseDate.toISOString(), slug: row.slug, title: row.title, titleEn: row.titleEn, poster: row.poster, year: row.year, members: row.access === 'MEMBERS' }] : [])
+  return { when, page, pages: Math.max(1, Math.ceil(total / CALENDAR_PAGE)), total, upcomingTotal: upcoming < 0 ? total : upcoming, days: groupDays(list) }
+}

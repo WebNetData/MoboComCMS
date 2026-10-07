@@ -9,7 +9,7 @@ const db = new Proxy(prisma, { get: (target, key) => key === 'cinemaEpisode' ? e
 function load(file, real = {}) {
   const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : () => { throw new Error(`test double called: ${String(key)}`) } })
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', compile(file))(name => name === '@/platform/database/prisma' ? { db } : Object.hasOwn(real, name) ? real[name] : name.startsWith('@/') ? stub : require(name), mod, mod.exports)
+  new Function('require', 'module', 'exports', compile(file))(name => name === '@/platform/database/prisma' ? { db } : Object.hasOwn(real, name) ? real[name] : name.startsWith('@/modules/media/server/queries/') ? load('src/' + name.slice(2) + '.ts', real) : name.startsWith('@/') ? stub : require(name), mod, mod.exports)
   return mod.exports
 }
 const now = new Date(), at = hours => new Date(now.getTime() + hours * 3_600_000)

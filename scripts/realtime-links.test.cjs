@@ -73,7 +73,7 @@ test('wiring: link gate, own-price buy button, admin link editor, saved prices',
 test('seller variants: every combination of the picked values, unique SKUs server side', () => {
   const src = read('src/app/seller/products/[id]/Variants.tsx')
   assert.match(src, /function combinations/)
-  const market = read('src/modules/marketplace/server/marketplace.ts')
+  const market = /* the module is split into parts; the source is read from all of them */ fs.readdirSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace')).sort().map((name) => fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace', name), 'utf8')).join('\n')
   assert.match(market, /sku: String\(variant\?\.sku \|\| ''\)\.trim\(\) \|\| `S\$\{seller\.id\}/)
   assert.match(market, /کد تنوع \(SKU\) تکراری/)
   const editor = read('src/app/seller/products/[id]/page.tsx')

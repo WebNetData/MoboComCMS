@@ -392,7 +392,7 @@ test('bulk import wiring: own permission, audit, real models, no parallel system
   for (const parallel of ['Attribute', 'AttributeValue', 'ProductAttributeValue', 'MagazineArticle', 'Article', 'MagazinePost', 'Movie', 'Series', 'ImportedMediaAsset', 'ImportVariant']) assert.doesNotMatch(schema, new RegExp(`^model ${parallel} \\{`, 'm'), parallel)
   assert.match(schema, /@@unique\(\[source, entityType, externalId\]\)/)
   assert.equal(read('prisma/schema.prisma').replace(/provider\s*=\s*"[^"]+"/g, ''), read('prisma/schema.postgresql.prisma').replace(/provider\s*=\s*"[^"]+"/g, ''))
-  const storeAdapter = read('src/modules/imports/server/adapters/store.ts')
+  const storeAdapter = /* the module is split into parts; the source is read from all of them */ fs.readdirSync(path.resolve(__dirname, '..', 'src/modules/imports/server/adapters/store')).sort().map((name) => fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/imports/server/adapters/store', name), 'utf8')).join('\n')
   assert.match(storeAdapter, /inheritedAttributeGroup/, 'the store group resolver is shared, not copied')
   assert.match(storeAdapter, /validateSpecifications/, 'the store spec validator is used')
   assert.match(storeAdapter, /missingVariants: pick\(raw\.missingVariants, \['keep', 'disable', 'delete'\], 'keep'\)/)

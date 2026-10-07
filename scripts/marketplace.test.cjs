@@ -104,7 +104,7 @@ test('marketplace hooks: checkout lines, paid orders, refunds and seller product
   assert.match(read('src/modules/fulfillment/server/jobs.ts'), /recordMarketplaceSale\(job\.orderId!\)/)
   assert.match(read('src/modules/store/server/returns.ts'), /reverseSellerShare\(row\.orderId, amount/)
   assert.match(read('src/modules/billing/server/http/admin/invoices/route.ts'), /reverseSellerShare\(invoice\.orderId!/)
-  const server = read('src/modules/marketplace/server/marketplace.ts')
+  const server = /* the module is split into parts; the source is read from all of them */ fs.readdirSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace')).sort().map((name) => fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/marketplace/server/marketplace', name), 'utf8')).join('\n')
   // Sellers never set active/featured/VIP fields directly, and unapproved products stay offline.
   const fields = server.slice(server.indexOf('const SELLER_FIELDS'), server.indexOf('] as const', server.indexOf('const SELLER_FIELDS')))
   for (const forbidden of ["'active'", "'featured'", "'access'", "'memberPrice'", "'sellerId'"]) assert.ok(!fields.includes(forbidden), forbidden)
