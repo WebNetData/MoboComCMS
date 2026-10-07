@@ -278,19 +278,22 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     }
     if (change === 'void') {
       if (invoice.status === 'PAID') return err('a paid invoice cannot be voided — refund it instead')
-      await db.invoice.update({ where: { id: invoiceId }, data: { status: 'VOID' } })
+      const changed = await db.invoice.updateMany({ where: { id: invoiceId, status: { in: ['UNPAID', 'DRAFT', 'VOID'] } }, data: { status: 'VOID' } })
+      if (changed.count !== 1) return err('the invoice is no longer open — reload it', 409)
       await auditAdmin({ req, actor: admin, action: 'invoice.void', targetType: 'invoice', targetId: invoiceId, metadata: { userId: id, number: invoice.number, currency: invoice.currency } })
       return ok({ ok: true })
     }
     if (change === 'unpaid') {
       if (invoice.status === 'PAID') return err('use refund to reverse a paid invoice')
-      await db.invoice.update({ where: { id: invoiceId }, data: { status: 'UNPAID' } })
+      const changed = await db.invoice.updateMany({ where: { id: invoiceId, status: { in: ['UNPAID', 'DRAFT', 'VOID'] } }, data: { status: 'UNPAID' } })
+      if (changed.count !== 1) return err('the invoice is paid or refunded — reload it', 409)
       await auditAdmin({ req, actor: admin, action: 'invoice.unpaid', targetType: 'invoice', targetId: invoiceId, metadata: { userId: id, number: invoice.number, currency: invoice.currency } })
       return ok({ ok: true })
     }
     if (change === 'refund') {
       if (invoice.status !== 'PAID') return err('only paid invoices can be refunded')
-      await db.invoice.update({ where: { id: invoiceId }, data: { status: 'REFUNDED' } })
+      const changed = await db.invoice.updateMany({ where: { id: invoiceId, status: 'PAID' }, data: { status: 'REFUNDED' } })
+      if (changed.count !== 1) return err('the invoice is no longer paid — reload it', 409)
       const currency = normalizeCurrency(invoice.currency)
       const paidMinor = invoice.paidAmountMinor || invoice.totalMinor || toMinor(invoice.paidAmount || invoice.total, currency)
       const refundMinor = -paidMinor

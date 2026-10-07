@@ -84,7 +84,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (b?.action === 'cancel') {
-    await db.order.update({ where: { id }, data: { status: 'CANCELLED' } })
+    // Claimed: a refunded order is closed, and the database refuses to reopen it.
+    const cancelled = await db.order.updateMany({ where: { id, status: { not: 'REFUNDED' } }, data: { status: 'CANCELLED' } })
+    if (cancelled.count !== 1) return err('a refunded order cannot be cancelled', 409)
     await auditAdmin({ req, actor: admin, action: 'order.cancel', targetType: 'order', targetId: id, metadata: { previousStatus: order.status } })
     return ok({ ok: true })
   }

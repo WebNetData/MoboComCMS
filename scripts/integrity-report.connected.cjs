@@ -21,7 +21,7 @@ async function main() {
  const order = (data = {}) => prisma.order.create({data: {userId: buyer.id, totalAmount: 1000, totalMinor: 1000n, currency: 'IRT', idempotencyKey: `${seed}-${count++}`, status: 'PAID', provider: 'wallet', createdAt: old, ...data}})
  const invoice = (row, data = {}) => prisma.invoice.create({data: {number: `${seed}-${count++}`, userId: buyer.id, orderId: row?.id ?? null, status: 'PAID', kind: 'BILLING', total: 1000, totalMinor: 1000n, currency: 'IRT', paidAt: old, ...data}})
  const refund = (row, amount, data = {}) => prisma.returnRequest.create({data: {number: `${seed}-${count++}`, orderId: row.id, userId: buyer.id, kind: 'RETURN', status: 'REFUNDED', refundMinor: BigInt(amount), refundedAt: old, walletTxId: 1, ...data}})
- const done = key => prisma.walletTx.create({data: {userId: buyer.id, amount: 1, amountMinor: 1n, balanceAfter: 1, balanceAfterMinor: 1n, currency: 'IRT', type: 'TEST', status: 'DONE', idempotencyKey: key}})
+ const done = key => prisma.walletTx.create({data: {userId: buyer.id, amount: 1, amountMinor: 1n, balanceAfter: 1, balanceAfterMinor: 1n, currency: 'IRT', type: 'ADMIN_CREDIT', status: 'DONE', idempotencyKey: key}})
 
  // 1 and 2: refunds
  const over = await order(), fine = await order()

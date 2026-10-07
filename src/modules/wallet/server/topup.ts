@@ -72,7 +72,7 @@ export async function startWalletTopup(input: {
       console.warn(`[wallet] FrenzyEx response ambiguous for ${invoice.number}: ${result.message || 'unknown'}`)
       return { ok: false as const, status: 502, code: 'GATEWAY_AMBIGUOUS', message: 'payment gateway response is ambiguous; check this invoice before retrying', invoiceNumber: invoice.number, invoiceUrl: `/invoice/${invoice.number}` }
     }
-    await db.invoice.update({ where: { id: invoice.id }, data: { status: 'VOID' } }).catch(() => {})
+    await db.invoice.updateMany({ where: { id: invoice.id, status: { in: ['UNPAID', 'DRAFT'] } }, data: { status: 'VOID' } }).catch(() => {})
     console.warn(`[wallet] gateway invoice failed for ${invoice.number}: ${result.message || 'unknown'}`)
     return { ok: false as const, status: 502, code: 'GATEWAY_FAILED', message: 'could not start the payment' }
   }
