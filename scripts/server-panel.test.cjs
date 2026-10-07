@@ -9,7 +9,7 @@ const cache = new Map()
 function load(relative) {
   const file = path.resolve(__dirname, '..', relative.endsWith('.ts') ? relative : `${relative}.ts`)
   if (cache.has(file)) return cache.get(file).exports
-  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
   const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
@@ -182,4 +182,211 @@ test('notification email is escaped, RTL and links to the site; placeholder inbo
   assert.equal(email.subject, 'پاسخ تیکت — موبوکام')
   assert.equal(m.deliverableEmail('user@gmail.com'), true)
   for (const bad of ['989121112233@phone.mobocom.local', 'ai-assistant@bot.mobocom.local', 'x@telegram.local', 'not-an-email']) assert.equal(m.deliverableEmail(bad), false, bad)
+})
+
+// ------------------------------------------------------------------ archives and symbolic links
+
+const a = load('src/modules/server-panel/domain/archive')
+
+/** One tar header block (and the data blocks of a file), the way tar writes them. */
+function tarBlock({ name, type = '0', size = 0, link = '', prefix = '', magic = 'ustar\0' + '00', data }) {
+  const block = Buffer.alloc(512)
+  block.write(name, 0, 100, 'utf8'); block.write('0000644\0', 100); block.write('0000000\0', 108); block.write('0000000\0', 116)
+  const body = data ?? Buffer.alloc(type === '0' ? size : 0)
+  block.write((data ? data.length : size).toString(8).padStart(11, '0') + '\0', 124); block.write('00000000000\0', 136)
+  block.write('        ', 148); block.write(type, 156); block.write(link, 157, 100, 'utf8'); block.write(magic, 257, 8, 'latin1'); block.write(prefix, 345, 155, 'utf8')
+  let sum = 0
+  for (const byte of block) sum += byte
+  block.write(sum.toString(8).padStart(6, '0') + '\0 ', 148)
+  return Buffer.concat([block, body, Buffer.alloc((512 - (body.length % 512)) % 512)])
+}
+const tarOf = (...blocks) => Buffer.concat([...blocks.map((block) => (Buffer.isBuffer(block) ? block : tarBlock(block))), Buffer.alloc(1024)])
+const listed = (bytes, step = bytes.length) => { const reader = new a.TarReader(); for (let at = 0; at < bytes.length; at += step) reader.push(bytes.subarray(at, at + step)); return reader.entries }
+const reason = (entries, limits) => a.archiveRefusal(entries, limits)?.reason ?? null
+
+test('an archive entry stays below the folder it is unpacked into', () => {
+  assert.deepEqual(a.entrySegments('a/./b//c.txt'), ['a', 'b', 'c.txt'])
+  for (const bad of ['/etc/passwd', '../x', 'a/../../x', 'a/..', 'C:/x', 'a\\b', 'a\0b', '']) assert.equal(a.entrySegments(bad), null, JSON.stringify(bad))
+  assert.equal(a.linkStaysInside(['a', 'b', 'link'], '../c/file'), true)
+  assert.equal(a.linkStaysInside(['a', 'link'], '../../etc'), false, 'one step too many')
+  assert.equal(a.linkStaysInside(['link'], '..'), false)
+  for (const bad of ['/etc', '', 'C:/x', 'a\\..\\b']) assert.equal(a.linkStaysInside(['a', 'link'], bad), false, JSON.stringify(bad))
+  const file = (path, size = 1) => ({ path, type: 'file', size })
+  assert.equal(reason([file('a/b.txt'), { path: 'a/', type: 'dir', size: 0 }, { path: 'a/l', type: 'symlink', size: 0, link: 'b.txt' }, { path: 'h', type: 'hardlink', size: 0, link: 'a/b.txt' }]), null)
+  assert.equal(reason([file('../evil')]), 'outside')
+  assert.equal(reason([file('/etc/cron.d/evil')]), 'outside')
+  assert.equal(reason([{ path: 'l', type: 'symlink', size: 0, link: '/etc' }]), 'link')
+  assert.equal(reason([{ path: 'a/l', type: 'symlink', size: 0, link: '../../etc' }]), 'link')
+  assert.equal(reason([{ path: 'l', type: 'symlink', size: 0, link: '' }]), 'link', 'a link whose target is not known')
+  assert.equal(reason([{ path: 'h', type: 'hardlink', size: 0, link: '/etc/passwd' }]), 'link')
+  assert.equal(reason([{ path: 'h', type: 'hardlink', size: 0, link: '../x' }]), 'link')
+  // The classic: a link that stays inside by its text, and a file "below" it.
+  assert.equal(reason([{ path: 'l', type: 'symlink', size: 0, link: 'a' }, file('l/passwd')]), 'below-link')
+  assert.equal(reason([file('l/passwd'), { path: 'l', type: 'symlink', size: 0, link: 'a' }]), 'below-link', 'whatever the order')
+  assert.equal(reason([{ path: 'dev/sda', type: 'special', size: 0 }]), 'special')
+  assert.equal(reason([file('a'), file('b'), file('c')], { maxEntries: 2, maxTotalBytes: 100 }), 'entries')
+  assert.equal(reason([file('a', 60), file('b', 60)], { maxEntries: 10, maxTotalBytes: 100 }), 'bytes')
+  assert.equal(reason([file('a', -1)]), 'size')
+  assert.equal(reason([file('a', NaN)]), 'size')
+})
+
+test('tar names are read where tar reads them: prefixes, GNU long names and pax headers', () => {
+  const plain = tarOf({ name: 'dir/', type: '5' }, { name: 'dir/a.txt', data: Buffer.from('hello') }, { name: 'dir/l', type: '2', link: 'a.txt' }, { name: 'h', type: '1', link: 'dir/a.txt' })
+  assert.deepEqual(listed(plain), [{ path: 'dir/', type: 'dir', size: 0, link: undefined }, { path: 'dir/a.txt', type: 'file', size: 5, link: undefined }, { path: 'dir/l', type: 'symlink', size: 0, link: 'a.txt' }, { path: 'h', type: 'hardlink', size: 0, link: 'dir/a.txt' }])
+  assert.deepEqual(listed(plain, 97), listed(plain), 'the same entries however the bytes arrive')
+  assert.equal(reason(listed(plain)), null)
+  assert.deepEqual(listed(tarOf({ name: 'a.txt', prefix: 'deep/er', data: Buffer.from('x') })).map((e) => e.path), ['deep/er/a.txt'])
+  assert.deepEqual(listed(tarOf({ name: 'a.txt', prefix: 'not-a-prefix', magic: 'ustar  \0', data: Buffer.from('x') })).map((e) => e.path), ['a.txt'], 'an old GNU archive keeps other things there')
+  // A harmless short name in the header, the real one in a GNU long-name record.
+  const long = Buffer.from('../../../../etc/cron.d/evil\0')
+  const hidden = tarOf({ name: '././@LongLink', type: 'L', data: long }, { name: 'innocent.txt', data: Buffer.from('x') })
+  assert.deepEqual(listed(hidden).map((e) => e.path), ['../../../../etc/cron.d/evil'])
+  assert.equal(reason(listed(hidden)), 'outside')
+  const longLink = tarOf({ name: '././@LongLink', type: 'K', data: Buffer.from('/etc/shadow\0') }, { name: 'l', type: '2', link: 'short' })
+  assert.deepEqual(listed(longLink).map((e) => e.link), ['/etc/shadow'])
+  assert.equal(reason(listed(longLink)), 'link')
+  // The same through a pax header.
+  const record = (key, value) => { const body = ' ' + key + '=' + value + '\n'; let length = body.length + 1; while (String(length).length + body.length !== length) length = String(length).length + body.length; return length + body }
+  const pax = tarOf({ name: 'PaxHeader/x', type: 'x', data: Buffer.from(record('path', '/abs/evil') + record('linkpath', '../../out') + record('size', '3')) }, { name: 'ok.txt', type: '2', link: 'fine', size: 0 })
+  assert.deepEqual(listed(pax).map((e) => [e.path, e.link]), [['/abs/evil', '../../out']])
+  assert.equal(reason(listed(pax)), 'outside')
+  const paxSize = tarOf({ name: 'PaxHeader/x', type: 'x', data: Buffer.from(record('size', '600')) }, Buffer.concat([tarBlock({ name: 'big.bin', size: 0 }), Buffer.alloc(1024, 1)]), { name: 'after.txt', data: Buffer.from('x') })
+  assert.deepEqual(listed(paxSize).map((e) => [e.path, e.size]), [['big.bin', 600], ['after.txt', 1]], 'the size of the pax header is the size that is skipped')
+  for (const type of ['3', '4', '6']) assert.equal(reason(listed(tarOf({ name: 'node', type }))), 'special', type)
+  // A global pax header does not rename the entries after it.
+  assert.deepEqual(listed(tarOf({ name: 'pax_global_header', type: 'g', data: Buffer.from(record('comment', 'abc')) }, { name: 'a.txt', data: Buffer.from('x') })).map((e) => e.path), ['a.txt'])
+  assert.throws(() => listed(tarOf((() => { const block = tarBlock({ name: 'a.txt' }); block.write('zzzzzzzzzzz', 124); return block })())), /damaged header/)
+  const many = new a.TarReader({ maxEntries: 2, maxTotalBytes: 1e9 })
+  assert.throws(() => many.push(tarOf({ name: 'a' }, { name: 'b' }, { name: 'c' })), /more than 2 entries/)
+})
+
+test('a zip is listed from its directory; links, zip64 and cut files are refused', () => {
+  const { writeZip } = load('src/modules/packages/domain/zip')
+  const zip = writeZip(new Map([['a.txt', Buffer.from('hello')], ['dir/b.txt', Buffer.from('world!')]]))
+  assert.deepEqual(a.zipEntries(zip, 0), [{ path: 'a.txt', type: 'file', size: 5, link: undefined }, { path: 'dir/b.txt', type: 'file', size: 6, link: undefined }])
+  const directory = zip.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))
+  assert.deepEqual(a.zipEntries(zip.subarray(directory + 10), directory + 10), { needFrom: directory }, 'the piece read did not reach the directory')
+  assert.deepEqual(a.zipEntries(zip.subarray(directory), directory).map((e) => e.path), ['a.txt', 'dir/b.txt'])
+  // The first entry marked as a Unix symbolic link.
+  const linked = Buffer.from(zip); linked.writeUInt16LE((3 << 8) | 20, directory + 4); linked.writeUInt32LE((0o120777 << 16) >>> 0, directory + 38)
+  assert.equal(a.zipEntries(linked, 0)[0].type, 'symlink')
+  assert.equal(reason(a.zipEntries(linked, 0)), 'link')
+  const device = Buffer.from(zip); device.writeUInt16LE((3 << 8) | 20, directory + 4); device.writeUInt32LE((0o020644 << 16) >>> 0, directory + 38)
+  assert.equal(reason(a.zipEntries(device, 0)), 'special')
+  const evil = writeZip(new Map([['ok.txt', Buffer.from('x')]])); const at = evil.indexOf(Buffer.from('ok.txt'), evil.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))); evil.write('../x.t', at)
+  assert.equal(reason(a.zipEntries(evil, 0)), 'outside')
+  const end = zip.length - 22
+  const zip64 = Buffer.from(zip); zip64.writeUInt16LE(0xffff, end + 10)
+  assert.throws(() => a.zipEntries(zip64, 0), /zip64/)
+  assert.throws(() => a.zipEntries(zip.subarray(0, zip.length - 5), 0), /no directory/)
+  assert.throws(() => a.zipEntries(Buffer.from('not a zip at all, just some text that is long enough'), 0), /no directory/)
+})
+
+// The file manager itself, on a real file system. The policy speaks POSIX paths, so this runs where the server runs.
+const onLinux = process.platform === 'linux'
+test('the file manager applies its policy to where a path really leads', { skip: !onLinux && 'POSIX paths and symbolic links' }, async () => {
+  const os = require('node:os'), fsp = require('node:fs/promises'), { execFileSync } = require('node:child_process')
+  const files = load('src/modules/server-panel/server/files')
+  const box = await fsp.realpath(await fsp.mkdtemp(path.join(os.tmpdir(), 'panel-links-')))
+  const root = path.join(box, 'root'), outside = path.join(box, 'outside')
+  await fsp.mkdir(path.join(root, 'docs'), { recursive: true }); await fsp.mkdir(outside)
+  await fsp.writeFile(path.join(outside, 'secret.txt'), 'secret'); await fsp.writeFile(path.join(root, 'docs', 'note.txt'), 'note')
+  await fsp.symlink(outside, path.join(root, 'out')); await fsp.symlink(path.join(outside, 'secret.txt'), path.join(root, 'peek.txt'))
+  await fsp.symlink('docs', path.join(root, 'same')); await fsp.symlink('/proc', path.join(root, 'kernel')); await fsp.symlink('/usr/bin', path.join(root, 'tools'))
+  await fsp.symlink(path.join(outside, 'not-there'), path.join(root, 'dangling')); await fsp.symlink('loop', path.join(root, 'loop'))
+  const refused = async (work, status, label) => { const error = await work().then(() => null, (e) => e); assert.ok(error instanceof files.FileError, label + ': ' + (error ? error.message : 'went through')); assert.equal(error.status, status, label + ': ' + error.message) }
+  const R = (...parts) => path.join(root, ...parts)
+  try {
+    // ---- a panel limited to one folder: a link does not lead out of it
+    await refused(() => files.listDir(R('out'), root), 403, 'list through a link out')
+    await refused(() => files.readText(R('out', 'secret.txt'), root), 403, 'read through a link out')
+    await refused(() => files.readText(R('peek.txt'), root), 403, 'read a link to a file outside')
+    await refused(() => files.writeText(R('peek.txt'), 'changed', '', root), 403, 'write a link to a file outside')
+    await refused(() => files.createEntry(R('out'), 'new.txt', 'file', root), 403, 'create through a link out')
+    await refused(() => files.saveUpload(R('out'), 'up.txt', Buffer.from('x'), false, root), 403, 'upload through a link out')
+    await refused(() => files.saveUpload(root, 'peek.txt', Buffer.from('x'), true, root), 403, 'upload over a link to a file outside')
+    await refused(() => files.saveUpload(root, 'dangling', Buffer.from('x'), true, root), 403, 'upload over a link that leads nowhere yet')
+    await refused(() => files.transfer([R('docs', 'note.txt')], R('out'), 'copy', root), 403, 'copy into a link out')
+    await refused(() => files.transfer([R('out', 'secret.txt')], R('docs'), 'move', root), 403, 'move out of a link out')
+    await refused(() => files.changeMode(R('peek.txt'), '777', root), 403, 'chmod through a link')
+    await refused(() => files.openDownload(R('out'), root), 403, 'download a link out')
+    await refused(() => files.findByName(R('out'), 'secret', root), 403, 'search through a link out')
+    await refused(() => files.archive(R('out'), ['secret.txt'], 'tar.gz', 'x', root), 403, 'archive inside a link out')
+    await refused(() => files.renameEntry(R('out', 'secret.txt'), 'renamed.txt', root), 403, 'rename through a link out')
+    await refused(() => files.removeEntries([R('out', 'secret.txt')], root), 403, 'remove through a link out')
+    await refused(() => files.listDir(R('loop'), root), 403, 'a link in a circle')
+    assert.deepEqual([await fsp.readFile(path.join(outside, 'secret.txt'), 'utf8'), (await fsp.readdir(outside)).sort(), (await fsp.stat(path.join(outside, 'secret.txt'))).mode & 0o777], ['secret', ['secret.txt'], 0o644], 'nothing outside was touched')
+    // ---- a link that stays inside works like the folder it names
+    assert.deepEqual((await files.listDir(R('same'), root)).entries.map((entry) => entry.name), ['note.txt'])
+    assert.equal((await files.readText(R('same', 'note.txt'), root)).content, 'note')
+    await files.writeText(R('same', 'note.txt'), 'edited', '', root)
+    assert.equal(await fsp.readFile(R('docs', 'note.txt'), 'utf8'), 'edited')
+    // The listing still shows the links, with where they point; it does not follow them.
+    const shown = Object.fromEntries((await files.listDir(root, root)).entries.map((entry) => [entry.name, entry.target]))
+    assert.deepEqual([shown.out, shown.same, shown['peek.txt']], [outside, 'docs', path.join(outside, 'secret.txt')])
+    // ---- the whole server as the area: the system rules apply to where a link leads
+    await refused(() => files.listDir(R('kernel'), '/'), 403, 'a link into /proc')
+    await refused(() => files.readText(R('kernel', 'version'), '/'), 403, 'read through a link into /proc')
+    assert.ok((await files.listDir(R('tools'), '/')).entries.length > 0, 'a read-only place may be read through a link')
+    assert.equal((await files.listDir(R('tools'), '/')).writable, false)
+    await refused(() => files.createEntry(R('tools'), 'evil', 'file', '/'), 403, 'create in a read-only place through a link')
+    await refused(() => files.saveUpload(R('tools'), 'evil', Buffer.from('x'), false, '/'), 403, 'upload into a read-only place through a link')
+    await refused(() => files.changeMode(R('tools', 'env'), '777', '/'), 403, 'chmod in a read-only place through a link')
+    assert.equal((await files.listDir(R('out'), '/')).entries.length, 1, 'with the whole server allowed, a link to an ordinary folder is followed')
+    // A link to a protected place: what may not be changed directly may not be changed through a link either.
+    await fsp.symlink('/tmp', R('anchor')); await fsp.symlink('/', R('slash'))
+    await refused(() => files.changeMode(R('anchor'), '1777', '/'), 403, 'chmod of a protected folder through a link')
+    await refused(() => files.renameEntry(R('slash', 'tmp'), 'tmp-renamed', '/'), 403, 'rename of a protected folder through a link')
+    await fsp.rm(R('anchor')); await fsp.rm(R('slash'))
+    // ---- a link itself is renamed and removed as a link
+    await files.renameEntry(R('out'), 'exit', root)
+    assert.equal(await fsp.readlink(R('exit')), outside)
+    await files.removeEntries([R('exit'), R('dangling'), R('loop')], root)
+    assert.deepEqual([await fsp.readdir(outside), fs.existsSync(R('exit'))], [['secret.txt'], false], 'the link is gone, what it pointed at is not')
+
+    // ---- unpacking
+    const drop = async (name, bytes) => { await fsp.writeFile(R(name), bytes); return R(name) }
+    await fsp.mkdir(R('unpack'))
+    const good = await drop('good.tar', tarOf({ name: 'pkg/', type: '5' }, { name: 'pkg/readme.txt', data: Buffer.from('read me') }, { name: 'pkg/link', type: '2', link: 'readme.txt' }))
+    assert.deepEqual(await files.extract(good, R('unpack'), root), { path: R('unpack'), entries: 3 })
+    assert.deepEqual([await fsp.readFile(R('unpack', 'pkg', 'readme.txt'), 'utf8'), await fsp.readlink(R('unpack', 'pkg', 'link'))], ['read me', 'readme.txt'])
+    execFileSync('tar', ['-czf', R('good.tar.gz'), '-C', R('unpack'), 'pkg'])
+    await fsp.mkdir(R('unpack2'))
+    assert.equal((await files.extract(R('good.tar.gz'), R('unpack2'), root)).entries, 3, 'a compressed tar is read through its compression')
+    const evil = {
+      'climb.tar': tarOf({ name: '../climbed.txt', data: Buffer.from('x') }),
+      'absolute-link.tar': tarOf({ name: 'l', type: '2', link: outside }, { name: 'l2/', type: '5' }),
+      'through-link.tar': tarOf({ name: 'l', type: '2', link: 'pkg' }, { name: 'l/passwd', data: Buffer.from('x') }),
+      'long-name.tar': tarOf({ name: '././@LongLink', type: 'L', data: Buffer.from('../../climbed-long.txt\0') }, { name: 'ok.txt', data: Buffer.from('x') }),
+      'hardlink.tar': tarOf({ name: 'h', type: '1', link: path.join(outside, 'secret.txt') }),
+      'device.tar': tarOf({ name: 'null', type: '3' }),
+    }
+    for (const [name, bytes] of Object.entries(evil)) {
+      await fsp.mkdir(R('target'), { recursive: true })
+      await refused(async () => files.extract(await drop(name, bytes), R('target'), root), 422, name)
+      assert.deepEqual(await fsp.readdir(R('target')), [], name + ': nothing was written')
+    }
+    assert.deepEqual([(await fsp.readdir(box)).sort(), await fsp.readdir(outside)], [['outside', 'root'], ['secret.txt']], 'nothing climbed out')
+    // A link that already stands in the destination: the archive is innocent, the folder is not.
+    await fsp.symlink(outside, R('target', 'pkg'))
+    await refused(() => files.extract(good, R('target'), root), 409, 'a link in the way')
+    assert.deepEqual(await fsp.readdir(outside), ['secret.txt'])
+    await fsp.rm(R('target', 'pkg')); await fsp.symlink(outside, R('via'))
+    await refused(() => files.extract(good, R('via'), root), 403, 'the destination is a link out')
+    // A zip is refused before unzip is even looked for.
+    const { writeZip } = load('src/modules/packages/domain/zip')
+    const zip = writeZip(new Map([['ok.txt', Buffer.from('x')]])); zip.write('../x.t', zip.indexOf(Buffer.from('ok.txt'), zip.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]))))
+    await refused(async () => files.extract(await drop('evil.zip', zip), R('target'), root), 422, 'a zip that climbs')
+    await refused(async () => files.extract(await drop('cut.zip', zip.subarray(0, 20)), R('target'), root), 422, 'a zip cut short')
+    await refused(async () => files.extract(await drop('broken.tar.gz', Buffer.from('not gzip')), R('target'), root), 422, 'a tar that is not one')
+    // Packing: the names are those of the folder that was asked for.
+    const packed = await files.archive(R('docs'), ['note.txt'], 'tar.gz', 'kept', root)
+    assert.match(execFileSync('tar', ['-tzf', packed.path], { encoding: 'utf8' }), /^note\.txt\n$/)
+  } finally { await fsp.rm(box, { recursive: true, force: true }) }
+})
+
+test('zip packs the folder that was asked for, not the folder the site runs in', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/server-panel/server/files.ts'), 'utf8')
+  assert.match(source, /command\('zip', \['-r', '-q', '-y', file, '--', \.\.\.names\], 10 \* 60_000, dir\)/)
+  assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/server-panel/server/system.ts'), 'utf8'), /\.\.\.\(cwd \? \{ cwd \} : \{\}\)/)
 })
