@@ -1,0 +1,118 @@
+name: Checks
+
+# What a pull request must pass before the owner merges it:
+#   check     npm run check: architecture, source, schema parity, release manifest, money, security, audit,
+#             i18n, the unit suites, typecheck. No database is reached; the PostgreSQL client is generated,
+#             because that is the client production runs and the one the code is typed against.
+#   postgres  a first deploy on an empty PostgreSQL 17 (every migration, then the seed), the connected checks
+#             (npm run test:pg) and the Redis check of the strict rate limit (npm run test:redis)
+#   build     the production build with the PostgreSQL client
+# The browser suite is its own workflow (e2e.yml).
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXTAUTH_URL: http://localhost:3000
+  NEXTAUTH_SECRET: ci-only-secret-please-do-not-use-anywhere-else-2026
+  PANEL_CREDENTIAL_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+
+jobs:
+  check:
+    name: npm run check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Chooses the PostgreSQL client at install. Nothing listens there, and nothing in this job connects.
+      DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5999/none?schema=public
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+
+  postgres:
+    name: PostgreSQL and Redis checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: mobocom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d mobocom"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci-only-password@localhost:5432/mobocom?schema=public
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      # DATABASE_URL is a PostgreSQL address, so the install generates the PostgreSQL client.
+      - run: npm ci --no-audit --no-fund
+      - name: Apply every migration to an empty database
+        run: npm run deploy:migrate
+      - name: Seed it, as a first deploy does
+        run: npm run deploy:seed
+        env:
+          ADMIN_EMAIL: admin@example.com
+          ADMIN_PASSWORD: CiAdmin!Password-2026
+      - name: Connected PostgreSQL checks
+        run: npm run test:pg
+      - name: Strict rate limit against Redis
+        run: npm run test:redis
+        env:
+          # Only this step: a check that opens the shared store keeps its connection, and would not end.
+          REDIS_URL: redis://localhost:6379
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # The build needs the PostgreSQL client, not a reachable database.
+      DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5999/none?schema=public
+      # With Node's default heap the build ran out of memory in rehearsal (Node 22, 4 CPUs); with 4 GB it passes.
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
