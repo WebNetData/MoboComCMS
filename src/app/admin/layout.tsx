@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import AdminWorkspace from '@/components/admin/Workspace'
 import { useSession, signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
 import { usePathname, useSearchParams } from '@/platform/routing/navigation'
@@ -211,6 +212,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return exact ? pathname === path : pathname.startsWith(path)
   }
 
+  // Mounted once (the navigation itself is rendered twice, for the side and for the phone drawer).
+  const workspace = <AdminWorkspace fa={locale === 'fa'} canGo={(href) => GROUPS.some((group) => group.items.some((item) => item.href === href && allowed(item.perm) && !moduleOff(item.href)))} />
   const nav = <>
     <label className="admin-nav-search"><span className="sr-only">{L('جست‌وجوی بخش مدیریت', 'Search admin sections')}</span><input type="search" className="input" value={navQuery} placeholder={L('جست‌وجوی بخش…', 'Find a section…')} onChange={e => setNavQuery(e.target.value)} /></label>
     {GROUPS.map(group => {
@@ -241,6 +244,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
+        {workspace}
         <nav className="side-nav" aria-label={t.admin}>{nav}</nav>
 
         <div className="side-foot">

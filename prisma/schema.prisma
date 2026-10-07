@@ -73,6 +73,7 @@ model User {
   forumProfile   ForumProfile?
   forumGroups    ForumGroupMember[]
   forumModerating ForumCategoryModerator[]
+  savedViews AdminSavedView[]
   forumReactions ForumReaction[]
   forumBookmarks ForumBookmark[]
   forumFlags     ForumFlag[]
@@ -3381,6 +3382,18 @@ model CrmTag {
 // ---------------------------------------------------------------- Operations
 
 /// Background queue for heavy work (image optimization, re-indexing…), run by the job scheduler.
+/// A staff member's saved view: a name for an admin address with its filters (identity/domain/saved-views).
+model AdminSavedView {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  href      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+}
+
 /// A version of an item staff edit (a post, a page, a film, a game, ...): its own columns after a save,
 /// kept so its history can be read and an earlier state put back (content/domain/revisions).
 model ContentRevision {

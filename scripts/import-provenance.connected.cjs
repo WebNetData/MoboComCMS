@@ -17,7 +17,7 @@ async function main() {
   const job = name => prisma.importJob.create({ data: { adapter: 'media.movies', fileName: `${seed}-${name}.csv`, createdById: 1, createdByEmail: `${seed}@example.invalid`, status: 'DONE' } })
   const record = (jobRow, index, entityId, action, changes, status = 'OK') => prisma.importRecord.create({ data: { jobId: jobRow.id, index, sourceKey: `tt${entityId}`, action, status, entityType: M, entityId, changes: JSON.stringify({ changes }) } })
   const first = await job('first')
-  await record(first, 0, film.id, 'CREATE', [{ kind: 'created', entity: M, id: film.id, stamp: film.updatedAt.toISOString() }, { kind: 'created', entity: 'cinemaSeason', id: 1 }])
+  await record(first, 0, film.id, 'CREATE', [{ kind: 'created', entity: 'cinemaSeason', id: film.id, stamp: '2000-01-01T00:00:00.000Z' }, { kind: 'created', entity: M, id: film.id, stamp: film.updatedAt.toISOString() }])
   await record(first, 1, other.id, 'CREATE', [{ kind: 'created', entity: M, id: other.id, stamp: other.updatedAt.toISOString() }])
   await prisma.importRecord.create({ data: { jobId: first.id, index: 2, action: 'SKIP', entityType: M, entityId: film.id } })
   await prisma.importExternalRef.createMany({ data: [{ source: `${seed}-imdb`, entityType: 'media.movies', externalId: 'tt001', entityId: film.id, jobId: first.id }, { source: `${seed}-imdb`, entityType: 'media.movies', externalId: 'tt002', entityId: other.id, jobId: first.id }] })
