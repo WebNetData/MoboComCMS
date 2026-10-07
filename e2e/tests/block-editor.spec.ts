@@ -4,8 +4,8 @@ import { ADMIN_STATE } from '../paths'
 
 test.use({ storageState: hasAdmin() ? ADMIN_STATE : undefined })
 
-// The block editor is the site's editor for pages and magazine articles. Every item made here is this file's own and
-// is removed; the editor's switch is put back as it was.
+// The block editor is a plugin, and while it is on it is the site's editor for pages and magazine articles. Every item
+// made here is this file's own and is removed; the plugin is left as it was found.
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAoAAAAGCAYAAAD68A/GAAAAFklEQVR42mP8z8DwnwEJMDGgAcICAAAzAAH/Z7mEAAAAAElFTkSuQmCC', 'base64')
 
@@ -39,10 +39,10 @@ test('a page is built in the block editor, saved, reopened and shown to visitors
   const { insertTop, insertInto, save } = tools(page)
   try {
     // Switched off: the editor opens and lays out, and does not save.
-    await admin.post('/api/admin/editor', { data: { enabled: false } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: false } })
     await openEditor(page, `/admin/editor/pages/${created.id}`)
     await expect(page.locator('.mc-editor-save')).toBeDisabled()
-    await admin.post('/api/admin/editor', { data: { enabled: true } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: true } })
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.locator('.mc-editor-save')).toBeEnabled({ timeout: 240_000 })
 
@@ -108,7 +108,7 @@ test('a page is built in the block editor, saved, reopened and shown to visitors
     expect(errors).toEqual([])
   } finally {
     await admin.delete(`/api/admin/cms?type=pages&id=${created.id}`)
-    await admin.post('/api/admin/editor', { data: { enabled: was?.enabled !== false } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
   }
 })
 
@@ -120,7 +120,7 @@ test('a page written in the old editor opens as blocks and is not changed until 
   const created = await (await admin.post('/api/admin/cms?type=pages', { data: { slug, title: 'E2E legacy page', content: old, status: 'DRAFT' } })).json()
   const { save } = tools(page)
   try {
-    await admin.post('/api/admin/editor', { data: { enabled: true } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: true } })
     await openEditor(page, `/admin/editor/pages/${created.id}`)
     await expect(page.locator('.mc-editor-notice').first()).toContainText('به بلوک تبدیل شده')
     // The words are rich text, the image that stood alone is an image block, and the first heading is one level down.
@@ -140,7 +140,7 @@ test('a page written in the old editor opens as blocks and is not changed until 
     expect(stored.document.blocks.map((block: { type: string }) => block.type)).toEqual(expect.arrayContaining(['content.richText', 'content.image']))
   } finally {
     await admin.delete(`/api/admin/cms?type=pages&id=${created.id}`)
-    await admin.post('/api/admin/editor', { data: { enabled: was?.enabled !== false } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
   }
 })
 
@@ -152,7 +152,7 @@ test('a magazine article is written in the block editor and read on its own page
   expect(created.id).toBeGreaterThan(0)
   const { insertTop, save } = tools(page)
   try {
-    await admin.post('/api/admin/editor', { data: { enabled: true } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: true } })
     await openEditor(page, `/admin/editor/posts/${created.id}`)
     await insertTop('متن')
     await page.locator('.mc-editor-document .mc-rich-input').first().click()
@@ -170,6 +170,33 @@ test('a magazine article is written in the block editor and read on its own page
     await visitor.close()
   } finally {
     await admin.delete(`/api/admin/cms?type=posts&id=${created.id}`)
-    await admin.post('/api/admin/editor', { data: { enabled: was?.enabled !== false } })
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
+  }
+})
+
+test('with the plugin off the page form is the old editor again, and what was written in blocks is kept', async ({ page, admin }) => {
+  test.setTimeout(300_000)
+  const slug = `e2e-block-off-${Date.now()}`
+  const was = await (await admin.get('/api/admin/editor')).json()
+  const created = await (await admin.post('/api/admin/cms?type=pages', { data: { slug, title: 'E2E plugin off', content: '<p>old words</p>', status: 'DRAFT' } })).json()
+  try {
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: false } })
+    expect((await (await admin.get('/api/admin/editor')).json()).enabled).toBe(false)
+    await page.goto('/admin/pages', { waitUntil: 'domcontentloaded', timeout: 240_000 })
+    await page.locator('tr', { hasText: 'E2E plugin off' }).getByRole('button', { name: /ویرایش|Edit/ }).first().click()
+    // The body is there, in the old editor, and no button leads to the block editor.
+    await expect(page.locator('form .ProseMirror').first()).toContainText('old words', { timeout: 60_000 })
+    await expect(page.locator('.cms-block-body')).toHaveCount(0)
+    await expect(page.locator('a[href^="/admin/editor/"]')).toHaveCount(0)
+    // No English body field: the site is written in one language.
+    await expect(page.locator('form .ProseMirror')).toHaveCount(1)
+    // Saving a document is refused while the plugin is off.
+    const opened = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
+    expect((await admin.put(`/api/admin/editor/pages/${created.id}`, { data: { document: { version: 1, blocks: [] }, updatedAt: opened.updatedAt } })).status()).toBe(404)
+    // The old form still saves the body of a page written the old way.
+    expect((await admin.patch('/api/admin/cms?type=pages', { data: { id: created.id, content: '<p>new words</p>' } })).ok()).toBeTruthy()
+  } finally {
+    await admin.delete(`/api/admin/cms?type=pages&id=${created.id}`)
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
   }
 })

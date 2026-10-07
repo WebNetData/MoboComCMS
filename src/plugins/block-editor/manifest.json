@@ -1,0 +1,15 @@
+{
+  "id": "block-editor",
+  "name": "ویرایشگر بلوکی",
+  "nameEn": "Block editor",
+  "description": "نوشتن صفحه‌ها و نوشته‌های مجله با بلوک (بخش، ستون، متن، تصویر، ویدئو، دکمه و مانند آن). با غیرفعال‌کردن، فرم‌های صفحه و نوشته به ویرایشگر قدیمی برمی‌گردند؛ آنچه با بلوک نوشته شده حفظ می‌شود و همچنان در سایت نمایش داده می‌شود.",
+  "descriptionEn": "Write pages and magazine articles in blocks (sections, columns, text, images, video, buttons). Turning it off brings the old editor back to the page and article forms; what was written in blocks is kept and still shown on the site.",
+  "version": "1.0.0",
+  "kind": "module",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "layout",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "adminPaths": ["/admin/editor"]
+}

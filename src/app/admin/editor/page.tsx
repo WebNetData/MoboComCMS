@@ -26,22 +26,12 @@ export default function BlockEditorHome() {
   }, [kind])
   useEffect(() => { void load() }, [load])
 
-  const toggle = async () => {
-    setMessage('')
-    const response = await fetch('/api/admin/editor', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: !enabled }) }).catch(() => null)
-    if (!response?.ok) return setMessage(response?.status === 403 ? 'روشن و خاموش کردن ویرایشگر نیاز به دسترسی تنظیمات سایت دارد.' : 'تغییر انجام نشد.')
-    setEnabled((await response.json()).enabled === true)
-  }
-
   return (
     <div className="mc-editor-home" dir="rtl">
       <h1>ویرایشگر بلوکی</h1>
       <p>ویرایشگر اصلی سایت: صفحه‌ها و نوشته‌های مجله با بلوک‌ها نوشته می‌شوند (بخش، ستون، متن، تصویر، دکمه و مانند آن). آنچه با ویرایشگر قدیمی نوشته شده، هنگام باز شدن به بلوک تبدیل می‌شود و تا ذخیره نکنید دست‌نخورده می‌ماند.</p>
       <p role="tablist" className="mc-editor-home-switch">{(Object.keys(KINDS) as Kind[]).map((key) => <button key={key} type="button" role="tab" aria-selected={kind === key} className={`btn ${kind === key ? 'btn-primary' : 'btn-ghost'}`} onClick={() => { setPages(null); setKind(key) }}>{KINDS[key].label}</button>)}</p>
-      <p className="mc-editor-home-switch">
-        <span>وضعیت: <strong>{enabled === null ? '…' : enabled ? 'روشن' : 'خاموش (ذخیره نمی‌شود؛ فرم‌های قدیمی همچنان کار می‌کنند)'}</strong></span>
-        <button type="button" className="btn btn-secondary" onClick={() => void toggle()} disabled={enabled === null}>{enabled ? 'خاموش کردن' : 'روشن کردن'}</button>
-      </p>
+      <p className="muted text-sm">این ویرایشگر یک افزونه است؛ از <Link href="/admin/extensions">صفحهٔ افزونه‌ها</Link> فعال و غیرفعال می‌شود.{enabled === false ? ' اکنون غیرفعال است.' : ''}</p>
       {message ? <p role="alert">{message}</p> : null}
       {pages === null ? <p aria-busy="true">در حال بارگذاری…</p> : pages.length === 0 ? <p>هنوز چیزی ساخته نشده است. از <Link href={KINDS[kind].form}>{KINDS[kind].label}</Link> یکی بسازید.</p> : (
         <table className="table">
