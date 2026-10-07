@@ -61,8 +61,15 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
   const [editId, setEditId] = useState<number | null>(null)
-  // Pages and articles are written in the block editor. The old body field is shown only for an item still written the old way, when asked for.
-  const blockDriven = type === 'pages' || type === 'posts'
+  // Pages and articles are written in the block editor while its plugin is on; with the plugin off this form is the old one again.
+  const [blockEditor, setBlockEditor] = useState(false)
+  useEffect(() => {
+    if (type !== 'pages' && type !== 'posts') return
+    fetch('/api/admin/editor', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((state) => setBlockEditor(state?.enabled === true)).catch(() => setBlockEditor(false))
+  }, [type])
+  const blockDriven = (type === 'pages' || type === 'posts') && blockEditor
+  // The body of an item written in blocks is its document: with the plugin off it is shown as it stands and not sent.
+  const blocksLocked = (type === 'pages' || type === 'posts') && !blockEditor
   const [editFormat, setEditFormat] = useState('legacy')
   const [legacyBody, setLegacyBody] = useState(false)
   const [msg, setMsg] = useState('')
@@ -195,6 +202,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
     const payload = { ...form }
     // The body is the block editor's: a new item starts empty, and this form does not send a body it did not edit.
     if (blockDriven) { if (!editId) payload.content = ''; else if (!legacyBody) delete payload.content }
+    if (blocksLocked && editId && editFormat === 'blocks-v1') delete payload.content
     for (const fl of fields) if (fl.type === 'datetime-local') {
       if (editId && payload[fl.key] === initialDateValues.current[fl.key]) { delete payload[fl.key]; continue }
       if (payload[fl.key]) {
@@ -301,6 +309,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                   {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
                   {editId && editFormat === 'legacy' ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود. ' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save. '}<button type="button" className="link" onClick={() => setLegacyBody(true)}>{fa ? 'ادامه با ویرایشگر قدیمی' : 'Keep using the old editor'}</button></p> : null}
                 </div>
+              ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
+                <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
               ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
                 <RichEditor
                   value={form[fl.key] || ''}

@@ -1,6 +1,6 @@
 # The block editor
 
-Status: **Phase 1 is in the code, and the block editor is the site's main editor** for pages and magazine articles: on unless an administrator switches it off, reached from the pages and articles forms, with an old body turned into blocks when it is opened. Phase 2 has not been started.
+Status: **Phase 1 is in the code, and the block editor is the site's main editor** for pages and magazine articles: a plugin (`src/plugins/block-editor`) that is on unless switched off on the extensions page, reached from the pages and articles forms, with an old body turned into blocks when it is opened. Phase 2 has not been started.
 
 ## What was found in the repository first
 
@@ -200,18 +200,18 @@ Browser test: `e2e/tests/block-editor.spec.ts`.
 
 The owner's decision (2026-10-07): the block editor is the editor of the site, not an option beside the old one.
 
-- **On by default.** `blockEditorEnabled()` is true unless the setting `editor.blocks` says `enabled: false`. Switched off, nothing saves and the old forms keep working.
+- **A plugin, on by default.** `src/plugins/block-editor/manifest.json`; `blockEditorEnabled()` is `isModuleEnabled('block-editor')`, so it is switched on and off on `/admin/extensions` like every other plugin (owner, 2026-10-07). **Off**: nothing saves through the editor, its menu entry and the links into it are gone, and the pages and articles forms show the old body field again with the body in it. An item already written in blocks keeps its document, keeps rendering, and its form says the body is in blocks and does not send one. **On** again: everything is where it was.
 - **Pages and magazine articles.** `Post` has the same two columns as `Page` (migration `20261218120000_post_documents`), the same two constraints, and is stored through the same service: `loadDocument(entity, id)`, `saveDocument({ entity, ... })`, `blocksHtml(row)`, with `entity` one of `pages`, `posts`. Each is edited under its own section's permission (`cms.pages`, `cms.posts`); saving an article tells the rest of the site it changed, as the article form does.
 - **API**: `GET`/`PUT /api/admin/editor/:entity/:id`.
 - **The article page** (`/blog/<slug>`, a protected surface) is unchanged except for where the body's HTML comes from: an article written in blocks shows its document inside the same `#article-body` frame. A locked article still shows the teaser cut from its HTML copy; a visitor reading in English gets the English body when the article has one.
-- **The admin forms** (`/admin/pages`, `/admin/posts`): the body field is a button into the block editor. Saving a new page or article goes straight there. The forms still hold everything else (title, address, cover, categories, state, the English body) and do not send a body they did not edit; the server refuses a body for an item written in blocks. For an item still written the old way, "keep using the old editor" brings the old field back.
+- **The admin forms** (`/admin/pages`, `/admin/posts`): the body field is a button into the block editor. Saving a new page or article goes straight there. The forms still hold everything else (title, address, cover, categories, state) and do not send a body they did not edit; the server refuses a body for an item written in blocks. For an item still written the old way, "keep using the old editor" brings the old field back.
 - **An old body opens as blocks** (`src/components/editor/gutenberg/legacy.ts`, in the browser): words become rich text blocks (Tiptap reads the HTML with the same extensions it edits with; an H1 becomes an H2), an image standing by itself becomes an image block, a YouTube, Aparat or Vimeo frame becomes a video block. Tables, images inside running text, frames of other sites, scripts and styles have no place in a document: they are left out and the writer is told how many. **Opening changes nothing**: nothing is saved until the writer changes something or presses save, and the old body stays in the item's history after that.
 
 ## What is not built
 
 - **Blocks from modules in the editor's browser side.** The editing screen builds its registry from the core blocks; `registerModuleBlocks` is known to the server only. A module's block is validated and stored, and shows as unsupported in the editor until the screen is given the same list.
 - React components for blocks that modules register; one renderer shared by the canvas and the page exists for the core blocks only.
-- A document for the English body: a page or article written in blocks has one document, and its English body is still HTML from the old field.
+- **There is no English body field.** The site is written in one language and translated by Google Translate (owner, 2026-10-07): the pages and articles forms no longer show `contentEn`. The column and what it holds are kept; an item that has an English body still shows it to a visitor reading in English.
 - Products, games, software and other items: their descriptions are still written in the old editor.
 - Extensions registering blocks.
 - Picking an existing file from a gallery: a field uploads a new file or takes an address.

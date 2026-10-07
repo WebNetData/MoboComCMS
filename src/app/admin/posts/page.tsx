@@ -23,7 +23,6 @@ export default function AdminPostsPage() {
     { key: 'excerpt', label: t.excerpt, type: 'textarea', hideInTable: true },
     { key: 'excerptEn', label: `${t.excerpt} EN`, type: 'textarea', hideInTable: true },
     { key: 'content', label: t.content, type: 'richtext', hideInTable: true },
-    { key: 'contentEn', label: t.englishContent, type: 'richtext', hideInTable: true, dir: 'ltr' },
     { key: 'cover', label: t.cover, type: 'image', hideInTable: true },
     {
       key: 'categoryIds',

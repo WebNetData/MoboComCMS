@@ -1,8 +1,8 @@
 // Real PostgreSQL: a page, and a magazine article, written as a MoboCom document. The service is the real one; the site-wide switch is kept in
-// memory so the check never turns the editor on for the local site. Pages are namespaced and removed.
+// memory so the check never switches the plugin of the local site. Pages are namespaced and removed.
 const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `editor-doc-${Date.now()}`
-const settings = new Map(), changes = []
+const plugin = {on: true}, changes = []
 const mocks = {
  '@/platform/database/prisma': {db: prisma},
  '@/platform/observability/logger': {logEvent: () => {}},
@@ -10,7 +10,8 @@ const mocks = {
  '@/modules/identity/rbac': {hasPermission: (permissions, needed) => Boolean(permissions?.includes(needed))},
  // What the rest of the site does when an article changes (search, notifications) is not this check's subject; that it is told is.
  '@/modules/content/server/events': {contentChanged: (ref, before, after) => { changes.push([ref.type, ref.id, before.editorFormat, after.editorFormat]) }},
- '@/modules/settings/server': {readJsonSetting: async key => settings.get(key), writeJsonSetting: async (key, value) => { settings.set(key, value) }},
+ // The editor is a plugin; whether it is on is the extensions page's to say.
+ '@/extensions/server/modules': {isModuleEnabled: async id => id === 'block-editor' && plugin.on},
 }
 const cache = new Map()
 const load = file => {
@@ -43,13 +44,15 @@ async function main() {
  assert.equal(editor.pageBlocksHtml(first), null, 'a legacy page is rendered the old way')
 
  // ---- the block editor is the site's editor: on unless switched off. Switched off, nothing is saved.
- assert.equal(await editor.blockEditorEnabled(), true, 'on by default')
- await editor.setBlockEditorEnabled(false)
+ const manifest = JSON.parse(fs.readFileSync('src/plugins/block-editor/manifest.json', 'utf8'))
+ assert.deepEqual([manifest.id, manifest.kind, manifest.defaultEnabled, manifest.adminPaths], [editor.BLOCK_EDITOR_PLUGIN, 'module', true, ['/admin/editor']], 'a plugin, on until switched off')
+ plugin.on = false
+ assert.equal(await editor.blockEditorEnabled(), false)
  const good = doc(block('layout.section', {width: 'narrow'}, [block('content.heading', {text: 'سلام دنیا', level: 2}), block('content.richText', {content: rich('متن فارسی و English با هم ۱۲۳')})]))
  const off = await failure(() => editor.savePageDocument({id: first.id, document: good, expectedUpdatedAt: opened.updatedAt, actor: staff}))
  assert.deepEqual([off?.status, off?.code], [404, 'EDITOR_OFF'])
  assert.equal((await row(first.id)).editorFormat, 'legacy')
- await editor.setBlockEditorEnabled(true)
+ plugin.on = true
  assert.equal(await editor.blockEditorEnabled(), true)
 
  // ---- the first save
@@ -158,7 +161,7 @@ async function main() {
  const articlePage = fs.readFileSync('src/modules/site/server/pages/blog/[slug]/page.tsx', 'utf8')
  assert.match(articlePage, /const articleBlocks = !locked && \(isFa \|\| !post\.contentEn\) \? blocksHtml\(post\) : null/, 'a locked article never shows its document')
 
- console.log('PostgreSQL documents: on by default, switched off nothing is saved; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched row; an article is written the same way under its own permission passed')
+ console.log('PostgreSQL documents: a plugin that is on by default, and switched off saves nothing; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched row; an article is written the same way under its own permission passed')
 }
 
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {

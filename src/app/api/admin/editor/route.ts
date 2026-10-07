@@ -1,1 +1,1 @@
-export { settingsGET as GET, settingsPOST as POST } from '@/modules/editor/server/http/documents'
+export { settingsGET as GET } from '@/modules/editor/server/http/documents'

@@ -17,7 +17,6 @@ export default function AdminPagesPage() {
     { key: 'titleEn', label: t.englishTitle, dir: 'ltr' },
     { key: 'cover', label: t.cover, type: 'image', hideInTable: true },
     { key: 'content', label: t.content, type: 'richtext', hideInTable: true },
-    { key: 'contentEn', label: t.englishContent, type: 'richtext', hideInTable: true, dir: 'ltr' },
     {
       key: 'status',
       label: t.status,
