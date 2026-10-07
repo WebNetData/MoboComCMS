@@ -168,3 +168,16 @@ test('badge rules, usernames, tags and flags', () => {
   assert.equal(c.normalizeNotificationLevel('LOUD'), 'NORMAL')
   assert.equal(c.relativeTime(new Date(Date.now() - 5 * 60_000)), '۵ دقیقه')
 })
+
+test('a member has one address; the old forum address leads into it', () => {
+  const address = load('src/modules/identity/domain/profile-address.ts')
+  assert.deepEqual([address.profileAddress('sara'), address.profileAddress('sara', 'summary'), address.profileAddress('sara', 'badges'), address.profileAddress('a b')], ['/u/sara', '/u/sara?tab=forum', '/u/sara?tab=forum&f=badges', '/u/a%20b'])
+  assert.deepEqual(['', 'activity', 'topics', 'badges', 'posts', 'followers', 'following', 'nonsense'].map((tab) => address.forumAddressTarget('sara', tab)),
+    ['/u/sara?tab=forum', '/u/sara?tab=forum&f=activity', '/u/sara?tab=forum&f=topics', '/u/sara?tab=forum&f=badges', '/u/sara?tab=posts', '/u/sara?tab=followers', '/u/sara?tab=following', '/u/sara?tab=forum'])
+  assert.equal(address.normalizeForumPiece('summary<script>'), 'summary')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  // The forum's own page stands in only while social profiles are off; the profile page takes the forum as a part.
+  assert.match(read('src/app/forum/u/[username]/page.tsx'), /isModuleEnabled\('community'\)[^\n]*permanentRedirect\(forumAddressTarget\(username, tab\)\)/)
+  assert.match(read('src/app/u/[username]/page.tsx'), /forum \? \{ key: FORUM_PART/)
+  assert.match(read('src/modules/community/server/pages/profile.tsx'), /if \(!visible\) \{[\s\S]*?\} else if \(onPart\) \{/, 'a private profile does not show the forum part either')
+})

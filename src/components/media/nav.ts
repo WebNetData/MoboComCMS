@@ -23,6 +23,7 @@ export function cinemaNav(fa: boolean): SectionNavItem[] {
     { key: 'dubbed', href: '/cinema/browse?dubbed=1', label: fa ? 'دوبله فارسی' : 'Persian dub' },
     { key: 'imdb', href: '/cinema/browse?sort=imdb', label: fa ? 'برترین‌های IMDb' : 'Top IMDb' },
     { key: 'calendar', href: '/cinema/calendar', label: fa ? 'تقویم پخش' : 'Episode calendar' },
+    { key: 'people', href: '/cinema/people', label: fa ? 'کارگردانان و بازیگران' : 'Directors and cast' },
     { key: 'history', href: '/cinema/history', label: fa ? 'تاریخچهٔ تماشا' : 'Watch history' },
     { key: 'vip', href: '/vip', label: fa ? '♛ VIP' : '♛ VIP' },
   ]

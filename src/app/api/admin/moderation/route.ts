@@ -1,2 +1,2 @@
-export { GET } from '@/modules/moderation/server/http/admin'
+export { GET, POST } from '@/modules/moderation/server/http/admin'
 export const dynamic = 'force-dynamic'

@@ -21,6 +21,7 @@ function load(file) {
       return { ...real, getDownloadSettings: async () => ({ enforceTokens: true, requireLogin: false, tokenTtlMinutes: 60, hosts: [] }), signOriginUrl: url => url, linkHref: async (id, userId) => state.guard ? `/api/media/link/${id}?t=${real.pageToken(`l${id}`, userId, 60)}` : `/api/media/link/${id}` }
     }
     if (name === '@/modules/downloads/server/mask') return { maskedHref: async () => '/dl/masked' }
+    if (name === '@/modules/identity/server/access') return { requireUser: async () => (state.viewer.userId ? { id: state.viewer.userId } : null) }
     if (name === '@/modules/downloads/server/files') return { fetchRemoteBytes: async (url, max) => { state.fetched.push(url); const file = state.files.get(url); if (file === undefined) throw new Error('unreachable'); const bytes = Buffer.isBuffer(file) ? file : Buffer.from(file); if (bytes.length > max) throw new Error('too large'); return bytes } }
     if (name.endsWith('.json')) return JSON.parse(fs.readFileSync(name.startsWith('@/') ? `src/${name.slice(2)}` : path.join(path.dirname(full), name), 'utf8'))
     if (name.startsWith('@/')) return load(`src/${name.slice(2)}`)
@@ -30,6 +31,7 @@ function load(file) {
   return mod.exports
 }
 const links = load('src/modules/media/server/links.ts'), guard = load('src/modules/downloads/server/guard.ts')
+const prefs = load('src/modules/media/server/playback-prefs.ts'), prefRules = load('src/modules/media/domain/playback-prefs.ts'), mediaRules = load('src/modules/media/domain/media.ts')
 const u = name => `https://dl.example.invalid/${seed}/${name}`
 const SRT = '﻿1\r\n00:00:01,000 --> 00:00:03,500\r\n<font color="#fff">سلام</font> <i>دنیا</i>\r\n\r\n2\r\n00:01:02,040 --> 00:01:04,000\r\n{\\an8}خط دوم\r\n42\r\n'
 const get = (id, token) => links.openSubtitle(new Request(`http://site.invalid/api/media/subtitle/${id}${token ? `?t=${encodeURIComponent(token)}` : ''}`), String(id))
@@ -58,6 +60,23 @@ async function main() {
   const member = await prisma.user.create({ data: { email: `${seed}@example.invalid`, passwordHash: 'test-only' } })
   state.viewer = { userId: member.id, member: true }
   assert.deepEqual((await watch()).subtitles.map(row => row.language), ['fa', 'en', 'tr'], 'a member is offered the members\' subtitle too')
+  state.viewer = { userId: null, member: false }
+
+  // ---- what a member prefers is kept with the account and reaches the player and the download box
+  const put = body => prefs.PUT_playbackPrefs({ headers: new Headers(), json: async () => body })
+  assert.deepEqual([await prefs.getPlaybackPrefs(null), await prefs.getPlaybackPrefs(member.id), (await put({ subtitle: 'en' })).status], [prefRules.NO_PLAYBACK_PREFS, prefRules.NO_PLAYBACK_PREFS, 401], 'no preference until chosen; a visitor has none to save')
+  assert.equal((await watch()).subtitlePreference, null, 'a visitor: the device remembers')
+  state.viewer = { userId: member.id, member: false }
+  assert.equal((await watch()).subtitlePreference, '', 'a member who never chose')
+  assert.deepEqual(await (await put({ subtitle: 'en' })).json(), { audio: '', subtitle: 'en' })
+  assert.deepEqual(await (await put({ audio: 'ORIGINAL' })).json(), { audio: 'ORIGINAL', subtitle: 'en' }, 'what is not sent is kept')
+  assert.equal((await watch()).subtitlePreference, 'en')
+  assert.deepEqual(await (await put({ subtitle: 'klingon', audio: 'LOUD' })).json(), { audio: '', subtitle: '' }, 'an unknown language or side is no preference')
+  assert.deepEqual(await (await put({ subtitle: 'off' })).json(), { audio: '', subtitle: 'off' })
+  assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: member.id } })).playbackPrefs, '{"audio":"","subtitle":"off"}')
+  assert.equal((await prefs.PUT_playbackPrefs({ headers: new Headers({ origin: 'https://elsewhere.invalid', host: 'site.invalid' }), json: async () => ({ subtitle: 'fa' }) })).status, 403, 'not from another site')
+  const releases = [{ audio: 'DUBBED', quality: '1080p' }, { audio: 'ORIGINAL', quality: '1080p' }, { audio: '', quality: '720p' }]
+  assert.deepEqual([mediaRules.groupLinks(releases).map(g => g.audio), mediaRules.groupLinks(releases, prefRules.audioOrder({ audio: 'ORIGINAL', subtitle: '' })).map(g => g.audio), prefRules.audioOrder({ audio: 'DUBBED', subtitle: '' })[0]], [['DUBBED', 'ORIGINAL', ''], ['ORIGINAL', 'DUBBED', ''], 'DUBBED'], 'the preferred side first, nothing hidden')
   state.viewer = { userId: null, member: false }
 
   // ---- the file itself, as the browser needs it
@@ -104,7 +123,7 @@ async function main() {
   assert.deepEqual(await answer(await get(fa.id, token(fa.id))), [502, 'UNAVAILABLE'], 'an error page is not served as a subtitle')
   state.files.set(u('fa.srt'), `1\n00:00:01,000 --> 00:00:02,000\n${'x'.repeat(2 * 1024 * 1024)}\n`)
   assert.deepEqual(await answer(await get(fa.id, token(fa.id))), [502, 'UNAVAILABLE'], 'larger than a subtitle is')
-  console.log('PostgreSQL player subtitles: offered by language to those who may open them, served as WebVTT under the link rules (token, VIP, takedown, module, publication), and refused when the file is not a subtitle passed')
+  console.log('PostgreSQL player subtitles: offered by language to those who may open them, served as WebVTT under the link rules (token, VIP, takedown, module, publication), refused when the file is not a subtitle, and playback preferences kept with the account passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {

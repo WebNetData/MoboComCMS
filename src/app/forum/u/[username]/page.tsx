@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
-import { notFound } from 'next/navigation'
-import { requireModule } from '@/extensions/server/modules'
+import { notFound, permanentRedirect } from 'next/navigation'
+import { isModuleEnabled, requireModule } from '@/extensions/server/modules'
+import { profileByUsername } from '@/modules/identity/server/profile'
+import { forumAddressTarget } from '@/modules/identity/domain/profile-address'
 import { getForumViewer } from '@/modules/forum/server/forum'
 import { getProfile, type ProfileTab } from '@/modules/forum/server/people'
 import ForumShell from '@/components/forum/ForumShell'
@@ -26,6 +28,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProfilePage({ params, searchParams }: Props) {
   await requireModule('forum')
   const [{ username }, { tab }] = await Promise.all([params, searchParams])
+  // A member has one address, /u/<username>, with the forum as a part of it. This page only stands in while
+  // the social profiles are switched off; otherwise the old address leads to the new one.
+  if (await isModuleEnabled('community') && await profileByUsername(username).catch(() => null)) permanentRedirect(forumAddressTarget(username, tab))
   const viewer = await getForumViewer()
   // The member's posts and follow lists are tabs of this same page while the social module is on.
   const wanted = (SOCIAL_TABS as readonly string[]).includes(String(tab)) ? tab as SocialTab : null

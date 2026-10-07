@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { syncCredits } from '@/modules/cinema/server/people'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -285,6 +286,8 @@ const RESOURCES: Record<string, Resource> = {
     }),
     afterSave: async (tx, id, b) => {
       if (has(b, 'links')) await saveLinks(tx, 'title', id, b.links)
+      // The people of the title follow its director line and cast list.
+      if (has(b, 'director') || has(b, 'cast')) await syncCredits(tx, id)
       if (!has(b, 'seasons')) return
       const seasons = Array.isArray(b.seasons) ? b.seasons.slice(0, 60) : []
       // Replace the season/episode tree; episode links are rebuilt with it.

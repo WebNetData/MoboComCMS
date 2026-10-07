@@ -9,6 +9,7 @@ import EmailAlertPreference from '@/components/EmailAlertPreference'
 import PushAlertPreference from '@/components/PushAlertPreference'
 import TwoFactorCard from '@/components/TwoFactorCard'
 import RecommendationPreference from '@/components/RecommendationPreference'
+import PlaybackPreference from '@/components/media/PlaybackPreference'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { signOut } from 'next-auth/react'
@@ -107,6 +108,7 @@ export default function ProfilePage() {
 
         <TwoFactorCard />
         <RecommendationPreference />
+        <PlaybackPreference />
       </div>
 
       <div className="ac-col ac-channels">

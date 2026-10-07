@@ -198,3 +198,5 @@ Next concrete action:
 - 2026-10-07 (seventh): #123 merged; #124 (staff collections) open. feat/search-facets (on it): search narrowed by rating, access and recency; ratings read from both owners by ratingsOfItems. No migration. Verified: connected search-facets (12 breaks).
 
 - 2026-10-07 (eighth): #124 and #125 open. feat/recommendation-contract (on them): private suggestions ask one replaceable provider per kind of item; the member's own 4-star-or-more reviews are a signal. No migration. Verified: connected recommendation-providers (12 breaks), recommendations-listening.
+
+- 2026-10-07 (ninth): feat/completion-batch (on #124-#126, open): playback preferences with the account (20261211120000), one profile address (/u/<username>, the forum as a part; /forum/u redirects), member lists read and written one way (/api/me/lists), moderation cases (20261212120000), people of films and series (20261213120000, backfilled by a worker step). Verified: connected player-subtitles, member-lists, moderation-cases, cinema-people with deliberate breaks; unit forum-community.

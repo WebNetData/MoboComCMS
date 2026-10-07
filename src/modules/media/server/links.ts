@@ -11,6 +11,7 @@ import { MAX_SUBTITLE_BYTES, decodeSubtitle, playbackKind, subtitleFormat, toWeb
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
+import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
 import { accessFor, type Chain } from '@/modules/paywall/server/paywall'
 
 /**
@@ -191,7 +192,7 @@ export async function openTrack(request: Request, rawId: string) {
 export type PlayerSubtitle = { id: number; language: string; label: string; src: string }
 
 export type WatchResult =
-  | { ok: true; subtitles: PlayerSubtitle[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
+  | { ok: true; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -270,8 +271,10 @@ export async function watchSource(rawId: string, token: string | null, headers: 
       subtitles.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'زیرنویس', src: `/api/media/subtitle/${row.id}${pageToken ? `?t=${encodeURIComponent(pageToken)}` : ''}` })
     }
   }
+  // The member's own choice of subtitle, kept with the account; null for a visitor (the device remembers theirs).
+  const subtitlePreference = viewer.userId ? (await getPlaybackPrefs(viewer.userId)).subtitle : null
   return {
-    ok: true, subtitles, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    ok: true, subtitlePreference, subtitles, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,

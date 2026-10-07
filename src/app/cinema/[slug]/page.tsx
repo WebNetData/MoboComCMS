@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { creditLinks } from '@/modules/cinema/server/people'
+import { creditsOf, normalizePersonName } from '@/modules/cinema/domain/people'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
 import { notFound } from 'next/navigation'
@@ -68,6 +70,9 @@ export default async function TitlePage({ params }: Props) {
     })),
   }))
   const episodes = data.seasons.reduce((sum, s) => sum + s.episodes.length, 0)
+  // Names the page shows lead to the person's own page when the person is known.
+  const people = await creditLinks(ti.id)
+  const personHref = (name: string) => { const id = people.get(normalizePersonName(name)); return id ? `/cinema/people/${id}` : null }
   const facts: [string, string][] = [
     [fa ? 'کارگردان' : 'Director', ti.director],
     [fa ? 'کشور' : 'Country', ti.countries.join('، ')],
@@ -108,7 +113,7 @@ export default async function TitlePage({ params }: Props) {
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />
             </div>
             <ItemActionBar item={ref} title={name} image={ti.poster} followLabel={ti.kind === 'SERIES' ? 'قسمت جدید' : 'لینک‌های جدید'} />
-            {facts.length > 0 && <dl className="cn-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
+            {facts.length > 0 && <dl className="cn-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v === ti.director ? creditsOf({ director: v, cast: [] }).map((credit, i) => { const href = personHref(credit.name); return <span key={credit.name}>{i > 0 && (fa ? '، ' : ', ')}{href ? <Link href={href}>{credit.name}</Link> : credit.name}</span> }) : v}</dd></div>)}</dl>}
           </div>
         </div>
       </section>
@@ -117,7 +122,7 @@ export default async function TitlePage({ params }: Props) {
         {ti.cast.length > 0 && (
           <section className="md-shelf">
             <header className="md-shelf-head"><h2>{fa ? 'بازیگران' : 'Cast'}</h2></header>
-            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => <div key={`${person.name}-${i}`} className="cn-person">{person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</div>)}</Slider>
+            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => { const href = personHref(person.name); const inner = <>{person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</>; return href ? <Link key={`${person.name}-${i}`} href={href} className="cn-person">{inner}</Link> : <div key={`${person.name}-${i}`} className="cn-person">{inner}</div> })}</Slider>
           </section>
         )}
 

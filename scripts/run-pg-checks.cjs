@@ -12,11 +12,11 @@ const CHECKS = [
   'forum-flag-queue', 'forum-category-moderators',
   'forum-board-index', 'forum-clubs',
   'forum-activity-stream', 'forum-leaderboard', 'forum-reputation',
-  'moderation-queue', 'posts-permission-migration',
+  'moderation-queue', 'moderation-cases', 'posts-permission-migration',
   'marketplace-seller-money', 'staff-teams',
   'integrity-report', 'forum-member-profile', 'editorial-collections',
   'recommendations-listening', 'recommendation-providers', 'community-block-coverage', 'music-language',
-  'gift-membership-recovery', 'forum-members-groups',
+  'gift-membership-recovery', 'forum-members-groups', 'member-lists',
   'cart-writes', 'guest-cart-ownership', 'cart-checkout-snapshot', 'cart-merge-cap', 'cart-recovery', 'loyalty-awards',
   'inventory-hold-expiry', 'frenzyex-reconciliation', 'newsletter-send', 'queue-jobs', 'social-queue', 'scrub-recent', 'account-reviews', 'review-dimensions', 'compare-dimensions', 'review-badge-backfill',
   'reseller-recovery-provision', 'search-facets',
@@ -24,7 +24,7 @@ const CHECKS = [
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume', 'notification-policy',
   'cinema-calendar', 'media-tracks', 'player-subtitles',
-  'episode-air-alerts',
+  'episode-air-alerts', 'cinema-people',
 ]
 
 if (!process.env.DATABASE_URL) {
