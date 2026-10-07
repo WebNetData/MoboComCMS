@@ -14,6 +14,7 @@ import { purchasePreview } from '@/modules/paywall/server/paywall'
 import { recentViewPreview } from '@/modules/content/server/recent-views'
 import { personalRecommendations } from '@/modules/recommendations/server/personal'
 import { myCollections, savedCollections } from '@/modules/content/server/collections'
+import { memberLists } from '@/modules/account/server/lists'
 import { ITEM_LABEL } from '@/modules/content/domain/items'
 import { LIBRARY_LABELS } from '@/modules/games/domain/games'
 import Icon from '@/components/site/Icon'
@@ -42,6 +43,8 @@ export default async function LibraryPage() {
     recentViewPreview(userId),
     personalRecommendations(userId),
   ])
+  // Every list the member keeps, read one way from the modules that own them.
+  const lists = await memberLists(userId).catch(() => [])
   const number = (value: number) => value.toLocaleString(fa ? 'fa-IR' : 'en-US')
   const ownedCollectionIds = new Set(collections.map((item) => item.id))
   const recent = [
@@ -77,6 +80,9 @@ export default async function LibraryPage() {
         : suggestions.items.length ? <ul className="ulib-items">{suggestions.items.map(({ item, sourceTitle, sourceKind, reason }) => <li key={`${item.type}:${item.id}`}><Link href={item.url}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">{ITEM_LABEL[item.type].icon}</span>}<span><b>{item.title}</b><small>{fa ? `${sourceKind === 'listen' ? `چون به «${sourceTitle}» گوش داده‌اید` : `${sourceKind === 'follow' ? 'بر اساس دنبال‌کردن' : sourceKind === 'favorite' ? 'بر اساس علاقه‌مندی به' : sourceKind === 'rated' ? 'چون امتیاز بالایی دادید به' : 'بر اساس بازدید'} «${sourceTitle}»`} · ${reason}` : sourceKind === 'follow' ? `From followed creator “${sourceTitle}”` : sourceKind === 'rated' ? `Because you rated “${sourceTitle}” highly` : sourceKind === 'listen' ? `Because you listen to “${sourceTitle}”` : `Similar to “${sourceTitle}”`}</small></span></Link></li>)}</ul>
           : <p className="ud-muted">{fa ? 'با ذخیره یا دیدن محتوا و دنبال‌کردن هنرمندان یا استودیوها، پیشنهادهای مرتبط اینجا نمایش داده می‌شوند.' : 'Save or view content, or follow artists and studios, to see suggestions here.'}</p>}
     </section>
+    {lists.length > 0 && <section className="ud-card" aria-labelledby="lb-lists-title"><header className="ud-card-head"><h2 id="lb-lists-title">{fa ? 'همهٔ فهرست‌های من' : 'All my lists'}</h2></header>
+      <ul className="ulib-lists">{lists.map((list) => <li key={list.key}><Link href={list.href}><b>{list.title}</b><small>{number(list.count)} {fa ? 'مورد' : 'items'}</small></Link></li>)}</ul>
+    </section>}
     {recent.length > 0 && <section className="ud-card" aria-labelledby="lb-recent-title"><header className="ud-card-head"><h2 id="lb-recent-title">{fa ? 'تازه‌ترین موارد کتابخانه' : 'Recent in your library'}</h2></header><ul className="ulib-items">{recent.map((item) => <li key={item.key}><Link href={item.href}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">✦</span>}<span><b>{item.title}</b><small>{item.kind} · {item.detail}</small></span></Link></li>)}</ul></section>}
 
     {views.items.length > 0 && <section className="ud-card" aria-labelledby="lb-views-title"><header className="ud-card-head"><h2 id="lb-views-title">{fa ? 'اخیراً مشاهده‌شده' : 'Recently viewed'}</h2><Link href="/dashboard/recent">{fa ? 'همه' : 'View all'}</Link></header><ul className="ulib-items">{views.items.map((item) => <li key={`${item.type}:${item.id}`}><Link href={item.url}>{item.image ? <img src={item.image} alt="" loading="lazy" /> : <span className="ulib-noart" aria-hidden="true">{ITEM_LABEL[item.type].icon}</span>}<span><b>{item.title}</b><small>{ITEM_LABEL[item.type].one}</small></span></Link></li>)}</ul></section>}

@@ -288,3 +288,10 @@ a.myrev-target:focus-visible { outline: 2px solid var(--primary); outline-offset
 .collections-admin-list li { display: flex; align-items: center; gap: 10px; }
 .collections-admin-list li > a { flex: 1; min-width: 0; }
 @media (max-width: 600px) { .collections-admin-new { flex-wrap: wrap; } }
+
+/* Library: every list of the member in one row of tiles. */
+.ulib-lists { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.ulib-lists a { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; color: inherit; text-decoration: none; }
+.ulib-lists a:hover, .ulib-lists a:focus-visible { border-color: var(--primary); }
+.ulib-lists b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ulib-lists small { color: var(--muted); }
