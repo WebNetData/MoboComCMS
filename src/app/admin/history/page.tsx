@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from '@/components/AppLink'
 
 type Version = { version: number; changed: string[]; source: string; by: string; at: string }
+type Provenance = { sources: { source: string; externalId: string }[]; imports: { job: number; adapter: string; file: string; by: string; at: string; action: string; undone: boolean; fields: string[] }[]; editedSince: string[] | boolean } | null
 type Detail = { version: number; source: string; by: string; at: string; diff: { field: string; before: string; after: string }[] }
 const SOURCE: Record<string, string> = { baseline: 'وضعیت پیش از ثبت نسخه‌ها', edit: 'ویرایش', restore: 'بازگردانی', import: 'ورود گروهی' }
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -16,13 +17,14 @@ function History() {
   const base = `/api/admin/history?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`
   const [versions, setVersions] = useState<Version[] | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
+  const [provenance, setProvenance] = useState<Provenance>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
   const load = useCallback(async () => {
     const response = await fetch(base, { cache: 'no-store' }).catch(() => null)
     const body = await response?.json().catch(() => null)
-    if (response?.ok) setVersions(body.versions); else setMessage({ text: body?.error || 'تاریخچه بارگذاری نشد.', error: true })
+    if (response?.ok) { setVersions(body.versions); setProvenance(body.provenance || null) } else setMessage({ text: body?.error || 'تاریخچه بارگذاری نشد.', error: true })
   }, [base])
   useEffect(() => { void load() }, [load])
 
@@ -54,6 +56,12 @@ function History() {
         {row.version !== newest && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void restore(row.version)}>بازگردانی</button>}
       </li>)}</ul> : <p className="sa-sub">برای این مورد هنوز نسخه‌ای ثبت نشده است؛ با اولین ویرایش، وضعیت فعلی و وضعیت تازه هر دو نگه داشته می‌شوند.</p>}
     </section>
+    {provenance && <section className="sa-card" aria-label="منبع داده">
+      <header className="sa-card-head"><h2>منبع داده</h2>{provenance.editedSince === true || (Array.isArray(provenance.editedSince) && provenance.editedSince.length > 0) ? <span className="sa-state is-warn">پس از آخرین ورود، این‌جا ویرایش شده</span> : <span className="sa-state is-ok">همان است که آخرین ورود نوشت</span>}</header>
+      {Array.isArray(provenance.editedSince) && provenance.editedSince.length > 0 && <p className="sa-sub">فیلدهایی که با مقدار ورودی فرق دارند: <bdi dir="ltr">{provenance.editedSince.join(', ')}</bdi>. ورود دوباره با حالت «به‌روزرسانی» این ویرایش‌ها را بازنویسی می‌کند.</p>}
+      {provenance.sources.length > 0 && <p className="sa-sub">شناسه در منبع: {provenance.sources.map((row) => <bdi key={`${row.source}:${row.externalId}`} dir="ltr" className="sa-tag">{row.source}: {row.externalId}</bdi>)}</p>}
+      <ul className="sa-rows">{provenance.imports.map((row) => <li key={`${row.job}-${row.at}`}><Link href="/admin/imports"><span className="sa-grow"><b>{row.action === 'CREATE' ? 'ساخته شد' : 'به‌روز شد'} · ورود شمارهٔ {fa(row.job)}{row.undone ? ' (برگردانده‌شده)' : ''}</b><small>{row.file || row.adapter}{row.fields.length ? ` · ${row.fields.join('، ')}` : ''}</small></span><small className="sa-sub">{row.by || '—'} · {when(row.at)}</small></Link></li>)}</ul>
+    </section>}
     {detail && <section className="sa-card" aria-label={`تغییرات نسخهٔ ${detail.version}`}>
       <header className="sa-card-head"><h2>نسخهٔ {fa(detail.version)} چه چیزی را عوض کرد</h2></header>
       {detail.diff.length ? <div className="sa-table-wrap"><table className="data sa-table" style={{ minWidth: 0 }}>

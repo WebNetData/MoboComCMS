@@ -572,6 +572,9 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   return { row, existing }
 }
 
+/** One item as it is stored, for readers outside this file that know its kind by name. */
+export const mediaItemRow = async (type: string, id: number): Promise<Record<string, unknown> | null> => (RESOURCES[type] ? RESOURCES[type].delegate(db).findUnique({ where: { id } }) : null)
+
 /** The permissions and module of a kind of item, for the history of its items. */
 export const mediaResource = (type: string) => (Object.hasOwn(RESOURCES, type) ? { perms: RESOURCES[type].perms, module: RESOURCES[type].module } : null)
 
