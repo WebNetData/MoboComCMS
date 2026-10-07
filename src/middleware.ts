@@ -4,6 +4,7 @@ import { loadRouteAliases } from '@/modules/site/server/routes'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
 import { installGate } from '@/modules/installer/server/gate'
 import { mutationOrigin } from '@/platform/http/origin-policy'
+import { contentSecurityPolicy, newNonce, nonceOf, usesNonce } from '@/platform/http/csp'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -20,43 +21,16 @@ function ownHosts(req: NextRequest): Array<string | null> {
   return [req.headers.get('host') || req.nextUrl.host, configured]
 }
 
-const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com'
-// Google Translate website widget (google-translate plugin), public pages only.
-const TRANSLATE_SCRIPT = ' https://translate.google.com https://translate.googleapis.com https://translate-pa.googleapis.com https://www.gstatic.com'
-const TRANSLATE_CONNECT = ' https://translate.googleapis.com https://translate-pa.googleapis.com'
-
-function applySecurityHeaders(req: NextRequest, response: NextResponse) {
+/** The headers every response carries. `nonce` is the one the scripts of this response's body carry. */
+function applySecurityHeaders(req: NextRequest, response: NextResponse, nonce: string | null) {
   const path = req.nextUrl.pathname
-  // The Telegram mini app must stay embeddable in the Telegram webview.
-  const miniApp = path.startsWith('/miniapp')
-  const turnstile = path === '/login' || path === '/register' || path === '/forgot-password'
-  const translate = !miniApp && !path.startsWith('/admin') && !path.startsWith('/api')
-  // The forwarder's countdown page shows the admin's ad-network code (sandboxed frames inherit this policy).
-  const ads = path === '/forwarder' || path.startsWith('/forwarder/')
-
   response.headers.set('x-content-type-options', 'nosniff')
   // The reset link carries its token in the URL; never leak it to other sites.
   response.headers.set('referrer-policy', path === '/reset-password' ? 'no-referrer' : 'strict-origin-when-cross-origin')
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)')
-  if (!miniApp) response.headers.set('x-frame-options', 'SAMEORIGIN')
-
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'production' ? '' : " 'unsafe-eval'"}${miniApp || path === '/login' ? ' https://telegram.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${translate ? TRANSLATE_SCRIPT : ''}${ads ? ' https:' : ''}`,
-    `style-src 'self' 'unsafe-inline'${translate ? ' https://www.gstatic.com' : ''}`,
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    // Music player and trailers stream from media hosts (after the protected /api/media redirect).
-    "media-src 'self' https: blob:",
-    `connect-src 'self'${path.startsWith('/watch/') || ads ? ' https:' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
-    // Page-builder video blocks embed these players; login/register add their own providers.
-    `frame-src 'self' ${ads ? 'https:' : VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
-    miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
-    "base-uri 'self'",
-    // The Mellat start page posts the payment reference to the bank.
-    `form-action 'self'${path === '/api/payment/mellat/start' ? ' https://bpm.shaparak.ir' : ''}`,
-  ].join('; ')
-  response.headers.set('content-security-policy', csp)
+  // The Telegram mini app must stay embeddable in the Telegram webview.
+  if (!path.startsWith('/miniapp')) response.headers.set('x-frame-options', 'SAMEORIGIN')
+  response.headers.set('content-security-policy', contentSecurityPolicy({ path, nonce, production: process.env.NODE_ENV === 'production' }))
 
   if (process.env.NODE_ENV === 'production') {
     response.headers.set('strict-transport-security', 'max-age=15552000; includeSubDomains')
@@ -73,6 +47,14 @@ export async function middleware(req: NextRequest) {
   const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
   const headers = new Headers(req.headers)
   headers.set('x-request-id', requestId)
+  // One nonce per response. Next reads it from the policy on the request and puts it on the scripts it writes;
+  // the layout reads x-nonce for its own. A value sent by the visitor is never used.
+  const nonce = usesNonce(req.nextUrl.pathname) ? newNonce() : null
+  headers.delete('x-nonce')
+  if (nonce) {
+    headers.set('x-nonce', nonce)
+    headers.set('content-security-policy', contentSecurityPolicy({ path: req.nextUrl.pathname, nonce, production: process.env.NODE_ENV === 'production' }))
+  } else headers.delete('content-security-policy')
 
   // Before the first install every page leads to the web installer (never on a working site).
   const setup = await installGate(req).catch(() => null)
@@ -117,16 +99,18 @@ export async function middleware(req: NextRequest) {
       // The raw address: Next strips `?_rsc=` (client-side navigation) from nextUrl, and those requests must never be cached.
       search: new URL(req.url).search, host: req.headers.get('host') || req.nextUrl.host,
       port: req.nextUrl.port, proto: req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', ''),
+      nonce,
     }).catch(() => null)
     if (cached) {
       cached.headers.set('x-request-id', requestId)
-      applySecurityHeaders(req, cached as NextResponse)
+      // A stored page was given this response's nonce. An answer passed on as it was rendered keeps the nonce it was rendered with.
+      applySecurityHeaders(req, cached as NextResponse, nonceOf(cached.headers.get('content-security-policy')) ?? nonce)
       return cached
     }
   }
   response ||= NextResponse.next({ request: { headers } })
   response.headers.set('x-request-id', requestId)
-  applySecurityHeaders(req, response)
+  applySecurityHeaders(req, response, nonce)
   return response
 }
 
