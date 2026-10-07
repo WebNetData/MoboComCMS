@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Extension } from '@tiptap/core'
 import type { RichTextDoc } from '@/modules/editor/domain/rich-text'
+import { TypedDirection } from '@/components/editor/TypedDirection'
 
 /** Alignment and direction of a paragraph or heading, as attributes the document format knows. */
 const BlockAttributes = Extension.create({
@@ -22,7 +23,7 @@ const BlockAttributes = Extension.create({
 })
 
 /** The Tiptap extensions of MoboCom rich text: what the field edits with, and what an old HTML body is read with. */
-export const richTextExtensions = [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), BlockAttributes]
+export const richTextExtensions = [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), BlockAttributes, TypedDirection]
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -36,7 +37,7 @@ export default function RichTextField({ value, onChange, label, compact = false 
     immediatelyRender: false,
     extensions: richTextExtensions,
     content: value?.content?.length ? value : { type: 'doc', content: [{ type: 'paragraph' }] },
-    editorProps: { attributes: { class: 'mcb-content-richText mc-rich-input', dir: 'auto', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
+    editorProps: { attributes: { class: 'mcb-content-richText mc-rich-input', dir: 'rtl', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
     onUpdate: ({ editor: current }) => { const json = current.getJSON() as RichTextDoc; latest.current = json; onChange(json) },
   })
   // A value that changed from outside (undo, a reload) replaces what the editor shows; its own edits do not loop back.

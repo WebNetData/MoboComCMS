@@ -9,6 +9,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Extension } from '@tiptap/core'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { rewriteAssets } from '@/modules/downloads/domain/localize'
+import { TypedDirection } from '@/components/editor/TypedDirection'
 
 /**
  * Lightweight text-align support: StarterKit v3 has no textAlign extension, so we
@@ -68,7 +69,7 @@ export interface RichEditorProps {
  * and anywhere else admins author formatted content. Output is HTML — always run
  * it through `cleanRichText` on the server before storing or rendering it.
  */
-export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', minHeight = 220, compact = false, ticketMode = false, assetSection = 'posts' }: RichEditorProps) {
+export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', minHeight = 220, compact = false, ticketMode = false, assetSection = 'posts' }: RichEditorProps) {
   const { t } = useI18n()
   // Staff editors copy images/files of pasted content to this server (not ticket replies).
   const localizeOn = !ticketMode
@@ -92,6 +93,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'ltr', 
       TextAlign,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TypedDirection,
     ],
     content: value || '',
     editorProps: {

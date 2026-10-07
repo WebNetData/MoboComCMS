@@ -875,6 +875,10 @@ html[data-theme='dark'] {
   background: var(--card);
 }
 
+/* Each paragraph starts from the side of its own direction (see TypedDirection); code always reads left to right. */
+.rich-editor-body [dir] { text-align: start; }
+.rich-editor-body pre { direction: ltr; text-align: left; }
+
 .rich-editor-body p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: inline-start;

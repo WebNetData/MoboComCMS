@@ -10,7 +10,7 @@
 import { walkBlocks, type MoboComBlock, type MoboComDocument } from '@/modules/editor/domain/document'
 import { BREAKPOINTS, type AssetValue, type EmbedValue, type FieldSchema, type FieldSpec } from '@/modules/editor/domain/fields'
 import type { BlockRegistry } from '@/modules/editor/domain/registry'
-import { escapeHtml, richTextFacts, richTextHtml, safeLinkHref } from '@/modules/editor/domain/rich-text'
+import { escapeHtml, richTextFacts, richTextHtml, safeLinkHref, textDirection } from '@/modules/editor/domain/rich-text'
 
 export interface DocumentFacts {
   text: string
@@ -116,8 +116,8 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry): string {
     case 'layout.stack': return `<div class="${cls(name, responsive('mcb-dir', p.direction), token('mcb-gap', p.gap), token('mcb-align', p.align))}">${inner()}</div>`
     case 'layout.spacer': return `<div class="${cls(name, responsive('mcb-size', p.size))}" aria-hidden="true"></div>`
     case 'layout.divider': return `<hr class="${cls(name, token('mcb-line', p.line))}">`
-    case 'content.richText': return `<div class="${name}"${p.dir === 'rtl' || p.dir === 'ltr' ? ` dir="${p.dir}"` : ' dir="auto"'}>${richTextHtml(p.content)}</div>`
-    case 'content.heading': { const level = Math.min(6, Math.max(2, Number(p.level) || 2)); return `<h${level} class="${cls(name, token('mcb-align', p.align))}"${anchor(p.anchor)}>${escapeHtml(String(p.text || ''))}</h${level}>` }
+    case 'content.richText': return `<div class="${name}"${p.dir === 'rtl' || p.dir === 'ltr' ? ` dir="${p.dir}"` : ''}>${richTextHtml(p.content)}</div>`
+    case 'content.heading': { const level = Math.min(6, Math.max(2, Number(p.level) || 2)); const dir = textDirection(p.text); return `<h${level} class="${cls(name, token('mcb-align', p.align))}"${anchor(p.anchor)}${dir ? ` dir="${dir}"` : ''}>${escapeHtml(String(p.text || ''))}</h${level}>` }
     case 'content.image': {
       const image = imageHtml(p.image as AssetValue), href = safeLinkHref(p.link)
       return image ? `<div class="${cls(name, token('mcb-width', p.width), p.rounded === true && 'is-rounded')}">${href ? `<a href="${escapeHtml(href)}">${image}</a>` : image}</div>` : ''
