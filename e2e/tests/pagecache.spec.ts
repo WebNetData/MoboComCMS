@@ -8,7 +8,7 @@ test.describe('guest page cache', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin()) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     await admin.post('/api/admin/optimization', { data: { op: 'config', config: { mode: 'balanced', debugHeaders: true } } })
     await admin.dispose()
   })
@@ -16,7 +16,7 @@ test.describe('guest page cache', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin()) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     await admin.post('/api/admin/optimization', { data: { op: 'config', config: { mode: 'off' } } })
     await admin.dispose()
   })

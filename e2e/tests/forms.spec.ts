@@ -32,7 +32,7 @@ test.describe('form builder', () => {
     const { hasAdmin } = await import('../helpers')
     if (!hasAdmin() || !formId) return
     const { ADMIN_STATE } = await import('../paths')
-    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE })
+    const admin = await playwright.request.newContext({ baseURL, storageState: ADMIN_STATE, extraHTTPHeaders: { origin: baseURL! } })
     await admin.post('/api/admin/forms', { data: { op: 'delete', id: formId } })
     await admin.dispose()
   })

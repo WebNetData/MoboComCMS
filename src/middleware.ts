@@ -3,24 +3,21 @@ import { routeDecision } from '@/platform/routing/aliases'
 import { loadRouteAliases } from '@/modules/site/server/routes'
 import { pageCacheHandle, purgeSoon } from '@/modules/performance/server/pagecache'
 import { installGate } from '@/modules/installer/server/gate'
+import { mutationOrigin } from '@/platform/http/origin-policy'
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,128}$/
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
-// Server-to-server callbacks authenticate with signatures/secrets and send no
-// Origin header; NextAuth ships its own CSRF token flow.
+// Server-to-server callbacks authenticate with signatures/secrets (a bank also sends the
+// payer's browser back with a cross-site POST); NextAuth ships its own CSRF token flow.
 const ORIGIN_EXEMPT = /^\/api\/(auth\/|payment\/|telegram\/|internal\/|feeds\/|newsletter\/unsubscribe)/
 
-function sameSiteOrigin(req: NextRequest, origin: string): boolean {
-  try {
-    const host = new URL(origin).host
-    // Next may normalize nextUrl to localhost even when the browser used 127.0.0.1.
-    // Compare with the actual request Host, never an untrusted forwarded host.
-    if (host === (req.headers.get('host') || req.nextUrl.host)) return true
-    const configured = process.env.NEXTAUTH_URL
-    return Boolean(configured && host === new URL(configured).host)
-  } catch {
-    return false
-  }
+/** The hosts this site answers on. */
+function ownHosts(req: NextRequest): Array<string | null> {
+  let configured: string | null = null
+  try { configured = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : null } catch { configured = null }
+  // Next may normalize nextUrl to localhost even when the browser used 127.0.0.1.
+  // Compare with the actual request Host, never an untrusted forwarded host.
+  return [req.headers.get('host') || req.nextUrl.host, configured]
 }
 
 const VIDEO_FRAME_HOSTS = 'https://www.youtube-nocookie.com https://www.youtube.com https://www.aparat.com https://player.vimeo.com'
@@ -87,10 +84,13 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith('/api/') &&
     !ORIGIN_EXEMPT.test(req.nextUrl.pathname)
   ) {
-    const origin = req.headers.get('origin')
-    if (origin && !sameSiteOrigin(req, origin)) {
-      return NextResponse.json({ error: 'forbidden origin' }, { status: 403 })
-    }
+    const verdict = mutationOrigin({
+      origin: req.headers.get('origin'), secFetchSite: req.headers.get('sec-fetch-site'), referer: req.headers.get('referer'),
+      hasCookies: Boolean(req.headers.get('cookie')?.trim()), hosts: ownHosts(req),
+    })
+    if (verdict === 'foreign-origin') return NextResponse.json({ error: 'forbidden origin' }, { status: 403 })
+    // Signed in by cookie but silent about where the request was made: no current browser does that.
+    if (verdict === 'origin-required') return NextResponse.json({ error: 'origin required' }, { status: 403 })
   }
 
   // An admin change may alter public pages: the guest page cache is emptied shortly after it.
