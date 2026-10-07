@@ -191,7 +191,7 @@ const a = load('src/modules/server-panel/domain/archive')
 /** One tar header block (and the data blocks of a file), the way tar writes them. */
 function tarBlock({ name, type = '0', size = 0, link = '', prefix = '', magic = 'ustar\0' + '00', data }) {
   const block = Buffer.alloc(512)
-  block.write(name, 0, 100, 'utf8'); block.write('0000644\0', 100); block.write('0000000\0', 108); block.write('0000000\0', 116)
+  block.write(name, 0, 100, 'utf8'); block.write((type === '5' ? '0000755' : '0000644') + '\0', 100); block.write('0000000\0', 108); block.write('0000000\0', 116)
   const body = data ?? Buffer.alloc(type === '0' ? size : 0)
   block.write((data ? data.length : size).toString(8).padStart(11, '0') + '\0', 124); block.write('00000000000\0', 136)
   block.write('        ', 148); block.write(type, 156); block.write(link, 157, 100, 'utf8'); block.write(magic, 257, 8, 'latin1'); block.write(prefix, 345, 155, 'utf8')
