@@ -62,22 +62,16 @@ async function main() {
   }
 
   // --- Panels ---
-  await prisma.panel.upsert({
-    where: { id: 1 },
-    update: {},
-    create: { name: 'Main Remnawave', type: 'REMNAWAVE', url: 'https://panel1.example.com', token: 'REPLACE_WITH_TOKEN', active: false },
-  })
-  await prisma.panel.upsert({
-    where: { id: 2 },
-    update: {},
-    create: { name: 'Main PasarGuard', type: 'PASARGUARD', url: 'https://panel2.example.com', token: '', password: 'REPLACE_WITH_PASSWORD', active: false },
-  })
+  // Found by name, not by id: on a database that has held rows before, a new panel does not get id 1.
+  const panel = async (data) => (await prisma.panel.findFirst({ where: { name: data.name }, orderBy: { id: 'asc' } })) || prisma.panel.create({ data })
+  const remnawave = await panel({ name: 'Main Remnawave', type: 'REMNAWAVE', url: 'https://panel1.example.com', token: 'REPLACE_WITH_TOKEN', active: false })
+  const pasarguard = await panel({ name: 'Main PasarGuard', type: 'PASARGUARD', url: 'https://panel2.example.com', token: '', password: 'REPLACE_WITH_PASSWORD', active: false })
 
   // --- Plans ---
   const plans = [
-    { name: 'Starter — 50GB / 30d', trafficGB: 50, days: 30, deviceLimit: 2, price: 2.5, priceMinor: usdMinor(2.5), currency: 'USD', featured: false, sort: 1, panelId: 1 },
-    { name: 'Pro — 120GB / 90d', trafficGB: 120, days: 90, deviceLimit: 3, price: 6.5, priceMinor: usdMinor(6.5), currency: 'USD', featured: true, sort: 2, panelId: 1 },
-    { name: 'Ultra — 300GB / 180d', trafficGB: 300, days: 180, deviceLimit: 5, price: 12, priceMinor: usdMinor(12), currency: 'USD', featured: false, sort: 3, panelId: 2 },
+    { name: 'Starter — 50GB / 30d', trafficGB: 50, days: 30, deviceLimit: 2, price: 2.5, priceMinor: usdMinor(2.5), currency: 'USD', featured: false, sort: 1, panelId: remnawave.id },
+    { name: 'Pro — 120GB / 90d', trafficGB: 120, days: 90, deviceLimit: 3, price: 6.5, priceMinor: usdMinor(6.5), currency: 'USD', featured: true, sort: 2, panelId: remnawave.id },
+    { name: 'Ultra — 300GB / 180d', trafficGB: 300, days: 180, deviceLimit: 5, price: 12, priceMinor: usdMinor(12), currency: 'USD', featured: false, sort: 3, panelId: pasarguard.id },
   ]
   for (const p of plans) {
     const exists = await prisma.plan.findFirst({ where: { name: p.name } })

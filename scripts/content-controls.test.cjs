@@ -14,8 +14,11 @@ test('backup settings and execution require settings permission', async () => {
   for (const method of ['GET','PATCH','POST']) assert.equal((await route[method](new NextRequest('http://localhost/api/admin/backups'))).status,403)
 })
 
+// The middleware under test is that of an installed site, whatever database (or none) this run has.
+const INSTALLED = { '@/modules/installer/server/gate': { installGate: async () => null } }
+
 test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', async () => {
-  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
   const request = origin => new NextRequest('http://localhost:3002/api/subscriptions/1', { method: 'POST', headers: { host: '127.0.0.1:3002', origin, 'x-request-id': 'origin-test-123' } })
   assert.equal((await middleware(request('http://127.0.0.1:3002'))).status, 200)
   assert.equal((await middleware(request('https://attacker.invalid'))).status, 403)
@@ -23,7 +26,7 @@ test('origin guard accepts the actual host despite Next localhost normalization 
 })
 
 test('middleware publishes sections under their aliases and redirects old addresses', async () => {
-  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
   const get = (url) => middleware(new NextRequest(url, { headers: { 'x-request-id': 'alias-test-123' } }))
   const old = await get('http://localhost:3002/games/x?y=1')
   assert.equal(old.status, 308)
@@ -821,7 +824,7 @@ test('a write must show where it was made: Origin, Sec-Fetch-Site, Referer, or n
   assert.equal(from({ hasCookies: false, origin: 'https://evil.example' }), 'foreign-origin', 'a named foreign site is refused with or without cookies')
   assert.equal(mutationOrigin({ origin: 'https://shop.example', secFetchSite: null, referer: null, hasCookies: true, hosts: [null, undefined] }), 'foreign-origin', 'no known host, nothing is ours')
 
-  const { middleware } = load('src/middleware.ts', { '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
   const send = (path, headers, method = 'POST') => middleware(new NextRequest('http://localhost:3002' + path, { method, headers: { host: '127.0.0.1:3002', 'x-request-id': 'origin-test-456', ...headers } })).then((response) => response.status)
   const session = { cookie: 'next-auth.session-token=abc' }
   assert.equal(await send('/api/account/x', session), 403, 'a session cookie and no word on the source')

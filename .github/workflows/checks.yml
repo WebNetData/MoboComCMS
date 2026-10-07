@@ -2,9 +2,10 @@ name: Checks
 
 # What a pull request must pass before the owner merges it:
 #   check     npm run check: architecture, source, schema parity, release manifest, money, security, audit,
-#             i18n, the unit suites, typecheck (no database)
-#   postgres  every migration applied to an empty PostgreSQL 17, then the connected checks (npm run test:pg)
-#             and the Redis check of the strict rate limit (npm run test:redis)
+#             i18n, the unit suites, typecheck. No database is reached; the PostgreSQL client is generated,
+#             because that is the client production runs and the one the code is typed against.
+#   postgres  a first deploy on an empty PostgreSQL 17 (every migration, then the seed), the connected checks
+#             (npm run test:pg) and the Redis check of the strict rate limit (npm run test:redis)
 #   build     the production build with the PostgreSQL client
 # The browser suite is its own workflow (e2e.yml).
 on:
@@ -28,6 +29,9 @@ jobs:
     name: npm run check
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # Chooses the PostgreSQL client at install. Nothing listens there, and nothing in this job connects.
+      DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5999/none?schema=public
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -81,6 +85,11 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Apply every migration to an empty database
         run: npm run deploy:migrate
+      - name: Seed it, as a first deploy does
+        run: npm run deploy:seed
+        env:
+          ADMIN_EMAIL: admin@example.com
+          ADMIN_PASSWORD: CiAdmin!Password-2026
       - name: Connected PostgreSQL checks
         run: npm run test:pg
       - name: Strict rate limit against Redis

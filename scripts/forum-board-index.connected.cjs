@@ -74,7 +74,9 @@ async function main() {
   assert.equal(member.sections[member.sections.length - 1].id, 0, 'which comes after the real sections')
   assert.equal(shared.forums.find(forum => forum.slug === lone.slug).quiet, true, 'nothing for a month: quiet')
   assert.ok(!member.text.includes('classified topic') && !member.text.includes(secret.slug) && !member.text.includes('vault') && !member.text.includes('hidden topic') && !member.text.includes('unlisted topic'), 'nothing of a forum the viewer cannot see, nor hidden or unlisted topics')
-  assert.deepEqual(member.topics, ['mod topic', 'newer topic', 'older topic'])
+  // The six most recent topics of the whole site: on a busy database the 45-day-old one has fallen off the list, on an empty one it is the fourth.
+  assert.deepEqual(member.topics.slice(0, 3), ['mod topic', 'newer topic', 'older topic'])
+  assert.deepEqual(member.topics.slice(3).filter(title => title !== 'stale topic'), [])
   assert.deepEqual(member.contributors, [['writer', 60], ['replier', 50]], 'posts of the last 30 days in visible forums; hidden posts and private forums do not count')
   assert.deepEqual(member.online, ['lurker', 'writer'], 'seen in the last ten minutes')
 
@@ -89,7 +91,7 @@ async function main() {
 
   // ---- a visitor: the same public forums, and no names of who is online
   const guest = mine(await board.boardIndex(viewer(null), now))
-  assert.deepEqual(guest.topics, ['mod topic', 'newer topic', 'older topic'])
+  assert.deepEqual(guest.topics.slice(0, 3), ['mod topic', 'newer topic', 'older topic'])
   assert.deepEqual(guest.online, [])
   assert.ok(!guest.text.includes('classified topic') && !guest.text.includes('vault'))
   assert.equal(board.isQuiet(ago(60 * 24 * 29), now), false); assert.equal(board.isQuiet(ago(60 * 24 * 31), now), true); assert.equal(board.isQuiet(null, now), true)
