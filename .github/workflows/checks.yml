@@ -104,6 +104,8 @@ jobs:
     env:
       # The build needs the PostgreSQL client, not a reachable database.
       DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5999/none?schema=public
+      # With Node's default heap the build ran out of memory in rehearsal (Node 22, 4 CPUs); with 4 GB it passes.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
