@@ -21,3 +21,4 @@ GitHub Spec Kit may be used for major work when deliberately initialized, but Mo
 - "Actors & authorization" names the exact permission from `src/modules/identity/rbac.ts`; one section, one permission. For the forum, say which of the three ranks may do it and whether it is scoped to a forum.
 - "Acceptance verification" names the connected PostgreSQL script and the deliberate breaks that must fail it.
 - When the owner makes a decision the spec depends on, record it in `docs/agent/PLATFORM_DECISIONS.md` as well.
+- Page or article content in a spec means the block editor and the MoboCom document (`docs/editor/ARCHITECTURE.md`): name the block types involved, their fields and, for a dynamic block, the question it stores. A feature that changes a money state names the claim it makes and the database rule it relies on.
