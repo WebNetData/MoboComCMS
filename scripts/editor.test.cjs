@@ -203,9 +203,11 @@ test('props of an older version are migrated step by step, never reinterpreted',
   const holed = new BlockRegistry().register({ ...base, type: 'store.y', version: 1 }); holed.get('store.y').version = 2
   assert.deepEqual(v.checkDocument(document({ id: 'hole_0001', type: 'store.y', version: 1, props: { a: 1 } }), holed).unsupported.map((u) => u.reason), ['missing-migration'])
   // A permission of a block is asked of whoever saves.
-  const embed = document(block('content.embed', { embed: { url: 'https://youtu.be/dQw4w9WgXcQ' } }))
-  assert.deepEqual(codes(v.checkDocument(embed, registry, { permissions: () => false })), ['block.permission'])
-  assert.deepEqual(codes(v.checkDocument(embed, registry, { permissions: (name) => name === 'editor.embed' })), [])
+  const guarded = core.createRegistry([{ ...base, type: 'store.priceTable', version: 1, permission: 'cms.products' }])
+  const priced = document(block('store.priceTable'), block('content.heading', { text: 'anyone may add a heading' }))
+  assert.deepEqual(codes(v.checkDocument(priced, guarded, { permissions: () => false })), ['block.permission'])
+  assert.deepEqual(codes(v.checkDocument(priced, guarded, { permissions: (name) => name === 'cms.products' })), [])
+  assert.deepEqual(codes(v.checkDocument(priced, guarded)), [], 'reading a stored document asks nobody')
 })
 
 test('a document reads as facts for search and SEO, and as plain HTML with nothing unescaped', () => {

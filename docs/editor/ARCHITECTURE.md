@@ -1,6 +1,6 @@
 # The block editor
 
-Status: **Phase 1, step 1 of 3 is in the code** (the document, the registry, validation, reading). Steps 2 and 3 are planned below and are not built. Nothing in the admin or on a public page uses this yet.
+Status: **Phase 1, steps 1 and 2 of 3 are in the code**: the document, the registry, validation and reading (step 1); storing a page as a document, saving it safely and showing it on the public page (step 2). Step 3, the editor itself (Gutenberg and Tiptap in the admin), is not built: today a document reaches a page only through the API. The switch is off by default.
 
 ## What was found in the repository first
 
@@ -122,26 +122,60 @@ A document whose own `version` is not known is refused whole.
 
 `scripts/editor.test.cjs` (part of `npm run test:site`): the document check, fields, rich text, unknown and newer blocks, migrations, permissions, facts, HTML, the core blocks, and that `domain` imports nothing outside itself.
 
-## What is not built
+## Storage and pages (step 2)
 
-Step 2 (storage and pages):
-- `editorFormat` (`legacy` or `blocks-v1`) and a JSON document column on `Page` and `Post`, in both schemas, additive. Existing HTML content stays `legacy` and keeps rendering as it does.
-- Save and load on the server with the check above, the item's permission, `updatedAt` as the version to save against (409 when the item changed since it was opened), and a `ContentRevision` per save.
-- React renderers of the core blocks using the theme's styles; a boundary so one broken block does not take the page down.
-- A switch for the editor in the admin, off by default.
-- How a module or an enabled extension registers its blocks.
+**Pages are the first kind of item written in blocks.** Posts, products and media items stay as they are.
+
+| Column of `Page` | Holds |
+| --- | --- |
+| `editorFormat` | `legacy` (the default: HTML in `content`) or `blocks-v1` |
+| `contentDocument` | the document as JSON text when the format is `blocks-v1`, empty otherwise |
+| `content` | for a blocks page, HTML **generated** from the document, so search, feeds, the SEO audit and anything that only knows HTML keep working. It is a copy and is never read back as the source. |
+
+The columns are text, like every other JSON value in this schema, because the SQLite schema must match. The migration `20261217120000_page_documents` is additive: every existing page is `legacy` and renders exactly as before. Two database constraints hold the pairing: the format is one of the two names, and a page has a document exactly when it is written in blocks.
+
+`src/modules/editor/server/documents.ts`:
+
+- `blockEditorEnabled()`: the switch (setting `editor.blocks`), **off by default**. Off stops saving; pages already written in blocks keep rendering.
+- `loadPageDocument(id)`: the document, what could not be read, and `updatedAt`, the version to save against. For a legacy page it returns the page's HTML beside an empty document; nothing is converted silently.
+- `savePageDocument({ id, document, expectedUpdatedAt, actor })`: checks the document with the registry and the actor's permissions, and writes it **only if the page is still at the version the editor opened**. Otherwise 409 `CHANGED`. A document with errors is 422 with the list. Each save adds a version to the page's history (`ContentRevision`), the first one after a baseline of the HTML the page had.
+- `pageBlocksHtml(page)`: what the public page shows. A document that cannot be read gives an empty page and a log line, never an error page.
+- `registerModuleBlocks(definitions)`: how a module hands in its block types.
+
+API (permission `cms.pages`; the switch needs `settings.manage`):
+
+| | |
+| --- | --- |
+| `GET /api/admin/editor` | whether the editor is on |
+| `POST /api/admin/editor { enabled }` | turn it on or off |
+| `GET /api/admin/editor/pages/:id` | document, unsupported blocks, `updatedAt`, `legacyHtml` |
+| `PUT /api/admin/editor/pages/:id { document, updatedAt }` | save |
+
+The page form (`/api/admin/cms?type=pages`) may still change a blocks page's title, address and state; it refuses to write its body (409).
+
+The public page `/p/<slug>` renders a blocks page from its document into `.mcb-document`. Styles are in `src/app/editor-blocks.css`: every class there is one the renderer writes from a closed list, with the theme's tokens for colour and radius, and the three breakpoints of the responsive fields.
+
+Check: `scripts/editor-page-documents.connected.cjs` (in `npm run test:pg`).
+
+## What is not built
 
 Step 3 (the editor itself):
 - `@wordpress/block-editor` and its companions, imported only under `src/modules/editor/adapters/gutenberg` and `src/components/editor/gutenberg`, loaded only on the admin editing page.
 - The adapter between the document and Gutenberg's block list; unknown blocks carried through untouched.
 - The rich text block's editing component with Tiptap, storing JSON.
 - The media picker over the existing upload API.
-- Autosave with a dirty/saved/error state.
+- Autosave with a dirty/saved/error state, and a way to start a blocks page from a legacy one.
 - Browser tests: insert, nest, type Persian text, add an image, reorder, save, reload, view the page.
+
+Also not built:
+- React components for blocks that modules register. A page is rendered from `documentHtml`; a module's block leaves a marked empty element there. This comes with the first real domain block.
+- A document for the English body (`contentEn`) of a page. A blocks page has one document.
+- Posts and other items. The magazine's article page is a protected surface and is not touched by this.
+- Extensions registering blocks (modules can, through `registerModuleBlocks`).
 
 Later phases (patterns, templates, locking, reusable blocks, responsive controls in the inspector, domain blocks beyond a proof) start after step 3 is stable.
 
-## Known limits of step 1
+## Known limits
 
 - Media has no asset id in this codebase; a block stores the file's address.
 - `documentHtml` knows the core blocks by name. A block from a module leaves a marked empty element there; its page rendering is the module's component.
