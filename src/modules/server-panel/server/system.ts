@@ -8,9 +8,9 @@ import { promisify } from 'node:util'
 
 const run = promisify(execFile)
 
-export async function command(file: string, args: string[], timeout = 4000): Promise<{ ok: boolean; out: string }> {
+export async function command(file: string, args: string[], timeout = 4000, cwd?: string): Promise<{ ok: boolean; out: string }> {
   try {
-    const { stdout } = await run(file, args, { timeout, maxBuffer: 2 * 1024 * 1024, env: { ...process.env, LC_ALL: 'C' } })
+    const { stdout } = await run(file, args, { timeout, maxBuffer: 2 * 1024 * 1024, env: { ...process.env, LC_ALL: 'C' }, ...(cwd ? { cwd } : {}) })
     return { ok: true, out: stdout }
   } catch (error) {
     const failure = error as { stdout?: string; stderr?: string; message?: string }
