@@ -91,6 +91,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/notifications/server/policy')).runNotificationPolicy(),
   },
   {
+    // Cinema: reads the people (director, cast) out of titles saved before people existed; nothing to do once all are read.
+    name: 'cinema-people', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/cinema/server/people')).backfillCredits(),
+  },
+  {
     // Moderation: claims on waiting items that nobody finished for a week are closed.
     name: 'moderation-cases', everyMs: 6 * 3_600_000,
     run: async () => (await import('@/modules/moderation/server/cases')).closeAbandonedCases(),

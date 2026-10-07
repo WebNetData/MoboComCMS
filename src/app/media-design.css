@@ -976,3 +976,14 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 @media (prefers-reduced-motion: reduce) { .mu-lang { transition: none; } .mu-lang:hover { transform: none; } }
 
 .mu-lang-row a.is-active { border-color: var(--primary); background: var(--primary); color: var(--sds-theme-accent-on, #fff) !important; }
+
+/* Cinema people: the directory and a person's page reuse the cast card. */
+.cn-people-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 16px 12px; }
+.cn-people-search { display: flex; gap: 8px; align-items: center; }
+.cn-people-search .input { min-width: 0; width: min(280px, 60vw); }
+a.cn-person { color: inherit; text-decoration: none; }
+.cn-person-head { display: flex; align-items: center; gap: 20px; margin-block: 8px 24px; }
+.cn-person-head h1 { margin: 4px 0; }
+.cn-person.is-large img, .cn-person.is-large i { width: 120px; height: 120px; }
+.cn-person-bio { max-width: 70ch; }
+@media (max-width: 600px) { .cn-person-head { flex-direction: column; align-items: flex-start; } }

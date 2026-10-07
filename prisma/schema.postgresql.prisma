@@ -1567,9 +1567,35 @@ model CinemaTitle {
   updatedAt     DateTime       @default(now()) @updatedAt
   seasons       CinemaSeason[]
   airNotifications CinemaEpisodeAirNotification[]
+  credits       CinemaCredit[]
 
   @@index([kind, status, publishedAt])
   @@index([kind, status, releaseDate])
+}
+
+/// A person of films and series (director, cast), read out of the titles' own director line and cast list.
+model CinemaPerson {
+  id             Int            @id @default(autoincrement())
+  name           String
+  normalizedName String         @unique
+  image          String         @default("")
+  bio            String         @default("")
+  createdAt      DateTime       @default(now())
+  credits        CinemaCredit[]
+}
+
+model CinemaCredit {
+  id        Int          @id @default(autoincrement())
+  titleId   Int
+  personId  Int
+  role      String // DIRECTOR | CAST
+  character String       @default("")
+  sortOrder Int          @default(0)
+  title     CinemaTitle  @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  person    CinemaPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([titleId, personId, role])
+  @@index([personId, role])
 }
 
 model CinemaSeason {
