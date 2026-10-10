@@ -390,6 +390,7 @@
     "20261215120000_admin_saved_views",
     "20261216120000_money_state_rules",
     "20261217120000_page_documents",
-    "20261218120000_post_documents"
+    "20261218120000_post_documents",
+    "20261219120000_access_restrictions"
   ]
 }

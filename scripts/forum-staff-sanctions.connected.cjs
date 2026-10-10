@@ -1,13 +1,12 @@
 // Actual PATCH handler + canonical staff guard against PostgreSQL; only session/module boundaries and unrelated effects are injected.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server')
-const db = new PrismaClient(), seed = `forum-sanctions-${Date.now()}`, audits = []
+const db = new PrismaClient(), seed = `forum-sanctions-${Date.now()}`
 let actor, enabled = true
 const mocks = {
   '@/platform/database/prisma': { db },
   '@/modules/identity/server/access': { requirePerm: async (_req, key) => actor?.permissions === null || actor?.permissions?.includes(key) ? actor : null },
-  '@/extensions/server/modules': { moduleGuard: async () => enabled ? null : new Response('{}', { status: 404 }) },
-  '@/platform/audit/server': { auditAdmin: async entry => { audits.push(entry) } },
+  '@/extensions/server/modules': { moduleGuard: async () => enabled ? null : new Response('{}', { status: 404 }), isModuleEnabled: async () => enabled },
   '@/modules/forum/server/community': { refreshStats: async () => {} },
   '@/modules/forum/server/actions': {}, '@/modules/forum/server/people': {}, '@/modules/forum/server/team': {}, '@/modules/forum/server/forum': {},
 }
@@ -41,10 +40,10 @@ async function main() {
   }
   const refused = async (who, target, data) => {
     actor = who
-    const before = await db.forumProfile.findUniqueOrThrow({ where: { userId: target.id } }), count = audits.length
+    const before = await db.forumProfile.findUniqueOrThrow({ where: { userId: target.id } }), count = await db.auditLog.count({ where: { actorUserId: who.id } })
     assert.equal((await patch(target.id, data)).status, 403, `${who.email} must not sanction ${target.email}`)
     assert.deepEqual(await db.forumProfile.findUniqueOrThrow({ where: { userId: target.id } }), before, 'refusal precedes every profile write')
-    assert.equal(audits.length, count, 'refusal has no successful-change audit')
+    assert.equal(await db.auditLog.count({ where: { actorUserId: who.id } }), count, 'refusal has no successful-change audit')
   }
   for (const field of ['silenceDays', 'suspendDays']) for (const days of [0, 3]) {
     await refused(actors[0], targets[1], { [field]: days, moderationNote: 'must not overwrite' })
@@ -73,6 +72,7 @@ async function main() {
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {
     const ids = [...actors, ...targets].map(u => u.id)
+    await db.auditLog.deleteMany({ where: { actorUserId: { in: actors.map(u => u.id) } } })
     await db.forumProfile.deleteMany({ where: { userId: { in: ids } } })
     await db.user.deleteMany({ where: { id: { in: ids }, email: { startsWith: seed } } })
     await db.role.deleteMany({ where: { id: { in: roles.map(r => r.id) }, name: { startsWith: seed } } })

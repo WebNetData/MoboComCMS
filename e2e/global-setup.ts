@@ -14,7 +14,7 @@ export default async function globalSetup(config: FullConfig) {
   if (!email || !password) return
   const baseURL = String(config.projects[0].use.baseURL)
   const browser = await chromium.launch(config.projects[0].use.launchOptions)
-  const page = await (await browser.newContext({ baseURL })).newPage()
+  const page = await (await browser.newContext({ baseURL, ignoreHTTPSErrors: config.projects[0].use.ignoreHTTPSErrors })).newPage()
   await openEmailLogin(page)
   await page.locator('#login-email').fill(email)
   await page.locator('#login-password').fill(password)

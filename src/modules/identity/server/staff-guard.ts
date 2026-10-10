@@ -24,8 +24,8 @@ export type AccountChange = {
  * Why this actor may not make this change to this account, or null when they may. `targetId` is null for an
  * account being created.
  */
-export async function accountChangeRefusal(actor: AuthedUser, targetId: number | null, change: AccountChange): Promise<string | null> {
-  const target = targetId ? await db.user.findUnique({ where: { id: targetId }, select: { role: true, roleId: true, roleRef: { select: { permissions: true } } } }) : null
+export async function accountChangeRefusal(actor: AuthedUser, targetId: number | null, change: AccountChange, reader: Pick<typeof db, 'user' | 'role'> = db): Promise<string | null> {
+  const target = targetId ? await reader.user.findUnique({ where: { id: targetId }, select: { role: true, roleId: true, roleRef: { select: { permissions: true } } } }) : null
   if (targetId && !target) return 'کاربر پیدا نشد'
   const targetStaff = target?.role === 'ADMIN'
   const targetFull = targetStaff && (target.roleId == null || isFullAccess(target.roleRef?.permissions || ''))
@@ -44,7 +44,7 @@ export async function accountChangeRefusal(actor: AuthedUser, targetId: number |
   if (!mayManageRoles(actor)) return 'دادن یا گرفتن نقش کارکنان به دسترسی «نقش‌ها» نیاز دارد'
   if (nextRole !== 'ADMIN') return null
   if (nextRoleId == null) return full ? null : 'دسترسی کامل را فقط مدیر کل می‌تواند بدهد؛ یک نقش انتخاب کنید'
-  const role = await db.role.findUnique({ where: { id: nextRoleId }, select: { permissions: true } })
+  const role = await reader.role.findUnique({ where: { id: nextRoleId }, select: { permissions: true } })
   if (!role) return 'نقش انتخاب‌شده پیدا نشد'
   if (isFullAccess(role.permissions) && !full) return 'نقشی با دسترسی کامل را فقط مدیر کل می‌تواند بدهد'
   return null

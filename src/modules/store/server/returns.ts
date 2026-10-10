@@ -118,7 +118,9 @@ function returnableUnits(order: LoadedOrder, lines: RefundLine[], held: Map<numb
 function orderEligibility(order: LoadedOrder, settings: ReturnSettings, held: Map<number, number>) {
   const book = ledger(order)
   return eligibility({
-    paid: order.status === 'PAID',
+    // A refunded order was paid; the fullyRefunded gate keeps it closed and
+    // explains that terminal state instead of calling it an unpaid order.
+    paid: order.status === 'PAID' || order.status === 'REFUNDED',
     fulfilment: order.productDelivery?.status || 'PENDING',
     deliveredAt: order.productDelivery?.deliveredAt || null,
     open: order.returns.some((row) => OPEN.includes(row.status as ReturnStatus)),

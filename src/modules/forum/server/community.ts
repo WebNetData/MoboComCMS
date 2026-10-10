@@ -11,6 +11,7 @@ import {
   type ForumSettings, type Viewer,
 } from '@/modules/forum/domain/community'
 import { categoryFamily } from '@/modules/forum/domain/tree'
+import { forumRestrictionState } from '@/modules/forum/server/restrictions'
 
 // Shared forum services: settings, the current viewer (groups, trust level,
 // staff), profiles, counters, trust promotion, badges and notifications.
@@ -128,15 +129,14 @@ export async function viewerFor(userId: number | null | undefined, knownMember?:
   const trustLevel = profile?.trustLevel ?? 0
   const keys = automaticGroups({ loggedIn: true, trustLevel, member, staff })
   const groupIds = [...new Set([...keys.map((key) => byKey.get(key)?.id).filter((id): id is number => !!id), ...memberships.map((row) => row.groupId)])]
-  const now = Date.now()
+  const restrictions = await forumRestrictionState(userId)
   const moderator = staff || memberships.some((row) => row.group.moderator)
   // A moderator of a section or a forum moderates what is under it too.
   const tree = assigned.length && !moderator ? await db.forumCategory.findMany({ select: { id: true, parentId: true } }).catch(() => []) : []
   const moderates = [...new Set(assigned.flatMap((row) => categoryFamily(tree, row.categoryId)))].filter((id) => tree.some((row) => row.id === id))
   return {
     userId, groupIds, trustLevel, moderator, member, moderates,
-    silenced: !!profile?.silencedUntil && profile.silencedUntil.getTime() > now,
-    suspended: !!profile?.suspendedUntil && profile.suspendedUntil.getTime() > now,
+    ...restrictions,
   }
 }
 

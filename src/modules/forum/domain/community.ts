@@ -138,6 +138,8 @@ export interface Viewer {
   member: boolean
   silenced: boolean
   suspended: boolean
+  /** Explicit record denial; legacy staff exceptions remain compatible. */
+  participationDenied?: boolean
 }
 
 /** Whether the viewer moderates this forum: everywhere for staff, in their own forums for an assigned moderator. */
@@ -166,7 +168,7 @@ export interface CategoryAccess { see: boolean; reply: boolean; create: boolean 
  * users can read but not post.
  */
 export function categoryAccess(category: { access: string; locked: boolean; permissions?: { groupId: number; level: string }[] }, viewer: Viewer): CategoryAccess {
-  if (viewer.moderator) return { see: true, reply: true, create: true }
+  if (viewer.moderator) return { see: true, reply: !viewer.participationDenied, create: !viewer.participationDenied }
   let see: boolean
   let reply: boolean
   let create: boolean
@@ -196,10 +198,10 @@ export function automaticGroups(input: { loggedIn: boolean; trustLevel: number; 
 
 /** Own posts inside the edit window; wiki posts by any member from trust level 1; staff always. */
 export const canEditPost = (post: { userId: number; createdAt: Date; wiki?: boolean }, viewer: Viewer, editWindowHours: number, now = Date.now()) =>
-  viewer.moderator || (!!viewer.userId && !viewer.silenced && !viewer.suspended && (
+  !viewer.participationDenied && (viewer.moderator || (!!viewer.userId && !viewer.silenced && !viewer.suspended && (
     (post.wiki === true && viewer.trustLevel >= 1) ||
     (post.userId === viewer.userId && now - new Date(post.createdAt).getTime() < editWindowHours * 3_600_000)
-  ))
+  )))
 
 // ------------------------------------------------------------------ trust levels
 

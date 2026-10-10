@@ -1,6 +1,6 @@
 name: Browser tests
 
-# Runs the Playwright suite (e2e/) against a fresh SQLite database with demo data.
+# Runs the existing browser suite against a compiled HTTPS/PostgreSQL fixture.
 on:
   pull_request:
   workflow_dispatch:
@@ -12,19 +12,48 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: mobocom
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d mobocom"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
-      DATABASE_URL: file:./dev.db
-      NEXTAUTH_URL: http://localhost:3100
+      DATABASE_URL: postgresql://ci:ci-only-password@127.0.0.1:5432/mobocom?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
+      NEXTAUTH_URL: https://e2e.mobocom.test:3443
       NEXTAUTH_SECRET: ci-only-secret-please-do-not-use-anywhere-else-2026
+      INTERNAL_JOBS_SECRET: ci-internal-jobs-secret-for-isolated-runtime-2026
+      INTERNAL_APP_ORIGIN: http://127.0.0.1:3100
       PANEL_CREDENTIAL_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      STORE_DELIVERY_KEY: '1111111111111111111111111111111111111111111111111111111111111111'
+      MOBOCOM_ISOLATED_FIXTURE: '1'
+      E2E_EXPECT_BLOCK_BODY: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
       ADMIN_EMAIL: admin@example.com
       ADMIN_PASSWORD: CiAdmin!Password-2026
       SEED_DEMO_DATA: 'true'
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: CiAdmin!Password-2026
-      # Next's development server restarts at 80% of its heap limit. The complete editor/CMS suite exceeded
-      # the old 6 GB allowance and interrupted a form request; provide headroom for the existing suite.
-      NODE_OPTIONS: --max-old-space-size=8192
+      # Compile once; the browser run has no development compiler or heap-triggered restart.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -34,10 +63,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx prisma db push --skip-generate
-      - run: node prisma/seed.cjs
+      - run: npm run db:generate:postgres
+      - run: npm run deploy:migrate
+      - run: npm run deploy:seed
+      - run: echo '127.0.0.1 e2e.mobocom.test' | sudo tee -a /etc/hosts
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: node scripts/e2e-production.cjs --retries=0
+        env:
+          NODE_ENV: production
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

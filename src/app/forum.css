@@ -1332,3 +1332,18 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 .fp-embedded { display: grid; gap: 14px; }
 .fp-embedded .fp-stats { margin-block: 12px; }
 .fp-embedded .fp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Independent sanctions: additive Admin-only composition of existing semantic controls. */
+.fa-restrictions { margin-block-start: 16px; border-block-start: 1px solid var(--border); padding-block-start: 12px; }
+.fa-restrictions summary { cursor: pointer; font-weight: 700; padding-block: 8px; }
+.fa-restrictions summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; }
+.fa-restrictions-body { display: grid; gap: 12px; min-width: 0; }
+.fa-restrictions-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.fa-restrictions-form .studio-field { min-width: 0; flex: 1 1 140px; }
+.fa-restrictions-form .fa-grow { flex-basis: 260px; }
+/* Preserve the chosen accent; the measured active white-on-accent action needed a darker surface. */
+.fa-restrictions .btn-primary { background: color-mix(in srgb, var(--primary) 80%, #000); }
+.fa-restriction-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.fa-restriction-list li { display: grid; gap: 8px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; min-width: 0; overflow-wrap: anywhere; }
+.fa-restriction-list p { margin: 0; white-space: pre-wrap; }
+.fa-restriction-list .btn { justify-self: start; }
+@media (max-width: 600px) { .fa-restrictions-form .studio-field { flex-basis: 100%; } }

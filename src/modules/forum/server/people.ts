@@ -12,6 +12,7 @@ import { profileByUsername, profileCards, relationBetween, updateUserProfile } f
 import { ProfileError, canFollow } from '@/modules/identity/domain/profile'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/server/forum'
+import { forumRestrictionState } from '@/modules/forum/server/restrictions'
 
 // Profiles, the member directory, avatars and groups.
 
@@ -44,7 +45,8 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
   const userId = profile.userId
   const categories = (await visibleCategories(viewer)).map((c) => c.id)
   const visiblePost = { userId, status: 'VISIBLE', thread: { status: 'VISIBLE', categoryId: { in: categories } } }
-  const [social, ahead, author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+  const [restrictions, social, ahead, author, groups, badges, topTopics, topReplies, activity, topics] = await Promise.all([
+    forumRestrictionState(userId),
     socialOf(userId, viewer.userId).catch(() => null),
     // Standing by reputation among active members; a member nobody has liked yet has no standing.
     profile.reputation > 0 ? db.forumProfile.count({ where: { reputation: { gt: profile.reputation }, user: { status: 'ACTIVE' } } }) : Promise.resolve(-1),
@@ -56,15 +58,14 @@ export async function getProfile(username: string, viewer: Viewer, tab: ProfileT
     tab === 'activity' ? db.forumPost.findMany({ where: visiblePost, orderBy: { createdAt: 'desc' }, take: 30, select: { id: true, postNumber: true, likeCount: true, content: true, createdAt: true, thread: { select: { id: true, title: true } } } }) : Promise.resolve([]),
     tab === 'topics' ? db.forumThread.findMany({ where: { userId, status: 'VISIBLE', categoryId: { in: categories } }, orderBy: { createdAt: 'desc' }, take: 30, select: { id: true, title: true, replyCount: true, views: true, likeCount: true, createdAt: true, solvedPostId: true } }) : Promise.resolve([]),
   ])
-  const now = Date.now()
   return {
     author, own: viewer.userId === userId, staffView: viewer.moderator, social, rank: ahead < 0 ? null : ahead + 1,
     profile: {
       userId, username: profile.username, bio: profile.bio, bioHtml: renderMarkdown(profile.bio, { images: false }), location: profile.location, website: profile.website, cover: profile.cover,
       trustLevel: profile.trustLevel, trustName: TRUST_NAMES[profile.trustLevel] || '', joinedAt: profile.user.createdAt, lastSeenAt: profile.lastSeenAt,
       stats: { reputation: profile.reputation, daysVisited: profile.daysVisited, topicsEntered: profile.topicsEntered, topicCount: profile.topicCount, postCount: profile.postCount, likesGiven: profile.likesGiven, likesReceived: profile.likesReceived, solvedCount: profile.solvedCount },
-      silenced: !!profile.silencedUntil && profile.silencedUntil.getTime() > now, suspended: !!profile.suspendedUntil && profile.suspendedUntil.getTime() > now,
-      silencedUntil: profile.silencedUntil, suspendedUntil: profile.suspendedUntil, primaryGroupId: profile.primaryGroupId, title: profile.title,
+      silenced: restrictions.silenced, suspended: restrictions.suspended,
+      silencedUntil: restrictions.silencedUntil, suspendedUntil: restrictions.suspendedUntil, primaryGroupId: profile.primaryGroupId, title: profile.title,
     },
     groups: groups.map((row) => ({ id: row.group.id, slug: row.group.slug, name: row.group.name, icon: row.group.icon, color: row.group.color, title: row.group.title, owner: row.owner })),
     badges: badges.map((row) => ({ slug: row.badge.slug, name: row.badge.name, icon: row.badge.icon, tier: row.badge.tier, description: row.badge.description, grantedAt: row.grantedAt })),
