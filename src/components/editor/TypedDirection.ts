@@ -1,7 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
-import { textDirection } from '@/modules/editor/domain/rich-text'
+import { resolveTextDirection } from '@/modules/editor/domain/rich-text'
 
 /**
  * While writing, every paragraph, heading, list and quote is shown in the direction of its own text: Persian from the
@@ -12,7 +12,9 @@ import { textDirection } from '@/modules/editor/domain/rich-text'
  */
 export const TypedDirection = Extension.create({
   name: 'mobocomTypedDirection',
+  addOptions() { return { direction: (): unknown => undefined } },
   addProseMirrorPlugins() {
+    const inherited = this.options.direction
     const DIRECTED = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote'])
     return [new Plugin({
       key: new PluginKey('mobocomTypedDirection'),
@@ -21,8 +23,7 @@ export const TypedDirection = Extension.create({
           const decorations: Decoration[] = []
           state.doc.descendants((node, pos) => {
             if (!DIRECTED.has(node.type.name)) return node.type.name !== 'codeBlock'
-            const chosen = node.attrs.dir === 'rtl' || node.attrs.dir === 'ltr' ? node.attrs.dir : null
-            const dir = chosen || textDirection(node.textContent)
+            const dir = resolveTextDirection(node.attrs.dir, inherited(), node.textContent)
             if (dir) decorations.push(Decoration.node(pos, pos + node.nodeSize, { dir }))
             return true
           })

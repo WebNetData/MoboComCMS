@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { decryptDigitalDelivery, digitalFingerprint, encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import { StoreError } from '@/modules/store/domain/store'
@@ -68,9 +69,15 @@ export async function addCodes(input: { productId: number; variantId?: unknown; 
   if (!parsed.codes.length) throw new StoreError('کدی وارد نشده است')
   const rows = parsed.codes.map((code) => ({ productId: product.id, variantId, secret: encryptDigitalDelivery(code), fingerprint: digitalFingerprint(code) }))
   const result = await db.$transaction(async (tx) => {
-    const created = await tx.productDigitalCode.createMany({ data: rows, skipDuplicates: true })
+    // SQLite's Prisma client has no skipDuplicates; claim only the fingerprint conflict on both databases.
+    let added = 0
+    const now = new Date()
+    for (let offset = 0; offset < rows.length; offset += 150) {
+      const values = rows.slice(offset, offset + 150).map(row => Prisma.sql`(${row.productId}, ${row.variantId}, ${row.secret}, ${row.fingerprint}, ${now})`)
+      added += await tx.$executeRaw(Prisma.sql`INSERT INTO "ProductDigitalCode" ("productId", "variantId", "secret", "fingerprint", "createdAt") VALUES ${Prisma.join(values)} ON CONFLICT ("productId", "fingerprint") DO NOTHING`)
+    }
     const stock = await syncCodeStock(tx, product.id)
-    return { added: created.count, stock }
+    return { added, stock }
   })
   // Orders that were paid while the shelf was empty get theirs now.
   const waiting = result.added ? await deliverWaitingOrders(product.id).catch((error) => { logEvent('error', 'store.codes_waiting_failed', { productId: product.id, error }); return { delivered: 0 } }) : { delivered: 0 }

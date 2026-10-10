@@ -15,7 +15,10 @@ test('backup settings and execution require settings permission', async () => {
 })
 
 // The middleware under test is that of an installed site, whatever database (or none) this run has.
-const INSTALLED = { '@/modules/installer/server/gate': { installGate: async () => null } }
+const INSTALLED = {
+  '@/modules/installer/server/gate': { installGate: async () => null },
+  '@/modules/site/server/maintenance': { loadMaintenance: async () => ({}), maintenanceBases: () => ({}) },
+}
 
 test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', async () => {
   const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })

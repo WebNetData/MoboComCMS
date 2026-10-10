@@ -357,7 +357,7 @@ test('WordPress packages are imported only where the editor adapts to them', () 
 })
 
 test('text reads in the direction of its first letter: Persian from the right, English from the left', () => {
-  for (const [value, dir] of [['سلام world', 'rtl'], ['Hello دنیا', 'ltr'], ['۱۲۳ سلام', 'rtl'], ['123 hello', 'ltr'], ['  «نقل»', 'rtl'], ['(note)', 'ltr'], ['שלום', 'rtl'], ['Привет', 'ltr'], ['', null], ['   ', null], ['123 ۴۵۶ !?', null], [null, null], [5, null]]) assert.equal(rich.textDirection(value), dir, JSON.stringify(value))
+  for (const [value, dir] of [['سلام world', 'rtl'], ['Hello دنیا', 'ltr'], ['۱۲۳ سلام', 'rtl'], ['123 hello', 'ltr'], ['  «نقل»', 'rtl'], ['(note)', 'ltr'], ['שלום', 'rtl'], ['Привет', 'ltr'], ['\u05beHello', 'ltr'], ['\u06d5Hello', 'rtl'], ['\u05b0Hello', 'ltr'], ['\u06d4\u06d5', 'rtl'], ['\u0600\u0660\u06f9!', null], ['', null], ['   ', null], ['123 ۴۵۶ !?', null], [null, null], [5, null]]) assert.equal(rich.textDirection(value), dir, JSON.stringify(value))
   // Each paragraph of one block reads in its own direction; an empty one says nothing and takes the page's, which is right to left.
   const mixed = richDoc(para(text('این فارسی است')), para(text('This one is English')), { type: 'paragraph' }, para(text('2024 - ')), { type: 'bulletList', content: [{ type: 'listItem', content: [para(text('first'))] }] })
   assert.equal(rich.richTextHtml(mixed), '<p dir="rtl">این فارسی است</p><p dir="ltr">This one is English</p><p></p><p>2024 - </p><ul dir="ltr"><li><p dir="ltr">first</p></li></ul>')
@@ -366,13 +366,12 @@ test('text reads in the direction of its first letter: Persian from the right, E
   // The block itself takes the page's direction unless one was chosen for it; a heading block reads by its own text.
   const html = (blocks) => r.documentHtml({ version: 1, blocks }, registry)
   assert.equal(html([block('content.richText', { content: richDoc(para(text('Hi'))) })]), '<div class="mcb mcb-content-richText"><p dir="ltr">Hi</p></div>')
-  assert.match(html([block('content.richText', { dir: 'ltr', content: richDoc(para(text('سلام'))) })]), /^<div class="mcb mcb-content-richText" dir="ltr"><p dir="rtl">سلام<\/p><\/div>$/)
+  assert.match(html([block('content.richText', { dir: 'ltr', content: richDoc(para(text('سلام'))) })]), /^<div class="mcb mcb-content-richText" dir="ltr"><p dir="ltr">سلام<\/p><\/div>$/)
   assert.match(html([block('content.heading', { text: 'Release notes' })]), /<h2 class="mcb mcb-content-heading" dir="ltr">Release notes<\/h2>/)
   assert.match(html([block('content.heading', { text: '2024' })]), /<h2 class="mcb mcb-content-heading">2024<\/h2>/)
   // The editor shows what the page will show, from the same rule, and starts right to left.
   const field = fs.readFileSync(path.resolve(__dirname, '..', 'src/components/editor/gutenberg/RichTextField.tsx'), 'utf8')
   const src = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
-  assert.match(src('src/components/editor/TypedDirection.ts'), /const dir = chosen \|\| textDirection\(node\.textContent\)/)
   assert.match(field, /BlockAttributes, TypedDirection\]/)
   // The older HTML editor follows the same rule, starts right to left, and its body field is not mistaken for an English one.
   const old = src('src/components/RichEditor.tsx')
@@ -382,4 +381,28 @@ test('text reads in the direction of its first letter: Persian from the right, E
   for (const [key, ltr] of [['content', false], ['excerpt', false], ['contentEn', true], ['titleEn', true], ['agenda', false]]) assert.equal(isLtr(key), ltr, key)
   assert.match(field, /class: 'mcb-content-richText mc-rich-input', dir: 'rtl'/)
   assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/components/editor/gutenberg/blocks.tsx'), 'utf8'), /dir=\{textDirection\(attributes\.text\) \|\| 'rtl'\}/)
+})
+
+test('paragraph choice, block direction and automatic inference agree in renderer and editor decorations', () => {
+  const { Schema } = require('@tiptap/pm/model'), { EditorState } = require('@tiptap/pm/state')
+  const { TypedDirection } = load('src/components/editor/TypedDirection')
+  const schema = new Schema({ nodes: {
+    doc: { content: 'paragraph+' },
+    paragraph: { content: 'text*', attrs: { dir: { default: null } } }, text: {},
+  } })
+  let inherited = 'ltr'
+  const [plugin] = TypedDirection.config.addProseMirrorPlugins.call({ options: { direction: () => inherited } })
+  const nodes = [para(text('سلام')), { ...para(text('Hello')), attrs: { dir: 'rtl' } }, para(text('123')), { type: 'paragraph' }]
+  const state = EditorState.create({ schema, doc: schema.nodeFromJSON(richDoc(...nodes)) })
+  const dirs = () => plugin.props.decorations(state).find().map(d => d.type.attrs.dir)
+  assert.deepEqual(dirs(), ['ltr', 'rtl', 'ltr', 'ltr'])
+  assert.equal(rich.richTextHtml(richDoc(...nodes), inherited), '<p dir="ltr">سلام</p><p dir="rtl">Hello</p><p dir="ltr">123</p><p dir="ltr"></p>')
+  inherited = 'auto'
+  assert.deepEqual(dirs(), ['rtl', 'rtl'])
+  assert.equal(rich.resolveTextDirection('auto', 'ltr', 'سلام'), 'ltr')
+  assert.equal(rich.resolveTextDirection('rtl', 'ltr', 'Hello'), 'rtl')
+  assert.equal(rich.resolveTextDirection(null, 'invalid', 'Hello'), 'ltr')
+  const nested = richDoc({ type: 'blockquote', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [para(text('سلام'))] }] }] })
+  assert.equal(rich.richTextHtml(nested, 'ltr'), '<blockquote dir="ltr"><ul dir="ltr"><li><p dir="ltr">سلام</p></li></ul></blockquote>')
+  assert.equal(rich.richTextHtml(richDoc({ type: 'codeBlock', content: [text('سلام')] }), 'rtl'), '<pre dir="ltr"><code class="language-plain">سلام</code></pre>')
 })

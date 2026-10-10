@@ -5,11 +5,12 @@ const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
-  'money-state-rules', 'editor-page-documents', 'invoice-void-settle', 'import-provenance', 'admin-saved-views', 'item-timeline',
+  'money-state-rules', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
   'gift-card-integrity',
   'digital-codes',
-  'forum-flag-queue', 'forum-category-moderators',
+  'database-insert-compat',
+  'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions',
   'forum-board-index', 'forum-clubs',
   'forum-activity-stream', 'forum-leaderboard', 'forum-reputation',
   'moderation-queue', 'moderation-cases', 'posts-permission-migration',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
@@ -31,11 +31,13 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
  * Rich text of a block, edited with Tiptap and kept as Tiptap JSON. Nothing here produces HTML that
  * is stored: the value handed up is the editor's JSON, and the server checks it against the format.
  */
-export default function RichTextField({ value, onChange, label, compact = false }: { value: RichTextDoc; onChange: (next: RichTextDoc) => void; label: string; compact?: boolean }) {
+export default function RichTextField({ value, onChange, label, compact = false, blockDirection }: { value: RichTextDoc; onChange: (next: RichTextDoc) => void; label: string; compact?: boolean; blockDirection?: unknown }) {
   const latest = useRef(value)
+  const inherited = useRef(blockDirection)
+  const extensions = useMemo(() => richTextExtensions.map((extension) => extension === TypedDirection ? TypedDirection.configure({ direction: () => inherited.current }) : extension), [])
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: richTextExtensions,
+    extensions,
     content: value?.content?.length ? value : { type: 'doc', content: [{ type: 'paragraph' }] },
     editorProps: { attributes: { class: 'mcb-content-richText mc-rich-input', dir: 'rtl', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
     onUpdate: ({ editor: current }) => { const json = current.getJSON() as RichTextDoc; latest.current = json; onChange(json) },
@@ -46,6 +48,13 @@ export default function RichTextField({ value, onChange, label, compact = false 
     latest.current = value
     editor.commands.setContent(value?.content?.length ? value : { type: 'doc', content: [{ type: 'paragraph' }] }, { emitUpdate: false })
   }, [editor, value])
+  useEffect(() => {
+    inherited.current = blockDirection
+    if (!editor) return
+    editor.setOptions({ editorProps: { attributes: { class: 'mcb-content-richText mc-rich-input', dir: blockDirection === 'ltr' ? 'ltr' : 'rtl', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } } })
+    // Refresh decorations without changing the stored text when the inspector changes the block direction.
+    editor.view.dispatch(editor.state.tr)
+  }, [editor, blockDirection, label])
   if (!editor) return <div className="mc-rich-loading" aria-busy="true" />
 
   const is = (name: string, attrs?: Record<string, unknown>) => editor.isActive(name, attrs)

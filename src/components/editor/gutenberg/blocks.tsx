@@ -44,7 +44,7 @@ function ContainerCanvas({ definition, className }: { definition: BlockDefinitio
 function LeafCanvas({ definition, attributes, setAttributes, registry, className, html }: { definition: BlockDefinition; attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void; registry: BlockRegistry; className: string; html: string }) {
   const blockProps = useBlockProps({ className: definition.type === 'content.richText' || definition.type === 'content.heading' ? className : 'mc-block-preview' })
   // The two blocks people write in are edited where they stand; every other block shows what the page will show.
-  if (definition.type === 'content.richText') return <div {...blockProps}><RichTextField label={definition.label.fa} value={(attributes.content as RichTextDoc) || (fieldDefault(definition.fields.content) as RichTextDoc)} onChange={(content) => setAttributes({ content })} /></div>
+  if (definition.type === 'content.richText') return <div {...blockProps}><RichTextField label={definition.label.fa} blockDirection={attributes.dir} value={(attributes.content as RichTextDoc) || (fieldDefault(definition.fields.content) as RichTextDoc)} onChange={(content) => setAttributes({ content })} /></div>
   if (definition.type === 'content.heading') {
     const Tag = `h${Math.min(6, Math.max(2, Number(attributes.level) || 2))}` as 'h2'
     return <Tag {...blockProps}><input className="mc-heading-input" dir={textDirection(attributes.text) || 'rtl'} aria-label="متن تیتر" placeholder="تیتر…" value={String(attributes.text ?? '')} onChange={(event) => setAttributes({ text: event.target.value })} onKeyDown={(event) => event.stopPropagation()} /></Tag>

@@ -116,7 +116,7 @@ test('a page is built in the block editor, saved, reopened and shown to visitors
 test('a page written in the old editor opens as blocks and is not changed until it is saved', async ({ page, admin }) => {
   test.setTimeout(300_000)
   const slug = `e2e-block-legacy-${Date.now()}`
-  const old = '<h1>عنوان قدیمی</h1><p>بند <strong>نخست</strong> با <a href="/blog">پیوند</a></p><p><img src="/uploads/old.png" alt="تصویر قدیمی"></p><ul><li>یک</li><li>دو</li></ul><table><tr><td>جدول</td></tr></table><script>window.x=1</script>'
+  const old = '<h1>عنوان قدیمی</h1><p>بند <strong>نخست</strong> با <a href="/blog">پیوند</a><img src="/og.svg" alt="تصویر میان متن"></p><p><img src="/uploads/old.png" alt="تصویر قدیمی"></p><ul><li>یک</li><li>دو</li></ul><table><tr><td>جدول</td></tr></table><script>window.x=1</script>'
   const was = await (await admin.get('/api/admin/editor')).json()
   const created = await (await admin.post('/api/admin/cms?type=pages', { data: { slug, title: 'E2E legacy page', content: old, status: 'DRAFT' } })).json()
   const { save } = tools(page)
@@ -134,11 +134,82 @@ test('a page written in the old editor opens as blocks and is not changed until 
     await page.waitForTimeout(6000)
     const untouched = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
     expect([untouched.editorFormat, untouched.legacyHtml.includes('عنوان قدیمی')]).toEqual(['legacy', true])
+    // A minor edit must not silently commit a lossy conversion through autosave.
+    const input = page.locator('.mc-rich-input').first()
+    await input.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' تغییر کوچک')
+    await expect(page.locator('.mc-editor-state')).toHaveClass(/is-dirty/)
+    await expect(page.locator('.mc-editor-save')).toHaveText('تأیید تبدیل و ذخیره')
+    await page.waitForTimeout(6000)
+    const pending = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
+    expect(pending.editorFormat).toBe('legacy'); expect(pending.legacyHtml).toBe(untouched.legacyHtml)
     await save()
     const stored = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
     expect(stored.editorFormat).toBe('blocks-v1')
     expect(JSON.stringify(stored.document)).not.toMatch(/<script|window\.x|<table/)
     expect(stored.document.blocks.map((block: { type: string }) => block.type)).toEqual(expect.arrayContaining(['content.richText', 'content.image']))
+    // Once explicitly converted, regular autosave resumes for subsequent edits.
+    await input.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' ذخیره خودکار')
+    await expect(page.locator('.mc-editor-state')).toHaveClass(/is-saved/, { timeout: 30_000 })
+    const automatic = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
+    expect(JSON.stringify(automatic.document)).toContain('ذخیره خودکار')
+  } finally {
+    await admin.delete(`/api/admin/cms?type=pages&id=${created.id}`)
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
+  }
+})
+
+test('block direction applies in the canvas and public page while paragraph overrides and auto remain available', async ({ page, admin, baseURL, browser }, testInfo) => {
+  test.setTimeout(300_000)
+  const slug = `e2e-block-direction-${Date.now()}`
+  const was = await (await admin.get('/api/admin/editor')).json()
+  const created = await (await admin.post('/api/admin/cms?type=pages', { data: { slug, title: 'E2E text direction', content: '', status: 'PUBLISHED' } })).json()
+  const paragraph = (text: string, dir?: string) => ({ type: 'paragraph', ...(dir ? { attrs: { dir } } : {}), content: [{ type: 'text', text }] })
+  try {
+    await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: true } })
+    const opened = await (await admin.get(`/api/admin/editor/pages/${created.id}`)).json()
+    const saved = await admin.put(`/api/admin/editor/pages/${created.id}`, { data: { updatedAt: opened.updatedAt, document: { version: 1, blocks: [{ id: 'direction_block', type: 'content.richText', version: 1, props: { dir: 'ltr', content: { type: 'doc', content: [paragraph('سلام'), paragraph('Hello', 'rtl'), paragraph('־Hello'), paragraph('ەHello')] } } }] } } })
+    expect(saved.ok()).toBeTruthy()
+    await openEditor(page, `/admin/editor/pages/${created.id}`)
+    const paragraphs = page.locator('.mc-rich-input p')
+    for (const [index, dir] of ['ltr', 'rtl', 'ltr', 'ltr'].entries()) await expect(paragraphs.nth(index)).toHaveCSS('direction', dir)
+    const visitor = await (await browser.newContext({ baseURL })).newPage()
+    try {
+      await visitor.goto(`/p/${slug}`, { waitUntil: 'domcontentloaded', timeout: 180_000 })
+      const publicParagraphs = visitor.locator('.mcb-document .mcb-content-richText p')
+      for (const [index, dir] of ['ltr', 'rtl', 'ltr', 'ltr'].entries()) await expect(publicParagraphs.nth(index)).toHaveCSS('direction', dir)
+      // Change the inspector choice without recreating or reloading the rich-text editor.
+      await paragraphs.first().click()
+      const direction = page.locator('.mc-editor-inspector select').first()
+      await direction.selectOption('auto')
+      for (const [index, dir] of ['rtl', 'rtl', 'ltr', 'rtl'].entries()) await expect(paragraphs.nth(index)).toHaveCSS('direction', dir)
+      await tools(page).save()
+      await visitor.reload({ waitUntil: 'domcontentloaded' })
+      for (const [index, dir] of ['rtl', 'rtl', 'ltr', 'rtl'].entries()) await expect(publicParagraphs.nth(index)).toHaveCSS('direction', dir)
+      const contrast = () => page.evaluate(() => {
+        const canvas = document.querySelector('.mc-editor-canvas')!, paragraph = document.querySelector('.mc-rich-input p')!
+        const luminance = (color: string) => {
+          const [r, g, b] = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(n => { const c = n / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4 })
+          return .2126 * r + .7152 * g + .0722 * b
+        }
+        const background = getComputedStyle(canvas).backgroundColor, a = luminance(background), b = luminance(getComputedStyle(paragraph).color)
+        return { background, ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) }
+      })
+      const light = await contrast()
+      expect(light.ratio).toBeGreaterThanOrEqual(4.5)
+      await page.screenshot({ path: testInfo.outputPath('editor-1440-light.png'), fullPage: true })
+      await page.getByRole('button', { name: 'فعال کردن حالت تاریک' }).click()
+      await expect(page.getByRole('button', { name: 'فعال کردن حالت روشن' })).toBeVisible()
+      await expect(paragraphs.first()).toHaveCSS('direction', 'rtl')
+      const dark = await contrast()
+      expect(dark.background).not.toBe(light.background)
+      expect(dark.ratio).toBeGreaterThanOrEqual(4.5)
+      await expect(page.locator('.block-editor-block-inspector__no-blocks')).toHaveCSS('background-color', dark.background)
+      await page.screenshot({ path: testInfo.outputPath('editor-1440-dark.png'), fullPage: true })
+      await page.setViewportSize({ width: 390, height: 844 })
+      await expect(page.locator('.mc-rich-input')).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
+      await page.screenshot({ path: testInfo.outputPath('editor-390-dark.png'), fullPage: true })
+    } finally { await visitor.close() }
   } finally {
     await admin.delete(`/api/admin/cms?type=pages&id=${created.id}`)
     await admin.patch('/api/admin/extensions', { data: { id: 'block-editor', enabled: was?.enabled !== false } })
