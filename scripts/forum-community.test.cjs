@@ -13,6 +13,32 @@ function load(relative) {
 }
 const md = load('src/modules/forum/domain/markdown.ts')
 const c = load('src/modules/forum/domain/community.ts')
+const restriction = load('src/modules/identity/domain/restrictions.ts')
+const restrictionView = load('src/modules/forum/domain/restrictions.ts')
+
+test('independent restrictions honor start, exclusive expiry and revocation; malformed active facts fail closed', () => {
+  const now = new Date('2026-10-10T12:00:00Z')
+  const base = { id: 1, source: 'ADMIN', effectKey: 'forum.silence', capabilities: '["forum.participate"]', startsAt: now, expiresAt: new Date(now.getTime() + 1000), revokedAt: null }
+  assert.equal(restriction.restrictionActive(base, now), true)
+  assert.equal(restriction.restrictionActive(base, base.expiresAt), false)
+  assert.equal(restriction.restrictionActive({ ...base, startsAt: new Date(now.getTime() + 1) }, now), false)
+  assert.equal(restriction.restrictionActive({ ...base, revokedAt: now }, now), false)
+  assert.deepEqual([...restriction.deniedCapabilities([{ ...base, revokedAt: now }, { ...base, id: 2 }], now)], ['forum.participate'])
+  for (const capabilities of ['bad', '{}', '[]', '[1]', '["login"]']) assert.throws(() => restriction.deniedCapabilities([{ ...base, capabilities }], now), error => error.status === 503)
+  const view = { startsAt: now.toISOString(), expiresAt: base.expiresAt.toISOString(), revokedAt: null }
+  assert.equal(restrictionView.forumRestrictionStatus(view, now.getTime()), 'active')
+  assert.equal(restrictionView.forumRestrictionStatus(view, base.expiresAt.getTime()), 'expired')
+  assert.equal(restrictionView.forumRestrictionStatus(view, now.getTime() - 1), 'scheduled')
+  assert.equal(restrictionView.forumRestrictionStatus({ ...view, revokedAt: now.toISOString() }), 'revoked')
+})
+
+test('explicit participation denial outranks staff or category grants while preserving legacy exemptions and reads', () => {
+  const category = { access: 'PUBLIC', locked: false }
+  const moderator = { ...c.GUEST, userId: 5, moderator: true, silenced: true }
+  assert.deepEqual(c.categoryAccess(category, moderator), { see: true, reply: true, create: true })
+  assert.deepEqual(c.categoryAccess(category, { ...moderator, participationDenied: true }), { see: true, reply: false, create: false })
+  assert.equal(c.canEditPost({ userId: 5, createdAt: new Date() }, { ...moderator, participationDenied: true }, 24), false)
+})
 
 function messageService({ blocked = [], enabled = true } = {}) {
   const state = { writes: 0, notifications: 0 }

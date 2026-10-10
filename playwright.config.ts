@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { fixtureTLS } from './scripts/e2e-fixture-tls.cjs'
 
 /**
  * Browser regression suite (npm run test:e2e).
@@ -7,10 +8,13 @@ import { defineConfig, devices } from '@playwright/test'
  *   E2E_ADMIN_EMAIL/PASSWORD  enables the tests that need an administrator
  *   PLAYWRIGHT_CHROMIUM_PATH  use an installed Chromium instead of the one `npx playwright install` downloads
  *
- * The tests only read and toggle settings they restore; they never delete data.
+ * Normal tests restore settings they toggle. Fixture-only scenarios create and
+ * remove their identified rows in an explicitly disposable local database.
+ * scripts/e2e-production.cjs runs the suite on a compiled HTTPS/PostgreSQL fixture.
  */
 const external = process.env.E2E_BASE_URL
 const port = 3100
+const tls = fixtureTLS(external || `http://localhost:${port}`)
 
 export default defineConfig({
   testDir: './e2e/tests',
@@ -25,7 +29,8 @@ export default defineConfig({
     baseURL: external || `http://localhost:${port}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {},
+    ignoreHTTPSErrors: tls.ignoreHTTPSErrors,
+    launchOptions: { args: tls.args, ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}) },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: external ? undefined : {

@@ -6,6 +6,8 @@ import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { accountChangeRefusal } from '@/modules/identity/server/staff-guard'
+import { RestrictionError } from '@/modules/identity/domain/restrictions'
+import { changeForumRestrictions, forumRestrictionHistory, replaceForumRestrictions } from '@/modules/forum/server/restrictions'
 import { moduleGuard } from '@/extensions/server/modules'
 import { ForumError, boardSlug } from '@/modules/forum/domain/forum'
 import { BADGE_RULES, CommunityError, DEFAULT_FORUM_SETTINGS, FLAG_REASONS, TRUST_NAMES, groupSlug, normalizeLevel } from '@/modules/forum/domain/community'
@@ -30,13 +32,13 @@ const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u00
 const color = (value: unknown, fallback = '#6366f1') => (/^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback)
 const int = (value: unknown, min: number, max: number) => Math.max(min, Math.min(max, Math.round(Number(value) || 0)))
 
-function failure(error: unknown) {
-  if (error instanceof ForumError || error instanceof CommunityError) return err(error.message, error.status)
+function failure(error: unknown, fallbackStatus = 400) {
+  if (error instanceof ForumError || error instanceof CommunityError || error instanceof RestrictionError) return err(error.message, error.status)
   const message = error instanceof Error ? error.message : ''
   if (/Unique constraint/i.test(message)) return err('این نشانی یا نام قبلاً استفاده شده است', 409)
   if (/Record to (update|delete) not found|No record/i.test(message)) return err('پیدا نشد', 404)
   console.error('[forum-admin]', error)
-  return err('ورودی نامعتبر است')
+  return err(fallbackStatus === 503 ? 'ثبت محدودیت موقتاً در دسترس نیست' : 'ورودی نامعتبر است', fallbackStatus)
 }
 
 // ------------------------------------------------------------------ reads
@@ -44,6 +46,11 @@ function failure(error: unknown) {
 export async function GET(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
+  if (req.nextUrl.searchParams.get('section') === 'restrictions') {
+    const userId = Number(req.nextUrl.searchParams.get('userId')), before = req.nextUrl.searchParams.has('before') ? Number(req.nextUrl.searchParams.get('before')) : undefined
+    if (!Number.isSafeInteger(userId) || userId < 1 || (before !== undefined && (!Number.isSafeInteger(before) || before < 1))) return err('ورودی نامعتبر است', 400)
+    try { return ok(await forumRestrictionHistory({ req, actor: g.admin }, userId, before)) } catch (error) { return failure(error) }
+  }
   if (req.nextUrl.searchParams.get('section') === 'users') return ok(await users(req.nextUrl.searchParams.get('q') || ''))
   if (req.nextUrl.searchParams.get('section') === 'reports') {
     const { forumReports } = await import('@/modules/forum/server/reports')
@@ -226,7 +233,7 @@ async function saveBadge(body: Record<string, any>, creating: boolean) {
   return creating ? db.forumBadge.create({ data: data as { name: string; slug: string } }) : db.forumBadge.update({ where: { id: Number(body.id) }, data })
 }
 
-async function moderateUser(actor: AuthedUser, body: Record<string, any>) {
+async function moderateUser(actor: AuthedUser, body: Record<string, any>, req: NextRequest) {
   const userId = Number(body.userId)
   const profile = await db.forumProfile.findUnique({ where: { userId } })
   if (!profile) throw new ForumError('کاربر پیدا نشد', 404)
@@ -234,15 +241,17 @@ async function moderateUser(actor: AuthedUser, body: Record<string, any>) {
     const refusal = await accountChangeRefusal(actor, userId, { sensitive: true })
     if (refusal) throw new ForumError(refusal, 403)
   }
-  const until = (days: unknown) => { const n = int(days, 0, 3650); return n ? new Date(Date.now() + n * 86_400_000) : null }
   const data: Record<string, unknown> = {}
   if (body.trustLevel !== undefined) { data.trustLevel = int(body.trustLevel, 0, 4); data.trustLocked = body.trustLocked !== false }
   else if (body.trustLocked !== undefined) data.trustLocked = body.trustLocked === true
-  if (body.silenceDays !== undefined) data.silencedUntil = until(body.silenceDays)
-  if (body.suspendDays !== undefined) data.suspendedUntil = until(body.suspendDays)
   if (body.moderationNote !== undefined) data.moderationNote = text(body.moderationNote, 500)
   if (body.title !== undefined) data.title = text(body.title, 40)
-  await db.forumProfile.update({ where: { userId }, data })
+  if (body.silenceDays !== undefined || body.suspendDays !== undefined) {
+    await replaceForumRestrictions({ req, actor }, userId, {
+      ...(body.silenceDays !== undefined ? { silenceDays: int(body.silenceDays, 0, 3650) } : {}),
+      ...(body.suspendDays !== undefined ? { suspendDays: int(body.suspendDays, 0, 3650) } : {}),
+    }, data)
+  } else await db.forumProfile.update({ where: { userId }, data })
   if (data.trustLevel !== undefined) await refreshStats(userId)
   return { userId }
 }
@@ -296,13 +305,18 @@ export async function PATCH(req: NextRequest) {
       case 'categories': result = await saveCategory(body, false); break
       case 'groups': result = await saveGroup(body, false); break
       case 'badges': result = await saveBadge(body, false); break
-      case 'users': result = await moderateUser(g.admin, body); break
+      case 'users': result = await moderateUser(g.admin, body, req); break
+      case 'restrictions': {
+        if (!['issue', 'revoke'].includes(body.action) || (body.scope !== undefined && body.scope !== 'MODULE') || (body.moduleKey !== undefined && body.moduleKey !== 'forum') || body.resourceType !== undefined || body.resourceId !== undefined || body.capabilities !== undefined) return err('هدف محدودیت انجمن معتبر نیست', 400)
+        result = await changeForumRestrictions({ req, actor: g.admin }, { userId: Number(body.userId), operation: body.action, effectKey: body.effectKey, id: Number(body.id) || undefined, days: Number(body.days), startsAt: body.startsAt, reason: typeof body.reason === 'string' ? body.reason : '' })
+        return ok(result)
+      }
       case 'settings': result = await saveForumSettings(body.settings || {}); break
       default: return err('unknown section', 400)
     }
     await auditAdmin({ req, actor: g.admin, action: `forum.${body.section}.update`, targetType: 'forum', targetId: String(body.id || body.userId || ''), metadata: { section: body.section } })
     return ok(result)
-  } catch (error) { return failure(error) }
+  } catch (error) { return failure(error, body.section === 'restrictions' ? 503 : 400) }
 }
 
 export async function DELETE(req: NextRequest) {

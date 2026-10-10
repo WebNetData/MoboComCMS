@@ -76,6 +76,9 @@ async function main() {
   assert.equal((await requests(order)).length, 1, 'one request is opened')
   assert.deepEqual(results.sort(), ['OPEN_REQUEST', 'ok'])
   assert.equal((await prisma.order.findUniqueOrThrow({where: {id: order.id}})).status, 'REFUNDED')
+  const info = await one.customerReturnInfo(a.id, order.id)
+  assert.deepEqual([info.eligibility.cancel, info.eligibility.return], [false, false])
+  assert.equal(info.eligibility.reason, 'مبلغ این سفارش قبلاً کامل برگشت داده شده است.', 'a completed refund is explained as refunded, not unpaid')
  }
 
  // --- two requests of one order refunded in the same instant (two staff members, or two requests that already exist)

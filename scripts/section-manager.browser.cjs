@@ -4,9 +4,13 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path')
 const { PrismaClient } = require('@prisma/client')
 const { encode } = require('next-auth/jwt')
-const { chromium, expect } = require('@playwright/test')
+const { chromium, expect: playwrightExpect } = require('@playwright/test')
+const { fixtureTLS } = require('./e2e-fixture-tls.cjs')
+// This standalone process does not inherit playwright.config.ts's assertion timeout.
+const expect = playwrightExpect.configure({ timeout: 20_000 })
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:3000'
-if (!['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw Error('LOCAL_TEST_APP_REQUIRED')
+const sessionCookie = new URL(baseURL).protocol === 'https:' ? '__Secure-next-auth.session-token' : 'next-auth.session-token'
+if (!['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname) && !(process.env.MOBOCOM_ISOLATED_FIXTURE === '1' && new URL(baseURL).hostname === 'e2e.mobocom.test')) throw Error('LOCAL_TEST_APP_REQUIRED')
 if (!process.env.DATABASE_URL || !process.env.NEXTAUTH_SECRET) throw Error('TEST_APP_ENV_REQUIRED')
 const db = new PrismaClient(), seed = `section-browser-${Date.now()}`
 const baseline = process.argv.includes('--baseline')
@@ -16,9 +20,9 @@ async function main() {
   user = await db.user.create({ data: { email: `${seed}@example.invalid`, passwordHash: 'not-a-login-password', role: 'ADMIN', roleId: role.id, totpEnabledAt: new Date() } })
   post = await db.post.create({ data: { slug: seed, title: seed, content: '<p>نوشتهٔ آزمایشی</p>', status: 'DRAFT', authorId: user.id } })
   const token = await encode({ secret: process.env.NEXTAUTH_SECRET, token: { uid: String(user.id), sub: String(user.id), role: 'ADMIN', email: user.email, authAt: Date.now() } })
-  browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}) })
-  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 }, extraHTTPHeaders: { origin: baseURL } })
-  await context.addCookies([{ name: 'next-auth.session-token', value: token, url: baseURL }])
+  browser = await chromium.launch({ headless: true, args: fixtureTLS(baseURL).args, ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}) })
+  const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: process.env.MOBOCOM_ISOLATED_FIXTURE === '1', viewport: { width: 1440, height: 1000 }, extraHTTPHeaders: { origin: baseURL } })
+  await context.addCookies([{ name: sessionCookie, value: token, url: baseURL }])
   const page = await context.newPage(), errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto(`/admin/posts?edit=${post.id}`, { waitUntil: 'domcontentloaded', timeout: 240000 })
@@ -62,6 +66,7 @@ async function main() {
     assert.ok(document.content.includes('متن مدیر مجله'))
     assert.ok(document.contentDocument.includes('متن مدیر مجله'))
     await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(body).toBeVisible()
     await expect(body).toContainText('متن مدیر مجله')
   }
   // AuthZ is tested at the API, independent of hidden navigation.
@@ -71,8 +76,8 @@ async function main() {
   }
   expect((await context.request.get(`/api/admin/editor/pages/${post.id}`)).status()).toBe(403)
   expect((await context.request.put(`/api/admin/editor/pages/${post.id}`, { data: { updatedAt: saved.updatedAt.toISOString(), document: { version: 1, blocks: [] } } })).status()).toBe(403)
-  const noOrigin = await browser.newContext({ baseURL })
-  await noOrigin.addCookies([{ name: 'next-auth.session-token', value: token, url: baseURL }])
+  const noOrigin = await browser.newContext({ baseURL, ignoreHTTPSErrors: process.env.MOBOCOM_ISOLATED_FIXTURE === '1' })
+  await noOrigin.addCookies([{ name: sessionCookie, value: token, url: baseURL }])
   expect((await noOrigin.request.patch('/api/admin/cms?type=posts', { data: { id: post.id, title: 'no origin' } })).status()).toBe(403)
   await noOrigin.close()
   await page.goto(`/admin/posts?edit=${post.id}`, { waitUntil: 'domcontentloaded' })

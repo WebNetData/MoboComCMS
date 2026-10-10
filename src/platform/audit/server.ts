@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent, requestIdFrom } from '@/platform/observability/logger'
 
@@ -24,18 +25,20 @@ function requestIp(req: NextRequest) {
   return forwarded || req.headers.get('x-real-ip')?.trim() || ''
 }
 
-export async function auditAdmin(input: {
+export type AdminAuditInput = {
   req: NextRequest
   actor: { id: number; email: string }
   action: string
   targetType: string
   targetId?: string | number | null
   metadata?: Record<string, unknown>
-}) {
+}
+
+/** A critical command may commit its audit in the same transaction. Failure rolls back that command. */
+export async function auditAdminStrict(input: AdminAuditInput, client: Pick<Prisma.TransactionClient, 'auditLog'> = db) {
   const requestId = requestIdFrom(input.req.headers)
   const metadata = JSON.stringify(sanitize(input.metadata || {})).slice(0, 12_000)
-  try {
-    await db.auditLog.create({
+  return client.auditLog.create({
       data: {
         actorUserId: input.actor.id,
         actorEmail: input.actor.email,
@@ -46,7 +49,13 @@ export async function auditAdmin(input: {
         ip: requestIp(input.req),
         metadata,
       },
-    })
+  })
+}
+
+export async function auditAdmin(input: AdminAuditInput) {
+  const requestId = requestIdFrom(input.req.headers)
+  try {
+    await auditAdminStrict(input)
   } catch (error) {
     // Audit failure must be visible, but it must not corrupt an already committed business action.
     logEvent('error', 'audit.write_failed', { requestId, action: input.action, targetType: input.targetType, error })

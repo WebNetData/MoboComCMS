@@ -74,6 +74,7 @@ model User {
   forumGroups    ForumGroupMember[]
   forumModerating ForumCategoryModerator[]
   savedViews AdminSavedView[]
+  accessRestrictions AccessRestriction[]
   forumReactions ForumReaction[]
   forumBookmarks ForumBookmark[]
   forumFlags     ForumFlag[]
@@ -2145,6 +2146,7 @@ model ForumProfile {
   lastSeenAt    DateTime?
   silencedUntil DateTime?
   suspendedUntil DateTime?
+  sanctionProjection String @default("") // last canonical dates, to detect legacy writers
   moderationNote String      @default("")
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @default(now()) @updatedAt
@@ -3801,4 +3803,34 @@ model ImportMedia {
   createdAt   DateTime @default(now())
 
   @@index([contentHash])
+}
+
+// Canonical Identity restriction history; optional modules consume facts through Identity.
+model AccessRestriction {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope              String    @default("MODULE")
+  moduleKey          String?
+  resourceType       String?
+  resourceId         String?
+  capabilities       String    @default("[]")
+  effectKey          String
+  reason             String    @default("")
+  issuedByUserId     Int?
+  issuedAt           DateTime  @default(now())
+  startsAt           DateTime  @default(now())
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  revokedByUserId    Int?
+  revocationReason   String    @default("")
+  // Logical immutable references to the canonical audit log; legacy provenance may be unknown.
+  issuanceAuditId    Int?
+  revocationAuditId  Int?
+  sourceKey          String?   @unique
+  source             String    @default("ADMIN")
+  sourceMetadata     String    @default("{}")
+
+  @@index([userId, scope, moduleKey, revokedAt, expiresAt])
+  @@index([userId, moduleKey, effectKey])
 }

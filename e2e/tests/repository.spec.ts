@@ -157,6 +157,12 @@ test.describe('repository', () => {
   })
 
   test('buying with the wallet issues a license once, reports a shortfall, and the buyer can download', async ({ admin }) => {
+    // The compiled fixture finishes the preceding vendor/client scenarios in
+    // seconds. They share the loopback IP's one-minute repository bucket with
+    // this buyer. Let that real window expire; keep the application's limits.
+    if (process.env.MOBOCOM_ISOLATED_FIXTURE === '1' && process.env.NODE_ENV === 'production') {
+      await new Promise(resolve => setTimeout(resolve, 60_000))
+    }
     // The signed-in administrator plays the buyer. Their Toman wallet is topped up directly in the database.
     const db = new PrismaClient()
     try {

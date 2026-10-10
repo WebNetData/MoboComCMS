@@ -5,6 +5,7 @@ import { MAX_CATEGORY_DEPTH, categoryFamily, categoryTree } from '@/modules/foru
 import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
+import Restrictions from './Restrictions'
 import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
@@ -277,7 +278,7 @@ function AdminForumPage() {
       <h2>کاربران تالار</h2>
       <input className="input fa-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جست‌وجوی نام، ایمیل یا @نام‌کاربری" aria-label="جست‌وجوی کاربر" />
       <div className="fa-list">
-        {members.map((user) => <UserModeration key={user.userId} user={user} trustNames={data.trustNames} busy={busy} onSave={(patch, success) => void call('PATCH', { section: 'users', userId: user.userId, ...patch }, success)} />)}
+        {members.map((user) => <UserModeration key={user.userId} user={user} trustNames={data.trustNames} busy={busy} onRestrictionsChanged={() => void loadMembers(query)} onSave={(patch, success) => void call('PATCH', { section: 'users', userId: user.userId, ...patch }, success)} />)}
         {!members.length && <div className="tb-empty">کاربری پیدا نشد.</div>}
       </div>
     </section>}
@@ -324,7 +325,7 @@ function Num({ label, value, onChange, min = 0, max }: { label: string; value: n
   return <label className="studio-field"><span>{label}</span><input className="input" type="number" min={min} max={max} value={value} onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || 0)))} /></label>
 }
 
-function UserModeration({ user, trustNames, busy, onSave }: { user: Member; trustNames: string[]; busy: boolean; onSave: (patch: Record<string, unknown>, success: string) => void }) {
+function UserModeration({ user, trustNames, busy, onSave, onRestrictionsChanged }: { user: Member; trustNames: string[]; busy: boolean; onSave: (patch: Record<string, unknown>, success: string) => void; onRestrictionsChanged: () => void }) {
   const [title, setTitle] = useState(user.title)
   const [note, setNote] = useState(user.moderationNote)
   const now = Date.now()
@@ -350,6 +351,7 @@ function UserModeration({ user, trustNames, busy, onSave }: { user: Member; trus
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('silenceDays', 'ساکت‌کردن')}>🔇 {silenced ? 'تغییر سکوت' : 'ساکت‌کردن'}</button>
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('suspendDays', 'تعلیق')}>⛔ {suspended ? 'تغییر تعلیق' : 'تعلیق'}</button>
     </div>
+    <Restrictions userId={user.userId} disabled={busy} onChanged={onRestrictionsChanged} />
   </article>
 }
 
