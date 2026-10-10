@@ -22,3 +22,10 @@ Load `references/architecture.md`, `references/identity-contract.md` and `refere
 - Forum questions: who moderates is `viewer.moderator` (everywhere) or `viewer.moderates` (assigned forums) through `inCategory`; a check of `viewer.moderator` on a topic or post that skips it is a finding.
 - After an audit, update the ledger row and the map line; if a decision changed, change its entry in PLATFORM_DECISIONS instead of appending.
 - Since 2026-10-07 also findings: a secret-guarding limit on `rateLimitHit` instead of `rateLimitStrict`; an unconditional `update` of a money row's state; `@wordpress/` imported outside `src/components/editor/gutenberg`; an inline `<script>` without the nonce or an inline event handler; a file operation of the server panel that skips `guard`; a test that passes only with a `.env`, a busy database or root.
+
+
+## Verified staff-sanction and editor safety
+
+Applying or clearing forum silence/suspension calls canonical Identity `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write, with the authenticated actor and existing forum permission. A forum-only manager cannot restrict protected staff. Reuse current guards; do not add a forum staff hierarchy.
+
+Legacy block conversion requires explicit first-save acceptance before autosave; aggregate Setting writes claim the exact stored value and retry on conflict; text direction is explicit paragraph → block → first Unicode letter → page default. Verify affected flows against PostgreSQL and the actual browser, preserving protected visuals.

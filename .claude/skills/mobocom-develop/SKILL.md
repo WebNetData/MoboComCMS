@@ -44,3 +44,10 @@ Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the
 - **One language:** do not add `…En` fields to forms. **Maintenance:** a section's public pages are closed by `/admin/maintenance`, enforced in `src/middleware.ts`; do not add a second switch.
 - **Large files:** past a few hundred lines, split by concern into `<name>/<concern>.ts` behind the same address; tests that read source read all the parts.
 - **Tests that travel:** no dependence on `.env`, on rows that happen to exist, on ids 1 and 2, or on being root; run unit tests in Linux as a non-root user before pushing (`docker run -u 1000:1000 …`).
+
+
+## Verified staff-sanction and editor safety
+
+Applying or clearing forum silence/suspension calls canonical Identity `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write, with the authenticated actor and existing forum permission. A forum-only manager cannot restrict protected staff. Reuse current guards; do not add a forum staff hierarchy.
+
+Legacy block conversion requires explicit first-save acceptance before autosave; aggregate Setting writes claim the exact stored value and retry on conflict; text direction is explicit paragraph → block → first Unicode letter → page default. Verify affected flows against PostgreSQL and the actual browser, preserving protected visuals.

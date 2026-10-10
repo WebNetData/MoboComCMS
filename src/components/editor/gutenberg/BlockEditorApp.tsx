@@ -87,10 +87,11 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
 
   // Saved by itself a moment after the last change; never while the page is known to have changed elsewhere.
   useEffect(() => {
-    if (state.kind !== 'dirty' || !page?.enabled) return
+    // First conversion is an explicit save, especially when some legacy pieces could not be converted.
+    if (state.kind !== 'dirty' || !page?.enabled || converted) return
     const timer = setTimeout(() => void save(), AUTOSAVE_MS)
     return () => clearTimeout(timer)
-  }, [state, blocks, page?.enabled, save])
+  }, [state, blocks, page?.enabled, converted, save])
   // Leaving with unsaved work asks first.
   useEffect(() => {
     const unsaved = state.kind === 'dirty' || state.kind === 'saving' || state.kind === 'error' || state.kind === 'conflict'
@@ -116,7 +117,7 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
             <button type="button" className="mc-editor-tool" onClick={() => setOutline((open) => !open)} aria-pressed={outline}>فهرست بلوک‌ها</button>
             <span className={`mc-editor-state is-${state.kind}`} role="status" aria-live="polite">{STATE_TEXT[state.kind]}{state.kind === 'error' ? `: ${state.message}` : ''}</span>
             <a className="mc-editor-tool" href={`${noun.path}${page.slug}`} target="_blank" rel="noreferrer">دیدن {noun.one}</a>
-            <button type="button" className="mc-editor-save" onClick={() => void save()} disabled={!page.enabled || state.kind === 'saving' || state.kind === 'conflict'}>ذخیره</button>
+            <button type="button" className="mc-editor-save" onClick={() => void save()} disabled={!page.enabled || state.kind === 'saving' || state.kind === 'conflict'}>{converted?.dropped ? 'تأیید تبدیل و ذخیره' : 'ذخیره'}</button>
           </header>
           {/* The tools of the selected block: move, duplicate, remove. Fixed here, so they never cover what is being written. */}
           <div className="mc-editor-blocktools" aria-label="ابزار بلوک انتخاب‌شده"><BlockToolbar hideDragHandle /></div>

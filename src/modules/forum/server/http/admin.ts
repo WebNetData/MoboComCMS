@@ -4,6 +4,8 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
+import type { AuthedUser } from '@/modules/identity/server/access'
+import { accountChangeRefusal } from '@/modules/identity/server/staff-guard'
 import { moduleGuard } from '@/extensions/server/modules'
 import { ForumError, boardSlug } from '@/modules/forum/domain/forum'
 import { BADGE_RULES, CommunityError, DEFAULT_FORUM_SETTINGS, FLAG_REASONS, TRUST_NAMES, groupSlug, normalizeLevel } from '@/modules/forum/domain/community'
@@ -224,10 +226,14 @@ async function saveBadge(body: Record<string, any>, creating: boolean) {
   return creating ? db.forumBadge.create({ data: data as { name: string; slug: string } }) : db.forumBadge.update({ where: { id: Number(body.id) }, data })
 }
 
-async function moderateUser(body: Record<string, any>) {
+async function moderateUser(actor: AuthedUser, body: Record<string, any>) {
   const userId = Number(body.userId)
   const profile = await db.forumProfile.findUnique({ where: { userId } })
   if (!profile) throw new ForumError('کاربر پیدا نشد', 404)
+  if (body.silenceDays !== undefined || body.suspendDays !== undefined) {
+    const refusal = await accountChangeRefusal(actor, userId, { sensitive: true })
+    if (refusal) throw new ForumError(refusal, 403)
+  }
   const until = (days: unknown) => { const n = int(days, 0, 3650); return n ? new Date(Date.now() + n * 86_400_000) : null }
   const data: Record<string, unknown> = {}
   if (body.trustLevel !== undefined) { data.trustLevel = int(body.trustLevel, 0, 4); data.trustLocked = body.trustLocked !== false }
@@ -290,7 +296,7 @@ export async function PATCH(req: NextRequest) {
       case 'categories': result = await saveCategory(body, false); break
       case 'groups': result = await saveGroup(body, false); break
       case 'badges': result = await saveBadge(body, false); break
-      case 'users': result = await moderateUser(body); break
+      case 'users': result = await moderateUser(g.admin, body); break
       case 'settings': result = await saveForumSettings(body.settings || {}); break
       default: return err('unknown section', 400)
     }

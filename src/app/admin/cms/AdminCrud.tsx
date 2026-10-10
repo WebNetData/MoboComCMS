@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import dynamic from 'next/dynamic'
 import Link from '@/components/AppLink'
@@ -45,6 +45,7 @@ function localDateTime(value: unknown): string {
 }
 
 export default function AdminCrud({ type, fields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions }: Props) {
+  const formId = useId()
   const { t, locale } = useI18n()
   const fa = locale === 'fa'
   const [query, setQuery] = useState('')
@@ -303,7 +304,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
           {fields.map((fl) => (
             <div key={fl.key} className={`${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
-              <label className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>
+              {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
               {blockDriven && fl.key === 'content' && !legacyBody ? (
                 <div className="cms-block-body">
                   {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
@@ -319,20 +320,21 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                   dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
                 />
               ) : fl.type === 'textarea' ? (
-                <textarea className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
+                <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
               ) : fl.type === 'checkbox' ? (
                 <label className="flex items-center gap-2 text-sm" style={{ minHeight: '2.75rem' }}>
                   <input type="checkbox" checked={form[fl.key] === true} onChange={(e) => setForm({ ...form, [fl.key]: e.target.checked })} />
                   {fl.label}
                 </label>
               ) : fl.type === 'select' ? (
-                <select aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
+                <select id={`${formId}-${fl.key}`} aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
                   {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)?.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
               ) : (
                 <input
+                  id={`${formId}-${fl.key}`}
                   className="input"
                   dir={fl.dir}
                   type={fl.type === 'number' ? 'number' : fl.type === 'datetime-local' ? 'datetime-local' : 'text'}
@@ -346,7 +348,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           ))}
           {renderEditorExtra?.(form, setForm, editId)}
           <div className="flex gap-2">
-            <button className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
+            <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
             <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
           </div>
           <PublishReview open={review} title={String(form[titleKey] || form.title || '')} rows={reviewRows} busy={saving} scheduled={Boolean(scheduledPost)} onCancel={() => setReview(false)} onConfirm={() => void persist()} />

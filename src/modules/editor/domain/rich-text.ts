@@ -30,7 +30,7 @@ const CHILDREN: Record<string, readonly string[]> = {
 
 export const emptyRichText = (): RichTextDoc => ({ type: 'doc', content: [] })
 
-const NOT_A_LETTER = /[؀-؟ـً-ٟ٠-٭۔-ۭ۰-۹]/
+const LETTER = /\p{Letter}/u
 const RTL_LETTER = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/, LTR_LETTER = /[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u052f]/
 
 /**
@@ -41,12 +41,19 @@ const RTL_LETTER = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/, LTR_LETTER = /[A
 export function textDirection(text: unknown): 'rtl' | 'ltr' | null {
   if (typeof text !== 'string') return null
   for (const char of text) {
-    // Persian and Arabic digits and punctuation sit in the same range as the letters and are not letters.
-    if (NOT_A_LETTER.test(char)) continue
+    // Script ranges also contain punctuation, digits and marks; only letters decide direction.
+    if (!LETTER.test(char)) continue
     if (RTL_LETTER.test(char)) return 'rtl'
     if (LTR_LETTER.test(char)) return 'ltr'
   }
   return null
+}
+
+/** A paragraph choice wins over the containing block; otherwise infer from the first letter. */
+export function resolveTextDirection(chosen: unknown, inherited: unknown, text: unknown): 'rtl' | 'ltr' | null {
+  if (chosen === 'rtl' || chosen === 'ltr') return chosen
+  if (inherited === 'rtl' || inherited === 'ltr') return inherited
+  return textDirection(text)
 }
 
 /** A link target a page may carry: http(s), a site path, an anchor, mail or phone. Nothing that runs. */
@@ -164,39 +171,38 @@ function textHtml(node: RichTextNode): string {
 const plainOf = (node: RichTextNode): string => (node.type === 'text' ? node.text || '' : (node.content || []).map(plainOf).join(' '))
 
 /** The direction written on a block: the one the writer chose, or the one its own text reads in. Nothing when it has no letter. */
-function dirAttr(node: RichTextNode): string {
-  const chosen = oneOf(TEXT_DIRECTIONS, node.attrs?.dir)
-  const dir = chosen && chosen !== 'auto' ? chosen : textDirection(plainOf(node))
+function dirAttr(node: RichTextNode, inherited?: unknown): string {
+  const dir = resolveTextDirection(node.attrs?.dir, inherited, plainOf(node))
   return dir ? ` dir="${dir}"` : ''
 }
 
-function blockAttrs(node: RichTextNode): string {
+function blockAttrs(node: RichTextNode, inherited?: unknown): string {
   const align = oneOf(TEXT_ALIGNS, node.attrs?.textAlign)
-  return `${align ? ` class="mcb-align-${align}"` : ''}${dirAttr(node)}`
+  return `${align ? ` class="mcb-align-${align}"` : ''}${dirAttr(node, inherited)}`
 }
 
-function nodeHtml(node: RichTextNode): string {
-  const inner = () => (node.content || []).map(nodeHtml).join('')
+function nodeHtml(node: RichTextNode, inherited?: unknown): string {
+  const inner = () => (node.content || []).map((child) => nodeHtml(child, inherited)).join('')
   switch (node.type) {
     case 'text': return textHtml(node)
     case 'hardBreak': return '<br>'
     case 'horizontalRule': return '<hr>'
-    case 'paragraph': return `<p${blockAttrs(node)}>${inner()}</p>`
-    case 'heading': { const level = Math.min(6, Math.max(2, Number(node.attrs?.level) || 2)); return `<h${level}${blockAttrs(node)}>${inner()}</h${level}>` }
-    case 'bulletList': return `<ul${dirAttr(node)}>${inner()}</ul>`
-    case 'orderedList': { const start = Number(node.attrs?.start); return `<ol${Number.isInteger(start) && start > 1 ? ` start="${start}"` : ''}${dirAttr(node)}>${inner()}</ol>` }
+    case 'paragraph': return `<p${blockAttrs(node, inherited)}>${inner()}</p>`
+    case 'heading': { const level = Math.min(6, Math.max(2, Number(node.attrs?.level) || 2)); return `<h${level}${blockAttrs(node, inherited)}>${inner()}</h${level}>` }
+    case 'bulletList': return `<ul${dirAttr(node, inherited)}>${inner()}</ul>`
+    case 'orderedList': { const start = Number(node.attrs?.start); return `<ol${Number.isInteger(start) && start > 1 ? ` start="${start}"` : ''}${dirAttr(node, inherited)}>${inner()}</ol>` }
     case 'listItem': return `<li>${inner()}</li>`
-    case 'taskList': return `<ul class="mcb-tasks"${dirAttr(node)}>${inner()}</ul>`
+    case 'taskList': return `<ul class="mcb-tasks"${dirAttr(node, inherited)}>${inner()}</ul>`
     case 'taskItem': return `<li class="mcb-task${node.attrs?.checked === true ? ' is-done' : ''}"><input type="checkbox" disabled${node.attrs?.checked === true ? ' checked' : ''}><div>${inner()}</div></li>`
-    case 'blockquote': return `<blockquote${dirAttr(node)}>${inner()}</blockquote>`
+    case 'blockquote': return `<blockquote${dirAttr(node, inherited)}>${inner()}</blockquote>`
     case 'codeBlock': { const language = oneOf(CODE_LANGUAGES, node.attrs?.language) || 'plain'; return `<pre dir="ltr"><code class="language-${language}">${(node.content || []).map((child) => escapeHtml(child.text || '')).join('')}</code></pre>` }
     default: return ''
   }
 }
 
 /** HTML of a rich text value. The value is checked first, whatever it was stored as. */
-export function richTextHtml(input: unknown): string {
-  return normalizeRichText(input).doc.content.map(nodeHtml).join('')
+export function richTextHtml(input: unknown, inheritedDirection?: unknown): string {
+  return normalizeRichText(input).doc.content.map((node) => nodeHtml(node, inheritedDirection)).join('')
 }
 
 export interface RichTextFacts { text: string; headings: Array<{ level: number; text: string }>; links: Array<{ href: string; text: string }> }

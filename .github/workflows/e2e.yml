@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -19,12 +22,14 @@ jobs:
       SEED_DEMO_DATA: 'true'
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: CiAdmin!Password-2026
-      # The development server restarts itself when it nears its memory limit, and a test that arrives during the restart
-      # is refused. Compiling the block editor's packages brought it there; with a larger limit it does not restart.
-      NODE_OPTIONS: --max-old-space-size=6144
+      # Next's development server restarts at 80% of its heap limit. The complete editor/CMS suite exceeded
+      # the old 6 GB allowance and interrupted a form request; provide headroom for the existing suite.
+      NODE_OPTIONS: --max-old-space-size=8192
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -33,7 +38,7 @@ jobs:
       - run: node prisma/seed.cjs
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: playwright-report

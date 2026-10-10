@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { EMAIL_EVENTS } from '@/modules/mail/domain/mail'
@@ -63,8 +64,12 @@ export async function queueInboxDigests(now = new Date(), pageSize = 200, maxPag
       orderBy: { userId: 'asc' }, take: pageSize,
     })
     if (members.length) {
-      const created = await db.backgroundJob.createMany({ data: members.map((member) => ({ kind: 'notification.digest', payload: JSON.stringify({ userId: member.userId, day }), dedupeKey: `notification-digest:${member.userId}:${day}` })), skipDuplicates: true })
-      queued += created.count
+      // Claim the dedupe key without replacing existing jobs; supported by PostgreSQL and SQLite.
+      const insertedAt = new Date()
+      for (let offset = 0; offset < members.length; offset += 150) {
+        const values = members.slice(offset, offset + 150).map(member => Prisma.sql`(${'notification.digest'}, ${JSON.stringify({ userId: member.userId, day })}, ${`notification-digest:${member.userId}:${day}`}, ${insertedAt}, ${insertedAt})`)
+        queued += await db.$executeRaw(Prisma.sql`INSERT INTO "BackgroundJob" ("kind", "payload", "dedupeKey", "runAt", "createdAt") VALUES ${Prisma.join(values)} ON CONFLICT ("dedupeKey") DO NOTHING`)
+      }
       cursor = members[members.length - 1].userId
     }
     done = members.length < pageSize
