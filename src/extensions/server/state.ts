@@ -1,9 +1,11 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { extensionById, extensionCatalog } from '@/extensions/generated/catalog'
 import { serverPlugins } from '@/extensions/generated/server-registry'
 import type { ExtensionManifest, ExtensionPublicState, ExtensionSettingDefinition } from '@/platform/extensions/contracts'
 
 const stateKey = (id: string) => `extension.${id}.state.v1`
+type StateReader = Pick<Prisma.TransactionClient, 'setting'>
 export interface ExtensionStoredState { enabled: boolean; settings: Record<string, unknown> }
 
 function defaults(manifest: ExtensionManifest, legacyEnabled?: boolean): ExtensionStoredState {
@@ -31,13 +33,13 @@ function mirrored(manifest: ExtensionManifest, state: ExtensionStoredState, sett
 }
 
 /** What the owner saved for this extension, before its dependencies are looked at. */
-async function storedExtensionState(id: string): Promise<ExtensionStoredState> {
+async function storedExtensionState(id: string, reader: StateReader = db): Promise<ExtensionStoredState> {
   const manifest = extensionById.get(id)
   if (!manifest) throw new Error(`Unknown extension: ${id}`)
   const [row, legacy, mirror] = await Promise.all([
-    db.setting.findUnique({ where: { key: stateKey(id) } }),
-    db.setting.findUnique({ where: { key: 'site.config.v1' } }),
-    manifest.stateSetting ? db.setting.findUnique({ where: { key: manifest.stateSetting } }) : null,
+    reader.setting.findUnique({ where: { key: stateKey(id) } }),
+    reader.setting.findUnique({ where: { key: 'site.config.v1' } }),
+    manifest.stateSetting ? reader.setting.findUnique({ where: { key: manifest.stateSetting } }) : null,
   ])
   let legacyEnabled: boolean | undefined
   if (!row && legacy?.value) { try { const site = JSON.parse(legacy.value); if (typeof site?.plugins?.[id] === 'boolean') legacyEnabled = site.plugins[id] } catch {} }
@@ -48,12 +50,12 @@ async function storedExtensionState(id: string): Promise<ExtensionStoredState> {
  * The state the site runs on: an extension whose required module is off is off as well, whatever
  * was saved for it, and comes back by itself when that module is turned on again.
  */
-export async function getExtensionState(id: string, seen: readonly string[] = []): Promise<ExtensionStoredState> {
-  const state = await storedExtensionState(id)
+export async function getExtensionState(id: string, seen: readonly string[] = [], reader: StateReader = db): Promise<ExtensionStoredState> {
+  const state = await storedExtensionState(id, reader)
   if (!state.enabled) return state
   for (const dependency of extensionById.get(id)?.requires || []) {
     if (!extensionById.has(dependency) || seen.includes(dependency)) continue
-    if (!(await getExtensionState(dependency, [...seen, id])).enabled) return { ...state, enabled: false }
+    if (!(await getExtensionState(dependency, [...seen, id], reader)).enabled) return { ...state, enabled: false }
   }
   return state
 }
@@ -73,44 +75,54 @@ function validSetting(def: ExtensionSettingDefinition, value: unknown) {
 export async function saveExtensionState(id: string, input: { enabled?: boolean; settings?: Record<string, unknown> }) {
   const manifest = extensionById.get(id)
   if (!manifest) throw new Error('افزونه در این build نصب نشده است')
-  const current = await getExtensionState(id)
-  const definitions = new Map((manifest.settings || []).map(def => [def.key, def]))
-  const settings = { ...current.settings }
-  if (input.settings) {
-    for (const [key, value] of Object.entries(input.settings)) {
-      const def = definitions.get(key)
-      if (!def) throw new Error(`تنظیم ناشناخته: ${key}`)
-      if (!validSetting(def, value)) throw new Error(`مقدار تنظیم ${key} معتبر نیست`)
-      if (def.type === 'secret' && value === '••••••••') continue
-      settings[key] = value
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      return await db.$transaction(async tx => {
+        const current = await getExtensionState(id, [], tx)
+        const definitions = new Map((manifest.settings || []).map(def => [def.key, def]))
+        const settings = { ...current.settings }
+        if (input.settings) {
+          for (const [key, value] of Object.entries(input.settings)) {
+            const def = definitions.get(key)
+            if (!def) throw new Error(`تنظیم ناشناخته: ${key}`)
+            if (!validSetting(def, value)) throw new Error(`مقدار تنظیم ${key} معتبر نیست`)
+            if (def.type === 'secret' && value === '••••••••') continue
+            settings[key] = value
+          }
+        }
+        // Saving settings must not write down "off" for an extension that is only off because of a dependency.
+        const next: ExtensionStoredState = { enabled: typeof input.enabled === 'boolean' ? input.enabled : (await storedExtensionState(id, tx)).enabled, settings }
+        if (typeof input.enabled === 'boolean' && input.enabled !== current.enabled) await assertDependencies(manifest, input.enabled, tx)
+        serverPlugins[id]?.validateSettings?.(next.settings)
+        await tx.setting.upsert({ where: { key: stateKey(id) }, create: { key: stateKey(id), value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } })
+        if (manifest.stateSetting) {
+          const key = manifest.stateSetting
+          const value = next.enabled ? 'true' : 'false'
+          await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+        }
+        return next
+      }, { isolationLevel: 'Serializable' })
+    } catch (error) {
+      if (['P2034', 'P2002'].includes((error as { code?: string }).code || '') && attempt < 19) continue
+      throw error
     }
   }
-  // Saving settings must not write down "off" for an extension that is only off because of a dependency.
-  const next: ExtensionStoredState = { enabled: typeof input.enabled === 'boolean' ? input.enabled : (await storedExtensionState(id)).enabled, settings }
-  if (typeof input.enabled === 'boolean' && input.enabled !== current.enabled) await assertDependencies(manifest, input.enabled)
-  serverPlugins[id]?.validateSettings?.(next.settings)
-  await db.setting.upsert({ where: { key: stateKey(id) }, create: { key: stateKey(id), value: JSON.stringify(next) }, update: { value: JSON.stringify(next) } })
-  if (manifest.stateSetting) {
-    const key = manifest.stateSetting
-    const value = next.enabled ? 'true' : 'false'
-    await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
-  }
-  return next
+  throw new Error('extension settings changed repeatedly; retry the request')
 }
 
 /** Enabling needs every required module on; disabling is refused while an enabled module depends on it. */
-async function assertDependencies(manifest: ExtensionManifest, enabling: boolean) {
+async function assertDependencies(manifest: ExtensionManifest, enabling: boolean, reader: StateReader = db) {
   const label = (m: ExtensionManifest) => m.name
   if (enabling) {
     for (const dependency of manifest.requires || []) {
       const required = extensionById.get(dependency)
-      if (required && !(await getExtensionState(dependency)).enabled) throw new Error(`ابتدا «${label(required)}» را فعال کنید / Enable “${required.nameEn || required.name}” first`)
+      if (required && !(await getExtensionState(dependency, [], reader)).enabled) throw new Error(`ابتدا «${label(required)}» را فعال کنید / Enable “${required.nameEn || required.name}” first`)
     }
     return
   }
   for (const other of extensionCatalog) {
     if (!(other.requires || []).includes(manifest.id)) continue
-    if ((await getExtensionState(other.id)).enabled) throw new Error(`«${label(other)}» به این ماژول وابسته است؛ ابتدا آن را غیرفعال کنید / “${other.nameEn || other.name}” depends on it — disable it first`)
+    if ((await getExtensionState(other.id, [], reader)).enabled) throw new Error(`«${label(other)}» به این ماژول وابسته است؛ ابتدا آن را غیرفعال کنید / “${other.nameEn || other.name}” depends on it — disable it first`)
   }
 }
 

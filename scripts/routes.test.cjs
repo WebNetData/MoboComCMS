@@ -91,6 +91,10 @@ function loadState(manifests, settings) {
     findMany: async ({ where }) => where.key.in.filter((key) => settings.has(key)).map((key) => ({ key, value: settings.get(key) })),
     upsert: async ({ where, create }) => { settings.set(where.key, create.value) },
   } }
+  db.$transaction = async work => {
+    const before = new Map(settings)
+    try { return await work(db) } catch (error) { settings.clear(); for (const [key, value] of before) settings.set(key, value); throw error }
+  }
   const mocks = { '@/platform/database/prisma': { db }, '@/extensions/generated/catalog': { extensionCatalog: manifests, extensionById: new Map(manifests.map((m) => [m.id, m])) }, '@/extensions/generated/server-registry': { serverPlugins: {} } }
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', source)((specifier) => mocks[specifier] || require(specifier), mod, mod.exports)
