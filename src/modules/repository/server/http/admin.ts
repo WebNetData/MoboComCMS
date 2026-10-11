@@ -43,10 +43,10 @@ export async function POST(req: NextRequest) {
       case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined); await audit('product.save', saved.id, { slug: saved.slug }); return ok({ id: saved.id }) }
       case 'product.delete': { await deleteProduct(idOf(body.id)); await audit('product.delete', idOf(body.id)); return ok({ ok: true }) }
       case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false); await audit('release.publish', idOf(body.id), { published: body.published !== false }); return ok({ ok: true }) }
-      case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }); await audit('license.grant', granted.id); return ok(granted) }
-      case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE'); await audit('license.status', idOf(body.id), { status: body.status }); return ok({ ok: true }) }
-      case 'license.extend': { await extendLicense(idOf(body.id), Number(body.days)); await audit('license.extend', idOf(body.id), { days: body.days }); return ok({ ok: true }) }
-      case 'license.site': { await releaseSite(idOf(body.id), String(body.site || '')); await audit('license.site', idOf(body.id), { site: body.site }); return ok({ ok: true }) }
+      case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }, { req, actor: guard.admin }); return ok(granted) }
+      case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE', { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'license.extend': { await extendLicense(idOf(body.id), Number(body.days), { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'license.site': { await releaseSite(idOf(body.id), String(body.site || ''), undefined, { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'settings': { const settings = await saveVendorConfig(body); await audit('settings', 'vendor', { enabled: settings.enabled }); return ok({ settings }) }
       default: return err('عملیات نامعتبر است')
     }

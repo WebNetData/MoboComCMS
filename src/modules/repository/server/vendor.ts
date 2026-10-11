@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -123,40 +125,48 @@ export async function listLicenses(filter: { q?: string; productId?: number; sta
   return { rows: rows.map((l) => licenseRow(l, false)), total, page, pages: Math.max(1, Math.ceil(total / 25)) }
 }
 
-async function issueLicense(input: { productId: number; userId: number | null; email: string; source: 'PURCHASE' | 'GRANT'; paidMinor: bigint; note: string }) {
-  const product = await db.repoProduct.findUnique({ where: { id: input.productId } })
+async function issueLicense(input: { productId: number; userId: number | null; email: string; source: 'PURCHASE' | 'GRANT'; paidMinor: bigint; note: string }, reader: Pick<Prisma.TransactionClient, 'repoProduct' | 'repoLicense'> = db) {
+  const product = await reader.repoProduct.findUnique({ where: { id: input.productId } })
   if (!product) throw new RepoError('محصول پیدا نشد', 404)
   const key = newLicenseKey()
-  const license = await db.repoLicense.create({
+  const license = await reader.repoLicense.create({
     data: { keyHash: hashKey(key), keyEnc: encryptPanelCredential(key), keyLast4: key.slice(-5), productId: product.id, userId: input.userId, email: input.email.slice(0, 254), source: input.source, siteLimit: product.siteLimit, paidMinor: input.paidMinor, currency: product.currency, note: input.note.slice(0, 300), updatesUntil: updatesUntilFor(product.supportDays, new Date()) },
   })
   return { license, key }
 }
 
 /** A license given by the administrator (a gift, a partner, a manual sale). The key is shown once in the response. */
-export async function grantLicense(input: { productId: number; email?: string; userId?: number; note?: string }) {
-  const { license, key } = await issueLicense({ productId: input.productId, userId: input.userId || null, email: String(input.email || ''), source: 'GRANT', paidMinor: 0n, note: String(input.note || '') })
-  return { id: license.id, key }
+export async function grantLicense(input: { productId: number; email?: string; userId?: number; note?: string }, context?: VendorLicenseContext) {
+  return commitVendorLicense(context, async tx => {
+    const { license, key } = await issueLicense({ productId: input.productId, userId: input.userId || null, email: String(input.email || ''), source: 'GRANT', paidMinor: 0n, note: String(input.note || '') }, tx)
+    return { id: license.id, key }
+  }, result => ({ action: 'grant', targetId: result.id }))
 }
 
-export async function setLicenseStatus(id: number, status: 'ACTIVE' | 'REVOKED') {
-  const result = await db.repoLicense.updateMany({ where: { id }, data: { status } })
-  if (!result.count) throw new RepoError('لایسنس پیدا نشد', 404)
+export async function setLicenseStatus(id: number, status: 'ACTIVE' | 'REVOKED', context?: VendorLicenseContext) {
+  await commitVendorLicense(context, async tx => {
+    const result = await tx.repoLicense.updateMany({ where: { id }, data: { status } })
+    if (!result.count) throw new RepoError('لایسنس پیدا نشد', 404)
+  }, () => ({ action: 'status', targetId: id, metadata: { status } }))
 }
 
-export async function extendLicense(id: number, days: number) {
-  const license = await db.repoLicense.findUnique({ where: { id } })
-  if (!license) throw new RepoError('لایسنس پیدا نشد', 404)
+export async function extendLicense(id: number, days: number, context?: VendorLicenseContext) {
   const n = Math.trunc(days)
-  if (!Number.isFinite(n) || n < 1 || n > 3650) throw new RepoError('تعداد روز معتبر نیست')
-  const from = license.updatesUntil && license.updatesUntil > new Date() ? license.updatesUntil : new Date()
-  await db.repoLicense.update({ where: { id }, data: { updatesUntil: new Date(from.getTime() + n * 86_400_000) } })
+  await commitVendorLicense(context, async tx => {
+    const license = await tx.repoLicense.findUnique({ where: { id } })
+    if (!license) throw new RepoError('لایسنس پیدا نشد', 404)
+    if (!Number.isFinite(n) || n < 1 || n > 3650) throw new RepoError('تعداد روز معتبر نیست')
+    const now = new Date(), from = license.updatesUntil && license.updatesUntil > now ? license.updatesUntil : now
+    await tx.repoLicense.update({ where: { id }, data: { updatesUntil: new Date(from.getTime() + n * 86_400_000) } })
+  }, () => ({ action: 'extend', targetId: id, metadata: { days: n } }))
 }
 
-export async function releaseSite(licenseId: number, site: string, owner?: { userId: number }) {
-  const license = await db.repoLicense.findUnique({ where: { id: licenseId } })
-  if (!license || (owner && license.userId !== owner.userId)) throw new RepoError('لایسنس پیدا نشد', 404)
-  await db.repoActivation.updateMany({ where: { licenseId, site: normalizeSiteHost(site) }, data: { active: false } })
+export async function releaseSite(licenseId: number, site: string, owner?: { userId: number }, context?: VendorLicenseContext) {
+  await commitVendorLicense(context, async tx => {
+    const license = await tx.repoLicense.findUnique({ where: { id: licenseId } })
+    if (!license || (owner && license.userId !== owner.userId)) throw new RepoError('لایسنس پیدا نشد', 404)
+    await tx.repoActivation.updateMany({ where: { licenseId, site: normalizeSiteHost(site) }, data: { active: false } })
+  }, () => ({ action: 'site', targetId: licenseId, metadata: { site } }))
 }
 
 export async function repositoryStats() {
