@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { createHash } from 'node:crypto'
 import { err, ok } from '@/platform/http/response'
-import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
+import { clientIp, rateLimitHit, rateLimitStrict } from '@/platform/http/rate-limit'
 import { authSecret } from '@/platform/config/env'
 import { moduleGuard } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
@@ -16,11 +16,13 @@ const failure = (error: unknown) => { if (error instanceof RepoError) return err
 const ipHash = (req: NextRequest) => createHash('sha256').update(`${authSecret()}:repo:${clientIp(req.headers)}`).digest('hex').slice(0, 16)
 const userIdOf = async (req: NextRequest) => (await requireUser(req))?.id ?? null
 
-async function vendorGate(req: NextRequest, limit = 120) {
+async function vendorGate(req: NextRequest, limit = 120, secret = false) {
   const off = await moduleGuard('repository')
   if (off) return off
   if (!(await getVendorConfig()).enabled) return err('not found', 404)
-  if (!rateLimitHit(`repo:${clientIp(req.headers)}`, limit, 60_000).ok) return err('too many requests', 429)
+  const key = `repo:${clientIp(req.headers)}`
+  const allowance = secret ? await rateLimitStrict(key, limit, 60_000) : rateLimitHit(key, limit, 60_000)
+  if (!allowance.ok) return err('too many requests', 429)
   return null
 }
 
@@ -42,7 +44,7 @@ export async function GET_product(req: NextRequest, slug: string) {
 
 /** POST /licenses/<activate|check|deactivate> — { key, slug, site, coreVersion } */
 export async function POST_license(req: NextRequest, action: string) {
-  const blocked = await vendorGate(req, 30)
+  const blocked = await vendorGate(req, 30, true)
   if (blocked) return blocked
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
   const slug = String(body?.slug || '')
@@ -57,7 +59,7 @@ export async function POST_license(req: NextRequest, action: string) {
 
 /** GET /download/<slug>/<version> — a paid product needs x-license-key and x-license-site headers. */
 export async function GET_download(req: NextRequest, slug: string, version: string) {
-  const blocked = await vendorGate(req, 60)
+  const blocked = await vendorGate(req, 60, true)
   if (blocked) return blocked
   try {
     const file = await downloadRelease({ slug, version, key: req.headers.get('x-license-key'), site: req.headers.get('x-license-site') })
