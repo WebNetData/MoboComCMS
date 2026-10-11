@@ -21,19 +21,24 @@ export interface AuthedUser {
 
 // The "staff must use 2-step sign-in" switch, cached briefly (read on every admin request).
 let policyCache: { at: number; required: boolean } | null = null
-async function adminTwoFactorRequired() {
-  if (policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
-  const row = await db.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
+async function adminTwoFactorRequired(reader: Pick<typeof db, 'setting'> = db) {
+  if (reader === db && policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
+  const row = reader === db
+    ? await reader.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
+    : await reader.setting.findUnique({ where: { key: 'security.policy.v1' } })
   let required = false
-  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch { required = false }
-  policyCache = { at: Date.now(), required }
+  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch {
+    if (reader !== db) throw new Error('Security policy unavailable')
+    required = false
+  }
+  if (reader === db) policyCache = { at: Date.now(), required }
   return required
 }
 export const clearAdminPolicyCache = () => { policyCache = null }
 
 /** Whether this admin is held back until they turn on 2-step sign-in. */
-export async function adminNeedsTwoFactor(user: AuthedUser) {
-  return user.role === 'ADMIN' && !user.twoFactor && await adminTwoFactorRequired()
+export async function adminNeedsTwoFactor(user: AuthedUser, reader: Pick<typeof db, 'setting'> = db) {
+  return user.role === 'ADMIN' && !user.twoFactor && await adminTwoFactorRequired(reader)
 }
 
 export function getRawToken(req: NextRequest) {
@@ -48,16 +53,16 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
 }
 
 /** Current identity for a previously authorized human action, including queued work. */
-export async function resolveCurrentUser(userId: number, authAt: unknown): Promise<AuthedUser | null> {
+export async function resolveCurrentUser(userId: number, authAt: unknown, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db): Promise<AuthedUser | null> {
   if (!Number.isSafeInteger(userId) || userId <= 0) return null
 
   // Resolve current role/status from storage so revocation takes effect immediately.
-  const current = await db.user.findUnique({
+  const current = await reader.user.findUnique({
     where: { id: userId },
     include: { roleRef: true },
   })
   if (!current || current.status !== 'ACTIVE') return null
-  if (await globalAuthenticationDenied(current.id)) return null
+  if (await globalAuthenticationDenied(current.id, new Date(), reader)) return null
   // A password reset signs out every session that started before it.
   if (sessionRevoked(authAt, current.passwordChangedAt)) return null
 

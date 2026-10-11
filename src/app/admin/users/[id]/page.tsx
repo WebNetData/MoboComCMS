@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
+import GlobalRestrictions from '@/components/admin/GlobalRestrictions'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 
@@ -256,6 +257,8 @@ export default function AdminCustomerPage() {
           </div>
         </div>
       )}
+
+      {tab === 'overview' && <GlobalRestrictions key={u.id} userId={u.id} />}
 
       {tab === 'wallet' && (
         <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.6fr)', gap: '1rem' }}>
