@@ -114,7 +114,13 @@ export async function enqueue(kind: string, payload: Record<string, unknown> = {
   if (options.dedupeKey) {
     const existing = await db.backgroundJob.findUnique({ where: { dedupeKey: options.dedupeKey } })
     if (existing && (existing.status === 'QUEUED' || existing.status === 'RUNNING')) return existing
-    if (existing) await db.backgroundJob.update({ where: { id: existing.id }, data: { dedupeKey: null } })
+    if (existing) {
+      const released = await db.backgroundJob.updateMany({ where: { id: existing.id, status: existing.status, dedupeKey: options.dedupeKey }, data: { dedupeKey: null } })
+      if (!released.count) {
+        const current = await db.backgroundJob.findUnique({ where: { dedupeKey: options.dedupeKey } })
+        if (current) return current
+      }
+    }
   }
   try {
     return await db.backgroundJob.create({ data: { kind, payload: JSON.stringify(payload), dedupeKey: options.dedupeKey ?? null, runAt: options.runAt ?? new Date() } })
@@ -141,26 +147,28 @@ export async function runQueue(budgetMs = 45_000) {
   while (Date.now() < until) {
     const job = await db.backgroundJob.findFirst({ where: { status: 'QUEUED', runAt: { lte: new Date() } }, orderBy: { id: 'asc' } })
     if (!job) break
-    const claimed = await db.backgroundJob.updateMany({ where: { id: job.id, status: 'QUEUED' }, data: { status: 'RUNNING', lockedAt: new Date(), attempts: { increment: 1 } } })
+    const lockedAt = new Date()
+    const claimed = await db.backgroundJob.updateMany({ where: { id: job.id, status: 'QUEUED', attempts: job.attempts }, data: { status: 'RUNNING', lockedAt, attempts: { increment: 1 } } })
     if (!claimed.count) continue
     ran++
+    const lease = { id: job.id, status: 'RUNNING', lockedAt, attempts: job.attempts + 1 }
     const handler = HANDLERS[job.kind]
     if (!handler) {
       // A kind this version does not know (an older or newer release queued it) is kept as failed, never reported as done.
-      await db.backgroundJob.update({ where: { id: job.id }, data: { status: 'FAILED', lastError: `unknown job kind: ${job.kind}`.slice(0, 1000), lockedAt: null, finishedAt: new Date() } })
-      logEvent('error', 'queue.job_failed', { jobId: job.id, kind: job.kind, attempts: job.attempts + 1, error: 'unknown job kind' })
+      const failed = await db.backgroundJob.updateMany({ where: lease, data: { status: 'FAILED', lastError: `unknown job kind: ${job.kind}`.slice(0, 1000), lockedAt: null, finishedAt: new Date() } })
+      if (failed.count) logEvent('error', 'queue.job_failed', { jobId: job.id, kind: job.kind, attempts: job.attempts + 1, error: 'unknown job kind' })
       continue
     }
     try {
       let payload: Record<string, unknown> = {}
       try { payload = JSON.parse(job.payload || '{}') } catch { /* empty payload */ }
       const result = await handler.run(payload, { id: job.id, attempts: job.attempts + 1 })
-      await db.backgroundJob.update({ where: { id: job.id }, data: { status: 'DONE', finishedAt: new Date(), lockedAt: null, lastError: '', result: JSON.stringify(result ?? null, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)).slice(0, 4000) } })
+      await db.backgroundJob.updateMany({ where: lease, data: { status: 'DONE', finishedAt: new Date(), lockedAt: null, lastError: '', result: JSON.stringify(result ?? null, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)).slice(0, 4000) } })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const attempts = job.attempts + 1
-      await db.backgroundJob.update({ where: { id: job.id }, data: attempts >= MAX_ATTEMPTS ? { status: 'FAILED', lastError: message.slice(0, 1000), lockedAt: null, finishedAt: new Date() } : { status: 'QUEUED', lastError: message.slice(0, 1000), lockedAt: null, runAt: new Date(Date.now() + backoff(attempts)) } })
-      logEvent('error', 'queue.job_failed', { jobId: job.id, kind: job.kind, attempts, error: message })
+      const failed = await db.backgroundJob.updateMany({ where: lease, data: attempts >= MAX_ATTEMPTS ? { status: 'FAILED', lastError: message.slice(0, 1000), lockedAt: null, finishedAt: new Date() } : { status: 'QUEUED', lastError: message.slice(0, 1000), lockedAt: null, runAt: new Date(Date.now() + backoff(attempts)) } })
+      if (failed.count) logEvent('error', 'queue.job_failed', { jobId: job.id, kind: job.kind, attempts, error: message })
     }
   }
   // Finished rows are kept for a week.

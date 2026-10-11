@@ -94,7 +94,7 @@ test('CDN queue delegates to its provider owner and retains failures for retry',
     let selected = false, calls = 0; const updates = []
     const queue = load('src/modules/operations/server/queue.ts', {
       '@/platform/database/prisma': { db: { backgroundJob: {
-        updateMany: async () => ({ count: 1 }),
+        updateMany: async args => { updates.push(args); return { count: 1 } },
         findFirst: async () => { if (selected) return null; selected = true; return { id: 1, kind: 'cdn.purge', attempts: 0, payload: '{}' } },
         update: async args => updates.push(args), deleteMany: async () => ({ count: 0 }),
       } } },
@@ -115,7 +115,7 @@ test('existing queue dispatches bounded price-drop continuations and retries wor
     const payload = { pointId: 7, previousMinor: '100', currency: 'IRT', cursor: 0 }
     const queue = load('src/modules/operations/server/queue.ts', {
       '@/platform/database/prisma': { db: { backgroundJob: {
-        updateMany: async () => ({ count: 1 }),
+        updateMany: async args => { updates.push(args); return { count: 1 } },
         findFirst: async () => { if (selected) return null; selected = true; return { id: 1, kind: 'store.price-drop', attempts: 0, payload: JSON.stringify(payload) } },
         update: async args => updates.push(args), findUnique: async () => null,
         create: async ({ data }) => { created.push(data); return { id: 2, ...data } }, deleteMany: async () => ({ count: 0 }),

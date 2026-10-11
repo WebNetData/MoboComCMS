@@ -1,0 +1,13 @@
+# Queue claim integrity and lifecycle foundation
+
+Canonical owner: operations/server/queue.ts, existing BackgroundJob and monitoring controls. Actual PostgreSQL1791721135785-17260 reproduced a resumed old execution overwriting the result of the recovered newer execution. This must be corrected before adding human-authority/job lifecycle semantics.
+
+Claim queued state with its selected attempt counter; remember exact lockedAt and incremented attempt. Terminal success, failure/backoff and unknown-kind failure update only that RUNNING claim. A late execution never clears, requeues, fails or finishes another lease. Return ran remains the existing number of claimed attempts, not proof of completed work. Release a terminal dedupe key only while its inspected state/key still match; a concurrent Admin retry keeps its active identity and key.
+
+Preserve existing ten-minute recovery, five-attempt limit, backoff, payloads, result/history, Admin retry and URLs. No migration/new job status, module cancellation, human authorization bypass or financial-state change. Domain side effects/continuations still require their own idempotency and authority: this is not exactly-once execution or cancellation of in-flight effects. Old unfenced workers must be quiesced during mixed-version rollout.
+
+Acceptance: actual owned PG two concurrent runner invocations, controlled stale stored lease recovered by another runner, late success and late failure leave exact winner row intact; concurrent terminal inspection/Admin retry preserves dedupe identity. Handler boundary doubled; no real file deletion/provider traffic. Existing queue-jobs and notification/price-drop/import regression owners, narrow units/check/type/build and compiled queue consumer. Deliberately remove each ownership fence and confirm relevant assertion failure before restoring source. Human administrative jobs/current authority and module-specific queued reconciliation remain subsequent full-goal work.
+
+## Slice 1 evidence
+
+Implemented and validated against actual PostgreSQL; three deliberate faults detected/restored, four final connected owners pass, six narrow units pass, final typecheck and24 compiled browser cases pass. Full check638/build82 final logs observed; original native wrapper exit observation unavailable after compaction, not claimed. Exact logs and bounded rollout/effect limitations: [audit](../../agent/audits/2026-10-11-queue-lease.md).
