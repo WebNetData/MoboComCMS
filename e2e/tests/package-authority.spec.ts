@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { encode } from 'next-auth/jwt'
 import { test, expect, watchErrors } from '../helpers'
+import { ADMIN_STATE } from '../paths'
 import { writeZip } from '../../src/modules/packages/domain/zip'
 
 test('package management uses current canonical permissions and signed session standing', async ({ admin, browser, baseURL }) => {
@@ -47,6 +48,51 @@ test('package management uses current canonical permissions and signed session s
     await db.accessRestriction.deleteMany({ where: { userId: actor.id } })
     await db.user.deleteMany({ where: { id: actor.id, email: actor.email } })
     await db.role.deleteMany({ where: { id: role.id, name: id } })
+    await db.$disconnect()
+  }
+})
+
+test('a code-only manager stages builtin source without applying it and keeps existing edits', async ({ browser, baseURL }) => {
+  test.skip(process.env.MOBOCOM_ISOLATED_FIXTURE !== '1' || baseURL !== 'https://e2e.mobocom.test:3443', 'requires disposable compiled PostgreSQL fixture')
+  const db = new PrismaClient(), id = 'announcement', key = `package.${id}.v1`, indexKey = 'packages.index.v1', label = `e2e-source-${Date.now().toString(36)}`
+  const before = await db.setting.findUnique({ where: { key } }), indexBefore = await db.setting.findUnique({ where: { key: indexKey } })
+  const role = await db.role.create({ data: { name: label, permissions: 'extensions.code' } })
+  const actor = await db.user.create({ data: { email: label + '@example.invalid', passwordHash: 'owned fixture', role: 'ADMIN', roleId: role.id } })
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL! } })
+  try {
+    await db.setting.deleteMany({ where: { key } })
+    await context.addCookies([{ name: '__Secure-next-auth.session-token', value: await encode({ secret: process.env.NEXTAUTH_SECRET!, token: { uid: String(actor.id), sub: String(actor.id), role: 'ADMIN', authAt: Date.now() - 5000 } }), url: baseURL! }])
+    const importSource = () => context.request.post('/api/admin/packages/source', { data: { id } })
+    const imported = await importSource()
+    expect(imported.status(), await imported.text()).toBe(200)
+    expect((await imported.json()).package).toMatchObject({ enabled: false, codeStatus: 'staged', manifest: { id, runtime: 'code' } })
+    expect((await db.auditLog.findMany({ where: { targetType: 'package', targetId: id, actorUserId: actor.id } })).map(row => row.action)).toEqual(['package.code.import'])
+    const page = await browser.newPage({ baseURL, storageState: ADMIN_STATE }), errors = watchErrors(page)
+    try {
+      await page.goto(`/admin/extensions/editor?package=${id}&file=manifest.json`)
+      const editor = page.getByRole('textbox', { name: 'manifest.json', exact: true })
+      await expect(editor).toHaveValue(/"runtime": "code"/)
+      expect(errors).toEqual([])
+    } finally { await page.close() }
+    await db.role.update({ where: { id: role.id }, data: { permissions: 'settings.manage' } })
+    const write = await context.request.put(`/api/admin/packages/${id}/files`, { data: { path: 'owned-test.ts', content: 'export const preserved = true' } })
+    expect(write.status(), await write.text()).toBe(200)
+    const stored = await db.setting.findUniqueOrThrow({ where: { key } })
+    await db.role.update({ where: { id: role.id }, data: { permissions: 'extensions.code' } })
+    expect((await importSource()).status()).toBe(200)
+    expect(await db.setting.findUniqueOrThrow({ where: { key } })).toEqual(stored)
+    await db.role.update({ where: { id: role.id }, data: { permissions: 'settings.manage' } })
+    expect((await importSource()).status()).toBe(403)
+    expect(await db.setting.findUniqueOrThrow({ where: { key } })).toEqual(stored)
+  } finally {
+    await context.close()
+    await db.auditLog.deleteMany({ where: { targetType: 'package', targetId: id, actorUserId: actor.id } })
+    for (const [rowKey, row] of [[key, before], [indexKey, indexBefore]] as const) {
+      if (row) await db.setting.upsert({ where: { key: rowKey }, create: { key: rowKey, value: row.value }, update: { value: row.value } })
+      else await db.setting.deleteMany({ where: { key: rowKey } })
+    }
+    await db.user.deleteMany({ where: { id: actor.id, email: actor.email } })
+    await db.role.deleteMany({ where: { id: role.id, name: label } })
     await db.$disconnect()
   }
 })

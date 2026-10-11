@@ -84,6 +84,24 @@ export async function installPackage(upload: Buffer, actor: string, context?: Pa
 }
 
 export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+  return persistEntries(entries, actor, note, context)
+}
+
+/** Source imports retain an already staged package, including one created while files were read. */
+export async function installSourceEntries(id: string, entries: Map<string, Buffer>, actor: string, note: string, context: PackageCommandContext) {
+  return persistEntries(entries, actor, note, context, id)
+}
+
+export async function loadSourcePackage(id: string, context: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx, 'extensions.code')
+    const pkg = await loadPackageFrom(id, tx, true)
+    if (pkg) await auditPackageCommand(tx, context, current, 'code.import', id)
+    return pkg
+  })
+}
+
+async function persistEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, sourceId?: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (entries.size > PACKAGE_LIMITS.maxEntries || [...entries.values()].reduce((sum, data) => sum + data.length, 0) > PACKAGE_LIMITS.maxTotalBytes) throw new PackageError('the package is too large')
   const manifestSource = entries.get('manifest.json')
   if (!manifestSource) throw new PackageError('manifest.json was not found at the root of the zip')
@@ -99,13 +117,18 @@ export async function installEntries(entries: Map<string, Buffer>, actor: string
     } else files[path] = { base64: data.toString('base64') }
   }
   const manifest = manifestFrom(files)
+  if (sourceId && (manifest.id !== sourceId || manifest.runtime !== 'code')) throw new PackageError('source import must retain its code package id')
   const builtin = builtinKind(manifest.id)
   const overridesBuiltin = manifest.runtime === 'code' && builtin === manifest.kind
   if (reservedIds().has(manifest.id) && !overridesBuiltin) throw new PackageError(`"${manifest.id}" is the id of a built-in extension or theme; choose another id`)
   return packageTransaction(async tx => {
-    const current = await packageCommandActor(context, tx)
+    const current = await packageCommandActor(context, tx, sourceId ? 'extensions.code' : 'settings.manage')
     const author = current?.email ?? actor
     const previous = await loadPackageFrom(manifest.id, tx, true)
+    if (sourceId && previous) {
+      await auditPackageCommand(tx, context, current, 'code.import', sourceId)
+      return { pkg: previous, upgraded: false }
+    }
     if (previous && previous.manifest.kind !== manifest.kind) throw new PackageError(`"${manifest.id}" is already installed as a ${previous.manifest.kind}`)
     const now = new Date().toISOString()
     const revisions: PackageRevision[] = previous
@@ -120,7 +143,8 @@ export async function installEntries(entries: Map<string, Buffer>, actor: string
     }
     if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
     await savePackage(tx, pkg)
-    await auditPackageCommand(tx, context, current, previous ? 'upgrade' : 'install', manifest.id, { version: manifest.version, kind: manifest.kind, runtime: manifest.runtime })
+    if (sourceId) await auditPackageCommand(tx, context, current, 'code.import', sourceId)
+    else await auditPackageCommand(tx, context, current, previous ? 'upgrade' : 'install', manifest.id, { version: manifest.version, kind: manifest.kind, runtime: manifest.runtime })
     return { pkg, upgraded: !!previous }
   })
 }

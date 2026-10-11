@@ -9,9 +9,9 @@ export class PackageAuthorityError extends Error {
 }
 
 /** Reuse canonical Identity at each command attempt; trusted legacy callers retain their contract. */
-export async function packageCommandActor(context: PackageCommandContext | undefined, tx: Prisma.TransactionClient) {
+export async function packageCommandActor(context: PackageCommandContext | undefined, tx: Prisma.TransactionClient, permission: 'settings.manage' | 'extensions.code' = 'settings.manage') {
   if (!context) return undefined
-  const actor = await requirePerm(context.req, 'settings.manage', tx)
+  const actor = await requirePerm(context.req, permission, tx)
   if (!actor || actor.id !== context.actor.id) throw new PackageAuthorityError()
   return actor
 }

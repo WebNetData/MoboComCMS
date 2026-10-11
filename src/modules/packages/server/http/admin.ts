@@ -182,8 +182,7 @@ export async function importSourceRoute(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const id = typeof body?.id === 'string' ? body.id : ''
   try {
-    const pkg = await importBuiltinSource(id, actor.email)
-    await audit(req, actor, 'code.import', id)
+    const pkg = await importBuiltinSource(id, actor.email, undefined, { req, actor })
     return ok({ package: summarize(pkg) })
   } catch (error) { return failure(error) }
 }

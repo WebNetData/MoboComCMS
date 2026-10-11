@@ -24,6 +24,7 @@ const CHECKS = [
   'package-command',
   'package-authority',
   'package-crud',
+  'package-source',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',
