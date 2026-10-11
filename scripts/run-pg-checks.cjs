@@ -9,7 +9,7 @@ const CHECKS = [
   'return-refund-integrity',
   'gift-card-integrity',
   'digital-codes',
-  'database-insert-compat',
+  'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',
   'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions', 'scoped-restrictions', 'scoped-restrictions-migration', 'scoped-restrictions-single-connection',
   'forum-board-index', 'forum-clubs',
   'forum-activity-stream', 'forum-leaderboard', 'forum-reputation',

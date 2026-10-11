@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client')
+const { PrismaClient, Prisma } = require('@prisma/client')
 const bcrypt = require('bcryptjs')
 const crypto = require('node:crypto')
 
@@ -9,7 +9,10 @@ async function main() {
   // The role definitions are shared with the web installer (prisma/system-roles.json).
   const rolesData = require('./system-roles.json')
   for (const r of rolesData) {
-    await prisma.role.upsert({ where: { name: r.name }, update: { permissions: r.permissions }, create: r })
+    // Bootstrap missing defaults; permission upgrades belong to explicit migrations,
+    // never an automatic local restart that overwrites the owner's role decisions.
+    const now = new Date()
+    await prisma.$executeRaw(Prisma.sql`INSERT INTO "Role" ("name", "nameFa", "permissions", "isSystem", "createdAt", "updatedAt") VALUES (${r.name}, ${r.nameFa ?? ''}, ${r.permissions === undefined ? '' : r.permissions}, ${r.isSystem ?? false}, ${now}, ${now}) ON CONFLICT ("name") DO NOTHING`)
   }
   const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } })
 

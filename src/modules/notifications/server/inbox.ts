@@ -15,22 +15,23 @@ export type InboxEvent = {
 /** Durable, idempotent customer event. External delivery must never gate settlement. */
 export async function createInboxEvent(event: InboxEvent) {
   if (!Number.isInteger(event.userId) || event.userId <= 0 || !/^\/[A-Za-z0-9/_?=&.%-]*$/.test(event.href) || event.href.startsWith('//')) throw new Error('invalid inbox event')
-  let row
-  try {
-    row = await db.$transaction(async (tx) => {
-      const created = await tx.userNotification.create({ data: event })
-      await tx.backgroundJob.createMany({ data: (['sms', 'email', 'push'] as const).map((channel) => ({
-        kind: 'notification.deliver', payload: JSON.stringify({ notificationId: created.id, channel }),
-        dedupeKey: `notification:${created.id}:${channel}`,
-      })) })
-      return created
-    })
-  } catch (error) {
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
-    const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
-    if (!existing || existing.userId !== event.userId) throw new Error('inbox dedupe key collision')
+  const existing = await db.userNotification.findUnique({ where: { dedupeKey: event.dedupeKey } })
+  if (existing) {
+    if (existing.userId !== event.userId) throw new Error('inbox dedupe key collision')
     return existing
   }
+  const now = new Date()
+  const [, row] = await db.$transaction([
+    // Target only this event's dedupe key; unexpected database failures must roll back.
+    db.$executeRaw(Prisma.sql`INSERT INTO "UserNotification" ("userId", "kind", "dedupeKey", "titleEn", "titleFa", "bodyEn", "bodyFa", "href", "createdAt") VALUES (${event.userId}, ${event.kind}, ${event.dedupeKey}, ${event.titleEn}, ${event.titleFa}, ${event.bodyEn === undefined ? '' : event.bodyEn}, ${event.bodyFa === undefined ? '' : event.bodyFa}, ${event.href}, ${now}) ON CONFLICT ("dedupeKey") DO NOTHING`),
+    db.userNotification.findUniqueOrThrow({ where: { dedupeKey: event.dedupeKey } }),
+    ...(['sms', 'email', 'push'] as const).map(channel =>
+      // Concurrent producers can see the same row. Queue each channel once and
+      // preserve existing job state; never queue another user's collided event.
+      db.$executeRaw(Prisma.sql`INSERT INTO "BackgroundJob" ("kind", "payload", "dedupeKey", "runAt", "createdAt") SELECT 'notification.deliver', '{"notificationId":' || CAST(n."id" AS TEXT) || ',"channel":"' || ${channel} || '"}', 'notification:' || CAST(n."id" AS TEXT) || ':' || ${channel}, ${now}, ${now} FROM "UserNotification" n WHERE n."dedupeKey" = ${event.dedupeKey} AND n."userId" = ${event.userId} ON CONFLICT ("dedupeKey") DO NOTHING`)
+    ),
+  ])
+  if (row.userId !== event.userId) throw new Error('inbox dedupe key collision')
   return row
 }
 

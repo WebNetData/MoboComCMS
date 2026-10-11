@@ -26,6 +26,52 @@ const social = load('src/modules/social/domain/social')
 const an = load('src/modules/analytics/domain/analytics')
 const cr = load('src/modules/copyright/domain/copyright')
 
+function analyticsFixture() {
+  const logs = [], failure = new Error('private query /private/email@example.invalid 192.0.2.10')
+  const mocks = {
+    '@/platform/database/prisma': { db: { $executeRaw: () => ({}), $transaction: async () => { throw failure } } },
+    '@/platform/observability/logger': { logEvent: (...args) => logs.push(args) },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/shared/time/day': { tehranDay: () => '2099-10-11' },
+    '@/platform/http/visitor': { visitorHash: () => 'fixture-hash' },
+    '@/platform/http/rate-limit': { clientIp: () => '192.0.2.10', rateLimitHit: () => ({ ok: true }) },
+    '@/modules/identity/server/admin-guard': {}, '@/modules/analytics/server/dashboard': {},
+    '@/modules/analytics/domain/analytics': an,
+  }
+  const modules = new Map()
+  function service(relative) {
+    const file = path.resolve(__dirname, '..', relative)
+    if (modules.has(file)) return modules.get(file).exports
+    const mod = { exports: {} }; modules.set(file, mod)
+    const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+    new Function('require', 'module', 'exports', source)(name => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('@/') ? service('src/' + name.slice(2) + '.ts') : require(name), mod, mod.exports)
+    return mod.exports
+  }
+  return { logs, service }
+}
+
+test('best-effort analytics observes storage failures without logging search text, IP or private paths', async () => {
+  const { logs, service } = analyticsFixture()
+  await assert.doesNotReject(service('src/modules/analytics/server/collect.ts').recordSearch('private query', 0))
+  const { NextRequest } = require('next/server')
+  const req = new NextRequest('http://e2e.invalid/api/analytics/collect', { method: 'POST', headers: { origin: 'http://e2e.invalid', 'user-agent': 'Mozilla/5.0 Chrome/124.0.0.0' }, body: JSON.stringify({ p: '/music' }) })
+  assert.equal((await service('src/modules/analytics/server/http/routes.ts').POST_collect(req)).status, 204)
+  assert.equal(logs.length, 2)
+  assert.deepEqual(logs.map(row => row[2]), [{ phase: 'search', errorName: 'Error' }, { phase: 'pageview', errorName: 'Error' }])
+  assert.doesNotMatch(JSON.stringify(logs), /private query|email@example|192\.0\.2\.10/)
+})
+
+test('analytics HTTP acknowledges malformed and non-object JSON without collecting or logging it', async () => {
+  const { logs, service } = analyticsFixture(), { NextRequest } = require('next/server')
+  for (const body of ['null', '[]', '"word"', 'broken-json']) {
+    const req = new NextRequest('http://e2e.invalid/api/analytics/collect', { method: 'POST', headers: { origin: 'http://e2e.invalid' }, body })
+    const response = await service('src/modules/analytics/server/http/routes.ts').POST_collect(req)
+    assert.equal(response.status, 204)
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+  }
+  assert.equal(logs.length, 0)
+})
+
 test('Persian normalization unifies letters, digits, joiners and case', () => {
   assert.equal(fa.normalizePersian('نرم‌افزار ويندوز ١١'), 'نرم افزار ویندوز 11')
   assert.equal(fa.normalizePersian('كتابخانهٔ  Photoshop!'), 'کتابخانه photoshop')

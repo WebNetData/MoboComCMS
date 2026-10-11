@@ -3,76 +3,39 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
-const { Prisma } = require('@prisma/client')
 
-test('concurrent duplicate inbox events atomically queue one job per external channel', async () => {
-  const source = fs.readFileSync(path.join(__dirname, '../src/modules/notifications/server/inbox.ts'), 'utf8')
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
-  const rows = new Map()
-  const jobs = new Map()
+// Database concurrency, rollback and queue dedupe live in the registered connected check.
+test('inbox replay preserves its owner and delivery distinguishes retryable provider failures', async () => {
+  const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/modules/notifications/server/inbox.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const event = { id: 1, userId: 1, kind: 'TEST', dedupeKey: 'one', titleEn: 'One', titleFa: 'یک', href: '/dashboard/notifications' }
   const deliveries = { sms: 0, mail: 0, push: 0 }
-  let failQueueWrite = false, failMail = true, pushFailure = 'none'
-  const db = {
-    async $transaction(fn) {
-      let inserted = null
-      try {
-        return await fn({
-          userNotification: { async create({ data }) {
-            if (rows.has(data.dedupeKey)) throw new Prisma.PrismaClientKnownRequestError('Duplicate', { code: 'P2002', clientVersion: '5.22.0' })
-            inserted = { ...data, id: rows.size + 1 }
-            rows.set(data.dedupeKey, inserted)
-            return inserted
-          } },
-          backgroundJob: { async createMany({ data }) {
-            if (failQueueWrite) throw new Error('queue unavailable')
-            for (const job of data) jobs.set(job.dedupeKey, job)
-          } },
-        })
-      } catch (error) {
-        if (inserted) {
-          rows.delete(inserted.dedupeKey)
-          for (const channel of ['sms', 'email', 'push']) jobs.delete(`notification:${inserted.id}:${channel}`)
-        }
-        throw error
-      }
-    },
-    userNotification: { async findUnique({ where }) { return where.id ? [...rows.values()].find((row) => row.id === where.id) || null : rows.get(where.dedupeKey) || null } },
-  }
+  let failMail = true, pushFailure = 'none'
   const mocks = {
-    '@/platform/database/prisma': { db },
-    '@/platform/observability/logger': { logEvent: () => undefined },
+    '@/platform/database/prisma': { db: { userNotification: { findUnique: async ({ where }) => where.id === 1 || where.dedupeKey === 'one' ? event : null } } },
     '@/modules/sms/server/sms': { notifyUserEvent: async () => { deliveries.sms++; return true } },
     '@/modules/mail/server/mailer': { notifyUserEmail: async () => { deliveries.mail++; return failMail ? false : true } },
     '@/modules/push/server/push': { pushToUser: async () => { deliveries.push++; return { sent: pushFailure === 'none' ? 1 : 0, failed: pushFailure === 'none' ? 0 : 1, retryable: pushFailure === 'transient' ? 1 : 0 } } },
   }
   const module = { exports: {} }
-  new Function('require', 'module', 'exports', compiled)((name) => mocks[name] || require(name), module, module.exports)
-  const createInboxEvent = module.exports.createInboxEvent
-  const event = { userId: 1, kind: 'TEST', dedupeKey: 'one', titleEn: 'One', titleFa: 'یک', href: '/dashboard/notifications' }
-  const created = await Promise.all(Array.from({ length: 20 }, () => createInboxEvent(event)))
-  assert.equal(rows.size, 1)
-  assert.ok(created.every((row) => row.id === created[0].id))
-  assert.equal(jobs.size, 3)
-  assert.deepEqual(deliveries, { sms: 0, mail: 0, push: 0 }, 'providers are not called in the event transaction')
-  await module.exports.deliverInboxCopy(created[0].id, 'sms')
-  await assert.rejects(module.exports.deliverInboxCopy(created[0].id, 'email'), /Email provider/)
-  failMail = false
-  await module.exports.deliverInboxCopy(created[0].id, 'email')
-  await module.exports.deliverInboxCopy(created[0].id, 'push')
-  pushFailure = 'permanent'
-  await module.exports.deliverInboxCopy(created[0].id, 'push')
-  pushFailure = 'transient'
-  await assert.rejects(module.exports.deliverInboxCopy(created[0].id, 'push'), /Push provider/)
-  pushFailure = 'none'
-  await module.exports.deliverInboxCopy(created[0].id, 'push')
-  assert.deepEqual(deliveries, { sms: 1, mail: 2, push: 4 })
+  new Function('require', 'module', 'exports', compiled)(name => mocks[name] || require(name), module, module.exports)
+  const { createInboxEvent, deliverInboxCopy } = module.exports
+  assert.equal(await createInboxEvent({ ...event, titleEn: 'Replacement' }), event)
+  assert.deepEqual(deliveries, { sms: 0, mail: 0, push: 0 }, 'a replay never calls external providers')
   await assert.rejects(createInboxEvent({ ...event, userId: 2 }), /dedupe key collision/)
-  assert.equal(jobs.size, 3)
-  failQueueWrite = true
-  await assert.rejects(createInboxEvent({ ...event, dedupeKey: 'two' }), /queue unavailable/)
-  assert.equal(rows.size, 1, 'a failed queue insert rolls back the inbox event')
-  failQueueWrite = false
-  await createInboxEvent({ ...event, dedupeKey: 'two' })
-  assert.equal(rows.size, 2)
-  assert.equal(jobs.size, 6)
+  await assert.rejects(createInboxEvent({ ...event, userId: 0 }), /invalid inbox event/)
+  await assert.rejects(createInboxEvent({ ...event, href: '//evil.invalid' }), /invalid inbox event/)
+  await deliverInboxCopy(1, 'sms')
+  await assert.rejects(deliverInboxCopy(1, 'email'), /Email provider/)
+  failMail = false
+  await deliverInboxCopy(1, 'email')
+  await deliverInboxCopy(1, 'push')
+  pushFailure = 'permanent'
+  await deliverInboxCopy(1, 'push')
+  pushFailure = 'transient'
+  await assert.rejects(deliverInboxCopy(1, 'push'), /Push provider/)
+  pushFailure = 'none'
+  await deliverInboxCopy(1, 'push')
+  assert.deepEqual(deliveries, { sms: 1, mail: 2, push: 4 })
+  assert.deepEqual(await deliverInboxCopy(99, 'email'), { skipped: 'removed' })
+  await assert.rejects(deliverInboxCopy(1, 'invalid'), /invalid notification delivery/)
 })
