@@ -145,6 +145,48 @@ test.describe('repository', () => {
     expect(withUpdate.products.find((p: { slug: string }) => p.slug === PAID).update).toBe('1.1.0')
     expect((await (await post({ op: 'install', slug: PAID })).json()).upgraded).toBe(true)
 
+    // Temporary denial of a human-bound license preserves both entitlement and installed state.
+    if (process.env.MOBOCOM_ISOLATED_FIXTURE === '1' && baseURL === 'https://e2e.mobocom.test:3443') {
+      const db = new PrismaClient()
+      const human = await db.user.create({ data: { email: `e2e-license-owner-${RUN}@example.invalid`, passwordHash: 'fixture-only' } })
+      try {
+        const machineHeaders = { 'x-forwarded-for': `10.138.${human.id % 250}.${Math.floor(human.id / 250) % 250 + 1}` }
+        const machine = await admin.post('/api/repo/v1/licenses/check', { headers: machineHeaders, data: { key, slug: PAID, site } })
+        expect(machine.status()).toBe(200)
+        expect((await admin.patch(`/api/admin/packages/${PAID}`, { data: { enabled: true } })).ok()).toBeTruthy()
+        const enabled = await (await admin.get('/api/admin/repository/client')).json()
+        expect(enabled.products.find((p: { slug: string }) => p.slug === PAID)).toMatchObject({ installed: { enabled: true } })
+        await db.repoLicense.update({ where: { id: row.id }, data: { userId: human.id } })
+        const ban = await db.accessRestriction.create({ data: { userId: human.id, scope: 'GLOBAL', effectKey: 'identity.suspend', capabilities: '["identity.authenticate"]', reason: 'owned repository browser fixture' } })
+        const beforeLicense = await db.repoLicense.findUniqueOrThrow({ where: { id: row.id } })
+        const beforeSites = await db.repoActivation.findMany({ where: { licenseId: row.id }, orderBy: { id: 'asc' } })
+        const beforeProduct = await db.repoProduct.findUniqueOrThrow({ where: { id: ids[PAID] } })
+        for (const action of ['activate', 'check', 'deactivate']) {
+          const denial = await admin.post(`/api/repo/v1/licenses/${action}`, { headers: machineHeaders, data: { key, slug: PAID, site } })
+          expect(denial.status(), action).toBe(423)
+          expect((await denial.json()).reason).toBe('account-restricted')
+        }
+        expect((await admin.get(`/api/repo/v1/download/${PAID}/1.1.0`, { headers: { ...machineHeaders, 'x-license-key': key, 'x-license-site': site } })).status()).toBe(423)
+        expect((await (await post({ op: 'refresh' })).json()).revoked).not.toContain(PAID)
+        const held = await (await admin.get('/api/admin/repository/client')).json()
+        expect(held.products.find((p: { slug: string }) => p.slug === PAID)).toMatchObject({ license: { state: 'unreachable' }, installed: { enabled: true } })
+        expect(await db.repoLicense.findUniqueOrThrow({ where: { id: row.id } })).toEqual(beforeLicense)
+        expect(await db.repoActivation.findMany({ where: { licenseId: row.id }, orderBy: { id: 'asc' } })).toEqual(beforeSites)
+        expect(await db.repoProduct.findUniqueOrThrow({ where: { id: ids[PAID] } })).toEqual(beforeProduct)
+        expect((await admin.get(`/api/repo/v1/download/${FREE}/1.0.0`)).status()).toBe(200)
+        expect((await db.accessRestriction.updateMany({ where: { id: ban.id, revokedAt: null }, data: { revokedAt: new Date(), revocationReason: 'owned recovery' } })).count).toBe(1)
+        expect((await (await post({ op: 'refresh' })).json()).revoked).not.toContain(PAID)
+        const restored = await (await admin.get('/api/admin/repository/client')).json()
+        expect(restored.products.find((p: { slug: string }) => p.slug === PAID)).toMatchObject({ license: { state: 'active' }, installed: { enabled: true } })
+      } finally {
+        try {
+          await db.repoLicense.update({ where: { id: row.id }, data: { userId: null } })
+          await db.accessRestriction.deleteMany({ where: { userId: human.id } })
+          await db.user.deleteMany({ where: { id: human.id, email: `e2e-license-owner-${RUN}@example.invalid` } })
+        } finally { await db.$disconnect() }
+      }
+    }
+
     // Revocation: the daily check switches the package off and downloads stop.
     expect((await admin.post('/api/admin/repository', { data: { op: 'license.status', id: row.id, status: 'REVOKED' } })).ok()).toBeTruthy()
     const refreshed = await (await post({ op: 'refresh' })).json()

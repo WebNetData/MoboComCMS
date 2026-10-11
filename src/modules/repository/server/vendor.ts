@@ -12,6 +12,7 @@ import {
   type Certificate,
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, newLicenseKey, sha256, signPayload, vendorKeys } from './crypto'
+import { assertLicenseOwner } from '@/modules/repository/server/vendor/access'
 
 export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
 const CONFIG_KEY = 'repository.vendor.v1'
@@ -256,6 +257,7 @@ async function certificateFor(license: { id: number; status: string; updatesUnti
 export async function activateLicense(input: { key: unknown; slug: string; site: unknown; coreVersion?: unknown; ipHash: string }) {
   const site = normalizeSiteHost(input.site)
   const license = await findLicense(input.key, input.slug)
+  await assertLicenseOwner(license)
   const decision = decideActivation(license, license.activations, site)
   if (!decision.ok) throw new RepoError(ACTIVATION_MESSAGES[decision.reason], decision.reason === 'revoked' ? 403 : 409, { reason: decision.reason })
   await db.repoActivation.upsert({
@@ -272,6 +274,8 @@ export async function checkLicense(input: { key: unknown; slug: string; site: un
   const license = await findLicense(input.key, input.slug)
   const activation = license.activations.find((a) => a.site === site && a.active)
   if (!activation) throw new RepoError('این سایت با این لایسنس فعال نشده است', 404, { reason: 'not-activated' })
+  // A revoked certificate is a bounded existing invalidation signal, never an access grant.
+  if (license.status === 'ACTIVE') await assertLicenseOwner(license)
   await db.repoActivation.update({ where: { id: activation.id }, data: { lastSeenAt: new Date() } })
   return certificateFor(license, site)
 }
@@ -279,6 +283,7 @@ export async function checkLicense(input: { key: unknown; slug: string; site: un
 export async function deactivateLicense(input: { key: unknown; slug: string; site: unknown }) {
   const site = normalizeSiteHost(input.site)
   const license = await findLicense(input.key, input.slug)
+  await assertLicenseOwner(license)
   await db.repoActivation.updateMany({ where: { licenseId: license.id, site }, data: { active: false } })
   return { ok: true }
 }
@@ -293,6 +298,7 @@ export async function downloadRelease(input: { slug: string; version: string; ke
     const site = normalizeSiteHost(input.site)
     const license = await findLicense(input.key, product.slug)
     if (license.status !== 'ACTIVE') throw new RepoError('این لایسنس باطل شده است', 403)
+    await assertLicenseOwner(license)
     if (!license.activations.some((a) => a.site === site && a.active)) throw new RepoError('ابتدا لایسنس را برای این سایت فعال کنید', 403)
     if (!releaseAllowed(release.createdAt, license)) throw new RepoError('این نسخه بعد از پایان دورهٔ به‌روزرسانی لایسنس شما منتشر شده است؛ لایسنس را تمدید کنید', 403)
   }

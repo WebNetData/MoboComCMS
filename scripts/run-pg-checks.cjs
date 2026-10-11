@@ -12,6 +12,7 @@ const CHECKS = [
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',
   'global-authentication',
   'current-account-consumers',
+  'repository-license-owner',
   'import-execution-authority',
   'import-execution-authority-migration',
   'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions', 'scoped-restrictions', 'scoped-restrictions-migration', 'scoped-restrictions-single-connection',
