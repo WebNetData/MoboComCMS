@@ -22,6 +22,7 @@ const CHECKS = [
   'module-availability',
   'package-integrity',
   'package-command',
+  'package-authority',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

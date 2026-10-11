@@ -6,7 +6,7 @@ import { getSiteConfig } from '@/modules/site/config/store'
 import { PACKAGE_LIMITS, PackageError, isEditable } from '@/modules/packages/domain/format'
 import {
   deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
-  restoreRevision, patchPackage, summarize, writePackageFile,
+  restoreRevision, patchPackage, PackageAuthorityError, summarize, writePackageFile,
 } from '@/modules/packages/server/store'
 import { applyCodePackage, applyStatus, importBuiltinSource } from '@/modules/packages/server/code-apply'
 import { extensionCatalog } from '@/extensions/generated/catalog'
@@ -22,6 +22,7 @@ async function guard(req: NextRequest) {
   return requirePerm(req, PERMISSION)
 }
 function failure(error: unknown) {
+  if (error instanceof PackageAuthorityError) return err('forbidden', 403)
   if (error instanceof PackageError) return err(error.message, 400)
   console.error('[packages]', error)
   return err('package operation failed', 500)

@@ -46,7 +46,7 @@ import { loadPackageFrom, mustLoad, packageTransaction, readIndex, rowKey, saveP
 import { syncSiteTheme } from './store/themes'
 import { writeFile, deleteFile } from './store/editor'
 import { applyEnabled, applySettings } from './store/fields'
-export { patchPackage, type PackagePatch } from './store/patch'
+export { patchPackage, PackageAuthorityError, type PackagePatch } from './store/patch'
 
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }

@@ -45,11 +45,12 @@ export function getRawToken(req: NextRequest) {
   return getToken({ req, secret: tokenSecret })
 }
 
-export async function requireUser(req: NextRequest): Promise<AuthedUser | null> {
+/** A command may resolve identity/policy in its transaction; ordinary callers retain the default reader. */
+export async function requireUser(req: NextRequest, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db): Promise<AuthedUser | null> {
   const token = await getRawToken(req)
   if (!token?.uid) return null
 
-  return resolveCurrentUser(Number(token.uid), token.authAt)
+  return resolveCurrentUser(Number(token.uid), token.authAt, reader)
 }
 
 /** Current identity for a previously authorized human action, including queued work. */
@@ -81,16 +82,16 @@ export async function resolveCurrentUser(userId: number, authAt: unknown, reader
   }
 }
 
-export async function requireAdmin(req: NextRequest): Promise<AuthedUser | null> {
-  const user = await requireUser(req)
+export async function requireAdmin(req: NextRequest, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<AuthedUser | null> {
+  const user = await requireUser(req, reader)
   if (user?.role !== 'ADMIN') return null
   // With the staff 2-step policy on, the admin API stays closed until it is set up.
-  return await adminNeedsTwoFactor(user) ? null : user
+  return await adminNeedsTwoFactor(user, reader) ? null : user
 }
 
 /** Legacy admin without a roleId is the super-admin compatibility path. */
-export async function requirePerm(req: NextRequest, permission: string): Promise<AuthedUser | null> {
-  const user = await requireAdmin(req)
+export async function requirePerm(req: NextRequest, permission: string, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<AuthedUser | null> {
+  const user = await requireAdmin(req, reader)
   if (!user) return null
 
   if (user.permissions === null || user.permissions.length === 0) {
