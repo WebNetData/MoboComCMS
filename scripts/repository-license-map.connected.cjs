@@ -9,7 +9,8 @@ if(!process.argv.some(x=>x.startsWith('--case='))){
  for(const mode of['first','existing']){const run=cp.spawnSync(process.execPath,[__filename,...process.argv.slice(2),'--case=concurrent','--mode='+mode],{stdio:'inherit',env:process.env});if(run.status!==0)process.exit(run.status||1);}
  for(const mode of['revoked','revoked-audit']){const run=cp.spawnSync(process.execPath,[__filename,...process.argv.slice(2),'--case=refresh','--mode='+mode],{stdio:'inherit',env:process.env});if(run.status!==0)process.exit(run.status||1);}
  const empty=cp.spawnSync(process.execPath,[__filename,...process.argv.slice(2),'--case=deactivate','--mode=empty'],{stdio:'inherit',env:process.env});if(empty.status!==0)process.exit(empty.status||1);
- console.log('All32 current Repository license map scenarios passed');process.exit(0);
+ for(const mode of['subject-product','subject-site','revoked-subject-product','revoked-subject-site','signed-revoked','expired-certificate']){const run=cp.spawnSync(process.execPath,[__filename,...process.argv.slice(2),'--case=refresh','--mode='+mode],{stdio:'inherit',env:process.env});if(run.status!==0)process.exit(run.status||1);}
+ console.log('All38 current Repository license map scenarios passed');process.exit(0);
 }
 if(process.argv.includes('--single-connection')){const url=new URL(process.env.DATABASE_URL);url.searchParams.set('connection_limit','1');process.env.DATABASE_URL=url.toString()}
 const prisma=new PrismaClient(),id='owned-entitlement-'+Date.now(),key='package.'+id+'.v1',themeId=id+'-theme',themeKey='package.'+themeId+'.v1',indexKey='packages.index.v1',policyKey='security.policy.v1',siteKey='site.config.v1',cache=new Map(),authAt=Date.now()-5000;let actor,indexBefore,policyBefore,siteBefore,auditFault=false,receiptFault=false,race=false,raceReads=0,raceRelease,raceBarrier;
@@ -41,7 +42,7 @@ if(selected==='concurrent'){
  return;
 }
 let beforeCommit,packageBefore;
-if(mode.startsWith('revoked')){
+if(mode.startsWith('revoked')||mode.startsWith('subject-')||mode==='signed-revoked'||mode==='expired-certificate'){
  const packages=load('src/modules/packages/server/store.ts');
  await packages.installEntries(new Map([['manifest.json',Buffer.from(JSON.stringify({id,name:id,kind:'plugin',runtime:'declarative',version:'1.0.0'}))]]),actor.email);
  await packages.setPackageEnabled(id,true);packageBefore=await prisma.setting.findUniqueOrThrow({where:{key}});
@@ -58,6 +59,14 @@ global.fetch=async(url)=>{
  if(mode==='config'){const config=JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key:configKey}})).value);config.connectedAt+='-replaced';await setting(configKey,JSON.stringify(config));}
  if(mode==='audit'||mode==='revoked-audit')auditFault=true;
  beforeCommit=(await prisma.setting.findUniqueOrThrow({where:{key:licenseKey}})).value;
+ if(mode.includes('subject-')||mode==='signed-revoked'||mode==='expired-certificate'){
+  const certificate={...cert};
+  if(mode.endsWith('product'))certificate.product=id+'-other';
+  if(mode.endsWith('site'))certificate.site='other.invalid';
+  if(mode.startsWith('revoked')||mode==='signed-revoked')certificate.status='REVOKED';
+  if(mode==='expired-certificate')certificate.expiresAt=new Date(Date.now()-86400000).toISOString();
+  return Response.json({certificate,signature:sign(null,Buffer.from(domain.canonicalJson(certificate)),pair.privateKey).toString('base64url')});
+ }
  return mode.startsWith('revoked')?Response.json({error:'owned revocation'},{status:403}):Response.json({certificate:cert,signature:stored.signature});
 };
 const invoke=()=>http.POST_client(new NextRequest('http://owned.invalid/api/admin/repository/client',{method:'POST',headers:{origin:'http://owned.invalid','content-type':'application/json'},body:JSON.stringify({op:selected,slug:id,key:stored.keyEnc})}));
@@ -75,6 +84,14 @@ else {
 assert.equal(await prisma.auditLog.count({where:{actorUserId:actor.id,action:'repository.client.'+selected}}),denied?0:1,'one atomic success audit');
 if(mode==='revoked-audit')assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key}}),packageBefore,'package revocation rolls back with failed strict audit');
 if(mode==='revoked'){assert.equal(JSON.parse(after)[id].state,'revoked');assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,false,'actual package disabled atomically');}
+if(mode.includes('subject-')){
+ assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,true,'wrong signed subject must not revoke this package');
+ assert.deepEqual(JSON.parse(after)[id].certificate,cert,'wrong signed subject never replaces current certificate');
+ assert.equal(JSON.parse(after)[id].signature,stored.signature);assert.equal(JSON.parse(after)[id].state,'unreachable');
+ assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key}}),packageBefore,'wrong signed subject never disables current package');
+}
+if(mode==='signed-revoked'){assert.equal(JSON.parse(after)[id].state,'revoked');assert.equal(JSON.parse((await prisma.setting.findUniqueOrThrow({where:{key}})).value).enabled,false);}
+if(mode==='expired-certificate'){assert.equal(JSON.parse(after)[id].state,'active');assert.deepEqual(await prisma.setting.findUniqueOrThrow({where:{key}}),packageBefore,'offline expiry alone does not disable package');}
 console.log('Actual repository license map '+selected+' '+mode+' passed');
 } finally {
  global.fetch=oldFetch;

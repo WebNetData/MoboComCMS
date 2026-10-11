@@ -9,3 +9,9 @@ Acceptance: real PostgreSQL same/different-entry changes, first/existing overlap
 [Evidence](../../agent/audits/2026-10-11-repository-license-map.md).
 
 Absent-license deactivation preserves the existing audit contract with no vendor request; native and compiled repeated-deactivation evidence retained.
+
+## Signed refresh subject binding
+
+Confirmed current client validates shape/signature but accepts another product/site. Reuse domain certificateProblem to require the requested product and canonical site before accepting ACTIVE or REVOKED certificates. Misbound responses become unreachable, retain the last certificate/signature and never disable the package. Correct signed revocation and offline-certificate expiry behavior remain compatible. Same Settings/Identity/registry/audit owners and Admin settings.manage/manual versus trusted scheduler paths; no new config, UI, API shape or migration. Provider reconciliation remains separate.
+
+Acceptance: repository-license-map.connected.cjs tests four valid-signature wrong-subject cases and correct signed revocation/expiry; removing subject validation must fail. Compiled actual HTTP refresh tests wrong-product/site revocation plus genuine revocation. Relevant PG/current single connection, local check/build/browser; record only executed evidence.

@@ -197,7 +197,8 @@ export async function refreshRepositoryLicenses(context?: LicenseCommandContext)
       const r = await request(config.url, '/api/repo/v1/licenses/check', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site } })
       if (r.status !== 200) { if (r.status === 403 || r.status === 404) stored.state = 'revoked'; else stored.state = 'unreachable' } else {
         const answer = r.json() as { certificate?: unknown; signature?: unknown }
-        if (isCertificate(answer.certificate) && typeof answer.signature === 'string' && verifyPayload(answer.certificate, answer.signature, config.publicKey)) {
+        if (isCertificate(answer.certificate) && typeof answer.signature === 'string' && verifyPayload(answer.certificate, answer.signature, config.publicKey)
+          && ['', 'expired', 'revoked'].includes(certificateProblem(answer.certificate, { product: slug, site }, new Date()))) {
           stored.certificate = answer.certificate; stored.signature = answer.signature
           stored.state = answer.certificate.status === 'ACTIVE' ? 'active' : 'revoked'
         } else stored.state = 'unreachable'
