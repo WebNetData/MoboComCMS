@@ -20,6 +20,7 @@ const CHECKS = [
   'extension-state',
   'extension-state-integrity',
   'queue-lease',
+  'queue-authority',
   'import-execution-authority',
   'import-execution-authority-migration',
   'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions', 'scoped-restrictions', 'scoped-restrictions-migration', 'scoped-restrictions-single-connection',
