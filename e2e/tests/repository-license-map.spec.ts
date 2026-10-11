@@ -89,3 +89,59 @@ for (const op of ['activate', 'deactivate', 'refresh'] as const) for (const chan
     }
   })
 }
+
+for (const change of ['success', 'replacement', 'module'] as const) {
+  test(`repository connect commits current ${change} configuration through HTTP`, async ({ admin, baseURL }) => {
+    test.skip(process.env.MOBOCOM_ISOLATED_FIXTURE !== '1' || baseURL !== 'https://e2e.mobocom.test:3443', 'requires disposable compiled fixture')
+    const db = new PrismaClient(), id = `e2e-connection-${Date.now().toString(36)}`, headers = { 'x-request-id': id }
+    const configKey = 'repository.client.v1', moduleKey = 'extension.repository.state.v1', licenseKey = 'repository.licenses.v1'
+    const originals = new Map<string, { key: string; value: string } | null>()
+    for (const key of [configKey, moduleKey, licenseKey]) originals.set(key, await db.setting.findUnique({ where: { key } }))
+    const pair = generateKeyPairSync('ed25519'), publicKey = pair.publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    let delayed = false, arrived!: () => void, release!: () => void
+    const downloading = new Promise<void>(resolve => { arrived = resolve }), gate = new Promise<void>(resolve => { release = resolve })
+    const server = createServer(async (_req, res) => {
+      if (delayed) { arrived(); await gate }
+      res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ name: id, publicKey }))
+    })
+    let pending: ReturnType<typeof admin.post> | undefined
+    try {
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+      const address = server.address(); if (!address || typeof address === 'string') throw Error('fixture did not bind')
+      const url = `http://127.0.0.1:${address.port}`
+      await db.setting.upsert({ where: { key: moduleKey }, create: { key: moduleKey, value: '{"enabled":true,"settings":{}}' }, update: { value: '{"enabled":true,"settings":{}}' } })
+      const licenseBefore = await db.setting.findUnique({ where: { key: licenseKey } })
+      const meta = await (await admin.post('/api/admin/repository/client', { headers, data: { op: 'meta', url } })).json()
+      delayed = true
+      pending = admin.post('/api/admin/repository/client', { headers, data: { op: 'connect', url, fingerprint: meta.fingerprint } })
+      let timer!: ReturnType<typeof setTimeout>
+      try { await Promise.race([downloading, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(Error('compiled connect did not contact vendor')), 10000) })]) } finally { clearTimeout(timer) }
+      const replacement = JSON.stringify({ url, publicKey, name: 'newer connection', fingerprint: meta.fingerprint, connectedAt: 'owned-newer' })
+      if (change === 'replacement') await db.setting.upsert({ where: { key: configKey }, create: { key: configKey, value: replacement }, update: { value: replacement } })
+      if (change === 'module') await db.setting.update({ where: { key: moduleKey }, data: { value: '{"enabled":false,"settings":{}}' } })
+      release()
+      const response = await pending
+      expect(response.status(), await response.text()).toBe(change === 'success' ? 200 : change === 'module' ? 404 : 409)
+      if (change === 'replacement') expect((await db.setting.findUniqueOrThrow({ where: { key: configKey } })).value).toBe(replacement)
+      if (change === 'success') expect(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: configKey } })).value).name).toBe(id)
+      if (change === 'module') expect(await db.setting.findUnique({ where: { key: configKey } })).toEqual(originals.get(configKey))
+      expect(await db.setting.findUnique({ where: { key: licenseKey } })).toEqual(licenseBefore)
+      expect(await db.auditLog.count({ where: { requestId: id, action: 'repository.client.connect' } })).toBe(change === 'success' ? 1 : 0)
+      if (change === 'success') {
+        for (let count = 0; count < 2; count++) expect((await admin.post('/api/admin/repository/client', { headers, data: { op: 'disconnect' } })).status()).toBe(200)
+        expect(await db.auditLog.count({ where: { requestId: id, action: 'repository.client.disconnect' } })).toBe(2)
+        expect((await db.setting.findUniqueOrThrow({ where: { key: configKey } })).value).toBe('{}')
+      }
+    } finally {
+      release(); await pending?.catch(() => undefined)
+      server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve()))
+      try {
+        await db.auditLog.deleteMany({ where: { targetType: 'repository', requestId: id } })
+        for (const [key, row] of originals) {
+          if (row) await db.setting.upsert({ where: { key }, create: { key, value: row.value }, update: { value: row.value } })
+          else await db.setting.deleteMany({ where: { key } })
+        }
+      } finally { await db.$disconnect() }
+    }
+  })
+}

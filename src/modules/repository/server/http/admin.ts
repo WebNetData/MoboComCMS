@@ -87,12 +87,11 @@ export async function POST_client(req: NextRequest) {
   if ('response' in guard) return guard.response
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return err('درخواست نامعتبر است')
-  const audit = (action: string, targetId = 'client', metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: guard.admin, action: `repository.client.${action}`, targetType: 'repository', targetId, metadata })
   try {
     switch (body.op) {
       case 'meta': return ok(await fetchRepositoryMeta(String(body.url || '')))
-      case 'connect': { const meta = await connectRepository(String(body.url || ''), String(body.fingerprint || '')); await audit('connect', meta.url, { fingerprint: meta.fingerprint }); return ok({ name: meta.name }) }
-      case 'disconnect': { await disconnectRepository(); await audit('disconnect'); return ok({ ok: true }) }
+      case 'connect': { const meta = await connectRepository(String(body.url || ''), String(body.fingerprint || ''), { req, actor: guard.admin }); return ok({ name: meta.name }) }
+      case 'disconnect': { await disconnectRepository({ req, actor: guard.admin }); return ok({ ok: true }) }
       case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key, { req, actor: guard.admin }); return ok(result) }
       case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || ''), { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email, { req, actor: guard.admin }); return ok(result) }

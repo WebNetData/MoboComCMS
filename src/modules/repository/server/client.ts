@@ -1,6 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { siteBaseUrl } from '@/modules/site/server/site-url'
 import { currentVersion } from '@/modules/updater/server/service'
@@ -16,6 +16,7 @@ import {
 import { fingerprintOf, sha256, verifyPayload } from './crypto'
 import { LICENSES_KEY, captureEntitlement, assertCurrentEntitlement, type InstallEntitlement } from './client/entitlement'
 import { commitLicenses, unchangedLicense, type LicenseCommandContext } from './client/license-commit'
+import { captureConnection, commitConnection } from './client/connection-commit'
 
 // The site side of the repository: browse a vendor's catalog, keep licenses, install and update packages.
 // Everything a vendor sends is checked: the key is pinned by the administrator, releases and certificates are signed.
@@ -103,14 +104,15 @@ export async function fetchRepositoryMeta(url: string) {
 }
 
 /** Step two: pin the key the administrator confirmed. A changed key is never accepted silently. */
-export async function connectRepository(url: string, confirmedFingerprint: string) {
+export async function connectRepository(url: string, confirmedFingerprint: string, context?: LicenseCommandContext) {
+  const expected = await captureConnection()
   const meta = await fetchRepositoryMeta(url)
   if (meta.fingerprint.replace(/-/g, '') !== String(confirmedFingerprint || '').toUpperCase().replace(/[^0-9A-F]/g, '')) throw new RepoError('اثر انگشت کلید تأیید نشد؛ دوباره «بررسی» را بزنید', 409)
-  await writeJsonSetting(CONFIG_KEY, { ...meta, connectedAt: new Date().toISOString() })
+  await commitConnection(expected, { ...meta, connectedAt: new Date().toISOString() }, context)
   return meta
 }
 
-export async function disconnectRepository() { await writeJsonSetting(CONFIG_KEY, {}) }
+export async function disconnectRepository(context?: LicenseCommandContext) { await commitConnection(await captureConnection(), null, context) }
 
 // ------------------------------------------------------------------ catalog
 
