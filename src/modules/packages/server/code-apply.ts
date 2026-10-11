@@ -95,14 +95,14 @@ export async function applyCodePackage(id: string, actor: string, fetcher: Fetch
       const result = await commitDirectory(gitTarget() as GitTarget, directory, [...files].map(([file, data]) => ({ path: file, data })), `${pkg.manifest.name} ${pkg.manifest.version}: apply code package from admin (${actor})`, fetcher)
       const deploy = result.changed ? await triggerDeploy() : null
       const note = result.changed ? `applied as commit ${result.commit.slice(0, 7)}${deploy ? ` · ${deploy}` : ''}` : 'applied (no changes)'
-      return { pkg: await markCodeApplied(id, actor, note), commit: result.commit, url: result.url, changed: result.changed, deploy, mode: status.mode }
+      return { pkg: await markCodeApplied(id, actor, note, pkg), commit: result.commit, url: result.url, changed: result.changed, deploy, mode: status.mode }
     } catch (error) {
       if (error instanceof GitApplyError) throw new PackageError(error.message)
       throw error
     }
   }
   await writeLocal(directory, files)
-  return { pkg: await markCodeApplied(id, actor, 'written to the local source tree'), changed: true, mode: status.mode, deploy: null }
+  return { pkg: await markCodeApplied(id, actor, 'written to the local source tree', pkg), changed: true, mode: status.mode, deploy: null }
 }
 
 /**
