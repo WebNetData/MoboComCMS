@@ -15,6 +15,7 @@ const CHECKS = [
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',
+  'telegram-authority',
   'import-execution-authority',
   'import-execution-authority-migration',
   'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions', 'scoped-restrictions', 'scoped-restrictions-migration', 'scoped-restrictions-single-connection',

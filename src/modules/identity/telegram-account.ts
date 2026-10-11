@@ -1,6 +1,8 @@
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 import { minorToNumber, toMinor } from '@/shared/money'
 import type { TelegramUser } from '@/modules/notifications/server/telegram'
 
@@ -27,41 +29,47 @@ export function isTelegramPlaceholderUser(user: { email: string; telegramId?: st
   return user.role !== 'ADMIN' && user.roleId == null && isTelegramPlaceholderEmail(user.email, user.telegramId)
 }
 
+/** Same ordered User locks as restriction commands; re-read identity after waiting. */
+async function lockTelegramAccounts(tx: Prisma.TransactionClient, telegramId: string, targetId = 0) {
+  if (!/^postgres(?:ql)?:/i.test(process.env.DATABASE_URL || '')) return null
+  const rows = await tx.$queryRaw<{ id: number }[]>`SELECT "id" FROM "User" WHERE "id" = ${targetId} OR "telegramId" = ${telegramId} ORDER BY "id" FOR UPDATE`
+  return new Set(rows.map(row => row.id))
+}
+
 /** Find the canonical user for a Telegram Mini App login, creating only a provisional account when needed. */
 export async function userForTelegram(tg: TelegramUser) {
-  const telegramId = String(tg.id)
-  const name = displayName(tg)
-
-  let user = await db.user.findUnique({ where: { telegramId }, include: { roleRef: true } })
-  if (!user) {
-    user = await db.user.create({
-      data: {
-        email: `tg${telegramId}.${randomBytes(8).toString('hex')}@telegram.local`,
-        passwordHash: await bcrypt.hash(randomBytes(24).toString('base64url'), 10),
-        name,
-        telegramId,
-        telegramUsername: tg.username || '',
-        telegramName: name,
-        telegramPhoto: tg.photo_url || '',
-        telegramLinkedAt: new Date(),
-        lastLoginAt: new Date(),
-      },
-      include: { roleRef: true },
-    })
-  } else {
-    user = await db.user.update({
-      where: { id: user.id },
-      data: {
-        telegramUsername: tg.username || '',
-        telegramName: name,
-        telegramPhoto: tg.photo_url || user.telegramPhoto,
-        lastLoginAt: new Date(),
-      },
-      include: { roleRef: true },
-    })
+  const telegramId = String(tg.id), name = displayName(tg)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await db.$transaction(async tx => {
+        const locked = await lockTelegramAccounts(tx, telegramId)
+        const user = await tx.user.findUnique({ where: { telegramId }, include: { roleRef: true } })
+        if (user) {
+          // A concurrent merge can move the Telegram id to a row absent from the lock snapshot.
+          if ((locked && !locked.has(user.id)) || user.status !== 'ACTIVE' || await globalAuthenticationDenied(user.id, new Date(), tx)) return null
+          return tx.user.update({
+            where: { id: user.id },
+            data: { telegramUsername: tg.username || '', telegramName: name, telegramPhoto: tg.photo_url || user.telegramPhoto, lastLoginAt: new Date() },
+            include: { roleRef: true },
+          })
+        }
+        return tx.user.create({
+          data: {
+            email: `tg${telegramId}.${randomBytes(8).toString('hex')}@telegram.local`,
+            passwordHash: await bcrypt.hash(randomBytes(24).toString('base64url'), 10), name,
+            telegramId, telegramUsername: tg.username || '', telegramName: name, telegramPhoto: tg.photo_url || '',
+            telegramLinkedAt: new Date(), lastLoginAt: new Date(),
+          },
+          include: { roleRef: true },
+        })
+      })
+    } catch (error) {
+      // Two initial deliveries may race the unique Telegram id; retry the winning canonical row once.
+      if (attempt === 0 && (error as { code?: string }).code === 'P2002') continue
+      throw error
+    }
   }
-
-  return user.status === 'ACTIVE' ? user : null
+  return null
 }
 
 async function mergeWallets(tx: any, source: { id: number; walletBalance: number }, target: { id: number; walletBalance: number }) {
@@ -133,14 +141,16 @@ export async function attachTelegramToUser(targetUserId: number, tg: TelegramUse
   const name = displayName(tg)
 
   return db.$transaction(async (tx: any) => {
+    const locked = await lockTelegramAccounts(tx, telegramId, targetUserId)
     const target = await tx.user.findUnique({ where: { id: targetUserId } })
     if (!target) return { ok: false, code: 'NOT_FOUND', message: 'حساب سایت پیدا نشد' } as const
-    if (target.status !== 'ACTIVE') return { ok: false, code: 'DISABLED', message: 'حساب سایت فعال نیست' } as const
+    if (target.status !== 'ACTIVE' || await globalAuthenticationDenied(target.id, new Date(), tx)) return { ok: false, code: 'DISABLED', message: 'حساب سایت فعال نیست' } as const
     if (target.telegramId && target.telegramId !== telegramId) {
       return { ok: false, code: 'TARGET_TELEGRAM_CONFLICT', message: 'این حساب سایت قبلاً به تلگرام دیگری وصل شده است' } as const
     }
 
     const source = await tx.user.findUnique({ where: { telegramId } })
+    if (source && locked && !locked.has(source.id)) return { ok: false, code: 'UNSAFE_SOURCE', message: 'اتصال حساب تغییر کرده است؛ دوباره تلاش کنید' } as const
     let merged = false
     let mergedSource: any = null
 
@@ -149,7 +159,7 @@ export async function attachTelegramToUser(targetUserId: number, tg: TelegramUse
       if (!isTelegramPlaceholderUser(source) || sourceReseller) {
         return { ok: false, code: 'TELEGRAM_ALREADY_CLAIMED', message: 'این تلگرام قبلاً به یک حساب سایت دیگر وصل شده است' } as const
       }
-      if (source.status !== 'ACTIVE') {
+      if (source.status !== 'ACTIVE' || await globalAuthenticationDenied(source.id, new Date(), tx)) {
         return { ok: false, code: 'DISABLED', message: 'حساب تلگرامی فعال نیست' } as const
       }
 
@@ -167,6 +177,8 @@ export async function attachTelegramToUser(targetUserId: number, tg: TelegramUse
       await tx.payment.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
       await tx.walletTx.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
       await tx.apiKey.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
+      await tx.accessRestriction.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
+      await tx.repoLicense.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
       await tx.auditLog.updateMany({ where: { actorUserId: source.id }, data: { actorUserId: target.id } })
 
       // Release the unique Telegram id before assigning it to the target.
@@ -212,15 +224,17 @@ export async function claimTelegramAccount(input: {
   const tgName = displayName(input.tg)
 
   return db.$transaction(async (tx: any) => {
+    const locked = await lockTelegramAccounts(tx, telegramId)
     const emailOwner = await tx.user.findUnique({ where: { email: input.email } })
     if (emailOwner) return { ok: false, code: 'EMAIL_EXISTS', message: 'این ایمیل قبلاً ثبت شده است' } as const
 
     const source = await tx.user.findUnique({ where: { telegramId } })
     if (source) {
+      if (locked && !locked.has(source.id)) return { ok: false, code: 'UNSAFE_SOURCE', message: 'اتصال حساب تغییر کرده است؛ دوباره تلاش کنید' } as const
       if (!isTelegramPlaceholderUser(source)) {
         return { ok: false, code: 'TELEGRAM_ALREADY_CLAIMED', message: 'این تلگرام قبلاً به یک حساب سایت وصل شده است؛ وارد همان حساب شوید' } as const
       }
-      if (source.status !== 'ACTIVE') return { ok: false, code: 'DISABLED', message: 'این حساب فعال نیست' } as const
+      if (source.status !== 'ACTIVE' || await globalAuthenticationDenied(source.id, new Date(), tx)) return { ok: false, code: 'DISABLED', message: 'این حساب فعال نیست' } as const
       if (input.referral) {
         if (source.id === input.referral.ownerId || await tx.invoice.findFirst({ where: { userId: source.id, status: 'PAID', kind: 'BILLING', totalMinor: { gt: 0n } }, select: { id: true } })) {
           return { ok: false, code: 'UNSAFE_SOURCE', message: 'حساب تلگرام دارای خرید قبلی است و برای معرفی جدید واجد شرایط نیست' } as const
