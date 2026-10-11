@@ -52,6 +52,7 @@ test('reseller team permissions are checked on each request and revoked members 
   }
   const domain = load('src/modules/reseller/server/reseller.ts', {
     '@/platform/database/prisma': { db },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/platform/http/response': { err: (message, status) => ({ message, status }) },
     '@/modules/identity/server/access': { requireUser: async () => ({ id: 2 }) },
     '@/modules/subscriptions/server/happ-protocol': {},

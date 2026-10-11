@@ -11,7 +11,7 @@ import { getExtensionState, getPublicExtensionRuntime } from '@/extensions/serve
  */
 export const getModuleStates = cache(async (): Promise<Record<string, boolean>> => {
   const runtime = await getPublicExtensionRuntime().catch(() => null)
-  return Object.fromEntries(extensionCatalog.filter((m) => m.kind === 'module').map((m) => [m.id, runtime ? runtime[m.id]?.enabled !== false : m.defaultEnabled !== false]))
+  return Object.fromEntries(extensionCatalog.filter((m) => m.kind === 'module').map((m) => [m.id, runtime?.[m.id]?.enabled === true]))
 })
 
 export async function isModuleEnabled(id: string): Promise<boolean> {

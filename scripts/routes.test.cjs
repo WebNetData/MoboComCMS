@@ -95,7 +95,7 @@ function loadState(manifests, settings) {
     const before = new Map(settings)
     try { return await work(db) } catch (error) { settings.clear(); for (const [key, value] of before) settings.set(key, value); throw error }
   }
-  const mocks = { '@/platform/database/prisma': { db }, '@/extensions/generated/catalog': { extensionCatalog: manifests, extensionById: new Map(manifests.map((m) => [m.id, m])) }, '@/extensions/generated/server-registry': { serverPlugins: {} } }
+  const mocks = { '@/platform/database/prisma': { db }, '@/platform/observability/logger': { logEvent: () => {} }, '@/extensions/generated/catalog': { extensionCatalog: manifests, extensionById: new Map(manifests.map((m) => [m.id, m])) }, '@/extensions/generated/server-registry': { serverPlugins: {} } }
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', source)((specifier) => mocks[specifier] || require(specifier), mod, mod.exports)
   return mod.exports
@@ -130,6 +130,31 @@ test('an extension is off while a module it requires is off, and comes back with
   await state.saveExtensionState('vpn', { enabled: false })
   await state.saveExtensionState('marketplace', { enabled: false })
   assert.deepEqual(await runtime(), { vpn: false, reseller: false, 'remnawave-control': false, marketplace: false })
+})
+
+test('public availability distinguishes missing defaults from corrupted storage and keeps valid nodes independent', async () => {
+  const manifests = ['forum', 'music', 'store'].map(manifestOf), settings = new Map(), state = loadState(manifests, settings)
+  const runtime = () => state.getPublicExtensionRuntime()
+  assert.equal((await runtime()).forum.enabled, true, 'healthy missing rows keep bundled defaults')
+  settings.set('site.config.v1', '{"plugins":{"forum":false}}')
+  assert.equal((await runtime()).forum.enabled, false, 'valid legacy off remains authoritative')
+  settings.set('extension.music.state.v1', '{"enabled":true,"settings":{}}')
+  for (const corrupt of ['{broken', 'null', '[]', '{"enabled":"false"}', '{"settings":[]}', '']) {
+    settings.set('extension.forum.state.v1', corrupt)
+    assert.equal((await runtime()).forum.enabled, false)
+    assert.equal((await runtime()).music.enabled, true)
+    assert.equal(settings.get('extension.forum.state.v1'), corrupt)
+  }
+  settings.delete('extension.forum.state.v1')
+  for (const legacy of ['{broken', 'null', '[]', '{"plugins":[]}', '{"plugins":{"forum":"false"}}']) {
+    settings.set('site.config.v1', legacy)
+    assert.equal((await runtime()).forum.enabled, false)
+    assert.equal((await runtime()).music.enabled, true)
+  }
+  settings.set('extension.store.state.v1', '{broken'); settings.set('storeEnabled', 'true')
+  assert.equal((await runtime()).store.enabled, false, 'a legacy mirror cannot revive corrupt configuration')
+  settings.set('extension.store.state.v1', '{"enabled":false,"settings":{}}')
+  assert.equal((await runtime()).store.enabled, true, 'valid historical mirror precedence remains compatible')
 })
 
 test('the admin sections and APIs of the VPN, reseller and marketplace modules belong to their switch', () => {

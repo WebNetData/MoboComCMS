@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { extensionById, extensionCatalog } from '@/extensions/generated/catalog'
 import { serverPlugins } from '@/extensions/generated/server-registry'
 import type { ExtensionManifest, ExtensionPublicState, ExtensionSettingDefinition } from '@/platform/extensions/contracts'
+import { logEvent } from '@/platform/observability/logger'
 
 const stateKey = (id: string) => `extension.${id}.state.v1`
 type StateReader = Pick<Prisma.TransactionClient, 'setting'>
@@ -135,12 +136,30 @@ async function assertDependencies(manifest: ExtensionManifest, enabling: boolean
 
 export async function getPublicExtensionRuntime(): Promise<Record<string, ExtensionPublicState>> {
   const mirrorKeys = extensionCatalog.flatMap(m => (m.stateSetting ? [m.stateSetting] : []))
-  const rows = await db.setting.findMany({ where: { key: { in: [...extensionCatalog.map(m => stateKey(m.id)), ...mirrorKeys, 'site.config.v1'] } } })
+  let rows: { key: string; value: string }[] = [], available = true
+  try { rows = await db.setting.findMany({ where: { key: { in: [...extensionCatalog.map(m => stateKey(m.id)), ...mirrorKeys, 'site.config.v1'] } } }) }
+  catch (error) {
+    available = false
+    logEvent('warn', 'extensions.runtime_unavailable', { errorName: error instanceof Error ? error.name : 'Unknown' })
+  }
   const values = new Map(rows.map(row => [row.key, row.value]))
-  let legacyPlugins: Record<string, boolean> = {}
+  let legacyPlugins: Record<string, unknown> = {}, invalidLegacy = false
   const legacy = values.get('site.config.v1')
-  if (legacy) { try { const parsed = JSON.parse(legacy); if (parsed?.plugins && typeof parsed.plugins === 'object') legacyPlugins = parsed.plugins } catch {} }
-  const stored = new Map(extensionCatalog.map(manifest => [manifest.id, mirrored(manifest, parseState(values.get(stateKey(manifest.id)), manifest, legacyPlugins[manifest.id]), manifest.stateSetting ? values.get(manifest.stateSetting) as string | undefined : undefined)]))
+  if (legacy !== undefined) {
+    try {
+      const parsed = JSON.parse(legacy)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || (parsed.plugins !== undefined && (!parsed.plugins || typeof parsed.plugins !== 'object' || Array.isArray(parsed.plugins)))) throw new Error('invalid legacy shape')
+      legacyPlugins = parsed.plugins || {}
+    } catch { invalidLegacy = true; logEvent('warn', 'extensions.legacy_state_invalid', {}) }
+  }
+  const stored = new Map(extensionCatalog.map(manifest => {
+    const value = values.get(stateKey(manifest.id)), mirror = manifest.stateSetting ? values.get(manifest.stateSetting) : undefined
+    const legacyValue = legacyPlugins[manifest.id]
+    // Missing storage is a normal fresh-install default. Failed/corrupt existing storage is not.
+    if (!available || (value === undefined && mirror === undefined && (invalidLegacy || (legacyValue !== undefined && typeof legacyValue !== 'boolean')))) return [manifest.id, { enabled: false, settings: {} }] as const
+    try { return [manifest.id, mirrored(manifest, parseState(value, manifest, typeof legacyValue === 'boolean' ? legacyValue : undefined, true), mirror)] as const }
+    catch { logEvent('warn', 'extensions.state_invalid', { extensionId: manifest.id }); return [manifest.id, { enabled: false, settings: {} }] as const }
+  }))
   const on = (id: string, seen: readonly string[] = []): boolean => !!stored.get(id)?.enabled && (extensionById.get(id)?.requires || []).every(dependency => !stored.has(dependency) || seen.includes(dependency) || on(dependency, [...seen, id]))
   return Object.fromEntries(extensionCatalog.map(manifest => {
     const state = { ...stored.get(manifest.id)!, enabled: on(manifest.id) }

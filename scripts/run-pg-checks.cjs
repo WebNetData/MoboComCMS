@@ -19,6 +19,7 @@ const CHECKS = [
   'telegram-merge-safety',
   'extension-state',
   'extension-state-integrity',
+  'module-availability',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',
