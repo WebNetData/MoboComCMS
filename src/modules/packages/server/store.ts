@@ -1,6 +1,7 @@
 import { extensionCatalog } from '@/extensions/generated/catalog'
 import { codeThemeCatalog } from '@/themes/generated/catalog'
 import { bundledThemes } from '@/themes/registry'
+import type { Prisma } from '@prisma/client'
 import { getSiteConfig } from '@/modules/site/config/store'
 import { readZip, writeZip, ZipError } from '@/modules/packages/domain/zip'
 import {
@@ -50,6 +51,9 @@ export { patchPackage, type PackagePatch } from './store/patch'
 export { PackageAuthorityError, type PackageCommandContext } from './store/authority'
 import { packageCommandActor, auditPackageCommand, type PackageCommandContext } from './store/authority'
 
+/** Trusted owner composition: database-only work, repeated on transaction conflict. */
+export type PackageInstallCommit = (tx: Prisma.TransactionClient, pkg: StoredPackage, upgraded: boolean, actor: Awaited<ReturnType<typeof packageCommandActor>>) => Promise<void>
+
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }
 export async function loadPackage(id: string): Promise<StoredPackage | null> { return loadPackageFrom(id) }
@@ -76,15 +80,15 @@ export async function activateTheme(id: string) {
 
 // ---- install / update ----------------------------------------------------------
 
-export async function installPackage(upload: Buffer, actor: string, context?: PackageCommandContext): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+export async function installPackage(upload: Buffer, actor: string, context?: PackageCommandContext, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (upload.length > PACKAGE_LIMITS.uploadBytes) throw new PackageError(`the file is larger than ${PACKAGE_LIMITS.uploadBytes / 1024 / 1024} MB`)
   let entries: Map<string, Buffer>
   try { entries = normalizeEntries(readZip(upload, PACKAGE_LIMITS)) } catch (error) { throw new PackageError(error instanceof ZipError ? error.message : 'the file is not a valid zip archive') }
-  return installEntries(entries, actor, undefined, context)
+  return installEntries(entries, actor, undefined, context, commit)
 }
 
-export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
-  return persistEntries(entries, actor, note, context)
+export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+  return persistEntries(entries, actor, note, context, undefined, commit)
 }
 
 /** Source imports retain an already staged package, including one created while files were read. */
@@ -101,7 +105,7 @@ export async function loadSourcePackage(id: string, context: PackageCommandConte
   })
 }
 
-async function persistEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, sourceId?: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+async function persistEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, sourceId?: string, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (entries.size > PACKAGE_LIMITS.maxEntries || [...entries.values()].reduce((sum, data) => sum + data.length, 0) > PACKAGE_LIMITS.maxTotalBytes) throw new PackageError('the package is too large')
   const manifestSource = entries.get('manifest.json')
   if (!manifestSource) throw new PackageError('manifest.json was not found at the root of the zip')
@@ -143,7 +147,8 @@ async function persistEntries(entries: Map<string, Buffer>, actor: string, note?
     }
     if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
     await savePackage(tx, pkg)
-    if (sourceId) await auditPackageCommand(tx, context, current, 'code.import', sourceId)
+    if (commit) await commit(tx, pkg, !!previous, current)
+    else if (sourceId) await auditPackageCommand(tx, context, current, 'code.import', sourceId)
     else await auditPackageCommand(tx, context, current, previous ? 'upgrade' : 'install', manifest.id, { version: manifest.version, kind: manifest.kind, runtime: manifest.runtime })
     return { pkg, upgraded: !!previous }
   })

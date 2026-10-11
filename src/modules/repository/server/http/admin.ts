@@ -3,6 +3,7 @@ import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { PACKAGE_LIMITS } from '@/modules/packages/domain/format'
+import { PackageAuthorityError } from '@/modules/packages/server/store'
 import { RepoError } from '@/modules/repository/domain/repository'
 import {
   deleteProduct, extendLicense, getVendorConfig, grantLicense, listLicenses, listProducts, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
@@ -11,7 +12,7 @@ import { fetchRepositoryMeta, connectRepository, disconnectRepository, activateR
 
 const PERMS = ['repository.manage', 'settings.manage']
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
-const failure = (error: unknown) => { if (error instanceof RepoError) return err(error.message, error.status, error.meta); throw error }
+const failure = (error: unknown) => { if (error instanceof PackageAuthorityError) return err('forbidden', 403); if (error instanceof RepoError) return err(error.message, error.status, error.meta); throw error }
 
 // ---------------------------------------------------------------- vendor
 
@@ -94,7 +95,7 @@ export async function POST_client(req: NextRequest) {
       case 'disconnect': { await disconnectRepository(); await audit('disconnect'); return ok({ ok: true }) }
       case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key); await audit('activate', String(body.slug)); return ok(result) }
       case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || '')); await audit('deactivate', String(body.slug)); return ok({ ok: true }) }
-      case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email); await audit('install', String(body.slug), { version: result.version }); return ok(result) }
+      case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email, { req, actor: guard.admin }); return ok(result) }
       case 'refresh': return ok(await refreshRepositoryLicenses())
       default: return err('عملیات نامعتبر است')
     }

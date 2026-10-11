@@ -4,7 +4,9 @@ import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { siteBaseUrl } from '@/modules/site/server/site-url'
 import { currentVersion } from '@/modules/updater/server/service'
-import { installPackage, loadPackage, setPackageEnabled } from '@/modules/packages/server/store'
+import { installPackage, loadPackage, setPackageEnabled, PackageAuthorityError, type PackageCommandContext } from '@/modules/packages/server/store'
+import { auditAdminStrict } from '@/platform/audit/server'
+import { invalidate } from '@/platform/cache/kv'
 import { PackageError } from '@/modules/packages/domain/format'
 import {
   RepoError, certificateProblem, compareVersions, coreSatisfies, isCertificate, normalizeCatalog, normalizeLicenseKey, normalizeSiteHost, safeRepositoryUrl,
@@ -199,7 +201,7 @@ export async function refreshRepositoryLicenses(): Promise<{ checked: number; re
 
 // ------------------------------------------------------------------ installing
 
-export async function installFromRepository(slug: string, actor: string) {
+export async function installFromRepository(slug: string, actor: string, context?: PackageCommandContext) {
   const config = await requireConfig()
   const catalog = await browseCatalog()
   const product: (typeof catalog.products)[number] | undefined = catalog.products.find((p) => p.slug === slug)
@@ -223,10 +225,25 @@ export async function installFromRepository(slug: string, actor: string) {
   // The bytes must be exactly what the pinned key signed.
   if (sha256(r.buffer) !== latest.sha256 || r.buffer.length !== latest.size) throw new RepoError('بستهٔ دریافتی با امضای مخزن نمی‌خواند؛ نصب لغو شد', 502)
   try {
-    const { pkg, upgraded } = await installPackage(r.buffer, actor)
-    const installed = await readMap<{ version: string; installedAt: string }>(INSTALLED_KEY)
-    installed[slug] = { version: pkg.manifest.version, installedAt: new Date().toISOString() }
-    await writeJsonSetting(INSTALLED_KEY, installed)
+    const { pkg, upgraded } = await installPackage(r.buffer, actor, context, async (tx, pkg, _upgraded, current) => {
+      // Signed bytes, rather than editable catalog metadata, decide the installed identity and core requirement.
+      if (pkg.manifest.id !== slug || pkg.manifest.version !== latest.version || pkg.manifest.runtime !== latest.runtime || (pkg.manifest.kind === 'theme') !== (product.kind === 'THEME')) throw new RepoError('بستهٔ امضاشده با محصول و نسخهٔ انتخاب‌شده مطابقت ندارد', 502)
+      if (!coreSatisfies(pkg.manifest.requiresCore || '', currentVersion())) throw new RepoError('بستهٔ امضاشده با نسخهٔ فعلی هسته سازگار نیست', 409)
+      const row = await tx.setting.findUnique({ where: { key: INSTALLED_KEY } })
+      let installed: Record<string, { version: string; installedAt: string }>
+      try {
+        installed = row ? JSON.parse(row.value) : {}
+        if (!installed || typeof installed !== 'object' || Array.isArray(installed) || Object.values(installed).some(value => !value || typeof value !== 'object' || typeof value.version !== 'string' || typeof value.installedAt !== 'string')) throw new Error('invalid receipt')
+      } catch { throw new RepoError('سابقهٔ نصب مخزن نامعتبر است؛ پیش از نصب آن را بازیابی کنید', 409) }
+      installed[slug] = { version: pkg.manifest.version, installedAt: new Date().toISOString() }
+      const value = JSON.stringify(installed)
+      await tx.setting.upsert({ where: { key: INSTALLED_KEY }, create: { key: INSTALLED_KEY, value }, update: { value } })
+      if (context) {
+        if (!current) throw new PackageAuthorityError()
+        await auditAdminStrict({ req: context.req, actor: current, action: 'repository.client.install', targetType: 'repository', targetId: slug, metadata: { version: pkg.manifest.version } }, tx)
+      }
+    })
+    await invalidate('settings:').catch(() => undefined)
     return { version: pkg.manifest.version, upgraded, runtime: pkg.manifest.runtime, kind: pkg.manifest.kind }
   } catch (error) {
     if (error instanceof PackageError) throw new RepoError(error.message)

@@ -148,6 +148,12 @@ test.describe('repository', () => {
     // Temporary denial of a human-bound license preserves both entitlement and installed state.
     if (process.env.MOBOCOM_ISOLATED_FIXTURE === '1' && baseURL === 'https://e2e.mobocom.test:3443') {
       const db = new PrismaClient()
+      const receipts = JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: 'repository.installed.v1' } })).value)
+      expect(receipts[FREE].version).toBe('1.0.0')
+      expect(receipts[PAID].version).toBe('1.1.0')
+      expect(await db.auditLog.count({ where: { targetType: 'repository', targetId: FREE, action: 'repository.client.install' } })).toBe(1)
+      expect(await db.auditLog.count({ where: { targetType: 'repository', targetId: PAID, action: 'repository.client.install' } })).toBe(2)
+      expect(await db.auditLog.count({ where: { targetType: 'package', targetId: { in: [FREE, PAID] }, action: { in: ['package.install', 'package.upgrade'] } } })).toBe(0)
       const human = await db.user.create({ data: { email: `e2e-license-owner-${RUN}@example.invalid`, passwordHash: 'fixture-only' } })
       try {
         const machineHeaders = { 'x-forwarded-for': `10.138.${human.id % 250}.${Math.floor(human.id / 250) % 250 + 1}` }
