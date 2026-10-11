@@ -15,6 +15,7 @@ import {
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, sha256, verifyPayload } from './crypto'
 import { LICENSES_KEY, captureEntitlement, assertCurrentEntitlement, type InstallEntitlement } from './client/entitlement'
+import { commitLicenses, unchangedLicense, type LicenseCommandContext } from './client/license-commit'
 
 // The site side of the repository: browse a vendor's catalog, keep licenses, install and update packages.
 // Everything a vendor sends is checked: the key is pinned by the administrator, releases and certificates are signed.
@@ -147,42 +148,51 @@ export async function browseCatalog(filter: { q?: string; kind?: string } = {}) 
 
 async function siteHost() { return normalizeSiteHost(await siteBaseUrl()) }
 
-export async function activateRepositoryLicense(slug: string, rawKey: unknown) {
+export async function activateRepositoryLicense(slug: string, rawKey: unknown, context?: LicenseCommandContext) {
   const config = await requireConfig()
   const key = normalizeLicenseKey(rawKey)
   if (!key) throw new RepoError('کلید لایسنس معتبر نیست (مثل MBC-XXXXX-XXXXX-XXXXX-XXXXX)')
   const site = await siteHost()
+  const expected = (await readMap<StoredLicense>(LICENSES_KEY))[slug]
   const r = await request(config.url, '/api/repo/v1/licenses/activate', { method: 'POST', body: { key, slug, site, coreVersion: currentVersion() } })
   if (r.status !== 200) throw problem(r, 'فعال‌سازی لایسنس ناموفق بود')
   const answer = r.json() as { certificate?: unknown; signature?: unknown }
   if (!isCertificate(answer.certificate) || typeof answer.signature !== 'string' || !verifyPayload(answer.certificate, answer.signature, config.publicKey)) throw new RepoError('گواهی لایسنس با کلید مخزن تأیید نشد', 502)
   const bad = certificateProblem(answer.certificate, { product: slug, site }, new Date())
   if (bad) throw new RepoError('گواهی لایسنس برای این سایت معتبر نیست', 502)
-  const licenses = await readMap<StoredLicense>(LICENSES_KEY)
-  licenses[slug] = { keyEnc: encryptPanelCredential(key), certificate: answer.certificate, signature: answer.signature, checkedAt: new Date().toISOString(), state: 'active' }
-  await writeJsonSetting(LICENSES_KEY, licenses)
+  const stored: StoredLicense = { keyEnc: encryptPanelCredential(key), certificate: answer.certificate, signature: answer.signature, checkedAt: new Date().toISOString(), state: 'active' }
+  await commitLicenses(config, site, context, 'activate', slug, async licenses => {
+    unchangedLicense(licenses[slug], expected)
+    licenses[slug] = stored
+  })
   return { updatesUntil: answer.certificate.updatesUntil }
 }
 
-export async function deactivateRepositoryLicense(slug: string) {
+export async function deactivateRepositoryLicense(slug: string, context?: LicenseCommandContext) {
   const config = await requireConfig()
   const licenses = await readMap<StoredLicense>(LICENSES_KEY)
   const stored = licenses[slug]
-  if (!stored) return
+  const site = await siteHost()
+  if (!stored) return commitLicenses(config, site, context, 'deactivate', slug, async current => {
+    unchangedLicense(current[slug], undefined)
+  })
   // Freeing the place is best effort: the license is removed here even when the repository cannot be reached.
-  await request(config.url, '/api/repo/v1/licenses/deactivate', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site: await siteHost() } }).catch(() => undefined)
-  delete licenses[slug]
-  await writeJsonSetting(LICENSES_KEY, licenses)
+  await request(config.url, '/api/repo/v1/licenses/deactivate', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site } }).catch(() => undefined)
+  await commitLicenses(config, site, context, 'deactivate', slug, async current => {
+    unchangedLicense(current[slug], stored)
+    delete current[slug]
+  })
 }
 
 /** Daily: asks the repository about every stored license; a revoked one switches its package off. */
-export async function refreshRepositoryLicenses(): Promise<{ checked: number; revoked: string[] }> {
+export async function refreshRepositoryLicenses(context?: LicenseCommandContext): Promise<{ checked: number; revoked: string[] }> {
   const config = await readConfig()
   if (!config) return { checked: 0, revoked: [] }
   const licenses = await readMap<StoredLicense>(LICENSES_KEY)
   const site = await siteHost()
-  const revoked: string[] = []
-  for (const [slug, stored] of Object.entries(licenses)) {
+  const checks: Array<{ slug: string; expected: StoredLicense; stored: StoredLicense }> = []
+  for (const [slug, expected] of Object.entries(licenses)) {
+    const stored = { ...expected }
     try {
       const r = await request(config.url, '/api/repo/v1/licenses/check', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site } })
       if (r.status !== 200) { if (r.status === 403 || r.status === 404) stored.state = 'revoked'; else stored.state = 'unreachable' } else {
@@ -194,10 +204,22 @@ export async function refreshRepositoryLicenses(): Promise<{ checked: number; re
       }
     } catch { stored.state = 'unreachable' }
     stored.checkedAt = new Date().toISOString()
-    if (stored.state === 'revoked') { revoked.push(slug); await setPackageEnabled(slug, false).catch(() => undefined) }
+    checks.push({ slug, expected, stored })
   }
-  await writeJsonSetting(LICENSES_KEY, licenses)
-  return { checked: Object.keys(licenses).length, revoked }
+  return commitLicenses(config, site, context, 'refresh', 'client', async (current, tx) => {
+    const revoked: string[] = []
+    for (const { slug, expected, stored } of checks) {
+      // A check of the old key must never overwrite a later activation/deactivation.
+      if (JSON.stringify(current[slug]) !== JSON.stringify(expected)) continue
+      current[slug] = stored
+      if (stored.state === 'revoked') {
+        const pkg = await loadPackage(slug, tx)
+        if (pkg) await setPackageEnabled(slug, false, tx)
+        revoked.push(slug)
+      }
+    }
+    return { checked: checks.length, revoked }
+  })
 }
 
 // ------------------------------------------------------------------ installing

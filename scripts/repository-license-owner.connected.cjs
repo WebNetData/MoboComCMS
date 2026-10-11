@@ -15,12 +15,13 @@ function load(relative){
  new Function('require','module','exports',compiled)(name=>{
   if(name==='@/platform/database/prisma')return {db};
   if(name==='@/platform/config/env')return {authSecret:()=> 'owned-license-fixture'};
-  if(name==='@/modules/settings/server')return {readJsonSetting:async key=>structuredClone(settings[key]),writeJsonSetting:async(key,value)=>{settings[key]=structuredClone(value)}};
+  if(name==='@/modules/settings/server')return {JsonSettingMutationError:class extends Error{},readJsonSetting:async key=>structuredClone(settings[key]),writeJsonSetting:async(key,value)=>{settings[key]=structuredClone(value)},updateJsonSetting:async(key,work)=>{const value=structuredClone(settings[key]||{}),result=await work(value,{setting:{findUnique:async args=>settings[args.where.key]?{value:JSON.stringify(settings[args.where.key])}:null}});settings[key]=value;return result}};
+  if(name==='@/extensions/server/modules')return {moduleGuard:async()=>null};
   if(name==='@/modules/providers/server/panel-credentials')return {encryptPanelCredential:v=>v,decryptPanelCredential:v=>v};
   if(name==='@/modules/wallet/server/wallet')return {moveWallet:()=>{throw Error('Unexpected money mutation')},walletBalance:()=>{throw Error('Unexpected wallet read')}};
   if(name==='@/modules/site/server/site-url')return {siteBaseUrl:async()=> 'https://license-fixture.example.invalid'};
   if(name==='@/modules/updater/server/service')return {currentVersion:()=> '1.0.0'};
-  if(name==='@/modules/packages/server/store')return {setPackageEnabled:async(...args)=>disabled.push(args),installPackage:()=>{throw Error('Unexpected installation')},loadPackage:()=>{throw Error('Unexpected package read')}};
+  if(name==='@/modules/packages/server/store')return {setPackageEnabled:async(id,enabled)=>disabled.push([id,enabled]),installPackage:()=>{throw Error('Unexpected installation')},loadPackage:async()=>({enabled:true})};
   if(name==='./crypto')return {sha256:hash,signPayload:async certificate=>{signed.push(certificate);return 'fixture-signature'},verifyPayload:()=>true,fingerprintOf:()=> 'fixture',vendorKeys:()=>{throw Error('Unexpected vendor key generation')}};
   if(name.startsWith('@/')){const candidate='src/'+name.slice(2);if(candidate.endsWith('.json'))return JSON.parse(fs.readFileSync(candidate,'utf8'));return load(fs.existsSync(candidate+'.ts')?candidate+'.ts':candidate+'/index.ts')}
   if(name.startsWith('.'))return load(path.resolve(path.dirname(file),name)+'.ts');

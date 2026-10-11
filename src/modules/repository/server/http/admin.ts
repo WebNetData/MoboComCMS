@@ -93,10 +93,10 @@ export async function POST_client(req: NextRequest) {
       case 'meta': return ok(await fetchRepositoryMeta(String(body.url || '')))
       case 'connect': { const meta = await connectRepository(String(body.url || ''), String(body.fingerprint || '')); await audit('connect', meta.url, { fingerprint: meta.fingerprint }); return ok({ name: meta.name }) }
       case 'disconnect': { await disconnectRepository(); await audit('disconnect'); return ok({ ok: true }) }
-      case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key); await audit('activate', String(body.slug)); return ok(result) }
-      case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || '')); await audit('deactivate', String(body.slug)); return ok({ ok: true }) }
+      case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key, { req, actor: guard.admin }); return ok(result) }
+      case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || ''), { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email, { req, actor: guard.admin }); return ok(result) }
-      case 'refresh': return ok(await refreshRepositoryLicenses())
+      case 'refresh': return ok(await refreshRepositoryLicenses({ req, actor: guard.admin }))
       default: return err('عملیات نامعتبر است')
     }
   } catch (error) { return failure(error) }

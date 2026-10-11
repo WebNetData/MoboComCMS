@@ -56,7 +56,7 @@ export type PackageInstallCommit = (tx: Prisma.TransactionClient, pkg: StoredPac
 
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }
-export async function loadPackage(id: string): Promise<StoredPackage | null> { return loadPackageFrom(id) }
+export async function loadPackage(id: string, reader?: Prisma.TransactionClient): Promise<StoredPackage | null> { return loadPackageFrom(id, reader, !!reader) }
 
 function reservedIds() {
   // 'source' and 'editor' are admin route segments next to the package ids.
@@ -173,14 +173,15 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
   }
 }
 
-export async function setPackageEnabled(id: string, enabled: boolean) {
-  return packageTransaction(async tx => {
+export async function setPackageEnabled(id: string, enabled: boolean, reader?: Prisma.TransactionClient) {
+  const work = async (tx: Prisma.TransactionClient) => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
     applyEnabled(pkg, enabled)
     pkg.updatedAt = new Date().toISOString()
     await savePackage(tx, pkg)
     return pkg
-  })
+  }
+  return reader ? work(reader) : packageTransaction(work)
 }
 
 export async function savePackageSettings(id: string, input: Record<string, unknown>) {
