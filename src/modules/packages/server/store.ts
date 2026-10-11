@@ -45,6 +45,8 @@ import { fileBytes, fileBuffer, manifestFrom, settingDefaults, totalBytes } from
 import { loadPackageFrom, mustLoad, packageTransaction, readIndex, rowKey, savePackage, writeIndex } from './store/persistence'
 import { syncSiteTheme } from './store/themes'
 import { writeFile, deleteFile } from './store/editor'
+import { applyEnabled, applySettings } from './store/fields'
+export { patchPackage, type PackagePatch } from './store/patch'
 
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }
@@ -140,8 +142,7 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
 export async function setPackageEnabled(id: string, enabled: boolean) {
   return packageTransaction(async tx => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
-    if (pkg.manifest.runtime === 'code') throw new PackageError('code packages are switched on in the extension list once their build is deployed')
-    pkg.enabled = enabled
+    applyEnabled(pkg, enabled)
     pkg.updatedAt = new Date().toISOString()
     await savePackage(tx, pkg)
     return pkg
@@ -151,13 +152,7 @@ export async function setPackageEnabled(id: string, enabled: boolean) {
 export async function savePackageSettings(id: string, input: Record<string, unknown>) {
   return packageTransaction(async tx => {
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
-    const definitions = new Map((pkg.manifest.settings || []).map(setting => [setting.key, setting]))
-    for (const [key, value] of Object.entries(input)) {
-      const definition = definitions.get(key)
-      if (!definition) throw new PackageError(`unknown setting "${key}"`)
-      if (typeof value !== 'string' || value.length > (definition.type === 'textarea' ? 8000 : 1000)) throw new PackageError(`setting "${key}" is invalid`)
-      pkg.settings[key] = value
-    }
+    applySettings(pkg, input)
     pkg.updatedAt = new Date().toISOString()
     await savePackage(tx, pkg)
     return pkg

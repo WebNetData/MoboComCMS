@@ -20,6 +20,12 @@ test('uploaded package keeps edits, settings and activation through the real adm
     const saved = page.waitForResponse(response => response.url().endsWith(`/api/admin/packages/${id}/files`) && response.request().method() === 'PUT')
     await editor.press('Control+s')
     expect((await saved).status()).toBe(200)
+    const invalid = await admin.patch(`/api/admin/packages/${id}`, { data: { enabled: true, settings: { unknown: 'invalid' } } })
+    expect(invalid.status()).toBe(400)
+    expect((await (await admin.get(`/api/admin/packages/${id}`)).json()).package).toMatchObject({ enabled: false, settings: { title: 'original' } })
+    const combined = await admin.patch(`/api/admin/packages/${id}`, { data: { enabled: true, settings: { title: 'combined-title' } } })
+    expect(combined.status(), await combined.text()).toBe(200)
+    expect((await combined.json()).package).toMatchObject({ enabled: true, settings: { title: 'combined-title' } })
     const writes = await Promise.all([
       admin.put(`/api/admin/packages/${id}/files`, { data: { path: 'b.txt', content: 'saved-through-api' } }),
       admin.patch(`/api/admin/packages/${id}`, { data: { enabled: true } }),

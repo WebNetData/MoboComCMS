@@ -21,6 +21,7 @@ const CHECKS = [
   'extension-state-integrity',
   'module-availability',
   'package-integrity',
+  'package-command',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

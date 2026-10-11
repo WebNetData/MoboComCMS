@@ -5,8 +5,8 @@ import { requirePerm, type AuthedUser } from '@/modules/identity/server/access'
 import { getSiteConfig } from '@/modules/site/config/store'
 import { PACKAGE_LIMITS, PackageError, isEditable } from '@/modules/packages/domain/format'
 import {
-  activateTheme, deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
-  restoreRevision, savePackageSettings, setPackageEnabled, summarize, writePackageFile,
+  deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
+  restoreRevision, patchPackage, summarize, writePackageFile,
 } from '@/modules/packages/server/store'
 import { applyCodePackage, applyStatus, importBuiltinSource } from '@/modules/packages/server/code-apply'
 import { extensionCatalog } from '@/extensions/generated/catalog'
@@ -95,19 +95,12 @@ export async function patchRoute(req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const body = await req.json().catch(() => null)
   try {
-    if (typeof body?.enabled === 'boolean') {
-      await setPackageEnabled(id, body.enabled)
-      await audit(req, actor, body.enabled ? 'enable' : 'disable', id)
+    const changes = {
+      ...(typeof body?.enabled === 'boolean' ? { enabled: body.enabled } : {}),
+      ...(body?.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { settings: body.settings as Record<string, unknown> } : {}),
+      ...(body?.activate === true ? { activate: true as const } : {}),
     }
-    if (body?.settings && typeof body.settings === 'object' && !Array.isArray(body.settings)) {
-      await savePackageSettings(id, body.settings)
-      await audit(req, actor, 'settings', id, { keys: Object.keys(body.settings) })
-    }
-    if (body?.activate === true) {
-      await activateTheme(id)
-      await audit(req, actor, 'activate-theme', id)
-    }
-    const pkg = await loadPackage(id)
+    const pkg = Object.keys(changes).length ? await patchPackage(id, changes, { req, actor }) : await loadPackage(id)
     if (!pkg) return err('not found', 404)
     // The site document is request-cached, so a fresh activation is reported directly.
     return ok({ package: summarize(pkg, body?.activate === true ? id : (await getSiteConfig()).themeId) })
