@@ -14,12 +14,12 @@ import {
   type Certificate, type CatalogProduct,
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, sha256, verifyPayload } from './crypto'
+import { LICENSES_KEY, captureEntitlement, assertCurrentEntitlement, type InstallEntitlement } from './client/entitlement'
 
 // The site side of the repository: browse a vendor's catalog, keep licenses, install and update packages.
 // Everything a vendor sends is checked: the key is pinned by the administrator, releases and certificates are signed.
 
 const CONFIG_KEY = 'repository.client.v1'
-const LICENSES_KEY = 'repository.licenses.v1'
 const INSTALLED_KEY = 'repository.installed.v1'
 const MAX_CATALOG = 2 * 1024 * 1024
 const MAX_PACKAGE = 4 * 1024 * 1024
@@ -29,7 +29,7 @@ const allowPrivate = () => process.env.REPOSITORY_ALLOW_PRIVATE === '1'
 export const defaultRepositoryUrl = () => { try { return safeRepositoryUrl(process.env.REPOSITORY_URL, { allowPrivate: allowPrivate() }) } catch { return '' } }
 
 export interface ClientConfig { url: string; name: string; publicKey: string; fingerprint: string; connectedAt: string }
-interface StoredLicense { keyEnc: string; certificate: Certificate; signature: string; checkedAt: string; state: 'active' | 'revoked' | 'unreachable' }
+export interface StoredLicense { keyEnc: string; certificate: Certificate; signature: string; checkedAt: string; state: 'active' | 'revoked' | 'unreachable' }
 
 async function readConfig(): Promise<ClientConfig | null> {
   const raw = await readJsonSetting(CONFIG_KEY)
@@ -212,13 +212,14 @@ export async function installFromRepository(slug: string, actor: string, context
   if (!product.compatible) throw new RepoError(`این نسخه به هستهٔ ${latest.requiresCore || '؟'} نیاز دارد و با نسخهٔ فعلی سایت (${currentVersion()}) سازگار نیست`, 409)
 
   const headers: Record<string, string> = {}
+  let entitlement: InstallEntitlement | undefined
   if (!product.free) {
     const licenses = await readMap<StoredLicense>(LICENSES_KEY)
     const stored = licenses[slug]
     if (!stored) throw new RepoError('این محصول پولی است؛ ابتدا کلید لایسنس را وارد کنید', 402)
     const site = await siteHost()
-    if (!verifyPayload(stored.certificate, stored.signature, config.publicKey) || certificateProblem(stored.certificate, { product: slug, site }, new Date()) === 'revoked') throw new RepoError('لایسنس معتبر نیست', 403)
-    headers['x-license-key'] = decryptPanelCredential(stored.keyEnc)
+    entitlement = captureEntitlement(stored, slug, site, config.publicKey)
+    headers['x-license-key'] = entitlement.key
     headers['x-license-site'] = site
   }
   const r = await request(config.url, `/api/repo/v1/download/${encodeURIComponent(slug)}/${encodeURIComponent(latest.version)}`, { headers: { ...headers, Accept: 'application/zip' } }, MAX_PACKAGE)
@@ -233,6 +234,7 @@ export async function installFromRepository(slug: string, actor: string, context
         const latestConfig = connection ? JSON.parse(connection.value) : null
         if (!latestConfig || latestConfig.url !== config.url || latestConfig.publicKey !== config.publicKey || String(latestConfig.connectedAt || '') !== config.connectedAt) throw new Error('connection changed')
       } catch { throw new RepoError('اتصال مخزن هنگام دریافت بسته تغییر کرده است؛ دوباره تلاش کنید', 409) }
+      if (entitlement) await assertCurrentEntitlement(tx, entitlement, slug, config.publicKey)
       // Signed bytes, rather than editable catalog metadata, decide the installed identity and core requirement.
       if (pkg.manifest.id !== slug || pkg.manifest.version !== latest.version || pkg.manifest.runtime !== latest.runtime || (pkg.manifest.kind === 'theme') !== (product.kind === 'THEME')) throw new RepoError('بستهٔ امضاشده با محصول و نسخهٔ انتخاب‌شده مطابقت ندارد', 502)
       if (!coreSatisfies(pkg.manifest.requiresCore || '', currentVersion())) throw new RepoError('بستهٔ امضاشده با نسخهٔ فعلی هسته سازگار نیست', 409)

@@ -2,6 +2,7 @@
 // subscription engine and the Telegram notifier can import it without creating a
 // cycle (subs → provision → telegram → subs).
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 
 let cache: { at: number; value: string } | null = null
 
@@ -21,15 +22,15 @@ function publicOrigin(raw: string | null | undefined): string | null {
 }
 
 /** The public origin of the shop: valid `siteUrl` setting, else `NEXTAUTH_URL`. */
-export async function siteBaseUrl(): Promise<string> {
-  if (cache && Date.now() - cache.at < 60_000) return cache.value
-  const row = await db.setting.findUnique({ where: { key: 'siteUrl' } }).catch(() => null)
+export async function siteBaseUrl(reader?: Pick<Prisma.TransactionClient, 'setting'>): Promise<string> {
+  if (!reader && cache && Date.now() - cache.at < 60_000) return cache.value
+  const row = reader ? await reader.setting.findUnique({ where: { key: 'siteUrl' } }) : await db.setting.findUnique({ where: { key: 'siteUrl' } }).catch(() => null)
   const value = publicOrigin(row?.value) || publicOrigin(process.env.NEXTAUTH_URL)
   if (!value) {
     if (process.env.NODE_ENV === 'production') throw new Error('A valid public HTTPS siteUrl/NEXTAUTH_URL is required')
     return 'http://localhost:3000'
   }
-  cache = { at: Date.now(), value }
+  if (!reader) cache = { at: Date.now(), value }
   return value
 }
 
