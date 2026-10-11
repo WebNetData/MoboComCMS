@@ -3731,6 +3731,10 @@ model ImportJob {
   dryRun         String    @default("") // summary of the last dry run
   createdById    Int
   createdByEmail String    @default("")
+  executionActorId Int? // current authorized operator; upload creator remains immutable
+  executionAuthorizedAt DateTime?
+  executionMode String @default("RUN") // RUN | ROLLBACK; retained while paused
+  executionGeneration Int @default(0) // atomically increments on every execution grant
   lockedUntil    DateTime? // lease held by the worker processing a slice
   error          String    @default("")
   startedAt      DateTime?

@@ -15,6 +15,7 @@ import { loadParsed } from '@/modules/imports/server/files'
 import { importImage, knownSources } from '@/modules/imports/server/media'
 import { ApplyFailure, getImporter, type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 import '@/modules/imports/server/adapters'
+import { continuingImportActor, currentImportActor, pauseForImportAuthority } from '@/modules/imports/server/authority'
 
 /**
  * The import engine: settings → items → plans (preview and dry run, no
@@ -292,17 +293,27 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
   if (!job) return { done: true, next: false }
   const started = Date.now()
   try {
+    if (job.executionMode !== 'RUN') { await db.importJob.updateMany({ where: { id: jobId, lockedUntil: job.lockedUntil, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } }); return { done: false, next: false } }
+    const actor = await currentImportActor(job)
+    if (!actor) { await pauseForImportAuthority(job); return { done: false, next: false } }
     const adapter = adapterFor(job.adapter)
     const settings = settingsFor(adapter, readSettings(job))
     const items = await itemsFor(job, settings)
-    if (job.status === 'QUEUED') job = await db.importJob.update({ where: { id: jobId }, data: { status: 'RUNNING', startedAt: job.startedAt ?? new Date(), total: items.length } })
-    const ctx = makeContext(job, settings, { id: job.createdById, email: job.createdByEmail }, false)
+    if (job.status === 'QUEUED') {
+      const opened = await db.importJob.updateMany({ where: { id: jobId, status: 'QUEUED', executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { status: 'RUNNING', startedAt: job.startedAt ?? new Date(), total: items.length } })
+      if (!opened.count) { await db.importJob.updateMany({ where: { id: jobId, lockedUntil: job.lockedUntil, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } }); return { done: false, next: false } }
+      job = (await db.importJob.findUnique({ where: { id: jobId } }))!
+    }
+    const ctx = makeContext(job, settings, actor, false)
     const stats: Stats = (() => { try { return JSON.parse(job.stats || '{}') } catch { return {} } })()
     const done = new Set((await db.importRecord.findMany({ where: { jobId, index: { gte: job.cursor } }, select: { index: true } })).map((row) => row.index))
     let cursor = job.cursor
     let stop = false
     while (cursor < items.length && !stop && Date.now() - started < budgetMs) {
       const batch = items.slice(cursor, cursor + BATCH)
+      const preparer = await continuingImportActor(job, 'RUNNING')
+      if (!preparer) { stop = true; break }
+      ctx.actor = preparer
       const t = batch.map((item) => typed(adapter, settings, item))
       if (adapter.prepare) await adapter.prepare(batch, t.map((x) => x.values), ctx)
       for (let j = 0; j < batch.length; j++) {
@@ -310,10 +321,14 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
         if (done.has(item.index)) continue
         {
           // Pause/cancel take effect before the next record (the one being written finishes in its own transaction).
-          const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true } })
-          if (current?.status !== 'RUNNING') { stop = true; cursor = item.index; break }
+          const current = await continuingImportActor(job, 'RUNNING')
+          if (!current) { stop = true; cursor = item.index; break }
+          ctx.actor = current
         }
         const plan = await planOne(adapter, item, t[j], ctx)
+        const writer = await continuingImportActor(job, 'RUNNING')
+        if (!writer) { stop = true; cursor = item.index; break }
+        ctx.actor = writer
         let result: ApplyResult
         if (plan.action === 'FAIL' || plan.action === 'SKIP') result = { action: plan.action, entityType: '', entityId: plan.entityId, changes: [], messages: plan.messages, counters: {} }
         else {
@@ -338,29 +353,31 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
         if (j === batch.length - 1) cursor = item.index + 1
       }
       if (!stop) cursor = Math.max(cursor, batch[batch.length - 1].index + 1)
-      await db.importJob.update({ where: { id: jobId }, data: { cursor, stats: JSON.stringify(stats), lockedUntil: new Date(Date.now() + LEASE_MS) } })
+      await db.importJob.updateMany({ where: { id: jobId, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { cursor, stats: JSON.stringify(stats), ...(stop ? {} : { lockedUntil: new Date(Date.now() + LEASE_MS) }) } })
     }
     const finished = cursor >= items.length && !stop
     if (finished) {
+      const finisher = await continuingImportActor(job, 'RUNNING')
+      if (!finisher) { await db.importJob.updateMany({ where: { id: jobId, lockedUntil: job.lockedUntil, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } }); return { done: false, next: false } }
       await adapter.finish?.().catch((error) => logEvent('warn', 'imports.finish_failed', { jobId, error: String(error) }))
       const final = await finalStats(jobId, items.length)
       const status = final.failed ? 'DONE_WITH_ERRORS' : 'DONE'
       // Only a running job becomes done: a pause or cancel that arrived meanwhile is kept.
-      const closed = await db.importJob.updateMany({ where: { id: jobId, status: 'RUNNING' }, data: { status, finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
+      const closed = await db.importJob.updateMany({ where: { id: jobId, status: 'RUNNING', executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { status, finishedAt: new Date(), cursor, stats: JSON.stringify(final), lockedUntil: null } })
       if (!closed.count) {
-        await db.importJob.update({ where: { id: jobId }, data: { cursor, stats: JSON.stringify(final), lockedUntil: null } })
+        await db.importJob.updateMany({ where: { id: jobId, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { cursor, stats: JSON.stringify(final), lockedUntil: null } })
         return { done: false, next: false }
       }
-      await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.completed', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, file: job.fileName, status, ...final } })
+      await auditSystem({ actor: finisher, action: 'import.completed', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, file: job.fileName, createdById: job.createdById, status, ...final } })
       return { done: true, next: false }
     }
-    await db.importJob.update({ where: { id: jobId }, data: { lockedUntil: null } })
-    const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true } })
-    return { done: false, next: current?.status === 'RUNNING' }
+    await db.importJob.updateMany({ where: { id: jobId, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } })
+    const current = await db.importJob.findUnique({ where: { id: jobId }, select: { status: true, executionGeneration: true } })
+    return { done: false, next: current?.status === 'RUNNING' && current.executionGeneration === job.executionGeneration }
   } catch (error) {
     const message = error instanceof ImportFileError || error instanceof ImportError ? error.message : error instanceof Error ? error.message : 'خطای ناشناخته'
     logEvent('error', 'imports.job_failed', { jobId, error: message })
-    await db.importJob.update({ where: { id: jobId }, data: { status: 'FAILED', error: message.slice(0, 1000), finishedAt: new Date(), lockedUntil: null } })
+    await db.importJob.updateMany({ where: { id: jobId, status: { in: ['QUEUED', 'RUNNING'] }, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { status: 'FAILED', error: message.slice(0, 1000), finishedAt: new Date(), lockedUntil: null } })
     return { done: true, next: false }
   }
 }
@@ -385,6 +402,7 @@ export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{
   if (!await claim(jobId, ['ROLLING_BACK'])) return { done: false, next: false }
   const job = await db.importJob.findUnique({ where: { id: jobId } })
   if (!job) return { done: true, next: false }
+  if (job.executionMode !== 'ROLLBACK') { await db.importJob.updateMany({ where: { id: jobId, lockedUntil: job.lockedUntil, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } }); return { done: false, next: false } }
   const adapter = adapterFor(job.adapter)
   const started = Date.now()
   const summary: Stats = (() => { try { return JSON.parse(job.stats || '{}') } catch { return {} } })()
@@ -392,6 +410,7 @@ export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{
     const records = await db.importRecord.findMany({ where: { jobId, action: { in: ['CREATE', 'UPDATE'] }, status: { in: ['OK', 'WARNING'] } }, orderBy: { index: 'desc' }, take: 20 })
     if (!records.length) break
     for (const record of records) {
+      if (!await continuingImportActor(job, 'ROLLING_BACK')) return { done: false, next: false }
       let stored: Stored = {}
       try { stored = JSON.parse(record.changes || '{}') } catch { stored = {} }
       let result
@@ -399,15 +418,19 @@ export async function rollbackSlice(jobId: number, budgetMs = 30_000): Promise<{
       const messages = [...(JSON.parse(record.messages || '[]') as Message[]), ...result.conflicts.map((text) => ({ level: 'warning' as const, text: `بازگردانی: ${text}` }))]
       await db.importRecord.update({ where: { id: record.id }, data: { status: result.conflicts.length ? 'ROLLBACK_CONFLICT' : 'ROLLED_BACK', messages: JSON.stringify(messages.slice(0, 60)) } })
       addStats(summary, { rolledBack: result.conflicts.length ? 0 : 1, rollbackConflicts: result.conflicts.length ? 1 : 0 })
+      await db.importJob.updateMany({ where: { id: jobId, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { stats: JSON.stringify(summary) } })
     }
-    await db.importJob.update({ where: { id: jobId }, data: { stats: JSON.stringify(summary), lockedUntil: new Date(Date.now() + LEASE_MS) } })
+    await db.importJob.updateMany({ where: { id: jobId, status: 'ROLLING_BACK', executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { stats: JSON.stringify(summary), lockedUntil: new Date(Date.now() + LEASE_MS) } })
     if (Date.now() - started > budgetMs) {
-      await db.importJob.update({ where: { id: jobId }, data: { lockedUntil: null } })
+      await db.importJob.updateMany({ where: { id: jobId, executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { lockedUntil: null } })
       return { done: false, next: true }
     }
   }
-  await db.importJob.update({ where: { id: jobId }, data: { status: 'ROLLED_BACK', stats: JSON.stringify(summary), lockedUntil: null, finishedAt: new Date() } })
-  await auditSystem({ actor: { id: job.createdById, email: job.createdByEmail }, action: 'import.rolled_back', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, rolledBack: summary.rolledBack || 0, conflicts: summary.rollbackConflicts || 0 } })
+  const finisher = await continuingImportActor(job, 'ROLLING_BACK')
+  if (!finisher) return { done: false, next: false }
+  const closed = await db.importJob.updateMany({ where: { id: jobId, status: 'ROLLING_BACK', executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { status: 'ROLLED_BACK', stats: JSON.stringify(summary), lockedUntil: null, finishedAt: new Date() } })
+  if (!closed.count) return { done: false, next: false }
+  await auditSystem({ actor: finisher, action: 'import.rolled_back', targetType: 'import-job', targetId: jobId, metadata: { adapter: job.adapter, createdById: job.createdById, rolledBack: summary.rolledBack || 0, conflicts: summary.rollbackConflicts || 0 } })
   return { done: true, next: false }
 }
 

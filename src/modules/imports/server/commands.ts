@@ -1,7 +1,25 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { deleteUpload, pruneIncoming } from '@/modules/imports/server/files'
 import { ImportError, adapterFor, ensureModule, settingsFor, settingsHash, type Job, type DryRun } from '@/modules/imports/server/execution'
+import { authorizedImportActor } from '@/modules/imports/server/authority'
+
+type Actor = { id: number; email: string }
+
+async function executionGrant(actor: Actor) {
+  const now = new Date()
+  if (!await authorizedImportActor(actor.id, now)) throw new ImportError('اختیار اجرای ورود اطلاعات معتبر نیست', 403)
+  return { executionActorId: actor.id, executionAuthorizedAt: now, executionGeneration: { increment: 1 } }
+}
+
+async function claimCommand(job: Job, data: Prisma.ImportJobUpdateManyMutationInput) {
+  const changed = await db.importJob.updateMany({ where: { id: job.id, status: job.status, updatedAt: job.updatedAt, executionGeneration: job.executionGeneration }, data })
+  if (changed.count !== 1) throw new ImportError('وضعیت کار تغییر کرده است؛ دوباره بررسی کنید', 409)
+  const updated = await db.importJob.findUnique({ where: { id: job.id } })
+  if (!updated) throw new ImportError('ورود اطلاعات پیدا نشد', 404)
+  return updated
+}
 
 
 // ------------------------------------------------------------------ running
@@ -41,7 +59,7 @@ export async function sweepImportJobs() {
 
 // ------------------------------------------------------------------ control
 
-export async function startJob(job: Job, rawSettings: unknown) {
+export async function startJob(job: Job, rawSettings: unknown, actor: Actor) {
   if (job.status !== 'DRAFT') throw new ImportError('این ورود اطلاعات قبلاً شروع شده است')
   const adapter = adapterFor(job.adapter)
   await ensureModule(adapter)
@@ -51,26 +69,32 @@ export async function startJob(job: Job, rawSettings: unknown) {
   // Preview and dry run are mandatory, and must match exactly what is started.
   if (!dry || dry.settingsHash !== settingsHash(settings) || dry.fileHash !== job.fileHash) throw new ImportError('ابتدا پیش‌نمایش و اجرای آزمایشی (Dry Run) را با همین تنظیمات انجام دهید')
   if (settings.options.missingVariants === 'delete' && settings.options.confirmDelete !== true) throw new ImportError('حذف تنوع‌های غایب نیاز به تأیید جداگانه دارد')
-  const updated = await db.importJob.update({ where: { id: job.id }, data: { status: 'QUEUED', settings: JSON.stringify(settings), total: dry.total, cursor: 0, stats: JSON.stringify({ total: dry.total }), startedAt: new Date(), error: '' } })
+  const grant = await executionGrant(actor)
+  const updated = await claimCommand(job, { ...grant, executionMode: 'RUN', status: 'QUEUED', settings: JSON.stringify(settings), total: dry.total, cursor: 0, stats: JSON.stringify({ total: dry.total }), startedAt: new Date(), error: '' })
   await dispatch('imports.run', job.id)
   return updated
 }
 
 
-export async function setJobState(job: Job, op: 'pause' | 'resume' | 'cancel') {
+export async function setJobState(job: Job, op: 'pause' | 'resume' | 'cancel', actor: Actor) {
   const allowed: Record<string, string[]> = { pause: ['QUEUED', 'RUNNING'], resume: ['PAUSED'], cancel: ['QUEUED', 'RUNNING', 'PAUSED'] }
   if (!allowed[op].includes(job.status)) throw new ImportError('این کار در وضعیت فعلی ورود اطلاعات ممکن نیست')
-  const status = op === 'pause' ? 'PAUSED' : op === 'resume' ? 'QUEUED' : 'CANCELLED'
+  if (op === 'resume' && job.lockedUntil && job.lockedUntil.getTime() > Date.now()) throw new ImportError('رکورد در حال اجرا باید تمام شود؛ چند لحظه بعد دوباره اقدام کنید', 409)
+  const grant = await executionGrant(actor)
+  const rollback = job.executionMode === 'ROLLBACK'
+  const status = op === 'pause' ? 'PAUSED' : op === 'resume' ? (rollback ? 'ROLLING_BACK' : 'QUEUED') : 'CANCELLED'
   // The record being written finishes in its own transaction; the worker stops before the next one.
-  const updated = await db.importJob.update({ where: { id: job.id }, data: { status, ...(op === 'cancel' ? { finishedAt: new Date() } : {}) } })
-  if (op === 'resume') await dispatch('imports.run', job.id)
+  const updated = await claimCommand(job, { status, ...(op === 'resume' ? { ...grant, error: '' } : {}), ...(op === 'cancel' ? { finishedAt: new Date() } : {}) })
+  if (op === 'resume') await dispatch(rollback ? 'imports.rollback' : 'imports.run', job.id)
   return updated
 }
 
 
-export async function startRollback(job: Job) {
+export async function startRollback(job: Job, actor: Actor) {
   if (!['DONE', 'DONE_WITH_ERRORS', 'CANCELLED', 'FAILED', 'PAUSED'].includes(job.status)) throw new ImportError('بازگردانی فقط برای ورود اطلاعات تمام‌شده، لغوشده یا متوقف‌شده ممکن است')
-  const updated = await db.importJob.update({ where: { id: job.id }, data: { status: 'ROLLING_BACK', lockedUntil: null } })
+  if (job.lockedUntil && job.lockedUntil.getTime() > Date.now()) throw new ImportError('رکورد در حال اجرا باید تمام شود؛ چند لحظه بعد دوباره اقدام کنید', 409)
+  const grant = await executionGrant(actor)
+  const updated = await claimCommand(job, { ...grant, executionMode: 'ROLLBACK', status: 'ROLLING_BACK', lockedUntil: null, error: '' })
   await dispatch('imports.rollback', job.id)
   return updated
 }

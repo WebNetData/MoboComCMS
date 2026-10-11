@@ -44,15 +44,22 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
   const token = await getRawToken(req)
   if (!token?.uid) return null
 
+  return resolveCurrentUser(Number(token.uid), token.authAt)
+}
+
+/** Current identity for a previously authorized human action, including queued work. */
+export async function resolveCurrentUser(userId: number, authAt: unknown): Promise<AuthedUser | null> {
+  if (!Number.isSafeInteger(userId) || userId <= 0) return null
+
   // Resolve current role/status from storage so revocation takes effect immediately.
   const current = await db.user.findUnique({
-    where: { id: Number(token.uid) },
+    where: { id: userId },
     include: { roleRef: true },
   })
   if (!current || current.status !== 'ACTIVE') return null
   if (await globalAuthenticationDenied(current.id)) return null
   // A password reset signs out every session that started before it.
-  if (sessionRevoked(token.authAt, current.passwordChangedAt)) return null
+  if (sessionRevoked(authAt, current.passwordChangedAt)) return null
 
   const permissions =
     current.role === 'ADMIN' && current.roleId != null

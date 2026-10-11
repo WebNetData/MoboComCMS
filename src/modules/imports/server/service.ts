@@ -122,16 +122,16 @@ export async function dryRun(job: Job, raw: unknown, actor: Actor) {
   return { summary, previews }
 }
 
-export async function start(job: Job, raw: unknown) {
-  return jobView(await startJob(job, raw))
+export async function start(job: Job, raw: unknown, actor: Actor) {
+  return jobView(await startJob(job, raw, actor))
 }
 
-export async function control(job: Job, op: 'pause' | 'resume' | 'cancel') {
-  return jobView(await setJobState(job, op))
+export async function control(job: Job, op: 'pause' | 'resume' | 'cancel', actor: Actor) {
+  return jobView(await setJobState(job, op, actor))
 }
 
-export async function rollback(job: Job) {
-  return jobView(await startRollback(job))
+export async function rollback(job: Job, actor: Actor) {
+  return jobView(await startRollback(job, actor))
 }
 
 export async function removeJob(job: Job) {

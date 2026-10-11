@@ -23,6 +23,8 @@ Commands ran in the owned no-`.env` PostgreSQL/Redis fixture as uid 1000; no unr
 
 ## Following source-confirmed restriction gap
 
+Historical handoff below is superseded by [the Import execution authority slice](2026-10-11-import-execution-authority.md); retain its source audit, do not keep reporting the addressed creator-only worker as current behavior on the foundation branch.
+
 Precise source inspection of `imports/server/http/routes.ts`, `service.ts`, `commands.ts`, `execution.ts`, `registry.ts` and `operations/server/queue.ts` establishes the next actor-policy work:
 
 - HTTP start/resume/rollback requires the existing `imports.manage` Admin guard, but services/commands do not persist the initiating operator for execution; background context and completion audit use immutable upload `createdById/createdByEmail`.
