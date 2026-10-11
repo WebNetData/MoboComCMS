@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
+import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 export const API_KEY_PREFIX = 'kv_'
 
@@ -50,6 +51,7 @@ export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | nu
       }
     }
     if (!row || !row.active || row.user.status === 'BANNED') return null
+    if (await globalAuthenticationDenied(row.userId)) return null
     await db.apiKey
       .update({ where: { id: row.id }, data: { lastUsedAt: new Date(), requests: { increment: 1 } } })
       .catch(() => {})
@@ -62,8 +64,8 @@ export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | nu
   const session: any = await getServerSession(authOptions)
   const uid = Number(session?.user?.id || 0)
   if (!uid) return null
-  const user = await db.user.findUnique({ where: { id: uid }, select: { id: true, email: true, name: true, role: true } })
-  if (!user) return null
+  const user = await db.user.findUnique({ where: { id: uid }, select: { id: true, email: true, name: true, role: true, status: true } })
+  if (!user || user.status !== 'ACTIVE' || await globalAuthenticationDenied(user.id)) return null
   return { keyId: 0, userId: user.id, email: user.email, name: user.name, role: user.role }
 }
 

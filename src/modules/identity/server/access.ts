@@ -4,6 +4,7 @@ import { authSecret } from '@/platform/config/env'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
+import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 // Match NextAuth's startup secret without importing the authentication-provider graph.
 const tokenSecret = authSecret()
@@ -49,6 +50,7 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
     include: { roleRef: true },
   })
   if (!current || current.status !== 'ACTIVE') return null
+  if (await globalAuthenticationDenied(current.id)) return null
   // A password reset signs out every session that started before it.
   if (sessionRevoked(token.authAt, current.passwordChangedAt)) return null
 

@@ -9,6 +9,7 @@ import { authSecret } from '@/platform/config/env'
 import { clientIp, rateLimitStrict } from '@/platform/http/rate-limit'
 import { verifyTurnstile } from '@/modules/identity/server/turnstile'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
+import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 /**
  * 2-step sign-in: accounts with an authenticator need its code (or a backup
@@ -135,7 +136,16 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      const subject = Number(user.id)
+      if (!Number.isSafeInteger(subject) || subject <= 0) return false
+      const current = await db.user.findUnique({ where: { id: subject }, select: { status: true } })
+      return !!current && current.status === 'ACTIVE' && !await globalAuthenticationDenied(subject)
+    },
     async jwt({ token, user }) {
+      // Check every provider before minting a JWT, and every existing session.
+      const subject = user ? Number(user.id) : Number(token.uid)
+      if (subject && await globalAuthenticationDenied(subject)) throw new Error('SESSION_REVOKED')
       if (!user && token.uid) {
         // Sessions end when the password is reset (or the account is suspended).
         const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true } })

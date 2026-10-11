@@ -48,3 +48,11 @@ The bounded forum slice is implemented in the isolated delivery branch, with rea
 ## Following slices
 
 Complete global/capability/resource enforcement through the same Identity/AuthZ guards, including existing sessions/tokens/background entry points and narrow recovery exceptions; then deterministic group decisions and other module consumers. Expand scopes only after relevant guards/entry points are assessed. Retain the full platform roadmap and evidence requirements.
+
+## Slice 2A — authentication enforcement foundation
+
+Consume the existing GLOBAL facts with the explicit denied capability identity.authenticate in requireUser, every new/existing JWT callback, and the existing API-key/session-fallback resolver. Read current facts on every decision; no cache, role bypass, new permission, new table, migration, public URL or parallel resolver. MODULE sanctions and unrelated denied capabilities do not revoke authentication. Malformed restriction data or storage outage propagates: never return an authenticated identity on failure. A decision is fresh when checked; this does not promise cancellation of an already-running transaction.
+
+Existing User.status/password-change checks stay in place. Recovery/refund service operations are not granted an implicit exception. GLOBAL issue/revoke/history Admin commands, contextual/download/background policy and their explicit recovery capabilities remain following slices; no global mutation is enabled by this foundation. Keep maturity PARTIAL until those consumers and the actual Admin workflow are proven.
+
+Connected acceptance: real PostgreSQL rows, actual signed cookie decoding, real hashed key, existing/new JWT callbacks, independent module isolation, unrelated capabilities, other subject, overlap/individual revocation, exact scheduled start/expiry, full-access staff without bypass, legacy standing and database outage. Fixture creation/deletion does not stand in for the future authorized global issuance API. Register the connected gate, run existing scoped/staff checks, application check/build and compiled browser regression before committing.

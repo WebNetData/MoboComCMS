@@ -33,6 +33,7 @@ test('request token access uses the same startup auth secret without loading aut
       if (name === '@/platform/database/prisma') return { db: {} }
       if (name === '@/modules/identity/rbac') return { hasPermission: () => false, parsePermissions: () => null }
       if (name === '@/modules/identity/domain/account-security') return sec
+      if (name === '@/modules/identity/server/authentication-restrictions') return { globalAuthenticationDenied: () => { throw Error('Raw token decoding must not run authorization') } }
       throw Error(`Unexpected access dependency: ${name}`)
     }
     new Function('require', 'module', 'exports', source)(requireAccess, mod, mod.exports)

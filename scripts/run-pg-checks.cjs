@@ -10,6 +10,7 @@ const CHECKS = [
   'gift-card-integrity',
   'digital-codes',
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',
+  'global-authentication',
   'forum-flag-queue', 'forum-category-moderators', 'forum-staff-sanctions', 'scoped-restrictions', 'scoped-restrictions-migration', 'scoped-restrictions-single-connection',
   'forum-board-index', 'forum-clubs',
   'forum-activity-stream', 'forum-leaderboard', 'forum-reputation',
