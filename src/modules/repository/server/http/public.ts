@@ -87,7 +87,7 @@ export async function POST_mine(req: NextRequest) {
   try {
     if (body?.op === 'buy') {
       if (!rateLimitHit(`repo:buy:${userId}`, 10, 3_600_000).ok) return err('درخواست‌های خرید زیاد است', 429)
-      return ok(await buyProduct(userId, Number(body.productId) || 0, String(body.requestId || '')))
+      return ok(await buyProduct(userId, Number(body.productId) || 0, String(body.requestId || ''), { req }))
     }
     if (body?.op === 'release-site') { await releaseSite(Number(body.licenseId) || 0, String(body.site || ''), { userId }); return ok({ ok: true }) }
     return err('عملیات نامعتبر است')

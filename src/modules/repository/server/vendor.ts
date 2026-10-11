@@ -1,19 +1,19 @@
-import type { Prisma } from '@prisma/client'
+import { issueLicense } from './vendor/issue-license'
+export { buyProduct } from './vendor/purchase'
 import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
-import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
+import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { PACKAGE_LIMITS, PackageError, normalizeEntries, parseManifest } from '@/modules/packages/domain/format'
 import { ZipError, readZip } from '@/modules/packages/domain/zip'
 import {
-  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeProduct, normalizeSiteHost, releaseAllowed, updatesUntilFor,
+  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeProduct, normalizeSiteHost, releaseAllowed,
   type Certificate,
 } from '@/modules/repository/domain/repository'
-import { fingerprintOf, newLicenseKey, sha256, signPayload, vendorKeys } from './crypto'
+import { fingerprintOf, sha256, signPayload, vendorKeys } from './crypto'
 import { assertLicenseOwner } from '@/modules/repository/server/vendor/access'
 
 export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
@@ -125,16 +125,6 @@ export async function listLicenses(filter: { q?: string; productId?: number; sta
   return { rows: rows.map((l) => licenseRow(l, false)), total, page, pages: Math.max(1, Math.ceil(total / 25)) }
 }
 
-async function issueLicense(input: { productId: number; userId: number | null; email: string; source: 'PURCHASE' | 'GRANT'; paidMinor: bigint; note: string }, reader: Pick<Prisma.TransactionClient, 'repoProduct' | 'repoLicense'> = db) {
-  const product = await reader.repoProduct.findUnique({ where: { id: input.productId } })
-  if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  const key = newLicenseKey()
-  const license = await reader.repoLicense.create({
-    data: { keyHash: hashKey(key), keyEnc: encryptPanelCredential(key), keyLast4: key.slice(-5), productId: product.id, userId: input.userId, email: input.email.slice(0, 254), source: input.source, siteLimit: product.siteLimit, paidMinor: input.paidMinor, currency: product.currency, note: input.note.slice(0, 300), updatesUntil: updatesUntilFor(product.supportDays, new Date()) },
-  })
-  return { license, key }
-}
-
 /** A license given by the administrator (a gift, a partner, a manual sale). The key is shown once in the response. */
 export async function grantLicense(input: { productId: number; email?: string; userId?: number; note?: string }, context?: VendorLicenseContext) {
   return commitVendorLicense(context, async tx => {
@@ -177,31 +167,6 @@ export async function repositoryStats() {
 }
 
 // ------------------------------------------------------------------ buying (wallet)
-
-export async function buyProduct(userId: number, productId: number, requestId: string) {
-  const id = String(requestId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)
-  if (id.length < 8) throw new RepoError('درخواست نامعتبر است')
-  const product = await db.repoProduct.findUnique({ where: { id: productId } })
-  if (!product || !product.active) throw new RepoError('این محصول در دسترس نیست', 404)
-  if (product.priceMinor === 0n) throw new RepoError('این محصول رایگان است و لایسنس نمی‌خواهد', 409)
-  const marker = `buy:${id}`
-  const existing = await db.repoLicense.findFirst({ where: { userId, productId, note: marker }, select: { id: true } })
-  if (existing) return { licenseId: existing.id, repeated: true }
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } })
-  if (!user) throw new RepoError('کاربر پیدا نشد', 404)
-  const price = Number(product.priceMinor)
-  const paid = await moveWallet({ userId, amount: -price, currency: product.currency, type: 'PURCHASE', description: `خرید «${product.name}» از مخزن افزونه‌ها`, idempotencyKey: `repo:buy:${userId}:${product.id}:${id}` })
-  if (!paid.ok) {
-    if (/insufficient/i.test(paid.message || '')) {
-      const balance = await walletBalance(userId, product.currency)
-      throw new RepoError('موجودی کیف پول کافی نیست', 402, { shortfall: Math.max(0, price - balance), currency: product.currency })
-    }
-    throw new RepoError(paid.message || 'پرداخت انجام نشد', 502)
-  }
-  const { license } = await issueLicense({ productId: product.id, userId, email: user.email, source: 'PURCHASE', paidMinor: product.priceMinor, note: marker })
-  await db.repoProduct.update({ where: { id: product.id }, data: { sold: { increment: 1 } } })
-  return { licenseId: license.id, repeated: false }
-}
 
 /** The buyer's own licenses, with the full keys. */
 export async function licensesOf(userId: number) {

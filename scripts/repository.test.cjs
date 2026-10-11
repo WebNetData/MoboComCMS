@@ -118,7 +118,7 @@ test('wiring: public API is gated and signed, downloads check the license, the c
   for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) for (const model of ['RepoProduct', 'RepoRelease', 'RepoLicense', 'RepoActivation']) assert.match(read(schema), new RegExp(`model ${model} `), `${schema} ${model}`)
   const pub = read('src/modules/repository/server/http/public.ts')
   assert.match(pub, /vendorGate/); assert.match(pub, /rateLimitHit/); assert.match(pub, /moduleGuard\('repository'\)/)
-  const vendor = read('src/modules/repository/server/vendor.ts')
+  const vendor = ['src/modules/repository/server/vendor.ts', 'src/modules/repository/server/vendor/purchase.ts', 'src/modules/repository/server/vendor/issue-license.ts'].map(read).join('\n')
   assert.match(vendor, /signPayload/); assert.match(vendor, /releaseAllowed/); assert.match(vendor, /idempotencyKey/); assert.match(vendor, /keyHash/)
   assert.ok(!/fileId/.test(pub), 'storage names never reach the public API')
   const client = read('src/modules/repository/server/client.ts')
