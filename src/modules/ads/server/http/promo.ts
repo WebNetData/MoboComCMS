@@ -4,7 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { siteRedirect } from '@/platform/http/redirect'
 import { moduleGuard } from '@/extensions/server/modules'
-import { getRawToken } from '@/modules/identity/server/access'
+import { requireUser } from '@/modules/identity/server/access'
 import { isMember } from '@/modules/membership/server/membership'
 import { walletBalance } from '@/modules/wallet/server/wallet'
 import { receiveImage } from '@/modules/site/server/http/admin/media/route'
@@ -21,7 +21,7 @@ const failure = (error: unknown) => {
   if (error instanceof AdsError) return err(error.message, error.status, error.meta)
   throw error
 }
-const userIdOf = async (req: NextRequest) => { const token = await getRawToken(req).catch(() => null); const id = Number(token?.uid); return Number.isSafeInteger(id) && id > 0 ? id : null }
+const userIdOf = async (req: NextRequest) => (await requireUser(req))?.id ?? null
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
 /** GET /api/promo/serve?p=<placement>&path=<page>&lang=fa → the promotion to show (or null). */

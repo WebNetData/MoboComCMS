@@ -40,4 +40,6 @@ The compiled browser uses real password verification, CSRF cookie, NextAuth call
 
 Global restrictions remain **PARTIAL**. Source-confirmed raw-token callers in ads/promo, repository/public and public form submission still need current-user composition and explicit anonymous behavior. Assess upload/download, contextual, real-time and user-acting jobs; preserve financial obligations/recovery and define narrow support/refund/recovery capabilities. Then add the protected global Admin issue/history/individual revoke workflow with actual API/browser actors and audit-outage/concurrency evidence.
 
+The raw-token discovery above is the historical Slice2A checkpoint; [Slice2B subsequently closes those three HTTP consumers](2026-10-11-current-account-consumers.md). Broader workflow and rollout limits remain.
+
 No global authentication files were copied into the root's older schema/client or user app on port3000. A safe main/schema/client rollout is still required. Existing functionality, history, protected owner files and root changes remain preserved. No GitHub Actions, push, PR or merge was performed for this slice. No production/provider certification or token-savings claim. The autonomous Goal remains active.

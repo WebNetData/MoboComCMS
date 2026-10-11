@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
-import { getRawToken } from '@/modules/identity/server/access'
+import { requireUser } from '@/modules/identity/server/access'
 import { FormsError } from '@/modules/forms/domain/forms'
 import { submitForm } from '@/modules/forms/server/service'
 
@@ -16,10 +16,9 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   if (raw.length > 64_000) return err('اطلاعات بیش از حد بزرگ است', 413)
   let body: { values?: unknown; website?: unknown }
   try { body = JSON.parse(raw) } catch { return err('داده نامعتبر') }
-  const token = await getRawToken(req).catch(() => null)
-  const uid = Number(token?.uid)
+  const user = await requireUser(req)
   try {
-    const result = await submitForm(params.slug, { values: body?.values, website: body?.website }, { userId: Number.isSafeInteger(uid) && uid > 0 ? uid : null, ip })
+    const result = await submitForm(params.slug, { values: body?.values, website: body?.website }, { userId: user?.id ?? null, ip })
     return ok(result, 201)
   } catch (error) {
     if (error instanceof FormsError) return err(error.message, error.status)

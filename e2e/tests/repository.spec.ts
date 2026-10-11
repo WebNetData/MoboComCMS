@@ -1,5 +1,6 @@
 import { createPublicKey, verify } from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
+import { encode } from 'next-auth/jwt'
 import { test, expect } from '../helpers'
 import { writeZip } from '../../src/modules/packages/domain/zip'
 
@@ -156,24 +157,28 @@ test.describe('repository', () => {
     expect((await (await post({ op: 'refresh' })).json()).revoked).not.toContain(PAID)
   })
 
-  test('buying with the wallet issues a license once, reports a shortfall, and the buyer can download', async ({ admin }) => {
-    // The compiled fixture finishes the preceding vendor/client scenarios in
-    // seconds. They share the loopback IP's one-minute repository bucket with
-    // this buyer. Let that real window expire; keep the application's limits.
-    if (process.env.MOBOCOM_ISOLATED_FIXTURE === '1' && process.env.NODE_ENV === 'production') {
-      await new Promise(resolve => setTimeout(resolve, 60_000))
-    }
-    // The signed-in administrator plays the buyer. Their Toman wallet is topped up directly in the database.
+  test('buying with the wallet issues a license once, reports a shortfall, and the buyer can download', async ({ admin, playwright, baseURL }) => {
+    test.skip(process.env.MOBOCOM_ISOLATED_FIXTURE !== '1' || baseURL !== 'https://e2e.mobocom.test:3443' || !process.env.NEXTAUTH_SECRET, 'requires disposable compiled PostgreSQL fixture')
+    // Each run owns a customer and wallet; the shared administrator's account,
+    // balance and hourly buying budget are never used for this scenario.
     const db = new PrismaClient()
+    let userId = 0
+    let buyer: Awaited<ReturnType<typeof playwright.request.newContext>> | undefined
     try {
-      const user = await db.user.findUnique({ where: { email: String(process.env.E2E_ADMIN_EMAIL).toLowerCase() } })
-      expect(user).toBeTruthy()
-      await db.walletAccount.upsert({ where: { userId_currency: { userId: user!.id, currency: 'IRT' } }, create: { userId: user!.id, currency: 'IRT', balanceMinor: 100_000n }, update: { balanceMinor: 100_000n } })
+      const user = await db.user.create({ data: { email: `e2e-repo-buyer-${RUN}@example.invalid`, name: 'E2E buyer', passwordHash: 'fixture-only' } })
+      userId = user.id
+      await db.walletAccount.create({ data: { userId, currency: 'IRT', balanceMinor: 100_000n } })
+      const token = await encode({ secret: process.env.NEXTAUTH_SECRET!, token: { uid: String(userId), sub: String(userId), role: user.role, authAt: Date.now() } })
+      const address = Number.parseInt(RUN.slice(-6), 36)
+      buyer = await playwright.request.newContext({ baseURL, ignoreHTTPSErrors: true,
+        extraHTTPHeaders: { origin: baseURL!, 'x-forwarded-for': `10.129.${Math.floor(address / 250) % 250}.${address % 250 + 1}` },
+        storageState: { cookies: [{ name: '__Secure-next-auth.session-token', value: token, domain: new URL(baseURL!).hostname, path: '/', expires: -1, httpOnly: true, secure: true, sameSite: 'Lax' }], origins: [] },
+      })
       const expensive = await admin.post('/api/admin/repository', { data: { op: 'product.save', slug: `e2e-dear-${RUN}`, name: 'Dear pack', price: '900000000', active: true } })
       ids[`e2e-dear-${RUN}`] = (await expensive.json()).id
       await admin.post('/api/admin/repository/upload', { multipart: { productId: String(ids[`e2e-dear-${RUN}`]), changelog: 'x', file: { name: 'p.zip', mimeType: 'application/zip', buffer: zipOf(`e2e-dear-${RUN}`, '1.0.0') } } })
 
-      const buy = (productId: number, requestId: string) => admin.post('/api/repo/mine', { data: { op: 'buy', productId, requestId } })
+      const buy = (productId: number, requestId: string) => buyer!.post('/api/repo/mine', { data: { op: 'buy', productId, requestId } })
       const poor = await buy(ids[`e2e-dear-${RUN}`], 'req-dear-000001')
       expect(poor.status()).toBe(402)
       expect((await poor.json()).shortfall).toBeGreaterThan(0)
@@ -183,23 +188,35 @@ test.describe('repository', () => {
       const first = await buy(ids[PAID], 'req-paid-000001')
       expect(first.ok(), await first.text()).toBeTruthy()
       expect((await (await buy(ids[PAID], 'req-paid-000001')).json()).repeated, 'the same request is not charged twice').toBe(true)
-      const account = await db.walletAccount.findUnique({ where: { userId_currency: { userId: user!.id, currency: 'IRT' } } })
+      const account = await db.walletAccount.findUnique({ where: { userId_currency: { userId, currency: 'IRT' } } })
       expect(Number(account!.balanceMinor)).toBe(100_000 - 1500)
 
-      const mine = await (await admin.get('/api/repo/mine')).json()
+      const mine = await (await buyer.get('/api/repo/mine')).json()
       const bought = mine.licenses.find((l: { slug: string; paid: string }) => l.slug === PAID && l.paid)
       expect(bought.key).toMatch(/^MBC-/)
-      const zip = await admin.get(`/api/repo/mine/download?license=${bought.id}`)
+      const zip = await buyer.get(`/api/repo/mine/download?license=${bought.id}`)
       expect(zip.status()).toBe(200)
       expect(zip.headers()['content-type']).toBe('application/zip')
       expect((await zip.body()).subarray(0, 2).toString()).toBe('PK')
-      expect((await admin.get('/api/repo/mine/download?license=999999')).status()).toBe(404)
-      expect((await admin.post('/api/repo/mine', { data: { op: 'release-site', licenseId: 999999, site: 'x.example.com' } })).status(), "another person's license cannot be touched").toBe(404)
-    } finally { await db.$disconnect() }
+      expect((await buyer.get('/api/repo/mine/download?license=999999')).status()).toBe(404)
+      expect((await buyer.post('/api/repo/mine', { data: { op: 'release-site', licenseId: 999999, site: 'x.example.com' } })).status(), "another person's license cannot be touched").toBe(404)
+    } finally {
+      try {
+        if (userId) {
+          await db.repoLicense.deleteMany({ where: { userId, productId: { in: Object.values(ids) } } })
+          await db.walletTx.deleteMany({ where: { userId } })
+          await db.walletAccount.deleteMany({ where: { userId } })
+          await db.user.deleteMany({ where: { id: userId, email: `e2e-repo-buyer-${RUN}@example.invalid` } })
+        }
+      } finally { await buyer?.dispose(); await db.$disconnect() }
+    }
   })
 
   test('only administrators reach the management APIs and buyers must sign in', async ({ playwright, baseURL }) => {
-    const guest = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL! } })
+    const guest = await playwright.request.newContext({ baseURL, extraHTTPHeaders: {
+      origin: baseURL!,
+      ...(process.env.MOBOCOM_ISOLATED_FIXTURE === '1' ? { 'x-forwarded-for': '10.130.4.5' } : {}),
+    } })
     for (const path of ['/api/admin/repository', '/api/admin/repository/client']) expect([401, 403], path).toContain((await guest.get(path)).status())
     expect([401, 403]).toContain((await guest.post('/api/admin/repository', { data: { op: 'settings', enabled: true } })).status())
     expect([401, 403]).toContain((await guest.post('/api/admin/repository/upload', { multipart: { productId: '1', file: { name: 'x.zip', mimeType: 'application/zip', buffer: Buffer.from('x') } } })).status())

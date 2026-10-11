@@ -4,7 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { authSecret } from '@/platform/config/env'
 import { moduleGuard } from '@/extensions/server/modules'
-import { getRawToken } from '@/modules/identity/server/access'
+import { requireUser } from '@/modules/identity/server/access'
 import { RepoError } from '@/modules/repository/domain/repository'
 import {
   activateLicense, buyProduct, checkLicense, deactivateLicense, downloadForOwner, downloadRelease, getVendorConfig, licensesOf, publicCatalog, publicMeta, publicProduct, releaseSite,
@@ -14,7 +14,7 @@ import {
 
 const failure = (error: unknown) => { if (error instanceof RepoError) return err(error.message, error.status, error.meta); throw error }
 const ipHash = (req: NextRequest) => createHash('sha256').update(`${authSecret()}:repo:${clientIp(req.headers)}`).digest('hex').slice(0, 16)
-const userIdOf = async (req: NextRequest) => { const token = await getRawToken(req).catch(() => null); const id = Number(token?.uid); return Number.isSafeInteger(id) && id > 0 ? id : null }
+const userIdOf = async (req: NextRequest) => (await requireUser(req))?.id ?? null
 
 async function vendorGate(req: NextRequest, limit = 120) {
   const off = await moduleGuard('repository')
