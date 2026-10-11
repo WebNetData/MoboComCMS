@@ -411,7 +411,7 @@ test('Telegram placeholder detection only accepts auto-created local identities'
 test('Telegram placeholder merge keeps one canonical user and combines wallet ownership',async()=>{
   const users=new Map([
     [1,{id:1,email:'amir@example.com',name:'Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:null,telegramLinkedAt:null,walletBalance:5}],
-    [2,{id:2,email:'tg12345.0123456789abcdef@telegram.local',name:'Telegram Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:'12345',telegramLinkedAt:new Date(),walletBalance:10}],
+    [2,{id:2,email:'tg12345.0123456789abcdef@telegram.local',name:'Telegram Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:'12345',telegramLinkedAt:new Date(),walletBalance:10,profileData:'{}',playbackPrefs:'{}',smsAlerts:true,emailAlerts:true,pushAlerts:true,totpBackup:'[]',totpLastStep:0}],
   ])
   const wallets=[{id:22,userId:2,currency:'USD',balanceMinor:1000n}]
   const moved=[]
@@ -430,7 +430,7 @@ test('Telegram placeholder merge keeps one canonical user and combines wallet ow
   const tx={user,walletAccount,$queryRaw:async()=>[...users.keys()].map(id=>({id})),accessRestriction:{findMany:async()=>[],...table('accessRestriction')},repoLicense:table('repoLicense'),reseller:{findUnique:async()=>null},order:table('order'),subscription:table('subscription'),ticket:table('ticket'),ticketMessage:table('ticketMessage'),crmNote:table('crmNote'),post:table('post'),invoice:table('invoice'),payment:table('payment'),walletTx:table('walletTx'),apiKey:table('apiKey'),auditLog:table('auditLog')}
   const identity=load('src/modules/identity/telegram-account.ts',{
     'bcryptjs':{},
-    '@/platform/database/prisma':{db:{$transaction:fn=>fn(tx)}},
+    '@/platform/database/prisma':{db:{$transaction:fn=>fn(new Proxy(tx,{get(object,key){const value=object[key];if(typeof value==='function')return value;return value?{findFirst:async()=>null,...value}:{findFirst:async()=>null,findUnique:async()=>null}}}))}},
     '@/modules/notifications/server/telegram':{},
   })
   const result=await identity.attachTelegramToUser(1,{id:12345,first_name:'Amir',username:'amir_tg'})

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
+import { telegramMergeIsSafe, moveTelegramProfile } from '@/modules/identity/telegram-account/merge-safety'
 import { minorToNumber, toMinor } from '@/shared/money'
 import type { TelegramUser } from '@/modules/notifications/server/telegram'
 
@@ -134,7 +135,7 @@ async function mergeWallets(tx: any, source: { id: number; walletBalance: number
 /**
  * Attach a Telegram identity to an existing website account. If that Telegram
  * identity currently belongs to an auto-created Telegram placeholder, all
- * customer-owned data is moved to the website account atomically first.
+ * supported customer-owned data is moved atomically; unsupported data refuses the merge.
  */
 export async function attachTelegramToUser(targetUserId: number, tg: TelegramUser): Promise<TelegramAccountResult> {
   const telegramId = String(tg.id)
@@ -162,6 +163,9 @@ export async function attachTelegramToUser(targetUserId: number, tg: TelegramUse
       if (source.status !== 'ACTIVE' || await globalAuthenticationDenied(source.id, new Date(), tx)) {
         return { ok: false, code: 'DISABLED', message: 'حساب تلگرامی فعال نیست' } as const
       }
+      if (!await telegramMergeIsSafe(tx, source, target.id)) {
+        return { ok: false, code: 'UNSAFE_SOURCE', message: 'اطلاعات دو حساب قابل ادغام امن نیست؛ برای حفظ اطلاعات، با همان حساب تلگرام وارد شوید.' } as const
+      }
 
       mergedSource = source
       await mergeWallets(tx, source, target)
@@ -180,6 +184,7 @@ export async function attachTelegramToUser(targetUserId: number, tg: TelegramUse
       await tx.accessRestriction.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
       await tx.repoLicense.updateMany({ where: { userId: source.id }, data: { userId: target.id } })
       await tx.auditLog.updateMany({ where: { actorUserId: source.id }, data: { actorUserId: target.id } })
+      await moveTelegramProfile(tx, source.id, target.id)
 
       // Release the unique Telegram id before assigning it to the target.
       await tx.user.update({ where: { id: source.id }, data: { telegramId: null } })

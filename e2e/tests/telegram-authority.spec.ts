@@ -25,6 +25,8 @@ test('compiled Telegram account commands deny GLOBAL and preserve history on can
     for (const [key, value] of Object.entries(config)) await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
     const source = await db.user.create({ data: { email: `tg${tgId}.0123456789abcdef@telegram.local`, passwordHash: 'owned-fixture', name: `PRIVATE-${stamp}`, telegramId: tgId, lastLoginAt: new Date('2020-01-01'), walletBalance: 75 } }); users.push(source.id)
     const target = await db.user.create({ data: { email: `${stamp}-target@example.invalid`, passwordHash: 'owned-fixture' } }); users.push(target.id)
+    const username = `tg_${Date.now()}`
+    const profile = await db.userProfile.create({ data: { userId: source.id, username, bio: `kept-${stamp}`, privacy: '{"messages":"none"}', updatedAt: new Date('2021-02-03') } })
     await db.walletAccount.create({ data: { userId: source.id, currency: 'USD', balanceMinor: 7500n } })
     for (const key of [`telegram.locale.${tgId}`, `user.locale.${source.id}`]) await db.setting.create({ data: { key, value: 'fa' } })
     const from = { id: Number(tgId), first_name: 'incoming name', username: 'incoming_username' }
@@ -72,12 +74,22 @@ test('compiled Telegram account commands deny GLOBAL and preserve history on can
     await revoke(target.id, targetBlock.id)
     await db.accessRestriction.create({ data: { userId: source.id, scope: 'MODULE', moduleKey: 'forum', effectKey: 'forum.suspend', capabilities: '["forum.post"]', reason: stamp, expiresAt: new Date(Date.now() + 86400000) } })
     const history = await db.accessRestriction.findMany({ where: { userId: source.id }, orderBy: { id: 'asc' } })
+    const oldPublic = await guest.get(`/u/${username}`); expect(oldPublic.status()).toBe(200); expect(await oldPublic.text()).toContain(`kept-${stamp}`)
+    await db.userProfile.create({ data: { userId: target.id, username: `target_${Date.now()}` } })
+    const beforeCollision = await db.user.findMany({ where: { id: { in: users } }, orderBy: { id: 'asc' } })
+    expect((await send(message(`/start ${await ticket()}`))).status()).toBe(200)
+    expect(await db.user.findMany({ where: { id: { in: users } }, orderBy: { id: 'asc' } })).toEqual(beforeCollision)
+    expect(await db.userProfile.findUniqueOrThrow({ where: { username } })).toEqual(profile)
+    expect((await db.walletAccount.findUniqueOrThrow({ where: { userId_currency: { userId: source.id, currency: 'USD' } } })).balanceMinor).toBe(7500n)
+    await db.userProfile.delete({ where: { userId: target.id } })
     expect((await send(message(`/start ${await ticket()}`))).status()).toBe(200)
     expect(await db.user.findUnique({ where: { id: source.id } })).toBeNull()
     expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).telegramId).toBe(tgId)
     expect(await db.accessRestriction.findMany({ where: { id: { in: history.map(row => row.id) } }, orderBy: { id: 'asc' } })).toEqual(history.map(row => ({ ...row, userId: target.id })))
     expect((await db.walletAccount.findUniqueOrThrow({ where: { userId_currency: { userId: target.id, currency: 'USD' } } })).balanceMinor).toBe(7500n)
     expect(await db.walletAccount.count({ where: { userId: source.id } })).toBe(0)
+    expect(await db.userProfile.findUniqueOrThrow({ where: { username } })).toEqual({ ...profile, userId: target.id })
+    const keptPublic = await guest.get(`/u/${username}`); expect(keptPublic.status()).toBe(200); expect(await keptPublic.text()).toContain(`kept-${stamp}`)
   } finally {
     for (const context of contexts) await context.dispose()
     try {
@@ -85,6 +97,7 @@ test('compiled Telegram account commands deny GLOBAL and preserve history on can
       await db.accessRestriction.deleteMany({ where: { userId: { in: users } } })
       await db.auditLog.deleteMany({ where: { id: { in: auditIds } } })
       await db.walletAccount.deleteMany({ where: { userId: { in: users } } })
+      await db.userProfile.deleteMany({ where: { userId: { in: users } } })
       await db.setting.deleteMany({ where: { key: { in: [`telegram.locale.${tgId}`, ...users.map(id => `user.locale.${id}`), ...tickets.map(value => `telegram.link.${crypto.createHash('sha256').update(value).digest('hex')}`)] } } })
       await db.user.deleteMany({ where: { id: { in: users } } })
     } finally { await new Promise<void>(resolve => server.close(() => resolve())); await db.$disconnect() }
