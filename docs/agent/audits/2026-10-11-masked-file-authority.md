@@ -1,0 +1,27 @@
+# Masked file account authority — 2026-10-11
+
+## Source-confirmed gap and existing owner
+
+`downloads/server/mask.ts` authenticated/encrypted an expiring URL but carried no human linkage. Once a media owner had issued `/dl/<token>/<name>`, `serveMasked` could serve a cleaned copy or fetch the origin after the original viewer became banned or GLOBAL-restricted. Existing media/paywall/VIP/page-token gates protected issuance; they did not re-run on the masked bearer path.
+
+The existing format now has one optional encrypted positive integer account claim `a`. Existing media link, Music and watch issuers pass their authorized viewer's canonical UserId. GET/HEAD, Range and sibling requests resolve current Identity before clean-cache lookup or upstream fetch. Current denial returns423/no-store; storage errors propagate without serving bytes. Bound normal and cleaned responses use private/no-store. Password reset alone does not revoke this long-lived grant. Invalid present claims reject the token instead of silently turning it into a guest grant. No new token database, identity resolver, setting, URL, presentation or migration.
+
+## Compatibility and limitations
+
+The existing key derivation/AES-GCM/path/name/range contract remains. Legacy and guest encrypted tokens without `a` remain bearer grants until their embedded TTL; no owner can be retroactively inferred from an email/cookie/URL. An old binary can read the additional field but ignores its policy: deploy the matching binary to every serving instance before claiming account revocation coverage. No mixed-instance semantic guarantee.
+
+Direct/excluded origins, embed URLs, cached/downloaded bytes and an already-running response are not retroactively withdrawn. Possession still authorizes a healthy owner's expiring link, so no new cookie requirement breaks download managers/HLS. These checks cover standing/GLOBAL, not a new resource-specific entitlement or module lifecycle evaluator. Overall restriction maturity and :3000 deployment remain PARTIAL. Existing Admin download settings control masking; no parallel switch is introduced.
+
+## Actually executed evidence
+
+Owned disposable PostgreSQL/Node22.23.3/Prisma5.22 fixture, uid1000/no `.env`; actual user production database, source and :3000 process untouched.
+
+- `node scripts/run-pg-checks.cjs masked-file-authority media-tracks player-subtitles repository-license-owner global-authentication`: all five pass/native0, log `restrictions-1791701887474-17952.log`. New test loads actual mask/Identity/three media issuers with real users, GLOBAL records, film/media/music rows and encrypted round trips. Only viewer/settings/paywall/upstream/clean boundaries are doubles. Covers current standing, ADMIN non-exemption, missing account, overlap/revoke/future/expiry/module isolation, password-independent token, no fetch/clean on denial/storage failure, malformed/tampered/expired tokens, legacy/guest, GET/HEAD/range/sibling, clean-cache no-store and restore. Owned fixture cleanup runs in finally.
+- Six deliberate fixture-only failures detected: serving bypass `1791701871093-34304`, missing issued owner `1791701871823-29860`, bound response cache regression `1791701872708-22740`, cleaned response cache regression `1791701873463-29912`, malformed-owner acceptance `1791701874241-3608`, Music issuer loses owner `1791701875132-33560`. Every source restored in finally before the passing five-owner PG batch. This is scoped regression evidence, not exhaustive mutation coverage.
+- `npm run check`: native0/638 tests and type/architecture/security gates, log `restrictions-1791701591978-45096.log`.
+- `npm run build`: native0, log `restrictions-1791701591978-30300.log`; existing autoprefixer start/end warnings remain.
+- Final compiled HTTPS Playwright: **21 pass, two explicit fixture skips, zero failures/retries**, 39.8s, log `restrictions-1791701985701-38708.log`. New test uses actual signed cookies, media/Music API-issued grants, a controlled local HTTP origin and genuine byte/range/HEAD streaming. A valid locally generated PCM WAV plays through the actual page/player (`!paused`, advancing time, no audio error); then grants are denied on GLOBAL/standing without upstream hits and restored. Legacy/guest and relative sibling behavior also execute. Admin Control Plane config is restored and owned rows/origin cleaned. Existing imports, account, forms/ads, Repository wallet/revocation and security cases pass.
+- The two unchanged Music tests skip because the suite has no general seeded track and no hardcoded track1. They are not counted as passing playback evidence; the new owned-track browser flow proves actual playback directly. Earlier compiled run `restrictions-1791701887564-21220.log` passed21/two skips/25.2s before adding valid WAV playback; it proved HTTP streaming only.
+- Final `npm run typecheck` after that test-only enhancement: native0, log `restrictions-1791701985613-33288.log`. Application source is unchanged from the passing build. Scoped whitespace diff check passed.
+
+No genuine failures were hidden or tests counted from skips. No GitHub Actions, push, PR, merge, source rollout or production certification. Goal remains active: assess remaining account recovery/context/resource consumers, complete authorized Global Admin history/issue/revoke through canonical staff/audit guards, then lifecycle/domain roadmap and consolidated rollout/release evidence.
