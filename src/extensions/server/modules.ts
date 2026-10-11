@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import { NextResponse } from 'next/server'
 import { extensionCatalog } from '@/extensions/generated/catalog'
-import { getExtensionState, getPublicExtensionRuntime } from '@/extensions/server/state'
+import { getExtensionState, getPublicExtensionRuntime, type StateReader } from '@/extensions/server/state'
 
 /**
  * Feature modules (VPN, store, journal, page builder …) ship with Core and are
@@ -14,7 +14,11 @@ export const getModuleStates = cache(async (): Promise<Record<string, boolean>> 
   return Object.fromEntries(extensionCatalog.filter((m) => m.kind === 'module').map((m) => [m.id, runtime?.[m.id]?.enabled === true]))
 })
 
-export async function isModuleEnabled(id: string): Promise<boolean> {
+export async function isModuleEnabled(id: string, reader?: StateReader): Promise<boolean> {
+  if (reader) {
+    if (!extensionCatalog.some(module => module.kind === 'module' && module.id === id)) return true
+    return (await getPublicExtensionRuntime(reader))[id]?.enabled === true
+  }
   const states = await getModuleStates()
   return states[id] !== false
 }
@@ -25,8 +29,8 @@ export async function requireModule(id: string): Promise<void> {
 }
 
 /** API routes: returns a 404 response while the module is off, otherwise null. */
-export async function moduleGuard(id: string): Promise<NextResponse | null> {
-  return await isModuleEnabled(id) ? null : NextResponse.json({ error: 'This feature is disabled', module: id }, { status: 404 })
+export async function moduleGuard(id: string, reader?: StateReader): Promise<NextResponse | null> {
+  return await isModuleEnabled(id, reader) ? null : NextResponse.json({ error: 'This feature is disabled', module: id }, { status: 404 })
 }
 
 /** API route files: the handler answers only while the module is on (404 otherwise). */

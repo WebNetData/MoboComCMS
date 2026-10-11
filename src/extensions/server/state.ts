@@ -6,7 +6,7 @@ import type { ExtensionManifest, ExtensionPublicState, ExtensionSettingDefinitio
 import { logEvent } from '@/platform/observability/logger'
 
 const stateKey = (id: string) => `extension.${id}.state.v1`
-type StateReader = Pick<Prisma.TransactionClient, 'setting'>
+export type StateReader = Pick<Prisma.TransactionClient, 'setting'>
 export interface ExtensionStoredState { enabled: boolean; settings: Record<string, unknown> }
 
 function defaults(manifest: ExtensionManifest, legacyEnabled?: boolean): ExtensionStoredState {
@@ -134,10 +134,10 @@ async function assertDependencies(manifest: ExtensionManifest, enabling: boolean
   }
 }
 
-export async function getPublicExtensionRuntime(): Promise<Record<string, ExtensionPublicState>> {
+export async function getPublicExtensionRuntime(reader: StateReader = db): Promise<Record<string, ExtensionPublicState>> {
   const mirrorKeys = extensionCatalog.flatMap(m => (m.stateSetting ? [m.stateSetting] : []))
   let rows: { key: string; value: string }[] = [], available = true
-  try { rows = await db.setting.findMany({ where: { key: { in: [...extensionCatalog.map(m => stateKey(m.id)), ...mirrorKeys, 'site.config.v1'] } } }) }
+  try { rows = await reader.setting.findMany({ where: { key: { in: [...extensionCatalog.map(m => stateKey(m.id)), ...mirrorKeys, 'site.config.v1'] } } }) }
   catch (error) {
     available = false
     logEvent('warn', 'extensions.runtime_unavailable', { errorName: error instanceof Error ? error.name : 'Unknown' })

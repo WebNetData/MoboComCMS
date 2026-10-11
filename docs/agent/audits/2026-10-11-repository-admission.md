@@ -1,0 +1,18 @@
+# Download-time repository module and connection checks
+
+## Confirmed gaps and correction
+
+Actual faa1fc3 post-download disable200vs404 .mobocom/restrictions-1791739902054-28112.log; disconnect200vs409 .mobocom/restrictions-1791739903066-39156.log; changed Ed25519 pinned key200vs409 .mobocom/restrictions-1791739904070-38896.log. Initial new fixture syntax failures are not runtime findings; syntax was corrected before these meaningful native assertions. Native catalog now includes the actual Repository manifest/registry entry.
+
+StateReader was already used by canonical extension state; export and forward that reader to the existing public projection, preserving defaults/strict fail-closed/dependency/legacy/mirror logic. moduleGuard/isModuleEnabled optionally use this same reader and bypass cached admission only for that command. Existing default API/page behavior and unknown-id fallback retained. Existing install commit checks current module and parsed current connection URL/key/timestamp, using the same tx. No successful package/index/theme/receipt/audit survives rejection. No nested transaction/cloud calls in SQL.
+
+## Executed evidence
+
+- PG11 current extension state/integrity/public availability, all package commands, authentication/licensing and install .mobocom/restrictions-1791740177122-5864.log; one connection .mobocom/restrictions-1791740089579-2536.log, native0. Native repository fixture deliberately memoizes only module request-cache projection to model initial admission; current transaction reader bypasses it. Decoder/cache/updater/network response boundaries remain fixture doubles; real registry manifest, Identity/module/Repository/package/audit/SQL and Ed25519 signatures. Actual overlapping first receipt creation remains covered in PG11.
+- Three restored safeguards: cached-module-admission .mobocom/restrictions-1791740174201-36200.log; captured-connection .mobocom/restrictions-1791740175074-27236.log; unchecked-key-change .mobocom/restrictions-1791740175948-9504.log. Removing tx module reader reuses memoized initial true and returns200; captured connection and skipped key validation also produce the intended200vs409 assertions.
+- Check639/TypeScript native0 .mobocom/restrictions-1791740524542-25412.log; build82 native0 .mobocom/restrictions-1791740640170-31488.log; compiled HTTPS17/zero retry native0 .mobocom/restrictions-1791740861283-31896.log. Three real loopback HTTP download responses paused after initial signed-cookie admission; direct owned DB changes disable/disconnect/replace key before server releases bytes. Actual API404/409, exact receipt/index retention and no package/success audit. Server sockets/promises closed, request-id-scoped audits removed; canonical disconnect invalidates Settings cache before original config/module/receipt/index restoration. Existing source/editor, module disable/Core availability/reactivation, Admin extension state, free/paid/update/license and Origin cases retained. No concurrent fixture mutation during final gates.
+- Application/React/CSS visual code unchanged; no new React Doctor/a11y/design claim, no schema migration or extra identity/module/settings system. Root app3000/owner files preserved.
+
+## Remaining boundaries
+
+Current snapshot cannot fence every later update. Paid local certificate/key/site/updatesUntil changes while downloading, license map races/provider effect recovery, other connect/activate/deactivate/vendor commands, dependency/version operations and apply/Git/FS compensation remain separate. Default caches/public outage behavior and unknown IDs remain existing contracts, not newly certified broadly. No hosted Actions/push/PR/merge/deploy/user rollout or production readiness promotion.

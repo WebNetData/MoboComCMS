@@ -7,6 +7,7 @@ import { currentVersion } from '@/modules/updater/server/service'
 import { installPackage, loadPackage, setPackageEnabled, PackageAuthorityError, type PackageCommandContext } from '@/modules/packages/server/store'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { invalidate } from '@/platform/cache/kv'
+import { moduleGuard } from '@/extensions/server/modules'
 import { PackageError } from '@/modules/packages/domain/format'
 import {
   RepoError, certificateProblem, compareVersions, coreSatisfies, isCertificate, normalizeCatalog, normalizeLicenseKey, normalizeSiteHost, safeRepositoryUrl,
@@ -226,6 +227,12 @@ export async function installFromRepository(slug: string, actor: string, context
   if (sha256(r.buffer) !== latest.sha256 || r.buffer.length !== latest.size) throw new RepoError('بستهٔ دریافتی با امضای مخزن نمی‌خواند؛ نصب لغو شد', 502)
   try {
     const { pkg, upgraded } = await installPackage(r.buffer, actor, context, async (tx, pkg, _upgraded, current) => {
+      if (await moduleGuard('repository', tx)) throw new RepoError('ماژول مخزن غیرفعال شده است', 404, { module: 'repository' })
+      const connection = await tx.setting.findUnique({ where: { key: CONFIG_KEY } })
+      try {
+        const latestConfig = connection ? JSON.parse(connection.value) : null
+        if (!latestConfig || latestConfig.url !== config.url || latestConfig.publicKey !== config.publicKey || String(latestConfig.connectedAt || '') !== config.connectedAt) throw new Error('connection changed')
+      } catch { throw new RepoError('اتصال مخزن هنگام دریافت بسته تغییر کرده است؛ دوباره تلاش کنید', 409) }
       // Signed bytes, rather than editable catalog metadata, decide the installed identity and core requirement.
       if (pkg.manifest.id !== slug || pkg.manifest.version !== latest.version || pkg.manifest.runtime !== latest.runtime || (pkg.manifest.kind === 'theme') !== (product.kind === 'THEME')) throw new RepoError('بستهٔ امضاشده با محصول و نسخهٔ انتخاب‌شده مطابقت ندارد', 502)
       if (!coreSatisfies(pkg.manifest.requiresCore || '', currentVersion())) throw new RepoError('بستهٔ امضاشده با نسخهٔ فعلی هسته سازگار نیست', 409)
