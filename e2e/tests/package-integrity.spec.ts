@@ -39,6 +39,10 @@ test('uploaded package keeps edits, settings and activation through the real adm
     expect((await (await admin.get(`/api/admin/packages/${id}?file=b.txt`)).json()).file.content).toBe('saved-through-api')
     await page.reload()
     await expect(editor).toHaveValue('saved-through-browser')
+    expect((await admin.delete(`/api/admin/packages/${id}/files?path=b.txt`)).status()).toBe(200)
+    expect((await (await admin.get(`/api/admin/packages/${id}?file=b.txt`)).json()).file.content).toBeNull()
+    expect((await admin.post(`/api/admin/packages/${id}/revisions`, { data: { index: 0 } })).status()).toBe(200)
+    expect((await (await admin.get(`/api/admin/packages/${id}?file=b.txt`)).json()).file.content).toBe('saved-through-api')
     expect(errors).toEqual([])
   } finally {
     await context.close()

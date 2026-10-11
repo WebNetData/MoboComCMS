@@ -23,6 +23,7 @@ const CHECKS = [
   'package-integrity',
   'package-command',
   'package-authority',
+  'package-crud',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

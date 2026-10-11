@@ -46,7 +46,9 @@ import { loadPackageFrom, mustLoad, packageTransaction, readIndex, rowKey, saveP
 import { syncSiteTheme } from './store/themes'
 import { writeFile, deleteFile } from './store/editor'
 import { applyEnabled, applySettings } from './store/fields'
-export { patchPackage, PackageAuthorityError, type PackagePatch } from './store/patch'
+export { patchPackage, type PackagePatch } from './store/patch'
+export { PackageAuthorityError, type PackageCommandContext } from './store/authority'
+import { packageCommandActor, auditPackageCommand, type PackageCommandContext } from './store/authority'
 
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }
@@ -74,14 +76,14 @@ export async function activateTheme(id: string) {
 
 // ---- install / update ----------------------------------------------------------
 
-export async function installPackage(upload: Buffer, actor: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+export async function installPackage(upload: Buffer, actor: string, context?: PackageCommandContext): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (upload.length > PACKAGE_LIMITS.uploadBytes) throw new PackageError(`the file is larger than ${PACKAGE_LIMITS.uploadBytes / 1024 / 1024} MB`)
   let entries: Map<string, Buffer>
   try { entries = normalizeEntries(readZip(upload, PACKAGE_LIMITS)) } catch (error) { throw new PackageError(error instanceof ZipError ? error.message : 'the file is not a valid zip archive') }
-  return installEntries(entries, actor)
+  return installEntries(entries, actor, undefined, context)
 }
 
-export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (entries.size > PACKAGE_LIMITS.maxEntries || [...entries.values()].reduce((sum, data) => sum + data.length, 0) > PACKAGE_LIMITS.maxTotalBytes) throw new PackageError('the package is too large')
   const manifestSource = entries.get('manifest.json')
   if (!manifestSource) throw new PackageError('manifest.json was not found at the root of the zip')
@@ -101,12 +103,14 @@ export async function installEntries(entries: Map<string, Buffer>, actor: string
   const overridesBuiltin = manifest.runtime === 'code' && builtin === manifest.kind
   if (reservedIds().has(manifest.id) && !overridesBuiltin) throw new PackageError(`"${manifest.id}" is the id of a built-in extension or theme; choose another id`)
   return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const author = current?.email ?? actor
     const previous = await loadPackageFrom(manifest.id, tx, true)
     if (previous && previous.manifest.kind !== manifest.kind) throw new PackageError(`"${manifest.id}" is already installed as a ${previous.manifest.kind}`)
     const now = new Date().toISOString()
     const revisions: PackageRevision[] = previous
-      ? [{ at: now, path: '*', content: null, actor, note: note || `upgrade ${previous.manifest.version} → ${manifest.version}` }, ...previous.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
-      : [{ at: now, path: '*', content: null, actor, note: note || `install ${manifest.version}` }]
+      ? [{ at: now, path: '*', content: null, actor: author, note: note || `upgrade ${previous.manifest.version} → ${manifest.version}` }, ...previous.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
+      : [{ at: now, path: '*', content: null, actor: author, note: note || `install ${manifest.version}` }]
     const pkg: StoredPackage = {
       manifest, files,
       enabled: manifest.runtime === 'code' ? false : previous?.enabled ?? false,
@@ -116,6 +120,7 @@ export async function installEntries(entries: Map<string, Buffer>, actor: string
     }
     if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
     await savePackage(tx, pkg)
+    await auditPackageCommand(tx, context, current, previous ? 'upgrade' : 'install', manifest.id, { version: manifest.version, kind: manifest.kind, runtime: manifest.runtime })
     return { pkg, upgraded: !!previous }
   })
 }
@@ -159,13 +164,15 @@ export async function savePackageSettings(id: string, input: Record<string, unkn
   })
 }
 
-export async function deletePackage(id: string) {
+export async function deletePackage(id: string, context?: PackageCommandContext) {
   return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
     // Code packages never entered Site Studio; applied source stays in the repository.
     if (pkg.manifest.kind === 'theme' && pkg.manifest.runtime === 'declarative') await syncSiteTheme(tx, null, { removeId: id })
     await tx.setting.deleteMany({ where: { key: rowKey(id) } })
     await writeIndex(tx, ids => ids.delete(id))
+    await auditPackageCommand(tx, context, current, 'delete', id)
   })
 }
 
@@ -178,25 +185,38 @@ export async function exportPackage(id: string) {
 // ---- editor ------------------------------------------------------------------
 
 /** Edit only the selected field of the current aggregate, retaining concurrent edits. */
-export async function writePackageFile(id: string, path: string, content: string, actor: string) {
-  return packageTransaction(async tx => writeFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, content, actor))
+export async function writePackageFile(id: string, path: string, content: string, actor: string, context?: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = await writeFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, content, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.write', id, { path, bytes: content.length })
+    return pkg
+  })
 }
 
-export async function deletePackageFile(id: string, path: string, actor: string) {
-  return packageTransaction(async tx => deleteFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, actor))
+export async function deletePackageFile(id: string, path: string, actor: string, context?: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = await deleteFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.delete', id, { path })
+    return pkg
+  })
 }
 
 /** Keep the originally selected revision; a concurrent prepend must not change the selection. */
-export async function restoreRevision(id: string, index: number, actor: string) {
+export async function restoreRevision(id: string, index: number, actor: string, context?: PackageCommandContext) {
   if (!Number.isInteger(index) || index < 0) throw new PackageError('this revision cannot be restored')
   let selected: string | undefined
   return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
     const pkg = mustLoad(await loadPackageFrom(id, tx, true), id), revision = pkg.revisions[index]
     if (!revision || revision.path === '*') throw new PackageError('this revision cannot be restored')
     const fingerprint = JSON.stringify(revision)
     if (selected !== undefined && selected !== fingerprint) throw new PackageError('revision history changed; reload it before restoring')
     selected = fingerprint
-    return revision.content === null ? deleteFile(tx, pkg, revision.path, actor) : writeFile(tx, pkg, revision.path, revision.content, actor)
+    const restored = revision.content === null ? await deleteFile(tx, pkg, revision.path, current?.email ?? actor) : await writeFile(tx, pkg, revision.path, revision.content, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.restore', id, { index })
+    return restored
   })
 }
 

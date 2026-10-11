@@ -68,8 +68,7 @@ export async function uploadRoute(req: NextRequest) {
   const actor = await guard(req)
   if (!actor) return err('forbidden', 403)
   try {
-    const { pkg, upgraded } = await installPackage(await readUpload(req), actor.email)
-    await audit(req, actor, upgraded ? 'upgrade' : 'install', pkg.manifest.id, { version: pkg.manifest.version, kind: pkg.manifest.kind, runtime: pkg.manifest.runtime })
+    const { pkg, upgraded } = await installPackage(await readUpload(req), actor.email, { req, actor })
     return ok({ package: summarize(pkg), upgraded })
   } catch (error) { return failure(error) }
 }
@@ -113,8 +112,7 @@ export async function deleteRoute(req: NextRequest, { params }: Ctx) {
   if (!actor) return err('forbidden', 403)
   const { id } = await params
   try {
-    await deletePackage(id)
-    await audit(req, actor, 'delete', id)
+    await deletePackage(id, { req, actor })
     return ok({ deleted: true })
   } catch (error) { return failure(error) }
 }
@@ -136,8 +134,7 @@ export async function putFileRoute(req: NextRequest, { params }: Ctx) {
   const body = await req.json().catch(() => null)
   if (typeof body?.path !== 'string' || typeof body?.content !== 'string') return err('path and content are required')
   try {
-    const pkg = await writePackageFile(id, body.path, body.content, actor.email)
-    await audit(req, actor, 'file.write', id, { path: body.path, bytes: body.content.length })
+    const pkg = await writePackageFile(id, body.path, body.content, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
@@ -148,8 +145,7 @@ export async function deleteFileRoute(req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const path = req.nextUrl.searchParams.get('path') || ''
   try {
-    const pkg = await deletePackageFile(id, path, actor.email)
-    await audit(req, actor, 'file.delete', id, { path })
+    const pkg = await deletePackageFile(id, path, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
@@ -162,8 +158,7 @@ export async function restoreRoute(req: NextRequest, { params }: Ctx) {
   const body = await req.json().catch(() => null)
   if (!Number.isInteger(body?.index) || body.index < 0) return err('revision index is required')
   try {
-    const pkg = await restoreRevision(id, body.index, actor.email)
-    await audit(req, actor, 'file.restore', id, { index: body.index })
+    const pkg = await restoreRevision(id, body.index, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
