@@ -39,5 +39,9 @@ export async function saveProduct(input: Record<string, unknown>, id?: number, c
 }
 
 export async function setReleasePublished(id: number, published: boolean, context?: VendorLicenseContext) {
-  await commitVendorCommand(context, async tx => { await tx.repoRelease.update({ where: { id }, data: { published } }) }, () => ({ action: 'release.publish', targetId: id, metadata: { published } }))
+  await commitVendorCommand(context, async tx => {
+    const current = await tx.repoRelease.findUnique({ where: { id } })
+    if (current && current.storageState !== 'READY') throw new RepoError('نسخه هنوز آمادهٔ انتشار نیست', 409)
+    await tx.repoRelease.update({ where: { id }, data: { published } })
+  }, () => ({ action: 'release.publish', targetId: id, metadata: { published } }))
 }

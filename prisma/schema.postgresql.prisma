@@ -3669,10 +3669,13 @@ model RepoRelease {
   requiresCore String      @default("")
   runtime      String      @default("declarative") // declarative | code
   published    Boolean     @default(true)
+  storageState String      @default("READY") // READY | STAGING; a staged upload never publishes.
+  uploadTokenHash String? // private owner/fencing token, cleared on finalization
   createdAt    DateTime    @default(now())
   product      RepoProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, version])
+  @@index([fileId])
   @@index([productId, createdAt])
 }
 

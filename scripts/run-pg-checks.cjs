@@ -35,6 +35,8 @@ const CHECKS = [
   'repository-vendor-admin',
   'repository-vendor-files',
   'repository-archive-diagnostics',
+  'repository-upload-reservations',
+  'repository-upload-migration',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

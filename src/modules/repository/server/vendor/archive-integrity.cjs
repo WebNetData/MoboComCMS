@@ -59,7 +59,7 @@ async function repositoryArchiveIssues(db, options = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 500 || !Number.isSafeInteger(afterReleaseId) || afterReleaseId < 0 || afterReleaseId > 2147483647 || (afterFileId && !ARCHIVE_NAME.test(afterFileId))) throw Error('invalid Repository archive cursor or limit')
   const directory = path.resolve(options.directory || path.join(process.cwd(), 'storage', 'repository'))
   /** @type {{unreferenced:ArchiveIssue[],missing:ArchiveIssue[],unsafe:ArchiveIssue[],mismatch:ArchiveIssue[]}} */ const groups = { unreferenced: [], missing: [], unsafe: [], mismatch: [] }
-  const rows = await db.repoRelease.findMany({ where: { id: { gt: afterReleaseId } }, orderBy: { id: 'asc' }, take: limit + 1, select: { id: true, productId: true, fileId: true, size: true, sha256: true } })
+  const rows = await db.repoRelease.findMany({ where: { id: { gt: afterReleaseId } }, orderBy: { id: 'asc' }, take: limit + 1, select: { id: true, productId: true, fileId: true, size: true, sha256: true, storageState: true } })
   const releases = rows.slice(0, limit), releaseCapped = rows.length > limit
   let directoryState = 'ready', page = { names: /** @type {string[]} */ ([]), capped: false, visited: 0, ignored: 0 }
   try {
@@ -74,6 +74,7 @@ async function repositoryArchiveIssues(db, options = {}) {
     return /** @type {FileObservation} */ (observations.get(fileId))
   }
   for (const release of releases) {
+    if (release.storageState !== 'READY') { groups.unsafe.push({ releaseId: release.id, productId: release.productId, reason: release.storageState === 'STAGING' ? 'upload-in-progress' : 'unknown-storage-state' }); continue }
     const file = ARCHIVE_NAME.test(release.fileId) ? await observe(release.fileId) : { state: 'invalid-file-id' }
     const item = { releaseId: release.id, productId: release.productId, ...(ARCHIVE_NAME.test(release.fileId) ? { fileId: release.fileId } : {}), reason: file.state }
     if (file.state === 'missing' || file.state === 'missing-directory') groups.missing.push(item)

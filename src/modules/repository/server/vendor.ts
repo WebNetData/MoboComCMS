@@ -35,7 +35,7 @@ const releaseView = (r: { id: number; version: string; sha256: string; size: num
 })
 
 export async function listProducts() {
-  const rows = await db.repoProduct.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], include: { releases: { orderBy: { createdAt: 'desc' } }, _count: { select: { licenses: true } } } })
+  const rows = await db.repoProduct.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], include: { releases: { where: { storageState: 'READY' }, orderBy: { createdAt: 'desc' } }, _count: { select: { licenses: true } } } })
   return rows.map((p) => ({
     id: p.id, slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, description: p.description, icon: p.icon, cover: p.cover, author: p.author, category: p.category,
     price: p.priceMinor.toString(), priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), siteLimit: p.siteLimit, supportDays: p.supportDays, active: p.active, featured: p.featured,
@@ -129,7 +129,7 @@ export async function publicCatalog(filter: { kind?: string; q?: string } = {}) 
   const rows = await db.repoProduct.findMany({
     where: { active: true, ...(filter.kind === 'PLUGIN' || filter.kind === 'THEME' ? { kind: filter.kind } : {}) },
     orderBy: [{ featured: 'desc' }, { downloads: 'desc' }, { updatedAt: 'desc' }], take: 300,
-    include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 1 } },
   })
   const products = []
   for (const p of rows) {
@@ -150,7 +150,7 @@ export async function publicMeta() {
 }
 
 export async function publicProduct(slug: string) {
-  const p = await db.repoProduct.findFirst({ where: { slug, active: true }, include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 10 } } })
+  const p = await db.repoProduct.findFirst({ where: { slug, active: true }, include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 10 } } })
   if (!p) return null
   return {
     id: p.id, slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, description: p.description, icon: p.icon, cover: p.cover, author: p.author, category: p.category,
@@ -212,7 +212,7 @@ export async function deactivateLicense(input: { key: unknown; slug: string; sit
 export async function downloadRelease(input: { slug: string; version: string; key?: unknown; site?: unknown }) {
   const product = await db.repoProduct.findFirst({ where: { slug: input.slug, active: true } })
   if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  const release = await db.repoRelease.findFirst({ where: { productId: product.id, version: input.version, published: true } })
+  const release = await db.repoRelease.findFirst({ where: { productId: product.id, version: input.version, published: true, storageState: 'READY' } })
   if (!release) throw new RepoError('نسخه پیدا نشد', 404)
   if (product.priceMinor > 0n) {
     const site = normalizeSiteHost(input.site)
@@ -232,7 +232,7 @@ export async function downloadRelease(input: { slug: string; version: string; ke
 export async function downloadForOwner(userId: number, licenseId: number, version?: string) {
   const license = await db.repoLicense.findFirst({ where: { id: licenseId, userId }, include: { product: true } })
   if (!license || license.status !== 'ACTIVE') throw new RepoError('لایسنس پیدا نشد یا باطل است', 404)
-  const release = await db.repoRelease.findFirst({ where: { productId: license.productId, published: true, ...(version ? { version } : {}) }, orderBy: { createdAt: 'desc' } })
+  const release = await db.repoRelease.findFirst({ where: { productId: license.productId, published: true, storageState: 'READY', ...(version ? { version } : {}) }, orderBy: { createdAt: 'desc' } })
   if (!release || !releaseAllowed(release.createdAt, license)) throw new RepoError('نسخه‌ای در دورهٔ لایسنس شما موجود نیست', 404)
   const buffer = await readReleaseFile(release.fileId)
   if (!buffer) throw new RepoError('فایل نسخه در دسترس نیست', 500)
@@ -246,7 +246,7 @@ export async function publicListing(filter: { kind?: string; q?: string } = {}) 
   const rows = await db.repoProduct.findMany({
     where: { active: true, ...(filter.kind === 'PLUGIN' || filter.kind === 'THEME' ? { kind: filter.kind } : {}) },
     orderBy: [{ featured: 'desc' }, { downloads: 'desc' }, { updatedAt: 'desc' }], take: 200,
-    include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 1, select: { version: true } } },
+    include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 1, select: { version: true } } },
   })
   return rows.filter((p) => p.releases.length && (!q || `${p.name} ${p.summary} ${p.slug} ${p.category}`.toLowerCase().includes(q))).map((p) => ({
     slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, icon: p.icon, author: p.author, category: p.category, free: p.priceMinor === 0n, priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), version: p.releases[0].version, featured: p.featured,
