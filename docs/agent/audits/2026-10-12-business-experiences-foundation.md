@@ -1,0 +1,11 @@
+# External business experience section — first foundation
+
+Owner requests Trustpilot-like experiences of buying from / being treated by other websites. Fresh branch `feat/business-experiences-2026-10-12` from merged main `229cec503a20874687efbe98d343690dbc1fa98f`; deployment remains the owner's task. Existing review/public-card/UserId/moderation/Control Plane owners are reused according to [spec](../../specs/business-experiences/SPEC.md).
+
+Inspected canonical reviews support only software/game/title/album/track; existing ItemReview/Score/Helpful/Stat and current review moderation are present. External business profiles/experience metadata are missing. Existing pending-star aggregation is intentional for content, but unsuitable for moderated public business reputation; extend only business behavior, preserve other content. Existing PURCHASE badges depend on MoboCom records and cannot be inferred for external websites.
+
+Implemented only domain normalization: public DNS/URL validation, www/case/trailing-dot domain identity, IDN handling, no website fetching, credentials/schemes/ports/IP/local/invalid DNS refusal; meaningful existing review text/rating validation, optional real calendar/past date and no accepted client badge property. No business service, database migration, public/API route, module registration, UI or verified-purchase control is enabled yet.
+
+Actual Linux/non-root/no-env tests14 passed `.mobocom/restrictions-1791808277410-38684.log`; includes two new domain scenarios alongside existing engagement regression checks. Architecture native0 `.mobocom/restrictions-1791808303978-6412.log`; TypeScript native0 `.mobocom/restrictions-1791808304887-34164.log`; diff check passed. No PostgreSQL business behavior, browser/Doctor/a11y, production build or Actions claim for this foundation.
+
+Next coherent slice: additive business profile schema/manifest/section permission and maintenance registration, same content item registry, current authorized/audited Admin commands, existing shared review projection/write with approved-only aggregate, bounded public directory/profile and real connected/browser checks. Suggestions/representative/replies/private proof follow the same spec. Do not duplicate canonical review or identity services.

@@ -21,10 +21,27 @@ const fa = load('src/shared/text/persian')
 const items = load('src/modules/content/domain/items')
 const dl = load('src/modules/downloads/domain/downloads')
 const rv = load('src/modules/reviews/domain/reviews')
+const businesses = load('src/modules/businesses/domain/businesses')
 const dims = load('src/modules/reviews/domain/dimensions')
 const social = load('src/modules/social/domain/social')
 const an = load('src/modules/analytics/domain/analytics')
 const cr = load('src/modules/copyright/domain/copyright')
+
+test('external business identities converge without fetching arbitrary sites', () => {
+  assert.deepEqual(businesses.normalizeBusinessWebsite('HTTPS://WWW.Example.COM./orders?token=private'), { domain: 'example.com', website: 'https://www.example.com/' })
+  assert.equal(businesses.normalizeBusinessWebsite('example.com').domain, 'example.com')
+  assert.ok(businesses.normalizeBusinessWebsite('https://مثال.com').domain.startsWith('xn--'))
+  for (const website of ['https://user:password@example.com', 'javascript://example.com', 'file://example.com', 'https://127.0.0.1', 'https://[::1]', 'localhost', 'https://shop.local', 'https://example.com:8443', 'https://-bad.example.com', 'https://exa mple.com', 'https://example.com\\@private.local']) assert.throws(() => businesses.normalizeBusinessWebsite(website), businesses.BusinessError, website)
+})
+
+test('external experience validates real calendar dates and cannot accept a fabricated badge', () => {
+  const valid = { rating: 4, body: 'پشتیبانی فروشگاه پاسخ مناسبی داد.', experiencedOn: '2026-02-28', verified: 'PURCHASE' }
+  assert.deepEqual(businesses.normalizeBusinessExperience(valid, new Date('2026-03-01')), { rating: 4, body: valid.body, experiencedOn: valid.experiencedOn })
+  assert.throws(() => businesses.normalizeBusinessExperience({ ...valid, experiencedOn: '2026-02-30' }), businesses.BusinessError)
+  assert.throws(() => businesses.normalizeBusinessExperience({ ...valid, experiencedOn: '2026-03-02' }, new Date('2026-03-01')), businesses.BusinessError)
+  assert.throws(() => businesses.normalizeBusinessExperience({ rating: 5, body: '' }), businesses.BusinessError)
+  assert.throws(() => businesses.normalizeBusinessExperience({ ...valid, rating: 6 }))
+})
 
 function analyticsFixture() {
   const logs = [], failure = new Error('private query /private/email@example.invalid 192.0.2.10')

@@ -9,6 +9,12 @@ export type ReviewDimension = { key: string; label: string; labelEn: string; hin
  * renamed or reused; a retired key simply stops being shown.
  */
 export const REVIEW_DIMENSIONS: Partial<Record<ItemType, readonly ReviewDimension[]>> = {
+  business: [
+    { key: 'quality', label: 'کیفیت کالا و خدمات', labelEn: 'Quality', hint: 'تطابق کیفیت دریافتی با توضیحات کسب‌وکار' },
+    { key: 'support', label: 'برخورد و پشتیبانی', labelEn: 'Support', hint: 'پاسخ‌گویی و رفتار با مشتری' },
+    { key: 'delivery', label: 'تحویل و تعهد', labelEn: 'Delivery', hint: 'زمان‌بندی و تطابق با وعده‌ها' },
+    { key: 'value', label: 'ارزش خرید', labelEn: 'Value', hint: 'کیفیت در برابر مبلغ پرداخت‌شده' },
+  ],
   software: [
     { key: 'features', label: 'امکانات', labelEn: 'Features', hint: 'آنچه لازم دارید را دارد؟' },
     { key: 'usability', label: 'رابط و سادگی کار', labelEn: 'Ease of use', hint: 'یادگیری و کار روزمره با آن' },
