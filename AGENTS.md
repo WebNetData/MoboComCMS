@@ -1,18 +1,18 @@
-# AGENTS.md — MoboCom v4
+# AGENTS.md — MoboCom — platform mandate 2026-10-10
 
 Use the repo-local `mobocom-*` skills for scoped workflows.
 
 ## Non-negotiable repository invariants
 - Audit current code before creating new architecture; repository truth wins.
 - Continue incomplete work; do not rebuild capabilities that already exist.
-- Preserve approved visuals of Homepage, Magazine, Music, Games, Movies and TV Series.
-- Figma SDS guides tokens/primitives/compositions underneath MoboCom; do not generic-redesign protected surfaces.
+- Preserve approved visuals and URLs of Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community.
+- Frontend design uses Figma SDS for tokens/primitives/compositions and React Doctor for affected React components, followed by actual browser/a11y checks; follow `docs/agent/FRONTEND_QUALITY.md`. Preserve MoboCom visual identity.
 - Keep a modular monolith by default with explicit domain/public extension boundaries.
 - Keep exactly one canonical MoboCom human Identity/UserId for all modules and future Messenger/mobile/desktop/web clients.
 - CRM Contact is not the authentication identity; link explicitly when appropriate.
 - Never duplicate shared Identity/AuthZ/Settings/Media/Search/Notifications/Engagement/Moderation/Jobs/Audit systems.
-- Optional module disable preserves data and must not break Core.
-- Plugins/themes/modules have version/dependency/compatibility contracts; themes contain presentation, not business rules.
+- Optional module disable preserves data and must not break Core. Install/activate/uninstall/purge are separate; trusted code uses normal build/deploy, declarative packages use validated host registries.
+- Plugins/themes/modules have version/dependency/compatibility contracts; independent module themes use the existing registry and fallback. Themes contain presentation, not business rules.
 - CMS + CRM are first-class integrated domains.
 - Use Solution Packs/configuration for business variants, not code forks.
 - Future Messenger/apps use stable versioned APIs/events and the same canonical identity.
@@ -20,13 +20,13 @@ Use the repo-local `mobocom-*` skills for scoped workflows.
 - Keep changes focused, typed, tested and diff-reviewed.
 
 ## Decisions in force
-Decided by the owner after the v4 prompt; full text, code locations and guards in `docs/agent/PLATFORM_DECISIONS.md`.
-- Focus: Store, Magazine, Games, Movies and TV Series, Music, Forum. VPN, resellers and the marketplace are set aside and stay switchable off.
-- One permission per section; `cms.posts` is the magazine only. No shared content permission, no second authorization system.
+Owner decisions and reconciliation: `docs/agent/PLATFORM_DECISIONS.md`. Canonical architecture: `docs/agent/ARCHITECTURE.md`; focused contracts, evidence matrix and incremental roadmap are linked there. Read only task-relevant sections; the archived mandate is source material, not a replacement task.
+- Focus: Store, Magazine, Games, Movies and TV Series, Music, Software, Community/Forum. VPN, resellers and the marketplace are set aside and stay switchable off.
+- Preserve section-specific permission keys and current staff access; `cms.posts` is Magazine only. Advanced groups/capabilities/restrictions extend the same canonical AuthZ guards, never a shared cross-section permission or second resolver.
 - Staff standing changes only through the staff guard; standing and role change together; staff without a role is full access.
 - Managers per site section come from `/admin/section-managers`; forum ranks (admin, deputy, forum moderator) name access that already exists.
 - Authors per section (magazine, film and series, music, games, software) come from the same page: an author holds the section's author permission (`journal.author`, `cinema.author`, `music.author`, `games.author`, `software.author`), is held to the items they created by `requireContentScope`, and never deletes — their delete sends the item to the trash (`status` `TRASHED`) for the section's manager or the owner to delete or restore.
-- Forum: section → forum → subforum; a section takes no topics; moderation is scoped with `inCategory`; follow, feed and reviews are composed from their owner modules. The forum is not a protected visual surface.
+- Forum: section → forum → subforum; a section takes no topics; moderation is scoped with `inCategory`; follow, feed and reviews are composed from their owner modules. Its current visual design is now protected by the 2026-10-10 mandate.
 - History: before launch a rule that changes a stored number is applied to everything already stored; after launch no update ignores or resets the past (recount from the stored events, or a data-safe backfill).
 - Every pull request targets `main`; the owner merges and deploys. Done means a connected PostgreSQL check and, for anything visible, a browser check actually ran.
 - Security floor: a limit that guards a secret is `rateLimitStrict`; a write to `/api` must show where it was made (a session cookie alone never writes; a tool sends `Origin`); scripts run by nonce, so an inline `<script>` takes `nonce` from `x-nonce` and inline event handlers do not run.
@@ -34,22 +34,26 @@ Decided by the owner after the v4 prompt; full text, code locations and guards i
 - Content is written in the block editor (plugin `block-editor`, on by default) for pages and magazine articles. What is stored is the MoboCom document (`src/modules/editor/domain`), never an editing engine's output; `@wordpress/*` is imported only under `src/components/editor/gutenberg`; a new block is a registry definition, not editor code. With the plugin off the forms are the old editor again and every body is kept.
 - The site is written in one language; translation is Google Translate's. No English title, excerpt or body fields on the pages and articles forms (the columns are kept).
 - A section can be put in maintenance by itself (`/admin/maintenance`): visitors get the owner's notice, only full access and that section's managers see it. A new section with public pages joins `MAINTENANCE_SECTIONS`.
-- Every migration is listed in `prisma/release-manifest.json`; every pull request passes `.github/workflows/checks.yml` and the browser suite. A test must pass with no `.env`, on an empty database and as a user who is not root.
+- Every migration is listed in `prisma/release-manifest.json`; every pull request passes `.github/workflows/checks.yml` and has executed local browser evidence for visible changes. Owner decision after PR #147: hosted browser tests are manual only; do not repeat them automatically after local validation. A test must pass with no `.env`, on an empty database and as a user who is not root.
 - A module past a few hundred lines is a folder of parts behind the same address; other modules import the address, never a part.
 
 ## Tool routing
 - Exact text/symbol → `trs search`/normal exact search.
 - Conceptual code location → Probe.
+- Architecture/relationship discovery → local Graphify; confirm candidates with source/Serena, never infer runtime proof.
 - Symbol references/semantic edit → Serena.
+- Persistent work tracking → Beads when installed; otherwise the existing workstate.
 - Verbose terminal command → `trs`.
 - Architecture boundary/cycle → dependency-cruiser + existing architecture checks.
 - API scenario → Hurl; API lint → Spectral; breaking API diff → oasdiff; independent consumer contract → Pact.
 - DB/integration behavior → Testcontainers when useful; invariants → fast-check; critical test strength → Stryker.
 - Frontend component → Storybook; React review → React Doctor; browser/E2E/visual → Playwright CLI; accessibility → axe/a11y.
-- Security → Opengrep + Trivy; GitHub Actions → zizmor.
+- Version-sensitive library docs → Context7; frontend review → selected Vercel skills under MoboCom/SDS constraints; exploratory browser → isolated Playwright MCP.
+- Security → Semgrep or Opengrep (one scoped engine) + Trivy; secrets → redacted Gitleaks; GitHub Actions → zizmor.
 - Dead code → Knip; large structural refactor → ast-grep.
 
 Use only relevant tools for the task. Do not run the full release stack after every edit.
+Verified tooling, baselines, pins and activation: `docs/agent/DEVSTACK.md`.
 
 <!-- mobocom-business-continuation:start -->
 ## Business experiences continuation

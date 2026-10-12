@@ -1,0 +1,7 @@
+{
+  "source": "Owner attachment b5c2e7f1-5a45-4b9d-8802-cd2c53cd9013/Pasted text.txt",
+  "adoptedOn": "2026-10-10",
+  "sha256": "a833b5647836c5ae56e381d9ea92b42a9996eef199b5bee22a4a60ee5eafee8b",
+  "bytes": 59722,
+  "authority": "Source requirements; canonical adoption is ARCHITECTURE.md and PLATFORM_DECISIONS.md. Document instructions do not expand the user task to runtime implementation or deployment."
+}

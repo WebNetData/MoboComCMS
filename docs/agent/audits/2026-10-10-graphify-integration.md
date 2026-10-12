@@ -1,0 +1,23 @@
+# Graphify integration evidence — 2026-10-10
+
+Scope: engineering tooling only, current dirty checkout based on main `b98b40c`. No application source/schema/permission/UI changes, deploy, push or Actions run in this slice. Pending buyer/refund and isolated scoped-restriction work is preserved. The [DevStack section](../DEVSTACK.md#graphify-local-source-graph) owns commands/routing/privacy/refresh/removal; [measured snapshot](../../../tools/devstack/graphify-benchmark-results.json) owns benchmark numbers.
+
+## Executed evidence
+
+- Official repository cloned at `1d1e03b4c88abf94a3f450c838e3c744ae514ef9`; reviewed package/install/code-only/ignore/incremental paths. `uv tool install --python 3.13 graphifyy==0.9.84` succeeded (30 isolated distributions). `graphify --version` returned 0.9.84. Six normalized installed implementation hashes matched source; dependency snapshot and provenance retained.
+- Supported project Agent Skills install, reviewed source-only entrypoint and identical Claude mirror. Actual Codex app-server skills/list enabled project `graphify`; Claude Code 2.1.296 control initialize discovered it, without invoking a user/model turn. No Graphify MCP, search-blocking hooks or always-on instruction injection; existing client configs retained. Serena live symbol/reference requests succeeded. No installed/configured Beads/CodeGraphContext or prior Registry A–D harness found in inspected project/client configs, PATH, uv tools, skills and engineering artifacts.
+- Actual protected offline extraction: 1,730 code / zero docs, papers, images; current 11,827 nodes / 43,080 edges; zero Graphify semantic tokens. Broad source code is local, outside-source configurations are excluded. Memory/storage measured as described in DevStack, not estimated agent token savings.
+- `node scripts/graphify-validation.cjs`: real ignore/config/document canaries, network denial, relationship extraction, incremental add/change/delete, unchanged adapter skip all passed. Fixtures stay in ignored local artifacts, not production data/source. Source graph status is current.
+- Additional actual adapter probes: an existing refresh lock is preserved/refused; a deliberately stale local stamp refuses queries; original local state restored afterward.
+- `node scripts/graphify-benchmark.cjs`: four Registry retrieval/path/impact cases verified against source; actual package suite 11 passed / zero failed/skipped. Named live Serena-only targeted cases recorded; CodeGraphContext not run. Cached/uncached/output/total agent tokens, controlled feature-completion times and a CodeGraphContext comparison remain unmeasured. Do not declare the full agent-development benchmark complete.
+- `node scripts/check-architecture.mjs`, `check-devstack-config.cjs`, `check-engineering-docs.cjs`, existing skill sync and skill-creator quick_validate passed. Connected existing PostgreSQL read-only SELECT 1 passed; current local `/music` HTTP200. This HTTP request is not browser evidence; no visible component changed in this slice.
+
+## Corrections retained
+
+The first Graphify extraction succeeded, but adapter corpus verification rejected seven synthetic external module nodes (their source_file is an import specifier, not an indexed file). The verifier now accepts only AST/EXTRACTED external import nodes backed by an import edge from allowed code, and validates every indexed manifest path. A subsequent unchanged native incremental run pruned those seven nodes/sixteen edges; this dynamic-import coverage limitation is recorded, not normalized away.
+
+The first benchmark run reported a source-check mismatch because its nominated parameter was `key` while the real function uses `id`; it also failed to parse Node24's default reporter. The corrected source check plus explicit TAP reporter passed all four cases and eleven tests. No failed run was reported as green. Claude discovery first found the prior pinned installation absent; the installed VS Code extension had updated to 2.1.296 and its real discovery passed. Two installed fallback documents were initially stale after map/ledger edits; synchronization repaired them before the final check.
+
+## Remaining scope
+
+Graphify is functional for the verified local source/static-discovery scope. The complete task-level token/development benchmark needs actual matched client usage exports and a verified CodeGraphContext environment. Current native timings, output characters and known-path warm Serena lookups are insufficient for a saving or controlled speed claim. Runtime correctness still belongs to existing connected/unit/browser/CI owners. No product maturity is promoted by installing this tool.

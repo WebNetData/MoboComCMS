@@ -43,3 +43,6 @@ Final scoped axe check: light and dark CMS forms each passed 19 WCAG 2 A/AA and 
 Final runtime sources: production `npm run build` passed again as uid 1000 without `.env`, after the portable insert and contrast fixes.
 
 Final staged diff: redacted Gitleaks passed with zero leaks (~114 KB scanned). The same scoped Semgrep rule also parsed the two added insert owners with zero errors/findings.
+
+
+CI browser follow-up: PR #146 passed the configured gate with 53 direct passes, 2 flaky cases that passed on retry, and 7 fixture-dependent skips. The flaky cases were `/music does not crash` and the magazine-only section-manager save. Local full suite passed 55 cases without retries. Reproduce and stabilize the CI-resource behavior without weakening assertions or adding retries; then continue the real buyer/return scenario. No additional workflow was dispatched.

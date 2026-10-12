@@ -1,6 +1,25 @@
-# MoboCom Reference Architecture v4
+# MoboCom Reference Architecture — mandate adoption 2026-10-10
 
-This document defines architectural invariants and extension boundaries. It is a target dependency model, not an instruction to rename every directory.
+This is the canonical architecture, extended from v4 against the current repository. It defines invariants and target contracts, not an instruction to rename directories or a claim that all capabilities are implemented.
+
+Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant sections here → [focused evolution contracts](contracts/platform-evolution.md). Consult the [domain matrix](DOMAIN_CAPABILITY_MATRIX.md) and [roadmap](IMPLEMENTATION_ROADMAP.md) for actual evidence and next slices. Frontend work follows [SDS + React Doctor + browser quality](FRONTEND_QUALITY.md). [Adoption ADR](adr/2026-10-10-platform-mandate.md) records reconciliation; the exact owner attachment is archived once under `requirements/`. Do not load the whole mandate for routine tasks.
+
+Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community. Preserve URLs, SEO, data, permission keys and established workflows. Admin is also a first-class product. Software joins the target domains; CRM remains integrated, while VPN/reseller/marketplace stay off-focus and switchable.
+
+<!-- mobocom-business-architecture:start -->
+## Business experiences — canonical ownership
+
+The optional **businesses** module composes existing platform services for external businesses, existing internal sellers and MoboCom's own store. It requires **reviews**, defaults OFF, has its own **businesses.manage** permission and uses canonical section managers, maintenance and Admin Control Plane. Seller profiles do not implicitly activate Marketplace.
+
+- **BusinessProfile** owns profile metadata and stable kind/slug/domain/SellerId; identity bindings are immutable after creation. Representatives use the canonical UserId and explicit reviewed assignment, never a claimed email/domain alone.
+- EXTERNAL and SITE use original ItemReview/Score/Helpful/Stat; SELLER uses original SellerReview, delivered-order eligibility and reply owner. Never copy historical seller reviews into ItemReview or add another review/account/scoring system.
+- Public business scores count APPROVED only; preserve legacy content rating behavior. An identical repeat retains approval/reply/helpful history; real rating/body/date/dimension changes re-enter the configured review process.
+- External self-reporting never proves purchase. SITE evidence comes from the member's own paid/delivered Order; SELLER requires that member's paid/delivered order containing the bound SellerId. Representatives reply only; they cannot moderate customer experiences.
+- Public module address: src/modules/businesses/server/businesses.ts. Routes: /businesses, /businesses/[slug], /admin/businesses, /api/businesses and /api/admin/businesses; helpful votes retain the existing engagement API. Generic review creation/moderation cannot bypass business policy.
+- Additive migration **20261223120000_business_experiences** is in the release manifest. Preserve both Prisma schemas, existing reviews/orders and protected public designs; use shared SiteHeader/SiteFooter and SDS/MoboCom tokens.
+
+Implementation maturity, executed evidence, current source checkout and remaining slices are recorded once in [Business experiences handoff](handoffs/BUSINESS_EXPERIENCES.md). The feature is PARTIAL, not a production-readiness claim. Read that document before coding; a checkout without these files does not prove the capability is missing.
+<!-- mobocom-business-architecture:end -->
 
 <!-- mobocom-business-architecture:start -->
 ## Business experiences — canonical ownership
@@ -39,7 +58,7 @@ Application/API Boundary
 ┌──────────────────────────── MoboCom Modular Monolith ────────────────────────────┐
 │                                                                                 │
 │ Specialist Modules                                                             │
-│ CMS | CRM | Music | Cinema | Games | Community | Store | Support | Hosting ... │
+│ CMS/Magazine | CRM | Music | Cinema | Games | Software | Community | Store ... │
 │                                                                                 │
 ├──────────────────────────── Platform Services ───────────────────────────────────┤
 │ Identity | AuthZ | Settings | Modules | Extensions | Themes | Flags | Entities  │
@@ -153,26 +172,13 @@ interface ModuleManifest {
 
 Do not add manifest fields with no real consumer.
 
-## 6. Module lifecycle
+## 6. Module lifecycle and Admin contributions
 
-State model:
+Target: DISCOVERED → PACKAGE_VALIDATED → INSTALLED → INACTIVE → ACTIVATING → ACTIVE → DEACTIVATING → INACTIVE; only inactive packages uninstall. Installation and activation are separate; current uploaded packages already default to inactive. Extend existing packages/effective extension state with claimed operation IDs, idempotency, compatibility/dependency validation, failure/recovery records and compensation. Maintenance remains a separate section policy.
 
-```text
-not-installed → installed/disabled → enabled
-                            ↘ maintenance (optional)
-```
+Activation registers validated typed contributions through the current host registry: navigation/pages/settings/widgets/permissions/context actions/blocks/events/jobs/import-export/automation/analytics/theme options. Only add fields with real consumers. Deactivation withdraws effective UI and server access, invalidates caches and reconciles jobs/handlers without losing data or stranding money. Core keeps the recovery path; protect mandatory dependencies. Uninstall removes runtime registrations/code; purge is a separate explicit privileged operation.
 
-Disable:
-- preserve data/schema;
-- deactivate routes/nav/jobs/indexing/handlers as appropriate;
-- keep dependency graph consistent;
-- keep admin reactivation path.
-
-Uninstall:
-- separate from disable;
-- remove runtime package/registration;
-- retain data by default;
-- explicit data purge is a distinct privileged operation.
+Declarative packages execute validated host capabilities. Trusted code requires review and ordinary build/migration/restart/deployment; uploaded TypeScript does not create Next routes dynamically. An interface is not a sandbox: untrusted executable extensions need actual isolation. See [contract §1](contracts/platform-evolution.md#1-modules-packages-and-dynamic-admin) for acceptance and security.
 
 ## 7. CMS architecture
 
@@ -196,6 +202,8 @@ CMS
 Specialist modules keep typed canonical domain entities.
 
 A generic Article may be CMS/Publishing. A Movie is Cinema, not a generic custom-content row unless product architecture explicitly chooses otherwise.
+
+Pages and magazine articles use the canonical editor document and revision services. A legacy conversion stays a preview through edits until its explicit first save; omitted parts must be disclosed before acceptance, and autosave resumes only after success. Direction precedence belongs to the editor domain (`resolveTextDirection`), shared by the editing view and public renderer: paragraph choice → block choice → first Unicode letter → page default. See [editor architecture](../editor/ARCHITECTURE.md) for the storage contract and regression checks.
 
 ## 8. CRM architecture
 
@@ -405,7 +413,7 @@ site default theme
 core/base theme
 ```
 
-A theme controls presentation; modules own business behavior.
+A theme controls presentation; modules own business behavior. Current runtime resolves a global theme; independent module assignments are a target, not an implemented fact. Extend the same registry with compatible module slots, typed Admin assignments, CSS isolation and layers defaults → global → module → variant → validated page override. Keep public/Admin/editor/shared scopes separate and test fallback/rollback. See [contract §2](contracts/platform-evolution.md#2-independent-module-themes) and [frontend quality](FRONTEND_QUALITY.md).
 
 Theme overrides should use documented layout/component boundaries. Pure visual themes should not execute privileged server code.
 
@@ -446,6 +454,8 @@ registered default
 
 Cache resolved settings if needed, with deterministic invalidation.
 
+Maintenance is one existing Setting (`site.maintenance.v1`), not one switch system per section. A partial change claims the exact stored value and re-reads/re-merges after conflict, including concurrent first creation. Writes never use cached or error-fallback reads. Connected check `section-maintenance` proves preservation of different sections and separate fields of one section; no schema change is needed.
+
 Secrets are not normal settings.
 
 ## 15. Authorization
@@ -459,6 +469,10 @@ permission + ownership + resource state + category policy + entitlement
 Do not spread raw role-name checks through UI/server code.
 
 Plugin-defined permissions must be namespaced and registered.
+
+Extend the canonical Identity/AuthZ guards; do not add a second resolver. Target order: identity → account standing → global restrictions → effective groups → module restrictions → resource scope/ownership/state → capability. Explicit denies outrank ordinary grants; privileged actions default deny. Primary/secondary/temporary groups, roles, entitlements and subscriptions are distinct. Preserve current section keys, staff guard/full-access compatibility and forum `inCategory` scope; a group cannot grant global staff standing.
+
+Restrictions are independently auditable GLOBAL/MODULE/RESOURCE/CAPABILITY records with start/expiry and revocation. Forum-only sanctions preserve unrelated module access and authentication. Global restrictions apply to sessions/tokens and all user-acting entry points, with bounded cache invalidation and narrow recovery exceptions. Anonymous browsing is a separate policy. Additive backfill must preserve legacy sanction scope/history. See [contracts §3–4](contracts/platform-evolution.md#3-canonical-identity-groups-and-authorization).
 
 ## 16. Events and transactional outbox
 
@@ -659,3 +673,15 @@ These are not the same operation.
 Do not add tenant IDs to every table merely because MoboCom serves many businesses as separate deployments.
 
 If SaaS multi-tenancy becomes a real requirement, design it explicitly with isolation, authorization and migration strategy. Keep current architecture from making future tenancy impossible, but do not pay its complexity without a product requirement.
+
+## 26. Contextual administration and domain excellence
+
+Extend existing ManageBar/inline moderation through typed contextual contributions delegated to owning Admin handlers. Hidden buttons never authorize: reload target, validate input, check canonical resource permissions/restrictions/module state, claim concurrency and audit on the server. Quick edits use host drawers; complex editing stays fullscreen; financial state transitions keep their protected workflow. See [contract §5](contracts/platform-evolution.md#5-contextual-public-administration).
+
+Community/Invision, Store/WooCommerce and professional Magazine/Music/Cinema/Games/Software are capability benchmarks, not parity claims or implementation copies. Reuse typed entities, canonical editor documents and shared services; import/automation/analytics are bounded, audited, privacy-aware and configurable through the existing Admin Control Plane. Use typed cross-module references and versioned public API/event contracts for future apps. See [contract §6](contracts/platform-evolution.md#6-domain-contracts-and-shared-services) and the [matrix](DOMAIN_CAPABILITY_MATRIX.md).
+
+## 27. Evidence and delivery
+
+Engineering tools follow the [scoped devstack](DEVSTACK.md): pinned agent documentation/browser MCPs, reusable semantic tooling and the offline incremental Graphify source graph for relationship discovery (confirmed with Serena and existing tests), local security/secret scans and reviewed graph/dead-code baselines. This extends current MoboCom skills and gates; it creates no new runtime service, specification tree or agent orchestrator.
+
+Architecture/skill adoption is documentation completion only. Maturity progresses through Missing, Planned, Foundation, PartiallyImplemented, Functional, ProductionVerified, Advanced and ReferenceClassEquivalent with named evidence; unassessed is not missing. Keep the existing ledger's finding labels separate from maturity. Audit then implement safe vertical slices with relevant actual tests; no new platform owner without an inspected gap. Preserve PostgreSQL/SQLite parity, release-manifest migrations, state claims, old APIs/URLs/data and realistic rollback. PRs target main; owner merges/deploys. [Roadmap](IMPLEMENTATION_ROADMAP.md) prioritizes launch essentials and foundation reuse before advanced breadth.
