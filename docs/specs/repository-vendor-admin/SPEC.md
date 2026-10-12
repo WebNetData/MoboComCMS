@@ -1,0 +1,7 @@
+# Current atomic vendor catalog/configuration commands
+
+Continue existing saveProduct/saveVendorConfig/setReleasePublished and the same Admin op/response/permission/module/setting owners. Product slug/kind remain immutable on edit; release published semantics and setting normalization remain. No schema/UI/new permission or competing transaction system.
+
+Extend the existing vendor command helper to support full audit actions while retaining the legacy license address/default behavior. Database-only product/save/publish share current any-of repository.manage/settings.manage actor/module, mutation and strict existing audit; bounded serializable retry, no external effect. Vendor config uses existing strict updateJsonSetting, current authority and strict audit in its callback; retain unrelated fields and reject corrupt data409. Optional trusted callers preserve existing signatures and ownership.
+
+Actual controller/Identity/SQL fixture: three commands, current standing/permissions/GLOBAL/2FA/module changes after initial admission, strict audit rollback, both delegated permission variants/full access, current immutable identity and normalized values. Existing license/purchase/recovery/diagnostics paths must remain tested after helper extension. Original failing authority/audit baseline and intentional faults, relevant PG/check/build/compiled tests. Product deletion/archive filesystem compensation and vendor public machine races are distinct pending gaps; do not certify them with these database-only cases.

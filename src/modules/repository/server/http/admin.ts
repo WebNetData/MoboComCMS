@@ -43,14 +43,14 @@ export async function POST(req: NextRequest) {
   try {
     switch (body.op) {
       case 'purchase.recover': return ok(await recoverPurchase(idOf(body.paymentId), { mode: body.mode, evidence: body.evidence, acknowledgeCurrentTerms: body.acknowledgeCurrentTerms }, { req, actor: guard.admin }))
-      case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined); await audit('product.save', saved.id, { slug: saved.slug }); return ok({ id: saved.id }) }
+      case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined, { req, actor: guard.admin }); return ok({ id: saved.id }) }
       case 'product.delete': { await deleteProduct(idOf(body.id)); await audit('product.delete', idOf(body.id)); return ok({ ok: true }) }
-      case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false); await audit('release.publish', idOf(body.id), { published: body.published !== false }); return ok({ ok: true }) }
+      case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false, { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }, { req, actor: guard.admin }); return ok(granted) }
       case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE', { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'license.extend': { await extendLicense(idOf(body.id), Number(body.days), { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'license.site': { await releaseSite(idOf(body.id), String(body.site || ''), undefined, { req, actor: guard.admin }); return ok({ ok: true }) }
-      case 'settings': { const settings = await saveVendorConfig(body); await audit('settings', 'vendor', { enabled: settings.enabled }); return ok({ settings }) }
+      case 'settings': { const settings = await saveVendorConfig(body, { req, actor: guard.admin }); return ok({ settings }) }
       default: return err('عملیات نامعتبر است')
     }
   } catch (error) { return failure(error) }

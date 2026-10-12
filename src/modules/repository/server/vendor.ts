@@ -1,4 +1,6 @@
 import { issueLicense } from './vendor/issue-license'
+import { VENDOR_CONFIG_KEY } from './vendor/catalog-commands'
+export { saveProduct, saveVendorConfig, setReleasePublished } from './vendor/catalog-commands'
 export { buyProduct } from './vendor/purchase'
 export { previewPurchaseRecovery, recoverPurchase } from './vendor/purchase-recovery'
 import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
@@ -6,19 +8,19 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { PACKAGE_LIMITS, PackageError, normalizeEntries, parseManifest } from '@/modules/packages/domain/format'
 import { ZipError, readZip } from '@/modules/packages/domain/zip'
 import {
-  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeProduct, normalizeSiteHost, releaseAllowed,
+  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeSiteHost, releaseAllowed,
   type Certificate,
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, sha256, signPayload, vendorKeys } from './crypto'
 import { assertLicenseOwner } from '@/modules/repository/server/vendor/access'
 
 export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
-const CONFIG_KEY = 'repository.vendor.v1'
+const CONFIG_KEY = VENDOR_CONFIG_KEY
 const hashKey = (key: string) => sha256(`license:${key}`)
 const money = (minor: bigint) => `${Number(minor).toLocaleString('fa-IR')} تومان`
 
@@ -27,12 +29,6 @@ export async function getVendorConfig(): Promise<VendorConfig> {
   const stored = await readJsonSetting(CONFIG_KEY)
   return { enabled: stored?.enabled === true, name: String(stored?.name || '').slice(0, 80) }
 }
-export async function saveVendorConfig(input: Record<string, unknown>): Promise<VendorConfig> {
-  const next: VendorConfig = { enabled: input.enabled === true, name: String(input.name ?? '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 80) }
-  await writeJsonSetting(CONFIG_KEY, next)
-  return next
-}
-
 // ------------------------------------------------------------------ products and releases
 
 const releaseView = (r: { id: number; version: string; sha256: string; size: number; changelog: string; requiresCore: string; runtime: string; published: boolean; createdAt: Date }) => ({
@@ -46,22 +42,6 @@ export async function listProducts() {
     price: p.priceMinor.toString(), priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), siteLimit: p.siteLimit, supportDays: p.supportDays, active: p.active, featured: p.featured,
     downloads: p.downloads, sold: p.sold, licenses: p._count.licenses, releases: p.releases.map(releaseView),
   }))
-}
-
-export async function saveProduct(input: Record<string, unknown>, id?: number) {
-  const data = normalizeProduct(input)
-  try {
-    if (id) {
-      const current = await db.repoProduct.findUnique({ where: { id } })
-      if (!current) throw new RepoError('محصول پیدا نشد', 404)
-      // The id is the package id; changing it would orphan releases and licenses.
-      return await db.repoProduct.update({ where: { id }, data: { ...data, slug: current.slug, kind: current.kind } })
-    }
-    return await db.repoProduct.create({ data })
-  } catch (error) {
-    if ((error as { code?: string }).code === 'P2002') throw new RepoError('این شناسه قبلاً ثبت شده است', 409)
-    throw error
-  }
 }
 
 export async function deleteProduct(id: number) {
@@ -93,10 +73,6 @@ export async function uploadRelease(productId: number, upload: Buffer, changelog
   await mkdir(releaseDirectory(), { recursive: true })
   await writeFile(join(releaseDirectory(), fileId), upload, { flag: 'wx', mode: 0o600 })
   return db.repoRelease.create({ data: { productId, version: manifest.version, fileId, sha256: sha256(upload), size: upload.length, changelog: String(changelog || '').slice(0, 5000), requiresCore: manifest.requiresCore || '', runtime: manifest.runtime } })
-}
-
-export async function setReleasePublished(id: number, published: boolean) {
-  await db.repoRelease.update({ where: { id }, data: { published } })
 }
 
 async function readReleaseFile(fileId: string): Promise<Buffer | null> {
