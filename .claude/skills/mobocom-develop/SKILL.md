@@ -5,12 +5,12 @@ description: Implement, debug, refactor, or review MoboCom frontend/backend feat
 
 # Development workflow
 
-
 1. Read root instructions and focused repo map.
 2. Audit before adding; repository truth beats prompts.
 3. Use the smallest context path:
    - exact → `trs search`
    - conceptual → Probe
+   - architecture/relationships/impact candidates → local Graphify (DEVSTACK); confirm source and existing gates
    - references/symbol-aware edit → Serena
    - verbose command → `trs`
 4. Prefer reuse → extend → refactor → consolidate; no parallel shared platform systems.
@@ -26,15 +26,18 @@ description: Implement, debug, refactor, or review MoboCom frontend/backend feat
 14. Review diff for unrelated changes, security, compatibility, data and visual regressions.
 15. Report only actual changes/checks/risks.
 
-Protected UI: Homepage, Magazine, Music, Games, Movies, TV Series are preserve-and-enhance.
+Protected UI: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community are preserve-and-enhance.
 
 Load references progressively; do not read every reference for every task.
+
+Tooling integration: `docs/agent/DEVSTACK.md`. Use Context7 for a narrow installed-version API question, selected Vercel React/web skills for the affected frontend concern, and isolated Playwright MCP for exploration. Existing Playwright Test remains regression evidence. Run the scoped tool router, retain raw reports locally, and use Semgrep or Opengrep once per security concern. Review Knip candidates before removal; never bypass ownership/nonce/guards for generic optimization advice.
 
 ## This repository
 Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the forum or delivery. The rules that most often matter:
 - **Access:** guard with the section's own permission (`requirePerm` / `adminGuard`); never accept `cms.posts` outside the magazine. A route that changes a user's role, status or password calls `accountChangeRefusal`. Staff standing and role change in the same write.
 - **Section authors:** an author permission (`journal.author`, `cinema.author`, `music.author`, `games.author`, `software.author`) is taken only through `requireContentScope`, which holds the caller to the items they created; never add it beside a section permission in a plain `requirePerm`. An author's delete is a trash request (`content/domain/trash.ts`); only a manager deletes or restores. See PLATFORM_DECISIONS §4A.
 - **Forum:** walk categories with `categoryTree` / `categoryFamily` / `categoryPath`; limit everything public with `visibleCategories(viewer)`; decide moderation with `inCategory` / `moderatesCategory`; compose follow, feed and reviews from identity, community and reviews. New forum styles are an appended block in `src/app/forum.css` under their own prefix.
+- **Staff sanctions:** applying or clearing forum silence/suspension calls canonical `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write. Retain the authenticated actor, existing `forum.moderate` guard and full-access/role hierarchy; forum-only sanctions do not change global User standing.
 - **Public item pages** carry a `ManageBar` with the section's permission; shared admin editors honour `?edit=<id>`.
 - **Taxonomies:** a new way of filing content is a new taxonomy with one kind of item (see PLATFORM_DECISIONS §6A); name it in every branch on the taxonomy, never rely on an `else`.
 - **Evidence:** add `scripts/<name>.connected.cjs` (same functions as the page, several viewers, cleanup in `finally`), register it in `scripts/run-pg-checks.cjs`, then break each rule on purpose and see it fail (back the file up and copy it back). Unit tests go into a file already in `test:site`. Open visible changes in a browser at 1440 light/dark and 390.
@@ -47,12 +50,17 @@ Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the
 - **Large files:** past a few hundred lines, split by concern into `<name>/<concern>.ts` behind the same address; tests that read source read all the parts.
 - **Tests that travel:** no dependence on `.env`, on rows that happen to exist, on ids 1 and 2, or on being root; run unit tests in Linux as a non-root user before pushing (`docker run -u 1000:1000 …`).
 
+## Content conversion, setting races and text direction
+- A legacy-to-block conversion is committed only by an explicit first save; disclose omitted parts and label acceptance when conversion is lossy. Autosave resumes only after success. Test editing and waiting past autosave before accepting, then ordinary autosave afterward. Keep canonical documents and revisions.
+- When changing one part of an aggregate Setting, claim the exact stored value and retry the merge on conflict, including first-row creation. Never write from cached/error-fallback data. Prove simultaneous changes to different sections and separate fields of one section against PostgreSQL.
+- Reuse `resolveTextDirection`: explicit paragraph → explicit block → first Unicode letter → page default. Verify the inspector change in the live editor and public renderer, including Hebrew punctuation and Kurdish letters; preserve automatic mixed-language paragraphs and LTR code.
+- Editor chrome uses existing semantic tokens for surfaces/text and engine controls; compare 1440 light/dark and 390 screenshots and verify readable contrast. See the repository editor architecture for the implemented contract.
 
-## Verified staff-sanction and editor safety
+## Platform mandate routing — 2026-10-10
 
-Applying or clearing forum silence/suspension calls canonical Identity `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write, with the authenticated actor and existing forum permission. A forum-only manager cannot restrict protected staff. Reuse current guards; do not add a forum staff hierarchy.
+Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
 
-Legacy block conversion requires explicit first-save acceptance before autosave; aggregate Setting writes claim the exact stored value and retry on conflict; text direction is explicit paragraph → block → first Unicode letter → page default. Verify affected flows against PostgreSQL and the actual browser, preserving protected visuals.
+Extend current guards/registries/owners for groups, scoped restrictions, operational lifecycle, module themes and contextual actions. UI visibility is never authorization. Preserve current permission keys, data, URLs, canonical documents and financial state claims. For frontend design use FRONTEND_QUALITY: existing tokens + SDS, installed React Doctor with telemetry off, then real browser/a11y evidence; do not equate a score with bug-free UX.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing

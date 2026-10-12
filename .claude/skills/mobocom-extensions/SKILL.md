@@ -5,6 +5,8 @@ description: Design or implement MoboCom modules, plugins, provider adapters, th
 
 # Extension workflow
 
+Use `docs/agent/DEVSTACK.md` for scoped dependency graph/structural checks. Follow canonical public addresses even when generic performance advice suggests direct imports. Review introduced edges against the existing baseline; preserve dynamic registries when interpreting Knip candidates.
+
 1. Read extension + architecture + identity references as relevant.
 2. Extend existing registries; do not create parallel registries.
 3. Core boots with optional modules disabled.
@@ -24,6 +26,12 @@ description: Design or implement MoboCom modules, plugins, provider adapters, th
 - VPN, reseller and marketplace are set aside by the owner: keep them working behind their switches, do not extend them unasked.
 - The block editor is the plugin `block-editor` (on by default); off, the forms fall back to the old editor and documents are kept. A module adds block types with `registerModuleBlocks` (`src/modules/editor/server/documents.ts`); a block of a module that is off is kept in the document and shown as unsupported, never dropped.
 - A plugin that adds a section with public pages adds it to `MAINTENANCE_SECTIONS` (`src/modules/site/domain/maintenance.ts`) so it can be put in maintenance by itself.
+
+## Platform mandate routing — 2026-10-10
+
+Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
+
+Installation and activation are separate. Extend existing state/packages/navigation with claimed, idempotent operations and failure compensation. Deactivation rejects direct access and reconciles queued work; uninstall preserves data and purge needs explicit authorization. Trusted code uses ordinary build/deploy; declarative packages use validated host contributions. Independent module themes extend the current global theme owner with compatibility/fallback/CSS isolation, not a competing registry.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing

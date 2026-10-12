@@ -7,7 +7,7 @@ description: Audit the current MoboCom repository or feature batch before contin
 
 1. Read root instructions and relevant `docs/agent` map/ledger.
 2. Scope only the current goal.
-3. Locate exact evidence with `trs search`; use Probe when location is conceptual; use Serena only for deep symbol/reference analysis.
+3. Locate exact evidence with `trs search`; use Probe for conceptual location, local Graphify for architecture/relationship candidates (DEVSTACK), and Serena for precise symbols/references. Confirm graph candidates against source and executed checks.
 4. Map existing models/services/routes/UI/settings/permissions/tests/contracts.
 5. Classify: `GOOD`, `WEAK_UX`, `WEAK_BACKEND`, `WEAK_SECURITY`, `PARTIAL`, `DISCONNECTED`, `DUPLICATE`, `MISSING`, `REGRESSED`.
 6. Identify the canonical implementation.
@@ -20,15 +20,20 @@ Load `references/architecture.md`, `references/identity-contract.md` and `refere
 - Start from `docs/agent/PLATFORM_DECISIONS.md` (what was decided and where it lives), then `MOBOCOM_MAP.md` and `CAPABILITY_LEDGER.md`.
 - Access questions: read `src/modules/identity/rbac.ts`, `server/access.ts`, `server/staff-guard.ts`, `domain/sections.ts` before concluding anything. `scripts/account-security.test.cjs` lists every file allowed to name `cms.posts`; a guard that accepts a permission of another section is a finding (`WEAK_SECURITY`).
 - Forum questions: who moderates is `viewer.moderator` (everywhere) or `viewer.moderates` (assigned forums) through `inCategory`; a check of `viewer.moderator` on a topic or post that skips it is a finding.
+- Applying or clearing a forum silence/suspension on staff composes Identity's `accountChangeRefusal` with the authenticated actor before writing the profile. A forum permission alone cannot sanction protected staff; inspect the canonical guard rather than adding a forum-specific staff hierarchy.
 - After an audit, update the ledger row and the map line; if a decision changed, change its entry in PLATFORM_DECISIONS instead of appending.
 - Since 2026-10-07 also findings: a secret-guarding limit on `rateLimitHit` instead of `rateLimitStrict`; an unconditional `update` of a money row's state; `@wordpress/` imported outside `src/components/editor/gutenberg`; an inline `<script>` without the nonce or an inline event handler; a file operation of the server panel that skips `guard`; a test that passes only with a `.env`, a busy database or root.
 
+## Focused regression checks
+For tooling audits, use `docs/agent/DEVSTACK.md` and its manifest; distinguish installed, configured, CLI/SDK connected and actually available in the current agent. Inspect only relevant owners. Record native scanner failures and advisory candidates separately; never renew baselines automatically to hide findings.
 
-## Verified staff-sanction and editor safety
+For legacy conversion, inspect whether editing can autosave dropped content before explicit first-save acceptance. For aggregate Settings, check concurrent first creation and stale read/modify/write across different sections and fields. For text direction, compare explicit paragraph/block precedence in editor and public rendering; punctuation and combining marks cannot decide direction. Use the existing owners and report code-only evidence separately from executed browser/PostgreSQL checks.
 
-Applying or clearing forum silence/suspension calls canonical Identity `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write, with the authenticated actor and existing forum permission. A forum-only manager cannot restrict protected staff. Reuse current guards; do not add a forum staff hierarchy.
+## Platform mandate routing — 2026-10-10
 
-Legacy block conversion requires explicit first-save acceptance before autosave; aggregate Setting writes claim the exact stored value and retry on conflict; text direction is explicit paragraph → block → first Unicode letter → page default. Verify affected flows against PostgreSQL and the actual browser, preserving protected visuals.
+Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
+
+Use the domain matrix as a view of the existing ledger. Revalidate only relevant owners; mark unassessed explicitly, not missing. Separate finding labels from maturity and code inspection from executed checks. Inspect current groups/sanctions, effective module/package state, theme resolver and ManageBar before claiming a new platform system is needed.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing

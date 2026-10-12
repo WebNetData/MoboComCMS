@@ -5,6 +5,8 @@ description: Prepare, validate, migrate, deploy, update, or recover MoboCom safe
 
 # Release workflow
 
+Tooling: `docs/agent/DEVSTACK.md`. Run local redacted Gitleaks and one relevant SAST engine; new findings fail, existing baselines are reviewed evidence rather than exemptions to refresh automatically. Use existing CI, consolidate PRs and avoid workflow dispatch/repeated pushes under the owner's Actions quota. Do not run the full tool stack after every edit.
+
 1. Read release/security/contracts references.
 2. Determine real app/schema/module/plugin/theme/extension API state.
 3. Prefer expand → backfill → switch → later contract migrations.
@@ -27,6 +29,12 @@ description: Prepare, validate, migrate, deploy, update, or recover MoboCom safe
 - Pull request gate: `.github/workflows/checks.yml` runs `npm run check`, a first deploy on an empty PostgreSQL (`deploy:migrate`, `deploy:seed`) with `test:pg` and `test:redis`, and the production build. A release is not cut from a commit whose checks are red.
 - Migrations added 2026-10-07: `20261214120000` (content revisions), `20261215120000` (admin saved views), `20261216120000` (money state rules: validates stored rows and stops with the constraint's name if one breaks a rule), `20261217120000` and `20261218120000` (document columns on pages and articles). All additive.
 - New since then: the plugin `block-editor` (GPL-2.0-or-later `@wordpress/*` packages, private use), the setting `site.maintenance.v1`, `npm run test:redis`. The production build needs a 4 GB heap on Node 22 (`NODE_OPTIONS=--max-old-space-size=4096`); the browser suite's development server needs more (`e2e.yml`).
+
+## Platform mandate routing — 2026-10-10
+
+Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
+
+Release new group/restriction/lifecycle/theme policies through expand/backfill/compare/switch with schema parity and release manifest. Preserve historical sanctions, money and unknown documents. Verify optional-modules-off, lifecycle recovery, cache/session invalidation and theme fallback when affected. ProductionVerified requires named deployed operational evidence; broad matrix U cells and local tests are not production certification.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing

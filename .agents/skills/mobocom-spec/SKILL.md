@@ -14,14 +14,20 @@ description: Define a compact implementation scenario/spec for a substantial Mob
 7. Do not over-design microservices or future scale without evidence.
 8. When accepted by repository reality, continue into `mobocom-develop`.
 
-GitHub Spec Kit may be used for major work when deliberately initialized, but MoboCom rules remain authoritative.
+GitHub Spec Kit is an optional installed helper; use compact scenario/acceptance/convergence concepts within the existing `docs/specs` workflow. Do not initialize a parallel `.specify` system or use `init --force` as routine development. Tool routing and current installation evidence: `docs/agent/DEVSTACK.md`.
 
 ## This repository
 - Specs live in `docs/specs/<feature>/SPEC.md`, from `docs/specs/_TEMPLATE.md`. A feature built in slices keeps one spec with a section per slice (see `docs/specs/forum-invision/SPEC.md`).
-- "Actors & authorization" names the exact permission from `src/modules/identity/rbac.ts`; one section, one permission. For the forum, say which of the three ranks may do it and whether it is scoped to a forum.
+- "Actors & authorization" names the exact permission from `src/modules/identity/rbac.ts`; the existing section-specific keys, preserving catalog/order distinctions. For the forum, say which of the three ranks may do it and whether it is scoped to a forum.
 - "Acceptance verification" names the connected PostgreSQL script and the deliberate breaks that must fail it.
 - When the owner makes a decision the spec depends on, record it in `docs/agent/PLATFORM_DECISIONS.md` as well.
 - Page or article content in a spec means the block editor and the MoboCom document (`docs/editor/ARCHITECTURE.md`): name the block types involved, their fields and, for a dynamic block, the question it stores. A feature that changes a money state names the claim it makes and the database rule it relies on.
+
+## Platform mandate routing — 2026-10-10
+
+Read current repository root instructions, then task-relevant sections of `docs/agent/ARCHITECTURE.md` and `PLATFORM_DECISIONS.md`. The canonical contracts, domain matrix and roadmap are linked there; read only the affected scope. If the repository is unavailable, use the fallback from `references/architecture.md` and do not infer current implementation from it.
+
+For group/restriction/lifecycle/theme/contextual changes, load the relevant platform-evolution contract and record current owner, compatibility comparison, actors/explicit denies, failure/expiry/concurrency paths, typed Admin configuration, migration/backfill/rollback and concrete acceptance. Define one vertical slice; benchmark breadth does not authorize a rewrite.
 
 <!-- mobocom-business-skill:start -->
 ## Business experiences routing
