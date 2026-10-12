@@ -63,4 +63,6 @@
 
 Release safety evidence and remaining production limits: [2026-10-10 audit](audits/2026-10-10-release-safety-pr.md).
 
+Business experience section: PARTIAL — existing Reviews/Content/Identity/Moderation owners inspected; [bounded specification](../specs/business-experiences/SPEC.md) and business URL/experience normalization implemented. Domain suite14, architecture and TypeScript passed; [evidence](audits/2026-10-12-business-experiences-foundation.md). Profile schema, module/permission registration, business-specific approved-only review integration, directory/profile/Admin UI and connected/browser validation remain unimplemented. No live section or verified-purchase capability is claimed.
+
 Statuses: GOOD, WEAK_UX, WEAK_BACKEND, WEAK_SECURITY, PARTIAL, DISCONNECTED, DUPLICATE, MISSING, REGRESSED.
