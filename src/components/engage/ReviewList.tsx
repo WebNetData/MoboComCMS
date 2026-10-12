@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { EXPERIENCE_LABEL, isExperienceKind, type ReviewSort } from '@/modules/reviews/domain/dimensions'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Review = {
   id: number
@@ -115,7 +116,7 @@ export default function ReviewList({ item, initial, initialTotal, initialPages, 
               {isExperienceKind(review.verified) && <span className="rv-badge" title="بر پایهٔ سابقهٔ خود موبوکام">✓ {EXPERIENCE_LABEL[review.verified].label}</span>}
               <time dateTime={review.createdAt}>{new Date(review.createdAt).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
             </p>
-            <p className="rv-rate"><span className="rv-stars" role="img" aria-label={`${review.rating} از ۵`}>{[1, 2, 3, 4, 5].map((star) => <span key={star} className={review.rating >= star ? 'is-on' : ''} aria-hidden="true">★</span>)}</span><span className="rv-rate-num" aria-hidden="true">{review.rating.toLocaleString('fa-IR')} از ۵</span></p>
+            <p className="rv-rate"><RatingChip value={review.rating} /><RatingMeter size="sm" value={review.rating} label={`${review.rating} از ۵`} /></p>
             {review.body && <p className={`rv-body${long && !open ? ' is-folded' : ''}`} dir="auto" id={`rv-body-${review.id}`}>{review.body}</p>}
             {long && <button type="button" className="rv-fold" aria-expanded={open} aria-controls={`rv-body-${review.id}`} onClick={() => setOpened((current) => open ? current.filter((id) => id !== review.id) : [...current, review.id])}>{open ? 'بستن' : 'ادامهٔ نظر'}</button>}
             {scores.length > 0 && <ul className="rv-scores" aria-label="امتیازهای تخصصی">{scores.map((dimension) => <li key={dimension.key}>{dimension.label} <b>{review.scores![dimension.key].toLocaleString('fa-IR')}</b></li>)}</ul>}
@@ -123,7 +124,7 @@ export default function ReviewList({ item, initial, initialTotal, initialPages, 
           </div>
         </li>
       })}
-    </ul> : <div className="rv-none"><span aria-hidden="true">✦</span><p>{verifiedOnly ? 'هنوز نظری با تجربهٔ تأییدشده ثبت نشده است.' : 'هنوز نظری نوشته نشده است؛ اولین نفر باشید.'}</p></div>}
+    </ul> : <div className="rv-none"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /><path d="M9 11h6M9 14h4" /></svg><p>{verifiedOnly ? 'هنوز نظری با تجربهٔ تأییدشده ثبت نشده است.' : 'هنوز نظری نوشته نشده است؛ اولین نفر باشید.'}</p></div>}
     {error && <p role="alert" className="error-text">{error}</p>}
     {page < pages && <button type="button" className="btn btn-ghost btn-sm rv-more" disabled={busy} onClick={() => void load(page + 1, sort, verifiedOnly)}>{busy ? 'در حال دریافت…' : `نمایش نظرهای بیشتر (${Math.max(0, total - reviews.length).toLocaleString('fa-IR')})`}</button>}
   </div>

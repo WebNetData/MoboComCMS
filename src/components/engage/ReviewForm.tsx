@@ -3,10 +3,11 @@
 import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 import { EXPERIENCE_LABEL, isExperienceKind, suggestedRating, type ReviewScores } from '@/modules/reviews/domain/dimensions'
+import { RATING_LABELS, RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Mine = { rating: number; body: string; status: string; verified?: string; scores?: ReviewScores } | null
 type Dimension = { key: string; label: string; hint: string }
-const LABELS = ['', 'ضعیف', 'متوسط', 'خوب', 'خیلی خوب', 'عالی']
+const LABELS = RATING_LABELS
 
 /** Star rating, optional per-type dimension scores and optional text review for the signed-in member (create, edit, delete). */
 export default function ReviewForm({ item, mine, loggedIn, title, path, dimensions = [], experience = '', badgeHint = '', startEditing = false, onDone }: { item: string; mine: Mine; loggedIn: boolean; title: string; path: string; dimensions?: Dimension[]; experience?: string; badgeHint?: string; /** Open the editor for an existing review (account list). */ startEditing?: boolean; /** Called when the editor is left: saved, cancelled or deleted. */ onDone?: () => void }) {
@@ -23,7 +24,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
 
   if (!loggedIn) {
     return <div className="rv-login">
-      <span className="rv-login-art" aria-hidden="true">★</span>
+      <span className="rv-login-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /><path d="M9 11h6M9 14h4" /></svg></span>
       <p><b>نظر شما چیست؟</b>برای امتیاز دادن و نوشتن نظر دربارهٔ «{title}» وارد شوید.</p>
       <a href={`/login?next=${encodeURIComponent(`${path}#reviews`)}`} className="btn btn-primary btn-sm">ورود و ثبت نظر</a>
     </div>
@@ -39,7 +40,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!rating) { setMessage({ text: 'ابتدا یک تا پنج ستاره انتخاب کنید', error: true }); return }
+    if (!rating) { setMessage({ text: 'ابتدا از ۱ تا ۵ یک امتیاز انتخاب کنید', error: true }); return }
     setBusy(true); setMessage(null)
     const response = await fetch('/api/engage/review', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item, rating, body, ...(dimensions.length ? { scores } : {}) }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
@@ -66,7 +67,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
     return (
       <div className="rv-mine">
         <p className="rv-mine-title">امتیاز شما{mine.status === 'PENDING' && <span className="rv-state is-wait">متن در انتظار تأیید</span>}{mine.status === 'REJECTED' && <span className="rv-state is-no">متن تأیید نشد</span>}</p>
-        <span className="rv-stars" aria-label={`امتیاز شما: ${mine.rating} از ۵`}>{'★'.repeat(mine.rating)}<i>{'★'.repeat(5 - mine.rating)}</i></span>
+        <span className="rv-mine-score"><RatingChip value={mine.rating} /><RatingMeter value={mine.rating} label={`امتیاز شما: ${mine.rating} از ۵`} /></span>
         {badge && <span className="rv-badge">✓ {EXPERIENCE_LABEL[badge].label}</span>}
         <span className="rv-mine-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>ویرایش</button>
@@ -84,12 +85,12 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
       <fieldset className="rv-picker" onMouseLeave={() => setHover(0)}>
         <legend>امتیاز شما به «{title}»</legend>
         {[1, 2, 3, 4, 5].map((value) => (
-          <label key={value} className={value <= shown ? 'is-on' : ''} onMouseEnter={() => setHover(value)}>
+          <label key={value} className={`tone-${value}${value === shown ? ' is-on' : value < shown ? ' is-under' : ''}`} onMouseEnter={() => setHover(value)}>
             <input type="radio" name="rating" value={value} checked={rating === value} onChange={() => { setRating(value); setRatingChosen(true) }} />
-            <span aria-hidden="true">★</span><span className="sr-only">{value} ستاره</span>
+            <b aria-hidden="true">{value.toLocaleString('fa-IR')}</b><span>{LABELS[value]}</span><span className="sr-only"> ({value} از ۵)</span>
           </label>
         ))}
-        <output aria-live="polite" className={shown ? 'is-set' : ''}>{shown ? LABELS[shown] : 'انتخاب کنید'}</output>
+        <output aria-live="polite" className="sr-only">{shown ? `${LABELS[shown]}، ${shown} از ۵` : 'انتخاب کنید'}</output>
       </fieldset>
       {dimensions.length > 0 && <details className="rv-dims-edit" open={scored > 0 || undefined}>
         <summary>امتیاز تخصصی <small>(اختیاری{scored ? ` · ${scored.toLocaleString('fa-IR')} از ${dimensions.length.toLocaleString('fa-IR')}` : ''})</small></summary>
@@ -99,9 +100,9 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
               <span className="rv-dim-name">{dimension.label}<small>{dimension.hint}</small></span>
               <span className="rv-dim-stars">
                 {[1, 2, 3, 4, 5].map((value) => (
-                  <label key={value} className={value <= (scores[dimension.key] || 0) ? 'is-on' : ''}>
+                  <label key={value} className={`tone-${value}${value === (scores[dimension.key] || 0) ? ' is-on' : value < (scores[dimension.key] || 0) ? ' is-under' : ''}`}>
                     <input type="radio" name={`score-${dimension.key}`} value={value} checked={scores[dimension.key] === value} onChange={() => score(dimension.key, value)} />
-                    <span aria-hidden="true">★</span><span className="sr-only">{dimension.label}: {value} از ۵</span>
+                    <b aria-hidden="true">{value.toLocaleString('fa-IR')}</b><span className="sr-only">{dimension.label}: {value} از ۵</span>
                   </label>
                 ))}
               </span>
