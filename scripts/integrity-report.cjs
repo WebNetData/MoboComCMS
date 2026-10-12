@@ -4,13 +4,14 @@
 // change how far back the time-bounded findings look (default 365). Run it against the database you want to inspect:
 //   node --env-file=.env scripts/integrity-report.cjs
 const { PrismaClient } = require('@prisma/client')
+const { repositoryPurchaseIssues } = require('./integrity-report/repository-purchases.cjs')
 
 const SAMPLE = 20, SCAN = 5000
 const args = process.argv.slice(2), asJson = args.includes('--json')
 const days = Math.max(1, Math.min(3650, Number((args.find((arg) => arg.startsWith('--days=')) || '').slice(7)) || 365))
 
 /** Every finding: { key, title, what, count, sample, capped }. `capped` means the scan stopped at its limit. */
-async function findings(db, now = new Date()) {
+async function findings(db, now = new Date(), options = {}) {
   const since = new Date(now.getTime() - days * 86_400_000), settled = new Date(now.getTime() - 10 * 60_000)
   const out = []
   const add = (key, title, what, rows, capped = false) => out.push({ key, title, what, count: rows.length, sample: rows.slice(0, SAMPLE), capped })
@@ -104,6 +105,12 @@ async function findings(db, now = new Date()) {
     const short = await db.orderEvent.findMany({ where: { status: 'CODES_SHORT', createdAt: { gte: since }, order: { status: 'PAID', productDelivery: { is: { status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] } } } } }, orderBy: { id: 'asc' }, take: SCAN, select: { orderId: true, createdAt: true } })
     add('codes-waiting', 'Paid orders waiting for a digital code', 'the product delivers codes by itself and had none left; adding codes to the product delivers these orders at once', short.map((row) => ({ orderId: row.orderId, since: row.createdAt.toISOString() })), short.length === SCAN)
   }
+  // Existing owner gains bounded Repository diagnosis using the same pure policy as Admin recovery.
+  const repo = await repositoryPurchaseIssues(db, { limit: SCAN, afterPaymentId: options.repositoryAfter || 0 })
+  for (const [group, key, title] of [['unfulfilled', 'repository-purchase-unfulfilled', 'Repository payments without a license'], ['ambiguous', 'repository-purchase-ambiguous', 'Repository receipts requiring manual review'], ['invalid', 'repository-purchase-invalid', 'Invalid Repository purchase payment records']]) {
+    add(key, title, 'Review the payment in Repository Admin with Repository and finance permissions; no data was changed.', repo.groups[group], repo.capped)
+    Object.assign(out[out.length - 1], { afterPaymentId: repo.afterPaymentId, nextAfterPaymentId: repo.nextAfterPaymentId, scannedPayments: repo.scanned })
+  }
   return out
 }
 
@@ -111,11 +118,14 @@ async function main() {
   if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/integrity-report.cjs'); process.exit(2) }
   const db = new PrismaClient()
   try {
-    const result = await findings(db)
+    const rawCursor = (args.find(arg => arg.startsWith('--after-repository-payment=')) || '').slice(27)
+    if (rawCursor && !/^(0|[1-9]\d*)$/.test(rawCursor)) throw Error('invalid Repository payment cursor')
+    const result = await findings(db, new Date(), { repositoryAfter: rawCursor ? Number(rawCursor) : 0 })
     if (asJson) { console.log(JSON.stringify({ days, generatedAt: new Date().toISOString(), findings: result }, null, 1)); return }
     console.log(`Integrity report (read-only), time-bounded findings look back ${days} days\n`)
     for (const row of result) {
       console.log(`${row.count ? '!!' : 'ok'}  ${row.title}: ${row.count}${row.capped ? ` (scan stopped at ${SCAN} rows; there may be more)` : ''}`)
+      if (row.nextAfterPaymentId) console.log(`    Continue Repository history with --after-repository-payment=${row.nextAfterPaymentId}`)
       if (row.count) { console.log(`    ${row.what}`); for (const item of row.sample) console.log(`    ${JSON.stringify(item)}`); if (row.count > row.sample.length) console.log(`    … and ${row.count - row.sample.length} more (use --json)`) }
     }
     const total = result.reduce((sum, row) => sum + row.count, 0)

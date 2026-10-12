@@ -31,6 +31,7 @@ const CHECKS = [
   'repository-vendor-licenses',
   'repository-purchase',
   'repository-purchase-recovery',
+  'repository-purchase-diagnostics',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

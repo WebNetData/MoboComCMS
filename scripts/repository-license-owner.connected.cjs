@@ -23,7 +23,7 @@ function load(relative){
   if(name==='@/modules/updater/server/service')return {currentVersion:()=> '1.0.0'};
   if(name==='@/modules/packages/server/store')return {setPackageEnabled:async(id,enabled)=>disabled.push([id,enabled]),installPackage:()=>{throw Error('Unexpected installation')},loadPackage:async()=>({enabled:true})};
   if(name==='./crypto')return {sha256:hash,signPayload:async certificate=>{signed.push(certificate);return 'fixture-signature'},verifyPayload:()=>true,fingerprintOf:()=> 'fixture',vendorKeys:()=>{throw Error('Unexpected vendor key generation')}};
-  if(name.startsWith('@/')){const candidate='src/'+name.slice(2);if(candidate.endsWith('.json'))return JSON.parse(fs.readFileSync(candidate,'utf8'));return load(fs.existsSync(candidate+'.ts')?candidate+'.ts':candidate+'/index.ts')}
+  if(name.startsWith('@/')&&name.endsWith('.cjs'))return require(path.resolve('src/'+name.slice(2)));if(name.startsWith('@/')){const candidate='src/'+name.slice(2);if(candidate.endsWith('.json'))return JSON.parse(fs.readFileSync(candidate,'utf8'));return load(fs.existsSync(candidate+'.ts')?candidate+'.ts':candidate+'/index.ts')}
   if(name.startsWith('.'))return load(path.resolve(path.dirname(file),name)+'.ts');
   return require(name);
  },mod,mod.exports);return mod.exports;

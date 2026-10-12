@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { requirePerm } from '@/modules/identity/server/access'
 import { RepoError } from '@/modules/repository/domain/repository'
+import { parsePurchasePayment, classifyPurchaseRecovery } from '@/modules/repository/domain/purchase-recovery.cjs'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { minorToDecimal } from '@/shared/money'
 import { sha256 } from '../crypto'
@@ -23,19 +24,16 @@ async function readPurchaseRecovery(paymentId: number, tx: Prisma.TransactionCli
   if (!Number.isSafeInteger(paymentId) || paymentId <= 0 || paymentId > 2147483647) throw new RepoError('شناسهٔ پرداخت معتبر نیست', 400)
   const payment = await tx.walletTx.findUnique({ where: { id: paymentId } })
   if (!payment) throw new RepoError('پرداخت پیدا نشد', 404)
-  const key = /^repo:buy:([1-9]\d*):([1-9]\d*):([A-Za-z0-9_-]{8,40})$/.exec(payment.idempotencyKey || '')
-  const userId = key ? Number(key[1]) : 0, productId = key ? Number(key[2]) : 0
-  const valid = Boolean(key && userId === payment.userId && productId <= 2147483647 && payment.status === 'DONE' && payment.type === 'PURCHASE' && payment.amountMinor < 0n && /^[A-Z0-9]{3,12}$/.test(payment.currency))
+  const parsed = parsePurchasePayment(payment), valid = Boolean(parsed)
+  const userId = parsed?.userId || 0, productId = parsed?.productId || 0
   const buyer = valid ? await tx.user.findUnique({ where: { id: userId }, select: { id: true, email: true } }) : null
   const product = valid ? await tx.repoProduct.findUnique({ where: { id: productId }, select: { id: true, name: true, currency: true, active: true, siteLimit: true, supportDays: true } }) : null
-  const receipts = valid ? await tx.repoLicense.findMany({ where: { userId, productId, note: `buy:${key![3]}` }, orderBy: { id: 'asc' }, select: { id: true, source: true, status: true, currency: true, paidMinor: true, updatesUntil: true } }) : []
+  const receipts = valid ? await tx.repoLicense.findMany({ where: { userId, productId, note: `buy:${parsed!.requestId}` }, orderBy: { id: 'asc' }, select: { id: true, source: true, status: true, currency: true, paidMinor: true, updatesUntil: true } }) : []
   const refund = valid ? await tx.walletTx.findUnique({ where: { idempotencyKey: `repo:refund:${payment.id}` } }) : null
-  const matchingReceipt = receipts.length === 1 && receipts[0].source === 'PURCHASE' && receipts[0].currency === payment.currency && receipts[0].paidMinor === -payment.amountMinor
-  const matchingRefund = refund && refund.status === 'DONE' && refund.type === 'REFUND' && refund.userId === userId && refund.currency === payment.currency && refund.amountMinor === -payment.amountMinor
-  const state = !valid || !buyer ? 'invalid-payment' : receipts.length > 1 ? 'duplicate-receipts' : refund && (receipts.length || !matchingRefund) ? 'refund-conflict' : refund ? 'refunded' : receipts.length && !matchingReceipt ? 'receipt-mismatch' : receipts.length ? 'fulfilled' : 'unfulfilled'
+  const state = classifyPurchaseRecovery(payment, Boolean(buyer), receipts, refund)
   const termsValid = product && product.active && product.currency === payment.currency && Number.isInteger(product.siteLimit) && product.siteLimit >= 0 && product.siteLimit <= 1000 && Number.isInteger(product.supportDays) && product.supportDays >= 0 && product.supportDays <= 3650
   const summary = {
-    payment: { id: payment.id, userId: payment.userId, productId: valid ? productId : null, requestId: valid ? key![3] : null, amountMinor: payment.amountMinor.toString(), currency: payment.currency, paidAt: payment.createdAt.toISOString(), status: payment.status, type: payment.type },
+    payment: { id: payment.id, userId: payment.userId, productId: valid ? productId : null, requestId: parsed?.requestId || null, amountMinor: payment.amountMinor.toString(), currency: payment.currency, paidAt: payment.createdAt.toISOString(), status: payment.status, type: payment.type },
     buyer, product, state,
     receipts: receipts.map(row => ({ ...row, paidMinor: row.paidMinor.toString(), updatesUntil: row.updatesUntil?.toISOString() || null })),
     refund: refund ? { id: refund.id, status: refund.status, type: refund.type, userId: refund.userId, currency: refund.currency, amountMinor: refund.amountMinor.toString() } : null,
