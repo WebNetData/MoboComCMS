@@ -22,7 +22,11 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
   if (!loggedIn) {
-    return <p className="rv-login"><a href={`/login?next=${encodeURIComponent(`${path}#reviews`)}`} className="btn btn-ghost btn-sm">ورود</a> برای امتیاز دادن و نوشتن نظر دربارهٔ «{title}».</p>
+    return <div className="rv-login">
+      <span className="rv-login-art" aria-hidden="true">★</span>
+      <p><b>نظر شما چیست؟</b>برای امتیاز دادن و نوشتن نظر دربارهٔ «{title}» وارد شوید.</p>
+      <a href={`/login?next=${encodeURIComponent(`${path}#reviews`)}`} className="btn btn-primary btn-sm">ورود و ثبت نظر</a>
+    </div>
   }
 
   function score(key: string, value: number) {
@@ -61,11 +65,13 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
   if (!editing && mine) {
     return (
       <div className="rv-mine">
+        <p className="rv-mine-title">امتیاز شما{mine.status === 'PENDING' && <span className="rv-state is-wait">متن در انتظار تأیید</span>}{mine.status === 'REJECTED' && <span className="rv-state is-no">متن تأیید نشد</span>}</p>
         <span className="rv-stars" aria-label={`امتیاز شما: ${mine.rating} از ۵`}>{'★'.repeat(mine.rating)}<i>{'★'.repeat(5 - mine.rating)}</i></span>
-        <span>امتیاز شما{mine.status === 'PENDING' ? ' · متن در انتظار تأیید' : mine.status === 'REJECTED' ? ' · متن تأیید نشد' : ''}</span>
         {badge && <span className="rv-badge">✓ {EXPERIENCE_LABEL[badge].label}</span>}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>ویرایش</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => void remove()} disabled={busy}>حذف</button>
+        <span className="rv-mine-actions">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>ویرایش</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void remove()} disabled={busy}>حذف</button>
+        </span>
         {message && <p className={message.error ? 'error-text' : 'rv-ok'} role="status">{message.text}</p>}
       </div>
     )
@@ -83,7 +89,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
             <span aria-hidden="true">★</span><span className="sr-only">{value} ستاره</span>
           </label>
         ))}
-        <output aria-live="polite">{shown ? LABELS[shown] : 'انتخاب کنید'}</output>
+        <output aria-live="polite" className={shown ? 'is-set' : ''}>{shown ? LABELS[shown] : 'انتخاب کنید'}</output>
       </fieldset>
       {dimensions.length > 0 && <details className="rv-dims-edit" open={scored > 0 || undefined}>
         <summary>امتیاز تخصصی <small>(اختیاری{scored ? ` · ${scored.toLocaleString('fa-IR')} از ${dimensions.length.toLocaleString('fa-IR')}` : ''})</small></summary>
@@ -112,7 +118,7 @@ export default function ReviewForm({ item, mine, loggedIn, title, path, dimensio
       <div className="rv-form-actions">
         <button className="btn btn-primary btn-sm" disabled={busy || !rating}>{busy ? 'در حال ثبت…' : mine ? 'ذخیرهٔ تغییرات' : 'ثبت امتیاز و نظر'}</button>
         {mine && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setRating(mine.rating); setBody(mine.body); setScores(mine.scores || {}); onDone?.() }}>انصراف</button>}
-        <small className="muted">{body.length.toLocaleString('fa-IR')} / ۲٬۰۰۰</small>
+        <small className={`rv-counter${body.length > 1800 ? ' is-near' : ''}`}>{body.length.toLocaleString('fa-IR')} / ۲٬۰۰۰</small>
       </div>
     </form>
   )
