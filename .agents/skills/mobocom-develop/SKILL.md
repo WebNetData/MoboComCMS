@@ -5,7 +5,6 @@ description: Implement, debug, refactor, or review MoboCom frontend/backend feat
 
 # Development workflow
 
-For business/Trustpilot-style experiences, first read `docs/agent/handoffs/BUSINESS_EXPERIENCES.md` and its linked spec. Continue the current implementation and executed evidence; preserve canonical ItemReview versus SellerReview ownership and never infer external verified purchases from unrelated MoboCom orders.
 
 1. Read root instructions and focused repo map.
 2. Audit before adding; repository truth beats prompts.
@@ -53,3 +52,9 @@ Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the
 Applying or clearing forum silence/suspension calls canonical Identity `accountChangeRefusal(actor, targetId, { sensitive: true })` before the profile write, with the authenticated actor and existing forum permission. A forum-only manager cannot restrict protected staff. Reuse current guards; do not add a forum staff hierarchy.
 
 Legacy block conversion requires explicit first-save acceptance before autosave; aggregate Setting writes claim the exact stored value and retry on conflict; text direction is explicit paragraph → block → first Unicode letter → page default. Verify affected flows against PostgreSQL and the actual browser, preserving protected visuals.
+
+<!-- mobocom-business-skill:start -->
+## Business experiences routing
+
+When this workflow touches business/Trustpilot-style experiences, first read docs/agent/handoffs/BUSINESS_EXPERIENCES.md and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve its authoritative checkout; continue existing ItemReview versus SellerReview owners and recorded evidence. Missing files in another checkout do not justify a new system. Load only the pending slice; the handoff is the continuation source.
+<!-- mobocom-business-skill:end -->

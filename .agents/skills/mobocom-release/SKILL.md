@@ -27,3 +27,9 @@ description: Prepare, validate, migrate, deploy, update, or recover MoboCom safe
 - Pull request gate: `.github/workflows/checks.yml` runs `npm run check`, a first deploy on an empty PostgreSQL (`deploy:migrate`, `deploy:seed`) with `test:pg` and `test:redis`, and the production build. A release is not cut from a commit whose checks are red.
 - Migrations added 2026-10-07: `20261214120000` (content revisions), `20261215120000` (admin saved views), `20261216120000` (money state rules: validates stored rows and stops with the constraint's name if one breaks a rule), `20261217120000` and `20261218120000` (document columns on pages and articles). All additive.
 - New since then: the plugin `block-editor` (GPL-2.0-or-later `@wordpress/*` packages, private use), the setting `site.maintenance.v1`, `npm run test:redis`. The production build needs a 4 GB heap on Node 22 (`NODE_OPTIONS=--max-old-space-size=4096`); the browser suite's development server needs more (`e2e.yml`).
+
+<!-- mobocom-business-skill:start -->
+## Business experiences routing
+
+When this workflow touches business/Trustpilot-style experiences, first read docs/agent/handoffs/BUSINESS_EXPERIENCES.md and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve its authoritative checkout; continue existing ItemReview versus SellerReview owners and recorded evidence. Missing files in another checkout do not justify a new system. Load only the pending slice; the handoff is the continuation source.
+<!-- mobocom-business-skill:end -->

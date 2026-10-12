@@ -45,3 +45,9 @@ Decisions in force (details and guards in `docs/agent/PLATFORM_DECISIONS.md`):
 - A section can be put in maintenance by itself (`/admin/maintenance`): visitors get the owner's notice, only full access and that section's managers see it. A new section with public pages joins `MAINTENANCE_SECTIONS`.
 - Every migration is listed in `prisma/release-manifest.json`; every pull request passes `.github/workflows/checks.yml` and the browser suite. A test must pass with no `.env`, on an empty database and as a user who is not root.
 - A module past a few hundred lines is a folder of parts behind the same address; other modules import the address, never a part.
+
+<!-- mobocom-business-continuation:start -->
+## Business experiences continuation
+
+For business/Trustpilot-style experiences, read docs/agent/handoffs/BUSINESS_EXPERIENCES.md first and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve the authoritative branch/worktree before editing: the implementation may be ahead of this checkout. Continue it; do not rebuild from missing files here. The handoff records verified checks and remaining work, not whole-feature completion.
+<!-- mobocom-business-continuation:end -->

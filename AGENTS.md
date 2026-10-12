@@ -49,3 +49,9 @@ Decided by the owner after the v4 prompt; full text, code locations and guards i
 - Dead code → Knip; large structural refactor → ast-grep.
 
 Use only relevant tools for the task. Do not run the full release stack after every edit.
+
+<!-- mobocom-business-continuation:start -->
+## Business experiences continuation
+
+For business/Trustpilot-style experiences, read docs/agent/handoffs/BUSINESS_EXPERIENCES.md first and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve the authoritative branch/worktree before editing: the implementation may be ahead of this checkout. Continue it; do not rebuild from missing files here. The handoff records verified checks and remaining work, not whole-feature completion.
+<!-- mobocom-business-continuation:end -->

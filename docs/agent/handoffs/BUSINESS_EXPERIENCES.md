@@ -6,6 +6,8 @@ Trustpilot-like experiences of buying from or dealing with **external businesses
 
 ## Where to continue
 
+Canonical ownership rules now live in the **Business experiences — canonical ownership** section of `docs/agent/ARCHITECTURE.md`. Root `AGENTS.md`, `CLAUDE.md` and session bootstrap route agents here before editing. The six repo-local Codex/Claude workflows and installed Codex engineer/workflows include scoped continuation routing. Follow the current checkout/branch below; an older checkout missing business sources is not a reason to recreate this system.
+
 - Branch: `feat/business-experiences-2026-10-12`.
 - Authoritative local implementation: `.mobocom/autonomous-foundation` under the project root. Root worktree contains unrelated owner changes; never reset it or replace protected package/environment files.
 - Base: merged PR149 `229cec503a20874687efbe98d343690dbc1fa98f`. First domain commit `e3093c8`; the core implementation and this handoff continue on the same feature branch. Inspect Git for the latest committed head and any additional working diff before taking action.

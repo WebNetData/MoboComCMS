@@ -21,3 +21,9 @@ description: Design, test, or evolve MoboCom API/event contracts for public APIs
 - A future app or Messenger reads standing from the same Identity and the same permissions (`docs/agent/PLATFORM_DECISIONS.md` §2–§4); do not mint a second notion of role for it.
 - Added 2026-10-07 (same-process, typed, covered by checks): `GET/PUT /api/admin/editor/:entity/:id` with `entity` `pages` | `posts`, body `{ document, updatedAt }`, answers 409 `CHANGED`, 422 `DOCUMENT_INVALID` with `issues`, 404 `EDITOR_OFF`; `GET /api/admin/editor` `{ enabled }`; `GET/PUT /api/admin/maintenance` `{ section, enabled?, title?, message? }`. The document format is versioned (`version: 1`, each block its own `version`); a client keeps blocks it does not know and sends them back unchanged.
 - A page of a section in maintenance answers 503 with `Retry-After`; a client treats it as "come back later", not as an error of its own.
+
+<!-- mobocom-business-skill:start -->
+## Business experiences routing
+
+When this workflow touches business/Trustpilot-style experiences, first read docs/agent/handoffs/BUSINESS_EXPERIENCES.md and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve its authoritative checkout; continue existing ItemReview versus SellerReview owners and recorded evidence. Missing files in another checkout do not justify a new system. Load only the pending slice; the handoff is the continuation source.
+<!-- mobocom-business-skill:end -->
