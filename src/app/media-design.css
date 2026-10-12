@@ -998,4 +998,4 @@ a.cn-person { color: inherit; text-decoration: none; }
 @media (max-width: 600px) { .it-timeline li { grid-template-columns: 1fr; gap: 4px; } }
 
 /* VIP switched off: nothing is members-only, so nothing is marked as such (the marks stay stored on the items). */
-html[data-vip='off'] :is(.vip-chip, .vip-badge-sm, .vip-dot, .vip-crown, .vip-gate, .vip-strip, .cn-vip-shelf, .cn-cal-vip, .bi-tag.is-vip, .fx-vip, .sx-flag.is-vip, a[href='/vip'], a[href^='/vip?'], a[href^='/vip#']) { display: none !important; }
+html[data-vip='off'] :is(.vip-chip, .vip-badge-sm, .vip-dot, .vip-crown, .vip-gate, .vip-strip, .cn-vip-shelf, .cn-cal-vip, .bi-tag.is-vip, .fx-vip, .sx-flag.is-vip, .mbx-vip, .gx-flag.is-vip, [data-vip], a[href='/vip'], a[href^='/vip?'], a[href^='/vip#']) { display: none !important; }

@@ -412,7 +412,7 @@ test('storefront is opt-in and public filtering does not erase editable menus', 
   let enabled = false
   const { defaultSite } = load('src/modules/site/config/defaults.ts')
   const db = { setting: { findUnique: async ({ where }) => where.key === 'storeEnabled' ? { value: String(enabled) } : { value: JSON.stringify(defaultSite) } } }
-  const mocks = { react: { cache: fn => fn }, '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true } }
+  const mocks = { react: { cache: fn => fn }, '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true }, '@/extensions/server/state': { getPublicExtensionRuntime: async () => ({}) } }
   const { getPublicSiteConfig, getSiteConfig } = load('src/modules/site/config/store.ts', mocks)
   const hidden = await getPublicSiteConfig()
   assert.equal(hidden.navigation.some(link => link.href === '/products'), false)
@@ -1078,4 +1078,40 @@ test('the base currency is the toman: defaults and empty screens start from it, 
   // …while the legacy dollar wallet and each gateway's own fiat are left as they were.
   assert.match(sourceOf('src/modules/wallet/server/wallet.ts'), /if \(code !== 'USD'\) return 0/)
   assert.match(sourceOf('src/modules/billing/server/gateways.ts'), /gateway\.fiat \|\| 'USD'/)
+})
+
+test('a switched-off module leaves no trace in the public site config, and returns untouched when switched on', () => {
+  const { hideDisabledModules } = load('src/modules/site/config/visibility.ts')
+  const t = (fa, en = '') => ({ fa, en })
+  const item = (title, href = '') => ({ title: t(title), text: t(''), icon: '', href })
+  const section = (kind, title, items = [], action = '') => ({ id: kind + title, kind, enabled: true, eyebrow: t(''), title: t(title), description: t(''), items, action: { label: t('برو'), href: action }, formSlug: '' })
+  const site = {
+    announcement: { enabled: true, text: t('با اشتراک ویژهٔ موبوکام تخفیف بگیرید'), link: { label: t('اشتراک ویژه'), href: '/vip' } },
+    navigation: [{ label: t('بازی'), href: '/games' }, { label: t('اشتراک ویژه', 'VIP'), href: '/vip' }],
+    footer: [{ label: t('عضویت VIP'), href: '/vip?from=footer' }, { label: t('تماس'), href: '/contact' }],
+    sections: [
+      section('services', 'همه‌چیز', [item('بازی', '/games'), item('اشتراک ویژه', '/vip')]),
+      section('faq', 'پرسش‌ها', [item('ارسال چقدر طول می‌کشد؟'), item('اشتراک ویژه چه مزایایی دارد؟')]),
+      section('cta', 'بیشتر ببینید، کمتر بپردازید.', [], '/vip'),
+      { ...section('features', 'چرا ما؟', [item('پشتیبانی')]), eyebrow: t('اشتراک ویژهٔ موبوکام', 'MOBOCOM VIP') },
+      section('hero', 'خوش آمدید', [], '/vip'),
+    ],
+  }
+  const off = { membership: { enabled: false, paths: ['/vip'] } }, on = { membership: { enabled: true, paths: ['/vip'] } }
+  const hidden = hideDisabledModules(site, off)
+  assert.equal(hidden.announcement.enabled, false)
+  assert.deepEqual(hidden.navigation.map((link) => link.href), ['/games'])
+  assert.deepEqual(hidden.footer.map((link) => link.href), ['/contact'])
+  assert.deepEqual(hidden.sections[0].items.map((entry) => entry.href), ['/games'], 'an item that leads into the module')
+  assert.deepEqual(hidden.sections[1].items.map((entry) => entry.title.fa), ['ارسال چقدر طول می‌کشد؟'], 'an item that only speaks of it')
+  assert.equal(hidden.sections[2].enabled, false, 'a call to action that leads there goes whole')
+  assert.equal(hidden.sections[3].enabled, false, 'a section whose heading is about it goes whole')
+  assert.deepEqual([hidden.sections[4].enabled, hidden.sections[4].action.href, hidden.sections[4].action.label.fa], [true, '', ''], 'another section only loses the button')
+  assert.doesNotMatch(JSON.stringify({ ...hidden, sections: hidden.sections.filter((entry) => entry.enabled), announcement: hidden.announcement.enabled ? hidden.announcement : null }), /VIP|اشتراک ویژه|\/vip/)
+  // Nothing stored is changed, and with the module on the config passes through as it is.
+  assert.equal(site.sections[0].items.length, 2)
+  assert.deepEqual(hideDisabledModules(site, on), site)
+  assert.equal(hideDisabledModules(site, on).sections[1], site.sections[1])
+  // The public config goes through it, so every theme and the home page get the same answer.
+  assert.match(sourceOf('src/modules/site/config/store.ts'), /hideDisabledModules\(await getSiteConfig\(\), runtime\)/)
 })

@@ -149,9 +149,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
   // Pages of enabled uploaded packages that ask for it join the main menu.
   const locales = siteLocales()
-  const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)),
-    // An announcement that points into a switched-off module (the VIP offer while VIP is off) is not shown.
-    announcement: pathDisabled(siteConfig.announcement.link.href, extensions) ? { ...siteConfig.announcement, enabled: false } : siteConfig.announcement }
+  const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]

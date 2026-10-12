@@ -46,9 +46,9 @@ export default function FxPricing({ form, update }: { form: Form; update: (key: 
       {field('markupFixed', `سود ثابت (${unit(sell)})`, { placeholder: '0' })}
       <label className="sa-field"><span>واحد فروش</span><select className="select" value={sell} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان</option><option value="IRR">ریال</option></select></label>
       {field('fxCompareAt', `قیمت ارزی قبل از تخفیف (${code})`)}
-      {field('fxMemberPrice', `قیمت ارزی اعضای VIP (${code})`)}
+      <span data-vip="" style={{ display: 'contents' }}>{field('fxMemberPrice', `قیمت ارزی اعضای VIP (${code})`)}</span>
       <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز</span><input className="input" type="datetime-local" value={form.saleEndsAt} onChange={(event) => update('saleEndsAt', event.target.value)} /></label>
-      <label className="sa-field"><span>روز VIP هدیه با خرید</span><input className="input" type="number" min={0} value={form.vipGiftDays ?? 0} onChange={(event) => update('vipGiftDays', event.target.value)} /></label>
+      <label data-vip="" className="sa-field"><span>روز VIP هدیه با خرید</span><input className="input" type="number" min={0} value={form.vipGiftDays ?? 0} onChange={(event) => update('vipGiftDays', event.target.value)} /></label>
     </div>
     <div className="px-breakdown" aria-live="polite">
       {preview ? <dl>

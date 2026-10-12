@@ -4,14 +4,16 @@ import type { ReactNode } from 'react'
 import Icon from '@/components/site/Icon'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useSite } from '@/components/site/SiteProvider'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 
 export default function AuthFrame({ children }: { children: ReactNode }) {
   const { locale } = useI18n()
   const site = useSite()
   const fa = locale === 'fa'
+  const vipOn = useModuleEnabled('membership')
   const features = [
     { icon: 'devices', title: fa ? 'یک حساب برای همه‌چیز' : 'One account for everything', text: fa ? 'فروشگاه، مجله، موزیک، فیلم، بازی، نرم‌افزار و تالار با یک حساب.' : 'Shop, magazine, music, films, games, software and forum in one account.' },
-    { icon: 'wallet', title: fa ? 'مدیریت ساده و شفاف' : 'Everything, at a glance.', text: fa ? 'سفارش‌ها، فاکتورها، کیف پول و اشتراک ویژه همیشه در دسترس شماست.' : 'Your orders, invoices, wallet and VIP membership, always within reach.' },
+    { icon: 'wallet', title: fa ? 'مدیریت ساده و شفاف' : 'Everything, at a glance.', text: fa ? `سفارش‌ها، فاکتورها${vipOn ? '، کیف پول و اشتراک ویژه' : ' و کیف پول'} همیشه در دسترس شماست.` : `Your orders, invoices${vipOn ? ', wallet and VIP membership' : ' and wallet'}, always within reach.` },
     { icon: 'chat', title: fa ? 'پشتیبانی در کنار شما' : 'A little help, whenever you need it.', text: fa ? 'از پنل خود با تیم پشتیبانی در ارتباط باشید.' : 'Contact the support team directly from your account.' },
   ]
 

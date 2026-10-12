@@ -205,7 +205,7 @@ export default function GameEditorPage() {
           <div className="sa-grid">
             <label className="sa-field"><span>تاریخ انتشار بازی</span><input className="input" type="date" value={form.releaseDate} onChange={(e) => update('releaseDate', e.target.value)} /><small className="sa-sub">خالی = «اعلام نشده». بازی‌های آینده در تقویم انتشار و «به‌زودی» نمایش داده می‌شوند.</small></label>
             <label className="sa-field"><span>زمان انتشار در سایت</span><input className="input" type="datetime-local" value={form.publishedAt} onChange={(e) => update('publishedAt', e.target.value)} /><small className="sa-sub">زمان آینده = انتشار زمان‌بندی‌شده</small></label>
-            <label className="sa-field"><span>دسترسی دانلود</span><select className="select" value={form.access} onChange={(e) => update('access', e.target.value)}><option value="PUBLIC">عمومی</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
+            <label data-vip="" className="sa-field"><span>دسترسی دانلود</span><select className="select" value={form.access} onChange={(e) => update('access', e.target.value)}><option value="PUBLIC">عمومی</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           </div>
           <div className="sa-row"><label className="sa-check"><input type="checkbox" checked={form.featured} onChange={(e) => update('featured', e.target.checked)} />ویژه (اسلایدر بالای صفحه)</label><label className="sa-check"><input type="checkbox" checked={form.editorsChoice} onChange={(e) => update('editorsChoice', e.target.checked)} />انتخاب سردبیر</label></div>
           <div className="sa-field"><span>تاریخ انتشار روی هر پلتفرم (اختیاری)</span>

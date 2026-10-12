@@ -2,7 +2,7 @@
   "id": "download-guard",
   "name": "محافظت از لینک دانلود",
   "nameEn": "Download protection",
-  "description": "لینک‌های دانلود نرم‌افزار، بازی، فیلم و موزیک را موقت و امضاشده می‌کند، از لینک‌دهی مستقیم در سایت‌ها و کانال‌های دیگر جلوگیری می‌کند، سقف دانلود روزانه برای کاربر عادی و VIP می‌گذارد و گزارش لینک خراب را جمع می‌کند.",
+  "description": "لینک‌های دانلود نرم‌افزار، بازی، فیلم و موزیک را موقت و امضاشده می‌کند، از لینک‌دهی مستقیم در سایت‌ها و کانال‌های دیگر جلوگیری می‌کند، سقف دانلود روزانه می‌گذارد و گزارش لینک خراب را جمع می‌کند.",
   "descriptionEn": "Signed, expiring download links for software, games, films and music; blocks hotlinking, applies daily download limits for free and VIP users and collects broken-link reports.",
   "version": "1.0.0",
   "kind": "module",

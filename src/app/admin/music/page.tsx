@@ -24,7 +24,7 @@ export default function MusicDashboardPage() {
     {error && <Notice tone="error">{error}</Notice>}
     {!data || !k ? <div className="sa-skeleton" aria-busy="true" /> : <>
       <div className="sa-kpis">
-        <div className="sa-kpi"><span>آهنگ‌های منتشرشده</span><b className="num">{fa(k.tracks)}</b><small className="sa-sub">{fa(k.hq)} با کیفیت ۳۲۰ · {fa(k.vip)} ویژهٔ VIP</small></div>
+        <div className="sa-kpi"><span>آهنگ‌های منتشرشده</span><b className="num">{fa(k.tracks)}</b><small className="sa-sub">{fa(k.hq)} با کیفیت ۳۲۰<span data-vip=""> · {fa(k.vip)} ویژهٔ VIP</span></small></div>
         <div className="sa-kpi"><span>آلبوم و هنرمند</span><b className="num">{fa(k.albums)}</b><small className="sa-sub">{fa(k.artists)} هنرمند · {fa(k.playlists)} پلی‌لیست</small></div>
         <div className="sa-kpi"><span>پخش کل</span><b className="num">{fa(k.plays)}</b><small className="sa-sub">{fa(k.downloads)} دانلود کل</small></div>
         <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small className="sa-sub">{fa(k.scheduled)} آهنگ زمان‌بندی‌شده</small></div>

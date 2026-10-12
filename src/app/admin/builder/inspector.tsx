@@ -288,7 +288,7 @@ function WidgetFields({ widget, pageId, L, onProp, onBusy }: { widget: BuilderWi
     </div>
     if (field.kind === 'select') return <Row key={field.key} label={L(field.en, field.fa)} ltr>
       <select className="select" value={value} onChange={(event) => onProp(field.key, event.target.value)}>
-        {(field.options || []).map((option) => <option key={option.value} value={option.value}>{L(option.en, option.fa)}</option>)}
+        {(field.options || []).map((option) => <option key={option.value} value={option.value} data-vip={option.value === 'cinema-vip' ? '' : undefined}>{L(option.en, option.fa)}</option>)}
       </select>
     </Row>
     if (field.kind === 'area' || field.kind === 'rich') return <label className="bld-field" key={field.key}><span>{L(field.en, field.fa)}</span>

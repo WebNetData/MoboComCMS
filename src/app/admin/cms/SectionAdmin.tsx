@@ -70,7 +70,7 @@ export function RailsEditor<K extends string>({ rails, labels, onChange }: { rai
     ;[next[index], next[target]] = [next[target], next[index]]
     onChange(next)
   }
-  return <ol className="ga-rails">{rails.map((rail, index) => <li key={rail.key} className={rail.enabled ? '' : 'is-off'}>
+  return <ol className="ga-rails">{rails.map((rail, index) => <li key={rail.key} data-vip={rail.key === 'members' || rail.key === 'vipStrip' ? '' : undefined} className={rail.enabled ? '' : 'is-off'}>
     <span className="ga-rail-index num">{fa(index + 1)}</span>
     <label className="sa-check"><input type="checkbox" checked={rail.enabled} onChange={(e) => onChange(rails.map((r) => (r.key === rail.key ? { ...r, enabled: e.target.checked } : r)))} />{labels[rail.key]}</label>
     <span className="ga-rail-move"><button type="button" className="btn btn-ghost btn-sm" disabled={index === 0} onClick={() => move(index, -1)} aria-label={`بالا بردن ${labels[rail.key]}`}>↑</button><button type="button" className="btn btn-ghost btn-sm" disabled={index === rails.length - 1} onClick={() => move(index, 1)} aria-label={`پایین بردن ${labels[rail.key]}`}>↓</button></span>

@@ -24,7 +24,7 @@ export function CoverCard({ game }: { game: Game }) {
   return <Link href={`/games/${game.slug}`} className="gx-cover">
     <span className="gx-cover-art">
       {game.cover ? <img src={game.cover} alt="" loading="lazy" /> : <span className="gx-cover-ph"><Icon name="gamepad" size={34} /></span>}
-      {(game.featured || game.access === 'MEMBERS') && <span className="gx-flag" aria-label={game.access === 'MEMBERS' ? 'ویژهٔ VIP' : 'پیشنهاد ویژه'} />}
+      {(game.featured || game.access === 'MEMBERS') && <span className={`gx-flag${game.featured ? '' : ' is-vip'}`} aria-label={game.featured ? 'پیشنهاد ویژه' : 'ویژهٔ VIP'} />}
       {platform && <span className="gx-platform" title={game.platforms.join('، ')}><Icon name={platformIcon(platform)} size={12} /></span>}
       {game.score !== null && <span className="gx-score is-corner">{fa(game.score)}</span>}
     </span>

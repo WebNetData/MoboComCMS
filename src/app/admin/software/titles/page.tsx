@@ -38,5 +38,5 @@ export default function AdminSoftwarePage() {
     { key: 'links', label: fa ? 'لینک‌های دانلود' : 'Download links', type: 'links', upload: 'software' },
     access, status, featured, publishedAt, slug,
   ]
-  return <SoftwareShell><MediaCrud type="software" paywall={{ ownerType: 'software', noun: 'این نرم‌افزار' }} title={fa ? 'نرم‌افزارها' : 'Software'} subtitle={fa ? 'نسخه، مجوز، پلتفرم، تصاویر، تغییرات و لینک دانلود با دسترسی VIP.' : 'Version, license, platforms, screenshots, changelog and VIP-aware downloads.'} fields={fields} publicPath={(row) => (row.status === 'PUBLISHED' ? `/software/${row.slug}` : null)} /></SoftwareShell>
+  return <SoftwareShell><MediaCrud type="software" paywall={{ ownerType: 'software', noun: 'این نرم‌افزار' }} title={fa ? 'نرم‌افزارها' : 'Software'} subtitle={fa ? 'نسخه، مجوز، پلتفرم، تصاویر، تغییرات و لینک دانلود.' : 'Version, license, platforms, screenshots, changelog and VIP-aware downloads.'} fields={fields} publicPath={(row) => (row.status === 'PUBLISHED' ? `/software/${row.slug}` : null)} /></SoftwareShell>
 }

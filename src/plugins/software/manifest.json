@@ -2,7 +2,7 @@
   "id": "software",
   "name": "دانلود نرم‌افزار",
   "nameEn": "Software downloads",
-  "description": "معرفی و دانلود نرم‌افزار ویندوز، مک، لینوکس، اندروید و iOS با نسخه، مجوز، تصاویر، تغییرات و لینک‌های محافظت‌شده (قابل اختصاص به VIP).",
+  "description": "معرفی و دانلود نرم‌افزار ویندوز، مک، لینوکس، اندروید و iOS با نسخه، مجوز، تصاویر، تغییرات و لینک‌های محافظت‌شده.",
   "descriptionEn": "Software pages for Windows, macOS, Linux, Android and iOS with version, license, screenshots, changelog and protected (optionally VIP) download links.",
   "version": "1.0.0",
   "kind": "module",

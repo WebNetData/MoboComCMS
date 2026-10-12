@@ -68,7 +68,7 @@ function Titles() {
   return <GamesShell title="بازی‌ها" actions={<Link href="/admin/games/new" className="btn btn-primary">+ افزودن بازی</Link>}>
     <nav className="sa-subtabs" aria-label="وضعیت">{STATUS_TABS.map(([key, label]) => {
       const count = key === '' ? data?.counts.all : data?.counts[key]
-      return <button key={key} type="button" className={filters.status === key ? 'is-active' : ''} aria-pressed={filters.status === key} onClick={() => go({ status: key })}>{label}{count ? <span className="num">{fa(count)}</span> : null}</button>
+      return <button key={key} type="button" data-vip={key === 'vip' ? '' : undefined} className={filters.status === key ? 'is-active' : ''} aria-pressed={filters.status === key} onClick={() => go({ status: key })}>{label}{count ? <span className="num">{fa(count)}</span> : null}</button>
     })}</nav>
     <form className="sa-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); go({ q: search.trim() }) }}>
       <input className="input" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="نام فارسی یا انگلیسی، نامک یا سازنده" aria-label="جست‌وجوی بازی" />
@@ -83,7 +83,7 @@ function Titles() {
     <AdminPagination fa page={data?.page || 1} pages={data?.pages || 1} size={(filters.size || '20') as AdminPageSize} total={data?.total || 0} shown={data?.games.length || 0} busy={loading} onPage={(page) => go({ page: String(page) })} onSize={(size) => go({ size: String(size) })} />
     {selected.length > 0 && <div className="sa-bulk" role="region" aria-label="عملیات گروهی">
       <b className="num">{fa(selected.length)} انتخاب‌شده</b>
-      <select className="select" value={action} onChange={(event) => { setAction(event.target.value); setValue('') }} aria-label="عملیات"><option value="">عملیات گروهی…</option>{(mine ? AUTHOR_BULK : MANAGER_BULK).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
+      <select className="select" value={action} onChange={(event) => { setAction(event.target.value); setValue('') }} aria-label="عملیات"><option value="">عملیات گروهی…</option>{(mine ? AUTHOR_BULK : MANAGER_BULK).map(([key, label]) => <option key={key} value={key} data-vip={key === 'members' || key === 'public' ? '' : undefined}>{label}</option>)}</select>
       {action === 'franchise' && <select className="select" value={value} onChange={(event) => setValue(event.target.value)} aria-label="مجموعه"><option value="">بدون مجموعه</option>{data?.franchises.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select>}
       <button type="button" className="btn btn-primary" disabled={!action} onClick={() => void apply()}>اعمال</button>
       <button type="button" className="btn btn-ghost" onClick={() => setSelected([])}>لغو انتخاب</button>
@@ -105,7 +105,7 @@ function Titles() {
             <td className="num"><small>{fa(game.views)} بازدید</small><small className="sa-sub">{fa(game.library)} در کتابخانه‌ها</small></td>
             <td>
               <span className={`sa-state ${game.status === 'PUBLISHED' ? (game.scheduled ? 'is-warn' : 'is-ok') : game.status === 'TRASHED' ? 'is-warn' : ''}`}>{game.status === 'PUBLISHED' ? (game.scheduled ? 'زمان‌بندی‌شده' : 'منتشرشده') : game.status === 'TRASHED' ? 'در سطل زباله' : 'پیش‌نویس'}</span>
-              {game.editorsChoice && <span className="sa-tag">سردبیر</span>}{game.featured && <span className="sa-tag">ویژه</span>}{game.access === 'MEMBERS' && <span className="sa-tag">VIP</span>}
+              {game.editorsChoice && <span className="sa-tag">سردبیر</span>}{game.featured && <span className="sa-tag">ویژه</span>}{game.access === 'MEMBERS' && <span data-vip="" className="sa-tag">VIP</span>}
               {game.status === 'TRASHED'
                 ? <div className="sa-row-actions" data-testid="trash-row">{mine ? <small className="sa-sub">منتظر تصمیم مدیر بخش</small> : <><button type="button" className="sa-link" onClick={() => void decide(game, 'restore')}>بازگردانی</button><button type="button" className="sa-link" onClick={() => void decide(game, 'delete')}>حذف نهایی</button></>}</div>
                 : <div className="sa-row-actions"><Link href={`/admin/games/${game.id}`} className="sa-link">ویرایش</Link>{game.status === 'PUBLISHED' && <a href={`/games/${game.slug}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a>}</div>}

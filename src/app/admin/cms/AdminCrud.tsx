@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import dynamic from 'next/dynamic'
 import Link from '@/components/AppLink'
@@ -12,6 +12,10 @@ import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
 import AdminPagination from './AdminPagination'
 import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+
+// Left out of the form while the VIP module is off; the stored value is not touched by a save without them.
+const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
 
 const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -44,7 +48,9 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions }: Props) {
+  const vipOn = useModuleEnabled('membership')
+  const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
   const { t, locale } = useI18n()
   const fa = locale === 'fa'
