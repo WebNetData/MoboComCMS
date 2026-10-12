@@ -8,7 +8,7 @@ function load(file, extra = {}) {
   // Only the database and the pure text helpers are real; nothing else of a module is needed to read its waiting items.
   const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : () => { throw new Error(`test double called: ${String(key)}`) } })
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', compile(file))(name => name === '@/platform/database/prisma' ? { db: prisma } : Object.hasOwn(extra, name) ? extra[name] : Object.hasOwn(real, name) ? real[name] : name.startsWith('@/') ? stub : require(name), mod, mod.exports)
+  new Function('require', 'module', 'exports', compile(file))(name => name === '@/platform/database/prisma' ? { db: prisma } : Object.hasOwn(extra, name) ? extra[name] : Object.hasOwn(real, name) ? real[name] : name.startsWith('@/') || name.startsWith('.') ? stub : require(name), mod, mod.exports)
   return mod.exports
 }
 real['@/shared/text/plain'] = load('src/shared/text/plain.ts')
