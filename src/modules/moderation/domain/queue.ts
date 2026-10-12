@@ -2,7 +2,7 @@
 // module: this file only says which sources exist, who may see each one, where it is decided and,
 // for a plain yes or no, which request of the owning admin API carries that decision.
 
-export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-software'
+export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-games' | 'trash-software'
 
 export interface QueueSource {
   key: QueueSourceKey
@@ -59,6 +59,7 @@ export const QUEUE_SOURCES: readonly QueueSource[] = [
   { key: 'trash-cinema', module: 'cinema', permissions: ['cinema.manage'], label: 'سطل زباله: فیلم و سریال', labelEn: 'Trash: film and series', href: '/admin/cinema/titles' },
   { key: 'trash-music-tracks', module: 'music', permissions: ['music.manage'], label: 'سطل زباله: آهنگ‌ها', labelEn: 'Trash: tracks', href: '/admin/music/library' },
   { key: 'trash-music-albums', module: 'music', permissions: ['music.manage'], label: 'سطل زباله: آلبوم‌ها', labelEn: 'Trash: albums', href: '/admin/music/library' },
+  { key: 'trash-games', module: 'games', permissions: ['games.manage'], label: 'سطل زباله: بازی‌ها', labelEn: 'Trash: games', href: '/admin/games/titles?status=trashed' },
   { key: 'trash-software', module: 'software', permissions: ['software.manage'], label: 'سطل زباله: نرم‌افزارها', labelEn: 'Trash: software', href: '/admin/software/titles' },
 ]
 

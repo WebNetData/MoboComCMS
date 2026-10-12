@@ -66,7 +66,8 @@ async function main() {
   const listed = (await managers.listStaff()).filter(item => item.email.startsWith(seed))
   const of = user => listed.find(item => item.id === user.id)
   assert.deepEqual([of(owner).kind, of(support).kind, of(ali).kind, of(ali).sections, of(kian).sections], ['full', 'custom', 'sections', ['music', 'games'], ['store']])
-  assert.equal(of(owner).sections.length, 8, 'full access covers every section')
+  // Counted from the catalogue: a new section (businesses was the ninth) must not need this number changed.
+  assert.deepEqual(of(owner).sections, load('src/modules/identity/domain/sections.ts').SITE_SECTIONS.map(section => section.id), 'full access covers every section')
 
   // ---- taking a manager back: role and standing leave together, never "staff without a role"
   await managers.setSectionManager(owner.id, { userId: mina.id }, [])

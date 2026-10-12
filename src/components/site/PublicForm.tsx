@@ -113,7 +113,7 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
           case 'checkbox': control = <label className="pf-choice"><input type="checkbox" {...common} checked={value === true} onChange={(e) => set(f.id, e.target.checked)} />{f.placeholder || f.label}</label>; break
           case 'rating': {
             const top = Math.min(f.max || 5, 10)
-            control = <div className="pf-rating" role="radiogroup" aria-labelledby={`${id}-l`}>{Array.from({ length: top }, (_, i) => i + 1).map((n) => <button key={n} type="button" role="radio" aria-checked={Number(value) === n} aria-label={`${n.toLocaleString('fa-IR')} از ${top.toLocaleString('fa-IR')}`} className={Number(value) >= n ? 'is-on' : ''} onClick={() => set(f.id, String(Number(value) === n ? 0 : n))}>★</button>)}</div>
+            control = <div className="pf-rating" role="radiogroup" aria-labelledby={`${id}-l`}>{Array.from({ length: top }, (_, i) => i + 1).map((n) => <button key={n} type="button" role="radio" aria-checked={Number(value) === n} aria-label={`${n.toLocaleString('fa-IR')} از ${top.toLocaleString('fa-IR')}`} className={`rv-step${Number(value) === n ? ' is-on' : Number(value) > n ? ' is-under' : ''}`} onClick={() => set(f.id, String(Number(value) === n ? 0 : n))}>{n.toLocaleString('fa-IR')}</button>)}</div>
             break
           }
           case 'file': {

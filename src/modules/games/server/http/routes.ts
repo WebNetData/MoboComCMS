@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
-import { requireUser } from '@/modules/identity/server/access'
+import { requireContentScope, requireUser } from '@/modules/identity/server/access'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { GameError } from '@/modules/games/domain/games'
 import { libraryCounts, libraryEntry, myLibrary, setLibrary } from '@/modules/games/server/library'
@@ -50,6 +50,18 @@ export async function POST_library(req: NextRequest) {
 
 const gamesAdmin = (req: NextRequest) => adminGuard(req, 'games', ['games.manage'])
 
+/**
+ * The games list, its batches, the updates of a game and the franchise names are also open to a games author
+ * (`games.author`), held to the games they created: `scope.authorId` is their id, null for a manager. The
+ * dashboard, the release plan, franchise changes and the settings stay the manager's.
+ */
+async function gamesWriter(req: NextRequest): Promise<{ admin: NonNullable<Awaited<ReturnType<typeof requireContentScope>>>['admin']; scope: { authorId: number | null } } | { response: Response }> {
+  const off = await moduleGuard('games')
+  if (off) return { response: off }
+  const caller = await requireContentScope(req, 'games.manage', 'games.author')
+  return caller ? { admin: caller.admin, scope: { authorId: caller.authorId } } : { response: err('forbidden', 403) }
+}
+
 /** GET /api/admin/games/dashboard */
 export async function GET_dashboard(req: NextRequest) {
   const g = await gamesAdmin(req)
@@ -59,27 +71,28 @@ export async function GET_dashboard(req: NextRequest) {
 
 /** GET /api/admin/games/list?q=&status=&platform=&franchise=&issue=&sort=&page= */
 export async function GET_list(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   const params = Object.fromEntries(['q', 'status', 'platform', 'franchise', 'issue', 'sort', 'page', 'size'].map((key) => [key, req.nextUrl.searchParams.get(key) || '']))
-  return ok(await adminGames(params))
+  return ok(await adminGames(params, new Date(), g.scope))
 }
 
 /** POST /api/admin/games/list { ids, action, value } — bulk actions. */
 export async function POST_list(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   const input = await body(req)
   try {
-    const result = await bulkGames(input)
-    await auditAdmin({ req, actor: g.admin, action: 'games.bulk', targetType: 'game', targetId: 0, metadata: { action: String(input.action), count: Array.isArray(input.ids) ? input.ids.length : 0, value: String(input.value ?? '') } })
+    const result = await bulkGames(input, g.scope)
+    await auditAdmin({ req, actor: g.admin, action: 'trashed' in result ? 'games.bulk.trash' : 'games.bulk', targetType: 'game', targetId: 0, metadata: { action: String(input.action), count: Array.isArray(input.ids) ? input.ids.length : 0, value: String(input.value ?? '') } })
     return ok(result)
   } catch (error) { return failure(error) }
 }
 
 /** GET /api/admin/games/franchises */
 export async function GET_franchises(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  // Read by an author too, to file a game under a franchise; changing franchises stays the manager's.
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   return ok({ franchises: await listFranchises() })
 }
@@ -111,22 +124,22 @@ export async function DELETE_franchises(req: NextRequest) {
 
 /** GET /api/admin/games/updates?gameId= */
 export async function GET_updates(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   const gameId = positive(req.nextUrl.searchParams.get('gameId'))
   if (!gameId) return err('بازی نامعتبر است')
-  try { return ok(await gameUpdates(gameId)) } catch (error) { return failure(error) }
+  try { return ok(await gameUpdates(gameId, g.scope)) } catch (error) { return failure(error) }
 }
 
 /** POST /api/admin/games/updates { gameId, id?, kind, title, version, size, notes, releasedAt, links } */
 export async function POST_updates(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   const input = await body(req)
   const gameId = positive(input.gameId)
   if (!gameId) return err('بازی نامعتبر است')
   try {
-    const result = await saveGameUpdate(gameId, input)
+    const result = await saveGameUpdate(gameId, input, g.scope)
     await auditAdmin({ req, actor: g.admin, action: result.created ? 'games.update.create' : 'games.update.update', targetType: 'game_update', targetId: result.id, metadata: { gameId, title: String(input.title || '').slice(0, 160) } })
     return ok(result, result.created ? 201 : 200)
   } catch (error) { return failure(error) }
@@ -134,13 +147,13 @@ export async function POST_updates(req: NextRequest) {
 
 /** DELETE /api/admin/games/updates?gameId=&id= */
 export async function DELETE_updates(req: NextRequest) {
-  const g = await gamesAdmin(req)
+  const g = await gamesWriter(req)
   if ('response' in g) return g.response
   const gameId = positive(req.nextUrl.searchParams.get('gameId'))
   const id = positive(req.nextUrl.searchParams.get('id'))
   if (!gameId || !id) return err('شناسه نامعتبر است')
   try {
-    const row = await deleteGameUpdate(gameId, id)
+    const row = await deleteGameUpdate(gameId, id, g.scope)
     await auditAdmin({ req, actor: g.admin, action: 'games.update.delete', targetType: 'game_update', targetId: id, metadata: { gameId, title: row.title } })
     return ok({ deleted: true })
   } catch (error) { return failure(error) }

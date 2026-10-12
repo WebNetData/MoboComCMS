@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { call, faDate, faNum, useSeller } from '../SellerContext'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Review = { id: number; rating: number; criteria: Record<string, number>; body: string; reply: string; name: string; createdAt: string }
 const CRITERIA: Record<string, string> = { onTime: 'ارسال به‌موقع', asDescribed: 'مطابقت با توضیحات', packaging: 'بسته‌بندی' }
@@ -27,7 +28,7 @@ export default function SellerReviews() {
     <div className="sa-cols">
       <section className="sa-card sl-score">
         <b className="sl-score-big">{rows.length ? average.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '—'}</b><span>از ۵ · {faNum(rows.length)} امتیاز · {faNum(seller.salesCount)} کالای فروخته‌شده</span>
-        <ul className="sl-dist">{stars.map((row) => <li key={row.star}><span>{faNum(row.star)} ★</span><i style={{ width: `${rows.length ? (row.count / rows.length) * 100 : 0}%` }} /><small>{faNum(row.count)}</small></li>)}</ul>
+        <ul className="sl-dist">{stars.map((row) => <li key={row.star}><span>{faNum(row.star)}</span><i style={{ width: `${rows.length ? (row.count / rows.length) * 100 : 0}%` }} /><small>{faNum(row.count)}</small></li>)}</ul>
       </section>
       <section className="sa-card"><header className="sa-card-head"><h2>شاخص‌های عملکرد</h2></header>
         <ul className="sl-criteria">{byCriteria.map((row) => <li key={row.key}><span>{CRITERIA[row.key]}</span><meter min={0} max={5} value={row.value} aria-label={CRITERIA[row.key]} /><b>{row.value ? row.value.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '—'}</b></li>)}</ul>
@@ -36,7 +37,7 @@ export default function SellerReviews() {
     </div>
     <section className="sa-card">
       {rows.length ? <ul className="sl-reviews">{rows.map((row) => <li key={row.id}>
-        <div className="sl-review-head"><span className="sl-stars" aria-label={`${row.rating} از ۵`}>{'★'.repeat(row.rating)}{'☆'.repeat(5 - row.rating)}</span><b>{row.name}</b><small>{faDate(row.createdAt)}</small></div>
+        <div className="sl-review-head"><span className="sl-stars"><RatingChip value={row.rating} /><RatingMeter size="sm" value={row.rating} label={`${row.rating} از ۵`} /></span><b>{row.name}</b><small>{faDate(row.createdAt)}</small></div>
         <p>{row.body || 'بدون توضیح'}</p>
         {row.reply && <blockquote className="sl-reply">پاسخ شما: {row.reply}</blockquote>}
         <Reply review={row} onDone={() => void load()} />

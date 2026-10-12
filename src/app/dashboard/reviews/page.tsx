@@ -8,6 +8,7 @@ import Icon from '@/components/site/Icon'
 import MyReviewManage from '@/components/engage/MyReviewManage'
 import MyCommentDelete from '@/components/engage/MyCommentDelete'
 import { EXPERIENCE_LABEL, dimensionsFor, isExperienceKind } from '@/modules/reviews/domain/dimensions'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'نظرهای من | My reviews', robots: { index: false, follow: false } }
@@ -45,7 +46,7 @@ export default async function MyReviewsPage({ searchParams }: { searchParams: Pr
             <span className={`myrev-state ${state.tone}`}>{fa ? state.fa : state.en}</span>
           </div>
           <div className="myrev-meta">
-            {review.kind !== 'comment' && <span className="myrev-stars" role="img" aria-label={fa ? `${stars.toLocaleString('fa-IR')} از ۵ ستاره` : `${stars} of 5 stars`}><span aria-hidden="true">{'★'.repeat(stars)}<i>{'★'.repeat(5 - stars)}</i></span></span>}
+            {review.kind !== 'comment' && <span className="myrev-stars"><RatingChip value={stars} /><RatingMeter size="sm" value={stars} label={fa ? `${stars.toLocaleString('fa-IR')} از ۵` : `${stars} of 5`} /></span>}
             <time dateTime={review.updatedAt.toISOString()}>{date.format(review.updatedAt)}</time>
           </div>
           {review.title && <h3>{review.title}</h3>}

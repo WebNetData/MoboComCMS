@@ -23,6 +23,7 @@ function load(file) {
  new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
   if (Object.hasOwn(mocks, name)) return mocks[name]
   if (name.startsWith('@/')) {const path = `src/${name.slice(2)}`; return load(fs.existsSync(path + '.ts') ? path + '.ts' : path + '/index.ts')}
+  if (name.startsWith('.')) {const dir = file.slice(0, file.lastIndexOf('/')), parts = []; for (const part of `${dir}/${name}`.split('/')) { if (part === '..') parts.pop(); else if (part !== '.') parts.push(part) } const path = parts.join('/'); return load(fs.existsSync(path + '.ts') ? path + '.ts' : path + '/index.ts')}
   return require(name)
  }, mod, mod.exports)
  return mod.exports

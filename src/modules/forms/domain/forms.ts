@@ -10,7 +10,7 @@ export type FieldType = (typeof FIELD_TYPES)[number]
 
 export const FIELD_LABEL: Record<FieldType, string> = {
   text: 'متن کوتاه', email: 'ایمیل', tel: 'تلفن', textarea: 'متن بلند', select: 'لیست کشویی', checkbox: 'تأیید / رضایت', radio: 'گزینهٔ تکی', checkboxes: 'چندگزینه‌ای',
-  number: 'عدد', date: 'تاریخ', url: 'نشانی وب', rating: 'امتیاز ستاره‌ای', file: 'ضمیمهٔ فایل', heading: 'عنوان بخش', paragraph: 'متن توضیحی',
+  number: 'عدد', date: 'تاریخ', url: 'نشانی وب', rating: 'امتیاز عددی', file: 'ضمیمهٔ فایل', heading: 'عنوان بخش', paragraph: 'متن توضیحی',
 }
 /** Types that show text only and never carry an answer. */
 export const CONTENT_TYPES: FieldType[] = ['heading', 'paragraph']
@@ -381,7 +381,7 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
     ] }),
   },
   {
-    id: 'survey', name: 'نظرسنجی رضایت', description: 'امتیاز ستاره‌ای و پرسش شرطی: اگر امتیاز پایین بود دلیلش را می‌پرسد.',
+    id: 'survey', name: 'نظرسنجی رضایت', description: 'امتیاز عددی و پرسش شرطی: اگر امتیاز پایین بود دلیلش را می‌پرسد.',
     build: () => ({ slug: 'satisfaction', title: 'نظرسنجی رضایت', description: 'نظر شما به ما کمک می‌کند بهتر شویم.', published: false, successText: 'ممنون از وقتی که گذاشتید.', settings: { ...DEFAULT_SETTINGS }, fields: [
       field('rating', 'چقدر راضی بودید؟', 'rating', { required: true }),
       field('reason', 'چه چیزی باید بهتر شود؟', 'textarea', { showIf: [{ field: 'rating', op: 'neq', value: '5' }, { field: 'rating', op: 'neq', value: '4' }], logic: 'all' }),

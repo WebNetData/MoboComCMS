@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { faDate, faNum, toman, useSeller } from './SellerContext'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Dashboard = {
   money: { balance: number; available: number; pending: number }
@@ -62,7 +63,7 @@ export default function SellerHome() {
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>آخرین نظر خریداران</h2><Link href="/seller/reviews" className="sa-link">همهٔ نظرها</Link></header>
-      {data.reviews.length ? <ul className="sl-reviews">{data.reviews.map((row) => <li key={row.id}><span className="sl-stars" aria-label={`${row.rating} از ۵`}>{'★'.repeat(row.rating)}{'☆'.repeat(5 - row.rating)}</span><p>{row.body || 'بدون توضیح'}</p><small>{faDate(row.createdAt)}</small></li>)}</ul> : <p className="sa-empty">هنوز امتیازی ثبت نشده است. پس از تحویل سفارش‌ها، خریداران به فروشگاه شما امتیاز می‌دهند.</p>}
+      {data.reviews.length ? <ul className="sl-reviews">{data.reviews.map((row) => <li key={row.id}><span className="sl-stars"><RatingChip value={row.rating} /><RatingMeter size="sm" value={row.rating} label={`${row.rating} از ۵`} /></span><p>{row.body || 'بدون توضیح'}</p><small>{faDate(row.createdAt)}</small></li>)}</ul> : <p className="sa-empty">هنوز امتیازی ثبت نشده است. پس از تحویل سفارش‌ها، خریداران به فروشگاه شما امتیاز می‌دهند.</p>}
     </section>
   </div>
 }

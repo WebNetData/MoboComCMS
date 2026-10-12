@@ -28,14 +28,15 @@ export async function moderationQueue(states: Readonly<Record<string, boolean | 
     read('businesses', () => businessesWaiting(TAKE)),
   ])
   // Delete requests of section authors, each read from the owner of that kind of item.
-  const [trashPosts, trashCinema, trashTracks, trashAlbums, trashSoftware] = await Promise.all([
+  const [trashPosts, trashCinema, trashTracks, trashAlbums, trashSoftware, trashGames] = await Promise.all([
     read('journal', () => postsInTrash(TAKE)), read('cinema', () => mediaInTrash('cinema-titles', TAKE)), read('music', () => mediaInTrash('music-tracks', TAKE)),
     read('music', () => mediaInTrash('music-albums', TAKE)), read('software', () => mediaInTrash('software', TAKE)),
+    read('games', () => mediaInTrash('games', TAKE)),
   ])
   const bySource: Record<QueueSourceKey, Waiting | null | undefined> = {
     'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews, 'business-experiences': businesses,
     'product-reviews': store?.reviews, 'product-questions': store?.questions, 'community-reports': community, copyright,
-    'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-software': trashSoftware,
+    'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-games': trashGames, 'trash-software': trashSoftware,
   }
   const failed: QueueSourceKey[] = []
   const groups: QueueGroup[] = []

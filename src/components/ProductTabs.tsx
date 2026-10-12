@@ -5,6 +5,8 @@ import Link from '@/components/AppLink'
 import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import ProductPriceHistory from '@/components/store/ProductPriceHistory'
+import { RatingMeter } from '@/components/engage/RatingMeter'
+import RatingTiles from '@/components/engage/RatingTiles'
 
 type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products' | 'price-history' | 'frequently-bought' | 'complementary-products' | 'compatible-products'
 type CriteriaKey = 'quality' | 'value' | 'usability'
@@ -68,39 +70,11 @@ function fmtDate(iso: string, fa: boolean) {
 }
 
 function Stars({ value, size = 'md', label }: { value: number; size?: 'sm' | 'md' | 'lg'; label?: string }) {
-  const rounded = Math.round(value)
-  return (
-    <span className={`rv-stars rv-stars-${size}`} role="img" aria-label={label || `${value} / 5`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <span key={n} className={n <= rounded ? 'is-on' : 'is-off'}>★</span>
-      ))}
-    </span>
-  )
+  return <RatingMeter value={value} size={size} label={label || `${value} / 5`} />
 }
 
 function StarInput({ value, onChange, size = 'lg', label }: { value: number; onChange: (n: number) => void; size?: 'sm' | 'lg'; label: string }) {
-  const [hover, setHover] = useState(0)
-  const shown = hover || value
-  return (
-    <span className={`star-input star-input-${size}`} role="radiogroup" aria-label={label} onMouseLeave={() => setHover(0)}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          role="radio"
-          aria-checked={value === n}
-          aria-label={`${n}`}
-          className={n <= shown ? 'is-on' : ''}
-          onMouseEnter={() => setHover(n)}
-          onFocus={() => setHover(n)}
-          onBlur={() => setHover(0)}
-          onClick={() => onChange(n)}
-        >
-          ★
-        </button>
-      ))}
-    </span>
-  )
+  return <RatingTiles value={value} onChange={onChange} label={label} words={size === 'lg'} size={size === 'lg' ? 'md' : 'sm'} />
 }
 
 function panelHint(tab: Tab, fa: boolean) {
@@ -290,7 +264,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
 
             {loading && !content && null}
             {content && !content.signedIn && <div className="rv-gate" id="rv-form">
-              <div className="rv-gate-icon" aria-hidden="true">★</div>
+              <div className="rv-gate-icon" aria-hidden="true">✎</div>
               <div>
                 <strong>{fa ? 'دیدگاه را فقط خریداران ثبت می‌کنند' : 'Only buyers can write a review'}</strong>
                 <p className="muted">{fa ? 'برای ثبت دیدگاه باید این محصول را خریداری کرده باشید. ابتدا وارد حساب خود شوید.' : 'You need to buy this product first. Sign in to continue.'}</p>
@@ -305,7 +279,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
               </div>
             </div>}
             {content && content.signedIn && !content.hasReviewed && !content.canReview && <div className="rv-gate" id="rv-form">
-              <div className="rv-gate-icon" aria-hidden="true">★</div>
+              <div className="rv-gate-icon" aria-hidden="true">✎</div>
               <div>
                 <strong>{fa ? 'برای ثبت دیدگاه ابتدا خرید کنید' : 'Buy to write a review'}</strong>
                 <p className="muted">{fa ? 'دیدگاه‌ها مخصوص خریداران تأییدشدهٔ همین محصول است.' : 'Reviews are reserved for verified buyers of this product.'}</p>

@@ -99,7 +99,7 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
               <td><span className={`sa-state ${TONE[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span></td>
             </tr>
             {open === row.id && <tr className="fb-detail"><td colSpan={6}>
-              <dl>{row.answers.map((a) => <div key={a.id}><dt>{a.label}</dt><dd>{a.type === 'file' ? '' : answerText(a.value) || '—'}{a.type === 'rating' && a.value ? ' ★' : ''}</dd></div>)}</dl>
+              <dl>{row.answers.map((a) => <div key={a.id}><dt>{a.label}</dt><dd>{a.type === 'file' ? '' : answerText(a.value) || '—'}{a.type === 'rating' && a.value ? ' (امتیاز)' : ''}</dd></div>)}</dl>
               {row.files.length > 0 && <div className="fb-attach">{row.files.map((f) => /\.(png|jpe?g|webp)$/i.test(f.id) ? <a key={f.id} href={`/api/admin/forms/files?id=${f.id}`} target="_blank" rel="noopener"><img src={`/api/admin/forms/files?id=${f.id}`} alt={f.name} /><small>{f.name} · {kb(f.size)}</small></a> : <a key={f.id} className="btn btn-ghost btn-sm" href={`/api/admin/forms/files?id=${f.id}&download=1`}>📄 {f.name} · {kb(f.size)}</a>)}</div>}
               <label className="sa-field"><span>یادداشت داخلی</span><textarea className="input" rows={2} maxLength={1000} value={notes[row.id] ?? row.note} onChange={(e) => setNotes({ ...notes, [row.id]: e.target.value })} /></label>
               <div className="sa-row-actions">

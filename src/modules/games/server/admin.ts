@@ -5,11 +5,28 @@ import { validateCover } from '@/shared/content/cover'
 import { cleanLinks, slugOf, splitList } from '@/modules/media/domain/media'
 import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpdateKind, parseDay, releaseState, type HealthCheck } from '@/modules/games/domain/games'
 import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifications'
+import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0]
+
+/**
+ * Who is asking: a manager of the games section (`authorId` null) or a games author, held to the games they
+ * created (see `requireContentScope`). Every list, batch and update below is narrowed by it.
+ */
+export type GameScope = { authorId: number | null }
+const MANAGER: GameScope = { authorId: null }
+const ownGames = (scope: GameScope) => (scope.authorId ? { createdById: scope.authorId } : {})
+
+/** The game an update belongs to, for this caller: someone else's game is not there for an author, and a game waiting in the trash is changed by nobody. */
+async function gameFor(gameId: number, scope: GameScope, writing: boolean) {
+  const game = await db.gameTitle.findFirst({ where: { id: gameId, ...ownGames(scope) }, select: { id: true, title: true, slug: true, status: true } })
+  if (!game) throw new GameError('بازی پیدا نشد', 404)
+  if (writing && isTrashed(game)) throw new GameError('این بازی در سطل زباله است و تا تصمیم مدیر قابل تغییر نیست', 409)
+  return game
+}
 const DAY = 86_400_000
 const text = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max)
 const positive = (value: unknown) => {
@@ -85,8 +102,10 @@ export async function gamesDashboard(now = new Date()) {
 
 // ------------------------------------------------------------------ list + bulk
 
-export async function adminGames(input: { q?: string; status?: string; platform?: string; franchise?: string; issue?: string; sort?: string; page?: string; size?: string }, now = new Date()) {
-  const where: Record<string, unknown> = {}
+export async function adminGames(input: { q?: string; status?: string; platform?: string; franchise?: string; issue?: string; sort?: string; page?: string; size?: string }, now = new Date(), scope: GameScope = MANAGER) {
+  // An author's list, counts and filters are the games they created.
+  const own = ownGames(scope)
+  const where: Record<string, unknown> = { ...own }
   const q = text(input.q, 80)
   if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { developer: { contains: q } }]
   if (input.status === 'published') Object.assign(where, { status: 'PUBLISHED', publishedAt: { lte: now } })
@@ -96,6 +115,7 @@ export async function adminGames(input: { q?: string; status?: string; platform?
   if (input.status === 'featured') where.featured = true
   if (input.status === 'editors') where.editorsChoice = true
   if (input.status === 'vip') where.access = 'MEMBERS'
+  if (input.status === 'trashed') where.status = TRASHED
   if (input.platform) where.platforms = { contains: text(input.platform, 40) }
   if (input.franchise === 'none') where.franchiseId = null
   else if (positive(input.franchise)) where.franchiseId = positive(input.franchise)
@@ -112,8 +132,9 @@ export async function adminGames(input: { q?: string; status?: string; platform?
     db.gameLibrary.groupBy({ by: ['gameId'], where: { gameId: { in: rows.map((row) => row.id) } }, _count: { _all: true } }),
     db.gameUpdate.groupBy({ by: ['gameId'], where: { gameId: { in: rows.map((row) => row.id) } }, _count: { _all: true } }),
     Promise.all([
-      db.gameTitle.count(), db.gameTitle.count({ where: { status: 'PUBLISHED', publishedAt: { lte: now } } }), db.gameTitle.count({ where: { status: 'DRAFT' } }),
-      db.gameTitle.count({ where: { status: 'PUBLISHED', publishedAt: { gt: now } } }), db.gameTitle.count({ where: { releaseDate: { gt: now } } }),
+      db.gameTitle.count({ where: own }), db.gameTitle.count({ where: { ...own, status: 'PUBLISHED', publishedAt: { lte: now } } }), db.gameTitle.count({ where: { ...own, status: 'DRAFT' } }),
+      db.gameTitle.count({ where: { ...own, status: 'PUBLISHED', publishedAt: { gt: now } } }), db.gameTitle.count({ where: { ...own, releaseDate: { gt: now } } }),
+      db.gameTitle.count({ where: { ...own, status: TRASHED } }),
     ]),
   ])
   const library = new Map(libraryRows.map((row) => [row.gameId, row._count._all]))
@@ -133,24 +154,57 @@ export async function adminGames(input: { q?: string; status?: string; platform?
   const total = filterIssues ? list.length : matchedTotal
   const pages = size === 'all' ? 1 : Math.max(1, Math.ceil(total / size))
   const page = size === 'all' ? 1 : Math.min(requestedPage, pages)
-  const facets = await db.gameTitle.findMany({ select: { platforms: true }, take: 5000 })
+  const facets = await db.gameTitle.findMany({ where: own, select: { platforms: true }, take: 5000 })
   const platforms = [...new Set(facets.flatMap((row) => splitList(row.platforms, 12)))].sort()
   const franchises = await db.gameFranchise.findMany({ select: { id: true, title: true }, orderBy: { title: 'asc' } })
   return {
     total, page, pages, games: filterIssues && size !== 'all' ? list.slice((page - 1) * size, page * size) : list,
-    counts: { all: counts[0], published: counts[1], draft: counts[2], scheduled: counts[3], upcoming: counts[4] },
-    platforms, franchises, checks: HEALTH_CHECKS,
+    counts: { all: counts[0], published: counts[1], draft: counts[2], scheduled: counts[3], upcoming: counts[4], trashed: counts[5] },
+    platforms, franchises, checks: HEALTH_CHECKS, mine: !!scope.authorId,
   }
 }
 
-const BULK = ['publish', 'draft', 'feature', 'unfeature', 'editors', 'uneditors', 'members', 'public', 'franchise', 'delete'] as const
+const BULK = ['publish', 'draft', 'feature', 'unfeature', 'editors', 'uneditors', 'members', 'public', 'franchise', 'delete', 'restore'] as const
+/** What an author may do to their own games in a batch. Featuring, the editors' choice and the trash decision are the manager's. */
+const AUTHOR_BULK: readonly string[] = ['publish', 'draft', 'members', 'public', 'franchise', 'delete']
 
-export async function bulkGames(input: { ids?: unknown; action?: unknown; value?: unknown }) {
-  const ids = [...new Set((Array.isArray(input.ids) ? input.ids : []).map(positive).filter(Boolean))].slice(0, 500)
+export async function bulkGames(input: { ids?: unknown; action?: unknown; value?: unknown }, scope: GameScope = MANAGER) {
+  const asked = [...new Set((Array.isArray(input.ids) ? input.ids : []).map(positive).filter(Boolean))].slice(0, 500)
   const action = String(input.action || '') as typeof BULK[number]
-  if (!ids.length) throw new GameError('هیچ بازی‌ای انتخاب نشده است')
+  if (!asked.length) throw new GameError('هیچ بازی‌ای انتخاب نشده است')
   if (!BULK.includes(action)) throw new GameError('عملیات نامعتبر است')
-  const before = await db.gameTitle.findMany({ where: { id: { in: ids } } })
+  if (scope.authorId && !AUTHOR_BULK.includes(action)) throw new GameError('این کار با مدیر بخش بازی است', 403)
+  // Someone else's game is not there for an author: the batch acts on the rows they own and reports how many.
+  const found = await db.gameTitle.findMany({ where: { id: { in: asked }, ...ownGames(scope) } })
+  if (action === 'restore') {
+    // A manager puts trashed games back as they were, each claimed on the state it was read in.
+    let changed = 0
+    for (const row of found.filter(isTrashed)) {
+      const claimed = await db.gameTitle.updateMany({ where: { id: row.id, status: TRASHED }, data: restoreData(row) })
+      if (!claimed.count) continue
+      changed += 1
+      const after = await db.gameTitle.findUnique({ where: { id: row.id } })
+      contentChanged({ type: 'game', id: row.id }, row, after)
+    }
+    if (changed) await recount('games').catch(() => undefined)
+    return { changed }
+  }
+  if (action === 'delete' && scope.authorId) {
+    // An author does not delete: each of their games goes to the trash and a manager decides.
+    let changed = 0
+    for (const row of found.filter((game) => !isTrashed(game))) {
+      const claimed = await db.gameTitle.updateMany({ where: { id: row.id, createdById: scope.authorId, status: row.status }, data: trashData(row, scope.authorId) })
+      if (!claimed.count) continue
+      changed += 1
+      contentChanged({ type: 'game', id: row.id }, row, { ...row, status: TRASHED })
+    }
+    if (changed) await recount('games').catch(() => undefined)
+    return { changed, trashed: true }
+  }
+  // A status or flag batch leaves what waits in the trash alone; only the delete below reaches it.
+  const before = action === 'delete' ? found : found.filter((game) => !isTrashed(game))
+  const ids = before.map((row) => row.id)
+  if (!ids.length) return { changed: 0 }
   if (action === 'delete') {
     await db.$transaction(async (tx) => {
       const updates = (await tx.gameUpdate.findMany({ where: { gameId: { in: ids } }, select: { id: true } })).map((row) => row.id)
@@ -178,7 +232,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       data = { franchiseId: franchiseId || null }
     }
   }
-  const result = await db.gameTitle.updateMany({ where: { id: { in: ids } }, data })
+  const result = await db.gameTitle.updateMany({ where: { id: { in: ids }, status: { not: TRASHED } }, data })
   const after = await db.gameTitle.findMany({ where: { id: { in: ids } } })
   const old = new Map(before.map((row) => [row.id, row]))
   for (const row of after) contentChanged({ type: 'game', id: row.id }, old.get(row.id) || null, row)
@@ -219,12 +273,10 @@ export async function deleteFranchise(id: number) {
 
 // ------------------------------------------------------------------ updates / DLC
 
-export async function gameUpdates(gameId: number) {
-  const [game, rows] = await Promise.all([
-    db.gameTitle.findUnique({ where: { id: gameId }, select: { id: true, title: true, slug: true } }),
-    db.gameUpdate.findMany({ where: { gameId }, orderBy: { releasedAt: 'desc' } }),
-  ])
-  if (!game) throw new GameError('بازی پیدا نشد', 404)
+export async function gameUpdates(gameId: number, scope: GameScope = MANAGER) {
+  const { id, title, slug } = await gameFor(gameId, scope, false)
+  const game = { id, title, slug }
+  const rows = await db.gameUpdate.findMany({ where: { gameId }, orderBy: { releasedAt: 'desc' } })
   const links = await db.mediaLink.findMany({ where: { ownerType: 'gameupdate', ownerId: { in: rows.map((row) => row.id) } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
   return {
     game,
@@ -244,9 +296,8 @@ async function reconcileLinks(tx: Tx, ownerId: number, input: unknown) {
   if (unused.length) await tx.mediaLink.deleteMany({ where: { id: { in: unused.map((row) => row.id) } } })
 }
 
-export async function saveGameUpdate(gameId: number, input: Record<string, unknown>) {
-  const game = await db.gameTitle.findUnique({ where: { id: gameId }, select: { id: true } })
-  if (!game) throw new GameError('بازی پیدا نشد', 404)
+export async function saveGameUpdate(gameId: number, input: Record<string, unknown>, scope: GameScope = MANAGER) {
+  await gameFor(gameId, scope, true)
   const id = positive(input.id)
   const title = text(input.title, 160)
   if (title.length < 2) throw new GameError('عنوان آپدیت را بنویسید')
@@ -275,7 +326,8 @@ export async function saveGameUpdate(gameId: number, input: Record<string, unkno
   return { id: saved.id, created: !id, version }
 }
 
-export async function deleteGameUpdate(gameId: number, id: number) {
+export async function deleteGameUpdate(gameId: number, id: number, scope: GameScope = MANAGER) {
+  await gameFor(gameId, scope, true)
   const row = await db.gameUpdate.findFirst({ where: { id, gameId } })
   if (!row) throw new GameError('آپدیت پیدا نشد', 404)
   await db.$transaction([db.mediaLink.deleteMany({ where: { ownerType: 'gameupdate', ownerId: id } }), db.gameUpdate.delete({ where: { id } })])

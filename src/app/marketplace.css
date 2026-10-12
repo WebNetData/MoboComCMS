@@ -52,7 +52,7 @@
 .sl-reviews p { margin: 0; line-height: 1.9; }
 .sl-review-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .sl-review-head small { color: var(--muted); }
-.sl-stars, .mk-stars { color: #f59e0b; letter-spacing: 1px; }
+/* .sl-stars and .mk-stars hold the site's score chip and level meter (engage.css). */
 .sl-reply, .mk-shop-reviews blockquote { margin: 4px 0 0; padding: 8px 12px; border-inline-start: 3px solid var(--primary); background: color-mix(in srgb, var(--primary) 6%, transparent); border-radius: 8px; font-size: .9rem; }
 .sl-reply-form { display: grid; gap: 6px; }
 .sl-score { display: grid; gap: 6px; justify-items: start; }
@@ -128,9 +128,6 @@
 .mk-rate-box { display: grid; gap: 12px; }
 .mk-rate-card { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; }
 .mk-rate-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.mk-rate { display: inline-flex; direction: ltr; }
-.mk-rate button { border: 0; background: none; font-size: 1.35rem; color: color-mix(in srgb, var(--text) 25%, transparent); cursor: pointer; padding: 0 2px; line-height: 1; }
-.mk-rate button.is-on { color: #f59e0b; }
 .mk-rate-criteria { display: grid; gap: 6px; }
 .mk-rate-criteria label { display: flex; justify-content: space-between; align-items: center; font-size: .88rem; }
 .mk-rate-done { color: #15803d; margin: 0; }

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
+import RatingTiles from '@/components/engage/RatingTiles'
 
 type Seller = { id: number; shopName: string; slug: string; logo: string; reviewed: number | null }
 const CRITERIA = [['onTime', 'ارسال به‌موقع'], ['asDescribed', 'مطابقت با توضیحات'], ['packaging', 'بسته‌بندی']] as const
 
 function Stars({ value, onChange, label }: { value: number; onChange: (value: number) => void; label: string }) {
-  return <span className="mk-rate" role="radiogroup" aria-label={label}>{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" role="radio" aria-checked={value === star} aria-label={`${star} ستاره`} className={star <= value ? 'is-on' : ''} onClick={() => onChange(star)}>★</button>)}</span>
+  return <RatingTiles value={value} onChange={onChange} label={label} size="sm" />
 }
 
 function RateOne({ orderId, seller, onDone }: { orderId: number; seller: Seller; onDone: () => void }) {

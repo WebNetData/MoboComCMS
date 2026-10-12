@@ -396,6 +396,7 @@
     "20261221120000_import_execution_generation",
     "20261222120000_repository_upload_reservations",
     "20261223120000_business_experiences",
-    "20261224120000_section_authors"
+    "20261224120000_section_authors",
+    "20261225120000_game_authors"
   ]
 }

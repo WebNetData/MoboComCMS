@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Review = { id: number; rating: number; body: string; status: string; verified: string; scores: { label: string; score: number }[]; createdAt: string; user: { id: number; name: string; email: string }; item: { key: string; title: string; url: string; label: string } }
 type Data = { total: number; page: number; pages: number; pending: number; reviews: Review[] }
@@ -35,7 +36,7 @@ export default function AdminReviewsPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">REVIEWS</span><h1>امتیازها و نظرهای کاربران</h1><p>امتیاز ستاره‌ای بدون متن فوراً ثبت می‌شود؛ نظرهای متنی (اگر در تنظیمات ماژول فعال باشد) پیش از نمایش اینجا تأیید می‌شوند. نظر ردشده در میانگین امتیاز حساب نمی‌شود.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">REVIEWS</span><h1>امتیازها و نظرهای کاربران</h1><p>امتیاز بدون متن فوراً ثبت می‌شود؛ نظرهای متنی (اگر در تنظیمات ماژول فعال باشد) پیش از نمایش اینجا تأیید می‌شوند. نظر ردشده در میانگین امتیاز حساب نمی‌شود.</p></div></header>
     <nav className="tb-tabs" role="tablist" aria-label="وضعیت">
       {STATUSES.map((item) => <button key={item.key} type="button" role="tab" aria-selected={status === item.key} className={status === item.key ? 'is-active' : ''} onClick={() => { setStatus(item.key); setPage(1) }}>{item.label}{item.key === 'PENDING' && data ? <span>{data.pending.toLocaleString('fa-IR')}</span> : null}</button>)}
     </nav>
@@ -44,7 +45,7 @@ export default function AdminReviewsPage() {
       {data?.reviews.map((review) => <article key={review.id} className="card fa-flag">
         <header>
           <div><span className="badge">{review.item.label}</span> {review.item.url ? <Link href={review.item.url} target="_blank"><b>{review.item.title}</b></Link> : <b>{review.item.title}</b>}</div>
-          <span className="rv-stars" aria-label={`${review.rating} از ۵`}>{'★'.repeat(review.rating)}<i>{'★'.repeat(5 - review.rating)}</i></span>
+          <span className="rv-inline"><RatingChip value={review.rating} /><RatingMeter size="sm" value={review.rating} label={`${review.rating} از ۵`} /></span>
         </header>
         <p className="fa-excerpt" dir="auto">{review.body || <span className="muted">(فقط امتیاز)</span>}</p>
         {(review.verified || review.scores.length > 0) && <ul className="rv-scores">

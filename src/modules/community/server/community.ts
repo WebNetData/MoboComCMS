@@ -327,7 +327,7 @@ export async function activityFor(ownerId: number, privacy: Privacy, viewerId: n
   const cards = await itemCards(reviews.flatMap((row) => (isItemType(row.itemType) ? [{ type: row.itemType, id: row.itemId } as ItemRef] : []))).catch(() => new Map<string, ItemCard>())
   lists.push(reviews.flatMap((row) => {
     const card = isItemType(row.itemType) ? cards.get(itemKey({ type: row.itemType, id: row.itemId })) : undefined
-    return card ? [{ key: `review:${row.id}`, at: row.createdAt, kind: 'review' as const, title: card.title, text: row.body.slice(0, 220), href: card.url, image: card.image, meta: `${'★'.repeat(row.rating)}${'☆'.repeat(5 - row.rating)}` }] : []
+    return card ? [{ key: `review:${row.id}`, at: row.createdAt, kind: 'review' as const, title: card.title, text: row.body.slice(0, 220), href: card.url, image: card.image, meta: `امتیاز ${row.rating.toLocaleString('fa-IR')} از ۵` }] : []
   }))
   const SHELF: Record<string, string> = { PLAYED: 'بازی کرد', PLAYING: 'در حال بازی است', WANT: 'می‌خواهد بازی کند', DROPPED: 'رها کرد' }
   lists.push(libraryRows.map((row) => ({ key: `library:${row.id}`, at: row.updatedAt, kind: 'library' as const, title: row.game.title, text: '', href: `/games/${row.game.slug}`, image: row.game.cover, meta: `${SHELF[row.status] || ''}${row.hours ? ` · ${row.hours.toLocaleString('fa-IR')} ساعت` : ''}` })))

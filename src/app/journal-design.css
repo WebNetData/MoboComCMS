@@ -1638,6 +1638,11 @@
   margin: 8px 0;
 }
 
+.journal-post-col .pc-bubble,
+.journal-post-col .pc-avatar { --card: var(--ln-soft); }
+.journal-post-col .pc-bubble { background: var(--ln-soft); border-color: var(--ln-line); }
+.journal-post-col .pc-reply-form { background: var(--ln-soft); border-color: var(--ln-line); }
+
 .journal-post-col .content-eyebrow {
   font-size: 11px;
   font-weight: 800;
