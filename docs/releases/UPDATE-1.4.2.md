@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.4.2 — Customer subscription dashboard
 
 The customer dashboard and Telegram mini app now summarize only current subscriptions. Expired plans no longer inflate traffic totals, and any active unlimited plan keeps the combined allowance marked as unlimited. Subscriptions needing attention are shown first; the web dashboard adds search and status filters. Each subscription card shows remaining data and clearer expiry or low-data guidance.

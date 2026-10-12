@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.2.0 update guide
 
 This release adds **Admin → Finance → Order operations**. It lists recent paid orders waiting for fulfillment, shows the last failure and next automatic attempt, and lets an administrator retry a failed job through the existing deduplicated queue. It also lists failed gateway webhooks and FrenzyEx payments that have no provider transaction ID for manual investigation.

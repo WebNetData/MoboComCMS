@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.1.2 update guide
 
 Release date: 2026-09-22

@@ -1,0 +1,13 @@
+# Repository organization and installation documentation
+
+Owner steering: the owner will deploy the server; current work prioritizes repository cleanup and GitHub project/installation documentation. No production access, deployment or new image rebuild is required for this cleanup.
+
+- Replaced the old VPN-focused README with the current modular Persian CMS/community/media/commerce/CRM description, repository structure, Docker/Coolify setup, production settings, first administrator, local Compose, tests and data-safe updates. Preserved previous README and upload notes as explicitly historical documents.
+- Moved20 top-level historical release/build notes into `docs/releases/`; maintained an index, rebased Markdown links and corrected the current release-notes link. `DEPLOY-FA.md` is a concise entry point to the canonical guides. No application URL, module or data model was changed.
+- Updated the source release packager's root allowlist to the new layout; its existing docs-directory packaging includes the archive. Actual package2560 files/8621195 bytes produced; SHA256 `09f8d0c3850d6cf8a352c437118cab61ce7ed24d48219a914de5bb89b22b0fac`. ZIP CRC, exact README, archived docs, both runtime CJS policies and runtime-data/config exclusions verified. Package is a local validation artifact, not a published GitHub Release.
+- Verified48 current/index relative links, referenced npm script names and absence of top-level UPDATE files. Diff whitespace check passed.
+- GitHub About description changed and fetched back successfully; README publishing uses the consolidated PR.
+
+Local working-directory cleanup was separate:40 untracked paths representing an old project copy nested under `scripts/`, plus an accidental shell-output file, were moved into ignored `.mobocom/quarantine-repository-1791806737078`.1245 files preserved, manifest retained;63 byte-identical,1181 different and one without a canonical counterpart. Different copies were not deleted or claimed redundant by content. Canonical source, production data, root owner's protected files and installed engineering tools preserved. The quarantine is not in the PR or source ZIP.
+
+The earlier final-image validation remains unverified: three terminal network failures (Debian download, npm ECONNRESET, Debian index HTTP500); no live build remains. Logs are retained locally, latest `.mobocom/launch-image-build-1791806300699.log`. No claim that caching repaired network connectivity. Existing packaging fix/native13 and encrypted restore206 tables/104 migrations retain their scoped evidence. No visible application changes, React Doctor/browser rerun or extra Actions were executed for the documentation/cleanup slice.

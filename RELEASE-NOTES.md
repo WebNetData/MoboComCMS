@@ -2,7 +2,7 @@
 
 ## 1.6.0 — MoboComCMS multi-section CMS and bulk import
 
-Releases everything merged after 1.5.0 (PRs #1–#17). Upgrade notes, the migration list and post-update checks: `UPDATE-1.6.0.md`; installation on a VPS or shared hosting: `docs/DEPLOY-VPS-HOST-FA.md`.
+Releases everything merged after 1.5.0 (PRs #1–#17). Upgrade notes, the migration list and post-update checks: [UPDATE-1.6.0](docs/releases/UPDATE-1.6.0.md); installation: [README](README.md#نصب-روی-سرور) and [VPS/shared hosting](docs/DEPLOY-VPS-HOST-FA.md).
 
 - Sections: MoboCom homepage, software, games, cinema, music and magazine portals with their own taxonomies, mega menus, templates and configurable addresses; Discourse-style forum (v3); unified profiles and community; pro user dashboard; live search, reviews, compare, social publishing, PWA/push, analytics, copyright reports; AI auto-fill; paid content and VIP.
 - Store v2: cart, brands, attribute groups, variants, filters, advanced admin; address book and delivery dates, returns, official invoices, carriers, back-in-stock, abandoned carts, gift cards, loyalty, installments, Torob/Emalls feeds; multi-vendor marketplace; FX pricing with live rates (variants included); Mellat and card-to-card gateways, IPPanel SMS, 2-step sign-in.
