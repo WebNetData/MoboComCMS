@@ -33,6 +33,7 @@ const CHECKS = [
   'repository-purchase-recovery',
   'repository-purchase-diagnostics',
   'repository-vendor-admin',
+  'repository-vendor-files',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

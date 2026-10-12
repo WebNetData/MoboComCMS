@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requirePerm } from '@/modules/identity/server/access'
 import { PACKAGE_LIMITS } from '@/modules/packages/domain/format'
@@ -39,12 +38,11 @@ export async function POST(req: NextRequest) {
   if ('response' in guard) return guard.response
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return err('درخواست نامعتبر است')
-  const audit = (action: string, targetId: string | number, metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: guard.admin, action: `repository.${action}`, targetType: 'repository', targetId: String(targetId), metadata })
   try {
     switch (body.op) {
       case 'purchase.recover': return ok(await recoverPurchase(idOf(body.paymentId), { mode: body.mode, evidence: body.evidence, acknowledgeCurrentTerms: body.acknowledgeCurrentTerms }, { req, actor: guard.admin }))
       case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined, { req, actor: guard.admin }); return ok({ id: saved.id }) }
-      case 'product.delete': { await deleteProduct(idOf(body.id)); await audit('product.delete', idOf(body.id)); return ok({ ok: true }) }
+      case 'product.delete': { await deleteProduct(idOf(body.id), { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false, { req, actor: guard.admin }); return ok({ ok: true }) }
       case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }, { req, actor: guard.admin }); return ok(granted) }
       case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE', { req, actor: guard.admin }); return ok({ ok: true }) }
@@ -65,8 +63,7 @@ export async function POST_upload(req: NextRequest) {
   const file = form?.get('file')
   if (!form || !(file instanceof File) || !file.size) return err('یک فایل zip انتخاب کنید')
   try {
-    const release = await uploadRelease(idOf(form.get('productId')), Buffer.from(await file.arrayBuffer()), String(form.get('changelog') || ''))
-    await auditAdmin({ req, actor: guard.admin, action: 'repository.release.upload', targetType: 'repository', targetId: String(release.id), metadata: { version: release.version } })
+    const release = await uploadRelease(idOf(form.get('productId')), Buffer.from(await file.arrayBuffer()), String(form.get('changelog') || ''), { req, actor: guard.admin })
     return ok({ id: release.id, version: release.version })
   } catch (error) { return failure(error) }
 }

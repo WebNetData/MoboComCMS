@@ -4,22 +4,20 @@ export { saveProduct, saveVendorConfig, setReleasePublished } from './vendor/cat
 export { buyProduct } from './vendor/purchase'
 export { previewPurchaseRecovery, recoverPurchase } from './vendor/purchase-recovery'
 import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
-import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { readJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { PACKAGE_LIMITS, PackageError, normalizeEntries, parseManifest } from '@/modules/packages/domain/format'
-import { ZipError, readZip } from '@/modules/packages/domain/zip'
 import {
-  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeSiteHost, releaseAllowed,
+  ACTIVATION_MESSAGES, RepoError, buildCertificate, decideActivation, maskKey, normalizeLicenseKey, normalizeSiteHost, releaseAllowed,
   type Certificate,
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, sha256, signPayload, vendorKeys } from './crypto'
 import { assertLicenseOwner } from '@/modules/repository/server/vendor/access'
 
-export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
+import { releaseDirectory } from './vendor/release-commands'
+export { releaseDirectory, deleteProduct, uploadRelease } from './vendor/release-commands'
 const CONFIG_KEY = VENDOR_CONFIG_KEY
 const hashKey = (key: string) => sha256(`license:${key}`)
 const money = (minor: bigint) => `${Number(minor).toLocaleString('fa-IR')} تومان`
@@ -42,37 +40,6 @@ export async function listProducts() {
     price: p.priceMinor.toString(), priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), siteLimit: p.siteLimit, supportDays: p.supportDays, active: p.active, featured: p.featured,
     downloads: p.downloads, sold: p.sold, licenses: p._count.licenses, releases: p.releases.map(releaseView),
   }))
-}
-
-export async function deleteProduct(id: number) {
-  const product = await db.repoProduct.findUnique({ where: { id }, include: { releases: { select: { fileId: true } }, _count: { select: { licenses: true } } } })
-  if (!product) return
-  if (product._count.licenses > 0) throw new RepoError('محصولی که لایسنس دارد حذف نمی‌شود؛ آن را غیرفعال کنید', 409)
-  await Promise.all(product.releases.map((r) => unlink(join(releaseDirectory(), r.fileId)).catch(() => undefined)))
-  await db.repoProduct.delete({ where: { id } })
-}
-
-/** A release is a package zip; its manifest decides the version and must match the product. */
-export async function uploadRelease(productId: number, upload: Buffer, changelog: string) {
-  const product = await db.repoProduct.findUnique({ where: { id: productId }, include: { releases: { select: { version: true } } } })
-  if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  if (upload.length > PACKAGE_LIMITS.uploadBytes) throw new RepoError(`حجم فایل حداکثر ${PACKAGE_LIMITS.uploadBytes / 1024 / 1024} مگابایت است`, 413)
-  let manifest: ReturnType<typeof parseManifest>
-  try {
-    const entries = normalizeEntries(readZip(upload, PACKAGE_LIMITS))
-    const source = entries.get('manifest.json')
-    if (!source) throw new RepoError('manifest.json در ریشهٔ zip نیست')
-    manifest = parseManifest(JSON.parse(source.toString('utf8')), new Set(entries.keys()))
-  } catch (error) {
-    if (error instanceof RepoError) throw error
-    if (error instanceof ZipError || error instanceof PackageError) throw new RepoError(error.message)
-    throw new RepoError('فایل zip یا manifest.json معتبر نیست')
-  }
-  checkReleaseManifest(manifest, product, product.releases.map((r) => r.version))
-  const fileId = `${randomUUID()}.zip`
-  await mkdir(releaseDirectory(), { recursive: true })
-  await writeFile(join(releaseDirectory(), fileId), upload, { flag: 'wx', mode: 0o600 })
-  return db.repoRelease.create({ data: { productId, version: manifest.version, fileId, sha256: sha256(upload), size: upload.length, changelog: String(changelog || '').slice(0, 5000), requiresCore: manifest.requiresCore || '', runtime: manifest.runtime } })
 }
 
 async function readReleaseFile(fileId: string): Promise<Buffer | null> {
