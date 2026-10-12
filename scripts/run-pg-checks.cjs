@@ -37,6 +37,7 @@ const CHECKS = [
   'repository-archive-diagnostics',
   'repository-upload-reservations',
   'repository-upload-migration',
+  'repository-owner-integrity',
   'queue-lease',
   'queue-authority',
   'import-execution-authority',

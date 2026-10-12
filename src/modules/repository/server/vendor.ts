@@ -235,7 +235,7 @@ export async function downloadForOwner(userId: number, licenseId: number, versio
   const release = await db.repoRelease.findFirst({ where: { productId: license.productId, published: true, storageState: 'READY', ...(version ? { version } : {}) }, orderBy: { createdAt: 'desc' } })
   if (!release || !releaseAllowed(release.createdAt, license)) throw new RepoError('نسخه‌ای در دورهٔ لایسنس شما موجود نیست', 404)
   const buffer = await readReleaseFile(release.fileId)
-  if (!buffer) throw new RepoError('فایل نسخه در دسترس نیست', 500)
+  if (!buffer || sha256(buffer) !== release.sha256) throw new RepoError('فایل نسخه در دسترس نیست', 500)
   await db.repoProduct.update({ where: { id: license.productId }, data: { downloads: { increment: 1 } } })
   return { buffer, filename: `${license.product.slug}-${release.version}.zip` }
 }
