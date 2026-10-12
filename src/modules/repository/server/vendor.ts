@@ -1,5 +1,6 @@
 import { issueLicense } from './vendor/issue-license'
 export { buyProduct } from './vendor/purchase'
+export { previewPurchaseRecovery, recoverPurchase } from './vendor/purchase-recovery'
 import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'

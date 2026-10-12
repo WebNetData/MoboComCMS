@@ -2,11 +2,12 @@ import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { requirePerm } from '@/modules/identity/server/access'
 import { PACKAGE_LIMITS } from '@/modules/packages/domain/format'
 import { PackageAuthorityError } from '@/modules/packages/server/store'
 import { RepoError } from '@/modules/repository/domain/repository'
 import {
-  deleteProduct, extendLicense, getVendorConfig, grantLicense, listLicenses, listProducts, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
+  deleteProduct, extendLicense, getVendorConfig, grantLicense, listLicenses, listProducts, previewPurchaseRecovery, recoverPurchase, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
 } from '@/modules/repository/server/vendor'
 import { fetchRepositoryMeta, connectRepository, disconnectRepository, activateRepositoryLicense, deactivateRepositoryLicense, browseCatalog, getClientConfig, installFromRepository, refreshRepositoryLicenses, defaultRepositoryUrl } from '@/modules/repository/server/client'
 
@@ -23,8 +24,9 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams
   try {
     switch (q.get('view')) {
+      case 'purchase-recovery': return ok(await previewPurchaseRecovery(idOf(q.get('paymentId')), { req, actor: guard.admin }))
       case 'products': return ok({ products: await listProducts() })
-      case 'licenses': return ok(await listLicenses({ q: q.get('q') || '', productId: idOf(q.get('productId')), status: q.get('status') || '', page: Number(q.get('page')) || 1 }))
+      case 'licenses': return ok({ ...(await listLicenses({ q: q.get('q') || '', productId: idOf(q.get('productId')), status: q.get('status') || '', page: Number(q.get('page')) || 1 })), canRecoverPurchases: Boolean(await requirePerm(req, 'finance.manage')) })
       case 'settings': return ok({ settings: await getVendorConfig() })
       default: return ok({ stats: await repositoryStats(), settings: await getVendorConfig() })
     }
@@ -40,6 +42,7 @@ export async function POST(req: NextRequest) {
   const audit = (action: string, targetId: string | number, metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: guard.admin, action: `repository.${action}`, targetType: 'repository', targetId: String(targetId), metadata })
   try {
     switch (body.op) {
+      case 'purchase.recover': return ok(await recoverPurchase(idOf(body.paymentId), { mode: body.mode, evidence: body.evidence, acknowledgeCurrentTerms: body.acknowledgeCurrentTerms }, { req, actor: guard.admin }))
       case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined); await audit('product.save', saved.id, { slug: saved.slug }); return ok({ id: saved.id }) }
       case 'product.delete': { await deleteProduct(idOf(body.id)); await audit('product.delete', idOf(body.id)); return ok({ ok: true }) }
       case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false); await audit('release.publish', idOf(body.id), { published: body.published !== false }); return ok({ ok: true }) }

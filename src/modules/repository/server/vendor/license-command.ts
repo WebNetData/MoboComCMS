@@ -8,21 +8,23 @@ import { RepoError } from '@/modules/repository/domain/repository'
 export type VendorLicenseContext = Pick<AdminAuditInput, 'req' | 'actor'>
 type LicenseAudit = { action: string; targetId: number; metadata?: Record<string, unknown> }
 
+export async function assertVendorLicenseAuthority(context: VendorLicenseContext, tx: Prisma.TransactionClient) {
+  let actor
+  for (const permission of ['repository.manage', 'settings.manage']) {
+    actor = await requirePerm(context.req, permission, tx)
+    if (actor) break
+  }
+  if (!actor || actor.id !== context.actor.id) throw new RepoError('forbidden', 403)
+  if (await moduleGuard('repository', tx)) throw new RepoError('repository unavailable', 404)
+  return actor
+}
+
 /** Database-only vendor license command; existing buyer/trusted callers retain their own admission contract. */
 export async function commitVendorLicense<T>(context: VendorLicenseContext | undefined, work: (tx: Prisma.TransactionClient) => Promise<T>, audit: (result: T) => LicenseAudit): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(async tx => {
-        let actor
-        if (context) {
-          // Preserve the owning Admin API's any-of permission contract.
-          for (const permission of ['repository.manage', 'settings.manage']) {
-            actor = await requirePerm(context.req, permission, tx)
-            if (actor) break
-          }
-          if (!actor || actor.id !== context.actor.id) throw new RepoError('forbidden', 403)
-          if (await moduleGuard('repository', tx)) throw new RepoError('repository unavailable', 404)
-        }
+        const actor = context ? await assertVendorLicenseAuthority(context, tx) : undefined
         const result = await work(tx)
         if (context && actor) {
           const entry = audit(result)

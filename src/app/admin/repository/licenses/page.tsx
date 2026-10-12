@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { Notice, RepoShell, fa, faDate, send, useJson } from '../shared'
+import PurchaseRecovery from './PurchaseRecovery'
 
 type License = { id: number; key: string; product: string; slug: string; email: string; source: string; status: string; siteLimit: number; paid: string; note: string; createdAt: string; updatesUntil: string; sites: { site: string; active: boolean; lastSeenAt: string; coreVersion: string }[] }
-type List = { rows: License[]; total: number; page: number; pages: number }
+type List = { rows: License[]; total: number; page: number; pages: number; canRecoverPurchases?: boolean }
 
 export default function LicensesPage() {
   const [q, setQ] = useState('')
@@ -28,6 +29,7 @@ export default function LicensesPage() {
     {error && <Notice tone="error">{error}</Notice>}
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     {given && <Notice tone="ok">کلید ساخته شد (فقط همین‌جا کامل دیده می‌شود؛ خریداران در پنل خود می‌بینند): <code dir="ltr">{given}</code></Notice>}
+    {data?.canRecoverPurchases && <PurchaseRecovery onRecovered={() => void reload()} />}
     {grant && <section className="sa-card rp-form" aria-label="صدور لایسنس">
       <header className="sa-card-head"><h2>صدور لایسنس</h2></header>
       <div className="ad-fields">
