@@ -32,6 +32,8 @@ import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 import { publicPostLinkItems } from '@/modules/journal/server/item-links'
+import ReadingProgress from '@/components/journal/ReadingProgress'
+import ArticleRail from '@/components/journal/ArticleRail'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -171,12 +173,10 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
             <strong>{authorName}</strong>
           </span>
         </span>
-        <span className="journal-post-meta-item num">{fmt(post.publishedAt)}</span>
-        <span className="journal-post-pill">
-          {readingMinutes(content)} {t.minRead}
-        </span>
-        <span className="journal-post-pill">
-          {post.views.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {t.views}
+        <span className="jp-facts">
+          <span className="jp-fact"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg><time dateTime={post.publishedAt.toISOString()} className="num">{fmt(post.publishedAt)}</time></span>
+          <span className="jp-fact"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>{readingMinutes(content)} {t.minRead}</span>
+          <span className="jp-fact"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.8" /></svg>{post.views.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {t.views}</span>
         </span>
         <JournalTextSize
           labels={{
@@ -200,6 +200,10 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const articleBlocks = !locked && (isFa || !post.contentEn) ? blocksHtml(post) : null
   const contentSlot = (
     <>
+      <ReadingProgress />
+      <div className="jp-read">
+      <ArticleRail title={title} fa={isFa} />
+      <div className="jp-main">
       <ArticleToc />
       <article
         id="article-body"
@@ -223,6 +227,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       )}
 
       <ShareRow title={title} />
+      </div>
+      </div>
     </>
   )
 
@@ -296,7 +302,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
         <nav className="journal-pager" aria-label={isFa ? 'نوشته‌های قبلی و بعدی' : 'Previous and next posts'}>
           {older ? (
             <Link href={`/blog/${older.slug}`} className="journal-pager-item is-older">
-              <span className="journal-pager-label">{isFa ? 'پست قبلی' : 'Previous'}</span>
+              <span className="journal-pager-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{isFa ? 'نوشتهٔ قبلی' : 'Previous'}</span>
               <span className="journal-pager-art">
                 <img src={older.cover || FALLBACK} alt="" loading="lazy" decoding="async" />
               </span>
@@ -307,7 +313,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
           )}
           {newer ? (
             <Link href={`/blog/${newer.slug}`} className="journal-pager-item is-newer">
-              <span className="journal-pager-label">{isFa ? 'پست بعدی' : 'Next'}</span>
+              <span className="journal-pager-label">{isFa ? 'نوشتهٔ بعدی' : 'Next'}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></span>
               <span className="journal-pager-art">
                 <img src={newer.cover || FALLBACK} alt="" loading="lazy" decoding="async" />
               </span>
