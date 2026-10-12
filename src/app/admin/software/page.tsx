@@ -31,7 +31,7 @@ export default function SoftwareDashboardPage() {
       <div className="sa-kpis">
         <div className="sa-kpi"><span>نرم‌افزارهای منتشرشده</span><b className="num">{fa(k.published)}</b><small className="sa-sub">{fa(k.updated7)} به‌روزرسانی در ۷ روز</small></div>
         <div className="sa-kpi"><span>دانلود کل</span><b className="num">{fa(k.downloads)}</b><small className="sa-sub">{fa(k.clicks)} کلیک روی لینک‌ها</small></div>
-        <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small className="sa-sub">{fa(k.vip)} نرم‌افزار ویژهٔ VIP</small></div>
+        <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small data-vip="" className="sa-sub">{fa(k.vip)} نرم‌افزار ویژهٔ VIP</small></div>
         <div className="sa-kpi"><span>بازدید کل</span><b className="num">{fa(k.views)}</b><small className="sa-sub">{fa(k.featured)} پیشنهاد ویژه</small></div>
       </div>
       <div className="sa-queue">

@@ -31,7 +31,7 @@ export default async function PlaylistPage({ params }: Props) {
   if (!data) notFound()
   const fa = locale === 'fa'
   const { playlist } = data
-  const locked = playlist.access === 'MEMBERS' && !viewer.member
+  const locked = playlist.access === 'MEMBERS' && !viewer.opens
   // Non-members get a short preview of a members-only playlist.
   const tracks = toPlayerTracks(locked ? data.tracks.slice(0, 3) : data.tracks, fa)
   const total = data.tracks.reduce((sum, t) => sum + (t.duration || 0), 0)

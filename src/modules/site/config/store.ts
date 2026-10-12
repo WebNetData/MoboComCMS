@@ -6,6 +6,8 @@ import { validateSite } from './validation'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
 import { normalizeTrustSeals, visibleSeals } from './trust-seals'
+import { hideDisabledModules } from './visibility'
+import { getPublicExtensionRuntime } from '@/extensions/server/state'
 export const SITE_KEY = 'site.config.v1'
 export const TRUST_SEALS_KEY = 'site.trust-seals.v1'
 
@@ -35,7 +37,9 @@ export const getSiteConfig = cache(() => getSiteConfigFrom(db))
 
 /** Filter only public rendering; keep the editable configuration intact. */
 export const getPublicSiteConfig = cache(async () => {
-  const editable = await getSiteConfig()
+  // Menus, the announcement and home sections that lead into a switched-off module are left out of the public copy.
+  const runtime = await getPublicExtensionRuntime().catch(() => ({}))
+  const editable = hideDisabledModules(await getSiteConfig(), runtime)
   const [publicApiEnabled, seals] = await Promise.all([isPublicApiEnabled(), getTrustSeals()])
   const shown = visibleSeals(seals)
   const trustSeals = shown.length ? { title: seals.title, seals: shown.map(({ id, kind, title, href, image }) => ({ id, kind, title, href, image })) } : undefined

@@ -10,7 +10,7 @@ function load(file, cache = new Map()) {
  const mod = {exports: {}}; cache.set(file, mod)
  new Function('require', 'module', 'exports', ts.transpileModule(source(file), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
   if (name === '@/platform/database/prisma') return {db}
-  if (name === '@/modules/membership/server/membership') return {isMember: async () => false}
+  if (name === '@/modules/membership/server/membership') return {isMember: async () => false, opensMembersOnly: async (_userId, member) => !!member}
   if (name === '@/modules/shipping/server/shipping') return {getDeliverySettings: async () => ({})}
   if (name === '@/modules/shipping/server/carriers') return {getCarrierSettings: async () => ({enabled: false})}
   if (name.startsWith('@/')) {const base = `src/${name.slice(2)}`; return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts', cache)}

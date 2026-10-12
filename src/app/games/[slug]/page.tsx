@@ -54,7 +54,7 @@ export default async function GamePage({ params }: Props) {
   const { game: g } = data
   const extras = await gamePageExtras(g, viewer.userId ?? null)
   const paywall = await paywallView(viewer, [{ ownerType: 'game', ownerId: g.id }])
-  const locked = paywall ? !paywall.open : g.access === 'MEMBERS' && !viewer.member
+  const locked = paywall ? !paywall.open : g.access === 'MEMBERS' && !viewer.opens
   const trailer = trailerSource(g.trailerUrl, toEmbedUrl)
   const req = g.requirements
   const hasReq = REQUIREMENT_KEYS.some((k) => req.min?.[k] || req.rec?.[k])
@@ -154,10 +154,10 @@ export default async function GamePage({ params }: Props) {
               {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/games/${g.slug}#buy`} noun="بازی" />}
               {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ این بازی را خریده‌اید</span>}
               {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/games/${g.slug}`} title="دانلود این بازی مخصوص اعضای VIP است" />}
-              <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={g.access === 'MEMBERS'} paywall={paywall} />
+              <LinkBox links={data.links} fa member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={g.access === 'MEMBERS'} paywall={paywall} />
             </>}
           </section>
-          <UpdatesTimeline updates={extras.updates} member={viewer.member} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} paywall={paywall} />
+          <UpdatesTimeline updates={extras.updates} member={viewer.opens} loggedIn={!!viewer.userId} locked={g.access === 'MEMBERS'} paywall={paywall} />
           <NewsList posts={extras.news} title={`اخبار و مقالات ${g.title}`} />
           <RelatedDiscussions item={ref} />
           <div id="reviews" className="gv-anchor"><ReviewSection item={ref} title={g.title} path={`/games/${g.slug}`} anchor={false} /></div>

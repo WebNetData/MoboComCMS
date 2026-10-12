@@ -36,10 +36,10 @@ function mustBuy(request: Request, path: string, json: boolean) {
  * gate — VIP members get it free or discounted as the admin chose; otherwise
  * members-only items need VIP.
  */
-async function gate(viewer: { userId: number | null; member: boolean }, chain: Chain, vipOnly: boolean): Promise<'ok' | 'login' | 'vip' | 'buy'> {
+async function gate(viewer: { userId: number | null; member: boolean; opens: boolean }, chain: Chain, vipOnly: boolean): Promise<'ok' | 'login' | 'vip' | 'buy'> {
   const paid = await accessFor(viewer, chain)
   if (paid.key) return paid.decision.open ? 'ok' : viewer.userId ? 'buy' : 'login'
-  if (!vipOnly) return 'ok'
+  if (!vipOnly || viewer.opens) return 'ok'
   if (!viewer.userId) return 'login'
   return canAccess('MEMBERS', viewer.member) ? 'ok' : 'vip'
 }
@@ -211,7 +211,7 @@ async function watchOwner(ownerType: string, ownerId: number) {
   return null
 }
 
-async function nextPlayableEpisode(episodeId: number, viewer: { userId: number | null; member: boolean }) {
+async function nextPlayableEpisode(episodeId: number, viewer: { userId: number | null; member: boolean; opens: boolean }) {
   const current = await db.cinemaEpisode.findUnique({ where: { id: episodeId }, select: { number: true, season: { select: { number: true, titleId: true } } } })
   if (!current) return null
   const candidate = await db.cinemaEpisode.findFirst({

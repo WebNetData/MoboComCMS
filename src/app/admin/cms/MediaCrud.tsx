@@ -14,6 +14,10 @@ import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { TRACK_LANGUAGES, playbackKind } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+
+// Left out of the form while the VIP module is off; the stored value is not touched by a save without them.
+const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
 
 /**
  * Admin list + editor for the media library (/api/admin/media-library): music,
@@ -76,7 +80,9 @@ function toFormValue(field: MediaField, value: unknown): unknown {
   return value
 }
 
-export default function MediaCrud({ type, title, subtitle, fields, publicPath, titleKey = 'title', paywall }: Props) {
+export default function MediaCrud({ type, title, subtitle, fields: allFields, publicPath, titleKey = 'title', paywall }: Props) {
+  const vipOn = useModuleEnabled('membership')
+  const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const [rows, setRows] = useState<any[]>([])
@@ -323,7 +329,7 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
 
       <div className="cms-summary">
         <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
-        {vip !== null && <div><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
+        {vip !== null && <div data-vip=""><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
         {trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}
         <label className="cms-search"><span>{fa ? 'جست‌وجو' : 'Search'}</span><input className="input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label>
       </div>
@@ -483,7 +489,7 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
           </div>}
           {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
           <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
-          <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
+          <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
           {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
             <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
             {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
@@ -551,7 +557,7 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
                   <div className="mx-episode-head">
                     <input className="input mx-ep-no" type="number" value={episode.number} onChange={(e) => setEpisode(si, ei, { number: e.target.value })} aria-label="episode number" />
                     <input className="input" placeholder={fa ? 'عنوان قسمت' : 'Episode title'} value={episode.title || ''} onChange={(e) => setEpisode(si, ei, { title: e.target.value })} />
-                    <select className="select" value={episode.access || 'PUBLIC'} onChange={(e) => setEpisode(si, ei, { access: e.target.value })} aria-label="access"><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
+                    <select className="select" value={episode.access || 'PUBLIC'} onChange={(e) => setEpisode(si, ei, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
                     <span className="muted text-sm">{(episode.links || []).length} {fa ? 'لینک' : 'links'}</span>
                     <button type="button" className="badge badge-purple" onClick={() => setOpen(open === key ? '' : key)}>{open === key ? '▲' : '▼'}</button>
                     <button type="button" className="badge badge-red" onClick={() => setSeason(si, { episodes: season.episodes.filter((_, i) => i !== ei) })}>✕</button>

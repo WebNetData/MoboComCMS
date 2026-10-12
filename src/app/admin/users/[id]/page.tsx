@@ -6,7 +6,7 @@ import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import GlobalRestrictions from '@/components/admin/GlobalRestrictions'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 interface Detail {
   profileFields?: { completedAt: string | null; missing: string[]; rows: { label: string; value: string }[] } | null
@@ -52,7 +52,7 @@ export default function AdminCustomerPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [amount, setAmount] = useState<number>(10)
-  const [currency, setCurrency] = useState('USD')
+  const [currency, setCurrency] = useState(BASE_CURRENCY)
   const [amountNote, setAmountNote] = useState('')
   const [note, setNote] = useState('')
   const [extendDays, setExtendDays] = useState(30)
@@ -94,14 +94,14 @@ export default function AdminCustomerPage() {
     setTimeout(() => setMsg(''), 2500)
   }
 
-  const money = (n: number, code = 'USD') => formatCurrency(n, code, isFa ? 'fa-IR' : 'en-US')
+  const money = (n: number, code = BASE_CURRENCY) => formatCurrency(n, code, isFa ? 'fa-IR' : 'en-US')
   const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
   const fmtFull = (d?: string | null) => (d ? new Date(d).toLocaleString(isFa ? 'fa-IR' : 'en-US') : '—')
 
   if (!data) return <p className="muted">{t.loading}</p>
   const u = data.user
   const selectedPlan = data.plans.find((plan) => plan.id === newPlanId)
-  const currencyOptions = [...new Set(['USD', ...u.walletBalances.map((b) => b.currency), ...u.lifetimePaidByCurrency.map((b) => b.currency), ...data.invoices.map((i) => i.currency), ...data.orders.map((o) => o.currency), ...data.wallet.map((w) => w.currency)])].sort()
+  const currencyOptions = [...new Set([BASE_CURRENCY, ...u.walletBalances.map((b) => b.currency), ...u.lifetimePaidByCurrency.map((b) => b.currency), ...data.invoices.map((i) => i.currency), ...data.orders.map((o) => o.currency), ...data.wallet.map((w) => w.currency)])].sort()
 
   const TABS: [Tab, string][] = [
     ['overview', t.overview],

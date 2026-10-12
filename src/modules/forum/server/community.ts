@@ -5,6 +5,7 @@ import { logEvent } from '@/platform/observability/logger'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { getViewer as getSessionViewer, isMember } from '@/modules/membership/server/membership'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { isModuleEnabled } from '@/extensions/server/modules'
 import { ensureUserProfiles } from '@/modules/identity/server/profile'
 import {
   DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, reactionWeight, sameReactionWeights,
@@ -117,7 +118,9 @@ async function isStaff(userId: number): Promise<boolean> {
 export async function viewerFor(userId: number | null | undefined, knownMember?: boolean): Promise<Viewer> {
   const automatic = await db.forumGroup.findMany({ where: { automatic: { not: null } }, select: { id: true, automatic: true, moderator: true } })
   const byKey = new Map(automatic.map((group) => [group.automatic!, group]))
-  if (!userId) return { ...GUEST, groupIds: byKey.get('everyone') ? [byKey.get('everyone')!.id] : [] }
+  // While the VIP module is off no forum is members-only: everybody reads them (the VIP group still needs a real membership).
+  const open = !await isModuleEnabled('membership')
+  if (!userId) return { ...GUEST, member: open, groupIds: byKey.get('everyone') ? [byKey.get('everyone')!.id] : [] }
   await ensureProfiles([userId])
   const [assigned, profile, staff, member, memberships] = await Promise.all([
     db.forumCategoryModerator.findMany({ where: { userId }, select: { categoryId: true } }).catch(() => []),
@@ -135,7 +138,7 @@ export async function viewerFor(userId: number | null | undefined, knownMember?:
   const tree = assigned.length && !moderator ? await db.forumCategory.findMany({ select: { id: true, parentId: true } }).catch(() => []) : []
   const moderates = [...new Set(assigned.flatMap((row) => categoryFamily(tree, row.categoryId)))].filter((id) => tree.some((row) => row.id === id))
   return {
-    userId, groupIds, trustLevel, moderator, member, moderates,
+    userId, groupIds, trustLevel, moderator, member: member || open, moderates,
     ...restrictions,
   }
 }

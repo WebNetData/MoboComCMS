@@ -10,7 +10,7 @@ const SEGMENT = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 
 function SettingInput({ def, value, onChange }: { def: Definition; value: unknown; onChange: (value: unknown) => void }) {
   const id = `set-${def.key}`
-  if (def.type === 'boolean') return <label className="sa-check"><input id={id} type="checkbox" checked={value === true || (value === undefined && def.default === true)} onChange={(e) => onChange(e.target.checked)} />{def.label}</label>
+  if (def.type === 'boolean') return <label data-vip={/members-only$/.test(def.key) ? '' : undefined} className="sa-check"><input id={id} type="checkbox" checked={value === true || (value === undefined && def.default === true)} onChange={(e) => onChange(e.target.checked)} />{def.label}</label>
   const input = def.type === 'textarea' ? <textarea id={id} className="input" rows={3} value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value)} />
     : def.type === 'select' ? <select id={id} className="select" value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value)}>{def.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     : def.type === 'number' ? <input id={id} className="input" type="number" value={String(value ?? def.default ?? '')} onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />

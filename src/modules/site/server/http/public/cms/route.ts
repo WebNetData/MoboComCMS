@@ -18,7 +18,7 @@ async function gatePosts<T extends { id?: number; access?: string; content?: str
   const teaser = (post: T) => ({ ...post, content: teaserHtml(post.content || ''), contentEn: teaserHtml(post.contentEn || ''), locked: true })
   return Promise.all(posts.map(async (post) => {
     if (post.id && paid.has(post.id)) return (await accessFor(viewer, [{ ownerType: 'post', ownerId: post.id }])).decision.open ? post : teaser(post)
-    return post.access === 'MEMBERS' && !viewer.member ? teaser(post) : post
+    return post.access === 'MEMBERS' && !viewer.opens ? teaser(post) : post
   }))
 }
 

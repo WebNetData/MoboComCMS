@@ -314,7 +314,7 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
     if (rule.kind === 'section') return <select className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose a section', 'انتخاب بخش')}</option>
       <optgroup label={L('Built-in modules', 'ماژول‌های داخلی')}>
-        {[['software', L('Software', 'نرم‌افزار')], ['games', L('Games', 'بازی')], ['music', L('Music', 'موزیک')], ['cinema', L('Films & series', 'فیلم و سریال')], ['forum', L('Forum', 'تالار گفتمان')], ['vip', L('VIP membership', 'اشتراک ویژه')], ['search', L('Search', 'جست‌وجو')], ['compare', L('Compare', 'مقایسه')]].map(([slug, name]) => <option key={slug} value={slug}>/{slug} — {name}</option>)}
+        {[['software', L('Software', 'نرم‌افزار')], ['games', L('Games', 'بازی')], ['music', L('Music', 'موزیک')], ['cinema', L('Films & series', 'فیلم و سریال')], ['forum', L('Forum', 'تالار گفتمان')], ['vip', L('VIP membership', 'اشتراک ویژه')], ['search', L('Search', 'جست‌وجو')], ['compare', L('Compare', 'مقایسه')]].map(([slug, name]) => <option key={slug} value={slug} data-vip={slug === 'vip' ? '' : undefined}>/{slug} — {name}</option>)}
       </optgroup>
       {sections.length > 0 && <optgroup label={L('Your sections', 'بخش‌های شما')}>{sections.map((s) => <option key={s.id} value={s.placement.slug}>/{s.placement.slug} — {fa ? s.name : s.nameEn || s.name}</option>)}</optgroup>}
     </select>
@@ -345,7 +345,7 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
           </label>
           <div className="tb-builtin-sections" role="group" aria-label={L('Replace a built-in section landing', 'جایگزینی صفحهٔ اصلی بخش‌های داخلی')}>
             <small>{L('Or replace the landing page of a built-in section:', 'یا صفحهٔ اصلی یکی از بخش‌های داخلی را جایگزین کنید:')}</small>
-            {([['software', L('Software', 'نرم‌افزار')], ['games', L('Games', 'بازی')], ['music', L('Music', 'موزیک')], ['cinema', L('Films & series', 'فیلم و سریال')], ['forum', L('Forum', 'تالار گفتمان')], ['vip', L('VIP', 'اشتراک ویژه')]] as [string, string][]).map(([slug, name]) => <button key={slug} type="button" className={`btn btn-sm ${placement.slug === slug ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPlacement((p) => ({ ...p, slug }))}>{name}</button>)}
+            {([['software', L('Software', 'نرم‌افزار')], ['games', L('Games', 'بازی')], ['music', L('Music', 'موزیک')], ['cinema', L('Films & series', 'فیلم و سریال')], ['forum', L('Forum', 'تالار گفتمان')], ['vip', L('VIP', 'اشتراک ویژه')]] as [string, string][]).map(([slug, name]) => <button key={slug} data-vip={slug === 'vip' ? '' : undefined} type="button" className={`btn btn-sm ${placement.slug === slug ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPlacement((p) => ({ ...p, slug }))}>{name}</button>)}
           </div>
           <label><span>{L('Journal category of this section (optional)', 'دستهٔ مجلهٔ این بخش (اختیاری)')}</span>
             <select className="select" value={placement.postCategoryId ?? ''} onChange={(event) => setPlacement((p) => ({ ...p, postCategoryId: event.target.value ? Number(event.target.value) : null }))}>

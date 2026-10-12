@@ -92,7 +92,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const paid = !isPreview(preview) && await isPaid([{ ownerType: 'post', ownerId: post.id }])
   const viewer = (post.access === 'MEMBERS' || paid) && !isPreview(preview) ? await getViewer() : null
   const paywall = paid && viewer ? await paywallView(viewer, [{ ownerType: 'post', ownerId: post.id }]) : null
-  const locked = paywall ? !paywall.open : !!viewer && !viewer.member
+  const locked = paywall ? !paywall.open : !!viewer && post.access === 'MEMBERS' && !viewer.opens
   const builderDoc = locked ? null : await resolveBuilderDoc(preview, `post-${post.id}`)
   const renderContext = await postContext(postCategories(post).map((c) => c.id))
   const editingTemplate = previewTemplate(preview, 'single-post')

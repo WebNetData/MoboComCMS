@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 export default function AdminFinancePage() {
   const { t, locale } = useI18n()
@@ -28,7 +28,7 @@ export default function AdminFinancePage() {
   }, [load])
 
   const fmtDate = (d: string) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US')
-  const activeCurrency = data?.currency || currency || 'USD'
+  const activeCurrency = data?.currency || currency || BASE_CURRENCY
   const money = (n: number) => formatCurrency(n || 0, activeCurrency, isFa ? 'fa-IR' : 'en-US')
 
   if (loading && !data) return <p className="muted">{t.loading}</p>

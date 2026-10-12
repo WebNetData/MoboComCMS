@@ -1,6 +1,6 @@
 'use client'
 
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 
 export interface CheckoutResult {
@@ -94,7 +94,7 @@ export async function startCheckout(payload: CheckoutPayload): Promise<CheckoutR
     amountDue: Number(data?.amountDue) || 0,
     needed: Number(data?.needed) || 0,
     balance: Number(data?.balance) || 0,
-    currency: String(data?.currency || 'USD'),
+    currency: String(data?.currency || BASE_CURRENCY),
     fulfillmentPending: Boolean(data?.fulfillmentPending),
     code: String(data?.code || ''),
     message: String(data?.error || ''),
@@ -122,9 +122,9 @@ export async function fetchWalletBalances(): Promise<WalletBalanceDto[]> {
   return Array.isArray(data?.walletBalances) ? data.walletBalances : []
 }
 
-export async function fetchWalletBalance(currency = 'USD'): Promise<number> {
+export async function fetchWalletBalance(currency = BASE_CURRENCY): Promise<number> {
   const balances = await fetchWalletBalances()
   return Number(balances.find((item) => item.currency === currency)?.balance || 0)
 }
 
-export const money = (n: number, currency = 'USD', locale = 'en-US') => formatCurrency(n, currency, locale)
+export const money = (n: number, currency = BASE_CURRENCY, locale = 'en-US') => formatCurrency(n, currency, locale)

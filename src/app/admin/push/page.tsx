@@ -39,8 +39,8 @@ export default function AdminPushPage() {
     <section className="xm-section">
       <h2>ارسال اعلان همگانی</h2>
       <form className="card fr-admin-form" onSubmit={async (e) => { e.preventDefault(); if (window.confirm(`اعلان برای «${AUDIENCE[form.audience]}» ارسال شود؟`) && await post({ action: 'campaign', ...form }, (r) => `ارسال شد: ${fa(r.sent || 0)} موفق، ${fa(r.failed || 0)} ناموفق`)) setForm({ ...form, title: '', body: '' }) }}>
-        <label className="studio-field"><span>عنوان *</span><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={120} required placeholder="مثلاً: تخفیف ۳۰٪ اشتراک VIP تا جمعه" /></label>
-        <label className="studio-field"><span>مخاطب</span><select className="input" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>{Object.entries(AUDIENCE).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="studio-field"><span>عنوان *</span><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={120} required placeholder="مثلاً: تخفیف ۳۰٪ فروشگاه تا جمعه" /></label>
+        <label className="studio-field"><span>مخاطب</span><select className="input" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>{Object.entries(AUDIENCE).map(([key, label]) => <option key={key} value={key} data-vip={key === 'VIP' ? '' : undefined}>{label}</option>)}</select></label>
         <label className="studio-field fr-admin-wide"><span>متن</span><input className="input" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} maxLength={300} /></label>
         <label className="studio-field fr-admin-wide"><span>با کلیک باز شود (مسیر داخلی سایت)</span><input className="input" dir="ltr" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="/vip" /></label>
         <div className="pwa-preview fr-admin-wide" aria-hidden="true"><b>{form.title || 'عنوان اعلان'}</b><span>{form.body || 'متن اعلان'}</span></div>

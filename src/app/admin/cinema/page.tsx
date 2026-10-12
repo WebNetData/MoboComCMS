@@ -28,7 +28,7 @@ export default function CinemaDashboardPage() {
         <div className="sa-kpi"><span>فیلم‌های منتشرشده</span><b className="num">{fa(k.movies)}</b><small className="sa-sub">{fa(k.dubbed)} دوبله · {fa(k.subtitled)} زیرنویس</small></div>
         <div className="sa-kpi"><span>سریال‌ها</span><b className="num">{fa(k.series)}</b><small className="sa-sub">{fa(k.episodes)} قسمت · {fa(k.ongoing)} در حال پخش</small></div>
         <div className="sa-kpi"><span>بازدید کل</span><b className="num">{fa(k.views)}</b><small className="sa-sub">{fa(k.clicks)} کلیک روی لینک‌ها</small></div>
-        <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small className="sa-sub">{fa(k.vip)} عنوان ویژهٔ VIP</small></div>
+        <div className="sa-kpi"><span>دانلود ۳۰ روز</span><b className="num">{fa(k.downloads30)}</b><small data-vip="" className="sa-sub">{fa(k.vip)} عنوان ویژهٔ VIP</small></div>
       </div>
       <div className="sa-queue">
         <Link href="/admin/downloads" className={`sa-queue-item${k.openReports ? ' is-warn' : ''}`}><b className="num">{fa(k.openReports)}</b><span>گزارش لینک خراب</span></Link>

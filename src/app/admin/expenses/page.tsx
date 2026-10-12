@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 interface Expense {
   id: number
@@ -15,7 +15,7 @@ interface Expense {
   note: string
 }
 
-const EMPTY = { title: '', category: 'SERVER', amount: '', currency: 'USD', spentAt: '', note: '' }
+const EMPTY = { title: '', category: 'SERVER', amount: '', currency: BASE_CURRENCY, spentAt: '', note: '' }
 
 export default function AdminExpensesPage() {
   const { t, locale } = useI18n()
@@ -24,8 +24,8 @@ export default function AdminExpensesPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [byCategory, setByCategory] = useState<Record<string, number>>({})
   const [total, setTotal] = useState(0)
-  const [currency, setCurrency] = useState('USD')
-  const [currencies, setCurrencies] = useState<string[]>(['USD'])
+  const [currency, setCurrency] = useState(BASE_CURRENCY)
+  const [currencies, setCurrencies] = useState<string[]>([BASE_CURRENCY])
   const [form, setForm] = useState<any>(EMPTY)
   const [msg, setMsg] = useState('')
   const [msgOk, setMsgOk] = useState(false)

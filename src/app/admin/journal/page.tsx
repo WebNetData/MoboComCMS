@@ -28,7 +28,7 @@ export default function JournalDashboardPage() {
         <div className="sa-kpi"><span>مطالب منتشرشده</span><b className="num">{fa(k.published)}</b><small className="sa-sub">{fa(k.posts30)} مطلب در ۳۰ روز اخیر</small></div>
         <div className="sa-kpi"><span>بازدید کل</span><b className="num">{fa(k.views)}</b><small className="sa-sub">میانگین {fa(k.published ? Math.round(k.views / k.published) : 0)} برای هر مطلب</small></div>
         <div className="sa-kpi"><span>دیدگاه ۳۰ روز</span><b className="num">{fa(k.comments30)}</b><small className="sa-sub">{fa(k.pendingComments)} در انتظار تأیید</small></div>
-        <div className="sa-kpi"><span>دسته‌بندی‌ها</span><b className="num">{fa(k.categories)}</b><small className="sa-sub">{fa(k.vip)} مطلب ویژهٔ VIP</small></div>
+        <div className="sa-kpi"><span>دسته‌بندی‌ها</span><b className="num">{fa(k.categories)}</b><small data-vip="" className="sa-sub">{fa(k.vip)} مطلب ویژهٔ VIP</small></div>
       </div>
       <div className="sa-queue">
         <Link href="/admin/comments" className={`sa-queue-item${k.pendingComments ? ' is-hot' : ''}`}><b className="num">{fa(k.pendingComments)}</b><span>دیدگاه در انتظار</span></Link>

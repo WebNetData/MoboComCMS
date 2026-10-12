@@ -5,14 +5,16 @@ import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 import type { CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { transactionLabel } from '@/modules/wallet/domain/transaction-locale'
 
 interface Tx { id:number; amount:number; balanceAfter:number; currency:string; type:string; status:string; description:string; invoiceId:number|null; orderId:number|null; createdAt:string }
 interface Balance { currency:string; balance:number }
-const QUICK=[10,25,50,100,250]
+// Round amounts a person would actually top up, by the size of the currency's unit.
+const QUICK_BY:Record<string,number[]>={IRT:[50_000,100_000,200_000,500_000,1_000_000],TMN:[50_000,100_000,200_000,500_000,1_000_000],IRR:[500_000,1_000_000,2_000_000,5_000_000,10_000_000]}
+const quickFor=(currency:string)=>QUICK_BY[currency]||[10,25,50,100,250]
 
 function topupKey(currency:string, amount:number) {
   const storage=`happ.wallet.topup.${currency}.${amount}`
@@ -23,7 +25,7 @@ function topupKey(currency:string, amount:number) {
 export default function WalletPage() {
   const {t,locale}=useI18n(); const isFa=locale==='fa'; const vpnOn=useModuleEnabled('vpn')
   const [balances,setBalances]=useState<Balance[]>([]); const [txs,setTxs]=useState<Tx[]>([]); const [totals,setTotals]=useState<Record<string,{toppedUp:number;spent:number;count:number}>>({})
-  const [topupCurrencies,setTopupCurrencies]=useState<string[]>([]); const [topupGateways,setTopupGateways]=useState<CheckoutGatewayChoice[]>([]); const [currency,setCurrency]=useState('USD'); const [gatewayRef,setGatewayRef]=useState(''); const [amount,setAmount]=useState(25)
+  const [topupCurrencies,setTopupCurrencies]=useState<string[]>([]); const [topupGateways,setTopupGateways]=useState<CheckoutGatewayChoice[]>([]); const [currency,setCurrency]=useState(BASE_CURRENCY); const [gatewayRef,setGatewayRef]=useState(''); const [amount,setAmount]=useState(quickFor(BASE_CURRENCY)[1])
   const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [loading,setLoading]=useState(true)
   const load=useCallback(async()=>{ const res=await fetch('/api/wallet'); if(res.ok){const d=await res.json();setBalances(d.balances||[]);setTxs(d.transactions||[]);setTotals(d.totals||{});const cs=d.topupCurrencies||[];setTopupCurrencies(cs);setTopupGateways(d.topupGateways||[]);setCurrency(c=>cs.includes(c)?c:(cs[0]||d.balances?.[0]?.currency||c))} setLoading(false)},[])
   useEffect(()=>{load()},[load])
@@ -42,7 +44,7 @@ export default function WalletPage() {
     <div className="grid" style={{gridTemplateColumns:'minmax(0,1fr) minmax(0,1.3fr)',gap:'1rem'}}>
       <div className="card self-start"><h2 className="h3 mb-1">{t.topUpTitle}</h2><p className="muted text-sm mb-4">{t.topUpHint}</p>
         {!topupCurrencies.includes(currency)&&<p className="error-text mb-3">{isFa ? 'شارژ این ارز با درگاه‌های فعال در دسترس نیست.' : `Top-up is not available for ${currency} with the active gateways.`}</p>}
-        <div className="flex flex-wrap gap-2 mb-4">{QUICK.map(q=><button key={q} type="button" onClick={()=>setAmount(q)} className={`badge ${amount===q?'badge-primary':'badge-gray'}`}>{money(q)}</button>)}</div>
+        <div className="flex flex-wrap gap-2 mb-4">{quickFor(currency).map(q=><button key={q} type="button" onClick={()=>setAmount(q)} className={`badge ${amount===q?'badge-primary':'badge-gray'}`}>{money(q)}</button>)}</div>
         <label className="label">{t.amountLabel} ({currency})</label><input className="input num mb-4" dir="ltr" inputMode="decimal" value={amount} onChange={e=>setAmount(Number(e.target.value))}/>
         {compatibleGateways.length>0&&<><label className="label">{isFa?'درگاه پرداخت':'Payment gateway'}</label><select className="select mb-4" value={gatewayRef} onChange={e=>setGatewayRef(e.target.value)}>{compatibleGateways.map(g=><option key={g.ref} value={g.ref}>{g.label}{g.feePercent?` · ${g.feePercent}%`:''}</option>)}</select></>}
         {error&&<p className="error-text mb-3">{error}</p>}<button className="btn btn-primary w-full" disabled={busy||amount<=0||!topupCurrencies.includes(currency)||compatibleGateways.length===0} onClick={topUp}>{busy?t.loading:`⚡ ${t.payNow}`}</button><p className="muted text-xs mt-3">{vpnOn ? t.topUpNote : locale === 'fa' ? 'از موجودی کیف پول برای پرداخت سفارش‌ها و خریدهای سایت استفاده می‌شود.' : 'Wallet balance can be used to pay for orders and purchases on the site.'}</p>

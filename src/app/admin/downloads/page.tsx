@@ -181,7 +181,7 @@ export default function AdminDownloadsPage() {
         <h2 className="fr-admin-wide">سقف دانلود روزانه (۲۴ ساعت اخیر؛ ۰ = نامحدود)</h2>
         <label className="studio-field"><span>مهمان</span><input className="input" type="number" min={0} value={settings.guestDaily} onChange={(e) => setSettings({ ...settings, guestDaily: Number(e.target.value) })} /></label>
         <label className="studio-field"><span>کاربر عادی</span><input className="input" type="number" min={0} value={settings.memberDaily} onChange={(e) => setSettings({ ...settings, memberDaily: Number(e.target.value) })} /></label>
-        <label className="studio-field"><span>عضو VIP</span><input className="input" type="number" min={0} value={settings.vipDaily} onChange={(e) => setSettings({ ...settings, vipDaily: Number(e.target.value) })} /></label>
+        <label data-vip="" className="studio-field"><span>عضو VIP</span><input className="input" type="number" min={0} value={settings.vipDaily} onChange={(e) => setSettings({ ...settings, vipDaily: Number(e.target.value) })} /></label>
 
         <h2 className="fr-admin-wide">امضای لینک روی سرور دانلود</h2>
         <p className="muted fr-admin-wide">اگر سرور دانلود شما nginx با ماژول <code dir="ltr">secure_link</code> است یا امضای HMAC را بررسی می‌کند، خود فایل هم لینک موقت می‌گیرد و حتی آدرس نهایی فایل قابل اشتراک نیست. برای nginx همان عبارت <code dir="ltr">secure_link_md5</code> سرور را وارد کنید؛ برای HMAC سرور باید <code dir="ltr">hex(HMAC-SHA256(secret, path + &quot;:&quot; + expires))</code> را با پارامتر token مقایسه کند.</p>

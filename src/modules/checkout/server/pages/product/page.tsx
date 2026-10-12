@@ -37,7 +37,7 @@ export default async function ProductCheckoutPage({ params, searchParams }: Prop
   const viewer = await getViewer()
   const here = `/checkout/product/${product.slug}${variant ? `?variant=${variant.id}` : ''}`
   if (!viewer.userId) redirect(`/login?next=${encodeURIComponent(here)}`)
-  if (product.access === 'MEMBERS' && !viewer.member) redirect('/vip')
+  if (product.access === 'MEMBERS' && !viewer.opens) redirect('/vip')
 
   // With carriers on, shipping is priced per address and carrier: "buy now" goes through the cart checkout.
   if ((await getCarrierSettings()).enabled) {

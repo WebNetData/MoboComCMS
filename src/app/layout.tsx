@@ -165,7 +165,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (design.extends === 'orbital') Object.assign(tokens, { '--orbital-blue': design.colors.accent, '--hp-radius': `${design.radius}px`, ...(theme === 'dark' ? { '--orbital-bg': design.colors.background, '--orbital-surface': design.colors.surface, '--orbital-text': design.colors.text, '--orbital-muted': design.colors.muted, '--orbital-border': design.colors.border } : {}) })
 
   return (
-    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
+    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} style={tokens} suppressHydrationWarning>
       <head>
         {locales.length > 1 && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
         {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}

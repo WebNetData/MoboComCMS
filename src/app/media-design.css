@@ -996,3 +996,6 @@ a.cn-person { color: inherit; text-decoration: none; }
 .it-timeline li a { color: inherit; text-decoration: none; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .it-timeline li small { color: var(--md-muted, var(--muted)); }
 @media (max-width: 600px) { .it-timeline li { grid-template-columns: 1fr; gap: 4px; } }
+
+/* VIP switched off: nothing is members-only, so nothing is marked as such (the marks stay stored on the items). */
+html[data-vip='off'] :is(.vip-chip, .vip-badge-sm, .vip-dot, .vip-crown, .vip-gate, .vip-strip, .cn-vip-shelf, .cn-cal-vip, .bi-tag.is-vip, .fx-vip, .sx-flag.is-vip, .mbx-vip, .gx-flag.is-vip, [data-vip], a[href='/vip'], a[href^='/vip?'], a[href^='/vip#']) { display: none !important; }

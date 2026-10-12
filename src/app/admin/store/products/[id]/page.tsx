@@ -176,8 +176,8 @@ export default function ProductEditorPage() {
             {field('compareAtPrice', 'قیمت قبل از تخفیف (خط‌خورده)', { type: 'number', min: 0, step: 'any' })}
             <label className="sa-field"><span>واحد پول</span><select className="select" value={form.currency} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان</option><option value="IRR">ریال</option><option value="USD">دلار</option></select></label>
             <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز (شمارش معکوس)</span><input className="input" type="datetime-local" value={form.saleEndsAt} onChange={(event) => update('saleEndsAt', event.target.value)} /></label>
-            {field('memberPrice', 'قیمت ویژهٔ اعضای VIP', { type: 'number', min: 0, step: 'any' })}
-            {field('vipGiftDays', 'روز VIP هدیه با خرید', { type: 'number', min: 0 })}
+            <span data-vip="" style={{ display: 'contents' }}>{field('memberPrice', 'قیمت ویژهٔ اعضای VIP', { type: 'number', min: 0, step: 'any' })}</span>
+            <span data-vip="" style={{ display: 'contents' }}>{field('vipGiftDays', 'روز VIP هدیه با خرید', { type: 'number', min: 0 })}</span>
           </div>
           <p className="sa-hint">قیمت قبل از تخفیف باید بیشتر از قیمت فروش باشد. با گذشت زمان پایان پیشنهاد، قیمت خط‌خورده خودکار پنهان می‌شود.</p>
           </>}
@@ -228,7 +228,7 @@ export default function ProductEditorPage() {
           <header className="sa-card-head"><h2>انتشار</h2></header>
           <label className="sa-check"><input type="checkbox" checked={!!form.active} onChange={(event) => update('active', event.target.checked)} />در فروشگاه نمایش داده شود</label>
           <label className="sa-check"><input type="checkbox" checked={!!form.featured} onChange={(event) => update('featured', event.target.checked)} />محصول ویژه</label>
-          <label className="sa-field"><span>دسترسی</span><select className="select" value={form.access} onChange={(event) => update('access', event.target.value)}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
+          <label data-vip="" className="sa-field"><span>دسترسی</span><select className="select" value={form.access} onChange={(event) => update('access', event.target.value)}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           {field('sortOrder', 'ترتیب نمایش', { type: 'number' })}
           <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیره'}</button>
         </section>

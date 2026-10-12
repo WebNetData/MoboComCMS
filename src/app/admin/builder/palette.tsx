@@ -68,7 +68,7 @@ export default function Palette({ doc, sel, L, drag, setDrag, pageId, onSelect, 
     {groups.map((group) => <div className="bld-group" key={group.titleEn}>
       <h3>{L(group.titleEn, group.titleFa)}</h3>
       <div className="builder-palette">
-        {group.types.map((type) => <button
+        {group.types.map((type) => <button data-vip={type === 'vip-cta' ? '' : undefined}
           key={type}
           type="button"
           draggable

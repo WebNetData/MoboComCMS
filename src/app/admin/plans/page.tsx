@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 interface PlanRow {
   id: number
@@ -29,7 +29,7 @@ interface PanelRow {
   active: boolean
 }
 
-const EMPTY = { name: '', nameEn: '', description: '', descriptionEn: '', trafficGB: 50, days: 30, deviceLimit: 2, price: 2.5, currency: 'USD', sort: 0, panelId: '', access: 'PUBLIC', memberPrice: '', vipGiftDays: 0 }
+const EMPTY = { name: '', nameEn: '', description: '', descriptionEn: '', trafficGB: 50, days: 30, deviceLimit: 2, price: 0, currency: BASE_CURRENCY, sort: 0, panelId: '', access: 'PUBLIC', memberPrice: '', vipGiftDays: 0 }
 
 export default function AdminPlansPage() {
   const { t, locale } = useI18n()
@@ -146,18 +146,18 @@ export default function AdminPlansPage() {
             ))}
           </select>
         </div>
-        <div>
+        <div data-vip="">
           <label className="label">{locale === 'fa' ? 'دسترسی' : 'Access'}</label>
           <select className="select" value={form.access} onChange={(e) => setForm({ ...form, access: e.target.value })}>
             <option value="PUBLIC">{locale === 'fa' ? 'همه' : 'Everyone'}</option>
             <option value="MEMBERS">{locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only'}</option>
           </select>
         </div>
-        <div>
+        <div data-vip="">
           <label className="label">{locale === 'fa' ? `قیمت اعضای VIP (${form.currency}) · اختیاری` : `VIP price (${form.currency}) · optional`}</label>
           <input className="input num" inputMode="decimal" value={form.memberPrice} onChange={(e) => setForm({ ...form, memberPrice: e.target.value })} />
         </div>
-        <div>
+        <div data-vip="">
           <label className="label">{locale === 'fa' ? 'روز VIP هدیه با خرید' : 'VIP gift days'}</label>
           <input className="input num" type="number" min={0} value={form.vipGiftDays} onChange={(e) => setForm({ ...form, vipGiftDays: e.target.value })} />
         </div>

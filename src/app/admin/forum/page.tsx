@@ -175,9 +175,9 @@ function AdminForumPage() {
         <label className="studio-field fr-admin-wide"><span>مدیران این {category.parentId ? 'انجمن' : 'بخش'}</span><input className="input" dir="ltr" value={category.moderators} onChange={(e) => setCategory({ ...category, moderators: e.target.value })} placeholder="sara, kian" aria-describedby="fa-mods-help" /><small id="fa-mods-help" className="muted">نام کاربری اعضا را با ویرگول جدا کنید. مدیر در همین‌جا و هر چه زیر آن است می‌تواند موضوع و پیام را پنهان، حذف، قفل، سنجاق و منتقل کند و صف بررسی را ببیند؛ بیرون از آن عضو عادی است و به پنل مدیریت راه ندارد.</small></label>
         <fieldset className="fa-perms fr-admin-wide">
           <legend>دسترسی گروه‌ها</legend>
-          <small className="muted">اگر هیچ گروهی تنظیم نشود، دسترسی ساده اعمال می‌شود: {category.access === 'MEMBERS' ? 'فقط VIP' : 'همه'}{category.locked ? '، ساخت موضوع فقط برای تیم' : ''}. با افزودن ردیف، فقط گروه‌های فهرست‌شده به این دسته دسترسی دارند (تیم مدیریت همیشه دسترسی کامل دارد).</small>
+          <small className="muted">اگر هیچ گروهی تنظیم نشود، دسترسی ساده اعمال می‌شود: {category.access === 'MEMBERS' ? <span data-vip="">فقط VIP</span> : 'همه'}{category.locked ? '، ساخت موضوع فقط برای تیم' : ''}. با افزودن ردیف، فقط گروه‌های فهرست‌شده به این دسته دسترسی دارند (تیم مدیریت همیشه دسترسی کامل دارد).</small>
           {!category.permissions.length && <div className="fa-inline fa-wrap">
-            <label className="studio-field"><span>دسترسی ساده</span><select className="input" value={category.access} onChange={(e) => setCategory({ ...category, access: e.target.value })}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
+            <label className="studio-field"><span>دسترسی ساده</span><select className="input" value={category.access} onChange={(e) => setCategory({ ...category, access: e.target.value })}><option value="PUBLIC">همه</option><option data-vip="" value="MEMBERS">فقط اعضای VIP</option></select></label>
             <label className="studio-switch"><input type="checkbox" checked={category.locked} onChange={(e) => setCategory({ ...category, locked: e.target.checked })} />فقط تیم موضوع بسازد (اطلاعیه‌ها)</label>
           </div>}
           {category.permissions.map((row) => <div key={row.groupId} className="fa-inline">
@@ -195,7 +195,7 @@ function AdminForumPage() {
       <div className="table-wrap card"><table className="table"><thead><tr><th>دسته</th><th>دسترسی</th><th>موضوع</th><th>پیام</th><th /></tr></thead><tbody>
         {ordered.map((c) => <tr key={c.id}>
           <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: (depthOf.get(c.id) || 0) * 18 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
-          <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? '♛ VIP' : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
+          <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? <span data-vip="">♛ VIP</span> : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
           <td>{fa(c.threadCount)}</td><td>{fa(c.postCount)}</td>
           <td className="fr-admin-row-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })), moderators: c.moderators.join('، ') }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>

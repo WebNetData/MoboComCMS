@@ -8,7 +8,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { moveWallet, walletBalances } from '@/modules/wallet/server/wallet'
-import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { markInvoicePaid } from '@/modules/billing/server/billing'
 import { subscriptionAction, type SubAction } from '@/modules/subscriptions/server/submanage'
 import { getPanelAdapter } from '@/modules/providers/server/panels'
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     const debit = body?.type === 'ADMIN_DEBIT' || (body?.type === undefined && raw < 0)
     const res = await moveWallet({
       userId: id,
-      currency: String(body?.currency || 'USD'),
+      currency: String(body?.currency || BASE_CURRENCY),
       amount: debit ? -Math.abs(raw) : Math.abs(raw),
       type: debit ? 'ADMIN_DEBIT' : 'ADMIN_CREDIT',
       description: String(body?.description || (debit ? 'Manual debit by admin' : 'Manual credit by admin')),

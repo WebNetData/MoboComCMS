@@ -56,7 +56,7 @@ export default async function SoftwarePage({ params }: Props) {
   const s = data.software
   const name = softwareName(s, true)
   const paywall = await paywallView(viewer, [{ ownerType: 'software', ownerId: s.id }])
-  const locked = paywall ? !paywall.open : s.access === 'MEMBERS' && !viewer.member
+  const locked = paywall ? !paywall.open : s.access === 'MEMBERS' && !viewer.opens
   const ref = { type: 'software' as const, id: s.id }
   const [rating, termMap] = await Promise.all([aggregateRating(ref), primaryTerms('software', [s.id])])
   const term = termMap.get(s.id)
@@ -88,9 +88,9 @@ export default async function SoftwarePage({ params }: Props) {
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/software/${s.slug}#buy`} noun="نرم‌افزار" />}
       {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ این نرم‌افزار را خریده‌اید</span>}
       {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/software/${s.slug}`} title="دانلود این نرم‌افزار مخصوص اعضای VIP است" />}
-      {data.releases[0]?.links.length > 0 && <><h3>نسخهٔ <bdi dir="ltr">{data.releases[0].version}</bdi></h3><LinkBox links={data.releases[0].links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} /></>}
+      {data.releases[0]?.links.length > 0 && <><h3>نسخهٔ <bdi dir="ltr">{data.releases[0].version}</bdi></h3><LinkBox links={data.releases[0].links} fa member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} /></>}
       {data.releases[0]?.links.length > 0 && data.links.length > 0 && <h3>لینک‌های اصلی نرم‌افزار</h3>}
-      <LinkBox links={data.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact={data.releases[0]?.links.length > 0} />
+      <LinkBox links={data.links} fa member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact={data.releases[0]?.links.length > 0} />
       <ul className="sp-notes">
         <li>برای باز کردن فایل‌های فشرده از آخرین نسخهٔ <bdi>WinRAR</bdi> یا <bdi>7-Zip</bdi> استفاده کنید.</li>
         <li>اگر لینکی کار نکرد، با دکمهٔ گزارش کنار همان لینک خرابی را اطلاع دهید.</li>
@@ -107,7 +107,7 @@ export default async function SoftwarePage({ params }: Props) {
       {release.changelog && <div className="md-prose" dangerouslySetInnerHTML={{ __html: release.changelog }} />}
       {release.screenshots.length > 0 && <Gallery images={release.screenshots} fa />}
       {release.checksum && <small>SHA-256: <CopyText value={release.checksum} label="SHA-256" /></small>}
-      {release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}
+      {release.links.length > 0 && <LinkBox links={release.links} fa member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={s.access === 'MEMBERS'} paywall={paywall} compact />}
       <Link className="sp-release-more" href={`/software/${s.slug}/releases/${release.id}`}>صفحهٔ این نسخه ←</Link>
     </li>)}</ol><Link className="sp-release-more" href={`/software/releases?software=${encodeURIComponent(s.slug)}`}>همهٔ نسخه‌های این نرم‌افزار ←</Link></> }] : s.changelog ? [{ id: 'changes', label: 'تغییرات نسخه', content: <div className="md-prose" dangerouslySetInnerHTML={{ __html: s.changelog }} /> }] : []),
     ...(forumOn ? [{ id: 'discussions', label: 'پرسش و گفت‌وگو', content: <RelatedDiscussions item={ref} /> }] : []),

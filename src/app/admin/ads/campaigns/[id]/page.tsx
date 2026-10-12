@@ -160,7 +160,7 @@ export default function CampaignEditor() {
       </div>
       <div className="sa-cols">
         <label className="sa-field"><span>دستگاه</span><select className="select" value={form.devices} onChange={(e) => set({ devices: e.target.value })}><option value="ALL">همه</option><option value="DESKTOP">رایانه</option><option value="MOBILE">موبایل</option></select></label>
-        <label className="sa-field"><span>مخاطب</span><select className="select" value={form.audience} onChange={(e) => set({ audience: e.target.value })}><option value="ALL">همه</option><option value="GUEST">فقط مهمان‌ها</option><option value="MEMBER">فقط کاربران واردشده</option><option value="NON_VIP">همه به‌جز اعضای VIP</option></select></label>
+        <label className="sa-field"><span>مخاطب</span><select className="select" value={form.audience} onChange={(e) => set({ audience: e.target.value })}><option value="ALL">همه</option><option value="GUEST">فقط مهمان‌ها</option><option value="MEMBER">فقط کاربران واردشده</option><option data-vip="" value="NON_VIP">همه به‌جز اعضای VIP</option></select></label>
         <label className="sa-field"><span>زبان‌ها (خالی = همه)</span><input className="input" dir="ltr" value={form.languages} onChange={(e) => set({ languages: e.target.value })} placeholder="fa, en" /></label>
       </div>
       <div className="sa-cols">

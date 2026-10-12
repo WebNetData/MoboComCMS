@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { maskSecret } from '@/modules/billing/server/gateways'
 import { moveWallet } from '@/modules/wallet/server/wallet'
-import { bpsAmount, formatMoney, legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { bpsAmount, formatMoney, legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { logEvent } from '@/platform/observability/logger'
 import { invoicePaidEvent } from '@/modules/notifications/server/inbox'
@@ -16,7 +16,7 @@ export function invoiceTotalMinor(subtotalMinor: bigint, discountMinor = 0n, tax
 }
 
 /** Legacy boundary helper. New business logic should use *Minor fields. */
-export function invoiceTotal(subtotal: number, discount = 0, tax = 0, currency = 'USD') {
+export function invoiceTotal(subtotal: number, discount = 0, tax = 0, currency = BASE_CURRENCY) {
   const code = normalizeCurrency(currency)
   return minorToNumber(invoiceTotalMinor(toMinor(subtotal, code), toMinor(discount, code), toMinor(tax, code)), code)
 }
@@ -65,7 +65,7 @@ export function invoiceDue(invoice: { totalMinor?: bigint; walletAppliedMinor?: 
 }
 
 export async function createInvoiceForOrder(input: CreateInvoiceForOrderInput) {
-  const currency = normalizeCurrency(input.currency || 'USD')
+  const currency = normalizeCurrency(input.currency || BASE_CURRENCY)
   const subtotalMinor = toMinor(input.subtotal, currency)
   const discountMinor = toMinor(input.discount || 0, currency)
   const taxMinor = toMinor(input.tax || 0, currency)
@@ -309,7 +309,7 @@ export async function recordProviderEvent(input: {
   raw?: unknown
   eventKey?: string
 }) {
-  const currency = normalizeCurrency(input.currency || 'USD')
+  const currency = normalizeCurrency(input.currency || BASE_CURRENCY)
   const amountMinor = toMinor(input.amount || 0, currency)
   const data = {
     userId: input.userId ?? null,
