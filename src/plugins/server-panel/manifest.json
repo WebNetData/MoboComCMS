@@ -18,7 +18,7 @@
   "adminMenu": {
     "title": "پنل سرور",
     "titleEn": "Server panel",
-    "icon": "shield",
+    "icon": "server",
     "order": 200,
     "items": [
       { "href": "/admin/server", "label": "وضعیت سرور و سرویس‌ها", "labelEn": "Server status", "icon": "grid", "permissions": ["server.manage"], "exact": true },

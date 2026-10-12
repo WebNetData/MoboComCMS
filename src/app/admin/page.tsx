@@ -6,6 +6,7 @@ import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import Icon from '@/components/site/Icon'
 
 export default function AdminDashboard() {
   const { t, locale } = useI18n()
@@ -57,31 +58,43 @@ export default function AdminDashboard() {
   ].filter(item => item.count > 0)
 
   const cards: [string, string, string, string][] = [
-    [t.revenue, fin ? money(fin.summary.gross, fin.currency) : '—', '💰', 'kpi-green'],
-    [t.unpaidAmount, fin ? money(fin.summary.unpaidAmount, fin.currency) : '—', '📄', unpaid ? 'kpi-amber' : ''],
-    [t.pendingOrders, String(s.pendingOrders), '⏳', s.pendingOrders ? 'kpi-amber' : ''],
-    [t.openTickets, String(s.openTickets), '🎫', s.openTickets ? 'kpi-red' : ''],
-    [t.customersCount, String(s.users), '👥', ''],
+    [t.revenue, fin ? money(fin.summary.gross, fin.currency) : '—', 'wallet', 'kpi-green'],
+    [t.unpaidAmount, fin ? money(fin.summary.unpaidAmount, fin.currency) : '—', 'receipt', unpaid ? 'kpi-amber' : ''],
+    [t.pendingOrders, String(s.pendingOrders), 'clock', s.pendingOrders ? 'kpi-amber' : ''],
+    [t.openTickets, String(s.openTickets), 'ticket', s.openTickets ? 'kpi-red' : ''],
+    [t.customersCount, String(s.users), 'users', ''],
     // VPN subscriptions only matter while the VPN module is on; otherwise show total orders.
-    vpnOn ? [t.activeSubs, String(s.activeSubs), '🔗', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', String(s.orders ?? 0), '🛍️', ''],
+    vpnOn ? [t.activeSubs, String(s.activeSubs), 'link', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', String(s.orders ?? 0), 'bag', ''],
+  ]
+
+  // Everyday destinations. A link the signed-in person may not open answers with the page's own refusal.
+  const quick = [
+    { href: '/admin/orders', label: t.orders, icon: 'cart' },
+    { href: '/admin/tickets', label: t.tickets, icon: 'ticket' },
+    { href: '/admin/users', label: t.customers, icon: 'users' },
+    { href: '/admin/moderation', label: isFa ? 'صف بررسی' : 'Moderation queue', icon: 'flag' },
+    { href: '/admin/site-management', label: isFa ? 'مدیریت سایت' : 'Website', icon: 'palette' },
+    { href: '/admin/settings', label: isFa ? 'تنظیمات' : 'Settings', icon: 'sliders' },
   ]
 
   const maxMonth = fin ? Math.max(1, ...fin.byMonth.map((m: any) => Math.max(m.revenue, m.expenses))) : 1
 
   return (
     <div>
-      <div className="appbar">
+      <header className="ao-hero">
         <div>
-          <h1 className="h2">{t.dashboard}</h1>
-          <p className="muted">{isFa ? 'نمای کلی کسب‌وکار: فروش، سفارش‌ها و پشتیبانی' : 'Business at a glance: sales, orders and support'}</p>
+          <h1>{t.dashboard}</h1>
+          <p>{isFa ? 'نمای کلی کسب‌وکار: فروش، سفارش‌ها و پشتیبانی' : 'Business at a glance: sales, orders and support'}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link href="/" target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
-            {isFa ? 'مشاهده سایت ↗' : 'View site ↗'}
-          </Link>
+        <div className="ao-hero-actions">
+          <Link href="/admin/analytics" className="btn btn-ghost">{isFa ? 'آمار بازدید و فروش' : 'Analytics'}</Link>
           <Link href="/admin/invoices" className="btn btn-primary">{t.addInvoice}</Link>
         </div>
-      </div>
+      </header>
+
+      <nav className="ao-quick" aria-label={isFa ? 'دسترسی سریع' : 'Quick access'}>
+        {quick.map((item) => <Link key={item.href} href={item.href}><span className="ws-tile"><Icon name={item.icon} size={17} /></span>{item.label}</Link>)}
+      </nav>
 
       <section className="card admin-attention mb-8" aria-label={isFa ? 'نیازمند توجه' : 'Needs attention'}>
         <div className="admin-attention-head">
@@ -113,7 +126,7 @@ export default function AdminDashboard() {
       <div className="grid-3 mb-8">
         {cards.map(([label, value, icon, cls]) => (
           <div key={label} className={`card kpi ${cls}`}>
-            <div className="kpi-icon">{icon}</div>
+            <div className="kpi-icon"><Icon name={icon} size={21} /></div>
             <div className="min-w-0">
               <div className="muted text-xs">{label}</div>
               <div className="num text-2xl font-extrabold truncate">{value}</div>

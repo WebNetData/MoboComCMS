@@ -13,6 +13,7 @@ import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
 import NotificationCount from '@/components/NotificationCount'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import ShellNav, { useShellGroups, type ShellGroup } from '@/components/shell/ShellNav'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const site = useSite()
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const theme = getCookie('theme') || 'dark'
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
+  const groupsState = useShellGroups('mobocom.account.menu')
 
   useEffect(() => {
     if (!open) return
@@ -70,43 +72,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { active = false }
   }, [status])
 
-  const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: string; exact?: boolean }[] }[] = [
-    {
-      label: vpnOn ? (locale === 'fa' ? 'اشتراک‌ها' : 'Subscriptions') : (locale === 'fa' ? 'پیشخوان' : 'Overview'),
-      items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : (locale === 'fa' ? 'نمای کلی حساب' : 'Account overview'), icon: vpnOn ? 'devices' : 'grid', exact: true }],
-    },
-    {
-      label: locale === 'fa' ? 'مالی' : 'Billing',
-      items: [
-        { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
-        { href: '/dashboard/orders', label: t.myOrders, icon: 'grid' },
-        { href: '/dashboard/invoices', label: t.myInvoices, icon: 'wallet' },
-        ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: locale === 'fa' ? 'لایسنس‌های من' : 'My licenses', icon: 'shield' }] : []),
-        ...(adsOn ? [{ href: '/dashboard/ads', label: locale === 'fa' ? 'تبلیغات من' : 'My advertising', icon: 'sparkles' }] : []),
-        ...(paywallOn ? [{ href: '/dashboard/purchases', label: locale === 'fa' ? 'خریدهای من (فایل و مقاله)' : 'My purchases', icon: 'sparkles' }] : []),
-        ...(storeOn ? [{ href: '/dashboard/addresses', label: locale === 'fa' ? 'آدرس‌های ارسال' : 'Shipping addresses', icon: 'globe' }] : []),
-        ...(storeOn ? [{ href: '/dashboard/gift-cards', label: locale === 'fa' ? 'کارت هدیه' : 'Gift cards', icon: 'sparkles' }, { href: '/dashboard/club', label: locale === 'fa' ? 'باشگاه مشتریان' : 'Customer club', icon: 'shield' }] : []),
-      ],
-    },
-    ...(communityOn || gamesOn || musicOn || reviewsOn ? [{ label: locale === 'fa' ? 'پروفایل و جامعه' : 'Profile & community', items: [
-      ...(gamesOn || musicOn || reviewsOn ? [{ href: '/dashboard/library', label: locale === 'fa' ? 'کتابخانهٔ من' : 'My library', icon: 'grid' }] : []),
-      ...(communityOn ? [{ href: '/feed', label: locale === 'fa' ? 'تازه‌ها (فید)' : 'Feed', icon: 'sparkles' }, { href: '/dashboard/public-profile', label: locale === 'fa' ? 'پروفایل عمومی من' : 'My public profile', icon: 'sliders' }] : []),
-      ...(gamesOn ? [{ href: '/dashboard/games', label: locale === 'fa' ? 'کتابخانهٔ بازی من' : 'My game library', icon: 'devices' }] : []),
-    ] }] : []),
-    {
-      label: locale === 'fa' ? 'حساب و پشتیبانی' : 'Account & support',
-      items: [
-        { href: '/dashboard/collections', label: locale === 'fa' ? 'مجموعه‌های من' : 'My collections', icon: 'grid' },
-        { href: '/dashboard/recent', label: locale === 'fa' ? 'اخیراً مشاهده‌شده' : 'Recently viewed', icon: 'sparkles' },
-        ...(reviewsOn || storeOn || journalOn ? [{ href: '/dashboard/reviews', label: locale === 'fa' ? 'نظرهای من' : 'My reviews', icon: 'chat' }] : []),
-        { href: '/dashboard/notifications', label: locale === 'fa' ? 'اعلان‌ها' : 'Notifications', icon: 'bell' },
-        { href: '/dashboard/tickets', label: t.supportCenter, icon: 'chat' },
-        { href: '/dashboard/referrals', label: locale === 'fa' ? 'دعوت از دوستان' : 'Invite friends', icon: 'sparkles' },
-        ...(site.publicApiEnabled ? [{ href: '/dashboard/api', label: t.apiAccess, icon: 'bolt' }] : []),
-        { href: '/dashboard/profile', label: locale === 'fa' ? 'تنظیمات حساب' : 'Account settings', icon: 'sliders' },
-      ],
-    },
-  ]
+  const L = (fa: string, en: string) => (locale === 'fa' ? fa : en)
+  // The account menu, by what a member comes here to do: buy and pay, their own things, people, tools, help.
+  // Every entry keeps its address and its module switch; only the grouping and the order are presentation.
+  const NAV_GROUPS: ShellGroup[] = ([
+    { id: 'home', flat: true, title: vpnOn ? L('اشتراک‌ها', 'Subscriptions') : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home',
+      items: [{ href: '/dashboard', label: vpnOn ? t.mySubs : L('پیشخوان', 'Overview'), icon: vpnOn ? 'devices' : 'home', exact: true }] },
+    { id: 'shopping', caption: L('حساب من', 'My account'), title: L('خرید و پرداخت', 'Orders & billing'), icon: 'bag', items: [
+      { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
+      { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
+      { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
+      ...(paywallOn ? [{ href: '/dashboard/purchases', label: L('فایل‌ها و مقاله‌های خریده', 'Bought files & articles'), icon: 'lock' }] : []),
+      ...(storeOn ? [{ href: '/dashboard/addresses', label: L('آدرس‌های ارسال', 'Shipping addresses'), icon: 'pin' }, { href: '/dashboard/gift-cards', label: L('کارت هدیه', 'Gift cards'), icon: 'gift' }, { href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
+      ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),
+    ] },
+    { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [
+      ...(gamesOn || musicOn || reviewsOn ? [{ href: '/dashboard/library', label: L('کتابخانهٔ من', 'My library'), icon: 'book' }] : []),
+      ...(gamesOn ? [{ href: '/dashboard/games', label: L('کتابخانهٔ بازی', 'Game library'), icon: 'gamepad' }] : []),
+      { href: '/dashboard/collections', label: L('مجموعه‌های من', 'My collections'), icon: 'folder' },
+      ...(reviewsOn || storeOn || journalOn ? [{ href: '/dashboard/reviews', label: L('نظرهای من', 'My reviews'), icon: 'star' }] : []),
+      { href: '/dashboard/recent', label: L('اخیراً مشاهده‌شده', 'Recently viewed'), icon: 'clock' },
+    ] },
+    { id: 'people', title: L('جامعه', 'Community'), icon: 'users', items: [
+      ...(communityOn ? [{ href: '/feed', label: L('تازه‌ها (فید)', 'Feed'), icon: 'rss' }, { href: '/dashboard/public-profile', label: L('پروفایل عمومی من', 'My public profile'), icon: 'user' }] : []),
+      { href: '/dashboard/referrals', label: L('دعوت از دوستان', 'Invite friends'), icon: 'link' },
+    ] },
+    { id: 'tools', title: L('ابزارها', 'Tools'), icon: 'bolt', items: [
+      ...(adsOn ? [{ href: '/dashboard/ads', label: L('تبلیغات من', 'My advertising'), icon: 'megaphone' }] : []),
+      ...(site.publicApiEnabled ? [{ href: '/dashboard/api', label: t.apiAccess, icon: 'code' }] : []),
+    ] },
+    { id: 'support', caption: L('پشتیبانی و تنظیمات', 'Support & settings'), title: L('پیام‌ها و پشتیبانی', 'Messages & support'), icon: 'lifebuoy', items: [
+      { href: '/dashboard/notifications', label: L('اعلان‌ها', 'Notifications'), icon: 'bell', badge: <NotificationCount /> },
+      { href: '/dashboard/tickets', label: t.supportCenter, icon: 'ticket' },
+    ] },
+    { id: 'settings', flat: true, title: L('تنظیمات حساب', 'Account settings'), icon: 'sliders', items: [{ href: '/dashboard/profile', label: L('تنظیمات حساب', 'Account settings'), icon: 'sliders' }] },
+  ] as ShellGroup[]).filter((group) => group.items.length)
 
   const isAdmin = ((session as any)?.user?.role ?? (session as any)?.role) === 'ADMIN'
   const [isReseller, setIsReseller] = useState(false)
@@ -134,56 +134,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const initial = (displayName || session?.user?.email || '?').charAt(0).toUpperCase()
   const isOn = (href: string, exact?: boolean) => (exact ? pathname === href : pathname.startsWith(href))
   // The deepest matching menu entry names the current page in the top bar.
-  const current = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })))
+  const current = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.flat ? '' : group.title })))
     .filter((item) => isOn(item.href, item.exact))
     .sort((a, b) => b.href.length - a.href.length)[0]
 
-  const navLinks = (
-    <>
-      {NAV_GROUPS.map((group) => (
-        <div className="side-group" key={group.label}>
-          <div className="side-group-label">{group.label}</div>
-          {group.items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              aria-current={isOn(item.href, item.exact) ? 'page' : undefined}
-              className={`side-link ${isOn(item.href, item.exact) ? 'side-link-active' : ''}`}
-            >
-              <span className="side-icon"><Icon name={item.icon} size={19} /></span> {item.label} {item.href === '/dashboard/notifications' && <NotificationCount />}
-            </Link>
-          ))}
-        </div>
-      ))}
-      <div className="side-group side-group-rule">
-        {marketplaceOn && storeOn && (
-          <Link href="/seller" className="side-link" onClick={() => setOpen(false)}>
-            <span className="side-icon"><Icon name="grid" size={19} /></span> {locale === 'fa' ? 'پنل فروشندگی / فروشنده شوید' : 'Seller panel'}
-          </Link>
-        )}
-        {isReseller && (
-          <Link href="/reseller" className="side-link" onClick={() => setOpen(false)}>
-            <span className="side-icon"><Icon name="grid" size={19} /></span> {t.resellerPanel}
-          </Link>
-        )}
-        {isAdmin && (
-          <Link href="/admin" className="side-link" onClick={() => setOpen(false)}>
-            <span className="side-icon"><Icon name="shield" size={19} /></span> {t.admin}
-          </Link>
-        )}
-        {vpnOn ? (
-          <Link href="/plans" className="side-link" onClick={() => setOpen(false)}>
-            <span className="side-icon"><Icon name="globe" size={19} /></span> {t.browsePlans}
-          </Link>
-        ) : storeOn ? (
-          <Link href="/products" className="side-link" onClick={() => setOpen(false)}>
-            <span className="side-icon"><Icon name="grid" size={19} /></span> {locale === 'fa' ? 'فروشگاه' : 'Shop'}
-          </Link>
-        ) : null}
-      </div>
-    </>
-  )
+  // Ways out of the account area: the panels this member also has, and the shop.
+  const OUTSIDE = ['/seller', '/reseller', '/admin', '/plans', '/products']
+  const shortcuts: ShellGroup = { id: 'shortcuts', caption: L('میان‌برها', 'Shortcuts'), title: L('پنل‌های دیگر', 'Other panels'), icon: 'external', items: [
+    ...(marketplaceOn && storeOn ? [{ href: '/seller', label: L('پنل فروشندگی', 'Seller panel'), icon: 'store' }] : []),
+    ...(isReseller ? [{ href: '/reseller', label: t.resellerPanel, icon: 'users' }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: t.admin, icon: 'shield' }] : []),
+    ...(vpnOn ? [{ href: '/plans', label: t.browsePlans, icon: 'globe' }] : storeOn ? [{ href: '/products', label: L('فروشگاه', 'Shop'), icon: 'bag' }] : []),
+  ] }
+  const navLinks = <ShellNav groups={[...NAV_GROUPS, shortcuts]} isOn={(href, exact) => !OUTSIDE.includes(href) && isOn(href, exact)} choice={groupsState.choice} onToggle={groupsState.toggle} onNavigate={() => setOpen(false)} openByDefault itemIcons shown={open} />
 
   return (
     <div className="app-shell user-shell">
@@ -192,19 +155,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="brand-mark"><BrandMark/></span> {site.brand}
         </Link>
 
-        <div className="side-user">
-          <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
-          <div className="min-w-0">
-            <div className="font-semibold text-sm truncate">{displayName || '—'}</div>
-            <div className="muted text-xs truncate" dir="ltr">{session?.user?.email}</div>
-          </div>
-        </div>
-
         <nav className="side-nav" aria-label={t.myPanel}>{navLinks}</nav>
 
-        <div className="side-foot">
-          <ThemeLangControls locale={locale} theme={theme} />
-          <button onClick={() => signOut({ callbackUrl: '/' })} className="muted text-sm hover-text-danger">{t.logout}</button>
+        <div className="side-foot ws-foot">
+          <Link href="/dashboard/profile" className="side-user">
+            <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
+            <span className="min-w-0 ws-who">
+              <span className="font-semibold text-sm truncate">{displayName || '—'}</span>
+              <span className="muted text-xs truncate" dir="ltr">{session?.user?.email}</span>
+            </span>
+          </Link>
+          <button type="button" onClick={() => signOut({ callbackUrl: '/' })} className="ws-out" aria-label={t.logout} title={t.logout}><Icon name="logout" size={18} /></button>
         </div>
       </aside>
 
@@ -223,10 +184,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="dash-top">
           <nav className="dash-crumbs" aria-label={locale === 'fa' ? 'مسیر صفحه' : 'Breadcrumb'}>
             <Link href="/dashboard">{locale === 'fa' ? 'حساب کاربری' : 'Account'}</Link>
-            {current && current.href !== '/dashboard' && <><span aria-hidden="true">/</span><span className="dash-crumb-group">{current.group}</span><span aria-hidden="true">/</span><b aria-current="page">{current.label}</b></>}
+            {current && current.href !== '/dashboard' && <>{current.group && <><span aria-hidden="true">/</span><span className="dash-crumb-group">{current.group}</span></>}<span aria-hidden="true">/</span><b aria-current="page">{current.label}</b></>}
           </nav>
           <div className="dash-top-actions">
             <Link href="/" className="dash-top-link"><Icon name="globe" size={17} /> {locale === 'fa' ? 'مشاهدهٔ سایت' : 'View site'}</Link>
+            <ThemeLangControls locale={locale} theme={theme} />
             <Link href="/dashboard/notifications" className="dash-top-icon" aria-label={locale === 'fa' ? 'اعلان‌ها' : 'Notifications'}><Icon name="bell" size={19} /><NotificationCount /></Link>
             <Link href="/dashboard/profile" className="dash-top-user" aria-label={locale === 'fa' ? 'تنظیمات حساب' : 'Account settings'}><span className="avatar">{initial}</span></Link>
           </div>

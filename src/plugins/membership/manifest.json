@@ -50,7 +50,7 @@
   "adminMenu": {
     "title": "اشتراک ویژه VIP",
     "titleEn": "VIP membership",
-    "icon": "shield",
+    "icon": "crown",
     "order": 80,
     "items": [
       {

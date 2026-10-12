@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import VpnHome from './VpnHome'
 import { formatCurrency } from '@/shared/money/client'
+import Icon from '@/components/site/Icon'
 
 // Account home: profile banner with completeness, quick actions, 12-week
 // activity, orders & wallet, inbox, community, games and favorites — each
@@ -65,12 +66,12 @@ export default function DashboardHome() {
   const { profile: p, modules: m } = data
   const money = (n: number, currency: string) => formatCurrency(n, currency, 'fa-IR')
   const quick = [
-    m.community && { href: '/feed', label: 'تازه‌ها', icon: '✦' },
-    m.store && { href: '/products', label: 'فروشگاه', icon: '🛍' },
-    m.forum && { href: '/forum', label: 'تالار', icon: '💬' },
-    m.games && { href: '/dashboard/games', label: 'کتابخانهٔ بازی', icon: '🎮' },
-    { href: '/dashboard/wallet', label: 'شارژ کیف پول', icon: '💳' },
-    { href: '/dashboard/tickets', label: 'پشتیبانی', icon: '🎧' },
+    m.community && { href: '/feed', label: 'تازه‌ها', icon: 'rss' },
+    m.store && { href: '/products', label: 'فروشگاه', icon: 'bag' },
+    m.forum && { href: '/forum', label: 'تالار', icon: 'chat' },
+    m.games && { href: '/dashboard/games', label: 'کتابخانهٔ بازی', icon: 'gamepad' },
+    { href: '/dashboard/wallet', label: 'شارژ کیف پول', icon: 'wallet' },
+    { href: '/dashboard/tickets', label: 'پشتیبانی', icon: 'lifebuoy' },
   ].filter(Boolean) as { href: string; label: string; icon: string }[]
   const shelf = data.games?.counts || {}
   return <div className="ud" dir="rtl">
@@ -94,7 +95,7 @@ export default function DashboardHome() {
       </div>}
     </section>
 
-    <nav className="ud-quick" aria-label="دسترسی سریع">{quick.map((q) => <Link key={q.href} href={q.href}><span aria-hidden="true">{q.icon}</span>{q.label}</Link>)}</nav>
+    <nav className="ud-quick" aria-label="دسترسی سریع">{quick.map((q) => <Link key={q.href} href={q.href}><span><Icon name={q.icon} size={18} /></span>{q.label}</Link>)}</nav>
 
     <div className="ud-kpis">
       {data.money.length ? data.money.map((w) => <Link key={w.currency} href="/dashboard/wallet" className="ud-kpi"><small>موجودی کیف پول</small><b className="num">{money(w.balance, w.currency)}</b>{w.unpaid > 0 && <span className="ud-warn">{fa(w.unpaidCount)} فاکتور پرداخت‌نشده · {money(w.unpaid, w.currency)}</span>}</Link>)

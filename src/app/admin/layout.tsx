@@ -12,6 +12,7 @@ import { useSite } from '@/components/site/SiteProvider'
 import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
 import { QUEUE_PERMISSIONS } from '@/modules/moderation/domain/queue'
+import ShellNav, { type ShellGroup } from '@/components/shell/ShellNav'
 
 interface NavItem {
   href: string
@@ -22,8 +23,12 @@ interface NavItem {
 }
 
 interface NavGroup {
+  id: string
   title: string
-  icon?: string
+  icon: string
+  /** The part of the menu the group belongs to; its name is shown once, above the first group of the part. */
+  part: string
+  flat?: boolean
   items: NavItem[]
 }
 type SectionMenu = { id: string; title: string; titleEn: string; icon: string; items: { href: string; label: string; labelEn?: string; icon?: string; permissions?: string[]; exact?: boolean }[] }
@@ -75,8 +80,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     fetch('/api/admin/extensions/navigation').then(r => r.ok ? r.json() : null).then(d => {
       setExtensionNav((d?.items || []).map((item: any) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permission })))
       setSectionNav((Array.isArray(d?.sections) ? d.sections as SectionMenu[] : []).map((menu) => ({
+        id: `section:${menu.id}`,
+        part: locale === 'fa' ? 'بخش‌های سایت' : 'Site sections',
         title: locale === 'fa' ? menu.title : menu.titleEn || menu.title,
-        icon: menu.icon,
+        icon: menu.icon || 'grid',
         items: menu.items.map((item) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permissions && item.permissions.length ? [...item.permissions] : undefined, exact: item.exact })),
       })))
       setDisabledPaths(Array.isArray(d?.disabledPaths) ? d.disabledPaths.filter((p: unknown) => typeof p === 'string') : [])
@@ -114,91 +121,99 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const L = (fa: string, en: string) => locale === 'fa' ? fa : en
+  // The admin menu in four parts: the site's own sections (each module brings its group), the website,
+  // the business, and the system. Addresses and permissions are untouched; this is only where a link sits.
+  const WEBSITE = L('وب‌سایت', 'Website'), BUSINESS = L('کسب‌وکار', 'Business'), SYSTEM = L('سیستم', 'System')
   const GROUPS: NavGroup[] = [
-    { title: t.overview, items: [{ href: '/admin', label: t.dashboard, icon: 'grid', exact: true }, { href: '/admin/analytics', label: L('آمار بازدید و فروش', 'Analytics'), icon: 'sliders', perm: ['analytics.view', 'dashboard.view'] }] },
+    { id: 'home', flat: true, part: '', title: t.dashboard, icon: 'home', items: [{ href: '/admin', label: t.dashboard, icon: 'home', exact: true }] },
+    { id: 'analytics', flat: true, part: '', title: L('آمار بازدید و فروش', 'Analytics'), icon: 'chart', items: [{ href: '/admin/analytics', label: L('آمار بازدید و فروش', 'Analytics'), icon: 'chart', perm: ['analytics.view', 'dashboard.view'] }] },
+    { id: 'moderation', flat: true, part: '', title: L('صف بررسی', 'Moderation queue'), icon: 'flag', items: [{ href: '/admin/moderation', label: L('صف بررسی (همهٔ بخش‌ها)', 'Moderation queue'), icon: 'flag', perm: [...QUEUE_PERMISSIONS] }] },
     // Every feature module brings its own group (declared in its manifest).
     ...sectionNav,
-    { title: L('وب‌سایت و محتوا', 'Website & content'), items: [
+    { id: 'design', part: WEBSITE, title: L('ظاهر و صفحه‌ها', 'Design & pages'), icon: 'palette', items: [
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
-      { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
       { href: '/admin/mega-menu', label: L('منو و مگامنوی بخش‌ها', 'Section menus'), icon: 'grid', perm: 'settings.manage' },
-      { href: '/admin/seo', label: L('مرکز سئو', 'SEO center'), icon: 'globe', perm: 'settings.manage' },
-      { href: '/admin/trust-seals', label: L('نمادهای اعتماد (اینماد، ساماندهی)', 'Trust seals'), icon: 'shield', perm: 'settings.manage' },
-      { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
-      { href: '/admin/email', label: L('ایمیل سایت (جیمیل / SMTP)', 'Site email (Gmail / SMTP)'), icon: 'chat', perm: 'settings.manage' },
-      { href: '/admin/newsletter', label: L('خبرنامه و کمپین ایمیلی', 'Newsletter & campaigns'), icon: 'chat', perm: 'settings.manage' },
-      { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
-      { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
-      { href: '/admin/monitoring', label: L('پایش سرعت و سلامت سرور', 'Performance & health'), icon: 'shield', perm: 'settings.manage' },
-      { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
-      { href: '/admin/maintenance', label: L('حالت تعمیر بخش‌ها', 'Section maintenance'), icon: 'shield', perm: 'settings.manage' },
-      { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/editor', label: locale === 'fa' ? 'ویرایشگر بلوکی' : 'Block editor', icon: 'layout', perm: 'cms.pages' },
       { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
-      { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
-      { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
     ] },
-    { title: L('ابزارهای مشترک محتوا', 'Shared content tools'), items: [
+    { id: 'content', part: WEBSITE, title: L('ابزارهای محتوا', 'Content tools'), icon: 'layers', items: [
       { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },
       { href: '/admin/taxonomy', label: L('دسته‌بندی و زیردسته‌ها', 'Categories'), icon: 'grid', perm: ['software.manage', 'games.manage', 'music.manage', 'cinema.manage'] },
-      { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
+      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] },
       { href: '/admin/reviews', label: L('امتیازها و نظرها', 'Ratings & reviews'), icon: 'sparkles', perm: ['reviews.moderate'] },
       { href: '/admin/businesses', label: L('تجربهٔ خرید و کسب‌وکارها', 'Business experiences'), icon: 'sparkles', perm: ['businesses.manage'] },
-      { href: '/admin/collections', label: L('مجموعه‌های منتخب', 'Editorial collections'), icon: 'grid', perm: ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage'] },
+      { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
+      { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
+      { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
+      { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
+      { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
+      { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },
     ] },
-    { title: L('سرویس VPN', 'VPN service'), items: [
+    // Discounts and referrals serve the shop, VIP and VPN alike.
+    { id: 'growth', part: WEBSITE, title: L('سئو و بازاریابی', 'SEO & marketing'), icon: 'megaphone', items: [
+      { href: '/admin/seo', label: L('مرکز سئو', 'SEO center'), icon: 'globe', perm: 'settings.manage' },
+      { href: '/admin/trust-seals', label: L('نمادهای اعتماد (اینماد، ساماندهی)', 'Trust seals'), icon: 'shield', perm: 'settings.manage' },
+      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
+      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
+      { href: '/admin/newsletter', label: L('خبرنامه و کمپین ایمیلی', 'Newsletter & campaigns'), icon: 'chat', perm: 'settings.manage' },
+      { href: '/admin/social', label: L('انتشار در تلگرام و اینستاگرام', 'Social auto-publish'), icon: 'chat', perm: ['social.manage', 'settings.manage'] },
+      { href: '/admin/push', label: L('اعلان مرورگر', 'Web push'), icon: 'bolt', perm: ['push.manage', 'settings.manage'] },
+      { href: '/admin/notifications', label: L('اعلان‌های کاربران', 'Member notifications'), icon: 'bolt', perm: 'settings.manage' },
+    ] },
+    { id: 'people', part: BUSINESS, title: L('کاربران و پشتیبانی', 'Customers & support'), icon: 'users', items: [
+      { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
+      { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و تکمیل مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
+      { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },
+      { href: '/admin/ticket-departments', label: L('دپارتمان‌های تیکت', 'Ticket departments'), icon: 'sliders', perm: 'tickets.departments.manage' },
+      { href: '/admin/incidents', label: L('وضعیت و اختلال سرویس', 'Service incidents'), icon: 'shield', perm: 'tickets.handle' },
+      { href: '/admin/resellers', label: t.resellers, icon: 'globe', perm: 'resellers.manage' },
+      { href: '/admin/reseller-sales', label: L('فروش نمایندگان', 'Reseller sales'), icon: 'wallet', perm: 'resellers.manage' },
+    ] },
+    { id: 'finance', part: BUSINESS, title: t.finance, icon: 'wallet', items: [
+      { href: '/admin/finance', label: t.financeAdmin, icon: 'wallet', perm: 'finance.manage' },
+      { href: '/admin/orders', label: t.orders, icon: 'grid', perm: 'orders.manage' },
+      { href: '/admin/operations', label: L('مرکز عملیات سفارش', 'Order operations'), icon: 'shield', perm: 'orders.manage' },
+      { href: '/admin/invoices', label: t.invoicesAdmin, icon: 'wallet', perm: 'invoices.manage' },
+      { href: '/admin/receipts', label: L('رسیدهای کارت به کارت', 'Transfer receipts'), icon: 'wallet', perm: 'invoices.manage' },
+      { href: '/admin/payments', label: t.ledger, icon: 'wallet', perm: 'finance.manage' },
+      { href: '/admin/expenses', label: t.expensesAdmin, icon: 'wallet', perm: 'finance.manage' },
+      { href: '/admin/gateways', label: t.gatewaysAdmin, icon: 'wallet', perm: 'gateways.manage' },
+      { href: '/admin/bank-accounts', label: L('حساب‌های بانکی', 'Bank accounts'), icon: 'wallet', perm: 'gateways.manage' },
+      { href: '/admin/invoice-profile', label: L('مشخصات فروشنده در صورتحساب رسمی', 'Official invoice profile'), icon: 'sliders', perm: ['invoices.manage', 'settings.manage'] },
+    ] },
+    { id: 'vpn', part: BUSINESS, title: L('سرویس VPN', 'VPN service'), icon: 'globe', items: [
       { href: '/admin/plans', label: t.plansAdmin, icon: 'globe', perm: 'plans.manage' },
       { href: '/admin/service-offers', label: L('فروش حجمی', 'Volume offers'), icon: 'grid', perm: 'plans.manage' },
       { href: '/admin/trial', label: L('اکانت آزمایشی', 'Trial accounts'), icon: 'sparkles', perm: 'plans.manage' },
       { href: '/admin/subscriptions', label: t.subscriptions, icon: 'devices', perm: 'subs.manage' },
       { href: '/admin/panels', label: t.panels, icon: 'shield', perm: 'panels.manage' },
     ] },
-    // Discounts and referrals serve the shop, VIP and VPN alike.
-    { title: L('بازاریابی', 'Marketing'), items: [
-      { href: '/admin/promotions', label: L('کدهای تخفیف', 'Discount codes'), icon: 'bolt', perm: 'plans.manage' },
-      { href: '/admin/referrals', label: L('سامانه معرفی', 'Referrals'), icon: 'devices', perm: 'settings.manage' },
-      { href: '/admin/social', label: L('انتشار در تلگرام و اینستاگرام', 'Social auto-publish'), icon: 'chat', perm: ['social.manage', 'settings.manage'] },
-      { href: '/admin/push', label: L('اعلان مرورگر', 'Web push'), icon: 'bolt', perm: ['push.manage', 'settings.manage'] },
-      { href: '/admin/notifications', label: L('اعلان‌های کاربران', 'Member notifications'), icon: 'bolt', perm: 'settings.manage' },
-    ] },
-    { title: L('کاربران و پشتیبانی', 'Customers & support'), items: [
-      { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
-      { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و تکمیل مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
-      { href: '/admin/security', label: L('امنیت ورود و بازیابی رمز', 'Sign-in security'), icon: 'shield', perm: 'settings.manage' },
-      { href: '/admin/resellers', label: t.resellers, icon: 'globe', perm: 'resellers.manage' },
-      { href: '/admin/reseller-sales', label: L('فروش نمایندگان', 'Reseller sales'), icon: 'wallet', perm: 'resellers.manage' },
-      { href: '/admin/moderation', label: L('صف بررسی (همهٔ بخش‌ها)', 'Moderation queue'), icon: 'shield', perm: [...QUEUE_PERMISSIONS] },
-      { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },
-      { href: '/admin/ticket-departments', label: L('دپارتمان‌های تیکت', 'Ticket departments'), icon: 'sliders', perm: 'tickets.departments.manage' },
-      { href: '/admin/incidents', label: L('وضعیت و اختلال سرویس', 'Service incidents'), icon: 'shield', perm: 'tickets.handle' },
-    ] },
-    { title: t.finance, items: [
-      { href: '/admin/finance', label: t.financeAdmin, icon: 'wallet', perm: 'finance.manage' },
-      { href: '/admin/orders', label: t.orders, icon: 'grid', perm: 'orders.manage' },
-      { href: '/admin/operations', label: L('مرکز عملیات سفارش', 'Order operations'), icon: 'shield', perm: 'orders.manage' },
-      { href: '/admin/invoices', label: t.invoicesAdmin, icon: 'wallet', perm: 'invoices.manage' },
-      { href: '/admin/invoice-profile', label: L('مشخصات فروشنده در صورتحساب رسمی', 'Official invoice profile'), icon: 'sliders', perm: ['invoices.manage', 'settings.manage'] },
-      { href: '/admin/payments', label: t.ledger, icon: 'wallet', perm: 'finance.manage' },
-      { href: '/admin/expenses', label: t.expensesAdmin, icon: 'wallet', perm: 'finance.manage' },
-      { href: '/admin/gateways', label: t.gatewaysAdmin, icon: 'wallet', perm: 'gateways.manage' },
-      { href: '/admin/receipts', label: L('رسیدهای کارت به کارت', 'Transfer receipts'), icon: 'wallet', perm: 'invoices.manage' },
-      { href: '/admin/bank-accounts', label: L('حساب‌های بانکی', 'Bank accounts'), icon: 'wallet', perm: 'gateways.manage' },
-    ] },
-    { title: L('اتصال‌ها و افزونه‌ها', 'Integrations'), items: [
+    { id: 'channels', part: SYSTEM, title: L('ایمیل، پیامک و اتصال‌ها', 'Email, SMS & connections'), icon: 'plug', items: [
+      { href: '/admin/email', label: L('ایمیل سایت (جیمیل / SMTP)', 'Site email (Gmail / SMTP)'), icon: 'chat', perm: 'settings.manage' },
+      { href: '/admin/sms', label: L('پنل پیامک (IPPanel)', 'SMS (IPPanel)'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/telegram', label: L('ربات و مینی‌اپ', 'Telegram & Mini App'), icon: 'chat', perm: 'settings.manage' },
       { href: '/admin/connection-guide', label: L('راهنمای اتصال', 'Connection guide'), icon: 'devices', perm: 'settings.manage' },
       { href: '/admin/happ', label: L('اتصال Happ', 'Happ connection'), icon: 'devices', perm: 'settings.manage' },
+    ] },
+    { id: 'extensions', part: SYSTEM, title: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'box', items: [
       { href: '/admin/extensions', label: L('افزونه‌ها و ماژول‌ها', 'Extensions & modules'), icon: 'grid', perm: 'settings.manage', exact: true },
       { href: '/admin/extensions/editor', label: L('ویرایشگر افزونه و قالب', 'Plugin & theme editor'), icon: 'sliders', perm: 'settings.manage' },
       ...extensionNav,
     ] },
-    { title: L('تنظیمات و دسترسی‌ها', 'Settings & access'), items: [
-      { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
+    { id: 'access', part: SYSTEM, title: L('دسترسی‌ها و امنیت', 'Access & security'), icon: 'shield', items: [
       { href: '/admin/section-managers', label: L('مدیران و نویسندگان بخش‌ها', 'Section managers and authors'), icon: 'shield', perm: 'roles.manage' },
       { href: '/admin/roles', label: t.rolesPermissions, icon: 'shield', perm: 'roles.manage' },
+      { href: '/admin/security', label: L('امنیت ورود و بازیابی رمز', 'Sign-in security'), icon: 'shield', perm: 'settings.manage' },
       { href: '/admin/audit', label: L('گزارش فعالیت‌ها', 'Audit log'), icon: 'sliders', perm: 'audit.view' },
+    ] },
+    { id: 'settings', part: SYSTEM, title: L('تنظیمات و نگهداری', 'Settings & upkeep'), icon: 'sliders', items: [
+      { href: '/admin/settings', label: L('تنظیمات عمومی و امکانات', 'General settings & features'), icon: 'sliders', perm: 'settings.manage' },
+      { href: '/admin/maintenance', label: L('حالت تعمیر بخش‌ها', 'Section maintenance'), icon: 'shield', perm: 'settings.manage' },
+      { href: '/admin/monitoring', label: L('پایش سرعت و سلامت سرور', 'Performance & health'), icon: 'shield', perm: 'settings.manage' },
+      { href: '/admin/updates', label: L('به‌روزرسانی سایت', 'Site updates'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/imports', label: L('ورود گروهی اطلاعات', 'Bulk import'), icon: 'grid', perm: 'imports.manage' },
     ] },
   ]
@@ -217,19 +232,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Mounted once (the navigation itself is rendered twice, for the side and for the phone drawer).
   const workspace = <AdminWorkspace fa={locale === 'fa'} canGo={(href) => GROUPS.some((group) => group.items.some((item) => item.href === href && allowed(item.perm) && !moduleOff(item.href)))} />
+  // What this person may open, after the search box: a part's name is shown above its first remaining group.
+  const query = navQuery.trim().toLowerCase()
+  const visible: ShellGroup[] = []
+  let part = ''
+  for (const group of GROUPS) {
+    const items = group.items.filter(item => allowed(item.perm) && !moduleOff(item.href) && (!query || (item.label + ' ' + group.title).toLowerCase().includes(query)))
+    if (!items.length) continue
+    visible.push({ id: group.id, title: group.title, icon: group.icon, flat: group.flat, items, caption: group.part && group.part !== part ? group.part : undefined })
+    part = group.part
+  }
+  // The deepest matching entry names the current page in the top bar.
+  const current = visible.flatMap(group => group.items.map(item => ({ ...item, group: group.flat ? '' : group.title }))).filter(item => isOn(item.href, item.exact)).sort((a, b) => b.href.length - a.href.length)[0]
   const nav = <>
-    <label className="admin-nav-search"><span className="sr-only">{L('جست‌وجوی بخش مدیریت', 'Search admin sections')}</span><input type="search" className="input" value={navQuery} placeholder={L('جست‌وجوی بخش…', 'Find a section…')} onChange={e => setNavQuery(e.target.value)} /></label>
-    {GROUPS.map(group => {
-      const items = group.items.filter(item => allowed(item.perm) && !moduleOff(item.href) && (!navQuery.trim() || (item.label + ' ' + group.title).toLowerCase().includes(navQuery.trim().toLowerCase())))
-      if (!items.length) return null
-      const active = items.some(item => isOn(item.href, item.exact))
-      const groupOpen = !!navQuery.trim() || (expanded[group.title] ?? active)
-      if (items.length === 1 && items[0].href === '/admin') return <Link key="overview" href="/admin" onClick={() => setOpen(false)} aria-current={active ? 'page' : undefined} className={`side-link ${active ? 'side-link-active' : ''}`}><Icon name="grid" size={19} />{t.dashboard}</Link>
-      return <div className={`admin-nav-group ${active ? 'has-active' : ''}`} key={group.title}>
-        <button type="button" className="admin-nav-toggle" aria-expanded={groupOpen} onClick={() => setExpanded(current => ({ ...current, [group.title]: !groupOpen }))}><Icon name={group.icon || items[0].icon} size={18}/><span>{group.title}</span><svg className="admin-nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></button>
-        <div className="admin-nav-items" hidden={!groupOpen}>{items.map(item => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={isOn(item.href, item.exact) ? 'page' : undefined} className={`side-link ${isOn(item.href, item.exact) ? 'side-link-active' : ''}`}>{item.label}</Link>)}</div>
-      </div>
-    })}
+    <label className="admin-nav-search"><span className="sr-only">{L('جست‌وجوی بخش مدیریت', 'Search admin sections')}</span><Icon name="search" size={16} /><input type="search" className="input" value={navQuery} placeholder={L('جست‌وجوی بخش…', 'Find a section…')} onChange={e => setNavQuery(e.target.value)} /><kbd aria-hidden="true">/</kbd></label>
+    <ShellNav groups={visible} isOn={isOn} choice={expanded} onToggle={(id, open) => setExpanded(now => ({ ...now, [id]: open }))} onNavigate={() => setOpen(false)} forceOpen={!!query} shown={open} />
+    {!visible.length && <p className="ws-empty" role="status">{L('بخشی با این نام پیدا نشد.', 'No section matches.')}</p>}
   </>
 
   return (
@@ -239,26 +257,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="brand-mark"><BrandMark/></span> {site.brand} <span className="badge badge-purple">{t.admin}</span>
         </Link>
 
-        <div className="side-user">
-          <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
-          <div className="min-w-0">
-            <div className="font-semibold text-sm truncate">{session?.user?.name || '—'}</div>
-            <div className="muted text-xs truncate" dir="ltr">{session?.user?.email}</div>
-          </div>
-        </div>
-
         {workspace}
         <nav className="side-nav" aria-label={t.admin}>{nav}</nav>
 
-        <div className="side-foot">
-          <ThemeLangControls locale={locale} theme={theme} />
-          <button onClick={() => signOut({ callbackUrl: '/' })} className="muted text-sm hover-text-danger">{t.logout}</button>
+        <div className="side-foot ws-foot">
+          <Link href="/dashboard/profile" className="side-user">
+            <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
+            <span className="min-w-0 ws-who">
+              <span className="font-semibold text-sm truncate">{session?.user?.name || t.admin}</span>
+              <span className="muted text-xs truncate" dir="ltr">{session?.user?.email}</span>
+            </span>
+          </Link>
+          <button type="button" onClick={() => signOut({ callbackUrl: '/' })} className="ws-out" aria-label={t.logout} title={t.logout}><Icon name="logout" size={18} /></button>
         </div>
       </aside>
 
       <div className="flex-1 min-w-0">
         <div className="mobile-bar">
-          <Link href="/admin" className="side-brand" style={{ padding: 0 }}>
+          <Link href="/admin" className="side-brand" style={{ padding: 0 }} aria-label={`${site.brand} — ${t.admin}`}>
             <span className="brand-mark"><BrandMark/></span> <span className="badge badge-purple">{t.admin}</span>
           </Link>
           <div className="flex items-center gap-2">
@@ -268,6 +284,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <nav id="admin-mobile-navigation" className="mobile-drawer" hidden={!open} aria-label={t.admin}>{nav}<button onClick={() => signOut({ callbackUrl: '/' })} className="side-link mobile-logout">{t.logout}</button></nav>
 
+        <header className="dash-top">
+          <nav className="dash-crumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}>
+            <Link href="/admin">{t.admin}</Link>
+            {current && current.href !== '/admin' && <>{current.group && <><span aria-hidden="true">/</span><span className="dash-crumb-group">{current.group}</span></>}<span aria-hidden="true">/</span><b aria-current="page">{current.label}</b></>}
+          </nav>
+          <div className="dash-top-actions">
+            <Link href="/" target="_blank" rel="noopener noreferrer" className="dash-top-link"><Icon name="external" size={16} /> {L('مشاهدهٔ سایت', 'View site')}</Link>
+            <Link href="/dashboard" className="dash-top-link"><Icon name="user" size={16} /> {L('حساب من', 'My account')}</Link>
+            <ThemeLangControls locale={locale} theme={theme} />
+          </div>
+        </header>
         <main className="app-main">{moduleOff(pathname) ? <div className="card module-off-card">
           <span className="section-kicker">MODULE DISABLED</span>
           <h1 className="h2">{L('این بخش غیرفعال است', 'This section is turned off')}</h1>
