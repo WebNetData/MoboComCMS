@@ -388,7 +388,10 @@ html[lang='fa'] code {
   unicode-bidi: embed;
 }
 
+/* A number alone stays left to right; an amount that carries its Persian unit ("۱۲۵٬۰۰۰ تومان") reads right to
+   left like the sentence it is. The text decides, so the same class serves dollars, dates and toman. */
 html[lang='fa'] .num {
+  unicode-bidi: plaintext;
   font-family: var(--font-inter), 'Inter', sans-serif;
   font-feature-settings: 'tnum';
 }

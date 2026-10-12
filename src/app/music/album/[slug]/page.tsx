@@ -42,7 +42,7 @@ export default async function AlbumPage({ params }: Props) {
   const name = fa ? album.title : album.titleEn || album.title
   const artistName = fa ? album.artist.name : album.artist.nameEn || album.artist.name
   const paywall = await paywallView(viewer, [{ ownerType: 'album', ownerId: album.id }])
-  const locked = paywall ? !paywall.open : album.access === 'MEMBERS' && !viewer.member
+  const locked = paywall ? !paywall.open : album.access === 'MEMBERS' && !viewer.opens
   return (
     <MediaShell section="music" active="albums" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
       <ManageBar title="مدیریت آلبوم" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=albums&edit=${album.id}`, label: 'ویرایش آلبوم' }, { href: '/admin/music/library?tab=albums', label: 'همهٔ آلبوم‌ها' }]} />

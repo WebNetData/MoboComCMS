@@ -4,7 +4,7 @@ import MiniAppHeading from '../MiniAppHeading'
 import Link from '@/components/AppLink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 import type { CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { haptic, openLink, paymentHref } from '../telegram-client'
@@ -32,7 +32,7 @@ export default function MiniAppWallet() {
   const [topups, setTopups] = useState<string[]>([])
   const [gateways, setGateways] = useState<CheckoutGatewayChoice[]>([])
   const [gatewayRef, setGatewayRef] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [currency, setCurrency] = useState(BASE_CURRENCY)
   const [amount, setAmount] = useState('10')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')

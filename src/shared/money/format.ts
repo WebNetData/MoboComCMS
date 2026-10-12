@@ -1,3 +1,5 @@
+import { BASE_CURRENCY } from '@/shared/money/base'
+
 // Iranian currencies read "۱۲٬۵۰۰٬۰۰۰ ریال" / "۱٬۲۵۰ تومان": whole numbers with the unit after them.
 const IRANIAN_UNITS: Record<string, { fa: string; en: string }> = {
   IRR: { fa: 'ریال', en: 'IRR' },
@@ -10,8 +12,8 @@ export function iranianUnit(currency: string, locale = 'fa-IR') {
   return unit ? (locale.startsWith('fa') ? unit.fa : unit.en) : ''
 }
 
-export function formatAmount(amount: number, currency = 'USD', locale = 'en-US') {
-  const code = String(currency || 'USD').trim().toUpperCase()
+export function formatAmount(amount: number, currency = BASE_CURRENCY, locale = 'en-US') {
+  const code = String(currency || BASE_CURRENCY).trim().toUpperCase()
   const unit = iranianUnit(code, locale)
   if (unit) return `${Math.round(Number(amount) || 0).toLocaleString(locale)} ${unit}`
   try {

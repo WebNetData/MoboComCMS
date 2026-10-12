@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { normalizeAccess } from '@/modules/membership/domain/membership'
 
 /** VIP fields shared by create and update. */
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!name) return err('نام پلن الزامی است')
   const nameEn = String(b?.nameEn || '').trim()
   if (!nameEn) return err('English plan name is required')
-  const currency = normalizeCurrency(b?.currency || 'USD')
+  const currency = normalizeCurrency(b?.currency || BASE_CURRENCY)
   let priceMinor: bigint
   try { priceMinor = toMinor(String(b?.price ?? '0'), currency) } catch (e) { return err(e instanceof Error ? e.message : 'invalid price') }
   let vip: Record<string, unknown>

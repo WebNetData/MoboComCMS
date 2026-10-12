@@ -440,7 +440,7 @@ test('direct checkout rejects an active product awaiting approval before payment
   const mocks = {
     '@/platform/database/prisma': { db },
     '@/modules/catalog/server/storefront': { isStoreEnabled: async () => true },
-    '@/modules/membership/server/membership': { isMember: async () => false },
+    '@/modules/membership/server/membership': { isMember: async () => false, opensMembersOnly: async (_userId, member) => !!member },
   }
   for (const name of ['@/modules/billing/server/gateways', '@/modules/billing/server/billing', '@/modules/wallet/server/wallet', '@/modules/subscriptions/server/usernames', '@/modules/fulfillment/server/jobs', '@/modules/catalog/server/inventory', '@/shared/money', '@/extensions/server/runtime']) mocks[name] = {}
   const { executeCheckout } = load('src/modules/checkout/server/checkout.ts', mocks)
@@ -1019,4 +1019,63 @@ test('a section in maintenance leaves search, the sitemap and the feeds; an open
   assert.ok(home.includes('MAINTENANCE_SECTIONS.filter((section) => closed.has(section.plugin)).flatMap((section) => bases[section.id])]'))
   // A state that cannot be read closes nothing.
   assert.match(src('src/modules/site/server/maintenance.ts'), /closedPlugins\(await loadMaintenance\(\)\.catch\(\(\) => normalizeMaintenance\(null\)\)\)/)
+})
+
+const sourceOf = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+
+test('nothing is members-only while the VIP module is off, and prices keep the real membership', async () => {
+  const state = { vip: true, session: null, membership: null }
+  const membership = load('src/modules/membership/server/membership.ts', {
+    react: { cache: (fn) => fn },
+    'next-auth': { getServerSession: async () => state.session },
+    '@/platform/database/prisma': { db: { userMembership: { findFirst: async () => state.membership } } },
+    '@/modules/identity/auth': { authOptions: {} },
+    '@/modules/notifications/server/inbox': { createInboxEvent: async () => null },
+    '@/extensions/server/modules': { isModuleEnabled: async (id) => id === 'membership' && state.vip },
+    '@/platform/observability/logger': { logEvent: () => {} },
+  })
+  const active = { id: 1, endsAt: new Date(Date.now() + 86_400_000), startsAt: new Date(0), source: 'PURCHASE', planId: 1 }
+  // VIP on: a guest and a plain member do not open members-only things; a paying member does.
+  assert.deepEqual(await membership.getViewer(), { userId: null, member: false, endsAt: null, opens: false })
+  state.session = { user: { id: 7 } }
+  assert.equal((await membership.getViewer()).opens, false)
+  assert.equal(await membership.opensMembersOnly(7), false)
+  state.membership = active
+  assert.deepEqual([(await membership.getViewer()).member, (await membership.getViewer()).opens, await membership.opensMembersOnly(7)], [true, true, true])
+  assert.equal(await membership.opensMembersOnly(7, false), false, 'a membership the caller already looked up is not asked for again')
+  // VIP off: everybody opens them, the guest too — and nobody is a member, so no member price or quota is given away.
+  state.vip = false
+  assert.deepEqual([(await membership.getViewer()).member, (await membership.getViewer()).opens, await membership.isMember(7)], [false, true, false])
+  state.session = null
+  assert.deepEqual(await membership.getViewer(), { userId: null, member: false, endsAt: null, opens: true })
+  assert.deepEqual([await membership.opensMembersOnly(null), await membership.opensMembersOnly(7, false)], [true, true])
+  // Every place that decides access asks "opens", never "member".
+  for (const file of ['src/app/cinema/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/playlist/[slug]/page.tsx', 'src/app/music/track/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/software/[slug]/releases/[id]/page.tsx', 'src/modules/site/server/http/public/cms/route.ts', 'src/modules/checkout/server/pages/checkout/page.tsx', 'src/modules/checkout/server/pages/product/page.tsx']) {
+    assert.match(sourceOf(file), /viewer\.opens/, file)
+    assert.doesNotMatch(sourceOf(file).replace(/viewer\.member && [a-zA-Z.]*[mM]emberPriceMinor|viewer\.member && memberMinor/g, ''), /viewer\.member/, `${file} decides access by a paid membership`)
+  }
+  assert.match(sourceOf('src/modules/media/server/links.ts'), /if \(!vipOnly \|\| viewer\.opens\) return 'ok'\n  if \(!viewer\.userId\) return 'login'/)
+  assert.match(sourceOf('src/modules/site/server/pages/blog/[slug]/page.tsx'), /post\.access === 'MEMBERS' && !viewer\.opens/)
+  for (const file of ['src/modules/store/server/cart.ts', 'src/modules/store/server/bundles.ts', 'src/modules/checkout/server/checkout.ts']) assert.doesNotMatch(sourceOf(file), /access === 'MEMBERS' && !member\b/, file)
+  assert.match(sourceOf('src/modules/forum/server/community.ts'), /member: member \|\| open, moderates/)
+  // The marks are hidden from one place, and both selling modules start switched off.
+  assert.match(sourceOf('src/app/layout.tsx'), /data-vip=\{pathDisabled\('\/vip', extensions\) \? 'off' : undefined\}/)
+  assert.match(sourceOf('src/app/media-design.css'), /html\[data-vip='off'\] :is\(\.vip-chip,/)
+  for (const id of ['membership', 'paywall']) assert.equal(JSON.parse(sourceOf(`src/plugins/${id}/manifest.json`)).defaultEnabled, false, id)
+})
+
+test('the base currency is the toman: defaults and empty screens start from it, stored rows keep their own', () => {
+  const money = load('src/shared/money/index.ts'), format = load('src/shared/money/format.ts')
+  assert.equal(money.BASE_CURRENCY, 'IRT')
+  assert.deepEqual([money.normalizeCurrency(''), money.normalizeCurrency(undefined), money.normalizeCurrency('usd'), money.normalizeCurrency('', 'USD')], ['IRT', 'IRT', 'USD', 'USD'])
+  assert.equal(money.currencyExponent(money.BASE_CURRENCY), 0)
+  assert.equal(format.formatAmount(125000, undefined, 'fa-IR'), '۱۲۵٬۰۰۰ تومان')
+  assert.equal(format.formatAmount(125000, '', 'en-US'), '125,000 Toman')
+  assert.equal(format.formatAmount(12.5, 'USD', 'en-US'), '$12.50', 'a stored dollar amount is still shown as dollars')
+  // New things and empty lists start from the base currency…
+  for (const file of ['src/modules/catalog/server/http/admin/plans/route.ts', 'src/modules/promotions/server/http/admin/promotions/route.ts', 'src/modules/billing/server/http/admin/expenses/route.ts', 'src/modules/billing/server/http/admin/invoices/route.ts', 'src/modules/billing/server/http/admin/finance/route.ts', 'src/modules/checkout/server/checkout.ts', 'src/app/admin/page.tsx', 'src/app/dashboard/wallet/page.tsx', 'src/app/admin/plans/page.tsx', 'src/app/admin/invoices/page.tsx']) assert.match(sourceOf(file), /BASE_CURRENCY/, file)
+  assert.match(sourceOf('src/modules/billing/server/http/admin/finance/route.ts'), /requestedCurrency \? normalizeCurrency\(requestedCurrency\) : BASE_CURRENCY/)
+  // …while the legacy dollar wallet and each gateway's own fiat are left as they were.
+  assert.match(sourceOf('src/modules/wallet/server/wallet.ts'), /if \(code !== 'USD'\) return 0/)
+  assert.match(sourceOf('src/modules/billing/server/gateways.ts'), /gateway\.fiat \|\| 'USD'/)
 })

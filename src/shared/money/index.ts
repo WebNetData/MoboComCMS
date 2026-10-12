@@ -5,6 +5,9 @@
  * point values are accepted only at legacy/input boundaries and immediately
  * converted. Currency is always explicit and normalized to ISO-like uppercase.
  */
+import { BASE_CURRENCY } from '@/shared/money/base'
+
+export { BASE_CURRENCY }
 export type CurrencyCode = string
 
 const EXPONENTS: Readonly<Record<string, number>> = Object.freeze({
@@ -35,7 +38,7 @@ const EXPONENTS: Readonly<Record<string, number>> = Object.freeze({
   XPF: 0,
 })
 
-export function normalizeCurrency(value: unknown, fallback = 'USD'): CurrencyCode {
+export function normalizeCurrency(value: unknown, fallback = BASE_CURRENCY): CurrencyCode {
   const code = String(value || fallback).trim().toUpperCase()
   if (!/^[A-Z0-9]{3,12}$/.test(code)) throw new Error(`invalid currency: ${code}`)
   return code

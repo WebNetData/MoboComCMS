@@ -7,10 +7,10 @@ import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
 import { checkUsername, sanitizeUsername, suggestUsername, USERNAME_MIN } from '@/modules/subscriptions/server/usernames'
 import { enqueueFulfillment, processFulfillmentJob } from '@/modules/fulfillment/server/jobs'
 import { releaseInventoryReservation, reserveInventory } from '@/modules/catalog/server/inventory'
-import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { emitExtensionEvent } from '@/extensions/server/runtime'
 import { promotionCode, promotionDiscount, releasePromotionForOrder } from '@/modules/promotions/server/promotions'
-import { isMember } from '@/modules/membership/server/membership'
+import { isMember, opensMembersOnly } from '@/modules/membership/server/membership'
 import { memberPrice } from '@/modules/membership/domain/membership'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { addressSnapshot, bookDelivery, getDeliverySettings, validateDelivery } from '@/modules/shipping/server/shipping'
@@ -112,11 +112,13 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
   const member = await isMember(command.userId)
+  // Members-only plans and products are open to everybody while the VIP module is off; member prices are not.
+  const opens = await opensMembersOnly(command.userId, member)
   let memberDiscount = false
 
   let amountMinor = 0n
   let amount = 0
-  let currency = 'USD'
+  let currency: string = BASE_CURRENCY
   let label = ''
   let meta: Record<string, unknown> = {}
   let shippingMinor = 0n
@@ -149,7 +151,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     const plan = await db.plan.findUnique({ where: { id: planId }, include: { panel: true } })
     if (!plan || !plan.active) return fail(404, 'PLAN_NOT_FOUND', 'پلن یافت نشد')
     if (!plan.panel || !plan.panel.active) return fail(503, 'PANEL_INACTIVE', 'پنل این پلن فعال نیست')
-    if (plan.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', 'این پلن مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
+    if (plan.access === 'MEMBERS' && !opens) return fail(403, 'MEMBERS_ONLY', 'این پلن مخصوص اعضای ویژه است', { upgradeUrl: '/vip' })
     currency = normalizeCurrency(plan.currency)
     amountMinor = offer ? offer.priceMinor : plan.priceMinor || toMinor(plan.price, currency)
     if (!offer) {
@@ -171,7 +173,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       if (!product || !isPublicProduct(product)) return fail(404, 'PRODUCT_NOT_FOUND', 'محصول یافت نشد')
       const named = (message: string) => (many && product ? `${product.name}: ${message}` : message)
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) return fail(400, 'BAD_QUANTITY', named('تعداد معتبر نیست'))
-      if (product.access === 'MEMBERS' && !member) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
+      if (product.access === 'MEMBERS' && !opens) return fail(403, 'MEMBERS_ONLY', named('این محصول مخصوص اعضای ویژه است'), { upgradeUrl: '/vip' })
       if (product.stock === 0) return fail(409, 'OUT_OF_STOCK', named('این محصول ناموجود است'))
       const variantId = Number(want.variantId) || null
       if (product.variants.length && !variantId) return fail(400, 'VARIANT_REQUIRED', named('لطفاً نوع محصول را انتخاب کنید'))

@@ -7,6 +7,7 @@ import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 import { formatRuntime, licenseLabel, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
+import { isModuleEnabled } from '@/extensions/server/modules'
 
 /**
  * Side-by-side comparison of up to four items of one type. Each row is a label
@@ -49,6 +50,7 @@ export function parseCompareRefs(raw: unknown): ItemRef[] {
 export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> {
   if (!refs.length) return null
   const type = refs[0].type
+  const vipOn = await isModuleEnabled('membership')
   const cards = await itemCards(refs)
   const present = refs.filter((ref) => cards.has(itemKey(ref)))
   if (!present.length) return null
@@ -80,7 +82,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       numeric('دانلود', s.map((r) => r?.downloads ?? null), 'high'), numeric('بازدید', s.map((r) => r?.views ?? null), 'high'),
       ...ratingRows,
       row('پیش‌نیازها', s.map((r) => r?.requirements)),
-      row('دسترسی', s.map((r) => (r?.access === 'MEMBERS' ? '♛ ویژهٔ VIP' : 'رایگان برای همه'))),
+      row('دسترسی', s.map((r) => (vipOn && r?.access === 'MEMBERS' ? '♛ ویژهٔ VIP' : 'رایگان برای همه'))),
       ...dimensionRows,
     )
   } else if (type === 'game') {

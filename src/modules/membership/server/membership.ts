@@ -24,6 +24,12 @@ export async function getActiveMembership(userId: number | null | undefined, now
   return { ...row, endsAt: last?.endsAt && last.endsAt > row.endsAt ? last.endsAt : row.endsAt }
 }
 
+/** Access to members-only things for a known user id (server commands): a member, or anybody while VIP is off. */
+export async function opensMembersOnly(userId: number | null | undefined, member?: boolean): Promise<boolean> {
+  if (!await isModuleEnabled('membership')) return true
+  return member ?? !!(await getActiveMembership(userId))
+}
+
 export async function isMember(userId: number | null | undefined): Promise<boolean> {
   if (!await isModuleEnabled('membership')) return false
   return !!(await getActiveMembership(userId))
@@ -144,15 +150,21 @@ export async function recoverGiftMemberships(days = 3, now = new Date()) {
   return counters
 }
 
-export type Viewer = { userId: number | null; member: boolean; endsAt: Date | null }
+/**
+ * `member` is a real, paid membership (prices, quotas, the VIP group). `opens` answers access: may this visitor open
+ * what is marked members-only? While the VIP module is off nothing is members-only, so it is true for everybody,
+ * guests included; the marks stay stored and apply again when the module is turned back on.
+ */
+export type Viewer = { userId: number | null; member: boolean; endsAt: Date | null; opens: boolean }
 
 /** The current visitor (server components). Cached per request. */
 export const getViewer = cache(async (): Promise<Viewer> => {
   const session = await getServerSession(authOptions).catch(() => null)
   const userId = Number((session?.user as { id?: string | number } | undefined)?.id) || null
-  if (!userId || !await isModuleEnabled('membership')) return { userId, member: false, endsAt: null }
+  if (!await isModuleEnabled('membership')) return { userId, member: false, endsAt: null, opens: true }
+  if (!userId) return { userId, member: false, endsAt: null, opens: false }
   const membership = await getActiveMembership(userId)
-  return { userId, member: !!membership, endsAt: membership?.endsAt || null }
+  return { userId, member: !!membership, endsAt: membership?.endsAt || null, opens: !!membership }
 })
 
 export type PublicVipPlan = { id: number; slug: string; name: string; nameEn: string; description: string; descriptionEn: string; days: number; price: number; currency: string; perks: Perk[]; highlight: boolean }

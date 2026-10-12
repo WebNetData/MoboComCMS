@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import Icon from '@/components/site/Icon'
 
@@ -32,7 +32,7 @@ export default function AdminDashboard() {
     load()
   }, [load])
 
-  const money = (n: number, currency = fin?.currency || 'USD') => formatCurrency(n, currency, isFa ? 'fa-IR' : 'en-US')
+  const money = (n: number, currency = fin?.currency || BASE_CURRENCY) => formatCurrency(n, currency, isFa ? 'fa-IR' : 'en-US')
   const fmtDate = (d: string) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US')
 
   if (failed) {

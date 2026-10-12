@@ -51,9 +51,9 @@ export default async function TrackPage({ params }: Props) {
   const queue = inAlbum >= 0 ? album : self
   // A price (on the track or its album) replaces the VIP gates: buying opens playback, HQ and downloads.
   const paywall = await paywallView(viewer, [{ ownerType: 'track', ownerId: track.id }, ...(track.album ? [{ ownerType: 'album' as const, ownerId: track.album.id }] : [])])
-  const locked = paywall ? !paywall.open : track.access === 'MEMBERS' && !viewer.member
-  const dlLocked = locked || (!paywall && settings['download-members-only'] === true && !viewer.member)
-  const hqLocked = locked || (!paywall && settings['hq-members-only'] !== false && !viewer.member)
+  const locked = paywall ? !paywall.open : track.access === 'MEMBERS' && !viewer.opens
+  const dlLocked = locked || (!paywall && settings['download-members-only'] === true && !viewer.opens)
+  const hqLocked = locked || (!paywall && settings['hq-members-only'] !== false && !viewer.opens)
   const lockHref = paywall ? '#buy' : '/vip'
   const lockTag = paywall ? '' : ' (VIP)'
   const name = fa ? track.title : track.titleEn || track.title

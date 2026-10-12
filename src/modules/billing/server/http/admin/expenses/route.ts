@@ -4,7 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
 import { EXPENSE_CATEGORIES } from '@/modules/billing/server/billing'
-import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 
 function rowMinor(row: { amountMinor?: bigint | null; amount: number }, currency: string) {
   return typeof row.amountMinor === 'bigint' && row.amountMinor !== 0n ? row.amountMinor : toMinor(row.amount || 0, currency)
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const currencyRows = await db.expense.findMany({ select: { currency: true }, distinct: ['currency'] })
   const currencies = [...new Set(currencyRows.map((x) => normalizeCurrency(x.currency || 'USD')))].sort()
-  if (!currencies.length) currencies.push('USD')
+  if (!currencies.length) currencies.push(BASE_CURRENCY)
   const currency = normalizeCurrency(req.nextUrl.searchParams.get('currency') || currencies[0])
   if (!currencies.includes(currency)) currencies.push(currency)
   const rows = await db.expense.findMany({ where: { currency }, orderBy: { spentAt: 'desc' }, take: 400 })
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const b = await req.json().catch(() => null)
   const title = String(b?.title || '').trim()
-  const currency = normalizeCurrency(b?.currency || 'USD')
+  const currency = normalizeCurrency(b?.currency || BASE_CURRENCY)
   let amountMinor: bigint
   try { amountMinor = toMinor(String(b?.amount ?? ''), currency) } catch (e) { return err(e instanceof Error ? e.message : 'invalid amount') }
   if (!title) return err('title is required')

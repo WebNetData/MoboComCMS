@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { BASE_CURRENCY } from '@/shared/money/client'
 
 type Promotion = { id: number; code: string; active: boolean; membersOnly?: boolean; kind: 'PERCENT' | 'FIXED'; value: number; currency: string; planId: number | null; minSubtotal: number; maxUses: number; perUserLimit: number; reservedCount: number; startsAt: string | null; endsAt: string | null }
 type Form = Omit<Promotion, 'id' | 'reservedCount'>
-const blank: Form = { code: '', active: true, membersOnly: false, kind: 'PERCENT', value: 10, currency: 'USD', planId: null, minSubtotal: 0, maxUses: 0, perUserLimit: 1, startsAt: null, endsAt: null }
+const blank: Form = { code: '', active: true, membersOnly: false, kind: 'PERCENT', value: 10, currency: BASE_CURRENCY, planId: null, minSubtotal: 0, maxUses: 0, perUserLimit: 1, startsAt: null, endsAt: null }
 
 export default function AdminPromotionsPage() {
   const { locale } = useI18n()

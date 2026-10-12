@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 interface InvoiceRow {
   id: number; number: string; user: { id: number; email: string; name: string } | null
@@ -18,10 +18,10 @@ export default function AdminInvoicesPage() {
   const { t, locale } = useI18n(); const isFa = locale === 'fa'
   const [rows, setRows] = useState<InvoiceRow[]>([]); const [counts, setCounts] = useState<Record<string, number>>({})
   const [paidTotal, setPaidTotal] = useState(0); const [status, setStatus] = useState(''); const [q, setQ] = useState('')
-  const [currency, setCurrency] = useState('USD'); const [currencies, setCurrencies] = useState<string[]>(['USD'])
+  const [currency, setCurrency] = useState(BASE_CURRENCY); const [currencies, setCurrencies] = useState<string[]>([BASE_CURRENCY])
   const [loading, setLoading] = useState(true); const [msg, setMsg] = useState(''); const [msgOk, setMsgOk] = useState(false); const [showForm, setShowForm] = useState(false)
   const [users, setUsers] = useState<any[]>([]); const [plans, setPlans] = useState<any[]>([]); const [products, setProducts] = useState<any[]>([]); const [gateways, setGateways] = useState<any[]>([])
-  const [form, setForm] = useState<any>({ userId:'', kind:'plan', planId:'', productId:'', subtotal:'', discount:'', tax:'', currency:'USD', gatewayId:'', dueDays:7, notes:'', status:'UNPAID' })
+  const [form, setForm] = useState<any>({ userId:'', kind:'plan', planId:'', productId:'', subtotal:'', discount:'', tax:'', currency:BASE_CURRENCY, gatewayId:'', dueDays:7, notes:'', status:'UNPAID' })
 
   const load = useCallback(async () => {
     setLoading(true)

@@ -7,7 +7,7 @@ import { createInvoiceForOrder, invoiceDueMinor, invoiceTotalMinor, releaseInvoi
 import { settleInvoiceManually } from '@/modules/billing/server/settle'
 import { ensureInventoryReservation, releaseInventoryReservation } from '@/modules/catalog/server/inventory'
 import { moveWallet } from '@/modules/wallet/server/wallet'
-import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { auditAdmin } from '@/platform/audit/server'
 
 function minor(row: any, field: string, currency: string) {
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   const take = Math.min(Number(sp.get('take')) || 200, 500)
   const currencyRows = await db.invoice.findMany({ select: { currency: true }, distinct: ['currency'] })
   const currencies = [...new Set(currencyRows.map((x) => normalizeCurrency(x.currency || 'USD')))].sort()
-  if (!currencies.length) currencies.push('USD')
+  if (!currencies.length) currencies.push(BASE_CURRENCY)
   const currency = normalizeCurrency(sp.get('currency') || currencies[0])
   if (!currencies.includes(currency)) currencies.push(currency)
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
   if (planId) item = await db.plan.findUnique({ where: { id: planId } })
   if (productId) item = await db.product.findUnique({ where: { id: productId } })
   if ((planId || productId) && !item) return err('item not found', 404)
-  const currency = normalizeCurrency(item?.currency || b?.currency || 'USD')
+  const currency = normalizeCurrency(item?.currency || b?.currency || BASE_CURRENCY)
   if (item && b?.currency && normalizeCurrency(b.currency) !== currency) return err('item currency cannot be overridden')
 
   let subtotalMinor: bigint

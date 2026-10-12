@@ -10,7 +10,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
-import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
@@ -457,7 +457,7 @@ const RESOURCES: Record<string, Resource> = {
     delegate: (t) => t.membershipPlan, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     label: (row) => row.name,
     parse: (b, existing) => {
-      const currency = normalizeCurrency(has(b, 'currency') ? b.currency : existing?.currency || 'USD')
+      const currency = normalizeCurrency(has(b, 'currency') ? b.currency : existing?.currency || BASE_CURRENCY)
       const out: Input = pickDefined({
         slug: when(b, 'slug', (v) => slugOf(v)) ?? (existing ? undefined : slugOf(b.nameEn || `vip-${b.days || ''}`)),
         name: when(b, 'name', (v) => text(v, 120)),

@@ -8,17 +8,18 @@ import { checkoutGatewayOptions } from '@/modules/billing/server/gateways'
 import { botText, type BotLocale } from '@/modules/notifications/server/telegram-locale'
 import { planName } from '@/modules/catalog/domain/plan-locale'
 import { transactionLabel } from '@/modules/wallet/domain/transaction-locale'
+import { BASE_CURRENCY } from '@/shared/money'
 
 export const esc = (v: string) =>
   String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-export function money(n: number, currency = 'USD', locale: BotLocale = 'en') {
+export function money(n: number, currency = BASE_CURRENCY, locale: BotLocale = 'en') {
   return formatAmount(n || 0, currency, locale === 'fa' ? 'fa-IR' : 'en-US')
 }
 
 async function walletText(userId: number, locale: BotLocale) {
   const balances = await walletBalances(userId)
-  return balances.length ? balances.map((b) => money(b.balance, b.currency, locale)).join(' · ') : money(0, 'USD', locale)
+  return balances.length ? balances.map((b) => money(b.balance, b.currency, locale)).join(' · ') : money(0, BASE_CURRENCY, locale)
 }
 
 function gb(n: number, locale: BotLocale) {

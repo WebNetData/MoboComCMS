@@ -6,6 +6,7 @@ import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { fetchWalletBalances, money } from '@/modules/checkout/ui/client'
 import { planDescription, planName } from '@/modules/catalog/domain/plan-locale'
+import { BASE_CURRENCY } from '@/shared/money/client'
 
 interface Plan {
   id: number
@@ -86,7 +87,7 @@ export default function PlanCards({
             <span className="wallet-strip-value num">
               {Object.entries(balances).length
                 ? Object.entries(balances).map(([currency, balance]) => money(balance, currency, isFa ? 'fa-IR' : 'en-US')).join(' · ')
-                : money(0, plans[0]?.currency || 'USD', isFa ? 'fa-IR' : 'en-US')}
+                : money(0, plans[0]?.currency || BASE_CURRENCY, isFa ? 'fa-IR' : 'en-US')}
             </span>
           </div>
           <p className="wallet-strip-hint">{t.walletPayHint}</p>

@@ -52,7 +52,7 @@ export default async function TitlePage({ params }: Props) {
   const name = fa ? ti.title : ti.titleEn || ti.title
   const summary = fa ? ti.summary : ti.summaryEn || ti.summary
   const paywall = await paywallView(viewer, [{ ownerType: 'title', ownerId: ti.id }])
-  const locked = paywall ? !paywall.open : ti.access === 'MEMBERS' && !viewer.member
+  const locked = paywall ? !paywall.open : ti.access === 'MEMBERS' && !viewer.opens
   const trailer = trailerSource(ti.trailerUrl, toEmbedUrl)
   const num = (n: number) => n.toLocaleString(fa ? 'fa-IR' : 'en-US')
   const seasons: SeasonView[] = data.seasons.map((season) => ({
@@ -66,7 +66,7 @@ export default async function TitlePage({ params }: Props) {
       airDate: episode.airDate ? new Date(episode.airDate).toLocaleDateString(fa ? 'fa-IR' : 'en-US') : '',
       vip: !paywall && (episode.access === 'MEMBERS' || ti.access === 'MEMBERS'),
       linkCount: episode.links.length,
-      links: <LinkBox links={episode.links} fa={fa} member={viewer.member} loggedIn={!!viewer.userId} parentLocked={episode.access === 'MEMBERS' || ti.access === 'MEMBERS'} compact paywall={paywall} />,
+      links: <LinkBox links={episode.links} fa={fa} member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={episode.access === 'MEMBERS' || ti.access === 'MEMBERS'} compact paywall={paywall} />,
     })),
   }))
   const episodes = data.seasons.reduce((sum, s) => sum + s.episodes.length, 0)
@@ -133,8 +133,8 @@ export default async function TitlePage({ params }: Props) {
           {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/cinema/${ti.slug}`} title={fa ? `تماشای «${name}» مخصوص اعضای VIP است` : `“${name}” is for VIP members`} />}
           {ti.kind === 'SERIES'
             ? <SeasonTabs seasons={seasons} fa={fa} />
-            : <LinkBox links={data.links} fa={fa} member={viewer.member} loggedIn={!!viewer.userId} parentLocked={ti.access === 'MEMBERS'} paywall={paywall} />}
-          {ti.kind === 'SERIES' && data.links.length > 0 && <LinkBox title={fa ? 'دانلود یکجا' : 'Full pack'} links={data.links} fa={fa} member={viewer.member} loggedIn={!!viewer.userId} parentLocked={ti.access === 'MEMBERS'} paywall={paywall} />}
+            : <LinkBox links={data.links} fa={fa} member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={ti.access === 'MEMBERS'} paywall={paywall} />}
+          {ti.kind === 'SERIES' && data.links.length > 0 && <LinkBox title={fa ? 'دانلود یکجا' : 'Full pack'} links={data.links} fa={fa} member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={ti.access === 'MEMBERS'} paywall={paywall} />}
           <p className="muted text-sm cn-watch-note">{fa ? 'لینک‌ها از مسیر امن سایت باز می‌شوند. برای پخش بهتر از VLC یا MX Player استفاده کنید.' : 'Links open through a protected site route. VLC or MX Player recommended.'}</p>
         </section>
 

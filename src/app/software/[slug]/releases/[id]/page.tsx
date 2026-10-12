@@ -32,7 +32,7 @@ export default async function SoftwareReleasePage({ params }: Props) {
   const [release, chrome, viewer] = await Promise.all([getSoftwareRelease(slug, Number(id)), softwarePortalChrome(), getViewer()])
   if (!release) notFound()
   const paywall = await paywallView(viewer, [{ ownerType: 'software', ownerId: release.software.id }])
-  const locked = paywall ? !paywall.open : release.software.access === 'MEMBERS' && !viewer.member
+  const locked = paywall ? !paywall.open : release.software.access === 'MEMBERS' && !viewer.opens
   return <MediaShell section="software">
     <SoftwareStatsStrip stats={chrome.stats} />
     <SoftwareLayout sidebar={<SoftwareSidebar data={chrome.sidebar} fa terms={chrome.terms} suggestions={chrome.suggestions} promo={chrome.promo} />}>
@@ -48,7 +48,7 @@ export default async function SoftwareReleasePage({ params }: Props) {
         <section id="download"><h2>فایل‌های دانلود</h2>
           {paywall && locked && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/software/${slug}/releases/${release.id}#download`} noun="نرم‌افزار" />}
           {!paywall && locked && <VipGate fa loggedIn={!!viewer.userId} next={`/software/${slug}/releases/${release.id}`} title="دانلود این نرم‌افزار مخصوص اعضای VIP است" />}
-          <LinkBox links={release.links} fa member={viewer.member} loggedIn={!!viewer.userId} parentLocked={release.software.access === 'MEMBERS'} paywall={paywall} />
+          <LinkBox links={release.links} fa member={viewer.opens} loggedIn={!!viewer.userId} parentLocked={release.software.access === 'MEMBERS'} paywall={paywall} />
         </section>
         <nav className="sp-release-detail-links"><Link href={`/software/${slug}`}>صفحهٔ نرم‌افزار ←</Link><Link href={`/software/releases?software=${encodeURIComponent(slug)}`}>نسخه‌های دیگر ←</Link></nav>
       </article>

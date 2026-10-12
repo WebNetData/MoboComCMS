@@ -8,6 +8,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import { formatAmount } from '@/shared/money/format'
 import { isModuleEnabled } from '@/extensions/server/modules'
+import { BASE_CURRENCY } from '@/shared/money'
 
 
 /**
@@ -67,7 +68,7 @@ export default async function PaymentResultPage({
   try { orderMeta = JSON.parse(view?.order?.meta || '{}') } catch { /* ignore */ }
   const contentPath = orderMeta.kind === 'content' && typeof orderMeta.contentPath === 'string' && orderMeta.contentPath.startsWith('/') ? orderMeta.contentPath : ''
 
-  const money = (n: number) => formatAmount(n, view?.currency || 'USD', isFa ? 'fa-IR' : 'en-US')
+  const money = (n: number) => formatAmount(n, view?.currency || BASE_CURRENCY, isFa ? 'fa-IR' : 'en-US')
   const fmt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
 
   return (

@@ -2,13 +2,13 @@
 
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 export default function CheckoutError({
   code,
   message: _message,
   needed = 0,
-  currency = 'USD',
+  currency = BASE_CURRENCY,
 }: {
   code: string
   message: string

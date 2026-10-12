@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
-import { isMember } from '@/modules/membership/server/membership'
+import { isMember, opensMembersOnly } from '@/modules/membership/server/membership'
 import { MAX_CART_LINES, StoreError, lineLimit, normalizeQuantity } from '@/modules/store/domain/store'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { getDeliverySettings } from '@/modules/shipping/server/shipping'
@@ -173,6 +173,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
   const overLimit = Math.max(0, rows.length - MAX_CART_LINES)
   const waiting = guestToken ? await db.cartLine.count({ where: { cart: { token: guestToken, userId: null } } }) : 0
   const member = owner.userId ? await isMember(owner.userId) : false
+  const opens = await opensMembersOnly(owner.userId, member)
   const currency = rows[0]?.product.currency || 'IRT'
   let itemsMinor = 0n
   let listMinor = 0n
@@ -186,7 +187,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     let issue = ''
     if (!isPublicProduct(product) || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
     else if (!row.variantKey && product.variants.some((v) => v.active)) issue = 'نوع کالا را دوباره انتخاب کنید'
-    else if (product.access === 'MEMBERS' && !member) issue = 'مخصوص اعضای ویژه'
+    else if (product.access === 'MEMBERS' && !opens) issue = 'مخصوص اعضای ویژه'
     else if (limit === 0) issue = 'ناموجود'
     else if (row.quantity > limit) issue = `حداکثر ${limit.toLocaleString('fa-IR')} عدد قابل سفارش است`
     else if (price.currency !== currency) issue = 'واحد پول این کالا با بقیهٔ سبد یکسان نیست'
@@ -256,7 +257,7 @@ async function purchasable(productId: number, variantId: number | null, client: 
 type CartAddition = { productId: number; variantId: number | null; quantity: number }
 
 /** One canonical mutation path for ordinary capped additions and complete bundles. */
-async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, owner: CartOwner, requests: CartAddition[], strict: boolean, member = false) {
+async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, owner: CartOwner, requests: CartAddition[], strict: boolean, opens = false) {
   await lockCart(tx, cartId, owner)
   const lines = await tx.cartLine.findMany({ where: { cartId }, include: { product: { select: { currency: true } } } })
   const currencies = new Set(lines.map(line => line.product.currency))
@@ -266,7 +267,7 @@ async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, 
   for (const request of requests) {
     const { product, limit } = await purchasable(request.productId, request.variantId, tx)
     if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
-    if (strict && product.access === 'MEMBERS' && !member) throw new StoreError('این بسته مخصوص اعضای ویژه است', 403, 'MEMBERS_ONLY')
+    if (strict && product.access === 'MEMBERS' && !opens) throw new StoreError('این بسته مخصوص اعضای ویژه است', 403, 'MEMBERS_ONLY')
     currencies.add(product.currency)
     if (currencies.size > 1) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
     const existing = lines.find(line => line.productId === request.productId && line.variantKey === (request.variantId || 0))
@@ -297,8 +298,9 @@ export async function addCartComponents(owner: CartOwner, requests: CartAddition
     await purchasable(request.productId, request.variantId)
   }
   const member = owner.userId ? await isMember(owner.userId) : false
+  const opens = await opensMembersOnly(owner.userId, member)
   const cart = await ensureCart(owner)
-  await db.$transaction(tx => writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, requests, true, member))
+  await db.$transaction(tx => writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, requests, true, opens))
   return { token: cart.token, limited: false }
 }
 

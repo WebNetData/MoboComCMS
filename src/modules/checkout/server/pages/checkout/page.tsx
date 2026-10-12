@@ -21,7 +21,7 @@ export default async function CheckoutPage({ searchParams: searchParamsPromise }
   const [settings, gateways] = await Promise.all([getSettings(), checkoutGatewayOptions(plan.currency)])
   const viewer = await getViewer()
   // Members-only plans send everyone else to the VIP page; members see their price.
-  if (plan.access === 'MEMBERS' && !viewer.member) redirect('/vip')
+  if (plan.access === 'MEMBERS' && !viewer.opens) redirect('/vip')
   const memberPrice = !offer && viewer.member && plan.memberPriceMinor > 0n ? legacyNumber(plan.memberPriceMinor, plan.currency) : 0
   const base = { id: plan.id, name: plan.name, nameEn: plan.nameEn, currency: plan.currency, days: plan.days, trafficGB: plan.trafficGB, price: memberPrice && memberPrice < plan.price ? memberPrice : plan.price }
   const selected = offer ? { ...plan, name: offer.nameFa, nameEn: offer.nameEn, price: legacyNumber(offer.priceMinor, offer.currency), trafficGB: offer.trafficGB, days: offer.days } : base

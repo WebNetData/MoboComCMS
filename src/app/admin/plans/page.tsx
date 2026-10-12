@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'
-import { formatCurrency } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
 
 interface PlanRow {
   id: number
@@ -29,7 +29,7 @@ interface PanelRow {
   active: boolean
 }
 
-const EMPTY = { name: '', nameEn: '', description: '', descriptionEn: '', trafficGB: 50, days: 30, deviceLimit: 2, price: 2.5, currency: 'USD', sort: 0, panelId: '', access: 'PUBLIC', memberPrice: '', vipGiftDays: 0 }
+const EMPTY = { name: '', nameEn: '', description: '', descriptionEn: '', trafficGB: 50, days: 30, deviceLimit: 2, price: 0, currency: BASE_CURRENCY, sort: 0, panelId: '', access: 'PUBLIC', memberPrice: '', vipGiftDays: 0 }
 
 export default function AdminPlansPage() {
   const { t, locale } = useI18n()

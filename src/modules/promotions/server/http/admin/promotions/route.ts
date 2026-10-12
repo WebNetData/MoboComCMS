@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
-import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { promotionCode } from '@/modules/promotions/server/promotions'
 
 function parseDate(value: unknown) {
@@ -16,7 +16,7 @@ function parseDate(value: unknown) {
 function parseInput(body: any) {
   const code = promotionCode(body?.code)
   const kind = body?.kind === 'FIXED' ? 'FIXED' : 'PERCENT'
-  const currency = normalizeCurrency(String(body?.currency || 'USD'))
+  const currency = normalizeCurrency(String(body?.currency || BASE_CURRENCY))
   const value = Number(body?.value)
   const maxUses = Number(body?.maxUses ?? 0)
   const perUserLimit = Number(body?.perUserLimit ?? 1)

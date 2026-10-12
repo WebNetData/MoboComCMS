@@ -149,7 +149,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Menus never link into disabled feature modules (e.g. /blog while the journal is off) — for every theme.
   // Pages of enabled uploaded packages that ask for it join the main menu.
   const locales = siteLocales()
-  const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)) }
+  const site = { ...siteConfig, locales, navigation: [...siteConfig.navigation.filter(link => !pathDisabled(link.href, extensions)), ...(packages?.nav || [])], footer: siteConfig.footer.filter(link => !pathDisabled(link.href, extensions)),
+    // An announcement that points into a switched-off module (the VIP offer while VIP is off) is not shown.
+    announcement: pathDisabled(siteConfig.announcement.link.href, extensions) ? { ...siteConfig.announcement, enabled: false } : siteConfig.announcement }
   // The site-wide music player keeps playing across page navigations while the music module is on.
   const musicOn = !pathDisabled('/music', extensions)
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
@@ -165,7 +167,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (design.extends === 'orbital') Object.assign(tokens, { '--orbital-blue': design.colors.accent, '--hp-radius': `${design.radius}px`, ...(theme === 'dark' ? { '--orbital-bg': design.colors.background, '--orbital-surface': design.colors.surface, '--orbital-text': design.colors.text, '--orbital-muted': design.colors.muted, '--orbital-border': design.colors.border } : {}) })
 
   return (
-    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} style={tokens} suppressHydrationWarning>
+    <html lang={locale} dir={dirOf(locale)} data-theme={theme} data-design={resolveCodeThemeId(site)} data-vip={pathDisabled('/vip', extensions) ? 'off' : undefined} style={tokens} suppressHydrationWarning>
       <head>
         {locales.length > 1 && <script nonce={nonce} dangerouslySetInnerHTML={{ __html: deviceLocaleBootstrap }} />}
         {packages?.css ? <style data-packages dangerouslySetInnerHTML={{ __html: packages.css }} /> : null}

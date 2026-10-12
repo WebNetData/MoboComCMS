@@ -27,7 +27,7 @@ test('bundle public reads stop before definition lookup when module, rollout or 
    '@/modules/catalog/domain/product-publication':load('src/modules/catalog/domain/product-publication.ts'),
    '@/modules/catalog/server/product-bundles':{productBundleDefinitions:async()=>{reads++;return[]}},
    '@/modules/catalog/server/storefront':{isStoreEnabled:async()=>state!=='module-off'},
-   '@/modules/membership/server/membership':{},'@/modules/store/domain/store':load('src/modules/store/domain/store.ts'),
+   '@/modules/membership/server/membership':{opensMembersOnly:async(_userId,member)=>!!member},'@/modules/store/domain/store':load('src/modules/store/domain/store.ts'),
    '@/modules/store/server/catalog':{getStoreSettings:async()=>({showProductBundles:state!=='paused'})},
    '@/modules/store/server/cart':{},'@/modules/store/server/pricing':{},'@/shared/money':{},
   })

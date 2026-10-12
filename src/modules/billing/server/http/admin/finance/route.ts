@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { Permission } from '@/modules/identity/rbac'
-import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     db.payment.findMany({ select: { currency: true }, distinct: ['currency'] }),
   ])
   const currencies = [...new Set([...invoiceCurrencies, ...expenseCurrencies, ...paymentCurrencies].map((x) => normalizeCurrency(x.currency || 'USD')))].sort()
-  if (currencies.length === 0) currencies.push('USD')
-  const currency = requestedCurrency ? normalizeCurrency(requestedCurrency) : currencies[0]
+  // The books open in the site's base currency; another currency that has rows is one choice away.
+  const currency = requestedCurrency ? normalizeCurrency(requestedCurrency) : BASE_CURRENCY
   if (!currencies.includes(currency)) currencies.push(currency)
 
   const [salesInvoices, unpaidInvoices, expenses, billingPayments, recentPayments, gatewayRows, plans] = await Promise.all([

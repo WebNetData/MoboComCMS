@@ -9,7 +9,7 @@
   "apiVersion": 1,
   "category": "commerce",
   "icon": "sparkles",
-  "defaultEnabled": true,
+  "defaultEnabled": false,
   "requiresCore": "^1.0.0",
   "publicPaths": [
     "/vip"
