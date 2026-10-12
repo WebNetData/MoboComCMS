@@ -5,6 +5,7 @@ import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/ev
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
+import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
@@ -484,12 +485,30 @@ const RESOURCES: Record<string, Resource> = {
 
 const PUBLISHABLE = new Set(['music-albums', 'music-tracks', 'music-playlists', 'cinema-titles', 'games', 'software'])
 
-async function authorize(req: NextRequest, resource: Resource) {
+/**
+ * What a section author may write here, with their section's author permission. An author is held to the items
+ * they created (`createdById`). `trash` says the item has a status, so a delete they ask for waits in the trash;
+ * an artist has none and is a name several items share, so an author reads every artist and never deletes one.
+ */
+const AUTHORED: Record<string, { permission: string; trash: boolean }> = {
+  'music-artists': { permission: 'music.author', trash: false },
+  'music-albums': { permission: 'music.author', trash: true },
+  'music-tracks': { permission: 'music.author', trash: true },
+  'cinema-titles': { permission: 'cinema.author', trash: true },
+  software: { permission: 'software.author', trash: true },
+}
+/** Whether items of this kind can be in the trash at all. */
+const trashable = (type: string) => AUTHORED[type]?.trash === true
+
+/** The caller as a manager of the resource (`authorId` null) or as an author of its section (their own id). */
+async function authorize(req: NextRequest, resource: Resource, type = '') {
   for (const perm of resource.perms) {
     const admin = await requirePerm(req, perm)
-    if (admin) return admin
+    if (admin) return { admin, authorId: null as number | null }
   }
-  return null
+  const authored = AUTHORED[type]
+  const writer = authored ? await requirePerm(req, authored.permission) : null
+  return writer ? { admin: writer, authorId: writer.id as number | null } : null
 }
 
 function resourceOf(req: NextRequest): [string, Resource] | null {
@@ -510,7 +529,10 @@ export async function GET(req: NextRequest) {
   const [type, resource] = found
   const off = await moduleGuard(resource.module)
   if (off) return off
-  if (!await authorize(req, resource)) return err('forbidden', 403)
+  const caller = await authorize(req, resource, type)
+  if (!caller) return err('forbidden', 403)
+  // An author's list, counts and single reads are the items they created; artists are shared names and read by all.
+  const own = caller.authorId && trashable(type) ? { createdById: caller.authorId } : null
   const one = Number(req.nextUrl.searchParams.get('id'))
   const offset = Number(req.nextUrl.searchParams.get('skip') || 0)
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100_000) return err('invalid offset', 400)
@@ -529,7 +551,8 @@ export async function GET(req: NextRequest) {
     software: ['title', 'titleEn', 'slug'],
     'vip-plans': ['name', 'nameEn', 'slug'],
   }
-  const where = Number.isSafeInteger(one) && one > 0 ? { id: one } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const asked = Number.isSafeInteger(one) && one > 0 ? { id: one } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const where = own ? { ...(asked || {}), ...own } : asked
   const total = pageInfo ? await resource.delegate(db).count({ where }) as number : 0
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const orderBy = Array.isArray(resource.orderBy) || 'id' in resource.orderBy ? resource.orderBy : [resource.orderBy, { id: 'desc' as const }]
@@ -538,9 +561,10 @@ export async function GET(req: NextRequest) {
   const terms = resource.taxonomy ? await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id)) : null
   const result = terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
   if (!pageInfo || !slice) return ok(result)
-  const overall = await resource.delegate(db).count() as number
-  const vip = type !== 'music-artists' && type !== 'vip-plans' ? await resource.delegate(db).count({ where: { access: 'MEMBERS' } }) as number : null
-  return ok({ rows: result, total, overall, vip, page: slice.page, pages: slice.pages })
+  const overall = await resource.delegate(db).count(own ? { where: own } : undefined) as number
+  const vip = type !== 'music-artists' && type !== 'vip-plans' ? await resource.delegate(db).count({ where: { access: 'MEMBERS', ...(own || {}) } }) as number : null
+  const trashed = trashable(type) ? await resource.delegate(db).count({ where: { status: TRASHED, ...(own || {}) } }) as number : 0
+  return ok({ rows: result, total, overall, vip, trashed, mine: !!caller.authorId, page: slice.page, pages: slice.pages })
 }
 
 /**
@@ -560,7 +584,8 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
         if (data[role] !== undefined) data[`${role}StudioId`] = await resolveStudioId(tx, data[role])
       }
     }
-    const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data })
+    // Who created an item is written once, by the admin form; an import has no staff member behind it.
+    const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data: AUTHORED[type] && actor ? { ...data, createdById: actor.id } : data })
     if (type === 'games' || type === 'software') await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', saved, existing)
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
@@ -628,14 +653,33 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
   const [type, resource] = found
   const off = await moduleGuard(resource.module)
   if (off) return off
-  const admin = await authorize(req, resource)
-  if (!admin) return err('forbidden', 403)
+  const caller = await authorize(req, resource, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
   const body = (await req.json().catch(() => null)) as Input | null
   if (!body || typeof body !== 'object') return err('Invalid body')
   const id = mode === 'update' ? Number(body.id) : 0
   if (mode === 'update' && (!Number.isSafeInteger(id) || id <= 0)) return err('invalid id')
+  // The trash is entered and left only through its own actions, never by a status a form sends.
+  if (body.status === TRASHED) return err('این وضعیت از فرم قابل انتخاب نیست', 400)
   try {
-    if (mode === 'update' && !await resource.delegate(db).findUnique({ where: { id } })) return err('not found', 404)
+    if (mode === 'update') {
+      const held = await resource.delegate(db).findUnique({ where: { id } }) as Record<string, any> | null
+      // Someone else's item is not there for an author.
+      if (!held || (caller.authorId && held.createdById !== caller.authorId)) return err('not found', 404)
+      if (trashable(type) && isTrashed(held as { status: string })) {
+        // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
+        if (caller.authorId || body.restore !== true) return err('این مورد در سطل زباله است و تا تصمیم مدیر قابل ویرایش نیست', 409)
+        const claimed = await resource.delegate(db).updateMany({ where: { id, status: TRASHED }, data: restoreData(held as { status: string; trashedStatus: string }) })
+        if (!claimed.count) return err('این مورد دیگر در سطل زباله نیست', 409)
+        const restored = await resource.delegate(db).findUnique({ where: { id } }) as Record<string, any>
+        await recountFor(resource)
+        if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, held, restored)
+        await auditAdmin({ req, actor: admin, action: `media.${type}.restore`, targetType: type, targetId: id, metadata: { label: resource.label(restored), status: restored.status } })
+        return ok({ id, slug: restored.slug, status: restored.status })
+      }
+      if (body.restore === true) return err('این مورد در سطل زباله نیست', 409)
+    }
     const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null, { id: admin.id, email: admin.email })
     await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
@@ -652,10 +696,20 @@ export async function DELETE(req: NextRequest) {
   const found = resourceOf(req)
   if (!found) return err('Unknown resource', 404)
   const [type, resource] = found
-  const admin = await authorize(req, resource)
-  if (!admin) return err('forbidden', 403)
+  const caller = await authorize(req, resource, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
+  if (caller.authorId) {
+    // An author does not delete: the item goes to the trash and a manager decides.
+    const outcome = await trashOwnItem(type, id, caller.authorId)
+    if (outcome === 'refused') return err('حذف این مورد با مدیر بخش است', 403)
+    if (outcome !== 'trashed') return outcome === 'missing' ? err('not found', 404) : err('این مورد پیش‌تر به سطل زباله رفته است', 409)
+    await recountFor(resource)
+    await auditAdmin({ req, actor: admin, action: `media.${type}.trash`, targetType: type, targetId: id })
+    return ok({ trashed: true })
+  }
   try {
     const row = await db.$transaction(async (tx) => {
       if (type === 'games' || type === 'software') await tx.studioPublicationNotification.deleteMany({ where: { itemType: type === 'games' ? 'game' : 'software', itemId: id } })
@@ -672,6 +726,33 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+/** Sends one of an author's own items to the trash: claimed on the state it was read in, so two requests cannot both win. */
+async function trashOwnItem(type: string, id: number, authorId: number): Promise<'trashed' | 'missing' | 'already' | 'refused'> {
+  const resource = RESOURCES[type]
+  const row = await resource.delegate(db).findFirst({ where: { id, createdById: authorId } }) as Record<string, any> | null
+  if (!row) return 'missing'
+  if (!trashable(type)) return 'refused'
+  if (isTrashed(row as { status: string })) return 'already'
+  const claimed = await resource.delegate(db).updateMany({ where: { id, createdById: authorId, status: row.status }, data: trashData(row as { status: string }, authorId) })
+  if (!claimed.count) return 'already'
+  if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, { ...row, status: TRASHED })
+  return 'trashed'
+}
+
+/** For the staff moderation overview: items of one kind an author asked to delete, waiting in the trash, oldest request first. */
+export async function waitingInTrash(type: string, take = 5) {
+  const resource = RESOURCES[type]
+  if (!resource || !trashable(type)) return { count: 0, items: [] }
+  const where = { status: TRASHED }
+  const [count, rows] = await Promise.all([
+    resource.delegate(db).count({ where }) as Promise<number>,
+    resource.delegate(db).findMany({ where, orderBy: { trashedAt: 'asc' }, take }) as Promise<Record<string, any>[]>,
+  ])
+  const ids = [...new Set(rows.map((row) => row.trashedById).filter((id) => Number.isSafeInteger(id)))] as number[]
+  const names = new Map((ids.length ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } }) : []).map((user) => [user.id, user.name || user.email]))
+  return { count, items: rows.map((row) => ({ id: row.id as number, text: resource.label(row).slice(0, 160), full: resource.label(row).slice(0, 2000), by: names.get(row.trashedById) || '', about: 'درخواست حذف', at: (row.trashedAt || row.updatedAt) as Date })) }
+}
+
 /** Batch editor for the shared media lists; deletion uses the same nested cleanup as single-item deletion. */
 export async function BULK(req: NextRequest) {
   const found = resourceOf(req)
@@ -680,8 +761,10 @@ export async function BULK(req: NextRequest) {
   if (!bulkSameOrigin(req)) return err('forbidden', 403)
   const off = await moduleGuard(resource.module)
   if (off) return off
-  const admin = await authorize(req, resource)
-  if (!admin) return err('forbidden', 403)
+  const caller = await authorize(req, resource, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
+  const own = caller.authorId ? { createdById: caller.authorId } : {}
   let input: Awaited<ReturnType<typeof readBulkInput>>
   try { input = await readBulkInput(req) } catch (error) { return err(error instanceof Error ? error.message : 'invalid batch', 400) }
   const { ids, action } = input
@@ -691,13 +774,16 @@ export async function BULK(req: NextRequest) {
 
   if (action !== 'delete') {
     try {
-      const rows = await resource.delegate(db).findMany({ where: { id: { in: ids } } }) as Record<string, any>[]
-      const known = new Set(rows.map((row) => row.id))
+      // Someone else's item is not there for an author; an item in the trash changes only by a manager's decision.
+      const found = await resource.delegate(db).findMany({ where: { id: { in: ids }, ...own } }) as Record<string, any>[]
+      const rows = found.filter((row) => row.status !== TRASHED)
+      const known = new Set(found.map((row) => row.id))
       for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
+      for (const row of found) if (row.status === TRASHED) failed.push({ id: row.id, reason: 'in the trash' })
       if (rows.length) {
         const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
         await db.$transaction(async (tx) => {
-          await resource.delegate(tx).updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
+          await resource.delegate(tx).updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
           if (type === 'music-tracks' && status === 'PUBLISHED') {
             for (const row of rows) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
@@ -717,11 +803,16 @@ export async function BULK(req: NextRequest) {
     } catch (error) { return failure(error) }
   } else {
     for (const id of ids) {
+      if (caller.authorId) {
+        const outcome = await trashOwnItem(type, id, caller.authorId)
+        if (outcome === 'trashed') succeeded.push(id); else failed.push({ id, reason: outcome === 'missing' ? 'not found' : outcome === 'refused' ? 'only a manager deletes this' : 'already in the trash' })
+        continue
+      }
       try { await deleteMediaItem(type, id); succeeded.push(id) }
       catch { failed.push({ id, reason: 'cannot delete (in use or missing)' }) }
     }
     if (succeeded.length) await recountMediaTaxonomy(type)
   }
-  await auditAdmin({ req, actor: admin, action: `media.${type}.bulk.${action}`, targetType: type, metadata: { succeeded, failed } })
+  await auditAdmin({ req, actor: admin, action: `media.${type}.bulk.${action === 'delete' && caller.authorId ? 'trash' : action}`, targetType: type, metadata: { succeeded, failed } })
   return ok({ changed: succeeded.length, failed })
 }

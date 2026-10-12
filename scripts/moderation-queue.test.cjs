@@ -31,14 +31,18 @@ test('a staff member gets only the sources of modules that are on and that they 
   const keys = (states, permissions) => domain.visibleSources(states, (permission) => permissions === null || permissions.includes(permission)).map((source) => source.key)
   assert.equal(keys({}, null).length, domain.QUEUE_SOURCES.length, 'the unrestricted administrator sees everything')
   assert.deepEqual(keys({}, ['forum.moderate']), ['forum-posts', 'forum-flags'])
-  assert.deepEqual(keys({}, ['cms.posts']), ['article-comments'], 'the magazine permission is the magazine only')
+  assert.deepEqual(keys({}, ['cms.posts']), ['article-comments', 'trash-posts'], 'the magazine permission is the magazine only')
+  // A delete an author asked for is the section manager's to decide: an author sees no source at all.
+  assert.deepEqual(keys({}, ['music.manage']), ['trash-music-tracks', 'trash-music-albums'])
+  assert.deepEqual(keys({}, ['cinema.manage']), ['trash-cinema']); assert.deepEqual(keys({}, ['software.manage']), ['trash-software'])
+  assert.deepEqual(keys({}, ['journal.author', 'music.author', 'cinema.author', 'software.author']), [])
   assert.deepEqual(keys({}, ['reviews.moderate']), ['item-reviews'], 'moderating content reviews does not open business experiences')
   assert.deepEqual(keys({}, ['businesses.manage']), ['business-experiences'])
   assert.deepEqual(keys({ businesses: false }, ['businesses.manage', 'reviews.moderate']), ['item-reviews'], 'with the businesses module off its source is gone')
   assert.deepEqual(keys({}, ['cms.products']), ['product-reviews', 'product-questions'])
   assert.deepEqual(keys({}, ['settings.manage']), ['copyright'], 'the product feedback API asks for cms.products only')
   assert.deepEqual(keys({}, ['tickets.handle', 'orders.manage']), [])
-  assert.deepEqual(keys({ forum: false, store: false }, null), ['article-comments', 'item-reviews', 'business-experiences', 'community-reports', 'copyright'])
+  assert.deepEqual(keys({ forum: false, store: false }, null), ['article-comments', 'item-reviews', 'business-experiences', 'community-reports', 'copyright', 'trash-posts', 'trash-cinema', 'trash-music-tracks', 'trash-music-albums', 'trash-software'])
 })
 
 test('sources with the longest wait come first and the wait is graded', () => {
@@ -60,7 +64,8 @@ test('the overview asks only the modules it may show and one failing module does
   const queue = load('src/modules/moderation/server/queue.ts', {
     '@/modules/moderation/domain/queue': domain,
     '@/modules/forum/server/moderation': owner('forum', { posts: waiting(3, 4), flags: waiting(0, 0) }),
-    '@/modules/journal/server/admin': owner('journal', waiting(7, 2)),
+    '@/modules/journal/server/admin': { ...owner('journal', waiting(7, 2)), waitingInTrash: async (take) => { calls.push(['journal-trash', take]); return waiting(2, 7) } },
+    '@/modules/media/server/admin': { waitingInTrash: async (type, take) => { calls.push([`trash:${type}`, take]); return type === 'music-tracks' ? waiting(1, 8) : waiting(0, 0) } },
     '@/modules/reviews/server/reviews': owner('reviews', new Error('database down')),
     '@/modules/store/server/admin': owner('store', { reviews: waiting(1, 5), questions: waiting(2, 3) }),
     '@/modules/businesses/server/businesses': owner('businesses', waiting(4, 6)),
@@ -68,11 +73,11 @@ test('the overview asks only the modules it may show and one failing module does
     '@/modules/copyright/server/copyright': owner('copyright', waiting(1, 1)),
   })
   const all = await queue.moderationQueue({}, () => true)
-  assert.deepEqual(calls.map(([name]) => name).sort(), ['businesses', 'community', 'copyright', 'forum', 'journal', 'reviews', 'store'])
+  assert.deepEqual(calls.map(([name]) => name).sort(), ['businesses', 'community', 'copyright', 'forum', 'journal', 'journal-trash', 'reviews', 'store', 'trash:cinema-titles', 'trash:music-albums', 'trash:music-tracks', 'trash:software'])
   assert.ok(calls.every(([, take]) => take === 5))
   assert.deepEqual(all.failed, ['item-reviews'])
-  assert.equal(all.total, 18)
-  assert.deepEqual(all.groups.map((group) => [group.key, group.count]), [['copyright', 1], ['article-comments', 7], ['product-questions', 2], ['forum-posts', 3], ['product-reviews', 1], ['business-experiences', 4], ['forum-flags', 0], ['community-reports', 0]])
+  assert.equal(all.total, 21)
+  assert.deepEqual(all.groups.map((group) => [group.key, group.count]), [['copyright', 1], ['article-comments', 7], ['product-questions', 2], ['forum-posts', 3], ['product-reviews', 1], ['business-experiences', 4], ['trash-posts', 2], ['trash-music-tracks', 1], ['forum-flags', 0], ['community-reports', 0], ['trash-cinema', 0], ['trash-music-albums', 0], ['trash-software', 0]])
   assert.equal(all.groups[0].oldestAt, '2026-10-01T00:00:00.000Z')
   assert.equal(typeof all.groups[0].items[0].at, 'string')
   assert.equal(all.groups[0].items[0].full, 'the whole text')
@@ -102,7 +107,7 @@ test('a yes or no from the overview is exactly the request the owning admin API 
   const confirms = domain.QUEUE_SOURCES.flatMap((source) => (source.decisions || []).filter((decision) => decision.confirm).map((decision) => `${source.key}:${decision.key}`))
   assert.deepEqual(confirms, ['forum-posts:reject'])
   // Sources whose decision needs more than a yes or no offer none.
-  assert.deepEqual(domain.QUEUE_SOURCES.filter((source) => !source.decisions).map((source) => source.key), ['forum-flags', 'business-experiences', 'product-questions', 'community-reports', 'copyright'])
+  assert.deepEqual(domain.QUEUE_SOURCES.filter((source) => !source.decisions).map((source) => source.key), ['forum-flags', 'business-experiences', 'product-questions', 'community-reports', 'copyright', 'trash-posts', 'trash-cinema', 'trash-music-tracks', 'trash-music-albums', 'trash-software'])
   // A business experience is decided by its owner: the general queue leaves it out everywhere, and its own source leads to the owner's page.
   const reviews = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/reviews/server/reviews.ts'), 'utf8')
   assert.match(reviews, /const GENERAL = \{ itemType: \{ not: 'business' \} \}/)

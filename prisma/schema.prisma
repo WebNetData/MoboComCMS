@@ -658,6 +658,10 @@ model Post {
   categories  PostCategoryAssignment[]
   comments    PostComment[]
   itemLinks   PostItemLink[]
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([status, publishedAt])
 }
@@ -1332,6 +1336,9 @@ model MusicArtist {
   updatedAt DateTime     @default(now()) @updatedAt
   albums    MusicAlbum[]
   tracks    MusicTrack[]
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  @@index([createdById])
 }
 
 model MusicAlbum {
@@ -1353,9 +1360,16 @@ model MusicAlbum {
   updatedAt   DateTime     @default(now()) @updatedAt
   artist      MusicArtist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
   tracks      MusicTrack[]
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([artistId])
   @@index([status, publishedAt])
+  @@index([createdById])
 }
 
 model MusicTrack {
@@ -1385,10 +1399,17 @@ model MusicTrack {
   userPlaylistItems UserMusicPlaylistTrack[]
   releaseNotification MusicTrackReleaseNotification?
   listenHistory MusicListenHistory[]
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([artistId])
   @@index([albumId, trackNo])
   @@index([status, publishedAt])
+  @@index([createdById])
 }
 
 model MusicPlaylist {
@@ -1580,9 +1601,16 @@ model CinemaTitle {
   seasons       CinemaSeason[]
   airNotifications CinemaEpisodeAirNotification[]
   credits       CinemaCredit[]
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([kind, status, publishedAt])
   @@index([kind, status, releaseDate])
+  @@index([createdById])
 }
 
 /// A person of films and series (director, cast), read out of the titles' own director line and cast list.
@@ -1839,10 +1867,17 @@ model SoftwareTitle {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
   releases     SoftwareRelease[]
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([status, publishedAt])
   @@index([developerStudioId])
   @@index([publisherStudioId])
+  @@index([createdById])
 }
 
 /// Shared developer/publisher identity for Games and Software.

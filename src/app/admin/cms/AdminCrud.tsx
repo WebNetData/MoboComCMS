@@ -56,6 +56,9 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
   const [total, setTotal] = useState(0)
   const [overall, setOverall] = useState(0)
   const [published, setPublished] = useState<number | null>(null)
+  // A section author sees only their own items and asks for a delete; a manager decides what waits in the trash.
+  const [mine, setMine] = useState(false)
+  const [trashed, setTrashed] = useState(0)
   const [optionRows, setOptionRows] = useState<any[] | null>(null)
   const loadId = useRef(0)
   const initialDateValues = useRef<Record<string, string>>({})
@@ -99,6 +102,8 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
       setTotal(data.total)
       setOverall(data.overall)
       setPublished(data.published)
+      setMine(data.mine === true)
+      setTrashed(Number(data.trashed) || 0)
       setPages(data.pages)
       if (data.page !== page) setPage(data.page)
       setMsg('')
@@ -237,11 +242,21 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
 
   async function remove(id: number) {
     if (bulkBusy) return
-    if (!confirm(t.confirmDelete)) return
+    if (!confirm(mine ? 'این مورد به سطل زباله می‌رود و از سایت برداشته می‌شود؛ حذف نهایی یا بازگردانی آن با مدیر بخش است. ادامه می‌دهید؟' : t.confirmDelete)) return
     const res = await fetch(`/api/admin/cms?type=${type}&id=${id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) setMsg(data?.error || t.errGeneric)
+    else if (data?.trashed) setMsg('به سطل زباله رفت و منتظر تصمیم مدیر بخش است.')
     else setSelected((current) => { const next = new Set(current); next.delete(id); return next })
+    load()
+  }
+
+  /** A manager puts a trashed item back as it was. */
+  async function restore(id: number) {
+    if (bulkBusy) return
+    const res = await fetch(`/api/admin/cms?type=${type}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, restore: true }) })
+    const data = await res.json().catch(() => null)
+    setMsg(res.ok ? 'از سطل زباله برگشت.' : data?.error || t.errGeneric)
     load()
   }
 
@@ -292,7 +307,7 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
           </button>
         </div>
       </div>
-      <div className="cms-summary"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
+      <div className="cms-summary"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
 
       <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
 
@@ -390,15 +405,21 @@ export default function AdminCrud({ type, fields, titleKey = 'title', extraRows,
                       return <td key={f.key} className={str.length > 60 ? 'muted' : ''}>{str.length > 60 ? str.slice(0, 60) + '…' : str || '—'}</td>
                     })}
                     <td>
-                      <div className="flex gap-1">
+                      {row.status === 'TRASHED' ? <div className="flex gap-1" data-testid="trash-row">
+                        <span className="badge badge-gray">در سطل زباله</span>
+                        {mine ? <span className="muted text-sm">منتظر تصمیم مدیر بخش</span> : <>
+                          <button className="badge badge-purple" disabled={bulkBusy} onClick={() => restore(row.id)}>بازگردانی</button>
+                          <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>حذف نهایی</button>
+                        </>}
+                      </div> : <div className="flex gap-1">
                         <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
                         {blockDriven && <Link className="badge badge-blue" href={`/admin/editor/${type}/${row.id}`}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</Link>}
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'posts' && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {publicPath && !scheduled && (row.status === 'PUBLISHED' || (row.active === true && (type !== 'products' || row.approval === 'APPROVED'))) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
-                        <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{t.delete}</button>
-                      </div>
+                        <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{mine ? 'درخواست حذف' : t.delete}</button>
+                      </div>}
                     </td>
                   </tr>
                 )

@@ -33,6 +33,7 @@ Load references progressively; do not read every reference for every task.
 ## This repository
 Read `docs/agent/PLATFORM_DECISIONS.md` when the task touches access, staff, the forum or delivery. The rules that most often matter:
 - **Access:** guard with the section's own permission (`requirePerm` / `adminGuard`); never accept `cms.posts` outside the magazine. A route that changes a user's role, status or password calls `accountChangeRefusal`. Staff standing and role change in the same write.
+- **Section authors:** an author permission (`journal.author`, `cinema.author`, `music.author`, `software.author`) is taken only through `requireContentScope`, which holds the caller to the items they created; never add it beside a section permission in a plain `requirePerm`. An author's delete is a trash request (`content/domain/trash.ts`); only a manager deletes or restores. See PLATFORM_DECISIONS §4A.
 - **Forum:** walk categories with `categoryTree` / `categoryFamily` / `categoryPath`; limit everything public with `visibleCategories(viewer)`; decide moderation with `inCategory` / `moderatesCategory`; compose follow, feed and reviews from identity, community and reviews. New forum styles are an appended block in `src/app/forum.css` under their own prefix.
 - **Public item pages** carry a `ManageBar` with the section's permission; shared admin editors honour `?edit=<id>`.
 - **Taxonomies:** a new way of filing content is a new taxonomy with one kind of item (see PLATFORM_DECISIONS §6A); name it in every branch on the taxonomy, never rely on an `else`.

@@ -1,3 +1,4 @@
+import { AUTHOR_PERMISSIONS } from '@/modules/identity/domain/sections'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -10,7 +11,8 @@ import { findAssets, rewriteAssets } from '@/modules/downloads/domain/localize'
 import { FileError, appendChunk, cancelUpload, finishUpload, importFile, importImage, logImportFailure, pruneUploads, serveLocalFile, startUpload } from '@/modules/downloads/server/files'
 
 // Staff who edit content in any section may upload files and copy pasted assets.
-const CONTENT_PERMS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'software.manage', 'games.manage', 'settings.manage']
+// A section author uploads what their own items need, like the section's manager.
+const CONTENT_PERMS = ['cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'software.manage', 'games.manage', 'settings.manage', ...AUTHOR_PERMISSIONS]
 
 async function staff(req: NextRequest) {
   for (const perm of CONTENT_PERMS) {

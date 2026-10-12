@@ -3,7 +3,8 @@ import { contentChanged } from '@/modules/content/server/events'
 import { normalizeAccess } from '@/modules/membership/domain/membership'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
-import { requirePerm } from '@/modules/identity/server/access'
+import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
+import { TRASHED, formStatus, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
@@ -37,6 +38,21 @@ const PERM_MAP: Record<string, Permission> = {
   productgroups: 'cms.products',
   locations: 'settings.manage',
 }
+
+/**
+ * Who is asking. Articles may also be written by a magazine author (`journal.author`), who is then held to the
+ * articles they wrote: `authorId` is their id, and null for a manager. An author reads the categories to file
+ * an article under and changes nothing else here.
+ */
+async function callerOf(req: NextRequest, type: string, reading = false) {
+  const perm = PERM_MAP[type]
+  if (type === 'posts' || (type === 'postcats' && reading)) return requireContentScope(req, perm, 'journal.author')
+  const admin = await requirePerm(req, perm)
+  return admin ? { admin, authorId: null as number | null } : null
+}
+
+/** The fields of an article a form may set. Featuring an article is an editorial choice, not its author's. */
+const postFields = (authorId: number | null) => ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', ...(authorId ? [] : ['featured'])]
 
 function pick(b: any, keys: string[]) {
   const out: Record<string, unknown> = {}
@@ -73,8 +89,10 @@ export async function GET(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type') || ''
   const perm = PERM_MAP[type]
   if (!perm) return err('unknown type', 404)
-  const admin = await requirePerm(req, perm)
-  if (!admin) return err('forbidden', 403)
+  const caller = await callerOf(req, type, true)
+  if (!caller) return err('forbidden', 403)
+  // An author's list, counts and single reads are their own articles; someone else's is not there for them.
+  const own = type === 'posts' && caller.authorId ? { authorId: caller.authorId } : null
 
   if (type === 'productcats' && req.nextUrl.searchParams.get('options') === '1') {
     return ok(await db.productCategory.findMany({ select: { id: true, name: true, parentId: true }, orderBy: { id: 'asc' } }))
@@ -96,7 +114,8 @@ export async function GET(req: NextRequest) {
     productcats: ['name', 'nameEn', 'slug'], productgroups: ['name', 'nameEn'],
     locations: ['country', 'countryFa', 'city'],
   }
-  const where = onlyId ? { id: onlyId } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const asked = onlyId ? { id: onlyId } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
+  const where = own ? { ...(asked || {}), ...own } : asked
   const total = pageInfo ? await model.count({ where }) : 0
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
@@ -105,8 +124,8 @@ export async function GET(req: NextRequest) {
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
   if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
-  const published = type === 'posts' ? await model.count({ where: livePostWhere() }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
-  return ok({ rows: result, total, overall: await model.count(), published, page: slice.page, pages: slice.pages })
+  const published = type === 'posts' ? await model.count({ where: { ...livePostWhere(), ...(own || {}) } }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
+  return ok({ rows: result, total, overall: await model.count(own ? { where: own } : undefined), published, page: slice.page, pages: slice.pages, ...(type === 'posts' ? { trashed: await model.count({ where: { status: TRASHED, ...(own || {}) } }), mine: !!own } : {}) })
 }
 
 async function productCategoryParent(parentId: unknown, currentId?: number) {
@@ -159,8 +178,9 @@ export async function POST(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type') || ''
   const perm = PERM_MAP[type]
   if (!perm) return err('unknown type', 404)
-  const admin = await requirePerm(req, perm)
-  if (!admin) return err('forbidden', 403)
+  const caller = await callerOf(req, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
   const b = await req.json().catch(() => null)
 
   const model = MODELS[type]()
@@ -181,7 +201,7 @@ export async function POST(req: NextRequest) {
         if (itemLinks) await validatePostItemLinks(tx, itemLinks)
         const created = await tx.post.create({
         data: sanitizeContent({
-          ...pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured']),
+          ...pick({ ...b, status: formStatus(b?.status) }, postFields(caller.authorId)),
           ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
           access: normalizeAccess(b?.access),
           authorId: admin.id,
@@ -238,12 +258,30 @@ export async function PATCH(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type') || ''
   const perm = PERM_MAP[type]
   if (!perm) return err('unknown type', 404)
-  const admin = await requirePerm(req, perm)
-  if (!admin) return err('forbidden', 403)
+  const caller = await callerOf(req, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
   const b = await req.json().catch(() => null)
   const id = Number(b?.id)
   if (!id) return err('invalid id')
   const model = MODELS[type]()
+
+  if (type === 'posts') {
+    const held = await db.post.findUnique({ where: { id }, select: { id: true, authorId: true, status: true, trashedStatus: true } })
+    if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)
+    if (isTrashed(held)) {
+      // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
+      if (caller.authorId || b?.restore !== true) return err('این نوشته در سطل زباله است و تا تصمیم مدیر قابل ویرایش نیست', 409)
+      const claimed = await db.post.updateMany({ where: { id, status: TRASHED }, data: restoreData(held) })
+      if (!claimed.count) return err('این نوشته دیگر در سطل زباله نیست', 409)
+      const restored = await db.post.findUniqueOrThrow({ where: { id } })
+      contentChanged({ type: 'post', id }, { ...restored, status: TRASHED }, restored)
+      await auditAdmin({ req, actor: admin, action: 'cms.posts.restore', targetType: 'posts', targetId: id, metadata: { status: restored.status } })
+      return ok(restored)
+    }
+    if (b?.restore === true) return err('این نوشته در سطل زباله نیست', 409)
+    try { formStatus(b?.status) } catch (error) { return err(error instanceof Error ? error.message : 'invalid status', 400) }
+  }
 
   if (type === 'posts' && b?.cover !== undefined) {
     try { validateCover(b.cover) } catch { return err('نشانی تصویر معتبر نیست', 400) }
@@ -257,7 +295,7 @@ export async function PATCH(req: NextRequest) {
   }
   if (type === 'posts') {
     if (b?.content !== undefined && (await db.post.findUnique({ where: { id }, select: { editorFormat: true } }))?.editorFormat === 'blocks-v1') return err('this article is written in blocks; its body is edited in the block editor', 409)
-    Object.assign(data, sanitizeContent(pick(b, ['slug', 'title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'status', 'featured'])))
+    Object.assign(data, sanitizeContent(pick(b, postFields(caller.authorId))))
     if (b?.access !== undefined) data.access = normalizeAccess(b.access)
   }
   if (type === 'postcats' || type === 'productcats') Object.assign(data, pick(b, ['slug', 'name', 'nameEn']))
@@ -343,11 +381,19 @@ export async function DELETE(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type') || ''
   const perm = PERM_MAP[type]
   if (!perm) return err('unknown type', 404)
-  const admin = await requirePerm(req, perm)
-  if (!admin) return err('forbidden', 403)
+  const caller = await callerOf(req, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!id) return err('invalid id')
   const model = MODELS[type]()
+  if (type === 'posts' && caller.authorId) {
+    // An author does not delete: the article goes to the trash and a manager decides.
+    const outcome = await trashOwnPost(id, caller.authorId)
+    if (outcome !== 'trashed') return outcome === 'missing' ? err('not found', 404) : err('این نوشته پیش‌تر به سطل زباله رفته است', 409)
+    await auditAdmin({ req, actor: admin, action: 'cms.posts.trash', targetType: 'posts', targetId: id })
+    return ok({ trashed: true })
+  }
   try {
     if (type === 'postcats') {
       await db.$transaction(async tx => {
@@ -372,13 +418,26 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+/** Sends one of an author's own articles to the trash: claimed on the state it was read in, so two requests cannot both win. */
+async function trashOwnPost(id: number, authorId: number): Promise<'trashed' | 'missing' | 'already'> {
+  const row = await db.post.findFirst({ where: { id, authorId } })
+  if (!row) return 'missing'
+  if (isTrashed(row)) return 'already'
+  const claimed = await db.post.updateMany({ where: { id, authorId, status: row.status }, data: trashData(row, authorId) })
+  if (!claimed.count) return 'already'
+  contentChanged({ type: 'post', id }, row, { ...row, status: TRASHED })
+  return 'trashed'
+}
+
 /** Status and deletion batches for editorial content. The browser sends at most 100 IDs at a time. */
 export async function BULK(req: NextRequest) {
   const type = req.nextUrl.searchParams.get('type') || ''
   if (type !== 'posts' && type !== 'pages') return err('unknown type', 404)
   if (!bulkSameOrigin(req)) return err('forbidden', 403)
-  const admin = await requirePerm(req, PERM_MAP[type])
-  if (!admin) return err('forbidden', 403)
+  const caller = await callerOf(req, type)
+  if (!caller) return err('forbidden', 403)
+  const admin = caller.admin
+  const own = type === 'posts' && caller.authorId ? { authorId: caller.authorId } : {}
   let input: Awaited<ReturnType<typeof readBulkInput>>
   try { input = await readBulkInput(req) } catch (error) { return err(error instanceof Error ? error.message : 'invalid batch', 400) }
   const { ids, action } = input
@@ -389,11 +448,14 @@ export async function BULK(req: NextRequest) {
   if (action !== 'delete') {
     const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
     if (type === 'posts') {
-      const rows = await db.post.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true, title: true, status: true, publishedAt: true } })
-      const known = new Set(rows.map((row) => row.id))
+      // Someone else's article is not there for an author; an article in the trash changes only by a manager's decision.
+      const found = await db.post.findMany({ where: { id: { in: ids }, ...own }, select: { id: true, slug: true, title: true, status: true, publishedAt: true } })
+      const rows = found.filter((row) => !isTrashed(row))
+      const known = new Set(found.map((row) => row.id))
       for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
+      for (const row of found) if (isTrashed(row)) failed.push({ id: row.id, reason: 'in the trash' })
       if (rows.length) {
-        await db.post.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { status } })
+        await db.post.updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
         for (const row of rows) {
           succeeded.push(row.id)
           contentChanged({ type: 'post', id: row.id }, row, { ...row, status })
@@ -415,7 +477,10 @@ export async function BULK(req: NextRequest) {
   } else {
     for (const id of ids) {
       try {
-        if (type === 'posts') {
+        if (type === 'posts' && caller.authorId) {
+          const outcome = await trashOwnPost(id, caller.authorId)
+          if (outcome !== 'trashed') { failed.push({ id, reason: outcome === 'missing' ? 'not found' : 'already in the trash' }); continue }
+        } else if (type === 'posts') {
           const row = await db.post.delete({ where: { id } })
           contentChanged({ type: 'post', id }, row, null)
         } else {
@@ -431,6 +496,6 @@ export async function BULK(req: NextRequest) {
     }
   }
   if (paths.length) queueIndexNow(paths)
-  await auditAdmin({ req, actor: admin, action: `cms.${type}.bulk.${action}`, targetType: type, metadata: { succeeded, failed } })
+  await auditAdmin({ req, actor: admin, action: `cms.${type}.bulk.${action === 'delete' && caller.authorId ? 'trash' : action}`, targetType: type, metadata: { succeeded, failed } })
   return ok({ changed: succeeded.length, failed })
 }

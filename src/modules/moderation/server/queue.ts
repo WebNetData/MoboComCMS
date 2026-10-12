@@ -1,6 +1,7 @@
 import { orderGroups, visibleSources, type QueueGroup, type QueueSourceKey } from '@/modules/moderation/domain/queue'
 import { waitingForModeration as forumWaiting } from '@/modules/forum/server/moderation'
-import { waitingForModeration as journalWaiting } from '@/modules/journal/server/admin'
+import { waitingForModeration as journalWaiting, waitingInTrash as postsInTrash } from '@/modules/journal/server/admin'
+import { waitingInTrash as mediaInTrash } from '@/modules/media/server/admin'
 import { waitingForModeration as reviewsWaiting } from '@/modules/reviews/server/reviews'
 import { waitingForModeration as businessesWaiting } from '@/modules/businesses/server/businesses'
 import { waitingForModeration as storeWaiting } from '@/modules/store/server/admin'
@@ -26,9 +27,15 @@ export async function moderationQueue(states: Readonly<Record<string, boolean | 
     read('store', () => storeWaiting(TAKE)), read('community', () => communityWaiting(TAKE)), read('copyright', () => copyrightWaiting(TAKE)),
     read('businesses', () => businessesWaiting(TAKE)),
   ])
+  // Delete requests of section authors, each read from the owner of that kind of item.
+  const [trashPosts, trashCinema, trashTracks, trashAlbums, trashSoftware] = await Promise.all([
+    read('journal', () => postsInTrash(TAKE)), read('cinema', () => mediaInTrash('cinema-titles', TAKE)), read('music', () => mediaInTrash('music-tracks', TAKE)),
+    read('music', () => mediaInTrash('music-albums', TAKE)), read('software', () => mediaInTrash('software', TAKE)),
+  ])
   const bySource: Record<QueueSourceKey, Waiting | null | undefined> = {
     'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews, 'business-experiences': businesses,
     'product-reviews': store?.reviews, 'product-questions': store?.questions, 'community-reports': community, copyright,
+    'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-software': trashSoftware,
   }
   const failed: QueueSourceKey[] = []
   const groups: QueueGroup[] = []
