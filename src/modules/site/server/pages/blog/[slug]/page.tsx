@@ -152,7 +152,9 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   ])
 
   const headerSlot = (
-    <header className="journal-post-head">
+    <header className="journal-post-head jp-hero">
+      {/* The cover is the header's own background: decoration here, described by the title beside it. */}
+      <img className="jp-hero-bg" src={coverImage} alt="" fetchPriority="high" decoding="async" />
       <div className="journal-post-cats">
         {tagList.map((cat) => (
           <Link key={cat.id} href={`/blog?category=${encodeURIComponent(cat.slug)}`} className="ln-badge">
@@ -191,7 +193,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   const coverSlot = (
     <figure className="journal-post-figure">
-      <img src={coverImage} alt="" fetchPriority="high" />
+      <img src={coverImage} alt="" loading="lazy" decoding="async" />
     </figure>
   )
 

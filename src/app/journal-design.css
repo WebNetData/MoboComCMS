@@ -1742,6 +1742,29 @@
 .ln-textsize button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 .jp-fact svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--ln-accent); flex-shrink: 0; }
 
+/* ---- the header as a hero: the cover picture behind the title. The picture is darkened towards the text, so the
+   words are light in both themes; where there is no cover the magazine's own fallback picture is used. */
+.jp-hero { position: relative; isolation: isolate; overflow: hidden; align-content: end; gap: 16px; min-height: clamp(440px, 58vh, 640px); margin-block: 20px 6px; padding: clamp(22px, 4.2vw, 56px); padding-block-end: clamp(18px, 2.6vw, 30px); border: 1px solid rgb(255 255 255 / .1); border-radius: 34px; color: #fff; box-shadow: 0 50px 90px -50px color-mix(in srgb, var(--ln-accent) 55%, rgb(6 8 18 / .8)); }
+.jp-hero-bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.jp-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgb(7 9 20 / .96) 0%, rgb(7 9 20 / .82) 30%, rgb(7 9 20 / .42) 62%, rgb(7 9 20 / .3) 100%), radial-gradient(70% 60% at 85% 100%, color-mix(in srgb, var(--ln-accent) 38%, transparent), transparent 70%); }
+.jp-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .06), inset 0 -120px 120px -80px rgb(7 9 20 / .6); pointer-events: none; }
+.jp-hero .journal-post-cats .ln-badge { border: 1px solid rgb(255 255 255 / .2); background: rgb(255 255 255 / .12); color: #fff; backdrop-filter: blur(10px); }
+.journal-post-head.jp-hero h1 { max-width: 34ch; color: #fff; font-size: clamp(2rem, 4.6vw, 3.7rem); line-height: 1.36; text-shadow: 0 2px 24px rgb(0 0 0 / .45); }
+.jp-hero .journal-post-lead { max-width: 70ch; color: rgb(255 255 255 / .84); text-shadow: 0 1px 12px rgb(0 0 0 / .4); }
+.jp-hero .ea-actions { margin-top: 2px; }
+.jp-hero .journal-post-meta { margin-block-start: 10px; border-color: rgb(255 255 255 / .14); background: rgb(255 255 255 / .08); backdrop-filter: blur(16px) saturate(1.3); color: #fff; }
+.jp-hero .journal-avatar { box-shadow: 0 0 0 3px rgb(255 255 255 / .16), 0 0 0 4px color-mix(in srgb, var(--ln-accent) 70%, transparent); }
+.jp-hero .journal-avatar-copy small { color: rgb(255 255 255 / .68); }
+.jp-hero .journal-avatar-copy strong { color: #fff; }
+.jp-hero .jp-fact { background: rgb(255 255 255 / .1); color: rgb(255 255 255 / .88); }
+.jp-hero .jp-fact svg { color: color-mix(in srgb, var(--ln-accent) 55%, #fff); }
+.jp-hero .ln-textsize { border-color: rgb(255 255 255 / .16); background: rgb(255 255 255 / .08); }
+.jp-hero .ln-textsize span { color: rgb(255 255 255 / .72); }
+.jp-hero .ln-textsize button { background: rgb(255 255 255 / .14); color: #fff; }
+/* On the plain article page the hero already shows the cover, so the separate figure is not repeated under it.
+   A built layout places the figure itself and keeps it. */
+.journal-post-solo .journal-post-figure { display: none; }
+
 /* ---- cover */
 .journal-post-figure { position: relative; margin: 26px 0 8px; border-radius: 28px; box-shadow: 0 40px 80px -40px color-mix(in srgb, var(--ln-accent) 45%, rgba(8, 18, 32, .5)); }
 .journal-post-figure img { aspect-ratio: 21 / 9; max-height: 560px; }
@@ -1865,6 +1888,7 @@
 }
 @media (max-width: 760px) {
   .journal-post-head h1 { max-width: none; }
+  .jp-hero { min-height: 420px; padding: 18px 16px 14px; border-radius: 24px; }
   .journal-post-meta { padding: 10px 12px; border-radius: 16px; }
   .jp-facts { margin-inline-end: 0; }
   .journal-post-figure { border-radius: 20px; }
