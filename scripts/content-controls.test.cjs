@@ -990,3 +990,33 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
   // A store that cannot be read closes nothing.
   stored = null; assert.equal((await get('/play/doom')).status, 200)
 })
+
+test('a section in maintenance leaves search, the sitemap and the feeds; an open one stays', async () => {
+  const m = load('src/modules/site/domain/maintenance.ts')
+  const bases = { businesses: ['/businesses'], store: ['/products', '/cart'], magazine: ['/blog'], games: ['/games'], cinema: ['/cinema', '/watch'], music: ['/music'], software: ['/software'], forum: ['/forum'] }
+  const none = m.normalizeMaintenance(null), some = m.normalizeMaintenance({ magazine: { enabled: true }, cinema: { enabled: true }, music: { enabled: false, title: 'x' } })
+  assert.deepEqual(m.closedPlugins(none), [])
+  // A section is named by its plugin: the magazine's is journal.
+  assert.deepEqual(m.closedPlugins(some), ['journal', 'cinema'])
+  for (const [path, closed] of [['/blog', true], ['/blog/a-post', true], ['/watch/5', true], ['/cinema/x', true], ['/music', false], ['/music/album/1', false], ['/blogger', false], ['/', false], ['/p/about', false], ['/products/x', false]]) assert.equal(m.pathClosed(path, some, bases), closed, path)
+  assert.equal(m.pathClosed('/blog/a-post', none, bases), false)
+  const src = (file) => require('node:fs').readFileSync(require('node:path').resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  // Search asks only for the types of open sections; a studio belongs to games and software and goes when both are closed.
+  const search = src('src/modules/search/server/search.ts')
+  const rule = search.match(/const types = \(await enabledItemTypes\(\)\)\.filter\(\(item\) => (.+)\)\n/)[1]
+  const typesFor = (closedList) => { const closed = new Set(closedList), ITEM_MODULE = { software: 'software', game: 'games', studio: 'games', title: 'cinema', album: 'music', track: 'music', artist: 'music', product: 'store', post: 'journal', thread: 'forum', business: 'businesses' }; return Object.keys(ITEM_MODULE).filter((item) => new Function('item', 'closed', 'ITEM_MODULE', 'return ' + rule)(item, closed, ITEM_MODULE)) }
+  assert.deepEqual(typesFor([]), ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business'])
+  assert.deepEqual(typesFor(['journal', 'music']), ['software', 'game', 'studio', 'title', 'product', 'thread', 'business'])
+  assert.deepEqual(typesFor(['games']), ['software', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business'])
+  assert.deepEqual(typesFor(['games', 'software']), ['title', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business'])
+  // The index itself is not narrowed: opening the section again needs no rebuild.
+  assert.match(search, /rebuilding \?\?= \(async \(\) => \{[\s\S]{0,120}const types = await enabledItemTypes\(\)/)
+  assert.match(src('src/modules/site/server/pages/sitemap.ts'), /!\(maintenance && pathClosed\(path, maintenance, bases\)\)/)
+  assert.match(src('src/modules/seo/server/feeds.ts'), /return \(id: string\) => runtime\[id\]\?\.enabled !== false && !closed\.has\(id\)/)
+  // The home page treats a closed section like a module that is off: its blocks and links are not offered.
+  const home = src('src/modules/site/server/homepage.ts')
+  assert.ok(home.includes('const enabled = (id: string) => runtime[id]?.enabled !== false && !closed.has(id)'))
+  assert.ok(home.includes('MAINTENANCE_SECTIONS.filter((section) => closed.has(section.plugin)).flatMap((section) => bases[section.id])]'))
+  // A state that cannot be read closes nothing.
+  assert.match(src('src/modules/site/server/maintenance.ts'), /closedPlugins\(await loadMaintenance\(\)\.catch\(\(\) => normalizeMaintenance\(null\)\)\)/)
+})

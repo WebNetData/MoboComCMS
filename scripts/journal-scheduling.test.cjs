@@ -98,7 +98,7 @@ test('scheduled announcements move with the date, cancel on draft, and never res
     '@/modules/notifications/server/telegram': {},
     '@/modules/site/server/seo': {},
     '@/modules/content/domain/items': {},
-    '@/modules/content/server/registry': {},
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {},
     '@/modules/push/server/push': {},
     '@/modules/social/domain/social': { DEFAULT_SOCIAL: settings, isAnnounceType: type => type === 'post' },
   })
@@ -184,7 +184,7 @@ test('search indexes scheduled posts but excludes them from candidates until due
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': { enabledItemTypes: async () => ['post'], searchIndexCard: async () => card, itemCards: async () => new Map() },
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': { enabledItemTypes: async () => ['post'], searchIndexCard: async () => card, itemCards: async () => new Map() },
     '@/modules/analytics/server/collect': { recordSearch: async () => {} },
   })
   await search.reindexItem({ type: 'post', id: card.id })

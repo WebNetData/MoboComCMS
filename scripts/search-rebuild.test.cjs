@@ -40,7 +40,7 @@ test('full search rebuild scans past 5,000 items and replaces the index once', a
     '@/platform/database/prisma': { db },
     '@/platform/observability/logger': { logEvent: () => {} },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': {
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {
       enabledItemTypes: async () => ['post'],
       searchIndexPage: async (_type, afterId, take) => {
         cursors.push(afterId)
@@ -65,7 +65,7 @@ test('a broken index page fails before the existing index is replaced', async ()
     '@/platform/database/prisma': { db: { $transaction: async () => { transactions++ } } },
     '@/platform/observability/logger': { logEvent: () => {} },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': { enabledItemTypes: async () => ['post'], searchIndexPage: async () => [card(2), card(1)] },
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': { enabledItemTypes: async () => ['post'], searchIndexPage: async () => [card(2), card(1)] },
     '@/modules/analytics/server/collect': {},
   })
   await assert.rejects(search.rebuildSearchIndex(), /not ordered/)
@@ -91,7 +91,7 @@ test('public search ranks beyond the old candidate bound and counts visible matc
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': {
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {
       enabledItemTypes: async () => ['post'],
       itemCards: async refs => new Map(refs.filter(ref => ref.id !== 2).map(ref => [`post:${ref.id}`, card(ref.id)])),
     },
@@ -121,11 +121,18 @@ test('section suggestions query their own type in the bounded autocomplete path'
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': { enabledItemTypes: async () => ['post', 'product'] },
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': { enabledItemTypes: async () => ['post', 'product'] },
     '@/modules/analytics/server/collect': { recordSearch: async () => {} },
   })
   assert.deepEqual(await search.suggest('needle', ['post', 'product']), [])
   assert.deepEqual(queriedTypes, [['post'], ['product']])
+  // A section in maintenance is not asked at all: neither its own box nor the whole-site search reaches its items.
+  queriedTypes.length = 0; globalThis.__closedSections = ['journal']
+  try {
+    assert.deepEqual(await search.suggest('needle', ['post', 'product']), [])
+    assert.deepEqual(await search.suggest('needle'), [])
+    assert.ok(queriedTypes.length > 0 && queriedTypes.every(types => !types.includes('post')), JSON.stringify(queriedTypes))
+  } finally { delete globalThis.__closedSections }
 })
 
 test('public search reports all matches while retaining the existing 50-page window', async () => {
@@ -140,7 +147,7 @@ test('public search reports all matches while retaining the existing 50-page win
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': {
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {
       enabledItemTypes: async () => ['post'],
       itemCards: async refs => new Map(refs.map(ref => [`post:${ref.id}`, card(ref.id)])),
     },
@@ -167,7 +174,7 @@ test('cursor navigation crosses page 50, reverses ties and preserves visibility 
       searchDocument: { findMany: async ({ where, take }) => rows.filter(row => row.id > where.id.gt).slice(0, take) },
     } },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
-    '@/modules/content/server/registry': {
+    '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {
       enabledItemTypes: async () => ['post', 'product'],
       itemCards: async refs => new Map(refs.filter(ref => ref.id !== 5).map(ref => [`${ref.type}:${ref.id}`, { ...card(ref.id), type: ref.type }])),
     },

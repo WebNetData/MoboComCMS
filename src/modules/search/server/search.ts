@@ -7,7 +7,8 @@ import { createInterface } from 'node:readline'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { normalizePersian, relevance, searchTokens, searchableText } from '@/shared/text/persian'
-import { ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
+import { ITEM_MODULE, ITEM_TYPES, itemKey, type ItemRef, type ItemType } from '@/modules/content/domain/items'
+import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { recordSearch } from '@/modules/analytics/server/collect'
 import { RankedWindow } from '@/modules/search/domain/ranked-window'
@@ -132,7 +133,9 @@ function snippet(text: string, tokens: string[]): string {
 export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean; facets?: { access?: unknown; rated?: unknown; since?: unknown } | null }): Promise<SearchResult> {
   const query = String(input.q ?? '').trim().slice(0, 100)
   const tokens = searchTokens(query)
-  const types = await enabledItemTypes()
+  // A section in maintenance is not offered to a search: its pages would answer with the notice.
+  const closed = await closedSectionPlugins()
+  const types = (await enabledItemTypes()).filter((item) => item === 'studio' ? !(closed.has('games') && closed.has('software')) : !closed.has(ITEM_MODULE[item]))
   const type = types.includes(input.type as ItemType) ? input.type as ItemType : 'all'
   const page = Math.max(1, Math.min(MAX_PAGE, Math.floor(Number(input.page) || 1)))
   // Autocomplete is never narrowed: it answers what is typed.

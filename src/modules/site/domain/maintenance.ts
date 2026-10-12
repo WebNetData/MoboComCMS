@@ -51,6 +51,21 @@ export function sectionOfPath(path: string, bases: Record<string, readonly strin
   return null
 }
 
+/**
+ * The plugins whose public pages are closed now. What lists a section's items for everybody (search, the sitemap,
+ * the feeds) leaves these out, so a visitor is not led to a notice. The section's own pages and its admin are
+ * not decided here.
+ */
+export function closedPlugins(state: MaintenanceState): string[] {
+  return MAINTENANCE_SECTIONS.filter((section) => state[section.id]?.enabled).map((section) => section.plugin)
+}
+
+/** Whether a public path belongs to a section that is closed now. */
+export function pathClosed(path: string, state: MaintenanceState, bases: Record<string, readonly string[]>): boolean {
+  const section = sectionOfPath(path, bases)
+  return !!section && state[section].enabled
+}
+
 /** What a session says about its holder: the role, the role id and the permissions it was signed in with. */
 export type MaintenanceViewer = Record<string, unknown>
 

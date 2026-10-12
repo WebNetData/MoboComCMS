@@ -6,6 +6,8 @@ import { getSettings } from '@/modules/settings/server'
 import { listPublishedSections } from '@/modules/site/server/theme-templates'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { pathDisabled } from '@/platform/extensions/contracts'
+import { loadMaintenance, maintenanceBases } from '@/modules/site/server/maintenance'
+import { pathClosed } from '@/modules/site/domain/maintenance'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { entitySitemap, forumSitemap } from '@/modules/seo/server/sitemap-entities'
@@ -95,6 +97,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const publish = (entry: MetadataRoute.Sitemap[number]) => {
     try { const url = new URL(entry.url); return { ...entry, url: `${url.origin}${toPublicPath(url.pathname + url.search, aliases)}` } } catch { return entry }
   }
-  if (!runtime) return entries.map(publish)
-  return entries.filter((entry) => { try { return !pathDisabled(new URL(entry.url).pathname, runtime) } catch { return true } }).map(publish)
+  // A section in maintenance leaves the sitemap too: its pages answer 503 until it is opened again.
+  const maintenance = await loadMaintenance().catch(() => null), bases = maintenanceBases()
+  const open = (entry: MetadataRoute.Sitemap[number]) => { try { const path = new URL(entry.url).pathname; return !(runtime && pathDisabled(path, runtime)) && !(maintenance && pathClosed(path, maintenance, bases)) } catch { return true } }
+  return entries.filter(open).map(publish)
 }
