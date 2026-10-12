@@ -1737,6 +1737,9 @@
 .journal-avatar { width: 44px; height: 44px; box-shadow: 0 0 0 3px var(--card), 0 0 0 4px color-mix(in srgb, var(--ln-accent) 55%, transparent); }
 .jp-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-inline-end: auto; }
 .jp-fact { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 4px 12px; border-radius: 999px; background: var(--ln-soft); color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+/* The site's reset lets a button take the page's text alignment, so a fixed-size one centres its own icon. */
+.ln-textsize button { display: inline-grid; place-items: center; padding: 0; flex-shrink: 0; text-align: center; }
+.ln-textsize button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 .jp-fact svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--ln-accent); flex-shrink: 0; }
 
 /* ---- cover */
@@ -1746,7 +1749,8 @@
 
 /* ---- the text and, beside it, the rail of actions */
 .jp-read { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: clamp(18px, 3vw, 44px); align-items: start; margin-block-start: 26px; }
-.jp-main { min-width: 0; max-width: 820px; }
+.jp-main { min-width: 0; }
+.jp-main .journal-prose p { max-width: none; }
 .jp-rail { position: sticky; inset-block-start: 96px; display: grid; justify-items: center; gap: 8px; padding: 10px 6px; border: 1px solid var(--ln-line); border-radius: 999px; background: color-mix(in srgb, var(--card) 80%, transparent); backdrop-filter: blur(10px); }
 /* A small ring that fills with the share of the article already read (set by ReadingProgress on the document). */
 .jp-rail-meter { display: grid; place-items: center; width: 38px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--ln-accent) calc(var(--jp-read, 0) * 1%), var(--ln-soft) 0); }
@@ -1756,7 +1760,9 @@
 .jp-rail-btn:hover { background: color-mix(in srgb, var(--ln-accent) 14%, transparent); color: var(--ln-accent); transform: translateY(-2px); }
 .jp-rail-btn:focus-visible { outline: 2px solid var(--ln-accent); outline-offset: 2px; }
 .jp-rail-btn.is-done { background: color-mix(in srgb, #16a34a 16%, transparent); color: #16a34a; }
-.jp-rail-btn.is-top { margin-block-start: 4px; border-block-start: 1px solid var(--ln-line); border-radius: 0 0 50% 50%; padding-block-start: 4px; }
+/* A hairline above the way back to the top, drawn outside the button so its icon stays in the middle. */
+.jp-rail-btn.is-top { position: relative; margin-block-start: 9px; }
+.jp-rail-btn.is-top::before { content: ''; position: absolute; inset-block-start: -5px; inset-inline: 7px; height: 1px; background: var(--ln-line); }
 .jp-rail-btn:not([href]):is(a) { opacity: .5; pointer-events: none; }
 
 /* ---- contents: inline, numbered, the part being read is marked */
@@ -1811,20 +1817,25 @@
 .journal-bio { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0; margin-block-start: 44px; border: 1px solid var(--ln-line); border-radius: 26px; overflow: hidden; background: var(--card); }
 .journal-bio-art { position: relative; display: grid; place-items: center; min-width: 190px; min-height: 100%; padding: 26px; background: radial-gradient(120% 90% at 30% 10%, color-mix(in srgb, var(--ln-accent) 85%, #fff 0%), color-mix(in srgb, var(--ln-accent) 35%, var(--ln-dark))); }
 .journal-bio-avatar { width: 92px; height: 92px; box-shadow: 0 0 0 4px rgb(255 255 255 / .22), 0 18px 40px -14px rgb(0 0 0 / .6); }
-.journal-bio-body { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10px; min-width: 0; padding: 26px 28px; }
+.journal-bio-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label stats' 'name stats' 'text stats' 'actions stats'; align-items: start; align-content: center; gap: 10px 32px; min-width: 0; padding: 28px 30px; }
+.journal-bio-label { grid-area: label; }
+.journal-bio-body h3 { grid-area: name; }
+.journal-bio-body p { grid-area: text; }
+.journal-bio-actions { grid-area: actions; }
 .journal-bio-label { color: var(--ln-accent); font-size: 12px; font-weight: 800; }
 .journal-bio-body h3 { margin: 0; font-size: 1.4rem; }
-.journal-bio-body p { margin: 0; max-width: 62ch; color: var(--muted); line-height: 2; }
-.journal-bio-stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 0; }
-.journal-bio-stats span { display: grid; gap: 2px; min-width: 96px; padding: 10px 14px; border: 1px solid var(--ln-line); border-radius: 14px; background: var(--ln-soft); color: var(--muted); font-size: 12px; }
-.journal-bio-stats strong { color: var(--text); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.journal-bio-body p { margin: 0; max-width: none; color: var(--muted); font-size: 15px; line-height: 2.1; }
+.journal-bio-stats { grid-area: stats; align-self: center; display: grid; grid-template-columns: repeat(3, minmax(104px, 1fr)); gap: 10px; margin: 0; }
+.journal-bio-stats span { display: grid; gap: 4px; justify-items: center; text-align: center; min-width: 0; padding: 16px 14px; border: 1px solid var(--ln-line); border-radius: 14px; background: var(--ln-soft); color: var(--muted); font-size: 12px; }
+.journal-bio-stats strong { color: var(--text); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 .journal-bio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-block-start: 6px; }
 
 /* ---- the neighbours */
 .journal-pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block-start: 26px; }
 .journal-pager-item { display: grid; grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 6px 14px; align-items: start; padding: 14px; border: 1px solid var(--ln-line); border-radius: 22px; background: var(--card); color: var(--text); text-decoration: none; transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
 .journal-pager-item:not(.is-empty):hover { border-color: var(--ln-accent); transform: translateY(-3px); box-shadow: 0 18px 36px -22px color-mix(in srgb, var(--ln-accent) 60%, transparent); }
-.journal-pager-item.is-empty { visibility: hidden; }
+.journal-pager-item.is-empty { display: none; }
+.journal-pager:has(.is-empty) { grid-template-columns: minmax(0, 1fr); }
 .journal-pager-art { grid-row: 1 / span 2; margin: 0; width: 112px; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: var(--ln-soft); }
 .journal-pager-art img { width: 100%; height: 100%; object-fit: cover; }
 .journal-pager-label { display: inline-flex; align-items: center; gap: 6px; color: var(--ln-accent); font-size: 12px; font-weight: 800; }
@@ -1844,10 +1855,13 @@
    is the row under the text, and the bar under the top edge still says how far the reader is */
 @media (max-width: 1100px) {
   .jp-read { grid-template-columns: minmax(0, 1fr); }
-  .jp-main { max-width: none; }
   .jp-rail { display: none; }
   .jp-main .share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block-start: 14px; padding: 12px 16px; border: 1px solid var(--ln-line); border-radius: 18px; background: color-mix(in srgb, var(--ln-soft) 60%, transparent); }
   .jp-main .share-row .chip { min-height: 36px; }
+}
+@media (max-width: 1180px) {
+  .journal-bio-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'name' 'text' 'stats' 'actions'; }
+  .journal-bio-stats { justify-self: start; }
 }
 @media (max-width: 760px) {
   .journal-post-head h1 { max-width: none; }
@@ -1856,6 +1870,8 @@
   .journal-post-figure { border-radius: 20px; }
   .journal-post-figure img { aspect-ratio: 16 / 10; }
   .journal-bio { grid-template-columns: minmax(0, 1fr); }
+  .journal-bio-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'name' 'text' 'stats' 'actions'; padding: 22px 20px; }
+  .journal-bio-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .journal-bio-art { min-height: 132px; }
   .journal-pager { grid-template-columns: minmax(0, 1fr); }
   .journal-pager-item, .journal-pager-item.is-newer { grid-template-columns: 96px minmax(0, 1fr); text-align: start; }

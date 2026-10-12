@@ -23,11 +23,11 @@ export default function JournalTextSize({ labels }: { labels: { title: string; s
   return (
     <div className="ln-textsize" role="group" aria-label={labels.title}>
       <button type="button" aria-label={labels.smaller} disabled={size === 'sm'} onClick={() => step(-1)}>
-        −
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
       </button>
       <span>{labels.title}</span>
       <button type="button" aria-label={labels.larger} disabled={size === 'lg'} onClick={() => step(1)}>
-        +
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12" /></svg>
       </button>
     </div>
   )
