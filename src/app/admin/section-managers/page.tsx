@@ -52,7 +52,7 @@ export default function SectionManagersPage() {
   if (!loaded) return <div className="tb-empty">در حال بارگذاری…</div>
   return (
     <div dir="rtl">
-      <h1 className="h2 mb-2">مدیران بخش‌ها</h1>
+      <h1 className="h2 mb-2">مدیران و نویسندگان بخش‌ها</h1>
       <p className="muted mb-6">برای هر بخش سایت یک یا چند مدیر تعیین کنید. هر مدیر فقط به بخش‌هایی که تیک خورده دسترسی دارد و نه به بقیهٔ پنل. نقش‌های دیگر (پشتیبان، حسابدار و مانند آن) از <Link href="/admin/roles">نقش‌ها و دسترسی‌ها</Link> ساخته می‌شوند؛ مدیران هر انجمن و معاونان تالار از <Link href="/admin/forum?tab=team">تیم تالار</Link>.</p>
 
       {notice && <p className={notice.tone === 'err' ? 'error-text mb-4' : 'sm-notice mb-4'} role={notice.tone === 'err' ? 'alert' : 'status'}>{notice.text}</p>}

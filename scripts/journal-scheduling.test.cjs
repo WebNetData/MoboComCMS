@@ -47,7 +47,7 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
   }
   const mocks = {
     '@/platform/database/prisma': { db },
-    '@/modules/identity/server/access': { requirePerm: async () => ({ id: 1 }) },
+    '@/modules/identity/server/access': { requirePerm: async () => ({ id: 1 }), requireContentScope: async () => ({ admin: { id: 1 }, authorId: null }) },
     '@/modules/content/server/events': { contentChanged() {} },
     '@/modules/membership/domain/membership': { normalizeAccess: () => 'PUBLIC' },
     '@/shared/content/sanitize': { cleanRichText: value => value, richTextToPlain: value => value },

@@ -12,10 +12,13 @@ type Game = {
   release: { state: string; days: number | null }; score: number | null; views: number; access: string; featured: boolean; editorsChoice: boolean; franchise: string
   links: number; disabledLinks: number; clicks: number; library: number; updates: number; issues: string[]
 }
-type List = { total: number; page: number; pages: number; games: Game[]; counts: Record<string, number>; platforms: string[]; franchises: { id: number; title: string }[]; checks: Record<string, string> }
+type List = { total: number; page: number; pages: number; games: Game[]; counts: Record<string, number>; platforms: string[]; franchises: { id: number; title: string }[]; checks: Record<string, string>; mine?: boolean }
 
 const BULK: [string, string][] = [['publish', 'انتشار'], ['draft', 'پیش‌نویس'], ['feature', 'ویژه (اسلایدر)'], ['unfeature', 'حذف از ویژه'], ['editors', 'انتخاب سردبیر'], ['uneditors', 'حذف انتخاب سردبیر'], ['members', 'فقط VIP'], ['public', 'عمومی'], ['franchise', 'تعیین مجموعه'], ['delete', 'حذف']]
-const STATUS_TABS: [string, string][] = [['', 'همه'], ['published', 'منتشرشده'], ['draft', 'پیش‌نویس'], ['scheduled', 'زمان‌بندی‌شده'], ['upcoming', 'در راه'], ['editors', 'انتخاب سردبیر'], ['featured', 'ویژه'], ['vip', 'VIP']]
+// A games author works on their own games: featuring, the editors' choice and the trash decision are the manager's.
+const AUTHOR_BULK: [string, string][] = [['publish', 'انتشار'], ['draft', 'پیش‌نویس'], ['members', 'فقط VIP'], ['public', 'عمومی'], ['franchise', 'تعیین مجموعه'], ['delete', 'درخواست حذف']]
+const MANAGER_BULK: [string, string][] = [...BULK, ['restore', 'بازگردانی از سطل زباله']]
+const STATUS_TABS: [string, string][] = [['', 'همه'], ['published', 'منتشرشده'], ['draft', 'پیش‌نویس'], ['scheduled', 'زمان‌بندی‌شده'], ['upcoming', 'در راه'], ['editors', 'انتخاب سردبیر'], ['featured', 'ویژه'], ['vip', 'VIP'], ['trashed', 'سطل زباله']]
 
 function Titles() {
   const router = useRouter()
@@ -35,17 +38,26 @@ function Titles() {
     router.push(`/admin/games/titles?${next}`)
   }
   const all = !!data?.games.length && data.games.every((game) => selected.includes(game.id))
+  const mine = data?.mine === true
+
+  /** One decision on one trashed game: the manager puts it back, or deletes it for good. */
+  async function decide(game: Game, decision: 'restore' | 'delete') {
+    if (decision === 'delete' && !window.confirm(`«${game.title}» همراه با لینک‌ها و آپدیت‌هایش برای همیشه حذف شود؟ این کار برگشت‌پذیر نیست.`)) return
+    const response = await send<{ changed: number }>('/api/admin/games/list', 'POST', { ids: [game.id], action: decision })
+    setResult(response.ok ? { tone: 'ok', text: decision === 'restore' ? 'از سطل زباله برگشت.' : 'برای همیشه حذف شد.' } : { tone: 'error', text: response.error })
+    void reload()
+  }
 
   async function apply() {
     if (!action || !selected.length) return
-    if (action === 'delete' && !window.confirm(`${fa(selected.length)} بازی همراه با لینک‌ها و آپدیت‌هایشان حذف شود؟ این کار برگشت‌پذیر نیست.`)) return
+    if (action === 'delete' && !window.confirm(mine ? `${fa(selected.length)} بازی به سطل زباله می‌رود و از سایت برداشته می‌شود؛ حذف نهایی یا بازگردانی با مدیر بخش بازی است. ادامه می‌دهید؟` : `${fa(selected.length)} بازی همراه با لینک‌ها و آپدیت‌هایشان حذف شود؟ این کار برگشت‌پذیر نیست.`)) return
     let changed = 0
     for (let index = 0; index < selected.length; index += 500) {
       const response = await send<{ changed: number }>('/api/admin/games/list', 'POST', { ids: selected.slice(index, index + 500), action, value })
       if (!response.ok) { setSelected(selected.slice(index)); setResult({ tone: 'error', text: `${fa(changed)} بازی به‌روز شد؛ ${response.error}` }); void reload(); return }
       changed += response.data.changed
     }
-    setResult({ tone: 'ok', text: `${fa(changed)} بازی ${action === 'delete' ? 'حذف' : 'به‌روز'} شد` })
+    setResult({ tone: 'ok', text: action === 'delete' && mine ? `${fa(changed)} بازی به سطل زباله رفت و منتظر تصمیم مدیر بخش است` : `${fa(changed)} بازی ${action === 'delete' ? 'حذف' : action === 'restore' ? 'بازگردانی' : 'به‌روز'} شد` })
     setSelected([])
     setAction(''); setValue('')
     void reload()
@@ -71,7 +83,7 @@ function Titles() {
     <AdminPagination fa page={data?.page || 1} pages={data?.pages || 1} size={(filters.size || '20') as AdminPageSize} total={data?.total || 0} shown={data?.games.length || 0} busy={loading} onPage={(page) => go({ page: String(page) })} onSize={(size) => go({ size: String(size) })} />
     {selected.length > 0 && <div className="sa-bulk" role="region" aria-label="عملیات گروهی">
       <b className="num">{fa(selected.length)} انتخاب‌شده</b>
-      <select className="select" value={action} onChange={(event) => { setAction(event.target.value); setValue('') }} aria-label="عملیات"><option value="">عملیات گروهی…</option>{BULK.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
+      <select className="select" value={action} onChange={(event) => { setAction(event.target.value); setValue('') }} aria-label="عملیات"><option value="">عملیات گروهی…</option>{(mine ? AUTHOR_BULK : MANAGER_BULK).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
       {action === 'franchise' && <select className="select" value={value} onChange={(event) => setValue(event.target.value)} aria-label="مجموعه"><option value="">بدون مجموعه</option>{data?.franchises.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select>}
       <button type="button" className="btn btn-primary" disabled={!action} onClick={() => void apply()}>اعمال</button>
       <button type="button" className="btn btn-ghost" onClick={() => setSelected([])}>لغو انتخاب</button>
@@ -92,9 +104,11 @@ function Titles() {
             <td className="num"><small>{fa(game.links)} لینک{game.disabledLinks ? ` (${fa(game.disabledLinks)} غیرفعال)` : ''}</small><small className="sa-sub">{fa(game.clicks)} کلیک · {fa(game.updates)} آپدیت</small></td>
             <td className="num"><small>{fa(game.views)} بازدید</small><small className="sa-sub">{fa(game.library)} در کتابخانه‌ها</small></td>
             <td>
-              <span className={`sa-state ${game.status === 'PUBLISHED' ? (game.scheduled ? 'is-warn' : 'is-ok') : ''}`}>{game.status === 'PUBLISHED' ? (game.scheduled ? 'زمان‌بندی‌شده' : 'منتشرشده') : 'پیش‌نویس'}</span>
+              <span className={`sa-state ${game.status === 'PUBLISHED' ? (game.scheduled ? 'is-warn' : 'is-ok') : game.status === 'TRASHED' ? 'is-warn' : ''}`}>{game.status === 'PUBLISHED' ? (game.scheduled ? 'زمان‌بندی‌شده' : 'منتشرشده') : game.status === 'TRASHED' ? 'در سطل زباله' : 'پیش‌نویس'}</span>
               {game.editorsChoice && <span className="sa-tag">سردبیر</span>}{game.featured && <span className="sa-tag">ویژه</span>}{game.access === 'MEMBERS' && <span className="sa-tag">VIP</span>}
-              <div className="sa-row-actions"><Link href={`/admin/games/${game.id}`} className="sa-link">ویرایش</Link>{game.status === 'PUBLISHED' && <a href={`/games/${game.slug}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a>}</div>
+              {game.status === 'TRASHED'
+                ? <div className="sa-row-actions" data-testid="trash-row">{mine ? <small className="sa-sub">منتظر تصمیم مدیر بخش</small> : <><button type="button" className="sa-link" onClick={() => void decide(game, 'restore')}>بازگردانی</button><button type="button" className="sa-link" onClick={() => void decide(game, 'delete')}>حذف نهایی</button></>}</div>
+                : <div className="sa-row-actions"><Link href={`/admin/games/${game.id}`} className="sa-link">ویرایش</Link>{game.status === 'PUBLISHED' && <a href={`/games/${game.slug}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a>}</div>}
             </td>
           </tr>)}
           {data && !data.games.length && <tr><td colSpan={7} className="sa-empty">بازی‌ای با این فیلترها پیدا نشد.</td></tr>}

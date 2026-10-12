@@ -172,6 +172,7 @@ export default function GameEditorPage() {
     {form.status === 'PUBLISHED' && <button type="button" className="btn btn-primary" disabled={busy || uploading} onClick={() => requestSave()}>{busy ? 'در حال ذخیره…' : 'به‌روزرسانی'}</button>}
   </>}>
     <Link href="/admin/games/titles" className="sa-link sa-back">→ همهٔ بازی‌ها</Link>
+    {form.status === 'TRASHED' && <Notice tone="error">این بازی در سطل زباله است و تا تصمیم مدیر بخش بازی (حذف نهایی یا بازگردانی) قابل ویرایش نیست.</Notice>}
     {error && <Notice tone="error">{error}</Notice>}
     {saved && <Notice tone="ok">{saved}</Notice>}
     <AiAutofill section="games" fields={AI_FIELDS} form={form} onApply={applyAi} />

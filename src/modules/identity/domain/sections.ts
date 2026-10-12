@@ -62,6 +62,7 @@ export const AUTHOR_SECTIONS: readonly AuthorSection[] = [
   { id: 'magazine', label: 'مجله', hint: 'نوشتن و ویرایش نوشته‌های خودش', permission: 'journal.author', manage: 'cms.posts' },
   { id: 'cinema', label: 'فیلم و سریال', hint: 'افزودن و ویرایش عنوان‌های خودش', permission: 'cinema.author', manage: 'cinema.manage' },
   { id: 'music', label: 'موزیک', hint: 'افزودن و ویرایش آهنگ‌ها و آلبوم‌های خودش', permission: 'music.author', manage: 'music.manage' },
+  { id: 'games', label: 'بازی', hint: 'افزودن و ویرایش بازی‌های خودش و آپدیت‌هایشان', permission: 'games.author', manage: 'games.manage' },
   { id: 'software', label: 'نرم‌افزار', hint: 'افزودن و ویرایش نرم‌افزارهای خودش', permission: 'software.author', manage: 'software.manage' },
 ]
 

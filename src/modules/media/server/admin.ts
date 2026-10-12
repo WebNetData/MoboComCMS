@@ -495,6 +495,7 @@ const AUTHORED: Record<string, { permission: string; trash: boolean }> = {
   'music-albums': { permission: 'music.author', trash: true },
   'music-tracks': { permission: 'music.author', trash: true },
   'cinema-titles': { permission: 'cinema.author', trash: true },
+  games: { permission: 'games.author', trash: true },
   software: { permission: 'software.author', trash: true },
 }
 /** Whether items of this kind can be in the trash at all. */

@@ -21,6 +21,10 @@
     {
       "id": "games.manage",
       "label": "مدیریت گیم"
+    },
+    {
+      "id": "games.author",
+      "label": "نویسندهٔ بازی (فقط بازی‌های خودش)"
     }
   ],
   "adminMenu": {
@@ -45,7 +49,8 @@
         "labelEn": "All games",
         "icon": "grid",
         "permissions": [
-          "games.manage"
+          "games.manage",
+          "games.author"
         ]
       },
       {
@@ -54,7 +59,8 @@
         "labelEn": "Add game",
         "icon": "plus",
         "permissions": [
-          "games.manage"
+          "games.manage",
+          "games.author"
         ]
       },
       {

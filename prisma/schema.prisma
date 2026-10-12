@@ -1762,12 +1762,19 @@ model GameTitle {
   publishedAt  DateTime  @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
+  // The staff member who created the item; a section author manages only the items they created.
+  createdById Int?
+  // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
+  trashedStatus String    @default("")
+  trashedAt     DateTime?
+  trashedById   Int?
 
   @@index([status, publishedAt])
   @@index([releaseDate])
   @@index([franchiseId])
   @@index([developerStudioId])
   @@index([publisherStudioId])
+  @@index([createdById])
 }
 
 /// A game series (Souls, God of War…): groups titles on the franchise page.
