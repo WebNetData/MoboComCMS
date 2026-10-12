@@ -17,7 +17,7 @@
   "adminMenu": {
     "title": "فروش محتوا",
     "titleEn": "Paid content",
-    "icon": "sparkles",
+    "icon": "lock",
     "order": 82,
     "items": [
       { "href": "/admin/paywall", "label": "فایل‌ها و مقاله‌های پولی", "labelEn": "Paid items & sales", "icon": "grid", "permissions": ["paywall.manage", "membership.manage", "settings.manage"] }

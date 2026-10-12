@@ -30,7 +30,7 @@
   "adminMenu": {
     "title": "فیلم و سریال",
     "titleEn": "Film & series",
-    "icon": "globe",
+    "icon": "film",
     "order": 50,
     "items": [
       {

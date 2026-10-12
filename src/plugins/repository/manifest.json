@@ -17,7 +17,7 @@
   "adminMenu": {
     "title": "مخزن افزونه و قالب",
     "titleEn": "Repository",
-    "icon": "sparkles",
+    "icon": "box",
     "order": 86,
     "items": [
       { "href": "/admin/repository", "label": "مرور و نصب", "labelEn": "Browse & install", "icon": "sparkles", "permissions": ["settings.manage"], "exact": true },

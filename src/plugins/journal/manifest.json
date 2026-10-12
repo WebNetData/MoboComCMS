@@ -29,7 +29,7 @@
   "adminMenu": {
     "title": "مجله",
     "titleEn": "Journal",
-    "icon": "sliders",
+    "icon": "pen",
     "order": 20,
     "items": [
       {

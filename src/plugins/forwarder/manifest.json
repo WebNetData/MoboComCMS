@@ -17,7 +17,7 @@
   "adminMenu": {
     "title": "لینک‌ها",
     "titleEn": "Links",
-    "icon": "globe",
+    "icon": "link",
     "order": 150,
     "items": [
       { "href": "/admin/forwarder", "label": "فورواردر و لینک کوتاه", "labelEn": "Forwarder & short links", "icon": "globe", "permissions": ["forwarder.manage", "settings.manage"] }

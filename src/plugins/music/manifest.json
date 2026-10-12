@@ -60,7 +60,7 @@
   "adminMenu": {
     "title": "موزیک",
     "titleEn": "Music",
-    "icon": "bolt",
+    "icon": "music",
     "order": 60,
     "items": [
       {

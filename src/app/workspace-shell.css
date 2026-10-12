@@ -1,0 +1,245 @@
+/* ============================================================
+   Workspace shell: the side menu, the top bar and the page surfaces
+   shared by the account dashboard, the admin, and the seller and
+   reseller panels (every .app-shell). Loaded after the older shell
+   sheets; only project tokens, so both themes and every code theme
+   follow.
+   ============================================================ */
+
+/* ---------- frame ---------- */
+html[data-design] .app-shell { background: var(--bg); }
+html[data-design] .app-shell > .side {
+  position: sticky;
+  top: 0;
+  width: 276px;
+  flex: 0 0 276px;
+  height: 100dvh;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 0;
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 62%, var(--bg));
+  box-shadow: none;
+}
+html[data-design] .app-shell > .side > .side-brand {
+  flex: 0 0 64px;
+  min-height: 64px;
+  margin: 0;
+  padding: 0 18px;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+html[data-design] .app-shell > .side > .side-brand .badge { margin-inline-start: auto; font-size: 10.5px; padding: 3px 8px; }
+html[data-design] .app-shell > .side > .aw { margin: 12px 12px 0; }
+html[data-design] .app-shell > .side > .side-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: block;
+  margin: 0;
+  padding: 12px 12px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+
+/* panels that keep the plain list (seller, reseller): the same frame, their own rows */
+html[data-design] .app-shell > .side > .side-user { margin: 12px 12px 0; }
+html[data-design] .app-shell > .side > .side-foot:not(.ws-foot) { flex: none; margin: 0; padding: 12px 16px; border-top: 1px solid var(--border); }
+html[data-design] .app-shell > .side > .side-nav > .side-link { margin: 0 0 2px; min-height: 42px; border-radius: 11px; }
+
+/* ---------- menu: parts, groups, links ---------- */
+.ws-part + .ws-part { margin-top: 2px; }
+.ws-caption { padding: 18px 10px 7px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.ws-part:first-child > .ws-caption { padding-top: 4px; }
+html[data-design] .app-shell .ws-group { margin: 0; border-radius: 12px; }
+html[data-design] .app-shell .ws-toggle,
+html[data-design] .app-shell .side-link.ws-flat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: start;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+html[data-design] .app-shell .ws-toggle:hover,
+html[data-design] .app-shell .side-link.ws-flat:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.ws-tile {
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--muted);
+  transition: background .15s, color .15s, border-color .15s;
+}
+html[data-design] .app-shell .ws-toggle > .ws-tile { flex: 0 0 32px; }
+html[data-design] .app-shell .ws-toggle > .ws-label { flex: 1 1 auto; }
+.ws-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+html[data-design] .app-shell .ws-group.has-active > .ws-toggle { background: transparent; color: var(--text); }
+html[data-design] .app-shell .ws-group.has-active > .ws-toggle:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.ws-group.has-active > .ws-toggle .ws-tile,
+.side-link-active.ws-flat .ws-tile { border-color: transparent; background: var(--primary); color: #fff; }
+html[data-design] .app-shell .side-link-active.ws-flat { border: 0; background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.ws-toggle .admin-nav-chevron { flex: none; color: var(--muted); transition: transform .18s; }
+.ws-toggle[aria-expanded='true'] .admin-nav-chevron { transform: rotate(180deg); }
+html[data-design] .app-shell .ws-items {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  margin: 2px 0 8px;
+  margin-inline-start: 23px;
+  padding: 2px 0;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--border);
+}
+html[data-design] .app-shell .ws-items[hidden] { display: none; }
+html[data-design] .app-shell .ws-items .side-link.ws-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+html[data-design] .app-shell .ws-items .side-link.ws-item:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+html[data-design] .app-shell .ws-items .side-link.ws-item.side-link-active { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.ws-item.side-link-active::before {
+  content: '';
+  position: absolute;
+  inset-block: 9px;
+  inset-inline-start: -13.5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+html[data-design] .app-shell .ws-item .side-icon { flex: none; display: grid; place-items: center; width: 18px; opacity: .85; }
+html[data-design] .app-shell .ws-item .badge,
+html[data-design] .app-shell .ws-flat .badge { flex: none; margin-inline-start: auto; min-width: 22px; min-height: 20px; padding: 0 6px; display: inline-grid; place-items: center; font-size: 11px; border-radius: 99px; }
+.ws-empty { margin: 14px 10px; color: var(--muted); font-size: 12.5px; }
+:is(.ws-toggle, .ws-item, .ws-flat, .ws-out):focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* the section finder of the admin menu */
+html[data-design] .app-shell .admin-nav-search { position: relative; display: block; padding: 0 0 10px; color: var(--muted); }
+html[data-design] .app-shell .admin-nav-search > svg { position: absolute; top: 13px; inset-inline-start: 12px; pointer-events: none; }
+html[data-design] .app-shell .admin-nav-search .input { width: 100%; min-height: 42px; padding-inline: 36px 34px; border-radius: 11px; background: var(--card); font-size: 13px !important; }
+html[data-design] .app-shell .admin-nav-search kbd { position: absolute; top: 10px; inset-inline-end: 9px; display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--muted); font: 600 11px/1 ui-monospace, monospace; pointer-events: none; }
+html[data-design] .app-shell .admin-nav-search .input:focus ~ kbd { display: none; }
+
+/* ---------- who is signed in ---------- */
+html[data-design] .app-shell > .side > .ws-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+html[data-design] .app-shell .ws-foot .side-user {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+}
+html[data-design] .app-shell .ws-foot .side-user:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+html[data-design] .app-shell .ws-foot .side-user .avatar { flex: 0 0 36px; width: 36px; height: 36px; border: 0; }
+.ws-who { display: grid; line-height: 1.45; }
+.ws-who > span { display: block; }
+.ws-out { flex: 0 0 38px; display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; }
+.ws-out:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+html[dir='rtl'] .ws-out svg { transform: scaleX(-1); }
+
+/* ---------- top bar ---------- */
+html[data-design] .app-shell .dash-top { min-height: 64px; padding-block: 0; background: color-mix(in srgb, var(--bg) 84%, transparent); }
+.dash-crumbs { gap: 9px; }
+.dash-crumb-group { overflow: hidden; text-overflow: ellipsis; }
+.dash-top-actions { gap: 8px; }
+html[data-design] .app-shell .dash-top-link { min-height: 38px; padding: 0 12px; background: var(--card); font-weight: 600; }
+html[data-design] .app-shell :is(.dash-top, .mobile-bar) .preference-control { min-width: 38px !important; min-height: 38px !important; padding: 0 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--muted); }
+html[data-design] .app-shell :is(.dash-top, .mobile-bar) .preference-control:hover { color: var(--text); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.app-shell.admin-shell:has(.builder-workspace) .dash-top { display: none; }
+
+/* ---------- page surfaces ---------- */
+html[data-design] .app-shell .app-main { max-width: 1560px; padding: clamp(18px, 2.4vw, 34px); }
+html[data-design] .app-shell .appbar {
+  min-height: 0;
+  margin: 0 0 24px;
+  padding: 2px 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+html[data-design] .app-shell .appbar .h2 { font-size: clamp(22px, 2vw, 28px); line-height: 1.45; letter-spacing: -.02em; }
+html[data-design] .app-shell .appbar p { margin-top: 4px; font-size: 13.5px; }
+html[data-design] .app-shell .kpi { min-height: 112px; }
+html[data-design] .app-shell .kpi-icon { width: 44px; height: 44px; border: 0; border-radius: 13px; color: var(--primary); }
+html[data-design] .app-shell .kpi-green .kpi-icon { color: var(--success); }
+html[data-design] .app-shell .kpi-red .kpi-icon { color: var(--danger); }
+html[data-design] .app-shell .kpi-amber .kpi-icon { color: var(--warning); }
+html[data-design] .app-shell .data thead th { background: color-mix(in srgb, var(--text) 4%, transparent); color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+html[data-design] .app-shell .data thead th:first-child { border-start-start-radius: 10px; border-end-start-radius: 10px; }
+html[data-design] .app-shell .data thead th:last-child { border-start-end-radius: 10px; border-end-end-radius: 10px; }
+html[data-design] .app-shell .data tbody tr { transition: background .12s; }
+html[data-design] .app-shell .data tbody tr:hover { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+
+/* ---------- admin overview ---------- */
+.ao-hero { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; padding: 24px 26px; border: 1px solid var(--border); border-radius: 20px; background: radial-gradient(120% 160% at 100% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%), var(--card); }
+.ao-hero h1 { margin: 0; font-size: clamp(21px, 2vw, 27px); line-height: 1.5; letter-spacing: -.02em; }
+.ao-hero p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+.ao-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ao-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.ao-quick a { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--text); font-size: 13px; font-weight: 600; transition: border-color .15s, transform .15s; }
+.ao-quick a:hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); transform: translateY(-1px); }
+.ao-quick a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ao-quick .ws-tile { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
+
+/* ---------- phone ---------- */
+@media (max-width: 900px) {
+  html[data-design] .app-shell .mobile-bar { min-height: 60px; padding: 8px 14px; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(14px); }
+  html[data-design] .app-shell .mobile-drawer { position: sticky; top: 60px; z-index: 55; display: block; max-height: calc(100dvh - 60px); padding: 12px 12px 18px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0 0 18px 18px; background: var(--card); box-shadow: 0 24px 40px rgb(0 0 0 / .18); overflow-y: auto; overscroll-behavior: contain; }
+  html[data-design] .app-shell .mobile-drawer[hidden] { display: none; }
+  html[data-design] .app-shell .mobile-drawer .mobile-logout { width: 100%; margin-top: 12px; padding: 14px 10px 4px; border: 0; border-top: 1px solid var(--border); border-radius: 0; color: var(--text); font-weight: 600; justify-content: center; }
+  html[data-design] .app-shell .app-main { padding: 18px 14px 28px; }
+  .ao-hero { padding: 18px; border-radius: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-toggle, .ws-tile, .ws-toggle .admin-nav-chevron, .ws-out, .ao-quick a { transition: none; }
+  .ao-quick a:hover { transform: none; }
+}

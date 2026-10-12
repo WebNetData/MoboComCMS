@@ -32,7 +32,7 @@
   "adminMenu": {
     "title": "فروشگاه",
     "titleEn": "Store",
-    "icon": "grid",
+    "icon": "bag",
     "order": 10,
     "items": [
       {

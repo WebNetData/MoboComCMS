@@ -16,7 +16,7 @@
   "adminMenu": {
     "title": "جامعه و پروفایل‌ها",
     "titleEn": "Community & profiles",
-    "icon": "chat",
+    "icon": "users",
     "order": 35,
     "items": [
       { "href": "/admin/community", "label": "داشبورد جامعه", "labelEn": "Community dashboard", "icon": "grid", "permissions": ["community.moderate", "users.manage"], "exact": true },

@@ -17,7 +17,7 @@
   "adminMenu": {
     "title": "بازار فروشندگان",
     "titleEn": "Marketplace",
-    "icon": "grid",
+    "icon": "store",
     "order": 31,
     "items": [
       { "href": "/admin/marketplace", "label": "فروشندگان و تسویه", "labelEn": "Sellers & payouts", "icon": "grid", "permissions": ["marketplace.manage", "cms.products", "settings.manage"] }

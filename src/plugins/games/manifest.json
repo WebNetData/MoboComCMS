@@ -30,7 +30,7 @@
   "adminMenu": {
     "title": "بازی",
     "titleEn": "Games",
-    "icon": "bolt",
+    "icon": "gamepad",
     "order": 40,
     "items": [
       {

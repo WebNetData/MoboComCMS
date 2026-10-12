@@ -18,7 +18,7 @@
   "adminMenu": {
     "title": "گفت‌وگو و مشتریان",
     "titleEn": "Chat & customers",
-    "icon": "chat",
+    "icon": "lifebuoy",
     "order": 60,
     "items": [
       { "href": "/admin/chat", "label": "گفت‌وگوی آنلاین", "labelEn": "Live chat", "icon": "chat", "permissions": ["support.chat", "tickets.manage", "settings.manage"] },
