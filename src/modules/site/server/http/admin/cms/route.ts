@@ -5,6 +5,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, formStatus, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
+import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
@@ -267,7 +268,7 @@ export async function PATCH(req: NextRequest) {
   const model = MODELS[type]()
 
   if (type === 'posts') {
-    const held = await db.post.findUnique({ where: { id }, select: { id: true, authorId: true, status: true, trashedStatus: true } })
+    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, trashedStatus: true, trashedAt: true, trashedById: true } })
     if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)
     if (isTrashed(held)) {
       // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
@@ -277,6 +278,7 @@ export async function PATCH(req: NextRequest) {
       const restored = await db.post.findUniqueOrThrow({ where: { id } })
       contentChanged({ type: 'post', id }, { ...restored, status: TRASHED }, restored)
       await auditAdmin({ req, actor: admin, action: 'cms.posts.restore', targetType: 'posts', targetId: id, metadata: { status: restored.status } })
+      await tellTrashDecision({ askedById: held.trashedById, askedAt: held.trashedAt, decidedById: admin.id, decision: 'restored', kind: 'post', id, title: held.title, href: '/admin/posts' })
       return ok(restored)
     }
     if (b?.restore === true) return err('این نوشته در سطل زباله نیست', 409)
@@ -403,7 +405,9 @@ export async function DELETE(req: NextRequest) {
       return ok({ deleted: true })
     }
     if (type === 'productgroups' && await db.productCategory.count({ where: { attributeGroupId: id } })) return err('Group is assigned to a category', 409)
-    await model.delete({ where: { id } })
+    const gone = await model.delete({ where: { id } })
+    // A manager deleting an article that waited in the trash is the answer to its author's request.
+    if (type === 'posts' && gone.status === TRASHED) await tellTrashDecision({ askedById: gone.trashedById, askedAt: gone.trashedAt, decidedById: admin.id, decision: 'deleted', kind: 'post', id, title: gone.title, href: '/admin/posts' })
     if (type === 'posts' || type === 'products') contentChanged({ type: type === 'posts' ? 'post' : 'product', id }, null, null)
     if (type === 'pages') await db.setting.deleteMany({ where: { key: { in: [`page.layout.${id}`, `page.builder.${id}`] } } })
     return ok({ deleted: true })
@@ -483,6 +487,7 @@ export async function BULK(req: NextRequest) {
         } else if (type === 'posts') {
           const row = await db.post.delete({ where: { id } })
           contentChanged({ type: 'post', id }, row, null)
+          if (row.status === TRASHED) await tellTrashDecision({ askedById: row.trashedById, askedAt: row.trashedAt, decidedById: admin.id, decision: 'deleted', kind: 'post', id, title: row.title, href: '/admin/posts' })
         } else {
           await db.$transaction(async (tx) => {
             await tx.page.delete({ where: { id } })

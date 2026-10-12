@@ -6,6 +6,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
+import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
@@ -500,6 +501,11 @@ const AUTHORED: Record<string, { permission: string; trash: boolean }> = {
 }
 /** Whether items of this kind can be in the trash at all. */
 const trashable = (type: string) => AUTHORED[type]?.trash === true
+/** Where the author of each kind of item finds their list. */
+const AUTHOR_LIST: Record<string, string> = { 'music-albums': '/admin/music/library', 'music-tracks': '/admin/music/library', 'cinema-titles': '/admin/cinema/titles', games: '/admin/games/titles', software: '/admin/software/titles' }
+/** The answer to an author's delete request, when the row a manager just decided on was waiting in the trash. */
+const tellDecision = (type: string, row: Record<string, any>, decidedById: number, decision: 'restored' | 'deleted') =>
+  tellTrashDecision({ askedById: row.trashedById, askedAt: row.trashedAt, decidedById, decision, kind: type, id: row.id, title: RESOURCES[type].label(row), href: AUTHOR_LIST[type] || '/admin' })
 
 /** The caller as a manager of the resource (`authorId` null) or as an author of its section (their own id). */
 async function authorize(req: NextRequest, resource: Resource, type = '') {
@@ -635,6 +641,7 @@ export async function deleteMediaItem(type: string, id: number) {
     return resource.delegate(tx).delete({ where: { id } })
   })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
+  return row as Record<string, any>
 }
 
 /** Recounts a resource's section categories after many writes. */
@@ -677,6 +684,7 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
         await recountFor(resource)
         if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, held, restored)
         await auditAdmin({ req, actor: admin, action: `media.${type}.restore`, targetType: type, targetId: id, metadata: { label: resource.label(restored), status: restored.status } })
+        await tellDecision(type, held, admin.id, 'restored')
         return ok({ id, slug: restored.slug, status: restored.status })
       }
       if (body.restore === true) return err('این مورد در سطل زباله نیست', 409)
@@ -720,6 +728,7 @@ export async function DELETE(req: NextRequest) {
     })
     await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
+    if (row.status === TRASHED) await tellDecision(type, row, admin.id, 'deleted')
     if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
     return ok({ deleted: true })
   } catch (error) {
@@ -809,7 +818,7 @@ export async function BULK(req: NextRequest) {
         if (outcome === 'trashed') succeeded.push(id); else failed.push({ id, reason: outcome === 'missing' ? 'not found' : outcome === 'refused' ? 'only a manager deletes this' : 'already in the trash' })
         continue
       }
-      try { await deleteMediaItem(type, id); succeeded.push(id) }
+      try { const row = await deleteMediaItem(type, id); succeeded.push(id); if (row.status === TRASHED) await tellDecision(type, row, admin.id, 'deleted') }
       catch { failed.push({ id, reason: 'cannot delete (in use or missing)' }) }
     }
     if (succeeded.length) await recountMediaTaxonomy(type)
