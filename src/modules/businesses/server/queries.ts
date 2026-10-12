@@ -49,6 +49,25 @@ export async function businessPage(slug: string, viewerId: number | null, input:
   return { profile: publicProfile, canReply, page, pages: Math.ceil(total / 10), total, summary: summarizeDistribution(distribution), sort, stars: rating, mine: null, orders: orders.filter(order => !reviewed.has(order.id)), reviews: rows.map(row => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt.toISOString(), author: { name: names.get(row.userId) || 'خریدار موبوکام', color: '' }, mine: row.userId === viewerId, helpfulCount: 0, helpfulByMe: false, verified: 'PURCHASE', scores: {}, reply: row.reply, experiencedOn: null as string | null })) }
 }
 
+/**
+ * Experiences waiting for a decision, for the staff moderation overview: oldest first, with the business they are
+ * about. Seller experiences are SellerReview rows with ids of their own, so they are counted here and listed on
+ * the owning page, never mixed into one id space.
+ */
+export async function waitingForModeration(take = 5) {
+  const sellers = await db.businessProfile.findMany({ where: { sellerId: { not: null } }, select: { sellerId: true } })
+  const sellerIds = sellers.flatMap(profile => profile.sellerId ? [profile.sellerId] : [])
+  const where = { itemType: 'business', status: 'PENDING' }
+  const [count, sellerCount, rows] = await Promise.all([
+    db.itemReview.count({ where }),
+    sellerIds.length ? db.sellerReview.count({ where: { status: 'PENDING', sellerId: { in: sellerIds } } }) : 0,
+    db.itemReview.findMany({ where, orderBy: { createdAt: 'asc' }, take, select: { id: true, itemId: true, body: true, createdAt: true, user: { select: { name: true } } } }),
+  ])
+  const names = new Map((await db.businessProfile.findMany({ where: { id: { in: rows.map(row => row.itemId) } }, select: { id: true, name: true } })).map(profile => [profile.id, profile.name]))
+  const plain = (value: string, max: number) => value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+  return { count: count + sellerCount, items: rows.map(row => ({ id: row.id, text: plain(row.body, 160), full: plain(row.body, 2000), by: row.user.name || '', about: names.get(row.itemId) || '', at: row.createdAt })) }
+}
+
 export async function businessAdminData() {
   const profiles = await db.businessProfile.findMany({ orderBy: { id: 'desc' }, take: 100 })
   const [sellers, itemReviews, sellerReviews] = await Promise.all([

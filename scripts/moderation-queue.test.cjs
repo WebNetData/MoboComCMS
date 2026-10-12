@@ -32,11 +32,13 @@ test('a staff member gets only the sources of modules that are on and that they 
   assert.equal(keys({}, null).length, domain.QUEUE_SOURCES.length, 'the unrestricted administrator sees everything')
   assert.deepEqual(keys({}, ['forum.moderate']), ['forum-posts', 'forum-flags'])
   assert.deepEqual(keys({}, ['cms.posts']), ['article-comments'], 'the magazine permission is the magazine only')
-  assert.deepEqual(keys({}, ['reviews.moderate']), ['item-reviews'])
+  assert.deepEqual(keys({}, ['reviews.moderate']), ['item-reviews'], 'moderating content reviews does not open business experiences')
+  assert.deepEqual(keys({}, ['businesses.manage']), ['business-experiences'])
+  assert.deepEqual(keys({ businesses: false }, ['businesses.manage', 'reviews.moderate']), ['item-reviews'], 'with the businesses module off its source is gone')
   assert.deepEqual(keys({}, ['cms.products']), ['product-reviews', 'product-questions'])
   assert.deepEqual(keys({}, ['settings.manage']), ['copyright'], 'the product feedback API asks for cms.products only')
   assert.deepEqual(keys({}, ['tickets.handle', 'orders.manage']), [])
-  assert.deepEqual(keys({ forum: false, store: false }, null), ['article-comments', 'item-reviews', 'community-reports', 'copyright'])
+  assert.deepEqual(keys({ forum: false, store: false }, null), ['article-comments', 'item-reviews', 'business-experiences', 'community-reports', 'copyright'])
 })
 
 test('sources with the longest wait come first and the wait is graded', () => {
@@ -61,15 +63,16 @@ test('the overview asks only the modules it may show and one failing module does
     '@/modules/journal/server/admin': owner('journal', waiting(7, 2)),
     '@/modules/reviews/server/reviews': owner('reviews', new Error('database down')),
     '@/modules/store/server/admin': owner('store', { reviews: waiting(1, 5), questions: waiting(2, 3) }),
+    '@/modules/businesses/server/businesses': owner('businesses', waiting(4, 6)),
     '@/modules/community/server/admin': owner('community', waiting(0, 0)),
     '@/modules/copyright/server/copyright': owner('copyright', waiting(1, 1)),
   })
   const all = await queue.moderationQueue({}, () => true)
-  assert.deepEqual(calls.map(([name]) => name).sort(), ['community', 'copyright', 'forum', 'journal', 'reviews', 'store'])
+  assert.deepEqual(calls.map(([name]) => name).sort(), ['businesses', 'community', 'copyright', 'forum', 'journal', 'reviews', 'store'])
   assert.ok(calls.every(([, take]) => take === 5))
   assert.deepEqual(all.failed, ['item-reviews'])
-  assert.equal(all.total, 14)
-  assert.deepEqual(all.groups.map((group) => [group.key, group.count]), [['copyright', 1], ['article-comments', 7], ['product-questions', 2], ['forum-posts', 3], ['product-reviews', 1], ['forum-flags', 0], ['community-reports', 0]])
+  assert.equal(all.total, 18)
+  assert.deepEqual(all.groups.map((group) => [group.key, group.count]), [['copyright', 1], ['article-comments', 7], ['product-questions', 2], ['forum-posts', 3], ['product-reviews', 1], ['business-experiences', 4], ['forum-flags', 0], ['community-reports', 0]])
   assert.equal(all.groups[0].oldestAt, '2026-10-01T00:00:00.000Z')
   assert.equal(typeof all.groups[0].items[0].at, 'string')
   assert.equal(all.groups[0].items[0].full, 'the whole text')
@@ -99,7 +102,14 @@ test('a yes or no from the overview is exactly the request the owning admin API 
   const confirms = domain.QUEUE_SOURCES.flatMap((source) => (source.decisions || []).filter((decision) => decision.confirm).map((decision) => `${source.key}:${decision.key}`))
   assert.deepEqual(confirms, ['forum-posts:reject'])
   // Sources whose decision needs more than a yes or no offer none.
-  assert.deepEqual(domain.QUEUE_SOURCES.filter((source) => !source.decisions).map((source) => source.key), ['forum-flags', 'product-questions', 'community-reports', 'copyright'])
+  assert.deepEqual(domain.QUEUE_SOURCES.filter((source) => !source.decisions).map((source) => source.key), ['forum-flags', 'business-experiences', 'product-questions', 'community-reports', 'copyright'])
+  // A business experience is decided by its owner: the general queue leaves it out everywhere, and its own source leads to the owner's page.
+  const reviews = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/reviews/server/reviews.ts'), 'utf8')
+  assert.match(reviews, /const GENERAL = \{ itemType: \{ not: 'business' \} \}/)
+  assert.equal(reviews.split('...GENERAL').length - 1, 5, 'the list, both of its counts and the overview read the same general queue')
+  assert.match(reviews, /if \(review\.itemType === 'business'\) throw new ReviewError\(/)
+  const source = domain.QUEUE_SOURCES.find((item) => item.key === 'business-experiences')
+  assert.deepEqual([source.module, source.permissions, source.href], ['businesses', ['businesses.manage'], '/admin/businesses'])
 })
 
 test('the admin menu offers the page to everyone who can moderate something', () => {
