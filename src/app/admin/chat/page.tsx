@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import Link from '@/components/AppLink'
 import { Notice, fa, faDate } from '../store/shared'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 type Row = { id: number; status: string; name: string; user: number | null; contact: string; assignedTo: number | null; unread: number; last: { sender: string; body: string } | null; lastMessageAt: string; rating: number | null; pageUrl: string }
 type List = { counts: Record<string, number>; rows: Row[] }
@@ -124,7 +125,7 @@ function Conversation({ id, onChanged, live, pulse, typingAt }: { id: number; on
         <dl className="mk-dl">
           <div><dt>صفحه</dt><dd dir="ltr">{c.pageUrl || '—'}</dd></div>
           <div><dt>شروع</dt><dd>{faDate(c.createdAt, true)}</dd></div>
-          {c.rating && <div><dt>امتیاز</dt><dd>{'★'.repeat(c.rating)}</dd></div>}
+          {c.rating && <div><dt>امتیاز</dt><dd className="rv-inline"><RatingChip value={c.rating} /><RatingMeter size="sm" value={c.rating} label={`${c.rating} از ۵`} /></dd></div>}
         </dl>
       </div>
     </aside>

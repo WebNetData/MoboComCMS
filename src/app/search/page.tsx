@@ -7,6 +7,7 @@ import { NO_FACETS, facetParams, hasFacets, type SearchFacets } from '@/modules/
 import { ITEM_LABEL, type ItemType } from '@/modules/content/domain/items'
 import { normalizePersian } from '@/shared/text/persian'
 import MediaShell from '@/components/media/MediaShell'
+import { RatingMeter } from '@/components/engage/RatingMeter'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +90,7 @@ export default async function SearchPage({ searchParams }: Props) {
               <li key={`${hit.type}:${hit.id}`} className="sr-item">
                 <Link href={hit.url} className="sr-thumb" tabIndex={-1} aria-hidden="true">{hit.image ? <img src={hit.image} alt="" loading="lazy" /> : <span>{ITEM_LABEL[hit.type].icon}</span>}</Link>
                 <div className="sr-body">
-                  <span className="sr-type">{ITEM_LABEL[hit.type].one}{hit.access === 'MEMBERS' && <b className="vip-chip is-small">♛ VIP</b>}{hit.rating && hit.rating.average !== null && <span className="sr-rating" title={`${num(hit.rating.count)} نظر`}>★ {hit.rating.average.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <small>({num(hit.rating.count)})</small></span>}</span>
+                  <span className="sr-type">{ITEM_LABEL[hit.type].one}{hit.access === 'MEMBERS' && <b className="vip-chip is-small">♛ VIP</b>}{hit.rating && hit.rating.average !== null && <span className="sr-rating" title={`${num(hit.rating.count)} نظر`}><RatingMeter size="sm" value={hit.rating.average} label={`${hit.rating.average} از ۵`} /> {hit.rating.average.toLocaleString('fa-IR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <small>({num(hit.rating.count)})</small></span>}</span>
                   <h2><Link href={hit.url}>{highlight(hit.title, data.tokens)}</Link></h2>
                   {hit.subtitle && <p className="sr-sub">{hit.subtitle}</p>}
                   {hit.snippet && <p className="sr-snippet">…{hit.snippet}…</p>}

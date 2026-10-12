@@ -6,12 +6,13 @@ import { activityStream, streamDay, type StreamEntry, type StreamFilter } from '
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, TimeAgo } from '@/components/forum/shared'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { RatingMeter } from '@/components/engage/RatingMeter'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'فعالیت‌های جامعه', description: 'تازه‌ترین موضوع‌ها، پاسخ‌ها و پست‌های اعضا', alternates: { canonical: toPublicPath('/forum/activity') } }
 
 const VERB: Record<StreamEntry['kind'], string> = { topic: 'موضوع تازه‌ای ساخت', reply: 'پاسخ داد', post: 'پستی نوشت', review: 'نظر داد دربارهٔ' }
-const ICON: Record<StreamEntry['kind'], string> = { topic: '✦', reply: '↩', post: '✎', review: '★' }
+const ICON: Record<StreamEntry['kind'], string> = { topic: '✦', reply: '↩', post: '✎', review: '✍' }
 
 export default async function ForumActivityPage({ searchParams }: { searchParams: Promise<{ filter?: string; before?: string }> }) {
   await requireModule('forum')
@@ -50,7 +51,7 @@ export default async function ForumActivityPage({ searchParams }: { searchParams
           <p className="fs-line"><Link href={entry.person.href} className="fs-name">{entry.person.name}</Link> <span>{VERB[entry.kind]}</span>{entry.place && <> <span>در</span> <Link href={entry.place.href} className="fs-place" style={{ ['--cat' as string]: entry.place.color }}>{entry.place.title}</Link></>}<small><TimeAgo date={entry.at} /></small></p>
           <Link href={entry.href} className="fs-card">
             {entry.image && <img src={entry.image} alt="" loading="lazy" />}
-            <span>{entry.title && <b>{entry.title}{entry.kind === 'review' && entry.rating ? <em className="fs-stars" aria-label={`${entry.rating.toLocaleString('fa-IR')} از ۵`}>{'★'.repeat(Math.max(0, Math.min(5, entry.rating)))}</em> : null}</b>}{entry.text && <span>{entry.text}</span>}</span>
+            <span>{entry.title && <b>{entry.title}{entry.kind === 'review' && entry.rating ? <em className="fs-stars"><RatingMeter size="sm" value={entry.rating} label={`${entry.rating.toLocaleString('fa-IR')} از ۵`} /></em> : null}</b>}{entry.text && <span>{entry.text}</span>}</span>
           </Link>
         </div>
       </li>)}</ol>

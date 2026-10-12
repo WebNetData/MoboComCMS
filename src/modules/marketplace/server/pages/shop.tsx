@@ -10,6 +10,7 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { productCards } from '@/modules/store/server/catalog'
 import { pageMeta } from '@/modules/site/server/seo'
 import { publicSeller, sellerBySlug, sellerReviews } from '@/modules/marketplace/server/marketplace'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 const SHOP_CONTEXT = { route: 'shop' } as const
 const SORTS = [['bestselling', 'پرفروش‌ترین'], ['newest', 'جدیدترین'], ['cheapest', 'ارزان‌ترین'], ['expensive', 'گران‌ترین']] as const
@@ -48,7 +49,7 @@ export async function SellerShopView({ slug, sort }: { slug: string; sort: strin
           </div>
           <dl className="mk-shop-stats">
             <div><dt>عملکرد</dt><dd><span className={`mk-perf is-${seller.performance.tone}`}>{seller.performance.label}</span></dd></div>
-            <div><dt>رضایت خریداران</dt><dd>{seller.rating.count ? `★ ${seller.rating.average.toLocaleString('fa-IR')} از ۵` : '—'}<small>{seller.rating.count ? ` (${seller.rating.count.toLocaleString('fa-IR')} رأی)` : ''}</small></dd></div>
+            <div><dt>رضایت خریداران</dt><dd>{seller.rating.count ? <><RatingMeter size="sm" value={seller.rating.average} label={`${seller.rating.average} از ۵`} /> {seller.rating.average.toLocaleString('fa-IR')} از ۵</> : '—'}<small>{seller.rating.count ? ` (${seller.rating.count.toLocaleString('fa-IR')} رأی)` : ''}</small></dd></div>
             <div><dt>کالای فروخته‌شده</dt><dd>{seller.salesCount.toLocaleString('fa-IR')}</dd></div>
             <div><dt>محصولات</dt><dd>{products.length.toLocaleString('fa-IR')}</dd></div>
           </dl>
@@ -57,7 +58,7 @@ export async function SellerShopView({ slug, sort }: { slug: string; sort: strin
       {seller.about && <p className="mk-shop-about">{seller.about}</p>}
       <nav className="mk-shop-sort" aria-label="مرتب‌سازی">{SORTS.map(([value, label]) => <Link key={value} href={`/shop/${seller.slug}?sort=${value}`} className={key === value ? 'is-active' : ''} aria-current={key === value ? 'true' : undefined}>{label}</Link>)}</nav>
       {products.length ? <ProductGrid products={products} /> : <p className="sx-empty">این فروشگاه هنوز محصولی برای فروش ندارد.</p>}
-      {reviews.length > 0 && <section className="mk-shop-reviews" aria-labelledby="mk-reviews"><h2 id="mk-reviews">نظر خریداران دربارهٔ این فروشنده</h2><ul>{reviews.map((review) => <li key={review.id}><span className="mk-stars" aria-label={`${review.rating} از ۵`}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span><b>{review.name}</b>{review.body && <p>{review.body}</p>}{review.reply && <blockquote>پاسخ فروشنده: {review.reply}</blockquote>}</li>)}</ul></section>}
+      {reviews.length > 0 && <section className="mk-shop-reviews" aria-labelledby="mk-reviews"><h2 id="mk-reviews">نظر خریداران دربارهٔ این فروشنده</h2><ul>{reviews.map((review) => <li key={review.id}><span className="mk-stars"><RatingChip value={review.rating} /><RatingMeter size="sm" value={review.rating} label={`${review.rating} از ۵`} /></span><b>{review.name}</b>{review.body && <p>{review.body}</p>}{review.reply && <blockquote>پاسخ فروشنده: {review.reply}</blockquote>}</li>)}</ul></section>}
     </main>
     <ThemeFooter context={SHOP_CONTEXT} locale={locale} navPages={navPages} />
   </>

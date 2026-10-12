@@ -30,8 +30,7 @@ body:has(.lc-root) .support-dock { display: none; }
 @media (prefers-reduced-motion: reduce) { .lc-typing span { animation: none; } }
 .lc-contact, .lc-rate { align-self: stretch; display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px dashed var(--line); background: var(--card); }
 .lc-rate { text-align: center; }
-.lc-rate div { display: flex; justify-content: center; direction: ltr; }
-.lc-rate button { border: 0; background: none; font-size: 1.6rem; color: #f59e0b; cursor: pointer; }
+.lc-rate div { display: flex; justify-content: center; }
 .lc-error { margin: 0; padding: 6px 14px; color: #dc2626; font-size: .82rem; }
 .lc-human { margin: 0 12px 6px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--text); font-weight: 700; cursor: pointer; }
 .lc-input { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px 12px; border-block-start: 1px solid var(--line); }

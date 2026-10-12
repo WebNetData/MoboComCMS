@@ -373,7 +373,7 @@ export async function crmProfile(userId: number) {
     ...chats.map((chat): CrmEvent => ({ at: chat.createdAt, kind: 'chat', title: `گفت‌وگوی آنلاین #${chat.id}`, detail: `${chat.messages[0]?.body.slice(0, 100) || ''}${chat.rating ? ` · امتیاز ${chat.rating}` : ''}`, href: `/admin/chat?id=${chat.id}`, tone: chat.status === 'CLOSED' ? '' : 'warn' })),
     ...walletTx.map((tx): CrmEvent => ({ at: tx.createdAt, kind: 'wallet', title: `کیف پول: ${tx.amountMinor < 0n ? 'برداشت' : 'واریز'} ${money(tx.amountMinor < 0n ? -tx.amountMinor : tx.amountMinor, tx.currency)}`, detail: tx.description, href: '', tone: tx.amountMinor < 0n ? '' : 'ok' })),
     ...returns.map((row): CrmEvent => ({ at: row.createdAt, kind: 'return', title: `${row.kind === 'CANCEL' ? 'لغو' : 'مرجوعی'} ${row.number}`, detail: `سفارش #${row.orderId} · ${row.status}`, href: '/admin/store/returns', tone: 'warn' })),
-    ...reviews.map((row): CrmEvent => ({ at: row.createdAt, kind: 'review', title: `نظر ${'★'.repeat(row.rating)} برای ${row.product.name}`, detail: row.title || row.body.slice(0, 100), href: `/products/${row.product.slug}`, tone: row.rating >= 4 ? 'ok' : row.rating <= 2 ? 'bad' : '' })),
+    ...reviews.map((row): CrmEvent => ({ at: row.createdAt, kind: 'review', title: `نظر با امتیاز ${row.rating.toLocaleString('fa-IR')} از ۵ برای ${row.product.name}`, detail: row.title || row.body.slice(0, 100), href: `/products/${row.product.slug}`, tone: row.rating >= 4 ? 'ok' : row.rating <= 2 ? 'bad' : '' })),
     ...notes.map((note): CrmEvent => ({ at: note.createdAt, kind: 'note', title: `یادداشت ${authorName.get(note.adminId) || 'مدیر'}`, detail: note.body, href: '', tone: '' })),
   ]
   return {

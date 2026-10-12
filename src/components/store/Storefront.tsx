@@ -7,6 +7,7 @@ import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import Countdown from '@/components/store/Countdown'
 import Slider from '@/components/site/Slider'
 import { sized, srcSet } from '@/shared/media/image'
+import { RatingMeter } from '@/components/engage/RatingMeter'
 
 // Storefront building blocks (Digikala-style commerce on the SDS tokens):
 // price, product tile, rails, the timed-offer band, category circles,
@@ -30,7 +31,7 @@ export function PriceBlock({ price, listPrice, discount, currency, compact = fal
 
 export function Stars({ rating, count }: { rating: number; count?: number }) {
   if (!rating) return null
-  return <span className="sx-stars" aria-label={`امتیاز ${fa(rating)} از ۵`}><StoreIcon name="star" size={14} /><b className="num">{fa(rating)}</b>{count ? <small className="num">({fa(count)})</small> : null}</span>
+  return <span className="sx-stars"><RatingMeter size="sm" value={rating} label={`امتیاز ${fa(rating)} از ۵`} /><b className="num">{fa(rating)}</b>{count ? <small className="num">({fa(count)})</small> : null}</span>
 }
 
 /** Product tile used in grids and rails. */

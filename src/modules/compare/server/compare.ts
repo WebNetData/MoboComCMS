@@ -56,7 +56,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
   const ratings = await ratingsFor(present)
   const rating = (id: number) => ratings.get(`${type}:${id}`)
   const ratingRows = [
-    numeric('امتیاز کاربران (از ۵)', ids.map((id) => rating(id)?.average ?? null), 'high', (n) => `${n.toLocaleString('fa-IR', { minimumFractionDigits: 1 })} ★`),
+    numeric('امتیاز کاربران (از ۵)', ids.map((id) => rating(id)?.average ?? null), 'high', (n) => `${n.toLocaleString('fa-IR', { minimumFractionDigits: 1 })} از ۵`),
     row('تعداد امتیاز', ids.map((id) => rating(id)?.count || 0)),
     numeric('علاقه‌مندی', ids.map((id) => rating(id)?.favorites || 0), 'high'),
   ]
@@ -129,7 +129,7 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
       row('قیمت ویژهٔ VIP', p.map((r) => (r && r.memberPriceMinor > 0n ? formatMoney(r.memberPriceMinor, normalizeCurrency(r.currency), 'fa-IR') : ''))),
       row('موجودی', p.map((r) => (!r ? '' : r.kind !== 'PHYSICAL' ? (deliversInstantly(r) ? 'تحویل آنی' : r.digitalMode === 'CODES' ? 'ناموجود' : 'تحویل دیجیتال') : r.stock > 0 ? `${fa(r.stock)} عدد` : 'ناموجود'))),
       row('نوع', p.map((r) => (r?.kind === 'PHYSICAL' ? 'کالای فیزیکی' : r ? 'محصول دیجیتال' : ''))), row('دسته', p.map((r) => r?.category?.name)),
-      numeric('امتیاز خریداران (از ۵)', ids.map((id) => { const avg = reviewOf(id)?._avg.rating; return avg == null ? null : Math.round(avg * 10) / 10 }), 'high', (n) => `${n.toLocaleString('fa-IR', { minimumFractionDigits: 1 })} ★`),
+      numeric('امتیاز خریداران (از ۵)', ids.map((id) => { const avg = reviewOf(id)?._avg.rating; return avg == null ? null : Math.round(avg * 10) / 10 }), 'high', (n) => `${n.toLocaleString('fa-IR', { minimumFractionDigits: 1 })} از ۵`),
       row('تعداد نظر', ids.map((id) => reviewOf(id)?._count || 0)),
       numeric('علاقه‌مندی', ids.map((id) => rating(id)?.favorites || 0), 'high'),
     )

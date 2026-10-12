@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { useRouter } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import styles from './BusinessExperience.module.css'
+import { RATING_LABELS } from '@/components/engage/RatingMeter'
 
 async function send(body: Record<string, unknown>) {
   const response = await fetch('/api/businesses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -30,7 +31,7 @@ export function BusinessReviewForm({ businessId, kind, loggedIn, canReply, order
     <h2 id="experience-form-title">تجربهٔ شما ارزشمند است</h2>
     {!loggedIn ? <p className={styles.muted}>برای ثبت تجربه <Link href="/login">وارد حساب خود شوید</Link>.</p> : canReply ? <p className={styles.muted}>شما نمایندهٔ این کسب‌وکار هستید و می‌توانید به تجربه‌های منتشرشده پاسخ دهید.</p> : kind === 'SELLER' && !orders.length ? <p className={styles.muted}>پس از تحویل سفارش از این فروشنده می‌توانید تجربهٔ خرید را ثبت کنید. تجربهٔ سفارش‌های قبلی شما حفظ شده است.</p> : <form onSubmit={submit} className={styles.form} aria-busy={busy}>
       {mine && <p className={styles.notice}>{mine.status === 'PENDING' ? 'تجربهٔ قبلی در انتظار بررسی است.' : 'با ارسال این فرم، تجربهٔ قبلی شما به‌روزرسانی می‌شود.'}</p>}
-      <fieldset disabled={busy}><legend>امتیاز کلی شما</legend><div className={styles.choices}>{[1, 2, 3, 4, 5].map(rating => <label key={rating}><input type="radio" name="rating" value={rating} defaultChecked={rating === (mine?.rating || 5)} required />{rating.toLocaleString('fa-IR')} ★</label>)}</div></fieldset>
+      <fieldset disabled={busy}><legend>امتیاز کلی شما</legend><div className="rv-picker">{[1, 2, 3, 4, 5].map(rating => <label key={rating} className={`tone-${rating}`}><input type="radio" name="rating" value={rating} defaultChecked={rating === (mine?.rating || 5)} required /><b aria-hidden="true">{rating.toLocaleString('fa-IR')}</b><span>{RATING_LABELS[rating]}</span><span className="sr-only"> ({rating.toLocaleString('fa-IR')} از ۵)</span></label>)}</div></fieldset>
       {kind === 'SELLER' ? <label className={styles.field}>سفارش تحویل‌شده<select name="orderId" required disabled={busy}>{orders.map(order => <option key={order.id} value={order.id}>سفارش {order.id.toLocaleString('fa-IR')}</option>)}</select></label> : <label className={styles.field}>تاریخ تجربه <span className={styles.muted}>اختیاری</span><input name="experiencedOn" type="date" defaultValue={mine?.experiencedOn || ''} disabled={busy} /></label>}
       <label className={styles.field}>چه تجربه‌ای داشتید؟<textarea name="body" required minLength={10} maxLength={2000} defaultValue={mine?.body || ''} disabled={busy} placeholder="از کیفیت خرید، تحویل یا برخورد پشتیبانی بنویسید…" /></label>
       <p className={styles.muted}>امتیاز عمومی از تجربه‌های منتشرشده محاسبه می‌شود. برای سایت‌های بیرونی، ثبت تجربه به‌تنهایی اثبات خرید نیست.</p>

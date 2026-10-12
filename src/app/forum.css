@@ -1266,7 +1266,7 @@ body:has(.fx-dock) .mc-translate, body:has(.fx-dock) .lc-bubble, body:has(.fx-do
 @media (prefers-reduced-motion: reduce) { .tp-follow { transition: none; } }
 
 .fs-entry.is-review .fs-avatar i { background: #f59e0b; }
-.fs-stars { margin-inline-start: 8px; font-style: normal; font-size: .8rem; letter-spacing: 1px; color: #f59e0b; white-space: nowrap; }
+.fs-stars { margin-inline-start: 8px; font-style: normal; white-space: nowrap; }
 
 /* The member's social side inside the forum profile: the feed's own components, on this page's card. */
 .fp-social.md-community { background: var(--md-card); padding: 18px 20px; }

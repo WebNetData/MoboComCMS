@@ -1,10 +1,11 @@
 import Link from '@/components/AppLink'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { studioProductReviews } from '@/modules/studios/server/reviews'
+import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 
 export function StudioReviewCards({ reviews }: { reviews: Awaited<ReturnType<typeof studioProductReviews>>['items'] }) {
   return <ul className="org-review-list">{reviews.map((review) => <li key={review.id}>
-    <div className="org-review-top"><Link href={`${review.item.url}#reviews`}>{review.item.title}</Link><span aria-label={`امتیاز ${review.rating} از ۵`}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span></div>
+    <div className="org-review-top"><Link href={`${review.item.url}#reviews`}>{review.item.title}</Link><span className="rv-inline"><RatingChip value={review.rating} word={false} /><RatingMeter size="sm" value={review.rating} label={`امتیاز ${review.rating} از ۵`} /></span></div>
     <p>{review.body}</p>
     <small>{review.author} · {review.createdAt.toLocaleDateString('fa-IR')}</small>
   </li>)}</ul>

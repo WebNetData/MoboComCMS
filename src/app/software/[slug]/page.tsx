@@ -21,6 +21,7 @@ import DetailTabs from '@/components/software/DetailTabs'
 import { Icon, SoftwareLayout, SoftwareShelf, SoftwareSidebar, isFresh, softwareName } from '@/components/software/SoftwarePortal'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { RatingMeter } from '@/components/engage/RatingMeter'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -80,7 +81,6 @@ export default async function SoftwarePage({ params }: Props) {
     ...(s.license === 'PAID' ? {} : { offers: { '@type': 'Offer', price: 0, priceCurrency: 'IRR' } }),
     ...(rating ? { aggregateRating: rating } : {}),
   }
-  const stars = rating ? Math.round(Number(rating.ratingValue)) : 0
 
   const forumOn = await isModuleEnabled('forum')
   const tabs = [
@@ -138,7 +138,7 @@ export default async function SoftwarePage({ params }: Props) {
             <figure className="sp-artwork">{artwork ? <img src={artwork} alt={`تصویر محیط ${name}`} /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</figure>
             <div className="sp-detail-facts">
               <div className="sp-rating-line">
-                <span className="sp-stars" aria-label={rating ? `امتیاز ${rating.ratingValue} از ۵` : 'هنوز امتیازی ثبت نشده'}>{[1, 2, 3, 4, 5].map((i) => <span key={i} className={i <= stars ? 'is-on' : ''}><Icon name="star" size={15} /></span>)}</span>
+                <RatingMeter value={rating ? Number(rating.ratingValue) : null} label={rating ? `امتیاز ${rating.ratingValue} از ۵` : 'هنوز امتیازی ثبت نشده'} />
                 {rating && <span>امتیاز {Number(rating.ratingValue).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} · {n(Number(rating.ratingCount))} رأی</span>}
                 <span><Icon name="eye" size={15} />{n(s.views)} مشاهده</span>
                 <span><Icon name="download" size={15} />{n(s.downloads)} دانلود</span>

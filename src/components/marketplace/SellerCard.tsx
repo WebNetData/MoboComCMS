@@ -1,4 +1,5 @@
 import Link from '@/components/AppLink'
+import { RatingMeter } from '@/components/engage/RatingMeter'
 
 export type SellerCardData = { slug: string; shopName: string; logo: string; city: string; rating: { average: number; count: number }; performance: { label: string; tone: string }; salesCount: number; since: string }
 
@@ -14,7 +15,7 @@ export default function SellerCard({ seller }: { seller: SellerCardData }) {
       </Link>
       <div className="mk-seller-stats">
         <span className={`mk-perf is-${seller.performance.tone}`}>{seller.performance.label}</span>
-        {seller.rating.count > 0 && <span>★ {seller.rating.average.toLocaleString('fa-IR')} <small>({seller.rating.count.toLocaleString('fa-IR')} رأی)</small></span>}
+        {seller.rating.count > 0 && <span><RatingMeter size="sm" value={seller.rating.average} label={`${seller.rating.average} از ۵`} /> {seller.rating.average.toLocaleString('fa-IR')} <small>({seller.rating.count.toLocaleString('fa-IR')} رأی)</small></span>}
         {seller.salesCount > 0 && <span>{seller.salesCount.toLocaleString('fa-IR')} فروش</span>}
       </div>
     </div>

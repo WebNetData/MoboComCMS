@@ -49,7 +49,7 @@ function SellerRow({ row, onNotice, onChanged }: { row: Seller; onNotice: (tone:
       <td><span className={`sa-state ${(STATUS[row.status] || ['', ''])[1]}`}>{(STATUS[row.status] || [row.status])[0]}</span></td>
       <td className="num">{fa(row.products)}</td>
       <td className="num">{fa(row.salesCount)}</td>
-      <td>{row.rating.count ? `★ ${row.rating.average.toLocaleString('fa-IR')} (${fa(row.rating.count)})` : '—'}</td>
+      <td>{row.rating.count ? `${row.rating.average.toLocaleString('fa-IR')} از ۵ (${fa(row.rating.count)})` : '—'}</td>
       <td className="num">{toman(row.balance)}</td>
       <td><div className="sa-row-actions">
         {row.status === 'PENDING' && <><button type="button" className="sa-link" onClick={() => void act('approve')}>تأیید</button><button type="button" className="sa-link is-danger" onClick={() => void act('reject')}>رد</button></>}

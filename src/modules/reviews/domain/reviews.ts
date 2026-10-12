@@ -9,7 +9,7 @@ export class ReviewError extends Error {
 /** Integer 1–5 or an error. */
 export function normalizeRating(value: unknown): number {
   const rating = Number(value)
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ReviewError('امتیاز باید بین ۱ تا ۵ ستاره باشد')
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ReviewError('امتیاز باید بین ۱ تا ۵ باشد')
   return rating
 }
 

@@ -175,7 +175,7 @@ function LiveChat(_props: PluginProps) {
           <input className="input" dir="ltr" value={contact.contact} onChange={(e) => setContact({ ...contact, contact: e.target.value })} placeholder="موبایل یا ایمیل" aria-label="موبایل یا ایمیل" required />
           <button type="submit" className="btn btn-primary btn-sm">ثبت</button>
         </form>}
-        {current === 'CLOSED' && !rated && <div className="lc-rate"><b>از این گفت‌وگو راضی بودید؟</b><div>{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" onClick={() => void rate(star)} aria-label={`${star} ستاره`}>★</button>)}</div></div>}
+        {current === 'CLOSED' && !rated && <div className="lc-rate"><b>از این گفت‌وگو راضی بودید؟</b><div className="rv-tiles is-sm">{[1, 2, 3, 4, 5].map((star) => <button key={star} type="button" className={`tone-${star}`} onClick={() => void rate(star)} aria-label={`${star.toLocaleString('fa-IR')} از ۵`}><b aria-hidden="true">{star.toLocaleString('fa-IR')}</b></button>)}</div></div>}
         {current === 'CLOSED' && rated && <p className="lc-system">سپاس از بازخورد شما 🌷</p>}
       </div>
       {error && <p className="lc-error" role="alert">{error}</p>}
