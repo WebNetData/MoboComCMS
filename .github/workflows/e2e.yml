@@ -1,8 +1,8 @@
 name: Browser tests
 
+# Manual only: PRs use recorded local browser evidence (owner decision after PR #147).
 # Runs the existing browser suite against a compiled HTTPS/PostgreSQL fixture.
 on:
-  pull_request:
   workflow_dispatch:
 
 permissions:

@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { cached, invalidate } from '@/platform/cache/kv'
+import type { Prisma } from '@prisma/client'
 
 // Settings are read on nearly every request; they are cached briefly and
 // dropped on every write (lease rows change constantly and are never cached).
@@ -30,6 +31,35 @@ export async function readJsonSetting(key: string): Promise<Record<string, unkno
 
 export async function writeJsonSetting(key: string, value: unknown) {
   await setSetting(key, JSON.stringify(value))
+}
+
+export class JsonSettingMutationError extends Error {}
+
+/** Fresh, strict object mutation. Callback is database-only and may run again on contention. */
+export async function updateJsonSetting<T>(key: string, work: (value: Record<string, unknown>, tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const result = await db.$transaction(async tx => {
+        const row = await tx.setting.findUnique({ where: { key } })
+        let value: Record<string, unknown>
+        try {
+          value = row ? JSON.parse(row.value) : {}
+          if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid object')
+        } catch { throw new JsonSettingMutationError('invalid stored JSON setting') }
+        const result = await work(value, tx), serialized = JSON.stringify(value)
+        if (row) {
+          const claim = await tx.setting.updateMany({ where: { key, value: row.value }, data: { value: serialized } })
+          if (claim.count !== 1) throw new JsonSettingMutationError('setting changed concurrently')
+        } else await tx.setting.create({ data: { key, value: serialized } })
+        return result
+      }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 15000 })
+      await invalidate('settings:').catch(() => undefined)
+      return result
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : null
+      if (attempt >= 4 || (code !== 'P2034' && code !== 'P2002' && !(error instanceof JsonSettingMutationError && error.message === 'setting changed concurrently'))) throw error
+    }
+  }
 }
 
 /**

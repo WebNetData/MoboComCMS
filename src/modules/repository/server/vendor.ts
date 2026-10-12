@@ -1,34 +1,34 @@
-import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { issueLicense } from './vendor/issue-license'
+import { VENDOR_CONFIG_KEY } from './vendor/catalog-commands'
+export { saveProduct, saveVendorConfig, setReleasePublished } from './vendor/catalog-commands'
+export { buyProduct } from './vendor/purchase'
+export { previewPurchaseRecovery, recoverPurchase } from './vendor/purchase-recovery'
+export { inspectRepositoryArchives } from './vendor/archive-diagnostics'
+export { previewUploadRecovery, recoverUpload } from './vendor/upload-recovery'
+import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
-import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
-import { moveWallet, walletBalance } from '@/modules/wallet/server/wallet'
-import { PACKAGE_LIMITS, PackageError, normalizeEntries, parseManifest } from '@/modules/packages/domain/format'
-import { ZipError, readZip } from '@/modules/packages/domain/zip'
+import { readJsonSetting } from '@/modules/settings/server'
+import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import {
-  ACTIVATION_MESSAGES, RepoError, buildCertificate, checkReleaseManifest, decideActivation, maskKey, normalizeLicenseKey, normalizeProduct, normalizeSiteHost, releaseAllowed, updatesUntilFor,
+  ACTIVATION_MESSAGES, RepoError, buildCertificate, decideActivation, maskKey, normalizeLicenseKey, normalizeSiteHost, releaseAllowed,
   type Certificate,
 } from '@/modules/repository/domain/repository'
-import { fingerprintOf, newLicenseKey, sha256, signPayload, vendorKeys } from './crypto'
+import { fingerprintOf, sha256, signPayload, vendorKeys } from './crypto'
+import { assertLicenseOwner } from '@/modules/repository/server/vendor/access'
 
-export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
-const CONFIG_KEY = 'repository.vendor.v1'
+import { releaseDirectory } from './vendor/release-commands'
+export { releaseDirectory, deleteProduct, uploadRelease } from './vendor/release-commands'
+const CONFIG_KEY = VENDOR_CONFIG_KEY
 const hashKey = (key: string) => sha256(`license:${key}`)
 const money = (minor: bigint) => `${Number(minor).toLocaleString('fa-IR')} تومان`
 
-export interface VendorConfig { enabled: boolean; name: string }
+export interface VendorConfig { enabled: boolean; name: string; archiveRecoveryEnabled?: boolean }
 export async function getVendorConfig(): Promise<VendorConfig> {
   const stored = await readJsonSetting(CONFIG_KEY)
-  return { enabled: stored?.enabled === true, name: String(stored?.name || '').slice(0, 80) }
+  return { enabled: stored?.enabled === true, name: String(stored?.name || '').slice(0, 80), archiveRecoveryEnabled: stored?.archiveRecoveryEnabled === true }
 }
-export async function saveVendorConfig(input: Record<string, unknown>): Promise<VendorConfig> {
-  const next: VendorConfig = { enabled: input.enabled === true, name: String(input.name ?? '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 80) }
-  await writeJsonSetting(CONFIG_KEY, next)
-  return next
-}
-
 // ------------------------------------------------------------------ products and releases
 
 const releaseView = (r: { id: number; version: string; sha256: string; size: number; changelog: string; requiresCore: string; runtime: string; published: boolean; createdAt: Date }) => ({
@@ -36,63 +36,12 @@ const releaseView = (r: { id: number; version: string; sha256: string; size: num
 })
 
 export async function listProducts() {
-  const rows = await db.repoProduct.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], include: { releases: { orderBy: { createdAt: 'desc' } }, _count: { select: { licenses: true } } } })
+  const rows = await db.repoProduct.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], include: { releases: { where: { storageState: 'READY' }, orderBy: { createdAt: 'desc' } }, _count: { select: { licenses: true } } } })
   return rows.map((p) => ({
     id: p.id, slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, description: p.description, icon: p.icon, cover: p.cover, author: p.author, category: p.category,
     price: p.priceMinor.toString(), priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), siteLimit: p.siteLimit, supportDays: p.supportDays, active: p.active, featured: p.featured,
     downloads: p.downloads, sold: p.sold, licenses: p._count.licenses, releases: p.releases.map(releaseView),
   }))
-}
-
-export async function saveProduct(input: Record<string, unknown>, id?: number) {
-  const data = normalizeProduct(input)
-  try {
-    if (id) {
-      const current = await db.repoProduct.findUnique({ where: { id } })
-      if (!current) throw new RepoError('محصول پیدا نشد', 404)
-      // The id is the package id; changing it would orphan releases and licenses.
-      return await db.repoProduct.update({ where: { id }, data: { ...data, slug: current.slug, kind: current.kind } })
-    }
-    return await db.repoProduct.create({ data })
-  } catch (error) {
-    if ((error as { code?: string }).code === 'P2002') throw new RepoError('این شناسه قبلاً ثبت شده است', 409)
-    throw error
-  }
-}
-
-export async function deleteProduct(id: number) {
-  const product = await db.repoProduct.findUnique({ where: { id }, include: { releases: { select: { fileId: true } }, _count: { select: { licenses: true } } } })
-  if (!product) return
-  if (product._count.licenses > 0) throw new RepoError('محصولی که لایسنس دارد حذف نمی‌شود؛ آن را غیرفعال کنید', 409)
-  await Promise.all(product.releases.map((r) => unlink(join(releaseDirectory(), r.fileId)).catch(() => undefined)))
-  await db.repoProduct.delete({ where: { id } })
-}
-
-/** A release is a package zip; its manifest decides the version and must match the product. */
-export async function uploadRelease(productId: number, upload: Buffer, changelog: string) {
-  const product = await db.repoProduct.findUnique({ where: { id: productId }, include: { releases: { select: { version: true } } } })
-  if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  if (upload.length > PACKAGE_LIMITS.uploadBytes) throw new RepoError(`حجم فایل حداکثر ${PACKAGE_LIMITS.uploadBytes / 1024 / 1024} مگابایت است`, 413)
-  let manifest: ReturnType<typeof parseManifest>
-  try {
-    const entries = normalizeEntries(readZip(upload, PACKAGE_LIMITS))
-    const source = entries.get('manifest.json')
-    if (!source) throw new RepoError('manifest.json در ریشهٔ zip نیست')
-    manifest = parseManifest(JSON.parse(source.toString('utf8')), new Set(entries.keys()))
-  } catch (error) {
-    if (error instanceof RepoError) throw error
-    if (error instanceof ZipError || error instanceof PackageError) throw new RepoError(error.message)
-    throw new RepoError('فایل zip یا manifest.json معتبر نیست')
-  }
-  checkReleaseManifest(manifest, product, product.releases.map((r) => r.version))
-  const fileId = `${randomUUID()}.zip`
-  await mkdir(releaseDirectory(), { recursive: true })
-  await writeFile(join(releaseDirectory(), fileId), upload, { flag: 'wx', mode: 0o600 })
-  return db.repoRelease.create({ data: { productId, version: manifest.version, fileId, sha256: sha256(upload), size: upload.length, changelog: String(changelog || '').slice(0, 5000), requiresCore: manifest.requiresCore || '', runtime: manifest.runtime } })
-}
-
-export async function setReleasePublished(id: number, published: boolean) {
-  await db.repoRelease.update({ where: { id }, data: { published } })
 }
 
 async function readReleaseFile(fileId: string): Promise<Buffer | null> {
@@ -122,40 +71,38 @@ export async function listLicenses(filter: { q?: string; productId?: number; sta
   return { rows: rows.map((l) => licenseRow(l, false)), total, page, pages: Math.max(1, Math.ceil(total / 25)) }
 }
 
-async function issueLicense(input: { productId: number; userId: number | null; email: string; source: 'PURCHASE' | 'GRANT'; paidMinor: bigint; note: string }) {
-  const product = await db.repoProduct.findUnique({ where: { id: input.productId } })
-  if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  const key = newLicenseKey()
-  const license = await db.repoLicense.create({
-    data: { keyHash: hashKey(key), keyEnc: encryptPanelCredential(key), keyLast4: key.slice(-5), productId: product.id, userId: input.userId, email: input.email.slice(0, 254), source: input.source, siteLimit: product.siteLimit, paidMinor: input.paidMinor, currency: product.currency, note: input.note.slice(0, 300), updatesUntil: updatesUntilFor(product.supportDays, new Date()) },
-  })
-  return { license, key }
-}
-
 /** A license given by the administrator (a gift, a partner, a manual sale). The key is shown once in the response. */
-export async function grantLicense(input: { productId: number; email?: string; userId?: number; note?: string }) {
-  const { license, key } = await issueLicense({ productId: input.productId, userId: input.userId || null, email: String(input.email || ''), source: 'GRANT', paidMinor: 0n, note: String(input.note || '') })
-  return { id: license.id, key }
+export async function grantLicense(input: { productId: number; email?: string; userId?: number; note?: string }, context?: VendorLicenseContext) {
+  return commitVendorLicense(context, async tx => {
+    const { license, key } = await issueLicense({ productId: input.productId, userId: input.userId || null, email: String(input.email || ''), source: 'GRANT', paidMinor: 0n, note: String(input.note || '') }, tx)
+    return { id: license.id, key }
+  }, result => ({ action: 'grant', targetId: result.id }))
 }
 
-export async function setLicenseStatus(id: number, status: 'ACTIVE' | 'REVOKED') {
-  const result = await db.repoLicense.updateMany({ where: { id }, data: { status } })
-  if (!result.count) throw new RepoError('لایسنس پیدا نشد', 404)
+export async function setLicenseStatus(id: number, status: 'ACTIVE' | 'REVOKED', context?: VendorLicenseContext) {
+  await commitVendorLicense(context, async tx => {
+    const result = await tx.repoLicense.updateMany({ where: { id }, data: { status } })
+    if (!result.count) throw new RepoError('لایسنس پیدا نشد', 404)
+  }, () => ({ action: 'status', targetId: id, metadata: { status } }))
 }
 
-export async function extendLicense(id: number, days: number) {
-  const license = await db.repoLicense.findUnique({ where: { id } })
-  if (!license) throw new RepoError('لایسنس پیدا نشد', 404)
+export async function extendLicense(id: number, days: number, context?: VendorLicenseContext) {
   const n = Math.trunc(days)
-  if (!Number.isFinite(n) || n < 1 || n > 3650) throw new RepoError('تعداد روز معتبر نیست')
-  const from = license.updatesUntil && license.updatesUntil > new Date() ? license.updatesUntil : new Date()
-  await db.repoLicense.update({ where: { id }, data: { updatesUntil: new Date(from.getTime() + n * 86_400_000) } })
+  await commitVendorLicense(context, async tx => {
+    const license = await tx.repoLicense.findUnique({ where: { id } })
+    if (!license) throw new RepoError('لایسنس پیدا نشد', 404)
+    if (!Number.isFinite(n) || n < 1 || n > 3650) throw new RepoError('تعداد روز معتبر نیست')
+    const now = new Date(), from = license.updatesUntil && license.updatesUntil > now ? license.updatesUntil : now
+    await tx.repoLicense.update({ where: { id }, data: { updatesUntil: new Date(from.getTime() + n * 86_400_000) } })
+  }, () => ({ action: 'extend', targetId: id, metadata: { days: n } }))
 }
 
-export async function releaseSite(licenseId: number, site: string, owner?: { userId: number }) {
-  const license = await db.repoLicense.findUnique({ where: { id: licenseId } })
-  if (!license || (owner && license.userId !== owner.userId)) throw new RepoError('لایسنس پیدا نشد', 404)
-  await db.repoActivation.updateMany({ where: { licenseId, site: normalizeSiteHost(site) }, data: { active: false } })
+export async function releaseSite(licenseId: number, site: string, owner?: { userId: number }, context?: VendorLicenseContext) {
+  await commitVendorLicense(context, async tx => {
+    const license = await tx.repoLicense.findUnique({ where: { id: licenseId } })
+    if (!license || (owner && license.userId !== owner.userId)) throw new RepoError('لایسنس پیدا نشد', 404)
+    await tx.repoActivation.updateMany({ where: { licenseId, site: normalizeSiteHost(site) }, data: { active: false } })
+  }, () => ({ action: 'site', targetId: licenseId, metadata: { site } }))
 }
 
 export async function repositoryStats() {
@@ -166,31 +113,6 @@ export async function repositoryStats() {
 }
 
 // ------------------------------------------------------------------ buying (wallet)
-
-export async function buyProduct(userId: number, productId: number, requestId: string) {
-  const id = String(requestId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)
-  if (id.length < 8) throw new RepoError('درخواست نامعتبر است')
-  const product = await db.repoProduct.findUnique({ where: { id: productId } })
-  if (!product || !product.active) throw new RepoError('این محصول در دسترس نیست', 404)
-  if (product.priceMinor === 0n) throw new RepoError('این محصول رایگان است و لایسنس نمی‌خواهد', 409)
-  const marker = `buy:${id}`
-  const existing = await db.repoLicense.findFirst({ where: { userId, productId, note: marker }, select: { id: true } })
-  if (existing) return { licenseId: existing.id, repeated: true }
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } })
-  if (!user) throw new RepoError('کاربر پیدا نشد', 404)
-  const price = Number(product.priceMinor)
-  const paid = await moveWallet({ userId, amount: -price, currency: product.currency, type: 'PURCHASE', description: `خرید «${product.name}» از مخزن افزونه‌ها`, idempotencyKey: `repo:buy:${userId}:${product.id}:${id}` })
-  if (!paid.ok) {
-    if (/insufficient/i.test(paid.message || '')) {
-      const balance = await walletBalance(userId, product.currency)
-      throw new RepoError('موجودی کیف پول کافی نیست', 402, { shortfall: Math.max(0, price - balance), currency: product.currency })
-    }
-    throw new RepoError(paid.message || 'پرداخت انجام نشد', 502)
-  }
-  const { license } = await issueLicense({ productId: product.id, userId, email: user.email, source: 'PURCHASE', paidMinor: product.priceMinor, note: marker })
-  await db.repoProduct.update({ where: { id: product.id }, data: { sold: { increment: 1 } } })
-  return { licenseId: license.id, repeated: false }
-}
 
 /** The buyer's own licenses, with the full keys. */
 export async function licensesOf(userId: number) {
@@ -208,7 +130,7 @@ export async function publicCatalog(filter: { kind?: string; q?: string } = {}) 
   const rows = await db.repoProduct.findMany({
     where: { active: true, ...(filter.kind === 'PLUGIN' || filter.kind === 'THEME' ? { kind: filter.kind } : {}) },
     orderBy: [{ featured: 'desc' }, { downloads: 'desc' }, { updatedAt: 'desc' }], take: 300,
-    include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
+    include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 1 } },
   })
   const products = []
   for (const p of rows) {
@@ -229,7 +151,7 @@ export async function publicMeta() {
 }
 
 export async function publicProduct(slug: string) {
-  const p = await db.repoProduct.findFirst({ where: { slug, active: true }, include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 10 } } })
+  const p = await db.repoProduct.findFirst({ where: { slug, active: true }, include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 10 } } })
   if (!p) return null
   return {
     id: p.id, slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, description: p.description, icon: p.icon, cover: p.cover, author: p.author, category: p.category,
@@ -256,6 +178,7 @@ async function certificateFor(license: { id: number; status: string; updatesUnti
 export async function activateLicense(input: { key: unknown; slug: string; site: unknown; coreVersion?: unknown; ipHash: string }) {
   const site = normalizeSiteHost(input.site)
   const license = await findLicense(input.key, input.slug)
+  await assertLicenseOwner(license)
   const decision = decideActivation(license, license.activations, site)
   if (!decision.ok) throw new RepoError(ACTIVATION_MESSAGES[decision.reason], decision.reason === 'revoked' ? 403 : 409, { reason: decision.reason })
   await db.repoActivation.upsert({
@@ -272,6 +195,8 @@ export async function checkLicense(input: { key: unknown; slug: string; site: un
   const license = await findLicense(input.key, input.slug)
   const activation = license.activations.find((a) => a.site === site && a.active)
   if (!activation) throw new RepoError('این سایت با این لایسنس فعال نشده است', 404, { reason: 'not-activated' })
+  // A revoked certificate is a bounded existing invalidation signal, never an access grant.
+  if (license.status === 'ACTIVE') await assertLicenseOwner(license)
   await db.repoActivation.update({ where: { id: activation.id }, data: { lastSeenAt: new Date() } })
   return certificateFor(license, site)
 }
@@ -279,6 +204,7 @@ export async function checkLicense(input: { key: unknown; slug: string; site: un
 export async function deactivateLicense(input: { key: unknown; slug: string; site: unknown }) {
   const site = normalizeSiteHost(input.site)
   const license = await findLicense(input.key, input.slug)
+  await assertLicenseOwner(license)
   await db.repoActivation.updateMany({ where: { licenseId: license.id, site }, data: { active: false } })
   return { ok: true }
 }
@@ -287,12 +213,13 @@ export async function deactivateLicense(input: { key: unknown; slug: string; sit
 export async function downloadRelease(input: { slug: string; version: string; key?: unknown; site?: unknown }) {
   const product = await db.repoProduct.findFirst({ where: { slug: input.slug, active: true } })
   if (!product) throw new RepoError('محصول پیدا نشد', 404)
-  const release = await db.repoRelease.findFirst({ where: { productId: product.id, version: input.version, published: true } })
+  const release = await db.repoRelease.findFirst({ where: { productId: product.id, version: input.version, published: true, storageState: 'READY' } })
   if (!release) throw new RepoError('نسخه پیدا نشد', 404)
   if (product.priceMinor > 0n) {
     const site = normalizeSiteHost(input.site)
     const license = await findLicense(input.key, product.slug)
     if (license.status !== 'ACTIVE') throw new RepoError('این لایسنس باطل شده است', 403)
+    await assertLicenseOwner(license)
     if (!license.activations.some((a) => a.site === site && a.active)) throw new RepoError('ابتدا لایسنس را برای این سایت فعال کنید', 403)
     if (!releaseAllowed(release.createdAt, license)) throw new RepoError('این نسخه بعد از پایان دورهٔ به‌روزرسانی لایسنس شما منتشر شده است؛ لایسنس را تمدید کنید', 403)
   }
@@ -306,10 +233,10 @@ export async function downloadRelease(input: { slug: string; version: string; ke
 export async function downloadForOwner(userId: number, licenseId: number, version?: string) {
   const license = await db.repoLicense.findFirst({ where: { id: licenseId, userId }, include: { product: true } })
   if (!license || license.status !== 'ACTIVE') throw new RepoError('لایسنس پیدا نشد یا باطل است', 404)
-  const release = await db.repoRelease.findFirst({ where: { productId: license.productId, published: true, ...(version ? { version } : {}) }, orderBy: { createdAt: 'desc' } })
+  const release = await db.repoRelease.findFirst({ where: { productId: license.productId, published: true, storageState: 'READY', ...(version ? { version } : {}) }, orderBy: { createdAt: 'desc' } })
   if (!release || !releaseAllowed(release.createdAt, license)) throw new RepoError('نسخه‌ای در دورهٔ لایسنس شما موجود نیست', 404)
   const buffer = await readReleaseFile(release.fileId)
-  if (!buffer) throw new RepoError('فایل نسخه در دسترس نیست', 500)
+  if (!buffer || sha256(buffer) !== release.sha256) throw new RepoError('فایل نسخه در دسترس نیست', 500)
   await db.repoProduct.update({ where: { id: license.productId }, data: { downloads: { increment: 1 } } })
   return { buffer, filename: `${license.product.slug}-${release.version}.zip` }
 }
@@ -320,7 +247,7 @@ export async function publicListing(filter: { kind?: string; q?: string } = {}) 
   const rows = await db.repoProduct.findMany({
     where: { active: true, ...(filter.kind === 'PLUGIN' || filter.kind === 'THEME' ? { kind: filter.kind } : {}) },
     orderBy: [{ featured: 'desc' }, { downloads: 'desc' }, { updatedAt: 'desc' }], take: 200,
-    include: { releases: { where: { published: true }, orderBy: { createdAt: 'desc' }, take: 1, select: { version: true } } },
+    include: { releases: { where: { published: true, storageState: 'READY' }, orderBy: { createdAt: 'desc' }, take: 1, select: { version: true } } },
   })
   return rows.filter((p) => p.releases.length && (!q || `${p.name} ${p.summary} ${p.slug} ${p.category}`.toLowerCase().includes(q))).map((p) => ({
     slug: p.slug, kind: p.kind, name: p.name, summary: p.summary, icon: p.icon, author: p.author, category: p.category, free: p.priceMinor === 0n, priceLabel: p.priceMinor === 0n ? 'رایگان' : money(p.priceMinor), version: p.releases[0].version, featured: p.featured,

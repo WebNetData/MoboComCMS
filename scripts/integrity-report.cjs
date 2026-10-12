@@ -4,13 +4,15 @@
 // change how far back the time-bounded findings look (default 365). Run it against the database you want to inspect:
 //   node --env-file=.env scripts/integrity-report.cjs
 const { PrismaClient } = require('@prisma/client')
+const { repositoryPurchaseIssues } = require('./integrity-report/repository-purchases.cjs')
+const { repositoryArchiveIssues } = require('../src/modules/repository/server/vendor/archive-integrity.cjs')
 
 const SAMPLE = 20, SCAN = 5000
 const args = process.argv.slice(2), asJson = args.includes('--json')
 const days = Math.max(1, Math.min(3650, Number((args.find((arg) => arg.startsWith('--days=')) || '').slice(7)) || 365))
 
 /** Every finding: { key, title, what, count, sample, capped }. `capped` means the scan stopped at its limit. */
-async function findings(db, now = new Date()) {
+async function findings(db, now = new Date(), options = {}) {
   const since = new Date(now.getTime() - days * 86_400_000), settled = new Date(now.getTime() - 10 * 60_000)
   const out = []
   const add = (key, title, what, rows, capped = false) => out.push({ key, title, what, count: rows.length, sample: rows.slice(0, SAMPLE), capped })
@@ -104,6 +106,20 @@ async function findings(db, now = new Date()) {
     const short = await db.orderEvent.findMany({ where: { status: 'CODES_SHORT', createdAt: { gte: since }, order: { status: 'PAID', productDelivery: { is: { status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] } } } } }, orderBy: { id: 'asc' }, take: SCAN, select: { orderId: true, createdAt: true } })
     add('codes-waiting', 'Paid orders waiting for a digital code', 'the product delivers codes by itself and had none left; adding codes to the product delivers these orders at once', short.map((row) => ({ orderId: row.orderId, since: row.createdAt.toISOString() })), short.length === SCAN)
   }
+  // Existing owner gains bounded Repository diagnosis using the same pure policy as Admin recovery.
+  const repo = await repositoryPurchaseIssues(db, { limit: SCAN, afterPaymentId: options.repositoryAfter || 0 })
+  for (const [group, key, title] of [['unfulfilled', 'repository-purchase-unfulfilled', 'Repository payments without a license'], ['ambiguous', 'repository-purchase-ambiguous', 'Repository receipts requiring manual review'], ['invalid', 'repository-purchase-invalid', 'Invalid Repository purchase payment records']]) {
+    add(key, title, 'Review the payment in Repository Admin with Repository and finance permissions; no data was changed.', repo.groups[group], repo.capped)
+    Object.assign(out[out.length - 1], { afterPaymentId: repo.afterPaymentId, nextAfterPaymentId: repo.nextAfterPaymentId, scannedPayments: repo.scanned })
+  }
+  if (options.repositoryFiles) {
+    const archives = await repositoryArchiveIssues(db, { directory: options.repositoryDirectory, limit: options.repositoryFileLimit, afterReleaseId: options.repositoryReleaseAfter, afterFileId: options.repositoryFileAfter, verifyHashes: options.repositoryHashes })
+    for (const [group, title] of [['unreferenced', 'Repository archives without a release reference'], ['missing', 'Repository release archives not found'], ['unsafe', 'Repository archives not safely inspectable'], ['mismatch', 'Repository release archive size or checksum mismatch']]) {
+      add(`repository-archive-${group}`, title, 'Read-only local observation; review deployment storage and upload lifecycle before any recovery. No file or record was changed.', archives.groups[group], archives.fileCapped || archives.releaseCapped)
+      const { groups, ...coverage } = archives
+      Object.assign(out[out.length - 1], { coverage })
+    }
+  }
   return out
 }
 
@@ -111,15 +127,24 @@ async function main() {
   if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/integrity-report.cjs'); process.exit(2) }
   const db = new PrismaClient()
   try {
-    const result = await findings(db)
+    const rawCursor = (args.find(arg => arg.startsWith('--after-repository-payment=')) || '').slice(27)
+    if (rawCursor && !/^(0|[1-9]\d*)$/.test(rawCursor)) throw Error('invalid Repository payment cursor')
+    const repositoryFiles = args.includes('--repository-files'), repositoryHashes = args.includes('--verify-repository-hashes')
+    const value = prefix => args.find(arg => arg.startsWith(prefix))?.slice(prefix.length)
+    const rawRelease = value('--after-repository-release='), rawFile = value('--after-repository-file='), rawLimit = value('--repository-file-limit=')
+    if (!repositoryFiles && (repositoryHashes || rawRelease !== undefined || rawFile !== undefined || rawLimit !== undefined)) throw Error('Repository archive options require --repository-files')
+    if ((rawRelease !== undefined && !/^(0|[1-9]\d*)$/.test(rawRelease)) || (rawLimit !== undefined && !/^[1-9]\d*$/.test(rawLimit))) throw Error('invalid Repository archive cursor or limit')
+    const result = await findings(db, new Date(), { repositoryAfter: rawCursor ? Number(rawCursor) : 0, repositoryFiles, repositoryHashes, repositoryReleaseAfter: rawRelease === undefined ? 0 : Number(rawRelease), repositoryFileAfter: rawFile || '', repositoryFileLimit: rawLimit === undefined ? 250 : Number(rawLimit) })
     if (asJson) { console.log(JSON.stringify({ days, generatedAt: new Date().toISOString(), findings: result }, null, 1)); return }
     console.log(`Integrity report (read-only), time-bounded findings look back ${days} days\n`)
     for (const row of result) {
-      console.log(`${row.count ? '!!' : 'ok'}  ${row.title}: ${row.count}${row.capped ? ` (scan stopped at ${SCAN} rows; there may be more)` : ''}`)
+      console.log(`${row.count ? '!!' : 'ok'}  ${row.title}: ${row.count}${row.capped ? ` (scan capped at ${row.coverage?.limit || SCAN} per page; there may be more)` : ''}`)
+      if (row.nextAfterPaymentId) console.log(`    Continue Repository history with --after-repository-payment=${row.nextAfterPaymentId}`)
+      if (row.coverage) console.log(`    Archive observation: ${JSON.stringify(row.coverage)}`)
       if (row.count) { console.log(`    ${row.what}`); for (const item of row.sample) console.log(`    ${JSON.stringify(item)}`); if (row.count > row.sample.length) console.log(`    … and ${row.count - row.sample.length} more (use --json)`) }
     }
     const total = result.reduce((sum, row) => sum + row.count, 0)
-    console.log(`\n${total ? `${total} record(s) need a decision.` : 'Nothing to report.'} Nothing was changed.`)
+    console.log(`\n${total ? `${total} record(s) need a decision.` : result.some(row => row.capped) ? 'No findings in scanned pages; coverage is incomplete.' : 'Nothing to report.'} Nothing was changed.`)
   } finally { await db.$disconnect() }
 }
 

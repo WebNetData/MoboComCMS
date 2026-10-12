@@ -70,7 +70,7 @@ async function main() {
  const result = Object.fromEntries((await findings(readOnly)).map(row => [row.key, row]))
  const has = (key, test) => result[key].sample.concat([]).some(test) || (() => { throw new Error(`${key}: planted record not reported: ${JSON.stringify(result[key].sample.slice(0, 3))}`) })()
  const lacks = (key, test, why) => assert.ok(!result[key].sample.some(test), `${key}: ${why}`)
- assert.equal(Object.keys(result).length, 14)
+ assert.equal(Object.keys(result).length, 17); for (const key of ['repository-purchase-unfulfilled', 'repository-purchase-ambiguous', 'repository-purchase-invalid']) assert.ok(result[key], 'additive Repository finding '+key)
  has('codes-waiting', row => row.orderId === waitingCode.id); lacks('codes-waiting', row => row.orderId === servedCode.id, 'an order delivered since is not waiting')
  has('order-over-refunded', row => row.orderId === over.id && row.refunded === '1300' && row.total === '1000'); lacks('order-over-refunded', row => row.orderId === fine.id, 'an order refunded exactly its total is fine')
  has('refund-without-credit', row => row.returnId === uncredited.id)
@@ -85,7 +85,7 @@ async function main() {
  has('reseller-account-wrong-owner', row => row.orderId === wrongOwner.id && row.ownedBy === referrer.id && row.soldFor === friend.id); assert.equal(result['reseller-account-wrong-owner'].sample.filter(row => row.soldFor === friend.id).length, 1, 'the sale owned by its customer is fine')
  has('points-redeemed-uncredited', row => row.entryId === taken.id && row.points === 100); lacks('points-redeemed-uncredited', row => [paidPoints.id, undonePoints.id].includes(row.entryId), 'a credited or undone redemption is fine')
  has('paid-without-fulfillment', row => row.invoice === unqueued.number); lacks('paid-without-fulfillment', row => row.orderId === healthy.id, 'an order with a job is fine')
- console.log('PostgreSQL integrity report: each of the 14 findings reports its planted record and not its healthy twin, on a client that refuses writes passed')
+ console.log('PostgreSQL integrity report: original14 findings report planted records and not healthy twins; all17 finding keys exist, on a client that refuses writes passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
  try {

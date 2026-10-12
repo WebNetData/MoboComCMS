@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
@@ -47,7 +48,7 @@ async function ensureAccount(tx: any, userId: number, currency: string) {
  * Debits use a conditional UPDATE, preventing concurrent requests from spending
  * the same balance. `idempotencyKey`/pending `txId` make retries safe.
  */
-export async function moveWallet(input: WalletMoveInput): Promise<WalletMoveResult> {
+export async function moveWallet(input: WalletMoveInput, transaction?: Prisma.TransactionClient): Promise<WalletMoveResult> {
   const currency = normalizeCurrency(input.currency || 'USD')
   let amountMinor: bigint
   try {
@@ -56,6 +57,9 @@ export async function moveWallet(input: WalletMoveInput): Promise<WalletMoveResu
     return { ok: false, message: error instanceof Error ? error.message : 'invalid amount' }
   }
   if (amountMinor === 0n) return { ok: false, message: 'amount must not be zero' }
+
+  // Composed callers own retry/rollback of their whole transaction; never nest or retry a part.
+  if (transaction) return moveInTransaction(transaction, input, currency, amountMinor)
 
   // Two movements can meet on a unique key: a member's first two movements both creating the
   // account, or the same idempotency key sent twice at once. The loser's transaction is rolled
@@ -69,115 +73,118 @@ export async function moveWallet(input: WalletMoveInput): Promise<WalletMoveResu
 }
 
 async function moveOnce(input: WalletMoveInput, currency: string, amountMinor: bigint): Promise<WalletMoveResult> {
-  return db.$transaction(async (tx) => {
-    if (input.idempotencyKey) {
-      const previous = await tx.walletTx.findUnique({ where: { idempotencyKey: input.idempotencyKey } })
-      if (previous?.status === 'DONE') {
-        return {
-          ok: true,
-          currency: previous.currency,
-          balance: minorToNumber(previous.balanceAfterMinor, previous.currency),
-          balanceMinor: previous.balanceAfterMinor,
-          txId: previous.id,
-          idempotent: true,
-        }
-      }
-    }
-
-    const account = await ensureAccount(tx, input.userId, currency)
-    if (!account) return { ok: false, message: 'user not found' }
-
-    // When settling a pending top-up, atomically claim exactly that row once.
-    // This protects against a signed callback and the recovery poller racing.
-    if (input.txId) {
-      const before = await tx.walletTx.findUnique({ where: { id: input.txId } })
-      if (!before) return { ok: false, message: 'wallet transaction not found' }
-      if (before.status === 'DONE') {
-        return {
-          ok: true,
-          currency: before.currency,
-          balance: minorToNumber(before.balanceAfterMinor, before.currency),
-          balanceMinor: before.balanceAfterMinor,
-          txId: before.id,
-          idempotent: true,
-        }
-      }
-      if (normalizeCurrency(before.currency) !== currency) return { ok: false, message: 'wallet transaction currency mismatch' }
-      const claimed = await tx.walletTx.updateMany({
-        where: { id: input.txId, status: 'PENDING' },
-        data: { status: 'PROCESSING' },
-      })
-      if (claimed.count !== 1) {
-        const fresh = await tx.walletTx.findUnique({ where: { id: input.txId } })
-        if (fresh?.status === 'DONE') {
-          return {
-            ok: true,
-            currency: fresh.currency,
-            balance: minorToNumber(fresh.balanceAfterMinor, fresh.currency),
-            balanceMinor: fresh.balanceAfterMinor,
-            txId: fresh.id,
-            idempotent: true,
-          }
-        }
-        return { ok: false, message: 'wallet transaction is already being settled or cannot be settled' }
-      }
-    }
-
-    if (amountMinor < 0n) {
-      const debit = -amountMinor
-      const changed = await tx.walletAccount.updateMany({
-        where: { id: account.id, balanceMinor: { gte: debit } },
-        data: { balanceMinor: { decrement: debit } },
-      })
-      if (changed.count !== 1) return { ok: false, message: 'insufficient wallet balance' }
-    } else {
-      await tx.walletAccount.update({ where: { id: account.id }, data: { balanceMinor: { increment: amountMinor } } })
-    }
-
-    const updated = await tx.walletAccount.findUnique({ where: { id: account.id } })
-    if (!updated) throw new Error('wallet account disappeared during transaction')
-    const balance = legacyNumber(updated.balanceMinor, currency)
-    const amount = legacyNumber(amountMinor, currency)
-
-    const ledgerData = {
-      userId: input.userId,
-      amount,
-      amountMinor,
-      balanceAfter: balance,
-      balanceAfterMinor: updated.balanceMinor,
-      currency,
-      type: input.type,
-      status: input.status || 'DONE',
-      description: input.description || '',
-      orderId: input.orderId ?? null,
-      invoiceId: input.invoiceId ?? null,
-      adminId: input.adminId ?? null,
-      idempotencyKey: input.idempotencyKey || null,
-    }
-
-    let txId = input.txId ?? null
-    if (txId) {
-      await tx.walletTx.update({ where: { id: txId }, data: ledgerData })
-    } else {
-      const row = await tx.walletTx.create({ data: ledgerData })
-      txId = row.id
-    }
-
-    // Compatibility only: old screens/integrations may still read this USD mirror.
-    if (currency === 'USD') {
-      await tx.user.update({ where: { id: input.userId }, data: { walletBalance: balance } })
-    }
-
-    return { ok: true, currency, balance, balanceMinor: updated.balanceMinor, txId }
-  })
+  return db.$transaction(tx => moveInTransaction(tx, input, currency, amountMinor))
 }
 
-export async function walletBalance(userId: number, currency = 'USD') {
+async function moveInTransaction(tx: Prisma.TransactionClient, input: WalletMoveInput, currency: string, amountMinor: bigint): Promise<WalletMoveResult> {
+  if (input.idempotencyKey) {
+    const previous = await tx.walletTx.findUnique({ where: { idempotencyKey: input.idempotencyKey } })
+    if (previous?.status === 'DONE') {
+      return {
+        ok: true,
+        currency: previous.currency,
+        balance: minorToNumber(previous.balanceAfterMinor, previous.currency),
+        balanceMinor: previous.balanceAfterMinor,
+        txId: previous.id,
+        idempotent: true,
+      }
+    }
+  }
+
+  const account = await ensureAccount(tx, input.userId, currency)
+  if (!account) return { ok: false, message: 'user not found' }
+
+  // When settling a pending top-up, atomically claim exactly that row once.
+  // This protects against a signed callback and the recovery poller racing.
+  if (input.txId) {
+    const before = await tx.walletTx.findUnique({ where: { id: input.txId } })
+    if (!before) return { ok: false, message: 'wallet transaction not found' }
+    if (before.status === 'DONE') {
+      return {
+        ok: true,
+        currency: before.currency,
+        balance: minorToNumber(before.balanceAfterMinor, before.currency),
+        balanceMinor: before.balanceAfterMinor,
+        txId: before.id,
+        idempotent: true,
+      }
+    }
+    if (normalizeCurrency(before.currency) !== currency) return { ok: false, message: 'wallet transaction currency mismatch' }
+    const claimed = await tx.walletTx.updateMany({
+      where: { id: input.txId, status: 'PENDING' },
+      data: { status: 'PROCESSING' },
+    })
+    if (claimed.count !== 1) {
+      const fresh = await tx.walletTx.findUnique({ where: { id: input.txId } })
+      if (fresh?.status === 'DONE') {
+        return {
+          ok: true,
+          currency: fresh.currency,
+          balance: minorToNumber(fresh.balanceAfterMinor, fresh.currency),
+          balanceMinor: fresh.balanceAfterMinor,
+          txId: fresh.id,
+          idempotent: true,
+        }
+      }
+      return { ok: false, message: 'wallet transaction is already being settled or cannot be settled' }
+    }
+  }
+
+  if (amountMinor < 0n) {
+    const debit = -amountMinor
+    const changed = await tx.walletAccount.updateMany({
+      where: { id: account.id, balanceMinor: { gte: debit } },
+      data: { balanceMinor: { decrement: debit } },
+    })
+    if (changed.count !== 1) return { ok: false, message: 'insufficient wallet balance' }
+  } else {
+    await tx.walletAccount.update({ where: { id: account.id }, data: { balanceMinor: { increment: amountMinor } } })
+  }
+
+  const updated = await tx.walletAccount.findUnique({ where: { id: account.id } })
+  if (!updated) throw new Error('wallet account disappeared during transaction')
+  const balance = legacyNumber(updated.balanceMinor, currency)
+  const amount = legacyNumber(amountMinor, currency)
+
+  const ledgerData = {
+    userId: input.userId,
+    amount,
+    amountMinor,
+    balanceAfter: balance,
+    balanceAfterMinor: updated.balanceMinor,
+    currency,
+    type: input.type,
+    status: input.status || 'DONE',
+    description: input.description || '',
+    orderId: input.orderId ?? null,
+    invoiceId: input.invoiceId ?? null,
+    adminId: input.adminId ?? null,
+    idempotencyKey: input.idempotencyKey || null,
+  }
+
+  let txId = input.txId ?? null
+  if (txId) {
+    const settled = await tx.walletTx.updateMany({ where: { id: txId, status: 'PROCESSING' }, data: ledgerData })
+    if (settled.count !== 1) throw new Error('wallet settlement claim lost')
+  } else {
+    const row = await tx.walletTx.create({ data: ledgerData })
+    txId = row.id
+  }
+
+  // Compatibility only: old screens/integrations may still read this USD mirror.
+  if (currency === 'USD') {
+    await tx.user.update({ where: { id: input.userId }, data: { walletBalance: balance } })
+  }
+
+  return { ok: true, currency, balance, balanceMinor: updated.balanceMinor, txId }
+}
+
+export async function walletBalance(userId: number, currency = 'USD', reader: Pick<Prisma.TransactionClient, 'walletAccount' | 'user'> = db) {
   const code = normalizeCurrency(currency)
-  const account = await db.walletAccount.findUnique({ where: { userId_currency: { userId, currency: code } } })
+  const account = await reader.walletAccount.findUnique({ where: { userId_currency: { userId, currency: code } } })
   if (account) return minorToNumber(account.balanceMinor, code)
   if (code !== 'USD') return 0
-  const user = await db.user.findUnique({ where: { id: userId }, select: { walletBalance: true } })
+  const user = await reader.user.findUnique({ where: { id: userId }, select: { walletBalance: true } })
   return Number(user?.walletBalance || 0)
 }
 

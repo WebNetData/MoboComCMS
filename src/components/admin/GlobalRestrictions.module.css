@@ -1,0 +1,7 @@
+.panel {
+  color-scheme: light;
+}
+
+:global([data-theme='dark']) .panel {
+  color-scheme: dark;
+}

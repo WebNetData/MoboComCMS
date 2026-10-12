@@ -4,7 +4,9 @@ import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { monitoringOverview, purgeCdn, recordVital } from '@/modules/operations/server/monitoring'
-import { enqueue, isJobKind, retryJob } from '@/modules/operations/server/queue'
+import { isJobKind } from '@/modules/operations/server/queue'
+import { enqueueManualJob, retryManualJob } from '@/modules/operations/server/queue-authority'
+import { getRawToken } from '@/modules/identity/server/access'
 
 /** GET /api/admin/performance — health, queues, errors, slow queries and Web Vitals. */
 export async function GET_admin(req: NextRequest) {
@@ -19,14 +21,14 @@ export async function POST_admin(req: NextRequest) {
   if ('response' in guard) return guard.response
   const body = (await req.json().catch(() => null)) || {}
   try {
+    const context = { req, actor: guard.admin, authAt: (await getRawToken(req))?.authAt }
     if (body.op === 'job') {
       const kind = String(body.kind || '')
       if (!isJobKind(kind)) return err('نوع کار نامعتبر است', 400)
-      const job = await enqueue(kind, {}, { dedupeKey: `manual:${kind}` })
-      await auditAdmin({ req, actor: guard.admin, action: 'operations.enqueue', targetType: 'job', targetId: String(job.id), metadata: { kind } })
+      const job = await enqueueManualJob(kind, context)
       return ok({ id: job.id })
     }
-    if (body.op === 'retry') return ok({ retried: await retryJob(Number(body.id) || 0) })
+    if (body.op === 'retry') return ok({ retried: await retryManualJob(Number(body.id) || 0, context) })
     if (body.op === 'purge-cdn') {
       const result = await purgeCdn()
       await auditAdmin({ req, actor: guard.admin, action: 'operations.purge_cdn', targetType: 'cdn', targetId: 'cloudflare', metadata: { zones: result.zones } })

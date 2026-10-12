@@ -1,0 +1,20 @@
+# Current atomic Repository connection commands
+
+## Confirmed defect and existing owner
+
+The existing POST_client initially admitted settings.manage but connect/disconnect wrote repository.client.v1 independently of a current actor/module check and best-effort success audit. Actual controller/PostgreSQL baseline connect after actor suspension returned200 instead of403: .mobocom/restrictions-1791747469891-18492.log. This is a bounded WEAK_SECURITY/WEAK_BACKEND finding, not a missing Repository system.
+
+The existing client now delegates its local configuration commit to its private connection-commit part. Fresh strict snapshot precedes metadata IO; shared updateJsonSetting performs current exact-value claim/serializable retries. Current canonical settings.manage actor and Repository module are rechecked inside the same transaction as configuration replacement/clearing and auditAdminStrict. Concurrent replacement returns409 and stays intact; corrupt JSON fails closed. Connect fingerprint confirmation, setting keys, endpoint/response shape, existing audit action/target/fingerprint and optional trusted service context remain compatible. No provider calls inside repeatable callbacks; no license-map clearing, schema, UI, permission or duplicate service. Serena references found the existing Admin controller caller, now passing command context.
+
+## Executed evidence
+
+- Native actual SQL/controller/Identity/module/Settings/audit50 .mobocom/restrictions-1791747501573-19712.log. Added12 connect/disconnect success/authority/module/config/corrupt/audit cases; existing38 license-map/package/subject cases retained. The disconnect race hook changes the actual config after snapshot read. Denied commands retain exact current config/license map and no success audit; success records one audit, including ordinary disconnect.
+- One-connection50 .mobocom/restrictions-1791747655618-37808.log. Settings overlap tests explicitly run serially with one connection; this is portability evidence, not overlap proof.
+- Two intended rule-removal faults were detected: current actor .mobocom/restrictions-1791747653650-7284.log and connection comparison .mobocom/restrictions-1791747654525-29028.log. Container-only source restored in finally before final gates. Native JWT/catalog/cache/network/encryption boundaries are doubled; actual signed-cookie/encrypted compiled HTTP validation is recorded below.
+- Relevant PostgreSQL13 native0 .mobocom/restrictions-1791747708207-692.log; local check/TypeScript/backup native0 .mobocom/restrictions-1791747569754-2884.log. No source/test edits while gates run; no DB-mutating native test during compiled browser.
+
+## Compiled validation and broader scope
+
+Fresh build82 native0 .mobocom/restrictions-1791755729472-3792.log; scoped compiled HTTPS34/zero retry native0 .mobocom/restrictions-1791755962170-36872.log. Added three real delayed metadata HTTP connect cases: ordinary success/current replacement/module disabled after admission, plus two no-op disconnect audits. Existing31 cases retained. Actual signed-cookie/Origin/production module guard/strict audit; generated local Ed25519 provider and normal encrypted license flows, no production vendor calls. Disposable configuration/module/license/audits/socket/promise cleanup executed. Origin prepare/restore logs .mobocom/restrictions-1791755961868-26796.log / .mobocom/restrictions-1791755983801-21960.log. No DB-mutating native fixtures ran alongside browser. Provider-side reconciliation, vendor current authority/atomic audit, external code-apply compensation, full operational lifecycle, roadmap capabilities and production rollout remain incomplete. No React/CSS/design change or new React Doctor/a11y claim. Root3000 source untouched, owner files preserved; Actions/push/PR/merge/deploy0. Full goal remains active.
+
+Existing CSS build warnings and disposable seeded fulfillment jobs without a configured panel were logged during browser execution; they are retained in raw evidence and do not establish provider readiness.

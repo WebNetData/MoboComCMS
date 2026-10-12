@@ -6,6 +6,7 @@ import { getDownloadSettings } from '@/modules/downloads/server/guard'
 import { contentTypeFor, decodeNamePath, dispositionFor, encodeName, fileNameOf, resolveSibling, shouldMask } from '@/modules/downloads/domain/mask'
 import { downloadFileName } from '@/modules/downloads/domain/scrub'
 import { cleanedCopy, serveCleaned, type FileTags } from '@/modules/downloads/server/clean'
+import { resolveCurrentUser } from '@/modules/identity/server/access'
 
 // Masked file links (/dl/<token>/<name>): the real URL of a file on another
 // host is encrypted into the token (AES-256-GCM, so it cannot be read or
@@ -13,7 +14,7 @@ import { cleanedCopy, serveCleaned, type FileTags } from '@/modules/downloads/se
 // visitor, forwarding range requests so downloads can resume and video/audio
 // can seek. Visitors only ever see this site's domain.
 
-type Payload = { u: string; e: number; d: 0 | 1; n: string; m?: FileTags }
+type Payload = { u: string; e: number; d: 0 | 1; n: string; m?: FileTags; a?: number }
 
 const key = () => createHash('sha256').update(`${authSecret()}:masked-file-links:v1`).digest()
 
@@ -31,7 +32,8 @@ export function openLink(token: string): Payload | null {
     const decipher = createDecipheriv('aes-256-gcm', key(), raw.subarray(0, 12))
     decipher.setAuthTag(raw.subarray(12, 28))
     const payload = JSON.parse(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8')) as Payload
-    return typeof payload.u === 'string' && typeof payload.e === 'number' ? payload : null
+    return typeof payload.u === 'string' && typeof payload.e === 'number'
+      && (payload.a === undefined || (Number.isSafeInteger(payload.a) && payload.a > 0)) ? payload : null
   } catch { return null }
 }
 
@@ -57,7 +59,7 @@ export type FileContext = { title?: string; label?: string; quality?: string }
  * itself. `download` makes the browser save the file; otherwise it plays inline.
  * The file is saved under this site's name for it, not the source's file name.
  */
-export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string; context?: FileContext; tags?: FileTags }): Promise<string> {
+export async function maskedHref(rawUrl: string, options: { download: boolean; name?: string; context?: FileContext; tags?: FileTags; userId?: number | null }): Promise<string> {
   const settings = await getDownloadSettings()
   if (!shouldMask(rawUrl, { mode: settings.maskMode, siteHost: await siteHost(), exclude: settings.maskExclude })) return rawUrl
   const original = fileNameOf(rawUrl)
@@ -65,7 +67,8 @@ export async function maskedHref(rawUrl: string, options: { download: boolean; n
     pattern: options.context?.title ? settings.renamePattern : '', original, words: settings.scrubWords,
     title: options.context?.title, label: options.context?.label, quality: options.context?.quality, site: await siteBrand(),
   })
-  const token = sealLink({ u: rawUrl, e: Math.floor(Date.now() / 1000) + settings.maskTtlHours * 3600, d: options.download ? 1 : 0, n: name, ...(options.download && options.tags ? { m: options.tags } : {}) })
+  if (options.userId != null && (!Number.isSafeInteger(options.userId) || options.userId <= 0)) throw new Error('Invalid masked-link account')
+  const token = sealLink({ u: rawUrl, e: Math.floor(Date.now() / 1000) + settings.maskTtlHours * 3600, d: options.download ? 1 : 0, n: name, ...(options.download && options.tags ? { m: options.tags } : {}), ...(options.userId != null ? { a: options.userId } : {}) })
   return `/dl/${token}/${encodeName(name)}`
 }
 
@@ -80,6 +83,11 @@ export async function serveMasked(req: Request, token: string, nameSegments: str
   const payload = openLink(token)
   if (!payload) return notFound()
   if (payload.e * 1000 < Date.now()) return notFound(410, 'این لینک منقضی شده است؛ دوباره از صفحهٔ دانلود اقدام کنید.')
+  // Possession still authorizes this expiring link; human-bound grants use current account facts.
+  // Legacy/guest tokens contain no account claim and cannot be relinked by guessing identity.
+  if (payload.a !== undefined && !await resolveCurrentUser(payload.a, undefined)) {
+    return notFound(423, 'دسترسی حساب مالک به این لینک فعلاً مجاز نیست.')
+  }
   const requested = decodeNamePath(nameSegments)
   const target = resolveSibling(payload.u, payload.n, requested === payload.n ? '' : requested)
   if (!target) return notFound()
@@ -88,7 +96,11 @@ export async function serveMasked(req: Request, token: string, nameSegments: str
   // Downloads of a kind the admin chose to clean come from a cleaned copy on this server.
   if (payload.d === 1 && target === payload.u && (req.method === 'GET' || req.method === 'HEAD')) {
     const cleaned = await cleanedCopy({ url: target }, name, payload.m || {}).catch(() => null)
-    if (cleaned) return serveCleaned(req, cleaned, name, true)
+    if (cleaned) {
+      const response = await serveCleaned(req, cleaned, name, true)
+      if (payload.a !== undefined) response.headers.set('Cache-Control', 'private, no-store')
+      return response
+    }
   }
 
   const headers: Record<string, string> = { Accept: '*/*', 'User-Agent': req.headers.get('user-agent') || 'Mozilla/5.0' }
@@ -116,7 +128,7 @@ export async function serveMasked(req: Request, token: string, nameSegments: str
   if (!out.has('accept-ranges')) out.set('Accept-Ranges', 'bytes')
   out.set('Content-Type', contentTypeFor(name, upstream.headers.get('content-type')))
   out.set('Content-Disposition', dispositionFor(name, payload.d === 1))
-  out.set('Cache-Control', 'private, max-age=3600')
+  out.set('Cache-Control', payload.a === undefined ? 'private, max-age=3600' : 'private, no-store')
   out.set('X-Content-Type-Options', 'nosniff')
   out.set('X-Robots-Tag', 'noindex, nofollow')
   out.set('Referrer-Policy', 'no-referrer')

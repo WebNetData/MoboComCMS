@@ -1,22 +1,27 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { siteBaseUrl } from '@/modules/site/server/site-url'
 import { currentVersion } from '@/modules/updater/server/service'
-import { installPackage, loadPackage, setPackageEnabled } from '@/modules/packages/server/store'
+import { installPackage, loadPackage, setPackageEnabled, PackageAuthorityError, type PackageCommandContext } from '@/modules/packages/server/store'
+import { auditAdminStrict } from '@/platform/audit/server'
+import { invalidate } from '@/platform/cache/kv'
+import { moduleGuard } from '@/extensions/server/modules'
 import { PackageError } from '@/modules/packages/domain/format'
 import {
   RepoError, certificateProblem, compareVersions, coreSatisfies, isCertificate, normalizeCatalog, normalizeLicenseKey, normalizeSiteHost, safeRepositoryUrl,
   type Certificate, type CatalogProduct,
 } from '@/modules/repository/domain/repository'
 import { fingerprintOf, sha256, verifyPayload } from './crypto'
+import { LICENSES_KEY, captureEntitlement, assertCurrentEntitlement, type InstallEntitlement } from './client/entitlement'
+import { commitLicenses, unchangedLicense, type LicenseCommandContext } from './client/license-commit'
+import { captureConnection, commitConnection } from './client/connection-commit'
 
 // The site side of the repository: browse a vendor's catalog, keep licenses, install and update packages.
 // Everything a vendor sends is checked: the key is pinned by the administrator, releases and certificates are signed.
 
 const CONFIG_KEY = 'repository.client.v1'
-const LICENSES_KEY = 'repository.licenses.v1'
 const INSTALLED_KEY = 'repository.installed.v1'
 const MAX_CATALOG = 2 * 1024 * 1024
 const MAX_PACKAGE = 4 * 1024 * 1024
@@ -26,7 +31,7 @@ const allowPrivate = () => process.env.REPOSITORY_ALLOW_PRIVATE === '1'
 export const defaultRepositoryUrl = () => { try { return safeRepositoryUrl(process.env.REPOSITORY_URL, { allowPrivate: allowPrivate() }) } catch { return '' } }
 
 export interface ClientConfig { url: string; name: string; publicKey: string; fingerprint: string; connectedAt: string }
-interface StoredLicense { keyEnc: string; certificate: Certificate; signature: string; checkedAt: string; state: 'active' | 'revoked' | 'unreachable' }
+export interface StoredLicense { keyEnc: string; certificate: Certificate; signature: string; checkedAt: string; state: 'active' | 'revoked' | 'unreachable' }
 
 async function readConfig(): Promise<ClientConfig | null> {
   const raw = await readJsonSetting(CONFIG_KEY)
@@ -99,14 +104,15 @@ export async function fetchRepositoryMeta(url: string) {
 }
 
 /** Step two: pin the key the administrator confirmed. A changed key is never accepted silently. */
-export async function connectRepository(url: string, confirmedFingerprint: string) {
+export async function connectRepository(url: string, confirmedFingerprint: string, context?: LicenseCommandContext) {
+  const expected = await captureConnection()
   const meta = await fetchRepositoryMeta(url)
   if (meta.fingerprint.replace(/-/g, '') !== String(confirmedFingerprint || '').toUpperCase().replace(/[^0-9A-F]/g, '')) throw new RepoError('اثر انگشت کلید تأیید نشد؛ دوباره «بررسی» را بزنید', 409)
-  await writeJsonSetting(CONFIG_KEY, { ...meta, connectedAt: new Date().toISOString() })
+  await commitConnection(expected, { ...meta, connectedAt: new Date().toISOString() }, context)
   return meta
 }
 
-export async function disconnectRepository() { await writeJsonSetting(CONFIG_KEY, {}) }
+export async function disconnectRepository(context?: LicenseCommandContext) { await commitConnection(await captureConnection(), null, context) }
 
 // ------------------------------------------------------------------ catalog
 
@@ -144,62 +150,84 @@ export async function browseCatalog(filter: { q?: string; kind?: string } = {}) 
 
 async function siteHost() { return normalizeSiteHost(await siteBaseUrl()) }
 
-export async function activateRepositoryLicense(slug: string, rawKey: unknown) {
+export async function activateRepositoryLicense(slug: string, rawKey: unknown, context?: LicenseCommandContext) {
   const config = await requireConfig()
   const key = normalizeLicenseKey(rawKey)
   if (!key) throw new RepoError('کلید لایسنس معتبر نیست (مثل MBC-XXXXX-XXXXX-XXXXX-XXXXX)')
   const site = await siteHost()
+  const expected = (await readMap<StoredLicense>(LICENSES_KEY))[slug]
   const r = await request(config.url, '/api/repo/v1/licenses/activate', { method: 'POST', body: { key, slug, site, coreVersion: currentVersion() } })
   if (r.status !== 200) throw problem(r, 'فعال‌سازی لایسنس ناموفق بود')
   const answer = r.json() as { certificate?: unknown; signature?: unknown }
   if (!isCertificate(answer.certificate) || typeof answer.signature !== 'string' || !verifyPayload(answer.certificate, answer.signature, config.publicKey)) throw new RepoError('گواهی لایسنس با کلید مخزن تأیید نشد', 502)
   const bad = certificateProblem(answer.certificate, { product: slug, site }, new Date())
   if (bad) throw new RepoError('گواهی لایسنس برای این سایت معتبر نیست', 502)
-  const licenses = await readMap<StoredLicense>(LICENSES_KEY)
-  licenses[slug] = { keyEnc: encryptPanelCredential(key), certificate: answer.certificate, signature: answer.signature, checkedAt: new Date().toISOString(), state: 'active' }
-  await writeJsonSetting(LICENSES_KEY, licenses)
+  const stored: StoredLicense = { keyEnc: encryptPanelCredential(key), certificate: answer.certificate, signature: answer.signature, checkedAt: new Date().toISOString(), state: 'active' }
+  await commitLicenses(config, site, context, 'activate', slug, async licenses => {
+    unchangedLicense(licenses[slug], expected)
+    licenses[slug] = stored
+  })
   return { updatesUntil: answer.certificate.updatesUntil }
 }
 
-export async function deactivateRepositoryLicense(slug: string) {
+export async function deactivateRepositoryLicense(slug: string, context?: LicenseCommandContext) {
   const config = await requireConfig()
   const licenses = await readMap<StoredLicense>(LICENSES_KEY)
   const stored = licenses[slug]
-  if (!stored) return
+  const site = await siteHost()
+  if (!stored) return commitLicenses(config, site, context, 'deactivate', slug, async current => {
+    unchangedLicense(current[slug], undefined)
+  })
   // Freeing the place is best effort: the license is removed here even when the repository cannot be reached.
-  await request(config.url, '/api/repo/v1/licenses/deactivate', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site: await siteHost() } }).catch(() => undefined)
-  delete licenses[slug]
-  await writeJsonSetting(LICENSES_KEY, licenses)
+  await request(config.url, '/api/repo/v1/licenses/deactivate', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site } }).catch(() => undefined)
+  await commitLicenses(config, site, context, 'deactivate', slug, async current => {
+    unchangedLicense(current[slug], stored)
+    delete current[slug]
+  })
 }
 
 /** Daily: asks the repository about every stored license; a revoked one switches its package off. */
-export async function refreshRepositoryLicenses(): Promise<{ checked: number; revoked: string[] }> {
+export async function refreshRepositoryLicenses(context?: LicenseCommandContext): Promise<{ checked: number; revoked: string[] }> {
   const config = await readConfig()
   if (!config) return { checked: 0, revoked: [] }
   const licenses = await readMap<StoredLicense>(LICENSES_KEY)
   const site = await siteHost()
-  const revoked: string[] = []
-  for (const [slug, stored] of Object.entries(licenses)) {
+  const checks: Array<{ slug: string; expected: StoredLicense; stored: StoredLicense }> = []
+  for (const [slug, expected] of Object.entries(licenses)) {
+    const stored = { ...expected }
     try {
       const r = await request(config.url, '/api/repo/v1/licenses/check', { method: 'POST', body: { key: decryptPanelCredential(stored.keyEnc), slug, site } })
       if (r.status !== 200) { if (r.status === 403 || r.status === 404) stored.state = 'revoked'; else stored.state = 'unreachable' } else {
         const answer = r.json() as { certificate?: unknown; signature?: unknown }
-        if (isCertificate(answer.certificate) && typeof answer.signature === 'string' && verifyPayload(answer.certificate, answer.signature, config.publicKey)) {
+        if (isCertificate(answer.certificate) && typeof answer.signature === 'string' && verifyPayload(answer.certificate, answer.signature, config.publicKey)
+          && ['', 'expired', 'revoked'].includes(certificateProblem(answer.certificate, { product: slug, site }, new Date()))) {
           stored.certificate = answer.certificate; stored.signature = answer.signature
           stored.state = answer.certificate.status === 'ACTIVE' ? 'active' : 'revoked'
         } else stored.state = 'unreachable'
       }
     } catch { stored.state = 'unreachable' }
     stored.checkedAt = new Date().toISOString()
-    if (stored.state === 'revoked') { revoked.push(slug); await setPackageEnabled(slug, false).catch(() => undefined) }
+    checks.push({ slug, expected, stored })
   }
-  await writeJsonSetting(LICENSES_KEY, licenses)
-  return { checked: Object.keys(licenses).length, revoked }
+  return commitLicenses(config, site, context, 'refresh', 'client', async (current, tx) => {
+    const revoked: string[] = []
+    for (const { slug, expected, stored } of checks) {
+      // A check of the old key must never overwrite a later activation/deactivation.
+      if (JSON.stringify(current[slug]) !== JSON.stringify(expected)) continue
+      current[slug] = stored
+      if (stored.state === 'revoked') {
+        const pkg = await loadPackage(slug, tx)
+        if (pkg) await setPackageEnabled(slug, false, tx)
+        revoked.push(slug)
+      }
+    }
+    return { checked: checks.length, revoked }
+  })
 }
 
 // ------------------------------------------------------------------ installing
 
-export async function installFromRepository(slug: string, actor: string) {
+export async function installFromRepository(slug: string, actor: string, context?: PackageCommandContext) {
   const config = await requireConfig()
   const catalog = await browseCatalog()
   const product: (typeof catalog.products)[number] | undefined = catalog.products.find((p) => p.slug === slug)
@@ -209,13 +237,14 @@ export async function installFromRepository(slug: string, actor: string) {
   if (!product.compatible) throw new RepoError(`این نسخه به هستهٔ ${latest.requiresCore || '؟'} نیاز دارد و با نسخهٔ فعلی سایت (${currentVersion()}) سازگار نیست`, 409)
 
   const headers: Record<string, string> = {}
+  let entitlement: InstallEntitlement | undefined
   if (!product.free) {
     const licenses = await readMap<StoredLicense>(LICENSES_KEY)
     const stored = licenses[slug]
     if (!stored) throw new RepoError('این محصول پولی است؛ ابتدا کلید لایسنس را وارد کنید', 402)
     const site = await siteHost()
-    if (!verifyPayload(stored.certificate, stored.signature, config.publicKey) || certificateProblem(stored.certificate, { product: slug, site }, new Date()) === 'revoked') throw new RepoError('لایسنس معتبر نیست', 403)
-    headers['x-license-key'] = decryptPanelCredential(stored.keyEnc)
+    entitlement = captureEntitlement(stored, slug, site, config.publicKey)
+    headers['x-license-key'] = entitlement.key
     headers['x-license-site'] = site
   }
   const r = await request(config.url, `/api/repo/v1/download/${encodeURIComponent(slug)}/${encodeURIComponent(latest.version)}`, { headers: { ...headers, Accept: 'application/zip' } }, MAX_PACKAGE)
@@ -223,10 +252,32 @@ export async function installFromRepository(slug: string, actor: string) {
   // The bytes must be exactly what the pinned key signed.
   if (sha256(r.buffer) !== latest.sha256 || r.buffer.length !== latest.size) throw new RepoError('بستهٔ دریافتی با امضای مخزن نمی‌خواند؛ نصب لغو شد', 502)
   try {
-    const { pkg, upgraded } = await installPackage(r.buffer, actor)
-    const installed = await readMap<{ version: string; installedAt: string }>(INSTALLED_KEY)
-    installed[slug] = { version: pkg.manifest.version, installedAt: new Date().toISOString() }
-    await writeJsonSetting(INSTALLED_KEY, installed)
+    const { pkg, upgraded } = await installPackage(r.buffer, actor, context, async (tx, pkg, _upgraded, current) => {
+      if (await moduleGuard('repository', tx)) throw new RepoError('ماژول مخزن غیرفعال شده است', 404, { module: 'repository' })
+      const connection = await tx.setting.findUnique({ where: { key: CONFIG_KEY } })
+      try {
+        const latestConfig = connection ? JSON.parse(connection.value) : null
+        if (!latestConfig || latestConfig.url !== config.url || latestConfig.publicKey !== config.publicKey || String(latestConfig.connectedAt || '') !== config.connectedAt) throw new Error('connection changed')
+      } catch { throw new RepoError('اتصال مخزن هنگام دریافت بسته تغییر کرده است؛ دوباره تلاش کنید', 409) }
+      if (entitlement) await assertCurrentEntitlement(tx, entitlement, slug, config.publicKey)
+      // Signed bytes, rather than editable catalog metadata, decide the installed identity and core requirement.
+      if (pkg.manifest.id !== slug || pkg.manifest.version !== latest.version || pkg.manifest.runtime !== latest.runtime || (pkg.manifest.kind === 'theme') !== (product.kind === 'THEME')) throw new RepoError('بستهٔ امضاشده با محصول و نسخهٔ انتخاب‌شده مطابقت ندارد', 502)
+      if (!coreSatisfies(pkg.manifest.requiresCore || '', currentVersion())) throw new RepoError('بستهٔ امضاشده با نسخهٔ فعلی هسته سازگار نیست', 409)
+      const row = await tx.setting.findUnique({ where: { key: INSTALLED_KEY } })
+      let installed: Record<string, { version: string; installedAt: string }>
+      try {
+        installed = row ? JSON.parse(row.value) : {}
+        if (!installed || typeof installed !== 'object' || Array.isArray(installed) || Object.values(installed).some(value => !value || typeof value !== 'object' || typeof value.version !== 'string' || typeof value.installedAt !== 'string')) throw new Error('invalid receipt')
+      } catch { throw new RepoError('سابقهٔ نصب مخزن نامعتبر است؛ پیش از نصب آن را بازیابی کنید', 409) }
+      installed[slug] = { version: pkg.manifest.version, installedAt: new Date().toISOString() }
+      const value = JSON.stringify(installed)
+      await tx.setting.upsert({ where: { key: INSTALLED_KEY }, create: { key: INSTALLED_KEY, value }, update: { value } })
+      if (context) {
+        if (!current) throw new PackageAuthorityError()
+        await auditAdminStrict({ req: context.req, actor: current, action: 'repository.client.install', targetType: 'repository', targetId: slug, metadata: { version: pkg.manifest.version } }, tx)
+      }
+    })
+    await invalidate('settings:').catch(() => undefined)
     return { version: pkg.manifest.version, upgraded, runtime: pkg.manifest.runtime, kind: pkg.manifest.kind }
   } catch (error) {
     if (error instanceof PackageError) throw new RepoError(error.message)

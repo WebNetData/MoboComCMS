@@ -52,6 +52,7 @@ test('reseller team permissions are checked on each request and revoked members 
   }
   const domain = load('src/modules/reseller/server/reseller.ts', {
     '@/platform/database/prisma': { db },
+    '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/platform/http/response': { err: (message, status) => ({ message, status }) },
     '@/modules/identity/server/access': { requireUser: async () => ({ id: 2 }) },
     '@/modules/subscriptions/server/happ-protocol': {},
@@ -411,7 +412,7 @@ test('Telegram placeholder detection only accepts auto-created local identities'
 test('Telegram placeholder merge keeps one canonical user and combines wallet ownership',async()=>{
   const users=new Map([
     [1,{id:1,email:'amir@example.com',name:'Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:null,telegramLinkedAt:null,walletBalance:5}],
-    [2,{id:2,email:'tg12345.0123456789abcdef@telegram.local',name:'Telegram Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:'12345',telegramLinkedAt:new Date(),walletBalance:10}],
+    [2,{id:2,email:'tg12345.0123456789abcdef@telegram.local',name:'Telegram Amir',role:'CUSTOMER',roleId:null,status:'ACTIVE',telegramId:'12345',telegramLinkedAt:new Date(),walletBalance:10,profileData:'{}',playbackPrefs:'{}',smsAlerts:true,emailAlerts:true,pushAlerts:true,totpBackup:'[]',totpLastStep:0}],
   ])
   const wallets=[{id:22,userId:2,currency:'USD',balanceMinor:1000n}]
   const moved=[]
@@ -427,10 +428,10 @@ test('Telegram placeholder merge keeps one canonical user and combines wallet ow
     deleteMany:async({where})=>{for(let i=wallets.length-1;i>=0;i--)if(wallets[i].userId===where.userId)wallets.splice(i,1);return{count:1}},
   }
   const table=name=>({updateMany:async({where,data})=>{moved.push([name,where,data]);return{count:1}}})
-  const tx={user,walletAccount,reseller:{findUnique:async()=>null},order:table('order'),subscription:table('subscription'),ticket:table('ticket'),ticketMessage:table('ticketMessage'),crmNote:table('crmNote'),post:table('post'),invoice:table('invoice'),payment:table('payment'),walletTx:table('walletTx'),apiKey:table('apiKey'),auditLog:table('auditLog')}
+  const tx={user,walletAccount,$queryRaw:async()=>[...users.keys()].map(id=>({id})),accessRestriction:{findMany:async()=>[],...table('accessRestriction')},repoLicense:table('repoLicense'),reseller:{findUnique:async()=>null},order:table('order'),subscription:table('subscription'),ticket:table('ticket'),ticketMessage:table('ticketMessage'),crmNote:table('crmNote'),post:table('post'),invoice:table('invoice'),payment:table('payment'),walletTx:table('walletTx'),apiKey:table('apiKey'),auditLog:table('auditLog')}
   const identity=load('src/modules/identity/telegram-account.ts',{
     'bcryptjs':{},
-    '@/platform/database/prisma':{db:{$transaction:fn=>fn(tx)}},
+    '@/platform/database/prisma':{db:{$transaction:fn=>fn(new Proxy(tx,{get(object,key){const value=object[key];if(typeof value==='function')return value;return value?{findFirst:async()=>null,...value}:{findFirst:async()=>null,findUnique:async()=>null}}}))}},
     '@/modules/notifications/server/telegram':{},
   })
   const result=await identity.attachTelegramToUser(1,{id:12345,first_name:'Amir',username:'amir_tg'})
@@ -442,7 +443,7 @@ test('Telegram placeholder merge keeps one canonical user and combines wallet ow
   assert.equal(wallets.length,1)
   assert.equal(wallets[0].userId,1)
   assert.equal(wallets[0].balanceMinor,1500n)
-  assert.equal(moved.length,11)
+  assert.equal(moved.length,13)
   for(const [,where,data] of moved){assert.ok(where.userId===2||where.actorUserId===2||where.authorId===2);assert.ok(data.userId===1||data.actorUserId===1||data.authorId===1)}
 })
 
@@ -452,6 +453,7 @@ test('Telegram-linked referral registration accepts a new account but rejects pr
     let attributed=0, updated=0
     const placeholder={id:12,email:'tg12345.0123456789abcdef@telegram.local',telegramId:'12345',role:'CUSTOMER',roleId:null,status:'ACTIVE',name:'Guest',telegramLinkedAt:new Date()}
     const tx={
+      $queryRaw:async()=>[{id:12}],accessRestriction:{findMany:async()=>[]},
       user:{findUnique:async({where})=>where.email?null:placeholder,update:async()=>{updated++;return placeholder}},
       invoice:{findFirst:async()=>previousPurchase?{id:90}:null},
       referralAttribution:{findUnique:async()=>null,upsert:async()=>{attributed++;return {}}},
@@ -550,7 +552,7 @@ test('customer-facing subscription surfaces expose only Happ crypt5 links',()=>{
     'src/lib/api.ts',
   ]
   for (const file of files) {
-    const source = fs.readFileSync(path.join(__dirname,'..',file),'utf8')
+    const source = fs.readFileSync(path.join(__dirname,'..',file),'utf8') + (file.endsWith('telegram/webhook/route.ts') ? fs.readFileSync(path.join(__dirname,'..','src/modules/notifications/server/http/telegram/webhook/messages.ts'),'utf8') : '')
     assert.equal(source.includes('safePanelSubscriptionUrl'),false,`${file} must not expose raw panel subscription URLs`)
     assert.equal(source.includes('safeHappLink'),true,`${file} must expose Happ crypt5 links`)
   }
@@ -564,7 +566,7 @@ test('customer-facing subscription surfaces expose only Happ crypt5 links',()=>{
 })
 
 test('Telegram bot purchase flow uses the shared checkout with idempotent callbacks',()=>{
-  const source=fs.readFileSync(path.join(__dirname,'..','src/modules/notifications/server/http/telegram/webhook/route.ts'),'utf8')
+  const source=['route.ts','messages.ts'].map(file=>fs.readFileSync(path.join(__dirname,'..','src/modules/notifications/server/http/telegram/webhook',file),'utf8')).join('\n')
   assert.match(source,/case '\/buy'/)
   assert.match(source,/callback_data: `plan:view:\$\{p\.id\}`/)
   assert.match(source,/callback_data: `buy:wallet:\$\{plan\.id\}`/)

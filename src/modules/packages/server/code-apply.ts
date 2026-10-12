@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { PACKAGE_LIMITS, PackageError, validPackagePath } from '@/modules/packages/domain/format'
 import { commitDirectory, listDirectory, readBlob, validGitTarget, GitApplyError, type FetchLike, type GitTarget } from '@/modules/packages/domain/github'
-import { builtinKind, fileBuffer, installEntries, loadPackage, markCodeApplied, type StoredPackage } from './store'
+import { builtinKind, fileBuffer, installEntries, installSourceEntries, loadSourcePackage, loadPackage, markCodeApplied, type StoredPackage, type PackageCommandContext } from './store'
 
 // Code packages are trusted TypeScript. They never run from the database: they
 // are written into the source tree and go live only through a normal build,
@@ -95,14 +95,14 @@ export async function applyCodePackage(id: string, actor: string, fetcher: Fetch
       const result = await commitDirectory(gitTarget() as GitTarget, directory, [...files].map(([file, data]) => ({ path: file, data })), `${pkg.manifest.name} ${pkg.manifest.version}: apply code package from admin (${actor})`, fetcher)
       const deploy = result.changed ? await triggerDeploy() : null
       const note = result.changed ? `applied as commit ${result.commit.slice(0, 7)}${deploy ? ` · ${deploy}` : ''}` : 'applied (no changes)'
-      return { pkg: await markCodeApplied(id, actor, note), commit: result.commit, url: result.url, changed: result.changed, deploy, mode: status.mode }
+      return { pkg: await markCodeApplied(id, actor, note, pkg), commit: result.commit, url: result.url, changed: result.changed, deploy, mode: status.mode }
     } catch (error) {
       if (error instanceof GitApplyError) throw new PackageError(error.message)
       throw error
     }
   }
   await writeLocal(directory, files)
-  return { pkg: await markCodeApplied(id, actor, 'written to the local source tree'), changed: true, mode: status.mode, deploy: null }
+  return { pkg: await markCodeApplied(id, actor, 'written to the local source tree', pkg), changed: true, mode: status.mode, deploy: null }
 }
 
 /**
@@ -110,10 +110,10 @@ export async function applyCodePackage(id: string, actor: string, fetcher: Fetch
  * package (the WordPress "theme/plugin file editor" workflow). Reads the
  * repository in git mode, the local source tree otherwise.
  */
-export async function importBuiltinSource(id: string, actor: string, fetcher: FetchLike = fetch as unknown as FetchLike): Promise<StoredPackage> {
+export async function importBuiltinSource(id: string, actor: string, fetcher: FetchLike = fetch as unknown as FetchLike, context?: PackageCommandContext): Promise<StoredPackage> {
   const kind = builtinKind(id)
   if (kind !== 'plugin' && kind !== 'theme') throw new PackageError('only built-in plugins and code themes can be edited as code')
-  const existing = await loadPackage(id)
+  const existing = context ? await loadSourcePackage(id, context) : await loadPackage(id)
   if (existing) return existing
   const directory = sourceDirectory(kind, id)
   const status = await applyStatus()
@@ -132,6 +132,7 @@ export async function importBuiltinSource(id: string, actor: string, fetcher: Fe
   // The marker keeps the package in code mode; the build-time registry ignores it.
   const manifest = JSON.parse(files.get('manifest.json')!.toString('utf8'))
   files.set('manifest.json', Buffer.from(JSON.stringify({ ...manifest, runtime: 'code' }, null, 2) + '\n'))
-  const { pkg } = await installEntries(files, actor, `imported source of built-in ${kind}`)
+  const note = `imported source of built-in ${kind}`
+  const { pkg } = context ? await installSourceEntries(id, files, actor, note, context) : await installEntries(files, actor, note)
   return pkg
 }

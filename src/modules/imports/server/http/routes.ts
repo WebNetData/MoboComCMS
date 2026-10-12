@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
       case 'start': {
         const job = await service.getJob(body.id)
-        const view = await service.start(job, body.settings)
+        const view = await service.start(job, body.settings, admin)
         const options = (view.settings.options || {}) as Record<string, unknown>
         await audit('import.started', 'import-job', job.id, { adapter: job.adapter, file: job.fileName, total: view.total, existing: view.settings.existing, missingVariants: options.missingVariants ?? null })
         // Removing variants that are missing from the file is destructive: recorded on its own.
@@ -113,14 +113,14 @@ export async function POST(req: NextRequest) {
       }
       case 'pause': case 'resume': case 'cancel': {
         const job = await service.getJob(body.id)
-        const view = await service.control(job, body.op)
+        const view = await service.control(job, body.op, admin)
         await audit(`import.${body.op === 'pause' ? 'paused' : body.op === 'resume' ? 'resumed' : 'cancelled'}`, 'import-job', job.id, { cursor: view.cursor, total: view.total })
         return ok(view)
       }
       case 'rollback': {
         const job = await service.getJob(body.id)
         if (body.confirm !== true) return err('بازگردانی نیاز به تأیید دارد')
-        const view = await service.rollback(job)
+        const view = await service.rollback(job, admin)
         await audit('import.rollback_started', 'import-job', job.id, { adapter: job.adapter })
         return ok(view)
       }

@@ -10,6 +10,14 @@ const root = path.resolve(__dirname, '..')
 /** One app instance: its own module state, its own connection. */
 function instance() {
   const cache = new Map(), scope = {}
+  const fixture = { moduleOn: true, vendorOn: true, calls: [] }
+  const delegated = (name, result = {}) => async () => { fixture.calls.push(name); return result }
+  const vendor = {
+    getVendorConfig: async () => ({ enabled: fixture.vendorOn }),
+    activateLicense: delegated('activate'), checkLicense: delegated('check'), deactivateLicense: delegated('deactivate'),
+    downloadRelease: delegated('download', { buffer: Buffer.from('owned fixture'), version: '1.0.0', sha256: 'fixture' }),
+    publicMeta: delegated('meta'),
+  }
   const logger = { logEvent: () => undefined }
   const load = (relative) => {
     const file = path.resolve(root, `${relative}.ts`)
@@ -18,11 +26,18 @@ function instance() {
     const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText.replace(/\bglobalThis\b/g, '__scope')
     const mod = { exports: {} }
     cache.set(file, mod.exports)
-    const req = (spec) => (spec === '@/platform/observability/logger' ? logger : spec.startsWith('@/') ? load(`src/${spec.slice(2)}`) : require(spec))
+    const req = (spec) => {
+      if (spec === '@/platform/observability/logger') return logger
+      if (spec === '@/platform/config/env') return { authSecret: () => 'owned redis fixture' }
+      if (spec === '@/extensions/server/modules') return { moduleGuard: async () => fixture.moduleOn ? null : new Response(null, { status: 404 }) }
+      if (spec === '@/modules/identity/server/access') return { requireUser: async () => { throw Error('Secret route must not acquire a human identity') } }
+      if (spec === '@/modules/repository/server/vendor') return vendor
+      return spec.startsWith('@/') ? load(`src/${spec.slice(2)}`) : require(spec)
+    }
     new Function('require', 'module', 'exports', '__scope', source)(req, mod, mod.exports, scope)
     return mod.exports
   }
-  return { limiter: load('src/platform/http/rate-limit'), store: () => load('src/platform/cache/kv').kv(), scope }
+  return { limiter: load('src/platform/http/rate-limit'), repository: () => load('src/modules/repository/server/http/public'), fixture, store: () => load('src/platform/cache/kv').kv(), scope }
 }
 
 async function main() {
@@ -62,6 +77,53 @@ async function main() {
     storeA.hit = async () => { throw new Error('connection lost') }
     assert.equal((await a.limiter.rateLimitStrict(outage, 3, 60_000)).ok, false, 'an outage does not hand out a fresh allowance')
     storeA.hit = realHit
+
+    // 6. Actual repository HTTP owners share the strict allowance before secret delegates.
+    // Business delegates are spies; the HTTP gates, limiter and Redis are real.
+    const { NextRequest } = require('next/server')
+    const routes = [a.repository(), b.repository()]
+    const request = (ip, method = 'GET', body = undefined) => new NextRequest('https://fixture.invalid/api/repository', {
+      method, headers: { 'x-forwarded-for': ip, Origin: 'https://fixture.invalid' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+    const ips = new Set()
+    const ip = () => {
+      let value
+      do { value = `10.${crypto.randomInt(1, 255)}.${crypto.randomInt(1, 255)}.${crypto.randomInt(1, 255)}` } while (ips.has(value))
+      ips.add(value); return value
+    }
+    const licenseIp = ip(), actions = ['activate', 'check', 'deactivate']
+    a.fixture.calls.length = 0; b.fixture.calls.length = 0
+    const licenseAnswers = await Promise.all(Array.from({ length: 48 }, (_, index) => routes[index % 2].POST_license(request(licenseIp, 'POST', { slug: 'owned-fixture', key: 'fixture-only', site: 'https://site.invalid' }), actions[index % 3])))
+    assert.equal(licenseAnswers.filter(answer => answer.status === 200).length, 30, 'exactly 30 secret license actions across two instances')
+    assert.equal(licenseAnswers.filter(answer => answer.status === 429).length, 18)
+    assert.equal(a.fixture.calls.length + b.fixture.calls.length, 30, 'denied actions never reach license delegates')
+    assert.deepEqual(new Set([...a.fixture.calls, ...b.fixture.calls]), new Set(actions))
+
+    const downloadIp = ip()
+    a.fixture.calls.length = 0; b.fixture.calls.length = 0
+    const downloadAnswers = await Promise.all(Array.from({ length: 80 }, (_, index) => routes[index % 2].GET_download(request(downloadIp), 'owned-fixture', '1.0.0')))
+    assert.equal(downloadAnswers.filter(answer => answer.status === 200).length, 60, 'exactly 60 secret-capable downloads across two instances')
+    assert.equal(downloadAnswers.filter(answer => answer.status === 429).length, 20)
+    assert.equal(a.fixture.calls.length + b.fixture.calls.length, 60, 'denied downloads never reach file delegates')
+    assert.equal((await routes[0].POST_license(request(downloadIp, 'POST', { slug: 'owned-fixture' }), 'check')).status, 429, 'secret routes retain the shared per-IP budget')
+
+    const malformedIp = ip()
+    const malformed = await Promise.all(Array.from({ length: 40 }, (_, index) => routes[index % 2].POST_license(request(malformedIp, 'POST', {}), 'check')))
+    assert.equal(malformed.filter(answer => answer.status === 400).length, 30, 'invalid secret requests also consume the allowance')
+    assert.equal(malformed.filter(answer => answer.status === 429).length, 10)
+    assert.equal((await routes[0].GET_meta(request(licenseIp))).status, 200, 'public discovery keeps its separate existing ordinary limiter')
+
+    // Disabled owners refuse before touching the secret allowance.
+    const disabledIp = ip(), actualHit = storeA.hit
+    let disabledHits = 0
+    storeA.hit = async () => { disabledHits++; throw Error('Disabled route must not touch Redis') }
+    a.fixture.moduleOn = false
+    assert.equal((await routes[0].GET_download(request(disabledIp), 'owned-fixture', '1.0.0')).status, 404)
+    a.fixture.moduleOn = true; a.fixture.vendorOn = false
+    assert.equal((await routes[0].POST_license(request(disabledIp, 'POST', {}), 'check')).status, 404)
+    assert.equal(disabledHits, 0, 'disabled module/vendor must not reach the limiter even if it has an outage fallback')
+    a.fixture.vendorOn = true; storeA.hit = actualHit
     console.log('rate-limit.redis: ok')
   } finally {
     await storeA.delPrefix('').catch(() => undefined)

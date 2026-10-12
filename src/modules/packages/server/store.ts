@@ -1,13 +1,11 @@
-import { db } from '@/platform/database/prisma'
 import { extensionCatalog } from '@/extensions/generated/catalog'
 import { codeThemeCatalog } from '@/themes/generated/catalog'
 import { bundledThemes } from '@/themes/registry'
-import { getSiteConfig, SITE_KEY } from '@/modules/site/config/store'
-import { validateSite } from '@/modules/site/config/validation'
-import type { ThemeManifest } from '@/modules/site/config/types'
+import type { Prisma } from '@prisma/client'
+import { getSiteConfig } from '@/modules/site/config/store'
 import { readZip, writeZip, ZipError } from '@/modules/packages/domain/zip'
 import {
-  PACKAGE_LIMITS, PackageError, isEditable, isTextFile, normalizeEntries, parseManifest, validPackagePath,
+  PACKAGE_LIMITS, PackageError, isEditable, isTextFile, normalizeEntries, validPackagePath,
   type PackageManifest,
 } from '@/modules/packages/domain/format'
 
@@ -43,63 +41,22 @@ export interface PackageSummary {
   active?: boolean
 }
 
-const rowKey = (id: string) => `package.${id}.v1`
-const INDEX_KEY = 'packages.index.v1'
-interface PackageIndex { ids: string[]; rev: number }
+export { fileText, fileBuffer } from './store/files'
+import { fileBytes, fileBuffer, manifestFrom, settingDefaults, totalBytes } from './store/files'
+import { loadPackageFrom, mustLoad, packageTransaction, readIndex, rowKey, savePackage, writeIndex } from './store/persistence'
+import { syncSiteTheme } from './store/themes'
+import { writeFile, deleteFile } from './store/editor'
+import { applyEnabled, applySettings } from './store/fields'
+export { patchPackage, type PackagePatch } from './store/patch'
+export { PackageAuthorityError, type PackageCommandContext } from './store/authority'
+import { packageCommandActor, auditPackageCommand, type PackageCommandContext } from './store/authority'
 
-async function readIndex(): Promise<PackageIndex> {
-  const row = await db.setting.findUnique({ where: { key: INDEX_KEY } })
-  try {
-    const value = row ? JSON.parse(row.value) : null
-    if (value && Array.isArray(value.ids) && Number.isInteger(value.rev)) return { ids: value.ids.filter((id: unknown) => typeof id === 'string'), rev: value.rev }
-  } catch { /* A damaged index is rebuilt from the package rows. */ }
-  const rows = await db.setting.findMany({ where: { key: { startsWith: 'package.' } }, select: { key: true } })
-  return { ids: rows.map(item => /^package\.([a-z0-9-]+)\.v1$/.exec(item.key)?.[1]).filter((id): id is string => !!id), rev: 0 }
-}
-async function writeIndex(mutate: (ids: Set<string>) => void) {
-  const index = await readIndex()
-  const ids = new Set(index.ids)
-  mutate(ids)
-  const value = JSON.stringify({ ids: [...ids].sort(), rev: index.rev + 1 })
-  await db.setting.upsert({ where: { key: INDEX_KEY }, create: { key: INDEX_KEY, value }, update: { value } })
-}
+/** Trusted owner composition: database-only work, repeated on transaction conflict. */
+export type PackageInstallCommit = (tx: Prisma.TransactionClient, pkg: StoredPackage, upgraded: boolean, actor: Awaited<ReturnType<typeof packageCommandActor>>) => Promise<void>
+
 export async function packageRevision() { return (await readIndex()).rev }
 export async function packageIds() { return (await readIndex()).ids }
-
-export async function loadPackage(id: string): Promise<StoredPackage | null> {
-  if (!/^[a-z][a-z0-9-]{1,49}$/.test(id)) return null
-  const row = await db.setting.findUnique({ where: { key: rowKey(id) } })
-  if (!row) return null
-  try { return JSON.parse(row.value) as StoredPackage } catch { return null }
-}
-/** History keeps at most ~2 MB of old file bodies; older entries stay listed but can no longer be restored. */
-function trimRevisions(revisions: PackageRevision[]) {
-  let budget = 2 * 1024 * 1024
-  return revisions.slice(0, PACKAGE_LIMITS.maxRevisions).map(revision => {
-    if (revision.content === null) return revision
-    budget -= revision.content.length
-    return budget >= 0 ? revision : { ...revision, content: null, path: '*', note: `${revision.note} (${revision.path}, history trimmed)` }
-  })
-}
-async function savePackage(pkg: StoredPackage) {
-  pkg.revisions = trimRevisions(pkg.revisions)
-  const value = JSON.stringify(pkg)
-  await db.setting.upsert({ where: { key: rowKey(pkg.manifest.id) }, create: { key: rowKey(pkg.manifest.id), value }, update: { value } })
-  await writeIndex(ids => ids.add(pkg.manifest.id))
-}
-function mustLoad(pkg: StoredPackage | null, id: string): StoredPackage {
-  if (!pkg) throw new PackageError(`package "${id}" is not installed`)
-  return pkg
-}
-
-const fileBytes = (file: StoredFile) => file.text !== undefined ? Buffer.byteLength(file.text) : Math.floor((file.base64?.length || 0) * 3 / 4)
-const totalBytes = (files: Record<string, StoredFile>) => Object.values(files).reduce((sum, file) => sum + fileBytes(file), 0)
-export function fileText(pkg: StoredPackage, path: string) { return pkg.files[path]?.text ?? null }
-export function fileBuffer(pkg: StoredPackage, path: string) {
-  const file = pkg.files[path]
-  if (!file) return null
-  return file.text !== undefined ? Buffer.from(file.text, 'utf8') : Buffer.from(file.base64 || '', 'base64')
-}
+export async function loadPackage(id: string, reader?: Prisma.TransactionClient): Promise<StoredPackage | null> { return loadPackageFrom(id, reader, !!reader) }
 
 function reservedIds() {
   // 'source' and 'editor' are admin route segments next to the package ids.
@@ -112,56 +69,43 @@ export function builtinKind(id: string): 'plugin' | 'theme' | 'module' | null {
   return codeThemeCatalog.some(theme => theme.id === id) ? 'theme' : null
 }
 
-function manifestFrom(files: Record<string, StoredFile>): PackageManifest {
-  const source = files['manifest.json']?.text
-  if (source === undefined) throw new PackageError('manifest.json is missing')
-  let raw: unknown
-  try { raw = JSON.parse(source) } catch (error) { throw new PackageError(`manifest.json is not valid JSON: ${error instanceof Error ? error.message : ''}`) }
-  return parseManifest(raw, new Set(Object.keys(files)))
-}
-
-function settingDefaults(manifest: PackageManifest, current: Record<string, string> = {}) {
-  return Object.fromEntries((manifest.settings || []).map(setting => [setting.key, current[setting.key] ?? setting.default ?? '']))
-}
-
-// ---- theme packages appear in Site Studio as JSON themes ----------------------
-
-function themeEntry(manifest: PackageManifest): ThemeManifest {
-  const design = manifest.design!
-  return {
-    id: manifest.id, name: manifest.name.slice(0, 80), description: (manifest.description || '').slice(0, 300), version: manifest.version.slice(0, 30),
-    extends: design.extends || 'clean', radius: design.radius, colors: design.colors, ...(design.lightColors ? { lightColors: design.lightColors } : {}),
-  }
-}
-// getSiteConfig is request-cached, so every change to the site document happens in one read-modify-write.
-async function syncSiteTheme(manifest: PackageManifest | null, options: { removeId?: string; activate?: boolean } = {}) {
-  const site = structuredClone(await getSiteConfig())
-  const id = manifest?.id || options.removeId!
-  const others = site.themes.filter(theme => theme.id !== id)
-  site.themes = manifest ? [...others, themeEntry(manifest)] : others
-  if (!manifest && site.themeId === id) site.themeId = 'clean'
-  if (manifest && options.activate) site.themeId = id
-  if (site.themes.length > 20) throw new PackageError('Site Studio already holds 20 custom themes; remove one first')
-  if (!validateSite(site)) throw new PackageError('the theme design could not be added to Site Studio')
-  await db.setting.upsert({ where: { key: SITE_KEY }, create: { key: SITE_KEY, value: JSON.stringify(site) }, update: { value: JSON.stringify(site) } })
-}
 export async function activateTheme(id: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  if (pkg.manifest.kind !== 'theme') throw new PackageError('only theme packages can be activated as the site theme')
-  await syncSiteTheme(pkg.manifest, { activate: true })
-  await writeIndex(() => {})
+  return packageTransaction(async tx => {
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    if (pkg.manifest.kind !== 'theme') throw new PackageError('only theme packages can be activated as the site theme')
+    await syncSiteTheme(tx, pkg.manifest, { activate: true })
+    await writeIndex(tx, () => {})
+  })
 }
 
 // ---- install / update ----------------------------------------------------------
 
-export async function installPackage(upload: Buffer, actor: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+export async function installPackage(upload: Buffer, actor: string, context?: PackageCommandContext, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (upload.length > PACKAGE_LIMITS.uploadBytes) throw new PackageError(`the file is larger than ${PACKAGE_LIMITS.uploadBytes / 1024 / 1024} MB`)
   let entries: Map<string, Buffer>
   try { entries = normalizeEntries(readZip(upload, PACKAGE_LIMITS)) } catch (error) { throw new PackageError(error instanceof ZipError ? error.message : 'the file is not a valid zip archive') }
-  return installEntries(entries, actor)
+  return installEntries(entries, actor, undefined, context, commit)
 }
 
-export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+export async function installEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
+  return persistEntries(entries, actor, note, context, undefined, commit)
+}
+
+/** Source imports retain an already staged package, including one created while files were read. */
+export async function installSourceEntries(id: string, entries: Map<string, Buffer>, actor: string, note: string, context: PackageCommandContext) {
+  return persistEntries(entries, actor, note, context, id)
+}
+
+export async function loadSourcePackage(id: string, context: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx, 'extensions.code')
+    const pkg = await loadPackageFrom(id, tx, true)
+    if (pkg) await auditPackageCommand(tx, context, current, 'code.import', id)
+    return pkg
+  })
+}
+
+async function persistEntries(entries: Map<string, Buffer>, actor: string, note?: string, context?: PackageCommandContext, sourceId?: string, commit?: PackageInstallCommit): Promise<{ pkg: StoredPackage; upgraded: boolean }> {
   if (entries.size > PACKAGE_LIMITS.maxEntries || [...entries.values()].reduce((sum, data) => sum + data.length, 0) > PACKAGE_LIMITS.maxTotalBytes) throw new PackageError('the package is too large')
   const manifestSource = entries.get('manifest.json')
   if (!manifestSource) throw new PackageError('manifest.json was not found at the root of the zip')
@@ -177,25 +121,37 @@ export async function installEntries(entries: Map<string, Buffer>, actor: string
     } else files[path] = { base64: data.toString('base64') }
   }
   const manifest = manifestFrom(files)
+  if (sourceId && (manifest.id !== sourceId || manifest.runtime !== 'code')) throw new PackageError('source import must retain its code package id')
   const builtin = builtinKind(manifest.id)
   const overridesBuiltin = manifest.runtime === 'code' && builtin === manifest.kind
   if (reservedIds().has(manifest.id) && !overridesBuiltin) throw new PackageError(`"${manifest.id}" is the id of a built-in extension or theme; choose another id`)
-  const previous = await loadPackage(manifest.id)
-  if (previous && previous.manifest.kind !== manifest.kind) throw new PackageError(`"${manifest.id}" is already installed as a ${previous.manifest.kind}`)
-  const now = new Date().toISOString()
-  const revisions: PackageRevision[] = previous
-    ? [{ at: now, path: '*', content: null, actor, note: note || `upgrade ${previous.manifest.version} → ${manifest.version}` }, ...previous.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
-    : [{ at: now, path: '*', content: null, actor, note: note || `install ${manifest.version}` }]
-  const pkg: StoredPackage = {
-    manifest, files,
-    enabled: manifest.runtime === 'code' ? false : previous?.enabled ?? false,
-    settings: settingDefaults(manifest, previous?.settings),
-    installedAt: previous?.installedAt || now, updatedAt: now, revisions,
-    ...(manifest.runtime === 'code' ? { codeStatus: 'staged' as const } : {}),
-  }
-  if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(manifest)
-  await savePackage(pkg)
-  return { pkg, upgraded: !!previous }
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx, sourceId ? 'extensions.code' : 'settings.manage')
+    const author = current?.email ?? actor
+    const previous = await loadPackageFrom(manifest.id, tx, true)
+    if (sourceId && previous) {
+      await auditPackageCommand(tx, context, current, 'code.import', sourceId)
+      return { pkg: previous, upgraded: false }
+    }
+    if (previous && previous.manifest.kind !== manifest.kind) throw new PackageError(`"${manifest.id}" is already installed as a ${previous.manifest.kind}`)
+    const now = new Date().toISOString()
+    const revisions: PackageRevision[] = previous
+      ? [{ at: now, path: '*', content: null, actor: author, note: note || `upgrade ${previous.manifest.version} → ${manifest.version}` }, ...previous.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
+      : [{ at: now, path: '*', content: null, actor: author, note: note || `install ${manifest.version}` }]
+    const pkg: StoredPackage = {
+      manifest, files,
+      enabled: manifest.runtime === 'code' ? false : previous?.enabled ?? false,
+      settings: settingDefaults(manifest, previous?.settings),
+      installedAt: previous?.installedAt || now, updatedAt: now, revisions,
+      ...(manifest.runtime === 'code' ? { codeStatus: 'staged' as const } : {}),
+    }
+    if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(tx, manifest)
+    await savePackage(tx, pkg)
+    if (commit) await commit(tx, pkg, !!previous, current)
+    else if (sourceId) await auditPackageCommand(tx, context, current, 'code.import', sourceId)
+    else await auditPackageCommand(tx, context, current, previous ? 'upgrade' : 'install', manifest.id, { version: manifest.version, kind: manifest.kind, runtime: manifest.runtime })
+    return { pkg, upgraded: !!previous }
+  })
 }
 
 export async function listPackages(): Promise<PackageSummary[]> {
@@ -217,35 +173,37 @@ export function summarize(pkg: StoredPackage, activeThemeId?: string): PackageSu
   }
 }
 
-export async function setPackageEnabled(id: string, enabled: boolean) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  if (pkg.manifest.runtime === 'code') throw new PackageError('code packages are switched on in the extension list once their build is deployed')
-  pkg.enabled = enabled
-  pkg.updatedAt = new Date().toISOString()
-  await savePackage(pkg)
-  return pkg
+export async function setPackageEnabled(id: string, enabled: boolean, reader?: Prisma.TransactionClient) {
+  const work = async (tx: Prisma.TransactionClient) => {
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    applyEnabled(pkg, enabled)
+    pkg.updatedAt = new Date().toISOString()
+    await savePackage(tx, pkg)
+    return pkg
+  }
+  return reader ? work(reader) : packageTransaction(work)
 }
 
 export async function savePackageSettings(id: string, input: Record<string, unknown>) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  const definitions = new Map((pkg.manifest.settings || []).map(setting => [setting.key, setting]))
-  for (const [key, value] of Object.entries(input)) {
-    const definition = definitions.get(key)
-    if (!definition) throw new PackageError(`unknown setting "${key}"`)
-    if (typeof value !== 'string' || value.length > (definition.type === 'textarea' ? 8000 : 1000)) throw new PackageError(`setting "${key}" is invalid`)
-    pkg.settings[key] = value
-  }
-  pkg.updatedAt = new Date().toISOString()
-  await savePackage(pkg)
-  return pkg
+  return packageTransaction(async tx => {
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    applySettings(pkg, input)
+    pkg.updatedAt = new Date().toISOString()
+    await savePackage(tx, pkg)
+    return pkg
+  })
 }
 
-export async function deletePackage(id: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  // Code packages never entered Site Studio; applied source stays in the repository.
-  if (pkg.manifest.kind === 'theme' && pkg.manifest.runtime === 'declarative') await syncSiteTheme(null, { removeId: id })
-  await db.setting.deleteMany({ where: { key: rowKey(id) } })
-  await writeIndex(ids => ids.delete(id))
+export async function deletePackage(id: string, context?: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    // Code packages never entered Site Studio; applied source stays in the repository.
+    if (pkg.manifest.kind === 'theme' && pkg.manifest.runtime === 'declarative') await syncSiteTheme(tx, null, { removeId: id })
+    await tx.setting.deleteMany({ where: { key: rowKey(id) } })
+    await writeIndex(tx, ids => ids.delete(id))
+    await auditPackageCommand(tx, context, current, 'delete', id)
+  })
 }
 
 export async function exportPackage(id: string) {
@@ -256,59 +214,51 @@ export async function exportPackage(id: string) {
 
 // ---- editor ------------------------------------------------------------------
 
-/** Create or change one text file; manifest edits are validated before they are saved. */
-export async function writePackageFile(id: string, path: string, content: string, actor: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  if (!validPackagePath(path, pkg.manifest.runtime) || !isEditable(path)) throw new PackageError(`"${path}" cannot be edited here`)
-  if (content.length > PACKAGE_LIMITS.maxTextFileChars) throw new PackageError('the file is too long')
-  const previous = pkg.files[path]?.text ?? null
-  if (previous === content) return pkg
-  const files = { ...pkg.files, [path]: { text: content } }
-  if (Object.keys(files).length > PACKAGE_LIMITS.maxEntries || totalBytes(files) > PACKAGE_LIMITS.maxTotalBytes) throw new PackageError('the package would exceed its size limit')
-  const manifest = manifestFrom(files)
-  if (manifest.id !== pkg.manifest.id) throw new PackageError('the package id cannot be changed in the editor; export and upload a copy instead')
-  if (manifest.kind !== pkg.manifest.kind || manifest.runtime !== pkg.manifest.runtime) throw new PackageError('"kind" and "runtime" cannot be changed in the editor')
-  pkg.files = files
-  pkg.manifest = manifest
-  pkg.settings = settingDefaults(manifest, pkg.settings)
-  pkg.updatedAt = new Date().toISOString()
-  pkg.revisions = [{ at: pkg.updatedAt, path, content: previous, actor, note: previous === null ? 'created' : 'edited' }, ...pkg.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
-  if (pkg.manifest.runtime === 'code') pkg.codeStatus = 'staged'
-  if (manifest.kind === 'theme' && manifest.runtime === 'declarative') await syncSiteTheme(manifest)
-  await savePackage(pkg)
-  return pkg
+/** Edit only the selected field of the current aggregate, retaining concurrent edits. */
+export async function writePackageFile(id: string, path: string, content: string, actor: string, context?: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = await writeFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, content, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.write', id, { path, bytes: content.length })
+    return pkg
+  })
 }
 
-export async function deletePackageFile(id: string, path: string, actor: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  if (path === 'manifest.json') throw new PackageError('manifest.json cannot be deleted')
-  const file = pkg.files[path]
-  if (!file) throw new PackageError(`"${path}" does not exist`)
-  const files = { ...pkg.files }
-  delete files[path]
-  manifestFrom(files) // refuses to drop a file the manifest still references
-  pkg.files = files
-  pkg.updatedAt = new Date().toISOString()
-  pkg.revisions = [{ at: pkg.updatedAt, path, content: file.text ?? null, actor, note: 'deleted' }, ...pkg.revisions].slice(0, PACKAGE_LIMITS.maxRevisions)
-  if (pkg.manifest.runtime === 'code') pkg.codeStatus = 'staged'
-  await savePackage(pkg)
-  return pkg
+export async function deletePackageFile(id: string, path: string, actor: string, context?: PackageCommandContext) {
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = await deleteFile(tx, mustLoad(await loadPackageFrom(id, tx, true), id), path, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.delete', id, { path })
+    return pkg
+  })
 }
 
-/** Put a file back to how it was before revision `index` (0 = most recent). */
-export async function restoreRevision(id: string, index: number, actor: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  const revision = pkg.revisions[index]
-  if (!revision || revision.path === '*') throw new PackageError('this revision cannot be restored')
-  if (revision.content === null) return deletePackageFile(id, revision.path, actor)
-  return writePackageFile(id, revision.path, revision.content, actor)
+/** Keep the originally selected revision; a concurrent prepend must not change the selection. */
+export async function restoreRevision(id: string, index: number, actor: string, context?: PackageCommandContext) {
+  if (!Number.isInteger(index) || index < 0) throw new PackageError('this revision cannot be restored')
+  let selected: string | undefined
+  return packageTransaction(async tx => {
+    const current = await packageCommandActor(context, tx)
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id), revision = pkg.revisions[index]
+    if (!revision || revision.path === '*') throw new PackageError('this revision cannot be restored')
+    const fingerprint = JSON.stringify(revision)
+    if (selected !== undefined && selected !== fingerprint) throw new PackageError('revision history changed; reload it before restoring')
+    selected = fingerprint
+    const restored = revision.content === null ? await deleteFile(tx, pkg, revision.path, current?.email ?? actor) : await writeFile(tx, pkg, revision.path, revision.content, current?.email ?? actor)
+    await auditPackageCommand(tx, context, current, 'file.restore', id, { index })
+    return restored
+  })
 }
 
-export async function markCodeApplied(id: string, actor: string, note: string) {
-  const pkg = mustLoad(await loadPackage(id), id)
-  pkg.codeStatus = 'applied'
-  pkg.updatedAt = new Date().toISOString()
-  pkg.revisions = [{ at: pkg.updatedAt, path: '*', content: null, actor, note }, ...pkg.revisions]
-  await savePackage(pkg)
-  return pkg
+export async function markCodeApplied(id: string, actor: string, note: string, applied?: StoredPackage) {
+  return packageTransaction(async tx => {
+    const pkg = mustLoad(await loadPackageFrom(id, tx, true), id)
+    if (pkg.manifest.runtime !== 'code') throw new PackageError('only code packages can be marked applied')
+    if (applied && JSON.stringify(pkg.files) !== JSON.stringify(applied.files)) throw new PackageError('package files changed during apply; the current package remains staged')
+    pkg.codeStatus = 'applied'
+    pkg.updatedAt = new Date().toISOString()
+    pkg.revisions = [{ at: pkg.updatedAt, path: '*', content: null, actor, note }, ...pkg.revisions]
+    await savePackage(tx, pkg)
+    return pkg
+  })
 }

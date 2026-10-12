@@ -412,7 +412,7 @@ test('storefront is opt-in and public filtering does not erase editable menus', 
   let enabled = false
   const { defaultSite } = load('src/modules/site/config/defaults.ts')
   const db = { setting: { findUnique: async ({ where }) => where.key === 'storeEnabled' ? { value: String(enabled) } : { value: JSON.stringify(defaultSite) } } }
-  const mocks = { react: { cache: fn => fn }, '@/platform/database/prisma': { db } }
+  const mocks = { react: { cache: fn => fn }, '@/platform/database/prisma': { db }, '@/extensions/server/modules': { isModuleEnabled: async () => true } }
   const { getPublicSiteConfig, getSiteConfig } = load('src/modules/site/config/store.ts', mocks)
   const hidden = await getPublicSiteConfig()
   assert.equal(hidden.navigation.some(link => link.href === '/products'), false)
@@ -420,7 +420,7 @@ test('storefront is opt-in and public filtering does not erase editable menus', 
   assert.equal((await getSiteConfig()).navigation.some(link => link.href === '/products'), true)
   enabled = true
   assert.equal((await getPublicSiteConfig()).navigation.some(link => link.href === '/products'), true)
-  const { isStoreEnabled } = load('src/modules/catalog/server/storefront.ts', { '@/platform/database/prisma': { db: { setting: { findUnique: async () => null } } } })
+  const { isStoreEnabled } = load('src/modules/catalog/server/storefront.ts', { '@/platform/database/prisma': { db: { setting: { findUnique: async () => null } } }, '@/extensions/server/modules': { isModuleEnabled: async () => true } })
   assert.equal(await isStoreEnabled(), false)
 })
 

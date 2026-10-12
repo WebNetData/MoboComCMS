@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { defaultSite } from './defaults'
 import { validateSite } from './validation'
@@ -19,15 +20,18 @@ export async function saveTrustSeals(input: unknown) {
   await db.setting.upsert({ where: { key: TRUST_SEALS_KEY }, create: { key: TRUST_SEALS_KEY, value }, update: { value } })
   return config
 }
-export const getSiteConfig = cache(async () => {
-  const row = await db.setting.findUnique({ where: { key: SITE_KEY } })
+/** Strict mutation reads never overwrite corrupt configuration with rendering defaults. */
+export async function getSiteConfigFrom(reader: Pick<Prisma.TransactionClient, 'setting'>, strict = false) {
+  const row = await reader.setting.findUnique({ where: { key: SITE_KEY } })
   if (row) {
     try { const parsed: unknown = JSON.parse(row.value); if (validateSite(parsed)) return parsed } catch { /* Invalid old data falls back to the complete default document. */ }
   }
-  const legacy = await db.setting.findMany({ where: { key: { in: ['brandName', 'brandTagline'] } } })
+  if (row && strict) throw new Error('site configuration has invalid stored data; repair it before changing it')
+  const legacy = await reader.setting.findMany({ where: { key: { in: ['brandName', 'brandTagline'] } } })
   const values = Object.fromEntries(legacy.map(r => [r.key, r.value]))
   return { ...defaultSite, brand: values.brandName || defaultSite.brand, tagline: { ...defaultSite.tagline, fa: values.brandTagline || defaultSite.tagline.fa } }
-})
+}
+export const getSiteConfig = cache(() => getSiteConfigFrom(db))
 
 /** Filter only public rendering; keep the editable configuration intact. */
 export const getPublicSiteConfig = cache(async () => {

@@ -348,24 +348,27 @@ test('downloader: redirects are re-checked, limited, and size/time are enforced 
 
 test('import commands preserve state guards and immediate background queue nudge', async () => {
   const updates = [], queued = [], ran = [], logged = []
+  const actor = { id: 31, email: 'owned-import-actor@example.invalid' }
+  let latest
   class ImportError extends Error {}
   const core = { ImportError, adapterFor: () => ({}), ensureModule: async () => {}, settingsFor: () => ({ options: {} }), settingsHash: () => 'current' }
   const commands = load('src/modules/imports/server/commands.ts', {
-    '@/platform/database/prisma': { db: { importJob: { update: async args => { updates.push(args); return args.data } } } },
+    '@/platform/database/prisma': { db: { importJob: { updateMany: async args => { updates.push(args); latest = args.data; return { count: 1 } }, findUnique: async () => latest } } },
+    '@/modules/imports/server/authority': { authorizedImportActor: async id => id === actor.id ? actor : null },
     '@/platform/observability/logger': { logEvent: (...args) => logged.push(args) },
     '@/modules/imports/server/files': {}, '@/modules/imports/server/execution': core,
     '@/modules/operations/server/queue': { enqueue: async (kind, payload) => queued.push({ kind, payload }), runQueue: async budget => { ran.push(budget); throw Error('queue nudge failure') } },
   })
-  await assert.rejects(commands.startJob({ status: 'DONE' }, {}), ImportError)
-  await assert.rejects(commands.startJob({ status: 'DRAFT', dryRun: '{}' }, {}), ImportError)
+  await assert.rejects(commands.startJob({ status: 'DONE' }, {}, actor), ImportError)
+  await assert.rejects(commands.startJob({ status: 'DRAFT', dryRun: '{}' }, {}, actor), ImportError)
   assert.equal(updates.length, 0)
   const job = { id: 7, status: 'DRAFT', fileHash: 'file', dryRun: JSON.stringify({ settingsHash: 'current', fileHash: 'file', total: 3 }) }
-  assert.equal((await commands.startJob(job, {})).status, 'QUEUED')
-  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'pause')
-  await commands.setJobState({ id: 7, status: 'PAUSED' }, 'resume')
-  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'cancel')
-  await assert.rejects(commands.startRollback({ id: 7, status: 'RUNNING' }), ImportError)
-  await commands.startRollback({ id: 7, status: 'DONE' })
+  assert.equal((await commands.startJob(job, {}, actor)).status, 'QUEUED')
+  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'pause', actor)
+  await commands.setJobState({ id: 7, status: 'PAUSED' }, 'resume', actor)
+  await commands.setJobState({ id: 7, status: 'RUNNING' }, 'cancel', actor)
+  await assert.rejects(commands.startRollback({ id: 7, status: 'RUNNING' }, actor), ImportError)
+  await commands.startRollback({ id: 7, status: 'DONE' }, actor)
   assert.deepEqual(updates.map(update => update.data.status), ['QUEUED', 'PAUSED', 'QUEUED', 'CANCELLED', 'ROLLING_BACK'])
   assert.deepEqual(queued.map(job => job.kind), ['imports.run', 'imports.run', 'imports.rollback'])
   assert.ok(queued.every(job => job.payload.jobId === 7))

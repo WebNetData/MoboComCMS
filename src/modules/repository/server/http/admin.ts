@@ -1,17 +1,18 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
+import { requirePerm } from '@/modules/identity/server/access'
 import { PACKAGE_LIMITS } from '@/modules/packages/domain/format'
+import { PackageAuthorityError } from '@/modules/packages/server/store'
 import { RepoError } from '@/modules/repository/domain/repository'
 import {
-  deleteProduct, extendLicense, getVendorConfig, grantLicense, listLicenses, listProducts, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
+  deleteProduct, extendLicense, getVendorConfig, grantLicense, inspectRepositoryArchives, listLicenses, listProducts, previewPurchaseRecovery, recoverPurchase, previewUploadRecovery, recoverUpload, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
 } from '@/modules/repository/server/vendor'
 import { fetchRepositoryMeta, connectRepository, disconnectRepository, activateRepositoryLicense, deactivateRepositoryLicense, browseCatalog, getClientConfig, installFromRepository, refreshRepositoryLicenses, defaultRepositoryUrl } from '@/modules/repository/server/client'
 
 const PERMS = ['repository.manage', 'settings.manage']
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
-const failure = (error: unknown) => { if (error instanceof RepoError) return err(error.message, error.status, error.meta); throw error }
+const failure = (error: unknown) => { if (error instanceof PackageAuthorityError) return err('forbidden', 403); if (error instanceof RepoError) return err(error.message, error.status, error.meta); throw error }
 
 // ---------------------------------------------------------------- vendor
 
@@ -22,8 +23,11 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams
   try {
     switch (q.get('view')) {
+      case 'upload-recovery': return ok(await previewUploadRecovery(idOf(q.get('releaseId')), { req, actor: guard.admin }))
+      case 'archives': return ok(await inspectRepositoryArchives({ limit: q.has('limit') ? Number(q.get('limit')) : undefined, afterReleaseId: q.has('afterReleaseId') ? Number(q.get('afterReleaseId')) : undefined, afterFileId: q.get('afterFileId') || '', verifyHashes: q.get('verifyHashes') === 'true' }, { req, actor: guard.admin }))
+      case 'purchase-recovery': return ok(await previewPurchaseRecovery(idOf(q.get('paymentId')), { req, actor: guard.admin }))
       case 'products': return ok({ products: await listProducts() })
-      case 'licenses': return ok(await listLicenses({ q: q.get('q') || '', productId: idOf(q.get('productId')), status: q.get('status') || '', page: Number(q.get('page')) || 1 }))
+      case 'licenses': return ok({ ...(await listLicenses({ q: q.get('q') || '', productId: idOf(q.get('productId')), status: q.get('status') || '', page: Number(q.get('page')) || 1 })), canRecoverPurchases: Boolean(await requirePerm(req, 'finance.manage')) })
       case 'settings': return ok({ settings: await getVendorConfig() })
       default: return ok({ stats: await repositoryStats(), settings: await getVendorConfig() })
     }
@@ -36,17 +40,18 @@ export async function POST(req: NextRequest) {
   if ('response' in guard) return guard.response
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return err('درخواست نامعتبر است')
-  const audit = (action: string, targetId: string | number, metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: guard.admin, action: `repository.${action}`, targetType: 'repository', targetId: String(targetId), metadata })
   try {
     switch (body.op) {
-      case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined); await audit('product.save', saved.id, { slug: saved.slug }); return ok({ id: saved.id }) }
-      case 'product.delete': { await deleteProduct(idOf(body.id)); await audit('product.delete', idOf(body.id)); return ok({ ok: true }) }
-      case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false); await audit('release.publish', idOf(body.id), { published: body.published !== false }); return ok({ ok: true }) }
-      case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }); await audit('license.grant', granted.id); return ok(granted) }
-      case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE'); await audit('license.status', idOf(body.id), { status: body.status }); return ok({ ok: true }) }
-      case 'license.extend': { await extendLicense(idOf(body.id), Number(body.days)); await audit('license.extend', idOf(body.id), { days: body.days }); return ok({ ok: true }) }
-      case 'license.site': { await releaseSite(idOf(body.id), String(body.site || '')); await audit('license.site', idOf(body.id), { site: body.site }); return ok({ ok: true }) }
-      case 'settings': { const settings = await saveVendorConfig(body); await audit('settings', 'vendor', { enabled: settings.enabled }); return ok({ settings }) }
+      case 'release.recover': return ok(await recoverUpload(idOf(body.releaseId), { evidence: body.evidence, acknowledgeReviewed: body.acknowledgeReviewed }, { req, actor: guard.admin }))
+      case 'purchase.recover': return ok(await recoverPurchase(idOf(body.paymentId), { mode: body.mode, evidence: body.evidence, acknowledgeCurrentTerms: body.acknowledgeCurrentTerms }, { req, actor: guard.admin }))
+      case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined, { req, actor: guard.admin }); return ok({ id: saved.id }) }
+      case 'product.delete': { await deleteProduct(idOf(body.id), { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'release.publish': { await setReleasePublished(idOf(body.id), body.published !== false, { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'license.grant': { const granted = await grantLicense({ productId: idOf(body.productId), email: String(body.email || ''), userId: idOf(body.userId) || undefined, note: String(body.note || '') }, { req, actor: guard.admin }); return ok(granted) }
+      case 'license.status': { await setLicenseStatus(idOf(body.id), body.status === 'REVOKED' ? 'REVOKED' : 'ACTIVE', { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'license.extend': { await extendLicense(idOf(body.id), Number(body.days), { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'license.site': { await releaseSite(idOf(body.id), String(body.site || ''), undefined, { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'settings': { const settings = await saveVendorConfig(body, { req, actor: guard.admin }); return ok({ settings }) }
       default: return err('عملیات نامعتبر است')
     }
   } catch (error) { return failure(error) }
@@ -61,8 +66,7 @@ export async function POST_upload(req: NextRequest) {
   const file = form?.get('file')
   if (!form || !(file instanceof File) || !file.size) return err('یک فایل zip انتخاب کنید')
   try {
-    const release = await uploadRelease(idOf(form.get('productId')), Buffer.from(await file.arrayBuffer()), String(form.get('changelog') || ''))
-    await auditAdmin({ req, actor: guard.admin, action: 'repository.release.upload', targetType: 'repository', targetId: String(release.id), metadata: { version: release.version } })
+    const release = await uploadRelease(idOf(form.get('productId')), Buffer.from(await file.arrayBuffer()), String(form.get('changelog') || ''), { req, actor: guard.admin })
     return ok({ id: release.id, version: release.version })
   } catch (error) { return failure(error) }
 }
@@ -86,16 +90,15 @@ export async function POST_client(req: NextRequest) {
   if ('response' in guard) return guard.response
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return err('درخواست نامعتبر است')
-  const audit = (action: string, targetId = 'client', metadata: Record<string, unknown> = {}) => auditAdmin({ req, actor: guard.admin, action: `repository.client.${action}`, targetType: 'repository', targetId, metadata })
   try {
     switch (body.op) {
       case 'meta': return ok(await fetchRepositoryMeta(String(body.url || '')))
-      case 'connect': { const meta = await connectRepository(String(body.url || ''), String(body.fingerprint || '')); await audit('connect', meta.url, { fingerprint: meta.fingerprint }); return ok({ name: meta.name }) }
-      case 'disconnect': { await disconnectRepository(); await audit('disconnect'); return ok({ ok: true }) }
-      case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key); await audit('activate', String(body.slug)); return ok(result) }
-      case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || '')); await audit('deactivate', String(body.slug)); return ok({ ok: true }) }
-      case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email); await audit('install', String(body.slug), { version: result.version }); return ok(result) }
-      case 'refresh': return ok(await refreshRepositoryLicenses())
+      case 'connect': { const meta = await connectRepository(String(body.url || ''), String(body.fingerprint || ''), { req, actor: guard.admin }); return ok({ name: meta.name }) }
+      case 'disconnect': { await disconnectRepository({ req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'activate': { const result = await activateRepositoryLicense(String(body.slug || ''), body.key, { req, actor: guard.admin }); return ok(result) }
+      case 'deactivate': { await deactivateRepositoryLicense(String(body.slug || ''), { req, actor: guard.admin }); return ok({ ok: true }) }
+      case 'install': { const result = await installFromRepository(String(body.slug || ''), guard.admin.email, { req, actor: guard.admin }); return ok(result) }
+      case 'refresh': return ok(await refreshRepositoryLicenses({ req, actor: guard.admin }))
       default: return err('عملیات نامعتبر است')
     }
   } catch (error) { return failure(error) }

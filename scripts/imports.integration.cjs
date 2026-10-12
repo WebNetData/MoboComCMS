@@ -20,7 +20,8 @@ const pass = (name) => { results.push(name); console.log(`PASS: ${name}`) }
 
 let cookie = ''
 async function session(user, roleId = null) {
-  return `next-auth.session-token=${await encode({ secret: process.env.NEXTAUTH_SECRET || 'dev-secret-change-me', token: { uid: String(user.id), role: 'ADMIN', roleId, email: user.email, authAt: Date.now() }, maxAge: 3600 })}`
+  const name = (process.env.NEXTAUTH_URL || base).startsWith('https:') ? '__Secure-next-auth.session-token' : 'next-auth.session-token'
+  return `${name}=${await encode({ secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'dev-secret-change-me', token: { uid: String(user.id), role: 'ADMIN', roleId, email: user.email, authAt: Date.now() }, maxAge: 3600 })}`
 }
 async function call(body, as = cookie) {
   const response = await fetch(`${base}/api/admin/imports`, { method: 'POST', headers: { cookie: as, 'content-type': 'application/json', origin: base }, body: JSON.stringify(body) })

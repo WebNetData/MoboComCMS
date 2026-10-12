@@ -69,8 +69,8 @@ function backToItem(request: Request, path: string, notice: 'expired' | 'limit' 
 }
 
 /** Redirect to the file — masked on this site's domain when it lives on another host. */
-async function fileRedirect(request: Request, url: string, download: boolean, context?: FileContext, tags?: FileTags) {
-  const response = siteRedirect(await maskedHref(url, { download, context, tags: tags || (context?.title ? { title: context.title } : undefined) }))
+async function fileRedirect(request: Request, url: string, download: boolean, userId: number | null, context?: FileContext, tags?: FileTags) {
+  const response = siteRedirect(await maskedHref(url, { download, userId, context, tags: tags || (context?.title ? { title: context.title } : undefined) }))
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
@@ -140,7 +140,7 @@ export async function openMediaLink(request: Request, rawId: string) {
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
   if (link.ownerType === 'software') await db.softwareTitle.update({ where: { id: link.ownerId }, data: { downloads: { increment: 1 } } }).catch(() => undefined)
   if (link.kind === 'DOWNLOAD') await logDownload(who, { linkId: id, ownerType: link.ownerType, ownerId: link.ownerId })
-  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind !== 'STREAM', { title: owner.title, label: link.label, quality: link.quality })
+  return fileRedirect(request, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, link.kind !== 'STREAM', viewer.userId, { title: owner.title, label: link.label, quality: link.quality })
 }
 
 /**
@@ -183,7 +183,7 @@ export async function openTrack(request: Request, rawId: string) {
     target = signOriginUrl(target, guard, request.headers)
   }
   await db.musicTrack.update({ where: { id }, data: download ? { downloads: { increment: 1 } } : { plays: { increment: 1 } } }).catch(() => undefined)
-  return fileRedirect(request, target, download, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' }, { title: track.title, artist: track.artist.name, album: track.album?.title, cover: track.cover || track.album?.cover || '' })
+  return fileRedirect(request, target, download, viewer.userId, { title: `${track.artist.name} - ${track.title}`, quality: hq ? 'HQ' : '' }, { title: track.title, artist: track.artist.name, album: track.album?.title, cover: track.cover || track.album?.cover || '' })
 }
 
 // ------------------------------------------------------------------ online player
@@ -259,7 +259,7 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const progress = progressEnabled ? await db.cinemaWatchProgress.findUnique({ where: { userId_ownerType_ownerId: { userId: viewer.userId!, ownerType: link.ownerType, ownerId: link.ownerId } }, select: { positionSeconds: true, completedAt: true } }) : null
   const nextEpisode = link.ownerType === 'episode' && playback !== 'embed' ? await nextPlayableEpisode(link.ownerId, viewer) : null
   await db.mediaLink.update({ where: { id }, data: { clicks: { increment: 1 } } }).catch(() => undefined)
-  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, context: { title: owner.title, label: link.label, quality: link.quality } })
+  const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, userId: viewer.userId, context: { title: owner.title, label: link.label, quality: link.quality } })
   // The subtitle files of the same film or episode that this viewer may open and the player can show.
   const subtitles: PlayerSubtitle[] = []
   if (playback !== 'embed' && link.ownerType !== 'game') {

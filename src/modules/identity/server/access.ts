@@ -4,6 +4,7 @@ import { authSecret } from '@/platform/config/env'
 import { db } from '@/platform/database/prisma'
 import { hasPermission, parsePermissions } from '@/modules/identity/rbac'
 import { sessionRevoked } from '@/modules/identity/domain/account-security'
+import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
 
 // Match NextAuth's startup secret without importing the authentication-provider graph.
 const tokenSecret = authSecret()
@@ -20,37 +21,51 @@ export interface AuthedUser {
 
 // The "staff must use 2-step sign-in" switch, cached briefly (read on every admin request).
 let policyCache: { at: number; required: boolean } | null = null
-async function adminTwoFactorRequired() {
-  if (policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
-  const row = await db.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
+async function adminTwoFactorRequired(reader: Pick<typeof db, 'setting'> = db) {
+  if (reader === db && policyCache && Date.now() - policyCache.at < 30_000) return policyCache.required
+  const row = reader === db
+    ? await reader.setting.findUnique({ where: { key: 'security.policy.v1' } }).catch(() => null)
+    : await reader.setting.findUnique({ where: { key: 'security.policy.v1' } })
   let required = false
-  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch { required = false }
-  policyCache = { at: Date.now(), required }
+  try { required = row ? JSON.parse(row.value)?.requireAdmin2fa === true : false } catch {
+    if (reader !== db) throw new Error('Security policy unavailable')
+    required = false
+  }
+  if (reader === db) policyCache = { at: Date.now(), required }
   return required
 }
 export const clearAdminPolicyCache = () => { policyCache = null }
 
 /** Whether this admin is held back until they turn on 2-step sign-in. */
-export async function adminNeedsTwoFactor(user: AuthedUser) {
-  return user.role === 'ADMIN' && !user.twoFactor && await adminTwoFactorRequired()
+export async function adminNeedsTwoFactor(user: AuthedUser, reader: Pick<typeof db, 'setting'> = db) {
+  return user.role === 'ADMIN' && !user.twoFactor && await adminTwoFactorRequired(reader)
 }
 
 export function getRawToken(req: NextRequest) {
   return getToken({ req, secret: tokenSecret })
 }
 
-export async function requireUser(req: NextRequest): Promise<AuthedUser | null> {
+/** A command may resolve identity/policy in its transaction; ordinary callers retain the default reader. */
+export async function requireUser(req: NextRequest, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db): Promise<AuthedUser | null> {
   const token = await getRawToken(req)
   if (!token?.uid) return null
 
+  return resolveCurrentUser(Number(token.uid), token.authAt, reader)
+}
+
+/** Current identity for a previously authorized human action, including queued work. */
+export async function resolveCurrentUser(userId: number, authAt: unknown, reader: Pick<typeof db, 'user' | 'accessRestriction'> = db): Promise<AuthedUser | null> {
+  if (!Number.isSafeInteger(userId) || userId <= 0) return null
+
   // Resolve current role/status from storage so revocation takes effect immediately.
-  const current = await db.user.findUnique({
-    where: { id: Number(token.uid) },
+  const current = await reader.user.findUnique({
+    where: { id: userId },
     include: { roleRef: true },
   })
   if (!current || current.status !== 'ACTIVE') return null
+  if (await globalAuthenticationDenied(current.id, new Date(), reader)) return null
   // A password reset signs out every session that started before it.
-  if (sessionRevoked(token.authAt, current.passwordChangedAt)) return null
+  if (sessionRevoked(authAt, current.passwordChangedAt)) return null
 
   const permissions =
     current.role === 'ADMIN' && current.roleId != null
@@ -67,16 +82,16 @@ export async function requireUser(req: NextRequest): Promise<AuthedUser | null> 
   }
 }
 
-export async function requireAdmin(req: NextRequest): Promise<AuthedUser | null> {
-  const user = await requireUser(req)
+export async function requireAdmin(req: NextRequest, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<AuthedUser | null> {
+  const user = await requireUser(req, reader)
   if (user?.role !== 'ADMIN') return null
   // With the staff 2-step policy on, the admin API stays closed until it is set up.
-  return await adminNeedsTwoFactor(user) ? null : user
+  return await adminNeedsTwoFactor(user, reader) ? null : user
 }
 
 /** Legacy admin without a roleId is the super-admin compatibility path. */
-export async function requirePerm(req: NextRequest, permission: string): Promise<AuthedUser | null> {
-  const user = await requireAdmin(req)
+export async function requirePerm(req: NextRequest, permission: string, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<AuthedUser | null> {
+  const user = await requireAdmin(req, reader)
   if (!user) return null
 
   if (user.permissions === null || user.permissions.length === 0) {

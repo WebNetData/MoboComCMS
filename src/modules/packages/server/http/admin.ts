@@ -5,8 +5,8 @@ import { requirePerm, type AuthedUser } from '@/modules/identity/server/access'
 import { getSiteConfig } from '@/modules/site/config/store'
 import { PACKAGE_LIMITS, PackageError, isEditable } from '@/modules/packages/domain/format'
 import {
-  activateTheme, deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
-  restoreRevision, savePackageSettings, setPackageEnabled, summarize, writePackageFile,
+  deletePackage, deletePackageFile, exportPackage, fileText, installPackage, listPackages, loadPackage,
+  restoreRevision, patchPackage, PackageAuthorityError, summarize, writePackageFile,
 } from '@/modules/packages/server/store'
 import { applyCodePackage, applyStatus, importBuiltinSource } from '@/modules/packages/server/code-apply'
 import { extensionCatalog } from '@/extensions/generated/catalog'
@@ -22,6 +22,7 @@ async function guard(req: NextRequest) {
   return requirePerm(req, PERMISSION)
 }
 function failure(error: unknown) {
+  if (error instanceof PackageAuthorityError) return err('forbidden', 403)
   if (error instanceof PackageError) return err(error.message, 400)
   console.error('[packages]', error)
   return err('package operation failed', 500)
@@ -67,8 +68,7 @@ export async function uploadRoute(req: NextRequest) {
   const actor = await guard(req)
   if (!actor) return err('forbidden', 403)
   try {
-    const { pkg, upgraded } = await installPackage(await readUpload(req), actor.email)
-    await audit(req, actor, upgraded ? 'upgrade' : 'install', pkg.manifest.id, { version: pkg.manifest.version, kind: pkg.manifest.kind, runtime: pkg.manifest.runtime })
+    const { pkg, upgraded } = await installPackage(await readUpload(req), actor.email, { req, actor })
     return ok({ package: summarize(pkg), upgraded })
   } catch (error) { return failure(error) }
 }
@@ -95,19 +95,12 @@ export async function patchRoute(req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const body = await req.json().catch(() => null)
   try {
-    if (typeof body?.enabled === 'boolean') {
-      await setPackageEnabled(id, body.enabled)
-      await audit(req, actor, body.enabled ? 'enable' : 'disable', id)
+    const changes = {
+      ...(typeof body?.enabled === 'boolean' ? { enabled: body.enabled } : {}),
+      ...(body?.settings && typeof body.settings === 'object' && !Array.isArray(body.settings) ? { settings: body.settings as Record<string, unknown> } : {}),
+      ...(body?.activate === true ? { activate: true as const } : {}),
     }
-    if (body?.settings && typeof body.settings === 'object' && !Array.isArray(body.settings)) {
-      await savePackageSettings(id, body.settings)
-      await audit(req, actor, 'settings', id, { keys: Object.keys(body.settings) })
-    }
-    if (body?.activate === true) {
-      await activateTheme(id)
-      await audit(req, actor, 'activate-theme', id)
-    }
-    const pkg = await loadPackage(id)
+    const pkg = Object.keys(changes).length ? await patchPackage(id, changes, { req, actor }) : await loadPackage(id)
     if (!pkg) return err('not found', 404)
     // The site document is request-cached, so a fresh activation is reported directly.
     return ok({ package: summarize(pkg, body?.activate === true ? id : (await getSiteConfig()).themeId) })
@@ -119,8 +112,7 @@ export async function deleteRoute(req: NextRequest, { params }: Ctx) {
   if (!actor) return err('forbidden', 403)
   const { id } = await params
   try {
-    await deletePackage(id)
-    await audit(req, actor, 'delete', id)
+    await deletePackage(id, { req, actor })
     return ok({ deleted: true })
   } catch (error) { return failure(error) }
 }
@@ -142,8 +134,7 @@ export async function putFileRoute(req: NextRequest, { params }: Ctx) {
   const body = await req.json().catch(() => null)
   if (typeof body?.path !== 'string' || typeof body?.content !== 'string') return err('path and content are required')
   try {
-    const pkg = await writePackageFile(id, body.path, body.content, actor.email)
-    await audit(req, actor, 'file.write', id, { path: body.path, bytes: body.content.length })
+    const pkg = await writePackageFile(id, body.path, body.content, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
@@ -154,8 +145,7 @@ export async function deleteFileRoute(req: NextRequest, { params }: Ctx) {
   const { id } = await params
   const path = req.nextUrl.searchParams.get('path') || ''
   try {
-    const pkg = await deletePackageFile(id, path, actor.email)
-    await audit(req, actor, 'file.delete', id, { path })
+    const pkg = await deletePackageFile(id, path, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
@@ -168,8 +158,7 @@ export async function restoreRoute(req: NextRequest, { params }: Ctx) {
   const body = await req.json().catch(() => null)
   if (!Number.isInteger(body?.index) || body.index < 0) return err('revision index is required')
   try {
-    const pkg = await restoreRevision(id, body.index, actor.email)
-    await audit(req, actor, 'file.restore', id, { index: body.index })
+    const pkg = await restoreRevision(id, body.index, actor.email, { req, actor })
     return ok({ package: summarize(pkg, (await getSiteConfig()).themeId) })
   } catch (error) { return failure(error) }
 }
@@ -193,8 +182,7 @@ export async function importSourceRoute(req: NextRequest) {
   const body = await req.json().catch(() => null)
   const id = typeof body?.id === 'string' ? body.id : ''
   try {
-    const pkg = await importBuiltinSource(id, actor.email)
-    await audit(req, actor, 'code.import', id)
+    const pkg = await importBuiltinSource(id, actor.email, undefined, { req, actor })
     return ok({ package: summarize(pkg) })
   } catch (error) { return failure(error) }
 }
