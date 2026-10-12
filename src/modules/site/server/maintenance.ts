@@ -1,6 +1,6 @@
 import { db } from '@/platform/database/prisma'
 import { extensionCatalog } from '@/extensions/generated/catalog'
-import { MAINTENANCE_SECTIONS, isMaintenanceSection, normalizeMaintenance, type MaintenanceSectionId, type MaintenanceState, type SectionMaintenance } from '@/modules/site/domain/maintenance'
+import { MAINTENANCE_SECTIONS, closedPlugins, isMaintenanceSection, normalizeMaintenance, type MaintenanceSectionId, type MaintenanceState, type SectionMaintenance } from '@/modules/site/domain/maintenance'
 
 // Which sections are in maintenance, and with which words. Read by the middleware on every page
 // request, so it is kept in memory for a few seconds, like the section addresses.
@@ -22,6 +22,11 @@ export async function loadMaintenance(fresh = false): Promise<MaintenanceState> 
   try { const row = await db.setting.findUnique({ where: { key: KEY } }); stored = row ? JSON.parse(row.value) : null } catch { stored = cache?.state ?? null }
   cache = { at: Date.now(), state: normalizeMaintenance(stored) }
   return cache.state
+}
+
+/** The plugins whose public pages are closed now (see `closedPlugins`). A state that cannot be read closes nothing. */
+export async function closedSectionPlugins(): Promise<Set<string>> {
+  return new Set(closedPlugins(await loadMaintenance().catch(() => normalizeMaintenance(null))))
 }
 
 /** Changes one section's maintenance state; the other sections stay as they are. */

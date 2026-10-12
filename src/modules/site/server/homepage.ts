@@ -6,6 +6,8 @@ import type { LandingData } from '@/modules/site/domain/homepage'
 import { resolveUsdTomanRateNumber } from '@/modules/billing/domain/rates'
 import { telegramConfig } from '@/modules/notifications/server/telegram'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { closedSectionPlugins, maintenanceBases } from '@/modules/site/server/maintenance'
+import { MAINTENANCE_SECTIONS } from '@/modules/site/domain/maintenance'
 import { getBuilderMedia, browseSoftware } from '@/modules/media/server/queries'
 import { recentThreads } from '@/modules/forum/server/forum'
 import type { LandingCommunity, LandingStat, ShowcaseItem } from '@/modules/site/domain/homepage'
@@ -69,8 +71,10 @@ async function getCommunity(): Promise<LandingCommunity | null> {
 
 export async function getLandingData(): Promise<LandingData> {
   const runtime = await getPublicExtensionRuntime().catch(() => ({} as Awaited<ReturnType<typeof getPublicExtensionRuntime>>))
-  const enabled = (id: string) => runtime[id]?.enabled !== false
-  const disabledPaths = Object.values(runtime).filter((state) => !state.enabled).flatMap((state) => [...(state.paths || [])])
+  // A section in maintenance is left off the home page like a module that is off: no block, no link to a notice.
+  const [closed, bases] = [await closedSectionPlugins(), maintenanceBases()]
+  const enabled = (id: string) => runtime[id]?.enabled !== false && !closed.has(id)
+  const disabledPaths = [...Object.values(runtime).filter((state) => !state.enabled).flatMap((state) => [...(state.paths || [])]), ...MAINTENANCE_SECTIONS.filter((section) => closed.has(section.plugin)).flatMap((section) => bases[section.id])]
   const [plans, settings, locations, posts, products, forms, telegram, showcase, stats, community] = await Promise.all([
     getPublicPlans(),
     getSettings(),

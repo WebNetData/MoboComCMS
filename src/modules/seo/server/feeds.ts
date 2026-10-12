@@ -1,14 +1,16 @@
 import { db } from '@/platform/database/prisma'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 import { getSiteSeo } from '@/modules/site/server/seo'
+import { closedSectionPlugins } from '@/modules/site/server/maintenance'
 import { buildLlmsTxt, buildRss, metaDescription, type LlmsSection } from '@/modules/seo/domain/seo'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 
 const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 
 async function enabledModules() {
-  const runtime = await getPublicExtensionRuntime().catch(() => ({} as Record<string, { enabled: boolean }>))
-  return (id: string) => runtime[id]?.enabled !== false
+  const [runtime, closed] = await Promise.all([getPublicExtensionRuntime().catch(() => ({} as Record<string, { enabled: boolean }>)), closedSectionPlugins()])
+  // A section in maintenance is left out like a module that is off.
+  return (id: string) => runtime[id]?.enabled !== false && !closed.has(id)
 }
 
 /** RSS 2.0 of the latest magazine posts (and software releases), for readers and faster discovery. */

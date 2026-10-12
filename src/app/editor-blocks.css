@@ -71,3 +71,7 @@
 .mcb-content-faq details { border-block-end: 1px solid var(--border, rgba(127, 127, 127, .3)); padding-block: .85rem; }
 .mcb-content-faq summary { cursor: pointer; font-weight: 600; }
 .mcb-content-faq details > * + * { margin-block-start: .6rem; }
+
+/* A body stored as HTML by the older editor carries no direction of its own: each paragraph reads in the direction of
+   its first letter, like a block document (see textDirection). A direction written on the element wins. */
+.prose:not(.mcb-document) :where(p, h2, h3, h4, h5, h6, li, blockquote):not([dir]) { unicode-bidi: plaintext; text-align: start; }
