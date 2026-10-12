@@ -6,7 +6,7 @@ import { PACKAGE_LIMITS } from '@/modules/packages/domain/format'
 import { PackageAuthorityError } from '@/modules/packages/server/store'
 import { RepoError } from '@/modules/repository/domain/repository'
 import {
-  deleteProduct, extendLicense, getVendorConfig, grantLicense, inspectRepositoryArchives, listLicenses, listProducts, previewPurchaseRecovery, recoverPurchase, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
+  deleteProduct, extendLicense, getVendorConfig, grantLicense, inspectRepositoryArchives, listLicenses, listProducts, previewPurchaseRecovery, recoverPurchase, previewUploadRecovery, recoverUpload, releaseSite, repositoryStats, saveProduct, saveVendorConfig, setLicenseStatus, setReleasePublished, uploadRelease,
 } from '@/modules/repository/server/vendor'
 import { fetchRepositoryMeta, connectRepository, disconnectRepository, activateRepositoryLicense, deactivateRepositoryLicense, browseCatalog, getClientConfig, installFromRepository, refreshRepositoryLicenses, defaultRepositoryUrl } from '@/modules/repository/server/client'
 
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams
   try {
     switch (q.get('view')) {
+      case 'upload-recovery': return ok(await previewUploadRecovery(idOf(q.get('releaseId')), { req, actor: guard.admin }))
       case 'archives': return ok(await inspectRepositoryArchives({ limit: q.has('limit') ? Number(q.get('limit')) : undefined, afterReleaseId: q.has('afterReleaseId') ? Number(q.get('afterReleaseId')) : undefined, afterFileId: q.get('afterFileId') || '', verifyHashes: q.get('verifyHashes') === 'true' }, { req, actor: guard.admin }))
       case 'purchase-recovery': return ok(await previewPurchaseRecovery(idOf(q.get('paymentId')), { req, actor: guard.admin }))
       case 'products': return ok({ products: await listProducts() })
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
   if (!body) return err('درخواست نامعتبر است')
   try {
     switch (body.op) {
+      case 'release.recover': return ok(await recoverUpload(idOf(body.releaseId), { evidence: body.evidence, acknowledgeReviewed: body.acknowledgeReviewed }, { req, actor: guard.admin }))
       case 'purchase.recover': return ok(await recoverPurchase(idOf(body.paymentId), { mode: body.mode, evidence: body.evidence, acknowledgeCurrentTerms: body.acknowledgeCurrentTerms }, { req, actor: guard.admin }))
       case 'product.save': { const saved = await saveProduct(body, idOf(body.id) || undefined, { req, actor: guard.admin }); return ok({ id: saved.id }) }
       case 'product.delete': { await deleteProduct(idOf(body.id), { req, actor: guard.admin }); return ok({ ok: true }) }

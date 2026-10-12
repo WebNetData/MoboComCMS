@@ -4,6 +4,7 @@ export { saveProduct, saveVendorConfig, setReleasePublished } from './vendor/cat
 export { buyProduct } from './vendor/purchase'
 export { previewPurchaseRecovery, recoverPurchase } from './vendor/purchase-recovery'
 export { inspectRepositoryArchives } from './vendor/archive-diagnostics'
+export { previewUploadRecovery, recoverUpload } from './vendor/upload-recovery'
 import { commitVendorLicense, type VendorLicenseContext } from './vendor/license-command'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -23,10 +24,10 @@ const CONFIG_KEY = VENDOR_CONFIG_KEY
 const hashKey = (key: string) => sha256(`license:${key}`)
 const money = (minor: bigint) => `${Number(minor).toLocaleString('fa-IR')} تومان`
 
-export interface VendorConfig { enabled: boolean; name: string }
+export interface VendorConfig { enabled: boolean; name: string; archiveRecoveryEnabled?: boolean }
 export async function getVendorConfig(): Promise<VendorConfig> {
   const stored = await readJsonSetting(CONFIG_KEY)
-  return { enabled: stored?.enabled === true, name: String(stored?.name || '').slice(0, 80) }
+  return { enabled: stored?.enabled === true, name: String(stored?.name || '').slice(0, 80), archiveRecoveryEnabled: stored?.archiveRecoveryEnabled === true }
 }
 // ------------------------------------------------------------------ products and releases
 

@@ -13,7 +13,7 @@ import { commitVendorCommand, type VendorLicenseContext } from './license-comman
 export const releaseDirectory = () => join(process.cwd(), 'storage', 'repository')
 
 /** SQL outcome is already decided. Never delete a referenced or unverified archive. */
-async function cleanUnreferencedArchive(fileId: string) {
+export async function cleanUnreferencedArchive(fileId: string) {
   const deferred = (reason: string) => {
     try { logEvent('warn', 'repository.archive.cleanup-deferred', { fileId, reason }) }
     catch { /* Observability cannot change an already decided database outcome. */ }

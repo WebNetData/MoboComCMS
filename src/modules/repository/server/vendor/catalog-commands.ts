@@ -9,12 +9,14 @@ export const VENDOR_CONFIG_KEY = 'repository.vendor.v1'
 export async function saveVendorConfig(input: Record<string, unknown>, context?: VendorLicenseContext): Promise<VendorConfig> {
   const next: VendorConfig = { enabled: input.enabled === true, name: String(input.name ?? '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 80) }
   try {
-    await updateJsonSetting(VENDOR_CONFIG_KEY, async (value, tx) => {
+    return await updateJsonSetting(VENDOR_CONFIG_KEY, async (value, tx) => {
       const actor = context ? await assertVendorLicenseAuthority(context, tx) : undefined
       Object.assign(value, next)
-      if (context && actor) await auditAdminStrict({ req: context.req, actor, action: 'repository.settings', targetType: 'repository', targetId: 'vendor', metadata: { enabled: next.enabled } }, tx)
+      if (Object.prototype.hasOwnProperty.call(input, 'archiveRecoveryEnabled')) value.archiveRecoveryEnabled = input.archiveRecoveryEnabled === true
+      const saved = { ...next, archiveRecoveryEnabled: value.archiveRecoveryEnabled === true }
+      if (context && actor) await auditAdminStrict({ req: context.req, actor, action: 'repository.settings', targetType: 'repository', targetId: 'vendor', metadata: { enabled: next.enabled, archiveRecoveryEnabled: saved.archiveRecoveryEnabled } }, tx)
+      return saved
     })
-    return next
   } catch (error) {
     if (error instanceof JsonSettingMutationError) throw new RepoError('تنظیمات مخزن معتبر نیست یا هم‌زمان تغییر کرده است؛ دوباره بررسی کنید', 409)
     throw error

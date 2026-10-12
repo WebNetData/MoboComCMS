@@ -37,6 +37,8 @@ const CHECKS = [
   'repository-archive-diagnostics',
   'repository-upload-reservations',
   'repository-upload-crash',
+  'repository-upload-recovery',
+  'repository-upload-recovery-live',
   'repository-upload-migration',
   'repository-owner-integrity',
   'queue-lease',
