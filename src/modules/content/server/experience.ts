@@ -28,6 +28,12 @@ export async function memberItemExperience(userId: number, ref: ItemRef): Promis
   const watches: Owner[] = []
   let trackIds: number[] = []
   switch (ref.type) {
+    case 'business': {
+      const business = await db.businessProfile.findUnique({ where: { id: ref.id }, select: { kind: true } })
+      if (business?.kind !== 'SITE') return ''
+      const paid = await db.order.findFirst({ where: { userId, status: 'PAID', productDelivery: { is: { status: 'DELIVERED' } } }, select: { id: true } })
+      return paid ? 'PURCHASE' : ''
+    }
     case 'software': {
       const releases = await db.softwareRelease.findMany({ where: { softwareId: ref.id }, select: { id: true }, take: CHILD_LIMIT })
       downloads.push({ ownerType: 'software', ownerId: ref.id }, ...releases.map((row) => ({ ownerType: 'softwarerelease', ownerId: row.id })))

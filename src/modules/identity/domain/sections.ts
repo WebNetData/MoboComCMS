@@ -5,6 +5,7 @@
 export type SiteSection = { id: string; label: string; hint: string; permissions: readonly string[] }
 
 export const SITE_SECTIONS: readonly SiteSection[] = [
+  { id: 'businesses', label: 'تجربهٔ خرید', hint: 'کسب‌وکارها، فروشندگان و تجربه‌های مشتریان', permissions: ['businesses.manage'] },
   { id: 'magazine', label: 'مجله', hint: 'نوشته‌ها، دسته‌ها، دیدگاه‌ها و خبرنامه', permissions: ['cms.posts'] },
   { id: 'music', label: 'موزیک', hint: 'آهنگ، آلبوم، هنرمند و پلی‌لیست', permissions: ['music.manage'] },
   { id: 'cinema', label: 'فیلم و سریال', hint: 'عنوان‌ها، فصل‌ها و قسمت‌ها', permissions: ['cinema.manage'] },

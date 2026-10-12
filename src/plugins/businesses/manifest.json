@@ -1,0 +1,19 @@
+{
+  "id": "businesses",
+  "name": "تجربهٔ خرید و کسب‌وکارها",
+  "nameEn": "Business experiences",
+  "description": "تجربه و امتیاز کاربران برای سایت‌های بیرونی، فروشندگان داخلی و فروشگاه موبوکام؛ با بررسی مدیر و پاسخ نماینده.",
+  "descriptionEn": "Customer experiences of external websites, internal sellers and the site's own store.",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "kind": "module",
+  "category": "engagement",
+  "icon": "sparkles",
+  "defaultEnabled": false,
+  "requiresCore": "^1.0.0",
+  "requires": ["reviews"],
+  "publicPaths": ["/businesses"],
+  "adminPaths": ["/admin/businesses"],
+  "permissions": [{ "id": "businesses.manage", "label": "مدیریت کسب‌وکارها و تجربه‌های خرید" }],
+  "settings": [{ "key": "moderate-reviews", "label": "تجربه‌ها پیش از انتشار بررسی شوند", "type": "boolean", "default": true }]
+}

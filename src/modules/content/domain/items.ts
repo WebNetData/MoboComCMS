@@ -6,7 +6,7 @@
  */
 
 import { toInternalPath } from '@/shared/routing/aliases'
-export const ITEM_TYPES = ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread'] as const
+export const ITEM_TYPES = ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post', 'thread', 'business'] as const
 export type ItemType = typeof ITEM_TYPES[number]
 export type ItemRef = { type: ItemType; id: number }
 
@@ -15,10 +15,11 @@ export const isItemType = (value: unknown): value is ItemType => (ITEM_TYPES as 
 /** Feature module that must be enabled for the item type to be public. */
 export const ITEM_MODULE: Record<ItemType, string> = {
   software: 'software', game: 'games', studio: 'games', title: 'cinema', album: 'music', track: 'music', artist: 'music',
-  product: 'store', post: 'journal', thread: 'forum',
+  product: 'store', post: 'journal', thread: 'forum', business: 'businesses',
 }
 
 export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: string }> = {
+  business: { one: 'کسب‌وکار', many: 'کسب‌وکارها', icon: '⭐' },
   software: { one: 'نرم‌افزار', many: 'نرم‌افزارها', icon: '💾' },
   game: { one: 'بازی', many: 'بازی‌ها', icon: '🎮' },
   studio: { one: 'سازنده / ناشر', many: 'سازندگان و ناشران', icon: '🏢' },
@@ -32,7 +33,7 @@ export const ITEM_LABEL: Record<ItemType, { one: string; many: string; icon: str
 }
 
 /** Item types members can rate, review and follow (products keep their own review system). */
-export const REVIEWABLE: readonly ItemType[] = ['software', 'game', 'title', 'album', 'track']
+export const REVIEWABLE: readonly ItemType[] = ['software', 'game', 'title', 'album', 'track', 'business']
 /** Item types members can favorite. */
 export const FAVORITABLE: readonly ItemType[] = ['software', 'game', 'studio', 'title', 'album', 'track', 'artist', 'product', 'post']
 /** Item types that can be compared side by side (only with the same type). */
@@ -44,6 +45,7 @@ export const LINKABLE: readonly ItemType[] = ITEM_TYPES.filter((type) => type !=
 export function itemPath(type: ItemType, key: { slug?: string | null; id: number }): string {
   const slug = encodeURIComponent(key.slug || String(key.id))
   switch (type) {
+    case 'business': return `/businesses/${slug}`
     case 'software': return `/software/${slug}`
     case 'game': return `/games/${slug}`
     case 'studio': return `/studios/${key.id}`
@@ -68,6 +70,7 @@ export function parseItemPath(input: string): { type: ItemType; slug: string; id
   path = toInternalPath(path.split(/[?#]/)[0])
   let slug = ''
   const match = (pattern: RegExp) => { const m = pattern.exec(path); if (m) { try { slug = decodeURIComponent(m[1]) } catch { slug = m[1] } } return !!m }
+  if (match(/^\/businesses\/([^/]+)\/?$/)) return { type: 'business', slug }
   if (match(/^\/software\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'software', slug }
   if (match(/^\/games\/([^/]+)\/?$/) && slug !== 'browse') return { type: 'game', slug }
   if (match(/^\/studios\/(\d+)\/?$/)) return { type: 'studio', slug, id: Number(slug) }

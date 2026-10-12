@@ -8,6 +8,8 @@ Existing canonical owners inspected: `reviews/server/reviews.ts`, `reviews/domai
 
 ## Architecture / data
 
+Owner refinement: internal sellers are included, and another agent must be able to resume from durable spec/map/ledger/workstate and executed evidence. Internal `SELLER` profiles bind the existing SellerId/UserId and reuse SellerReview/order eligibility/reply owner; never copy or re-store legacy seller reviews in ItemReview. `SITE` represents MoboCom's own store and earns purchase evidence only from the member's actual paid/delivered order. `EXTERNAL` uses shared ItemReview without inferring a purchase from unrelated MoboCom transactions. Profile kind/seller/domain identities remain immutable; display fields and visibility can change through exact `businesses.manage` guard. Linking a seller does not enable the entire marketplace or change money state.
+
 Add optional `businesses` module for external business profiles and their metadata. Extend the canonical content registry with `business`; reuse ItemReview and its original UserId, vote/moderation/stat mechanisms. No second review store, rating service, identity or notification system. Additive profile/experience metadata and representative/reply records, not changes to historical reviews or purchases. Keep both Prisma schemas and release manifest aligned.
 
 Domain identifies a website by normalized public DNS hostname; www/trailing-dot/case aliases converge. No website fetching, automatic document upload or scraping. Slug is stable and independent of future display-name edits. User suggestions wait for approval and duplicate domains converge on one profile. Existing CRM Contact is not the reviewer identity.
@@ -35,7 +37,7 @@ Use existing module settings for suggestion availability and moderation policy, 
 1. Domain normalization and invariants; additive profile schema/migration; current authorized Admin profile commands; bounded directory/profile registry; reuse existing review writes/reads with business-specific approval aggregation and no false badges; public pages and existing Admin moderation; real PostgreSQL/HTTP/browser evidence.
 2. Member suggestions and reports via canonical owners; explicit reviewed representative claims and replies; private proof/reviewed badge path; moderation lifecycle integration and contention tests.
 
-API paths use existing `/api/engage` review operations and current moderation contract with additive business references; profile APIs get typed DTOs/cursor bounds. Existing content/API/URLs remain compatible. Load contracts workflow before exposing new APIs. Do not publish incomplete claims/evidence controls or advertise an unimplemented capability.
+Profile/review/reply commands use `/api/businesses`; current `businesses.manage` moderation/profile commands use `/api/admin/businesses`. These call canonical Reviews/Marketplace owners, rather than adding another review store. Helpful votes retain `/api/engage/review/helpful`. Generic review creation/moderation refuses business targets, keeping the business purchase/representative/permission policy inside its owner. Directory pages are bounded to20 and reviews to10; all filters are reflected in the URL. Existing content/API/URLs remain compatible. Load contracts workflow before exposing new APIs. Do not publish incomplete claims/evidence controls or advertise an unimplemented capability.
 
 ## Acceptance
 

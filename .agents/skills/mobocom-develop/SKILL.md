@@ -5,6 +5,8 @@ description: Implement, debug, refactor, or review MoboCom frontend/backend feat
 
 # Development workflow
 
+For business/Trustpilot-style experiences, first read `docs/agent/handoffs/BUSINESS_EXPERIENCES.md` and its linked spec. Continue the current implementation and executed evidence; preserve canonical ItemReview versus SellerReview ownership and never infer external verified purchases from unrelated MoboCom orders.
+
 1. Read root instructions and focused repo map.
 2. Audit before adding; repository truth beats prompts.
 3. Use the smallest context path:

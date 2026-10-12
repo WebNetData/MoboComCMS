@@ -9,6 +9,8 @@ datasource db {
 }
 
 model User {
+  representedBusinesses BusinessProfile[] @relation("BusinessRepresentative")
+  businessReviewReplies ItemReview[] @relation("BusinessReviewReply")
   id             Int             @id @default(autoincrement())
   email          String          @unique
   passwordHash   String
@@ -2357,6 +2359,11 @@ model LinkReport {
 
 // ---------------------------------------------------------------- reviews & favorites
 model ItemReview {
+  experiencedOn DateTime?
+  businessReply String @default("")
+  businessReplyBy Int?
+  businessReplyAt DateTime?
+  businessReplyAuthor User? @relation("BusinessReviewReply", fields: [businessReplyBy], references: [id], onDelete: SetNull)
   id        Int      @id @default(autoincrement())
   itemType  String // software | game | title | album | track
   itemId    Int
@@ -3255,6 +3262,7 @@ model ContentPurchase {
 
 /// A shop selling on the site (Digikala-style marketplace). One per user.
 model Seller {
+  businessProfile BusinessProfile?
   id                Int       @id @default(autoincrement())
   userId            Int       @unique
   slug              String    @unique
@@ -3840,4 +3848,25 @@ model AccessRestriction {
 
   @@index([userId, scope, moduleKey, revokedAt, expiresAt])
   @@index([userId, moduleKey, effectKey])
+}
+
+// Business profiles compose existing ItemReview or SellerReview; never duplicate their history.
+model BusinessProfile {
+  id Int @id @default(autoincrement())
+  slug String @unique
+  name String
+  kind String @default("EXTERNAL") // EXTERNAL | SELLER | SITE
+  domain String? @unique
+  website String @default("")
+  category String @default("")
+  description String @default("")
+  status String @default("DRAFT") // DRAFT | PUBLISHED
+  sellerId Int? @unique
+  representativeId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  seller Seller? @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  representative User? @relation("BusinessRepresentative", fields: [representativeId], references: [id], onDelete: SetNull)
+
+  @@index([status, category, createdAt])
 }

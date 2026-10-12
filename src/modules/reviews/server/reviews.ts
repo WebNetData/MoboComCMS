@@ -12,7 +12,9 @@ import { ReviewError, initialReviewStatus, normalizeRating, normalizeReviewBody,
 import { dimensionsFor, isExperienceKind, normalizeScores, reviewSort, type ExperienceKind, type ReviewScores, type ReviewSort } from '@/modules/reviews/domain/dimensions'
 
 const PAGE = 10
-const counted = { status: { not: 'REJECTED' } }
+const counted = { OR: [{ itemType: 'business', status: 'APPROVED' }, { itemType: { not: 'business' }, status: { not: 'REJECTED' } }] }
+
+export { writeBusinessExperience, moderateBusinessExperience, replyToBusinessExperience, refreshBusinessRating } from './business-experiences'
 
 async function assertOn() {
   if (!await isModuleEnabled('reviews')) throw new ReviewError('این بخش فعال نیست', 404)
@@ -66,12 +68,12 @@ async function earnedBadge(review: { id: number; userId: number; verified: strin
  * Everything an item page shows: summary, the viewer's own review/favorite and a page of reviews.
  * `viewerExperience` also reports whether the viewer would get the verified badge (review form only).
  */
-export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1, options: { sort?: unknown; verifiedOnly?: boolean; viewerExperience?: boolean } = {}) {
+export async function itemEngagement(ref: ItemRef, userId: number | null, page = 1, options: { sort?: unknown; verifiedOnly?: boolean; viewerExperience?: boolean; rating?: number | null } = {}) {
   const reviewable = REVIEWABLE.includes(ref.type)
   const where = { itemType: ref.type, itemId: ref.id }
   const safePage = Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1000) : 1
   const sort = reviewSort(options.sort)
-  const listed = { ...where, status: 'APPROVED', NOT: { body: '' }, ...(options.verifiedOnly ? { verified: { not: '' } } : {}) }
+  const listed = { ...where, status: 'APPROVED', NOT: { body: '' }, ...(options.verifiedOnly ? { verified: { not: '' } } : {}), ...(options.rating && Number.isInteger(options.rating) && options.rating >= 1 && options.rating <= 5 ? { rating: options.rating } : {}) }
   const [ratings, mine, favorite, favorites, total, rows, dimensionRows, verifiedCount] = await Promise.all([
     reviewable ? db.itemReview.groupBy({ by: ['rating'], where: { ...where, ...counted }, _count: { rating: true } }) : Promise.resolve([]),
     reviewable && userId ? db.itemReview.findUnique({ where: { itemType_itemId_userId: { ...where, userId } }, include: { scores: true } }) : Promise.resolve(null),
@@ -124,6 +126,7 @@ export async function setReviewHelpful(userId: number, reviewId: number, on: boo
 }
 
 export async function saveReview(userId: number, ref: ItemRef, input: { rating: unknown; body?: unknown; scores?: unknown }) {
+  if (ref.type === 'business') throw new ReviewError('تجربهٔ کسب‌وکار را از صفحهٔ همان کسب‌وکار ثبت کنید', 400)
   await assertOn()
   if (!REVIEWABLE.includes(ref.type)) throw new ReviewError('برای این مورد امکان امتیازدهی نیست')
   if (!rateLimitHit(`review:${userId}`, 20, 3_600_000).ok) throw new ReviewError('کمی بعد دوباره امتحان کنید', 429)
@@ -325,6 +328,7 @@ export async function reviewQueue(status: string, page = 1) {
 export async function moderateReview(id: number, action: 'approve' | 'reject' | 'delete') {
   const review = await db.itemReview.findUnique({ where: { id } })
   if (!review) throw new ReviewError('نظر پیدا نشد', 404)
+  if (review.itemType === 'business') throw new ReviewError('تجربهٔ خرید را از مدیریت کسب‌وکارها بررسی کنید', 403)
   if (action === 'delete') await db.itemReview.delete({ where: { id } })
   else if (action === 'reject') await db.$transaction([
     db.itemReview.update({ where: { id }, data: { status: 'REJECTED' } }),

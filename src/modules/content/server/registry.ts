@@ -79,6 +79,10 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       const rows = await client.musicArtist.findMany({ where: { ...base, ...matchName }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, titleEn: r.nameEn, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
     }
+    case 'business': {
+      const rows = await client.businessProfile.findMany({ where: { ...base, status: 'PUBLISHED', OR: [{ kind: { not: 'SELLER' } }, { seller: { is: { status: 'ACTIVE' } } }], ...(text ? { AND: [{ OR: [{ name: { contains: text, ...insensitive } }, { domain: { contains: text, ...insensitive } }, { category: { contains: text, ...insensitive } }] }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })
+      return rows.map(r => card({ id: r.id, slug: r.slug, title: r.name, subtitle: r.category, summary: r.description, keywords: r.domain || '', image: '', access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: 0 }))
+    }
     case 'product': {
       const rows = await client.product.findMany({ where: { ...base, active: true, approval: 'APPROVED', ...(text ? { OR: [{ name: { contains: text, ...insensitive } }, { nameEn: { contains: text, ...insensitive } }, { slug: { contains: text, ...insensitive } }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' }, include: { category: { select: { name: true } } } })
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, titleEn: r.nameEn, subtitle: r.category?.name || '', summary: plain(r.description), keywords: [r.nameEn, r.category?.name].join(' '), image: r.image, access: r.access, publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
