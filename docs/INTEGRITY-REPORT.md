@@ -30,3 +30,21 @@ Each finding prints a count and up to 20 records. A finding stops scanning at 5,
 The longer windows are arguments of the recovery functions (`recoverReferralRewards(days)`, `recoverMarketplaceSales(days)`, `recoverGiftMemberships(days)`); running them with a larger value is a write and is left to the operator.
 
 `scripts/integrity-report.connected.cjs` (part of `npm run test:pg`) plants one record per finding with a healthy twin and checks that the report finds the first and not the second, on a database client that refuses every write.
+
+## Repository payments and local archives
+
+Default output also includes the three Repository purchase findings (unfulfilled, ambiguous, invalid). Their bounded scan covers all payment dates; continue with `--after-repository-payment=<id>`. Review a historical payment in Repository Admin, with the existing Repository and finance permissions. The report never executes recovery.
+
+Filesystem diagnosis is explicit, local and read-only. Run from the deployed application directory, on the host/container that actually holds `storage/repository`:
+
+```sh
+node scripts/integrity-report.cjs --json --repository-files --repository-file-limit=250
+node scripts/integrity-report.cjs --json --repository-files --verify-repository-hashes
+node scripts/integrity-report.cjs --json --repository-files --after-repository-release=123 --after-repository-file=<uuid.zip>
+```
+
+With filesystem inspection enabled, four additional findings cover unreferenced, missing, unsafe/unavailable and size/checksum mismatch observations. Default findings stay at17; opt-in adds4. `--verify-repository-hashes` is optional and requires `--repository-files`; otherwise equal size does not prove equal content. Only valid archive filenames are opened, never configuration/documents or symlink targets. Files above the3MiB inspection ceiling are unverified (`inspection-size-limit`), not declared invalid. Permission/read errors and changes during observation remain uncertain. A missing directory with existing release rows is reported; on an empty deployment the directory may simply not have been created yet.
+
+`coverage` records the directory state, inspected counts, ignored/visited names, checksum mode, page limits/caps and separate release-ID/filename cursors. Each page is1–500 records/names (default250). Directory names are streamed completely to retain only the smallest page candidates; directory traversal time is not bounded by the page limit, but retained candidates and opened files are bounded. When `continuation` is present, pass both of its cursor fields on the next call, retaining the completed stream's last position while the other continues. An empty capped page of findings does not prove a clean directory/database. Concurrent changes can shift observed pages; this is not an atomic filesystem/database snapshot.
+
+The same inspector is available to authorized administrators through `GET /api/admin/repository?view=archives`, with `limit`, `afterReleaseId`, `afterFileId`, and `verifyHashes=true`. Authority is checked before and after observation. The response always has `mutationAllowed:false`; a filename or finding never grants file deletion or restoration authority. No automatic cleanup follows the report. Durable upload fencing and reviewed quarantine/restore controls remain the next recovery steps; see [recovery specification](specs/repository-archive-recovery/SPEC.md).
