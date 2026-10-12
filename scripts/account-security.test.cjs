@@ -271,3 +271,90 @@ test('every way of changing a staff account goes through the staff guard', () =>
   assert.ok(list.includes("if (data.role === 'CUSTOMER') data.roleId = null"))
   assert.ok(one.includes("roleId: role === 'ADMIN' ? roleId : null"))
 })
+
+// ---- section authors: a second, narrower key of the same section
+test('a section author role holds the panel and author permissions only, and is never a manager or full access', () => {
+  const seen = new Map()
+  const open = (file) => {
+    const full = fs.existsSync(file) && fs.statSync(file).isFile() ? file : file + '.ts'
+    if (seen.has(full)) return seen.get(full).exports
+    if (full.endsWith('.json')) return JSON.parse(fs.readFileSync(full, 'utf8'))
+    const mod = { exports: {} }; seen.set(full, mod)
+    const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, resolveJsonModule: true } }).outputText
+    new Function('require', 'module', 'exports', source)((name) => name.startsWith('@/') ? open(path.resolve(__dirname, '..', 'src', name.slice(2))) : name.startsWith('.') ? open(path.resolve(path.dirname(full), name)) : require(name), mod, mod.exports)
+    return mod.exports
+  }
+  const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
+  const sections = load('src/modules/identity/domain/sections')
+  assert.deepEqual(sections.AUTHOR_SECTIONS.map((section) => [section.id, section.permission, section.manage]), [['magazine', 'journal.author', 'cms.posts'], ['cinema', 'cinema.author', 'cinema.manage'], ['music', 'music.author', 'music.manage'], ['software', 'software.author', 'software.manage']])
+  for (const section of sections.AUTHOR_SECTIONS) {
+    // Declared by the section's own plugin, so it exists; not a core permission, so no stored full-access role is touched by it.
+    assert.ok(rbac.ALL_PERMISSIONS.includes(section.permission), section.permission)
+    assert.equal(rbac.PERMISSIONS.includes(section.permission), false, section.permission)
+    // The section it writes in is one the owner hands out, with that manage permission.
+    assert.ok(sections.SITE_SECTIONS.find((site) => site.id === section.id).permissions.includes(section.manage), section.id)
+    assert.equal(sections.authorPermissionOf(section.manage), section.permission)
+  }
+  assert.equal(sections.authorPermissionOf('forum.moderate'), null)
+  const role = sections.authorRole(['music', 'magazine', 'nope'])
+  assert.deepEqual(role, { name: 'authors:magazine+music', nameFa: 'نویسندهٔ مجله و موزیک', nameEn: 'Author: magazine, music', permissions: ['dashboard.view', 'journal.author', 'music.author'] })
+  assert.equal(rbac.isFullAccess(role.permissions.join(',')), false)
+  assert.deepEqual(rbac.parsePermissions(role.permissions.join(',')), role.permissions)
+  // An author role is not a manager role and holds no section: nothing that asks for the section's permission lets it in.
+  assert.equal(sections.isAuthorRole(role.permissions), true); assert.equal(sections.isSectionRole(role.permissions), false)
+  assert.deepEqual(sections.sectionsOf(role.permissions), []); assert.deepEqual(sections.authorSectionsOf(role.permissions), ['magazine', 'music'])
+  for (const section of sections.AUTHOR_SECTIONS) assert.equal(role.permissions.includes(section.manage), false)
+  // A manager role is not an author role; a role with anything else beside author permissions is the role form's.
+  const manager = sections.sectionRole(['magazine']).permissions
+  assert.equal(sections.isAuthorRole(manager), false); assert.equal(sections.isSectionRole(manager), true); assert.deepEqual(sections.authorSectionsOf(manager), [])
+  assert.equal(sections.isAuthorRole(['dashboard.view']), false)
+  assert.equal(sections.isAuthorRole(['dashboard.view', 'journal.author', 'cms.posts']), false)
+  assert.equal(sections.isAuthorRole(['dashboard.view', 'journal.author', 'users.manage']), false)
+  assert.deepEqual(sections.normalizeAuthorSections(['software', 'forum', 'magazine', 'magazine']), ['magazine', 'software'])
+  assert.deepEqual(sections.normalizeAuthorSections('magazine'), [])
+})
+
+test('an author permission is taken only by the content owners, through the scope guard', () => {
+  const files = []
+  const names = ['journal.author', 'cinema.author', 'music.author', 'software.author']
+  const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) { if (entry.name !== 'generated') walk(full) } else if (/[.](ts|tsx|json)$/.test(entry.name) && names.some((name) => fs.readFileSync(full, 'utf8').includes(name))) files.push(path.relative(path.resolve(__dirname, '..'), full).split(path.sep).join('/')) } }
+  walk(path.resolve(__dirname, '..', 'src'))
+  assert.deepEqual(files.sort(), [
+    'src/modules/editor/server/documents.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/media/server/admin.ts', 'src/modules/site/server/http/admin/cms/route.ts',
+    'src/plugins/cinema/manifest.json', 'src/plugins/journal/manifest.json', 'src/plugins/music/manifest.json', 'src/plugins/software/manifest.json',
+  ].sort(), 'a new place accepts an author permission: it must hold the author to their own items, then be listed here')
+  // Where a section's permission is asked plainly, the author permission is not offered beside it.
+  const cms = read('src/modules/site/server/http/admin/cms/route.ts').split('\r\n').join('\n')
+  assert.ok(cms.includes("if (type === 'posts' || (type === 'postcats' && reading)) return requireContentScope(req, perm, 'journal.author')"))
+  assert.equal(cms.split("'journal.author'").length - 1, 1, 'named once, in the one function that decides the caller')
+  const guard = read('src/modules/identity/server/access.ts').split('\r\n').join('\n')
+  assert.ok(guard.includes("const manager = await requirePerm(req, manage, reader)\n  if (manager) return { admin: manager, authorId: null }"))
+  assert.ok(guard.includes('return writer ? { admin: writer, authorId: writer.id } : null'))
+  // Every read and write of the two owners is narrowed by that id.
+  for (const piece of ["const own = type === 'posts' && caller.authorId ? { authorId: caller.authorId } : null", "if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)", "if (type === 'posts' && caller.authorId) {", "const own = type === 'posts' && caller.authorId ? { authorId: caller.authorId } : {}"]) assert.ok(cms.includes(piece), piece)
+  const media = read('src/modules/media/server/admin.ts').split('\r\n').join('\n')
+  for (const piece of ["const own = caller.authorId && trashable(type) ? { createdById: caller.authorId } : null", "if (!held || (caller.authorId && held.createdById !== caller.authorId)) return err('not found', 404)", "const own = caller.authorId ? { createdById: caller.authorId } : {}", "create({ data: AUTHORED[type] && actor ? { ...data, createdById: actor.id } : data })"]) assert.ok(media.includes(piece), piece)
+  // What an author does not get keeps asking for the section's own permission.
+  assert.ok(read('src/modules/content/server/http/history.ts').includes("if (type === 'posts') return cms('post', 'cms.posts', 'post')"))
+  assert.equal(read('src/modules/site/server/http/admin/comments/route.ts').includes('.author'), false)
+  assert.equal(read('src/modules/identity/rbac.ts').includes('.author'), false, 'the list of content editors (collections) does not name authors')
+})
+
+test('the trash keeps what an item was, and is entered and left only by its own actions', () => {
+  const trash = load('src/modules/content/domain/trash')
+  const at = new Date('2026-10-12T10:00:00.000Z')
+  assert.deepEqual(trash.trashData({ status: 'PUBLISHED' }, 7, at), { status: 'TRASHED', trashedStatus: 'PUBLISHED', trashedAt: at, trashedById: 7 })
+  assert.deepEqual(trash.trashData({ status: 'DRAFT' }, 7, at).trashedStatus, 'DRAFT')
+  assert.throws(() => trash.trashData({ status: 'TRASHED', trashedStatus: 'PUBLISHED' }, 7), /already/)
+  assert.deepEqual(trash.restoreData({ status: 'TRASHED', trashedStatus: 'PUBLISHED' }), { status: 'PUBLISHED', trashedStatus: '', trashedAt: null, trashedById: null })
+  // What it was is unknown or impossible: a draft, never public and never the trash again.
+  for (const was of ['', null, undefined, 'TRASHED']) assert.equal(trash.restoreData({ status: 'TRASHED', trashedStatus: was }).status, 'DRAFT')
+  assert.throws(() => trash.restoreData({ status: 'PUBLISHED', trashedStatus: '' }), /not in the trash/)
+  assert.equal(trash.isTrashed({ status: 'TRASHED' }), true); assert.equal(trash.isTrashed({ status: 'DRAFT' }), false)
+  assert.equal(trash.formStatus('PUBLISHED'), 'PUBLISHED'); assert.equal(trash.formStatus(undefined), undefined)
+  assert.throws(() => trash.formStatus('TRASHED'))
+  // The database holds the same rule for every kind of item that can wait in the trash.
+  const sql = read('prisma/migrations/20261224120000_section_authors/migration.sql')
+  for (const table of ['Post', 'MusicAlbum', 'MusicTrack', 'CinemaTitle', 'SoftwareTitle']) assert.ok(sql.includes('ALTER TABLE "' + table + '" ADD CONSTRAINT "' + table + '_trash_state" CHECK (("status" = \'TRASHED\') = ("trashedAt" IS NOT NULL)'), table)
+  assert.equal(/DROP |DELETE |UPDATE /.test(sql), false, 'additive only')
+})

@@ -3,6 +3,7 @@
  * column of such an item holds a copy generated from the document, so search, feeds and anything
  * else that only knows HTML keep working. The document is the source; the copy never is.
  */
+import { TRASHED } from '@/modules/content/domain/trash'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
@@ -58,6 +59,10 @@ type Row = StoredRow & Record<string, unknown>
 interface Store {
   /** The permission of the section the item belongs to: one permission per section, as everywhere. */
   permission: string
+  /** The section's author permission, when the section has authors: an author writes only the items they created. */
+  authorPermission?: string
+  /** Whether this staff member created the item. */
+  writtenBy?(id: number, userId: number): Promise<boolean>
   find(id: number): Promise<Row | null>
   /** Writes the document only when the row is still at `expected`; the number of rows written. */
   claim(id: number, expected: Date, data: { editorFormat: string; contentDocument: string; content: string }): Promise<number>
@@ -73,6 +78,8 @@ const STORES: Record<DocumentEntity, Store> = {
   },
   posts: {
     permission: 'cms.posts',
+    authorPermission: 'journal.author',
+    writtenBy: (id, userId) => db.post.count({ where: { id, authorId: userId } }).then((count) => count > 0),
     find: (id) => db.post.findUnique({ where: { id } }),
     claim: (id, expected, data) => db.post.updateMany({ where: { id, updatedAt: expected }, data }).then((result) => result.count),
     changed: (before, after) => contentChanged({ type: 'post', id: after.id }, before, after),
@@ -80,6 +87,9 @@ const STORES: Record<DocumentEntity, Store> = {
 }
 
 export const documentPermission = (entity: DocumentEntity) => STORES[entity].permission
+export const documentAuthorPermission = (entity: DocumentEntity) => STORES[entity].authorPermission ?? null
+/** Whether this staff member created the item (an author opens and saves only those). */
+export const documentWrittenBy = async (entity: DocumentEntity, id: number, userId: number) => (await STORES[entity].writtenBy?.(id, userId)) === true
 
 export interface EditorActor { id: number; email: string; roleId: number | null; permissions: string[] | null }
 
@@ -121,6 +131,8 @@ export async function saveDocument(input: { entity: DocumentEntity; id: number; 
   if (!expected || Number.isNaN(expected.getTime())) throw new EditorError('the save does not say which version of the item it was made from', 400, 'VERSION_REQUIRED')
   const before = await store.find(input.id)
   if (!before) throw new EditorError('not found', 404, 'NOT_FOUND')
+  // An item waiting in the trash is written by nobody until a manager decides.
+  if (before.status === TRASHED) throw new EditorError('this item is in the trash and cannot be edited until a manager decides', 409, 'IN_TRASH')
   const checked = checkDocument(input.document, editorRegistry(), { permissions: may(input.actor) })
   if (!checked.ok) throw new EditorError('the document has errors and was not saved', 422, 'DOCUMENT_INVALID', { issues: checked.issues.filter((issue) => issue.level === 'error').slice(0, 50) })
   const html = documentHtml(checked.document, editorRegistry())

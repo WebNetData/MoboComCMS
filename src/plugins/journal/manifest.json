@@ -20,6 +20,12 @@
     "/admin/comments",
     "/admin/journal"
   ],
+  "permissions": [
+    {
+      "id": "journal.author",
+      "label": "نویسندهٔ مجله (فقط نوشته‌های خودش)"
+    }
+  ],
   "adminMenu": {
     "title": "مجله",
     "titleEn": "Journal",
@@ -42,7 +48,8 @@
         "labelEn": "Posts",
         "icon": "sliders",
         "permissions": [
-          "cms.posts"
+          "cms.posts",
+          "journal.author"
         ]
       },
       {

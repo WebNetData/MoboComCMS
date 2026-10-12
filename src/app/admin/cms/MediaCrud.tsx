@@ -93,6 +93,9 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
   const [total, setTotal] = useState(0)
   const [overall, setOverall] = useState(0)
   const [vip, setVip] = useState<number | null>(null)
+  // A section author sees only their own items and asks for a delete; a manager decides what waits in the trash.
+  const [mine, setMine] = useState(false)
+  const [trashed, setTrashed] = useState(0)
   const loadId = useRef(0)
   const [sources, setSources] = useState<Record<string, Opt[]>>({})
   const [aiKeys, setAiKeys] = useState<Set<string>>(new Set())
@@ -113,6 +116,8 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
       setTotal(data.total)
       setOverall(data.overall)
       setVip(data.vip)
+      setMine(data.mine === true)
+      setTrashed(Number(data.trashed) || 0)
       setPages(data.pages)
       if (data.page !== page) setPage(data.page)
     } else setMsg({ tone: 'err', text: data?.error || (fa ? 'بارگذاری ناموفق بود' : 'Could not load') })
@@ -192,10 +197,11 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
 
   async function remove(row: any) {
     if (busy) return
-    if (!confirm(fa ? `«${row[titleKey] || row.name}» حذف شود؟` : `Delete “${row[titleKey] || row.name}”?`)) return
+    if (!confirm(mine ? `«${row[titleKey] || row.name}» به سطل زباله می‌رود و از سایت برداشته می‌شود؛ حذف نهایی یا بازگردانی آن با مدیر بخش است. ادامه می‌دهید؟` : fa ? `«${row[titleKey] || row.name}» حذف شود؟` : `Delete “${row[titleKey] || row.name}”?`)) return
     const res = await fetch(`${API}?type=${type}&id=${row.id}`, { method: 'DELETE' })
     const data = await res.json().catch(() => null)
     if (!res.ok) setMsg({ tone: 'err', text: data?.error || (fa ? 'حذف ناموفق بود' : 'Delete failed') })
+    else if (data?.trashed) setMsg({ tone: 'ok', text: 'به سطل زباله رفت و منتظر تصمیم مدیر بخش است.' })
     else setSelected((current) => { const next = new Set(current); next.delete(row.id); return next })
     load()
   }
@@ -239,6 +245,15 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
   }) : []
   const tableFields = fields.filter((f) => f.table)
   const visible = rows
+  /** A manager puts a trashed item back as it was. */
+  async function restore(row: any) {
+    if (busy) return
+    const res = await fetch(`${API}?type=${type}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: row.id, restore: true }) })
+    const data = await res.json().catch(() => null)
+    setMsg(res.ok ? { tone: 'ok', text: 'از سطل زباله برگشت.' } : { tone: 'err', text: data?.error || 'بازگردانی ناموفق بود' })
+    load()
+  }
+
   const bulkEnabled = type !== 'vip-plans'
   const visibleIds = visible.map((row) => Number(row.id))
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id))
@@ -309,6 +324,7 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
       <div className="cms-summary">
         <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
         {vip !== null && <div><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
+        {trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}
         <label className="cms-search"><span>{fa ? 'جست‌وجو' : 'Search'}</span><input className="input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label>
       </div>
 
@@ -326,11 +342,17 @@ export default function MediaCrud({ type, title, subtitle, fields, publicPath, t
                     {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.name || `#${row.id}`}`} checked={selected.has(row.id)} disabled={busy} onChange={() => toggleSelected(row.id)} /></td>}
                     <td className="num">{row.id}</td>
                     {tableFields.map((f) => <td key={f.key}>{typeof f.table === 'function' ? f.table(row) : cell(f, row[f.key], fa)}</td>)}
-                    <td><div className="flex gap-1">
+                    <td>{row.status === 'TRASHED' ? <div className="flex gap-1" data-testid="trash-row">
+                      <span className="badge badge-gray">در سطل زباله</span>
+                      {mine ? <span className="muted text-sm">منتظر تصمیم مدیر بخش</span> : <>
+                        <button type="button" className="badge badge-purple" disabled={busy} onClick={() => restore(row)}>بازگردانی</button>
+                        <button type="button" className="badge badge-red" disabled={busy} onClick={() => remove(row)}>حذف نهایی</button>
+                      </>}
+                    </div> : <div className="flex gap-1">
                       <button type="button" className="badge badge-purple" disabled={busy} onClick={() => open(row)}>{fa ? 'ویرایش' : 'Edit'}</button>
                       {href && <Link className="badge badge-gray" href={href} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
-                      <button type="button" className="badge badge-red" disabled={busy} onClick={() => remove(row)}>{fa ? 'حذف' : 'Delete'}</button>
-                    </div></td>
+                      <button type="button" className="badge badge-red" disabled={busy} onClick={() => remove(row)}>{mine ? 'درخواست حذف' : fa ? 'حذف' : 'Delete'}</button>
+                    </div>}</td>
                   </tr>
                 )
               })}

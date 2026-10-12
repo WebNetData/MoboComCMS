@@ -51,6 +51,10 @@
     {
       "id": "music.manage",
       "label": "مدیریت موزیک"
+    },
+    {
+      "id": "music.author",
+      "label": "نویسندهٔ موزیک (فقط آثار خودش)"
     }
   ],
   "adminMenu": {
@@ -75,7 +79,8 @@
         "labelEn": "Tracks, albums & artists",
         "icon": "grid",
         "permissions": [
-          "music.manage"
+          "music.manage",
+          "music.author"
         ]
       },
       {

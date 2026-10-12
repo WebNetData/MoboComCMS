@@ -101,6 +101,18 @@ export async function requirePerm(req: NextRequest, permission: string, reader: 
   return hasPermission(user.permissions, permission) ? user : null
 }
 
+/**
+ * The caller as a manager or an author of one section (see `contentScope`): `authorId` is null for a manager and
+ * the caller's own id for an author, who is then held to the items they created. Null when they are neither.
+ */
+export async function requireContentScope(req: NextRequest, manage: string, author: string | null, reader: Pick<typeof db, 'user' | 'accessRestriction' | 'setting'> = db): Promise<{ admin: AuthedUser; authorId: number | null } | null> {
+  const manager = await requirePerm(req, manage, reader)
+  if (manager) return { admin: manager, authorId: null }
+  const writer = author ? await requirePerm(req, author, reader) : null
+  // A caller without a role passes every requirePerm and was returned above; here the permission is really held.
+  return writer ? { admin: writer, authorId: writer.id } : null
+}
+
 export async function effectivePermissions(userId: number): Promise<string[] | null> {
   const user = await db.user.findUnique({ where: { id: userId }, include: { roleRef: true } })
   if (!user || user.role !== 'ADMIN' || !user.roleId) return null

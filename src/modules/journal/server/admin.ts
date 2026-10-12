@@ -127,6 +127,16 @@ export async function searchJournalPicker(input: unknown) {
   return posts.map((post) => ({ id: post.id, title: post.title, cover: post.cover }))
 }
 
+/** For the staff moderation overview: articles an author asked to delete, waiting in the trash for a manager, oldest request first. */
+export async function waitingInTrash(take = 5) {
+  const where = { status: 'TRASHED' }
+  const [count, rows] = await Promise.all([
+    db.post.count({ where }),
+    db.post.findMany({ where, orderBy: { trashedAt: 'asc' }, take, select: { id: true, title: true, excerpt: true, trashedAt: true, updatedAt: true, author: { select: { name: true, email: true } } } }),
+  ])
+  return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.title, 160), full: plainText(`${row.title}\n${row.excerpt}`, 2000), by: row.author?.name || row.author?.email || '', about: 'درخواست حذف نوشته', at: row.trashedAt || row.updatedAt })) }
+}
+
 /** For the staff moderation overview: article comments waiting for approval, oldest first. */
 export async function waitingForModeration(take = 5) {
   const [count, rows] = await Promise.all([
