@@ -83,7 +83,7 @@ export async function POST_list(req: NextRequest) {
   if ('response' in g) return g.response
   const input = await body(req)
   try {
-    const result = await bulkGames(input, g.scope)
+    const result = await bulkGames(input, g.scope, g.admin.id)
     await auditAdmin({ req, actor: g.admin, action: 'trashed' in result ? 'games.bulk.trash' : 'games.bulk', targetType: 'game', targetId: 0, metadata: { action: String(input.action), count: Array.isArray(input.ids) ? input.ids.length : 0, value: String(input.value ?? '') } })
     return ok(result)
   } catch (error) { return failure(error) }

@@ -15,7 +15,6 @@ export default function VipPlansPage() {
     { key: 'price', label: fa ? 'قیمت' : 'Price', type: 'number', required: true, table: true },
     { key: 'currency', label: fa ? 'واحد پول' : 'Currency', type: 'select', options: [{ value: 'IRR', label: fa ? 'ریال (IRR)' : 'Rial (IRR)' }, { value: 'IRT', label: fa ? 'تومان (IRT)' : 'Toman (IRT)' }, { value: 'USD', label: fa ? 'دلار (USD)' : 'US dollar (USD)' }], table: true },
     { key: 'description', label: fa ? 'توضیح کوتاه' : 'Short description', type: 'textarea' },
-    { key: 'descriptionEn', label: fa ? 'توضیح انگلیسی' : 'English description', type: 'textarea', dir: 'ltr' },
     { key: 'perks', label: fa ? 'مزایا' : 'Perks', type: 'records', recordKeys: [{ key: 'icon', label: fa ? 'آیکون/ایموجی' : 'Icon' }, { key: 'fa', label: fa ? 'متن فارسی' : 'Persian text', wide: true }, { key: 'en', label: fa ? 'متن انگلیسی' : 'English text', dir: 'ltr', wide: true }] },
     { key: 'highlight', label: fa ? 'پیشنهاد ویژه (برجسته)' : 'Highlight as best value', type: 'checkbox', table: true },
     { key: 'active', label: fa ? 'فعال و قابل خرید' : 'Active & purchasable', type: 'checkbox', table: true },

@@ -371,3 +371,36 @@ test('the trash keeps what an item was, and is entered and left only by its own 
   for (const table of ['Post', 'MusicAlbum', 'MusicTrack', 'CinemaTitle', 'SoftwareTitle']) assert.ok(sql.includes('ALTER TABLE "' + table + '" ADD CONSTRAINT "' + table + '_trash_state" CHECK (("status" = \'TRASHED\') = ("trashedAt" IS NOT NULL)'), table)
   assert.equal(/DROP |DELETE |UPDATE /.test(sql), false, 'additive only')
 })
+
+test('an author is told what was decided about their delete request, once, and never for their own decision', async () => {
+  const made = []
+  let fail = false
+  const source = ts.transpileModule(read('src/modules/content/server/trash-notice.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const logged = []
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', source)((name) => name === '@/modules/notifications/server/inbox' ? { createInboxEvent: async (event) => { if (fail) throw new Error('inbox down'); made.push(event) } } : name === '@/platform/observability/logger' ? { logEvent: (...args) => logged.push(args) } : require(name), mod, mod.exports)
+  const tell = mod.exports.tellTrashDecision
+  const at = new Date('2026-10-13T08:00:00.000Z')
+  const base = { askedById: 7, askedAt: at, decidedById: 1, kind: 'post', id: 42, title: '  نوشتهٔ من  ', href: '/admin/posts' }
+  await tell({ ...base, decision: 'restored' })
+  await tell({ ...base, decision: 'deleted' })
+  assert.deepEqual(made.map((event) => [event.userId, event.kind, event.dedupeKey, event.href]), [[7, 'TRASH_DECISION', 'trash:post:42:' + at.getTime() + ':restored', '/admin/posts'], [7, 'TRASH_DECISION', 'trash:post:42:' + at.getTime() + ':deleted', '/admin/posts']])
+  assert.ok(made[0].bodyFa.includes('«نوشتهٔ من»') && made[0].titleFa.includes('پذیرفته نشد') && made[1].titleFa.includes('حذف شد'))
+  // A later request on the same item is another request: its key differs by the time it was asked.
+  await tell({ ...base, askedAt: new Date(at.getTime() + 1000), decision: 'restored' })
+  assert.notEqual(made[2].dedupeKey, made[0].dedupeKey)
+  made.length = 0
+  // Nobody asked (a manager's own delete), the time is unknown, or the asker decided themselves: nobody is told.
+  for (const quiet of [{ askedById: null }, { askedById: 0 }, { askedAt: null }, { decidedById: 7 }]) await tell({ ...base, ...quiet, decision: 'deleted' })
+  assert.deepEqual(made, [])
+  // The decision was already made: a notice that cannot be written is logged and nothing is thrown.
+  fail = true
+  await tell({ ...base, decision: 'deleted' })
+  assert.equal(logged.length, 1); assert.equal(logged[0][1], 'content.trash_notice_failed')
+  // The kind can be switched off like any other, and every owner that decides tells.
+  assert.ok(read('src/modules/notifications/server/preferences.ts').includes("{ kind: 'TRASH_DECISION',"))
+  for (const [file, calls] of [['src/modules/site/server/http/admin/cms/route.ts', 3], ['src/modules/media/server/admin.ts', 3], ['src/modules/games/server/admin.ts', 2]]) {
+    const text = read(file)
+    assert.equal(text.split(/await tell(?:TrashDecision|Decision)?\(/).length - 1, calls, file)
+  }
+})

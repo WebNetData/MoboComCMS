@@ -20,7 +20,6 @@ export default function AdminProductsPage() {
     { key: 'name', label: t.title, required: true },
     { key: 'nameEn', label: t.englishTitle, dir: 'ltr' },
     { key: 'description', label: t.description, type: 'richtext', hideInTable: true },
-    { key: 'descriptionEn', label: `${t.description} EN`, type: 'richtext', hideInTable: true, dir: 'ltr' },
     { key: 'kind', label: locale === 'fa' ? 'نوع محصول' : 'Product type', type: 'select', options: [{ value: 'VIRTUAL', label: 'Virtual / مجازی' }, { value: 'PHYSICAL', label: 'Physical / فیزیکی' }] },
     { key: 'price', label: t.price, type: 'number', required: true },
     { key: 'currency', label: t.currency, type: 'select', options: [{ value: 'IRR', label: locale === 'fa' ? 'ریال (IRR)' : 'Rial (IRR)' }, { value: 'IRT', label: locale === 'fa' ? 'تومان (IRT)' : 'Toman (IRT)' }, { value: 'USD', label: locale === 'fa' ? 'دلار (USD)' : 'US dollar (USD)' }] },

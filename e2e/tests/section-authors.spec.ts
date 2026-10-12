@@ -100,11 +100,17 @@ test('a section author manages only their own items and their deletes wait for a
     expect(await db.post.findUniqueOrThrow({ where: { id: annaPost.id } })).toMatchObject({ status: 'PUBLISHED', trashedStatus: '', trashedAt: null, trashedById: null })
     expect((await request.get(`/blog/${stamp}-anna`)).status()).toBe(200)
     expect((await write(admin, 'patch', '/api/admin/cms?type=posts', { id: annaPost.id, restore: true })).status()).toBe(409)
+    // The author is told what was decided, once per request; the manager who decided is not.
+    const notices = (userId: number) => db.userNotification.findMany({ where: { userId, kind: 'TRASH_DECISION' }, orderBy: { id: 'asc' }, select: { dedupeKey: true, titleFa: true, bodyFa: true, href: true } })
+    const decision = (row: { dedupeKey: string }) => row.dedupeKey.split(':').slice(-1)[0]
+    expect((await notices(anna.id)).map((row) => [row.dedupeKey.startsWith(`trash:post:${annaPost.id}:`), decision(row), row.href])).toEqual([[true, 'restored', '/admin/posts']])
+    expect((await notices(anna.id))[0].bodyFa).toContain(`نوشتهٔ آنا ${stamp} ۲`)
     // … or deletes it for good.
     expect(await (await write(a, 'post', '/api/admin/cms/bulk?type=posts', { ids: [annaPost.id], action: 'delete' })).json()).toEqual({ changed: 1, failed: [] })
     expect((await db.post.findUniqueOrThrow({ where: { id: annaPost.id } })).status).toBe('TRASHED')
     expect((await write(admin, 'delete', `/api/admin/cms?type=posts&id=${annaPost.id}`)).status()).toBe(200)
     expect(await db.post.count({ where: { id: annaPost.id } })).toBe(0)
+    expect((await notices(anna.id)).map(decision), 'the second request gets its own answer').toEqual(['restored', 'deleted'])
 
     // ---- music, through the shared media owner
     const artist = await write(a, 'post', '/api/admin/media-library?type=music-artists', { name: `هنرمند ${stamp}`, slug: `${stamp}-artist` })
@@ -132,6 +138,7 @@ test('a section author manages only their own items and their deletes wait for a
     expect(await (await write(a, 'delete', `/api/admin/media-library?type=music-tracks&id=${trackId}`)).json()).toEqual({ trashed: true })
     expect((await write(admin, 'delete', `/api/admin/media-library?type=music-tracks&id=${trackId}`)).status()).toBe(200)
     expect(await db.musicTrack.count({ where: { id: trackId } })).toBe(0)
+    expect((await notices(anna.id)).filter((row) => row.dedupeKey.startsWith(`trash:music-tracks:${trackId}:`)).map((row) => [decision(row), row.href])).toEqual([['restored', '/admin/music/library'], ['deleted', '/admin/music/library']])
 
     // ---- the database holds the trash rule too
     await expect(db.post.update({ where: { id: theirs.id }, data: { status: 'TRASHED' } })).rejects.toThrow()
@@ -239,6 +246,9 @@ test('a section author manages only their own items and their deletes wait for a
     expect(await (await write(admin, 'post', '/api/admin/games/list', { ids: [gameId], action: 'delete' })).json()).toEqual({ changed: 1 })
     expect(await db.gameTitle.count({ where: { id: gameId } })).toBe(0)
     expect(await db.gameUpdate.count({ where: { gameId } }), 'its updates go with it').toBe(0)
+    expect((await notices(babak.id)).filter((row) => row.dedupeKey.startsWith(`trash:games:${gameId}:`)).map((row) => [decision(row), row.href])).toEqual([['restored', '/admin/games/titles'], ['deleted', '/admin/games/titles']])
+    // A manager's own delete of something nobody asked to delete tells nobody.
+    expect(await db.userNotification.count({ where: { kind: 'TRASH_DECISION', userId: { notIn: [anna.id, babak.id] }, dedupeKey: { contains: stamp } } })).toBe(0)
 
     // ---- what the manager sees: the request in the overview and on the section's list, and the two decisions
     const waitingPost = await (await write(b, 'post', '/api/admin/cms?type=posts', { slug: `${stamp}-wait`, title: `منتظر تصمیم ${stamp}`, content: '<p>x</p>', status: 'PUBLISHED' })).json()

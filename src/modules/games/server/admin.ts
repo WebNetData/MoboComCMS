@@ -6,6 +6,7 @@ import { cleanLinks, slugOf, splitList } from '@/modules/media/domain/media'
 import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpdateKind, parseDay, releaseState, type HealthCheck } from '@/modules/games/domain/games'
 import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifications'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
+import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
@@ -168,7 +169,10 @@ const BULK = ['publish', 'draft', 'feature', 'unfeature', 'editors', 'uneditors'
 /** What an author may do to their own games in a batch. Featuring, the editors' choice and the trash decision are the manager's. */
 const AUTHOR_BULK: readonly string[] = ['publish', 'draft', 'members', 'public', 'franchise', 'delete']
 
-export async function bulkGames(input: { ids?: unknown; action?: unknown; value?: unknown }, scope: GameScope = MANAGER) {
+export async function bulkGames(input: { ids?: unknown; action?: unknown; value?: unknown }, scope: GameScope = MANAGER, decidedById = 0) {
+  /** The answer to an author's delete request, when a manager decides on a game that waited in the trash. */
+  const tell = (row: { id: number; title: string; trashedById: number | null; trashedAt: Date | null }, decision: 'restored' | 'deleted') =>
+    decidedById ? tellTrashDecision({ askedById: row.trashedById, askedAt: row.trashedAt, decidedById, decision, kind: 'games', id: row.id, title: row.title, href: '/admin/games/titles' }) : Promise.resolve()
   const asked = [...new Set((Array.isArray(input.ids) ? input.ids : []).map(positive).filter(Boolean))].slice(0, 500)
   const action = String(input.action || '') as typeof BULK[number]
   if (!asked.length) throw new GameError('هیچ بازی‌ای انتخاب نشده است')
@@ -185,6 +189,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       changed += 1
       const after = await db.gameTitle.findUnique({ where: { id: row.id } })
       contentChanged({ type: 'game', id: row.id }, row, after)
+      await tell(row, 'restored')
     }
     if (changed) await recount('games').catch(() => undefined)
     return { changed }
@@ -213,7 +218,7 @@ export async function bulkGames(input: { ids?: unknown; action?: unknown; value?
       await tx.gameTitle.deleteMany({ where: { id: { in: ids } } })
     }, { timeout: 60_000 })
     await recount('games').catch(() => undefined)
-    for (const row of before) contentChanged({ type: 'game', id: row.id }, row, null)
+    for (const row of before) { contentChanged({ type: 'game', id: row.id }, row, null); if (isTrashed(row)) await tell(row, 'deleted') }
     return { changed: before.length }
   }
   let data: Record<string, unknown>
