@@ -1712,3 +1712,203 @@
   .ln-row-art img,
   .ln-hero-slide { transition: none; }
 }
+
+/* ======================================================================== article page: reading layout
+   The header, the cover, the text with its action rail, tags and sharing, the author, the neighbours. Every colour is a
+   magazine or site token, so both themes follow; logical properties throughout, so it reads the same in both
+   directions of writing. */
+
+/* ---- how far the reader is: a thin bar under the top edge of the window */
+.jp-progress { position: fixed; inset-block-start: 0; inset-inline: 0; z-index: 90; height: 3px; pointer-events: none; background: transparent; }
+.jp-progress span { display: block; height: 100%; transform: scaleX(0); transform-origin: right center; background: linear-gradient(to left, var(--ln-accent), color-mix(in srgb, var(--ln-accent) 55%, #22d3ee)); box-shadow: 0 0 12px color-mix(in srgb, var(--ln-accent) 60%, transparent); will-change: transform; }
+[dir="ltr"] .jp-progress span { transform-origin: left center; }
+
+/* ---- header */
+/* A sticky rail needs a page that clips its overflow without becoming a scroll box of its own. */
+.journal-post.journal-post-solo, .journal-post.journal-post-built { overflow: clip; }
+.journal-post-shell { position: relative; isolation: isolate; }
+.journal-post-shell::before { content: ''; position: absolute; z-index: -1; inset-block-start: -120px; inset-inline-start: -8%; width: min(720px, 80vw); height: 460px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ln-accent) 16%, transparent), transparent); pointer-events: none; }
+.journal-post-head { display: grid; gap: 14px; padding-block: 26px 4px; }
+.journal-post-cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.journal-post-head h1 { margin: 0; max-width: 24ch; font-size: clamp(1.9rem, 4.4vw, 3.4rem); line-height: 1.38; letter-spacing: -0.01em; text-wrap: balance; }
+.journal-post-lead { margin: 0; max-width: 62ch; font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 2.05; color: var(--muted); text-wrap: pretty; }
+.journal-post-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-block-start: 6px; padding: 12px 16px; border: 1px solid var(--ln-line); border-radius: 18px; background: color-mix(in srgb, var(--card) 72%, transparent); backdrop-filter: blur(10px); }
+.journal-post-author-chip { display: inline-flex; align-items: center; gap: 10px; border: 0; padding: 0; }
+.journal-avatar { width: 44px; height: 44px; box-shadow: 0 0 0 3px var(--card), 0 0 0 4px color-mix(in srgb, var(--ln-accent) 55%, transparent); }
+.jp-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-inline-end: auto; }
+.jp-fact { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 4px 12px; border-radius: 999px; background: var(--ln-soft); color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+/* The site's reset lets a button take the page's text alignment, so a fixed-size one centres its own icon. */
+.ln-textsize button { display: inline-grid; place-items: center; padding: 0; flex-shrink: 0; text-align: center; }
+.ln-textsize button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.jp-fact svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--ln-accent); flex-shrink: 0; }
+
+/* ---- the header as a hero: the cover picture behind the title. The picture is darkened towards the text, so the
+   words are light in both themes; where there is no cover the magazine's own fallback picture is used. */
+.jp-hero { position: relative; isolation: isolate; overflow: hidden; align-content: end; gap: 16px; min-height: clamp(440px, 58vh, 640px); margin-block: 20px 6px; padding: clamp(22px, 4.2vw, 56px); padding-block-end: clamp(18px, 2.6vw, 30px); border: 1px solid rgb(255 255 255 / .1); border-radius: 34px; color: #fff; box-shadow: 0 50px 90px -50px color-mix(in srgb, var(--ln-accent) 55%, rgb(6 8 18 / .8)); }
+.jp-hero-bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.jp-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgb(7 9 20 / .96) 0%, rgb(7 9 20 / .82) 30%, rgb(7 9 20 / .42) 62%, rgb(7 9 20 / .3) 100%), radial-gradient(70% 60% at 85% 100%, color-mix(in srgb, var(--ln-accent) 38%, transparent), transparent 70%); }
+.jp-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .06), inset 0 -120px 120px -80px rgb(7 9 20 / .6); pointer-events: none; }
+.jp-hero .journal-post-cats .ln-badge { border: 1px solid rgb(255 255 255 / .2); background: rgb(255 255 255 / .12); color: #fff; backdrop-filter: blur(10px); }
+.journal-post-head.jp-hero h1 { max-width: 34ch; color: #fff; font-size: clamp(2rem, 4.6vw, 3.7rem); line-height: 1.36; text-shadow: 0 2px 24px rgb(0 0 0 / .45); }
+.jp-hero .journal-post-lead { max-width: 70ch; color: rgb(255 255 255 / .84); text-shadow: 0 1px 12px rgb(0 0 0 / .4); }
+.jp-hero .ea-actions { margin-top: 2px; }
+.jp-hero .journal-post-meta { margin-block-start: 10px; border-color: rgb(255 255 255 / .14); background: rgb(255 255 255 / .08); backdrop-filter: blur(16px) saturate(1.3); color: #fff; }
+.jp-hero .journal-avatar { box-shadow: 0 0 0 3px rgb(255 255 255 / .16), 0 0 0 4px color-mix(in srgb, var(--ln-accent) 70%, transparent); }
+.jp-hero .journal-avatar-copy small { color: rgb(255 255 255 / .68); }
+.jp-hero .journal-avatar-copy strong { color: #fff; }
+.jp-hero .jp-fact { background: rgb(255 255 255 / .1); color: rgb(255 255 255 / .88); }
+.jp-hero .jp-fact svg { color: color-mix(in srgb, var(--ln-accent) 55%, #fff); }
+.jp-hero .ln-textsize { border-color: rgb(255 255 255 / .16); background: rgb(255 255 255 / .08); }
+.jp-hero .ln-textsize span { color: rgb(255 255 255 / .72); }
+.jp-hero .ln-textsize button { background: rgb(255 255 255 / .14); color: #fff; }
+/* On the plain article page the hero already shows the cover, so the separate figure is not repeated under it.
+   A built layout places the figure itself and keeps it. */
+.journal-post-solo .journal-post-figure { display: none; }
+
+/* ---- cover */
+.journal-post-figure { position: relative; margin: 26px 0 8px; border-radius: 28px; box-shadow: 0 40px 80px -40px color-mix(in srgb, var(--ln-accent) 45%, rgba(8, 18, 32, .5)); }
+.journal-post-figure img { aspect-ratio: 21 / 9; max-height: 560px; }
+.journal-post-figure::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .06); pointer-events: none; }
+
+/* ---- the text and, beside it, the rail of actions */
+.jp-read { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: clamp(18px, 3vw, 44px); align-items: start; margin-block-start: 26px; }
+.jp-main { min-width: 0; }
+.jp-main .journal-prose p { max-width: none; }
+.jp-rail { position: sticky; inset-block-start: 96px; display: grid; justify-items: center; gap: 8px; padding: 10px 6px; border: 1px solid var(--ln-line); border-radius: 999px; background: color-mix(in srgb, var(--card) 80%, transparent); backdrop-filter: blur(10px); }
+/* A small ring that fills with the share of the article already read (set by ReadingProgress on the document). */
+.jp-rail-meter { display: grid; place-items: center; width: 38px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--ln-accent) calc(var(--jp-read, 0) * 1%), var(--ln-soft) 0); }
+.jp-rail-meter b { display: grid; place-items: center; width: 30px; aspect-ratio: 1; border-radius: 50%; background: var(--card); font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; counter-reset: read var(--jp-read, 0); }
+.jp-rail-meter b::after { content: counter(read, persian) '٪'; }
+.jp-rail-btn { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; transition: background .15s ease, color .15s ease, transform .15s ease; }
+.jp-rail-btn:hover { background: color-mix(in srgb, var(--ln-accent) 14%, transparent); color: var(--ln-accent); transform: translateY(-2px); }
+.jp-rail-btn:focus-visible { outline: 2px solid var(--ln-accent); outline-offset: 2px; }
+.jp-rail-btn.is-done { background: color-mix(in srgb, #16a34a 16%, transparent); color: #16a34a; }
+/* A hairline above the way back to the top, drawn outside the button so its icon stays in the middle. */
+.jp-rail-btn.is-top { position: relative; margin-block-start: 9px; }
+.jp-rail-btn.is-top::before { content: ''; position: absolute; inset-block-start: -5px; inset-inline: 7px; height: 1px; background: var(--ln-line); }
+.jp-rail-btn:not([href]):is(a) { opacity: .5; pointer-events: none; }
+
+/* ---- contents: inline, numbered, the part being read is marked */
+.journal-post-col .toc, .jp-main .toc { position: static; max-height: none; overflow: visible; margin: 0 0 8px; padding: 18px 20px; border: 1px solid var(--ln-line); border-radius: 20px; background: color-mix(in srgb, var(--ln-soft) 70%, transparent); }
+.jp-main .toc-title { display: flex; align-items: center; gap: 8px; margin-block-end: 10px; color: var(--ln-accent); font-weight: 800; font-size: 13.5px; }
+.jp-main .toc-title::before { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--ln-accent); }
+.jp-main .toc nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2px 18px; counter-reset: toc; }
+.jp-main .toc nav a { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 10px; color: var(--text); font-size: 14px; line-height: 1.8; text-decoration: none; transition: background .15s ease, color .15s ease; }
+.jp-main .toc nav a:not(.toc-sub) { counter-increment: toc; }
+.jp-main .toc nav a:not(.toc-sub)::before { content: counter(toc, persian); min-width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 7px; background: var(--card); color: var(--muted); font-size: 11.5px; font-weight: 800; }
+.jp-main .toc nav a.toc-sub { padding-inline-start: 42px; color: var(--muted); font-size: 13px; }
+.jp-main .toc nav a:hover { background: var(--card); color: var(--ln-accent); }
+.jp-main .toc nav a.is-active { background: color-mix(in srgb, var(--ln-accent) 12%, transparent); color: var(--ln-accent); font-weight: 700; }
+.jp-main .toc nav a.is-active::before { background: var(--ln-accent); color: #fff; }
+
+/* ---- the text itself */
+.journal-prose { padding-top: 22px; font-size: clamp(16.5px, 1.25vw, 18.5px); line-height: 2.3; }
+.journal-prose > :first-child { margin-block-start: 0; }
+.journal-prose h2 { position: relative; margin-block: 2.2em .7em; padding-inline-start: 18px; font-size: 1.55em; line-height: 1.6; scroll-margin-block-start: 96px; }
+.journal-post .journal-prose h2::before { content: ''; display: block; position: absolute; inset-block: .32em; inset-inline-start: 0; width: 5px; height: auto; margin: 0; border-radius: 5px; background: linear-gradient(var(--ln-accent), color-mix(in srgb, var(--ln-accent) 35%, transparent)); }
+.journal-prose h3 { margin-block: 1.8em .5em; font-size: 1.22em; line-height: 1.7; scroll-margin-block-start: 96px; }
+.journal-prose a { color: var(--ln-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ln-accent) 40%, transparent); text-underline-offset: 5px; text-decoration-thickness: 1.5px; transition: text-decoration-color .15s ease; }
+.journal-prose a:hover { text-decoration-color: var(--ln-accent); }
+.journal-prose img { border-radius: 18px; box-shadow: 0 18px 40px -24px rgba(8, 18, 32, .5); }
+.journal-prose blockquote { position: relative; margin: 1.8em 0; padding: 18px 22px; padding-inline-start: 58px; border: 1px solid var(--ln-line); border-inline-start: 4px solid var(--ln-accent); border-radius: 16px; background: color-mix(in srgb, var(--ln-accent) 6%, var(--ln-soft)); font-size: 1.03em; }
+.journal-prose blockquote::before { content: '”'; position: absolute; inset-block-start: 4px; inset-inline-start: 16px; font-size: 3.2rem; line-height: 1; color: color-mix(in srgb, var(--ln-accent) 55%, transparent); font-family: Georgia, serif; }
+.journal-prose :where(ul, ol) { padding-inline-start: 1.4em; }
+.journal-prose li { margin-block: .3em; }
+.journal-prose li::marker { color: var(--ln-accent); font-weight: 800; }
+.journal-prose ol { list-style: persian; }
+.journal-prose ol:lang(en), [dir="ltr"] .journal-prose ol { list-style: decimal; }
+.journal-prose :not(pre) > code { padding: .12em .45em; border: 1px solid var(--ln-line); border-radius: 7px; background: var(--ln-soft); font-size: .88em; direction: ltr; unicode-bidi: isolate; }
+.journal-prose pre { margin: 1.6em 0; padding: 18px 20px; border: 1px solid var(--ln-line); border-radius: 16px; background: var(--ln-dark); color: #e6edf5; font-size: .86em; line-height: 1.9; overflow-x: auto; direction: ltr; text-align: left; }
+.journal-prose hr { margin: 2.4em auto; width: 96px; height: 4px; border: 0; border-radius: 4px; background: linear-gradient(to left, transparent, var(--ln-accent), transparent); }
+.journal-post .journal-prose table { width: 100%; margin-block: 1.6em; border-collapse: separate; border-spacing: 0; border: 1px solid var(--ln-line); border-radius: 16px; overflow: hidden; font-size: .92em; }
+.journal-post .journal-prose :is(th, td) { padding: 12px 16px; border: 0; border-block-end: 1px solid var(--ln-line); text-align: start; }
+.journal-post .journal-prose tr:last-child td { border-block-end: 0; }
+.journal-post .journal-prose tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--ln-soft) 55%, transparent); }
+.journal-post .journal-prose th { background: var(--ln-soft); font-weight: 800; white-space: nowrap; }
+.journal-prose ::selection { background: color-mix(in srgb, var(--ln-accent) 30%, transparent); }
+
+/* ---- tags and sharing close the text */
+.journal-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-block-start: 34px; padding: 16px 18px; border: 1px solid var(--ln-line); border-radius: 18px; background: color-mix(in srgb, var(--ln-soft) 60%, transparent); }
+.journal-tags h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+.journal-tags-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.journal-tags-list a { padding: 5px 14px; border: 1px solid var(--ln-line); border-radius: 999px; background: var(--card); color: var(--text); font-size: 13px; text-decoration: none; transition: border-color .15s ease, color .15s ease, transform .15s ease; }
+.journal-tags-list a:hover { border-color: var(--ln-accent); color: var(--ln-accent); transform: translateY(-2px); }
+/* The rail carries sharing on a wide screen; the row under the text is for the narrow one. */
+.jp-main .share-row { display: none; }
+
+/* ---- the author */
+.journal-bio { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0; margin-block-start: 44px; border: 1px solid var(--ln-line); border-radius: 26px; overflow: hidden; background: var(--card); }
+.journal-bio-art { position: relative; display: grid; place-items: center; min-width: 190px; min-height: 100%; padding: 26px; background: radial-gradient(120% 90% at 30% 10%, color-mix(in srgb, var(--ln-accent) 85%, #fff 0%), color-mix(in srgb, var(--ln-accent) 35%, var(--ln-dark))); }
+.journal-bio-avatar { width: 92px; height: 92px; box-shadow: 0 0 0 4px rgb(255 255 255 / .22), 0 18px 40px -14px rgb(0 0 0 / .6); }
+.journal-bio-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label stats' 'name stats' 'text stats' 'actions stats'; align-items: start; align-content: center; gap: 10px 32px; min-width: 0; padding: 28px 30px; }
+.journal-bio-label { grid-area: label; }
+.journal-bio-body h3 { grid-area: name; }
+.journal-bio-body p { grid-area: text; }
+.journal-bio-actions { grid-area: actions; }
+.journal-bio-label { color: var(--ln-accent); font-size: 12px; font-weight: 800; }
+.journal-bio-body h3 { margin: 0; font-size: 1.4rem; }
+.journal-bio-body p { margin: 0; max-width: none; color: var(--muted); font-size: 15px; line-height: 2.1; }
+.journal-bio-stats { grid-area: stats; align-self: center; display: grid; grid-template-columns: repeat(3, minmax(104px, 1fr)); gap: 10px; margin: 0; }
+.journal-bio-stats span { display: grid; gap: 4px; justify-items: center; text-align: center; min-width: 0; padding: 16px 14px; border: 1px solid var(--ln-line); border-radius: 14px; background: var(--ln-soft); color: var(--muted); font-size: 12px; }
+.journal-bio-stats strong { color: var(--text); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.journal-bio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-block-start: 6px; }
+
+/* ---- the neighbours */
+.journal-pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block-start: 26px; }
+.journal-pager-item { display: grid; grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 6px 14px; align-items: start; padding: 14px; border: 1px solid var(--ln-line); border-radius: 22px; background: var(--card); color: var(--text); text-decoration: none; transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.journal-pager-item:not(.is-empty):hover { border-color: var(--ln-accent); transform: translateY(-3px); box-shadow: 0 18px 36px -22px color-mix(in srgb, var(--ln-accent) 60%, transparent); }
+.journal-pager-item.is-empty { display: none; }
+.journal-pager:has(.is-empty) { grid-template-columns: minmax(0, 1fr); }
+.journal-pager-art { grid-row: 1 / span 2; margin: 0; width: 112px; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: var(--ln-soft); }
+.journal-pager-art img { width: 100%; height: 100%; object-fit: cover; }
+.journal-pager-label { display: inline-flex; align-items: center; gap: 6px; color: var(--ln-accent); font-size: 12px; font-weight: 800; }
+.journal-pager-label svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.journal-pager-item strong { font-size: 15px; line-height: 1.9; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.journal-pager-item.is-newer { grid-template-columns: minmax(0, 1fr) 112px; text-align: end; }
+.journal-pager-item.is-newer .journal-pager-art { grid-column: 2; grid-row: 1 / span 2; order: 0; }
+.journal-pager-item.is-newer .journal-pager-label { justify-self: end; grid-column: 1; grid-row: 1; }
+.journal-pager-item.is-newer strong { grid-column: 1; grid-row: 2; }
+
+/* ---- related */
+.journal-related { margin-block-start: 52px; }
+.journal-related .ln-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.journal-related .ln-card:hover { transform: translateY(-4px); box-shadow: 0 22px 44px -26px color-mix(in srgb, var(--ln-accent) 60%, transparent); }
+
+/* ---- narrower screens: no rail (the corners of a small screen belong to the site's own floating helpers); sharing
+   is the row under the text, and the bar under the top edge still says how far the reader is */
+@media (max-width: 1100px) {
+  .jp-read { grid-template-columns: minmax(0, 1fr); }
+  .jp-rail { display: none; }
+  .jp-main .share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block-start: 14px; padding: 12px 16px; border: 1px solid var(--ln-line); border-radius: 18px; background: color-mix(in srgb, var(--ln-soft) 60%, transparent); }
+  .jp-main .share-row .chip { min-height: 36px; }
+}
+@media (max-width: 1180px) {
+  .journal-bio-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'name' 'text' 'stats' 'actions'; }
+  .journal-bio-stats { justify-self: start; }
+}
+@media (max-width: 760px) {
+  .journal-post-head h1 { max-width: none; }
+  .jp-hero { min-height: 420px; padding: 18px 16px 14px; border-radius: 24px; }
+  .journal-post-meta { padding: 10px 12px; border-radius: 16px; }
+  .jp-facts { margin-inline-end: 0; }
+  .journal-post-figure { border-radius: 20px; }
+  .journal-post-figure img { aspect-ratio: 16 / 10; }
+  .journal-bio { grid-template-columns: minmax(0, 1fr); }
+  .journal-bio-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'name' 'text' 'stats' 'actions'; padding: 22px 20px; }
+  .journal-bio-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journal-bio-art { min-height: 132px; }
+  .journal-pager { grid-template-columns: minmax(0, 1fr); }
+  .journal-pager-item, .journal-pager-item.is-newer { grid-template-columns: 96px minmax(0, 1fr); text-align: start; }
+  .journal-pager-item.is-newer .journal-pager-art { grid-column: 1; }
+  .journal-pager-item.is-newer .journal-pager-label { grid-column: 2; justify-self: start; }
+  .journal-pager-item.is-newer strong { grid-column: 2; }
+  .journal-pager-art { width: 96px; }
+  .journal-pager-item.is-empty { display: none; }
+  .journal-prose blockquote { padding-inline-start: 46px; }
+  .journal-post .journal-prose table { display: block; overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jp-rail-btn, .journal-tags-list a, .journal-pager-item, .journal-related .ln-card, .jp-main .toc nav a { transition: none; }
+  .jp-rail-btn:hover, .journal-tags-list a:hover, .journal-pager-item:not(.is-empty):hover, .journal-related .ln-card:hover { transform: none; }
+}
+@media print { .jp-progress, .jp-rail { display: none; } }

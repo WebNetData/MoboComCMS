@@ -127,7 +127,7 @@
 .md-dl-notice.is-error { background: color-mix(in srgb, var(--en-danger) 9%, transparent); border-color: color-mix(in srgb, var(--en-danger) 35%, transparent); }
 .md-dl-notice button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 14px; opacity: .7; }
 .md-go-wrap { display: inline-flex; align-items: center; gap: 6px; }
-.md-report { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--md-line, var(--en-line)); background: transparent; color: var(--md-muted, var(--en-muted)); cursor: pointer; font-size: 14px; }
+.md-report { display: inline-grid; place-items: center; padding: 0; line-height: 1; text-align: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--md-line, var(--en-line)); background: transparent; color: var(--md-muted, var(--en-muted)); cursor: pointer; font-size: 14px; }
 .md-report:hover, .md-report:focus-visible { color: var(--en-warn); border-color: var(--en-warn); }
 .md-report-dialog { margin: auto; width: min(440px, calc(100vw - 24px)); border: 1px solid var(--en-line); border-radius: 16px; padding: 0; background: var(--en-card); color: var(--en-text); box-shadow: 0 30px 80px -30px rgba(15, 23, 42, .5); }
 .md-report-dialog::backdrop { background: rgba(15, 23, 42, .5); }
@@ -141,13 +141,22 @@
 .md-report-done { color: var(--en-ok); line-height: 1.9; }
 
 /* ---------------- item actions (favorite, follow, compare) ---------------- */
-.ea-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
-.ea-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); background: color-mix(in srgb, currentColor 5%, transparent); color: inherit; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
-.ea-btn:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
-.ea-btn.is-on { border-color: var(--en-accent); color: var(--en-accent); background: color-mix(in srgb, var(--en-accent) 10%, transparent); }
+.ea-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+/* An action on an item (favourite, follow, compare, add to a collection). It takes the text colour of where it
+   sits, so it reads on a light page, a dark media page and over a picture alike; the icon sits in its own disc. */
+.ea-btn { position: relative; display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 16px 5px 6px; padding-inline: 6px 16px; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); background: color-mix(in srgb, currentColor 7%, transparent); color: inherit; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; backdrop-filter: blur(10px); transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.ea-icon { box-sizing: content-box; width: 17px; height: 17px; padding: 7.5px; border-radius: 50%; background: color-mix(in srgb, currentColor 12%, transparent); flex-shrink: 0; transition: transform .25s cubic-bezier(.3, 1.6, .5, 1), background .18s ease, color .18s ease; }
+.ea-btn:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--en-accent) 70%, transparent); background: color-mix(in srgb, var(--en-accent) 12%, transparent); box-shadow: 0 12px 26px -14px var(--en-accent); }
+.ea-btn:hover:not(:disabled) .ea-icon { transform: scale(1.1); background: var(--en-accent); color: #fff; }
+.ea-btn:focus-visible { outline: 2px solid var(--en-accent); outline-offset: 3px; }
+.ea-btn.is-on, .ea-btn.is-open { border-color: color-mix(in srgb, var(--en-accent) 75%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--en-accent) 26%, transparent), color-mix(in srgb, var(--en-accent) 10%, transparent)); }
+.ea-btn.is-on .ea-icon, .ea-btn.is-open .ea-icon { background: var(--en-accent); color: #fff; }
+.ea-btn[aria-pressed="true"] .ea-icon { animation: ea-pop .35s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes ea-pop { from { transform: scale(.6); } to { transform: scale(1); } }
 .ea-btn:disabled { opacity: .6; cursor: progress; }
-.ea-btn small { font-size: 12px; opacity: .75; }
+.ea-btn small { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); font-size: 11.5px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
 .ea-btn > span[aria-hidden] { font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { .ea-btn, .ea-icon { transition: none; } .ea-btn:hover:not(:disabled), .ea-btn:hover:not(:disabled) .ea-icon { transform: none; } .ea-btn[aria-pressed="true"] .ea-icon { animation: none; } }
 .ea-compare-group { display: inline-flex; align-items: center; gap: 6px; }
 .ea-link { font-size: 13px; font-weight: 700; color: var(--en-accent); }
 .ea-note { flex-basis: 100%; margin: 0; font-size: 13px; opacity: .8; }
