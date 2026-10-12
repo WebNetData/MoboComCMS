@@ -6,7 +6,7 @@ RUN apt-get update \
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json ./
-RUN npm ci --ignore-scripts --no-audit --no-fund
+RUN --mount=type=cache,id=mobocom-npm,target=/root/.npm,sharing=locked npm ci --ignore-scripts --no-audit --no-fund
 
 FROM node:22-bookworm-slim AS builder
 RUN apt-get update \
@@ -23,7 +23,7 @@ COPY . .
 RUN npm run postinstall
 RUN npm run release:check
 RUN npm run build:postgres
-RUN npm prune --omit=dev --no-audit --no-fund
+RUN --mount=type=cache,id=mobocom-npm,target=/root/.npm,sharing=locked npm prune --omit=dev --no-audit --no-fund
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app

@@ -6,7 +6,7 @@ Continue from PR #148; preserve completed work and approved public design. Use [
 
 1. Record the actual target: public HTTPS domain, deployment access, database origin (fresh/existing), persistent media locations and backup destination. No target or production credentials have been assumed.
 2. Build and start the actual final image as a non-root user. Prove readiness, migrations, persisted storage and diagnostic/backup tools. First launch packaging gap is [reproduced and fixed](audits/2026-10-12-launch-runtime-packaging.md); full image validation is still pending.
-3. Preserve an existing database with a verified backup before migrations; rehearse encrypted restoration and application rollback in isolation. Never substitute `db push`, seed demo data into production or revert an applied migration by editing it.
+3. Preserve an existing database with a verified backup before migrations; rehearse encrypted restoration and application rollback in isolation. [Owned local encrypted restore](audits/2026-10-12-launch-backup-rehearsal.md) matched all206 table counts/content and104 migrations; target/off-host/media/application rollback remains pending. Never substitute `db push`, seed demo data into production or revert an applied migration by editing it.
 4. Validate main-domain public sections, login/recovery, section-manager access and content save. For enabled commerce, validate an actual configured payment, delivery and return path. Unconfigured external channels are not passing evidence; keep optional operations disabled until configured.
 5. Verify HTTPS/Origin/CSP, shared strict rate limits, worker scheduling, readiness and operational alerts on the target. Deploy fenced upload writers to every instance before enabling reviewed recovery.
 
