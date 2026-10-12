@@ -308,8 +308,12 @@ export async function notifyFollowers(ref: ItemRef, update: { key: string; title
 
 // ------------------------------------------------------------------ admin
 
+// A business experience is decided by its own owner (`/admin/businesses`, `businesses.manage`): the general queue
+// neither lists it nor counts it, so nobody is offered a decision `moderateReview` refuses.
+const GENERAL = { itemType: { not: 'business' } }
+
 export async function reviewQueue(status: string, page = 1) {
-  const where = status === 'ALL' ? { NOT: { body: '' } } : { status: ['PENDING', 'APPROVED', 'REJECTED'].includes(status) ? status : 'PENDING' }
+  const where = status === 'ALL' ? { ...GENERAL, NOT: { body: '' } } : { ...GENERAL, status: ['PENDING', 'APPROVED', 'REJECTED'].includes(status) ? status : 'PENDING' }
   const [total, rows] = await Promise.all([
     db.itemReview.count({ where }),
     db.itemReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 30, take: 30, include: { user: { select: { id: true, name: true, email: true } }, scores: true } }),
@@ -317,7 +321,7 @@ export async function reviewQueue(status: string, page = 1) {
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
   return {
     total, page, pages: Math.ceil(total / 30),
-    pending: await db.itemReview.count({ where: { status: 'PENDING' } }),
+    pending: await db.itemReview.count({ where: { ...GENERAL, status: 'PENDING' } }),
     reviews: rows.map((row) => {
       const card = cards.get(`${row.itemType}:${row.itemId}`)
       return { id: row.id, rating: row.rating, body: row.body, status: row.status, verified: verifiedOf(row.verified), scores: dimensionsFor(row.itemType as ItemRef['type']).flatMap((dimension) => { const hit = row.scores.find((score) => score.key === dimension.key); return hit ? [{ label: dimension.label, score: hit.score }] : [] }), createdAt: row.createdAt, user: row.user, item: { key: `${row.itemType}:${row.itemId}`, title: card?.title || '(حذف‌شده)', url: card?.url || '', label: ITEM_LABEL[row.itemType as keyof typeof ITEM_LABEL]?.one || row.itemType } }
@@ -347,8 +351,8 @@ export async function moderateReview(id: number, action: 'approve' | 'reject' | 
 /** For the staff moderation overview: review texts waiting for approval, oldest first. */
 export async function waitingForModeration(take = 5) {
   const [count, rows] = await Promise.all([
-    db.itemReview.count({ where: { status: 'PENDING' } }),
-    db.itemReview.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, itemType: true, itemId: true, createdAt: true, user: { select: { name: true } } } }),
+    db.itemReview.count({ where: { ...GENERAL, status: 'PENDING' } }),
+    db.itemReview.findMany({ where: { ...GENERAL, status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, body: true, itemType: true, itemId: true, createdAt: true, user: { select: { name: true } } } }),
   ])
   const cards = await itemCards(rows.map((row) => ({ type: row.itemType, id: row.itemId }) as ItemRef))
   return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.body, 160), full: plainText(row.body, 2000), by: row.user.name || '', about: cards.get(`${row.itemType}:${row.itemId}`)?.title || '', at: row.createdAt })) }

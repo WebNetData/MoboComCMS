@@ -2,6 +2,7 @@ import { orderGroups, visibleSources, type QueueGroup, type QueueSourceKey } fro
 import { waitingForModeration as forumWaiting } from '@/modules/forum/server/moderation'
 import { waitingForModeration as journalWaiting } from '@/modules/journal/server/admin'
 import { waitingForModeration as reviewsWaiting } from '@/modules/reviews/server/reviews'
+import { waitingForModeration as businessesWaiting } from '@/modules/businesses/server/businesses'
 import { waitingForModeration as storeWaiting } from '@/modules/store/server/admin'
 import { waitingForModeration as communityWaiting } from '@/modules/community/server/admin'
 import { waitingForModeration as copyrightWaiting } from '@/modules/copyright/server/copyright'
@@ -20,12 +21,13 @@ export async function moderationQueue(states: Readonly<Record<string, boolean | 
   const sources = visibleSources(states, can)
   const wanted = new Set(sources.map((source) => source.module))
   const read = <T>(module: string, load: () => Promise<T>) => wanted.has(module) ? load().catch(() => null) : Promise.resolve(null)
-  const [forum, journal, reviews, store, community, copyright] = await Promise.all([
+  const [forum, journal, reviews, store, community, copyright, businesses] = await Promise.all([
     read('forum', () => forumWaiting(TAKE)), read('journal', () => journalWaiting(TAKE)), read('reviews', () => reviewsWaiting(TAKE)),
     read('store', () => storeWaiting(TAKE)), read('community', () => communityWaiting(TAKE)), read('copyright', () => copyrightWaiting(TAKE)),
+    read('businesses', () => businessesWaiting(TAKE)),
   ])
   const bySource: Record<QueueSourceKey, Waiting | null | undefined> = {
-    'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews,
+    'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews, 'business-experiences': businesses,
     'product-reviews': store?.reviews, 'product-questions': store?.questions, 'community-reports': community, copyright,
   }
   const failed: QueueSourceKey[] = []

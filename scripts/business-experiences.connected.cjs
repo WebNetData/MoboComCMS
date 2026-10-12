@@ -34,6 +34,7 @@ const tx = work => db.$transaction(work, { isolationLevel: 'Serializable' })
 async function main() {
   const reviews = load('src/modules/reviews/server/business-experiences.ts')
   const generic = load('src/modules/reviews/server/reviews.ts')
+  const owner = load('src/modules/businesses/server/queries.ts')
   try {
     for (const suffix of ['buyer', 'representative', 'other']) users.push(await db.user.create({ data: { email: `${stamp}-${suffix}@example.invalid`, passwordHash: 'owned fixture', name: suffix } }))
     const [buyer, representative, other] = users
@@ -45,8 +46,30 @@ async function main() {
     const stat = () => db.itemStat.findUniqueOrThrow({ where: { itemType_itemId: { itemType: 'business', itemId: external.id } } })
     assert.equal((await stat()).ratingCount, 0, 'pending business stars excluded')
     await assert.rejects(generic.moderateReview(reviewId, 'approve'), error => error.status === 403, 'generic review permission cannot moderate business')
+    // The general queue neither lists nor counts what it may not decide; the owner's queue has it, oldest first, with the business named.
+    const generalPending = await db.itemReview.count({ where: { status: 'PENDING', itemType: { not: 'business' } } })
+    const overview = await generic.waitingForModeration(500)
+    assert.equal(overview.count, generalPending); assert.ok(!overview.items.some(item => item.id === reviewId), 'general overview lists no business experience')
+    for (const status of ['PENDING', 'ALL']) {
+      const first = await generic.reviewQueue(status, 1)
+      assert.equal(first.pending, generalPending, 'general pending badge excludes business')
+      for (let page = 1; page <= first.pages; page += 1) assert.ok(!(await generic.reviewQueue(status, page)).reviews.some(row => row.id === reviewId || row.item.key.startsWith('business:')), 'general list offers no business experience')
+    }
+    const waiting = await owner.waitingForModeration(500)
+    const mine = waiting.items.find(item => item.id === reviewId)
+    assert.deepEqual([mine?.about, mine?.by, mine?.text], [external.name, 'buyer', input.body], 'owner queue names the business, the member and the text')
+    const earlier = (await tx(t => reviews.writeBusinessExperience(t, other.id, external, input, true))).reviewId
+    try {
+      await db.itemReview.update({ where: { id: earlier }, data: { createdAt: new Date('2000-01-01T00:00:00.000Z') } })
+      const ordered = (await owner.waitingForModeration(500)).items.map(item => item.id)
+      assert.equal(ordered[0], earlier, 'the longest wait is first'); assert.ok(ordered.indexOf(earlier) < ordered.indexOf(reviewId), 'oldest first')
+    } finally { await db.itemReview.delete({ where: { id: earlier } }) }
+    const ownedPending = () => db.itemReview.count({ where: { status: 'PENDING', itemType: 'business' } })
+    assert.ok(waiting.count >= await ownedPending() && waiting.count >= 1)
+    assert.equal((await owner.waitingForModeration(1)).items.length, 1, 'the overview takes only what it shows')
     await tx(t => reviews.moderateBusinessExperience(t, external, reviewId, 'approve'))
     assert.equal((await stat()).ratingCount, 1); assert.equal((await stat()).ratingSum, 4)
+    assert.ok(!(await owner.waitingForModeration(500)).items.some(item => item.id === reviewId), 'a decided experience leaves the owner queue')
     await assert.rejects(tx(t => reviews.replyToBusinessExperience(t, external, other.id, reviewId, 'An unauthorized response')), error => error.status === 403)
     await tx(t => reviews.replyToBusinessExperience(t, external, representative.id, reviewId, 'A considered business response'))
     await db.itemReviewHelpful.create({ data: { reviewId, userId: other.id } })
@@ -85,6 +108,9 @@ async function main() {
     assert.equal(await db.itemReview.count({ where: { itemType: 'business', itemId: business.id } }), 0, 'no duplicate seller review store')
     assert.deepEqual(await db.sellerReview.findUniqueOrThrow({ where: { id: legacy.id } }), legacy, 'historical seller review untouched')
     const pending = await db.sellerReview.findUniqueOrThrow({ where: { orderId_sellerId: { sellerId: seller.id, orderId: eligibleOrder.id } } })
+    const withSeller = await owner.waitingForModeration(500)
+    assert.equal(withSeller.count, await db.itemReview.count({ where: { status: 'PENDING', itemType: 'business' } }) + await db.sellerReview.count({ where: { status: 'PENDING', sellerId: { in: (await db.businessProfile.findMany({ where: { sellerId: { not: null } }, select: { sellerId: true } })).map(row => row.sellerId) } } }), 'a waiting seller experience is counted with its owner')
+    assert.ok(!withSeller.items.some(item => item.id === pending.id && item.about === business.name), 'seller rows keep their own ids and are listed on the owning page')
     assert.equal(pending.status, 'PENDING'); assert.equal((await db.seller.findUniqueOrThrow({ where: { id: seller.id } })).ratingCount, 1)
     await assert.rejects(tx(t => reviews.writeBusinessExperience(t, buyer.id, business, { ...input, orderId: eligibleOrder.id }, true)), error => error.status === 409)
     await tx(t => reviews.moderateBusinessExperience(t, business, pending.id, 'approve'))
@@ -100,7 +126,7 @@ async function main() {
     result = await tx(t => reviews.writeBusinessExperience(t, other.id, site, input, true)); assert.equal(result.verified, '', 'another buyer cannot borrow evidence')
     if (existingSite) { await db.itemReview.deleteMany({ where: { itemType: 'business', itemId: site.id, userId: { in: users.map(u => u.id) } } }); await tx(t => reviews.refreshBusinessRating(t, site)) }
     result = await tx(t => reviews.writeBusinessExperience(t, buyer.id, external, input, true)); assert.equal(result.verified, '', 'own MoboCom purchase does not verify external business')
-    console.log('Business storage: moderation/retries/scores/history/reply boundaries/rollback/uniqueness/external evidence/SITE evidence/canonical seller ownership passed')
+    console.log('Business storage: owner-only moderation queue/moderation/retries/scores/history/reply boundaries/rollback/uniqueness/external evidence/SITE evidence/canonical seller ownership passed')
   } finally {
     const ids = profiles.map(p => p.id), userIds = users.map(u => u.id)
     try {

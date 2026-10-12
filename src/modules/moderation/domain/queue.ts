@@ -2,7 +2,7 @@
 // module: this file only says which sources exist, who may see each one, where it is decided and,
 // for a plain yes or no, which request of the owning admin API carries that decision.
 
-export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright'
+export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright'
 
 export interface QueueSource {
   key: QueueSourceKey
@@ -46,6 +46,8 @@ export const QUEUE_SOURCES: readonly QueueSource[] = [
     decisions: yesNo((id) => ({ url: '/api/admin/comments', method: 'PATCH', body: { id, status: 'APPROVED' } }), (id) => ({ url: '/api/admin/comments', method: 'PATCH', body: { id, status: 'REJECTED' } })) },
   { key: 'item-reviews', module: 'reviews', permissions: ['reviews.moderate'], label: 'نظرهای محتوا (بازی، فیلم، موزیک، نرم‌افزار)', labelEn: 'Content reviews', href: '/admin/reviews',
     decisions: yesNo((id) => ({ url: '/api/admin/reviews', method: 'POST', body: { id, action: 'approve' } }), (id) => ({ url: '/api/admin/reviews', method: 'POST', body: { id, action: 'reject' } })) },
+  // Decided on the business's own page: the decision names the business as well as the experience.
+  { key: 'business-experiences', module: 'businesses', permissions: ['businesses.manage'], label: 'تجربه‌های خرید از کسب‌وکارها', labelEn: 'Business experiences', href: '/admin/businesses' },
   { key: 'product-reviews', module: 'store', permissions: ['cms.products'], label: 'دیدگاه‌های محصول', labelEn: 'Product reviews', href: '/admin/product-feedback',
     decisions: yesNo((id) => ({ url: '/api/admin/product-feedback', method: 'PATCH', body: { id, kind: 'review', status: 'APPROVED' } }), (id) => ({ url: '/api/admin/product-feedback', method: 'PATCH', body: { id, kind: 'review', status: 'REJECTED' } })) },
   { key: 'product-questions', module: 'store', permissions: ['cms.products'], label: 'پرسش‌های محصول', labelEn: 'Product questions', href: '/admin/product-feedback' },
