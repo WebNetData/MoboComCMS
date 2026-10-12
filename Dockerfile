@@ -50,6 +50,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+# The read-only integrity CLI reuses these canonical policies outside Next's bundle.
+COPY --from=builder /app/src/modules/repository/domain/purchase-recovery.cjs ./src/modules/repository/domain/purchase-recovery.cjs
+COPY --from=builder /app/src/modules/repository/server/vendor/archive-integrity.cjs ./src/modules/repository/server/vendor/archive-integrity.cjs
 COPY --from=builder /app/deploy ./deploy
 
 RUN mkdir -p /app/storage/covers /app/storage/clean-cache /app/storage/backups /app/storage/receipts /app/storage/forum /app/storage/tickets /app/var \

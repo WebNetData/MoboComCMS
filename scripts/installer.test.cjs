@@ -97,6 +97,24 @@ test('module switches are applied so dependencies always hold', () => {
   assert.deepEqual(mixed, ['marketplace', 'store'], 'disables first, then enables')
 })
 
+test('runtime image contains the actual shared owners required by integrity reporting', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mobocom-runtime-report-'))
+  try {
+    fs.cpSync(path.join(root, 'scripts'), path.join(dir, 'scripts'), { recursive: true })
+    const dockerfile = read('Dockerfile').split(/FROM .* AS runner\r?\n/)[1]
+    assert.ok(dockerfile, 'production runner exists')
+    for (const match of dockerfile.matchAll(/^COPY --from=builder \/app\/(src\/\S+) \.\/(src\/\S+)\s*$/gm)) {
+      const destination = path.join(dir, match[2])
+      fs.mkdirSync(path.dirname(destination), { recursive: true })
+      fs.copyFileSync(path.join(root, match[1]), destination)
+    }
+    const result = execFileSync(process.execPath, ['-e', "const report = require('./scripts/integrity-report.cjs'); if (typeof report.findings !== 'function') process.exit(1)"], {
+      cwd: dir, encoding: 'utf8', env: { ...process.env, NODE_PATH: path.join(root, 'node_modules') },
+    })
+    assert.equal(result, '')
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
 test('wiring: the installer is gated, standalone and cannot brick a site', () => {
   for (const file of ['src/app/install/route.ts', 'src/app/api/install/route.ts', 'public/installer/installer.js', 'public/installer/installer.css', 'scripts/load-runtime-env.cjs', 'prisma/system-roles.json']) assert.ok(fs.existsSync(path.join(root, file)), file)
   assert.match(read('src/middleware.ts'), /installGate\(req\)/)

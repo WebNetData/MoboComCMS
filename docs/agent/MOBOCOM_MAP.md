@@ -32,6 +32,7 @@ Keep this file concise. Record only durable architecture facts that prevent repe
   - `npm run integrity:report` — read-only findings on live data (`docs/INTEGRITY-REPORT.md`).
   - `npm run test:e2e` — Playwright specs in `e2e/tests`; GitHub workflow "Browser tests" runs on pull requests.
   - `npm run check` — the full gate; `npm run build:postgres` — production build; `npm run deploy:migrate` — apply migrations.
+  - Launch priority/checkpoint: [LAUNCH_READINESS](LAUNCH_READINESS.md). Runner includes canonical diagnostic CJS dependencies; artifact import and owned PostgreSQL CLI proved, actual final-image startup remains pending.
 - **Local run:** `docker compose -f docker-compose.local.yml up -d` (app 3000, PostgreSQL 127.0.0.1:5435); `scripts/local-dev-start.sh` copies the tree into the container, so restart the app container after each change.
 
 ## Modules
