@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.4.1 — Agency team and sales reports
 
 This update adds a reseller team panel. The agency owner can attach an existing active customer account and grant separate permissions to view or manage customer services, view or edit retail offers, and view or review bot receipts. Access is enforced by the server routes; wallet details, bot token installation, and team membership remain owner-only. Pausing or removing a teammate takes effect on the next request.

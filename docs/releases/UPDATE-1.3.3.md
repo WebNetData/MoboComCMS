@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.3.3 — Ticket operations, journal, and visual pages
 
 This source update builds on 1.3.2. It redesigns the admin ticket desk as a compact two-pane inbox with full-width conversation cards, clearer status controls, and a focused reply editor. Admins can create and deactivate ticket departments, set bilingual names, require an active subscription or purchased product, define up to 12 required or optional fields, and grant each department to selected staff roles. Department access is enforced for ticket lists, ticket details, replies, and status changes. Existing roles with `tickets.handle` retain access to the four original departments after migration; new departments start owner-only until assigned.

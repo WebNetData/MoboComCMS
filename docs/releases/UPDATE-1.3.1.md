@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.3.1 — shared English/Persian preference
 
 This update synchronizes a linked customer's language across the website, Telegram bot, Mini App and customer Telegram alerts. The choice persists with the account and wins over a stale browser cookie on another device. New accounts inherit the website language; an account claimed through Telegram keeps its bot language. English remains the default when no language has been selected.

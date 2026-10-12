@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.2.4 update guide
 
 This release makes the Site Studio **Plugins** tab a working view of the Extension Manager. Themes continue to control presentation; plugin activation and settings remain independent of site configuration. The Orbital theme no longer reads a legacy plugin flag for its announcement banner.

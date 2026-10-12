@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # Build-verified source snapshot
 
 This source snapshot contains the source-level changes that were applied on the deployment server before the production Docker image completed successfully on 2026-09-22.

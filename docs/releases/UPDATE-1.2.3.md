@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.2.3 update guide
 
 This update fixes the website Telegram login button. The old widget used `data-onauth`, which caused Telegram's script to call `eval`; production CSP blocked that call. The widget now uses Telegram's documented `data-auth-url` redirect to `/login/telegram/callback`. The existing NextAuth provider checks the signed payload with the bot token before creating a session.

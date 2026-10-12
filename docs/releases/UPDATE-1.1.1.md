@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.1.1 — Server Update Guide
 
 This package contains application source only. It intentionally excludes `.env`, databases, backups, uploaded files, build output, and `node_modules`.

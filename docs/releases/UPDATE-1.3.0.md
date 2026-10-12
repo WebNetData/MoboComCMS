@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.3.0 update guide
 
 This release adds the RemnaWave Control Center plugin, live health and subscription diagnostics, bounded reconciliation, safe manual/automatic repair, panel-scoped provisioning retry controls, richer usage telemetry, and renewal/expiry notifications.

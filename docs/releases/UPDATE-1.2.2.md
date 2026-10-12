@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.2.2 update guide
 
 This update fixes the website Telegram icon and makes the Telegram bot bilingual. On `/start`, a chat without a saved preference sees English and Persian buttons. The choice remains after a restart and can be changed with `/language`.

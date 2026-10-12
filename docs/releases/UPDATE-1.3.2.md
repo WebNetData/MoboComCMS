@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.3.2 — Support Center and incident reporting
 
 This release adds a unified bilingual ticket center to the website and Telegram Mini App. Customers choose Sales, General, Subscription, or Product support. Subscription support requires selection of an owned, active, unexpired subscription. Product support requires selection of an active product from the customer's paid orders. Sales and General support require no purchase. These rules are enforced on the server as well as in the form. The subscription incident form creates tickets in Subscription support.

@@ -1,3 +1,5 @@
+> سند تاریخی؛ راهنمای فعلی نصب و معرفی پروژه در [README](../../README.md) است.
+
 # HappVPN 1.2.1 update guide
 
 This update puts **Continue with Telegram** above the email/password form on `/login` and includes the native Telegram bot menu change already applied to the server. It does not require a database migration.

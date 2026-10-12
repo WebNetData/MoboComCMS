@@ -6,7 +6,7 @@ RUN apt-get update \
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json ./
-RUN npm ci --ignore-scripts --no-audit --no-fund
+RUN --mount=type=cache,id=mobocom-npm,target=/root/.npm,sharing=locked npm ci --ignore-scripts --no-audit --no-fund
 
 FROM node:22-bookworm-slim AS builder
 RUN apt-get update \
@@ -23,7 +23,7 @@ COPY . .
 RUN npm run postinstall
 RUN npm run release:check
 RUN npm run build:postgres
-RUN npm prune --omit=dev --no-audit --no-fund
+RUN --mount=type=cache,id=mobocom-npm,target=/root/.npm,sharing=locked npm prune --omit=dev --no-audit --no-fund
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
@@ -50,6 +50,9 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
+# The read-only integrity CLI reuses these canonical policies outside Next's bundle.
+COPY --from=builder /app/src/modules/repository/domain/purchase-recovery.cjs ./src/modules/repository/domain/purchase-recovery.cjs
+COPY --from=builder /app/src/modules/repository/server/vendor/archive-integrity.cjs ./src/modules/repository/server/vendor/archive-integrity.cjs
 COPY --from=builder /app/deploy ./deploy
 
 RUN mkdir -p /app/storage/covers /app/storage/clean-cache /app/storage/backups /app/storage/receipts /app/storage/forum /app/storage/tickets /app/var \
