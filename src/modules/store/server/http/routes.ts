@@ -12,7 +12,12 @@ import { addProductBundle } from '@/modules/store/server/bundles'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
 import { markCartRecovered } from '@/modules/store/server/marketing'
-import { addOrderNote, adminOrder, adminOrders, transitionOrder } from '@/modules/store/server/orders'
+import { addOrderNote, adminOrder, adminOrders, eraseOrderInputs, revealOrderInputs, transitionOrder } from '@/modules/store/server/orders'
+import { db } from '@/platform/database/prisma'
+import { OrderInputError, parseOpenAmount } from '@/modules/store/domain/order-inputs'
+import { openAmountPrice } from '@/modules/store/server/order-inputs'
+import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
+import { minorToNumber } from '@/shared/money'
 import { adminProducts, bulkProducts, deleteBrand, inventoryList, listBrands, saveBrand, storeCustomers, storeDashboard, updateStock } from '@/modules/store/server/admin'
 import { enqueue } from '@/modules/operations/server/queue'
 
@@ -59,6 +64,28 @@ export async function POST_cart(req: NextRequest) {
     const view = await cartView({ ...who, token: added.token })
     return withCart({ cart: view, limited: added.limited }, view.token || added.token)
   } catch (error) { return failure(error) }
+}
+
+/**
+ * POST /api/cart/quote { productId, amount, currency } — what a typed foreign amount costs right now
+ * (rate + the product's percentage + its fixed profit). The cart and checkout price it again themselves.
+ */
+export async function POST_cartQuote(req: NextRequest) {
+  const off = await moduleGuard('store')
+  if (off) return off
+  const body = (await req.json().catch(() => null)) || {}
+  const id = Number(body.productId)
+  const product = Number.isSafeInteger(id) && id > 0 ? await db.product.findUnique({ where: { id } }) : null
+  if (!product || !isPublicProduct(product) || !product.openAmount) return err('این خدمت پیدا نشد', 404, { code: 'PRODUCT_NOT_FOUND' })
+  try {
+    const typed = parseOpenAmount(product, body)
+    const quote = await openAmountPrice(product, typed.amountMinor, typed.currency)
+    const show = (minor: bigint) => minorToNumber(minor, quote.currency)
+    return ok({ price: show(quote.priceMinor), currency: quote.currency, rate: quote.rate, conversion: show(quote.conversionMinor), fee: show(quote.priceMinor - quote.conversionMinor), amount: (Number(typed.amountMinor) / 100).toFixed(2), amountCurrency: typed.currency })
+  } catch (error) {
+    if (error instanceof OrderInputError) return err(error.message, error.status, { code: error.code })
+    return failure(error)
+  }
 }
 
 /** PATCH /api/cart { lineId, quantity } — changes a line (0 removes it). */
@@ -173,6 +200,8 @@ export async function GET_order(req: NextRequest, { params }: IdContext) {
  * POST /api/admin/store/orders/:id
  *   { action: 'status', to, trackingCode?, note?, digitalDelivery?, notify?, restock? }
  *   { action: 'note', note, visible }
+ *   { action: 'reveal-inputs', lineId } — the buyer's answers in full (recorded)
+ *   { action: 'erase-inputs', lineId? } — wipes them
  */
 export async function POST_order(req: NextRequest, { params }: IdContext) {
   const g = await orderAdmin(req)
@@ -187,6 +216,16 @@ export async function POST_order(req: NextRequest, { params }: IdContext) {
     } else if (body.action === 'note') {
       await addOrderNote({ orderId: id, note: body.note, visible: body.visible === true, actorId: g.admin.id })
       await auditAdmin({ req, actor: g.admin, action: 'store.order.note', targetType: 'order', targetId: id, metadata: { visible: body.visible === true } })
+    } else if (body.action === 'reveal-inputs') {
+      const lineId = positiveId(body.lineId)
+      const inputs = await revealOrderInputs(id, lineId)
+      // Who read a customer's login is on the record, before the answer leaves the server.
+      await auditAdmin({ req, actor: g.admin, action: 'store.order.inputs_reveal', targetType: 'order', targetId: id, metadata: { lineId, fields: inputs.map((answer) => answer.key) } })
+      return ok({ lineId, inputs })
+    } else if (body.action === 'erase-inputs') {
+      const lineId = positiveId(body.lineId) || null
+      const erased = await eraseOrderInputs({ orderId: id, lineId, actorId: g.admin.id })
+      await auditAdmin({ req, actor: g.admin, action: 'store.order.inputs_erase', targetType: 'order', targetId: id, metadata: { lineId, erased } })
     } else return err('unknown action')
     return ok(await adminOrder(id))
   } catch (error) { return failure(error) }

@@ -768,3 +768,32 @@ html[dir="ltr"] .sx-crumbs li:not(:last-child)::after { transform: rotate(-135de
 @media (max-width: 720px) { .sx-phero { grid-template-columns: minmax(0, 1fr); padding: 14px; } }
 @media (max-width: 620px) { main.container.sx-product { width: calc(100% - 24px); } .sx-phero { border-radius: 24px; } .sx-crumbs ol { border-radius: 20px; } .sx-crumbs span[aria-current] { max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .sx-pgallery .store-gallery .product-media > img, .sx-pinfo-specs li, .sx-pgallery .store-gallery-thumbs button { transition: none; } }
+
+/* ---- What a product asks its buyer, and a typed foreign amount (buy box, cart, my orders) ---- */
+.sx-ask { margin: 0; padding: 14px; border: 1px solid var(--sx-line); border-radius: var(--sx-radius-sm); display: grid; gap: 12px; min-width: 0; }
+.sx-ask legend { padding-inline: 6px; font-size: 13px; font-weight: 800; }
+.sx-ask-field { display: grid; gap: 6px; font-size: 13px; min-width: 0; }
+.sx-ask-field > span:first-child { font-weight: 700; }
+.sx-ask-field i { color: var(--sx-danger); font-style: normal; }
+.sx-ask-field small, .sx-open small { color: var(--sx-muted); font-size: 12px; line-height: 1.9; }
+.sx-ask-input { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sx-ask input, .sx-ask textarea, .sx-open input, .sx-open select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--sx-line); border-radius: var(--sx-radius-sm); background: var(--sx-surface); color: inherit; font: inherit; }
+.sx-ask textarea { resize: vertical; line-height: 1.9; }
+.sx-ask input:focus-visible, .sx-ask textarea:focus-visible, .sx-open input:focus-visible, .sx-open select:focus-visible { outline: 2px solid var(--sx-accent); outline-offset: 1px; }
+.sx-ask-note { margin: 0; display: flex; gap: 6px; align-items: flex-start; color: var(--sx-muted); font-size: 12px; line-height: 1.9; }
+.sx-ask-note svg { flex: none; margin-top: 4px; }
+.sx-open { display: grid; gap: 10px; }
+.sx-open-amount { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.sx-open-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.sx-open-row input { font-size: 20px; font-weight: 800; text-align: left; }
+.sx-open-row select { width: auto; font-weight: 800; }
+.sx-open-quote { display: grid; gap: 4px; justify-items: end; padding: 12px 14px; border-radius: var(--sx-radius-sm); background: var(--sx-subtle); font-size: 13px; }
+.sx-open-quote .is-muted { color: var(--sx-muted); justify-self: start; }
+.sx-cart-given, .sx-my-given p { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--sx-muted); }
+.sx-cart-given b, .sx-my-given b { color: inherit; font-weight: 700; overflow-wrap: anywhere; }
+.sx-my-given { grid-column: 1 / -1; display: grid; gap: 8px; padding: 12px; border-radius: var(--sx-radius-sm); background: var(--sx-subtle); font-size: 13px; min-width: 0; }
+.sx-my-given dl { margin: 0; display: grid; gap: 6px; }
+.sx-my-given dl > div { display: grid; grid-template-columns: minmax(90px, 180px) minmax(0, 1fr); gap: 10px; }
+.sx-my-given dt { color: var(--sx-muted); }
+.sx-my-given dd { margin: 0; overflow-wrap: anywhere; }
+.sx-my-given small { color: var(--sx-muted); font-size: 12px; }

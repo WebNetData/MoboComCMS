@@ -8,6 +8,7 @@ import { newIdempotencyKey } from '@/shared/security/idempotency'
 export type CartLine = {
   id: number; productId: number; variantId: number | null; slug: string; name: string; variantName: string; attributes: Record<string, string>
   image: string; brand: string; kind: string; instant?: boolean; quantity: number; maxQuantity: number; unitPrice: number; listPrice: number; lineTotal: number; currency: string; issue: string
+  inputs?: { label: string; value: string }[]; openAmount?: { amount: string; currency: string } | null
 }
 export type Cart = {
   token: string; lines: CartLine[]; count: number; currency: string; itemsTotal: number; listTotal: number; saving: number
@@ -38,7 +39,9 @@ async function call(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown)
 }
 
 export const loadCart = () => call('GET')
-export const addToCart = (productId: number, variantId: number | null, quantity = 1) => call('POST', { productId, variantId, quantity })
+/** `extra`: what the product asks its buyer (answers by field key) and a typed foreign amount. */
+export type CartExtra = { inputs?: Record<string, string>; openAmount?: { amount: string; currency: string } }
+export const addToCart = (productId: number, variantId: number | null, quantity = 1, extra?: CartExtra) => call('POST', { productId, variantId, quantity, ...extra })
 export const addBundleToCart = (bundleId: number) => call('POST', { bundleId })
 export const setLineQuantity = (lineId: number, quantity: number) => call('PATCH', { lineId, quantity })
 export const emptyCart = () => call('DELETE')

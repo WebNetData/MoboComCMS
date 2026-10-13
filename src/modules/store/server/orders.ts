@@ -5,6 +5,8 @@ import { encryptDigitalDelivery } from '@/modules/catalog/server/digital-deliver
 import { restockConsumedInventory } from '@/modules/catalog/server/inventory'
 import { FULFILMENT_LABEL, StoreError, canMoveTo, isFulfilmentStatus, type FulfilmentStatus } from '@/modules/store/domain/store'
 import { minorToNumber } from '@/shared/money'
+import { maskAnswers } from '@/modules/store/domain/order-inputs'
+import { openAnswers } from '@/modules/store/server/order-inputs'
 
 // Store orders are orders with a product (Order.productId is the first line).
 // Payment state lives on Order/Invoice; the physical/digital fulfilment state
@@ -20,11 +22,21 @@ const minorOf = (value: unknown) => {
   try { return BigInt(String(value ?? '0')) } catch { return 0n }
 }
 
-export type OrderLineView = { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number }
+export type OrderLineInput = { key: string; label: string; value: string; secret: boolean }
+export type OrderLineView = {
+  productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number
+  /** The order line itself (0 for an order from before carts). */
+  lineId: number
+  /** What the buyer gave for this line. A password is masked here for everybody; staff reveal it with a recorded click. */
+  inputs: OrderLineInput[]
+  inputsErasedAt: Date | null
+  /** The foreign amount this line paid for, and the rate it was priced with. */
+  openAmount: { amount: string; currency: string; rate: string } | null
+}
 
 type OrderWithLines = {
   id: number; totalMinor: bigint; currency: string; meta: string
-  lines: { productId: number | null; name: string; variantName: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; product: { slug: string } | null }[]
+  lines: { id?: number; inputs?: string; inputsErasedAt?: Date | null; openAmountMinor?: bigint; openCurrency?: string; openRate?: string; productId: number | null; name: string; variantName: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; product: { slug: string } | null }[]
   product: { slug: string; name: string; image: string; kind: string } | null
 }
 
@@ -34,6 +46,10 @@ export function orderLines(order: OrderWithLines): OrderLineView[] {
   if (order.lines.length) return order.lines.map((line) => ({
     productId: line.productId, slug: line.product?.slug || '', name: line.name, variantName: line.variantName, image: line.image, kind: line.kind,
     quantity: line.quantity, unitPrice: minorToNumber(line.unitPriceMinor, cur), listPrice: line.listPriceMinor ? minorToNumber(line.listPriceMinor, cur) : 0, total: minorToNumber(line.totalMinor, cur),
+    lineId: line.id || 0,
+    inputs: maskAnswers(openAnswers(line.inputs)).map((answer) => ({ key: answer.key, label: answer.label, value: answer.value, secret: answer.kind === 'secret' })),
+    inputsErasedAt: line.inputsErasedAt || null,
+    openAmount: line.openAmountMinor && line.openAmountMinor > 0n ? { amount: (Number(line.openAmountMinor) / 100).toFixed(2), currency: line.openCurrency || '', rate: line.openRate || '' } : null,
   }))
   if (!order.product) return []
   const meta = parseMeta(order.meta)
@@ -41,6 +57,7 @@ export function orderLines(order: OrderWithLines): OrderLineView[] {
   return [{
     productId: Number(meta.productId) || null, slug: order.product.slug, name: order.product.name, variantName: String(meta.variantName || ''), image: order.product.image,
     kind: order.product.kind, quantity: 1, unitPrice: minorToNumber(itemMinor, cur), listPrice: 0, total: minorToNumber(itemMinor, cur),
+    lineId: 0, inputs: [], inputsErasedAt: null, openAmount: null,
   }]
 }
 
@@ -301,6 +318,46 @@ export async function adminOrder(orderId: number) {
     payments: order.payments.map((payment) => ({ id: payment.id, provider: payment.provider, status: payment.status, amount: minorToNumber(payment.amountMinor, payment.currency), createdAt: payment.createdAt })),
     events: order.events.map((event) => ({ ...view.events.find((row) => row.id === event.id)!, actor: actors.find((actor) => actor.id === event.actorId)?.name || actors.find((actor) => actor.id === event.actorId)?.email || '' })),
   }
+}
+
+// ------------------------------------------------------------------ what the buyer gave
+
+/** The answers of one order line in full, for the member of staff doing the order. The route records who looked. */
+export async function revealOrderInputs(orderId: number, lineId: number) {
+  const line = await db.orderLine.findFirst({ where: { id: lineId, orderId, order: STORE_ORDER }, select: { inputs: true } })
+  if (!line) throw new StoreError('این ردیف در سفارش نیست', 404, 'LINE_NOT_FOUND')
+  return openAnswers(line.inputs).map((answer) => ({ key: answer.key, label: answer.label, value: answer.value, secret: answer.kind === 'secret' }))
+}
+
+/** Wipes the buyer's answers from an order (one line, or all of them) once the work is done. */
+export async function eraseOrderInputs(input: { orderId: number; lineId?: number | null; actorId: number | null }) {
+  const erased = await db.$transaction(async (tx) => {
+    const done = await tx.orderLine.updateMany({ where: { orderId: input.orderId, order: STORE_ORDER, inputs: { not: '' }, ...(input.lineId ? { id: input.lineId } : {}) }, data: { inputs: '', inputsErasedAt: new Date() } })
+    if (done.count) await tx.orderEvent.create({ data: { orderId: input.orderId, status: 'INPUTS_ERASED', note: 'اطلاعاتی که خریدار برای انجام سفارش داده بود پاک شد', visible: false, actorId: input.actorId } })
+    return done.count
+  })
+  if (!erased) throw new StoreError('اطلاعاتی برای پاک‌کردن نمانده است', 409, 'NOTHING_TO_ERASE')
+  return erased
+}
+
+export const ORDER_INPUT_KEEP_DAYS = 7
+
+/**
+ * A login a customer handed over is not kept longer than the work needs: this many days after the order was
+ * delivered, cancelled or returned — or after an order that was never paid — the answers are wiped by themselves.
+ */
+export async function eraseFinishedOrderInputs(limit = 200, now = new Date()) {
+  const before = new Date(now.getTime() - ORDER_INPUT_KEEP_DAYS * 86_400_000)
+  const lines = await db.orderLine.findMany({
+    where: { inputs: { not: '' }, order: { OR: [
+      { productDelivery: { is: { status: { in: ['DELIVERED', 'CANCELLED', 'RETURNED'] }, updatedAt: { lt: before } } } },
+      { status: { notIn: ['PAID', 'PENDING'] }, createdAt: { lt: before } },
+    ] } },
+    select: { id: true }, take: limit, orderBy: { id: 'asc' },
+  })
+  if (!lines.length) return 0
+  const done = await db.orderLine.updateMany({ where: { id: { in: lines.map((line) => line.id) }, inputs: { not: '' } }, data: { inputs: '', inputsErasedAt: now } })
+  return done.count
 }
 
 const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max)

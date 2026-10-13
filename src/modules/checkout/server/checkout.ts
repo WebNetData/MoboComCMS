@@ -18,6 +18,9 @@ import { checkoutCarrier } from '@/modules/shipping/server/carriers'
 import { ShippingError, shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { MAX_CART_LINES, MAX_LINE_QUANTITY, lineLimit } from '@/modules/store/domain/store'
 import { unitPrice } from '@/modules/store/server/pricing'
+import { answersComplete, readOrderFields } from '@/modules/store/domain/order-inputs'
+import { openAmountPrice, openAnswers } from '@/modules/store/server/order-inputs'
+import { StoreError } from '@/modules/store/domain/store'
 import { quoteContent } from '@/modules/paywall/server/paywall'
 import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
 
@@ -29,7 +32,8 @@ export interface CheckoutCommand {
   productId?: number | null
   variantId?: number | null
   /** Several store products at once (the shopping cart); replaces productId/variantId. */
-  lines?: { productId: number; variantId?: number | null; quantity?: number }[] | null
+  /** A cart line also carries what its buyer gave: the sealed answers and a typed foreign amount. */
+  lines?: { productId: number; variantId?: number | null; quantity?: number; inputs?: string | null; openAmountMinor?: bigint | null; openCurrency?: string | null }[] | null
   /** VIP membership plan purchase. */
   membershipPlanId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
@@ -124,7 +128,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let shippingMinor = 0n
   let delivery: { date: string; slot: { id: string; label: string } } | null = null
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
-  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null }[] = []
+  const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null; inputs: string; openAmountMinor: bigint; openCurrency: string; openRate: string }[] = []
 
   if (content) {
     try {
@@ -164,7 +168,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     label = offer ? offer.nameEn || offer.nameFa : plan.name
     meta = offer ? { kind: 'offer', offerId: offer.id, planId: plan.id, planName: plan.name, trafficGB: offer.trafficGB, days: offer.days, deviceLimit: offer.deviceLimit } : { kind: 'plan', planId: plan.id, planName: plan.name }
   } else {
-    const requested = cartLines || [{ productId: productId!, variantId: Number(command.variantId) || null, quantity: 1 }]
+    const requested: NonNullable<CheckoutCommand['lines']> = cartLines || [{ productId: productId!, variantId: Number(command.variantId) || null, quantity: 1 }]
     const many = requested.length > 1
     const seen = new Set<string>()
     for (const [index, want] of requested.entries()) {
@@ -185,7 +189,25 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       seen.add(key)
       const limit = lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
       if (quantity > limit) return fail(409, 'QUANTITY_LIMIT', named(`حداکثر ${limit.toLocaleString('fa-IR')} عدد از این کالا قابل سفارش است`), { productId: product.id, limit })
-      const price = unitPrice(product, variant, member)
+      // What the order needs from its buyer travels on the cart line; a purchase that skips the cart has none.
+      const sealed = String(want.inputs || '')
+      if (!answersComplete(readOrderFields(product.orderFields), variant?.name || '', openAnswers(sealed))) return fail(409, 'INPUT_REQUIRED', named('اطلاعات لازم این سفارش وارد نشده است؛ از صفحهٔ محصول آن را به سبد اضافه کنید'), { productId: product.id })
+      let price = unitPrice(product, variant, member)
+      let openRate = ''
+      const openAmountMinor = product.openAmount ? BigInt(want.openAmountMinor ?? 0n) : 0n
+      const openCurrency = product.openAmount ? String(want.openCurrency || '') : ''
+      if (product.openAmount) {
+        // The buyer typed the foreign amount: it is priced again here, with the rate of this moment.
+        if (quantity !== 1) return fail(400, 'BAD_QUANTITY', named('این خدمت در هر سفارش یک بار ثبت می‌شود'))
+        try {
+          const quote = await openAmountPrice(product, openAmountMinor, openCurrency)
+          price = { ...price, unitMinor: quote.priceMinor, regularMinor: quote.priceMinor, listMinor: 0n, memberDiscount: false }
+          openRate = String(quote.rate)
+        } catch (error) {
+          if (error instanceof StoreError) return fail(error.status, error.code || 'OPEN_AMOUNT', named(error.message), { productId: product.id })
+          throw error
+        }
+      }
       if (index === 0) currency = price.currency
       else if (price.currency !== currency) return fail(409, 'MIXED_CURRENCY', 'کالاهای یک سفارش باید واحد پول یکسان داشته باشند')
       memberDiscount ||= price.memberDiscount
@@ -193,7 +215,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       orderLines.push({
         line: index, productId: product.id, variantId: variant?.id ?? null, name: product.name, variantName: variant?.name || '', sku: variant?.sku || product.sku,
         image: product.image, kind: product.kind, quantity, unitPriceMinor: price.unitMinor, listPriceMinor: price.listMinor, totalMinor: price.unitMinor * BigInt(quantity), currency: price.currency,
-        sellerId: product.sellerId ?? null,
+        sellerId: product.sellerId ?? null, inputs: sealed, openAmountMinor, openCurrency, openRate,
       })
       if (index === 0) meta = { kind: 'product', productId: product.id, productName: product.name, variantId: variant?.id || null, variantName: variant?.name || '', variantSku: variant?.sku || '', variantAttributes: variant?.attributes || '{}' }
     }
@@ -232,6 +254,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let discountMinor = 0n
   let promotion: Awaited<ReturnType<typeof db.promotion.findUnique>> = null
   const code = promotionCode(command.discountCode)
+  // A typed foreign amount is money passed on, not a margin: a discount code does not cut into it.
+  if (code && orderLines.some((line) => line.openAmountMinor > 0n)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی سفارشی که «پرداخت با مبلغ دلخواه» دارد اعمال نمی‌شود')
   if (code) {
     if (!/^[A-Z0-9_-]{3,32}$/.test(code)) return fail(400, 'PROMOTION_INVALID', 'invalid discount code')
     promotion = await db.promotion.findUnique({ where: { code } })

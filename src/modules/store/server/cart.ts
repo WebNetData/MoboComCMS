@@ -10,6 +10,8 @@ import { getCarrierSettings } from '@/modules/shipping/server/carriers'
 import { minorToNumber } from '@/shared/money'
 import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
+import { answersComplete, maskAnswers, parseOpenAmount, readOrderFields, validateAnswers } from '@/modules/store/domain/order-inputs'
+import { asStoreError, openAmountPrice, openAnswers, sealAnswers } from '@/modules/store/server/order-inputs'
 
 // A cart belongs to a signed-in customer (userId) or to a browser (token
 // cookie). Guests only ever reach carts without an owner; on sign-in the
@@ -40,7 +42,8 @@ async function mergeInto(tx: Prisma.TransactionClient, targetId: number, sourceI
       if (room <= 0) continue
       await tx.cartLine.upsert({
         where: { cartId_productId_variantKey: { cartId: targetId, productId: line.productId, variantKey: line.variantKey } },
-        create: { cartId: targetId, productId: line.productId, variantKey: line.variantKey, quantity: line.quantity },
+        // What the buyer typed before signing in (answers, a foreign amount) moves with the line.
+        create: { cartId: targetId, productId: line.productId, variantKey: line.variantKey, quantity: line.quantity, inputs: line.inputs, openAmountMinor: line.openAmountMinor, openCurrency: line.openCurrency },
         update: {},
       })
       room--
@@ -129,6 +132,10 @@ export type CartLineView = {
   listPrice: number
   lineTotal: number
   currency: string
+  /** What the buyer gave for this order, as the buyer may see it again (a password is never sent back). */
+  inputs: { label: string; value: string }[]
+  /** The foreign amount the buyer typed, for a pay-a-foreign-site service. */
+  openAmount: { amount: string; currency: string } | null
   /** Why the line cannot be bought right now (empty = fine). */
   issue: string
 }
@@ -157,7 +164,7 @@ export type CartView = {
 const EMPTY = (token: string): CartView => ({ token, lines: [], count: 0, currency: 'IRT', itemsTotal: 0, listTotal: 0, saving: 0, shipping: 0, total: 0, hasPhysical: false, blocked: false })
 
 /** Prices and availability of every line, recomputed from the catalogue. */
-export type CartLineSnapshot = { lineId: number; quantity: number; updatedAt: Date }
+export type CartLineSnapshot = { lineId: number; quantity: number; updatedAt: Date; inputs: string; openAmountMinor: bigint; openCurrency: string }
 
 async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promise<CartView> {
   const cart = await findCart(owner)
@@ -167,7 +174,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     orderBy: { createdAt: 'asc' },
     include: { product: { include: { brand: { select: { name: true } }, variants: true } } },
   })
-  snapshot?.push(...rows.map(row => ({ lineId: row.id, quantity: row.quantity, updatedAt: row.updatedAt })))
+  snapshot?.push(...rows.map(row => ({ lineId: row.id, quantity: row.quantity, updatedAt: row.updatedAt, inputs: row.inputs, openAmountMinor: row.openAmountMinor, openCurrency: row.openCurrency })))
   // A guest cart that survived the sign-in merge holds the lines that did not fit.
   const guestToken = owner.userId ? validToken(owner.token) : null
   const overLimit = Math.max(0, rows.length - MAX_CART_LINES)
@@ -179,11 +186,24 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
   let listMinor = 0n
   let physicalMinor = 0n
   let blocked = false
+  // A typed foreign amount is priced now, with the current rate (checkout prices it once more).
+  const openPrices = new Map<number, { unitMinor: bigint } | { issue: string }>()
+  for (const row of rows) {
+    if (!row.product.openAmount) continue
+    if (row.openAmountMinor <= 0n) { openPrices.set(row.id, { issue: 'مبلغ این خدمت را در صفحهٔ محصول وارد کنید' }); continue }
+    openPrices.set(row.id, await openAmountPrice(row.product, row.openAmountMinor, row.openCurrency).then((quote) => ({ unitMinor: quote.priceMinor }), (error) => {
+      if (error instanceof StoreError) return { issue: error.message }
+      throw error
+    }))
+  }
   const lines: CartLineView[] = rows.map((row) => {
     const product = row.product
     const variant = row.variantKey ? product.variants.find((v) => v.id === row.variantKey) || null : null
-    const price = unitPrice(product, variant, member)
-    const limit = lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
+    const open = openPrices.get(row.id)
+    const listed = unitPrice(product, variant, member)
+    const price = open && 'unitMinor' in open ? { ...listed, unitMinor: open.unitMinor, listMinor: 0n } : listed
+    const limit = product.openAmount ? Math.min(1, lineLimit(product.stock, null, product.maxPerOrder)) : lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder)
+    const answers = openAnswers(row.inputs)
     let issue = ''
     if (!isPublicProduct(product) || (row.variantKey && (!variant || !variant.active))) issue = 'این کالا دیگر فروخته نمی‌شود'
     else if (!row.variantKey && product.variants.some((v) => v.active)) issue = 'نوع کالا را دوباره انتخاب کنید'
@@ -191,6 +211,8 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     else if (limit === 0) issue = 'ناموجود'
     else if (row.quantity > limit) issue = `حداکثر ${limit.toLocaleString('fa-IR')} عدد قابل سفارش است`
     else if (price.currency !== currency) issue = 'واحد پول این کالا با بقیهٔ سبد یکسان نیست'
+    else if (open && 'issue' in open) issue = open.issue
+    else if (!answersComplete(readOrderFields(product.orderFields), variant?.name || '', answers)) issue = 'اطلاعات لازم این سفارش وارد نشده است؛ از صفحهٔ محصول دوباره به سبد اضافه کنید'
     if (issue) blocked = true
     const quantity = row.quantity
     const lineMinor = price.unitMinor * BigInt(quantity)
@@ -206,7 +228,10 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
       variantName: variant?.name || '', attributes, image: product.image, brand: product.brand?.name || '', kind: product.kind, instant: deliversInstantly(product),
       quantity, maxQuantity: limit,
       unitPrice: minorToNumber(price.unitMinor, price.currency), listPrice: price.listMinor ? minorToNumber(price.listMinor, price.currency) : 0,
-      lineTotal: minorToNumber(lineMinor, price.currency), currency: price.currency, issue,
+      lineTotal: minorToNumber(lineMinor, price.currency), currency: price.currency,
+      inputs: maskAnswers(answers).map((answer) => ({ label: answer.label, value: answer.value })),
+      openAmount: product.openAmount && row.openAmountMinor > 0n ? { amount: (Number(row.openAmountMinor) / 100).toFixed(2), currency: row.openCurrency } : null,
+      issue,
     }
   })
   // With carriers on, the fee depends on the address and carrier chosen at checkout.
@@ -254,7 +279,8 @@ async function purchasable(productId: number, variantId: number | null, client: 
   return { product, limit: lineLimit(product.stock, variant ? variant.stock : null, product.maxPerOrder) }
 }
 
-type CartAddition = { productId: number; variantId: number | null; quantity: number }
+/** `detail` is set for a product that asks its buyer something: it replaces the line instead of adding to it. */
+type CartAddition = { productId: number; variantId: number | null; quantity: number; detail?: { inputs: string; openAmountMinor: bigint; openCurrency: string } }
 
 /** One canonical mutation path for ordinary capped additions and complete bundles. */
 async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, owner: CartOwner, requests: CartAddition[], strict: boolean, opens = false) {
@@ -271,7 +297,7 @@ async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, 
     currencies.add(product.currency)
     if (currencies.size > 1) throw new StoreError('کالاهای سبد باید با یک واحد پول قیمت‌گذاری شده باشند', 409, 'MIXED_CURRENCY')
     const existing = lines.find(line => line.productId === request.productId && line.variantKey === (request.variantId || 0))
-    const wanted = (existing?.quantity || 0) + request.quantity
+    const wanted = (request.detail ? 0 : existing?.quantity || 0) + request.quantity
     const quantity = Math.min(limit, wanted)
     if (strict && quantity < wanted) throw new StoreError('تعداد کامل بسته قابل خرید نیست', 409, 'QUANTITY_LIMIT')
     productTotals.set(product.id, (productTotals.get(product.id) || 0) + quantity - (existing?.quantity || 0))
@@ -280,8 +306,8 @@ async function writeCartAdditions(tx: Prisma.TransactionClient, cartId: number, 
   }
   if (lines.length + additions.filter(item => !item.existing).length > MAX_CART_LINES) throw new StoreError('سبد خرید پر است', 409, 'CART_FULL')
   for (const { request, existing, quantity } of additions) {
-    if (existing) await tx.cartLine.update({ where: { id: existing.id }, data: { quantity } })
-    else await tx.cartLine.create({ data: { cartId, productId: request.productId, variantKey: request.variantId || 0, quantity } })
+    if (existing) await tx.cartLine.update({ where: { id: existing.id }, data: { quantity, ...request.detail } })
+    else await tx.cartLine.create({ data: { cartId, productId: request.productId, variantKey: request.variantId || 0, quantity, ...request.detail } })
   }
   return additions
 }
@@ -305,17 +331,31 @@ export async function addCartComponents(owner: CartOwner, requests: CartAddition
 }
 
 /** Adds (or increases) a line. Returns the cart token. */
-export async function addToCart(owner: CartOwner, input: { productId: unknown; variantId?: unknown; quantity?: unknown }) {
+export async function addToCart(owner: CartOwner, input: { productId: unknown; variantId?: unknown; quantity?: unknown; inputs?: unknown; openAmount?: unknown }) {
   const productId = Number(input.productId)
   const variantId = Number(input.variantId) || null
   if (!Number.isSafeInteger(productId) || productId <= 0) throw new StoreError('کالا مشخص نیست')
-  const quantity = Math.max(1, normalizeQuantity(input.quantity ?? 1))
+  let quantity = Math.max(1, normalizeQuantity(input.quantity ?? 1))
   // Keep the existing pre-creation validation; recheck after taking the cart lock.
   const available = await purchasable(productId, variantId)
   if (available.limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
+  // A product that asks its buyer something: the answers and the typed amount are checked here and kept
+  // on the line, encrypted. Adding it again replaces what was given before.
+  const fields = readOrderFields(available.product.orderFields)
+  let detail: CartAddition['detail']
+  if (fields.length || available.product.openAmount) {
+    try {
+      const variantName = variantId ? (await db.productVariant.findUnique({ where: { id: variantId }, select: { name: true } }))?.name || '' : ''
+      const answers = validateAnswers(fields, variantName, input.inputs)
+      const open = available.product.openAmount ? parseOpenAmount(available.product, input.openAmount) : null
+      // The rate must be there before the line is: a service nobody can price is not put in the cart.
+      if (open) { await openAmountPrice(available.product, open.amountMinor, open.currency); quantity = 1 }
+      detail = { inputs: sealAnswers(answers), openAmountMinor: open?.amountMinor ?? 0n, openCurrency: open?.currency ?? '' }
+    } catch (error) { asStoreError(error) }
+  }
   const cart = await ensureCart(owner)
   return db.$transaction(async tx => {
-    const [added] = await writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, [{ productId, variantId, quantity }], false)
+    const [added] = await writeCartAdditions(tx, cart.id, { ...owner, token: cart.token }, [{ productId, variantId, quantity, detail }], false)
     return { token: cart.token, quantity: added.quantity, limited: added.limited }
   })
 }
@@ -333,7 +373,9 @@ export async function updateCartLine(owner: CartOwner, lineId: number, quantityI
       await tx.cartLine.delete({ where: { id: line.id } })
       return { removed: true }
     }
-    const { limit } = await purchasable(line.productId, line.variantKey || null, tx).catch(() => ({ limit: 0 }))
+    const found = await purchasable(line.productId, line.variantKey || null, tx).catch(() => null)
+    // One payment per line: a typed foreign amount is not multiplied.
+    const limit = found ? (found.product.openAmount ? Math.min(1, found.limit) : found.limit) : 0
     if (limit === 0) throw new StoreError('این کالا ناموجود است', 409, 'OUT_OF_STOCK')
     await tx.cartLine.update({ where: { id: line.id }, data: { quantity: Math.min(limit, quantity) } })
     return { removed: false, quantity: Math.min(limit, quantity) }
@@ -367,7 +409,10 @@ export async function cartCheckoutLines(owner: CartOwner) {
   if (!view.lines.length) throw new StoreError('سبد خرید شما خالی است', 409, 'CART_EMPTY')
   if (view.overLimit) throw new StoreError(`سبد خرید بیش از ${MAX_CART_LINES.toLocaleString('fa-IR')} ردیف دارد؛ ${view.overLimit.toLocaleString('fa-IR')} ردیف را حذف کنید`, 409, 'CART_FULL')
   if (view.blocked) throw new StoreError('بعضی کالاهای سبد قابل خرید نیستند؛ سبد را بررسی کنید', 409, 'CART_BLOCKED')
-  return { view, snapshot, lines: view.lines.map((line) => ({ lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity })) }
+  return { view, snapshot, lines: view.lines.map((line) => {
+    const kept = snapshot.find((row) => row.lineId === line.id)
+    return { lineId: line.id, productId: line.productId, variantId: line.variantId, quantity: line.quantity, inputs: kept?.inputs || '', openAmountMinor: kept?.openAmountMinor ?? 0n, openCurrency: kept?.openCurrency || '' }
+  }) }
 }
 
 /** Old guest carts are deleted after 60 days, owned carts after 180 days of inactivity. */

@@ -12,6 +12,7 @@ import FxPricing from '../FxPricing'
 import PublishReview, { previewValue, type ReviewRow } from '../../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
+import OrderAsk from '../OrderAsk'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -24,11 +25,12 @@ const EMPTY: Form = {
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
+  orderFields: [], openAmount: false, openCurrencies: '', openMin: '', openMax: '',
 }
 
 const REVIEW_FIELDS: [string, string, boolean?][] = [['name', 'نام محصول', true], ['nameEn', 'نام انگلیسی'], ['slug', 'نامک'], ['categoryId', 'دسته', true], ['brandId', 'برند'], ['price', 'قیمت', true], ['compareAtPrice', 'قیمت قبل از تخفیف'], ['stock', 'موجودی'], ['image', 'تصویر اصلی', true], ['shortDescription', 'توضیح کوتاه'], ['description', 'توضیحات'], ['warranty', 'گارانتی'], ['faqs', 'پرسش‌های متداول'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا']]
 
-const SECTIONS = [['general', 'اطلاعات اصلی'], ['pricing', 'قیمت و تخفیف'], ['inventory', 'انبار و ارسال'], ['media', 'تصاویر'], ['attributes', 'مشخصات و تنوع'], ['seo', 'سئو']] as const
+const SECTIONS = [['general', 'اطلاعات اصلی'], ['pricing', 'قیمت و تخفیف'], ['inventory', 'انبار و ارسال'], ['ask', 'اطلاعات خریدار'], ['media', 'تصاویر'], ['attributes', 'مشخصات و تنوع'], ['seo', 'سئو']] as const
 
 const localInput = (value: string | null | undefined) => {
   if (!value) return ''
@@ -128,6 +130,7 @@ export default function ProductEditorPage() {
     }
     for (const key of ['id', 'createdAt', 'updatedAt', 'category', 'priceMinor', 'views', 'soldCount', 'brand', 'repricedAt']) delete payload[key]
     // A foreign-currency product gets its prices from the server (cost × live rate + profit).
+    if (payload.pricingMode !== 'FX') payload.openAmount = false
     if (payload.pricingMode !== 'FX') for (const key of ['fxCurrency', 'fxAmount', 'fxCompareAt', 'fxMemberPrice', 'markupPercent', 'markupFixed']) delete payload[key]
     const response = await send<{ id: number }>(`/api/admin/cms?type=products`, isNew ? 'POST' : 'PATCH', isNew ? payload : { ...payload, id: Number(id) })
     setBusy(false)
@@ -196,6 +199,8 @@ export default function ProductEditorPage() {
             {field('warranty', 'گارانتی / ضمانت', { maxLength: 160, placeholder: 'گارانتی ۱۸ ماهه' })}
           </div>
         </section>
+
+        <OrderAsk form={form} update={update} />
 
         {!isNew && form.kind === 'VIRTUAL' && <ProductCodes productId={Number(id)} onStock={(stock) => { setCodesOn(stock >= 0); setForm((current) => current && { ...current, stock }) }} />}
 

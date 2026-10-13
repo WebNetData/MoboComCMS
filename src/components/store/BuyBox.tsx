@@ -12,6 +12,7 @@ import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/clie
 import { iranianUnit } from '@/shared/money/format'
 import { variantOption } from '@/modules/store/domain/store'
 import { useSite } from '@/components/site/SiteProvider'
+import { fieldsFor, type OrderField } from '@/modules/store/domain/order-inputs'
 
 export type BuyVariant = { id: number; name: string; attributes: Record<string, string>; price: number; listPrice: number; memberPrice: number; stock: number; limit: number; image?: string }
 
@@ -44,6 +45,10 @@ export type BuyBoxProps = {
   installments?: { label: string; count: number }[]
   /** Customer club earning rule (points per spent Toman), when the club is on. */
   club?: { earnPoints: number; earnStepToman: number } | null
+  /** What this product asks its buyer (a login, a note…), per option. */
+  orderFields?: OrderField[]
+  /** The buyer types the foreign amount themselves ("pay a foreign site"): allowed currencies and limits. */
+  open?: { currencies: string[]; min: string; max: string } | null
 }
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -107,6 +112,12 @@ export default function BuyBox(props: BuyBoxProps) {
   const [added, setAdded] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState<{ code: string; message: string; needed: number; currency?: string } | null>(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [shown, setShown] = useState<Record<string, boolean>>({})
+  const [openAmount, setOpenAmount] = useState('')
+  const [openCurrency, setOpenCurrency] = useState(props.open?.currencies[0] || '')
+  const [quote, setQuote] = useState<{ price: number; conversion: number; fee: number; rate: number } | null>(null)
+  const [quoteNote, setQuoteNote] = useState('')
 
   const variant = props.variants.find((row) => row.id === variantId) || null
   const variantImage = variant?.image || ''
@@ -126,6 +137,23 @@ export default function BuyBox(props: BuyBoxProps) {
   const clubPoints = props.club && toman > 0 ? Math.floor(Math.floor(toman / props.club.earnStepToman) * props.club.earnPoints) : 0
   const installmentsNote = toman > 0 ? (props.installments || []).filter((row) => row.count >= 2).map((row) => ({ ...row, each: Math.ceil(toman / row.count) })) : []
 
+  const open = props.open || null
+  const fields = useMemo(() => fieldsFor(props.orderFields || [], variant?.name || ''), [props.orderFields, variant?.name])
+  // A typed amount is priced by the server a moment after the buyer stops typing.
+  useEffect(() => {
+    if (!open) return
+    setQuote(null); setQuoteNote('')
+    if (!openAmount.trim()) return
+    let live = true
+    const timer = window.setTimeout(() => {
+      void fetch('/api/cart/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: props.productId, amount: openAmount, currency: openCurrency }) })
+        .then(async (response) => ({ ok: response.ok, data: await response.json().catch(() => null) }))
+        .then(({ ok, data }) => { if (!live) return; if (ok && data?.price > 0) setQuote(data); else setQuoteNote(String(data?.error || 'قیمت محاسبه نشد')) })
+        .catch(() => { if (live) setQuoteNote('ارتباط برقرار نشد؛ دوباره تلاش کنید') })
+    }, 450)
+    return () => { live = false; window.clearTimeout(timer) }
+  }, [open, openAmount, openCurrency, props.productId])
+
   // Values per axis, so each attribute becomes its own row of options.
   const axes = useMemo(() => props.axes.map((axis) => ({ ...axis, values: [...new Set(props.variants.map((row) => row.attributes[axis.key]).filter(Boolean))] })).filter((axis) => axis.values.length), [props.axes, props.variants])
   const pick = (key: string, value: string) => {
@@ -135,7 +163,11 @@ export default function BuyBox(props: BuyBoxProps) {
 
   async function addCart() {
     setBusy('cart'); setMessage(''); setError(null)
-    const result = await addToCart(props.productId, variant?.id ?? null, quantity)
+    const missing = fields.find((field) => field.required && !(answers[field.key] || '').trim())
+    if (missing) { setBusy(''); setMessage(`«${missing.label}» را وارد کنید`); return }
+    if (open && !quote) { setBusy(''); setMessage(quoteNote || 'مبلغ را وارد کنید'); return }
+    const extra = fields.length || open ? { inputs: Object.fromEntries(fields.map((field) => [field.key, answers[field.key] || ''])), ...(open ? { openAmount: { amount: openAmount, currency: openCurrency } } : {}) } : undefined
+    const result = await addToCart(props.productId, variant?.id ?? null, open ? 1 : quantity, extra)
     setBusy('')
     if (!result.ok) { setMessage(result.error); return }
     setAdded(true)
@@ -189,7 +221,27 @@ export default function BuyBox(props: BuyBoxProps) {
         <li>{props.kind === 'PHYSICAL' ? <StoreIcon name="truck" size={18} /> : <StoreIcon name="bolt" size={18} />}<span>{props.kind === 'PHYSICAL' ? props.shipping : props.instant ? 'تحویل آنی پس از پرداخت در حساب کاربری' : 'تحویل دیجیتال در حساب کاربری پس از تأیید سفارش'}</span></li>
       </ul>
 
-      {available && <div className="sx-buy-price">
+      {available && open && <div className="sx-open">
+        <label className="sx-open-amount"><span>مبلغی که باید پرداخت شود</span>
+          <span className="sx-open-row">
+            <input className="num" inputMode="decimal" dir="ltr" autoComplete="off" placeholder="49.99" value={openAmount} onChange={(event) => { setOpenAmount(event.target.value); setAdded(false) }} aria-describedby="sx-open-hint" />
+            {open.currencies.length > 1
+              ? <select value={openCurrency} onChange={(event) => { setOpenCurrency(event.target.value); setAdded(false) }} aria-label="واحد پول">{open.currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+              : <b>{openCurrency}</b>}
+          </span>
+        </label>
+        {(open.min || open.max) && <small id="sx-open-hint">{open.min && <>حداقل <b className="num" dir="ltr">{open.min}</b></>}{open.min && open.max && ' · '}{open.max && <>حداکثر <b className="num" dir="ltr">{open.max}</b></>} {openCurrency}</small>}
+        <div className="sx-open-quote" role="status" aria-live="polite">
+          {quote ? <>
+            <span>هزینهٔ سفارش شما</span>
+            <Amount value={quote.price} currency={props.currency} className="is-large" />
+            <small>نرخ هر {openCurrency}: <b className="num">{Math.round(quote.rate).toLocaleString('fa-IR')}</b> تومان · کارمزد و خدمات: <b className="num">{Math.round(quote.fee).toLocaleString('fa-IR')}</b></small>
+            <small>قیمت نهایی هنگام پرداخت با نرخ همان لحظه حساب می‌شود.</small>
+          </> : <span className="is-muted">{quoteNote || (openAmount.trim() ? 'در حال محاسبه…' : 'مبلغ را وارد کنید تا هزینه به تومان محاسبه شود')}</span>}
+        </div>
+      </div>}
+
+      {available && !open && <div className="sx-buy-price">
         {discount > 0 && <div className="sx-price-was"><s className="num">{Math.round(listPrice).toLocaleString('fa-IR')}</s><span className="sx-off">{fa(discount)}٪</span></div>}
         <Amount value={price} currency={props.currency} className="is-large" />
         {props.saleEndsAt && discount > 0 && <div className="sx-buy-timer"><StoreIcon name="clock" size={15} />پایان پیشنهاد <Countdown until={props.saleEndsAt} /></div>}
@@ -203,6 +255,21 @@ export default function BuyBox(props: BuyBoxProps) {
       {!available && <p className="sx-unavailable is-box">{props.variants.length && !variant ? 'یکی از گزینه‌ها را انتخاب کنید' : 'این کالا فعلاً موجود نیست'}</p>}
       {!available && !membersOnly && !(props.variants.length && !variant) && <StockAlert productId={props.productId} variantId={variant?.id ?? null} slug={props.slug} />}
 
+      {available && !membersOnly && fields.length > 0 && <fieldset className="sx-ask">
+        <legend>اطلاعات لازم برای انجام سفارش</legend>
+        {fields.map((field) => <label key={field.key} className="sx-ask-field">
+          <span>{field.label}{field.required && <i aria-hidden="true"> *</i>}</span>
+          {field.kind === 'textarea'
+            ? <textarea rows={3} dir="auto" maxLength={2000} required={field.required} value={answers[field.key] || ''} onChange={(event) => { setAnswers({ ...answers, [field.key]: event.target.value }); setAdded(false) }} />
+            : <span className="sx-ask-input">
+                <input type={field.kind === 'secret' ? (shown[field.key] ? 'text' : 'password') : field.kind === 'email' ? 'email' : field.kind === 'url' ? 'url' : 'text'} dir={field.kind === 'text' ? 'auto' : 'ltr'} autoComplete={field.kind === 'secret' ? 'new-password' : 'off'} maxLength={500} required={field.required} value={answers[field.key] || ''} onChange={(event) => { setAnswers({ ...answers, [field.key]: event.target.value }); setAdded(false) }} />
+                {field.kind === 'secret' && <button type="button" className="sx-link" aria-pressed={!!shown[field.key]} onClick={() => setShown({ ...shown, [field.key]: !shown[field.key] })}>{shown[field.key] ? 'پنهان' : 'نمایش'}</button>}
+              </span>}
+          {field.help && <small>{field.help}</small>}
+        </label>)}
+        <p className="sx-ask-note"><StoreIcon name="shield" size={15} />این اطلاعات رمزنگاری‌شده نگه داشته می‌شود، فقط کارشناسِ همین سفارش آن را می‌بیند و پس از انجام سفارش پاک می‌شود.</p>
+      </fieldset>}
+
       {membersOnly ? <div className="sx-buy-members"><b>این کالا مخصوص اعضای ویژه است</b><Link href="/vip" className="sx-btn is-primary is-block">عضویت VIP</Link></div>
         : available && (added
           ? <div className="sx-buy-added" role="status">
@@ -211,13 +278,13 @@ export default function BuyBox(props: BuyBoxProps) {
               <button type="button" className="sx-link" onClick={() => setAdded(false)}>افزودن دوباره</button>
             </div>
           : <div className="sx-buy-actions">
-              {limit > 1 && <div className="sx-qty" role="group" aria-label="تعداد">
+              {limit > 1 && !open && <div className="sx-qty" role="group" aria-label="تعداد">
                 <button type="button" onClick={() => setQuantity((q) => Math.min(limit, q + 1))} disabled={quantity >= limit} aria-label="افزایش تعداد"><StoreIcon name="plus" size={16} /></button>
                 <output className="num" aria-live="polite">{fa(quantity)}</output>
                 <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="کاهش تعداد"><StoreIcon name="minus" size={16} /></button>
               </div>}
               <button type="button" className="sx-btn is-primary is-block is-large" disabled={!!busy} onClick={() => void addCart()}>{busy === 'cart' ? 'در حال افزودن…' : 'افزودن به سبد خرید'}</button>
-              {props.kind !== 'PHYSICAL' && <button type="button" className="sx-btn is-block" disabled={!!busy} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
+              {props.kind !== 'PHYSICAL' && !open && !(props.orderFields || []).length && <button type="button" className="sx-btn is-block" disabled={!!busy} onClick={() => void buyNow()}>{busy === 'buy' ? 'در حال انتقال…' : 'خرید فوری'}</button>}
             </div>)}
       {message && <p className="sx-buy-msg" role="alert">{message}</p>}
       {error && <CheckoutError code={error.code} message={error.message} needed={error.needed} currency={error.currency || props.currency} />}
