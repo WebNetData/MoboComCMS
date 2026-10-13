@@ -180,3 +180,20 @@
 .cms-cover-field.is-logo .cms-cover-preview::after{display:none}
 /* SDS on-brand text follows the theme on CMS actions, including the lighter dark accent. */
 .cms-workspace .btn-primary{color:var(--sds-color-text-brand-on-brand)}
+
+/* Builder inspector: the Advanced panel. */
+.bld-adv h4 { margin: 16px 0 6px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11.5px; font-weight: 800; letter-spacing: .03em; }
+.bld-adv h4:first-of-type { border-top: 0; padding-top: 0; }
+.bld-adv-dot { display: inline-block; width: 7px; height: 7px; margin-inline-start: 7px; border-radius: 50%; background: var(--primary); vertical-align: middle; }
+.bld-adv-device { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 10px 0 4px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); }
+.bld-adv-device button { min-height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.bld-adv-device button.is-on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.bld-box > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bld-link { width: 26px; height: 24px; border: 1px solid var(--border); border-radius: 7px; background: transparent; font-size: 11px; cursor: pointer; opacity: .55; }
+.bld-link.is-on { opacity: 1; border-color: var(--primary); background: var(--primary-soft); }
+.bld-box-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.bld-box-grid label { display: grid; gap: 2px; text-align: center; }
+.bld-box-grid .input { min-height: 34px; padding-inline: 4px; text-align: center; font-size: 12.5px; }
+.bld-box-grid small { color: var(--muted); font-size: 10.5px; }
+.bld-adv-reset { width: 100%; margin-top: 14px; }
+.bld-adv :is(button, input, select):focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }

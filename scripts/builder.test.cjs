@@ -283,3 +283,46 @@ test('builder media and VIP widgets validate their props', () => {
   assert.equal(junk.sections[0].columns[0].widgets[0].props.source, 'music-new')
   assert.doesNotThrow(() => validateBuilderDoc(doc(createWidget('vip-cta'))))
 })
+
+test('advanced style: only bounded values are stored, and the CSS written from them holds nothing a writer typed', () => {
+  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+  const compile = (file, deps = {}) => { const mod = { exports: {} }; new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)((name) => deps[name] || require(name), mod, mod.exports); return mod.exports }
+  const style = compile('src/modules/site/domain/builder-style.ts')
+  // Nothing set stores nothing; defaults are dropped so a document stays small.
+  for (const empty of [undefined, null, {}, [], 'x', { margin: { t: 0, r: 0, b: 0, l: 0 }, opacity: 100, fontSize: 0, zIndex: 0 }]) assert.equal(style.validateAdvancedStyle(empty), undefined)
+  // Numbers are clamped, choices must be on the list, colours must be hex, unknown keys go.
+  assert.deepEqual(style.validateAdvancedStyle({ margin: { t: -9999, r: '12', b: 'x', l: 4.6 }, padding: { t: -5, r: 500 }, fontSize: 9000, fontWeight: '700', lineHeight: 10, bg: 'red', borderWidth: 99, borderStyle: 'groove', borderColor: 'url(x)', shadow: 'huge', hover: 'lift', motion: 'spin', opacity: -4, zIndex: 9999, evil: '</style><script>', classes: ['ok-one', 'br-section', '9bad', 'x y', 'ok_two', '"><script>'] }),
+    { margin: { t: -300, r: 12, b: 0, l: 5 }, padding: { t: 0, r: 400, b: 0, l: 0 }, fontSize: 200, fontWeight: 700, lineHeight: 80, borderWidth: 20, borderStyle: 'solid', borderColor: '#888888', hover: 'lift', opacity: 0, zIndex: 100, classes: ['ok-one', 'ok_two'] })
+  // A gradient needs both colours; the angle has a default.
+  assert.deepEqual(style.validateAdvancedStyle({ bg: '#FF0000', bg2: '#0000ff' }), { bg: '#ff0000', bg2: '#0000ff', bgAngle: 135 })
+  assert.deepEqual(style.validateAdvancedStyle({ bg2: '#0000ff', bgAngle: 90 }), undefined, 'a second colour without the first is nothing')
+  // The CSS: logical sides, phone rules under 768px, hover only for a hovering pointer, motion only where allowed and supported.
+  const css = style.advancedCss('w_abc-1', style.validateAdvancedStyle({ margin: { t: 10, r: 20, b: 30, l: 40 }, paddingM: { t: 8, r: 8, b: 8, l: 8 }, fontSize: 40, fontSizeM: 24, bg: '#101010', bg2: '#303030', bgAngle: 90, borderWidth: 2, borderStyle: 'dashed', borderColor: '#ff00ff', radius: { t: 16, r: 0, b: 16, l: 0 }, shadow: 'lg', opacity: 80, hover: 'lift', motion: 'up', alignM: 'center', maxWidth: 600 }))
+  assert.match(css, /\.br-x-w_abc-1 \{ margin-block: 10px 30px; margin-inline: 20px 40px; background: linear-gradient\(90deg, #101010, #303030\); border: 2px dashed #ff00ff; border-start-start-radius: 16px;/)
+  assert.match(css, /opacity: 0\.8; max-width: 600px; margin-inline: auto; \}/)
+  assert.match(css, /\.br-x-w_abc-1, \.br-x-w_abc-1 :is\(h1, h2, h3, h4, h5, h6, p, li, blockquote\) \{ font-size: 40px; \}/)
+  assert.match(css, /@media \(max-width: 767px\) \{ \.br-x-w_abc-1 \{ padding-block: 8px 8px; padding-inline: 8px 8px; text-align: center; \} \.br-x-w_abc-1, [^{]* \{ font-size: 24px; \} \}/)
+  assert.match(css, /@media \(hover: hover\) \{[^@]*:hover \{ transform: translateY\(-6px\)/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*transition: none; transform: none;/)
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{ @supports \(animation-timeline: view\(\)\) \{ \.br-x-w_abc-1 \{ animation: br-in-up linear both;/)
+  // Whatever goes in, what comes out is made of the allowed alphabet: no tag, no url(), no expression, no import.
+  const hostile = style.advancedCss('w1', style.validateAdvancedStyle({ bg: '#000000</style><script>alert(1)</script>', borderColor: 'expression(alert(1))', borderWidth: 1, borderStyle: 'solid;}body{display:none', shadow: 'x;}*{color:red', classes: ['a{b}'], margin: { t: '1px;}*{x:y', r: 1, b: 1, l: 1 } }))
+  assert.doesNotMatch(hostile, /<|>|url\(|expression|@import|javascript|display:\s*none|\*\s*\{/i)
+  // An id that is not an id of the document styles nothing; nothing set writes nothing.
+  assert.equal(style.advancedCss('x y</style>', { opacity: 50 }), '')
+  assert.equal(style.advancedCss('w1', undefined), '')
+  // Stored on blocks and sections through the document's own validation, and kept by a copy.
+  const builder = load('src/modules/site/domain/builder.ts')
+  const doc = builder.emptyDoc(); const section = builder.createSection(1); const widget = builder.createWidget('heading')
+  section.columns[0].widgets.push({ ...widget, adv: { fontSize: 44, junk: 1 } }); section.adv = { minHeight: 480, padding: { t: 40, r: 0, b: 40, l: 0 }, color: 'x' }
+  const saved = builder.validateBuilderDoc({ ...doc, sections: [section] })
+  assert.deepEqual([saved.sections[0].adv, saved.sections[0].columns[0].widgets[0].adv], [{ padding: { t: 40, r: 0, b: 40, l: 0 }, minHeight: 480 }, { fontSize: 44 }])
+  assert.equal('adv' in builder.validateBuilderDoc({ ...doc, sections: [builder.createSection(1)] }).sections[0], false, 'an element without advanced style stores no empty object')
+  assert.deepEqual(builder.cloneSections(saved.sections)[0].columns[0].widgets[0].adv, { fontSize: 44 })
+  // The renderer writes the rules beside the element and the inspector edits them through the same validation.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  assert.match(read('src/components/content/builder/BuilderRenderer.tsx'), /styleTag\(widget\.id, widget\.adv\)\}\{renderWidget\(widget, ctx\)\}/)
+  assert.match(read('src/components/content/builder/BuilderRenderer.tsx'), /\{styleTag\(section\.id, section\.adv\)\}/)
+  assert.match(read('src/app/admin/builder/advanced-style.tsx'), /onChange\(validateAdvancedStyle\(\{ \.\.\.adv, \.\.\.change \}\), history\)/)
+  for (const motion of style.MOTIONS) assert.match(read('src/app/builder-render.css'), new RegExp('@keyframes br-in-' + motion + ' '))
+})
