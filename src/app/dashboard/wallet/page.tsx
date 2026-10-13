@@ -23,7 +23,7 @@ function topupKey(currency:string, amount:number) {
 }
 
 export default function WalletPage() {
-  const {t,locale}=useI18n(); const isFa=locale==='fa'; const vpnOn=useModuleEnabled('vpn')
+  const {t,locale}=useI18n(); const isFa=locale==='fa'; const vpnOn=useModuleEnabled('vpn'); const storeOn=useModuleEnabled('store')
   const [balances,setBalances]=useState<Balance[]>([]); const [txs,setTxs]=useState<Tx[]>([]); const [totals,setTotals]=useState<Record<string,{toppedUp:number;spent:number;count:number}>>({})
   const [topupCurrencies,setTopupCurrencies]=useState<string[]>([]); const [topupGateways,setTopupGateways]=useState<CheckoutGatewayChoice[]>([]); const [currency,setCurrency]=useState(BASE_CURRENCY); const [gatewayRef,setGatewayRef]=useState(''); const [amount,setAmount]=useState(quickFor(BASE_CURRENCY)[1])
   const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [loading,setLoading]=useState(true)
@@ -37,7 +37,7 @@ export default function WalletPage() {
   const kpis:[[string,string,string,string],[string,string,string,string],[string,string,string,string],[string,string,string,string]]=[
     [t.walletBalance,money(balance),'💳','kpi-green'],[t.totalToppedUp,money(summary.toppedUp),'⬆️',''],[t.totalSpent,money(summary.spent),'⬇️',''],[t.txCount,String(summary.count),'🧮','']]
   return <div>
-    <div className="appbar"><div><h1 className="h2">💳 {t.wallet}</h1><p className="muted">{t.walletSub}</p></div><div className="flex gap-2"><select className="select" value={currency} onChange={e=>setCurrency(e.target.value)}>{[...new Set([...topupCurrencies,...balances.map(b=>b.currency)])].map(c=><option key={c}>{c}</option>)}</select><Link href="/plans" className="btn btn-ghost">{t.browsePlans}</Link></div></div>
+    <div className="appbar"><div><h1 className="h2">💳 {t.wallet}</h1><p className="muted">{vpnOn ? t.walletSub : isFa ? 'یک‌بار شارژ کنید و خریدهای سایت را از موجودی بپردازید.' : 'Top up once and pay for your purchases from the balance.'}</p></div><div className="flex gap-2"><select className="select" value={currency} onChange={e=>setCurrency(e.target.value)}>{[...new Set([...topupCurrencies,...balances.map(b=>b.currency)])].map(c=><option key={c}>{c}</option>)}</select>{vpnOn ? <Link href="/plans" className="btn btn-ghost">{t.browsePlans}</Link> : storeOn && <Link href="/products" className="btn btn-ghost">{isFa ? 'فروشگاه' : 'Shop'}</Link>}</div></div>
     {balances.length>1&&<p className="muted text-sm mb-4">{balances.map(b=>money(b.balance,b.currency)).join(' · ')}</p>}
     <p className="muted text-sm mb-6">💡 {t.walletPayHint}</p>
     <div className="grid-4 mb-8">{kpis.map(([label,value,icon,cls])=><div key={label} className={`card kpi ${cls}`}><div className="kpi-icon">{icon}</div><div className="min-w-0"><div className="muted text-xs">{label}</div><div className="num text-2xl font-extrabold truncate">{value}</div></div></div>)}</div>
