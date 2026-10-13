@@ -7,6 +7,7 @@ function load(file) {
   if(name === '@/platform/database/prisma') return {db}
   if(name === '@/modules/store/domain/store') return load('src/modules/store/domain/store.ts')
   if(name === '@/modules/catalog/domain/product-publication') return load('src/modules/catalog/domain/product-publication.ts')
+  if(name === '@/modules/store/domain/order-inputs') return load('src/modules/store/domain/order-inputs.ts')
   if(name.startsWith('@/')) return {}
   return require(name)
  },mod,mod.exports); return mod.exports
