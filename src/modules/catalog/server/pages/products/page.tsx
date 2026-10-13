@@ -11,9 +11,9 @@ import SectionBarSlot from '@/components/site/SectionBarSlot'
 import StoreSlider from '@/components/store/StoreSlider'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import {
-  BannerGrid, BrandStrip, CategoryCircles, Crumbs, OfferBand, ProductGrid, ProductRail, TrustStrip,
+  BannerGrid, BrandStrip, CategoryCircles, Crumbs, DivisionPanels, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
-import { shopHome, shopListing, type CategoryNode } from '@/modules/store/server/catalog'
+import { shopDivisions, shopHome, shopListing, type CategoryNode } from '@/modules/store/server/catalog'
 import { SHOP_SORTS, isFiltered, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 
@@ -55,7 +55,8 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
 }
 
 async function Landing() {
-  const home = await shopHome()
+  const [home, divisions] = await Promise.all([shopHome(), shopDivisions()])
+  const physical = divisions.find((division) => division.kind === 'PHYSICAL'), virtual = divisions.find((division) => division.kind === 'VIRTUAL')
   const circles = home.categories.map((node) => ({ slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: node.total }))
   const empty = !home.newest.length
   return <div className="container sx-landing">
@@ -77,10 +78,13 @@ async function Landing() {
             <li><b className="num">{fa(home.brands.length)}</b><small>برند</small></li>
           </ul>
         </section>}
+    <DivisionPanels divisions={divisions} />
     {home.settings.showCategories && <CategoryCircles categories={circles} />}
     <OfferBand title={home.settings.offerTitle} products={home.offers} />
     <BannerGrid banners={home.settings.banners.slice(0, 2)} />
     <ProductRail title="پرفروش‌ترین کالاها" icon="fire" products={home.bestselling.filter((card) => card.soldCount > 0).length >= 4 ? home.bestselling : []} more="/products?sort=bestselling" ranked />
+    <ProductRail title="کالاهای فیزیکی" icon="truck" products={physical && physical.products.length >= 4 ? physical.products : []} more="/products?kind=PHYSICAL" />
+    <ProductRail title="محصولات مجازی" icon="bolt" products={virtual && virtual.products.length >= 4 ? virtual.products : []} more="/products?kind=VIRTUAL" />
     {home.rails.map((rail) => <ProductRail key={rail.category.slug} title={rail.category.name} icon="box" products={rail.products} more={`/products?category=${encodeURIComponent(rail.category.slug)}`} />)}
     <BannerGrid banners={home.settings.banners.slice(2, 4)} />
     <BrandStrip brands={home.brands} />
@@ -117,7 +121,7 @@ async function Listing({ query }: { query: ShopQuery }) {
   if (query.kind) chips.push({ label: query.kind === 'PHYSICAL' ? 'کالای فیزیکی' : 'محصول دیجیتال', href: shopQueryString(query, { kind: '' }) })
 
   return <div className="container sx-listing">
-    <Crumbs items={[{ label: 'فروشگاه', href: '/products' }, ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, ...(query.kind ? [{ label: query.kind === 'PHYSICAL' ? 'کالاهای فیزیکی' : 'محصولات مجازی', href: `/products?kind=${query.kind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
     <header className="sx-listing-head">
       <div><h1>{title}</h1>{node?.description && <p>{node.description}</p>}</div>
       <span className="num">{fa(result.total)} کالا</span>

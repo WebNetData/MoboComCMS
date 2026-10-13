@@ -75,12 +75,20 @@ function PriorityNav({ links, isOn, label, more }: { links: NavLink[]; isOn: (hr
   }, [links])
   useDismiss(nav, open, () => setOpen(false))
   const overflow = links.slice(visible)
+  // A highlight that slides to the link under the pointer (or the one that has the focus).
+  const rail = useRef<HTMLDivElement>(null)
+  const [glide, setGlide] = useState<{ x: number; width: number } | null>(null)
+  const glideTo = (target: EventTarget | null) => {
+    const item = target instanceof Element ? target.closest<HTMLElement>('[data-nav-item]') : null
+    if (item && rail.current?.contains(item)) setGlide({ x: item.offsetLeft, width: item.offsetWidth })
+  }
   return <nav ref={nav} className="mb-nav" aria-label={label}>
     <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.href}><Icon name={navIcon(link.href)} size={17}/>{link.label}</span>)}</div>
-    <div className="mb-nav-rail">
-      {links.slice(0, visible).map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><Icon name={navIcon(link.href)} size={17}/><span>{link.label}</span></Link>)}
+    <div ref={rail} className="mb-nav-rail" onMouseOver={event => glideTo(event.target)} onFocus={event => glideTo(event.target)} onMouseLeave={() => setGlide(null)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setGlide(null) }}>
+      <span className="mb-nav-glider" aria-hidden="true" data-on={glide ? '' : undefined} style={glide ? { width: glide.width, transform: `translateX(${glide.x}px)` } : undefined}/>
+      {links.slice(0, visible).map(link => <Link key={link.href} href={link.href} data-nav-item="" aria-current={isOn(link.href) ? 'page' : undefined}><Icon name={navIcon(link.href)} size={17}/><span>{link.label}</span></Link>)}
       {overflow.length > 0 && <div className="mb-nav-more">
-        <button type="button" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}><Icon name="grid" size={17}/><span>{more}</span><Icon name="chevron" size={14}/></button>
+        <button type="button" data-nav-item="" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}><Icon name="grid" size={17}/><span>{more}</span><Icon name="chevron" size={14}/></button>
         {open && <div className="mb-nav-dropdown mb-pop" role="menu">{overflow.map(link => <Link key={link.href} href={link.href} role="menuitem" aria-current={isOn(link.href) ? 'page' : undefined}><i><Icon name={navIcon(link.href)} size={17}/></i>{link.label}</Link>)}</div>}
       </div>}
     </div>
@@ -102,19 +110,20 @@ function AccountMenu({ L }: { L: (fa: string, en: string) => string }) {
   </div>
   const name = user.name?.trim() || L('حساب من', 'My account')
   const real = user.email && !/\.local$/.test(user.email) ? user.email : ''
-  const items: [string, string, string][] = [
+  const role = user.role === 'ADMIN' ? L('مدیر سایت', 'Administrator') : L('عضو سایت', 'Member')
+  const portrait = <span className="mb-avatar" aria-hidden="true">{user.image ? <img src={user.image} alt=""/> : name.slice(0, 1)}</span>
+  const tiles: [string, string, string][] = [
     ['/dashboard', 'grid', L('پیشخوان', 'Dashboard')], ['/dashboard/orders', 'bag', L('سفارش‌های من', 'My orders')],
     ['/dashboard/tickets', 'chat', L('پشتیبانی', 'Support')], ['/dashboard/profile', 'sliders', L('تنظیمات حساب', 'Account settings')],
-    ...(user.role === 'ADMIN' ? [['/admin', 'shield', L('پنل مدیریت', 'Admin panel')] as [string, string, string]] : []),
   ]
   return <div ref={box} className="mb-user">
-    <button type="button" className="mb-user-chip" aria-expanded={open} aria-haspopup="true" aria-label={L('منوی حساب', 'Account menu')} onClick={() => setOpen(value => !value)}>
-      <span className="mb-avatar" aria-hidden="true">{user.image ? <img src={user.image} alt=""/> : name.slice(0, 1)}</span>
-      <span className="mb-user-name">{name}</span><Icon name="chevron" size={14}/>
+    <button type="button" className="mb-user-chip" aria-expanded={open} aria-haspopup="true" aria-label={`${L('منوی حساب', 'Account menu')}: ${name}`} onClick={() => setOpen(value => !value)}>
+      {portrait}<span className="mb-user-id"><strong>{name}</strong><small>{role}</small></span><Icon name="chevron" size={14}/>
     </button>
     {open && <div className="mb-user-menu mb-pop" role="menu">
-      <div className="mb-user-head"><span className="mb-avatar" aria-hidden="true">{user.image ? <img src={user.image} alt=""/> : name.slice(0, 1)}</span><div><strong>{name}</strong>{real && <small dir="ltr">{real}</small>}</div></div>
-      {items.map(([href, icon, label]) => <Link key={href} href={href} role="menuitem"><i><Icon name={icon} size={17}/></i>{label}</Link>)}
+      <div className="mb-user-head">{portrait}<strong>{name}</strong>{real && <small dir="ltr">{real}</small>}<em>{role}</em></div>
+      <div className="mb-user-grid">{tiles.map(([href, icon, label]) => <Link key={href} href={href} role="menuitem"><i><Icon name={icon} size={17}/></i>{label}</Link>)}</div>
+      {user.role === 'ADMIN' && <Link href="/admin" role="menuitem"><i><Icon name="shield" size={17}/></i>{L('پنل مدیریت', 'Admin panel')}</Link>}
       <button type="button" role="menuitem" className="is-danger" onClick={() => themeSignOut({ callbackUrl: '/' })}><i><Icon name="logout" size={17}/></i>{L('خروج از حساب', 'Log out')}</button>
     </div>}
   </div>
@@ -127,6 +136,8 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [navAway, setNavAway] = useState(false)
+  const header = useRef<HTMLElement>(null)
   const drawer = useRef<HTMLDivElement>(null)
   const L = (fa: string, en: string) => site.copy?.[en]?.[locale] || (locale === 'fa' ? fa : en)
   const links = useMemo(() => {
@@ -136,7 +147,18 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   const isOn = (href: string) => !href.includes('#') && (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
   useEffect(() => { setOpen(false) }, [pathname])
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
+    let last = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      setScrolled(y > 8)
+      // Going down the page the links step aside; any move up, the top of the page, or the keyboard inside them brings them back.
+      // Inside a section its own bar takes the place under the header for the whole page, so there the site links return only at the top.
+      const sectionBar = document.querySelector('.mm-bar-wrap')
+      if (y < (sectionBar ? 24 : 140) || header.current?.querySelector('.mb-navbar')?.contains(document.activeElement)) setNavAway(false)
+      else if (sectionBar || y - last > 6) setNavAway(true)
+      else if (last - y > 6) setNavAway(false)
+      last = y
+    }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -155,20 +177,23 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   return <>
     <a className="mb-skip" href="#main-content">{L('رفتن به محتوای اصلی', 'Skip to content')}</a>
     <ThemePluginOutlet slot="site.before-header" site={site} locale={locale}/>
-    <header className="site-header mb-header" data-scrolled={scrolled || undefined}>
+    <header ref={header} className="site-header mb-header" data-scrolled={scrolled || undefined} data-nav-away={navAway || undefined}>
       <div className="mb-container mb-header-bar">
         <Brand/>
-        <PriorityNav links={links} isOn={isOn} label={L('ناوبری اصلی', 'Primary navigation')} more={L('بیشتر', 'More')}/>
+        <ThemeSiteSearch className="mb-search"/>
         <div className="mb-header-actions">
-          <ThemeSiteSearch className="mb-search"/>
           <ThemeLangControls locale={locale} theme={theme} compact/>
           <AccountMenu L={L}/>
           <button type="button" className="mb-menu-button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="mb-mobile-nav" aria-label={open ? L('بستن منو', 'Close menu') : L('باز کردن منو', 'Open menu')}><Icon name={open ? 'close' : 'menu'} size={20}/></button>
         </div>
+        <span className="mb-progress" aria-hidden="true"/>
       </div>
-      <span className="mb-progress" aria-hidden="true"/>
-      {breadcrumbs?.length ? <nav className="mb-container mb-breadcrumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}>{breadcrumbs.map((item, index) => <span key={`${item.label}-${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}{index < breadcrumbs.length - 1 && <span aria-hidden="true"> / </span>}</span>)}</nav> : null}
+      <div className="mb-navbar" onFocus={() => setNavAway(false)}>
+        <div className="mb-container mb-navbar-inner"><PriorityNav links={links} isOn={isOn} label={L('ناوبری اصلی', 'Primary navigation')} more={L('بیشتر', 'More')}/></div>
+      </div>
     </header>
+    <div className="mb-navbar-space" aria-hidden="true"/>
+    {breadcrumbs?.length ? <nav className="mb-container mb-breadcrumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}>{breadcrumbs.map((item, index) => <span key={`${item.label}-${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}{index < breadcrumbs.length - 1 && <span aria-hidden="true"> / </span>}</span>)}</nav> : null}
     {open && <div className="mb-drawer-layer">
       <button type="button" className="mb-drawer-shade" aria-label={L('بستن منو', 'Close menu')} onClick={() => setOpen(false)}/>
       <div ref={drawer} id="mb-mobile-nav" className="mb-drawer" role="dialog" aria-modal="true" aria-label={L('منوی سایت', 'Site menu')}>

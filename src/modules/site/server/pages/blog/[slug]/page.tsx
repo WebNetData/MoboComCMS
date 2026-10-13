@@ -1,4 +1,5 @@
 import { categoryMembership } from '@/modules/site/server/categories'
+import { Fragment } from 'react'
 import ManageBar from '@/components/admin/ManageBar'
 import { postCategories } from '@/modules/site/domain/categories'
 import Link from '@/components/AppLink'
@@ -151,11 +152,19 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
     author: authorName,
     section: post.category ? (isFa ? post.category.name : post.category.nameEn || post.category.name) : undefined,
   })
-  const crumbsLd = breadcrumbJsonLd(base, [
-    { name: isFa ? 'خانه' : 'Home', path: '/' },
-    { name: t.blog, path: '/blog' },
-    { name: title, path: `/blog/${post.slug}` },
-  ])
+  // The path of the article: home, the magazine, the category it is filed under with the categories above it, then the title.
+  const filedUnder = post.category ?? postCategories(post)[0] ?? null
+  const categoryTrail: { id: number; slug: string; name: string; nameEn: string; parentId: number | null }[] = []
+  for (let node: (typeof categoryTrail)[number] | null = filedUnder, depth = 0; node && depth < 4; depth += 1) {
+    categoryTrail.unshift(node)
+    node = node.parentId && !categoryTrail.some((seen) => seen.id === node?.parentId) ? await db.postCategory.findUnique({ where: { id: node.parentId } }).catch(() => null) : null
+  }
+  const trail = [
+    { label: isFa ? 'خانه' : 'Home', href: '/' },
+    { label: isFa ? 'مجله' : t.blog, href: '/blog' },
+    ...categoryTrail.map((category) => ({ label: isFa ? category.name : category.nameEn || category.name, href: `/blog?category=${encodeURIComponent(category.slug)}` })),
+  ]
+  const crumbsLd = breadcrumbJsonLd(base, [...trail.map((step) => ({ name: step.label, path: step.href })), { name: title, path: `/blog/${post.slug}` }])
 
   const headerSlot = (
     <header className="journal-post-head jp-hero">
@@ -401,7 +410,6 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
             <SiteHeader
               theme={theme}
               navPages={navPages}
-              breadcrumbs={[{ label: isFa ? 'خانه' : 'Home', href: '/' }, { label: t.blog, href: '/blog' }, { label: title }]}
             />
           </div>
         )}
@@ -413,11 +421,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       {(() => {
         const crumb = (
           <nav className="journal-crumb-pill" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}>
-            <Link href="/">{isFa ? 'خانه' : 'Home'}</Link>
-            <span aria-hidden="true">/</span>
-            <Link href="/blog">{t.blog}</Link>
-            <span aria-hidden="true">/</span>
-            <span className="current">{title}</span>
+            {trail.map((step) => <Fragment key={step.href}><Link href={step.href}>{step.label}</Link><span aria-hidden="true">/</span></Fragment>)}
+            <span className="current" aria-current="page">{title}</span>
           </nav>
         )
         // Built layouts (own document or a template) control the full page width;

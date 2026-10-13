@@ -123,3 +123,41 @@ test('store admin APIs are guarded and audited', () => {
   }
   assert.match(routes, /httpOnly: true/, 'cart cookie is httpOnly')
 })
+
+test('the shop home shows its two halves — shipped goods and products delivered online — each with its own categories', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const catalog = read('src/modules/store/server/catalog.ts'), front = read('src/components/store/Storefront.tsx'), page = read('src/modules/catalog/server/pages/products/page.tsx'), css = read('src/app/store-front.css')
+  // The halves come from the kind of the products themselves (no second list of categories to keep in step), counted per kind.
+  assert.match(catalog, /export async function shopDivisions\(\): Promise<ShopDivision\[\]>/)
+  assert.match(catalog, /\(\['PHYSICAL', 'VIRTUAL'\] as const\)\.map\(async \(kind\) =>/)
+  assert.match(catalog, /const where = \{ active: true, approval: 'APPROVED', kind \}/, 'only products a shopper can buy are counted')
+  assert.match(catalog, /\.filter\(\(node\) => node\.total > 0\)/, 'a category with nothing of this kind is not offered under it')
+  assert.match(catalog, /if \(seen\.has\(node\.id\)\) return 0/, 'a loop in the category tree cannot hang the page')
+  // Every link of a half keeps the shopper inside that half.
+  assert.match(front, /base = `\/products\?kind=\$\{division\.kind\}`/)
+  assert.match(front, /href=\{`\$\{base\}&category=\$\{encodeURIComponent\(category\.slug\)\}`\}/)
+  assert.match(front, /href=\{`\$\{base\}&category=\$\{encodeURIComponent\(child\.slug\)\}`\}/)
+  assert.match(front, /const shown = divisions\.filter\(\(division\) => division\.total > 0\)/, 'an empty half is not drawn')
+  assert.match(page, /<DivisionPanels divisions=\{divisions\} \/>/)
+  // The landing and the listing take the width of the site header; the cart and checkout keep their own.
+  assert.match(css, /\.sx-landing\.container, \.sx-listing\.container \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\);/)
+  assert.doesNotMatch(css, /\.sx-page > \.container \{/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.sx-world,/)
+})
+
+test('a product tells its whole path — home, the shop, its half, its categories, its name — and the page takes the width of the header', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const page = read('src/modules/catalog/server/pages/products/[slug]/page.tsx'), css = read('src/app/store-front.css'), front = read('src/components/store/Storefront.tsx')
+  assert.match(page, /const half = product\.kind === 'PHYSICAL' \? \{[^}]*href: '\/products\?kind=PHYSICAL' \} : \{[^}]*href: '\/products\?kind=VIRTUAL' \}/)
+  assert.match(page, /findCategory\(await categoryTree\(\), product\.category\.slug\)\?\.chain \|\| \[\]/)
+  assert.match(page, /href: `\$\{half\.href\}&category=\$\{encodeURIComponent\(node\.slug\)\}`/, 'a category step keeps the shopper inside the half')
+  assert.match(page, /breadcrumbJsonLd\(base, \[\.\.\.trail\.map/, 'search engines get the same path')
+  assert.match(page, /<Crumbs items=\{\[\.\.\.trail, \{ label: name \}\]\} \/>/)
+  assert.match(css, /main\.container\.sx-product \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none;/)
+  // Rules added after the old media queries must bring their own, or a phone would get the desktop grid.
+  assert.match(css, /@media \(max-width: 720px\) \{ \.sx-phero \{ grid-template-columns: minmax\(0, 1fr\); padding: 14px; \} \}/)
+  // The half of online products promises online delivery, never instant delivery, which only some of them have.
+  assert.doesNotMatch(front.slice(front.indexOf('const DIVISION_COPY'), front.indexOf('export function DivisionPanels')), /تحویل آنی|بلافاصله/)
+})

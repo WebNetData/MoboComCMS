@@ -6,7 +6,7 @@ import type { Metadata } from 'next'
 import BuyBox from '@/components/store/BuyBox'
 import { StoreIcon } from '@/components/store/StoreIcons'
 import { Crumbs, ProductRail, TrustStrip } from '@/components/store/Storefront'
-import { countProductView, getStoreSettings, relatedProducts } from '@/modules/store/server/catalog'
+import { categoryTree, countProductView, findCategory, getStoreSettings, relatedProducts } from '@/modules/store/server/catalog'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { lineLimit } from '@/modules/store/domain/store'
 import { getDeliverySettings } from '@/modules/shipping/server/shipping'
@@ -101,11 +101,16 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const inStock = product.stock !== 0 && (!product.variants.length || activeVariants.some(variant => variant.stock !== 0))
   const base = await siteBase()
 
-  const breadcrumbs = breadcrumbJsonLd(base, [
-    { name: isFa ? 'خانه' : 'Home', path: '/' },
-    { name: isFa ? 'فروشگاه' : 'Shop', path: '/products' },
-    { name, path: `/products/${product.slug}` },
-  ])
+  // The path of the product: home, the shop, the half it belongs to, the categories above its category, its category, then its name.
+  const half = product.kind === 'PHYSICAL' ? { label: isFa ? 'کالاهای فیزیکی' : 'Physical goods', href: '/products?kind=PHYSICAL' } : { label: isFa ? 'محصولات مجازی' : 'Digital products', href: '/products?kind=VIRTUAL' }
+  const categoryChain = product.category ? findCategory(await categoryTree(), product.category.slug)?.chain || [] : []
+  const trail = [
+    { label: isFa ? 'خانه' : 'Home', href: '/' },
+    { label: isFa ? 'فروشگاه' : 'Shop', href: '/products' },
+    half,
+    ...categoryChain.map((node) => ({ label: node.name, href: `${half.href}&category=${encodeURIComponent(node.slug)}` })),
+  ]
+  const breadcrumbs = breadcrumbJsonLd(base, [...trail.map((step) => ({ name: step.label, path: step.href })), { name, path: `/products/${product.slug}` }])
   const productLd = productJsonLd({
     name,
     description: richTextToPlain(html, 300),
@@ -194,7 +199,7 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
   const ownLayout = !editingTemplate && !!builderDoc && builderDoc.mode === 'builder' && PRODUCT_SLOT_TYPES.some(type => docHasSlotWidget(builderDoc, type))
   const layoutDoc = ownLayout ? builderDoc : templateDoc && templateDoc.mode === 'builder' ? templateDoc : null
   const chromeDoc = layoutDoc || builderDoc
-  const breadcrumbsNode = <Crumbs items={[{ label: t.shop, href: '/products' }, ...(product.category ? [{ label: product.category.name, href: `/products?category=${encodeURIComponent(product.category.slug)}` }] : []), { label: name }]} />
+  const breadcrumbsNode = <Crumbs items={[...trail, { label: name }]} />
   const ldNodes = <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(productLd) }} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbs) }} />

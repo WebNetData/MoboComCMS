@@ -111,7 +111,33 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.match(css, /\n\.mb-shell \{ display: contents; \}/)
   assert.match(css, /\n\.mb-header \{ position: sticky; top: 0;/)
   // Other pages pin their side columns 76px from the top: the bar is never taller than that.
-  assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 74px;/)
+  assert.match(css, /\n\.mb-header \{[^}]*padding-block: 10px 2px;/)
+  assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 62px;/)
+  // Two tiers: the links hang under the header without adding to its height, and a spacer keeps the page clear of them at the top.
+  assert.match(css, /\n\.mb-navbar \{ position: absolute; inset-inline: 0; top: 100%;/)
+  assert.match(client, /<div className="mb-navbar-space" aria-hidden="true"\/>/)
+  // Away, the links are hidden from the keyboard too, and focus inside them always brings them back.
+  assert.match(css, /\.mb-header\[data-nav-away\] \.mb-navbar \{[^}]*visibility: hidden;/)
+  assert.match(client, /<div className="mb-navbar" onFocus=\{\(\) => setNavAway\(false\)\}>/)
+  // Inside a section its own bar rides under the header (74px) and the site links wait for the top of the page.
+  assert.match(css, /html\[data-design="mobocom"\] \.mm-bar-wrap \{ position: sticky; top: 74px;/)
+  assert.match(client, /const sectionBar = document\.querySelector\('\.mm-bar-wrap'\)/)
+  // The member's picture rides in the session (refreshed by the check that runs on every request), so the header, the
+  // dashboard and the admin shell can draw it without another request; the forum falls back to the same picture.
+  const auth = read('src/modules/identity/auth.ts')
+  assert.match(auth, /select: \{ status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
+  assert.match(auth, /token\.picture = pictureOf\(current\) \|\| null/)
+  assert.match(auth, /session\.user\.image = typeof token\.picture === 'string' && token\.picture \? token\.picture : null/)
+  for (const shell of ['src/app/dashboard/layout.tsx', 'src/app/admin/layout.tsx']) assert.match(read(shell), /session\?\.user\?\.image \? <img src=\{session\.user\.image\} alt="" \/> : initial/, shell)
+  assert.match(read('src/modules/forum/server/forum.ts'), /avatar: profile\?\.avatar \|\| pictureOf\(user\)/)
+  // An article tells its whole path once: home, the magazine, the categories above it, its category, the title — on the page and to search engines.
+  const article = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
+  assert.match(article, /const filedUnder = post\.category \?\? postCategories\(post\)\[0\] \?\? null/)
+  assert.match(article, /depth < 4/, 'a loop in the category tree cannot hang the page')
+  assert.match(article, /breadcrumbJsonLd\(base, \[\.\.\.trail\.map/)
+  assert.doesNotMatch(article, /breadcrumbs=\{\[/, 'the header no longer repeats the path above the navigation')
+  // A wrapper around the header must not be a box, or the header cannot stay at the top (the journal had one).
+  assert.match(read('src/app/journal-design.css'), /\.journal-header-shell \{\n  display: contents;\n\}/)
   // Every icon the navigation or the menus name exists in the theme's own set (an unknown one would show the shield).
   const named = [...client.matchAll(/(?:name="|: ')([a-z]+)(?="|')/g)].map((m) => m[1]).filter((name) => /^[a-z]+$/.test(name))
   const used = new Set([...Object.values(Object.fromEntries([...client.matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1] + m[2], m[2]]))), ...[...client.matchAll(/Icon name="(\w+)"/g)].map((m) => m[1]), 'home', 'sparkles', 'logout', 'grid'])

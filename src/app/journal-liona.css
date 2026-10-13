@@ -188,3 +188,115 @@
   .lh-search { flex-basis: 100%; }
   .lh-overlay.is-tall { min-height: 300px; }
 }
+
+/* ============================================================
+   Second pass: the magazine as wide as the site header, with
+   depth — deeper ground, lit cards, larger type on wide screens,
+   and pieces that rise into place as they are reached.
+   ============================================================ */
+.journal-lh {
+  --lh-bg: #12131c; --lh-bg-2: #0c0d14; --lh-card: #1a1c28; --lh-card-2: #242736; --lh-line: rgba(255, 255, 255, .08);
+  background: radial-gradient(60% 460px at 88% 0%, color-mix(in srgb, var(--lh-purple) 18%, transparent), transparent 70%), radial-gradient(48% 400px at 6% 14%, color-mix(in srgb, var(--lh-accent) 11%, transparent), transparent 70%), var(--lh-bg);
+}
+.journal-lh .container:not(.mm-bar) { width: var(--mb-chrome, min(1680px, 100% - 48px)); max-width: none; padding-inline: 0; }
+
+/* section heads */
+.lh-section { padding-block: 34px; }
+.lh-head { position: relative; align-items: center; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--lh-line); }
+.lh-head::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -2px; width: 72px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--lh-accent), var(--lh-purple)); }
+html[dir="rtl"] .lh-head::after { background: linear-gradient(270deg, var(--lh-accent), var(--lh-purple)); }
+.lh-head h2 { position: relative; gap: 10px; color: var(--lh-text); font-size: 21px; letter-spacing: -.01em; }
+.lh-head h2 svg { display: grid; box-sizing: content-box; padding: 8px; border-radius: 12px; background: color-mix(in srgb, var(--lh-accent) 16%, transparent); color: var(--lh-accent); }
+.lh-head small { margin-inline-start: 46px; font-size: 12px; }
+.lh-more { min-height: 38px; padding: 0 16px; border: 1px solid var(--lh-line); border-radius: 999px; background: color-mix(in srgb, var(--lh-card) 80%, transparent); font-size: 12.5px; transition: border-color .2s ease, color .2s ease, background .2s ease, transform .2s ease; }
+.lh-more:hover { border-color: var(--lh-accent); background: color-mix(in srgb, var(--lh-accent) 12%, var(--lh-card)); transform: translateX(-3px); }
+html[dir="ltr"] .lh-more:hover { transform: translateX(3px); }
+.lh-badge { padding: 3px 11px; border-radius: 999px; font-size: 11px; box-shadow: 0 6px 14px -8px var(--lh-c); }
+.lh-btn { min-height: 44px; padding: 0 22px; background: linear-gradient(135deg, var(--lh-accent), color-mix(in srgb, var(--lh-accent) 55%, var(--lh-purple))); color: #04212a !important; box-shadow: 0 14px 28px -14px var(--lh-accent); transition: transform .2s ease, box-shadow .2s ease; }
+.lh-btn:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -14px var(--lh-accent); }
+
+/* hero */
+.lh-hero { min-height: 580px; padding-block: 26px 44px; }
+.lh-hero-veil { background: linear-gradient(to top, var(--lh-bg) 0%, rgba(14, 15, 22, .82) 38%, rgba(14, 15, 22, .5) 100%), radial-gradient(70% 90% at 80% 20%, color-mix(in srgb, var(--lh-purple) 30%, transparent), transparent 70%); }
+.lh-circles { justify-content: center; gap: 18px; }
+.lh-circle span { width: 64px; height: 64px; border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: background .2s ease, border-color .2s ease, transform .25s cubic-bezier(.2, .9, .2, 1), box-shadow .25s ease; }
+.lh-circle:hover span { transform: translateY(-4px) scale(1.06); box-shadow: 0 14px 28px -12px var(--lh-c); }
+.lh-hero-copy { gap: 16px; }
+.lh-hero-copy h1 { font-size: clamp(1.6rem, 2.7vw, 3rem); line-height: 1.5; letter-spacing: -.015em; }
+.lh-hero-copy h1 a { background: linear-gradient(120deg, #fff 40%, color-mix(in srgb, var(--lh-accent) 70%, #fff)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lh-hero-copy p { max-width: 62ch; font-size: 15px; }
+.lh-hero-list { gap: 6px; padding: 12px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 26px; background: rgba(16, 17, 26, .58); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); box-shadow: 0 30px 60px -30px #000; }
+.lh-hero-list .lh-row { padding: 9px; border-radius: 18px; transition: background .2s ease; }
+.lh-hero-list .lh-row:hover { background: rgba(255, 255, 255, .07); }
+.lh-search { height: 48px; background: color-mix(in srgb, var(--lh-card) 85%, transparent); transition: border-color .2s ease, box-shadow .2s ease; overflow: hidden; }
+.lh-search:focus-within { box-shadow: 0 0 0 4px color-mix(in srgb, var(--lh-accent) 18%, transparent); }
+.lh-search > button { width: 48px; }
+
+/* cards */
+.lh-card { border: 1px solid var(--lh-line); border-radius: 22px; background: linear-gradient(180deg, var(--lh-card-2), var(--lh-card)); box-shadow: 0 24px 44px -34px #000; transition: transform .28s cubic-bezier(.2, .9, .2, 1), border-color .25s ease, box-shadow .28s ease; }
+.lh-card:hover { transform: translateY(-6px); border-color: color-mix(in srgb, var(--lh-accent) 45%, transparent); box-shadow: 0 30px 50px -30px color-mix(in srgb, var(--lh-accent) 60%, #000); }
+.lh-card-art { aspect-ratio: 16 / 10; }
+.lh-card-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(12, 13, 20, .55), transparent 55%); pointer-events: none; }
+.lh-card-art .lh-badge { z-index: 1; inset-block-end: 12px; inset-inline-start: 12px; }
+.lh-card-art img { transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.lh-card:hover .lh-card-art img { transform: scale(1.08); }
+.lh-card-body { gap: 10px; padding: 16px 18px 18px; }
+.lh-card-body b { font-size: 15px; transition: color .2s ease; }
+.lh-overlay { border: 1px solid var(--lh-line); border-radius: 24px; transition: transform .28s cubic-bezier(.2, .9, .2, 1), border-color .25s ease, box-shadow .28s ease; }
+.lh-overlay:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--lh-accent) 45%, transparent); box-shadow: 0 30px 50px -30px color-mix(in srgb, var(--lh-accent) 55%, #000); }
+.lh-overlay-body { gap: 10px; padding: 22px; }
+.lh-overlay-body b { font-size: 17px; }
+.lh-text { border: 1px solid var(--lh-line); border-radius: 20px; transition: transform .25s ease, border-color .25s ease; }
+.lh-text:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--lh-accent) 45%, transparent); }
+.lh-row { transition: transform .2s ease; }
+.lh-row img { transition: box-shadow .25s ease, transform .25s ease; }
+.lh-row:hover img { transform: scale(1.05); box-shadow: 0 0 0 3px var(--lh-card-2), 0 0 0 5px var(--lh-accent), 0 10px 20px -8px var(--lh-accent); }
+.lh-boxed-rows .lh-row { padding: 14px; border-radius: 20px; background: linear-gradient(180deg, var(--lh-card-2), var(--lh-card)); transition: border-color .2s ease, transform .25s ease; }
+.lh-boxed-rows .lh-row:hover { transform: translateY(-3px); }
+.lh-strips { border: 1px solid var(--lh-line); border-radius: 24px; }
+.lh-strip { min-height: 56px; padding: 0 18px; transition: padding .2s ease; }
+.lh-strip:hover { padding-inline-start: 26px; }
+.lh-band { background: linear-gradient(180deg, var(--lh-bg-2), color-mix(in srgb, var(--lh-bg-2) 60%, var(--lh-bg))); border-block: 1px solid var(--lh-line); }
+
+/* category tiles */
+.lh-chips { gap: 16px; }
+.lh-chips:not(.is-small) { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+/* the section bar already carries the magazine search; a second field under the hero would repeat it */
+html:has(.mm-bar-search) .journal-lh .lh-toolbar:has(> .lh-search:only-child) { display: none; }
+.lh-chips:not(.is-small) a { position: relative; padding: 22px 12px; overflow: hidden; border-radius: 22px; font-size: 15px; box-shadow: 0 20px 34px -22px var(--lh-c); transition: transform .28s cubic-bezier(.2, .9, .2, 1), box-shadow .28s ease; }
+.lh-chips:not(.is-small) a::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .28) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s ease; }
+.lh-chips:not(.is-small) a:hover { transform: translateY(-5px); box-shadow: 0 26px 40px -20px var(--lh-c); }
+.lh-chips:not(.is-small) a:hover::after { transform: translateX(120%); }
+.lh-tabs .gx-tabs { display: inline-flex; gap: 4px; padding: 5px; border: 1px solid var(--lh-line); border-radius: 999px; background: color-mix(in srgb, var(--lh-card) 80%, transparent); }
+.lh-tabs .gx-tabs button { min-height: 38px; padding: 0 18px; transition: background .2s ease, color .2s ease; }
+.lh-tabs .gx-tabs button[aria-selected='true'] { background: linear-gradient(135deg, var(--lh-accent), color-mix(in srgb, var(--lh-accent) 55%, var(--lh-purple))); box-shadow: 0 10px 20px -12px var(--lh-accent); }
+.lh-panel { gap: 26px 34px; padding: 34px; border-radius: 32px; box-shadow: 0 30px 60px -34px var(--lh-c); }
+.lh-archive { margin-block: 40px; padding-block: 56px; }
+.lh-pager a { min-height: 42px; display: inline-flex; align-items: center; border: 1px solid var(--lh-line); }
+
+/* pieces rise into place as the reader reaches them (only where the browser can tie it to scrolling) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .lh-section .lh-card, .lh-section .lh-overlay, .lh-section .lh-text, .lh-chips:not(.is-small) a, .lh-boxed-rows .lh-row, .lh-strips, .lh-panel { animation: lh-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 38%; }
+  }
+}
+@keyframes lh-rise { from { opacity: 0; translate: 0 28px; } to { opacity: 1; translate: 0 0; } }
+
+@media (min-width: 1500px) {
+  .lh-hero { min-height: 660px; }
+  .lh-hero-inner { gap: 64px; }
+  .lh-section { padding-block: 44px; }
+  .lh-grid-3, .lh-latest, .lh-archive-grid { gap: 26px; }
+  .lh-grid-4, .lh-block, .lh-block-texts, .lh-boxed-rows { gap: 22px; }
+  .lh-overlay { min-height: 320px; }
+  .lh-overlay.is-tall { min-height: 440px; }
+  .lh-text { min-height: 210px; padding: 20px; }
+  .lh-text b { font-size: 15px; }
+  .lh-card-body b { font-size: 16px; }
+  .lh-card-body em { font-size: 13px; }
+  .lh-row { grid-template-columns: 68px minmax(0, 1fr); gap: 14px; }
+  .lh-row img { width: 68px; height: 68px; }
+  .lh-row b { font-size: 14.5px; }
+}
+@media (max-width: 620px) { .journal-lh .container:not(.mm-bar) { width: calc(100% - 24px); } .lh-head h2 { font-size: 18px; } .lh-head small { margin-inline-start: 0; } }
+@media (prefers-reduced-motion: reduce) { .lh-card, .lh-overlay, .lh-text, .lh-chips a, .lh-card-art img, .lh-circle span, .lh-btn, .lh-more { transition: none; } }

@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from 'next-auth'
+import { pictureOf } from '@/modules/identity/domain/picture'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
@@ -148,9 +149,12 @@ export const authOptions: NextAuthOptions = {
       if (subject && await globalAuthenticationDenied(subject)) throw new Error('SESSION_REVOKED')
       if (!user && token.uid) {
         // Sessions end when the password is reset (or the account is suspended).
-        const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true } })
+        const current = await db.user.findUnique({ where: { id: Number(token.uid) }, select: { status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
         if (!current || current.status !== 'ACTIVE' || sessionRevoked(token.authAt, current.passwordChangedAt)) throw new Error('SESSION_REVOKED')
         if (!token.authAt) token.authAt = Date.now()
+        // The picture and name follow the profile, so a change shows without signing in again.
+        token.picture = pictureOf(current) || null
+        if (current.name) token.name = current.name
       }
       if (user) {
         token.authAt = Date.now()
@@ -169,6 +173,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).role = token.role as string
         ;(session.user as any).roleId = token.roleId as number | null
         ;(session.user as any).permissions = token.permissions
+        session.user.image = typeof token.picture === 'string' && token.picture ? token.picture : null
       }
       return session
     },
