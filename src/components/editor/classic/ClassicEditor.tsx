@@ -22,6 +22,8 @@ import 'tinymce/plugins/autoresize'
 import 'tinymce/plugins/charmap'
 import 'tinymce/plugins/codesample'
 import 'tinymce/plugins/directionality'
+import 'tinymce/plugins/emoticons'
+import 'tinymce/plugins/emoticons/js/emojis'
 import 'tinymce/plugins/fullscreen'
 import 'tinymce/plugins/image'
 import 'tinymce/plugins/link'
@@ -32,6 +34,7 @@ import 'tinymce/plugins/wordcount'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { CLASSIC_TOOLBARS, QUICKTAGS, applyQuicktag, type ClassicToolbar } from '@/modules/editor/domain/classic'
 import MediaLibrary from '@/components/editor/MediaLibrary'
+import { CONTENT_FONTS, CONTENT_FONT_SIZES, CONTENT_LINE_HEIGHTS, DEFAULT_FONT_STACK, fontStack } from '@/shared/content/fonts'
 import { TINYMCE_FA } from './tinymce-fa'
 
 // The editor's own menus, tooltips and dialogs in Persian (registered once, used when the site is in Persian).
@@ -128,8 +131,13 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
     autoresize_bottom_margin: 24,
     toolbar_mode: 'wrap' as const,
     toolbar_sticky: true,
-    plugins: ['advlist', 'anchor', 'autolink', 'autoresize', 'charmap', 'codesample', 'directionality', 'fullscreen', 'image', 'link', 'lists', 'searchreplace', 'table', 'wordcount'],
+    plugins: ['advlist', 'anchor', 'autolink', 'autoresize', 'charmap', 'codesample', 'directionality', 'emoticons', 'fullscreen', 'image', 'link', 'lists', 'searchreplace', 'table', 'wordcount'],
     toolbar: CLASSIC_TOOLBARS[toolbar],
+    // Fonts, sizes and line heights come from one shared list — the server keeps exactly these and drops any other.
+    font_family_formats: CONTENT_FONTS.map((font) => `${fa ? font.fa : font.en}=${fontStack(font)}`).join('; '),
+    font_size_formats: CONTENT_FONT_SIZES.map((size) => `${size}px`).join(' '),
+    line_height_formats: CONTENT_LINE_HEIGHTS.join(' '),
+    emoticons_database: 'emojis',
     block_formats: fa ? 'پاراگراف=p; تیتر ۲=h2; تیتر ۳=h3; تیتر ۴=h4; متن قالب‌دار=pre' : 'Paragraph=p; Heading 2=h2; Heading 3=h3; Heading 4=h4; Preformatted=pre',
     // Addresses are kept as they were typed: no rewriting to relative paths, no entity soup in Persian text.
     convert_urls: false,
@@ -151,7 +159,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
     images_upload_handler: (blob: { blob: () => Blob; filename: () => string }) => uploadPicture(blob.blob(), blob.filename()),
     file_picker_types: 'image',
     file_picker_callback: (done: (url: string, meta?: Record<string, string>) => void) => setLibrary({ done }),
-    content_style: `${typeof document === 'undefined' ? '' : pageFontFaces()}\nbody { font-family: ${typeof document === 'undefined' ? 'sans-serif' : getComputedStyle(document.body).fontFamily}; font-size: 15px; line-height: 2; padding: 6px 10px; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #8884; padding: 6px 10px; }`,
+    content_style: `${typeof document === 'undefined' ? '' : pageFontFaces()}\nbody { font-family: ${DEFAULT_FONT_STACK}; font-size: 16px; line-height: 2; padding: 6px 10px; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #8884; padding: 6px 10px; }`,
   }), [dark, dir, placeholder, minHeight, toolbar, fa, noMedia])
 
   function quicktag(tag: string) {

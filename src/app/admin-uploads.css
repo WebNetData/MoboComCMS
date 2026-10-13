@@ -82,3 +82,27 @@ html[dir='ltr'] .ce-panel { border-radius: 0 12px 12px 12px; }
   .ml-side { border-inline-start: 0; border-top: 1px solid var(--border); max-height: 46vh; }
   .ml-preview { display: none; }
 }
+
+/* ce-polish — the classic editor's toolbar in the site's own language of shape: soft groups, round buttons,
+   the accent for what is switched on, quiet separators, and gentle transitions (none for reduced motion). */
+.ce-panel .tox .tox-toolbar-overlord, .ce-panel .tox .tox-toolbar__primary, .ce-panel .tox .tox-editor-header { background: var(--bg-soft) !important; }
+.ce-panel .tox .tox-toolbar__primary { padding: 6px 8px; row-gap: 4px; background-image: none !important; }
+.ce-panel .tox .tox-toolbar__group { padding: 0 6px; border: 0 !important; position: relative; gap: 2px; }
+.ce-panel .tox .tox-toolbar__group:not(:last-of-type)::after { content: ''; position: absolute; inset-block: 7px; inset-inline-end: 0; width: 1px; background: var(--border); }
+.ce-panel .tox .tox-tbtn { height: 34px; margin: 0; border-radius: 9px; color: var(--text); transition: background .15s ease, color .15s ease, transform .12s ease; cursor: pointer; }
+.ce-panel .tox .tox-tbtn svg { fill: currentColor; }
+.ce-panel .tox .tox-tbtn:hover:not(.tox-tbtn--disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.ce-panel .tox .tox-tbtn:active:not(.tox-tbtn--disabled) { transform: scale(.94); }
+.ce-panel .tox .tox-tbtn--enabled, .ce-panel .tox .tox-tbtn--enabled:hover { background: var(--primary-soft); color: var(--primary); }
+.ce-panel .tox .tox-tbtn--select { padding-inline: 10px; border: 1px solid var(--border); background: var(--card); font-family: inherit; }
+.ce-panel .tox .tox-tbtn--select .tox-tbtn__select-label { font-size: 12.5px; font-weight: 600; }
+.ce-panel .tox .tox-tbtn:focus-visible, .ce-panel .tox .tox-split-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; box-shadow: none; }
+.ce-panel .tox .tox-split-button { border-radius: 9px; overflow: hidden; }
+.ce-panel .tox .tox-statusbar { border-top: 1px solid var(--border); background: var(--bg-soft); color: var(--muted); }
+.ce-panel .tox .tox-edit-area::before { border-color: var(--primary); border-radius: 0; }
+.tox .tox-menu, .tox .tox-dialog { border-radius: 14px !important; border-color: var(--border) !important; box-shadow: 0 22px 60px rgb(0 0 0 / .28) !important; }
+.tox .tox-collection__item { border-radius: 8px; }
+.tox .tox-dialog__header, .tox .tox-dialog__footer { padding-block: 12px; }
+.tox .tox-button { border-radius: 10px !important; }
+.tox .tox-collection--list .tox-collection__item--active, .tox .tox-collection--grid .tox-collection__item--active { background: var(--primary-soft) !important; color: var(--primary) !important; }
+@media (prefers-reduced-motion: reduce) { .ce-panel .tox .tox-tbtn { transition: none; } .ce-panel .tox .tox-tbtn:active { transform: none; } }

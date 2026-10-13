@@ -449,7 +449,7 @@ test('the classic editor: quick tags wrap the selection, refuse an address that 
   assert.equal(classic.applyQuicktag('a', 0, 1, 'script', none), null, 'an unknown tag does nothing')
   // Every quick tag has an action, and the toolbars name only tools of the open-source edition.
   for (const tag of classic.QUICKTAGS) assert.notEqual(classic.applyQuicktag('x', 0, 1, tag.id, () => '/a'), null, tag.id)
-  const FREE = new Set('blocks bold italic underline strikethrough forecolor backcolor alignright aligncenter alignleft alignjustify bullist numlist outdent indent blockquote link image table codesample charmap rtl ltr removeformat searchreplace fullscreen undo redo'.split(' '))
+  const FREE = new Set('blocks bold italic underline strikethrough forecolor backcolor alignright aligncenter alignleft alignjustify bullist numlist outdent indent blockquote link image table codesample charmap rtl ltr removeformat searchreplace fullscreen undo redo fontfamily fontsize lineheight emoticons'.split(' '))
   for (const [name, bar] of Object.entries(classic.CLASSIC_TOOLBARS)) for (const tool of bar.split(/[\s|]+/).filter(Boolean)) assert.ok(FREE.has(tool), name + ': ' + tool)
   assert.doesNotMatch(classic.CLASSIC_TOOLBARS.basic, /image|table|codesample/)
 
@@ -482,7 +482,7 @@ test('the classic editor: quick tags wrap the selection, refuse an address that 
   // The server's cleaning keeps what the editor can make (tables with merged cells) and still drops what runs.
   // The sanitiser imports its library by default export, so it is compiled here with module interop on.
   const cleaning = { exports: {} }
-  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)((name) => (name.startsWith('@/') ? load('src/' + name.slice(2)) : require(name)), cleaning, cleaning.exports)
   const { cleanRichText } = cleaning.exports
   assert.equal(cleanRichText('<table><tbody><tr><td colspan="2" rowspan="3" onclick="x()">a</td></tr></tbody></table>'), '<table><tbody><tr><td colspan="2" rowspan="3">a</td></tr></tbody></table>')
   assert.equal(cleanRichText('<p style="color:#ff0000;position:fixed">x</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="x()"><a href="javascript:alert(1)">y</a>'), '<p style="color:#ff0000">x</p><img /><a>y</a>')
@@ -503,7 +503,7 @@ test('the media library: a chosen picture becomes clean markup, the listing is t
   // Everything it writes survives the server's cleaning unchanged, so what the writer saw is what is stored.
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
   const cleaning = { exports: {} }
-  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)((name) => (name.startsWith('@/') ? load('src/' + name.slice(2)) : require(name)), cleaning, cleaning.exports)
   for (const html of [pick({}), pick({ alt: 'متن', caption: 'زیرنویس', width: 960, align: 'right' }), pick({ width: 320, align: 'center' })]) assert.equal(cleaning.exports.cleanRichText(html).replace(/text-align:(\w)/, 'text-align: $1'), html)
 
   // The listing: only files the store wrote (its naming), newest first, paged; nothing from the resized cache or a stray file.
@@ -551,4 +551,40 @@ test('an upload is accepted from the hosts this site answers on, whatever addres
   assert.equal(originIsThisSite(null, 'localhost:3000', undefined), true)
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
   for (const file of ['src/modules/site/server/http/admin/media/route.ts', 'src/modules/marketplace/server/http/marketplace.ts']) { assert.match(read(file), /originIsThisSite\(req\.headers\.get\('origin'\), req\.headers\.get\('host'\) \|\| req\.nextUrl\.host\)/, file); assert.doesNotMatch(read(file), /!== req\.nextUrl\.origin/, file) }
+})
+
+test('fonts, sizes and emoji in the editor: one list, and the server keeps a font only when it is on it', () => {
+  const fonts = load('src/shared/content/fonts')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const cleaning = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)((name) => (name.startsWith('@/') ? load('src/' + name.slice(2)) : require(name)), cleaning, cleaning.exports)
+  const clean = cleaning.exports.cleanRichText
+  // Every font on the list has its face declared and its file in the repository, with its licence beside it.
+  const sheet = read('src/app/editor-fonts.css'), licences = read('public/fonts/editor/LICENSES.md')
+  assert.ok(fonts.CONTENT_FONTS.length >= 8)
+  for (const font of fonts.CONTENT_FONTS.filter((entry) => entry.family.startsWith('Mobo'))) {
+    const files = sheet.split('\n').filter((rule) => rule.includes("font-family: '" + font.family + "';")).map((rule) => /url\(\/fonts\/editor\/([\w.-]+)\)/.exec(rule)?.[1]).filter(Boolean)
+    assert.ok(files.length >= 1, font.family)
+    for (const file of files) assert.ok(fs.statSync(path.resolve(__dirname, '..', 'public/fonts/editor', file)).size > 10_000, file)
+    assert.ok(licences.includes(font.en), font.en)
+  }
+  assert.match(licences, /SIL Open Font License, Version 1\.1/)
+  assert.match(read('src/app/layout.tsx'), /import '\.\/editor-fonts\.css'/)
+  // What the editor writes is kept exactly…
+  const written = '<p><span style="font-family:' + fonts.fontStack(fonts.CONTENT_FONTS[2]) + ';font-size:24px;line-height:2">متن</span></p>'
+  assert.equal(clean(written), written)
+  assert.equal(fonts.isContentFontFamily("'MoboLalezar', HappVazirmatn, sans-serif"), true)
+  // …and anything else in those properties is dropped: another font, a remote one, a size or height off the list, an expression.
+  for (const bad of ['Comic Sans MS', 'Arial, sans-serif', 'sans-serif', "MoboEstedad, url(https://evil.example/f.woff2)", 'MoboEstedad;background:url(x)', 'expression(alert(1))', 'MoboEstedad, a, b, c, d']) assert.equal(fonts.isContentFontFamily(bad), false, bad)
+  assert.equal(clean('<span style="font-family: Comic Sans MS; font-size: 999px; line-height: 77; position: fixed; color: #ff0000">x</span>'), '<span style="color:#ff0000">x</span>')
+  assert.equal(clean('<span style="font-size:13px">x</span><span style="font-size:24PX">y</span><span style="font-size:1e9px">z</span>'), '<span>x</span><span>y</span><span>z</span>')
+  // The editor offers the list, in the site's language, with emoji from its own bundle; the toolbars name the tools.
+  const editor = read('src/components/editor/classic/ClassicEditor.tsx'), classic = load('src/modules/editor/domain/classic')
+  assert.match(editor, /font_family_formats: CONTENT_FONTS\.map\(/)
+  assert.match(editor, /font_size_formats: CONTENT_FONT_SIZES\.map\(/)
+  assert.match(editor, /line_height_formats: CONTENT_LINE_HEIGHTS\.join\(' '\)/)
+  assert.match(editor, /import 'tinymce\/plugins\/emoticons'\nimport 'tinymce\/plugins\/emoticons\/js\/emojis'/)
+  assert.match(editor, /emoticons_database: 'emojis'/)
+  for (const tool of ['fontfamily', 'fontsize', 'lineheight', 'emoticons']) assert.ok(classic.CLASSIC_TOOLBARS.full.split(/[\s|]+/).includes(tool), tool)
+  assert.match(classic.CLASSIC_TOOLBARS.basic, /\bemoticons\b/)
 })

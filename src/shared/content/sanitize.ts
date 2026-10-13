@@ -1,6 +1,12 @@
 // Rich text is authored in the admin panel but rendered on public pages and in
 // the customer panel — always sanitize before it leaves the API.
 import sanitizeHtml from 'sanitize-html'
+import { CONTENT_FONT_SIZES, CONTENT_LINE_HEIGHTS, isContentFontFamily } from '@/shared/content/fonts'
+
+// A font is kept only when it is one the editor offers; a size or a line height only when it is on the editor's list.
+const FONT_FAMILY = { test: (value: string) => isContentFontFamily(value) } as unknown as RegExp
+const FONT_SIZE = { test: (value: string) => CONTENT_FONT_SIZES.some((size) => value === `${size}px`) } as unknown as RegExp
+const LINE_HEIGHT = { test: (value: string) => (CONTENT_LINE_HEIGHTS as readonly string[]).includes(value) } as unknown as RegExp
 
 const OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -30,6 +36,9 @@ const OPTIONS: sanitizeHtml.IOptions = {
       'text-align': [/^(left|right|center|justify)$/],
       color: [/^#[0-9a-f]{3,8}$/i, /^rgb/i],
       'background-color': [/^#[0-9a-f]{3,8}$/i, /^rgb/i],
+      'font-family': [FONT_FAMILY],
+      'font-size': [FONT_SIZE],
+      'line-height': [LINE_HEIGHT],
     },
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel', 'data'],
