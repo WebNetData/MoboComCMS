@@ -50,3 +50,24 @@ test('empty Music dashboard stays empty and download read failures are not prese
   db.downloadLog = { findMany: async () => { throw new Error('database read failed') } }
   await assert.rejects(musicDashboard(), /database read failed/)
 })
+
+test('the music section: as wide as the header, a player drawn with icons, and a queue that says where the listener is', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const player = read('src/components/media/MusicPlayer.tsx'), css = read('src/app/media-design.css')
+  // Controls are shapes: a text glyph is painted differently (or as an emoji) by every device.
+  assert.doesNotMatch(player, /[⤮⏮⏭☰⤓✕♪]|❚❚|🔁|🔂|'▶'/u, 'no control of the player is a text glyph')
+  for (const name of ['play', 'pause', 'prev', 'next', 'shuffle', 'repeat', 'repeatOne', 'queue', 'download', 'close', 'note']) assert.match(player, new RegExp('\n  ' + name + ': <'), 'icon ' + name)
+  for (const used of [...player.matchAll(/PlayerIcon name="(\w+)"/g)].map((m) => m[1])) assert.match(player, new RegExp('\n  ' + used + ': <'), 'icon ' + used + ' is defined')
+  // The queue: which track of how many, a number per track (the playing one moves), and its own close button.
+  assert.match(player, /\$\{\(index \+ 1\)\.toLocaleString\('fa-IR'\)\} از \$\{queue\.length\.toLocaleString\('fa-IR'\)\} آهنگ/)
+  assert.match(player, /className=\{i === index \? 'is-current' : i < index \? 'is-played' : ''\}/)
+  assert.match(player, /aria-current=\{i === index \? 'true' : undefined\}/)
+  assert.match(player, /onClick=\{\(\) => setShowQueue\(false\)\} aria-label=\{fa \? 'بستن صف پخش' : 'Close queue'\}/)
+  // The bar is lit by the cover of what is playing, and stops moving for listeners who ask for less motion.
+  assert.match(player, /className="mu-player-glow" aria-hidden="true" style=\{\{ backgroundImage: `url\("\$\{encodeURI\(current\.cover\)\}"\)` \}\}/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mu-pb\.is-playing, \.mu-player\[data-playing\] \.mu-play-main, \.mu-player\[data-playing\] \.mu-player-glow::before, \.mu-queue \{ animation: none; \}/)
+  // The whole section takes the width of the site header; the section bar keeps its own box.
+  assert.match(css, /\.md-music \.container:not\(\.mm-bar\) \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none;/)
+  assert.match(css, /\.mu-player \{ inset-inline: max\(16px, calc\(\(100% - var\(--mb-chrome, 100%\)\) \/ 2\)\);/)
+})

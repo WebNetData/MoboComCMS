@@ -58,7 +58,7 @@ export default async function MusicHomePage() {
       </div>
     ),
     featuredAlbums: () => data.featuredAlbums.length > 0 && (
-      <Shelf tone="music" eyebrow={fa ? 'منتخب' : 'Editors’ picks'} title={fa ? 'آلبوم‌های ویژه' : 'Featured albums'}>
+      <Shelf tone="music" id="featured-albums" eyebrow={fa ? 'منتخب' : 'Editors’ picks'} title={fa ? 'آلبوم‌های ویژه' : 'Featured albums'}>
         {data.featuredAlbums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}
       </Shelf>
     ),
@@ -105,7 +105,7 @@ export default async function MusicHomePage() {
               {lead.cover ? <img src={lead.cover} alt="" /> : <span className="mu-noart">♪</span>}
             </div>
             {hero.length > 1 && (
-              <ol className="mu-hero-queue">
+              <ol className="mu-hero-queue" aria-label={fa ? 'ادامهٔ پیشنهادها' : 'More picks'} data-title={fa ? 'ادامهٔ پیشنهادها' : 'More picks'}>
                 {heroSource.slice(1, 5).map((track, i) => (
                   <li key={track.id}>
                     <PlayButton tracks={hero} index={i + 1} />
