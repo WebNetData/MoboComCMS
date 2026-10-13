@@ -54,6 +54,11 @@ test('receipts keep only the last four card digits and reject impossible dates',
   assert.equal(receipt.trackingCode, '987654')
   assert.throws(() => card.normalizeReceipt({ payerName: 'مریم احمدی', payerBank: 'ملت', payerCard: '1234', trackingCode: '9876', paidAt: '2026-09-29T09:00:00Z' }, now), /تاریخ/)
   assert.throws(() => card.normalizeReceipt({ payerName: 'مریم احمدی', payerBank: 'ملت', payerCard: '12', trackingCode: '9876' }, now), /چهار رقم/)
+  // The owner's name is what a receipt must carry; the rest is optional and checked only when written.
+  const plain = card.normalizeReceipt({ payerName: 'مریم احمدی' }, now)
+  assert.deepEqual([plain.method, plain.payerBank, plain.payerCard, plain.trackingCode, plain.paidAt.getTime()], ['CARD', '', '', '', now.getTime()])
+  assert.throws(() => card.normalizeReceipt({ payerName: ' م  ' }, now), /صاحب کارت/)
+  assert.throws(() => card.normalizeReceipt({ payerName: 'مریم احمدی', trackingCode: '12' }, now), /پیگیری/)
   assert.deepEqual(card.transferAmounts(12500000n, 'IRR'), { rial: 12500000n, toman: 1250000n })
   assert.deepEqual(card.transferAmounts(1250000n, 'IRT'), { rial: 12500000n, toman: 1250000n })
   assert.equal(card.transferAmounts(10n, 'USD'), null)
