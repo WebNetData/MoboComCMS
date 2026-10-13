@@ -326,3 +326,42 @@ test('advanced style: only bounded values are stored, and the CSS written from t
   assert.match(read('src/app/admin/builder/advanced-style.tsx'), /onChange\(validateAdvancedStyle\(\{ \.\.\.adv, \.\.\.change \}\), history\)/)
   for (const motion of style.MOTIONS) assert.match(read('src/app/builder-render.css'), new RegExp('@keyframes br-in-' + motion + ' '))
 })
+
+test('showcase blocks: each is a real block of the document, offered in the palette, described in the inspector and drawn safely', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const builder = load('src/modules/site/domain/builder.ts')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const NEW = ['icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress']
+  const palette = read('src/app/admin/builder/palette.tsx'), inspector = read('src/app/admin/builder/inspector.tsx'), renderer = read('src/components/content/builder/BuilderRenderer.tsx')
+  for (const type of NEW) {
+    assert.ok(builder.WIDGET_TYPES.includes(type), type)
+    assert.ok(builder.WIDGET_LABELS[type].fa && builder.WIDGET_LABELS[type].en, type + ' has a name in both languages')
+    // A fresh block is a valid document as it stands, and survives a save unchanged.
+    const widget = builder.createWidget(type), section = builder.createSection(1); section.columns[0].widgets.push(widget)
+    const saved = builder.validateBuilderDoc({ ...builder.emptyDoc(), sections: [section] }).sections[0].columns[0].widgets[0]
+    assert.deepEqual(saved.props, widget.props, type)
+    const quoted = type.includes('-') ? "'" + type + "'" : type
+    assert.ok(palette.includes("'" + type + "'"), type + ' is in the palette')
+    assert.ok(new RegExp('\\n  ' + quoted.replace(/[-']/g, '\\$&') + ': \\[').test(inspector), type + ' has inspector fields')
+    assert.ok(renderer.includes("case '" + type + "':"), type + ' is drawn')
+  }
+  // Limits hold: too many items, an icon off the list, a link that runs.
+  const withProps = (type, props) => { const section = builder.createSection(1); section.columns[0].widgets.push({ ...builder.createWidget(type), props }); return { ...builder.emptyDoc(), sections: [section] } }
+  assert.throws(() => builder.validateBuilderDoc(withProps('gallery', { items: JSON.stringify(Array(25).fill({ src: '/a.webp' })), columns: '3' })), /Invalid items list/)
+  assert.equal(builder.validateBuilderDoc(withProps('icon-box', { icon: 'skull<script>', layout: 'diagonal', title: 'x' })).sections[0].columns[0].widgets[0].props.icon, builder.BOX_ICONS[0])
+  assert.throws(() => builder.validateBuilderDoc(withProps('icon-box', { icon: 'star', href: 'javascript:alert(1)' })), /Invalid URL/)
+  // Every icon the box offers exists in the site's icon set (an unknown name would silently show the shield).
+  const icons = read('src/components/site/Icon.tsx')
+  for (const name of builder.BOX_ICONS) assert.ok(new RegExp('\\n  ' + name + ': ').test(icons), 'icon ' + name)
+  // Addresses typed into a list of items are checked where they are drawn: pictures by safeSrc, links by safeHref; a tab's words are text.
+  assert.match(renderer, /const safeSrc = \(raw: string \| undefined\) => \{[^\n]*\/\^https:\\\/\\\/\[\^\\s<>"'\\\\\]\+\$\/\.test\(value\) \? value : ''/)
+  for (const use of ['safeSrc(item.avatar)', 'src: safeSrc(item.src)', 'href={safeHref(item.href)}', 'href={safeHref(href)}', 'cleanWidgetHtml(escapeText(']) assert.ok(renderer.includes(use), use)
+  assert.doesNotMatch(renderer.slice(renderer.indexOf("case 'icon-box'"), renderer.indexOf("case 'html':")), /dangerouslySetInnerHTML|src=\{item\.|href=\{item\./, 'no raw item value reaches an attribute or the markup')
+  // The three that need the browser are one client file, readable without script and still under reduced motion.
+  const live = read('src/components/content/builder/BuilderInteractive.tsx')
+  assert.match(live, /^'use client'/)
+  assert.match(live, /prefers-reduced-motion: reduce/)
+  assert.match(live, /role="tablist"/); assert.match(live, /role="tabpanel"/); assert.match(live, /ArrowLeft/)
+  assert.match(live, /const \[now, setNow\] = useState<number \| null>\(null\)/, 'the countdown paints the same on the server and in the browser')
+  assert.match(read('src/app/builder-render.css'), /@media \(prefers-reduced-motion: reduce\) \{ \.br-iconbox, \.br-price,/)
+})

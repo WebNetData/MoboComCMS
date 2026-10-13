@@ -9,6 +9,8 @@ type L = (en: string, fa: string) => string
 const GROUPS: { titleEn: string; titleFa: string; types: WidgetType[] }[] = [
   { titleEn: 'Content', titleFa: 'محتوا', types: ['heading', 'text', 'image', 'button', 'video', 'nav'] },
   { titleEn: 'Structure', titleFa: 'ساختار', types: ['divider', 'spacer', 'stats', 'list', 'faq'] },
+  { titleEn: 'Showcase', titleFa: 'نمایشی', types: ['icon-box', 'tabs', 'testimonials', 'counters', 'progress', 'pricing', 'countdown'] },
+  { titleEn: 'Media & social', titleFa: 'رسانه و شبکه‌ها', types: ['gallery', 'carousel', 'social'] },
   { titleEn: 'Sections', titleFa: 'بخش‌های آماده', types: ['hero', 'cta', 'plans', 'posts', 'products', 'media', 'vip-cta', 'network', 'form'] },
   { titleEn: 'Advanced', titleFa: 'پیشرفته', types: ['html', 'template'] },
 ]
@@ -24,6 +26,7 @@ const GLYPH: Partial<Record<WidgetType, string>> = {
   'product-hero': '◈', 'product-gallery': '▤', 'product-info': 'ℹ', 'product-purchase': '🛍', 'product-usp': '✓', 'product-tabs': '⊟',
   'site-header': '▔', 'site-footer': '▁',
   media: '🎬', 'vip-cta': '♛',
+  'icon-box': '◆', tabs: '⊟', testimonials: '❝', counters: '①', gallery: '▦', carousel: '⇆', pricing: '₪', countdown: '⏱', social: '@', progress: '▰',
 }
 
 /** Extra block groups offered for the page being edited. */
