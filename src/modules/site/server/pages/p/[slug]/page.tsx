@@ -16,6 +16,7 @@ import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { pageBlocksHtml } from '@/modules/editor/server/documents'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -72,7 +73,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
         {hasLegacy && (
           <div className={`container page-main content-surface managed-page managed-page-${layout.pageLayout} covered-page-body`}>
             <div className={layout.pageLayout === 'sidebar' ? 'article-layout' : 'managed-page-body'}>
-              <div>{content && <article id="article-body" className={`content-reading prose ${layout.pageFrame === 'plain' ? 'content-unframed' : ''}`} dangerouslySetInnerHTML={{ __html: content }} />}{attachedForm?.published && <div className="mt-8"><PublicForm form={publicForm(parseForm(attachedForm))} /></div>}</div>
+              <div>{content && <article id="article-body" className={`content-reading prose ${layout.pageFrame === 'plain' ? 'content-unframed' : ''}`} dangerouslySetInnerHTML={{ __html: withTextDirections(content) }} />}{attachedForm?.published && <div className="mt-8"><PublicForm form={publicForm(parseForm(attachedForm))} /></div>}</div>
               {layout.pageLayout === 'sidebar' && <div className="content-sidebar"><ArticleToc />{navPages.length > 0 && <aside className="toc"><h2 className="toc-title">{isFa ? 'بیشتر بخوانید' : 'Explore more'}</h2>{navPages.filter(p => p.slug !== page.slug).map(p => <Link className="content-sidebar-link" key={p.slug} href={`/p/${p.slug}`}>{isFa ? p.title : p.titleEn || p.title}</Link>)}</aside>}</div>}
             </div>
           </div>

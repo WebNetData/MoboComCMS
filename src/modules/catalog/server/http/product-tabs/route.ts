@@ -13,6 +13,7 @@ import { productReviewCriteria } from '@/modules/catalog/server/review-criteria'
 import { readProductPriceHistory } from '@/modules/catalog/server/price-history-read'
 import { readFrequentlyBoughtProducts } from '@/modules/catalog/server/frequently-bought'
 import { readEditorialProductCards } from '@/modules/catalog/server/product-relationship-read'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       db.productReview.count({ where }),
       db.productReview.aggregate({ where, _avg: { rating: true } }),
       db.productReview.groupBy({ by: ['rating'], where, _count: { rating: true } }),
-      db.productReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 10, take: 10, select: { id: true, rating: true, criteria: true, title: true, body: true, createdAt: true, user: { select: { name: true } } } }),
+      db.productReview.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * 10, take: 10, select: { id: true, rating: true, criteria: true, title: true, body: true, createdAt: true, user: { select: { name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } } } }),
       productReviewCriteria(product.id),
       user ? hasVerifiedProductPurchase(user.id, product.id) : false,
       user ? db.productReview.findUnique({ where: { productId_userId: { productId: product.id, userId: user.id } } }) : null,
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest, { params }: Context) {
       hasReviewed: Boolean(existing),
       page,
       pages: Math.max(1, Math.ceil(total / 10)),
-      items: rows.map(row => ({ ...row, criteria: parseJson(row.criteria, {}), user: { name: row.user.name || 'Customer' } })),
+      items: rows.map(row => ({ ...row, criteria: parseJson(row.criteria, {}), user: { name: row.user.name || 'Customer', avatar: pictureOf(row.user) } })),
     })
   }
   if (tab === 'questions') {

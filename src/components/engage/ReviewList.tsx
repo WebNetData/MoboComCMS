@@ -9,7 +9,7 @@ type Review = {
   rating: number
   body: string
   createdAt: string
-  author: { name: string; color: string }
+  author: { name: string; color: string; avatar?: string }
   mine: boolean
   helpfulCount: number
   helpfulByMe: boolean
@@ -108,7 +108,7 @@ export default function ReviewList({ item, initial, initialTotal, initialPages, 
         const long = review.body.length > FOLD_AT
         const open = opened.includes(review.id)
         return <li key={review.id} className={review.mine ? 'is-mine' : ''}>
-          <span className="rv-avatar" style={{ background: review.author.color }} aria-hidden="true">{review.author.name.slice(0, 1)}</span>
+          {review.author.avatar ? <img className="rv-avatar is-photo" src={review.author.avatar} alt="" loading="lazy" /> : <span className="rv-avatar" style={{ background: review.author.color }} aria-hidden="true">{review.author.name.slice(0, 1)}</span>}
           <div className="rv-entry">
             <p className="rv-head">
               <b>{review.author.name}</b>

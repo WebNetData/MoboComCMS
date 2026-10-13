@@ -5,9 +5,9 @@ import Link from '@/components/AppLink'
 import { useSession } from 'next-auth/react'
 import { useI18n } from '@/i18n/LocaleProvider'
 
-type Reply = { id: number; body: string; createdAt: string; user: { name: string } }
+type Reply = { id: number; body: string; createdAt: string; user: { name: string; avatar?: string } }
 type Comment = Reply & { replies: Reply[]; deleted?: boolean }
-type Listing = { comments: Comment[]; total: number; page: number; pages: number }
+type Listing = { comments: Comment[]; total: number; page: number; pages: number; viewer?: { avatar: string } | null }
 
 const MAX = 2000
 /** A steady colour for a name, so the same person keeps the same avatar across comments. */
@@ -16,7 +16,9 @@ function hueOf(name: string) {
   for (const char of name) hash = (hash * 31 + (char.codePointAt(0) || 0)) % 360
   return hash
 }
-const Avatar = ({ name }: { name: string }) => <span className="pc-avatar" style={{ ['--pc-hue' as string]: hueOf(name || '?') }} aria-hidden="true">{(name || '?').trim().slice(0, 1)}</span>
+const Avatar = ({ name, src }: { name: string; src?: string }) => src
+  ? <img className="pc-avatar is-photo" src={src} alt="" loading="lazy" />
+  : <span className="pc-avatar" style={{ ['--pc-hue' as string]: hueOf(name || '?') }} aria-hidden="true">{(name || '?').trim().slice(0, 1)}</span>
 const ReplyIcon = () => <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h9a7 7 0 0 1 7 7v4" /></svg>
 
 /** Comments of a magazine article: read by everybody, written by members, shown after moderation. */
@@ -66,7 +68,7 @@ export default function PostComments({ slug }: { slug: string }) {
   const date = (value: string) => new Date(value).toLocaleDateString(fa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   const counter = (length: number) => <small className={`pc-counter${length > MAX - 200 ? ' is-near' : ''}`}>{num(length)} / {num(MAX)}</small>
   const entry = (item: Reply) => <>
-    <Avatar name={item.user.name} />
+    <Avatar name={item.user.name} src={item.user.avatar} />
     <div className="pc-bubble">
       <div className="post-comment-meta"><strong>{item.user.name}</strong><time dateTime={item.createdAt}>{date(item.createdAt)}</time></div>
       <p dir="auto">{item.body}</p>
@@ -82,7 +84,7 @@ export default function PostComments({ slug }: { slug: string }) {
     {error && <p className="ticket-alert" role="alert">{error}</p>}
     {notice && <p className="post-comments-notice" role="status"><span aria-hidden="true">✓</span>{notice}</p>}
     {signedIn ? <form className="post-comment-form" onSubmit={(event) => { event.preventDefault(); void send(body, null) }}>
-      <Avatar name={me} />
+      <Avatar name={me} src={listing?.viewer?.avatar} />
       <div className="pc-compose">
         <label htmlFor="post-comment-body">{L('Your comment', 'دیدگاه شما')}</label>
         <textarea id="post-comment-body" className="input" minLength={2} maxLength={MAX} required rows={4} dir="auto" value={body} onChange={event => setBody(event.target.value)} placeholder={L('Write your comment…', 'دیدگاه خود را بنویسید…')} />

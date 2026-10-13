@@ -6,6 +6,9 @@ import { rateLimitHit } from '@/platform/http/rate-limit'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { isLivePost } from '@/modules/journal/domain/journal'
 import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
+import { pictureOf } from '@/modules/identity/domain/picture'
+
+const who = (user: { name: string | null; telegramPhoto: string | null; userProfile: { avatar: string } | null }) => ({ name: user.name || 'Member', avatar: pictureOf(user) })
 
 type Context = { params: Promise<{ slug: string }> }
 
@@ -26,15 +29,18 @@ export async function GET(req: NextRequest, { params }: Context) {
       take: 20,
       select: {
         id: true, body: true, createdAt: true, status: true,
-        user: { select: { name: true } },
+        user: { select: { name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } },
         replies: {
           where: { status: 'APPROVED' }, orderBy: { createdAt: 'asc' }, take: 100,
-          select: { id: true, body: true, createdAt: true, user: { select: { name: true } } },
+          select: { id: true, body: true, createdAt: true, user: { select: { name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } } },
         },
       },
     }),
   ])
-  return ok({ comments: comments.map(({ status, ...comment }) => ({ ...comment, ...(status === 'DELETED' ? { body: '', deleted: true, user: { name: '' } } : { user: { name: comment.user.name || 'Member' } }), replies: comment.replies.map(reply => ({ ...reply, user: { name: reply.user.name || 'Member' } })) })), total, page, pages: Math.max(1, Math.ceil(total / 20)) })
+  // The reader's own picture, for the box they write in (nothing for a visitor).
+  const reader = await requireUser(req).catch(() => null)
+  const mine = reader ? await db.user.findUnique({ where: { id: reader.id }, select: { telegramPhoto: true, userProfile: { select: { avatar: true } } } }) : null
+  return ok({ comments: comments.map(({ status, ...comment }) => ({ ...comment, ...(status === 'DELETED' ? { body: '', deleted: true, user: { name: '', avatar: '' } } : { user: who(comment.user) }), replies: comment.replies.map(reply => ({ ...reply, user: who(reply.user) })) })), total, page, pages: Math.max(1, Math.ceil(total / 20)), viewer: mine ? { avatar: pictureOf(mine) } : null })
 }
 
 export async function POST(req: NextRequest, { params }: Context) {

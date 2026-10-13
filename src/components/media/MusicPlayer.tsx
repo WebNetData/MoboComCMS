@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import type { PlayerTrack } from './player-types'
+import TrackActions from './TrackActions'
 import { readPlaybackSession, sourceUrl, trackSource, writePlaybackSession } from './playback-session'
 
 type Lock = { reason: 'login' | 'vip' | 'buy'; track: PlayerTrack } | null
@@ -302,6 +303,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
               </div>
             </div>
             <div className="mu-player-side">
+              <TrackActions trackId={current.id} title={current.title} />
               {current.hasHq && <button type="button" className={`mu-hq${hq ? ' is-on' : ''}`} onClick={() => { const on = !hq; setHq(on); writePref('mu.hq', on ? '1' : '0'); load(current, on) }} title={fa ? 'کیفیت ۳۲۰' : '320 kbps'}>320</button>}
               <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}>⤓</button>
               <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'}>☰</button>

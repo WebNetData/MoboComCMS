@@ -356,8 +356,8 @@ test('WordPress packages are imported only where the editor adapts to them', () 
   for (const file of ['modules/site/server/pages/p/[slug]/page.tsx', 'modules/editor/server/documents.ts', 'app/layout.tsx']) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /adapters\/gutenberg|components\/editor\/gutenberg|@wordpress|@tiptap/, file)
 })
 
-test('text reads in the direction of its first letter: Persian from the right, English from the left', () => {
-  for (const [value, dir] of [['سلام world', 'rtl'], ['Hello دنیا', 'ltr'], ['۱۲۳ سلام', 'rtl'], ['123 hello', 'ltr'], ['  «نقل»', 'rtl'], ['(note)', 'ltr'], ['שלום', 'rtl'], ['Привет', 'ltr'], ['\u05beHello', 'ltr'], ['\u06d5Hello', 'rtl'], ['\u05b0Hello', 'ltr'], ['\u06d4\u06d5', 'rtl'], ['\u0600\u0660\u06f9!', null], ['', null], ['   ', null], ['123 ۴۵۶ !?', null], [null, null], [5, null]]) assert.equal(rich.textDirection(value), dir, JSON.stringify(value))
+test('text with any Persian letter reads from the right; only all-Latin text reads from the left', () => {
+  for (const [value, dir] of [['سلام world', 'rtl'], ['Hello دنیا', 'rtl'], ['X1 (معرفی‌شده در فروشگاه): برنده کلی — ANC بهترین تعادل', 'rtl'], ['Wi-Fi 6 router', 'ltr'], ['۱۲۳ سلام', 'rtl'], ['123 hello', 'ltr'], ['  «نقل»', 'rtl'], ['(note)', 'ltr'], ['שלום', 'rtl'], ['Привет', 'ltr'], ['\u05beHello', 'ltr'], ['\u06d5Hello', 'rtl'], ['\u05b0Hello', 'ltr'], ['\u06d4\u06d5', 'rtl'], ['\u0600\u0660\u06f9!', null], ['', null], ['   ', null], ['123 ۴۵۶ !?', null], [null, null], [5, null]]) assert.equal(rich.textDirection(value), dir, JSON.stringify(value))
   // Each paragraph of one block reads in its own direction; an empty one says nothing and takes the page's, which is right to left.
   const mixed = richDoc(para(text('این فارسی است')), para(text('This one is English')), { type: 'paragraph' }, para(text('2024 - ')), { type: 'bulletList', content: [{ type: 'listItem', content: [para(text('first'))] }] })
   assert.equal(rich.richTextHtml(mixed), '<p dir="rtl">این فارسی است</p><p dir="ltr">This one is English</p><p></p><p>2024 - </p><ul dir="ltr"><li><p dir="ltr">first</p></li></ul>')
@@ -405,4 +405,21 @@ test('paragraph choice, block direction and automatic inference agree in rendere
   const nested = richDoc({ type: 'blockquote', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [para(text('سلام'))] }] }] })
   assert.equal(rich.richTextHtml(nested, 'ltr'), '<blockquote dir="ltr"><ul dir="ltr"><li><p dir="ltr">سلام</p></li></ul></blockquote>')
   assert.equal(rich.richTextHtml(richDoc({ type: 'codeBlock', content: [text('سلام')] }), 'rtl'), '<pre dir="ltr"><code class="language-plain">سلام</code></pre>')
+})
+
+test('stored HTML is given a direction per paragraph where it is shown, and a written direction is kept', () => {
+  const stamp = rich.withTextDirections
+  assert.equal(stamp('<p>سلام</p><p>Hello</p><p>123</p>'), '<p dir="rtl">سلام</p><p dir="ltr">Hello</p><p>123</p>')
+  // A Persian sentence that opens with a model name is still Persian — the case the owner reported.
+  assert.equal(stamp('<ol><li><strong>X1 (معرفی‌شده در فروشگاه):</strong> برنده کلی — ANC بهترین تعادل</li><li>USB-C only</li></ol>'), '<ol><li dir="rtl"><strong>X1 (معرفی‌شده در فروشگاه):</strong> برنده کلی — ANC بهترین تعادل</li><li dir="ltr">USB-C only</li></ol>')
+  // Attributes stay, a direction the writer chose wins, headings and quotes are covered, markup is not read as text.
+  assert.equal(stamp('<h2 class="t" style="color:#fff">Review: هدفون</h2><blockquote dir="ltr">نقل</blockquote><p><a href="/english">متن</a></p>'), '<h2 class="t" style="color:#fff" dir="rtl">Review: هدفون</h2><blockquote dir="ltr">نقل</blockquote><p dir="rtl"><a href="/english">متن</a></p>')
+  assert.equal(stamp('<p DIR=rtl>Hello</p>'), '<p DIR=rtl>Hello</p>')
+  // An entity or a tag name is not a letter of the text; an unclosed paragraph is still read.
+  assert.equal(stamp('<p>&nbsp;&laquo;۱۲&raquo;</p><p>متن بدون پایان'), '<p>&nbsp;&laquo;۱۲&raquo;</p><p dir="rtl">متن بدون پایان')
+  assert.deepEqual([stamp(''), stamp(null), stamp(undefined)], ['', '', ''])
+  // It runs where prose is shown, not where it is saved.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  for (const file of ['src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/artist/[slug]/page.tsx', 'src/components/ProductTabs.tsx']) assert.match(read(file), /__html: [^}]*withTextDirections\(/, file)
+  assert.doesNotMatch(read('src/shared/content/sanitize.ts'), /withTextDirections/)
 })

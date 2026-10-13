@@ -1115,3 +1115,17 @@ test('a switched-off module leaves no trace in the public site config, and retur
   // The public config goes through it, so every theme and the home page get the same answer.
   assert.match(sourceOf('src/modules/site/config/store.ts'), /hideDisabledModules\(await getSiteConfig\(\), runtime\)/)
 })
+
+test("a person's own picture stands beside what they wrote, with the initial as the fallback", () => {
+  const { pictureOf } = load('src/modules/identity/domain/picture.ts')
+  assert.equal(pictureOf({ telegramPhoto: '/t.jpg', userProfile: { avatar: '/api/profile/media/a' } }), '/api/profile/media/a', 'the profile picture comes first')
+  assert.equal(pictureOf({ telegramPhoto: '/t.jpg', userProfile: { avatar: '' } }), '/t.jpg')
+  assert.equal(pictureOf({ telegramPhoto: null, userProfile: null }), '')
+  assert.deepEqual([pictureOf(null), pictureOf(undefined), pictureOf({})], ['', '', ''])
+  // Comments, reviews of every section, product reviews and the author card all ask the one rule.
+  for (const file of ['src/modules/site/server/http/public/blog/[slug]/comments/route.ts', 'src/modules/reviews/server/reviews.ts', 'src/modules/catalog/server/http/product-tabs/route.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx']) assert.match(sourceOf(file), /pictureOf\(/, file)
+  // A deleted comment keeps no trace of who wrote it, picture included; a visitor gets no "viewer".
+  assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /deleted: true, user: \{ name: '', avatar: '' \}/)
+  assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /viewer: mine \? \{ avatar: pictureOf\(mine\) \} : null/)
+  for (const file of ['src/components/PostComments.tsx', 'src/components/engage/ReviewList.tsx', 'src/components/ProductTabs.tsx']) assert.match(sourceOf(file), /is-photo/, file)
+})

@@ -577,3 +577,6 @@ body:has(.cmp-tray) .pwa-chip { inset-block-end: 92px; }
 .sr-rating small { font-weight: 400; color: var(--en-muted); }
 /* A page that colours its own links must not recolour a button. */
 .rv-section .rv-cta a.btn.btn-primary, .rv-section .rv-cta a.btn.btn-primary:visited { color: var(--on-primary, #fff); }
+
+/* A person's own picture where the coloured initial would stand (comments, reviews). */
+img.rv-avatar.is-photo, img.pc-avatar.is-photo { padding: 0; object-fit: cover; background: var(--bg-soft); display: block; }
