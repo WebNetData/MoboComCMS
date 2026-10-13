@@ -101,3 +101,59 @@ test('section bar entries follow the editor order and hide list', () => {
   const old = mm.normalizeSectionConfig({}, { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { enabled: false, title: '', text: '', href: '', image: '', cta: '' } })
   assert.deepEqual([old.hiddenItems, old.itemOrder, old.maxItems, old.showSearch], [[], [], 0, true])
 })
+
+test('the site header: it can stay at the top, its links carry icons, and the account menu and the phone drawer close properly', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const client = read('src/themes/code/mobocom/client.tsx'), css = read('src/themes/code/mobocom/theme.css'), icons = read('src/themes/code/mobocom/icons.tsx')
+  // A sticky header inside a wrapper as tall as itself never sticks: the wrapper that names the theme is not a box.
+  assert.match(client, /<div data-code-theme="mobocom" className="mb-shell"><MobocomHeader/)
+  assert.match(css, /\n\.mb-shell \{ display: contents; \}/)
+  assert.match(css, /\n\.mb-header \{ position: sticky; top: 0;/)
+  // Other pages pin their side columns 76px from the top: the bar is never taller than that.
+  assert.match(css, /\n\.mb-header \{[^}]*padding-block: 10px 2px;/)
+  assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 62px;/)
+  // Two tiers: the links hang under the header without adding to its height, and a spacer keeps the page clear of them at the top.
+  assert.match(css, /\n\.mb-navbar \{ position: absolute; inset-inline: 0; top: 100%;/)
+  assert.match(client, /<div className="mb-navbar-space" aria-hidden="true"\/>/)
+  // Away, the links are hidden from the keyboard too, and focus inside them always brings them back.
+  assert.match(css, /\.mb-header\[data-nav-away\] \.mb-navbar \{[^}]*visibility: hidden;/)
+  assert.match(client, /<div className="mb-navbar" onFocus=\{\(\) => setNavAway\(false\)\}>/)
+  // Inside a section its own bar rides under the header (74px) and the site links wait for the top of the page.
+  assert.match(css, /html\[data-design="mobocom"\] \.mm-bar-wrap \{ position: sticky; top: 74px;/)
+  assert.match(client, /const sectionBar = document\.querySelector\('\.mm-bar-wrap'\)/)
+  // The member's picture rides in the session (refreshed by the check that runs on every request), so the header, the
+  // dashboard and the admin shell can draw it without another request; the forum falls back to the same picture.
+  const auth = read('src/modules/identity/auth.ts')
+  assert.match(auth, /select: \{ status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
+  assert.match(auth, /token\.picture = pictureOf\(current\) \|\| null/)
+  assert.match(auth, /session\.user\.image = typeof token\.picture === 'string' && token\.picture \? token\.picture : null/)
+  for (const shell of ['src/app/dashboard/layout.tsx', 'src/app/admin/layout.tsx']) assert.match(read(shell), /session\?\.user\?\.image \? <img src=\{session\.user\.image\} alt="" \/> : initial/, shell)
+  assert.match(read('src/modules/forum/server/forum.ts'), /avatar: profile\?\.avatar \|\| pictureOf\(user\)/)
+  // An article tells its whole path once: home, the magazine, the categories above it, its category, the title — on the page and to search engines.
+  const article = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
+  assert.match(article, /const filedUnder = post\.category \?\? postCategories\(post\)\[0\] \?\? null/)
+  assert.match(article, /depth < 4/, 'a loop in the category tree cannot hang the page')
+  assert.match(article, /breadcrumbJsonLd\(base, \[\.\.\.trail\.map/)
+  assert.doesNotMatch(article, /breadcrumbs=\{\[/, 'the header no longer repeats the path above the navigation')
+  // A wrapper around the header must not be a box, or the header cannot stay at the top (the journal had one).
+  assert.match(read('src/app/journal-design.css'), /\.journal-header-shell \{\n  display: contents;\n\}/)
+  // Every icon the navigation or the menus name exists in the theme's own set (an unknown one would show the shield).
+  const named = [...client.matchAll(/(?:name="|: ')([a-z]+)(?="|')/g)].map((m) => m[1]).filter((name) => /^[a-z]+$/.test(name))
+  const used = new Set([...Object.values(Object.fromEntries([...client.matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1] + m[2], m[2]]))), ...[...client.matchAll(/Icon name="(\w+)"/g)].map((m) => m[1]), 'home', 'sparkles', 'logout', 'grid'])
+  assert.ok(named.length > 5)
+  for (const name of used) assert.ok(new RegExp('\\n  ' + name + ': ').test(icons), 'icon ' + name)
+  // The ruler that decides how many links fit measures the same content as the links themselves.
+  assert.match(client, /mb-nav-measure" aria-hidden="true">\{links\.map\(link => <span key=\{link\.href\}><Icon name=\{navIcon\(link\.href\)\} size=\{17\}\/>/)
+  // Popovers close on Escape, a press outside and a change of address; the drawer also holds the page still.
+  assert.match(client, /function useDismiss\(/)
+  assert.equal((client.match(/useDismiss\(/g) || []).length, 3)
+  assert.match(client, /document\.body\.style\.overflow = 'hidden'/)
+  assert.match(client, /return \(\) => \{ document\.body\.style\.overflow = before;/)
+  assert.match(client, /role="dialog" aria-modal="true"/)
+  // Motion is dropped for readers who ask for less; the reading line needs a browser that ties it to scrolling.
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mb-pop, \.mb-drawer, \.mb-drawer-shade \{ animation: none; \}/)
+  assert.match(css, /@supports \(animation-timeline: scroll\(\)\)/)
+  // The stylesheet the site loads is the generated one; it must carry the same header.
+  assert.ok(read('src/themes/generated.css').includes('.mb-shell { display: contents; }'), 'run scripts/generate-extensions.mjs')
+})

@@ -167,6 +167,39 @@ export async function shopHome() {
   return { settings, categories: tree, offers, bestselling, newest, popular, brands, rails }
 }
 
+// ------------------------------------------------------------------ the two halves of the shop
+
+export type DivisionCategory = { slug: string; name: string; image: string; icon: string; total: number; children: { slug: string; name: string; total: number }[] }
+export type ShopDivision = { kind: 'PHYSICAL' | 'VIRTUAL'; total: number; categories: DivisionCategory[]; products: ProductCard[] }
+
+/**
+ * The shop as its two halves — goods that are shipped and products that are delivered online. Each half
+ * carries the categories (with their sub-categories) that hold products of its kind, counted for that kind only.
+ */
+export async function shopDivisions(): Promise<ShopDivision[]> {
+  const tree = await categoryTree()
+  return Promise.all((['PHYSICAL', 'VIRTUAL'] as const).map(async (kind) => {
+    const where = { active: true, approval: 'APPROVED', kind }
+    const [counts, total, products] = await Promise.all([
+      db.product.groupBy({ by: ['categoryId'], where, _count: { _all: true } }).catch(() => []),
+      db.product.count({ where }).catch(() => 0),
+      productCards({ kind }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12),
+    ])
+    const direct = new Map(counts.map((row) => [row.categoryId, row._count._all]))
+    const seen = new Set<number>()
+    const sum = (node: CategoryNode): number => {
+      if (seen.has(node.id)) return 0
+      seen.add(node.id)
+      return (direct.get(node.id) || 0) + node.children.reduce((all, child) => all + sum(child), 0)
+    }
+    const categories = tree.map((node) => {
+      const children = node.children.map((child) => ({ slug: child.slug, name: child.name, total: sum(child) })).filter((child) => child.total > 0)
+      return { slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: (direct.get(node.id) || 0) + children.reduce((all, child) => all + child.total, 0), children }
+    }).filter((node) => node.total > 0).sort((a, b) => b.total - a.total)
+    return { kind, total, categories, products }
+  }))
+}
+
 // ------------------------------------------------------------------ listing
 
 const LISTING_CAP = 2000

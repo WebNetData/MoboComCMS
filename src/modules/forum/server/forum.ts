@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { pictureOf } from '@/modules/identity/domain/picture'
 import { categoryFamily } from '@/modules/forum/domain/tree'
 import { forumRanks } from '@/modules/forum/server/team'
 import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type ForumRank, type Viewer } from '@/modules/forum/domain/community'
@@ -29,7 +30,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   const ids = [...new Set(userIds)].filter((id) => Number.isSafeInteger(id) && id > 0)
   if (!ids.length) return new Map()
   await ensureProfiles(ids)
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarColor: true, role: true, createdAt: true, forumProfile: true } })
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, avatarColor: true, role: true, createdAt: true, forumProfile: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })
   const groupIds = [...new Set(users.map((user) => user.forumProfile?.primaryGroupId).filter((id): id is number => !!id))]
   const groups = new Map((groupIds.length ? await db.forumGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, icon: true, color: true, name: true } }) : []).map((group) => [group.id, group]))
   const ranks = await forumRanks(ids)
@@ -38,7 +39,7 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
     const group = profile?.primaryGroupId ? groups.get(profile.primaryGroupId) : undefined
     return [user.id, {
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
-      avatar: profile?.avatar || '', avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
+      avatar: profile?.avatar || pictureOf(user), avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
       posts: profile?.postCount ?? 0, reputation: profile?.reputation ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]

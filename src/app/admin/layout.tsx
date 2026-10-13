@@ -262,7 +262,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <div className="side-foot ws-foot">
           <Link href="/dashboard/profile" className="side-user">
-            <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
+            <span className="avatar" style={{ background: 'var(--primary)' }}>{session?.user?.image ? <img src={session.user.image} alt="" /> : initial}</span>
             <span className="min-w-0 ws-who">
               <span className="font-semibold text-sm truncate">{session?.user?.name || t.admin}</span>
               <span className="muted text-xs truncate" dir="ltr">{session?.user?.email}</span>

@@ -1,6 +1,6 @@
 import Link from '@/components/AppLink'
 import type { CSSProperties, ReactNode } from 'react'
-import type { ProductCard } from '@/modules/store/server/catalog'
+import type { ProductCard, ShopDivision } from '@/modules/store/server/catalog'
 import type { StoreTile } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
@@ -84,21 +84,78 @@ export function ProductGrid({ products }: { products: ProductCard[] }) {
 export function OfferBand({ title, products }: { title: string; products: ProductCard[] }) {
   if (!products.length) return null
   const ends = products.map((product) => product.saleEndsAt).filter((value): value is string => !!value).sort()[0]
+  const best = Math.max(...products.map((product) => product.discount))
   return <section className="sx-offers" aria-label={title}>
     <div className="sx-offers-lead">
-      <StoreIcon name="percent" size={40} />
+      <span className="sx-offers-badge" aria-hidden="true"><StoreIcon name="percent" size={30} /></span>
       <h2>{title}</h2>
-      {ends && <Countdown until={ends} />}
+      <p>تا <b className="num">{fa(best)}٪</b> تخفیف روی کالاهای منتخب؛ تا تمام نشده بردارید.</p>
+      {ends && <div className="sx-offers-timer"><small>تا پایان پیشنهاد</small><Countdown until={ends} /></div>}
       <Link href="/products?discounted=1&sort=discount" className="sx-offers-all">همهٔ پیشنهادها<StoreIcon name="chevron" size={16} /></Link>
     </div>
     <Slider className="sx-offers-track" role="list">
-      {products.map((product) => <Link role="listitem" key={product.id} href={`/products/${product.slug}`} className="sx-offer">
-        <span className="sx-offer-art">{product.image ? <img src={sized(product.image, 160)} srcSet={srcSet(product.image, 160)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}</span>
-        <b>{product.name}</b>
-        <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} compact />
-      </Link>)}
+      {products.map((product) => {
+        const saving = Math.max(0, Math.round(product.listPrice - product.price))
+        return <Link role="listitem" key={product.id} href={`/products/${product.slug}`} className="sx-offer">
+          <span className="sx-offer-art">
+            {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={36} />}
+            {product.discount > 0 && <em className="sx-offer-off"><span className="num">{fa(product.discount)}٪</span><small>تخفیف</small></em>}
+            {product.kind === 'VIRTUAL' && <span className="sx-flag is-digital"><StoreIcon name="bolt" size={12} />{product.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</span>}
+          </span>
+          <b>{product.name}</b>
+          <PriceBlock price={product.price} listPrice={product.listPrice} discount={product.discount} currency={product.currency} compact />
+          {saving > 0 && <span className="sx-offer-save"><StoreIcon name="gift" size={14} />سود شما <Money amount={saving} currency={product.currency} /></span>}
+          {product.lowStock > 0 && <span className="sx-offer-stock"><i aria-hidden="true" />تنها {fa(product.lowStock)} عدد مانده</span>}
+          <span className="sx-offer-go">مشاهده و خرید<StoreIcon name="chevron" size={15} /></span>
+        </Link>
+      })}
       <Link role="listitem" href="/products?discounted=1&sort=discount" className="sx-offer is-more"><span><StoreIcon name="chevron" size={22} /></span>مشاهدهٔ همه</Link>
     </Slider>
+  </section>
+}
+
+const DIVISION_COPY = {
+  PHYSICAL: { title: 'کالاهای فیزیکی', kicker: 'ارسال به سراسر کشور', text: 'کالای اصل با ضمانت بازگشت؛ روز و ساعت تحویل را خودتان انتخاب می‌کنید.', icon: 'truck', all: 'همهٔ کالاهای فیزیکی', points: ['ارسال سریع', 'ضمانت اصالت', '۷ روز بازگشت'] },
+  VIRTUAL: { title: 'محصولات مجازی', kicker: 'تحویل آنلاین', text: 'لایسنس، گیفت‌کارت و اشتراک؛ بدون ارسال پستی، در حساب کاربری شما تحویل می‌شود.', icon: 'bolt', all: 'همهٔ محصولات مجازی', points: ['تحویل آنلاین', 'بدون هزینهٔ ارسال', 'پشتیبانی فعال‌سازی'] },
+} as const
+
+/** The shop's two halves side by side: what each holds, its categories with their sub-categories, and a few of its products. */
+export function DivisionPanels({ divisions }: { divisions: ShopDivision[] }) {
+  const shown = divisions.filter((division) => division.total > 0)
+  if (!shown.length) return null
+  return <section className={`sx-worlds${shown.length === 1 ? ' is-single' : ''}`} aria-label="دو بخش فروشگاه">
+    {shown.map((division) => {
+      const copy = DIVISION_COPY[division.kind], base = `/products?kind=${division.kind}`
+      return <article key={division.kind} className={`sx-world is-${division.kind.toLowerCase()}`}>
+        <header className="sx-world-head">
+          <span className="sx-world-icon"><StoreIcon name={copy.icon} size={30} /></span>
+          <div>
+            <small>{copy.kicker}</small>
+            <h2><Link href={base}>{copy.title}</Link></h2>
+            <p>{copy.text}</p>
+          </div>
+          <b className="sx-world-count"><span className="num">{fa(division.total)}</span><small>کالا</small></b>
+        </header>
+        <ul className="sx-world-points">{copy.points.map((point) => <li key={point}><StoreIcon name="check" size={14} />{point}</li>)}</ul>
+        {division.categories.length > 0 && <ul className="sx-world-cats" aria-label={`دسته‌بندی‌های ${copy.title}`}>
+          {division.categories.slice(0, 6).map((category) => <li key={category.slug}>
+            <Link href={`${base}&category=${encodeURIComponent(category.slug)}`} className="sx-world-cat">
+              <span>{category.image ? <img src={sized(category.image, 96)} alt="" loading="lazy" /> : <StoreIcon name="box" size={20} />}</span>
+              <b>{category.name}</b><small className="num">{fa(category.total)}</small>
+            </Link>
+            {category.children.length > 0 && <div className="sx-world-subs">{category.children.slice(0, 5).map((child) => <Link key={child.slug} href={`${base}&category=${encodeURIComponent(child.slug)}`}>{child.name}</Link>)}</div>}
+          </li>)}
+        </ul>}
+        {division.products.length > 0 && <div className="sx-world-picks">
+          {division.products.slice(0, 4).map((product) => <Link key={product.id} href={`/products/${product.slug}`} className="sx-world-pick">
+            <span>{product.image ? <img src={sized(product.image, 160)} alt="" loading="lazy" decoding="async" /> : <StoreIcon name="box" size={26} />}</span>
+            <b>{product.name}</b>
+            {product.inStock ? <Money amount={product.price} currency={product.currency} /> : <small>ناموجود</small>}
+          </Link>)}
+        </div>}
+        <Link href={base} className="sx-world-all">{copy.all}<StoreIcon name="chevron" size={16} /></Link>
+      </article>
+    })}
   </section>
 }
 

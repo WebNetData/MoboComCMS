@@ -23,9 +23,9 @@
   overflow: hidden;
 }
 
+/* Not a box: the header inside keeps its own place above the page and can stay at the top while the page scrolls. */
 .journal-header-shell {
-  position: relative;
-  z-index: 40;
+  display: contents;
 }
 
 .journal-inner,

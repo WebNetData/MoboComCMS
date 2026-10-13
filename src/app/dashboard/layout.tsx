@@ -159,7 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="side-foot ws-foot">
           <Link href="/dashboard/profile" className="side-user">
-            <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
+            <span className="avatar" style={{ background: 'var(--primary)' }}>{session?.user?.image ? <img src={session.user.image} alt="" /> : initial}</span>
             <span className="min-w-0 ws-who">
               <span className="font-semibold text-sm truncate">{displayName || '—'}</span>
               <span className="muted text-xs truncate" dir="ltr">{session?.user?.email}</span>
@@ -190,7 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/" className="dash-top-link"><Icon name="globe" size={17} /> {locale === 'fa' ? 'مشاهدهٔ سایت' : 'View site'}</Link>
             <ThemeLangControls locale={locale} theme={theme} />
             <Link href="/dashboard/notifications" className="dash-top-icon" aria-label={locale === 'fa' ? 'اعلان‌ها' : 'Notifications'}><Icon name="bell" size={19} /><NotificationCount /></Link>
-            <Link href="/dashboard/profile" className="dash-top-user" aria-label={locale === 'fa' ? 'تنظیمات حساب' : 'Account settings'}><span className="avatar">{initial}</span></Link>
+            <Link href="/dashboard/profile" className="dash-top-user" aria-label={locale === 'fa' ? 'تنظیمات حساب' : 'Account settings'}><span className="avatar">{session?.user?.image ? <img src={session.user.image} alt="" /> : initial}</span></Link>
           </div>
         </header>
         <main className="app-main"><PluginOutlet slot="dashboard.top" site={site} locale={locale}/>{children}<PluginOutlet slot="dashboard.bottom" site={site} locale={locale}/></main>
