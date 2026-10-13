@@ -10,6 +10,7 @@ export const WIDGET_TYPES = [
   'product-hero', 'product-gallery', 'product-info', 'product-purchase', 'product-usp', 'product-tabs',
   'site-header', 'site-footer',
   'media', 'vip-cta',
+  'icon-box', 'tabs', 'testimonials', 'counters', 'gallery', 'carousel', 'pricing', 'countdown', 'social', 'progress',
 ] as const
 export type WidgetType = typeof WIDGET_TYPES[number]
 
@@ -95,6 +96,16 @@ export const WIDGET_LABELS: Record<WidgetType, { fa: string; en: string }> = {
   'site-footer': { fa: 'فوتر پیش‌فرض سایت', en: 'Default site footer' },
   media: { fa: 'موزیک / فیلم / بازی (زنده)', en: 'Music / films / games (live)' },
   'vip-cta': { fa: 'دعوت به عضویت VIP', en: 'VIP call to action' },
+  'icon-box': { fa: 'جعبهٔ آیکن', en: 'Icon box' },
+  tabs: { fa: 'تب‌ها', en: 'Tabs' },
+  testimonials: { fa: 'نظر مشتریان', en: 'Testimonials' },
+  counters: { fa: 'شمارنده‌ها', en: 'Counters' },
+  gallery: { fa: 'گالری تصویر', en: 'Image gallery' },
+  carousel: { fa: 'اسلایدر تصویر', en: 'Image carousel' },
+  pricing: { fa: 'جدول قیمت', en: 'Pricing table' },
+  countdown: { fa: 'شمارش معکوس', en: 'Countdown' },
+  social: { fa: 'شبکه‌های اجتماعی', en: 'Social links' },
+  progress: { fa: 'نوار پیشرفت', en: 'Progress bars' },
 }
 
 const string = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
@@ -116,6 +127,11 @@ const numberIn = (value: unknown, min: number, max: number, fallback: number) =>
   const n = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback
 }
+
+/** Icons the icon box may show (names of the site's own icon set). */
+export const BOX_ICONS = ['sparkles', 'shield', 'bolt', 'heart', 'star', 'check', 'globe', 'devices', 'wallet', 'chat', 'bell', 'gift', 'crown', 'lock', 'key', 'users', 'user', 'cart', 'bag', 'tag', 'box', 'music', 'film', 'gamepad', 'book', 'pen', 'image', 'mail', 'phone', 'pin', 'clock', 'chart', 'layers', 'code', 'lifebuoy', 'megaphone'] as const
+/** Networks the social block knows a mark for. */
+export const SOCIAL_NETWORKS = ['telegram', 'instagram', 'x', 'youtube', 'aparat', 'linkedin', 'whatsapp', 'github', 'email', 'website'] as const
 
 type PropRule = { max?: number; json?: number; enum?: readonly string[]; url?: 'image' | 'link' | 'any' }
 const TEXT = (max: number): PropRule => ({ max })
@@ -158,6 +174,16 @@ const WIDGET_PROPS: Record<WidgetType, Record<string, PropRule>> = {
   'site-footer': {},
   media: { source: { enum: MEDIA_SOURCES }, title: TEXT(300), titleEn: TEXT(300), limit: { enum: ['6', '4', '8', '10', '12', '16'] } },
   'vip-cta': { title: TEXT(300), titleEn: TEXT(300), text: TEXT(1200), textEn: TEXT(1200), label: TEXT(100), labelEn: TEXT(100) },
+  'icon-box': { icon: { enum: BOX_ICONS }, title: TEXT(200), titleEn: TEXT(200), text: TEXT(1200), textEn: TEXT(1200), href: { url: 'link' }, layout: { enum: ['top', 'side'] } },
+  tabs: { items: { json: 10 } },
+  testimonials: { title: TEXT(300), titleEn: TEXT(300), items: { json: 12 } },
+  counters: { items: { json: 8 } },
+  gallery: { items: { json: 24 }, columns: { enum: ['3', '2', '4', '5'] } },
+  carousel: { items: { json: 16 } },
+  pricing: { title: TEXT(300), titleEn: TEXT(300), items: { json: 6 } },
+  countdown: { until: TEXT(40), title: TEXT(300), titleEn: TEXT(300), done: TEXT(300), doneEn: TEXT(300) },
+  social: { items: { json: 12 } },
+  progress: { items: { json: 12 } },
 }
 
 export type JsonItem = Record<string, string>
@@ -247,6 +273,14 @@ export function createWidget(type: WidgetType): BuilderWidget {
   }
   if (type === 'list' && props.items === '[]') props.items = JSON.stringify([{ title: 'ویژگی اول', titleEn: 'First feature', text: 'توضیح کوتاه', textEn: 'Short description' }])
   if (type === 'stats' && props.items === '[]') props.items = JSON.stringify([{ value: '۹۹٪', label: 'رضایت مشتری', labelEn: 'Happy customers' }])
+  if (type === 'icon-box') { props.title = 'عنوان ویژگی'; props.titleEn = 'Feature title'; props.text = 'یک توضیح کوتاه دربارهٔ این ویژگی.'; props.textEn = 'A short line about this feature.' }
+  if (type === 'tabs') props.items = JSON.stringify([{ title: 'تب اول', titleEn: 'First tab', text: 'متن تب اول', textEn: 'First tab text' }, { title: 'تب دوم', titleEn: 'Second tab', text: 'متن تب دوم', textEn: 'Second tab text' }])
+  if (type === 'testimonials') props.items = JSON.stringify([{ quote: 'تجربهٔ خرید عالی بود و پشتیبانی سریع پاسخ داد.', quoteEn: 'A great experience and quick support.', name: 'سارا', role: 'مشتری', roleEn: 'Customer', avatar: '' }])
+  if (type === 'counters') props.items = JSON.stringify([{ value: '1200', suffix: '+', label: 'مشتری', labelEn: 'Customers' }, { value: '98', suffix: '٪', label: 'رضایت', labelEn: 'Satisfaction' }])
+  if (type === 'pricing') props.items = JSON.stringify([{ title: 'پایه', titleEn: 'Basic', price: 'رایگان', priceEn: 'Free', period: '', periodEn: '', features: 'دسترسی به همهٔ بخش‌ها\nپشتیبانی تیکتی', featuresEn: 'Access to every section\nTicket support', label: 'شروع', labelEn: 'Start', href: '/register', featured: '' }])
+  if (type === 'countdown') { props.title = 'تا شروع'; props.titleEn = 'Starts in'; props.done = 'شروع شد!'; props.doneEn = 'It has started!' }
+  if (type === 'social') props.items = JSON.stringify([{ network: 'telegram', href: '' }, { network: 'instagram', href: '' }])
+  if (type === 'progress') props.items = JSON.stringify([{ label: 'طراحی', labelEn: 'Design', value: '90' }, { label: 'پشتیبانی', labelEn: 'Support', value: '75' }])
   if (type === 'faq' && props.items === '[]') props.items = JSON.stringify([{ q: 'پرسش نمونه', qEn: 'Sample question', a: 'پاسخ نمونه', aEn: 'Sample answer' }])
   return { id: newId('w'), type, props, style: validateWidgetStyle({}) }
 }

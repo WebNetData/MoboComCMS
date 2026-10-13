@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { WIDGET_LABELS, type BuilderDoc, type BuilderWidget, type WidgetType } from '@/modules/site/domain/builder'
+import { BOX_ICONS, WIDGET_LABELS, type BuilderDoc, type BuilderWidget, type WidgetType } from '@/modules/site/domain/builder'
 import {
   addColumn, applyWidgetStyle, equalizeColumns, getSection, getWidget, nudgeSection, nudgeWidget,
   patchColumn, patchSection, patchSectionStyle, patchWidget, removeColumn, type Sel, type WidgetRef, patchAdvanced } from './state'
@@ -23,6 +23,41 @@ const limitOptions = [{ value: '2', en: '2 items', fa: '۲ مورد' }, { value:
 const feedLimits = [...limitOptions, { value: '8', en: '8 items', fa: '۸ مورد' }, { value: '9', en: '9 items', fa: '۹ مورد' }, { value: '12', en: '12 items', fa: '۱۲ مورد' }]
 
 const FIELDS: Partial<Record<WidgetType, Field[]>> = {
+  'icon-box': [
+    { key: 'icon', en: 'Icon', fa: 'آیکن', kind: 'select', options: BOX_ICONS.map((name) => ({ value: name, en: name, fa: name })) },
+    { key: 'layout', en: 'Layout', fa: 'چیدمان', kind: 'select', options: [{ value: 'top', en: 'Icon on top', fa: 'آیکن بالا' }, { value: 'side', en: 'Icon at the side', fa: 'آیکن کنار' }] },
+    { key: 'title', en: 'Title (FA)', fa: 'عنوان (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Title (EN)', fa: 'عنوان (EN)', kind: 'text', ltr: true },
+    { key: 'text', en: 'Text (FA)', fa: 'متن (فا)', kind: 'area', rows: 3 },
+    { key: 'textEn', en: 'Text (EN)', fa: 'متن (EN)', kind: 'area', rows: 3, ltr: true },
+    { key: 'href', en: 'Link (optional)', fa: 'پیوند (اختیاری)', kind: 'url', ltr: true },
+  ],
+  tabs: [{ key: 'items', en: 'Tabs', fa: 'تب‌ها', kind: 'items' }],
+  testimonials: [
+    { key: 'title', en: 'Title (FA)', fa: 'عنوان (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Title (EN)', fa: 'عنوان (EN)', kind: 'text', ltr: true },
+    { key: 'items', en: 'Testimonials', fa: 'نظرها', kind: 'items' },
+  ],
+  counters: [{ key: 'items', en: 'Counters', fa: 'شمارنده‌ها', kind: 'items' }],
+  gallery: [
+    { key: 'columns', en: 'Columns', fa: 'ستون‌ها', kind: 'select', options: ['2', '3', '4', '5'].map((value) => ({ value, en: value, fa: value })) },
+    { key: 'items', en: 'Pictures', fa: 'تصویرها', kind: 'items' },
+  ],
+  carousel: [{ key: 'items', en: 'Slides', fa: 'اسلایدها', kind: 'items' }],
+  pricing: [
+    { key: 'title', en: 'Title (FA)', fa: 'عنوان (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Title (EN)', fa: 'عنوان (EN)', kind: 'text', ltr: true },
+    { key: 'items', en: 'Plans', fa: 'پلن‌ها', kind: 'items' },
+  ],
+  countdown: [
+    { key: 'until', en: 'Date and time (e.g. 2027-03-20T20:00)', fa: 'تاریخ و ساعت (مثلاً 2027-03-20T20:00)', kind: 'text', ltr: true },
+    { key: 'title', en: 'Title (FA)', fa: 'عنوان (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Title (EN)', fa: 'عنوان (EN)', kind: 'text', ltr: true },
+    { key: 'done', en: 'Text when it is over (FA)', fa: 'متن پس از پایان (فا)', kind: 'text' },
+    { key: 'doneEn', en: 'Text when it is over (EN)', fa: 'متن پس از پایان (EN)', kind: 'text', ltr: true },
+  ],
+  social: [{ key: 'items', en: 'Links', fa: 'پیوندها', kind: 'items' }],
+  progress: [{ key: 'items', en: 'Bars', fa: 'نوارها', kind: 'items' }],
   heading: [
     { key: 'level', en: 'Level', fa: 'سطح', kind: 'select', options: [{ value: 'h1', en: 'H1', fa: 'H1' }, { value: 'h2', en: 'H2', fa: 'H2' }, { value: 'h3', en: 'H3', fa: 'H3' }, { value: 'h4', en: 'H4', fa: 'H4' }, { value: 'p', en: 'Paragraph', fa: 'پاراگراف' }] },
     { key: 'text', en: 'Text (FA)', fa: 'متن (فا)', kind: 'text' },
@@ -154,6 +189,60 @@ const FIELDS: Partial<Record<WidgetType, Field[]>> = {
 }
 
 const ITEM_KEYS: Record<string, Field[]> = {
+  tabs: [
+    { key: 'title', en: 'Tab (FA)', fa: 'تب (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Tab (EN)', fa: 'تب (EN)', kind: 'text', ltr: true },
+    { key: 'text', en: 'Text (FA)', fa: 'متن (فا)', kind: 'area', rows: 3 },
+    { key: 'textEn', en: 'Text (EN)', fa: 'متن (EN)', kind: 'area', rows: 3, ltr: true },
+  ],
+  testimonials: [
+    { key: 'quote', en: 'Quote (FA)', fa: 'متن نظر (فا)', kind: 'area', rows: 3 },
+    { key: 'quoteEn', en: 'Quote (EN)', fa: 'متن نظر (EN)', kind: 'area', rows: 3, ltr: true },
+    { key: 'name', en: 'Name', fa: 'نام', kind: 'text' },
+    { key: 'role', en: 'Role (FA)', fa: 'سمت (فا)', kind: 'text' },
+    { key: 'roleEn', en: 'Role (EN)', fa: 'سمت (EN)', kind: 'text', ltr: true },
+    { key: 'avatar', en: 'Picture address (optional)', fa: 'نشانی عکس (اختیاری)', kind: 'text', ltr: true },
+  ],
+  counters: [
+    { key: 'value', en: 'Number', fa: 'عدد', kind: 'text', ltr: true },
+    { key: 'suffix', en: 'Suffix (+, %, k)', fa: 'پسوند (+، ٪، k)', kind: 'text' },
+    { key: 'label', en: 'Label (FA)', fa: 'برچسب (فا)', kind: 'text' },
+    { key: 'labelEn', en: 'Label (EN)', fa: 'برچسب (EN)', kind: 'text', ltr: true },
+  ],
+  gallery: [
+    { key: 'src', en: 'Picture address', fa: 'نشانی تصویر', kind: 'text', ltr: true },
+    { key: 'alt', en: 'Alternative text', fa: 'متن جایگزین', kind: 'text' },
+  ],
+  carousel: [
+    { key: 'src', en: 'Picture address', fa: 'نشانی تصویر', kind: 'text', ltr: true },
+    { key: 'alt', en: 'Alternative text', fa: 'متن جایگزین', kind: 'text' },
+    { key: 'title', en: 'Caption (FA)', fa: 'زیرنویس (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Caption (EN)', fa: 'زیرنویس (EN)', kind: 'text', ltr: true },
+    { key: 'href', en: 'Link (optional)', fa: 'پیوند (اختیاری)', kind: 'text', ltr: true },
+  ],
+  pricing: [
+    { key: 'title', en: 'Plan (FA)', fa: 'نام پلن (فا)', kind: 'text' },
+    { key: 'titleEn', en: 'Plan (EN)', fa: 'نام پلن (EN)', kind: 'text', ltr: true },
+    { key: 'price', en: 'Price (FA)', fa: 'قیمت (فا)', kind: 'text' },
+    { key: 'priceEn', en: 'Price (EN)', fa: 'قیمت (EN)', kind: 'text', ltr: true },
+    { key: 'period', en: 'Period (FA)', fa: 'دوره (فا)', kind: 'text' },
+    { key: 'periodEn', en: 'Period (EN)', fa: 'دوره (EN)', kind: 'text', ltr: true },
+    { key: 'features', en: 'Features (one per line) (FA)', fa: 'ویژگی‌ها (هر خط یکی) (فا)', kind: 'area', rows: 4 },
+    { key: 'featuresEn', en: 'Features (one per line) (EN)', fa: 'ویژگی‌ها (هر خط یکی) (EN)', kind: 'area', rows: 4, ltr: true },
+    { key: 'label', en: 'Button (FA)', fa: 'دکمه (فا)', kind: 'text' },
+    { key: 'labelEn', en: 'Button (EN)', fa: 'دکمه (EN)', kind: 'text', ltr: true },
+    { key: 'href', en: 'Button link', fa: 'پیوند دکمه', kind: 'text', ltr: true },
+    { key: 'featured', en: 'Highlight (write 1)', fa: 'برجسته (۱ بنویسید)', kind: 'text', ltr: true },
+  ],
+  social: [
+    { key: 'network', en: 'Network (telegram, instagram, x, youtube, aparat, linkedin, whatsapp, github, email, website)', fa: 'شبکه (telegram، instagram، x، youtube، aparat، linkedin، whatsapp، github، email، website)', kind: 'text', ltr: true },
+    { key: 'href', en: 'Address', fa: 'نشانی', kind: 'text', ltr: true },
+  ],
+  progress: [
+    { key: 'label', en: 'Label (FA)', fa: 'برچسب (فا)', kind: 'text' },
+    { key: 'labelEn', en: 'Label (EN)', fa: 'برچسب (EN)', kind: 'text', ltr: true },
+    { key: 'value', en: 'Percent (0–100)', fa: 'درصد (۰ تا ۱۰۰)', kind: 'text', ltr: true },
+  ],
   stats: [{ key: 'value', en: 'Value', fa: 'مقدار', kind: 'text' }, { key: 'label', en: 'Label (FA)', fa: 'برچسب (فا)', kind: 'text' }, { key: 'labelEn', en: 'Label (EN)', fa: 'برچسب (EN)', kind: 'text', ltr: true }],
   list: [
     { key: 'icon', en: 'Icon / emoji', fa: 'آیکون / ایموجی', kind: 'text', ltr: true },
