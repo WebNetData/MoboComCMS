@@ -101,3 +101,33 @@ test('section bar entries follow the editor order and hide list', () => {
   const old = mm.normalizeSectionConfig({}, { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { enabled: false, title: '', text: '', href: '', image: '', cta: '' } })
   assert.deepEqual([old.hiddenItems, old.itemOrder, old.maxItems, old.showSearch], [[], [], 0, true])
 })
+
+test('the site header: it can stay at the top, its links carry icons, and the account menu and the phone drawer close properly', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const client = read('src/themes/code/mobocom/client.tsx'), css = read('src/themes/code/mobocom/theme.css'), icons = read('src/themes/code/mobocom/icons.tsx')
+  // A sticky header inside a wrapper as tall as itself never sticks: the wrapper that names the theme is not a box.
+  assert.match(client, /<div data-code-theme="mobocom" className="mb-shell"><MobocomHeader/)
+  assert.match(css, /\n\.mb-shell \{ display: contents; \}/)
+  assert.match(css, /\n\.mb-header \{ position: sticky; top: 0;/)
+  // Other pages pin their side columns 76px from the top: the bar is never taller than that.
+  assert.match(css, /\n\.mb-header-bar \{[^}]*min-height: 74px;/)
+  // Every icon the navigation or the menus name exists in the theme's own set (an unknown one would show the shield).
+  const named = [...client.matchAll(/(?:name="|: ')([a-z]+)(?="|')/g)].map((m) => m[1]).filter((name) => /^[a-z]+$/.test(name))
+  const used = new Set([...Object.values(Object.fromEntries([...client.matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1] + m[2], m[2]]))), ...[...client.matchAll(/Icon name="(\w+)"/g)].map((m) => m[1]), 'home', 'sparkles', 'logout', 'grid'])
+  assert.ok(named.length > 5)
+  for (const name of used) assert.ok(new RegExp('\\n  ' + name + ': ').test(icons), 'icon ' + name)
+  // The ruler that decides how many links fit measures the same content as the links themselves.
+  assert.match(client, /mb-nav-measure" aria-hidden="true">\{links\.map\(link => <span key=\{link\.href\}><Icon name=\{navIcon\(link\.href\)\} size=\{17\}\/>/)
+  // Popovers close on Escape, a press outside and a change of address; the drawer also holds the page still.
+  assert.match(client, /function useDismiss\(/)
+  assert.equal((client.match(/useDismiss\(/g) || []).length, 3)
+  assert.match(client, /document\.body\.style\.overflow = 'hidden'/)
+  assert.match(client, /return \(\) => \{ document\.body\.style\.overflow = before;/)
+  assert.match(client, /role="dialog" aria-modal="true"/)
+  // Motion is dropped for readers who ask for less; the reading line needs a browser that ties it to scrolling.
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mb-pop, \.mb-drawer, \.mb-drawer-shade \{ animation: none; \}/)
+  assert.match(css, /@supports \(animation-timeline: scroll\(\)\)/)
+  // The stylesheet the site loads is the generated one; it must carry the same header.
+  assert.ok(read('src/themes/generated.css').includes('.mb-shell { display: contents; }'), 'run scripts/generate-extensions.mjs')
+})
