@@ -72,6 +72,7 @@
 .mcb-content-faq summary { cursor: pointer; font-weight: 600; }
 .mcb-content-faq details > * + * { margin-block-start: .6rem; }
 
-/* A body stored as HTML by the older editor carries no direction of its own: each paragraph reads in the direction of
-   its first letter, like a block document (see textDirection). A direction written on the element wins. */
+/* A body stored as HTML by the older editor carries no direction of its own. Where it is shown it is given one per
+   paragraph by withTextDirections (any Persian letter → right to left). This is only the fallback for HTML that
+   did not pass through it: the browser's own guess, from the first letter. A direction on the element wins. */
 .prose:not(.mcb-document) :where(p, h2, h3, h4, h5, h6, li, blockquote):not([dir]) { unicode-bidi: plaintext; text-align: start; }

@@ -11,6 +11,7 @@ import { PlayButton, TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { ItemActionBar } from '@/components/engage/Engagement'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -53,7 +54,7 @@ export default async function ArtistPage({ params }: Props) {
         {!tracks.length && !data.albums.length && <EmptyState fa={fa} />}
         {tracks.length > 0 && <section className="mu-panel"><header className="md-shelf-head"><h2>{fa ? 'آهنگ‌های محبوب' : 'Popular'}</h2></header><TrackList tracks={tracks} /></section>}
         {data.albums.length > 0 && <Shelf tone="music" title={fa ? 'آلبوم‌ها' : 'Albums'}>{data.albums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</Shelf>}
-        {artist.bio && <section className="mu-panel md-prose"><h2>{fa ? 'بیوگرافی' : 'Biography'}</h2><div dangerouslySetInnerHTML={{ __html: artist.bio }} /></section>}
+        {artist.bio && <section className="mu-panel md-prose"><h2>{fa ? 'بیوگرافی' : 'Biography'}</h2><div dangerouslySetInnerHTML={{ __html: withTextDirections(artist.bio) }} /></section>}
       </div>
     </MediaShell>
   )

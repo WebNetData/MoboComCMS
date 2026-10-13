@@ -14,6 +14,7 @@ import BuyContent from '@/components/paywall/BuyContent'
 import CopyText from '@/components/software/CopyText'
 import { SoftwareLayout, SoftwareSidebar, SoftwareStatsStrip } from '@/components/software/SoftwarePortal'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string; id: string }> }
@@ -42,7 +43,7 @@ export default async function SoftwareReleasePage({ params }: Props) {
         <div className="sp-release-detail-meta">{release.software.developer && <span>سازنده: {release.software.developerStudioId ? <Link href={`/studios/${release.software.developerStudioId}`}>{release.software.developer}</Link> : release.software.developer}</span>}{release.size && <span>حجم: <bdi dir="ltr">{release.size}</bdi></span>}</div>
         {release.targets.length > 0 && <section><h2>سازگاری</h2><div className="sp-release-targets">{release.targets.map((target) => <span key={target.id}><bdi dir="ltr">{target.platform}{target.architecture ? ` · ${target.architecture}` : ''}{target.minVersion ? ` · ${target.minVersion}+` : ''}</bdi>{target.notes && <> · {target.notes}</>}</span>)}</div></section>}
         {release.requirements && <section><h2>نیازمندی‌ها</h2><p className="sw-requirements">{release.requirements}</p></section>}
-        {release.changelog && <section><h2>تغییرات این نسخه</h2><div className="md-prose" dangerouslySetInnerHTML={{ __html: release.changelog }} /></section>}
+        {release.changelog && <section><h2>تغییرات این نسخه</h2><div className="md-prose" dangerouslySetInnerHTML={{ __html: withTextDirections(release.changelog) }} /></section>}
         {release.screenshots.length > 0 && <section><h2>تصاویر نسخه</h2><Gallery images={release.screenshots} fa /></section>}
         {release.checksum && <p className="sp-release-hash">SHA-256: <CopyText value={release.checksum} label="SHA-256" /></p>}
         <section id="download"><h2>فایل‌های دانلود</h2>

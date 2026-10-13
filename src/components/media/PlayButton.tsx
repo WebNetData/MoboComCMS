@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { usePlayer } from './MusicPlayer'
 import type { PlayerTrack } from './player-types'
+import TrackActions from './TrackActions'
 
 /** Play / pause control bound to the site-wide player. */
 export function PlayButton({ tracks, index = 0, variant = 'round', label }: { tracks: PlayerTrack[]; index?: number; variant?: 'round' | 'big' | 'overlay'; label?: string }) {
@@ -48,6 +49,7 @@ export function TrackList({ tracks, numbered = true, showCover = true, chart = f
             </span>
             {track.access === 'MEMBERS' && <span className="vip-chip" title="VIP">♛ VIP</span>}
             {track.hasHq && <span className="mu-hq-chip">320</span>}
+            <TrackActions trackId={track.id} title={track.title} heart={false} placement="down" />
             <span className="mu-tl-time" dir="ltr">{fmt(track.duration)}</span>
           </li>
         )

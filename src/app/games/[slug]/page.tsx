@@ -25,6 +25,7 @@ import Gallery from '@/components/media/Gallery'
 import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -131,7 +132,7 @@ export default async function GamePage({ params }: Props) {
           </section>
           {g.content && <article id="review" className="gv-section gv-review">
             <h2 className="gv-h2">نقد و بررسی {g.title}</h2>
-            <div className="md-prose" dangerouslySetInnerHTML={{ __html: g.content }} />
+            <div className="md-prose" dangerouslySetInnerHTML={{ __html: withTextDirections(g.content) }} />
             {(g.pros.length > 0 || g.cons.length > 0) && <div className="gm-verdict">
               {g.pros.length > 0 && <div className="is-pro"><h3>نقاط قوت</h3><ul>{g.pros.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
               {g.cons.length > 0 && <div className="is-con"><h3>نقاط ضعف</h3><ul>{g.cons.map((c, i) => <li key={i}>{c}</li>)}</ul></div>}

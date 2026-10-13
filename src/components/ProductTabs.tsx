@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import ProductPriceHistory from '@/components/store/ProductPriceHistory'
 import { RatingMeter } from '@/components/engage/RatingMeter'
 import RatingTiles from '@/components/engage/RatingTiles'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 type Tab = 'description' | 'specifications' | 'reviews' | 'questions' | 'faq' | 'related-posts' | 'related-products' | 'price-history' | 'frequently-bought' | 'complementary-products' | 'compatible-products'
 type CriteriaKey = 'quality' | 'value' | 'usability'
@@ -216,7 +217,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
         {tab === 'specifications' && content?.fields?.length ? <span className="store-panel-badge num">{content.fields.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'ویژگی' : 'items'}</span> : null}
       </header>}
 
-      {tab === 'description' && content && (String(fa ? content.htmlFa : content.htmlEn || '').trim() ? <div className="store-description prose" dangerouslySetInnerHTML={{ __html: fa ? content.htmlFa : content.htmlEn }} /> : <p className="store-panel-empty">{fa ? 'توضیحی برای این محصول ثبت نشده است.' : 'No description yet.'}</p>)}
+      {tab === 'description' && content && (String(fa ? content.htmlFa : content.htmlEn || '').trim() ? <div className="store-description prose" dangerouslySetInnerHTML={{ __html: withTextDirections(fa ? content.htmlFa : content.htmlEn) }} /> : <p className="store-panel-empty">{fa ? 'توضیحی برای این محصول ثبت نشده است.' : 'No description yet.'}</p>)}
 
       {tab === 'specifications' && content && (content.fields?.length ? <dl className="store-spec-list">{content.fields.map((field: any) => <div key={field.key}><dt>{fa ? field.label : field.labelEn || field.label}</dt><dd>{field.value}</dd></div>)}</dl> : <p className="store-panel-empty">{fa ? 'مشخصاتی برای این محصول ثبت نشده است.' : 'No specifications are available yet.'}</p>)}
 
@@ -316,7 +317,7 @@ export default function ProductTabs({ slug, descriptionFa, descriptionEn, rating
                 const written = fmtDate(item.createdAt, fa)
                 return <article className="rv-card" key={item.id}>
                   <header className="rv-card-head">
-                    <span className="rv-avatar" style={{ background: avatarTone(name) }} aria-hidden="true">{avatarInitial(name)}</span>
+                    {item.user?.avatar ? <img className="rv-avatar is-photo" src={item.user.avatar} alt="" loading="lazy" /> : <span className="rv-avatar" style={{ background: avatarTone(name) }} aria-hidden="true">{avatarInitial(name)}</span>}
                     <div className="rv-who">
                       <strong>{name}</strong>
                       <div className="rv-meta">

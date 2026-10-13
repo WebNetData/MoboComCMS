@@ -10,6 +10,7 @@ import { memberItemExperience } from '@/modules/content/server/experience'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { ReviewError, initialReviewStatus, normalizeRating, normalizeReviewBody, summarizeDistribution, type RatingSummary } from '@/modules/reviews/domain/reviews'
 import { dimensionsFor, isExperienceKind, normalizeScores, reviewSort, type ExperienceKind, type ReviewScores, type ReviewSort } from '@/modules/reviews/domain/dimensions'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 const PAGE = 10
 const counted = { OR: [{ itemType: 'business', status: 'APPROVED' }, { itemType: { not: 'business' }, status: { not: 'REJECTED' } }] }
@@ -36,7 +37,7 @@ export async function refreshItemStat(ref: ItemRef) {
   await db.itemStat.upsert({ where: { itemType_itemId: { itemType: ref.type, itemId: ref.id } }, create: { itemType: ref.type, itemId: ref.id, ...data }, update: data })
 }
 
-export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string }; mine: boolean; helpfulCount: number; helpfulByMe: boolean; verified: ExperienceKind | ''; scores: ReviewScores }
+export type PublicReview = { id: number; rating: number; body: string; createdAt: Date; author: { name: string; color: string; avatar: string }; mine: boolean; helpfulCount: number; helpfulByMe: boolean; verified: ExperienceKind | ''; scores: ReviewScores }
 export type DimensionSummary = { key: string; label: string; average: number; count: number }
 
 const verifiedOf = (value: string): ExperienceKind | '' => isExperienceKind(value) ? value : ''
@@ -80,7 +81,7 @@ export async function itemEngagement(ref: ItemRef, userId: number | null, page =
     userId ? db.itemFavorite.findUnique({ where: { userId_itemType_itemId: { userId, ...where } } }) : Promise.resolve(null),
     db.itemFavorite.count({ where }),
     reviewable ? db.itemReview.count({ where: listed }) : Promise.resolve(0),
-    reviewable ? db.itemReview.findMany({ where: listed, orderBy: LIST_ORDER[sort], skip: (safePage - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true } }, scores: true } }) : Promise.resolve([]),
+    reviewable ? db.itemReview.findMany({ where: listed, orderBy: LIST_ORDER[sort], skip: (safePage - 1) * PAGE, take: PAGE, include: { user: { select: { name: true, avatarColor: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, scores: true } }) : Promise.resolve([]),
     reviewable ? db.itemReviewScore.groupBy({ by: ['key'], where: { review: { ...where, ...counted } }, _avg: { score: true }, _count: { score: true } }) : Promise.resolve([]),
     reviewable ? db.itemReview.count({ where: { ...where, ...counted, verified: { not: '' } } }) : Promise.resolve(0),
   ])
@@ -106,7 +107,7 @@ export async function itemEngagement(ref: ItemRef, userId: number | null, page =
     mine: mine ? { rating: mine.rating, body: mine.body, status: mine.status, verified: mineVerified, scores: scoresOf(ref.type, mine.scores) } : null,
     experience,
     favorite: favorite ? { notify: favorite.notify } : null,
-    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor }, mine: row.userId === userId, helpfulCount: helpfulById.get(row.id) || 0, helpfulByMe: helpfulByMe.has(row.id), verified: row.userId === userId && mineVerified ? mineVerified : verifiedOf(row.verified), scores: scoresOf(ref.type, row.scores) })),
+    reviews: rows.map((row): PublicReview => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt, author: { name: row.user.name || 'کاربر موبوکام', color: row.user.avatarColor, avatar: pictureOf(row.user) }, mine: row.userId === userId, helpfulCount: helpfulById.get(row.id) || 0, helpfulByMe: helpfulByMe.has(row.id), verified: row.userId === userId && mineVerified ? mineVerified : verifiedOf(row.verified), scores: scoresOf(ref.type, row.scores) })),
   }
 }
 
@@ -197,6 +198,12 @@ export async function memberItemReviews(userId: number, take: number) {
       return { id: row.id, itemType: row.itemType, itemId: row.itemId, rating: row.rating, body: row.body, status: row.status, verified: verifiedOf(row.verified), scores: scoresOf(row.itemType as ItemRef['type'], row.scores), updatedAt: row.updatedAt, item: card ? { title: card.title, url: card.url, image: card.image } : null }
     }),
   }
+}
+
+/** Is this item one of the member's favourites? One row, for controls that sit away from the item's page (the music player). */
+export async function favoriteOf(userId: number, ref: ItemRef) {
+  const favorite = await db.itemFavorite.findUnique({ where: { userId_itemType_itemId: { userId, itemType: ref.type, itemId: ref.id } }, select: { notify: true } })
+  return favorite ? { notify: favorite.notify } : null
 }
 
 /** The member's favorites as cards, newest first (items that are gone are skipped). */

@@ -34,6 +34,8 @@ import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
+import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -79,7 +81,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
     include: {
       categories: { include: { category: true } },
       category: true,
-      author: { select: { name: true, avatarColor: true, telegramUsername: true, telegramPhoto: true, createdAt: true } },
+      author: { select: { name: true, avatarColor: true, telegramUsername: true, telegramPhoto: true, createdAt: true, userProfile: { select: { username: true, avatar: true, cover: true, headline: true, bio: true, verified: true } } } },
     },
   })
   const now = new Date()
@@ -130,6 +132,10 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   const fmt = (d: Date) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   const authorName = post.author?.name || 'MoboComCMS'
   const initial = (authorName || 'H').trim().slice(0, 1).toUpperCase()
+  // The author's own public profile, when they have one: their picture, cover and words instead of a placeholder.
+  const authorProfile = post.author?.userProfile || null
+  const authorPhoto = pictureOf(post.author)
+  const authorAbout = (authorProfile?.bio || authorProfile?.headline || '').trim()
   const tagList = postCategories(post)
   const coverImage = post.cover || FALLBACK
 
@@ -168,7 +174,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <div className="journal-post-meta">
         <span className="journal-post-author-chip">
           <span className="journal-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>
-            {post.author?.telegramPhoto ? <img src={post.author.telegramPhoto} alt="" /> : initial}
+            {authorPhoto ? <img src={authorPhoto} alt="" /> : initial}
           </span>
           <span className="journal-avatar-copy">
             <small>{isFa ? 'نوشتهٔ' : 'Written by'}</small>
@@ -210,7 +216,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
-        dangerouslySetInnerHTML={{ __html: articleBlocks ?? cleanRichText(locked ? teaserHtml(content) : content) }}
+        dangerouslySetInnerHTML={{ __html: articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)) }}
       />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
       {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
@@ -258,20 +264,20 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
         </section>
       )}
       <section className="journal-bio" aria-labelledby="journal-bio-title">
-        <div className="journal-bio-art" aria-hidden="true">
+        <div className={`journal-bio-art${authorProfile?.cover ? ' has-cover' : ''}`} style={authorProfile?.cover ? { backgroundImage: `url("${encodeURI(authorProfile.cover)}")` } : undefined} aria-hidden="true">
           <span className="journal-bio-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>
-            {post.author?.telegramPhoto ? <img src={post.author.telegramPhoto} alt="" /> : initial}
+            {authorPhoto ? <img src={authorPhoto} alt="" /> : initial}
           </span>
         </div>
         <div className="journal-bio-body">
           <span className="journal-bio-label" id="journal-bio-title">
             {isFa ? 'درباره نویسنده' : 'About the author'}
           </span>
-          <h3>{authorName}</h3>
-          <p>
-            {isFa
+          <h3>{authorProfile ? <Link href={`/u/${authorProfile.username}`}>{authorName}</Link> : authorName}{authorProfile?.verified && <span className="journal-bio-verified" title={isFa ? 'تأییدشده' : 'Verified'} aria-label={isFa ? 'تأییدشده' : 'Verified'}>✓</span>}</h3>
+          <p dir="auto">
+            {authorAbout || (isFa
               ? 'راهنماها و خبرهای کاربردی برای تجربه‌ای امن‌تر و سریع‌تر در دنیای متصل؛ ساده، شفاف و بدون حاشیه.'
-              : 'Practical guides and stories for a safer, faster connected world — simple, clear and to the point.'}
+              : 'Practical guides and stories for a safer, faster connected world — simple, clear and to the point.')}
           </p>
           <div className="journal-bio-stats">
             <span>

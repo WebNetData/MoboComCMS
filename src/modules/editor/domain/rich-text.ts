@@ -34,19 +34,41 @@ const LETTER = /\p{Letter}/u
 const RTL_LETTER = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/, LTR_LETTER = /[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u052f]/
 
 /**
- * The direction a piece of text reads in: that of its first letter. Persian, Arabic and Hebrew read
- * right to left, Latin, Greek and Cyrillic left to right; digits, spaces and punctuation say nothing.
- * Text with no letter has no direction of its own (null) and takes that of the page, which is right to left.
+ * The direction a piece of text reads in. A Persian sentence stays a Persian sentence when it opens with a
+ * product name or an abbreviation ("X1 بهترین انتخاب است"), so **any right-to-left letter makes the text right
+ * to left**; it reads left to right only when its letters are all Latin, Greek or Cyrillic. Digits, spaces and
+ * punctuation say nothing: text with no letter has no direction of its own (null) and takes the page's.
  */
 export function textDirection(text: unknown): 'rtl' | 'ltr' | null {
   if (typeof text !== 'string') return null
+  let other = false
   for (const char of text) {
     // Script ranges also contain punctuation, digits and marks; only letters decide direction.
     if (!LETTER.test(char)) continue
     if (RTL_LETTER.test(char)) return 'rtl'
-    if (LTR_LETTER.test(char)) return 'ltr'
+    if (LTR_LETTER.test(char)) other = true
   }
-  return null
+  return other ? 'ltr' : null
+}
+
+const DIRECTED = /<(p|h[1-6]|li|blockquote)(\s[^>]*)?>/gi
+
+/**
+ * Stored HTML (the older editor, descriptions, changelogs) carries no direction: each paragraph, heading, list
+ * item and quote is given the one its own text reads in, by the same rule as a block document. A direction
+ * already written on the element is the writer's choice and is kept. Used where the HTML is shown, never where
+ * it is saved, so a later change of the rule reaches everything already stored.
+ */
+export function withTextDirections(html: string | null | undefined): string {
+  if (!html) return ''
+  return html.replace(DIRECTED, (open: string, tag: string, attrs: string | undefined, offset: number) => {
+    if (attrs && /\sdir\s*=/i.test(attrs)) return open
+    const rest = html.slice(offset + open.length, offset + open.length + 4000)
+    const end = rest.search(new RegExp(`</${tag}\\s*>`, 'i'))
+    const text = (end < 0 ? rest : rest.slice(0, end)).replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ')
+    const dir = textDirection(text)
+    return dir ? `<${tag}${attrs || ''} dir="${dir}">` : open
+  })
 }
 
 /** A paragraph choice wins over the containing block; otherwise infer from the first letter. */

@@ -1912,3 +1912,11 @@
   .jp-rail-btn:hover, .journal-tags-list a:hover, .journal-pager-item:not(.is-empty):hover, .journal-related .ln-card:hover { transform: none; }
 }
 @media print { .jp-progress, .jp-rail { display: none; } }
+
+/* The author card with the author's own cover and picture. */
+.journal-bio-art.has-cover { background-size: cover; background-position: center; }
+.journal-bio-art.has-cover::after { background: linear-gradient(180deg, transparent 30%, rgb(0 0 0 / .45)); opacity: 1; }
+.journal-bio-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.journal-bio-body h3 a { color: inherit; }
+.journal-bio-body h3 a:hover { color: var(--primary); }
+.journal-bio-verified { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 7px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 11px; vertical-align: middle; }
