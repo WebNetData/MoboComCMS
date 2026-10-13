@@ -3,7 +3,9 @@ import { db } from '@/platform/database/prisma'
 import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { richTextToPlain } from '@/shared/content/sanitize'
+import { richTextToPlain, sanitizeMessage } from '@/shared/content/sanitize'
+import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { auditAdmin } from '@/platform/audit/server'
 import { allowedDepartmentSlugs, canHandleTicket } from '@/modules/support/server/department-access'
 import { ticketSlaState } from '@/modules/support/domain/ticket-operations'
 import { parsePermissions } from '@/modules/identity/rbac'
@@ -74,4 +76,57 @@ export async function PATCH(req: NextRequest) {
   }
   const t = await db.ticket.update({ where: { id }, data: { ...(status ? { status, closedAt: status === 'CLOSED' ? (existing.status === 'CLOSED' ? existing.closedAt || new Date() : new Date()) : null } : {}), ...(hasAssignment ? { assignedToId } : {}) } })
   return ok({ id: t.id, status: t.status, assignedToId: t.assignedToId })
+}
+
+/**
+ * POST /api/admin/tickets — a member of staff opens a ticket to a customer (to ask for a one-time code,
+ * a missing detail of an order, anything). The customer sees it among their own tickets, already answered
+ * by support and waiting for them, and is told in their inbox.
+ */
+export async function POST(req: NextRequest) {
+  const staff = await requirePerm(req, 'tickets.handle' as Permission)
+  if (!staff) return err('forbidden', 403)
+  const b = await req.json().catch(() => null)
+  const subject = String(b?.subject || '').trim()
+  const message = sanitizeMessage(String(b?.message || '').trim())
+  const priority = ['low', 'normal', 'high'].includes(b?.priority) ? b.priority : 'normal'
+  const department = String(b?.department || 'GENERAL')
+  if (!subject || !richTextToPlain(message)) return err('موضوع و متن پیام الزامی است')
+  if (subject.length > 200 || message.length > 12000) return err('پیام بیش از حد طولانی است')
+  const departmentConfig = await db.ticketDepartment.findUnique({ where: { slug: department } })
+  if (!departmentConfig?.active) return err('یک دپارتمان فعال انتخاب کنید')
+  // A department that hangs a ticket on a subscription or a purchase cannot be opened from here without one.
+  if (departmentConfig.requiresSubscription || departmentConfig.requiresProduct) return err('این دپارتمان به یک سرویس یا خرید وصل است؛ دپارتمان عمومی را انتخاب کنید')
+  if (!await canHandleTicket(staff, department)) return err('forbidden', 403)
+
+  // The customer, by account number, or by the exact e-mail or phone of the account.
+  const raw = String(b?.user ?? '').trim()
+  if (!raw) return err('کاربر را مشخص کنید')
+  const digits = raw.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[\s-]/g, '')
+  const phone = /^(\+98|0098|0)?9\d{9}$/.test(digits) ? `+98${digits.replace(/^(\+98|0098|0)/, '')}` : ''
+  const found = await db.user.findMany({
+    where: { OR: [...(/^\d{1,9}$/.test(digits) && !phone ? [{ id: Number(digits) }] : []), ...(raw.includes('@') ? [{ email: raw.toLowerCase() }] : []), ...(phone ? [{ phone }, { phone: `0${phone.slice(3)}` }] : [])] },
+    select: { id: true, name: true, email: true, status: true }, take: 2,
+  })
+  if (found.length !== 1) return err(found.length ? 'بیش از یک کاربر با این مشخصات پیدا شد؛ شناسهٔ کاربر را وارد کنید' : 'کاربری با این مشخصات پیدا نشد', 404)
+  const customer = found[0]
+  if (customer.status !== 'ACTIVE') return err('این حساب فعال نیست', 409)
+
+  const now = new Date()
+  const ticket = await db.ticket.create({
+    data: {
+      userId: customer.id, subject, priority, department, status: 'PENDING', customFields: '{}',
+      assignedToId: staff.id, firstResponseAt: now, lastStaffAt: now, slaDueAt: null,
+      messages: { create: { userId: staff.id, fromAdmin: true, body: message } },
+    },
+    select: { id: true },
+  })
+  await createInboxEvent({
+    userId: customer.id, kind: 'TICKET_REPLY', dedupeKey: `ticket:${ticket.id}:opened-by-staff`,
+    titleEn: 'Support sent you a message', titleFa: 'پشتیبانی برای شما پیامی فرستاد',
+    bodyEn: `Ticket #${ticket.id}: ${subject}`, bodyFa: `تیکت شمارهٔ ${ticket.id}: ${subject}`,
+    href: `/dashboard/tickets/${ticket.id}`,
+  }).catch(() => {})
+  await auditAdmin({ req, actor: staff, action: 'ticket.open_for_customer', targetType: 'Ticket', targetId: ticket.id, metadata: { userId: customer.id, department } })
+  return ok({ id: ticket.id, user: { id: customer.id, name: customer.name, email: customer.email } })
 }

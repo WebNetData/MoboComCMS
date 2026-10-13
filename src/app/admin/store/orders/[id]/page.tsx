@@ -126,7 +126,7 @@ export default function StoreOrderPage() {
 
       <aside className="sa-stack">
         <section className="sa-card">
-          <header className="sa-card-head"><h2>مشتری</h2><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></header>
+          <header className="sa-card-head"><h2>مشتری</h2><span className="sa-row"><Link href={`/admin/tickets?new=1&user=${encodeURIComponent(data.customer.email)}&subject=${encodeURIComponent('دربارهٔ سفارش شما')}`} className="sa-link">ارسال تیکت به مشتری</Link><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></span></header>
           <dl className="sa-kv"><div><dt>نام</dt><dd>{data.customer.name || '—'}</dd></div><div><dt>ایمیل</dt><dd dir="ltr">{data.customer.email}</dd></div>{data.customer.phone && <div><dt>موبایل</dt><dd dir="ltr">{data.customer.phone}</dd></div>}<div><dt>سفارش‌های موفق</dt><dd className="num">{fa(data.customer.paidOrders)}</dd></div><div><dt>مجموع خرید</dt><dd><Money value={data.customer.spent} currency={data.currency} /></dd></div></dl>
         </section>
         {data.address && <section className="sa-card sa-label">
