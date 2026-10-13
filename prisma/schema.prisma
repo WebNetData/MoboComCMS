@@ -721,6 +721,8 @@ model ProductCategory {
   icon      String @default("")
   description String @default("")
   sortOrder Int @default(0)
+  // The half of the shop this category is in: '' (not decided) | PHYSICAL | VIRTUAL. A root decides; its descendants carry the same value.
+  kind      String @default("")
   @@index([parentId])
   @@index([attributeGroupId])
 }

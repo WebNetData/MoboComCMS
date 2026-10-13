@@ -104,7 +104,7 @@ export async function productCards(where: Prisma.ProductWhereInput, orderBy: Pri
 
 // ------------------------------------------------------------------ categories
 
-export type CategoryNode = { id: number; slug: string; name: string; image: string; icon: string; description: string; parentId: number | null; count: number; total: number; children: CategoryNode[] }
+export type CategoryNode = { id: number; slug: string; name: string; image: string; icon: string; description: string; parentId: number | null; kind: string; count: number; total: number; children: CategoryNode[] }
 
 /** Whole product-category tree with direct and subtree product counts (active products). */
 export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
@@ -113,7 +113,7 @@ export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
     db.product.groupBy({ by: ['categoryId'], where: { active: true, approval: 'APPROVED' }, _count: { _all: true } }),
   ])
   const direct = new Map(counts.map((row) => [row.categoryId, row._count._all]))
-  const nodes = new Map<number, CategoryNode>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, name: row.name, image: row.image, icon: row.icon, description: row.description, parentId: row.parentId, count: direct.get(row.id) || 0, total: 0, children: [] }]))
+  const nodes = new Map<number, CategoryNode>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, name: row.name, image: row.image, icon: row.icon, description: row.description, parentId: row.parentId, kind: row.kind, count: direct.get(row.id) || 0, total: 0, children: [] }]))
   const roots: CategoryNode[] = []
   for (const node of nodes.values()) {
     const parent = node.parentId ? nodes.get(node.parentId) : null
@@ -195,7 +195,7 @@ export async function shopDivisions(): Promise<ShopDivision[]> {
     const categories = tree.map((node) => {
       const children = node.children.map((child) => ({ slug: child.slug, name: child.name, total: sum(child) })).filter((child) => child.total > 0)
       return { slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: (direct.get(node.id) || 0) + children.reduce((all, child) => all + child.total, 0), children }
-    }).filter((node) => node.total > 0).sort((a, b) => b.total - a.total)
+    }).filter((node, index) => node.total > 0 && (tree[index].kind === '' || tree[index].kind === kind)).sort((a, b) => b.total - a.total)
     return { kind, total, categories, products }
   }))
 }

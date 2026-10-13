@@ -236,7 +236,17 @@ Decided with the owner over several rounds of looking at the result:
 - A wrapper around the header must never be a box (`display: contents`), or a sticky header cannot stay; the theme wrapper and the journal wrapper were both such boxes. Columns that pin themselves make room for the riding section bar (list in `theme.css`).
 - **The member's picture rides in the session** (`session.user.image`, from `pictureOf`: profile picture, else the Telegram one), refreshed by the check that already runs on every request. The header, the dashboard and the admin shell draw it; the forum falls back to it when a member has no forum picture.
 - **An article tells its whole path once**, under the navigation: home, the magazine, the categories above its category, its category, the title — the same list goes to search engines. The header no longer repeats a path on articles.
-- **The shop is shown as two halves — goods that are shipped and products delivered online.** The halves are derived from `Product.kind` (`shopDivisions`): each half lists the categories and sub-categories that hold products of its kind, counted for that kind, and every link of a half carries `kind=` so the shopper stays in it. No schema change. *Not decided yet:* assigning a category (and its attribute group) to one half in the admin, so that an empty category can belong to a half before it has products.
+- **The shop is shown as two halves — goods that are shipped and products delivered online.** The halves are derived from `Product.kind` (`shopDivisions`): each half lists the categories and sub-categories that hold products of its kind, counted for that kind, and every link of a half carries `kind=` so the shopper stays in it. Made explicit in §6K.
+
+## 6K. One shop, two halves, stored (owner, 2026-10-13)
+
+The owner asked whether to split the shop into two stores. Decided: **one catalogue, one cart and one checkout stay; the half is stored on the category.**
+- `ProductCategory.kind` is `''` (not decided), `PHYSICAL` or `VIRTUAL`. **A root category decides; everything under it carries the same value** (a child never keeps a half of its own), so a query can filter on the column alone.
+- A half is refused while the subtree holds products of the other half, or an attribute group made for the other half (`ProductAttributeGroup.appliesTo`, which already existed). The message says what to move first.
+- **A product is filed only under a category of its own half** (or an undecided one). The product editor offers only those categories.
+- The migration sorts what is stored once: a root whose products all agree takes their half; a root that holds both, or none, stays undecided and is listed as such in the admin for the staff to settle. No product and no address changes.
+- The admin shows the two halves as two trees with each category's attribute group. The storefront offers a decided category only under its half; an undecided one still follows its products.
+- Rules live in `src/modules/catalog/domain/category-kind.ts` (pure) and `src/modules/catalog/server/category-kind.ts` (inside the save's transaction). Imports that create categories leave them undecided.
 
 ## 7. Engineering rules learnt here
 

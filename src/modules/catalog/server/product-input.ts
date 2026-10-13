@@ -5,6 +5,7 @@ import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { validateCover } from '@/shared/content/cover'
 import { attributeGroupForCategory, validateFaqs, validateFields, validateGallery, validateSpecifications, validateVariants } from '@/modules/catalog/server/product-config'
 import { applyFxToBody } from '@/modules/fx/server/fx'
+import { CATEGORY_KIND_LABEL, productFitsCategory, type CategoryKind } from '@/modules/catalog/domain/category-kind'
 
 /**
  * Product form → row data, shared by the store admin (CMS products) and the
@@ -28,10 +29,12 @@ function sanitizeProduct(data: Record<string, unknown>) {
 }
 
 export async function productCategoryConfig(categoryId: unknown) {
-  if (categoryId === '' || categoryId == null) return { categoryId: null, fields: [] as ReturnType<typeof validateFields>, appliesTo: 'ANY' }
+  if (categoryId === '' || categoryId == null) return { categoryId: null, fields: [] as ReturnType<typeof validateFields>, appliesTo: 'ANY', categoryKind: '' }
   const id = Number(categoryId)
   if (!Number.isSafeInteger(id) || id <= 0) throw Error('Invalid category')
-  return { categoryId: id, ...await attributeGroupForCategory(id) }
+  // The half of the shop the category is in decides which kind of product may be filed under it.
+  const row = await db.productCategory.findUnique({ where: { id }, select: { kind: true } })
+  return { categoryId: id, ...await attributeGroupForCategory(id), categoryKind: row?.kind || '' }
 }
 
 type FxExisting = { pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
@@ -46,6 +49,7 @@ export async function productInput(input: any, existing?: { price: number; curre
   const kind = String(b?.kind ?? existing?.kind ?? 'VIRTUAL')
   if (!['VIRTUAL', 'PHYSICAL'].includes(kind)) throw Error('Invalid product type')
   if (category.appliesTo !== 'ANY' && category.appliesTo !== kind) throw Error('This category belongs to a different product type')
+  if (!productFitsCategory(kind, category.categoryKind)) throw Error(`این دسته در بخش «${CATEGORY_KIND_LABEL[category.categoryKind as CategoryKind]?.fa || category.categoryKind}» است؛ نوع محصول را همان بگذارید یا دستهٔ دیگری انتخاب کنید.`)
   const stock = b?.stock === '' ? -1 : Number(b?.stock ?? existing?.stock ?? -1)
   if (!Number.isSafeInteger(stock) || stock < -1 || priceMinor <= 0n) throw Error('Invalid stock or price')
   const specifications = validateSpecifications(b?.specifications ?? existing?.specifications ?? {}, category.fields.filter(field => !field.variant))

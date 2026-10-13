@@ -14,6 +14,8 @@ import { validateCover } from '@/shared/content/cover'
 import { validateCategoryParent, validateCategorySelection } from '@/modules/site/server/categories'
 import { postCategories } from '@/modules/site/domain/categories'
 import { parseJson, validateFields } from '@/modules/catalog/server/product-config'
+import { assertKindFits, cascadeCategoryKind, kindForCategory } from '@/modules/catalog/server/category-kind'
+import { CategoryKindError } from '@/modules/catalog/domain/category-kind'
 import { productInput, saveVariants } from '@/modules/catalog/server/product-input'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { fxFormFields } from '@/modules/fx/server/fx'
@@ -96,7 +98,7 @@ export async function GET(req: NextRequest) {
   const own = type === 'posts' && caller.authorId ? { authorId: caller.authorId } : null
 
   if (type === 'productcats' && req.nextUrl.searchParams.get('options') === '1') {
-    return ok(await db.productCategory.findMany({ select: { id: true, name: true, parentId: true }, orderBy: { id: 'asc' } }))
+    return ok(await db.productCategory.findMany({ select: { id: true, name: true, parentId: true, kind: true }, orderBy: { id: 'asc' } }))
   }
 
   const model = MODELS[type]()
@@ -221,7 +223,13 @@ export async function POST(req: NextRequest) {
       if (type === 'postcats') return ok(await db.$transaction(async tx => tx.postCategory.create({ data: {
         ...pick(b, ['slug', 'name', 'nameEn']), parentId: await validateCategoryParent(tx, b?.parentId),
       } as any }), { isolationLevel: 'Serializable' }))
-      const row = await model.create({ data: { ...pick(b, ['slug', 'name', 'nameEn']), ...productCategoryExtras(b), parentId: await productCategoryParent(b?.parentId), attributeGroupId: await productCategoryGroup(b?.attributeGroupId) } })
+      const parentId = await productCategoryParent(b?.parentId), attributeGroupId = await productCategoryGroup(b?.attributeGroupId)
+      // A category is born in a half of the shop: its parent's, or the one chosen for a root.
+      const row = await db.$transaction(async tx => {
+        const kind = await kindForCategory(tx, { parentId, asked: b?.kind })
+        await assertKindFits(tx, { kind, attributeGroupId })
+        return tx.productCategory.create({ data: { ...pick(b, ['slug', 'name', 'nameEn']), ...productCategoryExtras(b), parentId, attributeGroupId, kind } as any })
+      }, { isolationLevel: 'Serializable' })
       return ok(row)
     }
     if (type === 'productgroups') return ok(await db.productAttributeGroup.create({ data: productGroupInput(b) }))
@@ -251,6 +259,7 @@ export async function POST(req: NextRequest) {
     }
     return err('unknown type', 404)
   } catch (e: any) {
+    if (e instanceof CategoryKindError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'create failed', 400)
   }
 }
@@ -319,6 +328,18 @@ export async function PATCH(req: NextRequest) {
       Object.assign(data, productCategoryExtras(b))
       if (b?.parentId !== undefined) data.parentId = await productCategoryParent(b.parentId, id)
       if (b?.attributeGroupId !== undefined) data.attributeGroupId = await productCategoryGroup(b.attributeGroupId)
+      // Moving a category, or changing the half of a root, takes everything under it along — and is refused
+      // while products or attribute groups of the other half are still in it.
+      return ok(await db.$transaction(async tx => {
+        const current = await tx.productCategory.findUnique({ where: { id }, select: { parentId: true, kind: true } })
+        if (!current) throw new CategoryKindError('not found', 404)
+        const parentId = data.parentId !== undefined ? data.parentId as number | null : current.parentId
+        const kind = await kindForCategory(tx, { parentId, asked: b?.kind, current: current.kind })
+        await assertKindFits(tx, { id, kind, attributeGroupId: data.attributeGroupId as number | null | undefined })
+        const row = await tx.productCategory.update({ where: { id }, data: { ...data, kind } })
+        if (kind !== current.kind) await cascadeCategoryKind(tx, id, kind)
+        return row
+      }, { isolationLevel: 'Serializable' }))
     }
     if (type === 'products') {
       const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true } })
@@ -375,6 +396,7 @@ export async function PATCH(req: NextRequest) {
     const row = await model.update({ where: { id }, data })
     return ok(row)
   } catch (e: any) {
+    if (e instanceof CategoryKindError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'update failed', 400)
   }
 }

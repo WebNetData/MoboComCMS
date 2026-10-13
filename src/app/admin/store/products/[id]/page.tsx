@@ -234,7 +234,7 @@ export default function ProductEditorPage() {
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>دسته و برند</h2><Link href="/admin/productcats" className="sa-link">مدیریت دسته‌ها</Link></header>
-          <label className="sa-field"><span>دسته‌بندی</span><select className="select" value={form.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">بدون دسته</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `— ${category.name}` : category.name}</option>)}</select></label>
+          <label className="sa-field"><span>دسته‌بندی</span><select className="select" value={form.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">بدون دسته</option>{categories.filter((category) => { const half = (category as { kind?: string }).kind || ''; return !half || half === form.kind || String(category.id) === String(form.categoryId) }).map((category) => <option key={category.id} value={category.id}>{category.parentId ? `— ${category.name}` : category.name}</option>)}</select></label>
           <label className="sa-field"><span>برند</span><select className="select" value={form.brandId} onChange={(event) => update('brandId', event.target.value)}><option value="">بدون برند</option>{brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
           <Link href="/admin/store/brands" className="sa-link">افزودن برند</Link>
         </section>
