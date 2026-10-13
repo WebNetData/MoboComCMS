@@ -7,6 +7,23 @@ import type { PlayerTrack } from './player-types'
 import TrackActions from './TrackActions'
 import { readPlaybackSession, sourceUrl, trackSource, writePlaybackSession } from './playback-session'
 
+const PLAYER_ICONS: Record<string, React.ReactNode> = {
+  play: <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none" />,
+  pause: <><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" /><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" /></>,
+  prev: <><path d="M18 6v12l-9-6 9-6Z" fill="currentColor" stroke="none" /><path d="M6 6v12" /></>,
+  next: <><path d="M6 6v12l9-6-9-6Z" fill="currentColor" stroke="none" /><path d="M18 6v12" /></>,
+  shuffle: <><path d="M3 7h3.5c2.5 0 4 1.5 5.5 5s3 5 5.5 5H21" /><path d="M3 17h3.5c1.4 0 2.5-.5 3.4-1.5M14.1 8.500C15 7.5 16.1 7 17.5 7H21" /><path d="m18 4 3 3-3 3M18 14l3 3-3 3" /></>,
+  repeat: <><path d="M17 3l3 3-3 3" /><path d="M4 11V9a3 3 0 0 1 3-3h13" /><path d="M7 21l-3-3 3-3" /><path d="M20 13v2a3 3 0 0 1-3 3H4" /></>,
+  repeatOne: <><path d="M17 3l3 3-3 3" /><path d="M4 11V9a3 3 0 0 1 3-3h13" /><path d="M7 21l-3-3 3-3" /><path d="M20 13v2a3 3 0 0 1-3 3H4" /><path d="M11.5 10.5 13 9.500v5" /></>,
+  queue: <><path d="M4 6h11M4 11h11M4 16h7" /><path d="M16 14.500v5l4-2.5-4-2.500Z" fill="currentColor" stroke="none" /></>,
+  download: <><path d="M12 4v11m-4.5-4.500L12 15l4.5-4.5" /><path d="M5 19h14" /></>,
+  close: <path d="m6 6 12 12M18 6 6 18" />,
+  note: <><path d="M9 18V5l11-2v13" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></>,
+}
+function PlayerIcon({ name, size = 20 }: { name: keyof typeof PLAYER_ICONS | string; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{PLAYER_ICONS[name]}</svg>
+}
+
 type Lock = { reason: 'login' | 'vip' | 'buy'; track: PlayerTrack } | null
 
 const lockReason = (status: number): 'login' | 'vip' | 'buy' | null => (status === 401 ? 'login' : status === 403 ? 'vip' : status === 402 ? 'buy' : null)
@@ -280,21 +297,22 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
         onError={() => { setLoading(false); setPlaying(false); if (current) void explainFailure(current) }}
       />
       {current && (
-        <div className="mu-player" role="region" aria-label={fa ? 'پخش‌کننده موزیک' : 'Music player'}>
+        <div className="mu-player" role="region" aria-label={fa ? 'پخش‌کننده موزیک' : 'Music player'} data-playing={playing || undefined}>
+          {current.cover && <div className="mu-player-glow" aria-hidden="true" style={{ backgroundImage: `url("${encodeURI(current.cover)}")` }} />}
           <div className="mu-player-progress" aria-hidden="true"><span style={{ width: `${length ? (time / length) * 100 : 0}%` }} /></div>
           <div className="mu-player-inner">
             <Link href={`/music/track/${current.slug}`} className="mu-player-meta">
-              {current.cover ? <img src={current.cover} alt="" className={playing ? 'is-spinning' : ''} /> : <span className="mu-player-noart">♪</span>}
+              {current.cover ? <img src={current.cover} alt="" className={playing ? 'is-spinning' : ''} /> : <span className="mu-player-noart"><PlayerIcon name="note" /></span>}
               <span><b>{current.title}</b><small>{current.artist}</small></span>
             </Link>
             <div className="mu-player-center">
               <div className="mu-player-buttons">
-                <button type="button" className={`mu-ic${shuffle ? ' is-on' : ''}`} onClick={() => setShuffle(!shuffle)} aria-label={fa ? 'پخش تصادفی' : 'Shuffle'} title={fa ? 'پخش تصادفی' : 'Shuffle'}>⤮</button>
-                <button type="button" className="mu-ic" onClick={prev} aria-label={fa ? 'قبلی' : 'Previous'}>⏮</button>
-                <button type="button" className="mu-play-main" onClick={toggle} aria-label={playing ? (fa ? 'توقف' : 'Pause') : (fa ? 'پخش' : 'Play')}>{loading ? <span className="mu-spinner" /> : playing ? '❚❚' : '▶'}</button>
-                <button type="button" className="mu-ic" onClick={next} aria-label={fa ? 'بعدی' : 'Next'}>⏭</button>
-                <button type="button" className={`mu-ic mu-mobile-queue-button${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} aria-expanded={showQueue}>☰</button>
-                <button type="button" className={`mu-ic${repeat !== 'off' ? ' is-on' : ''}`} onClick={() => setRepeat(repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off')} aria-label={fa ? 'تکرار' : 'Repeat'} title={fa ? 'تکرار' : 'Repeat'}>{repeat === 'one' ? '🔂' : '🔁'}</button>
+                <button type="button" className={`mu-ic${shuffle ? ' is-on' : ''}`} onClick={() => setShuffle(!shuffle)} aria-label={fa ? 'پخش تصادفی' : 'Shuffle'} title={fa ? 'پخش تصادفی' : 'Shuffle'}><PlayerIcon name="shuffle" size={18} /></button>
+                <button type="button" className="mu-ic" onClick={prev} aria-label={fa ? 'قبلی' : 'Previous'}><PlayerIcon name="prev" /></button>
+                <button type="button" className="mu-play-main" onClick={toggle} aria-label={playing ? (fa ? 'توقف' : 'Pause') : (fa ? 'پخش' : 'Play')}>{loading ? <span className="mu-spinner" /> : <PlayerIcon name={playing ? 'pause' : 'play'} size={22} />}</button>
+                <button type="button" className="mu-ic" onClick={next} aria-label={fa ? 'بعدی' : 'Next'}><PlayerIcon name="next" /></button>
+                <button type="button" className={`mu-ic mu-mobile-queue-button${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} aria-expanded={showQueue}><PlayerIcon name="queue" /></button>
+                <button type="button" className={`mu-ic${repeat !== 'off' ? ' is-on' : ''}`} onClick={() => setRepeat(repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off')} aria-label={fa ? 'تکرار' : 'Repeat'} title={fa ? 'تکرار' : 'Repeat'}><PlayerIcon name={repeat === 'one' ? 'repeatOne' : 'repeat'} size={18} /></button>
               </div>
               <div className="mu-player-seek" dir="ltr">
                 <span>{fmt(time)}</span>
@@ -305,13 +323,13 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
             <div className="mu-player-side">
               <TrackActions trackId={current.id} title={current.title} />
               {current.hasHq && <button type="button" className={`mu-hq${hq ? ' is-on' : ''}`} onClick={() => { const on = !hq; setHq(on); writePref('mu.hq', on ? '1' : '0'); load(current, on) }} title={fa ? 'کیفیت ۳۲۰' : '320 kbps'}>320</button>}
-              <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}>⤓</button>
-              <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'}>☰</button>
+              <button type="button" className="mu-ic" onClick={() => void download(current)} aria-label={fa ? 'دانلود' : 'Download'} title={fa ? 'دانلود' : 'Download'}><PlayerIcon name="download" /></button>
+              <button type="button" className={`mu-ic${showQueue ? ' is-on' : ''}`} onClick={() => setShowQueue(!showQueue)} aria-label={fa ? 'صف پخش' : 'Queue'} title={fa ? 'صف پخش' : 'Queue'} aria-expanded={showQueue}><PlayerIcon name="queue" /></button>
               <input className="mu-volume" dir="ltr" type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); writePref('mu.volume', String(v)) }} aria-label={fa ? 'صدا' : 'Volume'} />
-              <button type="button" className="mu-ic mu-close" onClick={() => { loadRequestId.current++; audio.current?.pause(); audio.current?.removeAttribute('src'); audio.current?.removeAttribute('data-track-id'); setQueue([]); setTime(0); setLock(null) }} aria-label={fa ? 'بستن' : 'Close'}>✕</button>
+              <button type="button" className="mu-ic mu-close" onClick={() => { loadRequestId.current++; audio.current?.pause(); audio.current?.removeAttribute('src'); audio.current?.removeAttribute('data-track-id'); setQueue([]); setTime(0); setLock(null) }} aria-label={fa ? 'بستن' : 'Close'}><PlayerIcon name="close" size={18} /></button>
             </div>
           </div>
-          {notice && <div className="mu-player-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="close">✕</button></div>}
+          {notice && <div className="mu-player-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label={fa ? 'بستن پیام' : 'Dismiss'}><PlayerIcon name="close" size={16} /></button></div>}
           {lock && (
             <div className="mu-player-lock" role="alert">
               <span className="vip-crown">♛</span>
@@ -321,10 +339,16 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
           )}
           {showQueue && (
             <div className="mu-queue">
-              <header><b>{fa ? 'صف پخش' : 'Up next'}</b><span className="muted">{queue.length}</span></header>
+              <header>
+                <div><b>{fa ? 'صف پخش' : 'Up next'}</b><small>{fa ? `${(index + 1).toLocaleString('fa-IR')} از ${queue.length.toLocaleString('fa-IR')} آهنگ` : `${index + 1} of ${queue.length}`}</small></div>
+                <button type="button" className="mu-ic" onClick={() => setShowQueue(false)} aria-label={fa ? 'بستن صف پخش' : 'Close queue'}><PlayerIcon name="close" size={16} /></button>
+              </header>
               <ol>{queue.map((track, i) => (
-                <li key={`${track.id}-${i}`} className={i === index ? 'is-current' : ''}>
-                  <button type="button" onClick={() => play(queue, i)}>{track.cover ? <img src={track.cover} alt="" /> : <span className="mu-player-noart">♪</span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}</button>
+                <li key={`${track.id}-${i}`} className={i === index ? 'is-current' : i < index ? 'is-played' : ''}>
+                  <button type="button" onClick={() => play(queue, i)} aria-current={i === index ? 'true' : undefined}>
+                    <i className="mu-queue-no">{i === index && playing ? <span className="mu-eq" aria-hidden="true"><b /><b /><b /></span> : (i + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</i>
+                    {track.cover ? <img src={track.cover} alt="" loading="lazy" /> : <span className="mu-player-noart"><PlayerIcon name="note" size={16} /></span>}<span><b>{track.title}</b><small>{track.artist}</small></span>{track.access === 'MEMBERS' && <em className="vip-dot">VIP</em>}
+                  </button>
                 </li>
               ))}</ol>
             </div>
