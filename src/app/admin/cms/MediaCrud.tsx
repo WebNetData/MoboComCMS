@@ -15,6 +15,10 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { TRACK_LANGUAGES, playbackKind } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import dynamic from 'next/dynamic'
+
+// Loaded only when a form with a formatted field is opened.
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 // Left out of the form while the VIP module is off; the stored value is not touched by a save without them.
 const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
@@ -29,7 +33,8 @@ type Opt = { value: string; label: string }
 export type MediaField = {
   key: string
   label: string
-  type?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms'
+  /** `richtext`: formatted text written in the site's editor and stored as sanitised HTML (the server cleans it on save). */
+  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms'
   /** For `terms`: the section taxonomy (software, games, music, cinema). */
   taxonomy?: string
   options?: Opt[]
@@ -223,7 +228,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
     const base = { key: field.key, label: field.label, hint: field.hint, dir: field.dir }
     switch (field.type || 'text') {
       case 'text': return [{ ...base, type: field.key === 'slug' ? 'slug' : 'text' }]
-      case 'textarea': return [{ ...base, type: /HTML/i.test(field.label) ? 'richtext' : 'textarea' }]
+      case 'richtext': return [{ ...base, type: 'richtext' }]
+      case 'textarea': return [{ ...base, type: 'textarea' }]
       case 'number': return [{ ...base, type: 'number' }]
       case 'checkbox': return [{ ...base, type: 'checkbox' }]
       case 'date': return [{ ...base, type: 'date' }]
@@ -386,6 +392,8 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
   switch (field.type) {
     case 'checkbox':
       return <label className="flex items-center gap-2 text-sm mx-check"><input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />{field.label}</label>
+    case 'richtext':
+      return <RichEditor value={String(value || '')} onChange={(next) => onChange(next)} placeholder={field.placeholder} dir={field.dir || 'rtl'} minHeight={170} assetSection={field.upload || 'general'} />
     case 'textarea':
       return <textarea className="textarea" rows={5} dir={field.dir} value={value || ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
     case 'select':

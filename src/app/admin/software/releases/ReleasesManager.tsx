@@ -7,7 +7,7 @@ import { LinksEditor, type LinkRow } from '../../cms/MediaCrud'
 import { Notice, faDate, send, useJson } from '../shared'
 import { SoftwareShell } from '../shared'
 
-const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 type Picker = { id: number; title: string; slug: string; status: string }
 type Target = { platform: string; architecture: string; minVersion: string; notes: string }

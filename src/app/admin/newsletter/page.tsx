@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
 import { Notice, Pager, fa, faDate } from '../store/shared'
 
-const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 type Campaign = { id: number; subject: string; preheader: string; audience: string; status: string; scheduledAt: string | null; startedAt: string | null; finishedAt: string | null; total: number; sent: number; failed: number; opens: number; clicks: number; createdAt: string }
 type Draft = { id?: number; subject: string; preheader: string; html: string; audience: string }

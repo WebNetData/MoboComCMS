@@ -41,3 +41,15 @@ export function mutationOrigin(source: MutationSource): OriginVerdict {
   if (referer) return isOurs(referer) ? 'allow' : 'foreign-origin'
   return source.hasCookies ? 'origin-required' : 'allow'
 }
+
+/**
+ * A route's own second look at `Origin` (uploads): is it one of the hosts this site answers on? The request's
+ * `Host` header and the configured public address are compared — never the address Next rebuilt for the request,
+ * which is the bind address (0.0.0.0, an internal name) behind a proxy or in a container and matches no browser.
+ * No `Origin` at all is left to the middleware's policy above.
+ */
+export function originIsThisSite(origin: string | null, host: string | null, publicUrl: string | undefined = process.env.NEXTAUTH_URL): boolean {
+  if (!origin) return true
+  const configured = publicUrl ? hostOf(publicUrl) : null
+  return mutationOrigin({ origin, secFetchSite: null, referer: null, hasCookies: true, hosts: [host, configured] }) === 'allow'
+}

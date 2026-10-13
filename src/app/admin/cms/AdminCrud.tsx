@@ -17,7 +17,7 @@ import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 // Left out of the form while the VIP module is off; the stored value is not touched by a save without them.
 const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
 
-const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 export interface FieldDef {
   key: string

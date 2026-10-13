@@ -423,3 +423,132 @@ test('stored HTML is given a direction per paragraph where it is shown, and a wr
   for (const file of ['src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/artist/[slug]/page.tsx', 'src/components/ProductTabs.tsx']) assert.match(read(file), /__html: [^}]*withTextDirections\(/, file)
   assert.doesNotMatch(read('src/shared/content/sanitize.ts'), /withTextDirections/)
 })
+
+test('the classic editor: quick tags wrap the selection, refuse an address that runs, and the plugin can be switched off without touching content', () => {
+  const classic = load('src/modules/editor/domain/classic')
+  const none = () => ''
+  // A pair around the selection, the selection kept selected inside it.
+  assert.deepEqual(classic.applyQuicktag('سلام دنیا', 5, 9, 'b', none), { value: 'سلام <strong>دنیا</strong>', start: 13, end: 17 })
+  // Nothing selected: an empty pair with the caret between the tags.
+  assert.deepEqual(classic.applyQuicktag('', 0, 0, 'li', none), { value: '<li></li>', start: 4, end: 4 })
+  assert.equal(classic.applyQuicktag('a', 0, 1, 'ul', none).value, '<ul>\na\n</ul>')
+  // A reversed or out-of-range selection is put in order, never thrown on.
+  assert.equal(classic.applyQuicktag('abc', 3, 1, 'i', none).value, 'a<em>bc</em>')
+  assert.equal(classic.applyQuicktag('abc', -5, 99, 'code', none).value, '<code>abc</code>')
+  // A link and a picture ask for an address; a bare host gets https, a path and an anchor stay.
+  assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => 'example.com/a').value, '<a href="https://example.com/a">متن</a>')
+  assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => '/blog/x').value, '<a href="/blog/x">متن</a>')
+  assert.equal(classic.applyQuicktag('x', 1, 1, 'img', () => 'https://cdn.example/a.webp').value, 'x<img src="https://cdn.example/a.webp" alt="" />')
+  assert.equal(classic.applyQuicktag('a"b<c', 0, 5, 'img', () => '/u/1.webp').value, '<img src="/u/1.webp" alt="abc" />', 'the selected words become the alt text, without quotes or brackets')
+  // What runs, breaks out of the attribute or is not an address changes nothing.
+  for (const bad of ['javascript:alert(1)', 'data:text/html,<script>', 'vbscript:x', 'x" onmouseover="y', 'a b', '<script>', '//evil.example', '', '   ']) {
+    assert.equal(classic.quicktagUrl(bad), null, JSON.stringify(bad))
+    assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => bad), null, JSON.stringify(bad))
+  }
+  assert.deepEqual(['https://a.example', '/p', '#top', 'mailto:a@b.example', 'tel:+98'].map(classic.quicktagUrl), ['https://a.example', '/p', '#top', 'mailto:a@b.example', 'tel:+98'])
+  assert.equal(classic.applyQuicktag('a', 0, 1, 'script', none), null, 'an unknown tag does nothing')
+  // Every quick tag has an action, and the toolbars name only tools of the open-source edition.
+  for (const tag of classic.QUICKTAGS) assert.notEqual(classic.applyQuicktag('x', 0, 1, tag.id, () => '/a'), null, tag.id)
+  const FREE = new Set('blocks bold italic underline strikethrough forecolor backcolor alignright aligncenter alignleft alignjustify bullist numlist outdent indent blockquote link image table codesample charmap rtl ltr removeformat searchreplace fullscreen undo redo'.split(' '))
+  for (const [name, bar] of Object.entries(classic.CLASSIC_TOOLBARS)) for (const tool of bar.split(/[\s|]+/).filter(Boolean)) assert.ok(FREE.has(tool), name + ': ' + tool)
+  assert.doesNotMatch(classic.CLASSIC_TOOLBARS.basic, /image|table|codesample/)
+
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  // A plugin of its own, on by default, with nothing but a manifest: switching it off cannot lose data.
+  const manifest = JSON.parse(read('src/plugins/classic-editor/manifest.json'))
+  assert.deepEqual([manifest.id, manifest.kind, manifest.defaultEnabled, manifest.settings.map((entry) => entry.key + ':' + entry.public)], [classic.CLASSIC_EDITOR_PLUGIN, 'plugin', true, ['start-tab:true']])
+  assert.deepEqual(fs.readdirSync(path.resolve(__dirname, '..', 'src/plugins/classic-editor')), ['manifest.json'])
+  // One door for every staff form; off → the lighter editor, same value either way.
+  const door = read('src/components/editor/ContentEditor.tsx')
+  assert.match(door, /if \(!state\?\.enabled\) return <RichEditor \{\.\.\.props\} \/>/)
+  for (const file of ['src/app/admin/cms/AdminCrud.tsx', 'src/app/admin/cms/MediaCrud.tsx', 'src/app/admin/games/[id]/page.tsx', 'src/app/admin/store/products/[id]/page.tsx', 'src/app/admin/software/releases/ReleasesManager.tsx', 'src/app/admin/newsletter/page.tsx']) {
+    assert.match(read(file), /import\('@\/components\/editor\/ContentEditor'\)/, file)
+    assert.doesNotMatch(read(file), /import\('@\/components\/RichEditor'\)/, file)
+  }
+  // The heavy editor is loaded on demand, from this site's own bundle, under the GPL key — never from a CDN, never on a public page.
+  const editor = read('src/components/editor/classic/ClassicEditor.tsx')
+  assert.match(door, /dynamic\(\(\) => import\('@\/components\/editor\/classic\/ClassicEditor'\), \{ ssr: false/)
+  assert.match(editor, /licenseKey="gpl"/)
+  assert.doesNotMatch(editor, /tinymceScriptSrc|cdn\.tiny\.cloud|apiKey=/)
+  assert.match(editor, /invalid_elements: 'script,style,object,embed,applet,form,/)
+  assert.match(editor, /images_upload_handler: [^\n]*uploadPicture\(/)
+  const importers = []
+  const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else if (/\.tsx?$/.test(entry.name) && /from '(tinymce|@tinymce\/)|import 'tinymce\//.test(fs.readFileSync(full, 'utf8'))) importers.push(path.relative(path.resolve(__dirname, '..'), full).replace(/\\/g, '/')) } }
+  walk(path.resolve(__dirname, '..', 'src'))
+  assert.deepEqual(importers, ['src/components/editor/classic/ClassicEditor.tsx'])
+  // Fields that are stored as cleaned HTML are written in the editor, not as raw tags.
+  assert.match(read('src/app/admin/software/titles/page.tsx'), /key: 'changelog',[^\n]*type: 'richtext'/)
+  assert.doesNotMatch(read('src/app/admin/software/titles/page.tsx'), /HTML مجاز/)
+  // The server's cleaning keeps what the editor can make (tables with merged cells) and still drops what runs.
+  // The sanitiser imports its library by default export, so it is compiled here with module interop on.
+  const cleaning = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  const { cleanRichText } = cleaning.exports
+  assert.equal(cleanRichText('<table><tbody><tr><td colspan="2" rowspan="3" onclick="x()">a</td></tr></tbody></table>'), '<table><tbody><tr><td colspan="2" rowspan="3">a</td></tr></tbody></table>')
+  assert.equal(cleanRichText('<p style="color:#ff0000;position:fixed">x</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="x()"><a href="javascript:alert(1)">y</a>'), '<p style="color:#ff0000">x</p><img /><a>y</a>')
+})
+
+test('the media library: a chosen picture becomes clean markup, the listing is the store\'s own files, and the editor speaks Persian', async () => {
+  const classic = load('src/modules/editor/domain/classic')
+  const pick = (extra) => classic.pictureHtml({ url: '/api/media/covers/a.webp', alt: '', caption: '', width: 0, align: 'none', ...extra })
+  assert.equal(pick({}), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />')
+  // Alternative text and caption are text, never markup.
+  assert.equal(pick({ alt: 'گربه "سیاه" <b>', caption: 'نمای <i>نزدیک</i> & دور' }), '<figure><img src="/api/media/covers/a.webp" alt="گربه &quot;سیاه&quot; &lt;b&gt;" loading="lazy" /><figcaption>نمای &lt;i&gt;نزدیک&lt;/i&gt; &amp; دور</figcaption></figure>')
+  // A smaller size asks the image route for that width; a width it does not serve, or a picture from elsewhere, stays whole.
+  assert.equal(pick({ width: 640, align: 'center' }), '<p style="text-align: center"><img src="/api/media/covers/a.webp?w=640" alt="" width="640" loading="lazy" /></p>')
+  assert.equal(pick({ width: 500 }), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />')
+  assert.equal(classic.pictureHtml({ url: 'https://cdn.example/x.png', alt: 'x', caption: '', width: 640, align: 'left' }), '<p style="text-align: left"><img src="https://cdn.example/x.png" alt="x" loading="lazy" /></p>')
+  assert.equal(pick({ align: 'justify' }), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />', 'an alignment that is not one of the three is ignored')
+  for (const url of ['javascript:alert(1)', 'data:image/svg+xml,<svg onload=x>', '//evil.example/a.png', 'a" onerror="x', '']) assert.equal(classic.pictureHtml({ url, alt: '', caption: 'c', width: 0, align: 'none' }), '', JSON.stringify(url))
+  // Everything it writes survives the server's cleaning unchanged, so what the writer saw is what is stored.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const cleaning = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  for (const html of [pick({}), pick({ alt: 'متن', caption: 'زیرنویس', width: 960, align: 'right' }), pick({ width: 320, align: 'center' })]) assert.equal(cleaning.exports.cleanRichText(html).replace(/text-align:(\w)/, 'text-align: $1'), html)
+
+  // The listing: only files the store wrote (its naming), newest first, paged; nothing from the resized cache or a stray file.
+  const os = require('node:os'), dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-')), covers = path.join(dir, 'storage', 'covers')
+  fs.mkdirSync(path.join(covers, '.cache'), { recursive: true })
+  const name = (n) => ('0000000' + n).slice(-8) + '-0000-4000-8000-000000000000.webp'
+  for (let i = 1; i <= 5; i += 1) { fs.writeFileSync(path.join(covers, name(i)), Buffer.alloc(i * 10)); const at = new Date(Date.UTC(2026, 0, i)); fs.utimesSync(path.join(covers, name(i)), at, at) }
+  fs.writeFileSync(path.join(covers, '.cache', name(1).replace('.webp', '-320.webp')), 'x'); fs.writeFileSync(path.join(covers, 'notes.txt'), 'x'); fs.writeFileSync(path.join(covers, '../../../' + path.basename(dir) + '-outside.webp'), 'x')
+  const store = { exports: {} }, cwd = process.cwd()
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/modules/site/server/cover-store.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, store, store.exports)
+  try {
+    process.chdir(dir)
+    const first = await store.exports.listCoverImages(1, 2)
+    assert.deepEqual([first.total, first.pages, first.page, first.items.map((item) => item.name)], [5, 3, 1, [name(5), name(4)]])
+    assert.deepEqual([first.items[0].url, first.items[0].bytes], ['/api/media/covers/' + name(5), 50])
+    assert.deepEqual((await store.exports.listCoverImages(3, 2)).items.map((item) => item.name), [name(1)])
+    assert.equal((await store.exports.listCoverImages(99, 2)).page, 3, 'a page past the end is the last page')
+    assert.equal((await store.exports.listCoverImages(1, 5000)).items.length, 5, 'the page size is capped, not trusted')
+    // A new upload is seen at once: the folder's own change time says the remembered list is old.
+    fs.writeFileSync(path.join(covers, name(6)), 'new')
+    assert.equal((await store.exports.listCoverImages(1, 2)).total, 6)
+  } finally { process.chdir(cwd); fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(path.join(os.tmpdir(), path.basename(dir) + '-outside.webp'), { force: true }) }
+  // Listing and uploading ask the same question of the caller; a member without a content permission gets neither.
+  const route = read('src/modules/site/server/http/admin/media/route.ts')
+  assert.match(route, /export async function GET\(req: NextRequest\) \{\n  if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)/)
+  assert.match(route, /if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)\n  return receiveImage\(req\)/)
+  // Persian interface: the language is registered from this repository's own file, never fetched; and every tool on the toolbars has a Persian name.
+  const editor = read('src/components/editor/classic/ClassicEditor.tsx')
+  assert.match(editor, /tinymce\.addI18n\('fa', TINYMCE_FA\)/)
+  assert.match(editor, /language: fa \? 'fa' : undefined,\n    language_load: false,/)
+  assert.match(editor, /file_picker_callback: [^\n]*setLibrary\(\{ done \}\)/)
+  const fa = load('src/components/editor/classic/tinymce-fa').TINYMCE_FA
+  for (const label of ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Paragraph', 'Heading 2', 'Text color', 'Background color', 'Align left', 'Align center', 'Align right', 'Justify', 'Bullet list', 'Numbered list', 'Blockquote', 'Insert/edit link', 'Insert/edit image', 'Table', 'Special character', 'Left to right', 'Right to left', 'Clear formatting', 'Find and replace', 'Fullscreen', 'Undo', 'Redo', 'Save', 'Cancel']) assert.match(fa[label] || '', /[؀-ۿ]/, label)
+})
+
+test('an upload is accepted from the hosts this site answers on, whatever address the server was bound to', () => {
+  const { originIsThisSite } = load('src/platform/http/origin-policy')
+  // The browser's address, as the Host header says it — the server may be bound to 0.0.0.0 or an internal name.
+  assert.equal(originIsThisSite('http://localhost:3000', 'localhost:3000', undefined), true)
+  assert.equal(originIsThisSite('https://mobocom.example', 'app:3000', 'https://mobocom.example'), true, 'behind a proxy the configured public address counts')
+  assert.equal(originIsThisSite('https://MOBOCOM.example', 'mobocom.example', undefined), true)
+  // Another site, a look-alike host, a sandboxed frame and a malformed value are not this site.
+  for (const origin of ['https://evil.example', 'http://localhost:3001', 'https://mobocom.example.evil.example', 'null', 'not a url']) assert.equal(originIsThisSite(origin, 'localhost:3000', 'https://mobocom.example'), false, origin)
+  // No Origin is the middleware's question (cookies need one there), not this second look's.
+  assert.equal(originIsThisSite(null, 'localhost:3000', undefined), true)
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  for (const file of ['src/modules/site/server/http/admin/media/route.ts', 'src/modules/marketplace/server/http/marketplace.ts']) { assert.match(read(file), /originIsThisSite\(req\.headers\.get\('origin'\), req\.headers\.get\('host'\) \|\| req\.nextUrl\.host\)/, file); assert.doesNotMatch(read(file), /!== req\.nextUrl\.origin/, file) }
+})
