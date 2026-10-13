@@ -43,20 +43,20 @@ export default function ReceiptsPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">PAYMENT RECEIPTS</span><h1>رسیدهای کارت به کارت</h1><p>مبلغ، شمارهٔ پیگیری و بانک مبدأ را با پیامک یا صورت‌حساب بانکی خودتان تطبیق دهید و بعد تأیید کنید. با تأیید، فاکتور پرداخت‌شده ثبت می‌شود و تحویل سفارش شروع می‌شود. <Link href="/admin/bank-accounts">حساب‌های بانکی ←</Link></p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">PAYMENT RECEIPTS</span><h1>رسیدهای کارت به کارت</h1><p>مبلغ و نام صاحب کارت مبدأ را با پیامک یا صورت‌حساب بانکی خودتان تطبیق دهید و بعد تأیید کنید. با تأیید، فاکتور پرداخت‌شده ثبت می‌شود و تحویل سفارش شروع می‌شود. <Link href="/admin/bank-accounts">حساب‌های بانکی ←</Link></p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <nav className="md-chips seo-filter" aria-label="وضعیت">{TABS.map((tab) => <button key={tab.id} type="button" className={status === tab.id ? 'is-active' : ''} onClick={() => setStatus(tab.id)}>{tab.label}{tab.id !== 'ALL' && counts[tab.id] ? ` (${counts[tab.id].toLocaleString('fa-IR')})` : ''}</button>)}</nav>
     <div className="rc-list">{receipts.map((receipt) => (
       <article key={receipt.id} className={`card rc-item is-${receipt.status.toLowerCase()}`}>
-        <button type="button" className="rc-image" onClick={() => setZoom(receipt.id)} aria-label="بزرگ‌نمایی رسید"><img src={`/api/receipts/${receipt.id}/image`} alt={`رسید ${receipt.trackingCode}`} loading="lazy" /></button>
+        <button type="button" className="rc-image" onClick={() => setZoom(receipt.id)} aria-label="بزرگ‌نمایی رسید"><img src={`/api/receipts/${receipt.id}/image`} alt={`رسید ${receipt.trackingCode || receipt.payerName}`} loading="lazy" /></button>
         <div className="rc-body">
           <header><strong className="rc-amount">{money(receipt.amountMinor, receipt.currency)}</strong><Link href={`/invoice/${encodeURIComponent(receipt.invoice.number)}`} target="_blank" className="num" dir="ltr">{receipt.invoice.number}</Link><span className="badge">{receipt.invoice.product?.name || receipt.invoice.plan?.name || 'فاکتور'}</span></header>
           <dl className="rc-facts">
             <div><dt>مشتری</dt><dd>{receipt.user.name || receipt.user.email}{receipt.user.phone && <small dir="ltr"> {receipt.user.phone.replace(/^\+98/, '0')}</small>}</dd></div>
             <div><dt>روش</dt><dd>{METHOD[receipt.method] || receipt.method}</dd></div>
-            <div><dt>از</dt><dd>{receipt.payerName} — بانک {receipt.payerBank}{receipt.payerCard && <> · <bdi dir="ltr">****{receipt.payerCard}</bdi></>}</dd></div>
+            <div><dt>از</dt><dd>{receipt.payerName}{receipt.payerBank && ` — بانک ${receipt.payerBank}`}{receipt.payerCard && <> · <bdi dir="ltr">****{receipt.payerCard}</bdi></>}</dd></div>
             <div><dt>به</dt><dd>{receipt.bankAccount ? `${receipt.bankAccount.bankName} — ${receipt.bankAccount.holderName}` : '—'}</dd></div>
-            <div><dt>پیگیری</dt><dd><code dir="ltr">{receipt.trackingCode}</code></dd></div>
+            <div><dt>پیگیری</dt><dd>{receipt.trackingCode ? <code dir="ltr">{receipt.trackingCode}</code> : '—'}</dd></div>
             <div><dt>زمان واریز</dt><dd>{receipt.paidAt ? new Date(receipt.paidAt).toLocaleString('fa-IR') : '—'}</dd></div>
             <div><dt>ثبت رسید</dt><dd>{new Date(receipt.createdAt).toLocaleString('fa-IR')}</dd></div>
             {receipt.status !== 'PENDING' && <div><dt>بررسی</dt><dd>{receipt.status === 'APPROVED' ? 'تأیید' : 'رد'}{receipt.reviewedAt ? ` · ${new Date(receipt.reviewedAt).toLocaleString('fa-IR')}` : ''}{receipt.adminNote ? ` · ${receipt.adminNote}` : ''}</dd></div>}

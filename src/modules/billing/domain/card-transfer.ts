@@ -135,17 +135,20 @@ export interface ReceiptInput {
   paidAt: Date
 }
 
-/** Customer receipt fields. Only the last four digits of the source card are kept. */
+/**
+ * Customer receipt fields. The owner of the source card and the picture of the receipt are what a
+ * transfer needs; bank, tracking code, last four digits and time are optional help for the reviewer
+ * and are checked only when written. Only the last four digits of the source card are kept.
+ */
 export function normalizeReceipt(input: Record<string, unknown>, now = new Date()): ReceiptInput {
   const method = TRANSFER_METHODS.some((item) => item.id === input.method) ? String(input.method) : 'CARD'
   const payerName = text(input.payerName, 80)
-  if (payerName.length < 3) throw new TransferError('نام صاحب کارت یا حساب مبدأ را وارد کنید')
+  if (payerName.replace(/\s/g, '').length < 3) throw new TransferError('نام و نام خانوادگی صاحب کارت مبدأ را وارد کنید')
   const payerBank = text(input.payerBank, 60)
-  if (!payerBank) throw new TransferError('بانک مبدأ را انتخاب کنید')
   const card = digitsOnly(input.payerCard)
-  if (method === 'CARD' && card.length !== 4 && card.length !== 16) throw new TransferError('چهار رقم آخر کارت مبدأ را وارد کنید')
+  if (card.length && card.length !== 4 && card.length !== 16) throw new TransferError('چهار رقم آخر کارت مبدأ را وارد کنید')
   const trackingCode = latinDigits(input.trackingCode).replace(/[^\w-]/g, '').slice(0, 40)
-  if (trackingCode.length < 4) throw new TransferError('شمارهٔ پیگیری یا ارجاع تراکنش را وارد کنید')
+  if (trackingCode.length && trackingCode.length < 4) throw new TransferError('شمارهٔ پیگیری دست‌کم چهار نویسه است')
   const paidAt = input.paidAt ? new Date(String(input.paidAt)) : now
   if (Number.isNaN(paidAt.getTime()) || paidAt.getTime() > now.getTime() + 10 * 60_000 || paidAt.getTime() < now.getTime() - 30 * 86_400_000) {
     throw new TransferError('تاریخ و ساعت پرداخت معتبر نیست')

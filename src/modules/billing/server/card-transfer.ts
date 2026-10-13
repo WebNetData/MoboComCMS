@@ -121,7 +121,8 @@ export async function reviewReceipt(admin: { id: number; email: string }, receip
 
   const settled = await settleInvoiceManually({
     invoiceId: receipt.invoiceId,
-    providerTxnId: receipt.trackingCode,
+    // A receipt without a tracking code still leaves a reference that leads back to it.
+    providerTxnId: receipt.trackingCode || `receipt-${receipt.id}`,
     raw: { source: 'receipt', receiptId: receipt.id, by: admin.email, method: receipt.method, payerBank: receipt.payerBank, payerCard: receipt.payerCard },
   })
   if (!settled.ok) {

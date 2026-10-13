@@ -208,7 +208,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
                   toman={transfer.toman.toLocaleString('fa-IR')}
                   banks={IRANIAN_BANKS}
                   accounts={bankAccounts.map((account) => ({ id: account.id, bankName: account.bankName, holderName: account.holderName, card: account.cardNumber ? formatCard(account.cardNumber) : '', sheba: account.sheba ? formatSheba(account.sheba) : '', accountNumber: account.accountNumber, note: account.note }))}
-                  receipts={receipts.map((receipt) => ({ id: receipt.id, status: receipt.status, trackingCode: receipt.trackingCode, payerBank: receipt.payerBank, createdAt: receipt.createdAt.toISOString(), adminNote: receipt.adminNote }))}
+                  receipts={receipts.map((receipt) => ({ id: receipt.id, status: receipt.status, trackingCode: receipt.trackingCode, payerBank: receipt.payerBank, payerName: receipt.payerName, createdAt: receipt.createdAt.toISOString(), adminNote: receipt.adminNote }))}
                 />
               )}
               {manualInstructions && (

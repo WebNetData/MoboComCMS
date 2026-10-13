@@ -213,6 +213,13 @@ The owner wants a drag-and-drop builder of Elementor Pro's class for every page 
 - `adv` is optional and absent when nothing is set, so documents saved before it are valid as they are and the format version did not change.
 - Planned next, in this order: more blocks (icon box, tabs, accordion, testimonial, counter, gallery, carousel, pricing table, countdown, social icons, progress), nested containers with flex layout, a tablet breakpoint, global colours and fonts, copy/paste of style, a navigator, dynamic values from the page being shown, pop-ups, and display conditions for theme templates.
 
+## 6H. Card-to-card payment: a name and a picture (owner, 2026-10-13)
+
+The owner described the transfer as: the customer sees card, Sheba, account and bank, pays the invoice amount, writes the full name of the owner of the source card, uploads the receipt, and the management's approval turns the invoice to paid. What was decided:
+- **The existing feature is kept** (`CARD_TRANSFER` gateway, `BankAccount`, `PaymentReceipt`, `/admin/bank-accounts`, `/admin/receipts`, settlement through `settleInvoiceManually`). No schema change.
+- **A receipt needs the payer's name and the picture only.** Bank, tracking code, last four digits and time stay as optional help for the reviewer and are checked only when written (`normalizeReceipt`). A receipt without a tracking code settles under the reference `receipt-<id>`.
+- The payment box (`CardTransferBox`) shows the amount in toman with its rial equivalent, the destination as a bank card with copy buttons, three steps (pay, send receipt, approval) and the state of the last receipt, including the reason of a refusal.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).
