@@ -14,7 +14,7 @@ import {
 
 /** Forms are billed in toman; a foreign amount is converted into it. */
 export const FORM_CURRENCY = 'IRT'
-const parse = <T>(text: string, fallback: T): T => { try { return JSON.parse(text) as T } catch { return fallback } }
+const parse = <T,>(text: string, fallback: T): T => { try { return JSON.parse(text) as T } catch { return fallback } }
 
 export type Bill = { lines: PriceLine[]; total: number; totalMinor: bigint; currency: string }
 
