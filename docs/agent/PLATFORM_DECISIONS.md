@@ -220,6 +220,13 @@ The owner described the transfer as: the customer sees card, Sheba, account and 
 - **A receipt needs the payer's name and the picture only.** Bank, tracking code, last four digits and time stay as optional help for the reviewer and are checked only when written (`normalizeReceipt`). A receipt without a tracking code settles under the reference `receipt-<id>`.
 - The payment box (`CardTransferBox`) shows the amount in toman with its rial equivalent, the destination as a bank card with copy buttons, three steps (pay, send receipt, approval) and the state of the last receipt, including the reason of a refusal.
 
+## 6I. The invoice is a document, and the wallet is not the VPN's (owner, 2026-10-13)
+
+- **The invoice PDF is drawn, not printed from the screen.** `GET /api/invoices/<number>/pdf` (owner or staff, never a draft, never cached) builds an A4 document from the same data as the official invoice (`officialInvoice`) with `pdfkit`: embedded Vazirmatn, selectable text, pages added as rows grow, a QR code to the invoice. Two packages were added for it: `pdfkit` (MIT) and `bidi-js` (MIT). `pdfkit` stays outside the bundle (`serverExternalPackages`).
+- Persian on a surface that draws left to right goes through `src/shared/text/visual-order.ts`: the bidirectional algorithm gives the runs, right-to-left runs are handed over word by word, numbers in Persian digits as their own piece. Any later PDF uses this, not a second helper.
+- The invoice page offers "download PDF" and "print" (the same document opened in the browser); the screen-print button is gone from it. Only pictures kept by the site (`/api/media/covers/…`) are drawn as logo or stamp; a remote address is left out rather than fetched by the server.
+- **The wallet page names the plans only while the VPN section is on.** With it off the page leads to the shop (when that is on) and speaks of purchases, not plans.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).
