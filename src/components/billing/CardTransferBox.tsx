@@ -16,7 +16,7 @@ function Copy({ value, label }: { value: string; label: string }) {
   const [done, setDone] = useState(false)
   return <button type="button" className={`ct-copy${done ? ' is-done' : ''}`} aria-label={`کپی ${label}`} onClick={async () => {
     try { await navigator.clipboard.writeText(value.replace(/\s/g, '')); setDone(true); setTimeout(() => setDone(false), 1600) } catch { /* clipboard blocked */ }
-  }}><Icon name={done ? 'check' : 'layers'} size={15} /><span aria-live="polite">{done ? 'کپی شد' : 'کپی'}</span></button>
+  }}><Icon name={done ? 'check' : 'layers'} size={15} /><span aria-live="polite">{done ? 'کپی شد' : <>کپی<i> {label}</i></>}</span></button>
 }
 
 /** Bank details, the exact amount, and the receipt form for a card-to-card invoice. */
@@ -94,15 +94,16 @@ export default function CardTransferBox({ invoiceNumber, accounts, rial, toman, 
           {account && <>
             <div className="ct-card">
               <header><span><Icon name="bank" size={20} /> بانک {account.bankName}</span><i className="ct-chip" aria-hidden="true" /></header>
-              {account.card
-                ? <bdi className="ct-card-number num" dir="ltr">{account.card}</bdi>
-                : <bdi className="ct-card-number is-small num" dir="ltr">{account.sheba || account.accountNumber}</bdi>}
-              <footer><span><small>صاحب حساب</small>{account.holderName}</span>{account.card && <Copy value={account.card} label="شماره کارت" />}</footer>
+              {account.card && <div className="ct-card-main">
+                <small>شماره کارت</small>
+                <div><bdi className="ct-card-number" dir="ltr">{account.card}</bdi><Copy value={account.card} label="شماره کارت" /></div>
+              </div>}
+              {(account.sheba || account.accountNumber) && <dl className="ct-card-rows">
+                {account.sheba && <div><dt>شماره شبا</dt><dd><bdi dir="ltr">{account.sheba}</bdi><Copy value={account.sheba} label="شماره شبا" /></dd></div>}
+                {account.accountNumber && <div><dt>شماره حساب</dt><dd><bdi dir="ltr">{account.accountNumber}</bdi><Copy value={account.accountNumber} label="شماره حساب" /></dd></div>}
+              </dl>}
+              <footer><span><small>صاحب حساب</small>{account.holderName}</span></footer>
             </div>
-            <dl className="ct-facts">
-              {account.sheba && <div><dt>شماره شبا</dt><dd><bdi className="num" dir="ltr">{account.sheba}</bdi><Copy value={account.sheba} label="شماره شبا" /></dd></div>}
-              {account.accountNumber && <div><dt>شماره حساب</dt><dd><bdi className="num" dir="ltr">{account.accountNumber}</bdi><Copy value={account.accountNumber} label="شماره حساب" /></dd></div>}
-            </dl>
             {account.note && <p className="ct-note">{account.note}</p>}
           </>}
         </div>

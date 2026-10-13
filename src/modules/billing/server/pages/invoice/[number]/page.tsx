@@ -8,7 +8,7 @@ import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
 import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
-import PrintButton from '@/components/PrintButton'
+import Icon from '@/components/site/Icon'
 import { formatAmount } from '@/shared/money/format'
 import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import CardTransferBox from '@/components/billing/CardTransferBox'
@@ -92,48 +92,41 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
       <main className="container py-12 max-w-3xl">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6 no-print">
           <Link href="/dashboard/invoices" className="muted">← {t.myInvoices}</Link>
-          <div className="flex items-center gap-2 flex-wrap">
-            {invoice.status !== 'DRAFT' && <Link href={`/invoice/${invoice.number}/official`} className="btn btn-primary">{isFa ? 'صورتحساب رسمی (چاپ / PDF)' : 'Official invoice (print / PDF)'}</Link>}
-            <PrintButton label={t.printInvoice} />
-          </div>
+          {invoice.status !== 'DRAFT' && <div className="invoice-actions">
+            <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf?download=1`} className="btn btn-primary" download><Icon name="file" size={17} /> {isFa ? 'دانلود PDF' : 'Download PDF'}</a>
+            <a href={`/api/invoices/${encodeURIComponent(invoice.number)}/pdf`} className="btn btn-ghost" target="_blank" rel="noopener noreferrer"><Icon name="receipt" size={17} /> {isFa ? 'چاپ فاکتور' : 'Print invoice'}</a>
+            <Link href={`/invoice/${invoice.number}/official`} className="btn btn-ghost">{isFa ? 'صورتحساب رسمی' : 'Official invoice'}</Link>
+          </div>}
         </div>
 
         <div className="card invoice-sheet">
           <div className="invoice-head">
-            <div>
-              <div className="invoice-brand">{settings.brandName || 'MoboComCMS'}</div>
-              <div className="muted">{settings.supportEmail || 'support@example.com'}</div>
-              {settings.siteUrl && <div className="muted num" dir="ltr">{settings.siteUrl}</div>}
-            </div>
-            <div className="text-end">
-              <div className="invoice-title">{t.invoice}</div>
-              <div className="num invoice-number" dir="ltr">{invoice.number}</div>
-              <div className={`badge ${invoice.status === 'PAID' ? 'badge-green' : invoice.status === 'UNPAID' ? 'badge-amber' : 'badge-gray'}`}>
-                {(t as Record<string, string>)[`st${invoice.status}`] || invoice.status}
+            <div className="invoice-seller">
+              <span className="invoice-mark" aria-hidden="true">{(settings.brandName || 'M').trim().slice(0, 1)}</span>
+              <div>
+                <div className="invoice-brand">{settings.brandName || 'MoboComCMS'}</div>
+                <div className="invoice-contact">{settings.supportEmail || 'support@example.com'}{settings.siteUrl && <> · <bdi dir="ltr">{settings.siteUrl.replace(/^https?:\/\//, '')}</bdi></>}</div>
               </div>
+            </div>
+            <div className="invoice-id">
+              <span className={`invoice-status is-${invoice.status.toLowerCase()}`}>{(t as Record<string, string>)[`st${invoice.status}`] || invoice.status}</span>
+              <div className="invoice-title">{t.invoice}</div>
+              <bdi className="invoice-number" dir="ltr">{invoice.number}</bdi>
             </div>
           </div>
 
           <div className="invoice-meta">
             <div>
-              <div className="muted text-xs">{t.billedTo}</div>
-              <div className="font-semibold">{invoice.user.name || invoice.user.email}</div>
-              <div className="muted" dir="ltr">{invoice.user.email}</div>
+              <span>{t.billedTo}</span>
+              <b>{invoice.user.name || invoice.user.email}</b>
+              {invoice.user.name && !/\.local$/.test(invoice.user.email) && <small dir="ltr">{invoice.user.email}</small>}
             </div>
-            <div>
-              <div className="muted text-xs">{t.issuedAt}</div>
-              <div className="num">{fmt(invoice.issuedAt)}</div>
-            </div>
-            <div>
-              <div className="muted text-xs">{t.dueAt}</div>
-              <div className="num">{fmt(invoice.dueAt)}</div>
-            </div>
-            <div>
-              <div className="muted text-xs">{t.gateway}</div>
-              <div>{invoice.gateway?.name || t.manualTransfer}</div>
-            </div>
+            <div><span>{t.issuedAt}</span><b>{fmt(invoice.issuedAt)}</b></div>
+            <div><span>{t.dueAt}</span><b>{fmt(invoice.dueAt)}</b></div>
+            <div><span>{t.gateway}</span><b>{invoice.gateway?.name || t.manualTransfer}</b></div>
           </div>
 
+          <div className="invoice-items">
           <table className="data invoice-table">
             <thead>
               <tr>
@@ -165,6 +158,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
               </tr>}
             </tbody>
           </table>
+          </div>
 
           <div className="invoice-totals">
             <div><span className="muted">{t.subtotal}</span><span className="num">{money(invoice.subtotal)}</span></div>
