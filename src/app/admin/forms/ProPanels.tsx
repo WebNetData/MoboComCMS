@@ -102,7 +102,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
     </div>}
     {(row.hasSecrets || row.secretsErasedAt) && <div className="fp-secrets">
       <b>اطلاعات محرمانه</b>
-      {secrets ? <dl>{secrets.map((secret) => <div key={secret.id}><dt>{secret.label}</dt><dd dir="auto">{secret.value}<button type="button" className="sa-link" onClick={() => void navigator.clipboard.writeText(secret.value).then(() => onNotice('ok', 'کپی شد.')).catch(() => undefined)}>کپی</button></dd></div>)}</dl> : null}
+      {secrets ? <ul className="fp-secret-list">{secrets.map((secret) => <li key={secret.id}><span>{secret.label}</span><code dir="ltr">{secret.value}</code><button type="button" className="sa-link" onClick={() => void navigator.clipboard.writeText(secret.value).then(() => onNotice('ok', 'کپی شد.')).catch(() => undefined)}>کپی</button></li>)}</ul> : null}
       {row.hasSecrets ? <div className="sa-row-actions">
         {!secrets && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void reveal()}>نمایش اطلاعات محرمانه</button>}
         <button type="button" className="sa-link is-danger" onClick={() => void erase()}>پاک‌کردن</button>
@@ -116,7 +116,7 @@ export function WorkPanel({ row, api, onChanged, onNotice }: { row: Row; api: Ap
         <p className="sa-hint">{row.assignee ? <>در دست: <b>{row.assignee}</b> </> : 'هنوز کسی این کار را برنداشته است. '}<button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: true }, 'این درخواست به شما سپرده شد.')}>من انجام می‌دهم</button>{row.assignee && <> · <button type="button" className="sa-link" disabled={busy} onClick={() => void work({ take: false }, 'آزاد شد.')}>آزاد کن</button></>}</p>
         {row.userId ? <>
           <label className="sa-field"><span>پیام به کاربر (در «درخواست‌های من» و صندوق پیام او)</span><textarea className="input" rows={2} maxLength={2000} value={reply} onChange={(e) => setReply(e.target.value)} dir="auto" /></label>
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy || reply === row.reply} onClick={() => void work({ reply }, 'پیام برای کاربر فرستاده شد.')}>ارسال پیام</button>
+          <button type="button" className="btn btn-primary btn-sm fp-send" disabled={busy || reply === row.reply} onClick={() => void work({ reply }, 'پیام برای کاربر فرستاده شد.')}>ارسال پیام</button>
         </> : <p className="sa-hint">فرستنده مهمان بوده؛ پیگیری و پیام فقط برای کاربر واردشده ممکن است.</p>}
       </>}
     </div>

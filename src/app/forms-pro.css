@@ -142,10 +142,11 @@
 .fp-bill header, .fp-bill footer, .fp-bill li { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .fp-bill ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fp-bill footer { padding-top: 8px; border-top: 1px dashed var(--border); font-weight: 800; }
-.fp-secrets dl { margin: 0; display: grid; gap: 6px; }
-.fp-secrets dl > div { display: grid; grid-template-columns: minmax(90px, 160px) minmax(0, 1fr); gap: 8px; }
-.fp-secrets dt { color: var(--muted); }
-.fp-secrets dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; font-family: ui-monospace, monospace; font-weight: 700; overflow-wrap: anywhere; }
+.fp-secret-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fp-secret-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.fp-secret-list span { color: var(--muted); }
+.fp-secret-list code { padding: 4px 9px; border-radius: 8px; background: var(--card); border: 1px solid var(--border); font-family: ui-monospace, monospace; font-weight: 700; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fp-send { justify-self: start; }
 .fb-inbox td .sa-state + .sa-state { margin-inline-start: 6px; }
 
 /* The forum's board uses the same class name for a two-column page; the form builder is one column. */
