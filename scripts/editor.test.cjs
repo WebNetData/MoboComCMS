@@ -487,3 +487,68 @@ test('the classic editor: quick tags wrap the selection, refuse an address that 
   assert.equal(cleanRichText('<table><tbody><tr><td colspan="2" rowspan="3" onclick="x()">a</td></tr></tbody></table>'), '<table><tbody><tr><td colspan="2" rowspan="3">a</td></tr></tbody></table>')
   assert.equal(cleanRichText('<p style="color:#ff0000;position:fixed">x</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="x()"><a href="javascript:alert(1)">y</a>'), '<p style="color:#ff0000">x</p><img /><a>y</a>')
 })
+
+test('the media library: a chosen picture becomes clean markup, the listing is the store\'s own files, and the editor speaks Persian', async () => {
+  const classic = load('src/modules/editor/domain/classic')
+  const pick = (extra) => classic.pictureHtml({ url: '/api/media/covers/a.webp', alt: '', caption: '', width: 0, align: 'none', ...extra })
+  assert.equal(pick({}), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />')
+  // Alternative text and caption are text, never markup.
+  assert.equal(pick({ alt: 'گربه "سیاه" <b>', caption: 'نمای <i>نزدیک</i> & دور' }), '<figure><img src="/api/media/covers/a.webp" alt="گربه &quot;سیاه&quot; &lt;b&gt;" loading="lazy" /><figcaption>نمای &lt;i&gt;نزدیک&lt;/i&gt; &amp; دور</figcaption></figure>')
+  // A smaller size asks the image route for that width; a width it does not serve, or a picture from elsewhere, stays whole.
+  assert.equal(pick({ width: 640, align: 'center' }), '<p style="text-align: center"><img src="/api/media/covers/a.webp?w=640" alt="" width="640" loading="lazy" /></p>')
+  assert.equal(pick({ width: 500 }), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />')
+  assert.equal(classic.pictureHtml({ url: 'https://cdn.example/x.png', alt: 'x', caption: '', width: 640, align: 'left' }), '<p style="text-align: left"><img src="https://cdn.example/x.png" alt="x" loading="lazy" /></p>')
+  assert.equal(pick({ align: 'justify' }), '<img src="/api/media/covers/a.webp" alt="" loading="lazy" />', 'an alignment that is not one of the three is ignored')
+  for (const url of ['javascript:alert(1)', 'data:image/svg+xml,<svg onload=x>', '//evil.example/a.png', 'a" onerror="x', '']) assert.equal(classic.pictureHtml({ url, alt: '', caption: 'c', width: 0, align: 'none' }), '', JSON.stringify(url))
+  // Everything it writes survives the server's cleaning unchanged, so what the writer saw is what is stored.
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const cleaning = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  for (const html of [pick({}), pick({ alt: 'متن', caption: 'زیرنویس', width: 960, align: 'right' }), pick({ width: 320, align: 'center' })]) assert.equal(cleaning.exports.cleanRichText(html).replace(/text-align:(\w)/, 'text-align: $1'), html)
+
+  // The listing: only files the store wrote (its naming), newest first, paged; nothing from the resized cache or a stray file.
+  const os = require('node:os'), dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-')), covers = path.join(dir, 'storage', 'covers')
+  fs.mkdirSync(path.join(covers, '.cache'), { recursive: true })
+  const name = (n) => ('0000000' + n).slice(-8) + '-0000-4000-8000-000000000000.webp'
+  for (let i = 1; i <= 5; i += 1) { fs.writeFileSync(path.join(covers, name(i)), Buffer.alloc(i * 10)); const at = new Date(Date.UTC(2026, 0, i)); fs.utimesSync(path.join(covers, name(i)), at, at) }
+  fs.writeFileSync(path.join(covers, '.cache', name(1).replace('.webp', '-320.webp')), 'x'); fs.writeFileSync(path.join(covers, 'notes.txt'), 'x'); fs.writeFileSync(path.join(covers, '../../../' + path.basename(dir) + '-outside.webp'), 'x')
+  const store = { exports: {} }, cwd = process.cwd()
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/modules/site/server/cover-store.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, store, store.exports)
+  try {
+    process.chdir(dir)
+    const first = await store.exports.listCoverImages(1, 2)
+    assert.deepEqual([first.total, first.pages, first.page, first.items.map((item) => item.name)], [5, 3, 1, [name(5), name(4)]])
+    assert.deepEqual([first.items[0].url, first.items[0].bytes], ['/api/media/covers/' + name(5), 50])
+    assert.deepEqual((await store.exports.listCoverImages(3, 2)).items.map((item) => item.name), [name(1)])
+    assert.equal((await store.exports.listCoverImages(99, 2)).page, 3, 'a page past the end is the last page')
+    assert.equal((await store.exports.listCoverImages(1, 5000)).items.length, 5, 'the page size is capped, not trusted')
+    // A new upload is seen at once: the folder's own change time says the remembered list is old.
+    fs.writeFileSync(path.join(covers, name(6)), 'new')
+    assert.equal((await store.exports.listCoverImages(1, 2)).total, 6)
+  } finally { process.chdir(cwd); fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(path.join(os.tmpdir(), path.basename(dir) + '-outside.webp'), { force: true }) }
+  // Listing and uploading ask the same question of the caller; a member without a content permission gets neither.
+  const route = read('src/modules/site/server/http/admin/media/route.ts')
+  assert.match(route, /export async function GET\(req: NextRequest\) \{\n  if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)/)
+  assert.match(route, /if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)\n  return receiveImage\(req\)/)
+  // Persian interface: the language is registered from this repository's own file, never fetched; and every tool on the toolbars has a Persian name.
+  const editor = read('src/components/editor/classic/ClassicEditor.tsx')
+  assert.match(editor, /tinymce\.addI18n\('fa', TINYMCE_FA\)/)
+  assert.match(editor, /language: fa \? 'fa' : undefined,\n    language_load: false,/)
+  assert.match(editor, /file_picker_callback: [^\n]*setLibrary\(\{ done \}\)/)
+  const fa = load('src/components/editor/classic/tinymce-fa').TINYMCE_FA
+  for (const label of ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Paragraph', 'Heading 2', 'Text color', 'Background color', 'Align left', 'Align center', 'Align right', 'Justify', 'Bullet list', 'Numbered list', 'Blockquote', 'Insert/edit link', 'Insert/edit image', 'Table', 'Special character', 'Left to right', 'Right to left', 'Clear formatting', 'Find and replace', 'Fullscreen', 'Undo', 'Redo', 'Save', 'Cancel']) assert.match(fa[label] || '', /[؀-ۿ]/, label)
+})
+
+test('an upload is accepted from the hosts this site answers on, whatever address the server was bound to', () => {
+  const { originIsThisSite } = load('src/platform/http/origin-policy')
+  // The browser's address, as the Host header says it — the server may be bound to 0.0.0.0 or an internal name.
+  assert.equal(originIsThisSite('http://localhost:3000', 'localhost:3000', undefined), true)
+  assert.equal(originIsThisSite('https://mobocom.example', 'app:3000', 'https://mobocom.example'), true, 'behind a proxy the configured public address counts')
+  assert.equal(originIsThisSite('https://MOBOCOM.example', 'mobocom.example', undefined), true)
+  // Another site, a look-alike host, a sandboxed frame and a malformed value are not this site.
+  for (const origin of ['https://evil.example', 'http://localhost:3001', 'https://mobocom.example.evil.example', 'null', 'not a url']) assert.equal(originIsThisSite(origin, 'localhost:3000', 'https://mobocom.example'), false, origin)
+  // No Origin is the middleware's question (cookies need one there), not this second look's.
+  assert.equal(originIsThisSite(null, 'localhost:3000', undefined), true)
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  for (const file of ['src/modules/site/server/http/admin/media/route.ts', 'src/modules/marketplace/server/http/marketplace.ts']) { assert.match(read(file), /originIsThisSite\(req\.headers\.get\('origin'\), req\.headers\.get\('host'\) \|\| req\.nextUrl\.host\)/, file); assert.doesNotMatch(read(file), /!== req\.nextUrl\.origin/, file) }
+})

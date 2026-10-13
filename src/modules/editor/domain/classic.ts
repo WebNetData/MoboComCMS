@@ -71,3 +71,25 @@ export function applyQuicktag(value: string, from: number, to: number, tag: stri
   const pair = WRAP[tag]
   return pair ? put(pair[0], pair[1]) : null
 }
+
+export interface PictureChoice { url: string; alt: string; caption: string; /** 0 = as stored; otherwise one of the widths the image route serves. */ width: number; align: 'none' | 'center' | 'right' | 'left' }
+
+const PICTURE_WIDTHS = [320, 480, 640, 960, 1280]
+const text = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/**
+ * The HTML a chosen picture becomes in the text. Only markup the server's cleaning keeps is produced: an img with
+ * its alternative text, inside a figure when it has a caption, aligned through text-align. A smaller size asks the
+ * image route for that width, so the page does not download the original. An address that is not a web address or
+ * a site path gives nothing.
+ */
+export function pictureHtml(choice: PictureChoice): string {
+  const base = quicktagUrl(choice.url)
+  if (!base) return ''
+  const sized = PICTURE_WIDTHS.includes(choice.width) && /^\/api\/media\/covers\/[\w.-]+$/.test(base)
+  const img = `<img src="${text(sized ? `${base}?w=${choice.width}` : base)}" alt="${text(choice.alt.trim())}"${sized ? ` width="${choice.width}"` : ''} loading="lazy" />`
+  const align = choice.align === 'center' || choice.align === 'right' || choice.align === 'left' ? ` style="text-align: ${choice.align}"` : ''
+  const caption = choice.caption.trim()
+  if (caption) return `<figure${align}>${img}<figcaption>${text(caption)}</figcaption></figure>`
+  return align ? `<p${align}>${img}</p>` : img
+}

@@ -3,14 +3,24 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { CONTENT_EDIT_PERMISSIONS } from '@/modules/identity/rbac'
 import { AUTHOR_PERMISSIONS } from '@/modules/identity/domain/sections'
 import { err, ok } from '@/platform/http/response'
-import { coverFormat, storeCoverImage } from '@/modules/site/server/cover-store'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { coverFormat, listCoverImages, storeCoverImage } from '@/modules/site/server/cover-store'
+
+/** Whoever may put a picture into content may also pick one that is already here: any content section's manager or author, or settings. */
+async function mayUsePictures(req: NextRequest) {
+  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'settings.manage']) if (await requirePerm(req, permission)) return true
+  return false
+}
+
+/** GET /api/admin/media?page=1 — the media library: pictures already on this server, newest first. */
+export async function GET(req: NextRequest) {
+  if (!await mayUsePictures(req)) return err('forbidden', 403)
+  return ok(await listCoverImages(Number(req.nextUrl.searchParams.get('page')), Number(req.nextUrl.searchParams.get('size')) || 40))
+}
 
 export async function POST(req: NextRequest) {
-  if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) return err('forbidden', 403)
-  // A cover or picture for something the caller may edit: any content section's manager or author, or settings.
-  let admin = null
-  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'settings.manage']) { admin = await requirePerm(req, permission); if (admin) break }
-  if (!admin) return err('forbidden', 403)
+  if (!originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+  if (!await mayUsePictures(req)) return err('forbidden', 403)
   return receiveImage(req)
 }
 

@@ -6,6 +6,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { requireUser } from '@/modules/identity/server/access'
 import { MarketplaceError } from '@/modules/marketplace/domain/marketplace'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 import {
   activeSeller, adjustSeller, adminPayouts, adminSellers, applySeller, categoryForm, decideProduct, decideSeller, getMarketplaceSettings, marketplaceEnabled,
   marketplaceOverview, moveLine, pendingProducts, processPayout, quickUpdate, replyReview, requestPayout, reviewSeller, reviewableSellers,
@@ -219,7 +220,7 @@ export async function PUT_admin(req: NextRequest) {
 
 /** POST /api/seller/media — product photos for approved sellers (same pipeline as the admin: WebP, 2400px max). */
 export async function POST_media(req: NextRequest) {
-  if (req.headers.get('origin') && req.headers.get('origin') !== req.nextUrl.origin) return err('forbidden', 403)
+  if (!originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   try {
     const { user } = await seller(req)
     if (!rateLimitHit(`seller-media:${user.id}`, 120, 3_600_000).ok) return err('تعداد بارگذاری‌ها زیاد است؛ کمی بعد تلاش کنید', 429)
