@@ -106,3 +106,11 @@
 .store-product-page.store-product-built{max-width:none;padding-block:1.2rem 3rem}
 .store-product-built .store-product-hero{margin-block-end:32px}
 .store-product-built .store-purchase-card{position:sticky;inset-block-start:1rem}
+
+/* Entrance motions of the advanced style (used only where the browser ties animations to scrolling). */
+@keyframes br-in-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes br-in-up { from { opacity: 0; transform: translateY(36px) } to { opacity: 1; transform: none } }
+@keyframes br-in-down { from { opacity: 0; transform: translateY(-36px) } to { opacity: 1; transform: none } }
+@keyframes br-in-start { from { opacity: 0; transform: translateX(40px) } to { opacity: 1; transform: none } }
+@keyframes br-in-end { from { opacity: 0; transform: translateX(-40px) } to { opacity: 1; transform: none } }
+@keyframes br-in-zoom { from { opacity: 0; transform: scale(.92) } to { opacity: 1; transform: none } }

@@ -226,6 +226,13 @@ export function insertSections(doc: BuilderDoc, sections: BuilderSection[]): { d
   }
 }
 
+/** Sets (or, with nothing left set, removes) the advanced style of a block or a section. */
+export function patchAdvanced(doc: BuilderDoc, target: { sectionId: string; columnId?: string; widgetId?: string }, adv: BuilderWidget['adv']): BuilderDoc {
+  const strip = <T extends { adv?: BuilderWidget['adv'] }>(element: T): T => { const { adv: _old, ...rest } = element; return (adv ? { ...rest, adv } : rest) as T }
+  if (target.widgetId && target.columnId) return mapSections(doc, target.sectionId, (section) => mapColumns(section, target.columnId!, (column) => ({ ...column, widgets: column.widgets.map((widget) => (widget.id === target.widgetId ? strip(widget) : widget)) })))
+  return mapSections(doc, target.sectionId, (section) => strip(section))
+}
+
 export function applyWidgetStyle(doc: BuilderDoc, ref: WidgetRef, patch: Partial<WidgetStyle>): BuilderDoc {
   const widget = getWidget(doc, ref)
   if (!widget) return doc

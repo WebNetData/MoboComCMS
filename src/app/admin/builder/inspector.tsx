@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { WIDGET_LABELS, type BuilderDoc, type BuilderWidget, type WidgetType } from '@/modules/site/domain/builder'
 import {
   addColumn, applyWidgetStyle, equalizeColumns, getSection, getWidget, nudgeSection, nudgeWidget,
-  patchColumn, patchSection, patchSectionStyle, patchWidget, removeColumn, type Sel, type WidgetRef,
-} from './state'
+  patchColumn, patchSection, patchSectionStyle, patchWidget, removeColumn, type Sel, type WidgetRef, patchAdvanced } from './state'
 import CoverField from '@/app/admin/cms/CoverField'
+import AdvancedStyleFields from './advanced-style'
 
 type Field = {
   key: string
@@ -383,6 +383,7 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
             </div>
           </div>
         </div>
+        <AdvancedStyleFields key={section.id} section value={section.adv} L={L} onChange={(adv, history) => onChange(patchAdvanced(doc, { sectionId: section.id }, adv), sel, !!history)} />
       </div>
       <div className="bld-actions">
         <button type="button" className="btn btn-ghost btn-sm" aria-label={L('Move up', 'انتقال به بالا')} disabled={doc.sections[0]?.id === section.id} onClick={() => onChange(nudgeSection(doc, section.id, -1), sel)}>↑</button>
@@ -463,6 +464,7 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
           </div>
         </label>
       </details>
+      <AdvancedStyleFields key={widget.id} value={widget.adv} L={L} onChange={(adv, history) => onChange(patchAdvanced(doc, ref, adv), sel, !!history)} />
     </div>
     <div className="bld-actions">
       <button type="button" className="btn btn-ghost btn-sm" aria-label={L('Move up', 'انتقال به بالا')} disabled={column?.widgets[0]?.id === widget.id} onClick={() => onChange(nudgeWidget(doc, ref, -1), sel)}>↑</button>

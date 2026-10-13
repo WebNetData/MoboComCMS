@@ -23,6 +23,7 @@ import { TrackList } from '@/components/media/PlayButton'
 import { toPlayerTracks } from '@/components/media/player-types'
 import Slider from '@/components/site/Slider'
 import { plainText } from '@/shared/text/plain'
+import { advancedCss, styleClass, type AdvancedStyle } from '@/modules/site/domain/builder-style'
 
 export type BuilderLocale = 'fa' | 'en'
 
@@ -113,6 +114,10 @@ const safeHref = (raw: string | undefined) => {
     return ['https:', 'http:', 'mailto:', 'tel:'].includes(url.protocol) ? href : '#'
   } catch { return '#' }
 }
+
+/** The element's own rules (advanced style), written next to it. The CSS is made of bounded numbers, listed choices and hex colours only. */
+const styleTag = (id: string, adv: AdvancedStyle | undefined) => { const css = advancedCss(id, adv); return css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null }
+const advClass = (id: string, adv: AdvancedStyle | undefined) => (adv ? ` ${[styleClass(id), ...(adv.classes || [])].filter(Boolean).join(' ')}` : '')
 
 function frame(widget: BuilderWidget, ctx: Ctx, node: ReactNode, frameClass = '') {
   const style = widget.style
@@ -387,6 +392,7 @@ function renderSection(section: BuilderSection, ctx: Ctx, key: string, nestedSec
     style.backgroundBlendMode = 'multiply'
   }
   const classes = ['br-section']
+  if (section.adv) classes.push(advClass(section.id, section.adv).trim())
   if (section.style.tone !== 'none') classes.push(`br-tone-${section.style.tone}`)
   if (section.style.hideOn && section.style.hideOn !== 'none') classes.push(`br-hide-${section.style.hideOn}`)
   const width = section.style.width || 'boxed'
@@ -394,10 +400,11 @@ function renderSection(section: BuilderSection, ctx: Ctx, key: string, nestedSec
   // Nested (template) sections keep their markup but drop the ids used by the editor,
   // so clicks select the template block instead of sections that are not in this doc.
   return <section id={nested ? undefined : section.anchor || undefined} className={classes.join(' ')} style={style} data-sid={nested ? undefined : section.id} key={key}>
+    {styleTag(section.id, section.adv)}
     <div className={`br-container br-width-${width}`}>
       <div className={`br-cols br-valign-${valign}`}>
         {section.columns.map((column, index) => <div className="br-col" style={{ flex: `${column.width} 1 0%` }} data-cid={nested ? undefined : column.id} key={column.id || index}>
-          {column.widgets.map((widget) => <div className="br-cell" key={widget.id}>{renderWidget(widget, ctx)}</div>)}
+          {column.widgets.map((widget) => <div className={`br-cell${advClass(widget.id, widget.adv)}`} key={widget.id}>{styleTag(widget.id, widget.adv)}{renderWidget(widget, ctx)}</div>)}
         </div>)}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { validatePageBlocks, type PageBlock } from './page-blocks'
+import { validateAdvancedStyle, type AdvancedStyle } from './builder-style'
 
 export const BUILDER_VERSION = 2
 
@@ -37,7 +38,8 @@ export type VisibilityRule = 'none' | 'mobile' | 'desktop'
 export const VISIBILITY_RULES = ['none', 'mobile', 'desktop'] as const
 export const SECTION_WIDTHS = ['boxed', 'narrow', 'full'] as const
 export const COLUMN_ALIGNS = ['start', 'center', 'end', 'stretch'] as const
-export type BuilderWidget = { id: string; type: WidgetType; props: Record<string, string>; style: WidgetStyle }
+/** `adv`: the advanced style (spacing, typography, background, border, shadow, hover, motion…); absent when nothing is set. */
+export type BuilderWidget = { id: string; type: WidgetType; props: Record<string, string>; style: WidgetStyle; adv?: AdvancedStyle }
 export type BuilderColumn = { id: string; width: number; widgets: BuilderWidget[] }
 export type BuilderSectionStyle = {
   bg: string
@@ -50,7 +52,7 @@ export type BuilderSectionStyle = {
   valign: typeof COLUMN_ALIGNS[number]
   hideOn: VisibilityRule
 }
-export type BuilderSection = { id: string; anchor: string; style: BuilderSectionStyle; columns: BuilderColumn[] }
+export type BuilderSection = { id: string; anchor: string; style: BuilderSectionStyle; columns: BuilderColumn[]; adv?: AdvancedStyle }
 export type BuilderCode = { html: string; css: string; js: string; advanced: boolean }
 /** Per-page chrome: hide the shared site header/footer for a full-bleed page. */
 export type BuilderPageLayout = { header: ChromeChoice; footer: ChromeChoice }
@@ -356,7 +358,8 @@ export function validateBuilderDoc(input: unknown): BuilderDoc {
         widgets: widgetsRaw.map((wRaw) => {
           const w = (wRaw && typeof wRaw === 'object' ? wRaw : {}) as Record<string, unknown>
           const type = enumOf(w.type, WIDGET_TYPES, 'heading')
-          return { id: takeId(w.id), type, props: validateProps(type, w.props), style: validateWidgetStyle(w.style) }
+          const adv = validateAdvancedStyle(w.adv)
+          return { id: takeId(w.id), type, props: validateProps(type, w.props), style: validateWidgetStyle(w.style), ...(adv ? { adv } : {}) }
         }),
       }
     })
@@ -374,6 +377,7 @@ export function validateBuilderDoc(input: unknown): BuilderDoc {
         hideOn: enumOf(st.hideOn, VISIBILITY_RULES, 'none'),
       },
       columns,
+      ...(validateAdvancedStyle(s.adv) ? { adv: validateAdvancedStyle(s.adv) } : {}),
     }
   })
   return { v: BUILDER_VERSION, mode, code: validateCode(doc.code), sections, layout: validatePageChrome(doc.layout) }
