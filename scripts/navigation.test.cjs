@@ -157,3 +157,23 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   // The stylesheet the site loads is the generated one; it must carry the same header.
   assert.ok(read('src/themes/generated.css').includes('.mb-shell { display: contents; }'), 'run scripts/generate-extensions.mjs')
 })
+
+test('cinema, games, software and the forum take the width of the header and are told how to use it', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const css = read('src/app/sections-wide.css'), layout = read('src/app/layout.tsx')
+  // It refines the sections' own stylesheets, so it is the last one loaded.
+  const imports = [...layout.matchAll(/^import '\.\/([\w\/-]+\.css)'/gm)].map((m) => m[1])
+  assert.equal(imports[imports.length - 1], 'sections-wide.css')
+  for (const section of ['cinema', 'games', 'software', 'forum']) assert.ok(css.includes(`.md-${section} .container:not(.mm-bar)`), section)
+  assert.match(css, /width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none; padding-inline: 0; \}/)
+  // A short shelf takes half a row with its cards capped (a poster never grows into a billboard); full shelves share the width.
+  assert.match(css, /\.md-cinema \.md-body > :has\(\.md-rail\):not\(:has\(\.md-rail > :nth-child\(6\)\)\) \{ grid-column: auto;/)
+  assert.match(css, /\.md-rail \{ grid-auto-columns: calc\(\(100% - 3 \* 20px\) \/ 4\); \}/)
+  assert.match(css, /\.md-games:has\(> \.gv-rail-slot\) \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); grid-auto-flow: dense; \}/, 'only the games home becomes a grid, not every games page')
+  // Rules written after the sections' own media queries bring the phone sizes with them.
+  assert.match(css, /@media \(max-width: 640px\) \{ \.md-games \.gx-rail-track \{ grid-auto-columns: 42%; \} \}/)
+  // The forum's one-column layout is left alone: a second column there squeezed a topic to a sliver.
+  assert.doesNotMatch(css, /\.fx-layout-wide/)
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
+})
