@@ -397,6 +397,7 @@
     "20261222120000_repository_upload_reservations",
     "20261223120000_business_experiences",
     "20261224120000_section_authors",
-    "20261225120000_game_authors"
+    "20261225120000_game_authors",
+    "20261226120000_product_category_kind"
   ]
 }

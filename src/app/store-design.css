@@ -231,3 +231,17 @@
 .store-admin-fxprice{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--primary-soft);font-size:13px}.store-admin-fxprice b{color:var(--primary)}.store-admin-fxprice small{color:var(--muted)}
 
 .sa-fx-banner{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}.sa-fx-banner p{margin:4px 0 0;font-size:13px}
+
+/* admin: the two halves of the shop, each as its tree of categories */
+.pck{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:10px 0 22px}
+.pck-half{--w:var(--primary);display:grid;align-content:start;gap:12px;padding:20px;border:1px solid color-mix(in srgb,var(--w) 28%,var(--border));border-radius:20px;background:radial-gradient(70% 60% at 100% 0%,color-mix(in srgb,var(--w) 12%,transparent),transparent 66%),var(--card)}
+.pck-half.is-physical{--w:#f97316}.pck-half.is-virtual{--w:#6366f1}.pck-half.is-undecided{--w:#d97706}
+.pck-half header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pck-half h2{margin:0;font-size:17px;font-weight:900}
+.pck-half header span{padding:3px 10px;border-radius:999px;background:color-mix(in srgb,var(--w) 13%,transparent);color:var(--w);font-size:12px;font-weight:800}
+.pck-tree,.pck-sub{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pck-sub{margin-top:6px;padding-inline-start:16px;border-inline-start:2px solid color-mix(in srgb,var(--w) 30%,transparent)}
+.pck-tree>li{padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb,var(--card) 80%,transparent)}
+.pck-name{font-weight:700;font-size:14px}
+.pck-group{margin-inline-start:8px;padding:2px 9px;border-radius:999px;background:var(--bg-soft);color:var(--muted);font-size:11.5px}
+.pck-empty{margin:0;color:var(--muted);font-size:13px;line-height:1.9}

@@ -132,7 +132,7 @@ test('the shop home shows its two halves — shipped goods and products delivere
   assert.match(catalog, /export async function shopDivisions\(\): Promise<ShopDivision\[\]>/)
   assert.match(catalog, /\(\['PHYSICAL', 'VIRTUAL'\] as const\)\.map\(async \(kind\) =>/)
   assert.match(catalog, /const where = \{ active: true, approval: 'APPROVED', kind \}/, 'only products a shopper can buy are counted')
-  assert.match(catalog, /\.filter\(\(node\) => node\.total > 0\)/, 'a category with nothing of this kind is not offered under it')
+  assert.match(catalog, /\.filter\(\(node, index\) => node\.total > 0 && /, 'a category with nothing of this kind is not offered under it')
   assert.match(catalog, /if \(seen\.has\(node\.id\)\) return 0/, 'a loop in the category tree cannot hang the page')
   // Every link of a half keeps the shopper inside that half.
   assert.match(front, /base = `\/products\?kind=\$\{division\.kind\}`/)
@@ -160,4 +160,44 @@ test('a product tells its whole path — home, the shop, its half, its categorie
   assert.match(css, /@media \(max-width: 720px\) \{ \.sx-phero \{ grid-template-columns: minmax\(0, 1fr\); padding: 14px; \} \}/)
   // The half of online products promises online delivery, never instant delivery, which only some of them have.
   assert.doesNotMatch(front.slice(front.indexOf('const DIVISION_COPY'), front.indexOf('export function DivisionPanels')), /تحویل آنی|بلافاصله/)
+})
+
+test('a product category belongs to one half of the shop: a root decides, everything under it follows, and nothing of the other half may stay in it', () => {
+  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/modules/catalog/domain/category-kind.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(require, mod, mod.exports)
+  const kinds = mod.exports
+  // What the admin sends is a half or "not decided"; anything else is refused, not read as "not decided".
+  assert.deepEqual([kinds.parseCategoryKind('physical'), kinds.parseCategoryKind(' VIRTUAL '), kinds.parseCategoryKind(''), kinds.parseCategoryKind(null)], ['PHYSICAL', 'VIRTUAL', '', ''])
+  assert.throws(() => kinds.parseCategoryKind('BOTH'), /Invalid half/)
+  // The subtree of a category, even when stored data loops.
+  const nodes = [{ id: 1, parentId: null }, { id: 2, parentId: 1 }, { id: 3, parentId: 2 }, { id: 4, parentId: null }, { id: 5, parentId: 6 }, { id: 6, parentId: 5 }]
+  assert.deepEqual(kinds.categorySubtree(nodes, 1).sort(), [1, 2, 3])
+  assert.deepEqual(kinds.categorySubtree(nodes, 4), [4])
+  assert.deepEqual(kinds.categorySubtree(nodes, 5).sort(), [5, 6])
+  // A half is refused while products of the other half, or an attribute group made for the other half, are in the subtree.
+  assert.equal(kinds.kindConflict('PHYSICAL', { otherProducts: 0, groups: [{ name: 'عمومی', appliesTo: 'ANY' }, { name: 'ابعاد', appliesTo: 'PHYSICAL' }] }), null)
+  assert.match(kinds.kindConflict('PHYSICAL', { otherProducts: 3, groups: [] }), /۳ محصول از «محصولات مجازی»/)
+  assert.match(kinds.kindConflict('VIRTUAL', { otherProducts: 0, groups: [{ name: 'ابعاد و وزن', appliesTo: 'PHYSICAL' }] }), /گروه مشخصات «ابعاد و وزن»/)
+  assert.equal(kinds.kindConflict('', { otherProducts: 9, groups: [{ name: 'x', appliesTo: 'PHYSICAL' }] }), null, 'an undecided category holds anything, as before')
+  // A product may be filed under a category of its own half, or under one not decided yet.
+  assert.deepEqual([kinds.productFitsCategory('PHYSICAL', 'PHYSICAL'), kinds.productFitsCategory('VIRTUAL', 'PHYSICAL'), kinds.productFitsCategory('VIRTUAL', '')], [true, false, true])
+
+  // The saves use those rules inside one transaction, and a child never keeps a half of its own.
+  const server = read('src/modules/catalog/server/category-kind.ts'), route = read('src/modules/site/server/http/admin/cms/route.ts'), input = read('src/modules/catalog/server/product-input.ts')
+  assert.match(server, /if \(input\.parentId != null\) \{\n    const parent = await tx\.productCategory\.findUnique/)
+  assert.match(route, /const kind = await kindForCategory\(tx, \{ parentId, asked: b\?\.kind \}\)\n        await assertKindFits\(tx, \{ kind, attributeGroupId \}\)/)
+  assert.match(route, /await assertKindFits\(tx, \{ id, kind, attributeGroupId: data\.attributeGroupId as number \| null \| undefined \}\)/)
+  assert.match(route, /if \(kind !== current\.kind\) await cascadeCategoryKind\(tx, id, kind\)/)
+  assert.match(route, /if \(e instanceof CategoryKindError\) return err\(e\.message, e\.status\)/)
+  assert.match(input, /if \(!productFitsCategory\(kind, category\.categoryKind\)\) throw Error\(/)
+  // What is stored is sorted once by the migration, and the storefront reads the column.
+  const sql = read('prisma/migrations/20261226120000_product_category_kind/migration.sql')
+  assert.match(sql, /ADD COLUMN "kind" TEXT NOT NULL DEFAULT ''/)
+  assert.match(sql, /CHECK \("kind" IN \('', 'PHYSICAL', 'VIRTUAL'\)\)/)
+  assert.match(sql, /HAVING COUNT\(DISTINCT p\."kind"\) = 1/, 'a root that holds both kinds stays undecided')
+  for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(read(schema), /model ProductCategory \{[\s\S]{0,900}\n  kind      String @default\(""\)/, schema)
+  assert.match(read('src/modules/store/server/catalog.ts'), /tree\[index\]\.kind === '' \|\| tree\[index\]\.kind === kind/)
+  assert.match(read('prisma/release-manifest.json'), /"20261226120000_product_category_kind"/)
 })
