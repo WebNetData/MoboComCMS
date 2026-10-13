@@ -1236,6 +1236,18 @@ model FormSubmission {
   note      String   @default("")
   userId    Int?
   ipHash    String   @default("")
+  // Paid forms and the work on an answer (see modules/forms)
+  amountMinor BigInt  @default(0) // what the answers cost, in `currency`
+  currency    String  @default("")
+  pricing     String  @default("") // the bill as it was priced: lines with amounts and rates (JSON)
+  payStatus   String  @default("") // '' (nothing to pay) | UNPAID | PAID
+  orderId     Int?
+  paidAt      DateTime?
+  stage       String  @default("") // '' | OPEN | IN_PROGRESS | DONE | REJECTED
+  assigneeId  Int?
+  reply       String  @default("") // what staff wrote back to the sender
+  secrets     String  @default("") // encrypted answers of secret fields
+  secretsErasedAt DateTime?
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]
@@ -1243,6 +1255,8 @@ model FormSubmission {
   @@index([formId, createdAt])
   @@index([formId, status])
   @@index([userId])
+  @@index([orderId])
+  @@index([formId, stage])
 }
 
 model FormUpload {

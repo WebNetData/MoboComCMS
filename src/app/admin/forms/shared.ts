@@ -2,7 +2,9 @@ import { CONTENT_TYPES, DEFAULT_SETTINGS, type FieldType, type FormDefinition, t
 
 export type SavedForm = FormDefinition & { id: number; createdAt: string; updatedAt: string; counts: { total: number; new: number; spam: number } }
 export type Template = { id: string; name: string; description: string; form: Omit<FormDefinition, 'id'> }
-export type Row = { id: number; status: SubmissionStatus; note: string; userId: number | null; user: string; createdAt: string; answers: { id: string; label: string; type?: FieldType; value: string | boolean | string[] }[]; files: { id: string; name: string; size: number }[] }
+export type Row = { id: number; status: SubmissionStatus; note: string; userId: number | null; user: string; createdAt: string; answers: { id: string; label: string; type?: FieldType; value: string | boolean | string[] }[]; files: { id: string; name: string; size: number }[]
+  amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; orderId: number | null
+  stage: string; assigneeId: number | null; assignee: string; reply: string; hasSecrets: boolean; secretsErasedAt: string | null }
 
 export const blankForm = (): FormDefinition => ({
   slug: '', title: '', description: '', published: false, successText: 'پیام شما با موفقیت ثبت شد. به‌زودی بررسی می‌کنیم.', settings: { ...DEFAULT_SETTINGS },
@@ -23,6 +25,9 @@ export function newField(fields: FormField[], type: FieldType, label: string): F
   if (type === 'paragraph') field.help = 'متن توضیحی را اینجا بنویسید.'
   if (type === 'rating') field.max = 5
   if (type === 'file') field.max = 1
+  if (type === 'price') field.amount = 100000
+  if (type === 'slider') { field.min = 0; field.max = 100 }
+  if (type === 'fxamount') { field.currencies = ['USD', 'EUR']; field.markupPercent = 5; field.markupFixed = 0; field.required = true }
   return field
 }
 

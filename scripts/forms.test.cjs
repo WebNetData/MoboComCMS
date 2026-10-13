@@ -145,3 +145,90 @@ test('wiring: routes, pages, schema, migration and privacy of attachments', () =
   for (const file of ['src/modules/site/server/pages/forms/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/modules/site/server/homepage.ts']) assert.match(read(file), /publicForm\(/, file)
   assert.match(read('src/modules/notifications/server/jobs-scheduler.ts'), /name: 'forms'/)
 })
+
+const source = (relative) => fs.readFileSync(path.resolve(root, relative), 'utf8')
+
+test('the newer kinds of field check what they are for', () => {
+  const fields = f.normalizeForm(form([
+    field('mobile', 'mobile', { required: true }), field('nid', 'national'), field('hour', 'time'), field('level', 'slider', { min: 1, max: 10 }),
+    field('pass', 'secret'), field('src', 'hidden', { value: 'campaign-a' }),
+  ])).fields
+  const ok = f.checkSubmission(fields, { mobile: '۰۹۱۲ ۱۲۳ ۴۵۶۷', nid: '0499370899', hour: '09:05', level: '7', pass: ' a b ', src: 'tampered' })
+  assert.deepEqual(plain(ok.errors), {})
+  assert.deepEqual(plain(ok.values), { mobile: '09121234567', nid: '0499370899', hour: '09:05', level: '7', pass: ' a b ', src: 'campaign-a' })
+  assert.equal(f.checkSubmission(fields, { mobile: '+989121234567' }).values.mobile, '09121234567')
+  const bad = plain(f.checkSubmission(fields, { mobile: '0812345', nid: '1234567890', hour: '25:00', level: '11' }).errors)
+  assert.deepEqual(Object.keys(bad).sort(), ['hour', 'level', 'mobile', 'nid'])
+  assert.equal(f.validNationalId('1111111111'), false)
+  assert.equal(f.validNationalId('0499370899'), true)
+})
+
+test('a typed foreign amount is read, limited and normalised', () => {
+  const [fx] = f.normalizeForm(form([field('amount', 'fxamount', { required: true, currencies: ['usd', 'EUR', 'XXX'], markupPercent: 5, markupFixed: 150000, min: 5, max: 2000 })])).fields
+  assert.deepEqual(fx.currencies, ['USD', 'EUR'])
+  assert.deepEqual(f.parseFxAnswer('1,200.5 usd'), { cents: 120050, currency: 'USD' })
+  assert.deepEqual(f.parseFxAnswer('۴۹٫۹۹ EUR'), { cents: 4999, currency: 'EUR' })
+  assert.equal(f.parseFxAnswer('abc USD'), null)
+  assert.equal(f.checkSubmission([fx], { amount: '100 USD' }).values.amount, '100.00 USD')
+  for (const value of ['4 USD', '2001 USD', '50 GBP', '10', '-5 USD', '1e3 USD']) assert.ok(f.checkSubmission([fx], { amount: value }).errors.amount, value)
+})
+
+test('the bill counts fixed costs, priced options and foreign amounts — only for what is shown', () => {
+  const def = f.normalizeForm(form([
+    field('amount', 'fxamount', { required: true, currencies: ['USD'], markupPercent: 5, markupFixed: 150000 }),
+    field('speed', 'radio', { options: ['عادی', 'فوری'], prices: [0, 50000] }),
+    field('extras', 'checkboxes', { options: ['الف', 'ب'], prices: [1000, 2000] }),
+    field('fee', 'price', { amount: 30000, showIf: [{ field: 'speed', op: 'eq', value: 'فوری' }] }),
+    field('total', 'total'),
+  ], { settings: { payment: { enabled: true, label: 'پرداخت' } } }))
+  assert.equal(def.settings.requireLogin, true, 'a paid form belongs to an account')
+  const fx = (fieldDef, cents) => ({ amount: Math.round(cents / 100 * 100000 * (1 + fieldDef.markupPercent / 100)) + fieldDef.markupFixed, rate: 100000 })
+  const urgent = f.priceLines(def.fields, { amount: '10.00 USD', speed: 'فوری', extras: ['الف', 'ب'] }, fx)
+  assert.equal(urgent.total, 1050000 + 150000 + 50000 + 1000 + 2000 + 30000)
+  const normal = f.priceLines(def.fields, { amount: '10.00 USD', speed: 'عادی' }, fx)
+  assert.equal(normal.total, 1200000, 'a free option and a hidden fixed cost add nothing')
+  assert.throws(() => f.priceLines(def.fields, { amount: '10.00 USD' }, () => null), /نرخ/)
+  // Payment without anything priced is refused; visitors never get the margin or a hidden value.
+  assert.throws(() => f.normalizeForm(form([field('name', 'text')], { settings: { payment: { enabled: true } } })), /قیمت‌دار/)
+  const shown = f.publicForm(f.normalizeForm(form([field('amount', 'fxamount', { markupPercent: 9, markupFixed: 777 }), field('src', 'hidden', { value: 'secret-campaign' })])))
+  assert.doesNotMatch(JSON.stringify(shown), /markupPercent|markupFixed|777|secret-campaign/)
+  assert.equal(shown.settings.style.theme, 'card')
+})
+
+test('a form keeps a chosen look, and an unknown one falls back', () => {
+  assert.deepEqual(f.normalizeStyle({ theme: 'glass', accent: '#0EA5E9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' }), { theme: 'glass', accent: '#0ea5e9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' })
+  assert.deepEqual(f.normalizeStyle({ theme: 'x', accent: 'red;}', radius: 1 }), f.DEFAULT_STYLE)
+})
+
+test('a paid form is charged by the site checkout and worked on by staff', () => {
+  const paid = source('src/modules/forms/server/paid.ts'), service = source('src/modules/forms/server/service.ts')
+  const checkout = source('src/modules/checkout/server/checkout.ts'), jobs = source('src/modules/fulfillment/server/jobs.ts'), route = source('src/modules/site/server/http/admin/forms/submissions/route.ts')
+  // The bill is the server's: on the page, on submit, and again at checkout with the rate of that moment.
+  assert.match(service, /const bill = paid \? await billFor\(form, values\) : null/)
+  assert.match(service, /payStatus: 'UNPAID'/)
+  assert.match(paid, /const bill = await billFor\(form, valuesOf\(parse<StoredAnswer\[\]>\(row\.data, \[\]\)\)\)/)
+  assert.match(paid, /findFirst\(\{ where: \{ id: submissionId, userId \}/, 'only the sender pays their own request')
+  assert.match(checkout, /if \(formSubmissionId\) \{\s+try \{\s+const quote = await formCheckoutQuote\(formSubmissionId, command\.userId\)/)
+  assert.match(checkout, /\[planId, productId, membershipPlanId, content, formSubmissionId\]\.filter\(Boolean\)\.length !== 1/)
+  assert.match(checkout, /if \(code && formSubmissionId\) return fail\(409, 'PROMOTION_NOT_APPLICABLE'/)
+  assert.match(checkout, /const kind = formSubmissionId \? 'FORM_PAID' :/)
+  assert.match(jobs, /if \(meta\.kind === 'form'\) \{\s+return enqueueFulfillment\(\{ kind: 'FORM_PAID'/)
+  // Paid exactly once, and only then does it reach staff.
+  assert.match(paid, /updateMany\(\{ where: \{ id: submissionId, userId: order\.userId, payStatus: 'UNPAID' \}, data: \{ payStatus: 'PAID'/)
+  assert.match(paid, /if \(row\.payStatus === 'UNPAID'\) throw new FormsError\('این درخواست هنوز پرداخت نشده است', 409\)/)
+  // A password is stored apart and encrypted; reading it is recorded; it goes by itself a week after the work ends.
+  assert.match(paid, /secrets: encryptDigitalDelivery\(JSON\.stringify\(/)
+  assert.match(route, /const secrets = await revealSecrets\(one\)\s+await auditAdmin\(\{ req, actor: admin, action: 'forms\.secrets_reveal'/)
+  assert.match(paid, /export const SECRET_KEEP_DAYS = 7/)
+  assert.match(source('src/modules/notifications/server/jobs-scheduler.ts'), /eraseFinishedSecrets\(\)/)
+  // Answers can be handled without the right to build pages; deleting stays with the builders.
+  assert.match(route, /const staff = async \(req: NextRequest\) => await requirePerm\(req, 'cms\.pages'\) \|\| await requirePerm\(req, 'forms\.handle'\)/)
+  assert.match(route.slice(route.indexOf('export async function DELETE')), /requirePerm\(req, 'cms\.pages'\)/)
+  assert.ok(source('src/modules/identity/rbac.ts').includes("'forms.handle',"))
+  const sql = source('prisma/migrations/20261228120000_form_payment_workflow/migration.sql')
+  assert.match(sql, /CHECK \("payStatus" IN \('', 'UNPAID', 'PAID'\) AND \("payStatus" = '' OR "amountMinor" > 0\)\)/)
+  assert.match(source('prisma/release-manifest.json'), /"20261228120000_form_payment_workflow"/)
+  // The forum's board and the form builder no longer share a layout rule.
+  assert.match(source('src/app/admin/forms/page.tsx'), /className="fb-layout fb-forms-layout"/)
+  assert.match(source('src/app/forms-pro.css'), /\.fb-layout\.fb-forms-layout \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+})

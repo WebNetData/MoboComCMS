@@ -15,6 +15,8 @@ export const PERMISSIONS = [
   'tickets.departments.manage',
   'settings.manage',
   'cms.pages',
+  // Form answers: read them, take the work, write back, read a sender's password (recorded). Building forms stays with cms.pages.
+  'forms.handle',
   'cms.posts',
   'cms.products',
   'roles.manage',

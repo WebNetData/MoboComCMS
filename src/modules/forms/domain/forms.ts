@@ -5,15 +5,20 @@ export class FormsError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
 }
 
-export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph'] as const
+export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph', 'time', 'slider', 'hidden', 'secret', 'mobile', 'national', 'price', 'fxamount', 'total'] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
 export const FIELD_LABEL: Record<FieldType, string> = {
   text: 'متن کوتاه', email: 'ایمیل', tel: 'تلفن', textarea: 'متن بلند', select: 'لیست کشویی', checkbox: 'تأیید / رضایت', radio: 'گزینهٔ تکی', checkboxes: 'چندگزینه‌ای',
   number: 'عدد', date: 'تاریخ', url: 'نشانی وب', rating: 'امتیاز عددی', file: 'ضمیمهٔ فایل', heading: 'عنوان بخش', paragraph: 'متن توضیحی',
+  time: 'ساعت', slider: 'نوار لغزنده', hidden: 'فیلد پنهان', secret: 'رمز / اطلاعات محرمانه', mobile: 'موبایل ایران', national: 'کد ملی',
+  price: 'هزینهٔ ثابت', fxamount: 'مبلغ ارزی (نرخ روز)', total: 'جمع قابل پرداخت',
 }
 /** Types that show text only and never carry an answer. */
-export const CONTENT_TYPES: FieldType[] = ['heading', 'paragraph']
+export const CONTENT_TYPES: FieldType[] = ['heading', 'paragraph', 'price', 'total']
+/** Types that can put a line on the bill: a fixed cost, a typed foreign amount, or a choice whose options carry prices. */
+export const PRICED_TYPES: FieldType[] = ['price', 'fxamount', 'select', 'radio', 'checkboxes']
+export const FX_CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'TRY', 'CAD'] as const
 export const CHOICE_TYPES: FieldType[] = ['select', 'radio', 'checkboxes']
 
 export type Op = 'eq' | 'neq' | 'contains' | 'filled' | 'empty'
@@ -25,6 +30,14 @@ export interface FormField {
   id: string; label: string; type: FieldType; required: boolean; options: string[]
   placeholder?: string; help?: string; min?: number; max?: number; width?: 'full' | 'half'; step?: string
   showIf?: Condition[]; logic?: 'all' | 'any'
+  /** Prices of `options`, in the same order (0 = free), in the form's currency. */
+  prices?: number[]
+  /** `price`: the fixed cost. `hidden`: nothing. */
+  amount?: number
+  /** `fxamount`: the currencies the visitor may type, and the margin added to the converted amount. Never sent to visitors. */
+  currencies?: string[]; markupPercent?: number; markupFixed?: number
+  /** `hidden`: the value stored with every answer. */
+  value?: string
 }
 export interface FormStep { id: string; title: string; description: string }
 export interface FormSettings {
@@ -34,6 +47,23 @@ export interface FormSettings {
   requireLogin: boolean; oncePerUser: boolean
   opensAt: string; closesAt: string; maxSubmissions: number
   redirectUrl: string; submitLabel: string; closedMessage: string; spamLinks: number
+  /** The visitor pays the form's total before staff take it up. */
+  payment: { enabled: boolean; label: string }
+  style: FormStyle
+}
+export const THEMES = ['classic', 'card', 'glass', 'minimal', 'bold'] as const
+export const THEME_LABEL: Record<(typeof THEMES)[number], string> = { classic: 'کلاسیک', card: 'کارتی', glass: 'شیشه‌ای', minimal: 'مینیمال', bold: 'پررنگ' }
+export interface FormStyle { theme: (typeof THEMES)[number]; accent: string; radius: 'sharp' | 'soft' | 'round'; density: 'comfortable' | 'compact'; width: 'narrow' | 'normal' | 'wide'; progress: 'steps' | 'bar' | 'dots' }
+export const DEFAULT_STYLE: FormStyle = { theme: 'card', accent: '', radius: 'soft', density: 'comfortable', width: 'normal', progress: 'steps' }
+const oneOf = <T extends string>(value: unknown, list: readonly T[], fallback: T): T => (list.includes(value as T) ? value as T : fallback)
+export function normalizeStyle(input: unknown): FormStyle {
+  const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
+  const accent = String(raw.accent ?? '').trim()
+  return {
+    theme: oneOf(raw.theme, THEMES, DEFAULT_STYLE.theme), accent: /^#[0-9a-fA-F]{6}$/.test(accent) ? accent.toLowerCase() : '',
+    radius: oneOf(raw.radius, ['sharp', 'soft', 'round'] as const, 'soft'), density: oneOf(raw.density, ['comfortable', 'compact'] as const, 'comfortable'),
+    width: oneOf(raw.width, ['narrow', 'normal', 'wide'] as const, 'normal'), progress: oneOf(raw.progress, ['steps', 'bar', 'dots'] as const, 'steps'),
+  }
 }
 export interface FormDefinition { id?: number; slug: string; title: string; description: string; fields: FormField[]; published: boolean; successText: string; settings?: FormSettings }
 
@@ -41,6 +71,7 @@ export type Answer = string | boolean | string[]
 export const DEFAULT_SETTINGS: FormSettings = {
   steps: [], notifyEmails: [], notifyInbox: true, autoReply: { enabled: false, subject: '', body: '' }, requireLogin: false, oncePerUser: false,
   opensAt: '', closesAt: '', maxSubmissions: 0, redirectUrl: '', submitLabel: '', closedMessage: '', spamLinks: 3,
+  payment: { enabled: false, label: '' }, style: DEFAULT_STYLE,
 }
 
 const RESERVED = ['__proto__', 'constructor', 'prototype', 'website']
@@ -101,10 +132,13 @@ export function normalizeSettings(input: unknown): FormSettings {
   }
   const opensAt = date(raw.opensAt, 'زمان شروع'), closesAt = date(raw.closesAt, 'زمان پایان')
   if (opensAt && closesAt && closesAt <= opensAt) throw new FormsError('پایان باید بعد از شروع باشد')
+  const payment = (raw.payment && typeof raw.payment === 'object' ? raw.payment : {}) as Record<string, unknown>
+  const paid = payment.enabled === true
   return {
+    payment: { enabled: paid, label: str(payment.label, 40) }, style: normalizeStyle(raw.style),
     steps, notifyEmails: emails, notifyInbox: raw.notifyInbox !== false,
     autoReply: { enabled: reply.enabled === true, subject: str(reply.subject, 150), body: String(reply.body ?? '').slice(0, 3000) },
-    requireLogin: raw.requireLogin === true, oncePerUser: raw.oncePerUser === true, opensAt, closesAt,
+    requireLogin: raw.requireLogin === true || paid, oncePerUser: raw.oncePerUser === true, opensAt, closesAt,
     maxSubmissions: int(raw.maxSubmissions, 0, 10_000_000, 0), redirectUrl: safeRedirect(raw.redirectUrl), submitLabel: str(raw.submitLabel, 40),
     closedMessage: str(raw.closedMessage, 300), spamLinks: int(raw.spamLinks, 0, 20, 3),
   }
@@ -149,6 +183,23 @@ export function normalizeForm(input: unknown): FormDefinition {
       if (f.max !== undefined && f.max !== '' && f.max !== null) out.max = int(f.max, 0, 1_000_000_000, 0)
       if (out.min !== undefined && out.max !== undefined && out.max && out.min > out.max) throw new FormsError(`کمینه و بیشینهٔ «${label}» درست نیست`)
     }
+    if (CHOICE_TYPES.includes(type) && Array.isArray(f.prices) && f.prices.some((price) => Number(price) > 0)) out.prices = options.map((_, index) => int((f.prices as unknown[])[index], 0, 100_000_000_000, 0))
+    if (type === 'price') { out.amount = int(f.amount, 0, 100_000_000_000, 0); if (!out.amount) throw new FormsError(`مبلغ «${label}» را وارد کنید`) }
+    if (type === 'hidden') out.value = str(f.value, 300)
+    if (type === 'slider') {
+      out.min = int(f.min, -1_000_000_000, 1_000_000_000, 0); out.max = int(f.max, -1_000_000_000, 1_000_000_000, 100)
+      if (out.max <= out.min) throw new FormsError(`کمینه و بیشینهٔ «${label}» درست نیست`)
+    }
+    if (type === 'fxamount') {
+      const codes = [...new Set((Array.isArray(f.currencies) ? f.currencies : []).map((code) => String(code).toUpperCase()))].filter((code) => (FX_CURRENCIES as readonly string[]).includes(code))
+      out.currencies = codes.length ? codes : ['USD']
+      const percent = Number(f.markupPercent)
+      out.markupPercent = Number.isFinite(percent) && percent > 0 ? Math.min(500, Math.round(percent * 100) / 100) : 0
+      out.markupFixed = int(f.markupFixed, 0, 100_000_000_000, 0)
+      if (f.min !== undefined && f.min !== '' && f.min !== null) out.min = int(f.min, 0, 9_999_999, 0)
+      if (f.max !== undefined && f.max !== '' && f.max !== null) out.max = int(f.max, 0, 9_999_999, 0)
+      if (out.min !== undefined && out.max && out.min > out.max) throw new FormsError(`کمینه و بیشینهٔ «${label}» درست نیست`)
+    }
     if (f.width === 'half') out.width = 'half'
     const step = str(f.step, 31)
     if (settings.steps.length) out.step = stepIds.has(step) ? step : settings.steps[0].id
@@ -158,6 +209,7 @@ export function normalizeForm(input: unknown): FormDefinition {
     fields.push(out)
   }
   if (!fields.some((f) => !CONTENT_TYPES.includes(f.type))) throw new FormsError('حداقل یک فیلد پاسخ‌دار لازم است')
+  if (settings.payment.enabled && !fields.some((f) => f.type === 'price' || f.type === 'fxamount' || f.prices?.some((price) => price > 0))) throw new FormsError('فرمِ دارای پرداخت دست‌کم یک فیلد قیمت‌دار می‌خواهد (هزینهٔ ثابت، مبلغ ارزی یا گزینهٔ قیمت‌دار)')
   // Steps go in order: a field never sits in an earlier step than the one before it.
   let last = 0
   for (const f of fields) {
@@ -229,8 +281,11 @@ function checkOne(f: FormField, input: unknown): [Answer, string] {
     if (f.type === 'checkboxes' && f.min && items.length && items.length < f.min) return [[], `${label}: دست‌کم ${f.min.toLocaleString('fa-IR')} گزینه انتخاب کنید`]
     return [items, '']
   }
+  if (f.type === 'hidden') return [f.value || '', '']
   if (input !== undefined && typeof input !== 'string' && typeof input !== 'number') return ['', `مقدار ${label} معتبر نیست`]
-  let value = String(input ?? '').trim()
+  // A password is kept exactly as typed.
+  let value = f.type === 'secret' ? String(input ?? '').replace(/[\u0000-\u001f\u007f]/g, '') : String(input ?? '').trim()
+  if (f.type === 'secret') return !value.trim() ? ['', f.required ? `${label} الزامی است` : ''] : value.length > 300 ? ['', `${label} بیش از حد طولانی است`] : [value, '']
   if (f.required && !value) return ['', `${label} الزامی است`]
   if (!value) return ['', '']
   if (value.length > (f.type === 'textarea' ? 5000 : 500)) return ['', `${label} بیش از حد طولانی است`]
@@ -265,6 +320,28 @@ function checkOne(f: FormField, input: unknown): [Answer, string] {
       const top = Math.min(f.max || 5, 10)
       if (!Number.isInteger(n) || n < 1 || n > top) return ['', `امتیاز ${label} معتبر نیست`]
       return [String(n), '']
+    }
+    case 'time': {
+      const text = toLatinDigits(value)
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(text) ? [text, ''] : ['', `ساعت ${label} معتبر نیست`]
+    }
+    case 'slider': {
+      const n = Number(toLatinDigits(value))
+      return Number.isInteger(n) && n >= (f.min ?? 0) && n <= (f.max ?? 100) ? [String(n), ''] : ['', `مقدار ${label} معتبر نیست`]
+    }
+    case 'mobile': {
+      const digits = toLatinDigits(value).replace(/[\s()-]/g, '').replace(/^(\+98|0098|98)/, '0')
+      return /^09\d{9}$/.test(digits) ? [digits, ''] : ['', 'شمارهٔ موبایل را به شکل 09xxxxxxxxx وارد کنید']
+    }
+    case 'national':
+      return validNationalId(toLatinDigits(value)) ? [toLatinDigits(value), ''] : ['', 'کد ملی معتبر نیست']
+    case 'fxamount': {
+      const typed = parseFxAnswer(value)
+      if (!typed || !(f.currencies || ['USD']).includes(typed.currency)) return ['', `مبلغ ${label} را به عدد و با واحد پول مجاز وارد کنید`]
+      if (typed.cents <= 0) return ['', `مبلغ ${label} باید بیشتر از صفر باشد`]
+      if (f.min !== undefined && typed.cents < f.min * 100) return ['', `${label}: حداقل ${f.min.toLocaleString('en-US')} ${typed.currency}`]
+      if (f.max && typed.cents > f.max * 100) return ['', `${label}: حداکثر ${f.max.toLocaleString('en-US')} ${typed.currency}`]
+      return [`${(typed.cents / 100).toFixed(2)} ${typed.currency}`, '']
     }
     case 'select': case 'radio':
       return f.options.includes(value) ? [value, ''] : ['', 'گزینه انتخاب‌شده معتبر نیست']
@@ -306,6 +383,47 @@ export function validateSubmission(fields: FormField[], input: unknown): Record<
   return values
 }
 
+/** Iranian national id: ten digits with the official check digit. */
+export function validNationalId(code: string): boolean {
+  if (!/^\d{10}$/.test(code) || /^(\d)\1{9}$/.test(code)) return false
+  const sum = [...code.slice(0, 9)].reduce((total, digit, index) => total + Number(digit) * (10 - index), 0) % 11
+  const check = Number(code[9])
+  return sum < 2 ? check === sum : check === 11 - sum
+}
+
+/** "49.99 USD" (the stored answer of a foreign-amount field) → cents and currency. */
+export function parseFxAnswer(value: unknown): { cents: number; currency: string } | null {
+  const match = /^(\d{1,7})(?:\.(\d{1,2}))?\s*([A-Za-z]{3})$/.exec(toLatinDigits(String(value ?? '')).replace(/[,٬\s]+/g, ' ').trim().replace(/ (?=\d)/g, ''))
+  return match ? { cents: Number(match[1]) * 100 + Number((match[2] || '').padEnd(2, '0')), currency: match[3].toUpperCase() } : null
+}
+
+// ------------------------------------------------------------------ the bill
+
+export interface PriceLine { id: string; label: string; detail: string; amount: number }
+export type FxQuoter = (field: FormField, cents: number, currency: string) => { amount: number; rate: number } | null
+
+/**
+ * What the visible answers cost: one line per fixed cost, per chosen priced option and per typed foreign amount.
+ * `fx` converts a foreign amount with today's rate and the field's margin; the server passes the real one.
+ */
+export function priceLines(fields: FormField[], values: Record<string, Answer | undefined>, fx: FxQuoter): { lines: PriceLine[]; total: number } {
+  const lines: PriceLine[] = []
+  for (const f of visibleFields(fields, values)) {
+    if (f.type === 'price' && f.amount) lines.push({ id: f.id, label: f.label, detail: '', amount: f.amount })
+    else if (f.type === 'fxamount') {
+      const typed = parseFxAnswer(values[f.id])
+      if (!typed) continue
+      const quote = fx(f, typed.cents, typed.currency)
+      if (!quote) throw new FormsError('نرخ این ارز در دسترس نیست؛ کمی بعد دوباره تلاش کنید', 409)
+      lines.push({ id: f.id, label: f.label, detail: `${(typed.cents / 100).toFixed(2)} ${typed.currency} · نرخ ${Math.round(quote.rate).toLocaleString('fa-IR')}`, amount: quote.amount })
+    } else if (f.prices?.length) {
+      const chosen = Array.isArray(values[f.id]) ? values[f.id] as string[] : values[f.id] ? [String(values[f.id])] : []
+      for (const option of chosen) { const price = f.prices[f.options.indexOf(option)] || 0; if (price > 0) lines.push({ id: `${f.id}:${f.options.indexOf(option)}`, label: f.label, detail: option, amount: price }) }
+    }
+  }
+  return { lines, total: lines.reduce((sum, line) => sum + line.amount, 0) }
+}
+
 const LINK = /https?:\/\/|www\.|<a\s|\[url/gi
 /** Comment-spam heuristic: too many links in the free-text answers. */
 export function looksSpam(values: Record<string, Answer>, maxLinks: number): boolean {
@@ -328,7 +446,9 @@ export function formState(settings: Pick<FormSettings, 'opensAt' | 'closesAt' | 
 /** What visitors may see: never the notification addresses, auto-reply text or spam rules. */
 export function publicForm(form: FormDefinition): FormDefinition {
   const s = form.settings || DEFAULT_SETTINGS
-  return { ...form, settings: { ...DEFAULT_SETTINGS, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt } }
+  // The margin of a foreign amount and the stored value of a hidden field are the site's business.
+  const fields = form.fields.map(({ markupPercent: _percent, markupFixed: _fixed, value: _value, ...field }) => field)
+  return { ...form, fields, settings: { ...DEFAULT_SETTINGS, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt, payment: s.payment, style: s.style } }
 }
 
 /** A stored row (JSON columns as text) → definition. Damaged JSON reads as empty rather than crashing pages. */
@@ -346,6 +466,11 @@ export interface StoredAnswer { id: string; label: string; type?: FieldType; val
 export const STATUSES = ['NEW', 'READ', 'STARRED', 'ARCHIVED', 'SPAM'] as const
 export type SubmissionStatus = (typeof STATUSES)[number]
 export const STATUS_LABEL: Record<SubmissionStatus, string> = { NEW: 'جدید', READ: 'خوانده‌شده', STARRED: 'ستاره‌دار', ARCHIVED: 'بایگانی', SPAM: 'هرزنامه' }
+/** Where the work on an answer stands (separate from the inbox triage above). */
+export const STAGES = ['OPEN', 'IN_PROGRESS', 'DONE', 'REJECTED'] as const
+export type Stage = (typeof STAGES)[number]
+export const STAGE_LABEL: Record<Stage, string> = { OPEN: 'در انتظار کارشناس', IN_PROGRESS: 'در حال انجام', DONE: 'انجام شد', REJECTED: 'رد شد' }
+export const SECRET_MASK = '••••••••'
 
 /** One answer as readable text (lists joined, yes/no for consent boxes). */
 export function answerText(value: Answer | undefined): string {
@@ -400,6 +525,25 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
       field('about', 'دربارهٔ خودتان', 'textarea', { step: 'work' }),
       field('resume', 'رزومه (PDF یا تصویر)', 'file', { required: true, step: 'files', max: 1, help: 'حداکثر ۵ مگابایت' }),
       field('consent', 'با ذخیرهٔ اطلاعاتم برای بررسی درخواست موافقم', 'checkbox', { required: true, step: 'files' }),
+    ] }),
+  },
+  {
+    id: 'foreign-payment', name: 'پرداخت سایت خارجی', description: 'کاربر مبلغ دلار یا یورو را وارد می‌کند، هزینه به تومان محاسبه می‌شود، اطلاعات حساب را می‌دهد و پرداخت می‌کند.',
+    build: () => ({ slug: 'foreign-payment', title: 'پرداخت سایت خارجی با ویزا کارت', description: 'مبلغ و اطلاعات سایت را وارد کنید؛ پس از پرداخت، کارشناس ما پرداخت شما را انجام می‌دهد.', published: false, successText: 'سفارش شما ثبت شد.', settings: { ...DEFAULT_SETTINGS, requireLogin: true, payment: { enabled: true, label: 'پرداخت و ثبت سفارش' }, submitLabel: 'تأیید و ادامه', steps: [{ id: 'amount', title: 'مبلغ', description: '' }, { id: 'account', title: 'اطلاعات حساب', description: '' }] }, fields: [
+      field('amount', 'مبلغی که باید پرداخت شود', 'fxamount', { required: true, step: 'amount', currencies: ['USD', 'EUR'], markupPercent: 5, markupFixed: 150000, min: 5, max: 2000 }),
+      field('total', 'هزینهٔ سفارش شما', 'total', { step: 'amount' }),
+      field('site', 'نشانی سایت', 'url', { required: true, step: 'account' }), field('username', 'نام کاربری یا ایمیل حساب', 'text', { required: true, step: 'account', width: 'half' }),
+      field('password', 'رمز عبور حساب', 'secret', { required: true, step: 'account', width: 'half' }), field('mobile', 'موبایل برای هماهنگی', 'mobile', { required: true, step: 'account' }),
+      field('details', 'توضیحات و اطلاعات حساب', 'textarea', { step: 'account' }),
+    ] }),
+  },
+  {
+    id: 'appointment', name: 'دریافت نوبت', description: 'روز و ساعت دلخواه، نوع خدمت و اطلاعات تماس.',
+    build: () => ({ slug: 'appointment', title: 'دریافت نوبت', description: 'زمان دلخواهتان را بگویید؛ برای تأیید تماس می‌گیریم.', published: false, successText: 'درخواست نوبت ثبت شد؛ برای تأیید تماس می‌گیریم.', settings: { ...DEFAULT_SETTINGS }, fields: [
+      field('name', 'نام و نام خانوادگی', 'text', { required: true, width: 'half' }), field('mobile', 'موبایل', 'mobile', { required: true, width: 'half' }),
+      field('service', 'نوع خدمت', 'select', { required: true, options: ['مشاوره', 'مصاحبه', 'پشتیبانی حضوری'] }),
+      field('day', 'روز', 'date', { required: true, width: 'half' }), field('hour', 'ساعت', 'time', { required: true, width: 'half' }),
+      field('note', 'توضیحات', 'textarea'),
     ] }),
   },
   {

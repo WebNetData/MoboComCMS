@@ -92,7 +92,7 @@ export default function FormsAdmin() {
       </div>
     </section>}
 
-    <div className="fb-layout">
+    <div className="fb-layout fb-forms-layout">
       <aside className="fb-forms" aria-label="فرم‌ها">
         {forms.map((f) => <button key={f.id} type="button" className={f.id === form?.id ? 'is-active' : ''} onClick={() => open(f)}><strong>{f.title}</strong><small>{f.published ? 'منتشرشده' : 'پیش‌نویس'} · {fa(f.counts.total)} پاسخ{f.counts.new ? ` · ${fa(f.counts.new)} جدید` : ''}</small></button>)}
         {!forms.length && <p className="sa-hint">هنوز فرمی ندارید.</p>}

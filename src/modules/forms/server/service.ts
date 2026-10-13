@@ -10,8 +10,10 @@ import { sendMail } from '@/modules/mail/server/mailer'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import {
   CONTENT_TYPES, FormsError, STATUSES, TEMPLATES, checkSubmission, formState, looksSpam, normalizeForm, parseForm, toCsv, visibleFields,
-  type Answer, type FormDefinition, type StoredAnswer, type SubmissionStatus,
+  type Answer, type FormDefinition, type PriceLine, type StoredAnswer, type SubmissionStatus,
 } from '@/modules/forms/domain/forms'
+import { minorToNumber } from '@/shared/money'
+import { FORM_CURRENCY, billFor, sealSecrets } from '@/modules/forms/server/paid'
 
 // Uploaded answers live outside the public folder; only administrators read them, through an authorised route.
 export const formsDirectory = () => join(process.cwd(), 'storage', 'forms')
@@ -153,13 +155,22 @@ export async function submitForm(slug: string, input: { values: unknown; website
     if (owned !== fileIds.length) throw new FormsError('فایل بارگذاری‌شده معتبر نیست؛ دوباره بارگذاری کنید')
   }
 
-  const answers: StoredAnswer[] = shown.map((f) => ({ id: f.id, label: f.label, type: f.type, value: values[f.id] as Answer }))
+  // A password is stored encrypted, apart from the readable answers.
+  const { answers, secrets } = sealSecrets(shown.map((f) => ({ id: f.id, label: f.label, type: f.type, value: values[f.id] as Answer })))
   const spam = looksSpam(values, settings.spamLinks)
+  // A paid form: the bill is priced here, by the server, and the answer waits for its payment.
+  const paid = settings.payment.enabled
+  if (paid && !who.userId) throw new FormsError('برای ارسال این فرم ابتدا وارد حساب خود شوید', 401)
+  const bill = paid ? await billFor(form, values) : null
+  if (bill && bill.totalMinor <= 0n) throw new FormsError('مبلغی برای پرداخت محاسبه نشد؛ فیلدهای مبلغ را کامل کنید')
+  const money = bill ? { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines), payStatus: 'UNPAID' } : {}
   const submission = await db.$transaction(async (tx) => {
-    const created = await tx.formSubmission.create({ data: { formId: form.id!, data: JSON.stringify(answers), status: spam ? 'SPAM' : 'NEW', userId: who.userId, ipHash: ipHash(who.ip) } })
+    const created = await tx.formSubmission.create({ data: { formId: form.id!, data: JSON.stringify(answers), status: spam ? 'SPAM' : 'NEW', userId: who.userId, ipHash: ipHash(who.ip), secrets, stage: spam || paid ? '' : 'OPEN', ...money } })
     if (fileIds.length) await tx.formUpload.updateMany({ where: { id: { in: fileIds } }, data: { submissionId: created.id } })
     return created
   })
+  // Staff hear about a paid form once it is paid (the fulfilment step tells them).
+  if (bill && !spam) return { message: form.successText, redirect: '', pay: { submissionId: submission.id, amount: bill.total, currency: bill.currency, lines: bill.lines, label: settings.payment.label } }
   if (!spam) void notify(form, submission.id, answers, who.userId).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
   return { message: form.successText, redirect: settings.redirectUrl }
 }
@@ -183,18 +194,30 @@ async function notify(form: FormDefinition, submissionId: number, answers: Store
   }
 }
 
+/** The bill of what a visitor has typed so far (the page shows it while they fill the form). */
+export async function quoteForm(slug: string, input: unknown) {
+  const found = await publicFormBySlug(slug)
+  if (!found || !found.form.settings?.payment.enabled) throw new FormsError('فرم در دسترس نیست', 404)
+  const { values } = checkSubmission(found.form.fields, input)
+  const bill = await billFor(found.form, values)
+  return { lines: bill.lines, total: bill.total, currency: bill.currency }
+}
+
 // ------------------------------------------------------------------ inbox
 
-export interface SubmissionQuery { formId: number; status?: string; q?: string; page?: number; from?: string; to?: string }
+export interface SubmissionQuery { formId: number; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
 
 const where = (query: SubmissionQuery) => ({
   formId: query.formId,
   ...(query.status === 'ALL' || !query.status ? { status: { not: 'SPAM' } } : STATUSES.includes(query.status as SubmissionStatus) ? { status: query.status } : {}),
   ...(query.q ? { data: { contains: query.q.slice(0, 100) } } : {}),
+  ...(query.stage && ['OPEN', 'IN_PROGRESS', 'DONE', 'REJECTED'].includes(query.stage) ? { stage: query.stage } : query.stage === 'UNPAID' ? { payStatus: 'UNPAID' } : {}),
   ...(query.from || query.to ? { createdAt: { ...(query.from && !Number.isNaN(Date.parse(query.from)) ? { gte: new Date(query.from) } : {}), ...(query.to && !Number.isNaN(Date.parse(query.to)) ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}) } } : {}),
 })
 
-const view = (row: { id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
+const view = (row: { id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
+  amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY, lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null, orderId: row.orderId,
+  stage: row.stage, assigneeId: row.assigneeId, assignee: row.assigneeId ? users.get(row.assigneeId) || `کاربر ${row.assigneeId}` : '', reply: row.reply, hasSecrets: !!row.secrets, secretsErasedAt: row.secretsErasedAt?.toISOString() || null,
   id: row.id, status: row.status, note: row.note, userId: row.userId, user: row.userId ? users.get(row.userId) || `کاربر ${row.userId}` : '', createdAt: row.createdAt.toISOString(),
   answers: parse<StoredAnswer[]>(row.data, []), files: (row.uploads || []).map((u) => ({ id: String(u.id), name: u.originalName, size: u.size })),
 })
@@ -212,7 +235,7 @@ export async function listSubmissions(query: SubmissionQuery) {
     db.formSubmission.count({ where: where(query) }),
     db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formId }, _count: { _all: true } }),
   ])
-  const users = await userNames(rows.map((r) => r.userId))
+  const users = await userNames(rows.flatMap((r) => [r.userId, r.assigneeId]))
   return { rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
 }
 
