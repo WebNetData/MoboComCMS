@@ -19,6 +19,8 @@ const OPTIONS: sanitizeHtml.IOptions = {
     span: ['class', 'style'],
     div: ['class', 'style'],
     p: ['class', 'style'],
+    td: ['colspan', 'rowspan'],
+    th: ['colspan', 'rowspan', 'scope'],
     label: ['for'],
     input: ['type', 'checked', 'disabled'],
     '*': ['data-type', 'data-checked', 'dir', 'style'],

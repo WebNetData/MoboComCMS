@@ -1,0 +1,28 @@
+{
+  "id": "classic-editor",
+  "name": "ویرایشگر کلاسیک",
+  "nameEn": "Classic editor",
+  "description": "نوشتن به روش کلاسیک وردپرس در همهٔ فرم‌های مدیریت: زبانهٔ «دیداری» (TinyMCE با جدول، رنگ، جست‌وجو و جایگزینی، تمام‌صفحه، راست‌به‌چپ) و زبانهٔ «متن» برای HTML با برچسب‌های سریع، و دکمهٔ «افزودن رسانه». با غیرفعال‌کردن، فرم‌ها به ویرایشگر سبک قبلی برمی‌گردند و هیچ نوشته‌ای تغییر نمی‌کند.",
+  "descriptionEn": "The WordPress classic way of writing in every admin form: a Visual tab (TinyMCE with tables, colours, search and replace, fullscreen, right-to-left) and a Text tab for the HTML with quick tags, plus an Add media button. Turning it off brings the lighter editor back to the forms; no content changes.",
+  "version": "1.0.0",
+  "kind": "plugin",
+  "apiVersion": 1,
+  "category": "content",
+  "icon": "pen",
+  "defaultEnabled": true,
+  "requiresCore": "^1.0.0",
+  "settings": [
+    {
+      "key": "start-tab",
+      "label": "زبانه‌ای که نویسنده با آن شروع می‌کند",
+      "labelEn": "The tab a writer starts on",
+      "type": "select",
+      "public": true,
+      "default": "visual",
+      "options": [
+        { "label": "دیداری", "value": "visual" },
+        { "label": "متن (HTML)", "value": "text" }
+      ]
+    }
+  ]
+}

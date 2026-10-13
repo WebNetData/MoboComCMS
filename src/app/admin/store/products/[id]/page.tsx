@@ -13,7 +13,7 @@ import PublishReview, { previewValue, type ReviewRow } from '../../../cms/Publis
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
 
-const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 type Category = { id: number; name: string; parentId: number | null; attributeGroup?: { fields: string; name: string } | null }
 type Brand = { id: number; name: string }

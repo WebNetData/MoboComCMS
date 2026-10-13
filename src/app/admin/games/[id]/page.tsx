@@ -15,7 +15,7 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { GAME_MODES, HEALTH_CHECKS, LOCALIZATIONS, STORES, healthIssues } from '@/modules/games/domain/games'
 import { GAME_PLATFORMS } from '@/modules/media/domain/media'
 
-const RichEditor = dynamic(() => import('@/components/RichEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
+const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
 type Form = Record<string, any>
 const EMPTY: Form = {

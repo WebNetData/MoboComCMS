@@ -423,3 +423,67 @@ test('stored HTML is given a direction per paragraph where it is shown, and a wr
   for (const file of ['src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/modules/site/server/pages/p/[slug]/page.tsx', 'src/app/games/[slug]/page.tsx', 'src/app/software/[slug]/page.tsx', 'src/app/music/album/[slug]/page.tsx', 'src/app/music/artist/[slug]/page.tsx', 'src/components/ProductTabs.tsx']) assert.match(read(file), /__html: [^}]*withTextDirections\(/, file)
   assert.doesNotMatch(read('src/shared/content/sanitize.ts'), /withTextDirections/)
 })
+
+test('the classic editor: quick tags wrap the selection, refuse an address that runs, and the plugin can be switched off without touching content', () => {
+  const classic = load('src/modules/editor/domain/classic')
+  const none = () => ''
+  // A pair around the selection, the selection kept selected inside it.
+  assert.deepEqual(classic.applyQuicktag('سلام دنیا', 5, 9, 'b', none), { value: 'سلام <strong>دنیا</strong>', start: 13, end: 17 })
+  // Nothing selected: an empty pair with the caret between the tags.
+  assert.deepEqual(classic.applyQuicktag('', 0, 0, 'li', none), { value: '<li></li>', start: 4, end: 4 })
+  assert.equal(classic.applyQuicktag('a', 0, 1, 'ul', none).value, '<ul>\na\n</ul>')
+  // A reversed or out-of-range selection is put in order, never thrown on.
+  assert.equal(classic.applyQuicktag('abc', 3, 1, 'i', none).value, 'a<em>bc</em>')
+  assert.equal(classic.applyQuicktag('abc', -5, 99, 'code', none).value, '<code>abc</code>')
+  // A link and a picture ask for an address; a bare host gets https, a path and an anchor stay.
+  assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => 'example.com/a').value, '<a href="https://example.com/a">متن</a>')
+  assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => '/blog/x').value, '<a href="/blog/x">متن</a>')
+  assert.equal(classic.applyQuicktag('x', 1, 1, 'img', () => 'https://cdn.example/a.webp').value, 'x<img src="https://cdn.example/a.webp" alt="" />')
+  assert.equal(classic.applyQuicktag('a"b<c', 0, 5, 'img', () => '/u/1.webp').value, '<img src="/u/1.webp" alt="abc" />', 'the selected words become the alt text, without quotes or brackets')
+  // What runs, breaks out of the attribute or is not an address changes nothing.
+  for (const bad of ['javascript:alert(1)', 'data:text/html,<script>', 'vbscript:x', 'x" onmouseover="y', 'a b', '<script>', '//evil.example', '', '   ']) {
+    assert.equal(classic.quicktagUrl(bad), null, JSON.stringify(bad))
+    assert.equal(classic.applyQuicktag('متن', 0, 3, 'link', () => bad), null, JSON.stringify(bad))
+  }
+  assert.deepEqual(['https://a.example', '/p', '#top', 'mailto:a@b.example', 'tel:+98'].map(classic.quicktagUrl), ['https://a.example', '/p', '#top', 'mailto:a@b.example', 'tel:+98'])
+  assert.equal(classic.applyQuicktag('a', 0, 1, 'script', none), null, 'an unknown tag does nothing')
+  // Every quick tag has an action, and the toolbars name only tools of the open-source edition.
+  for (const tag of classic.QUICKTAGS) assert.notEqual(classic.applyQuicktag('x', 0, 1, tag.id, () => '/a'), null, tag.id)
+  const FREE = new Set('blocks bold italic underline strikethrough forecolor backcolor alignright aligncenter alignleft alignjustify bullist numlist outdent indent blockquote link image table codesample charmap rtl ltr removeformat searchreplace fullscreen undo redo'.split(' '))
+  for (const [name, bar] of Object.entries(classic.CLASSIC_TOOLBARS)) for (const tool of bar.split(/[\s|]+/).filter(Boolean)) assert.ok(FREE.has(tool), name + ': ' + tool)
+  assert.doesNotMatch(classic.CLASSIC_TOOLBARS.basic, /image|table|codesample/)
+
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  // A plugin of its own, on by default, with nothing but a manifest: switching it off cannot lose data.
+  const manifest = JSON.parse(read('src/plugins/classic-editor/manifest.json'))
+  assert.deepEqual([manifest.id, manifest.kind, manifest.defaultEnabled, manifest.settings.map((entry) => entry.key + ':' + entry.public)], [classic.CLASSIC_EDITOR_PLUGIN, 'plugin', true, ['start-tab:true']])
+  assert.deepEqual(fs.readdirSync(path.resolve(__dirname, '..', 'src/plugins/classic-editor')), ['manifest.json'])
+  // One door for every staff form; off → the lighter editor, same value either way.
+  const door = read('src/components/editor/ContentEditor.tsx')
+  assert.match(door, /if \(!state\?\.enabled\) return <RichEditor \{\.\.\.props\} \/>/)
+  for (const file of ['src/app/admin/cms/AdminCrud.tsx', 'src/app/admin/cms/MediaCrud.tsx', 'src/app/admin/games/[id]/page.tsx', 'src/app/admin/store/products/[id]/page.tsx', 'src/app/admin/software/releases/ReleasesManager.tsx', 'src/app/admin/newsletter/page.tsx']) {
+    assert.match(read(file), /import\('@\/components\/editor\/ContentEditor'\)/, file)
+    assert.doesNotMatch(read(file), /import\('@\/components\/RichEditor'\)/, file)
+  }
+  // The heavy editor is loaded on demand, from this site's own bundle, under the GPL key — never from a CDN, never on a public page.
+  const editor = read('src/components/editor/classic/ClassicEditor.tsx')
+  assert.match(door, /dynamic\(\(\) => import\('@\/components\/editor\/classic\/ClassicEditor'\), \{ ssr: false/)
+  assert.match(editor, /licenseKey="gpl"/)
+  assert.doesNotMatch(editor, /tinymceScriptSrc|cdn\.tiny\.cloud|apiKey=/)
+  assert.match(editor, /invalid_elements: 'script,style,object,embed,applet,form,/)
+  assert.match(editor, /images_upload_handler: [^\n]*uploadPicture\(/)
+  const importers = []
+  const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else if (/\.tsx?$/.test(entry.name) && /from '(tinymce|@tinymce\/)|import 'tinymce\//.test(fs.readFileSync(full, 'utf8'))) importers.push(path.relative(path.resolve(__dirname, '..'), full).replace(/\\/g, '/')) } }
+  walk(path.resolve(__dirname, '..', 'src'))
+  assert.deepEqual(importers, ['src/components/editor/classic/ClassicEditor.tsx'])
+  // Fields that are stored as cleaned HTML are written in the editor, not as raw tags.
+  assert.match(read('src/app/admin/software/titles/page.tsx'), /key: 'changelog',[^\n]*type: 'richtext'/)
+  assert.doesNotMatch(read('src/app/admin/software/titles/page.tsx'), /HTML مجاز/)
+  // The server's cleaning keeps what the editor can make (tables with merged cells) and still drops what runs.
+  // The sanitiser imports its library by default export, so it is compiled here with module interop on.
+  const cleaning = { exports: {} }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/shared/content/sanitize.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)(require, cleaning, cleaning.exports)
+  const { cleanRichText } = cleaning.exports
+  assert.equal(cleanRichText('<table><tbody><tr><td colspan="2" rowspan="3" onclick="x()">a</td></tr></tbody></table>'), '<table><tbody><tr><td colspan="2" rowspan="3">a</td></tr></tbody></table>')
+  assert.equal(cleanRichText('<p style="color:#ff0000;position:fixed">x</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="x()"><a href="javascript:alert(1)">y</a>'), '<p style="color:#ff0000">x</p><img /><a>y</a>')
+})

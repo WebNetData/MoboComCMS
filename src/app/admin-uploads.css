@@ -29,3 +29,23 @@
 .nl-note { margin: 0; font-size: 13px; }
 .nl-note.is-ok { color: #1a7f55; }
 .nl-note.is-error { color: #d93f3f; }
+
+/* Classic editor: "add media" and the Visual / Text tabs above the writing area, the quick tags of the Text tab. */
+.ce { display: grid; gap: 0; min-width: 0; }
+.ce-bar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.ce-media { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+.ce-note { margin-bottom: 10px; color: var(--muted); font-size: 12.5px; }
+.ce-tabs { display: flex; gap: 2px; margin-inline-start: auto; }
+.ce-tabs button { min-height: 36px; padding: 0 16px; border: 1px solid var(--border); border-bottom: 0; border-radius: 10px 10px 0 0; background: var(--bg-soft); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ce-tabs button.is-on { background: var(--card); color: var(--text); box-shadow: 0 1px 0 var(--card); position: relative; z-index: 1; }
+.ce-tabs button:focus-visible, .ce-quicktags button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ce-panel { min-width: 0; border: 1px solid var(--border); border-radius: 12px 0 12px 12px; background: var(--card); overflow: hidden; }
+html[dir='ltr'] .ce-panel { border-radius: 0 12px 12px 12px; }
+.ce-panel .tox-tinymce { border: 0; border-radius: 0; }
+.ce-panel .tox .tox-editor-header { box-shadow: none; border-bottom: 1px solid var(--border); }
+.ce-quicktags { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--bg-soft); direction: ltr; }
+.ce-quicktags button { min-height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--text); font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+.ce-quicktags button:hover { border-color: var(--primary); color: var(--primary); }
+.ce-source { display: block; width: 100%; padding: 14px 16px; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--text); font: 13.5px/1.9 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size: 2; }
+/* The editor's own floating pieces (menus, dialogs, fullscreen) sit above the admin shell. */
+.tox-tinymce-aux, .tox-fullscreen .tox-tinymce { z-index: 1300 !important; }
