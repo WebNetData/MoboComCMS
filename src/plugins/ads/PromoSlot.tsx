@@ -67,13 +67,16 @@ export default function PromoSlot({ placement, className = '' }: { placement: st
   if (ad?.sticky && closed) return null
   const size = ad ? { width: ad.width, height: ad.height } : served?.reserve
   const ratio = size?.width && size.height ? { aspectRatio: `${size.width} / ${size.height}`, maxWidth: size.width } : undefined
+  // A picture keeps its own shape: the placement caps its width, never forces its height (a 3:1 picture in a
+  // 728×90 place was squeezed flat). The reserved box above still holds the space until it loads.
+  const picture = size?.width ? { maxWidth: size.width, width: '100%', height: 'auto' } : undefined
 
   return (
     <aside ref={box} className={`promo-slot promo-${placement}${ad?.sticky ? ' is-sticky' : ''}${className ? ` ${className}` : ''}`} aria-label={ad?.label || 'تبلیغ'} data-placement={placement}>
       {ad?.sticky && <button type="button" className="promo-close" aria-label="بستن" onClick={() => { setClosed(true); write(`promo:closed:${placement}`, '1') }}>✕</button>}
       <div className="promo-frame" style={!ad && !served ? ratio : undefined}>
         {ad?.kind === 'IMAGE' && <a href={ad.click} target="_blank" rel="sponsored nofollow noopener noreferrer" className="promo-link">
-          <picture>{ad.imageMobile && <source media="(max-width: 640px)" srcSet={ad.imageMobile} />}<img src={ad.image} alt={ad.alt || ad.title} width={ad.width || undefined} height={ad.height || undefined} loading="lazy" decoding="async" style={ratio} /></picture>
+          <picture>{ad.imageMobile && <source media="(max-width: 640px)" srcSet={ad.imageMobile} />}<img src={ad.image} alt={ad.alt || ad.title} width={ad.width || undefined} height={ad.height || undefined} loading="lazy" decoding="async" style={picture} /></picture>
         </a>}
         {ad?.kind === 'TEXT' && <a href={ad.click} target="_blank" rel="sponsored nofollow noopener noreferrer" className="promo-text"><b>{ad.title}</b>{ad.text && <span>{ad.text}</span>}{ad.cta && <em>{ad.cta}</em>}</a>}
         {ad?.kind === 'HTML' && <iframe title={ad.label} srcDoc={ad.html} sandbox={SANDBOX} loading="lazy" width={ad.width || undefined} height={ad.height || undefined} style={ratio} />}

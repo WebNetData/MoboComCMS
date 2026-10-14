@@ -51,3 +51,6 @@
 .pr-spark { width: 120px; height: 30px; }
 .pr-spark polyline { stroke: var(--accent, #3b6ef5); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 @media (max-width: 800px) { .pr-campaign { grid-template-columns: 1fr; } .pr-spark { width: 100%; } }
+
+/* A banner keeps its own shape inside its place. */
+.promo-link img { width: 100%; object-fit: contain; }

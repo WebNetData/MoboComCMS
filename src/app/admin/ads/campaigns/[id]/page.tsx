@@ -33,7 +33,37 @@ function Preview({ item }: { item: Creative }) {
   return <iframe title="پیش‌نمایش" srcDoc={item.html} sandbox="allow-scripts" style={{ width: '100%', height: 120, border: 0 }} />
 }
 
-function CreativeEditor({ campaignId, item, onSaved, onCancel }: { campaignId: number; item: Creative; onSaved: () => void; onCancel: () => void }) {
+/**
+ * The picture against the places it will be shown in: its own size and shape, and what would fit. A picture of
+ * another shape is not squeezed on the site — it shows whole, only taller or shorter than the place.
+ */
+function BannerSizeCheck({ url, places }: { url: string; places: Placement[] }) {
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null)
+  useEffect(() => {
+    setNatural(null)
+    if (!url) return
+    const image = new Image()
+    image.onload = () => setNatural({ width: image.naturalWidth, height: image.naturalHeight })
+    image.src = url
+  }, [url])
+  const sized = places.filter((place) => place.width && place.height)
+  if (!url || !natural || !sized.length) return null
+  const ratio = natural.width / natural.height
+  return <div className="ad-size-check">
+    <b>ابعاد این تصویر: <span dir="ltr">{natural.width}×{natural.height}</span></b>
+    <ul>{sized.map((place) => {
+      const want = place.width / place.height, fits = Math.abs(ratio - want) / want < 0.06
+      const shown = Math.round(Math.min(place.width, natural.width) / ratio)
+      return <li key={place.key} className={fits ? 'is-ok' : 'is-warn'}>
+        <span>{place.name} <small dir="ltr">{place.width}×{place.height}</small></span>
+        {fits ? <em>اندازه مناسب است{natural.width < place.width * 2 ? `؛ برای صفحه‌های با وضوح بالا تصویر ${place.width * 2}×${place.height * 2} بهتر است` : ''}</em>
+          : <em>نسبت تصویر با این جایگاه یکی نیست؛ تصویر بدون تغییر شکل و با ارتفاع حدود {fa(shown)} پیکسل نمایش داده می‌شود. برای پر کردن دقیق جایگاه، تصویری با ابعاد <span dir="ltr">{place.width * 2}×{place.height * 2}</span> (یا <span dir="ltr">{place.width}×{place.height}</span>) بسازید.</em>}
+      </li>
+    })}</ul>
+  </div>
+}
+
+function CreativeEditor({ campaignId, item, places = [], onSaved, onCancel }: { campaignId: number; item: Creative; places?: Placement[]; onSaved: () => void; onCancel: () => void }) {
   const [form, setForm] = useState(item)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -56,6 +86,7 @@ function CreativeEditor({ campaignId, item, onSaved, onCancel }: { campaignId: n
     </div>
     {form.kind === 'IMAGE' && <div className="sa-cols">
       <ImageField label="تصویر بنر *" value={form.imageUrl} onChange={(imageUrl) => set({ imageUrl })} />
+      <BannerSizeCheck url={form.imageUrl} places={places} />
       <ImageField label="تصویر مخصوص موبایل (اختیاری)" value={form.imageMobileUrl} onChange={(imageMobileUrl) => set({ imageMobileUrl })} />
       <label className="sa-field"><span>متن جایگزین تصویر</span><input className="input" value={form.alt} onChange={(e) => set({ alt: e.target.value })} maxLength={160} /></label>
     </div>}
@@ -180,7 +211,7 @@ export default function CampaignEditor() {
     {campaign && data && <>
       <section className="sa-card">
         <header className="sa-card-head"><h2>تبلیغ‌ها</h2><button type="button" className="btn btn-primary btn-sm" onClick={() => setEditing({ ...BLANK })}>+ تبلیغ تازه</button></header>
-        {editing && <CreativeEditor campaignId={campaign.id} item={editing} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); void reload() }} />}
+        {editing && <CreativeEditor campaignId={campaign.id} item={editing} places={(places.data?.placements || []).filter((place) => form.placements.includes(place.key))} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); void reload() }} />}
         <div className="sa-stack">
           {data.creatives.map((item) => <div key={item.id} className={`ad-creative${item.active ? '' : ' is-off'}`}>
             <div className="ad-creative-preview"><Preview item={item} /></div>

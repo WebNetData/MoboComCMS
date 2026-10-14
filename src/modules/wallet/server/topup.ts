@@ -6,6 +6,16 @@ import { recordPendingTopup } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { walletTopupDefaults } from '@/platform/config/financial'
 
+/**
+ * The built-in limits when the admin set none, per currency. The environment defaults (WALLET_TOPUP_DEFAULT_*) were
+ * written for dollars; applied to the toman they refused every top-up above 5,000 toman.
+ */
+function defaultLimits(currency: string) {
+  if (currency === 'IRT' || currency === 'TMN') return { min: 10_000, max: 500_000_000 }
+  if (currency === 'IRR') return { min: 100_000, max: 5_000_000_000 }
+  return walletTopupDefaults()
+}
+
 function topupLimit(settings: Record<string, string>, key: 'min' | 'max', currency: string, fallback: number) {
   const suffix = key === 'min' ? 'Min' : 'Max'
   const scoped = Number(settings[`walletTopup${suffix}.${currency}`])
@@ -33,7 +43,7 @@ export async function startWalletTopup(input: {
   catch (error) { return { ok: false as const, status: 400, code: 'INVALID_AMOUNT', message: error instanceof Error ? error.message : 'invalid amount' } }
   const amount = legacyNumber(amountMinor, currency)
   const settings = await getSettings()
-  const defaults = walletTopupDefaults()
+  const defaults = defaultLimits(currency)
   const min = topupLimit(settings, 'min', currency, defaults.min)
   const max = topupLimit(settings, 'max', currency, defaults.max)
   if (amount < min) return { ok: false as const, status: 400, code: 'BELOW_MINIMUM', message: `minimum top-up is ${min} ${currency}` }
