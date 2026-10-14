@@ -372,3 +372,18 @@ test('automatic text messages have a ceiling, and a sign-in guess meets a limit 
   assert.ok(auth.includes('rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)'))
   assert.ok(auth.indexOf('login:account:') < auth.indexOf('db.user.findUnique'), 'the limit is met before the password is looked at')
 })
+
+test('services are one list: forms and virtual products marked as a service, each shown to those who work on it', () => {
+  assert.equal(f.normalizeSettings({ service: true }).service, true)
+  assert.equal(f.normalizeSettings({}).service, false)
+  const route = source('src/modules/site/server/http/admin/services/route.ts')
+  assert.match(route, /if \(!handler && !orders && !catalog\) return err\('دسترسی مجاز نیست', 403\)/)
+  assert.match(route, /\.filter\(\(form\) => form\.settings\?\.service && mayHandle\(form, handler, Boolean\(builder\)\)\)/)
+  assert.match(route, /const products = orders \|\| catalog \? await db\.product\.findMany\(\{ where: \{ isService: true \}/)
+  assert.match(source('src/modules/catalog/server/product-input.ts'), /if \(b\?\.isService !== undefined\) out\.isService = /)
+  assert.doesNotMatch(source('src/modules/marketplace/server/marketplace/products.ts').match(/const SELLER_FIELDS = \[[^\]]+\]/)[0], /isService/)
+  for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(source(schema), /isService    Boolean @default\(false\)/, schema)
+  assert.match(source('prisma/migrations/20261230120000_product_is_service/migration.sql'), /ADD COLUMN "isService" BOOLEAN NOT NULL DEFAULT false/)
+  assert.match(source('prisma/release-manifest.json'), /"20261230120000_product_is_service"/)
+  assert.match(source('src/app/admin/layout.tsx'), /href: '\/admin\/services'[^\n]+perm: \['cms\.pages', 'forms\.handle', 'orders\.manage', 'cms\.products'\]/)
+})

@@ -791,6 +791,7 @@ model Product {
   openAmount    Boolean @default(false)
   openCurrencies String @default("") // comma list of the currencies the buyer may type, e.g. USD,EUR
   openMinMinor  BigInt @default(0) // smallest amount, in minor units of the foreign currency
+  isService    Boolean @default(false) // a virtual product that is a piece of work done by staff; listed under Services in the admin
   openMaxMinor  BigInt @default(0) // largest amount (0 = no upper limit)
   markupFixedMinor BigInt @default(0) // fixed profit added after the percentage, in the selling currency
   repricedAt    DateTime?
@@ -819,6 +820,7 @@ model Product {
   @@index([active, soldCount])
   @@index([sellerId])
   @@index([pricingMode])
+  @@index([isService])
 }
 
 /// Named fixed component selections; Store remains the pricing/cart/order owner.

@@ -295,6 +295,13 @@ The owner asked that each kind of work have its own staff who take it themselves
 - **Floods are an edge concern.** The application limits abuse of single features; absorbing a flood belongs to the CDN, WAF and reverse proxy.
 - Handoff, the safety review and what is still untested: `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`.
 
+## 6P. Services are one list (owner, 2026-10-14)
+
+The owner asked for a "Services" menu in the admin: things built with the form builder (paying a foreign site) and virtual products registered as a service, in one place. Decided:
+- **A service is a mark, not a new kind of thing.** A form says so in its settings (`service`); a virtual product says so with `Product.isService`. Nothing is copied or stored twice.
+- **`/admin/services` is a view**: each service with the work waiting on it and a link to where that work is done — the form's desk, or the store's orders. Staff see the half they may work on, and only the forms given to them.
+- **A new core permission is added to `CORE_ADDED_LATER`** in `rbac.ts`, so a general manager stored before it existed keeps full access.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

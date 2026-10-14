@@ -77,6 +77,8 @@ export interface FormSettings {
   quiz: { enabled: boolean; passScore: number; showResult: boolean }
   /** Members of staff who may work on this form's answers (empty = everyone with forms.handle). */
   handlers: number[]
+  /** This form is a service the site sells or performs (it is listed under Services in the admin). */
+  service: boolean
 }
 export const THEMES = ['classic', 'card', 'glass', 'minimal', 'bold'] as const
 export const THEME_LABEL: Record<(typeof THEMES)[number], string> = { classic: 'کلاسیک', card: 'کارتی', glass: 'شیشه‌ای', minimal: 'مینیمال', bold: 'پررنگ' }
@@ -100,7 +102,7 @@ export const DEFAULT_SETTINGS: FormSettings = {
   steps: [], notifyEmails: [], notifyInbox: true, autoReply: { enabled: false, subject: '', body: '' }, requireLogin: false, oncePerUser: false,
   opensAt: '', closesAt: '', maxSubmissions: 0, redirectUrl: '', submitLabel: '', closedMessage: '', spamLinks: 3,
   payment: { enabled: false, label: '' }, style: DEFAULT_STYLE,
-  notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [],
+  notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [], service: false,
 }
 
 const RESERVED = ['__proto__', 'constructor', 'prototype', 'website']
@@ -201,7 +203,7 @@ export function normalizeSettings(input: unknown): FormSettings {
   const quiz = (raw.quiz && typeof raw.quiz === 'object' ? raw.quiz : {}) as Record<string, unknown>
   const handlers = [...new Set((Array.isArray(raw.handlers) ? raw.handlers : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 50)
   return {
-    notifications, confirmations, webhooks, saveDraft: raw.saveDraft === true, handlers,
+    notifications, confirmations, webhooks, saveDraft: raw.saveDraft === true, handlers, service: raw.service === true,
     quiz: { enabled: quiz.enabled === true, passScore: int(quiz.passScore, 0, 1_000_000, 0), showResult: quiz.showResult !== false },
     payment: { enabled: paid, label: str(payment.label, 40) }, style: normalizeStyle(raw.style),
     steps, notifyEmails: emails, notifyInbox: raw.notifyInbox !== false,

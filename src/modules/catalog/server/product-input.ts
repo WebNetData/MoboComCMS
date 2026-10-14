@@ -84,6 +84,7 @@ export async function productInput(input: any, existing?: { price: number; curre
  */
 function productOrdering(b: any, existing: FxExisting | undefined, pricingMode: string, hasVariants: boolean) {
   const out: Record<string, unknown> = {}
+  if (b?.isService !== undefined) out.isService = b.isService === true || b.isService === 'true'
   if (b?.orderFields !== undefined) out.orderFields = JSON.stringify(validateOrderFields(b.orderFields))
   const open = b?.openAmount !== undefined ? b.openAmount === true || b.openAmount === 'true' : existing?.openAmount ?? false
   if (b?.openAmount !== undefined) out.openAmount = open

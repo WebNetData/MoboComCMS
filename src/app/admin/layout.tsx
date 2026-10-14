@@ -164,6 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/notifications', label: L('اعلان‌های کاربران', 'Member notifications'), icon: 'bolt', perm: 'settings.manage' },
     ] },
     { id: 'people', part: BUSINESS, title: L('کاربران و پشتیبانی', 'Customers & support'), icon: 'users', items: [
+      { href: '/admin/services', label: L('خدمات', 'Services'), icon: 'bolt', perm: ['cms.pages', 'forms.handle', 'orders.manage', 'cms.products'] },
       { href: '/admin/users', label: t.customers, icon: 'devices', perm: 'users.manage' },
       { href: '/admin/profile-fields', label: L('فیلدهای ثبت‌نام و تکمیل مشخصات', 'Registration fields'), icon: 'sliders', perm: ['users.manage', 'settings.manage'] },
       { href: '/admin/tickets', label: t.tickets, icon: 'chat', perm: 'tickets.handle' },

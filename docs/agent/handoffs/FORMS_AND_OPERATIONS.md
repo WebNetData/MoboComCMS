@@ -40,6 +40,14 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 | Checkout kind `form` | `src/modules/checkout/server/checkout.ts` (`formSubmissionId`), `src/modules/fulfillment/server/jobs.ts` (`FORM_PAID`) |
 | Tickets held by somebody | `src/modules/support/server/department-access.ts` (`heldByAnother`) |
 
+## Services (admin)
+
+`/admin/services` lists what the site performs for a customer: forms whose settings say `service: true`, and virtual products with `Product.isService`. Each card shows the work waiting and links to where it is done (the form's desk, the store's orders). Owner: `src/modules/site/server/http/admin/services/route.ts`, page `src/app/admin/services/page.tsx`. It is a view over the two owners — it stores nothing of its own. Ran in a browser (9 checks, `pw-services.cjs`).
+
+## A lesson from October 2026 — core permissions
+
+Adding the core permission `forms.handle` made every general manager whose role was stored as the old full list lose the extension permissions (games, music, cinema, software). `src/modules/identity/rbac.ts` now keeps `CORE_ADDED_LATER`: **a new core permission must be added to that list**, or the same thing happens again. A unit test in `scripts/account-security.test.cjs` holds it.
+
 ## Rules that must keep holding
 
 - **The bill is the server's**: priced on the page (`/api/forms/<slug>/quote`), on submit and again at checkout. The margin of a foreign amount, the value of a hidden field and quiz points never go to the browser (`publicForm`).
