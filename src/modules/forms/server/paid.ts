@@ -125,6 +125,7 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
     const form = parseForm(stored.form), answers = parse<StoredAnswer[]>(stored.data, [])
     const total = minorToNumber(order.totalMinor, order.currency)
     void sendFormNotifications(form, { formTitle: form.title, entryId: submissionId, answers, total }, valuesOf(answers)).catch(() => undefined)
+    void (await import('@/modules/forms/server/service')).emitFormEvent('form.paid', form, submissionId, order.userId, total).catch(() => undefined)
     void sendFormWebhooks(form, 'paid', { entryId: submissionId, orderId: order.id, total, currency: order.currency, answers: webhookAnswers(answers) }).catch(() => undefined)
   }
   await createInboxEvent({

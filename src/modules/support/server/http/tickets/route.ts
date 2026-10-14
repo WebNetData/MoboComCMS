@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
     return err('Could not create ticket / ثبت تیکت ممکن نشد', 500)
   }
   await emitExtensionEvent('ticket.created', { ticketId: ticket.id, userId: user.id, priority: ticket.priority })
+  await (await import('@/modules/automation/server/engine')).emitAutomation('ticket.opened', `ticket:${ticket.id}`, user.id, { ticket_id: ticket.id, department, priority: ticket.priority, subject })
   void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_TICKET', { subject: String(subject).slice(0, 60), name: user.email })).catch(() => {})
   return ok({ id: ticket.id })
 }

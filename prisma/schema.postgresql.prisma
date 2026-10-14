@@ -3964,3 +3964,51 @@ model BusinessProfile {
 
   @@index([status, category, createdAt])
 }
+
+/// Automation: "when this happens, and these hold, do these" (modules/automation).
+model AutomationRule {
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String          @default("")
+  enabled       Boolean         @default(true)
+  trigger       String // an id from TRIGGERS (order.paid, ticket.waiting, report.daily…)
+  wait          Int             @default(0) // hours or days a scan waits, or the hour a schedule fires
+  conditions    String          @default("[]")
+  logic         String          @default("all")
+  actions       String          @default("[]")
+  cooldownHours Int             @default(0) // 0: once per event, or once ever per subject for a scan
+  runCount      Int             @default(0)
+  lastRunAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now()) @updatedAt
+  runs          AutomationRun[]
+
+  @@index([enabled, trigger])
+}
+
+/// Something that happened, waiting for the rules that start from it. Processed once.
+model AutomationEvent {
+  id          Int       @id @default(autoincrement())
+  name        String
+  subjectKey  String // "order:12", "user:7"
+  userId      Int?
+  payload     String    @default("{}")
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt, id])
+}
+
+/// One rule run for one subject: what it did, or why it could not.
+model AutomationRun {
+  id         Int            @id @default(autoincrement())
+  ruleId     Int
+  rule       AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  subjectKey String
+  status     String // DONE | PARTIAL | FAILED
+  detail     String         @default("")
+  createdAt  DateTime       @default(now())
+
+  @@index([ruleId, subjectKey, createdAt])
+  @@index([createdAt])
+}

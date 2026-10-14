@@ -102,6 +102,11 @@ const JOBS: Job[] = [
   },
   {
     // Forms: attachments that were uploaded but never submitted are removed after a day.
+    // Automation rules: waiting events, scans for what has waited too long, scheduled reports.
+    name: 'automation', everyMs: 60_000,
+    run: async () => { await (await import('@/modules/automation/server/engine')).processAutomation() },
+  },
+  {
     name: 'forms', everyMs: 3_600_000,
     run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads(); const paid = await import('@/modules/forms/server/paid'); await paid.eraseFinishedSecrets(); await paid.releaseUnpaidSlots() },
   },
