@@ -40,6 +40,10 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 | Checkout kind `form` | `src/modules/checkout/server/checkout.ts` (`formSubmissionId`), `src/modules/fulfillment/server/jobs.ts` (`FORM_PAID`) |
 | Tickets held by somebody | `src/modules/support/server/department-access.ts` (`heldByAnother`) |
 
+## Invoices (admin)
+
+`/admin/invoices` is the desk (list, panel, create, recurring, closing rules); owners `src/app/admin/invoices/`, `src/modules/billing/domain/invoice-rules.ts` (pure), `src/modules/billing/server/invoice-rules.ts` (stamp, close, issue, the `invoice-rules` job). Spec `docs/specs/invoice-desk/SPEC.md`.
+
 ## Services (admin)
 
 `/admin/services` lists what the site performs for a customer: forms whose settings say `service: true`, and virtual products with `Product.isService`. Each card shows the work waiting and links to where it is done (the form's desk, the store's orders). Owner: `src/modules/site/server/http/admin/services/route.ts`, page `src/app/admin/services/page.tsx`. It is a view over the two owners — it stores nothing of its own. Ran in a browser (9 checks, `pw-services.cjs`).

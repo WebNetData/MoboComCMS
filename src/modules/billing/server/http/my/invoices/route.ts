@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const subjectOf = (row: typeof rows[number]) => {
     let meta: Record<string, unknown> = {}
     try { meta = JSON.parse(row.order?.meta || '{}') } catch { meta = {} }
-    return invoiceSubject({ kind: row.kind, planName: row.plan?.name, productName: row.product?.name, meta, siteName, amountText: formatAmount(row.subtotal, normalizeCurrency(row.currency || 'USD'), 'fa-IR'), notes: row.notes })
+    return invoiceSubject({ kind: row.kind, title: row.title, detail: row.detail, planName: row.plan?.name, productName: row.product?.name, meta, siteName, amountText: formatAmount(row.subtotal, normalizeCurrency(row.currency || 'USD'), 'fa-IR'), notes: row.notes })
   }
   const jobs = await db.fulfillmentJob.findMany({
     where: { invoiceId: { in: rows.map(row => row.id) } },
@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
       number: i.number,
       title: subjectOf(i).title,
       detail: subjectOf(i).detail,
+      expiresAt: i.status === 'UNPAID' ? i.expiresAt : null,
+      closedReason: i.closedReason || '',
       kind: i.kind === 'WALLET_TOPUP' ? 'topup' : i.planId ? 'plan' : i.productId ? 'product' : 'other',
       subtotal: i.subtotal,
       discount: i.discount,

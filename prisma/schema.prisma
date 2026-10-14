@@ -1028,6 +1028,16 @@ model Invoice {
   paidAmountMinor BigInt   @default(0)
   notes         String    @default("")
   kind          String    @default("BILLING") // BILLING | WALLET_TOPUP
+  /// What the invoice is for, set by staff (empty: worked out from the order, see billing/domain/invoice-subject.ts).
+  title         String    @default("")
+  detail        String    @default("")
+  /// An unpaid invoice closes by itself at this time (exchange-rate items: a few hours after checkout).
+  expiresAt     DateTime?
+  /// Toman per unit of each foreign currency the price followed, at checkout: {"USD": 98000}. Empty: not rate-bound.
+  fxRates       String    @default("")
+  /// Why the invoice was closed by a rule: FX_RATE | EXPIRED | OVERDUE (empty: by hand or never).
+  closedReason  String    @default("")
+  recurringId   Int?
   createdBy     Int?
   issuedAt      DateTime  @default(now())
   dueAt         DateTime?
@@ -1041,6 +1051,35 @@ model Invoice {
   gateway       Gateway?  @relation(fields: [gatewayId], references: [id])
   payments      Payment[]
   receipts      PaymentReceipt[]
+
+  @@index([status, expiresAt])
+  @@index([recurringId])
+}
+
+/// An invoice staff issue to a customer again and again (weekly, monthly, every 3, 6 or 12 months).
+model RecurringInvoice {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  title       String
+  detail      String    @default("")
+  amountMinor BigInt
+  currency    String    @default("IRT")
+  interval    String    @default("MONTH") // WEEK | MONTH | QUARTER | HALF | YEAR
+  nextAt      DateTime
+  endsAt      DateTime?
+  maxCount    Int       @default(0) // 0: until stopped
+  issuedCount Int       @default(0)
+  dueDays     Int       @default(7)
+  gatewayId   Int?
+  notes       String    @default("")
+  active      Boolean   @default(true)
+  lastInvoiceId Int?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([active, nextAt])
+  @@index([userId])
 }
 
 model Payment {

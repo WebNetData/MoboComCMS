@@ -59,7 +59,7 @@ export async function officialInvoice(number: string, viewer: { id: number; admi
     shippingMinor = minorOf(meta.shippingMinor)
   } else {
     // Service / VIP / wallet invoices: one row from the invoice amounts.
-    const subject = invoiceSubject({ kind: invoice.kind, planName: invoice.plan?.name, productName: invoice.product?.name, meta, siteName: profile.sellerName || 'موبوکام', amountText: '', notes: invoice.notes })
+    const subject = invoiceSubject({ kind: invoice.kind, title: invoice.title, detail: invoice.detail, planName: invoice.plan?.name, productName: invoice.product?.name, meta, siteName: profile.sellerName || 'موبوکام', amountText: '', notes: invoice.notes })
     const title = subject.detail ? `${subject.title} — ${subject.detail}` : subject.title
     lines = [{ name: title, sku: invoice.product?.sku || '', quantity: 1, unitPriceMinor: invoice.subtotalMinor, listPriceMinor: invoice.subtotalMinor, totalMinor: invoice.subtotalMinor }]
     couponMinor = invoice.discountMinor
