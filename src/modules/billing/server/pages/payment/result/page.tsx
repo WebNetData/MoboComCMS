@@ -66,7 +66,7 @@ export default async function PaymentResultPage({
   // Paid content (an article or a download): straight back to the item once access is granted.
   let orderMeta: Record<string, unknown> = {}
   try { orderMeta = JSON.parse(view?.order?.meta || '{}') } catch { /* ignore */ }
-  const contentPath = orderMeta.kind === 'content' && typeof orderMeta.contentPath === 'string' && orderMeta.contentPath.startsWith('/') ? orderMeta.contentPath : ''
+  const contentPath = (orderMeta.kind === 'content' || orderMeta.kind === 'form') && typeof orderMeta.contentPath === 'string' && orderMeta.contentPath.startsWith('/') ? orderMeta.contentPath : ''
 
   const money = (n: number) => formatAmount(n, view?.currency || BASE_CURRENCY, isFa ? 'fa-IR' : 'en-US')
   const fmt = (d: Date | null | undefined) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
@@ -114,8 +114,8 @@ export default async function PaymentResultPage({
 
           <div className="flex justify-center gap-3 mt-6 flex-wrap">
             {!viewerId && <Link href={`/login?next=${encodeURIComponent(`/payment/result?invoice=${invoiceNumber}`)}`} className="btn btn-primary">{t.login}</Link>}
-            {contentPath && paid && delivered && <Link href={contentPath} className="btn btn-primary">{isFa ? 'مشاهده و دریافت' : 'Open your purchase'}</Link>}
-            <Link href={subscription ? `/dashboard/subscriptions/${subscription.id}` : contentPath ? '/dashboard/purchases' : '/dashboard/invoices'} className={contentPath && paid ? 'btn btn-ghost' : 'btn btn-primary'}>{subscription ? t.viewSubscription : contentPath ? (isFa ? 'خریدهای من' : 'My purchases') : t.goToDash}</Link>
+            {contentPath && orderMeta.kind !== 'form' && paid && delivered && <Link href={contentPath} className="btn btn-primary">{isFa ? 'مشاهده و دریافت' : 'Open your purchase'}</Link>}
+            <Link href={subscription ? `/dashboard/subscriptions/${subscription.id}` : orderMeta.kind === 'form' ? '/dashboard/requests' : contentPath ? '/dashboard/purchases' : '/dashboard/invoices'} className={contentPath && paid ? 'btn btn-ghost' : 'btn btn-primary'}>{subscription ? t.viewSubscription : orderMeta.kind === 'form' ? (isFa ? 'درخواست‌های من' : 'My requests') : contentPath ? (isFa ? 'خریدهای من' : 'My purchases') : t.goToDash}</Link>
             {view && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{t.viewInvoice}</Link>}
             {view && paid && !delivered && <Link href={`/payment/result?invoice=${encodeURIComponent(view.number)}`} className="btn btn-ghost">{isFa ? 'بررسی دوباره وضعیت' : 'Check status again'}</Link>}
             {view && !paid && view.status === 'UNPAID' && <Link href={`/invoice/${view.number}`} className="btn btn-ghost">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</Link>}

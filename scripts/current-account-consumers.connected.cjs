@@ -30,6 +30,7 @@ function load(file){
   if(name==='@/modules/membership/server/membership')return {isMember:spy('membership',true)};
   if(name==='@/modules/wallet/server/wallet')return {walletBalance:spy('wallet',0)};
   if(name==='@/modules/site/server/http/admin/media/route')return {receiveImage:spy('image',new Response('owned upload'))};
+  if(name==='@/modules/forms/server/paid')return {FORM_CURRENCY:'IRT',billFor:async()=>{throw Error('Unexpected bill')},sealSecrets:answers=>({answers,secrets:''})};
   if(name==='@/platform/observability/logger')return {logEvent:()=>{throw Error('Unexpected form error')}};
   if(name==='@/modules/mail/server/mailer')return {sendMail:()=>{throw Error('Unexpected external mail')}};
   if(name==='@/modules/notifications/server/inbox')return {createInboxEvent:()=>{throw Error('Unexpected notification')}};
@@ -37,6 +38,7 @@ function load(file){
    const candidate='src/'+name.slice(2);
    if(candidate.endsWith('.json'))return JSON.parse(fs.readFileSync(candidate,'utf8'));
    if(fs.existsSync(candidate+'.ts'))return load(candidate+'.ts');
+   if(fs.existsSync(candidate+'/index.ts'))return load(candidate+'/index.ts');
    throw Error('Unexpected alias '+name);
   }
   return require(name);

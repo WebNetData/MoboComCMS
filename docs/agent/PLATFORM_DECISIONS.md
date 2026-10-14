@@ -259,6 +259,18 @@ The owner asked for products that need information from the buyer (the login of 
 - **Staff may open a ticket to a customer** (`tickets.handle`), which the customer sees among their own tickets and in their inbox. It is the channel for a one-time code: nothing of that kind is asked by any other means.
 - Spec: `docs/specs/store-order-inputs/SPEC.md`.
 
+## 6M. The form builder takes payments and hands work to staff (owner, 2026-10-14)
+
+The owner asked for a Gravity-Forms-class form builder that the whole site can use, for paid orders (a typed foreign amount priced through the rate API, details, payment, a member of staff doing the work) and for any other form. Decided:
+- **The existing forms module is extended; no second form system.** Its fields, conditions, steps, inbox and embedding stay as they were.
+- **A form's bill is the server's.** Fixed costs, priced options and typed foreign amounts are priced on the page, on submit and again at checkout with the rate of that moment. The percentage and fixed profit of a foreign amount are never sent to visitors.
+- **A form is paid through the site's one checkout** (`formSubmissionId`, order `meta.kind = 'form'`): an invoice, every gateway, the wallet. No discount code. A paid form needs a signed-in sender, who alone can pay it, once.
+- **An answer is a piece of work**: open, in progress, done or rejected, with an assignee and a reply the sender sees under «درخواست‌های من». Staff do not start on an unpaid answer.
+- **A password typed into a form** follows 6L: encrypted apart, masked everywhere, read by an audited click, erased a week after the work ends.
+- **`forms.handle`** lets staff read and work on answers without the right to build pages; deleting answers and building forms stay with `cms.pages`.
+- **A form chooses its own look** (theme, accent, corners, density, width, steps).
+- Spec and the slices still to build: `docs/specs/form-builder/SPEC.md`.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

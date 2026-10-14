@@ -137,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/mega-menu', label: L('منو و مگامنوی بخش‌ها', 'Section menus'), icon: 'grid', perm: 'settings.manage' },
       { href: '/admin/pages', label: t.pageBuilder, icon: 'grid', perm: 'cms.pages' },
       { href: '/admin/editor', label: locale === 'fa' ? 'ویرایشگر بلوکی' : 'Block editor', icon: 'layout', perm: 'cms.pages' },
-      { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: 'cms.pages' },
+      { href: '/admin/forms', label: L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), icon: 'chat', perm: ['cms.pages', 'forms.handle'] },
     ] },
     { id: 'content', part: WEBSITE, title: L('ابزارهای محتوا', 'Content tools'), icon: 'layers', items: [
       { href: '/admin/sections', label: L('همهٔ بخش‌ها و آدرس‌ها', 'All sections & addresses'), icon: 'grid', perm: 'settings.manage', exact: true },

@@ -399,6 +399,7 @@
     "20261224120000_section_authors",
     "20261225120000_game_authors",
     "20261226120000_product_category_kind",
-    "20261227120000_order_inputs_open_amount"
+    "20261227120000_order_inputs_open_amount",
+    "20261228120000_form_payment_workflow"
   ]
 }

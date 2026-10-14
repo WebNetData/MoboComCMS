@@ -1,8 +1,11 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { STATUSES, STATUS_LABEL, answerText, type SubmissionStatus } from '@/modules/forms/domain/forms'
+import { STAGES, STAGE_LABEL, STATUSES, STATUS_LABEL, answerText, type Stage, type SubmissionStatus } from '@/modules/forms/domain/forms'
 import type { Row } from './shared'
+import { WorkPanel } from './ProPanels'
+
+const STAGE_TONE: Record<string, string> = { OPEN: 'is-warn', IN_PROGRESS: 'is-info', DONE: 'is-good', REJECTED: 'is-bad' }
 
 type Stats = { series: { day: string; count: number }[]; counts: Record<string, number> }
 type Page = { rows: Row[]; total: number; page: number; pages: number; counts: Record<string, number> }
@@ -28,6 +31,7 @@ function Bars({ series }: { series: Stats['series'] }) {
 /** Answers: status tabs, search and dates, bulk actions, notes, attachments, CSV export. */
 export default function Inbox({ formId, onNotice }: { formId: number; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
   const [status, setStatus] = useState('ALL')
+  const [stage, setStage] = useState('')
   const [q, setQ] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -38,7 +42,7 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
   const [picked, setPicked] = useState<number[]>([])
   const [notes, setNotes] = useState<Record<number, string>>({})
 
-  const query = `formId=${formId}&status=${status}&q=${encodeURIComponent(q)}&from=${from}&to=${to}`
+  const query = `formId=${formId}&status=${status}&stage=${stage}&q=${encodeURIComponent(q)}&from=${from}&to=${to}`
   const load = useCallback(async () => {
     const result = await api<Page>(`/api/admin/forms/submissions?${query}&page=${page}`)
     if (result.ok) { setData(result.data); setPicked([]) } else onNotice('error', result.error)
@@ -74,6 +78,11 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
         <button type="button" aria-pressed={status === 'ALL'} onClick={() => { setStatus('ALL'); setPage(1) }}>همه ({fa(all)})</button>
         {STATUSES.map((s) => <button key={s} type="button" aria-pressed={status === s} onClick={() => { setStatus(s); setPage(1) }}>{STATUS_LABEL[s]}{counts[s] ? ` (${fa(counts[s])})` : ''}</button>)}
       </div>
+      <div className="ad-range" role="group" aria-label="وضعیت کار">
+        <button type="button" aria-pressed={stage === ''} onClick={() => { setStage(''); setPage(1) }}>همهٔ کارها</button>
+        {STAGES.map((s) => <button key={s} type="button" aria-pressed={stage === s} onClick={() => { setStage(s); setPage(1) }}>{STAGE_LABEL[s]}</button>)}
+        <button type="button" aria-pressed={stage === 'UNPAID'} onClick={() => { setStage('UNPAID'); setPage(1) }}>پرداخت‌نشده</button>
+      </div>
       <input className="input" type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="جست‌وجو در پاسخ‌ها…" aria-label="جست‌وجو" />
       <label className="fb-date">از <input className="input" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1) }} /></label>
       <label className="fb-date">تا <input className="input" type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1) }} /></label>
@@ -96,11 +105,12 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
               <td><button type="button" className="fb-open" aria-expanded={open === row.id} onClick={() => expand(row)}>{row.answers.slice(0, 2).map((a) => answerText(a.value)).filter(Boolean).join(' · ').slice(0, 90) || '—'}{row.files.length ? ` 📎${fa(row.files.length)}` : ''}</button></td>
               <td>{row.user || <span className="sa-sub">مهمان</span>}</td>
               <td className="sa-sub">{when(row.createdAt)}</td>
-              <td><span className={`sa-state ${TONE[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span></td>
+              <td><span className={`sa-state ${TONE[row.status] || ''}`}>{STATUS_LABEL[row.status] || row.status}</span>{row.payStatus === 'UNPAID' ? <span className="sa-state is-warn">پرداخت‌نشده</span> : row.stage ? <span className={`sa-state ${STAGE_TONE[row.stage] || ''}`}>{STAGE_LABEL[row.stage as Stage]}</span> : null}{row.amount > 0 && <small className="sa-sub num"> {fa(row.amount)} ت</small>}</td>
             </tr>
             {open === row.id && <tr className="fb-detail"><td colSpan={6}>
               <dl>{row.answers.map((a) => <div key={a.id}><dt>{a.label}</dt><dd>{a.type === 'file' ? '' : answerText(a.value) || '—'}{a.type === 'rating' && a.value ? ' (امتیاز)' : ''}</dd></div>)}</dl>
               {row.files.length > 0 && <div className="fb-attach">{row.files.map((f) => /\.(png|jpe?g|webp)$/i.test(f.id) ? <a key={f.id} href={`/api/admin/forms/files?id=${f.id}`} target="_blank" rel="noopener"><img src={`/api/admin/forms/files?id=${f.id}`} alt={f.name} /><small>{f.name} · {kb(f.size)}</small></a> : <a key={f.id} className="btn btn-ghost btn-sm" href={`/api/admin/forms/files?id=${f.id}&download=1`}>📄 {f.name} · {kb(f.size)}</a>)}</div>}
+              <WorkPanel row={row} api={api} onChanged={() => void load()} onNotice={onNotice} />
               <label className="sa-field"><span>یادداشت داخلی</span><textarea className="input" rows={2} maxLength={1000} value={notes[row.id] ?? row.note} onChange={(e) => setNotes({ ...notes, [row.id]: e.target.value })} /></label>
               <div className="sa-row-actions">
                 <button type="button" className="btn btn-primary btn-sm" onClick={() => void saveNote(row.id)}>ذخیرهٔ یادداشت</button>

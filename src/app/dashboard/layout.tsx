@@ -82,6 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       { href: '/dashboard/orders', label: t.myOrders, icon: 'cart' },
       { href: '/dashboard/invoices', label: t.myInvoices, icon: 'receipt' },
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
+      { href: '/dashboard/requests', label: L('درخواست‌های من', 'My requests'), icon: 'receipt' },
       ...(paywallOn ? [{ href: '/dashboard/purchases', label: L('فایل‌ها و مقاله‌های خریده', 'Bought files & articles'), icon: 'lock' }] : []),
       ...(storeOn ? [{ href: '/dashboard/addresses', label: L('آدرس‌های ارسال', 'Shipping addresses'), icon: 'pin' }, { href: '/dashboard/gift-cards', label: L('کارت هدیه', 'Gift cards'), icon: 'gift' }, { href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
       ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),

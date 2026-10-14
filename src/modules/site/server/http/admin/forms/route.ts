@@ -10,7 +10,7 @@ const failure = (error: unknown) => { if (error instanceof FormsError) return er
 
 /** GET /api/admin/forms → { forms, templates } */
 export async function GET(req: NextRequest) {
-  if (!await requirePerm(req, 'cms.pages')) return err('دسترسی مجاز نیست', 403)
+  if (!await requirePerm(req, 'cms.pages') && !await requirePerm(req, 'forms.handle')) return err('دسترسی مجاز نیست', 403)
   const forms = await listForms()
   // Older clients read the bare list.
   if (req.nextUrl.searchParams.get('legacy') === '1') return ok(forms)

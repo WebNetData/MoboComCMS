@@ -21,6 +21,8 @@ import { unitPrice } from '@/modules/store/server/pricing'
 import { answersComplete, readOrderFields } from '@/modules/store/domain/order-inputs'
 import { openAmountPrice, openAnswers } from '@/modules/store/server/order-inputs'
 import { StoreError } from '@/modules/store/domain/store'
+import { attachFormOrder, formCheckoutQuote } from '@/modules/forms/server/paid'
+import { FormsError } from '@/modules/forms/domain/forms'
 import { quoteContent } from '@/modules/paywall/server/paywall'
 import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
 
@@ -36,6 +38,8 @@ export interface CheckoutCommand {
   lines?: { productId: number; variantId?: number | null; quantity?: number; inputs?: string | null; openAmountMinor?: bigint | null; openCurrency?: string | null }[] | null
   /** VIP membership plan purchase. */
   membershipPlanId?: number | null
+  /** A form answer that waits for its payment (the sender's own, unpaid). */
+  formSubmissionId?: number | null
   /** Paid content ("post:12", "software:3"): lifetime access to one article or download. */
   contentKey?: string | null
   /** Saved address from the customer's address book (physical products). */
@@ -111,7 +115,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   const content = command.contentKey ? parseContentKey(command.contentKey) : null
   if (command.contentKey && !content) return fail(400, 'BAD_ITEM', 'invalid content key')
   if (productId && !await isStoreEnabled()) return fail(403, 'STORE_DISABLED', 'فروشگاه در حال حاضر غیرفعال است')
-  if ([planId, productId, membershipPlanId, content].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
+  const formSubmissionId = Number(command.formSubmissionId) || null
+  if ([planId, productId, membershipPlanId, content, formSubmissionId].filter(Boolean).length !== 1) return fail(400, 'BAD_ITEM', 'exactly one purchasable item is required')
   if (planId && !await isModuleEnabled('vpn')) return fail(403, 'VPN_DISABLED', 'فروش این سرویس در حال حاضر فعال نیست')
   if (membershipPlanId && !await isModuleEnabled('membership')) return fail(403, 'MEMBERSHIP_DISABLED', 'اشتراک ویژه در حال حاضر فعال نیست')
   // VIP status decides member-only items, member prices and member-only codes.
@@ -130,7 +135,19 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
   const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null; inputs: string; openAmountMinor: bigint; openCurrency: string; openRate: string }[] = []
 
-  if (content) {
+  if (formSubmissionId) {
+    try {
+      const quote = await formCheckoutQuote(formSubmissionId, command.userId)
+      currency = normalizeCurrency(quote.currency)
+      amountMinor = quote.amountMinor
+      amount = legacyNumber(amountMinor, currency)
+      label = quote.title
+      meta = { kind: 'form', formId: quote.formId, submissionId: quote.submissionId, formTitle: quote.title, contentPath: '/dashboard/requests' }
+    } catch (error) {
+      if (error instanceof FormsError) return fail(error.status, 'FORM_REQUEST', error.message)
+      throw error
+    }
+  } else if (content) {
     try {
       const quote = await quoteContent(content, { userId: command.userId, member })
       currency = normalizeCurrency(quote.currency)
@@ -255,6 +272,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let promotion: Awaited<ReturnType<typeof db.promotion.findUnique>> = null
   const code = promotionCode(command.discountCode)
   // A typed foreign amount is money passed on, not a margin: a discount code does not cut into it.
+  if (code && formSubmissionId) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی پرداخت فرم اعمال نمی‌شود')
   if (code && orderLines.some((line) => line.openAmountMinor > 0n)) return fail(409, 'PROMOTION_NOT_APPLICABLE', 'کد تخفیف روی سفارشی که «پرداخت با مبلغ دلخواه» دارد اعمال نمی‌شود')
   if (code) {
     if (!/^[A-Z0-9_-]{3,32}$/.test(code)) return fail(400, 'PROMOTION_INVALID', 'invalid discount code')
@@ -379,6 +397,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     }
   }
 
+  if (formSubmissionId) await attachFormOrder(formSubmissionId, order.id)
   const invoice = await createInvoiceForOrder({
     orderId: order.id,
     userId: command.userId,
@@ -416,7 +435,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   if (dueMinor === 0n) {
     const settled = await markInvoicePaid({ invoiceId: invoice.id, provider: 'WALLET', amount: 0, raw: { source: 'wallet' } })
     if (!settled.ok) return fail(500, 'SETTLEMENT_FAILED', settled.message || 'invoice settlement failed')
-    const kind = content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
+    const kind = formSubmissionId ? 'FORM_PAID' : content ? 'GRANT_CONTENT' : membershipPlanId ? 'GRANT_MEMBERSHIP' : planId ? 'PROVISION_SUBSCRIPTION' : 'DELIVER_PRODUCT'
     const job = await enqueueFulfillment({ kind, dedupeKey: `${kind}:order:${order.id}`, orderId: order.id, invoiceId: invoice.id })
     const processed = await processFulfillmentJob(job.id)
     const subscription = planId ? await db.subscription.findFirst({ where: { orderId: order.id } }) : null

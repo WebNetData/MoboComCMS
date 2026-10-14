@@ -3,11 +3,14 @@
 import { useState } from 'react'
 import { CHOICE_TYPES, FIELD_LABEL, OPS, OP_LABEL, type Condition, type FormDefinition, type FormField, type FormStep } from '@/modules/forms/domain/forms'
 import { isContent, newField, settingsOf } from './shared'
+import { ProFieldProps } from './ProPanels'
 
 const GROUPS: { title: string; types: FormField['type'][] }[] = [
-  { title: 'ورودی متنی', types: ['text', 'textarea', 'email', 'tel', 'url', 'number', 'date'] },
-  { title: 'انتخاب', types: ['select', 'radio', 'checkboxes', 'checkbox', 'rating'] },
-  { title: 'ضمیمه و محتوا', types: ['file', 'heading', 'paragraph'] },
+  { title: 'ورودی متنی', types: ['text', 'textarea', 'email', 'tel', 'mobile', 'national', 'url', 'number', 'secret'] },
+  { title: 'تاریخ و مقدار', types: ['date', 'time', 'slider', 'rating'] },
+  { title: 'انتخاب', types: ['select', 'radio', 'checkboxes', 'checkbox'] },
+  { title: 'قیمت و پرداخت', types: ['fxamount', 'price', 'total'] },
+  { title: 'ضمیمه و محتوا', types: ['file', 'heading', 'paragraph', 'hidden'] },
 ]
 
 const move = <T,>(list: T[], from: number, to: number) => { const next = [...list]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return next }
@@ -94,7 +97,7 @@ export default function Builder({ form, onChange }: { form: FormDefinition; onCh
         <label className="sa-field"><span>{field.type === 'paragraph' ? 'عنوان (فقط در مدیریت)' : 'عنوان'}</span><input className="input" value={field.label} maxLength={200} onChange={(e) => patch({ label: e.target.value })} /></label>
         {field.type !== 'heading' && <label className="sa-field"><span>{field.type === 'paragraph' ? 'متن' : 'راهنما زیر فیلد'}</span>{field.type === 'paragraph' ? <textarea className="input" rows={4} value={field.help || ''} maxLength={1000} onChange={(e) => patch({ help: e.target.value })} /> : <input className="input" value={field.help || ''} maxLength={300} onChange={(e) => patch({ help: e.target.value })} />}</label>}
         {!isContent(field.type) && <>
-          {['text', 'textarea', 'email', 'tel', 'url', 'number', 'select'].includes(field.type) && <label className="sa-field"><span>متن نمونه</span><input className="input" value={field.placeholder || ''} maxLength={120} onChange={(e) => patch({ placeholder: e.target.value })} /></label>}
+          {['text', 'textarea', 'email', 'tel', 'url', 'number', 'select', 'mobile', 'national', 'secret'].includes(field.type) && <label className="sa-field"><span>متن نمونه</span><input className="input" value={field.placeholder || ''} maxLength={120} onChange={(e) => patch({ placeholder: e.target.value })} /></label>}
           {CHOICE_TYPES.includes(field.type) && <label className="sa-field"><span>گزینه‌ها (هر خط یکی)</span><textarea className="input" rows={5} value={field.options.join('\n')} onChange={(e) => patch({ options: e.target.value.split('\n') })} /></label>}
           <div className="fb-two">
             {['text', 'textarea'].includes(field.type) && <><label className="sa-field"><span>کمینهٔ نویسه</span><input className="input" type="number" min={0} value={field.min ?? ''} onChange={(e) => patch({ min: e.target.value === '' ? undefined : Number(e.target.value) })} /></label><label className="sa-field"><span>بیشینهٔ نویسه</span><input className="input" type="number" min={0} value={field.max ?? ''} onChange={(e) => patch({ max: e.target.value === '' ? undefined : Number(e.target.value) })} /></label></>}
@@ -106,6 +109,7 @@ export default function Builder({ form, onChange }: { form: FormDefinition; onCh
           <label className="sa-check"><input type="checkbox" checked={field.required} onChange={(e) => patch({ required: e.target.checked })} /> تکمیل این فیلد الزامی است</label>
           {field.type === 'file' && <p className="sa-hint">PDF، JPG، PNG یا WebP تا ۵ مگابایت؛ فقط مدیران فایل را می‌بینند.</p>}
         </>}
+        <ProFieldProps field={field} patch={patch} />
         <div className="fb-two">
           <label className="sa-field"><span>عرض</span><select className="input" value={field.width || 'full'} onChange={(e) => patch({ width: e.target.value === 'half' ? 'half' : undefined })}><option value="full">تمام‌عرض</option><option value="half">نیم‌عرض</option></select></label>
           {steps.length > 0 && <label className="sa-field"><span>مرحله</span><select className="input" value={field.step || steps[0].id} onChange={(e) => patch({ step: e.target.value })}>{steps.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}</select></label>}

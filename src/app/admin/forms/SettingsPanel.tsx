@@ -3,6 +3,7 @@
 import Link from '@/components/AppLink'
 import type { FormDefinition, FormSettings } from '@/modules/forms/domain/forms'
 import { dateTimeLocal, settingsOf } from './shared'
+import { PaymentStylePanels } from './ProPanels'
 
 /** Form details, access rules, schedule, notifications and spam rules. */
 export default function SettingsPanel({ form, onChange }: { form: FormDefinition; onChange: (form: FormDefinition) => void }) {
@@ -20,6 +21,8 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
       <label className="sa-check"><input type="checkbox" checked={form.published} onChange={(e) => top({ published: e.target.checked })} /> منتشر شود <small className="sa-hint">تا منتشر نشود فقط پیش‌نویس است و بازدیدکننده آن را نمی‌بیند.</small></label>
       {form.id && form.published && <p className="sa-hint">نشانی: <Link href={`/forms/${form.slug}`} target="_blank" className="sa-link" dir="ltr">/forms/{form.slug} ↗</Link> · برای گذاشتن فرم در صفحهٔ اصلی از <Link href="/admin/studio" className="sa-link">صفحه‌ساز</Link> استفاده کنید.</p>}
     </section>
+
+    <PaymentStylePanels s={s} set={set} />
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>بعد از ارسال</h2></header>
