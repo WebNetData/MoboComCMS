@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import Link from '@/components/AppLink'
 import TurnstileWidget from '@/components/TurnstileWidget'
+import { AuthInput, PasswordInput } from './AuthFields'
 import type { ReactNode } from 'react'
 
 export default function LoginForm({ telegramLogin, otp = false }: { telegramLogin?: ReactNode; otp?: boolean }) {
@@ -137,7 +138,7 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
       {!sentTo ? <>
         <div className="mb-4">
           <label className="label" htmlFor="login-phone">{fa ? 'شمارهٔ موبایل' : 'Mobile number'}</label>
-          <input id="login-phone" className="input" type="tel" inputMode="numeric" autoComplete="tel" dir="ltr" placeholder="09121234567" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={10} maxLength={16} />
+          <AuthInput icon="phone"><input id="login-phone" className="input" type="tel" inputMode="numeric" autoComplete="tel" dir="ltr" placeholder="09121234567" value={phone} onChange={(e) => setPhone(e.target.value)} required minLength={10} maxLength={16} /></AuthInput>
         </div>
         <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />
       </> : <div className="mb-4">
@@ -167,11 +168,11 @@ export default function LoginForm({ telegramLogin, otp = false }: { telegramLogi
       {!otp && <div className="auth-divider auth-credential-divider"><span>{locale === 'fa' ? 'یا با ایمیل وارد شوید' : 'or sign in with email'}</span></div>}
       <div className="mb-4">
         <label className="label" htmlFor="login-email">{t.emailLabel}</label>
-        <input id="login-email" className="input" type="email" autoComplete="username" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <AuthInput icon="mail"><input id="login-email" className="input" type="email" autoComplete="username" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></AuthInput>
       </div>
       <div className="mb-4">
         <label className="label" htmlFor="login-password">{locale === 'fa' ? 'رمز عبور' : 'Password'}</label>
-        <input id="login-password" className="input" type="password" autoComplete="current-password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <PasswordInput fa={fa} id="login-password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
       <p className="auth-forgot"><Link href="/forgot-password">{fa ? 'رمز عبور را فراموش کرده‌اید؟' : 'Forgot your password?'}</Link></p>
       <TurnstileWidget action="login" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />

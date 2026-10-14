@@ -13,6 +13,6 @@ export default async function RegisterPage() {
   const theme = await getServerTheme()
   return <>
     <SiteHeader theme={theme} />
-    <AuthFrame><RegisterForm /></AuthFrame>
+    <AuthFrame variant="register"><RegisterForm /></AuthFrame>
   </>
 }

@@ -6,6 +6,7 @@ import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
 import TurnstileWidget from '@/components/TurnstileWidget'
+import { AuthInput, PasswordInput, PasswordStrength } from '../login/AuthFields'
 
 /** The sign-up form. The page around it (header, frame) is rendered on the server, see page.tsx. */
 export default function RegisterForm() {
@@ -79,16 +80,16 @@ export default function RegisterForm() {
           {telegramToken && <p className="success-text mb-4" role="status">{locale === 'fa' ? 'این ثبت‌نام به حساب تلگرام شما وصل می‌شود و اطلاعات قبلی همان حساب حفظ خواهد شد.' : 'This registration will claim your Telegram account and keep its existing purchases, wallet and subscriptions.'}</p>}
           <div className="mb-4">
             <label className="label" htmlFor="register-name">{t.nameLabel}</label>
-            <input id="register-name" className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <AuthInput icon="user"><input id="register-name" className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></AuthInput>
           </div>
           <div className="mb-4">
             <label className="label" htmlFor="register-email">{t.emailLabel}</label>
-            <input id="register-email" className="input" type="email" autoComplete="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <AuthInput icon="mail"><input id="register-email" className="input" type="email" autoComplete="email" dir="ltr" placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></AuthInput>
           </div>
           <div className="mb-4">
             <label className="label" htmlFor="register-password">{t.passwordLabel}</label>
-            <input id="register-password" className="input" type="password" autoComplete="new-password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} aria-describedby="register-password-hint" />
-            <p id="register-password-hint" className="auth-field-hint">{locale === 'fa' ? 'حداقل ۸ کاراکتر' : 'At least 8 characters'}</p>
+            <PasswordInput fa={locale === 'fa'} id="register-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} aria-describedby="register-password-hint" />
+            <div id="register-password-hint"><PasswordStrength password={password} fa={locale === 'fa'} /></div>
           </div>
           {referralCode && <p className="success-text mb-4">{locale === 'fa' ? 'کد معرف' : 'Referral code'}: <strong dir="ltr">{referralCode}</strong></p>}
           <TurnstileWidget action="register" locale={locale} resetKey={turnstileReset} onToken={setTurnstileToken} />

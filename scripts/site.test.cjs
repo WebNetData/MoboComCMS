@@ -50,3 +50,17 @@ test('RemnaWave reconciliation only offers safe automatic fixes',()=>{
   assert.deepEqual(reconcileSubscription({...local,status:'ACTIVE'},{found:true,status:'limit_reached',expiresAt:local.expiresAt,trafficLimit:50*1024**3,squads:['s'],subUrl:local.panelSubUrl}),['REMOTE_EXHAUSTED'])
   assert.throws(()=>remnaPlugin.validateSettings({'auto-repair':true,'batch-size':21}),/Batch size/)
 })
+
+test('sign-up: the password strength meter grows with length and kinds of characters', () => {
+  const { passwordStrength } = load('src/app/login/password-strength.ts')
+  assert.equal(passwordStrength(''), 0)
+  assert.equal(passwordStrength('abc'), 1)
+  assert.equal(passwordStrength('abcdefgh'), 1)
+  assert.equal(passwordStrength('abcdefg1'), 1)
+  assert.equal(passwordStrength('Abcdefg1'), 2)
+  assert.equal(passwordStrength('Abcdefgh1234'), 3)
+  assert.equal(passwordStrength('Moboc0m!Strong-Pass'), 4)
+  const frame = fs.readFileSync(path.resolve(__dirname, '..', 'src/app/login/AuthFrame.tsx'), 'utf8')
+  assert.match(frame, /className="auth-showcase" aria-hidden="true"/, 'the account glimpse is decorative')
+  assert.match(fs.readFileSync(path.resolve(__dirname, '..', 'src/app/login/AuthFields.tsx'), 'utf8'), /aria-pressed=\{shown\}/)
+})
