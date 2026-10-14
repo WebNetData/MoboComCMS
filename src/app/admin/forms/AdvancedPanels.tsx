@@ -68,8 +68,10 @@ function Conditions({ fields, when, logic, onChange }: { fields: FormField[]; wh
 
 /** Settings: the layout, drafts, a quiz, messages that depend on the answers, webhooks, and who may work on the form. */
 export function AdvancedSettings({ form, s, set }: { form: FormDefinition; s: FormSettings; set: (patch: Partial<FormSettings>) => void }) {
-  const [staff, setStaff] = useState<{ id: number; name: string }[]>([])
-  useEffect(() => { void fetch('/api/admin/forms?staff=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((body) => setStaff(body?.staff || [])).catch(() => undefined) }, [])
+  const [staff, setStaff] = useState<{ id: number; name: string; role: string; manager: boolean }[] | null>(null)
+  useEffect(() => { void fetch('/api/admin/forms?staff=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((body) => setStaff(body?.staff || [])).catch(() => setStaff([])) }, [])
+  // Somebody named on the form who can no longer open form answers (their role changed, or the account was closed).
+  const gone = staff ? s.handlers.filter((id) => !staff.some((member) => member.id === id)) : []
   const edit = <T,>(list: T[], index: number, value: Partial<T>) => list.map((item, i) => (i === index ? { ...item, ...value } : item))
   const note = (value: Partial<FormNotification>, index: number) => set({ notifications: edit(s.notifications, index, value) })
   const confirm = (value: Partial<FormConfirmation>, index: number) => set({ confirmations: edit(s.confirmations, index, value) })
@@ -132,9 +134,16 @@ export function AdvancedSettings({ form, s, set }: { form: FormDefinition; s: Fo
     </section>
 
     <section className="sa-card">
-      <header className="sa-card-head"><h2>کارشناسان این فرم</h2></header>
-      <p className="sa-hint">اگر کسی را انتخاب نکنید، هر کارمندِ دارای دسترسی «پاسخ‌ها و درخواست‌های فرم» این فرم را می‌بیند. با انتخاب، فقط همین افراد (و سازندگان فرم) پاسخ‌ها را می‌بینند و کار به آن‌ها سپرده می‌شود.</p>
-      <div className="fp-checks" role="group" aria-label="کارشناسان">{staff.map((member) => <label key={member.id} className="sa-check"><input type="checkbox" checked={s.handlers.includes(member.id)} onChange={(e) => set({ handlers: e.target.checked ? [...s.handlers, member.id] : s.handlers.filter((id) => id !== member.id) })} />{member.name}</label>)}{!staff.length && <span>فهرست کارمندان بارگذاری نشد.</span>}</div>
+      <header className="sa-card-head"><h2>کارشناسان این فرم</h2><span className="sa-tag">{s.handlers.length ? `${fa(s.handlers.length)} نفر` : 'همهٔ کارشناسان'}</span></header>
+      <p className="sa-hint">اگر کسی را انتخاب نکنید، هر کارمندِ دارای دسترسی «پاسخ‌ها و درخواست‌های فرم» این فرم را می‌بیند. با انتخاب، فقط همین افراد (و مدیران فرم‌ها) پاسخ‌ها را می‌بینند، خبردار می‌شوند و کار به آن‌ها سپرده می‌شود. فقط کسانی اینجا هستند که این دسترسی را دارند.</p>
+      {gone.length > 0 && <div className="fa-gone" role="alert"><b>{fa(gone.length)} نفر از کارشناسان این فرم دیگر دسترسی ندارند</b> (نقششان عوض شده یا حسابشان غیرفعال است). تا آن‌ها را برندارید فرم ذخیره نمی‌شود. <button type="button" className="sa-link" onClick={() => set({ handlers: s.handlers.filter((id) => !gone.includes(id)) })}>برداشتن آن‌ها</button></div>}
+      {staff === null ? <p className="sa-hint">در حال بارگذاری کارمندان…</p>
+        : !staff.length ? <p className="fa-gone">هیچ کارمندی دسترسی «پاسخ‌ها و درخواست‌های فرم» ندارد. در <a className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</a> یک نقش با این دسترسی بسازید و در بخش کاربران به کارمندها بدهید.</p>
+        : <div className="fa-people" role="group" aria-label="کارشناسان">{staff.map((member) => <label key={member.id} className={`fa-person${s.handlers.includes(member.id) ? ' is-on' : ''}`}>
+            <input type="checkbox" checked={s.handlers.includes(member.id)} onChange={(e) => set({ handlers: e.target.checked ? [...s.handlers, member.id] : s.handlers.filter((id) => id !== member.id) })} />
+            <span><b>{member.name}</b><small>{member.role}{member.manager ? ' · مدیر فرم‌ها (همهٔ فرم‌ها را می‌بیند)' : ''}</small></span>
+          </label>)}</div>}
+      <p className="sa-hint">کارمند تازه؟ در <a className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</a> دسترسی «پاسخ‌ها و درخواست‌های فرم» را به نقشش بدهید تا اینجا دیده شود.</p>
     </section>
   </>
 }

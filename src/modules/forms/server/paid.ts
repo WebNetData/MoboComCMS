@@ -4,7 +4,7 @@ import { quoteForeignAmount } from '@/modules/fx/server/fx'
 import { FxError, percentToBps } from '@/modules/fx/domain/fx'
 import { decryptDigitalDelivery, encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
-import { releaseSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
+import { formStaff, releaseSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
 import {
   FormsError, SECRET_MASK, STAGES, STAGE_LABEL, parseForm, parseFxAnswer, priceLines, visibleFields,
   type Answer, type FormDefinition, type PriceLine, type Stage, type StoredAnswer,
@@ -174,9 +174,9 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   if (patch.assignTo !== undefined) {
     // Handing the work to a named member of staff: an account of the admin area, and one the form allows.
     const to = Number(patch.assignTo)
-    const member = Number.isSafeInteger(to) && to > 0 ? await db.user.findFirst({ where: { id: to, role: 'ADMIN', status: 'ACTIVE' }, select: { id: true } }) : null
+    const member = Number.isSafeInteger(to) && to > 0 ? (await formStaff()).find((person) => person.id === to) || null : null
     const allowed = parseForm(row.form).settings?.handlers || []
-    if (!member) throw new FormsError('این کاربر از کارمندان نیست')
+    if (!member) throw new FormsError('این کاربر کارمندی با دسترسی «پاسخ‌ها و درخواست‌های فرم» نیست')
     if (allowed.length && !allowed.includes(member.id)) throw new FormsError('این فرم به این کارمند سپرده نشده است')
     data.assigneeId = member.id
   }

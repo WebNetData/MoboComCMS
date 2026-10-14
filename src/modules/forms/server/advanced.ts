@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { isPrivateAddress } from '@/modules/server-panel/domain/downloads'
+import { parsePermissions } from '@/modules/identity/rbac'
 import { sendMail } from '@/modules/mail/server/mailer'
 import {
   DEFAULT_SLOT, FormsError, checkSubmission, parseForm, slotTimes, visibleFields,
@@ -160,10 +161,30 @@ export async function assertMayHandleSubmission(submissionId: number, user: { id
   await assertMayHandleForm(row.formId, user, false)
 }
 
-/** Members of staff a form's work can be given to (accounts of the admin area). */
+/**
+ * Members of staff a form's work can be given to: active accounts of the admin area that can actually open form
+ * answers — they hold `forms.handle` or `cms.pages`, or every right. Somebody without it is not offered, so a form
+ * is never left to a person who cannot get in.
+ */
 export async function formStaff() {
-  const rows = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' }, select: { id: true, name: true, email: true }, orderBy: { id: 'asc' }, take: 200 })
-  return rows.map((row) => ({ id: row.id, name: row.name || row.email || `کاربر ${row.id}` }))
+  const rows = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' }, select: { id: true, name: true, email: true, roleId: true, roleRef: { select: { name: true, nameFa: true, permissions: true } } }, orderBy: { id: 'asc' }, take: 500 })
+  return rows.flatMap((row) => {
+    const held = row.roleId == null ? null : parsePermissions(row.roleRef?.permissions || '')
+    const manager = held === null || held.includes('cms.pages')
+    if (!manager && !held!.includes('forms.handle')) return []
+    return [{ id: row.id, name: row.name || row.email || `کاربر ${row.id}`, role: row.roleId == null ? 'مدیر کل' : row.roleRef?.nameFa || row.roleRef?.name || '', manager }]
+  })
+}
+
+/** Refuses a list of handlers that names somebody who cannot open form answers, and says who. */
+export async function assertHandlersCanWork(ids: number[]) {
+  if (!ids.length) return
+  const able = new Set((await formStaff()).map((member) => member.id))
+  const unable = ids.filter((id) => !able.has(id))
+  if (!unable.length) return
+  const people = await db.user.findMany({ where: { id: { in: unable } }, select: { id: true, name: true, email: true } })
+  const names = unable.map((id) => { const person = people.find((row) => row.id === id); return person ? person.name || person.email : `کاربر ${id}` })
+  throw new FormsError(`${names.map((name) => `«${name}»`).join('، ')} دسترسی «پاسخ‌ها و درخواست‌های فرم» ندارد (یا حسابش فعال نیست). ابتدا در «نقش‌ها و دسترسی‌ها» این دسترسی را به نقشش بدهید، یا او را از کارشناسان این فرم بردارید.`)
 }
 
 export { visibleFields }
