@@ -191,6 +191,20 @@ test('section manager presets hold known permissions and stay inside their own s
   assert.deepEqual(rbac.parsePermissions(rbac.ROLE_PRESETS['music-manager'].join(',')).sort(), ['dashboard.view', 'music.manage'])
 })
 
+test('a general manager saved before a core permission existed keeps full access', () => {
+  const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
+  // The role is stored as the list of core permissions of its day; forms.handle came later.
+  const before = rbac.PERMISSIONS.filter((permission) => !rbac.CORE_ADDED_LATER.includes(permission)).join(',')
+  assert.equal(rbac.isFullAccess(before), true)
+  const held = rbac.parsePermissions(before)
+  for (const permission of ['games.manage', 'music.manage', 'cinema.manage', 'software.manage', 'forms.handle', 'settings.manage']) assert.ok(held.includes(permission), permission)
+  // Every core permission is either one of the originals or listed as added later — nothing in between.
+  assert.ok(rbac.CORE_ADDED_LATER.every((permission) => rbac.PERMISSIONS.includes(permission)))
+  assert.ok(rbac.CORE_ADDED_LATER.includes('forms.handle'))
+  // Losing one of the originals is still not full access.
+  assert.equal(rbac.isFullAccess(before.replace('roles.manage', 'x')), false)
+})
+
 // ---- cms.posts is the magazine, and only the magazine
 test('the magazine permission is named only where the magazine is guarded', () => {
   const files = []
