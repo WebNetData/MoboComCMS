@@ -10,6 +10,7 @@ import SiteHeader from '@/components/SiteHeader'
 import SiteFooter from '@/components/SiteFooter'
 import Icon from '@/components/site/Icon'
 import { formatAmount } from '@/shared/money/format'
+import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import CardTransferBox from '@/components/billing/CardTransferBox'
 import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
@@ -54,9 +55,6 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
     d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—'
   const money = (n: number, currency = invoice.currency) => formatAmount(n, currency, isFa ? 'fa-IR' : 'en-US')
 
-  const itemTitle = isFa
-    ? invoice.plan?.name || invoice.product?.name || t.invoice
-    : invoice.plan?.name || invoice.product?.name || t.invoice
 
   const due = Math.max(0, Math.round((invoice.total - (invoice.walletApplied || 0)) * 100) / 100)
   const [deliveryJob, deliveredSubscription, creditedTopup, productDelivery] = invoice.status === 'PAID' ? await Promise.all([
@@ -68,6 +66,8 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   const deliveryPending = invoice.status === 'PAID' && (invoice.kind === 'WALLET_TOPUP' ? !creditedTopup : invoice.productId ? productDelivery?.status !== 'DELIVERED' : Boolean(invoice.orderId && !deliveredSubscription && deliveryJob?.status !== 'DONE'))
   let productMeta: Record<string, unknown> = {}
   try { productMeta = JSON.parse(invoice.order?.meta || '{}') } catch {}
+  const subject = invoiceSubject({ kind: invoice.kind, planName: invoice.plan?.name, productName: invoice.product?.name, meta: productMeta, siteName: settings.brandName || 'موبوکام', amountText: money(invoice.subtotal), notes: invoice.notes })
+  const itemTitle = isFa ? subject.title : invoice.plan?.name || invoice.product?.name || t.invoice
   let digitalDelivery = ''
   try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = decryptDigitalDelivery(productDelivery.digitalDelivery) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
   const cardTransfer = invoice.gateway?.provider === 'CARD_TRANSFER'
@@ -146,7 +146,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
               </> : <tr>
                 <td>
                   {itemTitle}
-                  {typeof productMeta.variantName === 'string' && productMeta.variantName && <div className="muted text-xs">{productMeta.variantName}</div>}
+                  {isFa && subject.detail && <div className="invoice-item-detail">{subject.detail}</div>}
                   {invoice.plan && (
                     <div className="muted text-xs num">
                       {invoice.plan.trafficGB} GB · {invoice.plan.days} {t.days} · {invoice.plan.deviceLimit} {t.simultaneous}

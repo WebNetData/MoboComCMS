@@ -65,7 +65,7 @@ export interface FormSettings {
   opensAt: string; closesAt: string; maxSubmissions: number
   redirectUrl: string; submitLabel: string; closedMessage: string; spamLinks: number
   /** The visitor pays the form's total before staff take it up. */
-  payment: { enabled: boolean; label: string }
+  payment: { enabled: boolean; label: string; invoiceTitle: string; invoiceText: string }
   style: FormStyle
   /** Extra messages to staff or the sender, each sent only while its conditions hold; texts take merge tags. */
   notifications: FormNotification[]
@@ -101,7 +101,7 @@ export type Answer = string | boolean | string[]
 export const DEFAULT_SETTINGS: FormSettings = {
   steps: [], notifyEmails: [], notifyInbox: true, autoReply: { enabled: false, subject: '', body: '' }, requireLogin: false, oncePerUser: false,
   opensAt: '', closesAt: '', maxSubmissions: 0, redirectUrl: '', submitLabel: '', closedMessage: '', spamLinks: 3,
-  payment: { enabled: false, label: '' }, style: DEFAULT_STYLE,
+  payment: { enabled: false, label: '', invoiceTitle: '', invoiceText: '' }, style: DEFAULT_STYLE,
   notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [], service: false,
 }
 
@@ -205,7 +205,7 @@ export function normalizeSettings(input: unknown): FormSettings {
   return {
     notifications, confirmations, webhooks, saveDraft: raw.saveDraft === true, handlers, service: raw.service === true,
     quiz: { enabled: quiz.enabled === true, passScore: int(quiz.passScore, 0, 1_000_000, 0), showResult: quiz.showResult !== false },
-    payment: { enabled: paid, label: str(payment.label, 40) }, style: normalizeStyle(raw.style),
+    payment: { enabled: paid, label: str(payment.label, 40), invoiceTitle: str(payment.invoiceTitle, 120), invoiceText: str(payment.invoiceText, 500) }, style: normalizeStyle(raw.style),
     steps, notifyEmails: emails, notifyInbox: raw.notifyInbox !== false,
     autoReply: { enabled: reply.enabled === true, subject: str(reply.subject, 150), body: String(reply.body ?? '').slice(0, 3000) },
     requireLogin: raw.requireLogin === true || paid, oncePerUser: raw.oncePerUser === true, opensAt, closesAt,
@@ -562,7 +562,7 @@ export function publicForm(form: FormDefinition): FormDefinition {
   const s = form.settings || DEFAULT_SETTINGS
   // The margin of a foreign amount and the stored value of a hidden field are the site's business.
   const fields = form.fields.map(({ markupPercent: _percent, markupFixed: _fixed, value: _value, scores: _scores, ...field }) => field)
-  return { ...form, fields, settings: { ...DEFAULT_SETTINGS, saveDraft: s.saveDraft, quiz: { ...DEFAULT_SETTINGS.quiz, enabled: s.quiz.enabled, showResult: s.quiz.showResult }, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt, payment: s.payment, style: s.style } }
+  return { ...form, fields, settings: { ...DEFAULT_SETTINGS, saveDraft: s.saveDraft, quiz: { ...DEFAULT_SETTINGS.quiz, enabled: s.quiz.enabled, showResult: s.quiz.showResult }, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt, payment: { ...s.payment, invoiceTitle: '', invoiceText: '' }, style: s.style } }
 }
 
 /** A stored row (JSON columns as text) → definition. Damaged JSON reads as empty rather than crashing pages. */
@@ -643,7 +643,7 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
   },
   {
     id: 'foreign-payment', name: 'پرداخت سایت خارجی', description: 'کاربر مبلغ دلار یا یورو را وارد می‌کند، هزینه به تومان محاسبه می‌شود، اطلاعات حساب را می‌دهد و پرداخت می‌کند.',
-    build: () => ({ slug: 'foreign-payment', title: 'پرداخت سایت خارجی با ویزا کارت', description: 'مبلغ و اطلاعات سایت را وارد کنید؛ پس از پرداخت، کارشناس ما پرداخت شما را انجام می‌دهد.', published: false, successText: 'سفارش شما ثبت شد.', settings: { ...DEFAULT_SETTINGS, requireLogin: true, payment: { enabled: true, label: 'پرداخت و ثبت سفارش' }, submitLabel: 'تأیید و ادامه', steps: [{ id: 'amount', title: 'مبلغ', description: '' }, { id: 'account', title: 'اطلاعات حساب', description: '' }] }, fields: [
+    build: () => ({ slug: 'foreign-payment', title: 'پرداخت سایت خارجی با ویزا کارت', description: 'مبلغ و اطلاعات سایت را وارد کنید؛ پس از پرداخت، کارشناس ما پرداخت شما را انجام می‌دهد.', published: false, successText: 'سفارش شما ثبت شد.', settings: { ...DEFAULT_SETTINGS, requireLogin: true, payment: { enabled: true, label: 'پرداخت و ثبت سفارش', invoiceTitle: 'پرداخت سایت خارجی', invoiceText: 'پرداخت {field:amount} در سایت {field:site} برای حساب {field:username}' }, submitLabel: 'تأیید و ادامه', steps: [{ id: 'amount', title: 'مبلغ', description: '' }, { id: 'account', title: 'اطلاعات حساب', description: '' }] }, fields: [
       field('amount', 'مبلغی که باید پرداخت شود', 'fxamount', { required: true, step: 'amount', currencies: ['USD', 'EUR'], markupPercent: 5, markupFixed: 150000, min: 5, max: 2000 }),
       field('total', 'هزینهٔ سفارش شما', 'total', { step: 'amount' }),
       field('site', 'نشانی سایت', 'url', { required: true, step: 'account' }), field('username', 'نام کاربری یا ایمیل حساب', 'text', { required: true, step: 'account', width: 'half' }),

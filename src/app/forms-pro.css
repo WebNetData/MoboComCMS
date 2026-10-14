@@ -398,3 +398,11 @@
 .fa-person b { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fa-person small { font-size: 11.5px; color: var(--muted); }
 .fa-gone { margin: 8px 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, #d97706 12%, transparent); font-size: 13px; line-height: 1.9; }
+
+/* Admin: what a paid form writes on its invoice. */
+.fp-invoice { display: grid; gap: 10px; padding: 12px 14px; border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.fp-invoice .sa-field { margin: 0; }
+.fp-invoice code { padding: 0 5px; border-radius: 6px; border: 1px solid var(--border); font-size: 11.5px; }
+.fp-invoice-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.fp-invoice-tags span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 99px; background: var(--card); border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+.fp-invoice-tags code { border: 0; padding: 1px 7px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); font-weight: 700; }

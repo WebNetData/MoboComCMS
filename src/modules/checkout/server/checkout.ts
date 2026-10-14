@@ -142,7 +142,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       amountMinor = quote.amountMinor
       amount = legacyNumber(amountMinor, currency)
       label = quote.title
-      meta = { kind: 'form', formId: quote.formId, submissionId: quote.submissionId, formTitle: quote.title, contentPath: '/dashboard/requests' }
+      meta = { kind: 'form', formId: quote.formId, submissionId: quote.submissionId, formTitle: quote.title, invoiceTitle: quote.invoiceTitle, invoiceText: quote.invoiceText, contentPath: '/dashboard/requests' }
     } catch (error) {
       if (error instanceof FormsError) return fail(error.status, 'FORM_REQUEST', error.message)
       throw error

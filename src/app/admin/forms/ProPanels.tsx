@@ -8,7 +8,9 @@ const fa = (n: number) => n.toLocaleString('fa-IR')
 const num = (value: string) => (value === '' ? undefined : Number(value))
 
 /** Settings: taking a payment for the form, and how the form looks. */
-export function PaymentStylePanels({ s, set }: { s: FormSettings; set: (patch: Partial<FormSettings>) => void }) {
+export function PaymentStylePanels({ s, set, fields = [] }: { s: FormSettings; set: (patch: Partial<FormSettings>) => void; fields?: FormField[] }) {
+  // Answers an invoice may quote; passwords, files and signatures never reach it.
+  const fieldTags = fields.filter((field) => !['secret', 'file', 'signature', 'heading', 'paragraph', 'repeater'].includes(field.type)).map((field) => ({ tag: `{field:${field.id}}`, label: field.label }))
   const style = (patch: Partial<FormStyle>) => set({ style: { ...s.style, ...patch } })
   return <>
     <section className="sa-card">
@@ -16,6 +18,12 @@ export function PaymentStylePanels({ s, set }: { s: FormSettings; set: (patch: P
       <label className="sa-check"><input type="checkbox" checked={s.payment.enabled} onChange={(e) => set({ payment: { ...s.payment, enabled: e.target.checked }, ...(e.target.checked ? { requireLogin: true } : {}) })} /> این فرم پرداخت دارد</label>
       <p className="sa-hint">جمع فیلدهای قیمت‌دار (هزینهٔ ثابت، مبلغ ارزی با نرخ روز، گزینه‌های قیمت‌دار) از کاربر گرفته می‌شود: با درگاه‌ها و کیف پول سایت، با فاکتور. پس از پرداخت، درخواست در «پاسخ‌ها» برای کارشناس باز می‌شود. فرم پرداختی فقط برای کاربر واردشده است و کد تخفیف روی آن اعمال نمی‌شود.</p>
       {s.payment.enabled && <label className="sa-field"><span>متن دکمهٔ پرداخت</span><input className="input" value={s.payment.label} maxLength={40} placeholder="پرداخت" onChange={(e) => set({ payment: { ...s.payment, label: e.target.value } })} /></label>}
+      {s.payment.enabled && <div className="fp-invoice">
+        <label className="sa-field"><span>شرح فاکتور</span><input className="input" value={s.payment.invoiceTitle || ''} maxLength={120} placeholder="مثلاً: پرداخت سایت خارجی" onChange={(e) => set({ payment: { ...s.payment, invoiceTitle: e.target.value } })} /></label>
+        <label className="sa-field"><span>توضیحات فاکتور</span><textarea className="input" rows={2} value={s.payment.invoiceText || ''} maxLength={500} placeholder="مثلاً: پرداخت {field:amount} در سایت {field:site} برای حساب {field:username}" onChange={(e) => set({ payment: { ...s.payment, invoiceText: e.target.value } })} /></label>
+        <p className="sa-hint">این دو، ردیف فاکتور مشتری را می‌سازند. رمزها هرگز در فاکتور نمی‌آیند؛ اگر خالی بماند، عنوان فرم و شمارهٔ درخواست نوشته می‌شود. برای آوردن پاسخ‌ها، برچسب را در متن بگذارید:</p>
+        <div className="fp-invoice-tags">{[...fieldTags, { tag: '{form_title}', label: 'عنوان فرم' }, { tag: '{entry_id}', label: 'شمارهٔ درخواست' }].map((item) => <span key={item.tag}><code dir="ltr">{item.tag}</code>{item.label}</span>)}</div>
+      </div>}
     </section>
 
     <section className="sa-card">
