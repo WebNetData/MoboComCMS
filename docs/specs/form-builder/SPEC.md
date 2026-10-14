@@ -18,16 +18,24 @@ The owner asked for a Gravity-Forms-class builder that any part of the site can 
 - **Ready-made.** "Pay a foreign site" and "Appointment" join the templates.
 - **Data.** Migration `20261228120000_form_payment_workflow` (additive columns on `FormSubmission`, CHECK rules for amount, pay status and stage).
 
-## Next slices (not built)
+## Slice 2 — built
 
-1. Jalali date picker, appointment slots with capacity, name/address groups, repeating rows, signature, more attachment types.
-2. Merge tags in notifications and confirmations, conditional notifications and confirmations, routing by answer, webhooks.
-3. Save and continue, partial answers, entry editing by staff, per-field analytics and funnel, quizzes and scoring.
-4. A drag canvas with columns, and a conversational (one question at a time) layout.
-5. `forms.handle` scoped per form; assigning to a named member of staff; SLA and reminders.
+- **Fields.** `jdate` (a Persian calendar; the answer stays the Gregorian day), `slot` (an appointment: open week days, hours, length of a turn, **capacity**, how far ahead — Tehran time), `repeater` (rows with the same columns), `signature` (drawn, kept as a private attachment).
+- **Capacity.** `FormBooking` has a unique key on (form, field, turn, seat). The seat is taken inside the answer's own transaction; a seat taken at the same moment fails that transaction and the answer is tried again, so a turn is never overbooked. Rejecting or deleting an answer frees its turn. `GET /api/forms/<slug>/slots` lists open days and the turns of a day with the seats left.
+- **Messages.** Merge tags (`{field:id}`, `{all_fields}`, `{form_title}`, `{entry_id}`, `{total}`, `{score}`, `{user}`, `{date}`) in confirmations and notifications. **Conditional confirmations** (the first whose conditions hold) and **conditional e-mail notifications** with recipients as addresses or `{field:<an e-mail field>}` — routing by answer. For a paid form they go out once it is paid.
+- **Webhooks.** Up to three per form, for `submitted`, `paid` and `stage`: https only, a public address (private ranges refused after DNS), no redirects, six seconds, signed with HMAC-SHA256 when a secret is set. Passwords are never in the payload. One attempt; the result is logged.
+- **Quiz.** Points on options (never sent to visitors), a pass mark, the score stored on the answer and shown to the sender.
+- **Drafts.** With `saveDraft`, the browser keeps what was typed (never passwords, files, signatures or turns) and offers it back.
+- **Layout.** Five widths on a twelve-column grid; the builder canvas shows fields at their widths. A **conversational** layout shows one question at a time (a heading stays with the question after it), Enter moves on.
+- **Staff.** Per-field statistics; corrections of plain answers (audited; money, turns, passwords and files stay as sent); handing the work to a named member of staff (told in their inbox); **a form may name its handlers**, and then only they and the builders see and work on its answers.
+- **Data.** Migration `20261229120000_form_bookings_quiz` (`FormBooking`, `FormSubmission.score` / `scoreMax`).
+
+## Still not built
+
+Name and address groups; attachment kinds beyond PDF and images; a resume link that works across devices (drafts live in one browser); retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop.
 
 ## Acceptance
 
-Unit: `scripts/forms.test.cjs` (17). Browser, local preview, 38 checks: building from the template with a priced option and a theme; a paid form without a priced field refused; the quote (rate + 5% + 150,000 + option); under-minimum not priced; sign-in required; the themed page, the live bill, the two steps, the payment step; the request unpaid in the sender's list with the password masked; work refused before payment; nobody else can pay; discount code refused; checkout → card-to-card receipt → approval → paid and open; not payable twice; the desk (bill, hidden password, reveal, take, done, reply, erase); the sender's page and inbox; an unpaid form with national id, time, slider and hidden value from a guest; the builder palette, inspector and settings.
+Unit: `scripts/forms.test.cjs` (21). Slice 2 in a browser, 38 checks: saving the advanced form; a non-https webhook and a recipient that is not an address refused; open days and turns; a turn outside the rule refused; booking with the conditional message and its tags; the quiz result; the same turn refused a second time and shown full; statistics; corrections (and their refusals); assignment (and to a non-member refused); a rejected answer freeing its turn; the page — widths, the Persian calendar, the turn picker, rows, a drawn signature, the draft after a reload, the result card; the conversational layout; the builder canvas, inspector, settings and desk. Not run for slice 2: an outgoing webhook and an outgoing notification e-mail (no receiver in the preview), two people booking the last seat at the same instant (the unique key is asserted, not raced), and a member of staff who holds only `forms.handle` (the local admin holds everything; the rule is unit-tested). Browser, local preview, 38 checks: building from the template with a priced option and a theme; a paid form without a priced field refused; the quote (rate + 5% + 150,000 + option); under-minimum not priced; sign-in required; the themed page, the live bill, the two steps, the payment step; the request unpaid in the sender's list with the password masked; work refused before payment; nobody else can pay; discount code refused; checkout → card-to-card receipt → approval → paid and open; not payable twice; the desk (bill, hidden password, reveal, take, done, reply, erase); the sender's page and inbox; an unpaid form with national id, time, slider and hidden value from a guest; the builder palette, inspector and settings.
 
 Not run: a production build's page payload (Next's development mode sends server debug values, so the page source there is not evidence either way — the public filter is covered by a unit test); the seven-day erasure against a database; gateways other than card-to-card; the e-mail notifications of a paid form.
