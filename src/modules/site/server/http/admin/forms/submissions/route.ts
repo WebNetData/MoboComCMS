@@ -4,8 +4,9 @@ import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { FormsError } from '@/modules/forms/domain/forms'
 import { deleteSubmissions, exportCsv, formStats, listSubmissions, updateSubmissions } from '@/modules/forms/server/service'
-import { eraseSecrets, revealSecrets, workOnSubmission } from '@/modules/forms/server/paid'
-import { assertMayHandleForm, assertMayHandleSubmission, editSubmission, formFieldStats } from '@/modules/forms/server/advanced'
+import { assertOwnWork, eraseSecrets, revealSecrets, workOnSubmission } from '@/modules/forms/server/paid'
+import { listForms } from '@/modules/forms/server/service'
+import { assertMayHandleForm, assertMayHandleSubmission, editSubmission, formFieldStats, mayHandle } from '@/modules/forms/server/advanced'
 
 /** Whoever builds forms, or whoever is given the answers to work on. */
 const staff = async (req: NextRequest) => await requirePerm(req, 'cms.pages') || await requirePerm(req, 'forms.handle')
@@ -20,8 +21,13 @@ export async function GET(req: NextRequest) {
   const builder = Boolean(await requirePerm(req, 'cms.pages'))
   const q = req.nextUrl.searchParams
   const formId = Number(q.get('formId'))
+  // formId=0 is the work queue: the answers of every form this member of staff may handle.
+  if (formId === 0 && !q.get('view') && !q.get('export')) {
+    const formIds = (await listForms()).filter((form) => mayHandle(form, reader, builder)).map((form) => form.id!)
+    return ok(await listSubmissions({ formId: 0, formIds, stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', page: Number(q.get('page')) || 1, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free' }))
+  }
   if (!Number.isSafeInteger(formId) || formId < 1) return err('شناسه نامعتبر')
-  const query = { formId, stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
+  const query = { formId, mine: q.get('who') === 'mine' ? reader.id : undefined, unassigned: q.get('who') === 'free', stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
   try {
     await assertMayHandleForm(formId, reader, builder)
     if (q.get('view') === 'fields') return ok(await formFieldStats(formId))
@@ -49,13 +55,13 @@ export async function PATCH(req: NextRequest) {
   const builder = Boolean(await requirePerm(req, 'cms.pages'))
   try {
     // A form given to named handlers is theirs alone to work on.
-    for (const id of (Array.isArray(body.ids) ? body.ids : [body.id]).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 200)) await assertMayHandleSubmission(id, admin, builder)
+    for (const id of (Array.isArray(body.ids) ? body.ids : [body.id]).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 200)) { await assertMayHandleSubmission(id, admin, builder); await assertOwnWork(id, admin, builder) }
     if (body.answers && typeof body.answers === 'object') {
       const edited = await editSubmission(one, body.answers)
       await auditAdmin({ req, actor: admin, action: 'forms.submission_edit', targetType: 'form_submission', targetId: String(one), metadata: { fields: edited.changed } })
       return ok(edited)
     }
-    if (body.work && typeof body.work === 'object') return ok(await workOnSubmission(one, admin, body.work))
+    if (body.work && typeof body.work === 'object') return ok(await workOnSubmission(one, admin, body.work, builder))
     if (body.secrets === 'reveal') {
       const secrets = await revealSecrets(one)
       await auditAdmin({ req, actor: admin, action: 'forms.secrets_reveal', targetType: 'form_submission', targetId: String(one), metadata: { fields: secrets.map((secret) => secret.id) } })

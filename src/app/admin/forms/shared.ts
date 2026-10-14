@@ -2,7 +2,7 @@ import { CONTENT_TYPES, DEFAULT_SETTINGS, type FieldType, type FormDefinition, t
 
 export type SavedForm = FormDefinition & { id: number; createdAt: string; updatedAt: string; counts: { total: number; new: number; spam: number } }
 export type Template = { id: string; name: string; description: string; form: Omit<FormDefinition, 'id'> }
-export type Row = { id: number; status: SubmissionStatus; note: string; userId: number | null; user: string; createdAt: string; answers: { id: string; label: string; type?: FieldType; value: string | boolean | string[] }[]; files: { id: string; name: string; size: number }[]
+export type Row = { formId: number; formTitle: string; id: number; status: SubmissionStatus; note: string; userId: number | null; user: string; createdAt: string; answers: { id: string; label: string; type?: FieldType; value: string | boolean | string[] }[]; files: { id: string; name: string; size: number }[]
   amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; orderId: number | null
   stage: string; assigneeId: number | null; assignee: string; reply: string; hasSecrets: boolean; secretsErasedAt: string | null; score: number; scoreMax: number }
 

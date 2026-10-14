@@ -56,6 +56,8 @@ export const authOptions: NextAuthOptions = {
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
         if (!(await rateLimitStrict(`login:ip:${ip}`, 30, 10 * 60_000)).ok) return null
         if (!(await rateLimitStrict(`login:acc:${ip}:${email}`, 8, 10 * 60_000)).ok) return null
+        // One account, many addresses: a guess spread over a botnet still meets a limit on the account itself.
+        if (!(await rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)).ok) return null
         if (!await verifyTurnstile(credentials.turnstileToken, new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}), 'login')) return null
         const user = await db.user.findUnique({
           where: { email },

@@ -65,6 +65,9 @@ export async function otpLoginAvailable() {
 
 // ------------------------------------------------------------------ sending
 
+/** The most automatic alerts one number receives in a day. */
+export const SMS_DAILY_PER_PHONE = 12
+
 interface SendInput { phone: string; event: string; text: string; pattern?: string; params?: Record<string, string>; userId?: number | null; kind?: 'TEXT' | 'PATTERN' | 'OTP' }
 
 /** Sends one SMS and records it in SmsLog. Never throws; returns whether it was accepted. */
@@ -80,6 +83,18 @@ export async function sendSms(input: SendInput, config?: SmsConfig): Promise<boo
     if (kind === 'OTP' && process.env.NODE_ENV !== 'production') logEvent('warn', 'sms.dev_otp', { phone: maskMobile(phone), text: input.text })
     await log('SKIPPED', '', 'پنل پیامک فعال یا تنظیم نشده است')
     return kind === 'OTP' && process.env.NODE_ENV !== 'production'
+  }
+  // Automatic alerts have a ceiling: the same message is not sent twice in ten minutes, and one number gets at
+  // most SMS_DAILY_PER_PHONE of them a day — a loop or a noisy event never drains the panel's credit. Codes
+  // (limited where they are requested), tests and messages typed by an admin are not counted here.
+  if (kind !== 'OTP' && !['MANUAL', 'TEST'].includes(input.event)) {
+    const since = (ms: number) => new Date(Date.now() - ms)
+    const [same, today] = await Promise.all([
+      db.smsLog.count({ where: { phone, event: input.event, status: 'SENT', body: input.text.slice(0, 1000), createdAt: { gt: since(10 * 60_000) } } }),
+      db.smsLog.count({ where: { phone, status: 'SENT', kind: { not: 'OTP' }, createdAt: { gt: since(86_400_000) } } }),
+    ]).catch(() => [0, 0])
+    if (same > 0) { await log('SKIPPED', '', 'همین پیام چند دقیقه پیش فرستاده شده است'); return false }
+    if (today >= SMS_DAILY_PER_PHONE) { await log('SKIPPED', '', 'سقف روزانهٔ پیامک این شماره پر شده است'); return false }
   }
   const key = apiKeyOf(settings)
   const result = input.pattern
