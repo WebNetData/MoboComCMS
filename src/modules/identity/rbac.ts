@@ -71,6 +71,15 @@ export const ROLE_PRESET_LABELS: Record<string, string> = {
 export const FULL_ACCESS = '*'
 
 /**
+ * Core permissions added after roles were first stored as a full list. A role saved before one of these existed
+ * cannot hold it, and must still read as full access — so they are left out of the "holds every core permission"
+ * test. **Every core permission added from now on goes in this list** (leaving one out takes the extension
+ * permissions away from every general manager, which is what happened with `forms.handle` in October 2026).
+ */
+export const CORE_ADDED_LATER: readonly string[] = ['forms.handle']
+const holdsEveryOriginal = (listed: string[]) => PERMISSIONS.filter((permission) => !CORE_ADDED_LATER.includes(permission)).every((permission) => listed.includes(permission))
+
+/**
  * A role's capabilities. "*" — and, for roles saved before it existed, any
  * role holding every core permission (the admin preset) — means full access,
  * so permissions that extensions add later (e.g. server.manage) are included.
@@ -78,13 +87,13 @@ export const FULL_ACCESS = '*'
 export function parsePermissions(csv: string): string[] {
   const known = new Set(ALL_PERMISSIONS)
   const listed = csv.split(',').map((s) => s.trim())
-  if (listed.includes(FULL_ACCESS) || PERMISSIONS.every((permission) => listed.includes(permission))) return [...ALL_PERMISSIONS]
+  if (listed.includes(FULL_ACCESS) || holdsEveryOriginal(listed)) return [...ALL_PERMISSIONS]
   return listed.filter((s) => known.has(s))
 }
 
 export const isFullAccess = (csv: string) => {
   const listed = csv.split(',').map((s) => s.trim())
-  return listed.includes(FULL_ACCESS) || PERMISSIONS.every((permission) => listed.includes(permission))
+  return listed.includes(FULL_ACCESS) || holdsEveryOriginal(listed)
 }
 
 export function hasPermission(permissions: readonly string[] | undefined, needed: string): boolean {
