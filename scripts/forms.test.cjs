@@ -196,7 +196,7 @@ test('the bill counts fixed costs, priced options and foreign amounts — only f
 })
 
 test('a form keeps a chosen look, and an unknown one falls back', () => {
-  assert.deepEqual(f.normalizeStyle({ theme: 'glass', accent: '#0EA5E9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' }), { theme: 'glass', accent: '#0ea5e9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' })
+  assert.deepEqual(f.normalizeStyle({ theme: 'glass', accent: '#0EA5E9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' }), { layout: 'classic', theme: 'glass', accent: '#0ea5e9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' })
   assert.deepEqual(f.normalizeStyle({ theme: 'x', accent: 'red;}', radius: 1 }), f.DEFAULT_STYLE)
 })
 

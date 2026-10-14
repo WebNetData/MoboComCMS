@@ -4,6 +4,7 @@ import { quoteForeignAmount } from '@/modules/fx/server/fx'
 import { FxError, percentToBps } from '@/modules/fx/domain/fx'
 import { decryptDigitalDelivery, encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { releaseSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
 import {
   FormsError, SECRET_MASK, STAGES, STAGE_LABEL, parseForm, parseFxAnswer, priceLines, visibleFields,
   type Answer, type FormDefinition, type PriceLine, type Stage, type StoredAnswer,
@@ -111,6 +112,14 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
   const paid = await db.formSubmission.updateMany({ where: { id: submissionId, userId: order.userId, payStatus: 'UNPAID' }, data: { payStatus: 'PAID', paidAt: new Date(), stage: 'OPEN', orderId: order.id, amountMinor: order.totalMinor, currency: order.currency } })
   if (!paid.count) return
   const title = String(meta.formTitle || '').slice(0, 80)
+  // The form's own notifications and webhooks hear about a paid request now (they were held back until the money came).
+  const stored = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
+  if (stored) {
+    const form = parseForm(stored.form), answers = parse<StoredAnswer[]>(stored.data, [])
+    const total = minorToNumber(order.totalMinor, order.currency)
+    void sendFormNotifications(form, { formTitle: form.title, entryId: submissionId, answers, total }, valuesOf(answers)).catch(() => undefined)
+    void sendFormWebhooks(form, 'paid', { entryId: submissionId, orderId: order.id, total, currency: order.currency, answers: webhookAnswers(answers) }).catch(() => undefined)
+  }
   await createInboxEvent({
     userId: order.userId, kind: 'FORM', dedupeKey: `form:paid:${submissionId}`, titleFa: `پرداخت «${title}» انجام شد`, titleEn: 'Your request is paid',
     bodyFa: 'درخواست شما به کارشناس سپرده شد؛ وضعیت آن را در «درخواست‌های من» ببینید.', bodyEn: 'Your request is with our staff now.', href: '/dashboard/requests',
@@ -125,8 +134,8 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
 // ------------------------------------------------------------------ the work on an answer
 
 /** Staff move an answer along, take it, or write back to its sender. */
-export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown }) {
-  const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: { select: { title: true } } } })
+export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown }) {
+  const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
   if (row.payStatus === 'UNPAID') throw new FormsError('این درخواست هنوز پرداخت نشده است', 409)
   const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string } = {}
@@ -138,11 +147,27 @@ export async function workOnSubmission(submissionId: number, actor: { id: number
   }
   if (patch.take === true) { data.assigneeId = actor.id; if (row.stage === 'OPEN' || !row.stage) data.stage = 'IN_PROGRESS' }
   if (patch.take === false) data.assigneeId = null
+  if (patch.assignTo !== undefined) {
+    // Handing the work to a named member of staff: an account of the admin area, and one the form allows.
+    const to = Number(patch.assignTo)
+    const member = Number.isSafeInteger(to) && to > 0 ? await db.user.findFirst({ where: { id: to, role: 'ADMIN', status: 'ACTIVE' }, select: { id: true } }) : null
+    const allowed = parseForm(row.form).settings?.handlers || []
+    if (!member) throw new FormsError('این کاربر از کارمندان نیست')
+    if (allowed.length && !allowed.includes(member.id)) throw new FormsError('این فرم به این کارمند سپرده نشده است')
+    data.assigneeId = member.id
+  }
   if (patch.reply !== undefined) data.reply = String(patch.reply).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, 2000)
   if (!Object.keys(data).length) throw new FormsError('تغییری ارسال نشده است')
   if (row.status === 'NEW') { data.status = 'READ'; data.read = true }
   await db.formSubmission.update({ where: { id: row.id }, data })
   const stage = (data.stage || row.stage) as Stage | ''
+  if (data.stage && data.stage !== row.stage) {
+    if (data.stage === 'REJECTED') await releaseSlots(row.id)
+    void sendFormWebhooks(parseForm(row.form), 'stage', { entryId: row.id, stage: data.stage }).catch(() => undefined)
+  }
+  if (data.assigneeId && data.assigneeId !== row.assigneeId && data.assigneeId !== actor.id) {
+    await createInboxEvent({ userId: data.assigneeId, kind: 'FORM', dedupeKey: `form:assigned:${row.id}:${data.assigneeId}`, titleFa: `یک درخواست در «${row.form.title.slice(0, 80)}» به شما سپرده شد`, titleEn: 'A form request was assigned to you', bodyFa: `شمارهٔ ${row.id.toLocaleString('fa-IR')}`, bodyEn: '', href: `/admin/forms?form=${row.formId}&tab=inbox` }).catch(() => undefined)
+  }
   if (row.userId && ((data.stage && data.stage !== row.stage) || (data.reply && data.reply !== row.reply))) {
     await createInboxEvent({
       userId: row.userId, kind: 'FORM', dedupeKey: `form:work:${row.id}:${stage}:${(data.reply ?? row.reply).length}`,
@@ -161,6 +186,6 @@ export async function myRequests(userId: number) {
     answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: answer.type === 'file' && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
     amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY,
     lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null,
-    stage: row.stage, reply: row.reply,
+    stage: row.stage, reply: row.reply, score: row.score, scoreMax: row.scoreMax,
   }))
 }

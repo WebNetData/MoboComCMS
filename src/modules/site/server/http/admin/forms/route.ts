@@ -4,17 +4,22 @@ import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { FormsError } from '@/modules/forms/domain/forms'
 import { deleteForm, duplicateForm, listForms, saveForm, templateList } from '@/modules/forms/server/service'
+import { formStaff, mayHandle } from '@/modules/forms/server/advanced'
 
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
 const failure = (error: unknown) => { if (error instanceof FormsError) return err(error.message, error.status); throw error }
 
 /** GET /api/admin/forms → { forms, templates } */
 export async function GET(req: NextRequest) {
-  if (!await requirePerm(req, 'cms.pages') && !await requirePerm(req, 'forms.handle')) return err('دسترسی مجاز نیست', 403)
-  const forms = await listForms()
+  const builder = await requirePerm(req, 'cms.pages')
+  const reader = builder || await requirePerm(req, 'forms.handle')
+  if (!reader) return err('دسترسی مجاز نیست', 403)
+  // Somebody who only handles answers sees the forms given to them.
+  const forms = (await listForms()).filter((form) => mayHandle(form, reader, Boolean(builder)))
+  if (req.nextUrl.searchParams.get('staff') === '1') return ok({ staff: await formStaff() })
   // Older clients read the bare list.
   if (req.nextUrl.searchParams.get('legacy') === '1') return ok(forms)
-  return ok({ forms, templates: templateList() })
+  return ok({ forms, templates: templateList(), canBuild: Boolean(builder), me: reader.id })
 }
 
 /** POST /api/admin/forms — a form to save, or { op: 'duplicate' | 'delete', id }. */

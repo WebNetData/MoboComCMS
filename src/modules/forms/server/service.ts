@@ -14,6 +14,8 @@ import {
 } from '@/modules/forms/domain/forms'
 import { minorToNumber } from '@/shared/money'
 import { FORM_CURRENCY, billFor, sealSecrets } from '@/modules/forms/server/paid'
+import { mergeTags, pickConfirmation, scoreOf } from '@/modules/forms/domain/advanced'
+import { bookSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
 
 // Uploaded answers live outside the public folder; only administrators read them, through an authorised route.
 export const formsDirectory = () => join(process.cwd(), 'storage', 'forms')
@@ -95,7 +97,7 @@ export async function uploadFile(slug: string, file: File, ip: string) {
   const row = await db.siteForm.findUnique({ where: { slug } })
   if (!row?.published) throw new FormsError('فرم در دسترس نیست', 404)
   const form = parseForm(row)
-  if (!form.fields.some((f) => f.type === 'file')) throw new FormsError('این فرم ضمیمه نمی‌پذیرد')
+  if (!form.fields.some((f) => f.type === 'file' || f.type === 'signature')) throw new FormsError('این فرم ضمیمه نمی‌پذیرد')
   if (!rateLimitHit(`form-upload:${ip}`, 12, 10 * 60_000).ok) throw new FormsError('بارگذاری‌ها زیاد است؛ کمی بعد دوباره تلاش کنید', 429)
   if (file.size > MAX_FILE_BYTES) throw new FormsError('حجم فایل حداکثر ۵ مگابایت است', 413)
   const bytes = Buffer.from(await file.arrayBuffer())
@@ -149,7 +151,7 @@ export async function submitForm(slug: string, input: { values: unknown; website
   if (firstBad) throw new FormsError(errors[firstBad.id])
 
   // Files must be uploads made for this form and not yet used.
-  const fileIds = shown.filter((f) => f.type === 'file').flatMap((f) => (values[f.id] as string[]) || [])
+  const fileIds = shown.filter((f) => f.type === 'file' || f.type === 'signature').flatMap((f) => (values[f.id] as string[]) || [])
   if (fileIds.length) {
     const owned = await db.formUpload.count({ where: { id: { in: fileIds }, formId: form.id!, submissionId: null } })
     if (owned !== fileIds.length) throw new FormsError('فایل بارگذاری‌شده معتبر نیست؛ دوباره بارگذاری کنید')
@@ -164,15 +166,34 @@ export async function submitForm(slug: string, input: { values: unknown; website
   const bill = paid ? await billFor(form, values) : null
   if (bill && bill.totalMinor <= 0n) throw new FormsError('مبلغی برای پرداخت محاسبه نشد؛ فیلدهای مبلغ را کامل کنید')
   const money = bill ? { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines), payStatus: 'UNPAID' } : {}
-  const submission = await db.$transaction(async (tx) => {
-    const created = await tx.formSubmission.create({ data: { formId: form.id!, data: JSON.stringify(answers), status: spam ? 'SPAM' : 'NEW', userId: who.userId, ipHash: ipHash(who.ip), secrets, stage: spam || paid ? '' : 'OPEN', ...money } })
+  const score = settings.quiz.enabled ? scoreOf(form.fields, values) : null
+  const store = () => db.$transaction(async (tx) => {
+    const created = await tx.formSubmission.create({ data: { formId: form.id!, data: JSON.stringify(answers), status: spam ? 'SPAM' : 'NEW', userId: who.userId, ipHash: ipHash(who.ip), secrets, stage: spam || paid ? '' : 'OPEN', score: score?.score ?? 0, scoreMax: score?.max ?? 0, ...money } })
     if (fileIds.length) await tx.formUpload.updateMany({ where: { id: { in: fileIds } }, data: { submissionId: created.id } })
+    // An appointment takes its seat with the answer, or the answer is not stored at all.
+    if (!spam) await bookSlots(tx, form, shown, values, created.id)
     return created
   })
+  let submission: Awaited<ReturnType<typeof store>> | null = null
+  for (let attempt = 0; !submission; attempt++) {
+    try { submission = await store() } catch (error) {
+      // Two people took the same seat at once: the unique key refused one of them; look for the next seat.
+      if ((error as { code?: string }).code !== 'P2002' || attempt >= 3) throw error
+    }
+  }
+  const context = { formTitle: form.title, entryId: submission.id, answers, total: bill?.total, score: score || undefined }
+  const confirmation = pickConfirmation(settings, form.successText, values)
+  const message = mergeTags(confirmation.message, context)
+  const quiz = score && settings.quiz.showResult ? { score: score.score, max: score.max, passed: settings.quiz.passScore > 0 ? score.score >= settings.quiz.passScore : null } : undefined
   // Staff hear about a paid form once it is paid (the fulfilment step tells them).
-  if (bill && !spam) return { message: form.successText, redirect: '', pay: { submissionId: submission.id, amount: bill.total, currency: bill.currency, lines: bill.lines, label: settings.payment.label } }
-  if (!spam) void notify(form, submission.id, answers, who.userId).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
-  return { message: form.successText, redirect: settings.redirectUrl }
+  if (bill && !spam) return { message, redirect: '', quiz, pay: { submissionId: submission.id, amount: bill.total, currency: bill.currency, lines: bill.lines, label: settings.payment.label } }
+  if (!spam) {
+    const id = submission.id
+    void notify(form, id, answers, who.userId).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
+    void sendFormNotifications(form, context, values).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
+    void sendFormWebhooks(form, 'submitted', { entryId: id, answers: webhookAnswers(answers), score: score || undefined }).catch(() => undefined)
+  }
+  return { message, redirect: confirmation.redirectUrl, quiz }
 }
 
 async function notify(form: FormDefinition, submissionId: number, answers: StoredAnswer[], userId: number | null) {
@@ -215,9 +236,9 @@ const where = (query: SubmissionQuery) => ({
   ...(query.from || query.to ? { createdAt: { ...(query.from && !Number.isNaN(Date.parse(query.from)) ? { gte: new Date(query.from) } : {}), ...(query.to && !Number.isNaN(Date.parse(query.to)) ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}) } } : {}),
 })
 
-const view = (row: { id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
+const view = (row: { id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; score: number; scoreMax: number; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
   amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY, lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null, orderId: row.orderId,
-  stage: row.stage, assigneeId: row.assigneeId, assignee: row.assigneeId ? users.get(row.assigneeId) || `کاربر ${row.assigneeId}` : '', reply: row.reply, hasSecrets: !!row.secrets, secretsErasedAt: row.secretsErasedAt?.toISOString() || null,
+  stage: row.stage, assigneeId: row.assigneeId, assignee: row.assigneeId ? users.get(row.assigneeId) || `کاربر ${row.assigneeId}` : '', reply: row.reply, hasSecrets: !!row.secrets, secretsErasedAt: row.secretsErasedAt?.toISOString() || null, score: row.score, scoreMax: row.scoreMax,
   id: row.id, status: row.status, note: row.note, userId: row.userId, user: row.userId ? users.get(row.userId) || `کاربر ${row.userId}` : '', createdAt: row.createdAt.toISOString(),
   answers: parse<StoredAnswer[]>(row.data, []), files: (row.uploads || []).map((u) => ({ id: String(u.id), name: u.originalName, size: u.size })),
 })

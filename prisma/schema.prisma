@@ -1225,6 +1225,22 @@ model SiteForm {
   updatedAt   DateTime         @updatedAt
   submissions FormSubmission[]
   uploads     FormUpload[]
+  bookings    FormBooking[]
+}
+
+model FormBooking {
+  id           Int            @id @default(autoincrement())
+  formId       Int
+  fieldId      String
+  slot         String // "YYYY-MM-DD HH:MM" of an appointment field
+  seat         Int // 1 … capacity; the unique key below is what stops a turn from being overbooked
+  submissionId Int
+  createdAt    DateTime       @default(now())
+  form         SiteForm       @relation(fields: [formId], references: [id], onDelete: Cascade)
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, fieldId, slot, seat])
+  @@index([submissionId])
 }
 
 model FormSubmission {
@@ -1248,9 +1264,12 @@ model FormSubmission {
   reply       String  @default("") // what staff wrote back to the sender
   secrets     String  @default("") // encrypted answers of secret fields
   secretsErasedAt DateTime?
+  score       Int     @default(0) // quiz points, and the most that could be had
+  scoreMax    Int     @default(0)
   createdAt DateTime @default(now())
   form      SiteForm @relation(fields: [formId], references: [id], onDelete: Cascade)
   uploads   FormUpload[]
+  bookings  FormBooking[]
 
   @@index([formId, createdAt])
   @@index([formId, status])
