@@ -53,7 +53,7 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 ## What ran
 
 - Isolated runtime: `npm run check`, 109 connected PostgreSQL checks, `npm run build` — see each pull request for the commit they ran on.
-- Browser, local preview: `pw-forms.cjs` (38: paid flow), `pw-forms2.cjs` (38: advanced fields and layouts), `pw-forms3.cjs` (24: handlers, held work, the desk on desktop and phone) — scripts live in the ignored `.mobocom/claude-tools/`; they need a local admin session, a customer session and two operators who hold only `forms.handle`.
+- Browser, local preview: `pw-forms.cjs` (38: paid flow), `pw-forms2.cjs` (38: advanced fields and layouts), `pw-forms3.cjs` (24: handlers, held work, the desk on desktop and phone), `pw-tickets.cjs` (8: a held ticket through the API) — scripts live in the ignored `.mobocom/claude-tools/`; they need a local admin session, a customer session and two operators who hold only `forms.handle`.
 - Unit: `scripts/forms.test.cjs`, `scripts/store-v2.test.cjs`.
 
 ## What did not run (test these next)
@@ -62,7 +62,7 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 2. A real outgoing webhook and notification e-mail; two visitors taking the last seat of a turn at the same instant.
 3. Paying a form from the wallet and through gateways other than card-to-card.
 4. The seven-day erasure of secrets and the one-day release of unpaid turns against a database.
-5. The ticket holder rule in a browser with two agents of one department (unit-asserted only).
+5. The ticket holder rule in the ticket desk's own screen (it ran through the API with two agents of one department — 8 checks in `pw-tickets.cjs` — but the desk does not yet show a "held by a colleague" notice or hide the reply box).
 6. The SMS ceiling against a real provider (no key is configured).
 7. The Telegram purchase path for products that ask for information.
 

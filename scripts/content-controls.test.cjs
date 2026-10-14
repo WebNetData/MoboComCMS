@@ -163,7 +163,7 @@ test('an administrator using their customer ticket remains the customer, while a
   let userId = 7
   const route = load('src/modules/support/server/http/tickets/[id]/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => ({ id: userId, role: 'ADMIN' }), requirePerm: async () => true },
-    '@/modules/support/server/department-access': { canHandleTicket: async () => true },
+    '@/modules/support/server/department-access': { canHandleTicket: async () => true, heldByAnother: () => false, HELD_BY_ANOTHER: 'held' },
     '@/platform/database/prisma': { db },
   })
   const params = { params: Promise.resolve({ id: '4' }) }
@@ -231,7 +231,7 @@ test('ticket image reads require the ticket owner or assigned support permission
   const file = { id: 5, filename: '00000000-0000-4000-8000-000000000005.png', mimeType: 'image/png', message: { internal, ticket: { id: 4, userId: 7, department: 'TECH' } } }
   const route = load('src/modules/support/server/http/tickets/[id]/attachments/[attachmentId]/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => user, requirePerm: async () => permission },
-    '@/modules/support/server/department-access': { canHandleTicket: async () => permission },
+    '@/modules/support/server/department-access': { canHandleTicket: async () => permission, heldByAnother: () => false, HELD_BY_ANOTHER: 'held', managesTickets: () => true },
     '@/platform/database/prisma': { db: { ticketAttachment: { findUnique: async () => ({ ...file, message: { ...file.message, internal } }) } } },
     'node:fs/promises': { readFile: async () => Buffer.from('image bytes') },
   })
@@ -274,7 +274,7 @@ test('ticket detail stays owner-scoped and returns the reported subscription con
   let userId = 8, role = 'USER', canHandle = false
   const route = load('src/modules/support/server/http/tickets/[id]/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => ({ id: userId, role }), requirePerm: async () => true },
-    '@/modules/support/server/department-access': { canHandleTicket: async () => canHandle },
+    '@/modules/support/server/department-access': { canHandleTicket: async () => canHandle, heldByAnother: () => false, HELD_BY_ANOTHER: 'held', managesTickets: () => true },
     '@/platform/database/prisma': { db: {
       ticket: { findUnique: async () => ({ id: 4, userId: 7, subject: 'Connection issue', status: 'OPEN', priority: 'normal', department: 'SUBSCRIPTION', subscriptionId: 9, subscriptionUsername: 'customer-service', subscriptionLink: 'happ://crypt5/owned-link', user: { name: 'Customer', email: 'customer@example.org' }, messages: [] }) },
       ticketDepartment: { findUnique: async () => null },
