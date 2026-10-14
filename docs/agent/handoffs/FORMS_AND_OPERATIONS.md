@@ -55,6 +55,7 @@ Adding the core permission `forms.handle` made every general manager whose role 
 - **A password typed into a form or an order** is encrypted apart, masked everywhere, read by an audited action, erased a week after the work ends.
 - **A turn is never overbooked**: unique key (form, field, turn, seat) taken in the answer's transaction; freed on rejection, deletion, or a bill unpaid for a day.
 - **Held work** (decision 6O): an answer or a ticket that somebody holds can be read by colleagues who may open that form or department, and changed only by its holder or by a manager — `cms.pages` for forms, `tickets.departments.manage` for tickets. Anybody may take what nobody holds; only a manager hands work to somebody else. A colleague may still leave an internal note on a ticket.
+- **A form is given only to people who can open its answers**: the list offered (`formStaff`) holds active admin-area accounts with `forms.handle` or `cms.pages`; saving a form or handing over work refuses anybody else and names them; a handler who lost the permission is pointed out on the form's settings.
 - **A form may name its handlers**; then only they and form builders see its answers, attachments and queue, and only they are told of new work.
 - **Permissions**: `cms.pages` builds forms and manages their work; `forms.handle` works on answers. One permission per section stays the rule.
 
