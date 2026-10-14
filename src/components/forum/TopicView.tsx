@@ -10,7 +10,7 @@ import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
 import { FORUM_RANK_LABELS, TRUST_NAMES, type ForumRank } from '@/modules/forum/domain/community'
 
-type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; joinedAt?: string | Date; rank?: ForumRank; flair: { icon: string; color: string; name: string } | null }
+type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; flair: { icon: string; color: string; name: string } | null }
 /** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
 function joinedLabel(value: string | Date) {
   const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', timeZone: 'Asia/Tehran' }).formatToParts(new Date(value))
