@@ -1,7 +1,8 @@
 'use client'
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import CheckoutError from '@/components/CheckoutError'
 import { fetchCheckoutGateways, startCheckout } from '@/modules/checkout/ui/client'
+import { JalaliDatePicker, Repeater, SignaturePad, SlotPicker } from '@/components/site/FormFieldsPro'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { DEFAULT_STYLE, checkSubmission, visibleFields, type Answer, type FormDefinition, type FormField, type FormState, type PriceLine } from '@/modules/forms/domain/forms'
@@ -88,9 +89,45 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
   }
 
   const shown = useMemo(() => visibleFields(form.fields, answers), [form.fields, answers])
-  const stepFields = useCallback((index: number) => shown.filter((f) => (steps.length ? (f.step || steps[0].id) === steps[index]?.id : true)), [shown, steps])
-  const current = stepFields(step)
-  const last = !steps.length || step >= steps.length - 1
+  const conversational = style.layout === 'conversational'
+  // Pages of the form: its steps — or, in the conversational layout, one question at a time (a heading or a note stays with the question after it).
+  const pages = useMemo(() => {
+    if (conversational) {
+      const out: FormField[][] = []; let waiting: FormField[] = []
+      for (const f of shown) { if (f.type === 'hidden') continue; waiting.push(f); if (f.type !== 'heading' && f.type !== 'paragraph') { out.push(waiting); waiting = [] } }
+      if (waiting.length) { if (out.length) out[out.length - 1].push(...waiting); else out.push(waiting) }
+      return out.length ? out : [[]]
+    }
+    return steps.length ? steps.map((s) => shown.filter((f) => (f.step || steps[0].id) === s.id)) : [shown]
+  }, [conversational, shown, steps])
+  const at = Math.min(step, pages.length - 1)
+  const current = pages[at] || []
+  const last = at >= pages.length - 1
+  const [quiz, setQuiz] = useState<{ score: number; max: number; passed: boolean | null } | null>(null)
+  const [restored, setRestored] = useState(false)
+
+  // A draft kept in this browser (never passwords, files or signatures), when the form allows it.
+  const draftKey = `mc.form.${form.slug}`
+  const keepDraft = !!settings?.saveDraft && !preview
+  useEffect(() => {
+    if (!keepDraft) return
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(draftKey) || 'null')
+      if (stored && typeof stored === 'object' && Object.keys(stored).length) { setAnswers(stored); setRestored(true) }
+    } catch { /* no draft */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keepDraft, draftKey])
+  useEffect(() => {
+    if (!keepDraft || sent) return
+    const skip = new Set(form.fields.filter((f) => ['secret', 'file', 'signature', 'slot'].includes(f.type)).map((f) => f.id))
+    const timer = window.setTimeout(() => { try { window.localStorage.setItem(draftKey, JSON.stringify(Object.fromEntries(Object.entries(answers).filter(([id]) => !skip.has(id))))) } catch { /* storage full or blocked */ } }, 500)
+    return () => window.clearTimeout(timer)
+  }, [answers, keepDraft, sent, draftKey, form.fields])
+  const dropDraft = () => { try { window.localStorage.removeItem(draftKey) } catch { /* blocked */ } }
+  // In the conversational layout the question that appears takes the cursor.
+  useEffect(() => {
+    if (conversational && at > 0) root.current?.querySelector<HTMLElement>('.pf-grid :is(input:not([type=hidden]),textarea,select,button)')?.focus()
+  }, [conversational, at])
 
   function set(id: string, value: Answer) {
     setAnswers((a) => ({ ...a, [id]: value }))
@@ -124,13 +161,13 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!last) { if (validate(current)) { setStep(step + 1); root.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) } ; return }
+    if (!last) { if (validate(current)) { setStep(at + 1); if (!conversational) root.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) } ; return }
     if (preview) { setMessage('پیش‌نمایش: در این نما فرم ارسال نمی‌شود.'); return }
     const all = shown
     if (!validate(all)) {
       // The problem may sit on an earlier step: go there.
       const bad = all.find((f) => checkSubmission(form.fields, answers).errors[f.id])
-      if (bad && steps.length) setStep(Math.max(0, steps.findIndex((s) => s.id === (bad.step || steps[0].id))))
+      if (bad) setStep(Math.max(0, pages.findIndex((page) => page.includes(bad))))
       return
     }
     setBusy(true); setMessage(''); setNeedsLogin(false)
@@ -139,9 +176,10 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
       const res = await fetch(`/api/forms/${form.slug}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: answers, website: honeypot }) })
       const result = await res.json()
       if (!res.ok) { if (res.status === 401) setNeedsLogin(true); throw new Error(result.error) }
-      setMessage(result.message); setSent(true)
+      setMessage(result.message); setSent(true); dropDraft()
+      if (result.quiz) setQuiz(result.quiz)
       if (result.pay) { setPay({ submissionId: result.pay.submissionId, lines: result.pay.lines || [], total: result.pay.amount, label: result.pay.label || '' }); return }
-      if (result.redirect) window.location.assign(result.redirect)
+      if (result.redirect && !result.quiz) window.location.assign(result.redirect)
     } catch (e) { setMessage(e instanceof Error ? e.message : 'ارسال ناموفق؛ دوباره تلاش کنید') } finally { setBusy(false) }
   }
 
@@ -156,14 +194,18 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
       <small className="pf-help">مبلغ نهایی هنگام پرداخت با نرخ همان لحظه حساب می‌شود. این درخواست در <Link href="/dashboard/requests" className="text-link">درخواست‌های من</Link> می‌ماند و از همان‌جا هم قابل پرداخت است.</small>
     </div>
   </section>
-  if (sent) return <section className={`public-form card pf ${look}`} style={vars}>{head}<div className="form-success" role="status">✓ {message}</div></section>
+  if (sent) return <section className={`public-form card pf ${look}`} style={vars}>{head}<div className="form-success" role="status">✓ {message}</div>
+    {quiz && <div className={`pf-quiz${quiz.passed === true ? ' is-pass' : quiz.passed === false ? ' is-fail' : ''}`} role="status"><span>امتیاز شما</span><strong className="num">{quiz.score.toLocaleString('fa-IR')}<small> از {quiz.max.toLocaleString('fa-IR')}</small></strong>{quiz.passed !== null && <b>{quiz.passed ? 'قبول شدید' : 'به حد قبولی نرسید'}</b>}<i aria-hidden="true"><em style={{ width: `${quiz.max > 0 ? Math.max(0, Math.min(100, (quiz.score / quiz.max) * 100)) : 0}%` }} /></i></div>}
+  </section>
 
-  return <form ref={root} onSubmit={submit} className={`public-form card pf ${look}`} style={vars} noValidate>
+  return <form ref={root} onSubmit={submit} className={`public-form card pf ${look}${conversational ? ' pf-conv' : ''}`} style={vars} noValidate>
     {head}
-    {steps.length > 1 && <nav className="pf-steps" aria-label="مراحل فرم"><ol>{steps.map((s, i) => <li key={s.id} className={i === step ? 'is-current' : i < step ? 'is-done' : ''} aria-current={i === step ? 'step' : undefined}><span>{(i + 1).toLocaleString('fa-IR')}</span>{s.title}</li>)}</ol><div className="pf-bar" aria-hidden="true"><i style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div></nav>}
-    {steps.length > 0 && steps[step]?.description && <p className="muted pf-step-note">{steps[step].description}</p>}
+    {restored && <p className="pf-draft" role="status">پیش‌نویس قبلی شما بازیابی شد. <button type="button" className="text-link" onClick={() => { dropDraft(); setAnswers({}); setRestored(false); setStep(0) }}>از نو شروع کن</button></p>}
+    {conversational && pages.length > 1 && <div className="pf-conv-progress" role="progressbar" aria-valuemin={1} aria-valuemax={pages.length} aria-valuenow={at + 1} aria-label="پیشرفت"><i style={{ width: `${((at + 1) / pages.length) * 100}%` }} /><span className="num">{(at + 1).toLocaleString('fa-IR')} / {pages.length.toLocaleString('fa-IR')}</span></div>}
+    {!conversational && steps.length > 1 && <nav className="pf-steps" aria-label="مراحل فرم"><ol>{steps.map((s, i) => <li key={s.id} className={i === step ? 'is-current' : i < step ? 'is-done' : ''} aria-current={i === step ? 'step' : undefined}><span>{(i + 1).toLocaleString('fa-IR')}</span>{s.title}</li>)}</ol><div className="pf-bar" aria-hidden="true"><i style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div></nav>}
+    {!conversational && steps.length > 0 && steps[step]?.description && <p className="muted pf-step-note">{steps[step].description}</p>}
     <div className="form-honeypot" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
-    <div className="pf-grid">
+    <div className="pf-grid" key={conversational ? at : 'all'}>
       {current.map((f) => {
         const id = `${uid}-${f.id}`
         const error = errors[f.id]
@@ -188,6 +230,10 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
             control = <div className="pf-rating" role="radiogroup" aria-labelledby={`${id}-l`}>{Array.from({ length: top }, (_, i) => i + 1).map((n) => <button key={n} type="button" role="radio" aria-checked={Number(value) === n} aria-label={`${n.toLocaleString('fa-IR')} از ${top.toLocaleString('fa-IR')}`} className={`rv-step${Number(value) === n ? ' is-on' : Number(value) > n ? ' is-under' : ''}`} onClick={() => set(f.id, String(Number(value) === n ? 0 : n))}>{n.toLocaleString('fa-IR')}</button>)}</div>
             break
           }
+          case 'jdate': control = <JalaliDatePicker id={id} value={(value as string) || ''} onChange={(next) => set(f.id, next)} invalid={!!error} describedBy={describedBy} />; break
+          case 'slot': control = <SlotPicker slug={form.slug} field={f} value={(value as string) || ''} onChange={(next) => set(f.id, next)} preview={preview} />; break
+          case 'repeater': control = <Repeater field={f} value={(value as string[]) || []} onChange={(rows) => set(f.id, rows)} />; break
+          case 'signature': control = <SignaturePad signed={((value as string[]) || []).length > 0} busy={uploading === f.id} onSave={(file) => void upload(f, file)} onClear={() => { setUploads((u) => ({ ...u, [f.id]: [] })); set(f.id, []) }} />; break
           case 'file': {
             const files = uploads[f.id] || []
             const cap = Math.min(f.max || 1, 5)
@@ -221,8 +267,8 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
           }
         }
         const boxed = f.type === 'checkbox'
-        return <div key={f.id} data-field={f.id} className={`studio-field pf-field ${f.width === 'half' ? 'pf-half' : 'pf-full'} ${error ? 'has-error' : ''}`}>
-          {!boxed && <span id={`${id}-l`} className="pf-label">{f.type === 'radio' || f.type === 'checkboxes' || f.type === 'rating' || f.type === 'fxamount' ? f.label : <label htmlFor={id}>{f.label}</label>}{f.required ? <b aria-hidden="true"> *</b> : null}</span>}
+        return <div key={f.id} data-field={f.id} className={`studio-field pf-field ${conversational || !f.width || f.width === 'full' ? 'pf-full' : `pf-col pf-col-${f.width}`} ${error ? 'has-error' : ''}`}>
+          {!boxed && <span id={`${id}-l`} className="pf-label">{['radio', 'checkboxes', 'rating', 'fxamount', 'slot', 'repeater', 'signature'].includes(f.type) ? f.label : <label htmlFor={id}>{f.label}</label>}{f.required ? <b aria-hidden="true"> *</b> : null}</span>}
           {control}
           {f.help && <small id={`${id}-h`} className="pf-help">{f.help}</small>}
           {error && <small id={`${id}-e`} className="error-text" role="alert">{error}</small>}
@@ -231,8 +277,8 @@ export default function PublicForm({ form, state = 'open', preview = false }: { 
     </div>
     {message && <p role={preview ? 'status' : 'alert'} className={preview ? 'muted' : 'error-text'}>{message} {needsLogin && <Link href={`/login?next=${encodeURIComponent(typeof window === 'undefined' ? '/' : window.location.pathname)}`} className="text-link">ورود به حساب</Link>}</p>}
     <div className="pf-actions">
-      {steps.length > 1 && step > 0 && <button type="button" className="btn btn-ghost" onClick={() => setStep(step - 1)}>مرحلهٔ قبل</button>}
-      <button disabled={busy || !!uploading} className="btn btn-primary">{busy ? '…' : !last ? 'مرحلهٔ بعد' : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
+      {pages.length > 1 && at > 0 && <button type="button" className="btn btn-ghost" onClick={() => setStep(at - 1)}>{conversational ? 'قبلی' : 'مرحلهٔ قبل'}</button>}
+      <button disabled={busy || !!uploading} className="btn btn-primary">{busy ? '…' : !last ? (conversational ? 'ادامه' : 'مرحلهٔ بعد') : settings?.submitLabel || (paid ? 'تأیید و رفتن به پرداخت' : '') || (locale === 'fa' ? 'ارسال فرم' : 'Send message')} <span aria-hidden="true">{last ? '↗' : '←'}</span></button>
     </div>
   </form>
 }

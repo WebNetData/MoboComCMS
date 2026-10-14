@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import type { FormDefinition, FormSettings } from '@/modules/forms/domain/forms'
 import { dateTimeLocal, settingsOf } from './shared'
 import { PaymentStylePanels } from './ProPanels'
+import { AdvancedSettings } from './AdvancedPanels'
 
 /** Form details, access rules, schedule, notifications and spam rules. */
 export default function SettingsPanel({ form, onChange }: { form: FormDefinition; onChange: (form: FormDefinition) => void }) {
@@ -23,6 +24,7 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
     </section>
 
     <PaymentStylePanels s={s} set={set} />
+    <AdvancedSettings form={form} s={s} set={set} />
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>بعد از ارسال</h2></header>

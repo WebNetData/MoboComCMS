@@ -5,7 +5,7 @@ export class FormsError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
 }
 
-export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph', 'time', 'slider', 'hidden', 'secret', 'mobile', 'national', 'price', 'fxamount', 'total'] as const
+export const FIELD_TYPES = ['text', 'email', 'tel', 'textarea', 'select', 'checkbox', 'radio', 'checkboxes', 'number', 'date', 'url', 'rating', 'file', 'heading', 'paragraph', 'time', 'slider', 'hidden', 'secret', 'mobile', 'national', 'price', 'fxamount', 'total', 'jdate', 'slot', 'repeater', 'signature'] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
 export const FIELD_LABEL: Record<FieldType, string> = {
@@ -13,6 +13,7 @@ export const FIELD_LABEL: Record<FieldType, string> = {
   number: 'عدد', date: 'تاریخ', url: 'نشانی وب', rating: 'امتیاز عددی', file: 'ضمیمهٔ فایل', heading: 'عنوان بخش', paragraph: 'متن توضیحی',
   time: 'ساعت', slider: 'نوار لغزنده', hidden: 'فیلد پنهان', secret: 'رمز / اطلاعات محرمانه', mobile: 'موبایل ایران', national: 'کد ملی',
   price: 'هزینهٔ ثابت', fxamount: 'مبلغ ارزی (نرخ روز)', total: 'جمع قابل پرداخت',
+  jdate: 'تاریخ شمسی', slot: 'نوبت (روز و ساعت با ظرفیت)', repeater: 'ردیف‌های تکرارشونده', signature: 'امضا',
 }
 /** Types that show text only and never carry an answer. */
 export const CONTENT_TYPES: FieldType[] = ['heading', 'paragraph', 'price', 'total']
@@ -28,7 +29,13 @@ export interface Condition { field: string; op: Op; value?: string }
 
 export interface FormField {
   id: string; label: string; type: FieldType; required: boolean; options: string[]
-  placeholder?: string; help?: string; min?: number; max?: number; width?: 'full' | 'half'; step?: string
+  placeholder?: string; help?: string; min?: number; max?: number; width?: FieldWidth; step?: string
+  /** `repeater`: the titles of the columns of each row. */
+  columns?: string[]
+  /** `slot`: which week days are open, between which hours, how long a turn is, how many people fit in one, and how far ahead. */
+  slot?: SlotRule
+  /** Points of `options`, in the same order (a quiz). Never sent to visitors. */
+  scores?: number[]
   showIf?: Condition[]; logic?: 'all' | 'any'
   /** Prices of `options`, in the same order (0 = free), in the form's currency. */
   prices?: number[]
@@ -39,6 +46,16 @@ export interface FormField {
   /** `hidden`: the value stored with every answer. */
   value?: string
 }
+export const WIDTHS = ['full', 'twothirds', 'half', 'third', 'quarter'] as const
+export type FieldWidth = (typeof WIDTHS)[number]
+export const WIDTH_LABEL: Record<FieldWidth, string> = { full: 'تمام‌عرض', twothirds: 'دو‌سوم', half: 'نیم‌عرض', third: 'یک‌سوم', quarter: 'یک‌چهارم' }
+/** Week days as JavaScript counts them (0 = Sunday … 6 = Saturday). */
+export interface SlotRule { days: number[]; from: string; to: string; minutes: number; capacity: number; horizon: number }
+export const DEFAULT_SLOT: SlotRule = { days: [6, 0, 1, 2, 3], from: '09:00', to: '17:00', minutes: 30, capacity: 1, horizon: 30 }
+export interface FormNotification { name: string; to: string; subject: string; body: string; when: Condition[]; logic: 'all' | 'any' }
+export interface FormConfirmation { message: string; redirectUrl: string; when: Condition[]; logic: 'all' | 'any' }
+export const WEBHOOK_EVENTS = ['submitted', 'paid', 'stage'] as const
+export interface FormWebhook { url: string; secret: string; events: (typeof WEBHOOK_EVENTS)[number][] }
 export interface FormStep { id: string; title: string; description: string }
 export interface FormSettings {
   steps: FormStep[]
@@ -50,16 +67,27 @@ export interface FormSettings {
   /** The visitor pays the form's total before staff take it up. */
   payment: { enabled: boolean; label: string }
   style: FormStyle
+  /** Extra messages to staff or the sender, each sent only while its conditions hold; texts take merge tags. */
+  notifications: FormNotification[]
+  /** What the sender sees after sending: the first whose conditions hold, else the form's own message. */
+  confirmations: FormConfirmation[]
+  webhooks: FormWebhook[]
+  /** The browser keeps what was typed so the visitor can come back to it (never passwords or files). */
+  saveDraft: boolean
+  quiz: { enabled: boolean; passScore: number; showResult: boolean }
+  /** Members of staff who may work on this form's answers (empty = everyone with forms.handle). */
+  handlers: number[]
 }
 export const THEMES = ['classic', 'card', 'glass', 'minimal', 'bold'] as const
 export const THEME_LABEL: Record<(typeof THEMES)[number], string> = { classic: 'کلاسیک', card: 'کارتی', glass: 'شیشه‌ای', minimal: 'مینیمال', bold: 'پررنگ' }
-export interface FormStyle { theme: (typeof THEMES)[number]; accent: string; radius: 'sharp' | 'soft' | 'round'; density: 'comfortable' | 'compact'; width: 'narrow' | 'normal' | 'wide'; progress: 'steps' | 'bar' | 'dots' }
-export const DEFAULT_STYLE: FormStyle = { theme: 'card', accent: '', radius: 'soft', density: 'comfortable', width: 'normal', progress: 'steps' }
+export interface FormStyle { layout: 'classic' | 'conversational'; theme: (typeof THEMES)[number]; accent: string; radius: 'sharp' | 'soft' | 'round'; density: 'comfortable' | 'compact'; width: 'narrow' | 'normal' | 'wide'; progress: 'steps' | 'bar' | 'dots' }
+export const DEFAULT_STYLE: FormStyle = { layout: 'classic', theme: 'card', accent: '', radius: 'soft', density: 'comfortable', width: 'normal', progress: 'steps' }
 const oneOf = <T extends string>(value: unknown, list: readonly T[], fallback: T): T => (list.includes(value as T) ? value as T : fallback)
 export function normalizeStyle(input: unknown): FormStyle {
   const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
   const accent = String(raw.accent ?? '').trim()
   return {
+    layout: oneOf(raw.layout, ['classic', 'conversational'] as const, 'classic'),
     theme: oneOf(raw.theme, THEMES, DEFAULT_STYLE.theme), accent: /^#[0-9a-fA-F]{6}$/.test(accent) ? accent.toLowerCase() : '',
     radius: oneOf(raw.radius, ['sharp', 'soft', 'round'] as const, 'soft'), density: oneOf(raw.density, ['comfortable', 'compact'] as const, 'comfortable'),
     width: oneOf(raw.width, ['narrow', 'normal', 'wide'] as const, 'normal'), progress: oneOf(raw.progress, ['steps', 'bar', 'dots'] as const, 'steps'),
@@ -72,6 +100,7 @@ export const DEFAULT_SETTINGS: FormSettings = {
   steps: [], notifyEmails: [], notifyInbox: true, autoReply: { enabled: false, subject: '', body: '' }, requireLogin: false, oncePerUser: false,
   opensAt: '', closesAt: '', maxSubmissions: 0, redirectUrl: '', submitLabel: '', closedMessage: '', spamLinks: 3,
   payment: { enabled: false, label: '' }, style: DEFAULT_STYLE,
+  notifications: [], confirmations: [], webhooks: [], saveDraft: false, quiz: { enabled: false, passScore: 0, showResult: true }, handlers: [],
 }
 
 const RESERVED = ['__proto__', 'constructor', 'prototype', 'website']
@@ -94,6 +123,20 @@ export function safeRedirect(value: unknown): string {
   if (/^\/(?!\/)/.test(raw)) return raw
   try { const url = new URL(raw); if (url.protocol === 'https:' || url.protocol === 'http:') return url.toString() } catch { /* falls through */ }
   throw new FormsError('نشانی بازگشت باید یک مسیر سایت یا نشانی http/https باشد')
+}
+
+/** Conditions of a notification or a confirmation: they may name any field of the form (checked once the fields are known). */
+function looseConditions(input: unknown): Condition[] {
+  if (!Array.isArray(input)) return []
+  const out: Condition[] = []
+  for (const item of input.slice(0, 5)) {
+    const field = str((item as Condition)?.field, 51)
+    const op = OPS.includes((item as Condition)?.op) ? (item as Condition).op : null
+    if (!op || !ID.test(field)) throw new FormsError('شرط اعلان یا پیام تأیید معتبر نیست')
+    const value = str((item as Condition)?.value, 150)
+    out.push(op === 'filled' || op === 'empty' ? { field, op } : { field, op, value })
+  }
+  return out
 }
 
 function normalizeConditions(input: unknown, earlier: Set<string>, label: string): Condition[] {
@@ -134,7 +177,32 @@ export function normalizeSettings(input: unknown): FormSettings {
   if (opensAt && closesAt && closesAt <= opensAt) throw new FormsError('پایان باید بعد از شروع باشد')
   const payment = (raw.payment && typeof raw.payment === 'object' ? raw.payment : {}) as Record<string, unknown>
   const paid = payment.enabled === true
+  const list = (value: unknown, max: number) => (Array.isArray(value) ? value.slice(0, max) : []) as Record<string, unknown>[]
+  const notifications: FormNotification[] = list(raw.notifications, 6).map((item) => {
+    const to = str(item?.to, 400)
+    // Recipients: addresses, or the answer of an e-mail field written as {field:id}.
+    for (const part of to.split(/[\s,،;]+/).filter(Boolean)) if (!isEmail(part) && !/^\{field:[a-z][a-z0-9_]{0,50}\}$/.test(part)) throw new FormsError('گیرندهٔ اعلان باید ایمیل یا {field:شناسهٔ‌فیلد} باشد')
+    if (!to) throw new FormsError('گیرندهٔ اعلان را وارد کنید')
+    return { name: str(item?.name, 60) || 'اعلان', to, subject: str(item?.subject, 200), body: String(item?.body ?? '').slice(0, 4000), when: looseConditions(item?.when), logic: item?.logic === 'any' ? 'any' : 'all' }
+  })
+  const confirmations: FormConfirmation[] = list(raw.confirmations, 6).map((item) => {
+    const message = str(item?.message, 1000)
+    const redirectUrl = safeRedirect(item?.redirectUrl)
+    if (!message && !redirectUrl) throw new FormsError('هر پیام تأیید متن یا نشانی می‌خواهد')
+    return { message, redirectUrl, when: looseConditions(item?.when), logic: item?.logic === 'any' ? 'any' : 'all' }
+  })
+  const webhooks: FormWebhook[] = list(raw.webhooks, 3).map((item) => {
+    let url: URL | null = null
+    try { url = new URL(str(item?.url, 500)) } catch { url = null }
+    if (!url || url.protocol !== 'https:' || url.username || url.password) throw new FormsError('نشانی وب‌هوک باید https باشد')
+    const events = (Array.isArray(item?.events) ? item.events : ['submitted']).filter((event): event is FormWebhook['events'][number] => (WEBHOOK_EVENTS as readonly string[]).includes(event as string))
+    return { url: url.toString(), secret: str(item?.secret, 120), events: events.length ? [...new Set(events)] : ['submitted'] }
+  })
+  const quiz = (raw.quiz && typeof raw.quiz === 'object' ? raw.quiz : {}) as Record<string, unknown>
+  const handlers = [...new Set((Array.isArray(raw.handlers) ? raw.handlers : []).map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 50)
   return {
+    notifications, confirmations, webhooks, saveDraft: raw.saveDraft === true, handlers,
+    quiz: { enabled: quiz.enabled === true, passScore: int(quiz.passScore, 0, 1_000_000, 0), showResult: quiz.showResult !== false },
     payment: { enabled: paid, label: str(payment.label, 40) }, style: normalizeStyle(raw.style),
     steps, notifyEmails: emails, notifyInbox: raw.notifyInbox !== false,
     autoReply: { enabled: reply.enabled === true, subject: str(reply.subject, 150), body: String(reply.body ?? '').slice(0, 3000) },
@@ -200,7 +268,20 @@ export function normalizeForm(input: unknown): FormDefinition {
       if (f.max !== undefined && f.max !== '' && f.max !== null) out.max = int(f.max, 0, 9_999_999, 0)
       if (out.min !== undefined && out.max && out.min > out.max) throw new FormsError(`کمینه و بیشینهٔ «${label}» درست نیست`)
     }
-    if (f.width === 'half') out.width = 'half'
+    if (CHOICE_TYPES.includes(type) && Array.isArray(f.scores) && f.scores.some((score) => Number(score) !== 0)) out.scores = options.map((_, index) => int((f.scores as unknown[])[index], -1000, 1000, 0))
+    if (type === 'repeater') {
+      out.columns = (Array.isArray(f.columns) ? f.columns : []).map((column) => str(column, 60).replace(/\|/g, '/')).filter(Boolean).slice(0, 6)
+      if (!out.columns.length) throw new FormsError(`ستون‌های «${label}» را تعریف کنید`)
+      out.min = int(f.min, 0, 30, 0); out.max = int(f.max, 1, 30, 10)
+    }
+    if (type === 'slot') {
+      const rule = (f.slot && typeof f.slot === 'object' ? f.slot : {}) as Record<string, unknown>
+      const clock = (value: unknown, fallback: string) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value)) ? String(value) : fallback)
+      const days = [...new Set((Array.isArray(rule.days) ? rule.days : DEFAULT_SLOT.days).map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort()
+      out.slot = { days: days.length ? days : DEFAULT_SLOT.days, from: clock(rule.from, DEFAULT_SLOT.from), to: clock(rule.to, DEFAULT_SLOT.to), minutes: int(rule.minutes, 5, 480, 30), capacity: int(rule.capacity, 1, 500, 1), horizon: int(rule.horizon, 1, 365, 30) }
+      if (out.slot.to <= out.slot.from) throw new FormsError(`ساعت پایان «${label}» باید بعد از شروع باشد`)
+    }
+    if ((WIDTHS as readonly string[]).includes(f.width as string) && f.width !== 'full') out.width = f.width as FieldWidth
     const step = str(f.step, 31)
     if (settings.steps.length) out.step = stepIds.has(step) ? step : settings.steps[0].id
     const showIf = normalizeConditions(f.showIf, seen, label)
@@ -268,14 +349,28 @@ function checkOne(f: FormField, input: unknown): [Answer, string] {
     if (input !== undefined && typeof input !== 'boolean') return [false, `مقدار ${label} معتبر نیست`]
     return [input === true, f.required && input !== true ? `${label} الزامی است` : '']
   }
-  if (f.type === 'checkboxes' || f.type === 'file') {
+  if (f.type === 'repeater') {
+    if (input !== undefined && !Array.isArray(input)) return [[], `مقدار ${label} معتبر نیست`]
+    const width = (f.columns || []).length
+    const rows: string[] = []
+    for (const item of ((input as unknown[] | undefined) ?? []).slice(0, 40)) {
+      const cells = (Array.isArray(item) ? item : String(item ?? '').split('|')).slice(0, width).map((cell) => String(cell ?? '').replace(/[\u0000-\u001f|]/g, ' ').trim().slice(0, 200))
+      while (cells.length < width) cells.push('')
+      if (cells.some(Boolean)) rows.push(cells.join(' | '))
+    }
+    if (f.required && !rows.length) return [[], `${label} الزامی است`]
+    if (rows.length < (f.min || 0) && (f.required || rows.length)) return [[], `${label}: دست‌کم ${(f.min || 0).toLocaleString('fa-IR')} ردیف`]
+    if (rows.length > (f.max || 10)) return [[], `${label}: حداکثر ${(f.max || 10).toLocaleString('fa-IR')} ردیف`]
+    return [rows, '']
+  }
+  if (f.type === 'checkboxes' || f.type === 'file' || f.type === 'signature') {
     if (input !== undefined && !Array.isArray(input)) return [[], `مقدار ${label} معتبر نیست`]
     const list = (input as unknown[] | undefined) ?? []
     if (list.some((item) => typeof item !== 'string')) return [[], `مقدار ${label} معتبر نیست`]
     const items = [...new Set(list as string[])]
-    const cap = f.type === 'file' ? Math.min(f.max || 1, 5) : f.max || f.options.length
+    const cap = f.type === 'signature' ? 1 : f.type === 'file' ? Math.min(f.max || 1, 5) : f.max || f.options.length
     if (f.type === 'checkboxes' && items.some((item) => !f.options.includes(item))) return [[], 'گزینه انتخاب‌شده معتبر نیست']
-    if (f.type === 'file' && items.some((item) => !UPLOAD_ID.test(item))) return [[], `فایل ${label} معتبر نیست`]
+    if (f.type !== 'checkboxes' && items.some((item) => !UPLOAD_ID.test(item))) return [[], `فایل ${label} معتبر نیست`]
     if (f.required && !items.length) return [[], `${label} الزامی است`]
     if (items.length > cap) return [[], `${label}: حداکثر ${cap.toLocaleString('fa-IR')} مورد`]
     if (f.type === 'checkboxes' && f.min && items.length && items.length < f.min) return [[], `${label}: دست‌کم ${f.min.toLocaleString('fa-IR')} گزینه انتخاب کنید`]
@@ -309,6 +404,15 @@ function checkOne(f: FormField, input: unknown): [Answer, string] {
       if (f.max && n > f.max) return ['', `${label} باید حداکثر ${f.max.toLocaleString('fa-IR')} باشد`]
       return [String(n), '']
     }
+    case 'slot': {
+      const text = toLatinDigits(value)
+      const match = /^(\d{4}-\d{2}-\d{2}) (([01]\d|2[0-3]):[0-5]\d)$/.exec(text)
+      const day = match ? new Date(`${match[1]}T00:00:00Z`) : null
+      const rule = f.slot || DEFAULT_SLOT
+      if (!match || !day || Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== match[1] || !rule.days.includes(day.getUTCDay()) || !slotTimes(rule).includes(match[2])) return ['', `نوبت ${label} معتبر نیست`]
+      return [text, '']
+    }
+    case 'jdate':
     case 'date': {
       const text = toLatinDigits(value)
       const d = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00Z`) : null
@@ -383,6 +487,14 @@ export function validateSubmission(fields: FormField[], input: unknown): Record<
   return values
 }
 
+/** The turns of one open day, as "HH:MM" (the last one ends by the closing hour). */
+export function slotTimes(rule: SlotRule): string[] {
+  const minutes = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3))
+  const out: string[] = []
+  for (let at = minutes(rule.from); at + rule.minutes <= minutes(rule.to) && out.length < 200; at += rule.minutes) out.push(`${String(Math.floor(at / 60)).padStart(2, '0')}:${String(at % 60).padStart(2, '0')}`)
+  return out
+}
+
 /** Iranian national id: ten digits with the official check digit. */
 export function validNationalId(code: string): boolean {
   if (!/^\d{10}$/.test(code) || /^(\d)\1{9}$/.test(code)) return false
@@ -447,8 +559,8 @@ export function formState(settings: Pick<FormSettings, 'opensAt' | 'closesAt' | 
 export function publicForm(form: FormDefinition): FormDefinition {
   const s = form.settings || DEFAULT_SETTINGS
   // The margin of a foreign amount and the stored value of a hidden field are the site's business.
-  const fields = form.fields.map(({ markupPercent: _percent, markupFixed: _fixed, value: _value, ...field }) => field)
-  return { ...form, fields, settings: { ...DEFAULT_SETTINGS, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt, payment: s.payment, style: s.style } }
+  const fields = form.fields.map(({ markupPercent: _percent, markupFixed: _fixed, value: _value, scores: _scores, ...field }) => field)
+  return { ...form, fields, settings: { ...DEFAULT_SETTINGS, saveDraft: s.saveDraft, quiz: { ...DEFAULT_SETTINGS.quiz, enabled: s.quiz.enabled, showResult: s.quiz.showResult }, steps: s.steps, requireLogin: s.requireLogin, redirectUrl: s.redirectUrl, submitLabel: s.submitLabel, closedMessage: s.closedMessage, opensAt: s.opensAt, closesAt: s.closesAt, payment: s.payment, style: s.style } }
 }
 
 /** A stored row (JSON columns as text) → definition. Damaged JSON reads as empty rather than crashing pages. */

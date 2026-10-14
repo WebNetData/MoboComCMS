@@ -23,12 +23,15 @@ export default function FormsAdmin() {
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [picking, setPicking] = useState(false)
+  // Somebody who only works on answers gets the answers, not the builder.
+  const [canBuild, setCanBuild] = useState(true)
+  useEffect(() => { if (!canBuild) { setTab('inbox'); setPicking(false) } }, [canBuild, form?.id])
 
   const load = useCallback(async () => {
     const r = await fetch('/api/admin/forms', { cache: 'no-store' })
     if (!r.ok) throw new Error('دریافت فرم‌ها ممکن نشد؛ دسترسی مدیریت صفحات لازم است.')
-    const data: { forms: SavedForm[]; templates: Template[] } = await r.json()
-    setForms(data.forms); setTemplates(data.templates)
+    const data: { forms: SavedForm[]; templates: Template[]; canBuild?: boolean } = await r.json()
+    setForms(data.forms); setTemplates(data.templates); setCanBuild(data.canBuild !== false)
     return data.forms
   }, [])
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function FormsAdmin() {
   const saved = forms.find((f) => f.id === form?.id)
   return <div className="sa fb-page" dir="rtl">
     <header className="sa-head"><div><h1>فرم‌ساز</h1><p className="sa-hint">فرم تماس، ثبت‌نام، نظرسنجی و درخواست بسازید؛ پاسخ‌ها را مدیریت و خروجی بگیرید.</p></div>
-      <div className="sa-head-actions"><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
+      <div className="sa-head-actions" hidden={!canBuild}><button type="button" className="btn btn-ghost" onClick={() => setPicking(true)}>+ فرم تازه</button>
         <button type="button" className="btn btn-primary" disabled={busy || !form || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : dirty ? 'ذخیرهٔ فرم' : 'ذخیره شد'}</button></div></header>
     {notice && <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`sa-notice ${notice.tone === 'error' ? 'is-error' : 'is-ok'}`}>{notice.text}</div>}
 
@@ -101,13 +104,13 @@ export default function FormsAdmin() {
       {form && <div className="fb-main">
         <div className="fb-title"><div><h2>{form.title || 'فرم بدون عنوان'}</h2>{form.id ? <small dir="ltr">/forms/{form.slug}</small> : <small>ذخیره نشده</small>}</div>
           {form.id && <div className="sa-row-actions">{form.published && <Link href={`/forms/${form.slug}`} target="_blank" className="btn btn-ghost btn-sm">مشاهده ↗</Link>}<button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('duplicate')}>کپی</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void op('delete')}>حذف</button></div>}</div>
-        <div className="sa-tabs fb-tabs" role="tablist">{TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}{id === 'inbox' && saved?.counts.new ? <span className="fb-badge">{fa(saved.counts.new)}</span> : null}</button>)}</div>
+        <div className="sa-tabs fb-tabs" role="tablist">{TABS.filter(([id]) => canBuild || id === 'inbox').map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}{id === 'inbox' && saved?.counts.new ? <span className="fb-badge">{fa(saved.counts.new)}</span> : null}</button>)}</div>
         {problem && dirty && tab !== 'inbox' && <p className="fb-problem" role="status">⚠ {problem}</p>}
 
         {tab === 'build' && <Builder form={form} onChange={edit} />}
         {tab === 'settings' && <SettingsPanel form={form} onChange={edit} />}
         {tab === 'preview' && (problem ? <p className="sa-hint">پیش‌نمایش پس از رفع خطای بالا نمایش داده می‌شود: {problem}</p> : <><p className="sa-hint">پیش‌نمایش زنده؛ شرط‌ها و مرحله‌ها کار می‌کنند اما فرم ارسال نمی‌شود.</p><PublicForm key={JSON.stringify(form)} form={publicForm({ ...form, settings: settingsOf(form) })} preview /></>)}
-        {tab === 'inbox' && (form.id ? <Inbox formId={form.id} onNotice={say} /> : <p className="sa-hint">ابتدا فرم را ذخیره کنید.</p>)}
+        {tab === 'inbox' && (form.id ? <Inbox formId={form.id} fields={form.fields} onNotice={say} /> : <p className="sa-hint">ابتدا فرم را ذخیره کنید.</p>)}
       </div>}
     </div>
   </div>

@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { CHOICE_TYPES, FIELD_LABEL, OPS, OP_LABEL, type Condition, type FormDefinition, type FormField, type FormStep } from '@/modules/forms/domain/forms'
+import { CHOICE_TYPES, FIELD_LABEL, OPS, OP_LABEL, WIDTH_LABEL, type Condition, type FormDefinition, type FormField, type FormStep } from '@/modules/forms/domain/forms'
 import { isContent, newField, settingsOf } from './shared'
 import { ProFieldProps } from './ProPanels'
+import { AdvancedFieldProps, WidthSelect } from './AdvancedPanels'
 
 const GROUPS: { title: string; types: FormField['type'][] }[] = [
   { title: 'ورودی متنی', types: ['text', 'textarea', 'email', 'tel', 'mobile', 'national', 'url', 'number', 'secret'] },
-  { title: 'تاریخ و مقدار', types: ['date', 'time', 'slider', 'rating'] },
+  { title: 'تاریخ و نوبت', types: ['jdate', 'date', 'time', 'slot'] },
+  { title: 'مقدار', types: ['slider', 'rating'] },
   { title: 'انتخاب', types: ['select', 'radio', 'checkboxes', 'checkbox'] },
   { title: 'قیمت و پرداخت', types: ['fxamount', 'price', 'total'] },
-  { title: 'ضمیمه و محتوا', types: ['file', 'heading', 'paragraph', 'hidden'] },
+  { title: 'پیشرفته', types: ['repeater', 'signature', 'file', 'hidden'] },
+  { title: 'محتوا', types: ['heading', 'paragraph'] },
 ]
 
 const move = <T,>(list: T[], from: number, to: number) => { const next = [...list]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return next }
@@ -71,13 +74,13 @@ export default function Builder({ form, onChange }: { form: FormDefinition; onCh
       <ol className="fb-list">
         {form.fields.map((f, i) => {
           const startsStep = steps.length > 0 && (i === 0 || stepIndex(form.fields[i - 1]) !== stepIndex(f))
-          return <li key={f.id} className={dragging === i ? 'is-dragging' : ''} draggable onDragStart={() => setDragging(i)} onDragEnd={() => setDragging(null)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragging !== null && dragging !== i) { setFields(move(form.fields, dragging, i)); setSelected(i) } setDragging(null) }}>
+          return <li key={f.id} className={`fb-w-${f.width || 'full'}${startsStep ? ' fb-break' : ''}${dragging === i ? ' is-dragging' : ''}`} draggable onDragStart={() => setDragging(i)} onDragEnd={() => setDragging(null)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (dragging !== null && dragging !== i) { setFields(move(form.fields, dragging, i)); setSelected(i) } setDragging(null) }}>
             {startsStep && <div className="fb-step-title">{steps[stepIndex(f)]?.title}</div>}
             <div className={`fb-field ${i === selected ? 'is-selected' : ''}`}>
               <button type="button" className="fb-pick" onClick={() => setSelected(i)} aria-pressed={i === selected}>
                 <span className="fb-kind">{FIELD_LABEL[f.type]}</span>
                 <b>{f.label}{f.required ? <i aria-label="الزامی"> *</i> : null}</b>
-                <small>{f.showIf?.length ? `شرطی · ` : ''}{f.width === 'half' ? 'نیم‌عرض' : ''}</small>
+                <small>{f.showIf?.length ? `شرطی · ` : ''}{f.width && f.width !== 'full' ? WIDTH_LABEL[f.width] : ''}</small>
               </button>
               <div className="fb-tools">
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => shift(i, -1)} disabled={i === 0} aria-label="بالاتر">↑</button>
@@ -110,8 +113,9 @@ export default function Builder({ form, onChange }: { form: FormDefinition; onCh
           {field.type === 'file' && <p className="sa-hint">PDF، JPG، PNG یا WebP تا ۵ مگابایت؛ فقط مدیران فایل را می‌بینند.</p>}
         </>}
         <ProFieldProps field={field} patch={patch} />
+        <AdvancedFieldProps field={field} patch={patch} quiz={settings.quiz.enabled} />
         <div className="fb-two">
-          <label className="sa-field"><span>عرض</span><select className="input" value={field.width || 'full'} onChange={(e) => patch({ width: e.target.value === 'half' ? 'half' : undefined })}><option value="full">تمام‌عرض</option><option value="half">نیم‌عرض</option></select></label>
+          <WidthSelect value={field.width} onChange={(width) => patch({ width })} />
           {steps.length > 0 && <label className="sa-field"><span>مرحله</span><select className="input" value={field.step || steps[0].id} onChange={(e) => patch({ step: e.target.value })}>{steps.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}</select></label>}
         </div>
         <label className="sa-field"><span>شناسهٔ فیلد (در خروجی و شرط‌ها)</span><input className="input" dir="ltr" value={field.id} disabled title="برای جلوگیری از گم شدن شرط‌ها و پاسخ‌های قبلی، شناسه ثابت است" readOnly /></label>

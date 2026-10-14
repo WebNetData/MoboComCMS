@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { STAGES, STAGE_LABEL, STATUSES, STATUS_LABEL, answerText, type Stage, type SubmissionStatus } from '@/modules/forms/domain/forms'
 import type { Row } from './shared'
 import { WorkPanel } from './ProPanels'
+import { EditAndAssign, FieldStatsView } from './AdvancedPanels'
+import type { FormField } from '@/modules/forms/domain/forms'
 
 const STAGE_TONE: Record<string, string> = { OPEN: 'is-warn', IN_PROGRESS: 'is-info', DONE: 'is-good', REJECTED: 'is-bad' }
 
@@ -29,7 +31,8 @@ function Bars({ series }: { series: Stats['series'] }) {
 }
 
 /** Answers: status tabs, search and dates, bulk actions, notes, attachments, CSV export. */
-export default function Inbox({ formId, onNotice }: { formId: number; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
+export default function Inbox({ formId, fields, onNotice }: { formId: number; fields: FormField[]; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
+  const [showStats, setShowStats] = useState(false)
   const [status, setStatus] = useState('ALL')
   const [stage, setStage] = useState('')
   const [q, setQ] = useState('')
@@ -73,6 +76,8 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
   const all = Object.entries(counts).filter(([k]) => k !== 'SPAM').reduce((sum, [, n]) => sum + n, 0)
   return <div className="fb-inbox">
     {stats && <Bars series={stats.series} />}
+    <div className="fa-stats-toggle"><button type="button" className="btn btn-ghost btn-sm" aria-expanded={showStats} onClick={() => setShowStats(!showStats)}>{showStats ? 'بستن آمار فیلدها' : 'آمار فیلدها'}</button></div>
+    {showStats && <FieldStatsView formId={formId} api={api} />}
     <div className="sa-filters">
       <div className="ad-range" role="group" aria-label="وضعیت">
         <button type="button" aria-pressed={status === 'ALL'} onClick={() => { setStatus('ALL'); setPage(1) }}>همه ({fa(all)})</button>
@@ -110,6 +115,7 @@ export default function Inbox({ formId, onNotice }: { formId: number; onNotice: 
             {open === row.id && <tr className="fb-detail"><td colSpan={6}>
               <dl>{row.answers.map((a) => <div key={a.id}><dt>{a.label}</dt><dd>{a.type === 'file' ? '' : answerText(a.value) || '—'}{a.type === 'rating' && a.value ? ' (امتیاز)' : ''}</dd></div>)}</dl>
               {row.files.length > 0 && <div className="fb-attach">{row.files.map((f) => /\.(png|jpe?g|webp)$/i.test(f.id) ? <a key={f.id} href={`/api/admin/forms/files?id=${f.id}`} target="_blank" rel="noopener"><img src={`/api/admin/forms/files?id=${f.id}`} alt={f.name} /><small>{f.name} · {kb(f.size)}</small></a> : <a key={f.id} className="btn btn-ghost btn-sm" href={`/api/admin/forms/files?id=${f.id}&download=1`}>📄 {f.name} · {kb(f.size)}</a>)}</div>}
+              <EditAndAssign row={row} fields={fields} api={api} onChanged={() => void load()} onNotice={onNotice} />
               <WorkPanel row={row} api={api} onChanged={() => void load()} onNotice={onNotice} />
               <label className="sa-field"><span>یادداشت داخلی</span><textarea className="input" rows={2} maxLength={1000} value={notes[row.id] ?? row.note} onChange={(e) => setNotes({ ...notes, [row.id]: e.target.value })} /></label>
               <div className="sa-row-actions">

@@ -196,7 +196,7 @@ test('the bill counts fixed costs, priced options and foreign amounts — only f
 })
 
 test('a form keeps a chosen look, and an unknown one falls back', () => {
-  assert.deepEqual(f.normalizeStyle({ theme: 'glass', accent: '#0EA5E9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' }), { theme: 'glass', accent: '#0ea5e9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' })
+  assert.deepEqual(f.normalizeStyle({ theme: 'glass', accent: '#0EA5E9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' }), { layout: 'classic', theme: 'glass', accent: '#0ea5e9', radius: 'round', density: 'compact', width: 'wide', progress: 'dots' })
   assert.deepEqual(f.normalizeStyle({ theme: 'x', accent: 'red;}', radius: 1 }), f.DEFAULT_STYLE)
 })
 
@@ -231,4 +231,99 @@ test('a paid form is charged by the site checkout and worked on by staff', () =>
   // The forum's board and the form builder no longer share a layout rule.
   assert.match(source('src/app/admin/forms/page.tsx'), /className="fb-layout fb-forms-layout"/)
   assert.match(source('src/app/forms-pro.css'), /\.fb-layout\.fb-forms-layout \{ grid-template-columns: minmax\(0, 1fr\); \}/)
+})
+
+// The advanced rules import the field rules; load them with that one alias resolved.
+const adv = (() => {
+  const code = ts.transpileModule(source('src/modules/forms/domain/advanced.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', code)((name) => (name === '@/modules/forms/domain/forms' ? f : require(name)), mod, mod.exports)
+  return mod.exports
+})()
+
+test('an appointment field offers its turns, and repeating rows keep only what was filled', () => {
+  const rule = { days: [6, 0, 1], from: '09:00', to: '10:30', minutes: 30, capacity: 2, horizon: 7 }
+  assert.deepEqual(f.slotTimes(rule), ['09:00', '09:30', '10:00'])
+  assert.deepEqual(f.slotTimes({ ...rule, minutes: 45 }), ['09:00', '09:45'], 'a turn that would end after closing is not offered')
+  // 2026-10-17 is a Saturday (day 6); the rule opens Saturday, Sunday and Monday.
+  assert.deepEqual(adv.slotDays(rule, '2026-10-14'), ['2026-10-17', '2026-10-18', '2026-10-19'])
+  const fields = f.normalizeForm(form([field('turn', 'slot', { required: true, slot: rule }), field('rows', 'repeater', { columns: ['نام', 'تعداد'], min: 1, max: 2 }), field('day', 'jdate')])).fields
+  assert.equal(fields[0].slot.capacity, 2)
+  const ok = f.checkSubmission(fields, { turn: '2026-10-17 09:30', rows: [['سیب | سرخ', '۲'], ['', '']], day: '2026-10-20' })
+  assert.deepEqual(plain(ok.errors), {})
+  assert.deepEqual(plain(ok.values), { turn: '2026-10-17 09:30', rows: ['سیب   سرخ | ۲'], day: '2026-10-20' })
+  for (const turn of ['2026-10-16 09:30', '2026-10-17 09:15', '2026-10-17 10:30', '2026-13-40 09:00', 'tomorrow']) assert.ok(f.checkSubmission(fields, { turn }).errors.turn, turn)
+  assert.ok(f.checkSubmission(fields, { turn: '2026-10-17 09:00', rows: [['a', 'b'], ['c', 'd'], ['e', 'f']] }).errors.rows, 'more rows than allowed')
+  assert.throws(() => f.normalizeForm(form([field('rows', 'repeater')])), /ستون/)
+  assert.throws(() => f.normalizeForm(form([field('turn', 'slot', { slot: { from: '10:00', to: '09:00' } })])), /ساعت پایان/)
+})
+
+test('merge tags, conditional confirmations and notification recipients', () => {
+  const answers = [{ id: 'name', label: 'نام', type: 'text', value: 'سارا' }, { id: 'email', label: 'ایمیل', type: 'email', value: 'Sara@Example.com' }, { id: 'pass', label: 'رمز', type: 'secret', value: f.SECRET_MASK }, { id: 'cv', label: 'رزومه', type: 'file', value: ['x.pdf'] }]
+  const context = { formTitle: 'همکاری', entryId: 12, answers, total: 250000, score: { score: 3, max: 5 } }
+  assert.equal(adv.mergeTags('سلام {field:name}، شمارهٔ {entry_id} در «{form_title}» — {total} — {score}{unknown}{field:nothing}{field:cv}', context), 'سلام سارا، شمارهٔ 12 در «همکاری» — ۲۵۰٬۰۰۰ تومان — ۳ از ۵{unknown}')
+  const all = adv.mergeTags('{all_fields}', context)
+  assert.match(all, /نام: سارا\nایمیل: Sara@Example\.com\nرمز: ••••••••\nرزومه: پیوست شد/)
+  const settings = f.normalizeSettings({
+    redirectUrl: '/thanks',
+    confirmations: [{ message: 'فروش با شما تماس می‌گیرد', when: [{ field: 'topic', op: 'eq', value: 'فروش' }] }, { redirectUrl: '/vip', when: [{ field: 'vip', op: 'filled' }] }],
+    notifications: [{ to: 'sales@example.com, {field:email}', when: [{ field: 'topic', op: 'eq', value: 'فروش' }] }, { to: 'all@example.com' }],
+    webhooks: [{ url: 'https://example.com/hook', secret: 's', events: ['paid', 'nope'] }], handlers: [3, 3, 'x', 9],
+  })
+  assert.deepEqual(adv.pickConfirmation(settings, 'ثبت شد', { topic: 'فروش' }), { message: 'فروش با شما تماس می‌گیرد', redirectUrl: '' })
+  assert.deepEqual(adv.pickConfirmation(settings, 'ثبت شد', { vip: 'بله' }), { message: 'ثبت شد', redirectUrl: '/vip' })
+  assert.deepEqual(adv.pickConfirmation(settings, 'ثبت شد', {}), { message: 'ثبت شد', redirectUrl: '/thanks' })
+  assert.deepEqual(adv.dueNotifications(settings, { topic: 'فروش' }).map((n) => n.to), ['sales@example.com, {field:email}', 'all@example.com'])
+  assert.deepEqual(adv.dueNotifications(settings, { topic: 'x' }).map((n) => n.to), ['all@example.com'])
+  assert.deepEqual(adv.recipients('sales@example.com, {field:email} {field:name}', answers), ['sales@example.com', 'sara@example.com'], 'only an e-mail field can name a recipient')
+  assert.deepEqual(settings.webhooks, [{ url: 'https://example.com/hook', secret: 's', events: ['paid'] }])
+  assert.deepEqual(settings.handlers, [3, 9])
+  for (const url of ['http://example.com/x', 'https://user:pw@example.com/x', 'javascript:alert(1)']) assert.throws(() => f.normalizeSettings({ webhooks: [{ url }] }), /https/, url)
+  assert.throws(() => f.normalizeSettings({ notifications: [{ to: 'someone' }] }), /گیرنده/)
+  // Visitors never get the recipients, the hooks, the handlers or the quiz points.
+  const shown = f.publicForm(f.normalizeForm(form([field('q', 'radio', { options: ['a', 'b'], scores: [1, 0] })], { settings: { ...settings, quiz: { enabled: true, passScore: 1 }, saveDraft: true } })))
+  assert.doesNotMatch(JSON.stringify(shown), /sales@example|example\.com\/hook|"scores"|"handlers":\[3/)
+  assert.equal(shown.settings.saveDraft, true)
+  assert.equal(shown.settings.quiz.enabled, true)
+})
+
+test('quiz points and field statistics', () => {
+  const fields = f.normalizeForm(form([field('a', 'radio', { options: ['x', 'y'], scores: [2, 0] }), field('b', 'checkboxes', { options: ['p', 'q', 'r'], scores: [1, 1, -1] }), field('c', 'radio', { options: ['m', 'n'], scores: [5, 0], showIf: [{ field: 'a', op: 'eq', value: 'y' }] }), field('r', 'rating')])).fields
+  assert.deepEqual(adv.scoreOf(fields, { a: 'x', b: ['p', 'r'] }), { score: 2, max: 4 }, 'a hidden question counts for nothing')
+  assert.deepEqual(adv.scoreOf(fields, { a: 'y', b: ['p', 'q'], c: 'm' }), { score: 7, max: 9 })
+  const rows = [[{ id: 'a', label: '', value: 'x' }, { id: 'b', label: '', value: ['p', 'q'] }, { id: 'r', label: '', value: '4' }], [{ id: 'a', label: '', value: 'y' }, { id: 'r', label: '', value: '2' }], [{ id: 'a', label: '', value: 'x' }]]
+  const stats = adv.fieldStats(fields, rows)
+  assert.deepEqual(stats.find((s) => s.id === 'a').options, [{ label: 'x', count: 2 }, { label: 'y', count: 1 }])
+  assert.deepEqual(stats.find((s) => s.id === 'b').options.map((o) => o.count), [1, 1, 0])
+  const rating = stats.find((s) => s.id === 'r')
+  assert.deepEqual([rating.answered, rating.average, rating.min, rating.max], [2, 3, 2, 4])
+})
+
+test('appointments cannot be overbooked, hooks go only to public https addresses, and a form may be given to named staff', () => {
+  const server = source('src/modules/forms/server/advanced.ts'), service = source('src/modules/forms/server/service.ts'), paid = source('src/modules/forms/server/paid.ts')
+  const route = source('src/modules/site/server/http/admin/forms/submissions/route.ts'), list = source('src/modules/site/server/http/admin/forms/route.ts')
+  // The seat is taken in the answer's own transaction; the unique key refuses a second holder and the answer is tried again.
+  for (const schema of ['prisma/schema.prisma', 'prisma/schema.postgresql.prisma']) assert.match(source(schema), /model FormBooking \{[\s\S]{0,900}@@unique\(\[formId, fieldId, slot, seat\]\)/, schema)
+  assert.match(source('prisma/migrations/20261229120000_form_bookings_quiz/migration.sql'), /CREATE UNIQUE INDEX "FormBooking_formId_fieldId_slot_seat_key"/)
+  assert.match(service, /if \(!spam\) await bookSlots\(tx, form, shown, values, created\.id\)/)
+  assert.match(service, /if \(\(error as \{ code\?: string \}\)\.code !== 'P2002' \|\| attempt >= 3\) throw error/)
+  assert.match(server, /if \(!seat\) throw new FormsError\(/)
+  assert.match(paid, /if \(data\.stage === 'REJECTED'\) await releaseSlots\(row\.id\)/)
+  // A webhook: https, a public address, no redirects, a time limit, signed.
+  assert.match(server, /if \(url\.protocol !== 'https:'\) throw new Error\('webhook must be https'\)/)
+  assert.match(server, /addresses\.some\(isPrivateAddress\)/)
+  assert.match(server, /redirect: 'error', signal: AbortSignal\.timeout\(6000\)/)
+  assert.match(server, /createHmac\('sha256', hook\.secret\)\.update\(body\)\.digest\('hex'\)/)
+  // Staff corrections are recorded and keep money, turns, passwords and files as the sender gave them.
+  assert.equal(adv.staffEditable({ type: 'text', options: [] }), true)
+  for (const type of ['secret', 'slot', 'fxamount', 'file', 'signature', 'hidden', 'repeater']) assert.equal(adv.staffEditable({ type, options: [] }), false, type)
+  assert.equal(adv.staffEditable({ type: 'radio', options: ['a'], prices: [100] }), false, 'a priced choice is part of the bill')
+  assert.match(route, /const edited = await editSubmission\(one, body\.answers\)\s+await auditAdmin\(\{ req, actor: admin, action: 'forms\.submission_edit'/)
+  // A form with named handlers: only they (and builders) see and work on it.
+  assert.match(server, /export const mayHandle = \(form: Pick<FormDefinition, 'settings'>, user: \{ id: number \}, builder: boolean\) => builder \|\| !form\.settings\?\.handlers\.length \|\| form\.settings\.handlers\.includes\(user\.id\)/)
+  assert.match(list, /\.filter\(\(form\) => mayHandle\(form, reader, Boolean\(builder\)\)\)/)
+  assert.match(route, /await assertMayHandleForm\(formId, reader, builder\)/)
+  assert.match(route, /await assertMayHandleSubmission\(id, admin, builder\)/)
+  assert.match(paid, /if \(allowed\.length && !allowed\.includes\(member\.id\)\) throw new FormsError\(/)
+  assert.match(source('prisma/release-manifest.json'), /"20261229120000_form_bookings_quiz"/)
 })

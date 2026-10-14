@@ -271,6 +271,18 @@ The owner asked for a Gravity-Forms-class form builder that the whole site can u
 - **A form chooses its own look** (theme, accent, corners, density, width, steps).
 - Spec and the slices still to build: `docs/specs/form-builder/SPEC.md`.
 
+## 6N. The form builder: appointments, messages, hooks and who handles a form (owner, 2026-10-14)
+
+The owner asked for the rest of the form builder in one go. Decided:
+- **A turn is never overbooked, by the database.** A seat is a row with a unique key (form, field, turn, seat), taken in the same transaction as the answer. Times are Tehran's. A rejected or deleted answer gives its turn back.
+- **A Persian date is an input, not a stored format**: the answer is the Gregorian day, so sorting, exports and conditions keep working.
+- **Messages depend on the answers**: the first confirmation whose conditions hold; every notification whose conditions hold; merge tags fill in answers. An unknown tag stays as typed; a tag of a field with no answer is empty; a file or a password is never merged into a message.
+- **A webhook leaves the site only to a public https address**, without following redirects, signed when a secret is set, and never carries a password. It is tried once.
+- **Quiz points are the site's**: never sent to the browser; only the total comes back.
+- **A draft lives in the visitor's browser** and never holds a password, a file, a signature or a turn.
+- **A form may name the staff who handle it.** Then only they, and those who build forms, see its answers. Staff may correct plain answers — recorded — but not money, turns, passwords or files.
+- Spec: `docs/specs/form-builder/SPEC.md`.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

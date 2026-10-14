@@ -5,6 +5,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { FormsError } from '@/modules/forms/domain/forms'
 import { deleteSubmissions, exportCsv, formStats, listSubmissions, updateSubmissions } from '@/modules/forms/server/service'
 import { eraseSecrets, revealSecrets, workOnSubmission } from '@/modules/forms/server/paid'
+import { assertMayHandleForm, assertMayHandleSubmission, editSubmission, formFieldStats } from '@/modules/forms/server/advanced'
 
 /** Whoever builds forms, or whoever is given the answers to work on. */
 const staff = async (req: NextRequest) => await requirePerm(req, 'cms.pages') || await requirePerm(req, 'forms.handle')
@@ -14,12 +15,16 @@ const ids = (body: Record<string, unknown>) => (Array.isArray(body.ids) ? body.i
 
 /** GET ?formId=&status=&q=&from=&to=&page= — answers; &export=csv downloads them; &view=stats gives the daily chart. */
 export async function GET(req: NextRequest) {
-  if (!await staff(req)) return err('دسترسی مجاز نیست', 403)
+  const reader = await staff(req)
+  if (!reader) return err('دسترسی مجاز نیست', 403)
+  const builder = Boolean(await requirePerm(req, 'cms.pages'))
   const q = req.nextUrl.searchParams
   const formId = Number(q.get('formId'))
   if (!Number.isSafeInteger(formId) || formId < 1) return err('شناسه نامعتبر')
   const query = { formId, stage: q.get('stage') || '', status: q.get('status') || 'ALL', q: q.get('q') || '', from: q.get('from') || '', to: q.get('to') || '', page: Number(q.get('page')) || 1 }
   try {
+    await assertMayHandleForm(formId, reader, builder)
+    if (q.get('view') === 'fields') return ok(await formFieldStats(formId))
     if (q.get('view') === 'stats') return ok(await formStats(formId))
     if (q.get('export') === 'csv') {
       const file = await exportCsv(query)
@@ -33,6 +38,7 @@ export async function GET(req: NextRequest) {
  * PATCH { id | ids, status?, note? } (a legacy { id, read } still works)
  *   { id, work: { stage?, take?, reply? } } — the work on one answer
  *   { id, secrets: 'reveal' | 'erase' } — a sender's passwords (reading them is recorded)
+ *   { id, answers: { fieldId: value } } — staff correct plain answers (recorded)
  */
 export async function PATCH(req: NextRequest) {
   const admin = await staff(req)
@@ -40,7 +46,15 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return err('داده نامعتبر')
   const one = Number(body.id)
+  const builder = Boolean(await requirePerm(req, 'cms.pages'))
   try {
+    // A form given to named handlers is theirs alone to work on.
+    for (const id of (Array.isArray(body.ids) ? body.ids : [body.id]).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 200)) await assertMayHandleSubmission(id, admin, builder)
+    if (body.answers && typeof body.answers === 'object') {
+      const edited = await editSubmission(one, body.answers)
+      await auditAdmin({ req, actor: admin, action: 'forms.submission_edit', targetType: 'form_submission', targetId: String(one), metadata: { fields: edited.changed } })
+      return ok(edited)
+    }
     if (body.work && typeof body.work === 'object') return ok(await workOnSubmission(one, admin, body.work))
     if (body.secrets === 'reveal') {
       const secrets = await revealSecrets(one)

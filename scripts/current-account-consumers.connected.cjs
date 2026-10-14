@@ -30,6 +30,7 @@ function load(file){
   if(name==='@/modules/membership/server/membership')return {isMember:spy('membership',true)};
   if(name==='@/modules/wallet/server/wallet')return {walletBalance:spy('wallet',0)};
   if(name==='@/modules/site/server/http/admin/media/route')return {receiveImage:spy('image',new Response('owned upload'))};
+  if(name==='@/modules/forms/server/advanced')return {bookSlots:async()=>{},sendFormNotifications:async()=>{},sendFormWebhooks:async()=>{},webhookAnswers:answers=>answers};
   if(name==='@/modules/forms/server/paid')return {FORM_CURRENCY:'IRT',billFor:async()=>{throw Error('Unexpected bill')},sealSecrets:answers=>({answers,secrets:''})};
   if(name==='@/platform/observability/logger')return {logEvent:()=>{throw Error('Unexpected form error')}};
   if(name==='@/modules/mail/server/mailer')return {sendMail:()=>{throw Error('Unexpected external mail')}};
