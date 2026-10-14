@@ -15,7 +15,7 @@ import {
 import { minorToNumber } from '@/shared/money'
 import { FORM_CURRENCY, billFor, sealSecrets } from '@/modules/forms/server/paid'
 import { mergeTags, pickConfirmation, scoreOf } from '@/modules/forms/domain/advanced'
-import { bookSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
+import { assertHandlersCanWork, bookSlots, sendFormNotifications, sendFormWebhooks, webhookAnswers } from '@/modules/forms/server/advanced'
 
 // Uploaded answers live outside the public folder; only administrators read them, through an authorised route.
 export const formsDirectory = () => join(process.cwd(), 'storage', 'forms')
@@ -39,6 +39,8 @@ export async function listForms() {
 
 export async function saveForm(input: unknown) {
   const form = normalizeForm(input)
+  // A form is given only to people who can open its answers.
+  await assertHandlersCanWork(form.settings?.handlers || [])
   const data = { slug: form.slug, title: form.title, description: form.description, fields: JSON.stringify(form.fields), published: form.published, successText: form.successText, settings: JSON.stringify(form.settings) }
   try {
     const row = form.id ? await db.siteForm.update({ where: { id: form.id }, data }) : await db.siteForm.create({ data })

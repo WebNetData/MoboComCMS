@@ -387,3 +387,15 @@ test('services are one list: forms and virtual products marked as a service, eac
   assert.match(source('prisma/release-manifest.json'), /"20261230120000_product_is_service"/)
   assert.match(source('src/app/admin/layout.tsx'), /href: '\/admin\/services'[^\n]+perm: \['cms\.pages', 'forms\.handle', 'orders\.manage', 'cms\.products'\]/)
 })
+
+test('a form is given only to staff who can open form answers', () => {
+  const server = source('src/modules/forms/server/advanced.ts'), service = source('src/modules/forms/server/service.ts'), paid = source('src/modules/forms/server/paid.ts')
+  // The list offered: active accounts of the admin area that hold forms.handle or cms.pages, or every right.
+  assert.match(server, /const held = row\.roleId == null \? null : parsePermissions\(row\.roleRef\?\.permissions \|\| ''\)/)
+  assert.match(server, /if \(!manager && !held!\.includes\('forms\.handle'\)\) return \[\]/)
+  // Saving a form checks its handlers against that list, before anything is written.
+  assert.match(server, /export async function assertHandlersCanWork\(ids: number\[\]\)/)
+  assert.ok(service.indexOf('await assertHandlersCanWork(form.settings?.handlers || [])') > -1 && service.indexOf('await assertHandlersCanWork(') < service.indexOf('db.siteForm.update({ where: { id: form.id }, data })'))
+  // Work is handed only to somebody on that list.
+  assert.match(paid, /\(await formStaff\(\)\)\.find\(\(person\) => person\.id === to\) \|\| null/)
+})
