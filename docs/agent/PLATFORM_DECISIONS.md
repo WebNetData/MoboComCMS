@@ -302,6 +302,15 @@ The owner asked for a "Services" menu in the admin: things built with the form b
 - **`/admin/services` is a view**: each service with the work waiting on it and a link to where that work is done — the form's desk, or the store's orders. Staff see the half they may work on, and only the forms given to them.
 - **A new core permission is added to `CORE_ADDED_LATER`** in `rbac.ts`, so a general manager stored before it existed keeps full access.
 
+## 6Q. Roles can be renamed; forum levels and badges are the owner's to set (owner, 2026-10-14)
+
+The owner asked for full control over roles, and over the forum's groups, badges and the standing shown under a member's name ("active member after X posts, helpful after Y likes, professor after more"). Decided:
+- **A role's slug and titles can be changed.** Members hold a role by its id, so nothing else moves. System roles and the two slugs the code looks up (`admin`, `reseller`) keep their slug; their titles can still be changed. The limits on who may shape a role are unchanged.
+- **Levels** are a list in the forum's settings: a name, an icon, a colour and three thresholds (posts, likes received, reputation). A member's level is the **last** level in the list whose every threshold they meet. It is worked out from their current figures whenever an author is shown — nothing is stored per member, so a changed rule holds for every member at once, old and new.
+- **A badge may be given at a number of the owner's choosing** (`posts:100`, `likes:500`, also topics, reputation, accepted answers, days of membership), beside the fixed rules and badges given by hand. Saving such a badge gives it at once to everybody who already has that number.
+- **The author card beside a post** shows the team rank, the level, the group, three figures (posts, likes, reputation) and up to four badges, framed in the level's colour.
+- Groups keep the management they had (create, edit, members, automatic groups for trust levels).
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

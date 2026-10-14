@@ -207,3 +207,61 @@ test('a member has one address; the old forum address leads into it', () => {
   assert.match(read('src/app/u/[username]/page.tsx'), /forum \? \{ key: FORUM_PART/)
   assert.match(read('src/modules/community/server/pages/profile.tsx'), /if \(!visible\) \{[\s\S]*?\} else if \(onPart\) \{/, 'a private profile does not show the forum part either')
 })
+
+const sourceOf = (relative) => fs.readFileSync(path.resolve(__dirname, '..', relative), 'utf8')
+
+test('a member\'s level is the last one whose every threshold they meet', () => {
+  const levels = c.normalizeLevels([
+    { id: 'new', name: 'عضو تازه', minPosts: 0 }, { id: 'active', name: 'کاربر فعال', minPosts: 50, color: '#0EA5E9' },
+    { id: 'helpful', name: 'کاربر مفید', minPosts: 50, minLikes: 100 }, { id: 'prof', name: 'پروفسور', minPosts: 200, minLikes: 500 }, { name: '' }, { id: 'active', name: 'تکراری' },
+  ])
+  assert.deepEqual(levels.map((level) => level.id), ['new', 'active', 'helpful', 'prof', 'activex'], 'a nameless level is dropped and a repeated id is told apart')
+  assert.equal(levels[1].color, '#0ea5e9')
+  const at = (posts, likes) => c.levelFor(levels.slice(0, 4), { posts, likes, reputation: 0 })?.name
+  assert.equal(at(3, 0), 'عضو تازه')
+  assert.equal(at(60, 20), 'کاربر فعال')
+  assert.equal(at(60, 150), 'کاربر مفید')
+  assert.equal(at(10, 5000), 'عضو تازه', 'likes alone do not reach a level that also asks for posts')
+  assert.equal(at(400, 900), 'پروفسور')
+  assert.equal(c.levelFor([], { posts: 9, likes: 9, reputation: 9 }), null)
+  // Stored settings from before levels existed read with the defaults; an empty list is kept empty.
+  assert.equal(c.normalizeForumSettings({}).levels.length, c.DEFAULT_LEVELS.length)
+  assert.deepEqual(c.normalizeForumSettings({ levels: [] }).levels, [])
+  // Levels are worked out when an author is read, so they hold for every member at once.
+  assert.match(sourceOf('src/modules/forum/server/forum.ts'), /const level = levelFor\(levels, \{ posts: profile\?\.postCount \?\? 0, likes: profile\?\.likesReceived \?\? 0, reputation: profile\?\.reputation \?\? 0 \}\)/)
+})
+
+test('a badge may be given at a number the admin chooses', () => {
+  assert.deepEqual(c.parseThresholdRule('posts:100'), { metric: 'posts', value: 100 })
+  assert.deepEqual(c.parseThresholdRule('likes:500'), { metric: 'likes', value: 500 })
+  for (const bad of ['posts:0', 'posts:-5', 'posts:abc', 'karma:10', 'posts:10; drop', 'posts:1e3', '']) assert.equal(c.parseThresholdRule(bad), null, bad)
+  assert.equal(c.validBadgeRule('posts:100'), true)
+  assert.equal(c.validBadgeRule('first_topic'), true)
+  assert.equal(c.validBadgeRule('posts:x'), false)
+  const facts = { daysVisited: 1, topicsEntered: 1, postCount: 120, topicCount: 7, likesGiven: 0, likesReceived: 40, solvedCount: 2, trustLevel: 1, bestPostLikes: 0, hasAvatar: false, hasBio: false, memberDays: 30, reputation: 55 }
+  assert.equal(c.thresholdMet('posts:100', facts), true)
+  assert.equal(c.thresholdMet('posts:121', facts), false)
+  assert.equal(c.thresholdMet('likes:40', facts), true)
+  assert.equal(c.thresholdMet('reputation:56', facts), false)
+  assert.equal(c.thresholdMet('topics:7', facts), true)
+  assert.equal(c.thresholdMet('solved:3', facts), false)
+  assert.equal(c.thresholdMet('days:30', facts), true)
+  assert.equal(c.thresholdMet('first_topic', facts), false)
+  for (const rule of c.BADGE_RULES) assert.ok(c.BADGE_RULE_LABEL[rule], rule)
+  const server = sourceOf('src/modules/forum/server/community.ts'), admin = sourceOf('src/modules/forum/server/http/admin.ts')
+  assert.match(server, /const badges = open\.filter\(\(badge\) => rules\.includes\(badge\.rule\) \|\| thresholdMet\(badge\.rule, facts\)\)/)
+  // Saving such a badge measures the number over everything stored, not only from now on.
+  assert.match(server, /export async function grantThresholdBadgeToAll\(badgeId: number\)/)
+  assert.match(admin, /const given = await grantThresholdBadgeToAll\(saved\.id\)/)
+  assert.match(admin, /rule: validBadgeRule\(rule\) \? rule : ''/)
+})
+
+test('a role\'s slug and titles can be changed, within limits', () => {
+  const route = sourceOf('src/modules/identity/server/http/admin/roles/route.ts')
+  assert.match(route, /const ROLE_SLUG = \/\^\[a-z\]\[a-z0-9-\]\{1,39\}\$\//)
+  assert.match(route, /if \(role\.isSystem \|\| FIXED_SLUGS\.includes\(role\.name\)\) return err\(/)
+  assert.match(route, /if \(!ROLE_SLUG\.test\(name\) \|\| FIXED_SLUGS\.includes\(name\)\) return err\(/)
+  assert.match(route, /if \(await db\.role\.findUnique\(\{ where: \{ name \}, select: \{ id: true \} \}\)\) return err\('نقش دیگری همین نامک را دارد', 409\)/)
+  // The limits on who may shape a role still stand in front of the rename.
+  assert.ok(route.indexOf('const refusal = roleRefusal(admin, role.permissions, id)') < route.indexOf('db.role.update({ where: { id }, data })'))
+})

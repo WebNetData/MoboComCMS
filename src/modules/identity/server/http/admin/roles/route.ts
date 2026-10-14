@@ -20,6 +20,10 @@ function roleRefusal(actor: AuthedUser, permissions: string, roleId?: number): s
   return beyond ? `دسترسی «${beyond}» را خودتان ندارید و نمی‌توانید به نقشی بدهید` : null
 }
 
+/** A role's slug: latin, lower case. Code looks these two up by name, so they keep theirs. */
+const ROLE_SLUG = /^[a-z][a-z0-9-]{1,39}$/
+const FIXED_SLUGS = ['admin', 'reseller']
+
 export async function GET(req: NextRequest) {
   const admin = await requirePerm(req, 'roles.manage')
   if (!admin) return err('forbidden', 403)
@@ -33,6 +37,7 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null)
   const name = String(b?.name || '').trim().toLowerCase()
   if (!name) return err('نام نقش الزامی است')
+  if (!ROLE_SLUG.test(name)) return err('نامک نقش باید با حرف لاتین کوچک شروع شود و فقط حرف، عدد و خط تیره داشته باشد (مثل form-operator)')
   const exists = await db.role.findUnique({ where: { name } })
   if (exists) return err('این نقش قبلاً ساخته شده')
   const preset = String(b?.preset || '')
@@ -60,14 +65,23 @@ export async function PATCH(req: NextRequest) {
   if (!role) return err('not found', 404)
   if (role.isSystem && typeof b?.permissions !== 'undefined') return err('نقش سیستمی قابل تغییر نیست', 400)
   const data: Record<string, unknown> = {}
-  if (typeof b?.nameFa === 'string') data.nameFa = b.nameFa
-  if (typeof b?.nameEn === 'string') data.nameEn = b.nameEn
+  if (typeof b?.nameFa === 'string') data.nameFa = b.nameFa.trim().slice(0, 80)
+  if (typeof b?.nameEn === 'string') data.nameEn = b.nameEn.trim().slice(0, 80)
+  // The slug of a role can be changed; members keep the role (they hold it by its id).
+  if (typeof b?.name === 'string' && b.name.trim().toLowerCase() !== role.name) {
+    const name = b.name.trim().toLowerCase()
+    if (role.isSystem || FIXED_SLUGS.includes(role.name)) return err('نامک این نقش ثابت است؛ عنوانش را می‌توانید تغییر دهید', 400)
+    if (!ROLE_SLUG.test(name) || FIXED_SLUGS.includes(name)) return err('نامک نقش باید با حرف لاتین کوچک شروع شود و فقط حرف، عدد و خط تیره داشته باشد', 400)
+    if (await db.role.findUnique({ where: { name }, select: { id: true } })) return err('نقش دیگری همین نامک را دارد', 409)
+    data.name = name
+  }
+  if (!Object.keys(data).length) return err('تغییری ارسال نشده است')
   if (Array.isArray(b?.permissions)) data.permissions = b.permissions.join(',')
   // Both what the role held and what it would hold must be within the editor's reach.
   const refusal = roleRefusal(admin, role.permissions, id) || (typeof data.permissions === 'string' ? roleRefusal(admin, data.permissions, id) : null)
   if (refusal) return err(refusal, 403)
   const updated = await db.role.update({ where: { id }, data })
-  await auditAdmin({ req, actor: admin, action: 'role.update', targetType: 'role', targetId: id, metadata: { name: role.name, before: role.permissions, after: updated.permissions } })
+  await auditAdmin({ req, actor: admin, action: 'role.update', targetType: 'role', targetId: id, metadata: { name: updated.name, renamedFrom: updated.name !== role.name ? role.name : undefined, before: role.permissions, after: updated.permissions } })
   return ok(updated)
 }
 

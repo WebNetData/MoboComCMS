@@ -90,7 +90,8 @@ export default function AdminRolesPage() {
     const res = await fetch('/api/admin/roles', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editing.id, permissions: editPerms, nameFa: editing.nameFa, nameEn: editing.nameEn }),
+      // A system role keeps its permissions and slug; its titles can still be changed.
+      body: JSON.stringify(editing.isSystem ? { id: editing.id, nameFa: editing.nameFa, nameEn: editing.nameEn } : { id: editing.id, name: editing.name, permissions: editPerms, nameFa: editing.nameFa, nameEn: editing.nameEn }),
     })
     const d = await res.json().catch(() => null)
     if (!res.ok) { setMsg(d?.error || t.errGeneric); return }
@@ -140,16 +141,22 @@ export default function AdminRolesPage() {
             <div className="flex items-center justify-between mb-3 gap-2">
               <div>
                 <h3 className="font-bold flex items-center gap-2">
-                  {r.name} {r.isSystem && <span className="badge badge-gray">{t.system}</span>}
+                  {r.nameFa || r.nameEn || r.name} {r.isSystem && <span className="badge badge-gray">{t.system}</span>}
                 </h3>
-                <div className="muted text-xs">{r.nameFa || r.nameEn}</div>
+                <div className="muted text-xs" dir="ltr">{r.name}</div>
               </div>
               <span className="badge badge-purple num">{r._count?.users ?? 0} {t.users}</span>
             </div>
 
             {editing?.id === r.id ? (
               <>
-                <div className="grid-2 mb-4">
+                <div className="role-edit">
+                  <label><span className="label">{t.slug} (latin)</span><input className="input" dir="ltr" value={editing.name} disabled={r.isSystem || ['admin', 'reseller'].includes(r.name)} maxLength={40} onChange={(e) => setEditing({ ...editing, name: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} /></label>
+                  <label><span className="label">{t.title}</span><input className="input" value={editing.nameFa || ''} maxLength={80} onChange={(e) => setEditing({ ...editing, nameFa: e.target.value })} /></label>
+                  <label><span className="label">عنوان انگلیسی</span><input className="input" dir="ltr" value={editing.nameEn || ''} maxLength={80} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} /></label>
+                </div>
+                {r.isSystem && <p className="muted text-xs mb-3">این نقش سیستمی است: دسترسی‌ها و نامکش ثابت است و فقط عنوانش تغییر می‌کند.</p>}
+                <div className="grid-2 mb-4" hidden={r.isSystem}>
                   {allPerms.filter((p) => offered(p) || editPerms.includes(p)).map((p) => (
                     <label key={p} className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={editPerms.includes(p)} onChange={() => togglePerm(p)} />
@@ -171,7 +178,7 @@ export default function AdminRolesPage() {
                   {!r.permissions && <span className="muted text-xs">—</span>}
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn btn-ghost !py-1.5 flex-1" disabled={r.isSystem} onClick={() => startEdit(r)}>✏️ {t.edit}</button>
+                  <button className="btn btn-ghost !py-1.5 flex-1" onClick={() => startEdit(r)}>✏️ {t.edit}</button>
                   <button className="btn btn-danger !py-1.5" disabled={r.isSystem} onClick={() => remove(r.id)}>{t.delete}</button>
                 </div>
               </>
