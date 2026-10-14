@@ -10,7 +10,7 @@ import LevelsTab, { BadgeRulePicker } from './LevelsTab'
 import { BADGE_METRICS, BADGE_RULE_LABEL, parseThresholdRule, type UserLevel } from '@/modules/forum/domain/community'
 
 /** A badge's rule in words: by hand, a fixed rule, or the number it is given at. */
-const ruleLabel = (rule: string) => { const t = parseThresholdRule(rule); return t ? `${BADGE_METRICS[t.metric]} ≥ ${t.value.toLocaleString('fa-IR')}` : rule ? BADGE_RULE_LABEL[rule] || rule : 'دستی' }
+const ruleLabel = (rule: string) => { const parsed = parseThresholdRule(rule); return parsed ? `${BADGE_METRICS[parsed.metric]} ≥ ${parsed.value.toLocaleString('fa-IR')}` : rule ? BADGE_RULE_LABEL[rule] || rule : 'دستی' }
 import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
