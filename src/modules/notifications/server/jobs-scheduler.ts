@@ -103,7 +103,7 @@ const JOBS: Job[] = [
   {
     // Forms: attachments that were uploaded but never submitted are removed after a day.
     name: 'forms', everyMs: 3_600_000,
-    run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads(); await (await import('@/modules/forms/server/paid')).eraseFinishedSecrets() },
+    run: async () => { await (await import('@/modules/forms/server/service')).pruneUploads(); const paid = await import('@/modules/forms/server/paid'); await paid.eraseFinishedSecrets(); await paid.releaseUnpaidSlots() },
   },
   {
     // Guest page cache: keeps the sections' entry pages warm and writes the visits served from the cache.

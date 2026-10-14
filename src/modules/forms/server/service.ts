@@ -115,7 +115,7 @@ export async function readUpload(id: string) {
   if (!/^[0-9a-f-]{36}\.(png|jpg|webp|pdf)$/.test(id)) return null
   const row = await db.formUpload.findUnique({ where: { id } })
   if (!row) return null
-  try { return { bytes: await readFile(join(formsDirectory(), id)), type: row.mimeType, name: row.originalName } } catch { return null }
+  try { return { formId: row.formId, bytes: await readFile(join(formsDirectory(), id)), type: row.mimeType, name: row.originalName } } catch { return null }
 }
 
 /** Uploads nobody claimed within a day are removed (called by the scheduler). */
@@ -200,7 +200,8 @@ async function notify(form: FormDefinition, submissionId: number, answers: Store
   const settings = form.settings!
   const lines = answers.map((a) => `${a.label}: ${Array.isArray(a.value) ? (a.type === 'file' ? `${a.value.length} فایل` : a.value.join('، ')) : typeof a.value === 'boolean' ? (a.value ? 'بله' : 'خیر') : a.value || '—'}`)
   if (settings.notifyInbox) {
-    const admins = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' }, select: { id: true }, take: 20 })
+    const handlers = settings.handlers
+    const admins = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE', ...(handlers.length ? { id: { in: handlers } } : {}) }, select: { id: true }, take: 50 })
     await Promise.all(admins.map((admin) => createInboxEvent({
       userId: admin.id, kind: 'FORM', dedupeKey: `form:${submissionId}:${admin.id}`, titleFa: `پاسخ تازه در «${form.title}»`, titleEn: 'New form submission',
       bodyFa: lines.slice(0, 3).join(' · ').slice(0, 300), bodyEn: '', href: `/admin/forms?form=${form.id}&tab=inbox`,
@@ -226,19 +227,21 @@ export async function quoteForm(slug: string, input: unknown) {
 
 // ------------------------------------------------------------------ inbox
 
-export interface SubmissionQuery { formId: number; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
+export interface SubmissionQuery { formId: number; /** The work queue across several forms (then `formId` is ignored). */ formIds?: number[]; mine?: number; unassigned?: boolean; status?: string; stage?: string; q?: string; page?: number; from?: string; to?: string }
 
 const where = (query: SubmissionQuery) => ({
-  formId: query.formId,
+  formId: query.formIds ? { in: query.formIds } : query.formId,
+  ...(query.mine ? { assigneeId: query.mine } : query.unassigned ? { assigneeId: null, stage: { in: ['OPEN', 'IN_PROGRESS'] } } : {}),
   ...(query.status === 'ALL' || !query.status ? { status: { not: 'SPAM' } } : STATUSES.includes(query.status as SubmissionStatus) ? { status: query.status } : {}),
   ...(query.q ? { data: { contains: query.q.slice(0, 100) } } : {}),
   ...(query.stage && ['OPEN', 'IN_PROGRESS', 'DONE', 'REJECTED'].includes(query.stage) ? { stage: query.stage } : query.stage === 'UNPAID' ? { payStatus: 'UNPAID' } : {}),
   ...(query.from || query.to ? { createdAt: { ...(query.from && !Number.isNaN(Date.parse(query.from)) ? { gte: new Date(query.from) } : {}), ...(query.to && !Number.isNaN(Date.parse(query.to)) ? { lte: new Date(`${query.to}T23:59:59.999Z`) } : {}) } } : {}),
 })
 
-const view = (row: { id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; score: number; scoreMax: number; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
+const view = (row: { formId: number; form?: { title: string } | null; id: number; data: string; status: string; note: string; userId: number | null; createdAt: Date; amountMinor: bigint; currency: string; pricing: string; payStatus: string; paidAt: Date | null; orderId: number | null; stage: string; assigneeId: number | null; reply: string; secrets: string; secretsErasedAt: Date | null; score: number; scoreMax: number; uploads?: { id: number | string; originalName: string; size: number }[] }, users: Map<number, string>) => ({
   amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY, lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null, orderId: row.orderId,
   stage: row.stage, assigneeId: row.assigneeId, assignee: row.assigneeId ? users.get(row.assigneeId) || `کاربر ${row.assigneeId}` : '', reply: row.reply, hasSecrets: !!row.secrets, secretsErasedAt: row.secretsErasedAt?.toISOString() || null, score: row.score, scoreMax: row.scoreMax,
+  formId: row.formId, formTitle: row.form?.title || '',
   id: row.id, status: row.status, note: row.note, userId: row.userId, user: row.userId ? users.get(row.userId) || `کاربر ${row.userId}` : '', createdAt: row.createdAt.toISOString(),
   answers: parse<StoredAnswer[]>(row.data, []), files: (row.uploads || []).map((u) => ({ id: String(u.id), name: u.originalName, size: u.size })),
 })
@@ -252,12 +255,16 @@ async function userNames(ids: (number | null)[]) {
 export async function listSubmissions(query: SubmissionQuery) {
   const page = Math.max(1, query.page || 1)
   const [rows, total, groups] = await Promise.all([
-    db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { uploads: { select: { id: true, originalName: true, size: true } } } }),
+    db.formSubmission.findMany({ where: where(query), orderBy: { createdAt: 'desc' }, skip: (page - 1) * PAGE, take: PAGE, include: { form: { select: { title: true } }, uploads: { select: { id: true, originalName: true, size: true } } } }),
     db.formSubmission.count({ where: where(query) }),
-    db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formId }, _count: { _all: true } }),
+    db.formSubmission.groupBy({ by: ['status'], where: { formId: query.formIds ? { in: query.formIds } : query.formId }, _count: { _all: true } }),
   ])
   const users = await userNames(rows.flatMap((r) => [r.userId, r.assigneeId]))
-  return { rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
+  // How much work waits, by stage, for the tiles above the list.
+  const stages = await db.formSubmission.groupBy({ by: ['stage', 'payStatus'], where: { formId: query.formIds ? { in: query.formIds } : query.formId, status: { not: 'SPAM' } }, _count: { _all: true } })
+  const work = { OPEN: 0, IN_PROGRESS: 0, DONE: 0, REJECTED: 0, UNPAID: 0 } as Record<string, number>
+  for (const group of stages) { if (group.payStatus === 'UNPAID') work.UNPAID += group._count._all; else if (group.stage in work) work[group.stage] += group._count._all }
+  return { work, rows: rows.map((r) => view(r, users)), total, page, pages: Math.max(1, Math.ceil(total / PAGE)), counts: Object.fromEntries(groups.map((g) => [g.status, g._count._all])) as Record<string, number> }
 }
 
 export async function updateSubmissions(ids: number[], patch: { status?: unknown; note?: unknown }) {

@@ -283,6 +283,18 @@ The owner asked for the rest of the form builder in one go. Decided:
 - **A form may name the staff who handle it.** Then only they, and those who build forms, see its answers. Staff may correct plain answers — recorded — but not money, turns, passwords or files.
 - Spec: `docs/specs/form-builder/SPEC.md`.
 
+## 6O. Work somebody holds is theirs; a section has its own staff (owner, 2026-10-14)
+
+The owner asked that each kind of work have its own staff who take it themselves, and that nobody step into the work of a colleague of the same standing. Decided:
+- **Held work.** An answer to a form, or a ticket, that a member of staff holds can be read by colleagues who may open that form or department, and **changed only by its holder or by a manager** — `cms.pages` for forms, `tickets.departments.manage` for tickets (and accounts that hold every right). Changing means: the stage or status, a reply to the customer, reading or erasing a password, correcting answers, filing it away.
+- **Taking and handing over.** Anybody who may open the work may take what nobody holds, and let go of their own. Only a manager hands work to somebody else. The first member of staff to answer an unheld ticket becomes its holder. A colleague may still leave an internal note on a ticket.
+- **A section's staff.** A form may name its handlers; a ticket department already names its roles. Work is announced to those people, not to everybody.
+- **One place to work.** The forms admin has a queue across every form a member of staff may handle, with "my work" and "nobody's" filters. Somebody who only handles answers gets the queue, not the builder.
+- **SMS has a ceiling.** Automatic alerts: not the same message twice in ten minutes, and at most twelve a day to one number. Codes, tests and messages an admin types are limited where they are requested.
+- **A sign-in guess meets a limit on the account**, not only on the address it comes from.
+- **Floods are an edge concern.** The application limits abuse of single features; absorbing a flood belongs to the CDN, WAF and reverse proxy.
+- Handoff, the safety review and what is still untested: `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

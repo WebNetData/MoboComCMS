@@ -327,3 +327,48 @@ test('appointments cannot be overbooked, hooks go only to public https addresses
   assert.match(paid, /if \(allowed\.length && !allowed\.includes\(member\.id\)\) throw new FormsError\(/)
   assert.match(source('prisma/release-manifest.json'), /"20261229120000_form_bookings_quiz"/)
 })
+
+test('work somebody holds is theirs: a colleague of the same standing reads it and does not change it', () => {
+  const paid = source('src/modules/forms/server/paid.ts'), route = source('src/modules/site/server/http/admin/forms/submissions/route.ts'), files = source('src/modules/site/server/http/admin/forms/files/route.ts')
+  // Form answers: every change of an answer passes the holder check, unless the actor manages forms.
+  assert.match(paid, /export async function assertOwnWork\(submissionId: number, actor: \{ id: number \}, manager: boolean\) \{\s+if \(manager\) return/)
+  assert.match(paid, /if \(row\.assigneeId && row\.assigneeId !== actor\.id\) throw new FormsError\(OTHERS_WORK, 403\)/)
+  assert.match(paid, /if \(!manager && row\.assigneeId && row\.assigneeId !== actor\.id\) throw new FormsError\(OTHERS_WORK, 403\)/)
+  assert.match(paid, /if \(!manager && patch\.assignTo !== undefined && Number\(patch\.assignTo\) !== actor\.id\) throw new FormsError\(/)
+  assert.match(route, /\{ await assertMayHandleSubmission\(id, admin, builder\); await assertOwnWork\(id, admin, builder\) \}/)
+  assert.match(route, /return ok\(await workOnSubmission\(one, admin, body\.work, builder\)\)/)
+  // The check comes before any of the actions it guards.
+  const patchBody = route.slice(route.indexOf('export async function PATCH'), route.indexOf('export async function DELETE'))
+  for (const action of ['editSubmission(', 'workOnSubmission(', 'revealSecrets(', 'eraseSecrets(', 'updateSubmissions(']) assert.ok(patchBody.indexOf('assertOwnWork(') < patchBody.indexOf(action), action)
+  // An operator opens the attachments of the forms given to them, and of no other.
+  assert.match(files, /const reader = builder \|\| await requirePerm\(req, 'forms\.handle'\)/)
+  assert.match(files, /await assertMayHandleForm\(file\.formId, reader, Boolean\(builder\)\)/)
+  // The queue across forms is built from the forms the member of staff may handle.
+  assert.match(route, /const formIds = \(await listForms\(\)\)\.filter\(\(form\) => mayHandle\(form, reader, builder\)\)\.map\(\(form\) => form\.id!\)/)
+  // New work is announced to the form's own handlers when it names them.
+  assert.match(source('src/modules/forms/server/service.ts'), /\.\.\.\(handlers\.length \? \{ id: \{ in: handlers \} \} : \{\}\)/)
+  assert.match(paid, /export async function releaseUnpaidSlots\(/)
+
+  // Tickets follow the same rule; an internal note stays open to colleagues, and the first to answer becomes the holder.
+  const access = source('src/modules/support/server/department-access.ts'), adminTickets = source('src/modules/support/server/http/admin/tickets/route.ts'), reply = source('src/modules/support/server/http/tickets/[id]/route.ts')
+  assert.match(access, /export const heldByAnother = \(user: AuthedUser, assignedToId: number \| null \| undefined\) => Boolean\(assignedToId\) && assignedToId !== user\.id && !managesTickets\(user\)/)
+  assert.match(adminTickets, /if \(heldByAnother\(admin, existing\.assignedToId\)\) return err\(HELD_BY_ANOTHER, 403\)/)
+  assert.match(adminTickets, /if \(hasAssignment && !managesTickets\(admin\) && b\.assignedToId != null && Number\(b\.assignedToId\) !== admin\.id\) return err\(/)
+  assert.match(reply, /if \(body\?\.internal !== true && heldByAnother\(agent, ticket\.assignedToId\)\) return err\(HELD_BY_ANOTHER, 403\)/)
+  assert.match(reply, /assignedToId: ticket\.assignedToId \?\? user\.id/)
+})
+
+test('automatic text messages have a ceiling, and a sign-in guess meets a limit on the account itself', () => {
+  const sms = source('src/modules/sms/server/sms.ts')
+  assert.match(sms, /export const SMS_DAILY_PER_PHONE = 12/)
+  assert.match(sms, /if \(kind !== 'OTP' && !\['MANUAL', 'TEST'\]\.includes\(input\.event\)\) \{/)
+  assert.match(sms, /if \(same > 0\) \{ await log\('SKIPPED'/)
+  assert.match(sms, /if \(today >= SMS_DAILY_PER_PHONE\) \{ await log\('SKIPPED'/)
+  // Nothing leaves while the panel is not set up: the ceiling sits after that refusal, before the provider call.
+  assert.ok(sms.indexOf("if (!isReady(settings)) {") < sms.indexOf('SMS_DAILY_PER_PHONE) {') && sms.indexOf('SMS_DAILY_PER_PHONE) {') < sms.indexOf('await sendPattern(key'))
+  // Only verified, opted-in numbers get alerts (as before).
+  assert.match(sms, /!user\.smsAlerts \|\| !user\.phoneVerifiedAt/)
+  const auth = source('src/modules/identity/auth.ts')
+  assert.ok(auth.includes('rateLimitStrict(`login:account:${email}`, 30, 15 * 60_000)'))
+  assert.ok(auth.indexOf('login:account:') < auth.indexOf('db.user.findUnique'), 'the limit is met before the password is looked at')
+})

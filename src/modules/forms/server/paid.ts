@@ -65,6 +65,13 @@ export async function eraseSecrets(submissionId: number) {
   if (!done.count) throw new FormsError('اطلاعات محرمانه‌ای برای پاک‌کردن نمانده است', 409)
 }
 
+/** A turn held by a bill nobody paid within a day goes back to the others. */
+export async function releaseUnpaidSlots(now = new Date()) {
+  const stale = await db.formBooking.findMany({ where: { createdAt: { lt: new Date(now.getTime() - 86_400_000) }, submission: { payStatus: 'UNPAID' } }, select: { id: true }, take: 500 })
+  if (!stale.length) return 0
+  return (await db.formBooking.deleteMany({ where: { id: { in: stale.map((row) => row.id) } } })).count
+}
+
 export const SECRET_KEEP_DAYS = 7
 /** Passwords are wiped a week after the work on an answer ended (done or rejected), or after a bill nobody paid. */
 export async function eraseFinishedSecrets(limit = 200, now = new Date()) {
@@ -124,7 +131,9 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
     userId: order.userId, kind: 'FORM', dedupeKey: `form:paid:${submissionId}`, titleFa: `پرداخت «${title}» انجام شد`, titleEn: 'Your request is paid',
     bodyFa: 'درخواست شما به کارشناس سپرده شد؛ وضعیت آن را در «درخواست‌های من» ببینید.', bodyEn: 'Your request is with our staff now.', href: '/dashboard/requests',
   }).catch(() => undefined)
-  const staff = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE' }, select: { id: true }, take: 20 })
+  // The form's own handlers hear about it when it names them; otherwise the staff of the admin area.
+  const handlers = stored ? parseForm(stored.form).settings?.handlers || [] : []
+  const staff = await db.user.findMany({ where: { role: 'ADMIN', status: 'ACTIVE', ...(handlers.length ? { id: { in: handlers } } : {}) }, select: { id: true }, take: 50 })
   await Promise.all(staff.map((admin) => createInboxEvent({
     userId: admin.id, kind: 'FORM', dedupeKey: `form:paid:${submissionId}:${admin.id}`, titleFa: `درخواست پرداخت‌شدهٔ تازه در «${title}»`, titleEn: 'New paid form request',
     bodyFa: `شمارهٔ ${submissionId.toLocaleString('fa-IR')} منتظر کارشناس است.`, bodyEn: '', href: `/admin/forms?form=${Number(meta.formId) || ''}&tab=inbox`,
@@ -134,9 +143,24 @@ export async function fulfillFormOrder(orderId: number): Promise<void> {
 // ------------------------------------------------------------------ the work on an answer
 
 /** Staff move an answer along, take it, or write back to its sender. */
-export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown }) {
+/**
+ * Work that somebody has taken is theirs: a colleague of the same standing does not change it, read its
+ * passwords or take it away. The one who holds it, or somebody who manages forms, can.
+ */
+export const OTHERS_WORK = 'این درخواست در دست همکار دیگری است؛ فقط خود او یا مدیر فرم‌ها می‌تواند آن را تغییر دهد'
+export async function assertOwnWork(submissionId: number, actor: { id: number }, manager: boolean) {
+  if (manager) return
+  const row = await db.formSubmission.findUnique({ where: { id: submissionId }, select: { assigneeId: true } })
+  if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
+  if (row.assigneeId && row.assigneeId !== actor.id) throw new FormsError(OTHERS_WORK, 403)
+}
+
+export async function workOnSubmission(submissionId: number, actor: { id: number }, patch: { stage?: unknown; take?: unknown; reply?: unknown; assignTo?: unknown }, manager = false) {
   const row = await db.formSubmission.findUnique({ where: { id: submissionId }, include: { form: true } })
   if (!row) throw new FormsError('پاسخ پیدا نشد', 404)
+  if (!manager && row.assigneeId && row.assigneeId !== actor.id) throw new FormsError(OTHERS_WORK, 403)
+  // Handing work to somebody else is a manager's decision; anybody may take what nobody holds.
+  if (!manager && patch.assignTo !== undefined && Number(patch.assignTo) !== actor.id) throw new FormsError('سپردن کار به همکار دیگر با مدیر فرم‌ها است', 403)
   if (row.payStatus === 'UNPAID') throw new FormsError('این درخواست هنوز پرداخت نشده است', 409)
   const data: { stage?: string; assigneeId?: number | null; reply?: string; read?: boolean; status?: string } = {}
   if (patch.stage !== undefined) {
@@ -183,7 +207,7 @@ export async function myRequests(userId: number) {
   const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: { select: { title: true, slug: true, settings: true } } } })
   return rows.map((row) => ({
     id: row.id, form: row.form.title, slug: row.form.slug, createdAt: row.createdAt.toISOString(),
-    answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: answer.type === 'file' && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
+    answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: (answer.type === 'file' || answer.type === 'signature') && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
     amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY,
     lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null,
     stage: row.stage, reply: row.reply, score: row.score, scoreMax: row.scoreMax,

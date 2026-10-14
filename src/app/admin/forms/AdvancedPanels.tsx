@@ -159,7 +159,7 @@ export function FieldStatsView({ formId, api }: { formId: number; api: Api }) {
 }
 
 /** Staff correct the plain answers of one submission, and hand the work to a named colleague. */
-export function EditAndAssign({ row, fields, api, onChanged, onNotice }: { row: Row; fields: FormField[]; api: Api; onChanged: () => void; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
+export function EditAndAssign({ row, fields, manager, api, onChanged, onNotice }: { row: Row; fields: FormField[]; manager: boolean; api: Api; onChanged: () => void; onNotice: (tone: 'ok' | 'error', text: string) => void }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [staff, setStaff] = useState<{ id: number; name: string }[] | null>(null)
@@ -180,7 +180,7 @@ export function EditAndAssign({ row, fields, api, onChanged, onNotice }: { row: 
   return <div className="fa-edit">
     <div className="sa-row-actions">
       {editable.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(!editing)}>{editing ? 'بستن ویرایش' : 'اصلاح پاسخ‌ها'}</button>}
-      {row.payStatus !== 'UNPAID' && <label className="fa-assign">سپردن به <select className="input" value={row.assigneeId || ''} onFocus={() => { if (!staff) void api<{ staff: { id: number; name: string }[] }>('/api/admin/forms?staff=1', 'GET').then((result) => setStaff(result.ok ? result.data.staff : [])) }} onChange={(e) => { if (e.target.value) void assign(Number(e.target.value)) }}><option value="">{row.assignee || 'انتخاب کارمند'}</option>{(staff || []).map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
+      {manager && row.payStatus !== 'UNPAID' && <label className="fa-assign">سپردن به <select className="input" value={row.assigneeId || ''} onFocus={() => { if (!staff) void api<{ staff: { id: number; name: string }[] }>('/api/admin/forms?staff=1', 'GET').then((result) => setStaff(result.ok ? result.data.staff : [])) }} onChange={(e) => { if (e.target.value) void assign(Number(e.target.value)) }}><option value="">{row.assignee || 'انتخاب کارمند'}</option>{(staff || []).map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
       {row.scoreMax > 0 && <span className="sa-state is-info">امتیاز: {fa(row.score)} از {fa(row.scoreMax)}</span>}
     </div>
     {editing && <div className="fa-edit-grid">
