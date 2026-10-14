@@ -7,6 +7,10 @@ Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant
 Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community. Preserve URLs, SEO, data, permission keys and established workflows. Admin is also a first-class product. Software joins the target domains; CRM remains integrated, while VPN/reseller/marketplace stay off-focus and switchable.
 
 <!-- mobocom-business-architecture:start -->
+## Forms, held work and platform safety
+
+The form builder (`src/modules/forms`) is the one owner of forms, their answers, paid forms and appointments; it charges through the site's checkout and never beside it. Read `docs/agent/handoffs/FORMS_AND_OPERATIONS.md` before touching forms, staff queues, ticket ownership, SMS limits or sign-in limits.
+
 ## Business experiences — canonical ownership
 
 The optional **businesses** module composes existing platform services for external businesses, existing internal sellers and MoboCom's own store. It requires **reviews**, defaults OFF, has its own **businesses.manage** permission and uses canonical section managers, maintenance and Admin Control Plane. Seller profiles do not implicitly activate Marketplace.
@@ -473,6 +477,10 @@ Plugin-defined permissions must be namespaced and registered.
 Extend the canonical Identity/AuthZ guards; do not add a second resolver. Target order: identity → account standing → global restrictions → effective groups → module restrictions → resource scope/ownership/state → capability. Explicit denies outrank ordinary grants; privileged actions default deny. Primary/secondary/temporary groups, roles, entitlements and subscriptions are distinct. Preserve current section keys, staff guard/full-access compatibility and forum `inCategory` scope; a group cannot grant global staff standing.
 
 Restrictions are independently auditable GLOBAL/MODULE/RESOURCE/CAPABILITY records with start/expiry and revocation. Forum-only sanctions preserve unrelated module access and authentication. Global restrictions apply to sessions/tokens and all user-acting entry points, with bounded cache invalidation and narrow recovery exceptions. Anonymous browsing is a separate policy. Additive backfill must preserve legacy sanction scope/history. See [contracts §3–4](contracts/platform-evolution.md#3-canonical-identity-groups-and-authorization).
+
+### Held work and a section's own staff
+
+Work that a member of staff holds — a form answer (`FormSubmission.assigneeId`), a ticket (`Ticket.assignedToId`) — is read by colleagues who may open that form or department and changed only by its holder or a manager of that section (`cms.pages`, `tickets.departments.manage`). Taking unheld work is open to those who may open it; handing work to somebody else is a manager's act. A form may name its handlers (`settings.handlers`), a department its roles. New kinds of handled work (store orders, moderation queues) follow the same shape: a holder column, a guard that runs before every change, a manager permission that already exists for that section. Owners and tests: `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`.
 
 ## 16. Events and transactional outbox
 

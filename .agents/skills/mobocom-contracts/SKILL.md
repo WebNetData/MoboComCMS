@@ -35,3 +35,9 @@ Evolve manifest/contribution/action/theme and public API/event schemas additivel
 
 When this workflow touches business/Trustpilot-style experiences, first read docs/agent/handoffs/BUSINESS_EXPERIENCES.md and the business ownership section of docs/agent/ARCHITECTURE.md. Resolve its authoritative checkout; continue existing ItemReview versus SellerReview owners and recorded evidence. Missing files in another checkout do not justify a new system. Load only the pending slice; the handoff is the continuation source.
 <!-- mobocom-business-skill:end -->
+
+<!-- mobocom-forms-skill:start -->
+## Forms, held work and safety routing
+
+When this workflow touches forms, form payments, appointments, staff queues, ticket ownership, SMS sending or sign-in limits, first read docs/agent/handoffs/FORMS_AND_OPERATIONS.md. Extend src/modules/forms; charge through the site checkout; keep the rule that work somebody holds is changed only by its holder or a manager of that section. The handoff lists what is still untested — run those before calling anything ready.
+<!-- mobocom-forms-skill:end -->

@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireUser, requirePerm } from '@/modules/identity/server/access'
 import { sanitizeMessage, richTextToPlain, renderMessage } from '@/shared/content/sanitize'
-import { canHandleTicket } from '@/modules/support/server/department-access'
+import { HELD_BY_ANOTHER, canHandleTicket, heldByAnother } from '@/modules/support/server/department-access'
 import { parseFields } from '@/modules/support/domain/department-config'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
 import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttachmentRows, TicketUploadError } from '@/modules/support/server/ticket-attachments'
@@ -68,7 +68,9 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   catch (error) { return error instanceof TicketUploadError ? err(error.message, error.status) : err('Could not read reply / دریافت پاسخ ممکن نشد') }
   const staffReply = user.role === 'ADMIN' && body?.asCustomer !== true
   if (staffReply) {
-    if (!await requirePerm(req, 'tickets.handle') || !await canHandleTicket(user, ticket.department)) return err('forbidden', 403)
+    const agent = await requirePerm(req, 'tickets.handle')
+    if (!agent || !await canHandleTicket(agent, ticket.department)) return err('forbidden', 403)
+    if (body?.internal !== true && heldByAnother(agent, ticket.assignedToId)) return err(HELD_BY_ANOTHER, 403)
   } else if (ticket.userId !== user.id) return err('forbidden', 403)
   const message = sanitizeMessage(String(body?.message || '').trim())
   if (!richTextToPlain(message)) return err('Message is required / متن پیام الزامی است')
@@ -89,7 +91,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
       status: nextStatus,
       updatedAt: now,
       closedAt: nextStatus === 'CLOSED' ? (ticket.closedAt || now) : null,
-      ...(staffReply ? body?.internal === true ? {} : { lastStaffAt: now, firstResponseAt: ticket.firstResponseAt || now } : { lastCustomerAt: now }),
+      // The first member of staff to answer a ticket nobody holds becomes its holder.
+      ...(staffReply ? body?.internal === true ? {} : { lastStaffAt: now, firstResponseAt: ticket.firstResponseAt || now, assignedToId: ticket.assignedToId ?? user.id } : { lastCustomerAt: now }),
     } })
     return created.id
   }) } catch {

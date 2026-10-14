@@ -6,7 +6,7 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { richTextToPlain, sanitizeMessage } from '@/shared/content/sanitize'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { auditAdmin } from '@/platform/audit/server'
-import { allowedDepartmentSlugs, canHandleTicket } from '@/modules/support/server/department-access'
+import { HELD_BY_ANOTHER, allowedDepartmentSlugs, canHandleTicket, heldByAnother, managesTickets } from '@/modules/support/server/department-access'
 import { ticketSlaState } from '@/modules/support/domain/ticket-operations'
 import { parsePermissions } from '@/modules/identity/rbac'
 import { canHandleDepartment } from '@/modules/support/domain/department-config'
@@ -61,9 +61,12 @@ export async function PATCH(req: NextRequest) {
   const status = b?.status
   const hasAssignment = Object.prototype.hasOwnProperty.call(b || {}, 'assignedToId')
   if (!id || (status === undefined && !hasAssignment) || (status !== undefined && !['OPEN', 'PENDING', 'CLOSED'].includes(status))) return err('invalid input')
-  const existing = await db.ticket.findUnique({ where: { id }, select: { department: true, status: true, closedAt: true, lastStaffAt: true, lastCustomerAt: true } })
+  const existing = await db.ticket.findUnique({ where: { id }, select: { department: true, status: true, closedAt: true, lastStaffAt: true, lastCustomerAt: true, assignedToId: true } })
   if (!existing) return err('not found', 404)
   if (!await canHandleTicket(admin, existing.department)) return err('forbidden', 403)
+  if (heldByAnother(admin, existing.assignedToId)) return err(HELD_BY_ANOTHER, 403)
+  // Giving a ticket to a colleague is a manager's decision; anybody may take one nobody holds, or let go of their own.
+  if (hasAssignment && !managesTickets(admin) && b.assignedToId != null && Number(b.assignedToId) !== admin.id) return err('سپردن تیکت به همکار دیگر با مدیر دپارتمان‌ها است', 403)
   if (status === 'PENDING' && (!existing.lastStaffAt || (existing.lastCustomerAt && existing.lastStaffAt < existing.lastCustomerAt))) return err('reply to the customer before marking the ticket answered', 400)
   let assignedToId: number | null | undefined
   if (hasAssignment) {
