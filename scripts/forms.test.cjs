@@ -399,3 +399,15 @@ test('a form is given only to staff who can open form answers', () => {
   // Work is handed only to somebody on that list.
   assert.match(paid, /\(await formStaff\(\)\)\.find\(\(person\) => person\.id === to\) \|\| null/)
 })
+
+test('the wallet takes toman and rial at their own limits, and says why a top-up is refused', () => {
+  const topup = source('src/modules/wallet/server/topup.ts'), page = source('src/app/dashboard/wallet/page.tsx')
+  assert.match(topup, /if \(currency === 'IRT' \|\| currency === 'TMN'\) return \{ min: 10_000, max: 500_000_000 \}/)
+  assert.match(topup, /if \(currency === 'IRR'\) return \{ min: 100_000, max: 5_000_000_000 \}/)
+  assert.match(topup, /const defaults = defaultLimits\(currency\)/)
+  assert.match(page, /setError\(topupError\(data,isFa\)\|\|t\.errGeneric\)/)
+  // Currencies are named: IRR the Iranian rial, IRT the Iranian toman.
+  const money = source('src/shared/money/format.ts')
+  assert.match(money, /IRT: \{ fa: 'تومان ایران', en: 'Iranian toman' \}/)
+  assert.match(money, /IRR: \{ fa: 'ریال ایران', en: 'Iranian rial' \}/)
+})

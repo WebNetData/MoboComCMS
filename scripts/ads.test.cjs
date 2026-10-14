@@ -138,3 +138,13 @@ test('wiring: routes, module manifest, schema, jobs and pages exist and stay saf
   // Every admin write goes through the permission guard.
   assert.match(read('src/modules/ads/server/http/admin.ts'), /ads\.manage/)
 })
+
+test('a banner keeps its own shape inside its place', () => {
+  const slot = fs.readFileSync(path.resolve(root, 'src/plugins/ads/PromoSlot.tsx'), 'utf8')
+  // The picture's width is capped by the place; its height follows the picture (a 3:1 picture in 728×90 was squeezed flat).
+  assert.match(slot, /const picture = size\?\.width \? \{ maxWidth: size\.width, width: '100%', height: 'auto' \} : undefined/)
+  assert.match(slot, /decoding="async" style=\{picture\} \/><\/picture>/)
+  assert.doesNotMatch(slot.match(/<img [^>]+>/)[0], /style=\{ratio\}/)
+  // The admin is told how a picture fits each place it will be shown in.
+  assert.match(fs.readFileSync(path.resolve(root, 'src/app/admin/ads/campaigns/[id]/page.tsx'), 'utf8'), /<BannerSizeCheck url=\{form\.imageUrl\} places=\{places\} \/>/)
+})
