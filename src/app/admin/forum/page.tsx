@@ -6,6 +6,11 @@ import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
 import Restrictions from './Restrictions'
+import LevelsTab, { BadgeRulePicker } from './LevelsTab'
+import { BADGE_METRICS, BADGE_RULE_LABEL, parseThresholdRule, type UserLevel } from '@/modules/forum/domain/community'
+
+/** A badge's rule in words: by hand, a fixed rule, or the number it is given at. */
+const ruleLabel = (rule: string) => { const t = parseThresholdRule(rule); return t ? `${BADGE_METRICS[t.metric]} ≥ ${t.value.toLocaleString('fa-IR')}` : rule ? BADGE_RULE_LABEL[rule] || rule : 'دستی' }
 import { ReviewQueue } from '@/components/forum/Messages'
 
 type Level = 'SEE' | 'REPLY' | 'CREATE'
@@ -16,11 +21,11 @@ type Author = { id: number; name: string; username: string }
 type Flag = { post: { id: number; number: number; excerpt: string; status: string; createdAt: string; thread: { id: number; title: string } }; author: Author; weight: number; flags: { reason: string; note: string; weight: number; createdAt: string; by: Author }[] }
 type Trust = { daysVisited: number; topicsEntered: number; postCount: number; likesGiven: number; likesReceived: number }
 type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactionWeights: Record<string, number>; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
-  approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
+  levels: UserLevel[]; approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
 type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
-type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'team' | 'groups' | 'badges' | 'users' | 'words' | 'settings'
-const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'team', 'groups', 'badges', 'users', 'words', 'settings']
+type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'team' | 'groups' | 'levels' | 'badges' | 'users' | 'words' | 'settings'
+const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'team', 'groups', 'levels', 'badges', 'users', 'words', 'settings']
 
 const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[], moderators: '' }
 const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
@@ -100,7 +105,7 @@ function AdminForumPage() {
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
     { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags }, { key: 'categories', label: 'دسته‌ها', count: data.categories.length }, { key: 'team', label: 'تیم تالار', count: data.team.deputies.length + data.team.moderators.length }, { key: 'groups', label: 'گروه‌ها', count: data.groups.length },
-    { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
+    { key: 'levels', label: 'درجه‌های کاربری', count: settings.levels?.length || 0 }, { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
   ]
   const wordLists = words || { block: settings.watchedWords.block.join('\n'), approve: settings.watchedWords.approve.join('\n'), censor: settings.watchedWords.censor.join('\n') }
   const openReview = () => {
@@ -245,13 +250,15 @@ function AdminForumPage() {
       </tbody></table></div>
     </section>}
 
+    {tab === 'levels' && <LevelsTab levels={settings.levels || []} busy={busy} onChange={(levels) => setSettings({ ...settings, levels })} onSave={() => void call('PATCH', { section: 'settings', settings }, 'درجه‌ها ذخیره شد')} />}
+
     {tab === 'badges' && <section className="xm-section">
       <h2>{badge.id ? `ویرایش نشان «${badge.name}»` : 'نشان تازه'}</h2>
       <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(badge.id ? 'PATCH' : 'POST', { section: 'badges', ...badge }, badge.id ? 'نشان به‌روز شد' : 'نشان ساخته شد')) setBadge(EMPTY_BADGE) }}>
         <label className="studio-field"><span>نام</span><input className="input" value={badge.name} onChange={(e) => setBadge({ ...badge, name: e.target.value })} required maxLength={60} /></label>
         <label className="studio-field"><span>آیکون</span><input className="input" value={badge.icon} onChange={(e) => setBadge({ ...badge, icon: e.target.value })} maxLength={8} /></label>
         <label className="studio-field"><span>درجه</span><select className="input" value={badge.tier} onChange={(e) => setBadge({ ...badge, tier: e.target.value })}>{Object.entries(TIER_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label className="studio-field"><span>قاعدهٔ خودکار</span><select className="input" dir="ltr" value={badge.rule} onChange={(e) => setBadge({ ...badge, rule: e.target.value })}><option value="">— اعطای دستی —</option>{data.badgeRules.map((rule) => <option key={rule} value={rule}>{rule}</option>)}</select></label>
+        <BadgeRulePicker rule={badge.rule} fixed={data.badgeRules} onChange={(rule) => setBadge({ ...badge, rule })} />
         <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={badge.description} onChange={(e) => setBadge({ ...badge, description: e.target.value })} maxLength={300} /></label>
         <label className="studio-switch"><input type="checkbox" checked={badge.enabled} onChange={(e) => setBadge({ ...badge, enabled: e.target.checked })} />فعال</label>
         <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>{badge.id ? 'ذخیرهٔ تغییرات' : 'افزودن نشان'}</button>{badge.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBadge(EMPTY_BADGE)}>انصراف</button>}</div>
@@ -265,7 +272,7 @@ function AdminForumPage() {
       <div className="table-wrap card"><table className="table"><thead><tr><th>نشان</th><th>درجه</th><th>قاعده</th><th>دریافت</th><th /></tr></thead><tbody>
         {data.badges.map((b) => <tr key={b.id} className={b.enabled ? '' : 'muted'}>
           <td><b>{b.icon} {b.name}</b><br /><small className="muted">{b.description}</small></td>
-          <td>{TIER_LABEL[b.tier] || b.tier}</td><td dir="ltr">{b.rule || 'دستی'}</td><td>{fa(b.grantCount)}</td>
+          <td>{TIER_LABEL[b.tier] || b.tier}</td><td>{ruleLabel(b.rule)}</td><td>{fa(b.grantCount)}</td>
           <td className="fr-admin-row-actions">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setBadge({ id: b.id, slug: b.slug, name: b.name, description: b.description, icon: b.icon, tier: b.tier, rule: b.rule, enabled: b.enabled }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('badges', b.id, b.name)}>حذف</button>

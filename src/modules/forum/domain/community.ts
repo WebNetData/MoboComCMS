@@ -37,6 +37,41 @@ export interface ForumSettings {
   clubsEnabled: boolean
   clubsMinTrust: number
   clubsMaxOwned: number
+  /** Standing shown under a member's name: the last level in this list whose every threshold they meet. */
+  levels: UserLevel[]
+}
+
+/** A level a member reaches by what they did: posts written, likes received on their posts, reputation. */
+export interface UserLevel { id: string; name: string; icon: string; color: string; minPosts: number; minLikes: number; minReputation: number }
+export const DEFAULT_LEVELS: UserLevel[] = [
+  { id: 'member', name: 'عضو تازه', icon: '🌱', color: '#64748b', minPosts: 0, minLikes: 0, minReputation: 0 },
+  { id: 'active', name: 'کاربر فعال', icon: '⚡', color: '#0ea5e9', minPosts: 50, minLikes: 0, minReputation: 0 },
+  { id: 'helpful', name: 'کاربر مفید', icon: '💡', color: '#16a34a', minPosts: 50, minLikes: 100, minReputation: 0 },
+  { id: 'professor', name: 'پروفسور', icon: '🎓', color: '#a855f7', minPosts: 200, minLikes: 500, minReputation: 0 },
+]
+
+export function normalizeLevels(input: unknown): UserLevel[] {
+  if (!Array.isArray(input)) return DEFAULT_LEVELS
+  const seen = new Set<string>()
+  const out: UserLevel[] = []
+  for (const item of input.slice(0, 20)) {
+    const raw = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>
+    const name = String(raw.name ?? '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 40)
+    if (!name) continue
+    let id = String(raw.id ?? '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30) || `level${out.length + 1}`
+    while (seen.has(id)) id = `${id}x`
+    seen.add(id)
+    const color = String(raw.color ?? '')
+    out.push({ id, name, icon: String(raw.icon ?? '').trim().slice(0, 8), color: /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#6366f1', minPosts: int(raw.minPosts, 0, 10_000_000, 0), minLikes: int(raw.minLikes, 0, 10_000_000, 0), minReputation: int(raw.minReputation, 0, 100_000_000, 0) })
+  }
+  return out
+}
+
+/** The member's level: the last one (in the order the admin set) whose every threshold is met. */
+export function levelFor(levels: UserLevel[], facts: { posts: number; likes: number; reputation: number }): UserLevel | null {
+  let found: UserLevel | null = null
+  for (const level of levels) if (facts.posts >= level.minPosts && facts.likes >= level.minLikes && facts.reputation >= level.minReputation) found = level
+  return found
 }
 
 export interface WatchedWords { block: string[]; approve: string[]; censor: string[] }
@@ -64,6 +99,7 @@ export const DEFAULT_FORUM_SETTINGS: ForumSettings = {
   watchedWords: { block: [], approve: [], censor: [] },
   clubsEnabled: true,
   clubsMinTrust: 1,
+  levels: DEFAULT_LEVELS,
   clubsMaxOwned: 3,
 }
 
@@ -110,6 +146,7 @@ export function normalizeForumSettings(input: Record<string, any> = {}): ForumSe
     pollsMinTrust: int(input.pollsMinTrust, 0, 4, d.pollsMinTrust),
     clubsEnabled: input.clubsEnabled === undefined ? d.clubsEnabled : input.clubsEnabled === true,
     clubsMinTrust: int(input.clubsMinTrust, 0, 4, d.clubsMinTrust),
+    levels: input.levels === undefined ? d.levels : normalizeLevels(input.levels),
     clubsMaxOwned: int(input.clubsMaxOwned, 1, 20, d.clubsMaxOwned),
     watchedWords: {
       block: normalizeWordList(input.watchedWords?.block),
@@ -255,6 +292,28 @@ export function earnedBadgeRules(facts: BadgeFacts): string[] {
   ]
   return rules.filter(([, ok]) => ok).map(([rule]) => rule)
 }
+
+/** What the fixed rules mean, for the person choosing one. */
+export const BADGE_RULE_LABEL: Record<string, string> = {
+  first_topic: 'اولین تاپیک', first_reply: 'اولین پاسخ', first_like: 'اولین لایکی که داد', first_like_received: 'اولین لایکی که گرفت', autobiographer: 'تکمیل آواتار و معرفی',
+  nice_post: 'پستی با ۱۰ لایک', good_post: 'پستی با ۲۵ لایک', great_post: 'پستی با ۵۰ لایک', first_solution: 'اولین پاسخ برگزیده', solver: '۱۰ پاسخ برگزیده',
+  trust_level_1: 'سطح اعتماد ۱', trust_level_2: 'سطح اعتماد ۲', trust_level_3: 'سطح اعتماد ۳', trust_level_4: 'سطح اعتماد ۴', anniversary: 'یک سال عضویت',
+}
+
+/** A badge given at a number the admin chooses: `posts:100`, `likes:500`… */
+export const BADGE_METRICS = { posts: 'تعداد پیام', topics: 'تعداد تاپیک', likes: 'لایک دریافتی', reputation: 'اعتبار', solved: 'پاسخ برگزیده', days: 'روز عضویت' } as const
+export type BadgeMetric = keyof typeof BADGE_METRICS
+export function parseThresholdRule(rule: string): { metric: BadgeMetric; value: number } | null {
+  const match = /^(posts|topics|likes|reputation|solved|days):([1-9]\d{0,7})$/.exec(String(rule || ''))
+  return match ? { metric: match[1] as BadgeMetric, value: Number(match[2]) } : null
+}
+export function thresholdMet(rule: string, facts: BadgeFacts & { reputation: number }): boolean {
+  const parsed = parseThresholdRule(rule)
+  if (!parsed) return false
+  const have = { posts: facts.postCount, topics: facts.topicCount, likes: facts.likesReceived, reputation: facts.reputation, solved: facts.solvedCount, days: facts.memberDays }[parsed.metric]
+  return have >= parsed.value
+}
+export const validBadgeRule = (rule: string) => BADGE_RULES.includes(rule) || parseThresholdRule(rule) !== null
 
 export const BADGE_RULES = ['first_topic', 'first_reply', 'first_like', 'first_like_received', 'autobiographer', 'nice_post', 'good_post', 'great_post', 'first_solution', 'solver', 'trust_level_1', 'trust_level_2', 'trust_level_3', 'trust_level_4', 'anniversary']
 

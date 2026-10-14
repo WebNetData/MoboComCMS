@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { categoryFamily } from '@/modules/forum/domain/tree'
 import { forumRanks } from '@/modules/forum/server/team'
-import { canEditPost, categoryAccess, inCategory, postLimits, type CategoryAccess, type ForumRank, type Viewer } from '@/modules/forum/domain/community'
+import { canEditPost, categoryAccess, inCategory, levelFor, postLimits, type CategoryAccess, type ForumRank, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { FORUM_PAGE_SIZE, THREAD_PAGE_SIZE, pageCount } from '@/modules/forum/domain/forum'
 import { ensureProfiles, getForumSettings, getForumViewer, viewerFor } from '@/modules/forum/server/community'
@@ -23,6 +23,10 @@ export type AuthorView = {
   posts: number; reputation: number
   /** Their rank in the forum's team, when they have one. */
   rank?: ForumRank
+  /** Likes received on their posts, the level that standing gives them, and their latest badges. */
+  likes: number
+  level: { name: string; icon: string; color: string } | null
+  badges: { name: string; icon: string; tier: string }[]
 }
 
 /** Author cards (profile, title, flair) for a set of users. */
@@ -34,19 +38,27 @@ export async function authorsFor(userIds: number[]): Promise<Map<number, AuthorV
   const groupIds = [...new Set(users.map((user) => user.forumProfile?.primaryGroupId).filter((id): id is number => !!id))]
   const groups = new Map((groupIds.length ? await db.forumGroup.findMany({ where: { id: { in: groupIds } }, select: { id: true, icon: true, color: true, name: true } }) : []).map((group) => [group.id, group]))
   const ranks = await forumRanks(ids)
+  const [{ levels }, grants] = await Promise.all([
+    getForumSettings(),
+    db.forumUserBadge.findMany({ where: { userId: { in: ids }, badge: { enabled: true } }, orderBy: { grantedAt: 'desc' }, take: ids.length * 12, select: { userId: true, badge: { select: { name: true, icon: true, tier: true } } } }),
+  ])
+  const TIER = { GOLD: 0, SILVER: 1, BRONZE: 2 } as Record<string, number>
+  const badgesOf = (userId: number) => grants.filter((grant) => grant.userId === userId).map((grant) => grant.badge).sort((a, b) => (TIER[a.tier] ?? 3) - (TIER[b.tier] ?? 3)).slice(0, 4)
   return new Map(users.map((user) => {
     const profile = user.forumProfile
+    const level = levelFor(levels, { posts: profile?.postCount ?? 0, likes: profile?.likesReceived ?? 0, reputation: profile?.reputation ?? 0 })
     const group = profile?.primaryGroupId ? groups.get(profile.primaryGroupId) : undefined
     return [user.id, {
       id: user.id, username: profile?.username || `user${user.id}`, name: user.name || profile?.username || `کاربر ${user.id}`,
       avatar: profile?.avatar || pictureOf(user), avatarColor: user.avatarColor, title: profile?.title || '', trustLevel: profile?.trustLevel ?? 0,
       staff: user.role === 'ADMIN', joinedAt: user.createdAt, flair: group ? { icon: group.icon, color: group.color, name: group.name } : null,
+      likes: profile?.likesReceived ?? 0, level: level ? { name: level.name, icon: level.icon, color: level.color } : null, badges: badgesOf(user.id),
       posts: profile?.postCount ?? 0, reputation: profile?.reputation ?? 0, ...(ranks.has(user.id) ? { rank: ranks.get(user.id) } : {}),
     }]
   }))
 }
 
-export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, posts: 0, reputation: 0 })
+export const fallbackAuthor = (id: number): AuthorView => ({ id, username: `user${id}`, name: `کاربر ${id}`, avatar: '', avatarColor: '#64748b', title: '', trustLevel: 0, staff: false, joinedAt: new Date(0), flair: null, posts: 0, reputation: 0, likes: 0, level: null, badges: [] })
 
 // ------------------------------------------------------------------ categories
 

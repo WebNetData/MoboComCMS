@@ -10,9 +10,9 @@ import { RestrictionError } from '@/modules/identity/domain/restrictions'
 import { changeForumRestrictions, forumRestrictionHistory, replaceForumRestrictions } from '@/modules/forum/server/restrictions'
 import { moduleGuard } from '@/extensions/server/modules'
 import { ForumError, boardSlug } from '@/modules/forum/domain/forum'
-import { BADGE_RULES, CommunityError, DEFAULT_FORUM_SETTINGS, FLAG_REASONS, TRUST_NAMES, groupSlug, normalizeLevel } from '@/modules/forum/domain/community'
+import { BADGE_METRICS, BADGE_RULES, BADGE_RULE_LABEL, validBadgeRule, CommunityError, DEFAULT_FORUM_SETTINGS, FLAG_REASONS, TRUST_NAMES, groupSlug, normalizeLevel } from '@/modules/forum/domain/community'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
-import { getForumSettings, refreshStats, saveForumSettings, setBadge, viewerFor } from '@/modules/forum/server/community'
+import { getForumSettings, grantThresholdBadgeToAll, refreshStats, saveForumSettings, setBadge, viewerFor } from '@/modules/forum/server/community'
 import { resolveFlags } from '@/modules/forum/server/actions'
 import { groupAction } from '@/modules/forum/server/people'
 import { forumTeamIds, setDeputy, setForumModerator } from '@/modules/forum/server/team'
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     Promise.all([db.forumThread.count(), db.forumPost.count(), db.forumProfile.count({ where: { postCount: { gt: 0 } } }), db.forumFlag.count({ where: { status: 'PENDING' } }), db.forumPost.count({ where: { status: 'PENDING' } })]),
   ])
   return ok({
-    team, categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
+    team, categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, badgeRuleLabels: BADGE_RULE_LABEL, badgeMetrics: BADGE_METRICS, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
     stats: { topics: stats[0], posts: stats[1], members: stats[2], pendingFlags: stats[3], pendingReview: stats[4] },
   })
 }
@@ -227,10 +227,13 @@ async function saveBadge(body: Record<string, any>, creating: boolean) {
     ...(body.description !== undefined ? { description: text(body.description, 300) } : {}),
     ...(body.icon !== undefined ? { icon: text(body.icon, 8) || '🏅' } : {}),
     ...(body.tier !== undefined ? { tier: ['BRONZE', 'SILVER', 'GOLD'].includes(body.tier) ? body.tier : 'BRONZE' } : {}),
-    ...(body.rule !== undefined ? { rule: BADGE_RULES.includes(rule) ? rule : '' } : {}),
+    ...(body.rule !== undefined ? { rule: validBadgeRule(rule) ? rule : '' } : {}),
     ...(body.enabled !== undefined ? { enabled: body.enabled === true } : {}),
   }
-  return creating ? db.forumBadge.create({ data: data as { name: string; slug: string } }) : db.forumBadge.update({ where: { id: Number(body.id) }, data })
+  const saved = await (creating ? db.forumBadge.create({ data: data as { name: string; slug: string } }) : db.forumBadge.update({ where: { id: Number(body.id) }, data }))
+  // A badge with a number of its own goes at once to everybody who already has that number.
+  const given = await grantThresholdBadgeToAll(saved.id).catch(() => 0)
+  return { ...saved, grantCount: saved.grantCount + given, given }
 }
 
 async function moderateUser(actor: AuthedUser, body: Record<string, any>, req: NextRequest) {

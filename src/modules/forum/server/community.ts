@@ -8,7 +8,7 @@ import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { ensureUserProfiles } from '@/modules/identity/server/profile'
 import {
-  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, reactionWeight, sameReactionWeights,
+  DEFAULT_FORUM_SETTINGS, GUEST, automaticGroups, computeTrustLevel, earnedBadgeRules, normalizeForumSettings, parseThresholdRule, thresholdMet, reactionWeight, sameReactionWeights,
   type ForumSettings, type Viewer,
 } from '@/modules/forum/domain/community'
 import { categoryFamily } from '@/modules/forum/domain/tree'
@@ -190,15 +190,38 @@ export async function refreshStats(userId: number) {
     await notify(userId, 'FORUM_TRUST', `trust:${userId}:${trustLevel}`, 'سطح اعتماد شما بالا رفت', `به سطح اعتماد ${trustLevel.toLocaleString('fa-IR')} رسیدید و امکانات بیشتری در تالار دارید.`, `/forum/u/${profile.username}`)
   }
   await grantBadges(userId, {
-    ...stats, trustLevel, bestPostLikes: bestPost?.likeCount ?? 0, hasAvatar: !!profile.avatar, hasBio: profile.bio.trim().length >= 10,
+    ...stats, reputation: profile.reputation, trustLevel, bestPostLikes: bestPost?.likeCount ?? 0, hasAvatar: !!profile.avatar, hasBio: profile.bio.trim().length >= 10,
     memberDays: user ? Math.floor((Date.now() - user.createdAt.getTime()) / 86_400_000) : 0,
   })
 }
 
-async function grantBadges(userId: number, facts: Parameters<typeof earnedBadgeRules>[0]) {
+const METRIC_COLUMN = { posts: 'postCount', topics: 'topicCount', likes: 'likesReceived', reputation: 'reputation', solved: 'solvedCount' } as const
+
+/**
+ * A threshold badge is given to everybody who already meets it, the moment it is made or changed — the number
+ * is measured over everything stored, not only from now on. Returns how many got it.
+ */
+export async function grantThresholdBadgeToAll(badgeId: number): Promise<number> {
+  const badge = await db.forumBadge.findUnique({ where: { id: badgeId } })
+  const rule = badge?.enabled ? parseThresholdRule(badge.rule) : null
+  if (!badge || !rule) return 0
+  const where = rule.metric === 'days'
+    ? { user: { createdAt: { lte: new Date(Date.now() - rule.value * 86_400_000) } } }
+    : { [METRIC_COLUMN[rule.metric]]: { gte: rule.value } }
+  const holders = new Set((await db.forumUserBadge.findMany({ where: { badgeId }, select: { userId: true } })).map((row) => row.userId))
+  const due = (await db.forumProfile.findMany({ where, select: { userId: true }, take: 20_000 })).filter((row) => !holders.has(row.userId))
+  if (!due.length) return 0
+  const made = await db.forumUserBadge.createMany({ data: due.map((row) => ({ userId: row.userId, badgeId, reason: 'automatic' })), skipDuplicates: true })
+  await db.forumBadge.update({ where: { id: badgeId }, data: { grantCount: { increment: made.count } } })
+  return made.count
+}
+
+async function grantBadges(userId: number, facts: Parameters<typeof earnedBadgeRules>[0] & { reputation: number }) {
   const rules = earnedBadgeRules(facts)
-  if (!rules.length) return
-  const badges = await db.forumBadge.findMany({ where: { enabled: true, rule: { in: rules }, grants: { none: { userId } } } })
+  // Fixed rules by name, and badges whose rule is a number the admin chose ("posts:100").
+  const open = await db.forumBadge.findMany({ where: { enabled: true, rule: { not: '' }, grants: { none: { userId } } } })
+  const badges = open.filter((badge) => rules.includes(badge.rule) || thresholdMet(badge.rule, facts))
+  if (!badges.length) return
   const profile = await db.forumProfile.findUnique({ where: { userId }, select: { username: true } })
   for (const badge of badges) {
     try {
