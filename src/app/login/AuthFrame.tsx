@@ -32,7 +32,7 @@ const COPY = {
 }
 
 /** The frame of the sign-in and sign-up pages: the site's story on one side, the form on the other. */
-export default function AuthFrame({ children, variant = 'login' }: { children: ReactNode; variant?: 'login' | 'register' }) {
+export default function AuthFrame({ children, variant = 'login' }: { children: ReactNode; variant?: 'login' | 'register' | 'signed' }) {
   const { locale } = useI18n()
   const site = useSite()
   const copy = COPY[locale === 'fa' ? 'fa' : 'en']

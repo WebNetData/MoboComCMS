@@ -8,6 +8,8 @@ import { dict } from '@/i18n/config'
 import TelegramLoginButton from './TelegramLoginButton'
 import { telegramConfig } from '@/modules/notifications/server/telegram'
 import { otpLoginAvailable } from '@/modules/sms/server/sms'
+import SignedIn from './SignedIn'
+import { safeNext, signedInPerson } from './signed-in-person'
 
 export default async function LoginPage({ searchParams: searchParamsPromise }: { searchParams: Promise<{ next?: string }> }) {
   const searchParams = await searchParamsPromise
@@ -26,6 +28,8 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
   const locale = await getServerLocale()
   const theme = await getServerTheme()
   const t = dict(locale)
+  const person = await signedInPerson()
+  if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next={safeNext(nextPath)} /></AuthFrame></>
   const [telegram, otp] = await Promise.all([telegramConfig(), otpLoginAvailable().catch(() => false)])
   const botUsername = telegram.ready ? telegram.username : ''
   let registerHref = '/register'

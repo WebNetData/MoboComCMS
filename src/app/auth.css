@@ -119,3 +119,33 @@ html[data-design] .auth-form .btn-primary:disabled { filter: saturate(.55); opac
   .auth-aurora i, .auth-glass { animation: none; }
   html[data-design] .auth-form .btn-primary, html[data-design] .auth-form .btn-primary::after, .auth-page .auth-mode button { transition: none; }
 }
+
+/* A member already signed in: where to go next instead of a form. */
+.auth-signed { width: 100%; max-width: 420px; margin-inline: auto; }
+.auth-signed-badge { position: relative; width: 76px; height: 76px; margin-bottom: 22px; }
+.auth-signed-badge > img, .auth-signed-badge > span { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 24px; object-fit: cover; font-size: 30px; font-weight: 900; color: #fff; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 50%, #22d3ee)); box-shadow: 0 18px 36px -16px var(--primary); }
+.auth-signed-badge::before { content: ''; position: absolute; inset: -7px; border-radius: 30px; border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); animation: auth-ring 2.8s ease-out infinite; }
+.auth-signed-badge > i { position: absolute; inset-block-end: -4px; inset-inline-end: -4px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; background: #10b981; border: 3px solid var(--bg-soft); box-shadow: 0 6px 14px -6px #10b981; }
+@keyframes auth-ring { 0% { transform: scale(.94); opacity: .9; } 100% { transform: scale(1.18); opacity: 0; } }
+.auth-signed h1 { font-size: 26px; font-weight: 850; line-height: 1.5; margin-bottom: 8px; }
+.auth-signed .auth-form-intro { margin-bottom: 22px; }
+.auth-signed .auth-form-intro b { color: var(--text); }
+.auth-signed-main { display: grid; gap: 10px; margin-bottom: 26px; }
+html[data-design] .auth-signed-main .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border-radius: 14px; font-weight: 800; }
+html[data-design] .auth-signed-main .btn-primary { color: #fff; background: linear-gradient(110deg, var(--primary), color-mix(in srgb, var(--primary) 62%, #22d3ee)); box-shadow: 0 16px 30px -16px var(--primary); }
+html[data-design] .auth-signed-main .btn-ghost { border: 1px solid var(--border); background: var(--card); color: var(--text); }
+html[data-design] .auth-signed-main .auth-signed-admin { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.auth-signed-title { margin: 0 0 10px; font-size: 13px; font-weight: 800; color: var(--muted); }
+.auth-signed-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 22px; }
+.auth-signed-tile { display: grid; justify-items: center; gap: 8px; padding: 14px 8px; border-radius: 16px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 12.5px; font-weight: 700; text-align: center; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.auth-signed-tile > span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: var(--primary); background: var(--primary-soft); transition: color .16s ease, background-color .16s ease; }
+.auth-signed-tile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 14px 28px -20px rgb(0 0 0 / .5); }
+.auth-signed-tile:hover > span { color: #fff; background: var(--primary); }
+.auth-signed-sections { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 24px; }
+.auth-signed-sections a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: color-mix(in srgb, var(--card) 70%, transparent); color: var(--text); font-size: 12.5px; font-weight: 650; transition: border-color .16s ease, color .16s ease; }
+.auth-signed-sections a:hover { border-color: var(--primary); color: var(--primary); }
+.auth-signed-sections svg { color: var(--primary); }
+.auth-signed-switch { padding-top: 16px; border-top: 1px dashed var(--border); text-align: center; font-size: 12.5px; color: var(--muted); }
+.auth-signed-switch .link-button { color: var(--danger, #dc2626); font-weight: 700; }
+@media (max-width: 420px) { .auth-signed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .auth-signed-badge::before { animation: none; } .auth-signed-tile, .auth-signed-tile > span { transition: none; } .auth-signed-tile:hover { transform: none; } }

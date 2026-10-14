@@ -11,3 +11,6 @@ Owner asked for very professional, modern sign-in and sign-up pages. This slice 
 - `scripts/site.test.cjs` — strength scores, the glimpse is decorative, the toggle is pressed-state.
 - Browser: `.mobocom/claude-tools/pw-auth.cjs` (11) — 1440 light and dark, 390 light and dark, no sideways scroll, story texts ≥ 4.5:1 on the dark panel, the toggle shows and hides, the meter moves from weak to strong, the story and form stack on a phone, no page error.
 - React Doctor (`--scope files`) on `AuthFrame.tsx`, `AuthFields.tsx`: no issues. Older warnings in `LoginForm.tsx` / `RegisterForm.tsx` (buttons without `type`, a fetch without a status check, complexity) were there before and are untouched.
+
+## Already signed in (2026-10-14)
+A member who opens `/login` or `/register` while signed in sees «شما وارد حساب کاربری خود شده‌اید» instead of a form: their name and e-mail, a button into the account (and «ادامه از جایی که بودید» when `?next` is a path on this site — never another site, never back to the sign-in pages), six shortcuts into the account, the site's sections from the configured menu, the admin panel for staff, and «خروج و ورود با حساب دیگر». Owners: `src/app/login/SignedIn.tsx`, `signed-in-person.ts`. Browser: `.mobocom/claude-tools/pw-signed.cjs` (11).
