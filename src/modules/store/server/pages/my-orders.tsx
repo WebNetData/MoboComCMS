@@ -101,6 +101,12 @@ export async function MyOrderView({ id: idParam }: { id: string }) {
           {line.image ? <img src={line.image} alt="" loading="lazy" /> : <span className="sx-my-ph"><StoreIcon name="box" size={24} /></span>}
           <div>{line.slug ? <Link href={`/products/${line.slug}`}>{line.name}</Link> : <b>{line.name}</b>}{line.variantName && <small>{line.variantName}</small>}<small className="num">{fa(line.quantity)} عدد × <Money amount={line.unitPrice} currency={order.currency} /></small></div>
           <Money amount={line.total} currency={order.currency} />
+          {(line.openAmount || line.inputs.length > 0 || line.inputsErasedAt) && <div className="sx-my-given">
+            {line.openAmount && <p>مبلغ پرداخت در سایت مقصد: <b className="num" dir="ltr">{line.openAmount.amount} {line.openAmount.currency}</b></p>}
+            {line.inputs.length > 0 && <dl>{line.inputs.map((answer) => <div key={answer.key}><dt>{answer.label}</dt><dd dir="auto">{answer.value}</dd></div>)}</dl>}
+            {line.inputs.length > 0 && <small>اطلاعاتی که برای انجام این سفارش دادید. رمزها نمایش داده نمی‌شوند و پس از پایان سفارش همه پاک می‌شود.</small>}
+            {!line.inputs.length && line.inputsErasedAt && <small>اطلاعاتی که برای این سفارش داده بودید پاک شده است.</small>}
+          </div>}
         </li>)}</ul>
       </section>
       <aside className="sx-my-side">

@@ -6,6 +6,8 @@ import { validateCover } from '@/shared/content/cover'
 import { attributeGroupForCategory, validateFaqs, validateFields, validateGallery, validateSpecifications, validateVariants } from '@/modules/catalog/server/product-config'
 import { applyFxToBody } from '@/modules/fx/server/fx'
 import { CATEGORY_KIND_LABEL, productFitsCategory, type CategoryKind } from '@/modules/catalog/domain/category-kind'
+import { validateOrderFields } from '@/modules/store/domain/order-inputs'
+import { FX_CODES } from '@/modules/fx/domain/fx'
 
 /**
  * Product form → row data, shared by the store admin (CMS products) and the
@@ -37,7 +39,7 @@ export async function productCategoryConfig(categoryId: unknown) {
   return { categoryId: id, ...await attributeGroupForCategory(id), categoryKind: row?.kind || '' }
 }
 
-type FxExisting = { pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
+type FxExisting = { openAmount?: boolean; openCurrencies?: string; openMinMinor?: bigint; openMaxMinor?: bigint; pricingMode?: string; fxCurrency?: string; fxAmountMinor?: bigint; fxCompareAtMinor?: bigint; fxMemberMinor?: bigint; markupBps?: number; markupFixedMinor?: bigint }
 
 export async function productInput(input: any, existing?: { price: number; currency: string; categoryId: number | null; specifications: string; faqs: string; gallery: string; kind: string; stock: number } & FxExisting) {
   const currency = normalizeCurrency(input?.currency ?? existing?.currency ?? 'IRT')
@@ -72,7 +74,40 @@ export async function productInput(input: any, existing?: { price: number; curre
     vip.vipGiftDays = days
   }
   const merchandising = await productMerchandising(b, priceMinor, currency)
-  return { data: { ...data, ...vip, ...merchandising, ...fx.fields, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
+  const ordering = productOrdering(b, existing, String((fx.fields as { pricingMode?: string }).pricingMode ?? existing?.pricingMode ?? 'FIXED'), Array.isArray(b?.variants) && b.variants.length > 0)
+  return { data: { ...data, ...vip, ...merchandising, ...ordering, ...fx.fields, kind, specifications, faqs, gallery, price: legacyNumber(priceMinor, currency), priceMinor, currency, stock, categoryId: category.categoryId }, variants }
+}
+
+/**
+ * What the product asks its buyer (order fields), and whether the buyer types the foreign amount themselves
+ * ("pay a foreign site"): the amount is priced with this product's own rate, percentage and fixed profit.
+ */
+function productOrdering(b: any, existing: FxExisting | undefined, pricingMode: string, hasVariants: boolean) {
+  const out: Record<string, unknown> = {}
+  if (b?.orderFields !== undefined) out.orderFields = JSON.stringify(validateOrderFields(b.orderFields))
+  const open = b?.openAmount !== undefined ? b.openAmount === true || b.openAmount === 'true' : existing?.openAmount ?? false
+  if (b?.openAmount !== undefined) out.openAmount = open
+  if (!open) return out
+  if (pricingMode !== 'FX') throw Error('مبلغ دلخواه فقط برای محصولی است که قیمت‌گذاری ارزی دارد؛ ابتدا قیمت‌گذاری را روی «ارزی» بگذارید')
+  if (hasVariants) throw Error('محصولِ مبلغ دلخواه تنوع ندارد؛ تنوع‌ها را بردارید')
+  if (b?.openCurrencies !== undefined) {
+    const codes = [...new Set((Array.isArray(b.openCurrencies) ? b.openCurrencies : String(b.openCurrencies).split(',')).map((code: unknown) => String(code).trim().toUpperCase()).filter(Boolean))] as string[]
+    if (codes.some((code) => !FX_CODES.includes(code))) throw Error('یکی از ارزهای مبلغ دلخواه پشتیبانی نمی‌شود')
+    out.openCurrencies = codes.join(',')
+  }
+  const cents = (value: unknown, label: string) => {
+    const text = String(value ?? '').replace(/[,،٬\s]/g, '')
+    if (!text) return 0n
+    if (!/^\d{1,7}(\.\d{1,2})?$/.test(text)) throw Error(`${label} معتبر نیست`)
+    const [whole, fraction = ''] = text.split('.')
+    return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))
+  }
+  const min = b?.openMin !== undefined ? cents(b.openMin, 'حداقل مبلغ') : existing?.openMinMinor ?? 0n
+  const max = b?.openMax !== undefined ? cents(b.openMax, 'حداکثر مبلغ') : existing?.openMaxMinor ?? 0n
+  if (max > 0n && min > max) throw Error('حداقل مبلغ از حداکثر بیشتر است')
+  if (b?.openMin !== undefined) out.openMinMinor = min
+  if (b?.openMax !== undefined) out.openMaxMinor = max
+  return out
 }
 
 const plain = (value: unknown, max: number) => String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max)

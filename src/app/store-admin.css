@@ -580,3 +580,25 @@ tr.is-off { opacity: .6; }
 .ad-bar { height: 6px; border-radius: 99px; background: var(--sa-subtle); overflow: hidden; }
 .ad-bar > i { display: block; height: 100%; background: var(--sa-accent); }
 @media (max-width: 900px) { .ad-charts, .ad-grid2 { grid-template-columns: minmax(0, 1fr); } .ad-creative { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Buyer information: the product's field list (oa) and the answers on an order (oi) ---- */
+.oa-list { display: grid; gap: 12px; margin-block: 12px; }
+.oa-field { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--sa-line); border-radius: 12px; }
+.oa-options { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 13px; }
+.oa-options > span { color: var(--sa-muted); }
+.oa-options .sa-check { margin: 0; }
+.oa-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.oa-open { display: grid; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--sa-line); }
+.sa-lines li { flex-wrap: wrap; }
+.oi { flex: 1 0 100%; display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--sa-subtle); font-size: 13px; min-width: 0; }
+.oi-open, .oi-erased, .oi-note { margin: 0; }
+.oi-note { color: var(--sa-danger); font-weight: 700; }
+.oi-erased, .oi small { color: var(--sa-muted); }
+.oi-list { margin: 0; display: grid; gap: 8px; }
+.oi-list > div { display: grid; grid-template-columns: minmax(100px, 200px) minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.oi-list dt { color: var(--sa-muted); }
+.oi-list dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.oi-list dd span { overflow-wrap: anywhere; font-weight: 700; }
+.oi-list dd .is-secret { font-family: ui-monospace, monospace; }
+.oi-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+@media (max-width: 560px) { .oi-list > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }

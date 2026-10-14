@@ -70,6 +70,8 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
               {line.brand && <li><StoreIcon name="store" size={14} />{line.brand}</li>}
               <li>{line.kind === 'PHYSICAL' ? <><StoreIcon name="truck" size={14} />ارسال فروشگاه</> : <><StoreIcon name="bolt" size={14} />{line.instant ? 'تحویل آنی' : 'تحویل دیجیتال'}</>}</li>
             </ul>
+            {line.openAmount && <p className="sx-cart-given"><span>مبلغ پرداخت: <b className="num" dir="ltr">{line.openAmount.amount} {line.openAmount.currency}</b></span></p>}
+            {!!line.inputs?.length && <p className="sx-cart-given">{line.inputs.map((answer) => <span key={answer.label}>{answer.label}: <b dir="auto">{answer.value}</b></span>)}</p>}
             {line.issue && <p className="sx-cart-issue" role="status">{line.issue}</p>}
           </div>
           <div className="sx-cart-side">

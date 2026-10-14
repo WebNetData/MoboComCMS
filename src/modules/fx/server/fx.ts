@@ -442,3 +442,18 @@ export async function convertForeignProducts(options: { dryRun?: boolean; sell?:
   }
   return { products: [], missingRates: missing, converted }
 }
+
+// ------------------------------------------------------------------ an amount typed by the buyer
+
+/**
+ * The price of a foreign amount a buyer typed (a service that pays a foreign site): the amount at the current
+ * rate, plus the product's percentage, plus its fixed profit — the same formula and rounding as a product whose
+ * cost the staff set. Throws FxError when the rate of that currency is missing.
+ */
+export async function quoteForeignAmount(product: { currency: string; markupBps: number; markupFixedMinor: bigint }, baseMinor: bigint, baseCurrency: string) {
+  const [rates, config] = await Promise.all([loadRates(), getFxConfig()])
+  const sellCurrency = normalizeCurrency(product.currency)
+  const input = { baseMinor, baseCurrency, sellCurrency, markupBps: product.markupBps, fixedMinor: product.markupFixedMinor, roundTo: roundFor(sellCurrency, config.roundToman) }
+  const parts = fxBreakdown(input, rates)
+  return { priceMinor: parts.total, currency: sellCurrency, rate: parts.rate, conversionMinor: parts.conversion, markupMinor: parts.markup, fixedMinor: parts.fixed }
+}

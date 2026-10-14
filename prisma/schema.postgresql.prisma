@@ -785,6 +785,13 @@ model Product {
   fxCompareAtMinor BigInt @default(0) // foreign list price shown struck through; 0 = none
   fxMemberMinor BigInt @default(0) // foreign VIP price; 0 = none
   markupBps     Int @default(0) // profit percentage in basis points (1250 = 12.5%)
+  // What an order of this product needs from the buyer: validated array of {key, label, labelEn, kind, required, help, options}.
+  orderFields   String @default("[]")
+  // A service whose foreign amount the buyer types (paying a foreign site): priced from that amount, the live rate and the two markups below.
+  openAmount    Boolean @default(false)
+  openCurrencies String @default("") // comma list of the currencies the buyer may type, e.g. USD,EUR
+  openMinMinor  BigInt @default(0) // smallest amount, in minor units of the foreign currency
+  openMaxMinor  BigInt @default(0) // largest amount (0 = no upper limit)
   markupFixedMinor BigInt @default(0) // fixed profit added after the percentage, in the selling currency
   repricedAt    DateTime?
   seller        Seller? @relation(fields: [sellerId], references: [id], onDelete: SetNull)
@@ -2704,6 +2711,9 @@ model CartLine {
   productId  Int
   variantKey Int      @default(0) // variant id, 0 = product without variants
   quantity   Int      @default(1)
+  inputs     String   @default("") // encrypted answers of the buyer to the product's order fields
+  openAmountMinor BigInt @default(0) // the foreign amount typed by the buyer (open-amount products)
+  openCurrency String  @default("")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
   cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
@@ -2734,6 +2744,11 @@ model OrderLine {
   commissionMinor BigInt  @default(0)
   sellerStatus   String   @default("") // '' | ACCEPTED | READY | SHIPPED | CANCELLED
   sellerTracking String   @default("")
+  inputs         String   @default("") // encrypted answers of the buyer, with their labels as they were asked
+  openAmountMinor BigInt  @default(0) // the foreign amount this line paid for
+  openCurrency   String   @default("")
+  openRate       String   @default("") // the rate used, as text (toman per unit)
+  inputsErasedAt DateTime? // when the answers were wiped (by staff, or after the order was done)
   createdAt      DateTime @default(now())
   order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

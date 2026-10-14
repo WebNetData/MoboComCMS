@@ -130,3 +130,25 @@ test('a batch of decisions reports what went through and why the rest did not', 
   assert.deepEqual(domain.batchIds([3, 3, 9, 1], [1, 2, 3]), [3, 1])
   assert.equal(domain.batchIds(Array.from({ length: 80 }, (_, i) => i), Array.from({ length: 80 }, (_, i) => i)).length, domain.BATCH_LIMIT)
 })
+
+test('staff can open a ticket to a customer: guarded, for exactly one account, sanitised, told to the customer, audited', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const route = read('src/modules/support/server/http/admin/tickets/route.ts')
+  const post = route.slice(route.indexOf('export async function POST'))
+  assert.ok(post.length > 500)
+  // Only staff who handle tickets, and only in a department they handle.
+  assert.match(post, /const staff = await requirePerm\(req, 'tickets\.handle' as Permission\)\n  if \(!staff\) return err\('forbidden', 403\)/)
+  assert.match(post, /if \(!await canHandleTicket\(staff, department\)\) return err\('forbidden', 403\)/)
+  assert.match(post, /departmentConfig\.requiresSubscription \|\| departmentConfig\.requiresProduct/, 'a department tied to a service cannot be used without one')
+  // Exactly one account: no guess between two people, and not a banned account.
+  assert.match(post, /if \(found\.length !== 1\) return err\(/)
+  assert.match(post, /if \(customer\.status !== 'ACTIVE'\) return err\(/)
+  // The message is cleaned like every ticket message, and the ticket is the customer's, waiting for them.
+  assert.match(post, /const message = sanitizeMessage\(String\(b\?\.message \|\| ''\)\.trim\(\)\)/)
+  assert.match(post, /userId: customer\.id, subject, priority, department, status: 'PENDING'/)
+  assert.match(post, /messages: \{ create: \{ userId: staff\.id, fromAdmin: true, body: message \} \}/)
+  assert.match(post, /createInboxEvent\(\{\n    userId: customer\.id, kind: 'TICKET_REPLY', dedupeKey: `ticket:\$\{ticket\.id\}:opened-by-staff`/)
+  assert.match(post, /auditAdmin\(\{ req, actor: staff, action: 'ticket\.open_for_customer'/)
+  assert.match(read('src/app/api/admin/tickets/route.ts'), /export \{ GET, PATCH, POST \}/)
+})

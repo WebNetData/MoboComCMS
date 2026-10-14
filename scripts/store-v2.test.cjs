@@ -201,3 +201,82 @@ test('a product category belongs to one half of the shop: a root decides, everyt
   assert.match(read('src/modules/store/server/catalog.ts'), /tree\[index\]\.kind === '' \|\| tree\[index\]\.kind === kind/)
   assert.match(read('prisma/release-manifest.json'), /"20261226120000_product_category_kind"/)
 })
+
+const asked = load('src/modules/store/domain/order-inputs')
+
+test('a product asks its buyer only what the chosen option needs, and keeps a password as typed', () => {
+  const fields = asked.validateOrderFields([
+    { key: 'email', label: 'ایمیل حساب', kind: 'email', required: true, options: ['اختصاصی روی اکانت شما'] },
+    { key: 'password', label: 'رمز حساب', kind: 'secret', required: true, options: ['اختصاصی روی اکانت شما'] },
+    { key: 'note', label: 'توضیحات', kind: 'textarea', required: false },
+  ])
+  assert.deepEqual(asked.fieldsFor(fields, 'اختصاصی پیش ساخته').map((field) => field.key), ['note'])
+  assert.deepEqual(asked.fieldsFor(fields, 'اختصاصی روی اکانت شما').map((field) => field.key), ['email', 'password', 'note'])
+  // The ready-made option asks for nothing required; the own-account option refuses a missing login.
+  assert.deepEqual(asked.validateAnswers(fields, 'اختصاصی پیش ساخته', {}), [])
+  assert.throws(() => asked.validateAnswers(fields, 'اختصاصی روی اکانت شما', { email: 'a@b.co' }), /رمز حساب/)
+  assert.throws(() => asked.validateAnswers(fields, 'اختصاصی روی اکانت شما', { email: 'not-an-email', password: 'x' }), /ایمیل معتبر/)
+  const answers = asked.validateAnswers(fields, 'اختصاصی روی اکانت شما', { email: ' a@b.co ', password: ' p a ss ', unknown: 'dropped' })
+  assert.deepEqual(answers.map((answer) => [answer.key, answer.value]), [['email', 'a@b.co'], ['password', ' p a ss ']])
+  assert.equal(asked.answersComplete(fields, 'اختصاصی روی اکانت شما', answers), true)
+  assert.equal(asked.answersComplete(fields, 'اختصاصی روی اکانت شما', []), false)
+  assert.equal(asked.answersComplete(fields, 'اختصاصی پیش ساخته', []), true)
+  // Nobody but the handling staff gets the password back.
+  assert.deepEqual(asked.maskAnswers(answers).map((answer) => answer.value), ['a@b.co', asked.SECRET_MASK])
+  // The admin's list is checked: unique latin keys, a known kind, a label, at most twelve.
+  assert.throws(() => asked.validateOrderFields([{ key: 'a', label: 'x' }, { key: 'a', label: 'y' }]), /یکتا/)
+  assert.throws(() => asked.validateOrderFields([{ key: 'Bad Key', label: 'x' }]), /یکتا/)
+  assert.throws(() => asked.validateOrderFields([{ key: 'a', label: 'x', kind: 'file' }]), /نوع فیلد/)
+  assert.throws(() => asked.validateOrderFields(Array.from({ length: 13 }, (_, index) => ({ key: 'k' + index, label: 'x' }))), /حداکثر/)
+  assert.deepEqual(asked.readOrderFields('{broken'), [])
+  assert.throws(() => asked.validateAnswers(asked.validateOrderFields([{ key: 'site', label: 'سایت', kind: 'url', required: true }]), '', { site: 'javascript:alert(1)' }), /نشانی یک سایت/)
+  assert.equal(asked.validateAnswers(asked.validateOrderFields([{ key: 'site', label: 'سایت', kind: 'url', required: true }]), '', { site: 'example.com/pay' })[0].value, 'https://example.com/pay')
+})
+
+test('a typed foreign amount is read in cents and held to the product limits', () => {
+  const rule = { openAmount: true, openCurrencies: 'USD, eur', openMinMinor: 500n, openMaxMinor: 200000n, fxCurrency: 'USD' }
+  assert.deepEqual(asked.openCurrenciesOf(rule), ['USD', 'EUR'])
+  assert.deepEqual(asked.openCurrenciesOf({ ...rule, openCurrencies: '' }), ['USD'])
+  assert.deepEqual(asked.parseOpenAmount(rule, { amount: '49.99', currency: 'usd' }), { amountMinor: 4999n, currency: 'USD' })
+  assert.deepEqual(asked.parseOpenAmount(rule, { amount: '۱٬۲۰۰', currency: 'EUR' }), { amountMinor: 120000n, currency: 'EUR' })
+  assert.throws(() => asked.parseOpenAmount(rule, { amount: '4.99', currency: 'USD' }), /حداقل/)
+  assert.throws(() => asked.parseOpenAmount(rule, { amount: '2000.01', currency: 'USD' }), /حداکثر/)
+  assert.throws(() => asked.parseOpenAmount(rule, { amount: '10', currency: 'GBP' }), /مجاز نیست/)
+  for (const bad of ['', '-5', '1e3', '10.999', 'abc', '0']) assert.throws(() => asked.parseOpenAmount(rule, { amount: bad, currency: 'USD' }), asked.OrderInputError, bad)
+})
+
+test('buyer answers stay encrypted from cart to order, and only an audited staff click reads a password', () => {
+  const cart = read('src/modules/store/server/cart.ts')
+  const checkout = read('src/modules/checkout/server/checkout.ts')
+  const orders = read('src/modules/store/server/orders.ts')
+  const routes = read('src/modules/store/server/http/routes.ts')
+  const sealed = read('src/modules/store/server/order-inputs.ts')
+  assert.match(sealed, /answers\.length \? encryptDigitalDelivery\(JSON\.stringify\(answers\)\) : ''/)
+  // The cart checks and seals what was typed, prices a typed amount itself, and never sends a password back.
+  assert.match(cart, /const answers = validateAnswers\(fields, variantName, input\.inputs\)/)
+  assert.match(cart, /detail = \{ inputs: sealAnswers\(answers\)/)
+  assert.match(cart, /inputs: maskAnswers\(answers\)\.map/)
+  assert.match(cart, /await openAmountPrice\(row\.product, row\.openAmountMinor, row\.openCurrency\)/)
+  assert.match(cart, /quantity: line\.quantity, inputs: line\.inputs, openAmountMinor: line\.openAmountMinor, openCurrency: line\.openCurrency \}/, 'a guest line keeps its answers through sign-in')
+  // Checkout refuses a line without its required answers, prices a typed amount again and keeps the rate.
+  assert.match(checkout, /if \(!answersComplete\(readOrderFields\(product\.orderFields\), variant\?\.name \|\| '', openAnswers\(sealed\)\)\) return fail\(409, 'INPUT_REQUIRED'/)
+  assert.match(checkout, /const quote = await openAmountPrice\(product, openAmountMinor, openCurrency\)/)
+  assert.match(checkout, /openRate = String\(quote\.rate\)/)
+  assert.match(checkout, /orderLines\.some\(\(line\) => line\.openAmountMinor > 0n\)\) return fail\(409, 'PROMOTION_NOT_APPLICABLE'/)
+  // Every order view masks; the full answer leaves only through the recorded action.
+  assert.match(orders, /inputs: maskAnswers\(openAnswers\(line\.inputs\)\)\.map/)
+  assert.match(routes, /const inputs = await revealOrderInputs\(id, lineId\)[\s\S]{0,160}action: 'store\.order\.inputs_reveal'[\s\S]{0,200}return ok\(\{ lineId, inputs \}\)/)
+  assert.match(routes, /action: 'store\.order\.inputs_erase'/)
+  assert.match(routes.slice(routes.indexOf('export async function POST_order'), routes.indexOf('export async function GET_products')), /const g = await orderAdmin\(req\)/)
+  // A week after the order is done the answers go by themselves.
+  assert.match(orders, /export const ORDER_INPUT_KEEP_DAYS = 7/)
+  assert.match(read('src/modules/fulfillment/server/worker.ts'), /await eraseFinishedOrderInputs\(\)\.catch\(failedStep\('orderInputs', -1\)\)/)
+  // A seller cannot make a product that collects logins or a typed amount.
+  assert.doesNotMatch(read('src/modules/marketplace/server/marketplace/products.ts').match(/const SELLER_FIELDS = \[[^\]]+\]/)[0], /orderFields|openAmount|openCurrencies|openMin|openMax/)
+  // The buy box sends no direct purchase for such a product.
+  assert.match(read('src/components/store/BuyBox.tsx'), /props\.kind !== 'PHYSICAL' && !open && !\(props\.orderFields \|\| \[\]\)\.length &&/)
+  const sql = read('prisma/migrations/20261227120000_order_inputs_open_amount/migration.sql')
+  assert.match(sql, /"orderFields"/)
+  assert.match(sql, /"inputsErasedAt"/)
+  assert.match(read('prisma/release-manifest.json'), /"20261227120000_order_inputs_open_amount"/)
+})

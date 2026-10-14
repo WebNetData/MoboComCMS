@@ -248,6 +248,17 @@ The owner asked whether to split the shop into two stores. Decided: **one catalo
 - The admin shows the two halves as two trees with each category's attribute group. The storefront offers a decided category only under its half; an undecided one still follows its products.
 - Rules live in `src/modules/catalog/domain/category-kind.ts` (pure) and `src/modules/catalog/server/category-kind.ts` (inside the save's transaction). Imports that create categories leave them undecided.
 
+## 6L. What a buyer hands over for an order, and a price the buyer types (owner, 2026-10-13)
+
+The owner asked for products that need information from the buyer (the login of an account to upgrade), for a "pay a foreign site with a Visa card" service priced from an amount the buyer types, and for staff to open a ticket to a customer. Decided:
+- **A login given for an order is a secret of the customer, held for the work and no longer.** Answers are encrypted at rest on the cart line and the order line (the cipher and key of digital deliveries, `STORE_DELIVERY_KEY`). Every view masks a password, for the buyer too. Only staff with `orders.manage` read one, by a deliberate click that is audited before the value leaves the server (`store.order.inputs_reveal`). Lists, exports, notifications and logs never carry the values.
+- **Erased when done.** Staff can erase a line's answers at any time; all answers go by themselves seven days after the order is delivered, cancelled or returned, or after an order that was never paid. `inputsErasedAt` keeps the fact, not the content.
+- **Fields belong to the product and may be limited to some of its options;** the labels are stored with the answers, so editing the product later does not relabel an old order. Only the site's own products may ask (marketplace sellers cannot collect logins).
+- **A typed foreign amount is priced by the server three times** — for the page, in the cart, and at checkout with the rate of that moment — with the product's own percentage and fixed profit (the FX fields that already existed). The amount, the currency and the rate used are stored on the order line. A missing or locked rate refuses the purchase. Limits per product (minimum, maximum, currencies). One per order line. No discount code on such an order.
+- **Such products are bought through the cart only,** where the answers and the amount are checked; a purchase that skips it is refused.
+- **Staff may open a ticket to a customer** (`tickets.handle`), which the customer sees among their own tickets and in their inbox. It is the channel for a one-time code: nothing of that kind is asked by any other means.
+- Spec: `docs/specs/store-order-inputs/SPEC.md`.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

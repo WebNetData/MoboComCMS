@@ -37,6 +37,7 @@ import SellerCard from '@/components/marketplace/SellerCard'
 import PromoSlot from '@/components/promo/PromoSlot'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
+import { openCurrenciesOf, readOrderFields } from '@/modules/store/domain/order-inputs'
 
 
 async function loadProduct(slug: string, preview = false) {
@@ -172,6 +173,8 @@ export default async function ProductPage({ params: paramsPromise, preview }: { 
         vip={{ enabled: vipOn, member: viewer.member, access: product.access, giftDays: vipOn ? product.vipGiftDays : 0 }}
         warranty={product.warranty} badges={storeSettings.badges} shipping={shippingNote}
         installments={installments} club={loyalty.enabled && loyalty.earnPoints > 0 ? { earnPoints: loyalty.earnPoints, earnStepToman: loyalty.earnStepToman } : null}
+        orderFields={readOrderFields(product.orderFields)}
+        open={product.openAmount ? { currencies: openCurrenciesOf(product), min: product.openMinMinor > 0n ? (Number(product.openMinMinor) / 100).toString() : '', max: product.openMaxMinor > 0n ? (Number(product.openMaxMinor) / 100).toString() : '' } : null}
       />
       {seller && <SellerCard seller={seller} />}
     </aside>

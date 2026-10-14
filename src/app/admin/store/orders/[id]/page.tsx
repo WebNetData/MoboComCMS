@@ -6,12 +6,13 @@ import { useState } from 'react'
 import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, nextStatuses, trackingIndex, type FulfilmentStatus } from '@/modules/store/domain/store'
 import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson } from '../../shared'
 import ShipmentPanel from './ShipmentPanel'
+import LineInputs, { type InputLine } from './LineInputs'
 
 type Detail = {
   id: number; createdAt: string; state: { key: string; label: string; tone: string }; fulfilment: string; trackingCode: string; deliveryNote: string
   address: { title: string; recipient: string; phone: string; postalCode: string; address: string; lat: number | null; lng: number | null } | null
   schedule: { date: string; slot: string } | null
-  lines: { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number }[]
+  lines: (InputLine & { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number })[]
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
   shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number } | null
   invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean
@@ -20,7 +21,7 @@ type Detail = {
   events: { id: number; status: string; note: string; createdAt: string; visible: boolean; actor: string }[]
 }
 
-const EVENT_LABEL: Record<string, string> = { PAID: 'پرداخت تأیید شد', NOTE: 'یادداشت', RESTOCK: 'بازگشت به انبار', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
+const EVENT_LABEL: Record<string, string> = { PAID: 'پرداخت تأیید شد', NOTE: 'یادداشت', RESTOCK: 'بازگشت به انبار', INPUTS_ERASED: 'پاک‌شدن اطلاعات خریدار', ...FULFILMENT_LABEL, PENDING: 'ثبت سفارش' }
 const ACTION_LABEL: Record<FulfilmentStatus, string> = {
   PENDING: 'بازگشت به انتظار', PROCESSING: 'شروع پردازش', PACKED: 'بسته‌بندی شد', SHIPPED: 'ارسال شد', DELIVERED: 'تحویل داده شد', CANCELLED: 'لغو سفارش', RETURNED: 'ثبت مرجوعی',
 }
@@ -84,6 +85,7 @@ export default function StoreOrderPage() {
             {line.image ? <img src={line.image} alt="" /> : <span className="sa-ph" />}
             <span className="sa-grow">{line.productId ? <Link href={`/admin/store/products/${line.productId}`}><b>{line.name}</b></Link> : <b>{line.name}</b>}{line.variantName && <small>{line.variantName}</small>}<small className="num">{fa(line.quantity)} × <Money value={line.unitPrice} currency={data.currency} /></small></span>
             <Money value={line.total} currency={data.currency} />
+            <LineInputs orderId={data.id} line={line} onErased={(detail) => setData(detail as Detail)} />
           </li>)}</ul>
           <dl className="sa-totals">
             <div><dt>جمع کالاها</dt><dd><Money value={data.itemsTotal} currency={data.currency} /></dd></div>
@@ -126,7 +128,7 @@ export default function StoreOrderPage() {
 
       <aside className="sa-stack">
         <section className="sa-card">
-          <header className="sa-card-head"><h2>مشتری</h2><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></header>
+          <header className="sa-card-head"><h2>مشتری</h2><span className="sa-row"><Link href={`/admin/tickets?new=1&user=${encodeURIComponent(data.customer.email)}&subject=${encodeURIComponent('دربارهٔ سفارش شما')}`} className="sa-link">ارسال تیکت به مشتری</Link><Link href={`/admin/users?q=${encodeURIComponent(data.customer.email)}`} className="sa-link">پروفایل</Link></span></header>
           <dl className="sa-kv"><div><dt>نام</dt><dd>{data.customer.name || '—'}</dd></div><div><dt>ایمیل</dt><dd dir="ltr">{data.customer.email}</dd></div>{data.customer.phone && <div><dt>موبایل</dt><dd dir="ltr">{data.customer.phone}</dd></div>}<div><dt>سفارش‌های موفق</dt><dd className="num">{fa(data.customer.paidOrders)}</dd></div><div><dt>مجموع خرید</dt><dd><Money value={data.customer.spent} currency={data.currency} /></dd></div></dl>
         </section>
         {data.address && <section className="sa-card sa-label">
