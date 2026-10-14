@@ -311,6 +311,15 @@ The owner asked for full control over roles, and over the forum's groups, badges
 - **The author card beside a post** shows the team rank, the level, the group, three figures (posts, likes, reputation) and up to four badges, framed in the level's colour.
 - Groups keep the management they had (create, edit, members, automatic groups for trust levels).
 
+## 6R. The platform runs routine work by itself (owner, 2026-10-14)
+
+The owner asked for strong automation and chose all four kinds: a rule builder ("when … then …"), the flow of orders and requests, marketing, and automatic reports and alerts. Decided:
+- **One engine, one permission.** `src/modules/automation` owns rules, their queue and their runs; `automation.manage` builds them. Other modules only announce what happened (`emitAutomation`) and keep their own rules: the engine hands out a request through the forms owner, changes a stage through it, gives codes as ordinary one-use promotions and sends SMS only within the existing consent and ceiling.
+- **A rule answers only what happens after it is made**, once per event; a scan once per subject; a repeat only after a cooldown the admin sets.
+- **Ready-made rules** cover the usual cases (welcome, abandoned cart, win-back, renewal, hand-out to the least busy member of a form's staff, alerts for requests and tickets left waiting, closing answered tickets, low stock, a daily report); each opens in the builder to be changed before it is saved.
+- Webhooks from rules follow the form webhooks' rules (https, public addresses, signed).
+- Not built: delays inside a rule ("wait two days, then…"), branches, A/B tests, retries for a failed action. Spec: `docs/specs/automation/SPEC.md`.
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

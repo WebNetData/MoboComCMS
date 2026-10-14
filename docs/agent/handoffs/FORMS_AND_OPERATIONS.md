@@ -44,6 +44,21 @@ Specs: `docs/specs/store-order-inputs/SPEC.md`, `docs/specs/form-builder/SPEC.md
 
 `/admin/services` lists what the site performs for a customer: forms whose settings say `service: true`, and virtual products with `Product.isService`. Each card shows the work waiting and links to where it is done (the form's desk, the store's orders). Owner: `src/modules/site/server/http/admin/services/route.ts`, page `src/app/admin/services/page.tsx`. It is a view over the two owners — it stores nothing of its own. Ran in a browser (9 checks, `pw-services.cjs`).
 
+## Automation
+
+Rules "when … if … then …" at `/admin/automation` (permission `automation.manage`). Spec `docs/specs/automation/SPEC.md`, decision §6R.
+
+| Concern | Owner |
+| --- | --- |
+| Triggers, actions, checks on a rule, tags, ready-made rules | `src/modules/automation/domain/automation.ts` (pure) |
+| Queue, scans, schedules, actions, runs, preview | `src/modules/automation/server/engine.ts` (`processAutomation` runs each minute from the `automation` job in `src/modules/notifications/server/jobs-scheduler.ts`) |
+| Admin API / page | `src/modules/automation/server/http/admin.ts`, `src/app/admin/automation/page.tsx`, `src/app/automation.css` |
+| Events announced | register route (`user.registered`), `announcePaidOrder` in billing (`order.paid`), forms service (`form.submitted`, `form.paid`), customer ticket route (`ticket.opened`) |
+
+To add a trigger: add it to `TRIGGERS` with its facts, announce it from its owner (or add a scan in `subjectsFor`), add a test. To add an action: `ACTIONS`, its checks in `checkAction`, its work in `runAction` — through the owner of what it changes.
+
+Ran: `scripts/automation.test.cjs` (10), `pw-automation.cjs` (17, with the real scheduler). Not run: e-mail and SMS actions against a real provider, a webhook to a real endpoint, the scans for abandoned carts, expiring subscriptions, inactive users and low stock against real data, the weekly report, two servers claiming the same event.
+
 ## A lesson from October 2026 — core permissions
 
 Adding the core permission `forms.handle` made every general manager whose role was stored as the old full list lose the extension permissions (games, music, cinema, software). `src/modules/identity/rbac.ts` now keeps `CORE_ADDED_LATER`: **a new core permission must be added to that list**, or the same thing happens again. A unit test in `scripts/account-security.test.cjs` holds it.

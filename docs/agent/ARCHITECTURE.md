@@ -9,6 +9,8 @@ Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), 
 <!-- mobocom-business-architecture:start -->
 ## Forms, held work and platform safety
 
+Automation (`src/modules/automation`, permission `automation.manage`) is the one owner of rules that run by themselves; other modules announce events with `emitAutomation` and the engine changes their data only through their own owners (handoff: Automation section of `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`).
+
 The form builder (`src/modules/forms`) is the one owner of forms, their answers, paid forms and appointments; it charges through the site's checkout and never beside it. Read `docs/agent/handoffs/FORMS_AND_OPERATIONS.md` before touching forms, staff queues, ticket ownership, SMS limits or sign-in limits.
 
 ## Business experiences — canonical ownership

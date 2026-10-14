@@ -187,8 +187,10 @@ export async function submitForm(slug: string, input: { values: unknown; website
   const confirmation = pickConfirmation(settings, form.successText, values)
   const message = mergeTags(confirmation.message, context)
   const quiz = score && settings.quiz.showResult ? { score: score.score, max: score.max, passed: settings.quiz.passScore > 0 ? score.score >= settings.quiz.passScore : null } : undefined
+  if (bill && !spam) void emitFormEvent('form.submitted', form, submission.id, who.userId, bill.total)
   // Staff hear about a paid form once it is paid (the fulfilment step tells them).
   if (bill && !spam) return { message, redirect: '', quiz, pay: { submissionId: submission.id, amount: bill.total, currency: bill.currency, lines: bill.lines, label: settings.payment.label } }
+  if (!spam) void emitFormEvent('form.submitted', form, submission.id, who.userId, bill?.total ?? 0)
   if (!spam) {
     const id = submission.id
     void notify(form, id, answers, who.userId).catch((error) => logEvent('error', 'forms.notify_failed', { form: form.slug, error }))
@@ -216,6 +218,12 @@ async function notify(form: FormDefinition, submissionId: number, answers: Store
     const email = answers.find((a) => a.type === 'email' && typeof a.value === 'string' && a.value)
     if (email) await sendMail({ to: String(email.value), subject: settings.autoReply.subject || `دریافت پیام شما — ${form.title}`, text: settings.autoReply.body || form.successText, source: 'forms' })
   }
+}
+
+/** A form answer, for the automation rules that start from it. */
+export async function emitFormEvent(name: 'form.submitted' | 'form.paid', form: Pick<FormDefinition, 'id' | 'slug' | 'title'>, submissionId: number, userId: number | null, amount: number) {
+  const { emitAutomation } = await import('@/modules/automation/server/engine')
+  await emitAutomation(name, `form:${submissionId}`, userId, { submission_id: submissionId, form_id: form.id ?? 0, form_slug: form.slug, form_title: form.title, amount })
 }
 
 /** The bill of what a visitor has typed so far (the page shows it while they fill the form). */

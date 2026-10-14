@@ -42,5 +42,5 @@ When this workflow touches business/Trustpilot-style experiences, first read doc
 <!-- mobocom-forms-skill:start -->
 ## Forms, held work and safety routing
 
-When this workflow touches forms, form payments, appointments, staff queues, ticket ownership, SMS sending or sign-in limits, first read docs/agent/handoffs/FORMS_AND_OPERATIONS.md. Extend src/modules/forms; charge through the site checkout; keep the rule that work somebody holds is changed only by its holder or a manager of that section. The handoff lists what is still untested — run those before calling anything ready.
+When this workflow touches forms, form payments, appointments, staff queues, ticket ownership, SMS sending, sign-in limits or automation rules, first read docs/agent/handoffs/FORMS_AND_OPERATIONS.md. Extend src/modules/forms; charge through the site checkout; keep the rule that work somebody holds is changed only by its holder or a manager of that section. The handoff lists what is still untested — run those before calling anything ready.
 <!-- mobocom-forms-skill:end -->

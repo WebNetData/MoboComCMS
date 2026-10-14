@@ -27,6 +27,7 @@ const PERM_LABELS: Record<string, string> = {
   'settings.manage': '⚙️ Settings',
   'cms.pages': '📄 Pages',
   'forms.handle': '🗂 پاسخ‌ها و درخواست‌های فرم',
+  'automation.manage': '⚙️ اتوماسیون',
   'cms.posts': '📝 مجله (نوشته‌ها و دیدگاه‌ها)',
   'cms.products': '🛒 Products',
   'roles.manage': '🔑 Roles',

@@ -17,6 +17,8 @@ export const PERMISSIONS = [
   'cms.pages',
   // Form answers: read them, take the work, write back, read a sender's password (recorded). Building forms stays with cms.pages.
   'forms.handle',
+  // Automation rules: what happens by itself when something happens.
+  'automation.manage',
   'cms.posts',
   'cms.products',
   'roles.manage',
@@ -76,7 +78,7 @@ export const FULL_ACCESS = '*'
  * test. **Every core permission added from now on goes in this list** (leaving one out takes the extension
  * permissions away from every general manager, which is what happened with `forms.handle` in October 2026).
  */
-export const CORE_ADDED_LATER: readonly string[] = ['forms.handle']
+export const CORE_ADDED_LATER: readonly string[] = ['forms.handle', 'automation.manage']
 const holdsEveryOriginal = (listed: string[]) => PERMISSIONS.filter((permission) => !CORE_ADDED_LATER.includes(permission)).every((permission) => listed.includes(permission))
 
 /**

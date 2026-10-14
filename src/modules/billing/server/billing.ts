@@ -21,6 +21,19 @@ export function invoiceTotal(subtotal: number, discount = 0, tax = 0, currency =
   return minorToNumber(invoiceTotalMinor(toMinor(subtotal, code), toMinor(discount, code), toMinor(tax, code)), code)
 }
 
+/** A paid order, for the automation rules that start from it (kind, amount, what was bought). Never throws. */
+async function announcePaidOrder(orderId: number) {
+  try {
+    const order = await db.order.findUnique({ where: { id: orderId }, select: { id: true, userId: true, totalMinor: true, currency: true, planId: true, productId: true, meta: true, lines: { select: { name: true }, take: 5 } } })
+    if (!order) return
+    let meta: Record<string, unknown> = {}
+    try { meta = JSON.parse(order.meta || '{}') } catch { meta = {} }
+    const kind = typeof meta.kind === 'string' && ['form', 'content', 'membership'].includes(meta.kind) ? meta.kind : order.planId ? 'plan' : 'product'
+    const { emitAutomation } = await import('@/modules/automation/server/engine')
+    await emitAutomation('order.paid', `order:${order.id}`, order.userId, { order_id: order.id, amount: minorToNumber(order.totalMinor, order.currency), currency: order.currency, kind, items: order.lines.map((line) => line.name).join('، ') })
+  } catch { /* the payment stands; a rule simply does not hear of it */ }
+}
+
 /** Atomic monotonic sequence, safe under concurrent invoice creation. */
 export async function nextInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear()
@@ -235,6 +248,7 @@ export async function markInvoicePaid(input: MarkPaidInput) {
     logEvent('info', 'payment.settled', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor, currency: result.invoice.currency })
     void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_ORDER', { invoice: result.invoice.number, amount: formatMoney(result.invoice.paidAmountMinor, result.invoice.currency, 'fa-IR') }))
       .catch(error => logEvent('error', 'sms.admin_failed', { invoiceId: result.invoice.id, error }))
+    if (result.invoice.orderId) await announcePaidOrder(result.invoice.orderId)
     await emitExtensionEvent('payment.completed', { invoiceId: result.invoice.id, orderId: result.invoice.orderId, userId: result.invoice.userId, totalMinor: result.invoice.paidAmountMinor.toString(), currency: result.invoice.currency })
     const { awardReferralForInvoice } = await import('@/modules/referrals/server/referrals')
     await awardReferralForInvoice(result.invoice.id).catch(error => logEvent('error', 'referral.reward_failed', { invoiceId: result.invoice.id, message: error instanceof Error ? error.message : 'unknown' }))

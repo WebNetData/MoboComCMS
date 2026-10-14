@@ -72,5 +72,6 @@ export async function POST(req: NextRequest) {
 
   await setUserLocale(user.id, locale)
   await emitExtensionEvent('user.created', { userId: user.id, email: user.email, role: user.role })
+  await (await import('@/modules/automation/server/engine')).emitAutomation('user.registered', `user:${user.id}`, user.id, {})
   return ok({ id: user.id, email: user.email })
 }
