@@ -179,10 +179,14 @@ async function runAction(rule: Rule, action: Action, index: number, subject: Sub
     }
     case 'assign_form': return assignForm(Number(facts.submission_id), Number(facts.form_id))
     case 'set_form_stage': {
+      // Through the forms owner, so the sender is told, hooks fire and turns are released as for a change made by hand.
       const id = Number(facts.submission_id)
-      const done = await db.formSubmission.updateMany({ where: { id, payStatus: { not: 'UNPAID' } }, data: { stage: p.stage } })
-      if (!done.count) throw new AutomationError('درخواست پیدا نشد یا پرداخت نشده است')
-      if (p.stage === 'REJECTED') await db.formBooking.deleteMany({ where: { submissionId: id } })
+      const row = await db.formSubmission.findUnique({ where: { id }, select: { payStatus: true, assigneeId: true, stage: true } })
+      if (!row || row.payStatus === 'UNPAID') throw new AutomationError('درخواست پیدا نشد یا پرداخت نشده است')
+      if (row.stage === p.stage) return 'وضعیت از قبل همین بود'
+      if (p.stage === 'IN_PROGRESS' && !row.assigneeId) throw new AutomationError('درخواستی که کسی برنداشته «در حال انجام» نمی‌شود؛ اول آن را بسپارید')
+      const { workOnSubmission } = await import('@/modules/forms/server/paid')
+      await workOnSubmission(id, { id: row.assigneeId || await firstAdminId() }, { stage: p.stage }, true)
       return `وضعیت ${p.stage}`
     }
     case 'close_ticket': return closeTicket(Number(facts.ticket_id), say(p.text))
@@ -335,6 +339,7 @@ export async function processAutomation(now = new Date()) {
   const rows = await db.automationRule.findMany({ where: { enabled: true } })
   if (!rows.length) return { events: 0, runs: 0 }
   const rules = rows.map(ruleOf)
+  const since = new Map(rows.map((row) => [row.id, row.createdAt.getTime()]))
   let runs = 0, events = 0
   const pending = await db.automationEvent.findMany({ where: { processedAt: null }, orderBy: { id: 'asc' }, take: 100 })
   for (const event of pending) {
@@ -342,7 +347,8 @@ export async function processAutomation(now = new Date()) {
     const claimed = await db.automationEvent.updateMany({ where: { id: event.id, processedAt: null }, data: { processedAt: now } })
     if (!claimed.count) continue
     events++
-    for (const rule of rules.filter((item) => item.trigger === event.name)) {
+    // A rule answers only what happened after it was made; an older event in the queue is not its business.
+    for (const rule of rules.filter((item) => item.trigger === event.name && since.get(item.id!)! <= event.createdAt.getTime())) {
       const trigger = triggerOf(rule.trigger)!
       try { if (await runRule(rule, trigger, { key: event.subjectKey, userId: event.userId, facts: parse<Facts>(event.payload, {}) }, now)) runs++ } catch (error) { logEvent('error', 'automation.rule_failed', { rule: rule.id, error }) }
     }

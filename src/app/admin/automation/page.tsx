@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ActionDef, Condition, Rule, TriggerDef } from '@/modules/automation/domain/automation'
+import { subjectLabel } from '@/modules/automation/domain/automation'
 
 type Saved = Rule & { id: number; runCount: number; lastRunAt: string | null }
 type Run = { id: number; ruleId: number; rule: string; subject: string; status: string; detail: string; at: string }
@@ -138,7 +139,7 @@ export default function AutomationAdmin() {
         <div className="sa-row-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void tryIt()}>امتحان (بدون اجرا)</button><button type="button" className="btn btn-primary" disabled={busy || !draft.name.trim() || !draft.actions.length} onClick={() => void save()}>{busy ? '…' : 'ذخیرهٔ قانون'}</button></div>
       </div>
       {preview && <div className="am-preview" role="status"><b>{preview.found ? `الان ${fa(preview.found)} مورد با این قانون جور است` : 'الان موردی با این قانون جور نیست'}</b>{preview.note && <small>{preview.note}</small>}
-        {preview.sample.length > 0 && <ul>{preview.sample.map((item) => <li key={item.subject}><code dir="ltr">{item.subject}</code> {['user_name', 'form_title', 'product_name', 'plan', 'department'].map((key) => item.facts[key]).filter(Boolean).join(' · ')}</li>)}</ul>}</div>}
+        {preview.sample.length > 0 && <ul>{preview.sample.map((item) => <li key={item.subject}><span className="am-chip" title={item.subject}>{subjectLabel(item.subject)}</span> {['user_name', 'form_title', 'product_name', 'plan', 'department'].map((key) => item.facts[key]).filter(Boolean).join(' · ')}</li>)}</ul>}</div>}
     </section>}
 
     {!draft && <section className="am-section" aria-labelledby="am-recipes"><header><h2 id="am-recipes">قالب‌های آماده</h2><small>یکی را بزنید، اعداد و متن‌ها را به سلیقهٔ خودتان تغییر دهید و ذخیره کنید</small></header>
@@ -166,7 +167,7 @@ function RunList({ runs, withRule = false }: { runs: Run[]; withRule?: boolean }
   if (!runs.length) return <p className="am-empty">اجرایی ثبت نشده است.</p>
   return <ul className="am-runs">{runs.map((run) => <li key={run.id} className={`is-${run.status.toLowerCase()}`}>
     <span className="am-run-status">{STATUS[run.status] || run.status}</span>
-    <span className="am-run-main">{withRule && <b>{run.rule}</b>}<code dir="ltr">{run.subject}</code><small>{run.detail}</small></span>
+    <span className="am-run-main">{withRule && <b>{run.rule}</b>}<span className="am-chip" title={run.subject}>{subjectLabel(run.subject)}</span><small>{run.detail}</small></span>
     <time>{when(run.at)}</time>
   </li>)}</ul>
 }

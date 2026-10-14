@@ -63,4 +63,4 @@ For business/Trustpilot-style experiences, read docs/agent/handoffs/BUSINESS_EXP
 
 ## Forms, held work and safety continuation
 
-For the form builder, staff queues, work that somebody holds (forms and tickets), SMS limits and the October 2026 safety review, read docs/agent/handoffs/FORMS_AND_OPERATIONS.md first. It names the owners, the rules that must keep holding, what ran and what is still untested. Extend the forms module; do not build a second form, payment or queue system beside it.
+For the form builder, automation rules, staff queues, work that somebody holds (forms and tickets), SMS limits and the October 2026 safety review, read docs/agent/handoffs/FORMS_AND_OPERATIONS.md first. It names the owners, the rules that must keep holding, what ran and what is still untested. Extend the forms module; do not build a second form, payment or queue system beside it.

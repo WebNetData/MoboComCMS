@@ -110,7 +110,8 @@ export function normalizeRule(input: unknown): Rule {
 function checkAction(def: ActionDef, params: Record<string, string>) {
   const need = (key: string, label: string) => { if (!params[key]) throw new AutomationError(`${label} «${def.label}» را بنویسید`) }
   switch (def.id) {
-    case 'notify_user': case 'notify_staff': need('title', 'عنوان'); break
+    case 'notify_user': need('title', 'عنوان'); break
+    case 'notify_staff': need('title', 'عنوان'); if (!['managers', 'handlers', 'support'].includes(params.to)) params.to = 'managers'; break
     case 'email_user': need('subject', 'موضوع'); need('text', 'متن'); break
     case 'email_staff': need('to', 'نشانی'); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(params.to)) throw new AutomationError('نشانی ایمیل معتبر نیست'); need('subject', 'موضوع'); break
     case 'sms_user': case 'sms_admins': need('text', 'متن'); break
@@ -130,7 +131,6 @@ function checkAction(def: ActionDef, params: Record<string, string>) {
     }
     case 'set_form_stage': if (!['OPEN', 'IN_PROGRESS', 'DONE', 'REJECTED'].includes(params.stage)) throw new AutomationError('وضعیت درخواست معتبر نیست'); break
     case 'assign_form': params.mode = 'least_loaded'; break
-    case 'notify_staff': if (!['managers', 'handlers', 'support'].includes(params.to)) params.to = 'managers'; break
   }
   if (params.href && !/^\/(?!\/)[A-Za-z0-9/_?=&.%-]*$/.test(params.href)) throw new AutomationError('پیوند باید یک مسیر سایت باشد (با / شروع شود)')
 }
@@ -153,13 +153,22 @@ export function conditionsHold(conditions: Condition[], logic: 'all' | 'any', fa
 }
 
 /** Fills {fact} tags of a message. An unknown tag becomes empty — never the raw tag. */
-export const renderMessage = (template: string, facts: Facts) => String(template || '').replace(/\{([a-z_]{2,30})\}/g, (_match, key: string) => (facts[key] === undefined || facts[key] === null ? '' : String(facts[key])))
+export const renderMessage = (template: string, facts: Facts) => String(template || '').replace(/\{([a-z_]{2,30})\}/g, (_match, key: string) => (!Object.prototype.hasOwnProperty.call(facts, key) || facts[key] === undefined || facts[key] === null ? '' : String(facts[key])))
 
 /** A rule may run again for the same subject only once its cooldown has passed (0: once per event, or once ever for a scan). */
 export function mayRunAgain(lastRun: Date | null, cooldownHours: number, kind: TriggerKind, now = new Date()) {
   if (!lastRun) return true
   if (cooldownHours > 0) return now.getTime() - lastRun.getTime() >= cooldownHours * 3_600_000
   return kind === 'event'
+}
+
+const SUBJECT_LABEL: Record<string, string> = { user: 'کاربر', order: 'سفارش', form: 'درخواست', ticket: 'تیکت', cart: 'سبد', subscription: 'اشتراک', product: 'کالا' }
+
+/** What a run was about, for people: "ticket:10:1791952394362" reads "تیکت #10", a report "گزارش سایت". */
+export function subjectLabel(key: string) {
+  const [kind, id] = String(key || '').split(':')
+  if (kind === 'site') return 'گزارش سایت'
+  return SUBJECT_LABEL[kind] && /^\d+$/.test(id || '') ? `${SUBJECT_LABEL[kind]} #${id}` : key
 }
 
 /** Ready-made rules the admin starts from. */
