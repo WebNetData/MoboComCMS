@@ -189,11 +189,7 @@ test('section manager presets hold known permissions and stay inside their own s
   // cms.posts reaches every content section, so no single-section preset may carry it.
   for (const name of [...Object.keys(own), 'store-manager']) assert.equal(rbac.ROLE_PRESETS[name].includes('cms.posts'), false, name)
   assert.deepEqual(rbac.parsePermissions(rbac.ROLE_PRESETS['music-manager'].join(',')).sort(), ['dashboard.view', 'music.manage'])
-})
-
-test('a general manager saved before a core permission existed keeps full access', () => {
-  const rbac = open(path.resolve(__dirname, '..', 'src/modules/identity/rbac'))
-  // The role is stored as the list of core permissions of its day; forms.handle came later.
+  // A general manager saved before a core permission existed keeps full access: the role is stored as the list of core permissions of its day; forms.handle came later.
   const before = rbac.PERMISSIONS.filter((permission) => !rbac.CORE_ADDED_LATER.includes(permission)).join(',')
   assert.equal(rbac.isFullAccess(before), true)
   const held = rbac.parsePermissions(before)
