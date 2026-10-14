@@ -1114,6 +1114,8 @@
 .invoice-table thead th { background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 0.8rem; white-space: nowrap; }
 .invoice-table th:not(:first-child), .invoice-table td:not(:first-child) { text-align: end; white-space: nowrap; }
 .invoice-table td { vertical-align: middle; }
+.invoice-table td:first-child { font-weight: 700; }
+.invoice-item-detail { margin-top: 4px; font-size: 12.5px; font-weight: 400; line-height: 1.9; color: var(--muted); }
 .invoice-table tbody tr:last-child td { border-bottom: 0; }
 .invoice-totals { margin-block-start: 1rem; margin-inline-start: auto !important; max-width: 23rem; display: grid; gap: 0.5rem; font-size: 0.92rem; padding: 1rem; border: 1px solid var(--border); border-radius: 1rem; }
 .invoice-totals > div { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }

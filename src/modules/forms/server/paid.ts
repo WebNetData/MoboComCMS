@@ -9,6 +9,7 @@ import {
   FormsError, SECRET_MASK, STAGES, STAGE_LABEL, parseForm, parseFxAnswer, priceLines, visibleFields,
   type Answer, type FormDefinition, type PriceLine, type Stage, type StoredAnswer,
 } from '@/modules/forms/domain/forms'
+import { mergeTags } from '@/modules/forms/domain/advanced'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
 // the secrets a sender hands over, and the stage staff move an answer through.
@@ -102,7 +103,13 @@ export async function formCheckoutQuote(submissionId: number, userId: number) {
   const bill = await billFor(form, valuesOf(parse<StoredAnswer[]>(row.data, [])))
   if (bill.totalMinor <= 0n) throw new FormsError('مبلغی برای پرداخت محاسبه نشد', 409)
   await db.formSubmission.update({ where: { id: row.id }, data: { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines) } })
-  return { submissionId: row.id, formId: row.formId, title: form.title, amountMinor: bill.totalMinor, currency: bill.currency }
+  // What the invoice says: the form's own title and description, filled from this answer (passwords are stored masked).
+  // Each answer is set apart (first-strong isolate), so an address or "25.00 USD" reads correctly inside Persian text.
+  const isolate = (answer: StoredAnswer): StoredAnswer => (typeof answer.value === 'string' && answer.value ? { ...answer, value: `\u2068${answer.value}\u2069` } : answer)
+  const context = { formTitle: form.title, entryId: row.id, answers: parse<StoredAnswer[]>(row.data, []).map(isolate) }
+  const invoiceTitle = mergeTags(form.settings.payment.invoiceTitle, context).replace(/\s+/g, ' ').trim().slice(0, 120)
+  const invoiceText = mergeTags(form.settings.payment.invoiceText, context).replace(/\s+/g, ' ').trim().slice(0, 500)
+  return { submissionId: row.id, formId: row.formId, title: form.title, amountMinor: bill.totalMinor, currency: bill.currency, invoiceTitle, invoiceText }
 }
 
 export async function attachFormOrder(submissionId: number, orderId: number) {

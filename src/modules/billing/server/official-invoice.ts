@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting, getSettings } from '@/modules/settings/server'
 import { memberNationalId } from '@/modules/identity/server/profile-fields'
 import { normalizeCurrency } from '@/shared/money'
+import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import {
   buildInvoiceRows, invoiceUnitAmount, normalizeInvoiceProfile, persianWords, type InvoiceProfile, type SourceLine,
 } from '@/modules/billing/domain/official-invoice'
@@ -58,7 +59,8 @@ export async function officialInvoice(number: string, viewer: { id: number; admi
     shippingMinor = minorOf(meta.shippingMinor)
   } else {
     // Service / VIP / wallet invoices: one row from the invoice amounts.
-    const title = invoice.kind === 'WALLET_TOPUP' ? 'شارژ کیف پول' : invoice.plan?.name || invoice.product?.name || str(meta.planName) || 'خدمات'
+    const subject = invoiceSubject({ kind: invoice.kind, planName: invoice.plan?.name, productName: invoice.product?.name, meta, siteName: profile.sellerName || 'موبوکام', amountText: '', notes: invoice.notes })
+    const title = subject.detail ? `${subject.title} — ${subject.detail}` : subject.title
     lines = [{ name: title, sku: invoice.product?.sku || '', quantity: 1, unitPriceMinor: invoice.subtotalMinor, listPriceMinor: invoice.subtotalMinor, totalMinor: invoice.subtotalMinor }]
     couponMinor = invoice.discountMinor
   }

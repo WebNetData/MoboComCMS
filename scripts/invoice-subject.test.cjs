@@ -1,0 +1,52 @@
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const ts = require('typescript')
+
+const root = path.resolve(__dirname, '..')
+const read = (relative) => fs.readFileSync(path.resolve(root, relative), 'utf8')
+function load(relative) {
+  const source = ts.transpileModule(read(relative), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const mod = { exports: {} }
+  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  return mod.exports
+}
+const { invoiceSubject } = load('src/modules/billing/domain/invoice-subject.ts')
+const f = load('src/modules/forms/domain/forms.ts')
+const base = { siteName: 'موبوکام', amountText: '۱٬۰۰۰٬۰۰۰ تومان' }
+
+test('a wallet top-up says what it is and for how much', () => {
+  assert.deepEqual(invoiceSubject({ ...base, kind: 'WALLET_TOPUP' }), { title: 'افزایش موجودی کیف پول موبوکام', detail: 'افزایش موجودی حساب کاربری پلتفرم موبوکام به مبلغ ۱٬۰۰۰٬۰۰۰ تومان' })
+})
+
+test('a form payment uses the form\'s invoice title and text, else the form and the request', () => {
+  assert.deepEqual(invoiceSubject({ ...base, kind: 'BILLING', meta: { kind: 'form', formTitle: 'پرداخت سایت خارجی با ویزا کارت', invoiceTitle: 'پرداخت سایت خارجی', invoiceText: 'پرداخت در سایت x برای حساب y', submissionId: 48 } }), { title: 'پرداخت سایت خارجی', detail: 'پرداخت در سایت x برای حساب y' })
+  assert.deepEqual(invoiceSubject({ ...base, kind: 'BILLING', meta: { kind: 'form', formTitle: 'تلگرام پرمیوم', submissionId: 7 } }), { title: 'تلگرام پرمیوم', detail: 'درخواست شمارهٔ ۷' })
+})
+
+test('other kinds name themselves; a bare invoice says "فاکتور" or its note', () => {
+  assert.equal(invoiceSubject({ ...base, kind: 'BILLING', meta: { kind: 'membership', planName: 'طلایی', days: 30 } }).title, 'اشتراک ویژهٔ طلایی')
+  assert.equal(invoiceSubject({ ...base, kind: 'BILLING', meta: { kind: 'content', contentTitle: 'آموزش' } }).title, 'دسترسی به «آموزش»')
+  assert.equal(invoiceSubject({ ...base, kind: 'BILLING', planName: 'VPN ماهانه' }).title, 'VPN ماهانه')
+  assert.deepEqual(invoiceSubject({ ...base, kind: 'BILLING', productName: 'کارت هدیه', meta: { variantName: '۵۰ دلار' } }), { title: 'کارت هدیه', detail: '۵۰ دلار' })
+  assert.equal(invoiceSubject({ ...base, kind: 'BILLING' }).title, 'فاکتور')
+  assert.equal(invoiceSubject({ ...base, kind: 'BILLING', notes: 'طراحی لوگو\nجزئیات' }).title, 'طراحی لوگو')
+})
+
+test('a form keeps its invoice texts; the public page never gets them', () => {
+  const template = f.TEMPLATES.find((item) => item.id === 'foreign-payment').build()
+  const form = f.normalizeForm(template)
+  assert.equal(form.settings.payment.invoiceTitle, 'پرداخت سایت خارجی')
+  assert.match(form.settings.payment.invoiceText, /\{field:site\}.*\{field:username\}/)
+  const shown = f.publicForm(form)
+  assert.equal(shown.settings.payment.invoiceTitle, '')
+  assert.equal(shown.settings.payment.invoiceText, '')
+  assert.equal(shown.settings.payment.enabled, true)
+})
+
+test('wiring: checkout stores the texts, the invoice views read the one subject', () => {
+  assert.match(read('src/modules/checkout/server/checkout.ts'), /invoiceTitle: quote\.invoiceTitle, invoiceText: quote\.invoiceText/)
+  assert.match(read('src/modules/forms/server/paid.ts'), /mergeTags\(form\.settings\.payment\.invoiceText/)
+  for (const file of ['src/modules/billing/server/pages/invoice/[number]/page.tsx', 'src/modules/billing/server/http/my/invoices/route.ts', 'src/modules/billing/server/official-invoice.ts']) assert.match(read(file), /invoiceSubject\(/, file)
+})

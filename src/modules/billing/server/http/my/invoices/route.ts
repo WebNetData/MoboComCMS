@@ -3,6 +3,9 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireUser } from '@/modules/identity/server/access'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { formatAmount } from '@/shared/money/format'
+import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
+import { getSettings } from '@/modules/settings/server'
 
 export async function GET(req: NextRequest) {
   const user = await requireUser(req)
@@ -15,8 +18,15 @@ export async function GET(req: NextRequest) {
       plan: { select: { name: true } },
       product: { select: { name: true } },
       gateway: { select: { name: true, provider: true } },
+      order: { select: { meta: true } },
     },
   })
+  const siteName = (await getSettings().catch(() => null))?.brandName || 'موبوکام'
+  const subjectOf = (row: typeof rows[number]) => {
+    let meta: Record<string, unknown> = {}
+    try { meta = JSON.parse(row.order?.meta || '{}') } catch { meta = {} }
+    return invoiceSubject({ kind: row.kind, planName: row.plan?.name, productName: row.product?.name, meta, siteName, amountText: formatAmount(row.subtotal, normalizeCurrency(row.currency || 'USD'), 'fa-IR'), notes: row.notes })
+  }
   const jobs = await db.fulfillmentJob.findMany({
     where: { invoiceId: { in: rows.map(row => row.id) } },
     select: { invoiceId: true, status: true, attempts: true, updatedAt: true },
@@ -54,7 +64,8 @@ export async function GET(req: NextRequest) {
     invoices: rows.map((i) => ({
       id: i.id,
       number: i.number,
-      title: i.plan?.name || i.product?.name || (i.kind === 'WALLET_TOPUP' ? 'Wallet top-up' : 'Invoice'),
+      title: subjectOf(i).title,
+      detail: subjectOf(i).detail,
       kind: i.kind === 'WALLET_TOPUP' ? 'topup' : i.planId ? 'plan' : i.productId ? 'product' : 'other',
       subtotal: i.subtotal,
       discount: i.discount,

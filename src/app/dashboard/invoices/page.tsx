@@ -11,6 +11,7 @@ interface Invoice {
   id: number
   number: string
   title: string
+  detail?: string
   kind: string
   subtotal: number
   discount: number
@@ -121,7 +122,7 @@ export default function CustomerInvoicesPage() {
               {filtered.map((i) => (
                 <tr key={i.id}>
                   <td className="num font-semibold" dir="ltr">{i.number}</td>
-                  <td>{i.title}</td>
+                  <td><span className="font-semibold">{i.title}</span>{i.detail && <div className="invoice-item-detail">{i.detail}</div>}</td>
                   <td className="num font-semibold">{money(i.total, i.currency)}</td>
                   <td><StatusBadge value={i.status} /></td>
                   <td>{i.status === 'PAID' ? <span className={i.deliveryStatus === 'DELIVERED' ? 'success-text' : 'muted'}>{deliveryLabel(i.deliveryStatus)}</span> : '—'}</td>

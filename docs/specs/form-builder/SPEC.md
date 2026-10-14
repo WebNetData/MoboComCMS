@@ -30,6 +30,13 @@ The owner asked for a Gravity-Forms-class builder that any part of the site can 
 - **Staff.** Per-field statistics; corrections of plain answers (audited; money, turns, passwords and files stay as sent); handing the work to a named member of staff (told in their inbox); **a form may name its handlers**, and then only they and the builders see and work on its answers.
 - **Data.** Migration `20261229120000_form_bookings_quiz` (`FormBooking`, `FormSubmission.score` / `scoreMax`).
 
+## Slice — what the invoice says (2026-10-14)
+
+- Form settings → Payment: «شرح فاکتور» (title, 120) and «توضیحات فاکتور» (description, 500) with merge tags (`{field:id}`, `{form_title}`, `{entry_id}`). Empty: the form's title and «درخواست شمارهٔ …».
+- Filled at checkout (`formCheckoutQuote`) from the stored answer — secrets are already masked there — and kept in the order's meta (`invoiceTitle`, `invoiceText`), so later edits to the form do not rewrite an issued invoice.
+- The public form never receives the templates (`publicForm`).
+- Tests: `scripts/invoice-subject.test.cjs`; browser `.mobocom/claude-tools/pw-invoice.cjs <top-up invoice number>` (11 checks).
+
 ## Still not built
 
 Name and address groups; attachment kinds beyond PDF and images; a resume link that works across devices (drafts live in one browser); retries and a delivery log for webhooks; resizing by dragging on the canvas; reminders and deadlines for staff; a funnel of where visitors stop.

@@ -24,7 +24,7 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
       {form.id && form.published && <p className="sa-hint">نشانی: <Link href={`/forms/${form.slug}`} target="_blank" className="sa-link" dir="ltr">/forms/{form.slug} ↗</Link> · برای گذاشتن فرم در صفحهٔ اصلی از <Link href="/admin/studio" className="sa-link">صفحه‌ساز</Link> استفاده کنید.</p>}
     </section>
 
-    <PaymentStylePanels s={s} set={set} />
+    <PaymentStylePanels s={s} set={set} fields={form.fields} />
     <AdvancedSettings form={form} s={s} set={set} />
 
     <section className="sa-card">

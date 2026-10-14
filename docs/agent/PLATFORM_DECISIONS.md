@@ -270,6 +270,7 @@ The owner asked for a Gravity-Forms-class form builder that the whole site can u
 - **`forms.handle`** lets staff read and work on answers without the right to build pages; deleting answers and building forms stay with `cms.pages`.
 - **A form chooses its own look** (theme, accent, corners, density, width, steps).
 - Spec and the slices still to build: `docs/specs/form-builder/SPEC.md`.
+- **An invoice says what it is for** (owner, 2026-10-14): a wallet top-up reads «افزایش موجودی کیف پول <site>» with «افزایش موجودی حساب کاربری پلتفرم <site> به مبلغ …»; a paid form uses its own invoice title and description, filled from the answer with `{field:id}` tags (the ready-made "pay a foreign site" form: the amount, the site and the account). Passwords stay masked; each answer keeps its own text direction. One pure owner, `src/modules/billing/domain/invoice-subject.ts`, feeds the invoice page, the customer's invoice list and the official invoice.
 
 ## 6N. The form builder: appointments, messages, hooks and who handles a form (owner, 2026-10-14)
 
