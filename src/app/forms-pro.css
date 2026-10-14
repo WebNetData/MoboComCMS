@@ -350,3 +350,40 @@
 }
 @media (max-width: 560px) { .dk-answers > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } .dk-tile b { font-size: 21px; } }
 @media (prefers-reduced-motion: reduce) { .dk-tile, .dk-card { transition: none; } .dk-tile:hover { transform: none; } }
+
+/* ---- Services (admin): what the site performs for a customer, and the work waiting on each. ---- */
+.sv { display: grid; gap: 18px; }
+.sv-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.sv-tile { display: grid; gap: 2px; padding: 18px 20px; border-radius: 18px; border: 1px solid var(--border); background: linear-gradient(140deg, color-mix(in srgb, currentColor 7%, var(--card)), var(--card) 65%); color: var(--primary); }
+.sv-tile b { font-size: 32px; font-weight: 900; line-height: 1.3; }
+.sv-tile span { font-size: 13px; color: var(--muted); }
+.sv-tile.is-warn { color: #d97706; }
+.sv-tile.is-good { color: #16a34a; }
+.sv-tile.is-muted { color: #64748b; }
+.sv-section { display: grid; gap: 12px; }
+.sv-section > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.sv-section h2 { margin: 0; font-size: 18px; }
+.sv-section > header small { color: var(--muted); font-size: 12.5px; }
+.sv-empty { margin: 0; padding: 26px 18px; border: 1px dashed var(--border); border-radius: 16px; color: var(--muted); font-size: 13.5px; line-height: 2; text-align: center; }
+.sv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.sv-card { display: grid; gap: 14px; align-content: start; padding: 18px; border: 1px solid var(--border); border-radius: 18px; background: var(--card); min-width: 0; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.sv-card:hover { transform: translateY(-2px); box-shadow: 0 18px 36px -26px rgb(0 0 0 / .45); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.sv-card.has-work { border-inline-start: 4px solid #d97706; }
+.sv-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sv-card-head img, .sv-icon { flex: none; width: 46px; height: 46px; border-radius: 13px; object-fit: cover; }
+.sv-icon { display: grid; place-items: center; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #22d3ee)); color: #fff; font-size: 20px; }
+.sv-card-head h3 { margin: 0; font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-card-head > div { min-width: 0; }
+.sv-card-head small { color: var(--muted); font-size: 12px; }
+.sv-stats { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; }
+.sv-stats > div { display: grid; gap: 2px; padding: 10px 8px; border-radius: 12px; background: color-mix(in srgb, var(--border) 34%, transparent); text-align: center; }
+.sv-stats dt { font-size: 11.5px; color: var(--muted); }
+.sv-stats dd { margin: 0; font-size: 18px; font-weight: 800; }
+.sv-stats > div.is-warn { background: color-mix(in srgb, #d97706 14%, transparent); }
+.sv-stats > div.is-warn dd { color: #b45309; }
+.sv-stats > div.is-info { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.sv-stats > div.is-info dd { color: var(--primary); }
+.sv-who { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.9; }
+.sv-who b { color: var(--text); }
+.sv-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) { .sv-card { transition: none; } .sv-card:hover { transform: none; } }

@@ -25,7 +25,7 @@ const EMPTY: Form = {
   weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
-  orderFields: [], openAmount: false, openCurrencies: '', openMin: '', openMax: '',
+  isService: false, orderFields: [], openAmount: false, openCurrencies: '', openMin: '', openMax: '',
 }
 
 const REVIEW_FIELDS: [string, string, boolean?][] = [['name', 'نام محصول', true], ['nameEn', 'نام انگلیسی'], ['slug', 'نامک'], ['categoryId', 'دسته', true], ['brandId', 'برند'], ['price', 'قیمت', true], ['compareAtPrice', 'قیمت قبل از تخفیف'], ['stock', 'موجودی'], ['image', 'تصویر اصلی', true], ['shortDescription', 'توضیح کوتاه'], ['description', 'توضیحات'], ['warranty', 'گارانتی'], ['faqs', 'پرسش‌های متداول'], ['seoTitle', 'عنوان سئو'], ['seoDescription', 'توضیح متا']]
@@ -233,6 +233,7 @@ export default function ProductEditorPage() {
           <header className="sa-card-head"><h2>انتشار</h2></header>
           <label className="sa-check"><input type="checkbox" checked={!!form.active} onChange={(event) => update('active', event.target.checked)} />در فروشگاه نمایش داده شود</label>
           <label className="sa-check"><input type="checkbox" checked={!!form.featured} onChange={(event) => update('featured', event.target.checked)} />محصول ویژه</label>
+          {form.kind === 'VIRTUAL' && <label className="sa-check"><input type="checkbox" checked={!!form.isService} onChange={(event) => update('isService', event.target.checked)} />این محصول یک «خدمت» است <small className="sa-sub">در مدیریت، زیر «خدمات» هم نمایش داده می‌شود.</small></label>}
           <label data-vip="" className="sa-field"><span>دسترسی</span><select className="select" value={form.access} onChange={(event) => update('access', event.target.value)}><option value="PUBLIC">همه</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           {field('sortOrder', 'ترتیب نمایش', { type: 'number' })}
           <button type="button" className="btn btn-primary w-full" disabled={busy || uploading} onClick={requestSave}>{busy ? 'در حال ذخیره…' : needsReview ? 'بازبینی و انتشار' : 'ذخیره'}</button>

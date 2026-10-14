@@ -19,6 +19,7 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
         <label className="sa-field"><span>نشانی یکتا</span><input className="input" dir="ltr" value={form.slug} maxLength={80} onChange={(e) => top({ slug: e.target.value.toLowerCase() })} placeholder="contact-us" /><small className="sa-hint">صفحهٔ فرم: /forms/{form.slug || '…'}</small></label>
       </div>
       <label className="sa-field"><span>توضیح بالای فرم</span><textarea className="input" rows={2} value={form.description} maxLength={2000} onChange={(e) => top({ description: e.target.value })} /></label>
+      <label className="sa-check"><input type="checkbox" checked={s.service} onChange={(e) => set({ service: e.target.checked })} /> این فرم یک «خدمت» است <small className="sa-hint">مثل پرداخت سایت خارجی یا تلگرام پریمیوم؛ در مدیریت زیر «خدمات» نمایش داده می‌شود.</small></label>
       <label className="sa-check"><input type="checkbox" checked={form.published} onChange={(e) => top({ published: e.target.checked })} /> منتشر شود <small className="sa-hint">تا منتشر نشود فقط پیش‌نویس است و بازدیدکننده آن را نمی‌بیند.</small></label>
       {form.id && form.published && <p className="sa-hint">نشانی: <Link href={`/forms/${form.slug}`} target="_blank" className="sa-link" dir="ltr">/forms/{form.slug} ↗</Link> · برای گذاشتن فرم در صفحهٔ اصلی از <Link href="/admin/studio" className="sa-link">صفحه‌ساز</Link> استفاده کنید.</p>}
     </section>
