@@ -187,7 +187,8 @@ async function runAction(rule: Rule, action: Action, index: number, subject: Sub
       if (p.stage === 'IN_PROGRESS' && !row.assigneeId) throw new AutomationError('درخواستی که کسی برنداشته «در حال انجام» نمی‌شود؛ اول آن را بسپارید')
       const { workOnSubmission } = await import('@/modules/forms/server/paid')
       await workOnSubmission(id, { id: row.assigneeId || await firstAdminId() }, { stage: p.stage }, true)
-      return `وضعیت ${p.stage}`
+      const { STAGE_LABEL } = await import('@/modules/forms/domain/forms')
+      return `وضعیت: ${STAGE_LABEL[p.stage as keyof typeof STAGE_LABEL] || p.stage}`
     }
     case 'close_ticket': return closeTicket(Number(facts.ticket_id), say(p.text))
     case 'ticket_to_user': return ticketToUser(subject.userId, say(p.subject), say(p.text))
