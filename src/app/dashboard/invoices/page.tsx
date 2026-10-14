@@ -1,17 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { CLOSE_REASON_LABEL } from '@/modules/billing/domain/invoice-rules'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { formatCurrency } from '@/shared/money/client'
 
+const untilFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+
 interface Invoice {
   id: number
   number: string
   title: string
   detail?: string
+  expiresAt?: string | null
+  closedReason?: string
   kind: string
   subtotal: number
   discount: number
@@ -122,7 +127,7 @@ export default function CustomerInvoicesPage() {
               {filtered.map((i) => (
                 <tr key={i.id}>
                   <td className="num font-semibold" dir="ltr">{i.number}</td>
-                  <td><span className="font-semibold">{i.title}</span>{i.detail && <div className="invoice-item-detail">{i.detail}</div>}</td>
+                  <td><span className="font-semibold">{i.title}</span>{i.detail && <div className="invoice-item-detail">{i.detail}</div>}{i.expiresAt && <div className="inv-chip is-time">تا {untilFormat.format(new Date(i.expiresAt))} فعال است</div>}{i.closedReason && <div className="inv-chip is-closed">بسته‌شده: {CLOSE_REASON_LABEL[i.closedReason] || 'قانون خودکار'}</div>}</td>
                   <td className="num font-semibold">{money(i.total, i.currency)}</td>
                   <td><StatusBadge value={i.status} /></td>
                   <td>{i.status === 'PAID' ? <span className={i.deliveryStatus === 'DELIVERED' ? 'success-text' : 'muted'}>{deliveryLabel(i.deliveryStatus)}</span> : '—'}</td>

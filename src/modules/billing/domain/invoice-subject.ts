@@ -5,6 +5,9 @@
 
 export type InvoiceSubjectInput = {
   kind: string
+  /** What staff wrote on the invoice; it wins over anything worked out. */
+  title?: string | null
+  detail?: string | null
   planName?: string | null
   productName?: string | null
   /** The order's meta (`Order.meta`, parsed): forms, content and membership purchases name themselves there. */
@@ -20,6 +23,8 @@ const str = (value: unknown, max = 300) => (typeof value === 'string' ? value.re
 export function invoiceSubject(input: InvoiceSubjectInput): { title: string; detail: string } {
   const site = str(input.siteName, 60) || 'موبوکام'
   const meta = input.meta && typeof input.meta === 'object' ? input.meta : {}
+  const own = str(input.title, 120)
+  if (own) return { title: own, detail: str(input.detail, 500) }
   if (input.kind === 'WALLET_TOPUP') {
     return { title: `افزایش موجودی کیف پول ${site}`, detail: `افزایش موجودی حساب کاربری پلتفرم ${site}${input.amountText ? ` به مبلغ ${input.amountText}` : ''}` }
   }

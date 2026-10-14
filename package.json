@@ -51,7 +51,7 @@
     "backup:restore-test": "node --env-file=.env scripts/restore-backup.cjs",
     "backup:restore-live": "node --env-file=.env scripts/restore-live.cjs",
     "test:backup": "node --test scripts/backup.test.cjs",
-    "test:billing": "node --test scripts/invoice-subject.test.cjs",
+    "test:billing": "node --test scripts/invoice-subject.test.cjs scripts/invoice-rules.test.cjs",
     "deploy:preflight": "node scripts/production-preflight.cjs",
     "deploy:migrate": "prisma migrate deploy --schema prisma/schema.postgresql.prisma",
     "deploy:start": "sh deploy/docker-start.sh",

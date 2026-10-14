@@ -11,6 +11,9 @@ import SiteFooter from '@/components/SiteFooter'
 import Icon from '@/components/site/Icon'
 import { formatAmount } from '@/shared/money/format'
 import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
+import { parseFxRates } from '@/modules/billing/domain/invoice-rules'
+import { getInvoiceRules } from '@/modules/billing/server/invoice-rules'
+import InvoiceDeadline from '@/components/billing/InvoiceDeadline'
 import { decryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
 import CardTransferBox from '@/components/billing/CardTransferBox'
 import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
@@ -66,7 +69,8 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   const deliveryPending = invoice.status === 'PAID' && (invoice.kind === 'WALLET_TOPUP' ? !creditedTopup : invoice.productId ? productDelivery?.status !== 'DELIVERED' : Boolean(invoice.orderId && !deliveredSubscription && deliveryJob?.status !== 'DONE'))
   let productMeta: Record<string, unknown> = {}
   try { productMeta = JSON.parse(invoice.order?.meta || '{}') } catch {}
-  const subject = invoiceSubject({ kind: invoice.kind, planName: invoice.plan?.name, productName: invoice.product?.name, meta: productMeta, siteName: settings.brandName || 'موبوکام', amountText: money(invoice.subtotal), notes: invoice.notes })
+  const rules = await getInvoiceRules()
+  const subject = invoiceSubject({ kind: invoice.kind, title: invoice.title, detail: invoice.detail, planName: invoice.plan?.name, productName: invoice.product?.name, meta: productMeta, siteName: settings.brandName || 'موبوکام', amountText: money(invoice.subtotal), notes: invoice.notes })
   const itemTitle = isFa ? subject.title : invoice.plan?.name || invoice.product?.name || t.invoice
   let digitalDelivery = ''
   try { if (productDelivery?.status === 'DELIVERED') digitalDelivery = decryptDigitalDelivery(productDelivery.digitalDelivery) } catch { /* Lost encryption key: hide unreadable ciphertext. */ }
@@ -98,6 +102,8 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
             <Link href={`/invoice/${invoice.number}/official`} className="btn btn-ghost">{isFa ? 'صورتحساب رسمی' : 'Official invoice'}</Link>
           </div>}
         </div>
+
+        <div className="no-print"><InvoiceDeadline status={invoice.status} expiresAt={invoice.expiresAt ? invoice.expiresAt.toISOString() : null} fxRates={parseFxRates(invoice.fxRates)} jumpToman={rules.fxJumpToman} closeAction={invoice.fxRates ? rules.fxAction : rules.overdueAction} closedReason={invoice.closedReason} againHref={productMeta.kind === 'form' ? '/dashboard/requests' : invoice.productId ? '/products' : '/dashboard/invoices'} /></div>
 
         <div className="card invoice-sheet">
           <div className="invoice-head">

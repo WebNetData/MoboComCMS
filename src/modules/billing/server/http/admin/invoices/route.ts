@@ -9,6 +9,11 @@ import { ensureInventoryReservation, releaseInventoryReservation } from '@/modul
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { auditAdmin } from '@/platform/audit/server'
+import { parseFxRates } from '@/modules/billing/domain/invoice-rules'
+
+const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+/** A closing time from "hours from now" (0 or empty: none). */
+const expiryFrom = (hours: unknown) => { const n = Number(hours); return Number.isFinite(n) && n > 0 ? new Date(Date.now() + Math.min(n, 24 * 365) * 3_600_000) : null }
 
 function minor(row: any, field: string, currency: string) {
   const exact = row?.[`${field}Minor`]
@@ -43,6 +48,13 @@ function serialize(i: any) {
     paidCrypto: i.paidCrypto,
     paidAmount: minorToNumber(minor(i, 'paidAmount', currency), currency),
     notes: i.notes,
+    title: i.title || '',
+    detail: i.detail || '',
+    kind: i.kind,
+    expiresAt: i.expiresAt,
+    fxRates: parseFxRates(i.fxRates || ''),
+    closedReason: i.closedReason || '',
+    recurringId: i.recurringId,
     issuedAt: i.issuedAt,
     dueAt: i.dueAt,
     paidAt: i.paidAt,
@@ -65,7 +77,8 @@ export async function GET(req: NextRequest) {
 
   const where: any = { currency }
   if (status) where.status = status
-  if (q) where.OR = [{ number: { contains: q } }, { user: { email: { contains: q } } }, { user: { name: { contains: q } } }]
+  if (q) where.OR = [{ number: { contains: q } }, { title: { contains: q } }, { user: { email: { contains: q } } }, { user: { name: { contains: q } } }]
+  if (sp.get('closed') === '1') { delete where.status; where.closedReason = { not: '' } }
 
   const [rows, allForCurrency] = await Promise.all([
     db.invoice.findMany({
@@ -76,6 +89,10 @@ export async function GET(req: NextRequest) {
     }),
     db.invoice.findMany({ where: { currency }, select: { status: true, total: true, totalMinor: true, walletApplied: true, walletAppliedMinor: true, currency: true } }),
   ])
+  const [closedByRule, expiring] = await Promise.all([
+    db.invoice.count({ where: { currency, closedReason: { not: '' } } }),
+    db.invoice.count({ where: { currency, status: 'UNPAID', expiresAt: { not: null } } }),
+  ])
 
   const counts: Record<string, number> = {}
   const sumsMinor: Record<string, bigint> = {}
@@ -85,7 +102,7 @@ export async function GET(req: NextRequest) {
     sumsMinor[row.status] = (sumsMinor[row.status] || 0n) + value
   }
   const sums = Object.fromEntries(Object.entries(sumsMinor).map(([k, v]) => [k, minorToNumber(v, currency)]))
-  return ok({ invoices: rows.map(serialize), counts, sums, paidTotal: sums.PAID || 0, currency, currencies: currencies.sort() })
+  return ok({ invoices: rows.map(serialize), counts, sums, paidTotal: sums.PAID || 0, closedByRule, expiring, currency, currencies: currencies.sort() })
 }
 
 export async function POST(req: NextRequest) {
@@ -119,6 +136,7 @@ export async function POST(req: NextRequest) {
     taxMinor = toMinor(String(b?.tax ?? 0), currency)
   } catch (e) { return err(e instanceof Error ? e.message : 'invalid amount') }
   if (subtotalMinor <= 0n) return err('amount must be greater than zero')
+  if (!planId && !productId && !text(b?.title, 120) && !String(b?.notes || '').trim()) return err('برای فاکتور دستی، شرح فاکتور را بنویسید')
   const totalMinor = invoiceTotalMinor(subtotalMinor, discountMinor, taxMinor)
   if (totalMinor <= 0n) return err('invoice total must be greater than zero')
 
@@ -151,6 +169,8 @@ export async function POST(req: NextRequest) {
       currency, gatewayId, notes: String(b?.notes || ''), status, createdBy: admin.id, dueDays,
     })
     if (order) await db.order.update({ where: { id: order.id }, data: { paymentUrl: `/invoice/${invoice.number}` } }).catch(() => {})
+    const title = text(b?.title, 120), detail = text(b?.detail, 500), expiresAt = expiryFrom(b?.expiresHours)
+    if (title || detail || expiresAt) await db.invoice.update({ where: { id: invoice.id }, data: { title, detail, ...(expiresAt ? { expiresAt } : {}) } })
     const full = await db.invoice.findUnique({ where: { id: invoice.id }, include: { user: { select: { id: true, email: true, name: true } }, plan: { select: { name: true } }, product: { select: { name: true } }, gateway: { select: { name: true } } } })
     await auditAdmin({ req, actor: admin, action: 'invoice.create', targetType: 'invoice', targetId: invoice.id, metadata: { userId, orderId: order?.id || null, planId, productId, currency, totalMinor: totalMinor.toString(), status } })
     return ok(serialize(full))
@@ -223,6 +243,11 @@ export async function PATCH(req: NextRequest) {
 
   const data: Record<string, unknown> = {}
   if (b?.notes !== undefined) data.notes = String(b.notes)
+  if (b?.title !== undefined) data.title = text(b.title, 120)
+  if (b?.detail !== undefined) data.detail = text(b.detail, 500)
+  if (b?.expiresAt !== undefined) data.expiresAt = b.expiresAt ? new Date(b.expiresAt) : null
+  if (b?.expiresHours !== undefined) data.expiresAt = expiryFrom(b.expiresHours)
+  if (data.expiresAt instanceof Date && Number.isNaN(data.expiresAt.getTime())) return err('زمان بسته شدن معتبر نیست')
   if (b?.status && ['DRAFT', 'UNPAID', 'VOID'].includes(String(b.status))) data.status = String(b.status)
   if (b?.dueAt !== undefined) data.dueAt = b.dueAt ? new Date(b.dueAt) : null
   if (b?.discount !== undefined || b?.tax !== undefined) {

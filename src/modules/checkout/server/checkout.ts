@@ -23,6 +23,7 @@ import { openAmountPrice, openAnswers } from '@/modules/store/server/order-input
 import { StoreError } from '@/modules/store/domain/store'
 import { attachFormOrder, formCheckoutQuote } from '@/modules/forms/server/paid'
 import { FormsError } from '@/modules/forms/domain/forms'
+import { stampFxInvoice } from '@/modules/billing/server/invoice-rules'
 import { quoteContent } from '@/modules/paywall/server/paywall'
 import { PaywallError, parseContentKey } from '@/modules/paywall/domain/paywall'
 
@@ -133,6 +134,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
   let shippingMinor = 0n
   let delivery: { date: string; slot: { id: string; label: string } } | null = null
   let carrier: Awaited<ReturnType<typeof checkoutCarrier>> = null
+  // Foreign currencies the price followed: a typed foreign amount, a product priced by the rate, a form's foreign amount.
+  const fxCodes: string[] = []
   const orderLines: { line: number; productId: number; variantId: number | null; name: string; variantName: string; sku: string; image: string; kind: string; quantity: number; unitPriceMinor: bigint; listPriceMinor: bigint; totalMinor: bigint; currency: string; sellerId: number | null; inputs: string; openAmountMinor: bigint; openCurrency: string; openRate: string }[] = []
 
   if (formSubmissionId) {
@@ -142,6 +145,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       amountMinor = quote.amountMinor
       amount = legacyNumber(amountMinor, currency)
       label = quote.title
+      fxCodes.push(...quote.fxCurrencies)
       meta = { kind: 'form', formId: quote.formId, submissionId: quote.submissionId, formTitle: quote.title, invoiceTitle: quote.invoiceTitle, invoiceText: quote.invoiceText, contentPath: '/dashboard/requests' }
     } catch (error) {
       if (error instanceof FormsError) return fail(error.status, 'FORM_REQUEST', error.message)
@@ -225,6 +229,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
           throw error
         }
       }
+      if (product.openAmount && openCurrency) fxCodes.push(openCurrency)
+      if (product.pricingMode === 'FX' && product.fxCurrency) fxCodes.push(product.fxCurrency)
       if (index === 0) currency = price.currency
       else if (price.currency !== currency) return fail(409, 'MIXED_CURRENCY', 'کالاهای یک سفارش باید واحد پول یکسان داشته باشند')
       memberDiscount ||= price.memberDiscount
@@ -411,6 +417,8 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
     notes: [shippingMinor > 0n ? `Shipping: ${legacyNumber(shippingMinor, currency)} ${currency}` : '', creditMinor > 0n ? `Wallet credit applied: ${legacyNumber(creditMinor, currency)} ${currency}` : ''].filter(Boolean).join('\n'),
     idempotencyKey: `checkout:${command.idempotencyKey}:invoice`,
   })
+  // A price that followed a rate holds for a while only (see billing/server/invoice-rules.ts).
+  if (fxCodes.length && !invoice.fxRates) await stampFxInvoice(invoice.id, fxCodes)
 
   if (creditMinor > 0n) {
     const debit = await moveWallet({

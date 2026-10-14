@@ -59,6 +59,11 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/subscriptions/server/renewal-recovery')).recoverPendingRenewals(),
   },
   {
+    // Invoices: rate-bound ones that ran out of time or whose rate jumped, overdue ones, and recurring invoices that are due.
+    name: 'invoice-rules', everyMs: 60_000,
+    run: async () => { await (await import('@/modules/billing/server/invoice-rules')).processInvoiceRules() },
+  },
+  {
     // Bulk import: restarts import jobs whose queue chain was lost and prunes week-old drafts (the work itself runs on the queue).
     name: 'imports', everyMs: 5 * 60_000,
     run: async () => (await import('@/modules/imports/server/engine')).sweepImportJobs(),

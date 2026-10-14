@@ -101,6 +101,9 @@ export async function formCheckoutQuote(submissionId: number, userId: number) {
   const form = parseForm(row.form)
   if (!form.settings?.payment.enabled) throw new FormsError('پرداخت این فرم بسته شده است', 409)
   const bill = await billFor(form, valuesOf(parse<StoredAnswer[]>(row.data, [])))
+  // The foreign currencies this answer is priced in (its typed foreign amounts).
+  const answers = parse<StoredAnswer[]>(row.data, [])
+  const fxCurrencies = form.fields.filter((field) => field.type === 'fxamount').map((field) => parseFxAnswer(answers.find((answer) => answer.id === field.id)?.value)?.currency || '').filter(Boolean)
   if (bill.totalMinor <= 0n) throw new FormsError('مبلغی برای پرداخت محاسبه نشد', 409)
   await db.formSubmission.update({ where: { id: row.id }, data: { amountMinor: bill.totalMinor, currency: bill.currency, pricing: JSON.stringify(bill.lines) } })
   // What the invoice says: the form's own title and description, filled from this answer (passwords are stored masked).
@@ -109,7 +112,7 @@ export async function formCheckoutQuote(submissionId: number, userId: number) {
   const context = { formTitle: form.title, entryId: row.id, answers: parse<StoredAnswer[]>(row.data, []).map(isolate) }
   const invoiceTitle = mergeTags(form.settings.payment.invoiceTitle, context).replace(/\s+/g, ' ').trim().slice(0, 120)
   const invoiceText = mergeTags(form.settings.payment.invoiceText, context).replace(/\s+/g, ' ').trim().slice(0, 500)
-  return { submissionId: row.id, formId: row.formId, title: form.title, amountMinor: bill.totalMinor, currency: bill.currency, invoiceTitle, invoiceText }
+  return { submissionId: row.id, formId: row.formId, title: form.title, amountMinor: bill.totalMinor, currency: bill.currency, invoiceTitle, invoiceText, fxCurrencies }
 }
 
 export async function attachFormOrder(submissionId: number, orderId: number) {
