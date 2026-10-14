@@ -5,7 +5,7 @@ import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
-import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
+import { formatCurrency, currencyLabel, BASE_CURRENCY } from '@/shared/money/client'
 import { newIdempotencyKey } from '@/shared/security/idempotency'
 import type { CheckoutGatewayChoice } from '@/modules/checkout/ui/client'
 import { transactionLabel } from '@/modules/wallet/domain/transaction-locale'
@@ -22,6 +22,20 @@ function topupKey(currency:string, amount:number) {
   catch { return {key:newIdempotencyKey('wallet'),storage} }
 }
 
+/** Why a top-up was refused, in words a member understands (the server's code decides it). */
+function topupError(data: { code?: string; error?: string } | null, isFa: boolean) {
+  const code = String(data?.code || ''), detail = String(data?.error || '')
+  const amount = detail.match(/(\d[\d.,]*)\s+([A-Z]{3})/)
+  const limit = amount ? formatCurrency(Number(amount[1].replace(/,/g, '')), amount[2], isFa ? 'fa-IR' : 'en-US') : ''
+  const fa: Record<string, string> = {
+    BELOW_MINIMUM: limit ? `کمترین مبلغ شارژ ${limit} است.` : 'مبلغ کمتر از حداقل شارژ است.',
+    ABOVE_MAXIMUM: limit ? `بیشترین مبلغ شارژ در هر بار ${limit} است.` : 'مبلغ بیشتر از سقف شارژ است.',
+    INVALID_AMOUNT: 'مبلغ را به عدد وارد کنید.', NO_GATEWAY: 'درگاه پرداختی برای شارژ فعال نیست.', GATEWAY_NOT_AVAILABLE: 'این درگاه برای این واحد پول فعال نیست؛ درگاه دیگری انتخاب کنید.',
+    GATEWAY_CURRENCY_MISMATCH: 'این درگاه این واحد پول را نمی‌پذیرد.', IDEMPOTENCY_REQUIRED: 'صفحه را تازه کنید و دوباره تلاش کنید.',
+  }
+  return isFa ? fa[code] || '' : detail
+}
+
 export default function WalletPage() {
   const {t,locale}=useI18n(); const isFa=locale==='fa'; const vpnOn=useModuleEnabled('vpn'); const storeOn=useModuleEnabled('store')
   const [balances,setBalances]=useState<Balance[]>([]); const [txs,setTxs]=useState<Tx[]>([]); const [totals,setTotals]=useState<Record<string,{toppedUp:number;spent:number;count:number}>>({})
@@ -33,11 +47,11 @@ export default function WalletPage() {
   useEffect(()=>{if(!compatibleGateways.some(g=>g.ref===gatewayRef))setGatewayRef(compatibleGateways.find(g=>g.isDefault)?.ref||compatibleGateways[0]?.ref||'')},[compatibleGateways,gatewayRef])
   const balance=balances.find(b=>b.currency===currency)?.balance||0; const summary=totals[currency]||{toppedUp:0,spent:0,count:0}; const visible=useMemo(()=>txs.filter(x=>x.currency===currency),[txs,currency])
   const money=(n:number,c=currency)=>formatCurrency(n||0,c,isFa?'fa-IR':'en-US'); const fmt=(d:string)=>new Date(d).toLocaleString(isFa?'fa-IR':'en-US')
-  async function topUp(){ setBusy(true);setError('');const token=topupKey(currency,amount); let res:Response; try{res=await fetch('/api/wallet',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':token.key},body:JSON.stringify({amount:String(amount),currency,gatewayRef:gatewayRef||undefined})})}catch{setBusy(false);setError(t.errGeneric);return} const data=await res.json().catch(()=>null);try{sessionStorage.removeItem(token.storage)}catch{} setBusy(false);if(!res.ok){setError(t.errGeneric);return} if(data?.paymentUrl)window.location.href=data.paymentUrl;else load() }
+  async function topUp(){ setBusy(true);setError('');const token=topupKey(currency,amount); let res:Response; try{res=await fetch('/api/wallet',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':token.key},body:JSON.stringify({amount:String(amount),currency,gatewayRef:gatewayRef||undefined})})}catch{setBusy(false);setError(t.errGeneric);return} const data=await res.json().catch(()=>null);try{sessionStorage.removeItem(token.storage)}catch{} setBusy(false);if(!res.ok){setError(topupError(data,isFa)||t.errGeneric);return} if(data?.paymentUrl)window.location.href=data.paymentUrl;else load() }
   const kpis:[[string,string,string,string],[string,string,string,string],[string,string,string,string],[string,string,string,string]]=[
     [t.walletBalance,money(balance),'💳','kpi-green'],[t.totalToppedUp,money(summary.toppedUp),'⬆️',''],[t.totalSpent,money(summary.spent),'⬇️',''],[t.txCount,String(summary.count),'🧮','']]
   return <div>
-    <div className="appbar"><div><h1 className="h2">💳 {t.wallet}</h1><p className="muted">{vpnOn ? t.walletSub : isFa ? 'یک‌بار شارژ کنید و خریدهای سایت را از موجودی بپردازید.' : 'Top up once and pay for your purchases from the balance.'}</p></div><div className="flex gap-2"><select className="select" value={currency} onChange={e=>setCurrency(e.target.value)}>{[...new Set([...topupCurrencies,...balances.map(b=>b.currency)])].map(c=><option key={c}>{c}</option>)}</select>{vpnOn ? <Link href="/plans" className="btn btn-ghost">{t.browsePlans}</Link> : storeOn && <Link href="/products" className="btn btn-ghost">{isFa ? 'فروشگاه' : 'Shop'}</Link>}</div></div>
+    <div className="appbar"><div><h1 className="h2">💳 {t.wallet}</h1><p className="muted">{vpnOn ? t.walletSub : isFa ? 'یک‌بار شارژ کنید و خریدهای سایت را از موجودی بپردازید.' : 'Top up once and pay for your purchases from the balance.'}</p></div><div className="flex gap-2"><select className="select" value={currency} onChange={e=>setCurrency(e.target.value)}>{[...new Set([...topupCurrencies,...balances.map(b=>b.currency)].map(c=>c==='TMN'?'IRT':c))].map(c=><option key={c} value={c}>{currencyLabel(c,isFa?'fa-IR':'en-US')}</option>)}</select>{vpnOn ? <Link href="/plans" className="btn btn-ghost">{t.browsePlans}</Link> : storeOn && <Link href="/products" className="btn btn-ghost">{isFa ? 'فروشگاه' : 'Shop'}</Link>}</div></div>
     {balances.length>1&&<p className="muted text-sm mb-4">{balances.map(b=>money(b.balance,b.currency)).join(' · ')}</p>}
     <p className="muted text-sm mb-6">💡 {t.walletPayHint}</p>
     <div className="grid-4 mb-8">{kpis.map(([label,value,icon,cls])=><div key={label} className={`card kpi ${cls}`}><div className="kpi-icon">{icon}</div><div className="min-w-0"><div className="muted text-xs">{label}</div><div className="num text-2xl font-extrabold truncate">{value}</div></div></div>)}</div>

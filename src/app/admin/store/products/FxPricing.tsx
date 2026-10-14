@@ -44,7 +44,7 @@ export default function FxPricing({ form, update }: { form: Form; update: (key: 
       {field('fxAmount', `قیمت ارزی (${code}) *`, { required: true, placeholder: '20' })}
       {field('markupPercent', 'درصد سود (٪)', { placeholder: '0' })}
       {field('markupFixed', `سود ثابت (${unit(sell)})`, { placeholder: '0' })}
-      <label className="sa-field"><span>واحد فروش</span><select className="select" value={sell} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان</option><option value="IRR">ریال</option></select></label>
+      <label className="sa-field"><span>واحد فروش</span><select className="select" value={sell} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان ایران (IRT)</option><option value="IRR">ریال ایران (IRR)</option></select></label>
       {field('fxCompareAt', `قیمت ارزی قبل از تخفیف (${code})`)}
       <span data-vip="" style={{ display: 'contents' }}>{field('fxMemberPrice', `قیمت ارزی اعضای VIP (${code})`)}</span>
       <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز</span><input className="input" type="datetime-local" value={form.saleEndsAt} onChange={(event) => update('saleEndsAt', event.target.value)} /></label>

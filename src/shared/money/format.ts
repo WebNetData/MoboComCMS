@@ -7,6 +7,18 @@ const IRANIAN_UNITS: Record<string, { fa: string; en: string }> = {
   TMN: { fa: 'تومان', en: 'Toman' },
 }
 
+const CURRENCY_NAMES: Record<string, { fa: string; en: string }> = {
+  IRT: { fa: 'تومان ایران', en: 'Iranian toman' }, TMN: { fa: 'تومان ایران', en: 'Iranian toman' }, IRR: { fa: 'ریال ایران', en: 'Iranian rial' },
+  USD: { fa: 'دلار آمریکا', en: 'US dollar' }, EUR: { fa: 'یورو', en: 'Euro' }, GBP: { fa: 'پوند انگلیس', en: 'British pound' }, AED: { fa: 'درهم امارات', en: 'UAE dirham' }, TRY: { fa: 'لیر ترکیه', en: 'Turkish lira' }, USDT: { fa: 'تتر', en: 'Tether' },
+}
+
+/** A currency as a person reads it in a choice: "تومان ایران (IRT)", "ریال ایران (IRR)". */
+export function currencyLabel(currency: string, locale = 'fa-IR') {
+  const code = String(currency || '').trim().toUpperCase()
+  const name = CURRENCY_NAMES[code]
+  return name ? `${locale.startsWith('fa') ? name.fa : name.en} (${code === 'TMN' ? 'IRT' : code})` : code
+}
+
 export function iranianUnit(currency: string, locale = 'fa-IR') {
   const unit = IRANIAN_UNITS[String(currency || '').trim().toUpperCase()]
   return unit ? (locale.startsWith('fa') ? unit.fa : unit.en) : ''
