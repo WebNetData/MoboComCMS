@@ -141,7 +141,7 @@ test('chat wiring: messages and status changes are announced; streams catch up f
   // Widget and console fall back to polling when the stream is unavailable
   const widget = read('src/plugins/livechat/client.tsx')
   assert.match(widget, /new EventSource\(`\/api\/chat\/stream/)
-  assert.match(widget, /if \(!status \|\| live\) return/)
+  assert.match(widget, /if \(!visible \|\| !status \|\| live\) return/)
   const console_ = read('src/app/admin/chat/page.tsx')
   assert.match(console_, /new EventSource\('\/api\/admin\/chat\/stream'\)/)
   assert.match(console_, /if \(live\) return/)
