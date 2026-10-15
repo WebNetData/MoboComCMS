@@ -424,11 +424,11 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
   .mbx-section-copy small { display: none; }
   .mbx-section.is-big .mbx-section-copy small { display: block; }
   .mbx-section-go { display: none; }
-  .mbx-products { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin-inline: -20px; padding: 4px 20px 10px; scrollbar-width: none; }
+  .mbx-products { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin-inline: -12px; padding: 4px 12px 10px; scrollbar-width: none; }
   .mbx-products > * { flex: 0 0 46%; scroll-snap-align: start; }
   .mbx-post.is-invite { grid-template-columns: auto 1fr; }
   .mbx-post.is-invite .mb-btn { grid-column: 1 / -1; }
-  .mbx-posters { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin-inline: -20px; padding-inline: 20px; scrollbar-width: none; }
+  .mbx-posters { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin-inline: -12px; padding-inline: 12px; scrollbar-width: none; }
   .mbx-posters > * { display: grid !important; flex: 0 0 38%; scroll-snap-align: start; }
   .mbx-posters.is-square > * { flex-basis: 44%; }
   .mbx-feed, .mbx-side { grid-template-columns: 1fr; }
@@ -628,8 +628,8 @@ html[data-theme=dark] .mb-pop { box-shadow: 0 30px 70px -20px #000, 0 0 0 1px rg
 .mb-user-id strong { max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 800; }
 .mb-user-id small { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .mb-user-id small::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 22%, transparent); }
-.mb-avatar { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #ec4899)); color: #fff; font-weight: 900; font-size: 16px; box-shadow: 0 8px 18px -10px var(--primary); }
-.mb-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.mb-avatar { position: relative; display: grid; place-items: center; flex: none; width: 38px; height: 38px; overflow: hidden; border-radius: 13px; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #ec4899)); color: #fff; font-weight: 900; font-size: 16px; box-shadow: 0 8px 18px -10px var(--primary); }
+.mb-avatar img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: cover; border-radius: inherit; }
 .mb-user-menu { min-width: 290px; padding: 0 0 10px; overflow: hidden; }
 .mb-user-head { position: relative; display: grid; justify-items: center; gap: 2px; padding: 0 16px 14px; margin-bottom: 6px; text-align: center; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
 .mb-user-head::before { content: ""; display: block; width: calc(100% + 32px); height: 62px; margin-bottom: -30px; background: radial-gradient(90% 160% at 85% 0%, color-mix(in srgb, #ec4899 75%, transparent), transparent 60%), linear-gradient(120deg, #312e81, var(--primary)); }
@@ -745,6 +745,14 @@ html[data-design="mobocom"] .journal-crumb-pill { display: inline-flex; flex-wra
   .mb-header .mb-search { flex: 0 0 auto; width: 44px; max-width: none; margin-inline: auto 0; padding: 0; justify-content: center; }
   .mb-header .mb-search .ss-trigger-label, .mb-header .mb-search kbd { display: none; }
   .mb-header-actions { margin-inline-start: 0; }
+}
+/* Keep every action reachable on narrow phones; only branding yields space. */
+@media (max-width: 620px) {
+  .mb-header-bar { gap: 8px; }
+  .mb-header .mb-brand { flex-shrink: 1; }
+  .mb-header .site-wordmark { flex-shrink: 1; min-width: 0; max-width: 100%; }
+  .mb-header .site-wordmark img { height: auto; max-height: min(var(--wm-h, 40px), 36px); }
+  .mb-header .mb-brand-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .mb-header-bar::after, .mb-nav-rail > a, .mb-nav-rail > .mb-nav-more, .mb-nav-rail > a[aria-current=page] svg { animation: none; } .mb-navbar, .mb-nav-glider { transition: none; } }
 

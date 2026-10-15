@@ -1,5 +1,11 @@
 # MOBOCOM_MAP.md
 
+- **Magazine themes:** existing Liona journal landing/listing follows the site light mode through scoped semantic CSS; article canvas uses the same white/card surface. The photographic hero keeps its visible cinematic cover and light copy in both themes (owner correction2026-10-15). Keep dark composition and the current site theme control. [Theme evidence/remaining legacy a11y](handoffs/JOURNAL_THEMES.md).
+
+- **Supporting engineering skills:**16 source-pinned project skills from Anthropic/UI UX Pro Max/Vercel/ibelick extend existing MoboCom workflows. Task routing/precedence and actual discovery/local-tool evidence: [ENGINEERING_SKILLS](ENGINEERING_SKILLS.md); payload lock and offline backed-up mirroring stay under the existing DevStack, not the application runtime.
+
+- **Narrow-screen MoboCom chrome:** existing theme CSS owns the620px header/gutter constraints; branding yields width before the existing actions. Native home rails stay scrollable; do not hide overflow globally. [Audit and actual browser evidence](handoffs/MOBILE_LAYOUT.md).
+
 - **Public footer:** existing `components/site/default-theme/DefaultSiteFooter.tsx` composes private `footer/` parts; MoboCom theme reuses it through the existing SDK. Edge-to-edge width is an explicit owner requirement. Existing branding/menu/seals/search/support owners remain; [footer continuation and local evidence](handoffs/SITE_FOOTER.md).
 
 Last verified revision: main `ee8f668` (2026-10-07, PRs through #116). Entries marked *(not re-verified)* were not opened in the sessions that wrote this file; check before relying on them.

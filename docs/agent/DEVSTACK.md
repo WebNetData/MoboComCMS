@@ -105,6 +105,10 @@ VS Code workspace tasks expose focused checks without changing global settings, 
 
 ## Efficiency and privacy
 
+### Project engineering skills
+
+16 scoped skills from Anthropic, UI/UX Pro Max, Vercel and ibelick are vendored for Codex/Claude with source refs, licenses and payload hashes in `tools/devstack/external-skills.lock.json`. Read [task routing and precedence](ENGINEERING_SKILLS.md) before applying their generic UI/stack advice. `python scripts/sync-engineering-skills.py --sync` installs project mirrors with backups; omit `--sync` for offline verification. UI/UX search uses existing Python and local data. No new MCP, runtime dependency, hook or Actions workflow is registered.
+
 Use the same existing map/ledger and Serena memory for durable verified facts. A memory entry names evidence/date/scope, never credentials or speculative maturity. Refresh it when its owner changes; a stale snapshot never beats the current repository. Do not store whole source, prompts or run transcripts as memory.
 
 Optional `MOBOCOM_DEVSTACK_METRICS=1` records tool ID, timestamp, duration, status and finding/file/edge counts in machine-local JSONL. It records no source, prompts, tokens or credentials. Token usage is unavailable to this runner; durations/counts are proxies, not a token-saving percentage. Remove local metrics to reset; leave the variable unset to disable. Context7 receives specific public documentation queries only; security/source scans stay local. Raw secret scanner output is redacted.

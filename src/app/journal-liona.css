@@ -1,6 +1,6 @@
 /* ============================================================
    Journal landing & listing in the Liona layouts (lh-): dark
-   editorial canvas (dark in both site themes, like the games stage), cyan accent (home-2), coloured category badges,
+   editorial canvas, cyan accent (home-2), coloured category badges,
    cinematic hero with a round-thumb side list (home-4), circles
    (home-4), strip list and coloured panel (home-2), archive band
    with notches (home-4). RTL-first logical properties.
@@ -155,11 +155,22 @@
 .lh-search:focus-within { border-color: var(--lh-accent); }
 .lh-search input { flex: 1; min-width: 0; padding-inline: 18px; border: 0; background: transparent; color: var(--lh-text); font: inherit; font-size: 13.5px; outline: none; }
 .lh-search > button { display: grid; place-items: center; width: 44px; border: 0; background: var(--lh-accent); color: #062a31; cursor: pointer; }
-.lh-list-head { display: grid; gap: 6px; margin-bottom: 18px; }
-.lh-list-head h1 { margin: 0; font-size: clamp(1.3rem, 2.4vw, 1.7rem); font-weight: 900; }
-.lh-list-head > span { color: var(--lh-muted); font-size: 13px; }
-.lh-crumbs { color: var(--lh-muted); font-size: 12.5px; }
-.lh-crumbs a:hover { color: var(--lh-accent); }
+.lh-list-head { position: relative; isolation: isolate; display: grid; justify-items: start; gap: 14px; margin-bottom: 24px; padding: clamp(20px, 3vw, 36px); overflow: hidden; border: 1px solid var(--lh-line); border-radius: 26px; background: linear-gradient(130deg, color-mix(in srgb, var(--lh-accent) 8%, var(--lh-card)), var(--lh-card)); box-shadow: 0 20px 44px -36px color-mix(in srgb, var(--lh-text) 30%, transparent); }
+.lh-list-head::before { content: ''; position: absolute; inset-block: 24px; inset-inline-start: 0; width: 3px; border-radius: 3px; background: linear-gradient(var(--lh-accent), var(--lh-purple)); pointer-events: none; }
+.lh-list-head h1 { margin: 0; font-size: clamp(1.5rem, 2.7vw, 2.2rem); font-weight: 900; line-height: 1.6; overflow-wrap: anywhere; text-wrap: balance; }
+.lh-list-head > span { padding: 5px 12px; border: 1px solid var(--lh-line); border-radius: 999px; background: var(--lh-card); color: var(--lh-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lh-crumbs { max-width: 100%; padding: 4px; border: 1px solid var(--lh-line); border-radius: 16px; background: color-mix(in srgb, var(--lh-card) 85%, transparent); color: var(--lh-muted); font-size: 12.5px; }
+.lh-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0; margin: 0; list-style: none; }
+.lh-crumbs li { display: inline-flex; align-items: center; min-width: 0; }
+.lh-crumbs a, .lh-crumbs [aria-current="page"] { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 5px 12px; border-radius: 11px; overflow-wrap: anywhere; }
+.lh-crumbs a { transition: color .18s ease, background .18s ease; }
+.lh-crumbs a:hover { color: var(--lh-accent); background: color-mix(in srgb, var(--lh-accent) 9%, transparent); }
+.lh-crumbs a:focus-visible { outline: 2px solid var(--lh-accent); outline-offset: 1px; }
+.lh-crumbs [aria-current="page"] { background: color-mix(in srgb, var(--lh-accent) 12%, var(--lh-card)); color: var(--lh-accent); font-weight: 800; }
+.lh-crumbs svg { flex: none; }
+.lh-crumb-separator { padding-inline: 3px; opacity: .7; }
+html[dir="ltr"] .lh-crumb-separator svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .lh-crumbs a { transition: none; } }
 .lh-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 28px; color: var(--lh-muted); font-size: 13px; }
 .lh-pager a { padding: 8px 16px; border-radius: 999px; background: var(--lh-card); color: var(--lh-text); font-weight: 700; }
 .lh-pager a:hover { background: var(--lh-accent); color: #062a31; }
@@ -217,7 +228,7 @@ html[dir="ltr"] .lh-more:hover { transform: translateX(3px); }
 
 /* hero */
 .lh-hero { min-height: 580px; padding-block: 26px 44px; }
-.lh-hero-veil { background: linear-gradient(to top, var(--lh-bg) 0%, rgba(14, 15, 22, .82) 38%, rgba(14, 15, 22, .5) 100%), radial-gradient(70% 90% at 80% 20%, color-mix(in srgb, var(--lh-purple) 30%, transparent), transparent 70%); }
+.lh-hero-veil { background: linear-gradient(to top, var(--lh-hero-bg, var(--lh-bg)) 0%, rgba(14, 15, 22, .82) 38%, rgba(14, 15, 22, .5) 100%), radial-gradient(70% 90% at 80% 20%, color-mix(in srgb, var(--lh-purple) 30%, transparent), transparent 70%); }
 .lh-circles { justify-content: center; gap: 18px; }
 .lh-circle span { width: 64px; height: 64px; border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .08); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: background .2s ease, border-color .2s ease, transform .25s cubic-bezier(.2, .9, .2, 1), box-shadow .25s ease; }
 .lh-circle:hover span { transform: translateY(-4px) scale(1.06); box-shadow: 0 14px 28px -12px var(--lh-c); }
@@ -300,3 +311,45 @@ html:has(.mm-bar-search) .journal-lh .lh-toolbar:has(> .lh-search:only-child) { 
 }
 @media (max-width: 620px) { .journal-lh .container:not(.mm-bar) { width: calc(100% - 24px); } .lh-head h2 { font-size: 18px; } .lh-head small { margin-inline-start: 0; } }
 @media (prefers-reduced-motion: reduce) { .lh-card, .lh-overlay, .lh-text, .lh-chips a, .lh-card-art img, .lh-circle span, .lh-btn, .lh-more { transition: none; } }
+
+/* Light editorial edition: same composition, using the site's semantic surfaces.
+   Image-overlay stories retain their cinematic contrast; reading surfaces follow theme. */
+html[data-theme="light"] .journal-lh {
+  --lh-bg: var(--card);
+  --lh-bg-2: var(--bg-soft);
+  --lh-card: var(--card);
+  --lh-card-2: var(--bg);
+  --lh-line: var(--border);
+  --lh-text: var(--text);
+  --lh-muted: color-mix(in srgb, var(--muted) 85%, var(--text));
+  --lh-accent: color-mix(in srgb, #22b8cf 55%, var(--text));
+  color-scheme: light;
+}
+/* The photographic hero keeps its cinematic veil and light copy in either theme. */
+html[data-theme="light"] .journal-lh .lh-hero-veil { --lh-hero-bg: #0e0f16; }
+html[data-theme="light"] .journal-lh .lh-hero-list .lh-meta { color: var(--lh-muted); }
+html[data-theme="light"] .journal-lh .lh-circle span { border-color: var(--lh-line); background: color-mix(in srgb, var(--lh-card) 85%, transparent); color: var(--lh-accent); }
+html[data-theme="light"] .journal-lh .lh-circle:hover span { border-color: var(--lh-c); background: color-mix(in srgb, var(--lh-c) 12%, var(--lh-card)); }
+html[data-theme="light"] .journal-lh .lh-hero-list { border-color: var(--lh-line); background: color-mix(in srgb, var(--lh-card) 90%, transparent); box-shadow: 0 24px 48px -36px color-mix(in srgb, var(--lh-text) 30%, transparent); }
+html[data-theme="light"] .journal-lh .lh-hero-list .lh-row b { color: var(--lh-text); }
+html[data-theme="light"] .journal-lh .lh-hero-list .lh-row:hover { background: var(--lh-bg-2); }
+html[data-theme="light"] .journal-lh .lh-card { box-shadow: 0 18px 40px -30px color-mix(in srgb, var(--lh-text) 25%, transparent); }
+html[data-theme="light"] .journal-lh .lh-badge,
+html[data-theme="light"] .journal-lh .lh-chips.is-small a:is(.is-active, :hover) { background: color-mix(in srgb, var(--lh-c) 60%, var(--lh-text)); color: #fff; }
+html[data-theme="light"] .journal-lh .lh-btn:not(.is-ghost),
+html[data-theme="light"] .journal-lh .lh-search > button,
+html[data-theme="light"] .journal-lh .lh-author i,
+html[data-theme="light"] .journal-lh .lh-tabs .gx-tabs button[aria-selected="true"] { color: #fff !important; }
+html[data-theme="light"] .journal-lh .lh-pager a:hover { color: #fff; }
+html[data-theme="light"] .journal-lh .lh-chips:not(.is-small) a,
+html[data-theme="light"] .journal-lh .lh-panel { background: linear-gradient(135deg, color-mix(in srgb, var(--lh-c) 10%, var(--lh-card)), color-mix(in srgb, var(--lh-c) 5%, var(--lh-card))); color: var(--lh-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lh-c) 22%, var(--lh-line)); }
+html[data-theme="light"] .journal-lh .lh-panel .lh-row em,
+html[data-theme="light"] .journal-lh .lh-panel .lh-meta { color: var(--lh-muted); }
+html[data-theme="light"] .journal-lh .lh-panel .lh-row:hover b { color: var(--lh-accent); }
+html[data-theme="light"] .journal-lh .lh-text::before { background: color-mix(in srgb, var(--lh-card) 96%, transparent); }
+html[data-theme="light"] .journal-lh .lh-text:hover::before { background: color-mix(in srgb, var(--lh-card) 90%, transparent); }
+html[data-theme="light"] .journal-lh .lh-text { color: var(--lh-text); }
+html[data-theme="light"] .journal-lh .lh-text em,
+html[data-theme="light"] .journal-lh .lh-text .lh-meta { color: var(--lh-muted); }
+html[data-theme="light"] .journal-lh .lh-archive-veil { background: color-mix(in srgb, var(--lh-bg-2) 96%, transparent); }
+html[data-theme="light"] .journal-lh .lh-archive .lh-head h2 { color: var(--lh-text); }
