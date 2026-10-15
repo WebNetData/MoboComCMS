@@ -1920,3 +1920,6 @@
 .journal-bio-body h3 a { color: inherit; }
 .journal-bio-body h3 a:hover { color: var(--primary); }
 .journal-bio-verified { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-inline-start: 7px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 11px; vertical-align: middle; }
+
+/* Match the light magazine canvas without changing the cinematic cover treatment. */
+html[data-theme="light"] .journal-post { background: var(--card); }

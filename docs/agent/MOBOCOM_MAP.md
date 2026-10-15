@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Magazine themes:** existing Liona journal landing/listing now follows the site light mode through scoped semantic CSS; article canvas uses the same white/card surface. Keep dark composition and the current site theme control. [Theme evidence/remaining legacy a11y](handoffs/JOURNAL_THEMES.md).
+
 - **Supporting engineering skills:**16 source-pinned project skills from Anthropic/UI UX Pro Max/Vercel/ibelick extend existing MoboCom workflows. Task routing/precedence and actual discovery/local-tool evidence: [ENGINEERING_SKILLS](ENGINEERING_SKILLS.md); payload lock and offline backed-up mirroring stay under the existing DevStack, not the application runtime.
 
 - **Narrow-screen MoboCom chrome:** existing theme CSS owns the620px header/gutter constraints; branding yields width before the existing actions. Native home rails stay scrollable; do not hide overflow globally. [Audit and actual browser evidence](handoffs/MOBILE_LAYOUT.md).
