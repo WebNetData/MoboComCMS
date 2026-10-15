@@ -106,7 +106,10 @@ model User {
   communityPosts CommunityPost[]
   communityComments CommunityComment[]
   communityLikes CommunityLike[]
-  communityReports CommunityReport[]
+  communityReports CommunityReport[] @relation("CommunityReporter")
+  reviewedCommunityReports CommunityReport[] @relation("CommunityReportReviewer")
+  businessProofs BusinessPurchaseProof[] @relation("BusinessProofOwner")
+  reviewedBusinessProofs BusinessPurchaseProof[] @relation("BusinessProofReviewer")
   itemReviews    ItemReview[]
   itemReviewHelpfulVotes ItemReviewHelpful[]
   itemFavorites  ItemFavorite[]
@@ -2486,6 +2489,8 @@ model LinkReport {
 
 // ---------------------------------------------------------------- reviews & favorites
 model ItemReview {
+  businessProofs BusinessPurchaseProof[]
+  businessReports CommunityReport[]
   experiencedOn DateTime?
   businessReply String @default("")
   businessReplyBy Int?
@@ -3052,19 +3057,32 @@ model CommunityLike {
 }
 
 model CommunityReport {
+  businessId Int?
+  itemReviewId Int?
+  sellerReviewId Int?
+  businessReviewDigest String @default("")
+  decisionNote String @default("")
+  reviewedById Int?
+  reviewedAt DateTime?
+  business BusinessProfile? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  itemReview ItemReview? @relation(fields: [itemReviewId], references: [id], onDelete: Cascade)
+  sellerReview SellerReview? @relation(fields: [sellerReviewId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("CommunityReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
   id         Int            @id @default(autoincrement())
   postId     Int?
   post       CommunityPost?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   commentId  Int?
   comment    CommunityComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   reporterId Int
-  reporter   User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reporter   User           @relation("CommunityReporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reason     String
   note       String         @default("")
   status     String         @default("OPEN") // OPEN | RESOLVED | DISMISSED
   createdAt  DateTime       @default(now())
 
   @@index([status, createdAt])
+  @@index([businessId, status, id])
 }
 
 /// Emails the site sent (test sends, notifications) — the panel's sent log.
@@ -3468,6 +3486,7 @@ model SellerPayout {
 
 /// Customer rating of a seller after an order (on time, as described, packaging).
 model SellerReview {
+  businessReports CommunityReport[]
   id        Int      @id @default(autoincrement())
   sellerId  Int
   userId    Int
@@ -3987,6 +4006,8 @@ model AccessRestriction {
 
 // Business profiles compose existing ItemReview or SellerReview; never duplicate their history.
 model BusinessProfile {
+  purchaseProofs BusinessPurchaseProof[]
+  reports CommunityReport[]
   requests BusinessRequest[]
   id Int @id @default(autoincrement())
   slug String @unique
@@ -4076,4 +4097,30 @@ model AutomationRun {
 
   @@index([ruleId, subjectKey, createdAt])
   @@index([createdAt])
+}
+
+
+model BusinessPurchaseProof {
+  id Int @id @default(autoincrement())
+  businessId Int
+  reviewId Int
+  userId Int
+  reviewerId Int?
+  status String @default("PENDING") // PENDING | APPROVED | REJECTED | WITHDRAWN
+  reviewDigest String
+  filename String @unique
+  originalName String
+  mimeType String
+  size Int
+  sha256 String
+  decisionNote String @default("")
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+  business BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  review ItemReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user User @relation("BusinessProofOwner", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("BusinessProofReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  @@index([status, id])
+  @@index([userId, id])
+  @@index([reviewId, status])
 }

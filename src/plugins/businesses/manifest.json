@@ -4,7 +4,7 @@
   "nameEn": "Business experiences",
   "description": "تجربه و امتیاز کاربران برای سایت‌های بیرونی، فروشندگان داخلی و فروشگاه موبوکام؛ با بررسی مدیر و پاسخ نماینده.",
   "descriptionEn": "Customer experiences of external websites, internal sellers and the site's own store.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 1,
   "kind": "module",
   "category": "engagement",
@@ -18,6 +18,8 @@
   "settings": [
     { "key": "moderate-reviews", "label": "تجربه‌ها پیش از انتشار بررسی شوند", "type": "boolean", "default": true },
     { "key": "allow-suggestions", "label": "کاربران بتوانند کسب‌وکار جدید پیشنهاد دهند", "type": "boolean", "default": true },
-    { "key": "allow-claims", "label": "درخواست نمایندگی با بررسی مستقل مدیریت فعال باشد", "type": "boolean", "default": true }
+    { "key": "allow-claims", "label": "درخواست نمایندگی با بررسی مستقل مدیریت فعال باشد", "type": "boolean", "default": true },
+    { "key": "allow-reports", "label": "ثبت گزارش دربارهٔ تجربه‌های منتشرشده فعال باشد", "type": "boolean", "default": true },
+    { "key": "allow-purchase-proofs", "label": "ثبت خصوصی مدرک خرید برای بررسی مستقل مدیر فعال باشد", "type": "boolean", "default": true }
   ]
 }
