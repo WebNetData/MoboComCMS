@@ -17,6 +17,7 @@ import { getJournalSettings } from '@/modules/journal/server/admin'
 import { livePostWhere } from '@/modules/journal/domain/journal'
 import { railOrder } from '@/shared/section-layout'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
+import { Icon } from '@/components/media/PortalIcons'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -168,7 +169,12 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   } else {
     body = <div className="container lh-section lh-listing">
       <header className="lh-list-head">
-        <nav className="lh-crumbs" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}><Link href="/blog">{t.blog}</Link>{currentCategory && <> › <span>{isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name}</span></>}</nav>
+        <nav className="lh-crumbs" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}>
+          <ol>
+            <li><Link href="/blog"><Icon name="grid" size={16}/><span>{t.blog}</span></Link></li>
+            {currentCategory && <><li className="lh-crumb-separator" aria-hidden="true"><Icon name="arrow" size={13}/></li><li><span aria-current="page">{isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name}</span></li></>}
+          </ol>
+        </nav>
         <h1>{currentCategory ? (isFa ? currentCategory.name : currentCategory.nameEn || currentCategory.name) : query ? (isFa ? `نتایج جست‌وجوی «${query}»` : `Results for “${query}”`) : (isFa ? 'همهٔ مطالب مجله' : 'All stories')}</h1>
         <span>{total.toLocaleString(isFa ? 'fa-IR' : 'en-US')} {isFa ? 'مطلب' : 'stories'}</span>
       </header>
