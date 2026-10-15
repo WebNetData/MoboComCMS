@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeWordmark, ThemeLangControls, ThemePluginOutlet, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeHeaderProps } from '@/themes/types'
 
 type LocalText = { fa: string; en: string; [locale: string]: string }
@@ -62,7 +62,7 @@ export default function OrbitalHeader({ theme, navPages, breadcrumbs }: ThemeHea
     <ThemePluginOutlet slot="site.before-header" site={site} locale={locale} />
     <header ref={headerRef} className="site-header orbital-header-shell" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setSearchOpen(false) } }}>
       <div className="container orbital-header-bar">
-        <Link href="/" className="orbital-brand" aria-label={site.brand}>{site.logo ? <img className="orbital-custom-logo" src={site.logo} alt=""/> : <span className="orbital-brand-mark orbital-h-logo" aria-hidden="true"><i /><i /><b /></span>}<span className="orbital-brand-copy"><strong dir="ltr">{brandName}</strong><small>{tx(site.tagline, locale)}</small></span></Link>
+        <Link href="/" className="orbital-brand" aria-label={site.brand}>{site.wordmark ? <ThemeWordmark /> : site.logo ? <img className="orbital-custom-logo" src={site.logo} alt=""/> : <span className="orbital-brand-mark orbital-h-logo" aria-hidden="true"><i /><i /><b /></span>}<span className="orbital-brand-copy"><strong dir="ltr">{brandName}</strong><small>{tx(site.tagline, locale)}</small></span></Link>
         <nav className="orbital-nav orbital-desktop-only" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined} className={`orbital-nav-link ${isOn(link.href) ? 'is-active' : ''}`}>{link.label}</Link>)}</nav>
         <div className="orbital-header-actions">
           <button ref={searchButton} type="button" className={`orbital-icon-button orbital-desktop-only ${searchOpen ? 'is-active' : ''}`} onClick={() => { setSearchOpen(value => !value); setOpen(false) }} aria-label={L('جست‌وجو در مجله', 'Search the journal')} aria-expanded={searchOpen} aria-controls="orbital-header-search"><SearchIcon /></button>

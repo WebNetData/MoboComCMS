@@ -25,6 +25,8 @@ export function validateTheme(v: unknown): v is ThemeManifest {
 export function validateSite(v: unknown): v is SiteConfig {
   if (!record(v) || v.version !== 1 || !text(v.brand, 60) || !v.brand.trim() || !localized(v.tagline) || !localized(v.copyright)) return false
   if (v.logo !== undefined && v.logo !== '' && !safeHref(v.logo)) return false
+  if ([v.wordmark, v.wordmarkDark].some((value) => value !== undefined && value !== '' && (typeof value !== 'string' || !safeHref(value)))) return false
+  if (v.wordmarkHeight !== undefined && !(Number.isInteger(v.wordmarkHeight) && v.wordmarkHeight >= 24 && v.wordmarkHeight <= 72)) return false
   if (v.fonts !== undefined && !validateFonts(v.fonts)) return false
   if (v.customCss !== undefined && !validateCustomCss(v.customCss)) return false
   if (v.copy !== undefined && (!record(v.copy) || Object.keys(v.copy).length > 300 || !Object.entries(v.copy).every(([key, value]) => key.length <= 300 && localized(value)))) return false

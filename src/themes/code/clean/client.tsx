@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, ThemeTrustSeals, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeWordmark, ThemeLangControls, ThemePluginOutlet, ThemeTrustSeals, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import CleanIcon from './icons'
 
@@ -13,6 +13,7 @@ const tx = (value: LocalText, locale: string) => value[locale] || value[locale.s
 function Brand() {
   const site = useThemeSite()
   const { locale } = useThemeI18n()
+  if (site.wordmark) return <Link href="/" className="cl-brand has-wordmark" aria-label={site.brand}><ThemeWordmark /></Link>
   return <Link href="/" className="cl-brand" aria-label={site.brand}>
     {site.logo ? <img src={site.logo} alt="" className="cl-logo"/> : <span className="cl-mark" aria-hidden="true">{site.brand.slice(0, 1)}</span>}
     <span className="cl-brand-copy"><strong dir="ltr">{site.brand}</strong><small>{tx(site.tagline, locale)}</small></span>

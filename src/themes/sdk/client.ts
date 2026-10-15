@@ -4,6 +4,7 @@ export { default as DefaultThemeHeader } from '@/components/site/default-theme/D
 export { default as DefaultThemeFooter } from '@/components/site/default-theme/DefaultSiteFooter'
 export { useI18n as useThemeI18n } from '@/i18n/LocaleProvider'
 export { useSite as useThemeSite } from '@/components/site/SiteProvider'
+export { Wordmark as ThemeWordmark } from '@/components/site/SiteLogo'
 export { PluginOutlet as ThemePluginOutlet } from '@/plugins/registry'
 export { default as ThemeLangControls } from '@/components/ThemeLangControls'
 export { useSession as useThemeSession, signOut as themeSignOut } from 'next-auth/react'

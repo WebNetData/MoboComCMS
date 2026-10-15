@@ -10,7 +10,7 @@ import { getCookie } from '@/platform/browser/preferences'
 import { useSite } from '@/components/site/SiteProvider'
 import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
-import BrandMark from '@/components/BrandMark'
+import BrandLockup from '@/components/site/SiteLogo'
 import NotificationCount from '@/components/NotificationCount'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import ShellNav, { useShellGroups, type ShellGroup } from '@/components/shell/ShellNav'
@@ -163,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="app-shell user-shell">
       <aside className="side">
         <Link href="/" className="side-brand">
-          <span className="brand-mark"><BrandMark/></span> {site.brand}
+          <BrandLockup />
         </Link>
 
         <nav className="side-nav" aria-label={t.myPanel}>{navLinks}</nav>
@@ -183,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 min-w-0">
         <div className="mobile-bar">
           <Link href="/" className="side-brand" style={{ padding: 0 }}>
-            <span className="brand-mark"><BrandMark/></span> {site.brand}
+            <BrandLockup />
           </Link>
           <div className="flex items-center gap-2">
             <ThemeLangControls locale={locale} theme={theme} />

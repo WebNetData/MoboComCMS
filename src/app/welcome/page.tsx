@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { signOut } from 'next-auth/react'
 import Link from '@/components/AppLink'
-import BrandMark from '@/components/BrandMark'
+import BrandLockup from '@/components/site/SiteLogo'
 import { useSite } from '@/components/site/SiteProvider'
 import LocationPicker, { type Pin } from '@/components/site/LocationPicker'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
@@ -87,7 +87,7 @@ export default function WelcomePage() {
   return <main className="wl" dir="rtl">
     <form className="wl-card" onSubmit={submit} noValidate>
       <header className="wl-head">
-        <Link href="/" className="wl-brand"><span className="brand-mark"><BrandMark /></span>{site.brand}</Link>
+        <Link href="/" className="wl-brand"><BrandLockup /></Link>
         <h1>{status.needsCompletion ? 'خوش آمدید! مشخصات خود را تکمیل کنید' : 'مشخصات حساب'}</h1>
         {status.intro && <p>{status.intro}</p>}
         {status.needsCompletion && <span className="wl-badge">{missingCount.toLocaleString('fa-IR')} مورد ضروری باقی مانده</span>}
