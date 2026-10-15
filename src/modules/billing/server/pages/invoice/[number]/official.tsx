@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/modules/identity/auth'
 import PrintButton from '@/components/PrintButton'
 import { officialInvoice } from '@/modules/billing/server/official-invoice'
+import InvoiceLogo from '@/components/billing/InvoiceLogo'
 
 const n = (value: string | number) => (typeof value === 'number' ? value : Number(value)).toLocaleString('fa-IR')
 const money = (value: string) => { try { return BigInt(value).toLocaleString('fa-IR') } catch { return value } }
@@ -37,7 +38,7 @@ export default async function OfficialInvoicePage({ params }: { params: Promise<
 
     <article className="oi-sheet" aria-label={`صورتحساب ${doc.number}`}>
       <header className="oi-head">
-        <div className="oi-brand">{s.logo ? <img src={s.logo} alt="" /> : <span className="oi-mark">{(s.sellerName || 'م').slice(0, 1)}</span>}</div>
+        <div className="oi-brand"><InvoiceLogo src={s.logo} name={s.sellerName} className="oi-mark" /></div>
         <div className="oi-title"><h1>صورتحساب فروش کالا و خدمات</h1>{doc.status !== 'PAID' && <span className={`oi-status is-${doc.status.toLowerCase()}`}>{STATUS[doc.status] || doc.status}</span>}</div>
         <dl className="oi-ids">
           <div><dt>شمارهٔ سریال</dt><dd dir="ltr">{doc.number}</dd></div>

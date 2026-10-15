@@ -12,6 +12,8 @@ Automation (`src/modules/automation`, permission `automation.manage`) is the one
 
 The form builder (`src/modules/forms`) is the one owner of forms, their answers, paid forms and appointments; it charges through the site's checkout and never beside it. Read `docs/agent/handoffs/FORMS_AND_OPERATIONS.md` before touching forms, staff queues, ticket ownership, SMS limits or sign-in limits.
 
+Invoice presentation stays in Billing: the existing invoice override or canonical Site wordmark/mark is resolved once for standard, official and native-PDF invoices. Admin stores only its explicit override; presentation does not change money or history. Continue [invoice branding](handoffs/INVOICE_BRANDING.md) for verified PDF/print behavior and local-image limits; do not create a second branding or invoice owner.
+
 <!-- mobocom-business-architecture:start -->
 ## Business experiences — canonical ownership
 

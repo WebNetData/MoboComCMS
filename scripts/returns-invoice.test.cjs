@@ -148,3 +148,13 @@ test('seller profile is sanitised', () => {
   assert.equal(p.stamp, '/uploads/stamp.png')
   assert.doesNotMatch(p.sellerName, /[<>]/)
 })
+
+test('invoice logo inherits primary site branding while respecting a validated explicit override', () => {
+  const site = { wordmark: '/api/media/covers/site.webp', logo: '/api/media/covers/mark.png', wordmarkDark: '/dark-only.png' }
+  assert.equal(oi.invoiceLogo('', site), site.wordmark)
+  assert.equal(oi.invoiceLogo('/api/media/covers/custom.png', site), '/api/media/covers/custom.png')
+  assert.equal(oi.invoiceLogo('javascript:alert(1)', site), site.wordmark)
+  assert.equal(oi.invoiceLogo('', { ...site, wordmark: '//attacker.invalid/logo.png' }), site.logo)
+  assert.equal(oi.invoiceLogo('', { wordmarkDark: site.wordmarkDark }), '')
+  assert.equal(oi.invoiceLogo('', {}), '')
+})

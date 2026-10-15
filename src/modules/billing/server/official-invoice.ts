@@ -3,8 +3,9 @@ import { readJsonSetting, writeJsonSetting, getSettings } from '@/modules/settin
 import { memberNationalId } from '@/modules/identity/server/profile-fields'
 import { normalizeCurrency } from '@/shared/money'
 import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
+import { getSiteConfig } from '@/modules/site/config/store'
 import {
-  buildInvoiceRows, invoiceUnitAmount, normalizeInvoiceProfile, persianWords, type InvoiceProfile, type SourceLine,
+  buildInvoiceRows, invoiceLogo, invoiceUnitAmount, normalizeInvoiceProfile, persianWords, type InvoiceProfile, type SourceLine,
 } from '@/modules/billing/domain/official-invoice'
 
 // The printable official invoice: seller profile from the admin, buyer from
@@ -13,9 +14,15 @@ import {
 const PROFILE_KEY = 'billing.invoice-profile.v1'
 
 export async function getInvoiceProfile(): Promise<InvoiceProfile> {
-  const [stored, settings] = await Promise.all([readJsonSetting(PROFILE_KEY).catch(() => undefined), getSettings().catch(() => ({} as Record<string, string>))])
+  const [stored, settings] = await Promise.all([readJsonSetting(PROFILE_KEY, db).catch(() => undefined), getSettings().catch(() => ({} as Record<string, string>))])
   const profile = normalizeInvoiceProfile(stored)
   return { ...profile, sellerName: profile.sellerName || settings.brandName || '' }
+}
+
+/** Resolve presentation without storing the inherited logo as an override in the Admin form. */
+export async function getBrandedInvoiceProfile(): Promise<InvoiceProfile> {
+  const [profile, site] = await Promise.all([getInvoiceProfile(), getSiteConfig()])
+  return { ...profile, logo: invoiceLogo(profile.logo, site) }
 }
 
 export async function saveInvoiceProfile(input: unknown) {
@@ -42,7 +49,7 @@ export async function officialInvoice(number: string, viewer: { id: number; admi
   })
   if (!invoice || (!viewer.admin && invoice.userId !== viewer.id)) return null
   const [profile, nationalId, address] = await Promise.all([
-    getInvoiceProfile(),
+    getBrandedInvoiceProfile(),
     memberNationalId(invoice.userId).catch(() => ''),
     db.userAddress.findFirst({ where: { userId: invoice.userId }, orderBy: [{ isDefault: 'desc' }, { id: 'desc' }] }),
   ])

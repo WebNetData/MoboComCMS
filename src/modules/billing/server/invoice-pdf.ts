@@ -97,9 +97,9 @@ export async function invoicePdf({ doc: invoice, link, siteUrl, supportEmail }: 
     pdf.rect(0, 0, PAGE.width, height).fill(band)
     pdf.save(); pdf.fillOpacity(0.1).circle(70, 8, 92).fill('#ffffff'); pdf.fillOpacity(0.07).circle(PAGE.width - 40, height + 18, 76).fill('#ffffff'); pdf.restore()
 
-    const mark = 46, markX = right - mark, markY = 30
-    pdf.roundedRect(markX, markY, mark, mark, 12).fill('#ffffff')
-    if (logo) { try { pdf.image(logo, markX + 5, markY + 5, { fit: [mark - 10, mark - 10], align: 'center', valign: 'center' }) } catch { /* an unreadable picture leaves the plain mark */ } }
+    const mark = logo ? 112 : 46, markHeight = 46, markX = right - mark, markY = 30
+    pdf.roundedRect(markX, markY, mark, markHeight, 12).fill('#ffffff')
+    if (logo) { try { pdf.image(logo, markX + 5, markY + 5, { fit: [mark - 10, markHeight - 10], align: 'center', valign: 'center' }) } catch { /* an unreadable picture leaves the plain mark */ } }
     else line((seller.sellerName || 'م').trim().slice(0, 1), markX, markY + 11, mark, { size: 20, bold: true, color: PRIMARY }, 'center')
     line(seller.sellerName || 'فروشگاه', left + 200, 31, inner - 200 - mark - 12, { size: 16, bold: true, color: '#ffffff' })
     line('صورتحساب فروش کالا و خدمات', left + 200, 56, inner - 200 - mark - 12, { size: 9.5, color: '#e0e7ff' })

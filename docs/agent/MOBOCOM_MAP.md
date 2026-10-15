@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Invoice branding:** Billing resolves the existing override or canonical Site wordmark/mark for standard, official and native-PDF invoices across sources. Raw Admin save, fresh profile reads, pre-hydration image fallback and separate invoice/label print pages are verified. [Continuation](handoffs/INVOICE_BRANDING.md).
+
 - **Mobile/email code entry:** existing canonical Identity/NextAuth/SMS/SMTP/OtpCode owners; shared register/login form, email-otp provider, fresh Admin policy, bounded atomic challenge claims and additive migration20270104120000. Native/browser evidence and actual provider activation limits: [passwordless continuation](handoffs/PASSWORDLESS_ENTRY.md).
 
 - **Magazine themes:** existing Liona journal landing/listing follows the site light mode through scoped semantic CSS; article canvas uses the same white/card surface. The photographic hero keeps its visible cinematic cover and light copy in both themes (owner correction2026-10-15). Keep dark composition and the current site theme control. [Theme evidence/accessibility follow-up](handoffs/JOURNAL_THEMES.md).
