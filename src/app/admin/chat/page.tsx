@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import Link from '@/components/AppLink'
 import { Notice, fa, faDate } from '../store/shared'
 import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
+import { CHAT_PLACES, type ChatSettings } from '@/modules/livechat/domain/livechat'
 
 type Row = { id: number; status: string; name: string; user: number | null; contact: string; assignedTo: number | null; unread: number; last: { sender: string; body: string } | null; lastMessageAt: string; rating: number | null; pageUrl: string }
 type List = { counts: Record<string, number>; rows: Row[] }
 type Message = { id: number; sender: string; body: string; at: string; agent: string }
 type Customer = { id: number; name: string; email: string; phone: string; createdAt: string; orders: number; spendToman: number; lastOrderAt: string | null; openTickets: number; tags: string[]; wallet: { currency: string; balance: number }[]; segment: { label: string; tone: string }; aov: number }
 type Detail = { conversation: { id: number; status: string; name: string; contact: string; userId: number | null; assignedTo: number | null; assignedName: string; pageUrl: string; rating: number | null; createdAt: string }; messages: Message[]; customer: Customer | null }
-type Settings = { botEnabled: boolean; botName: string; welcome: string; knowledge: string; maxBotReplies: number; hours: { enabled: boolean; days: number[]; from: string; to: string }; offlineMessage: string; askContact: boolean }
+type Settings = ChatSettings
 
 const STATUS: Record<string, [string, string]> = { WAITING: ['منتظر اپراتور', 'is-warn'], OPEN: ['در حال گفت‌وگو', 'is-info'], BOT: ['با دستیار', ''], CLOSED: ['بسته', 'is-ok'] }
 const QUICK = ['سلام، وقت بخیر 🌷 چطور می‌توانم کمکتان کنم؟', 'لطفاً شمارهٔ سفارش را بفرمایید تا بررسی کنم.', 'چند لحظه اجازه بدهید بررسی کنم.', 'مشکل برطرف شد؛ اگر سؤال دیگری دارید در خدمتم.']
@@ -135,11 +136,38 @@ function Conversation({ id, onChanged, live, pulse, typingAt }: { id: number; on
 function SettingsForm() {
   const [form, setForm] = useState<Settings | null>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
-  useEffect(() => { fetch('/api/admin/chat?view=settings').then((r) => r.json()).then((d) => setForm(d.settings)).catch(() => undefined) }, [])
-  if (!form) return <div className="sa-skeleton" />
+  useEffect(() => {
+    const controller = new AbortController()
+    async function load() {
+      try {
+        const response = await fetch('/api/admin/chat?view=settings', { cache: 'no-store', signal: controller.signal })
+        if (!response.ok) throw Error('بارگذاری تنظیمات انجام نشد؛ صفحه را دوباره باز کنید.')
+        const data = await response.json()
+        if (!controller.signal.aborted) setForm(data.settings)
+      } catch (error) {
+        if (!controller.signal.aborted) setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'بارگذاری تنظیمات انجام نشد.' })
+      }
+    }
+    void load()
+    return () => controller.abort()
+  }, [])
+  if (!form) return notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : <div className="sa-skeleton" />
   const set = (patch: Partial<Settings>) => setForm({ ...form, ...patch })
   return <form className="sa-card sa-form" onSubmit={async (event) => { event.preventDefault(); const result = await post({ settings: form }, 'PUT'); setNotice(result.ok ? { tone: 'ok', text: 'تنظیمات ذخیره شد' } : { tone: 'error', text: result.error }) }}>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
+    <fieldset className="sa-card" aria-describedby="chat-places-help">
+      <legend>محل نمایش پشتیبانی آنلاین</legend>
+      <p id="chat-places-help" className="sa-sub">حباب گفت‌وگو فقط در بخش‌های انتخاب‌شده نمایش داده می‌شود؛ گفت‌وگوهای قبلی حفظ می‌شوند.</p>
+      <div className="sa-cols">
+        <label className="sa-check"><input type="radio" name="chat-places-mode" checked={!form.places.length} onChange={() => set({ places: [] })} /> همهٔ صفحات سایت</label>
+        <label className="sa-check"><input type="radio" name="chat-places-mode" checked={!!form.places.length} onChange={() => set({ places: ['store'] })} /> فقط بخش‌های انتخابی</label>
+      </div>
+      {!!form.places.length && <>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={() => set({ places: ['store'] })}>فقط فروشگاه</button>
+        <div className="sa-cols">{CHAT_PLACES.map(place => <label className="sa-check" key={place.id}><input type="checkbox" checked={form.places.includes(place.id)} disabled={form.places.length === 1 && form.places.includes(place.id)} onChange={event => set({ places: event.target.checked ? [...form.places, place.id] : form.places.filter(id => id !== place.id) })} /> {place.label}</label>)}</div>
+        <p className="sa-sub">حداقل یک بخش را نگه دار؛ برای نمایش سراسری، «همهٔ صفحات سایت» را انتخاب کن.</p>
+      </>}
+    </fieldset>
     <label className="sa-check"><input type="checkbox" checked={form.botEnabled} onChange={(e) => set({ botEnabled: e.target.checked })} /> دستیار هوش مصنوعی پاسخ اول را بدهد (کلید API در «دستیار هوش مصنوعی» تنظیم شود)</label>
     <div className="sa-cols">
       <label className="sa-field"><span>نام دستیار</span><input className="input" value={form.botName} onChange={(e) => set({ botName: e.target.value })} /></label>

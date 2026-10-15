@@ -58,3 +58,7 @@ Preserve and enhance; do not redesign. The forum is **not** on this list.
 - Games: `/games/*`, `src/app/games-portal.css`.
 - Movies and TV Series: `/cinema/*`, `src/app/media-design.css`.
 The staff-only manage bar on these pages is not part of their public look.
+
+## Livechat placement owner
+
+Existing livechat.v1 in canonical Settings owns all/store/selected placement. Admin /admin/chat and the livechat client compose domain CHAT_PLACES/chatShownOn through extensions/sdk/livechat.ts; no alternate settings/auth system. Fresh reader and CAS update retain current selection/history. See [handoff](handoffs/CHAT_PLACEMENT.md) for executed evidence and scope.

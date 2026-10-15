@@ -21,6 +21,32 @@ export type ChatSettings = {
   offlineMessage: string
   /** Guests must leave a phone or email before talking to an operator. */
   askContact: boolean
+  /** Sections where the chat bubble appears (ids of CHAT_PLACES); empty: every page. */
+  places: string[]
+}
+
+/** Parts of the site, by their addresses, that the chat can be limited to. */
+export const CHAT_PLACES: { id: string; label: string; prefixes: string[] }[] = [
+  { id: 'store', label: 'فروشگاه، سبد خرید و پرداخت', prefixes: ['/products', '/shop', '/cart', '/checkout', '/compare', '/payment', '/invoice', '/track', '/s'] },
+  { id: 'home', label: 'صفحهٔ اصلی', prefixes: [] },
+  { id: 'account', label: 'حساب کاربری', prefixes: ['/dashboard'] },
+  { id: 'journal', label: 'مجله', prefixes: ['/blog'] },
+  { id: 'music', label: 'موزیک', prefixes: ['/music'] },
+  { id: 'cinema', label: 'فیلم و سریال', prefixes: ['/cinema', '/watch'] },
+  { id: 'games', label: 'بازی', prefixes: ['/games'] },
+  { id: 'software', label: 'نرم‌افزار', prefixes: ['/software', '/dl'] },
+  { id: 'forum', label: 'تالار و جامعه', prefixes: ['/forum', '/feed', '/people', '/u'] },
+  { id: 'vip', label: 'اشتراک ویژه و پلن‌ها', prefixes: ['/vip', '/plans', '/trial'] },
+  { id: 'forms', label: 'فرم‌ها و خدمات', prefixes: ['/forms'] },
+  { id: 'businesses', label: 'تجربهٔ خرید و کسب‌وکارها', prefixes: ['/businesses'] },
+  { id: 'repository', label: 'افزونه‌ها و قالب‌ها', prefixes: ['/repository'] },
+]
+
+/** Whether the chat bubble belongs on this page. */
+export function chatShownOn(places: string[], pathname: string): boolean {
+  if (!places.length) return true
+  const path = (pathname.split(/[?#]/)[0] || '/').replace(/\/+$/, '') || '/'
+  return CHAT_PLACES.some((place) => places.includes(place.id) && (place.id === 'home' ? path === '/' : place.prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))))
 }
 
 export const DEFAULT_CHAT: ChatSettings = {
@@ -32,6 +58,7 @@ export const DEFAULT_CHAT: ChatSettings = {
   hours: { enabled: false, days: [6, 0, 1, 2, 3], from: '09:00', to: '18:00' },
   offlineMessage: 'اپراتورها الان در دسترس نیستند. پیامتان را بگذارید؛ در اولین فرصت پاسخ می‌دهیم.',
   askContact: true,
+  places: [],
 }
 
 const time = (value: unknown, fallback: string) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value)) ? String(value) : fallback)
@@ -50,6 +77,7 @@ export function normalizeChatSettings(input: unknown): ChatSettings {
     hours: { enabled: hours.enabled === true, days, from: time(hours.from, '09:00'), to: time(hours.to, '18:00') },
     offlineMessage: clip(raw.offlineMessage, 400, DEFAULT_CHAT.offlineMessage),
     askContact: raw.askContact !== false,
+    places: Array.isArray(raw.places) ? [...new Set(raw.places.map(String).filter((id: string) => CHAT_PLACES.some((place) => place.id === id)))] : [],
   }
 }
 

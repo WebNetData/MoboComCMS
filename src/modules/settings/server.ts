@@ -20,8 +20,10 @@ export async function setSetting(key: string, value: string) {
 }
 
 /** A JSON setting; a missing or corrupt value yields `undefined` so callers apply their defaults. */
-export async function readJsonSetting(key: string): Promise<Record<string, unknown> | undefined> {
-  const raw = await cached(`settings:key:${key}`, TTL_MS, async () => (await db.setting.findUnique({ where: { key } }).catch(() => null))?.value ?? null)
+export async function readJsonSetting(key: string, reader?: Pick<Prisma.TransactionClient, 'setting'>): Promise<Record<string, unknown> | undefined> {
+  const raw = reader
+    ? (await reader.setting.findUnique({ where: { key } }))?.value ?? null
+    : await cached(`settings:key:${key}`, TTL_MS, async () => (await db.setting.findUnique({ where: { key } }).catch(() => null))?.value ?? null)
   if (raw === null) return undefined
   try {
     const value = JSON.parse(raw)

@@ -154,7 +154,9 @@ export async function GET_agentStream(req: NextRequest) {
 export async function PUT_agent(req: NextRequest) {
   const guard = await adminGuard(req, 'livechat', ['settings.manage', 'support.chat'])
   if ('response' in guard) return guard.response
-  const settings = await saveChatSettings((await body(req)).settings)
+  let settings
+  try { settings = await saveChatSettings((await body(req)).settings) }
+  catch (error) { return failure(error) }
   await auditAdmin({ req, actor: guard.admin, action: 'livechat.settings', targetType: 'settings', targetId: 'livechat', metadata: { botEnabled: settings.botEnabled, hours: settings.hours.enabled } })
   return ok({ settings })
 }

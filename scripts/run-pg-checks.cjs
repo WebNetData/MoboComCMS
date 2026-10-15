@@ -4,6 +4,7 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'livechat-placement',
   'business-experiences',
   'business-authority',
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',

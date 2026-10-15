@@ -22,6 +22,20 @@ test('chat settings are normalized with safe defaults', () => {
   assert.equal(c.normalizeChatSettings(null).botEnabled, true)
 })
 
+test('chat placement keeps legacy all-pages settings and scopes selected sections to path boundaries', () => {
+  assert.deepEqual(c.normalizeChatSettings({}).places, [])
+  assert.deepEqual(c.normalizeChatSettings({ places: ['music', 'store', 'music', 'unknown'] }).places, ['music', 'store'])
+  for (const route of ['/', '/music', '/products', '/blog/article']) assert.equal(c.chatShownOn([], route), true)
+  for (const route of ['/products', '/products/item', '/cart?step=1', '/checkout/product/', '/shop/vendor', '/invoice/owned', '/track/code', '/s/item']) assert.equal(c.chatShownOn(['store'], route), true, route)
+  for (const route of ['/', '/music', '/blog', '/products-other', '/shopping', '/admin/products']) assert.equal(c.chatShownOn(['store'], route), false, route)
+  for (const route of ['/music/artist/name', '/games/game']) assert.equal(c.chatShownOn(['music', 'games'], route), true)
+  assert.equal(c.chatShownOn(['music', 'games'], '/cart'), false)
+  assert.equal(c.chatShownOn(['home'], '/?chat=1'), true)
+  assert.equal(c.chatShownOn(['home'], '/music'), false)
+  assert.equal(c.chatShownOn(['businesses'], '/businesses/shop'), true)
+  assert.equal(c.chatShownOn(['repository'], '/repository/plugin'), true)
+})
+
 test('operator hours in Tehran time, including overnight shifts', () => {
   const base = c.normalizeChatSettings({ hours: { enabled: true, days: [6], from: '09:00', to: '18:00' } })
   // Saturday 2026-10-03 10:00 Tehran = 06:30 UTC
