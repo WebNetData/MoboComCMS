@@ -109,7 +109,7 @@ async function main() {
     assert.deepEqual(await db.sellerReview.findUniqueOrThrow({ where: { id: legacy.id } }), legacy, 'historical seller review untouched')
     const pending = await db.sellerReview.findUniqueOrThrow({ where: { orderId_sellerId: { sellerId: seller.id, orderId: eligibleOrder.id } } })
     const withSeller = await owner.waitingForModeration(500)
-    assert.equal(withSeller.count, await db.itemReview.count({ where: { status: 'PENDING', itemType: 'business' } }) + await db.sellerReview.count({ where: { status: 'PENDING', sellerId: { in: (await db.businessProfile.findMany({ where: { sellerId: { not: null } }, select: { sellerId: true } })).map(row => row.sellerId) } } }), 'a waiting seller experience is counted with its owner')
+    assert.equal(withSeller.count, await db.itemReview.count({ where: { status: 'PENDING', itemType: 'business' } }) + await db.sellerReview.count({ where: { status: 'PENDING', sellerId: { in: (await db.businessProfile.findMany({ where: { sellerId: { not: null } }, select: { sellerId: true } })).map(row => row.sellerId) } } }) + await db.businessRequest.count({ where: { status: 'PENDING' } }), 'waiting seller experiences and business requests are counted with their owner without mixing row ids')
     assert.ok(!withSeller.items.some(item => item.id === pending.id && item.about === business.name), 'seller rows keep their own ids and are listed on the owning page')
     assert.equal(pending.status, 'PENDING'); assert.equal((await db.seller.findUniqueOrThrow({ where: { id: seller.id } })).ratingCount, 1)
     await assert.rejects(tx(t => reviews.writeBusinessExperience(t, buyer.id, business, { ...input, orderId: eligibleOrder.id }, true)), error => error.status === 409)

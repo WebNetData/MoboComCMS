@@ -4,7 +4,7 @@
 
 The owner requests a section where members review purchases and treatment by external websites/businesses. Public directory `/businesses` and business profiles `/businesses/[slug]` provide search, categories, star distribution, dated experiences and helpful votes. Persian UI follows existing MoboCom/SDS tokens and protected public designs.
 
-Existing canonical owners inspected: `reviews/server/reviews.ts`, `reviews/domain/reviews.ts`, `reviews/domain/dimensions.ts`, `content/domain/items.ts`, `content/server/registry.ts`, canonical Identity/member/Admin guards and moderation cases. ItemReview/Score/Helpful/Stat already implement reviews, dimensions, votes and summaries. Existing types currently exclude businesses. Existing content ratings intentionally count PENDING stars; business reputation must explicitly use APPROVED-only reviews without changing that legacy behavior.
+Existing canonical owners inspected: `reviews/server/reviews.ts`, `reviews/domain/reviews.ts`, `reviews/domain/dimensions.ts`, `content/domain/items.ts`, `content/server/registry.ts`, canonical Identity/member/Admin guards and moderation cases. ItemReview/Score/Helpful/Stat already implement reviews, dimensions, votes and summaries. At the initial audit, item types excluded businesses; the implemented registry now includes business. Existing content ratings intentionally count PENDING stars; business reputation must explicitly use APPROVED-only reviews without changing that legacy behavior.
 
 ## Architecture / data
 
@@ -18,15 +18,15 @@ Domain identifies a website by normalized public DNS hostname; www/trailing-dot/
 
 - Visitor: approved visible profiles, approved reviews, public rating breakdown and business search.
 - Signed-in active member: submit/suggest a business, write/update their own experience, helpful vote, report through existing reporting owner; canonical GLOBAL restrictions and module availability apply.
-- Existing `reviews.moderate`: moderate ItemReview through its existing owner; cannot administer profiles merely by having Magazine or Store access.
+- Existing `reviews.moderate` remains for its original items and cannot moderate business experiences. Business profiles, experiences, suggestions and representative decisions require current `businesses.manage`; Magazine/Store permissions do not substitute.
 - New namespaced `businesses.manage`: profile/category/suggestion and representative administration, connected to section managers/Control Plane; exact current actor/module and strict audit at mutation commit.
 - Business representative: reply only for the explicitly verified assigned business. Domain ownership is a reviewed claim, never granted because a user types an email/domain. Cannot hide, delete, edit or approve customer reviews.
 
 ## Review / evidence policies
 
-One current review per member/business uses ItemReview's existing unique key. Experiences include star rating, meaningful text, optional date and category-specific scores (delivery, support, value, handling of returns). Edits re-enter review when applicable. Rejected/pending experiences never affect public business scores. Calculate plain disclosed averages/distribution; do not invent a Trustpilot-branded TrustScore or imply certification.
+One current review per member/business uses ItemReview's existing unique key. Experiences include star rating, meaningful text, optional date and the canonical business dimensions (quality, support, delivery, value). Edits re-enter review when applicable. Rejected/pending experiences never affect public business scores. Calculate plain disclosed averages/distribution; do not invent a Trustpilot-branded TrustScore or imply certification.
 
-Self-reported purchases have no verified-purchase badge. Private proof uses existing private Media/authenticated delivery and reviewed evidence; no public receipt, order number, address or contact information. Automatic verified badge backfill must not infer an external purchase from unrelated MoboCom wallet/orders. Only an explicit valid verified fact may supply a badge. Report handling does not automatically delete negative reviews.
+Self-reported purchases have no verified-purchase badge. Private proof is a future slice, not an implemented upload control or badge. Audit actual private upload owners (support attachments and shared multipart/image-sniffing), then extract/reuse the necessary platform primitive; there is no generic private Media receipt model to assume. Planned receipt handling requires authenticated delivery and reviewed evidence; no public receipt, order number, address or contact information. Automatic verified badge backfill must not infer an external purchase from unrelated MoboCom wallet/orders. Only an explicit valid verified fact may supply a badge. Report handling does not automatically delete negative reviews.
 
 ## Control Plane / disabled behavior
 
@@ -44,3 +44,13 @@ Profile/review/reply commands use `/api/businesses`; current `businesses.manage`
 Domain tests: URL credentials/schemes/IP/local hosts/invalid DNS refused, IDN normalization, alias convergence and no network calls. Connected `scripts/business-experiences.connected.cjs`: real PostgreSQL approval/hidden profiles, duplicate domains, same-member review concurrency, APPROVED-only scores, no external verified badge, current actor/module/permission, strict audit rollback and unchanged legacy reviews. Register relevant scenarios in the existing PG runner. Deliberately break approval, authorization and domain uniqueness and observe failures, then restore.
 
 Browser: actual business search → profile → signed-in review → pending state → authorized moderation → public review/average; visitor forbidden writes, representative isolation and private proof invisibility. Check1440 light/dark,390 RTL/LTR/mobile, keyboard/axe and affected React Doctor. Execute relevant check/build/schema/migration gates; only claim checks actually run. Default optional enablement is an explicit tested rollout, not a silent new public section.
+
+## Implemented continuation — 2026-10-15
+
+BusinessRequest (SUGGESTION/CLAIM) is additive metadata/intake, not another review store. Member requests are bounded to five pending per account and thirty writes/hour; pending normalized-domain duplicates are refused at the database boundary. Suggestions publish only on an explicit staff decision with a stable slug; uniqueness preserves one domain/profile. Claims require independent staff verification and acknowledgment, active requester, a published unrepresented external profile, and expected-state assignment. Self-approval is forbidden. Decisions and strict audit commit together; request replay conflicts. Private `/businesses/activity` shows that member’s latest fifty requests/results. No private proof controls or purchase assertions are introduced.
+
+Existing Admin Control Plane settings `allow-suggestions` and `allow-claims` default true, are checked fresh inside writes, and suppress unavailable public intake. Review moderation retains its existing setting. Admin lists/search/page links cover the whole profile set; pending ItemReview and SellerReview each page separately in the same owner view (25 each), without merging their id spaces. Business requests page25; profiles page20; public reviews remain10. Direct `?edit=id` resolves independently of the current page. The moderation overview includes pending request counts and links to the owner.
+
+Public compositions use MoboCom semantic tokens: illustrated directory hero, discovery principles, cards, transparency FAQ, reputation/dimension panels, review details, existing rating meter, progressive request forms, and private results. Optional per-dimension scores now round-trip through the original Reviews owner; clearing a score intentionally updates/reviews that experience. Representative status means reply authority, not product certification. Existing canonical `/dashboard/reviews` remains the member’s review history.
+
+Reports, private reviewed receipts/badges and moderation work leases for requests remain explicit future slices; do not advertise them as implemented or build parallel shared services. Executed evidence and remaining checks are maintained in the handoff.

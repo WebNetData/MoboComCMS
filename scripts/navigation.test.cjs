@@ -162,9 +162,9 @@ test('cinema, games, software and the forum take the width of the header and are
   const fs = require('node:fs'), path = require('node:path')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
   const css = read('src/app/sections-wide.css'), layout = read('src/app/layout.tsx')
-  // It refines the sections' own stylesheets, so it is the last one loaded.
+  // Section widths follow section styles; the owner's shared native-select fix loads last.
   const imports = [...layout.matchAll(/^import '\.\/([\w\/-]+\.css)'/gm)].map((m) => m[1])
-  assert.equal(imports[imports.length - 1], 'sections-wide.css')
+  assert.deepEqual(imports.slice(-2), ['sections-wide.css', 'selects.css'])
   for (const section of ['cinema', 'games', 'software', 'forum']) assert.ok(css.includes(`.md-${section} .container:not(.mm-bar)`), section)
   assert.match(css, /width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none; padding-inline: 0; \}/)
   // A short shelf takes half a row with its cards capped (a poster never grows into a billboard); full shelves share the width.
