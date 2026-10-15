@@ -10,6 +10,8 @@ datasource db {
 
 model User {
   representedBusinesses BusinessProfile[] @relation("BusinessRepresentative")
+  businessRequests BusinessRequest[] @relation("BusinessRequester")
+  decidedBusinessRequests BusinessRequest[] @relation("BusinessRequestReviewer")
   businessReviewReplies ItemReview[] @relation("BusinessReviewReply")
   id             Int             @id @default(autoincrement())
   email          String          @unique
@@ -3985,6 +3987,7 @@ model AccessRestriction {
 
 // Business profiles compose existing ItemReview or SellerReview; never duplicate their history.
 model BusinessProfile {
+  requests BusinessRequest[]
   id Int @id @default(autoincrement())
   slug String @unique
   name String
@@ -4002,6 +4005,29 @@ model BusinessProfile {
   representative User? @relation("BusinessRepresentative", fields: [representativeId], references: [id], onDelete: SetNull)
 
   @@index([status, category, createdAt])
+}
+
+model BusinessRequest {
+  id Int @id @default(autoincrement())
+  kind String // SUGGESTION | CLAIM
+  requesterId Int
+  businessId Int?
+  reviewerId Int?
+  name String
+  domain String
+  website String @default("")
+  category String @default("")
+  note String
+  status String @default("PENDING")
+  decisionNote String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  requester User @relation("BusinessRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("BusinessRequestReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  business BusinessProfile? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([status, id])
+  @@index([requesterId, id])
 }
 
 /// Automation: "when this happens, and these hold, do these" (modules/automation).

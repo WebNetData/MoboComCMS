@@ -12,7 +12,7 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : specifier.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), specifier))) : require(specifier)
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
@@ -22,6 +22,19 @@ const items = load('src/modules/content/domain/items')
 const dl = load('src/modules/downloads/domain/downloads')
 const rv = load('src/modules/reviews/domain/reviews')
 const businesses = load('src/modules/businesses/domain/businesses')
+const businessRequests = load('src/modules/businesses/domain/requests')
+
+test('business requests validate normalized public identities and reviewed claims without trusting client state', () => {
+  const note = 'این درخواست برای بررسی مستقل مدیریت و ثبت تجربهٔ خرید است'
+  const result = businessRequests.normalizeBusinessRequest({ kind: 'SUGGESTION', name: 'فروشگاه آزمون', website: 'HTTPS://WWW.EXAMPLE.COM/path?secret=discarded', note, status: 'APPROVED', requesterId: 999 })
+  assert.equal(result.domain, 'example.com'); assert.equal(result.website, 'https://www.example.com/')
+  assert.equal(result.status, undefined); assert.equal(result.requesterId, undefined)
+  assert.throws(() => businessRequests.normalizeBusinessRequest({ kind: 'SUGGESTION', name: 'فروشگاه', website: 'http://127.0.0.1', note }))
+  assert.throws(() => businessRequests.normalizeBusinessRequest({ kind: 'CLAIM', businessId: -1, note }))
+  assert.throws(() => businessRequests.normalizeBusinessRequest({ kind: 'CLAIM', businessId: 1, note: 'کوتاه' }))
+  assert.throws(() => businessRequests.normalizeBusinessRequest({ kind: 'CLAIM', businessId: 1, note: 'x'.repeat(1001) }))
+  assert.throws(() => businessRequests.normalizeBusinessRequest({ kind: 'APPROVE', businessId: 1, note }))
+})
 const dims = load('src/modules/reviews/domain/dimensions')
 const social = load('src/modules/social/domain/social')
 const an = load('src/modules/analytics/domain/analytics')

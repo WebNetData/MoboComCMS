@@ -5,6 +5,7 @@ import { useRouter } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import styles from './BusinessExperience.module.css'
 import { RATING_LABELS } from '@/components/engage/RatingMeter'
+import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 
 async function send(body: Record<string, unknown>) {
   const response = await fetch('/api/businesses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -13,7 +14,7 @@ async function send(body: Record<string, unknown>) {
   return result
 }
 
-export function BusinessReviewForm({ businessId, kind, loggedIn, canReply, orders, mine }: { businessId: number; kind: string; loggedIn: boolean; canReply: boolean; orders: { id: number }[]; mine: { rating: number; body: string; status: string; experiencedOn?: string | null } | null }) {
+export function BusinessReviewForm({ businessId, kind, loggedIn, canReply, orders, mine, today }: { businessId: number; kind: string; loggedIn: boolean; canReply: boolean; orders: { id: number }[]; today: string; mine: { rating: number; body: string; status: string; experiencedOn?: string | null; scores?: Record<string, number> } | null }) {
   const router = useRouter(), locked = useRef(false)
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('')
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -22,7 +23,8 @@ export function BusinessReviewForm({ businessId, kind, loggedIn, canReply, order
     locked.current = true; setBusy(true); setMessage('')
     const form = new FormData(event.currentTarget)
     try {
-      const result = await send({ action: 'review', businessId, rating: Number(form.get('rating')), body: form.get('body'), experiencedOn: kind === 'SELLER' ? undefined : form.get('experiencedOn') || '', orderId: form.get('orderId') || undefined })
+      const scores = kind === 'SELLER' ? undefined : Object.fromEntries(dimensionsFor('business').flatMap(dimension => { const value = form.get(`score-${dimension.key}`); return value ? [[dimension.key, Number(value)]] : [] }))
+      const result = await send({ action: 'review', businessId, rating: Number(form.get('rating')), body: form.get('body'), scores, experiencedOn: kind === 'SELLER' ? undefined : form.get('experiencedOn') || '', orderId: form.get('orderId') || undefined })
       setMessage(result.status === 'PENDING' ? 'تجربهٔ شما ثبت شد و پس از بررسی نمایش داده می‌شود.' : 'تجربهٔ شما منتشر شد.'); router.refresh()
     } catch (error) { setMessage(error instanceof Error ? error.message : 'ارتباط برقرار نشد؛ پیش از تکرار، وضعیت تجربه را بررسی کنید.') }
     finally { locked.current = false; setBusy(false) }
@@ -32,7 +34,8 @@ export function BusinessReviewForm({ businessId, kind, loggedIn, canReply, order
     {!loggedIn ? <p className={styles.muted}>برای ثبت تجربه <Link href="/login">وارد حساب خود شوید</Link>.</p> : canReply ? <p className={styles.muted}>شما نمایندهٔ این کسب‌وکار هستید و می‌توانید به تجربه‌های منتشرشده پاسخ دهید.</p> : kind === 'SELLER' && !orders.length ? <p className={styles.muted}>پس از تحویل سفارش از این فروشنده می‌توانید تجربهٔ خرید را ثبت کنید. تجربهٔ سفارش‌های قبلی شما حفظ شده است.</p> : <form onSubmit={submit} className={styles.form} aria-busy={busy}>
       {mine && <p className={styles.notice}>{mine.status === 'PENDING' ? 'تجربهٔ قبلی در انتظار بررسی است.' : 'با ارسال این فرم، تجربهٔ قبلی شما به‌روزرسانی می‌شود.'}</p>}
       <fieldset disabled={busy}><legend>امتیاز کلی شما</legend><div className="rv-picker">{[1, 2, 3, 4, 5].map(rating => <label key={rating} className={`tone-${rating}`}><input type="radio" name="rating" value={rating} defaultChecked={rating === (mine?.rating || 5)} required /><b aria-hidden="true">{rating.toLocaleString('fa-IR')}</b><span>{RATING_LABELS[rating]}</span><span className="sr-only"> ({rating.toLocaleString('fa-IR')} از ۵)</span></label>)}</div></fieldset>
-      {kind === 'SELLER' ? <label className={styles.field}>سفارش تحویل‌شده<select name="orderId" required disabled={busy}>{orders.map(order => <option key={order.id} value={order.id}>سفارش {order.id.toLocaleString('fa-IR')}</option>)}</select></label> : <label className={styles.field}>تاریخ تجربه <span className={styles.muted}>اختیاری</span><input name="experiencedOn" type="date" defaultValue={mine?.experiencedOn || ''} disabled={busy} /></label>}
+      {kind !== 'SELLER' && <details className={styles.dimensionPicker}><summary>امتیازهای جزئی <span className={styles.muted}>اختیاری</span></summary><div className={styles.dimensionFields}>{dimensionsFor('business').map(dimension => <label key={dimension.key} className={styles.field}>{dimension.label}<select name={`score-${dimension.key}`} defaultValue={mine?.scores?.[dimension.key] || ''} disabled={busy}><option value="">تجربه‌ای ندارم</option>{[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating.toLocaleString('fa-IR')} · {RATING_LABELS[rating]}</option>)}</select></label>)}</div></details>}
+      {kind === 'SELLER' ? <label className={styles.field}>سفارش تحویل‌شده<select name="orderId" required disabled={busy}>{orders.map(order => <option key={order.id} value={order.id}>سفارش {order.id.toLocaleString('fa-IR')}</option>)}</select></label> : <label className={styles.field}>تاریخ تجربه <span className={styles.muted}>اختیاری</span><input name="experiencedOn" type="date" max={today} defaultValue={mine?.experiencedOn || ''} disabled={busy} /></label>}
       <label className={styles.field}>چه تجربه‌ای داشتید؟<textarea name="body" required minLength={10} maxLength={2000} defaultValue={mine?.body || ''} disabled={busy} placeholder="از کیفیت خرید، تحویل یا برخورد پشتیبانی بنویسید…" /></label>
       <p className={styles.muted}>امتیاز عمومی از تجربه‌های منتشرشده محاسبه می‌شود. برای سایت‌های بیرونی، ثبت تجربه به‌تنهایی اثبات خرید نیست.</p>
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ثبت…' : mine ? 'به‌روزرسانی تجربه' : 'ثبت تجربهٔ خرید'}</button>

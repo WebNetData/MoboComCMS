@@ -6,39 +6,25 @@ Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant
 
 Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community. Preserve URLs, SEO, data, permission keys and established workflows. Admin is also a first-class product. Software joins the target domains; CRM remains integrated, while VPN/reseller/marketplace stay off-focus and switchable.
 
-<!-- mobocom-business-architecture:start -->
 ## Forms, held work and platform safety
 
 Automation (`src/modules/automation`, permission `automation.manage`) is the one owner of rules that run by themselves; other modules announce events with `emitAutomation` and the engine changes their data only through their own owners (handoff: Automation section of `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`).
 
 The form builder (`src/modules/forms`) is the one owner of forms, their answers, paid forms and appointments; it charges through the site's checkout and never beside it. Read `docs/agent/handoffs/FORMS_AND_OPERATIONS.md` before touching forms, staff queues, ticket ownership, SMS limits or sign-in limits.
 
-## Business experiences — canonical ownership
-
-The optional **businesses** module composes existing platform services for external businesses, existing internal sellers and MoboCom's own store. It requires **reviews**, defaults OFF, has its own **businesses.manage** permission and uses canonical section managers, maintenance and Admin Control Plane. Seller profiles do not implicitly activate Marketplace.
-
-- **BusinessProfile** owns profile metadata and stable kind/slug/domain/SellerId; identity bindings are immutable after creation. Representatives use the canonical UserId and explicit reviewed assignment, never a claimed email/domain alone.
-- EXTERNAL and SITE use original ItemReview/Score/Helpful/Stat; SELLER uses original SellerReview, delivered-order eligibility and reply owner. Never copy historical seller reviews into ItemReview or add another review/account/scoring system.
-- Public business scores count APPROVED only; preserve legacy content rating behavior. An identical repeat retains approval/reply/helpful history; real rating/body/date/dimension changes re-enter the configured review process.
-- External self-reporting never proves purchase. SITE evidence comes from the member's own paid/delivered Order; SELLER requires that member's paid/delivered order containing the bound SellerId. Representatives reply only; they cannot moderate customer experiences.
-- Public module address: src/modules/businesses/server/businesses.ts. Routes: /businesses, /businesses/[slug], /admin/businesses, /api/businesses and /api/admin/businesses; helpful votes retain the existing engagement API. Generic review creation/moderation cannot bypass business policy.
-- Additive migration **20261223120000_business_experiences** is in the release manifest. Preserve both Prisma schemas, existing reviews/orders and protected public designs; use shared SiteHeader/SiteFooter and SDS/MoboCom tokens.
-
-Implementation maturity, executed evidence, current source checkout and remaining slices are recorded once in [Business experiences handoff](handoffs/BUSINESS_EXPERIENCES.md). The feature is PARTIAL, not a production-readiness claim. Read that document before coding; a checkout without these files does not prove the capability is missing.
-<!-- mobocom-business-architecture:end -->
-
 <!-- mobocom-business-architecture:start -->
 ## Business experiences — canonical ownership
 
 The optional **businesses** module composes existing platform services for external businesses, existing internal sellers and MoboCom's own store. It requires **reviews**, defaults OFF, has its own **businesses.manage** permission and uses canonical section managers, maintenance and Admin Control Plane. Seller profiles do not implicitly activate Marketplace.
 
 - **BusinessProfile** owns profile metadata and stable kind/slug/domain/SellerId; identity bindings are immutable after creation. Representatives use the canonical UserId and explicit reviewed assignment, never a claimed email/domain alone.
+- **BusinessRequest** owns moderated SUGGESTION/CLAIM intake, canonical requester/reviewer UserId and private decision history; it is not another review or identity system. Approval is current `businesses.manage`, serializable status claim + strict audit. A representative cannot approve their own claim; domain/email input never grants authority. `allow-suggestions` / `allow-claims` use existing module settings.
 - EXTERNAL and SITE use original ItemReview/Score/Helpful/Stat; SELLER uses original SellerReview, delivered-order eligibility and reply owner. Never copy historical seller reviews into ItemReview or add another review/account/scoring system.
 - Public business scores count APPROVED only; preserve legacy content rating behavior. An identical repeat retains approval/reply/helpful history; real rating/body/date/dimension changes re-enter the configured review process.
 - External self-reporting never proves purchase. SITE evidence comes from the member's own paid/delivered Order; SELLER requires that member's paid/delivered order containing the bound SellerId. Representatives reply only; they cannot moderate customer experiences.
 - A waiting business experience is decided only on /admin/businesses. The general review queue and its badge leave business out (one filter in the reviews owner); the staff overview has its own source **business-experiences** (module businesses, businesses.manage) that reads the owner's waitingForModeration and links there, without yes/no buttons.
-- Public module address: src/modules/businesses/server/businesses.ts. Routes: /businesses, /businesses/[slug], /admin/businesses, /api/businesses and /api/admin/businesses; helpful votes retain the existing engagement API. Generic review creation/moderation cannot bypass business policy.
-- Additive migration **20261223120000_business_experiences** is in the release manifest. Preserve both Prisma schemas, existing reviews/orders and protected public designs; use shared SiteHeader/SiteFooter and SDS/MoboCom tokens.
+- Public module address: src/modules/businesses/server/businesses.ts. Routes: /businesses, /businesses/[slug], private /businesses/activity, /admin/businesses, /api/businesses and /api/admin/businesses; helpful votes retain the existing engagement API. Generic review creation/moderation cannot bypass business policy.
+- Additive migrations **20261223120000_business_experiences** and **20270102120000_business_requests** is in the release manifest. Preserve both Prisma schemas, existing reviews/orders and protected public designs; use shared SiteHeader/SiteFooter and SDS/MoboCom tokens.
 
 Implementation maturity, executed evidence, current source checkout and remaining slices are recorded once in [Business experiences handoff](handoffs/BUSINESS_EXPERIENCES.md). The feature is PARTIAL, not a production-readiness claim. Read that document before coding; a checkout without these files does not prove the capability is missing.
 <!-- mobocom-business-architecture:end -->

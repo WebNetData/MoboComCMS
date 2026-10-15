@@ -404,6 +404,7 @@
     "20261228120000_form_payment_workflow",
     "20261229120000_form_bookings_quiz",
     "20261230120000_product_is_service",
-    "20261231120000_automation"
+    "20261231120000_automation",
+    "20270102120000_business_requests"
   ]
 }

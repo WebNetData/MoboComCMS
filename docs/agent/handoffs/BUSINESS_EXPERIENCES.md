@@ -1,5 +1,21 @@
 # Business experiences — continue existing work
 
+## Current continuation — 2026-10-15
+
+- Authoritative source: `.mobocom/autonomous-foundation`, branch `feat/business-experiences-complete-2026-10-15`, based on owner-merged main `1fc059c7` (PR185). Earlier branch/runtime pointers below are historical. Local `mobocom-app` now copies this source and serves localhost3000 with existing PostgreSQL; no data reset. Root checkout contains unrelated owner edits.
+- Added BusinessRequest SUGGESTION/CLAIM, canonical requester/reviewer, expected-state decisions, pending-domain uniqueness, independent claim acknowledgment and self-approval refusal; existing review/profile owners and URLs remain. Additive migration `20270102120000_business_requests`, registered as unreleased in both-schema workflow. Never edit either applied business migration.
+- New private `/businesses/activity`, modern directory/profile/FAQ, existing rating meter plus real dimension scores, request intake, transparent representative badge, searchable/paginated Admin profiles/reviews/requests and off-page edit lookup. Control Plane owns allow-suggestions/allow-claims. No external purchase inference, public receipt or hidden auto-publication.
+- Reused the existing moderation overview source; its count includes pending requests, while decision UI stays at /admin/businesses. Never combine SellerReview and ItemReview IDs.
+- Verified so far: real PostgreSQL authority/storage, concurrent duplicate request convergence, current actor/module/config gates, independent claim acknowledgment/self-denial, strict audit rollback, publish/replay, >100-profile discovery; actual SQL in an owned populated schema preserves existing rows and enforces pending uniqueness/status/FKs;15 engagement tests; TypeScript.
+- Real localhost browser: suggestion→staff publish→private result; dimension review→moderation→public display; helpful vote; page2; rating filter; claim→independent staff approval→official reply; visitor/member direct forbidden calls. Directory/profile/activity1440 and390 in real cookie-selected light/dark; Admin1440 light/dark and390 dark; scoped axe/overflow all passed. Two contrast findings in public controls and one scoped Admin muted-text finding were fixed before final browser success. Test fixtures/settings restored.
+- Evidence screenshots local root `.mobocom/business-completion-evidence`; repeatable tracked runner `scripts/business-completion.browser.cjs` expects an owned localhost fixture, not a logged token. PostgreSQL authority/storage/migration scripts are registered in `test:pg`.
+- Remaining product slices: abuse reports via the existing reporting/moderation owner; private receipt/evidence extraction from actual secure upload primitives + reviewed badges; request work leases/notifications as appropriate. No unimplemented controls are advertised. Whole-feature/production-readiness is not claimed from a UI test.
+
+Final review/check/build results are appended below after execution. No Actions dispatched or owner deployment performed.
+
+## Historical implementation and evidence
+
+
 ## Owner requirements
 
 Trustpilot-like experiences of buying from or dealing with **external businesses, internal sellers and MoboCom's own store**. Modern Persian/RTL/mobile UI, SDS/MoboCom semantic tokens, light/dark, actual browser/Doctor/a11y. Canonical reviews/Identity/services and historical seller reviews must be preserved. Record progress so another agent continues rather than rebuilding. The owner deploys the server.
@@ -80,3 +96,13 @@ Not done in this slice: decisions for business experiences sent from the overvie
 ## Local safety / tools
 
 Owned fixture `mobocom-restrictions-1791658568103`, database `restrictions_1791658568103`, PostgreSQL/Redis `mobocom-runtime-1791644441693-*`. Root app3000 is a different worktree/runtime; do not overwrite it without completing controlled rollout. Local helper `.mobocom/prepare-restrictions-runtime.cjs --foundation` overlays changed sources; `.mobocom/run-restrictions-command.cjs` retains native exit/logs. No source/tests editing during checks/build/browser, no DB-mutating native test during browser. Beads absent: existing workstate is authoritative. Exact source/Serena before graph inference; no document/cloud indexing.
+
+## Final local gates — 2026-10-15
+
+- Full `npm run check` exit0 in an owned Linux UID1000 workspace without .env (tracked environment examples retained). Architecture/source/schema/migration/money/security/audit/i18n gates;650 site tests,53 isolated connected tests,4 backup tests,10 billing tests and TypeScript all passed. The three actual PostgreSQL business scripts also passed separately on UID1000; these are not the mocked/isolated53 tests.
+- Exact production build: UID1000 `node /app/node_modules/next/dist/bin/next build` in that owned workspace, with matching generated PostgreSQL client, `NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=4096`; exit0, new business routes included. Initial default2GB worker heap exhausted; the successful4GB retry is recorded, not hidden. Existing Autoprefixer start/end compatibility warnings remain (including unchanged business CSS lines13/35); no warning-free-build claim.
+- Initial full-check attempts exposed missing Git/curl and Windows CRLF in the scratch copy. Installed runtime test tools and normalized only that scratch copy to Linux Git line endings; no production-source/logic bypass. Two stale assertions from merged PR185 were corrected: selects.css intentionally follows sections-wide.css; excluded livechat placements stop fallback polling.
+- Scoped installed React Doctor CLI review of seven affected files: exit0, no blocking errors, five maintainability warnings (four complex functions and repeated pagination JSX), one server-only current-date JSX warning. The server computes/serializes the date prop; the client no longer computes today during hydration. No suppressions or score claim; actual browser checks passed.
+- Browser evidence is the actual localhost dev runtime plus a separately successful production build, not a claimed compiled-runtime browser run. All owned test actors/files/settings were restored; the owner’s existing business data remains. localhost/businesses returned200 after restoration.
+- Raw check/build logs and15 public/Admin screenshots are local root `.mobocom/business-completion-evidence`. Root graph remains a candidate-discovery tool, not proof of current runtime relations or token savings.
+- No hosted Actions dispatched, remote push/PR, merge or deployment performed for this batch. Owner controls merge/deploy. Reports/private reviewed receipts/request work leases remain future slices as described above.

@@ -15,5 +15,9 @@
   "publicPaths": ["/businesses"],
   "adminPaths": ["/admin/businesses"],
   "permissions": [{ "id": "businesses.manage", "label": "مدیریت کسب‌وکارها و تجربه‌های خرید" }],
-  "settings": [{ "key": "moderate-reviews", "label": "تجربه‌ها پیش از انتشار بررسی شوند", "type": "boolean", "default": true }]
+  "settings": [
+    { "key": "moderate-reviews", "label": "تجربه‌ها پیش از انتشار بررسی شوند", "type": "boolean", "default": true },
+    { "key": "allow-suggestions", "label": "کاربران بتوانند کسب‌وکار جدید پیشنهاد دهند", "type": "boolean", "default": true },
+    { "key": "allow-claims", "label": "درخواست نمایندگی با بررسی مستقل مدیریت فعال باشد", "type": "boolean", "default": true }
+  ]
 }

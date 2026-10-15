@@ -7,6 +7,7 @@ const CHECKS = [
   'livechat-placement',
   'business-experiences',
   'business-authority',
+  'business-requests-migration',
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
   'money-state-rules', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
