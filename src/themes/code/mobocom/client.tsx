@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeTrustSeals, ThemeWordmark, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { DefaultThemeFooter, ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeWordmark, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
 
@@ -212,23 +212,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
 }
 
 function MobocomFooter({ navPages }: ThemeFooterProps) {
-  const { locale } = useThemeI18n()
-  const site = useThemeSite()
-  const L = (fa: string, en: string) => site.copy?.[en]?.[locale] || (locale === 'fa' ? fa : en)
-  return <>
-    <ThemePluginOutlet slot="site.before-footer" site={site} locale={locale}/>
-    <footer className="site-footer mb-footer">
-      <div className="mb-container mb-footer-grid">
-        <div className="mb-footer-brand"><Brand footer/><p>{tx(site.copyright, locale)}</p></div>
-        <nav aria-label={L('بخش‌ها', 'Sections')}><h3>{L('بخش‌ها', 'Sections')}</h3>{site.navigation.map(item => <Link key={item.href} href={item.href}>{tx(item.label, locale)}</Link>)}</nav>
-        <nav aria-label={L('راهنما و پشتیبانی', 'Help')}><h3>{L('راهنما و پشتیبانی', 'Help & support')}</h3>{site.footer.map(item => <Link key={item.href} href={item.href}>{tx(item.label, locale)}</Link>)}{navPages?.map(page => <Link key={page.slug} href={`/p/${page.slug}`}>{locale === 'fa' ? page.title : page.titleEn || page.title}</Link>)}</nav>
-        <nav aria-label={L('حساب کاربری', 'Account')}><h3>{L('حساب کاربری', 'Your account')}</h3><Link href="/dashboard/orders">{L('سفارش‌های من', 'My orders')}</Link><Link href="/dashboard/wallet">{L('کیف پول', 'Wallet')}</Link><Link href="/dashboard/tickets">{L('تیکت‌های پشتیبانی', 'Support tickets')}</Link><Link href="/dashboard/profile">{L('تنظیمات حساب', 'Account settings')}</Link></nav>
-      </div>
-      <div className="mb-container"><ThemeTrustSeals /></div>
-      <div className="mb-container mb-footer-bottom"><span>© {new Date().getFullYear().toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US', { useGrouping: false })} {site.brand}</span><span>{tx(site.tagline, locale)}</span></div>
-    </footer>
-    <ThemePluginOutlet slot="site.after-footer" site={site} locale={locale}/>
-  </>
+  return <DefaultThemeFooter navPages={navPages} />
 }
 
 const Header: NonNullable<ThemeClientModule['Header']> = (props) => <div data-code-theme="mobocom" className="mb-shell"><MobocomHeader {...props}/></div>

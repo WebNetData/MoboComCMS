@@ -10,6 +10,10 @@ Applies whenever frontend design or React behavior changes. Existing MoboCom vis
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.
 5. Keep domain/business logic outside presentation. Scope module CSS; separate public, Admin, shared and editor tokens. Prefer existing supported components and dependency versions.
 
+## Shared MoboCom footer
+
+Owner requirement2026-10-15: the default/MoboCom footer uses the full viewport width, with responsive inner padding and columns. Preserve the edge-to-edge surface; do not turn it into a capped/inset card. Continue the existing footer and theme SDK composition, branding/navigation/TrustSeals settings and plugin slots. Implementation and verified scope: [Site footer handoff](handoffs/SITE_FOOTER.md).
+
 ## React Doctor
 
 Use installed `vercel-react-best-practices` for the affected React/performance concern and `web-design-guidelines` for focused UX/accessibility review. Load only relevant rule files; their generic advice does not bypass module public addresses, CSP nonce, user-scoped caching, installed framework versions or protected visuals. Installation/routing: [DEVSTACK](DEVSTACK.md).

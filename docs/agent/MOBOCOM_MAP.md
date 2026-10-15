@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Public footer:** existing `components/site/default-theme/DefaultSiteFooter.tsx` composes private `footer/` parts; MoboCom theme reuses it through the existing SDK. Edge-to-edge width is an explicit owner requirement. Existing branding/menu/seals/search/support owners remain; [footer continuation and local evidence](handoffs/SITE_FOOTER.md).
+
 Last verified revision: main `ee8f668` (2026-10-07, PRs through #116). Entries marked *(not re-verified)* were not opened in the sessions that wrote this file; check before relying on them.
 
 Keep this file concise. Record only durable architecture facts that prevent repeated repository scans. Decisions and their reasons are in `docs/agent/PLATFORM_DECISIONS.md`; what each capability is and how it is verified is in `docs/agent/CAPABILITY_LEDGER.md`.
