@@ -1,6 +1,6 @@
 # MOBOCOM_MAP.md
 
-- **Magazine themes:** existing Liona journal landing/listing now follows the site light mode through scoped semantic CSS; article canvas uses the same white/card surface. Keep dark composition and the current site theme control. [Theme evidence/remaining legacy a11y](handoffs/JOURNAL_THEMES.md).
+- **Magazine themes:** existing Liona journal landing/listing follows the site light mode through scoped semantic CSS; article canvas uses the same white/card surface. The photographic hero keeps its visible cinematic cover and light copy in both themes (owner correction2026-10-15). Keep dark composition and the current site theme control. [Theme evidence/remaining legacy a11y](handoffs/JOURNAL_THEMES.md).
 
 - **Supporting engineering skills:**16 source-pinned project skills from Anthropic/UI UX Pro Max/Vercel/ibelick extend existing MoboCom workflows. Task routing/precedence and actual discovery/local-tool evidence: [ENGINEERING_SKILLS](ENGINEERING_SKILLS.md); payload lock and offline backed-up mirroring stay under the existing DevStack, not the application runtime.
 

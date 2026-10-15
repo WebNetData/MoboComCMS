@@ -4,7 +4,7 @@ Owner requested a working light/white version of the existing magazine. Continue
 
 ## Ownership and behavior
 
-- `src/app/journal-liona.css`: explicit `html[data-theme="light"] .journal-lh` semantic surface/text/border tokens; readable cyan accent, pale category/panel colors, white hero list and light photographic hero/archive washes. Image-overlay story cards retain their cinematic treatment. Existing dark declarations, geometry, content ordering and interactions remain unchanged.
+- `src/app/journal-liona.css`: explicit `html[data-theme="light"] .journal-lh` semantic surface/text/border tokens; readable cyan accent, pale category/panel colors, white hero list and light archive wash. The photographic hero and image-overlay story cards retain their cinematic treatment (see owner correction below). Existing dark declarations, geometry, content ordering and interactions remain unchanged.
 - `src/app/journal-design.css`: light article canvas uses existing `--card`; cinematic article cover and syntax/code treatment remain. Existing site theme control/cookie and Admin semantic colors are authoritative; no parallel toggle/settings/theme registry.
 - No source React, API, permissions, data, schema, public URL or package changes. Existing section navigation/search/listing and shared header/footer are retained.
 
@@ -30,3 +30,9 @@ Continue the same implementation and branch. The owner requested wider articles,
 - Existing dark badge contrast/mobile article code-block keyboard findings from the light-edition handoff remain outside this slice. No whole-magazine accessibility, full build, hosted Actions, push, PR or deployment claim.
 
 Final gate: after using the supported icon and restarting the app from the authoritative source, full Linux UID1000 TypeScript (`tsc --noEmit --incremental false`) passed, and all four browser variants above passed again. CRLF-aware owned diff whitespace check passed. No additional unit suite was run for this layout/markup slice.
+
+## Owner correction: photographic hero — 2026-10-15
+
+The owner rejected the washed-out landing cover: the light veil used88–94% white opacity. Keep this photographic surface cinematic in both themes, with light heading/summary/meta/category labels; the surrounding light page and light side-list retain their semantic surfaces. The existing veil now accepts a local `--lh-hero-bg` override in light mode instead of a second white gradient. No image URL, source data, composition, interaction or dark-mode value changed.
+
+Executed before/after browser evidence: light1440/1920/390 and dark1440/390; original cover URL retained and decoded, light page/list colors preserved, dark computed values unchanged, no document overflow or runtime/hydration errors. All five variants passed hero-copy scoped axe, keyboard focus and actual heading-link navigation to the article. Desktop/mobile light screenshots visually inspected. Native read-only PostgreSQL query passed; React Doctor on unchanged LionaHome exit0 with its existing section-export warning, no blocking errors or suppression. CRLF-aware whitespace gate passed. Raw ignored root evidence: `.mobocom/journal-hero-evidence`. No unit/TypeScript/build rerun for this CSS-only correction; no whole-magazine accessibility claim, Actions, push, PR or deploy.
