@@ -1,11 +1,15 @@
 import { db } from '@/platform/database/prisma'
 import { getModuleStates } from '@/extensions/server/modules'
 import { legacyNumber, normalizeCurrency } from '@/shared/money'
+import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import { getActiveMembership } from '@/modules/membership/server/membership'
 import { ensureUserProfile } from '@/modules/identity/server/profile'
 import { normalizeLinks } from '@/modules/identity/domain/profile'
 import { itemCards, type ItemCard } from '@/modules/content/server/registry'
 import { isItemType, itemKey, type ItemRef } from '@/modules/content/domain/items'
+
+/** What a service order is for (a form, VIP, content), named as its invoice names it. */
+const orderName = (meta: string | null) => { let parsed: Record<string, unknown> = {}; try { parsed = JSON.parse(meta || '{}') } catch { parsed = {} } return parsed.kind ? invoiceSubject({ kind: 'BILLING', meta: parsed, siteName: '', amountText: '' }).title : '' }
 
 // Account home: one call assembling what a member needs at a glance —
 // profile, membership, money, orders, inbox, community and games —
@@ -58,7 +62,7 @@ export async function accountOverview(userId: number, now = new Date()) {
   }
 
   // Orders (store workflow when the store is on; any order otherwise)
-  const orders = await db.order.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 4, select: { id: true, status: true, createdAt: true, currency: true, totalMinor: true, productDelivery: { select: { status: true } }, lines: { select: { name: true, image: true }, take: 3 }, product: { select: { name: true, image: true } }, plan: { select: { name: true } } } }).catch(() => [])
+  const orders = await db.order.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 4, select: { id: true, meta: true, status: true, createdAt: true, currency: true, totalMinor: true, productDelivery: { select: { status: true } }, lines: { select: { name: true, image: true }, take: 3 }, product: { select: { name: true, image: true } }, plan: { select: { name: true } } } }).catch(() => [])
   const inProgress = await db.order.count({ where: { userId, status: 'PAID', productDelivery: { status: { in: ['PENDING', 'PROCESSING', 'PACKED', 'SHIPPED'] } } } }).catch(() => 0)
 
   // Community
@@ -113,7 +117,7 @@ export async function accountOverview(userId: number, now = new Date()) {
     profile: { username: profile.username, avatar: profile.avatar, cover: profile.cover, headline: profile.headline, verified: profile.verified, followers: profile.followerCount, following: profile.followingCount, posts: profile.postCount, percent: Math.round((done / checks.length) * 100), missing: checks.filter((check) => !check.done) },
     vip: membership ? { endsAt: membership.endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil((membership.endsAt.getTime() - now.getTime()) / DAY)) } : null,
     money: [...money].map(([currency, row]) => ({ currency, ...row })),
-    orders: { inProgress, recent: orders.map((order) => ({ id: order.id, title: order.lines[0]?.name || order.product?.name || order.plan?.name || `سفارش #${order.id}`, more: Math.max(0, order.lines.length - 1), image: order.lines[0]?.image || order.product?.image || '', status: order.status, fulfilment: order.productDelivery?.status || '', createdAt: order.createdAt.toISOString(), total: legacyNumber(order.totalMinor, normalizeCurrency(order.currency)), currency: normalizeCurrency(order.currency) })) },
+    orders: { inProgress, recent: orders.map((order) => ({ id: order.id, title: order.lines[0]?.name || order.product?.name || order.plan?.name || orderName(order.meta) || `سفارش #${order.id}`, more: Math.max(0, order.lines.length - 1), image: order.lines[0]?.image || order.product?.image || '', status: order.status, fulfilment: order.productDelivery?.status || '', createdAt: order.createdAt.toISOString(), total: legacyNumber(order.totalMinor, normalizeCurrency(order.currency)), currency: normalizeCurrency(order.currency) })) },
     inbox: { unread: unreadNotifications, messages: unreadMessages, tickets: openTickets, recent: notifications.map((n) => ({ id: n.id, title: n.titleFa, body: n.bodyFa, href: n.href, read: !!n.readAt, createdAt: n.createdAt.toISOString(), kind: n.kind })) },
     community, games,
     favorites: { count: favoriteCount, recent: favoriteRows.flatMap((row) => { const card = isItemType(row.itemType) ? cards.get(itemKey({ type: row.itemType, id: row.itemId })) : undefined; return card ? [{ title: card.title, url: card.url, image: card.image, type: card.type }] : [] }) },

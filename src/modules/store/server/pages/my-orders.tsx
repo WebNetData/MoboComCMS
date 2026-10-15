@@ -20,10 +20,22 @@ const EVENT_LABEL: Record<string, string> = {
   RETURN_WITHDRAWN: 'درخواست لغو شد', REFUNDED: 'برگشت وجه به کیف پول',
 }
 
+const SERVICE_STATE: Record<string, [string, string]> = { PAID: ['پرداخت‌شده', 'is-ok'], PENDING: ['در انتظار پرداخت', 'is-warn'], CANCELLED: ['لغوشده', ''], FAILED: ['ناموفق', 'is-bad'] }
+
 async function userId(next: string) {
   const viewer = await getViewer()
   if (!viewer.userId) redirect(`/login?next=${encodeURIComponent(next)}`)
   return viewer.userId
+}
+
+type ServiceOrder = Awaited<ReturnType<typeof customerServiceOrders>>[number]
+const serviceRow = (row: ServiceOrder) => {
+  const state = SERVICE_STATE[row.status] || SERVICE_STATE.FAILED
+  return <li key={row.id} className="sx-svc">
+    <span className="sx-svc-icon" aria-hidden="true"><StoreIcon name="receipt" size={18} /></span>
+    <div className="sx-svc-main"><b>{row.title}</b>{row.detail && <small className="sx-svc-detail">{row.detail}</small>}<small className="num">کد {fa(row.id)} · {persian(row.createdAt)}</small></div>
+    <div className="sx-svc-end"><Money amount={row.total} currency={row.currency} /><span className={`sx-svc-state ${state[1]}`}>{state[0]}</span>{row.invoiceNumber && <Link href={`/invoice/${row.invoiceNumber}`} className="sx-link">{row.status === 'PENDING' ? 'پرداخت' : 'فاکتور'}</Link>}</div>
+  </li>
 }
 
 /** /dashboard/orders — Digikala-style order history with status tabs. */
@@ -36,7 +48,7 @@ export async function MyOrdersView({ tab: tabParam }: { tab?: string }) {
     <nav className="sx-my-tabs" aria-label="وضعیت سفارش‌ها">{CUSTOMER_TABS.map((item) => <Link key={item.key} href={`/dashboard/orders?tab=${item.key}`} className={item.key === tab ? 'is-active' : ''} aria-current={item.key === tab ? 'page' : undefined}>
       {item.label}{counts[item.key] > 0 && <span className="num">{fa(counts[item.key])}</span>}
     </Link>)}</nav>
-    {orders.length === 0 ? <div className="sx-empty"><StoreIcon name="receipt" size={40} /><b>سفارشی در این بخش ندارید</b><Link href="/products" className="sx-btn">رفتن به فروشگاه</Link></div>
+    {orders.length === 0 ? <div className={`sx-empty${services.length ? ' is-small' : ''}`}><StoreIcon name="receipt" size={services.length ? 28 : 40} /><b>سفارش فروشگاهی در این بخش ندارید</b><Link href="/products" className="sx-btn">رفتن به فروشگاه</Link></div>
       : <ul className="sx-my-list">{orders.map((order) => <li key={order.id}>
         <Link href={`/dashboard/orders/${order.id}`} className="sx-my-order">
           <div className="sx-my-order-top">
@@ -52,10 +64,9 @@ export async function MyOrdersView({ tab: tabParam }: { tab?: string }) {
         </Link>
       </li>)}</ul>}
     {services.length > 0 && <section className="sx-my-services">
-      <h2>سایر سفارش‌ها</h2>
-      <table className="data"><thead><tr><th>#</th><th>عنوان</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ</th><th /></tr></thead><tbody>
-        {services.map((row) => <tr key={row.id}><td className="num">{fa(row.id)}</td><td>{row.title}</td><td><Money amount={row.total} currency={row.currency} /></td><td>{row.status === 'PAID' ? 'پرداخت‌شده' : row.status === 'PENDING' ? 'در انتظار پرداخت' : 'ناموفق'}</td><td>{persian(row.createdAt)}</td><td>{row.invoiceNumber && <Link href={`/invoice/${row.invoiceNumber}`} className="sx-link">فاکتور</Link>}</td></tr>)}
-      </tbody></table>
+      <header><h2>خدمات، درخواست‌ها و اشتراک‌ها</h2><p>سفارش‌هایی که کالای فروشگاه نیستند: پرداخت سایت خارجی، فرم‌های پولی، اشتراک ویژه و پلن‌ها.</p></header>
+      <ul className="sx-svc-list">{services.slice(0, 10).map(serviceRow)}</ul>
+      {services.length > 10 && <details className="sx-svc-rest"><summary>نمایش {fa(services.length - 10)} سفارش دیگر</summary><ul className="sx-svc-list">{services.slice(10).map(serviceRow)}</ul></details>}
     </section>}
   </div>
 }
