@@ -1,0 +1,32 @@
+/* Drop-down fields everywhere (site, account, admin). The browser draws the open list of a <select>: without a colour
+   scheme it drew a light-theme list on dark pages, with clipped, hard-to-read options. Two layers:
+   1. every page states its colour scheme, so any native list matches the theme;
+   2. where the browser supports styling the list itself (appearance: base-select), the list follows the site's design:
+      a rounded panel in the theme's colours, roomy options, the chosen one marked. Other browsers keep the native list. */
+
+:root, html[data-theme='light'] { color-scheme: light; }
+html[data-theme='dark'] { color-scheme: dark; }
+
+@supports (appearance: base-select) {
+  select:not([multiple]):not([size]) { appearance: base-select; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+  select:not([multiple]):not([size])::picker-icon { content: ''; flex: none; width: 9px; height: 9px; margin-inline-start: auto; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-2px) rotate(45deg); opacity: .6; transition: transform .18s ease; }
+  select:not([multiple]):not([size]):open::picker-icon { transform: translateY(2px) rotate(-135deg); }
+  select:not([multiple]):not([size])::picker(select) {
+    appearance: base-select; margin-block: 6px; padding: 6px; min-width: anchor-size(width); max-height: min(60vh, 420px); overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 14px; background: var(--card, var(--bg-soft)); color: var(--text);
+    box-shadow: 0 24px 48px -24px rgb(0 0 0 / .45), 0 4px 12px -6px rgb(0 0 0 / .2);
+    scrollbar-width: thin;
+  }
+  select:not([multiple]):not([size]) option {
+    display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 12px; border-radius: 10px;
+    font-size: .92rem; line-height: 1.7; white-space: normal; color: var(--text); background: transparent; cursor: pointer;
+  }
+  select:not([multiple]):not([size]) option:hover,
+  select:not([multiple]):not([size]) option:focus-visible { background: color-mix(in srgb, var(--primary) 12%, transparent); outline: none; }
+  select:not([multiple]):not([size]) option:checked { color: var(--primary); font-weight: 700; background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  select:not([multiple]):not([size]) option::checkmark { order: 1; margin-inline-start: auto; content: '✓'; color: var(--primary); font-weight: 900; }
+  select:not([multiple]):not([size]) option:disabled { opacity: .45; cursor: default; }
+  select:not([multiple]):not([size]) optgroup { padding-block: 4px; font-size: .78rem; font-weight: 800; color: var(--muted); }
+  select:not([multiple]):not([size]) optgroup option { font-weight: 400; color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { select:not([multiple]):not([size])::picker-icon { transition: none; } }
+}

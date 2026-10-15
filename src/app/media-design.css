@@ -1175,6 +1175,17 @@ html[dir="ltr"] .mu-queue ol button:hover { transform: translateX(3px); }
 .mu-queue li.is-current .mu-queue-no { color: var(--md-accent, #ff2d6f); }
 .mu-queue ol img, .mu-queue ol .mu-player-noart { width: 46px; height: 46px; border-radius: 12px; box-shadow: 0 8px 16px -10px #000; }
 .mu-queue ol b { font-size: .95rem; }
+/* The rules above are for the rows: the header keeps its own close button and title, and the playing row its equaliser. */
+.mu-queue header .mu-ic { width: 38px; height: 38px; flex: none; display: grid; place-items: center; padding: 0; border-radius: 12px; background: rgba(255, 255, 255, .06); }
+.mu-queue header .mu-ic:hover { background: rgba(255, 255, 255, .12); }
+.mu-queue header b { white-space: nowrap; }
+.mu-queue header small { white-space: nowrap; }
+.mu-queue .mu-queue-no .mu-eq { display: inline-flex; flex: none; min-width: 0; height: 14px; }
+.mu-queue .mu-queue-no .mu-eq b { display: block; overflow: visible; }
+.mu-queue ol button > span:not(.mu-player-noart) { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.mu-queue ol small { opacity: .62; font-size: .8rem; }
+.mu-queue .vip-dot { flex: none; }
+.mu-queue .mu-player-noart { flex: none; place-items: center; }
 
 /* sections rise into place as the listener reaches them */
 @supports (animation-timeline: view()) {

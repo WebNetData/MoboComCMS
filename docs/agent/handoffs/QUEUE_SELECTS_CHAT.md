@@ -14,6 +14,8 @@ Owner's latest stated tasks: tidy the music play queue and fix the open select m
 
 ## Verification and next steps
 
+PR preparation on2026-10-15: owner queue/select changes are now included after actual verification. Three `music-dashboard.test.cjs` tests passed as Linux UID1000. `scripts/queue-selects.browser.cjs` passed1440 light/dark and390 dark against the local PostgreSQL-backed app: restored queue UI/header dimensions/metadata layout/close action, actual Admin native select opening and keyboard selection. This Chromium supports base-select; no other-browser result or audio playback claim is made. An initial dimension assertion saw the queue's entrance scaling; verification uses the actual computed control dimensions. Root `.mobocom/queue-selects-browser.log` retains evidence. Chat placement and translator-overlap evidence live in their own linked handoffs. No hosted browser dispatch.
+
 This inspection was read-only for product sources. No unit, PostgreSQL, build, browser, React Doctor or a11y checks were executed for these latest owner changes. Previous business-section evidence does not validate this batch.
 
 Before a PR: review the current diff, verify queue interactions/close button/playing row, open selects and keyboard selection across public/account/Admin pages in light/dark/mobile and relevant browsers, and run the affected tests/Doctor/a11y under FRONTEND_QUALITY. Complete chat placement only if included in the next implementation slice. Test unknown/stored/empty placement values, public path handling and existing Admin configuration; do not add another settings owner.
