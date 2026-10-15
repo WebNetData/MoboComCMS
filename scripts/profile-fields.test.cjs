@@ -102,7 +102,13 @@ test('sign-up, sign-in and the completion page speak about this site and agree w
   assert.match(register, /minLength=\{8\}/)
   for (const source of [register, login]) assert.ok(!/اتصال تازه|اتصال‌های خود|اشتراک‌های شما|all your subscriptions|A NEW CONNECTION|connected world/.test(source), 'wording left from the VPN service')
   // Straight after sign-up the email form opens (it carries the confirmation), whatever the default tab is.
-  assert.ok(login.includes("otp && params.get('registered') !== '1' && params.get('changed') !== '1' ? 'phone' : 'email'"))
+  assert.ok(login.includes('initialEntryMethod'))
+  const entry = load('src/modules/identity/domain/account-security').initialEntryMethod
+  assert.equal(entry({ sms: true, email: true, registered: false, passwordChanged: false }), 'phone')
+  assert.equal(entry({ sms: false, email: true, registered: false, passwordChanged: false }), 'email')
+  assert.equal(entry({ sms: true, email: true, registered: true, passwordChanged: false }), 'password')
+  assert.equal(entry({ sms: true, email: true, registered: false, passwordChanged: true }), 'password')
+  assert.equal(entry({ sms: false, email: false, registered: false, passwordChanged: false }), 'password')
   // The completion page can be left.
   assert.ok(read('src/app/welcome/page.tsx').includes("{status.needsCompletion && <button type=\"button\" className=\"btn btn-ghost\" onClick={() => void signOut({ callbackUrl: '/' })}>"))
 })

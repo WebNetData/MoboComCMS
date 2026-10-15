@@ -406,6 +406,7 @@
     "20261230120000_product_is_service",
     "20261231120000_automation",
     "20270102120000_business_requests",
-    "20270103120000_business_trust"
+    "20270103120000_business_trust",
+    "20270104120000_email_otp"
   ]
 }

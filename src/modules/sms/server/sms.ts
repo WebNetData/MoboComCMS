@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, randomInt } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
@@ -6,11 +6,13 @@ import { logEvent } from '@/platform/observability/logger'
 import { getSettings } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import {
-  DEFAULT_SMS, OTP_MAX_ATTEMPTS, OTP_RESEND_MS, OTP_TTL_MS, maskMobile, normalizeMobile, normalizeSmsConfig, otpCode, phoneEmail,
+  DEFAULT_SMS, OTP_RESEND_MS, OTP_TTL_MS, maskMobile, normalizeMobile, normalizeSmsConfig, otpCode, phoneEmail,
   renderTemplate, smsEvent, validOtpFormat, type SmsConfig,
 } from '@/modules/sms/domain/sms'
 import { latinDigits } from '@/shared/text/digits'
 import { credit, sendPattern, sendText } from '@/modules/sms/server/ippanel'
+import { claimOtpChallenge } from '@/modules/identity/server/otp-challenge'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
 
 const KEY = 'sms.config.v1'
 
@@ -190,6 +192,8 @@ export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; i
   if (!phone) throw new SmsError('شمارهٔ موبایل معتبر نیست (مثل ۰۹۱۲۱۲۳۴۵۶۷)')
   const config = await getSmsConfig()
   if (input.purpose === 'LOGIN' && !await otpLoginAvailable()) throw new SmsError('ورود با پیامک فعال نیست', 403)
+  if (!(await rateLimitStrict(`sms:otp:send:phone:${phone}:${input.purpose}`, 1, OTP_RESEND_MS)).ok ||
+      !(await rateLimitStrict(`sms:otp:send:ip:${input.ip}`, 15, 60 * 60_000)).ok) throw new SmsError('درخواست زیادی ثبت شده است؛ کمی بعد دوباره تلاش کنید', 429)
   const now = Date.now()
   const [last, recentPhone, recentIp] = await Promise.all([
     db.otpCode.findFirst({ where: { phone, purpose: input.purpose }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
@@ -206,7 +210,10 @@ export async function requestOtp(input: { phone: unknown; purpose: OtpPurpose; i
   }
 
   const code = otpCode((max) => randomInt(max))
-  const row = await db.otpCode.create({ data: { phone, purpose: input.purpose, codeHash: hashCode(phone, code), userId: input.userId ?? null, expiresAt: new Date(now + OTP_TTL_MS), ip: input.ip.slice(0, 64) } })
+  const row = await db.$transaction(async tx => {
+    await tx.otpCode.updateMany({ where: { phone, purpose: input.purpose, consumedAt: null, ...(input.userId ? { userId: input.userId } : {}) }, data: { consumedAt: new Date() } })
+    return tx.otpCode.create({ data: { phone, purpose: input.purpose, codeHash: hashCode(phone, code), userId: input.userId ?? null, expiresAt: new Date(now + OTP_TTL_MS), ip: input.ip.slice(0, 64) } })
+  })
   const { brand } = await brandVars()
   const sent = await sendSms({
     phone, event: `OTP_${input.purpose}`, kind: 'OTP', userId: input.userId,
@@ -229,21 +236,10 @@ export async function verifyOtp(input: { phone: unknown; code: unknown; purpose:
   const code = latinDigits(input.code).trim()
   if (!phone || !validOtpFormat(code)) throw new SmsError('کد وارد شده صحیح نیست')
   const row = await db.otpCode.findFirst({
-    where: { phone, purpose: input.purpose, consumedAt: null, expiresAt: { gt: new Date() }, ...(input.userId ? { userId: input.userId } : {}) },
-    orderBy: { createdAt: 'desc' },
+    where: { phone, purpose: input.purpose, ...(input.userId ? { userId: input.userId } : {}) },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
-  if (!row) throw new SmsError('کد منقضی شده است؛ دوباره درخواست کنید')
-  if (row.attempts >= OTP_MAX_ATTEMPTS) throw new SmsError('تعداد تلاش‌ها زیاد بود؛ کد تازه بگیرید', 429)
-  const expected = Buffer.from(row.codeHash, 'hex')
-  const actual = Buffer.from(hashCode(phone, code), 'hex')
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-    await db.otpCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } })
-    throw new SmsError('کد وارد شده صحیح نیست')
-  }
-  if (input.consume === false) return phone
-  // Single use, even under concurrent requests.
-  const used = await db.otpCode.updateMany({ where: { id: row.id, consumedAt: null }, data: { consumedAt: new Date() } })
-  if (used.count !== 1) throw new SmsError('این کد قبلاً استفاده شده است')
+  if (!await claimOtpChallenge(row, hashCode(phone, code), input.consume !== false)) throw new SmsError('کد وارد شده صحیح نیست یا منقضی شده است')
   return phone
 }
 

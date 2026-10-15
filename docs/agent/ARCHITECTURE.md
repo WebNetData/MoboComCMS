@@ -233,6 +233,8 @@ Do not merge auth identity and CRM contact lifecycle by accident.
 
 MoboCom has exactly **one canonical human account identity** across the entire platform and all future first-party clients.
 
+Mobile/email code entry extends the existing NextAuth JWT providers, User, OtpCode and SMS/SMTP owners. Email verification binds its issuance identity; it never merges entered contacts. Shared atomic expiry/attempt/consumption and current security-policy claims preserve TOTP, standing, permissions and legacy credentials. Configured delivery is required in production. Continue the [passwordless handoff](handoffs/PASSWORDLESS_ENTRY.md), including migration, actual evidence and remaining provider activation; do not add another authentication or token store.
+
 ```text
 Canonical MoboCom Identity
 ├─ UserId (stable platform identifier)

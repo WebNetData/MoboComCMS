@@ -83,8 +83,8 @@ test('a session signed in before the password changed is revoked', () => {
 })
 
 test('security policy normalises unknown input to safe defaults', () => {
-  assert.deepEqual(sec.normalizeSecurityPolicy(null), { requireAdmin2fa: false, emailReset: true, smsReset: true })
-  assert.deepEqual(sec.normalizeSecurityPolicy({ requireAdmin2fa: 'yes', emailReset: false }), { requireAdmin2fa: false, emailReset: false, smsReset: true })
+  assert.deepEqual(sec.normalizeSecurityPolicy(null), { requireAdmin2fa: false, emailReset: true, smsReset: true, emailOtp: true })
+  assert.deepEqual(sec.normalizeSecurityPolicy({ requireAdmin2fa: 'yes', emailReset: false }), { requireAdmin2fa: false, emailReset: false, smsReset: true, emailOtp: true })
   assert.equal(sec.maskEmail('alireza@gmail.com'), 'a******@gmail.com')
   assert.equal(sec.maskEmail('ab@x.io'), 'a**@x.io')
   assert.equal(sec.maskEmail('nope'), '')

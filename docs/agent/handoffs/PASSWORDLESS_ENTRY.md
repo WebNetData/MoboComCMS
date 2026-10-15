@@ -1,0 +1,32 @@
+# Mobile/email code entry — 2026-10-15
+
+Continue `.mobocom/autonomous-foundation`, branch `feat/identity-email-mobile-otp-2026-10-15`. It began above open PR189; inspect its current merge state before publishing. The root checkout has unrelated owner work. Do not recreate Identity, sessions, SMS, SMTP or challenge storage.
+
+## Owners and behavior
+
+- Existing SMS `/api/sms/otp` and `sms-otp` provider remain; /register now discovers the same code form as /login. Email adds `/api/login/email-code` and NextAuth `email-otp` through `identity/server/email-otp.ts`.
+- `OtpCode` gains nullable email/index in additive registered `20270104120000_email_otp`; existing phone/purpose/hash rows are preserved. Email uses EMAIL_LOGIN with empty phone. Do not edit applied SQL.
+- Shared `identity/server/otp-challenge.ts` enforces current expiry, latest-only selection, five attempts and atomic single consumption. Concurrent wrong guesses spend the bounded budget; concurrent correct attempts permit one winner. Resend retires prior codes; failure burns the emailed challenge. HMAC domains separate email/SMS. Codes are not returned in HTTP responses or stored in mail logs.
+- Email proves the existing canonical account or creates a CUSTOMER only after verification. A challenge is bound to the account present at issuance; recipient reassignment requires another challenge. No merging based on entered email/unverified phone. Existing passwords/Telegram URLs/referrals/profile completion, TOTP/backup codes, current standing and GLOBAL restrictions remain.
+- `security.policy.v1.emailOtp` in /admin/security (settings.manage) controls email issuance AND verification. Existing sms.config.v1.otpLogin controls SMS; provider verification now checks it too. Security policy reads are fresh/fail closed on malformed storage; its writes use existing shared Settings claims, preserve omitted/future fields and avoid stale overwrites.
+- Delivery reuses existing mailer and SMS owners. Email requires configured/enabled SMTP; production SMS requires a configured/enabled IPPanel connection. The existing development-only SMS log fallback remains. CAPTCHA is refreshed for resend, Origin rules are unchanged, and strict IP/recipient plus persisted hourly budgets apply.
+- Existing MoboCom auth surfaces/tokens stay; three methods share one row, recipient text isolates LTR addresses, code input accepts Persian/Arabic digits. Password registration remains /register?method=password; existing referral/Telegram registration parameters preserve their original flow. Request/code/TOTP/loading/error states and safe next remain in LoginForm.
+
+## Verified local evidence
+
+- Full npm run check passed on the final product source: Linux UID1000, tracked-source snapshot, no .env, 4GiB heap; 653 site units, 53 isolated connected, 4 backup, 10 billing, TypeScript and architecture/schema/release/security gates. Narrow host units36 passed too.
+- Final production Next build passed with the matching generated PostgreSQL client, UID1000/no .env/4GiB heap. Existing Autoprefixer start/end warnings remain; this is not compiled-runtime browser certification or a claim of running the client-regeneration wrapper.
+- Empty owned PostgreSQL `mobocom_entry_20261015`: all117 migrations deployed. Registered `npm run test:pg -- identity-otp global-authentication` passed under UID1000. Actual populated old-table SQL preservation is inside identity-otp, alongside real current policy/standing/GLOBAL/TOTP, delivery-failure, identity-binding, expiry, replay, latest-only, concurrent valid/invalid attempts and SMS disabled-provider checks.
+- Three isolated source faults (expiry, single-consumption claim, email switch) each failed assertions; restored source passed. Live /app source was never faulted.
+- Actual browser passed: SMTP delivered only to a local owned receiver, email registration/session and canonical existing-user login, wrong/Arabic code, resend throttling, Origin/replay denial, profile-completion redirect, mode reset, current Control Plane disable and legacy registration. Mobile request/provider login used an explicitly synthetic owned dev SMS challenge; no remote SMS was sent.
+- Sixteen1440/390 light/dark form states passed scoped WCAG2/2.1AA axe, no document overflow; Admin setting was visible; final runtime errors empty. Mobile light and desktop dark screenshots were visually inspected. All fixture actors/challenges/logs were removed; original settings restored by exact-value claims, app restarted.
+- React Doctor0.9.17: four files, exit0, twelve warnings remain reviewed (complex LoginForm/Admin, status checks handled through decoded response, existing Admin lifecycle/re-entry; Suspense is present). No suppressions or warning-free claim. Redacted complete working-diff Gitleaks exited0.
+- Earlier failures are not passing evidence: typecheck during startup saw a stale generated client/missing copied declarations; final complete snapshot typecheck passed. Full check initially caught its strict-limit count needing the added provider. Browser harness initially selected unrelated Next/Telegram live regions; narrowed selectors and full final run passed. The populated-SQL harness needed comment-safe splitting and distinct pre/post-DDL prepared statements; final native run passed.
+
+Raw results/scripts are ignored in the root `.mobocom/identity-otp-evidence` and `.mobocom/identity-otp-*.cjs`. No hosted Actions, remote-provider delivery, production deploy, merge or broad security certification; browser evidence is the local development runtime.
+
+## Activation and remaining limits
+
+Both real SMTP and SMS were disabled/unconfigured in the restored local Settings. Configure /admin/email and /admin/sms with the owner's provider credentials and approved OTP pattern, then keep the email-code switch on in /admin/security. Never put those secrets in normal documentation, commits or browser fixture output. The local SMTP receiver does not certify Gmail/IPPanel delivery, DNS, provider quotas or a multi-instance Redis outage. Existing rate-limit fallback remains process-local without healthy Redis; persisted challenge claims/budgets still guard the database.
+
+Deploy through existing npm run deploy:migrate before the new application. Preserve all existing users, credentials, purchases, permissions and URLs. Further account linking/recovery policy belongs to canonical Identity; no automatic merge of historical unverified contacts is introduced. See the compact [spec](../../specs/passwordless-entry/SPEC.md).

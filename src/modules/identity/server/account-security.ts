@@ -5,7 +5,7 @@ import { db } from '@/platform/database/prisma'
 import { authSecret } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
-import { readJsonSetting, writeJsonSetting, getSettings } from '@/modules/settings/server'
+import { readJsonSetting, writeJsonSetting, updateJsonSetting, getSettings } from '@/modules/settings/server'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { base32Encode, totpUri } from '@/shared/security/totp'
 import { matchTotp } from '@/shared/security/totp-verify'
@@ -28,12 +28,21 @@ export class SecurityError extends Error {
 const POLICY_KEY = 'security.policy.v1'
 
 export async function getSecurityPolicy(): Promise<SecurityPolicy> {
-  return normalizeSecurityPolicy(await readJsonSetting(POLICY_KEY).catch(() => undefined))
+  const row = await db.setting.findUnique({ where: { key: POLICY_KEY } })
+  if (!row) return normalizeSecurityPolicy(undefined)
+  try {
+    const value = JSON.parse(row.value)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid policy')
+    return normalizeSecurityPolicy(value)
+  } catch { throw new SecurityError('تنظیمات امنیت ورود معتبر نیست؛ با پشتیبانی تماس بگیرید', 503) }
 }
 
 export async function saveSecurityPolicy(input: unknown) {
-  const policy = normalizeSecurityPolicy(input)
-  await writeJsonSetting(POLICY_KEY, policy)
+  const policy = await updateJsonSetting(POLICY_KEY, async value => {
+    const raw = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
+    for (const key of Object.keys(normalizeSecurityPolicy(value))) if (typeof raw[key] === 'boolean') value[key] = raw[key]
+    return normalizeSecurityPolicy(value)
+  })
   clearAdminPolicyCache()
   return policy
 }

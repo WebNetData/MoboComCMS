@@ -2222,6 +2222,7 @@ model PaymentReceipt {
 model OtpCode {
   id         Int       @id @default(autoincrement())
   phone      String
+  email      String?
   purpose    String    @default("LOGIN") // LOGIN | VERIFY
   codeHash   String
   attempts   Int       @default(0)
@@ -2232,6 +2233,7 @@ model OtpCode {
   createdAt  DateTime  @default(now())
 
   @@index([phone, purpose, createdAt])
+  @@index([email, purpose, createdAt])
 }
 
 /// Outgoing SMS history (IPPanel).

@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { Notice, fa } from '../store/shared'
 
-type Policy = { requireAdmin2fa: boolean; emailReset: boolean; smsReset: boolean }
+type Policy = { requireAdmin2fa: boolean; emailReset: boolean; smsReset: boolean; emailOtp: boolean }
 type Stats = { enabled: number; admins: number; adminsWith: number }
 type Tone = { tone: 'ok' | 'error'; text: string } | null
 
@@ -63,6 +63,11 @@ export default function SecurityAdminPage() {
 
     <div className="sa-cols">
       <div className="sa-stack">
+        <section className="sa-card sa-form">
+          <header className="sa-card-head"><h2>ثبت‌نام و ورود با کد</h2></header>
+          <label className="sa-check"><input type="checkbox" checked={policy.emailOtp} onChange={(e) => setPolicy({ ...policy, emailOtp: e.target.checked })} />ورود و ثبت‌نام با کد یک‌بارمصرف ایمیلی</label>
+          <p className="sa-hint">ارسال از <Link href="/admin/email">تنظیمات ایمیل</Link> انجام می‌شود؛ فقط پس از تأیید کد، حساب تازه ساخته می‌شود. ورود پیامکی را در <Link href="/admin/sms">تنظیمات پیامک</Link> فعال کنید. ورود دومرحله‌ای حساب‌ها همچنان الزامی می‌ماند.</p>
+        </section>
         <section className="sa-card sa-form">
           <header className="sa-card-head"><h2>بازیابی رمز عبور</h2></header>
           <label className="sa-check"><input type="checkbox" checked={policy.emailReset} onChange={(e) => setPolicy({ ...policy, emailReset: e.target.checked })} />بازیابی با پیوند ایمیلی (۳۰ دقیقه اعتبار، یک‌بارمصرف)</label>
