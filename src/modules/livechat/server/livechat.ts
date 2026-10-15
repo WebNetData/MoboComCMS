@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
-import { getSettings, readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { getSettings, readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
@@ -23,13 +23,17 @@ const KEY = 'livechat.v1'
 const BOT_TIMEOUT_MS = 25_000
 
 export async function getChatSettings(): Promise<ChatSettings> {
-  return normalizeChatSettings(await readJsonSetting(KEY))
+  // Placement must reflect the saved selection on the next navigation, across route caches.
+  return normalizeChatSettings(await readJsonSetting(KEY, db))
 }
 
 export async function saveChatSettings(input: unknown) {
-  const next = normalizeChatSettings(input)
-  await writeJsonSetting(KEY, next)
-  return next
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ChatError('تنظیمات گفت‌وگو معتبر نیست')
+  return updateJsonSetting(KEY, async stored => {
+    const next = normalizeChatSettings({ ...stored, ...input })
+    Object.assign(stored, next)
+    return next
+  })
 }
 
 export const chatEnabled = () => isModuleEnabled('livechat')
@@ -86,7 +90,7 @@ export async function visitorState(token: string | null, userId: number | null) 
   const mine = conversation && (!conversation.userId || conversation.userId === userId) ? conversation : null
   const messages = mine ? await db.chatMessage.findMany({ where: { conversationId: mine.id }, orderBy: { id: 'asc' }, take: 200 }) : []
   return {
-    botName: settings.botName, welcome: settings.welcome, online, offlineMessage: settings.offlineMessage, askContact: settings.askContact && !userId,
+    botName: settings.botName, welcome: settings.welcome, places: settings.places, online, offlineMessage: settings.offlineMessage, askContact: settings.askContact && !userId,
     conversation: mine ? { status: mine.status, rated: mine.rating != null, hasContact: !!(mine.contact || mine.userId) } : null,
     messages: messages.map(publicMessage),
   }

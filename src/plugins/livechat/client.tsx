@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import type { PluginClientModule, PluginProps } from '../types'
+import { usePathname } from '@/platform/routing/navigation'
+import { chatShownOn } from '@/extensions/sdk/livechat'
 
 type Message = { id: number; sender: 'VISITOR' | 'BOT' | 'AGENT' | 'SYSTEM'; body: string; at: string }
-type State = { botName: string; welcome: string; online: boolean; offlineMessage: string; askContact: boolean; conversation: { status: string; rated: boolean; hasContact: boolean } | null; messages: Message[] }
+type State = { places?: string[]; botName: string; welcome: string; online: boolean; offlineMessage: string; askContact: boolean; conversation: { status: string; rated: boolean; hasContact: boolean } | null; messages: Message[] }
 
 const STATUS: Record<string, string> = { BOT: 'پاسخ‌گویی با دستیار هوشمند', WAITING: 'در انتظار اپراتور', OPEN: 'اپراتور در گفت‌وگوست', CLOSED: 'گفت‌وگو بسته شد' }
 const time = (value: string) => new Date(value).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
@@ -20,8 +22,10 @@ function Text({ body }: { body: string }) {
 }
 
 function LiveChat(_props: PluginProps) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<State | null>(null)
+  const visible = !!state && chatShownOn(state.places || [], pathname)
   const [messages, setMessages] = useState<Message[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [text, setText] = useState('')
@@ -68,12 +72,12 @@ function LiveChat(_props: PluginProps) {
   useEffect(() => {
     void load()
     if (new URLSearchParams(window.location.search).get('chat') === '1') setOpen(true)
-  }, [load])
+  }, [load, pathname])
 
   // Live updates over server-sent events once a conversation exists; the browser reconnects by itself.
   const hasConversation = status !== null
   useEffect(() => {
-    if (!hasConversation || typeof EventSource === 'undefined') return
+    if (!visible || !hasConversation || typeof EventSource === 'undefined') return
     let failures = 0
     let typingTimer: ReturnType<typeof setTimeout> | undefined
     const source = new EventSource(`/api/chat/stream?since=${lastId.current}`)
@@ -87,11 +91,11 @@ function LiveChat(_props: PluginProps) {
       if (++failures >= 3) source.close()
     }
     return () => { source.close(); clearTimeout(typingTimer); setLive(false) }
-  }, [hasConversation, merge])
+  }, [visible, hasConversation, merge])
 
   // Fallback polling (no EventSource, or the stream keeps failing): every 3 s while open, 25 s for the badge.
   useEffect(() => {
-    if (!status || live) return
+    if (!visible || !status || live) return
     const timer = setInterval(async () => {
       const response = await fetch(`/api/chat?since=${lastId.current}`, { cache: 'no-store' }).catch(() => null)
       if (!response?.ok) return
@@ -100,7 +104,7 @@ function LiveChat(_props: PluginProps) {
       merge(data.messages)
     }, open ? 3000 : 25_000)
     return () => clearInterval(timer)
-  }, [status, open, live, merge])
+  }, [visible, status, open, live, merge])
 
   /** Lets the operator see "typing…" (at most every 3 s, only when a person is on the other side). */
   function onType(value: string) {
@@ -149,7 +153,7 @@ function LiveChat(_props: PluginProps) {
   }
 
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }
-  if (!state) return null
+  if (!state || !visible) return null
   const current = status || 'NEW'
   const showContact = !contactSaved && state.askContact && (current === 'WAITING' || current === 'OPEN')
 
