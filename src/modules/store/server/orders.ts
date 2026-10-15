@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import { db } from '@/platform/database/prisma'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { encryptDigitalDelivery } from '@/modules/catalog/server/digital-delivery'
@@ -427,6 +428,7 @@ export async function customerServiceOrders(userId: number) {
   })
   return rows.map((row) => {
     const meta = parseMeta(row.meta)
-    return { id: row.id, status: row.status, total: minorToNumber(row.totalMinor, row.currency), currency: row.currency, createdAt: row.createdAt, title: row.plan?.name || String(meta.planName || (meta.kind === 'membership' ? 'اشتراک VIP' : 'سفارش')), invoiceNumber: row.invoice?.number || '' }
+    const named = invoiceSubject({ kind: 'BILLING', planName: row.plan?.name, meta, siteName: '', amountText: '' })
+    return { id: row.id, status: row.status, total: minorToNumber(row.totalMinor, row.currency), currency: row.currency, createdAt: row.createdAt, detail: named.detail, title: (named.title !== 'فاکتور' && named.title) || row.plan?.name || String(meta.planName || (meta.kind === 'membership' ? 'اشتراک VIP' : 'سفارش')), invoiceNumber: row.invoice?.number || '' }
   })
 }

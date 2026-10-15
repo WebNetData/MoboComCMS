@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import VpnHome from './VpnHome'
-import { formatCurrency } from '@/shared/money/client'
+import { BASE_CURRENCY, formatCurrency } from '@/shared/money/client'
 import Icon from '@/components/site/Icon'
 
 // Account home: profile banner with completeness, quick actions, 12-week
@@ -26,7 +26,8 @@ type Overview = {
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const ago = (iso: string) => { const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000); if (s < 3600) return `${fa(Math.max(1, Math.floor(s / 60)))} دقیقه پیش`; if (s < 86400) return `${fa(Math.floor(s / 3600))} ساعت پیش`; return `${fa(Math.floor(s / 86400))} روز پیش` }
-const persianDay = (key: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${key}T12:00:00Z`))
+const dayFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+const persianDay = (key: string) => dayFormat.format(new Date(`${key}T12:00:00Z`))
 const STATE: Record<string, [string, string]> = { PENDING: ['در انتظار پرداخت', 'is-warn'], PAID: ['پرداخت‌شده', 'is-ok'], FAILED: ['ناموفق', 'is-bad'], CANCELLED: ['لغوشده', ''], EXPIRED: ['منقضی', ''] }
 const FULFIL: Record<string, string> = { PENDING: 'در صف پردازش', PROCESSING: 'در حال آماده‌سازی', PACKED: 'بسته‌بندی شد', SHIPPED: 'ارسال شد', DELIVERED: 'تحویل شد', CANCELLED: 'لغو شد', RETURNED: 'مرجوع شد' }
 
@@ -74,6 +75,11 @@ export default function DashboardHome() {
     { href: '/dashboard/tickets', label: 'پشتیبانی', icon: 'lifebuoy' },
   ].filter(Boolean) as { href: string; label: string; icon: string }[]
   const shelf = data.games?.counts || {}
+  // The wallet in the site's own currency first; other currencies only when they hold money.
+  const main = data.money.find((w) => w.currency === BASE_CURRENCY) || { currency: BASE_CURRENCY, balance: 0, unpaid: 0, unpaidCount: 0 }
+  const others = data.money.filter((w) => w.currency !== BASE_CURRENCY && w.balance > 0)
+  const unpaid = data.money.filter((w) => w.unpaidCount > 0)
+  const unpaidCount = unpaid.reduce((sum, w) => sum + w.unpaidCount, 0)
   return <div className="ud" dir="rtl">
     <section className="ud-hero">
       <div className="ud-hero-cover" style={p.cover ? { backgroundImage: `url("${p.cover}")` } : { ['--ud-seed' as string]: data.user.avatarColor }} aria-hidden="true" />
@@ -98,8 +104,10 @@ export default function DashboardHome() {
     <nav className="ud-quick" aria-label="دسترسی سریع">{quick.map((q) => <Link key={q.href} href={q.href}><span><Icon name={q.icon} size={18} /></span>{q.label}</Link>)}</nav>
 
     <div className="ud-kpis">
-      {data.money.length ? data.money.map((w) => <Link key={w.currency} href="/dashboard/wallet" className="ud-kpi"><small>موجودی کیف پول</small><b className="num">{money(w.balance, w.currency)}</b>{w.unpaid > 0 && <span className="ud-warn">{fa(w.unpaidCount)} فاکتور پرداخت‌نشده · {money(w.unpaid, w.currency)}</span>}</Link>)
-        : <Link href="/dashboard/wallet" className="ud-kpi"><small>کیف پول</small><b className="num">۰</b><span>شارژ کنید</span></Link>}
+      <Link href="/dashboard/wallet" className="ud-kpi is-wallet"><small>موجودی کیف پول</small><b className="num">{money(main.balance, main.currency)}</b>
+        {others.length > 0 ? <span className="ud-kpi-more">{others.map((w) => <i key={w.currency} className="num">{money(w.balance, w.currency)}</i>)}</span> : <span>شارژ و پرداخت با یک لمس</span>}</Link>
+      <Link href="/dashboard/invoices?status=UNPAID" className={`ud-kpi${unpaidCount ? ' is-warn' : ''}`}><small>فاکتورهای پرداخت‌نشده</small><b className="num">{fa(unpaidCount)}</b>
+        <span>{unpaidCount ? unpaid.map((w) => money(w.unpaid, w.currency)).join(' · ') : 'همه پرداخت شده‌اند'}</span></Link>
       {m.store && <Link href="/dashboard/orders" className="ud-kpi"><small>سفارش‌های در جریان</small><b className="num">{fa(data.orders.inProgress)}</b><span>پیگیری مرسوله‌ها</span></Link>}
       <Link href="/dashboard/notifications" className={`ud-kpi${data.inbox.unread ? ' is-hot' : ''}`}><small>اعلان خوانده‌نشده</small><b className="num">{fa(data.inbox.unread)}</b><span>{m.forum ? `${fa(data.inbox.messages)} پیام خصوصی تازه` : 'صندوق اعلان‌ها'}</span></Link>
       {m.membership && <Link href="/vip" className={`ud-kpi${data.vip ? ' is-vip' : ''}`}><small>اشتراک ویژه</small><b>{data.vip ? `${fa(data.vip.daysLeft)} روز` : 'غیرفعال'}</b><span>{data.vip ? `تا ${new Date(data.vip.endsAt).toLocaleDateString('fa-IR')}` : 'مشاهدهٔ پلن‌ها'}</span></Link>}
@@ -117,7 +125,7 @@ export default function DashboardHome() {
         {m.store && <section className="ud-card">
           <header className="ud-card-head"><h2>سفارش‌های اخیر</h2><Link href="/dashboard/orders">همهٔ سفارش‌ها</Link></header>
           {data.orders.recent.length ? <ul className="ud-orders">{data.orders.recent.map((o) => <li key={o.id}><Link href={`/dashboard/orders/${o.id}`}>
-            {o.image ? <img src={o.image} alt="" /> : <span className="ud-ph">🛍</span>}
+            {o.image ? <img src={o.image} alt="" /> : <span className="ud-ph"><Icon name="bag" size={18} /></span>}
             <span className="ud-grow"><b>{o.title}{o.more > 0 && <small> و {fa(o.more)} کالای دیگر</small>}</b><small className="num">#{fa(o.id)} · {new Date(o.createdAt).toLocaleDateString('fa-IR')}</small></span>
             <span className="ud-end"><b className="num">{money(o.total, o.currency)}</b><span className={`ud-state ${STATE[o.status]?.[1] || ''}`}>{o.status === 'PAID' && o.fulfilment ? FULFIL[o.fulfilment] || STATE.PAID[0] : STATE[o.status]?.[0] || o.status}</span></span>
           </Link></li>)}</ul> : <p className="ud-muted">سفارشی ثبت نکرده‌اید. <Link href="/products">سری به فروشگاه بزنید</Link>.</p>}

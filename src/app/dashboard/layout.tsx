@@ -30,6 +30,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const adsOn = useModuleEnabled('ads')
   const repoOn = useModuleEnabled('repository')
   const [hasLicenses, setHasLicenses] = useState(false)
+  // The customer club is offered only while the shop runs it.
+  const [clubOn, setClubOn] = useState(false)
   const communityOn = useModuleEnabled('community')
   const paywallOn = useModuleEnabled('paywall')
   const marketplaceOn = useModuleEnabled('marketplace')
@@ -59,6 +61,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [status, repoOn])
 
   useEffect(() => {
+    if (status !== 'authenticated' || !storeOn) return
+    let active = true
+    fetch('/api/store/club', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (active) setClubOn(Boolean(d?.enabled)) }).catch(() => null)
+    return () => { active = false }
+  }, [status, storeOn])
+
+  useEffect(() => {
     if (status === 'unauthenticated') window.location.href = '/login?next=/dashboard'
   }, [status])
 
@@ -84,7 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       { href: '/dashboard/wallet', label: t.wallet, icon: 'wallet' },
       { href: '/dashboard/requests', label: L('درخواست‌های من', 'My requests'), icon: 'receipt' },
       ...(paywallOn ? [{ href: '/dashboard/purchases', label: L('فایل‌ها و مقاله‌های خریده', 'Bought files & articles'), icon: 'lock' }] : []),
-      ...(storeOn ? [{ href: '/dashboard/addresses', label: L('آدرس‌های ارسال', 'Shipping addresses'), icon: 'pin' }, { href: '/dashboard/gift-cards', label: L('کارت هدیه', 'Gift cards'), icon: 'gift' }, { href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
+      ...(storeOn ? [{ href: '/dashboard/addresses', label: L('آدرس‌های ارسال', 'Shipping addresses'), icon: 'pin' }, { href: '/dashboard/gift-cards', label: L('کارت هدیه', 'Gift cards'), icon: 'gift' }] : []),
+      ...(storeOn && clubOn ? [{ href: '/dashboard/club', label: L('باشگاه مشتریان', 'Customer club'), icon: 'crown' }] : []),
       ...(repoOn && hasLicenses ? [{ href: '/dashboard/licenses', label: L('لایسنس‌های من', 'My licenses'), icon: 'key' }] : []),
     ] },
     { id: 'mine', title: L('محتوای من', 'My things'), icon: 'bookmark', items: [

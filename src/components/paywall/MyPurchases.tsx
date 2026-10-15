@@ -14,7 +14,8 @@ export default function MyPurchases() {
     fetch('/api/me/purchases', { cache: 'no-store' }).then(async (response) => {
       const body = await response.json().catch(() => null)
       if (response.ok) setRows(body?.purchases || [])
-      else setError(body?.error || 'بارگذاری نشد')
+      // A switched-off module answers in English for machines; members read why in Persian.
+      else setError(body?.module ? 'خرید فایل و مقاله در این سایت فعال نیست.' : body?.error || 'بارگذاری نشد')
     }).catch(() => setError('ارتباط برقرار نشد'))
   }, [])
   return (

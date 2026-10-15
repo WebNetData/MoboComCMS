@@ -1,151 +1,113 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { CLOSE_REASON_LABEL } from '@/modules/billing/domain/invoice-rules'
+import { useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
-import StatusBadge from '@/components/StatusBadge'
-import { useI18n } from '@/i18n/LocaleProvider'
+import Icon from '@/components/site/Icon'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
-import { formatCurrency } from '@/shared/money/client'
-
-const untilFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+import { CLOSE_REASON_LABEL } from '@/modules/billing/domain/invoice-rules'
+import { BASE_CURRENCY, formatCurrency } from '@/shared/money/client'
 
 interface Invoice {
-  id: number
-  number: string
-  title: string
-  detail?: string
-  expiresAt?: string | null
-  closedReason?: string
-  kind: string
-  subtotal: number
-  discount: number
-  tax: number
-  total: number
-  currency: string
-  status: string
-  gatewayName: string
-  provider: string
-  paidCrypto: string
-  paidAt: string | null
-  issuedAt: string
-  dueAt: string | null
-  url: string
-  paymentUrl: string
-  deliveryStatus: string
-  subscriptionId: number | null
+  id: number; number: string; title: string; detail?: string; expiresAt?: string | null; closedReason?: string; kind: string
+  total: number; currency: string; status: string; paidAt: string | null; issuedAt: string; dueAt: string | null
+  url: string; paymentUrl: string; deliveryStatus: string; subscriptionId: number | null
 }
+type Totals = { currency: string; paid: number; unpaid: number }
 
+const FILTERS = [['', 'همه'], ['UNPAID', 'پرداخت‌نشده'], ['PAID', 'پرداخت‌شده'], ['VOID', 'باطل‌شده'], ['REFUNDED', 'بازپرداخت']] as const
+const STATUS: Record<string, [string, string]> = { UNPAID: ['پرداخت‌نشده', 'is-warn'], PAID: ['پرداخت‌شده', 'is-ok'], VOID: ['باطل‌شده', 'is-off'], REFUNDED: ['بازپرداخت', 'is-info'], DRAFT: ['پیش‌نویس', 'is-off'] }
+const PAGE = 20
+const fa = (n: number) => n.toLocaleString('fa-IR')
+const dayFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', year: 'numeric', month: 'long', day: 'numeric' })
+const untilFormat = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+const money = (n: number, currency: string) => formatCurrency(n, currency, 'fa-IR')
+/** Amounts per currency, the site's own first; nothing when all are zero. */
+const amounts = (totals: Totals[], field: 'paid' | 'unpaid') => totals.filter((x) => x[field] > 0).sort((a, b) => (a.currency === BASE_CURRENCY ? -1 : b.currency === BASE_CURRENCY ? 1 : 0)).map((x) => money(x[field], x.currency))
+const deliveryLabel = (value: string) => (value === 'DELIVERED' ? 'تحویل داده شد' : value === 'RETRYING' ? 'تحویل در حال تلاش دوباره' : 'در حال آماده‌سازی تحویل')
+
+/** The member's invoices: what each is for, what is due, and the one thing to do next. */
 export default function CustomerInvoicesPage() {
-  const { t, locale } = useI18n()
   const vpnOn = useModuleEnabled('vpn')
-  const isFa = locale === 'fa'
   const [rows, setRows] = useState<Invoice[]>([])
-  const [totals, setTotals] = useState<{ currency: string; paid: number; unpaid: number }[]>([])
+  const [totals, setTotals] = useState<Totals[]>([])
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
   const [status, setStatus] = useState('')
+  const [shown, setShown] = useState(PAGE)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const res = await fetch('/api/my/invoices')
-    if (res.ok) {
-      const data = await res.json()
-      setRows(data.invoices || [])
-      setTotals(data.totalsByCurrency || [])
-    }
-    setLoading(false)
-  }, [])
+  // A link may ask for one status (?status=UNPAID, from the account home).
+  useEffect(() => { const wanted = new URLSearchParams(window.location.search).get('status') || ''; if (FILTERS.some(([id]) => id === wanted)) setStatus(wanted) }, [])
 
   useEffect(() => {
-    load()
-  }, [load])
+    let live = true
+    fetch('/api/my/invoices', { cache: 'no-store' })
+      .then(async (response) => {
+        const data = response.ok ? await response.json().catch(() => null) : null
+        if (!live) return
+        if (!data) { setFailed(true); return }
+        setRows(data.invoices || []); setTotals(data.totalsByCurrency || [])
+      })
+      .catch(() => { if (live) setFailed(true) })
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [])
 
-  const money = (n: number, currency: string) => formatCurrency(n, currency, isFa ? 'fa-IR' : 'en-US')
-  const totalsText = (field: 'paid' | 'unpaid') => totals.length ? totals.map((x) => money(x[field], x.currency)).join(' · ') : '—'
-  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US') : '—')
-  const filtered = status ? rows.filter((r) => r.status === status) : rows
-  const deliveryLabel = (value: string) => value === 'DELIVERED' ? (isFa ? 'تحویل داده شد' : 'Delivered') : value === 'RETRYING' ? (isFa ? 'در حال تلاش دوباره' : 'Retrying delivery') : (isFa ? 'در حال آماده‌سازی' : 'Preparing delivery')
+  const counts = useMemo(() => rows.reduce<Record<string, number>>((acc, row) => { acc[row.status] = (acc[row.status] || 0) + 1; return acc }, {}), [rows])
+  const filtered = status ? rows.filter((row) => row.status === status) : rows
+  const unpaidAmounts = amounts(totals, 'unpaid'), paidAmounts = amounts(totals, 'paid')
+  const pick = (value: string) => { setStatus(value); setShown(PAGE); window.history.replaceState(null, '', value ? `?status=${value}` : window.location.pathname) }
 
-  return (
-    <div>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <div>
-          <h1 className="h2">{t.myInvoices}</h1>
-          <p className="muted">{t.myInvoicesHint}</p>
-        </div>
-        {vpnOn && <Link href="/plans" className="btn btn-primary">{t.newPlan}</Link>}
-      </div>
+  return <div className="dt-page" dir="rtl">
+    <header className="dt-head">
+      <div><h1>فاکتورهای من</h1><p>هر فاکتور، اینکه برای چیست و قدم بعدی آن؛ پرداخت، مشاهده یا دریافت PDF.</p></div>
+      {vpnOn && <Link href="/plans" className="btn btn-primary"><Icon name="plus" size={16} /> خرید پلن</Link>}
+    </header>
 
-      <div className="grid-3 mb-6">
-        <div className="card kpi kpi-green">
-          <div className="kpi-icon">✅</div>
-          <div><div className="muted text-xs">{t.totalPaid}</div><div className="num text-xl font-extrabold">{totalsText('paid')}</div></div>
-        </div>
-        <div className="card kpi kpi-amber">
-          <div className="kpi-icon">⏳</div>
-          <div><div className="muted text-xs">{t.unpaidAmount}</div><div className="num text-xl font-extrabold">{totalsText('unpaid')}</div></div>
-        </div>
-        <div className="card kpi">
-          <div className="kpi-icon">📄</div>
-          <div><div className="muted text-xs">{t.invoices}</div><div className="num text-2xl font-extrabold">{rows.length}</div></div>
-        </div>
-      </div>
-
-      <div className="card mb-6">
-        <div className="tabs">
-          {['', 'UNPAID', 'PAID', 'VOID', 'REFUNDED'].map((s) => (
-            <button key={s || 'all'} className={`tab ${status === s ? 'tab-active' : ''}`} onClick={() => setStatus(s)}>
-              {s ? (t as Record<string, string>)[`st${s}`] || s : t.all}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card overflow-x-auto">
-        {loading ? (
-          <p className="muted text-center py-8">{t.loading}</p>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-10">
-            <p className="muted mb-3">{t.noInvoices}</p>
-            {vpnOn && <Link href="/plans" className="btn btn-primary">{t.viewPlans}</Link>}
-          </div>
-        ) : (
-          <table className="data">
-            <thead>
-              <tr>
-                <th>{t.invoiceNo}</th>
-                <th>{t.item}</th>
-                <th>{t.total}</th>
-                <th>{t.status}</th>
-                <th>{isFa ? 'تحویل' : 'Delivery'}</th>
-                <th>{t.issuedAt}</th>
-                <th>{t.dueAt}</th>
-                <th>{t.actions}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((i) => (
-                <tr key={i.id}>
-                  <td className="num font-semibold" dir="ltr">{i.number}</td>
-                  <td><span className="font-semibold">{i.title}</span>{i.detail && <div className="invoice-item-detail">{i.detail}</div>}{i.expiresAt && <div className="inv-chip is-time">تا {untilFormat.format(new Date(i.expiresAt))} فعال است</div>}{i.closedReason && <div className="inv-chip is-closed">بسته‌شده: {CLOSE_REASON_LABEL[i.closedReason] || 'قانون خودکار'}</div>}</td>
-                  <td className="num font-semibold">{money(i.total, i.currency)}</td>
-                  <td><StatusBadge value={i.status} /></td>
-                  <td>{i.status === 'PAID' ? <span className={i.deliveryStatus === 'DELIVERED' ? 'success-text' : 'muted'}>{deliveryLabel(i.deliveryStatus)}</span> : '—'}</td>
-                  <td className="num">{fmtDate(i.issuedAt)}</td>
-                  <td className="num">{fmtDate(i.dueAt)}</td>
-                  <td>
-                    <div className="flex gap-2 flex-wrap">
-                      <Link href={i.url} className={`badge ${i.status === 'UNPAID' ? 'badge-green' : 'badge-gray'}`}>{i.status === 'UNPAID' ? t.payNow : t.view}</Link>
-                      {i.status === 'UNPAID' && i.paymentUrl && <a href={i.paymentUrl} className="badge badge-green">{isFa ? 'ادامه پرداخت' : 'Resume payment'}</a>}
-                      {i.subscriptionId && <Link href={`/dashboard/subscriptions/${i.subscriptionId}`} className="badge badge-gray">{t.viewSubscription}</Link>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+    <div className="dt-tiles">
+      <button type="button" className={`dt-tile is-warn${status === 'UNPAID' ? ' is-on' : ''}`} onClick={() => pick('UNPAID')}>
+        <span className="dt-tile-icon"><Icon name="clock" size={18} /></span><small>در انتظار پرداخت</small><b className="num">{fa(counts.UNPAID || 0)}</b><em>{unpaidAmounts.join(' · ') || 'بدهی ندارید'}</em>
+      </button>
+      <button type="button" className={`dt-tile is-ok${status === 'PAID' ? ' is-on' : ''}`} onClick={() => pick('PAID')}>
+        <span className="dt-tile-icon"><Icon name="check" size={18} /></span><small>پرداخت‌شده</small><b className="num">{fa(counts.PAID || 0)}</b><em>{paidAmounts.join(' · ') || '—'}</em>
+      </button>
+      <button type="button" className={`dt-tile${status === '' ? ' is-on' : ''}`} onClick={() => pick('')}>
+        <span className="dt-tile-icon"><Icon name="receipt" size={18} /></span><small>همهٔ فاکتورها</small><b className="num">{fa(rows.length)}</b><em>از ابتدای عضویت</em>
+      </button>
     </div>
-  )
+
+    <nav className="dt-chips" aria-label="وضعیت فاکتور">
+      {FILTERS.map(([id, label]) => <button key={id || 'all'} type="button" aria-pressed={status === id} className={status === id ? 'is-on' : ''} onClick={() => pick(id)}>{label}{id && counts[id] ? <i>{fa(counts[id])}</i> : null}</button>)}
+    </nav>
+
+    {loading ? <div className="dt-skeleton" aria-busy="true"><i /><i /><i /></div>
+      : failed ? <div className="dt-empty is-bad" role="alert"><Icon name="receipt" size={28} /><b>فهرست فاکتورها دریافت نشد</b><span>اتصال را بررسی کنید و صفحه را دوباره باز کنید.</span></div>
+      : !filtered.length ? <div className="dt-empty"><Icon name="receipt" size={30} /><b>{status ? 'فاکتوری با این وضعیت ندارید' : 'هنوز فاکتوری ندارید'}</b><span>{status === 'UNPAID' ? 'همهٔ فاکتورهایتان پرداخت شده‌اند.' : 'فاکتور هر خرید یا شارژ کیف پول این‌جا می‌آید.'}</span></div>
+      : <>
+        <ul className="dt-list">{filtered.slice(0, shown).map((invoice) => {
+          const [label, tone] = STATUS[invoice.status] || [invoice.status, '']
+          const due = invoice.status === 'UNPAID'
+          return <li key={invoice.id} className={`dt-row${due ? ' is-due' : ''}`}>
+            <span className={`dt-row-icon ${tone}`} aria-hidden="true"><Icon name={invoice.kind === 'WALLET_TOPUP' ? 'wallet' : 'receipt'} size={18} /></span>
+            <div className="dt-row-main">
+              <Link href={invoice.url} className="dt-row-title">{invoice.title}</Link>
+              {invoice.detail && <p className="dt-row-detail">{invoice.detail}</p>}
+              <small><bdi dir="ltr">{invoice.number}</bdi> · {dayFormat.format(new Date(invoice.issuedAt))}{due && invoice.dueAt ? ` · سررسید ${dayFormat.format(new Date(invoice.dueAt))}` : ''}{invoice.status === 'PAID' && invoice.kind !== 'WALLET_TOPUP' && invoice.deliveryStatus ? ` · ${deliveryLabel(invoice.deliveryStatus)}` : ''}</small>
+              {(invoice.expiresAt || invoice.closedReason) && <span className="dt-row-tags">
+                {invoice.expiresAt && <i className="dt-tag is-time">تا {untilFormat.format(new Date(invoice.expiresAt))} فعال است</i>}
+                {invoice.closedReason && <i className="dt-tag is-bad">بسته‌شده: {CLOSE_REASON_LABEL[invoice.closedReason] || 'قانون خودکار'}</i>}
+              </span>}
+            </div>
+            <div className="dt-row-end">
+              <b className="num">{money(invoice.total, invoice.currency)}</b>
+              <span className={`dt-state ${tone}`}>{label}</span>
+              <div className="dt-row-actions">
+                {due ? <Link href={invoice.url} className="btn btn-primary btn-sm">پرداخت</Link> : <Link href={invoice.url} className="btn btn-ghost btn-sm">مشاهده</Link>}
+                {invoice.subscriptionId && <Link href={`/dashboard/subscriptions/${invoice.subscriptionId}`} className="btn btn-ghost btn-sm">اشتراک</Link>}
+              </div>
+            </div>
+          </li>
+        })}</ul>
+        {filtered.length > shown && <button type="button" className="dt-more" onClick={() => setShown((count) => count + PAGE)}>نمایش {fa(Math.min(PAGE, filtered.length - shown))} فاکتور دیگر <small>({fa(filtered.length - shown)} باقی‌مانده)</small></button>}
+      </>}
+  </div>
 }
