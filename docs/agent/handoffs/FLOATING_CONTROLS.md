@@ -1,0 +1,9 @@
+# Translation and chat overlap — 2026-10-15
+
+Continue on `fix/queue-selects-chat` in `.mobocom/autonomous-foundation`; preserve the owner's independent queue/select CSS. Prior chat placement implementation remains canonical (see CHAT_PLACEMENT.md).
+
+Actual mobile baseline reproduced `.mc-translate-button` underneath `.lc-bubble`. Fix is scoped CSS in `src/app/studio.css`: when a real `.lc-root` is present, reserve space for translation above the mobile chat launcher/composer, place its container at the other logical edge and raise it above the chat layer. Keep safe-area spacing and language-menu viewport bounds. Hide the duplicate suggestion while the language chooser is open. Without chat, existing translation placement remains. No React, settings, permission, schema or translation-provider behavior changed.
+
+Verified via actual local PostgreSQL-backed plugins and `scripts/floating-controls.browser.cjs`:1440 light/dark,390 and320 mobile,640×360 landscape, RTL/LTR. Bounds/intersection assertions cover both launchers, translation suggestion and the chat composer. Actual Playwright clicks verify the language chooser stays accessible while chat is open; Escape and chat close work. No language was selected and no translation/content upload to Google was requested. Original chat/plugin configuration and owned staff fixtures were restored.
+
+Evidence under root `.mobocom/floating-controls-evidence/` (baseline and final screenshots, visually inspected), `.mobocom/floating-controls-browser.log`. Use root owned fixture runner `.mobocom/run-chat-placement-browser.cjs floating-controls`; `--baseline` is only for reproducing the old CSS and must fail after the fix. Whitespace diff check passed. CSS-only batch: no new React Doctor, TypeScript, full build or release-stack success is claimed or needed to describe its scope.

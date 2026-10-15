@@ -150,4 +150,11 @@ body{top:0!important}.goog-te-banner-frame,.skiptranslate>iframe,#goog-gt-tt,.go
 /* In the account, admin and reseller panels the side menu ends at that corner with the sign-out button: the widget moves to the other side. */
 @media(min-width:901px){body:has(.app-shell) .mc-translate{inset-inline-start:auto;inset-inline-end:24px;justify-items:end}}
 
+/* Keep the translator accessible beside chat, including its open panel. On narrow
+   screens the suggestion/menu sits above the chat launcher and message composer. */
+body:has(.lc-root) .mc-translate{inset-inline-start:auto;inset-inline-end:max(20px,env(safe-area-inset-left),env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));z-index:81}
+body:has(.lc-root) .mc-translate-menu{max-height:min(320px,calc(100dvh - 100px))}
+.mc-translate:has(.mc-translate-menu) .mc-translate-suggest{display:none}
+@media(max-width:600px){body:has(.lc-root) .mc-translate{inset-inline-end:max(12px,env(safe-area-inset-left),env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom))}body:has(.lc-root) .mc-translate-menu{max-height:min(320px,calc(100dvh - 160px))}}
+
 .studio-item-move{display:flex;gap:6px;justify-content:flex-end}
