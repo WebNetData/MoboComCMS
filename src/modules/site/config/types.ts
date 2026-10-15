@@ -7,6 +7,8 @@ export type ThemeColors = { background: string; surface: string; accent: string;
 export type ThemeManifest = { id: string; name: string; description: string; version: string; extends?: string; colors: ThemeColors; lightColors?: ThemeColors; radius: number }
 export type SiteFonts = { body: string; heading: string }
 export type SiteConfig = {
+  /** Runtime only: UTC year formatted on the server once for hydration-stable footer copyright. */
+  footerYear?: string
   /** Runtime only (from SITE_LOCALES, never stored): languages the visitor may switch between. */
   locales?: string[]
   publicApiEnabled?: boolean
