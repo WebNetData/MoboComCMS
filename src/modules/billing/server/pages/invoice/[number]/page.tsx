@@ -19,6 +19,8 @@ import CardTransferBox from '@/components/billing/CardTransferBox'
 import { IRANIAN_BANKS, formatCard, formatSheba, transferAmounts } from '@/modules/billing/domain/card-transfer'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
+import { getBrandedInvoiceProfile } from '@/modules/billing/server/official-invoice'
+import InvoiceLogo from '@/components/billing/InvoiceLogo'
 
 
 export default async function InvoicePage({ params: paramsPromise }: { params: Promise<{ number: string }> }) {
@@ -69,7 +71,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
   const deliveryPending = invoice.status === 'PAID' && (invoice.kind === 'WALLET_TOPUP' ? !creditedTopup : invoice.productId ? productDelivery?.status !== 'DELIVERED' : Boolean(invoice.orderId && !deliveredSubscription && deliveryJob?.status !== 'DONE'))
   let productMeta: Record<string, unknown> = {}
   try { productMeta = JSON.parse(invoice.order?.meta || '{}') } catch {}
-  const rules = await getInvoiceRules()
+  const [rules, profile] = await Promise.all([getInvoiceRules(), getBrandedInvoiceProfile()])
   const subject = invoiceSubject({ kind: invoice.kind, title: invoice.title, detail: invoice.detail, planName: invoice.plan?.name, productName: invoice.product?.name, meta: productMeta, siteName: settings.brandName || 'موبوکام', amountText: money(invoice.subtotal), notes: invoice.notes })
   const itemTitle = isFa ? subject.title : invoice.plan?.name || invoice.product?.name || t.invoice
   let digitalDelivery = ''
@@ -108,7 +110,7 @@ export default async function InvoicePage({ params: paramsPromise }: { params: P
         <div className="card invoice-sheet">
           <div className="invoice-head">
             <div className="invoice-seller">
-              <span className="invoice-mark" aria-hidden="true">{(settings.brandName || 'M').trim().slice(0, 1)}</span>
+              <InvoiceLogo src={profile.logo} name={settings.brandName || 'M'} className="invoice-mark" />
               <div>
                 <div className="invoice-brand">{settings.brandName || 'MoboComCMS'}</div>
                 <div className="invoice-contact">{settings.supportEmail || 'support@example.com'}{settings.siteUrl && <> · <bdi dir="ltr">{settings.siteUrl.replace(/^https?:\/\//, '')}</bdi></>}</div>

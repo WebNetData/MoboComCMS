@@ -67,7 +67,7 @@ export default function InvoiceProfilePage() {
         </section>
         <section className="sa-card sa-form">
           <header className="sa-card-head"><h2>ظاهر</h2></header>
-          {input('logo', 'نشانی لوگو (اختیاری)', { ltr: true, hint: 'مسیر فایل رسانه (مثل /uploads/logo.png) یا نشانی https' })}
+          {input('logo', 'لوگوی اختصاصی فاکتورها (اختیاری)', { ltr: true, hint: 'خالی بگذارید تا لوگوی اصلی تنظیم‌شده در «هویت بصری» سایت، در همهٔ فاکتورها استفاده شود. برای درج در PDF از تصویر بارگذاری‌شده در رسانهٔ سایت با مسیر /api/media/covers/… استفاده کنید.' })}
           {input('stamp', 'تصویر مهر و امضا (اختیاری)', { ltr: true, hint: 'PNG با پس‌زمینهٔ شفاف بهترین نتیجه را دارد.' })}
           <label className="sa-field"><span>یادداشت پایین صورتحساب</span><textarea className="input" rows={2} maxLength={500} value={profile.footerNote} onChange={(e) => set({ footerNote: e.target.value })} /></label>
         </section>

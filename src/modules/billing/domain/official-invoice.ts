@@ -35,6 +35,11 @@ const image = (value: unknown) => {
   try { const url = new URL(raw); return url.protocol === 'https:' ? url.toString().slice(0, 500) : '' } catch { return '' }
 }
 
+/** Invoice override, then the primary site wordmark, then its compact mark. Print uses the light-surface brand. */
+export function invoiceLogo(override: unknown, site: { wordmark?: unknown; logo?: unknown }): string {
+  return image(override) || image(site.wordmark) || image(site.logo)
+}
+
 export function normalizeInvoiceProfile(input: unknown): InvoiceProfile {
   const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
   const bps = Math.round(Number(raw.vatBps))

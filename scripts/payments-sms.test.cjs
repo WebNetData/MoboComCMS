@@ -167,6 +167,21 @@ test('the invoice PDF is a real document: Persian font embedded, selectable text
   const page = fs.readFileSync(path.resolve(__dirname, '..', 'src/modules/billing/server/pages/invoice/[number]/page.tsx'), 'utf8')
   assert.doesNotMatch(page, /PrintButton/)
   assert.match(page, /\/pdf\?download=1/)
+  // The logo is an embedded asset, not a flattened image of invoice text; no owner storage is touched.
+  const originalCwd = process.cwd(), temp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'owned-invoice-logo-'))
+  try {
+    fs.mkdirSync(path.join(temp, 'public', 'fonts'), { recursive: true }); fs.mkdirSync(path.join(temp, 'storage', 'covers'), { recursive: true })
+    for (const name of ['Regular', 'Bold']) fs.copyFileSync(path.join(originalCwd, 'public', 'fonts', `Vazirmatn-${name}.ttf`), path.join(temp, 'public', 'fonts', `Vazirmatn-${name}.ttf`))
+    await require('sharp')({ create: { width: 300, height: 100, channels: 4, background: '#4f46e5' } }).png().toFile(path.join(temp, 'storage', 'covers', 'owned-logo.png'))
+    process.chdir(temp)
+    const branded = doc(3, 'PAID'); branded.seller = { ...seller, logo: '/api/media/covers/owned-logo.png' }
+    const bytes = await invoicePdf({ doc: branded, link: 'https://example.com/invoice/owned', siteUrl: 'https://example.com', supportEmail: '' })
+    assert.match(bytes.toString('latin1'), /\/Subtype \/Image/)
+    assert.match(bytes.toString('latin1'), /\/Width 300/); assert.match(bytes.toString('latin1'), /\/Height 100/)
+    branded.seller.logo = '/api/media/covers/missing.png'
+    const missing = await invoicePdf({ doc: branded, link: 'https://example.com/invoice/owned', siteUrl: '', supportEmail: '' })
+    assert.doesNotMatch(missing.toString('latin1'), /\/Subtype \/Image/)
+  } finally { process.chdir(originalCwd); fs.rmSync(temp, { recursive: true, force: true }) }
 })
 
 test('the wallet page leads to the plans only while the VPN section is on', () => {
