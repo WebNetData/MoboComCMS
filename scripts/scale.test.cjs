@@ -130,10 +130,12 @@ test('the memory store counts a hit with the time left in its window', async () 
 })
 
 test('every limit that guards a secret is the strict one', () => {
-  const guarded = /rateLimitHit\(`(login:|2fa:|reset:|pwd-change:|register:|gift-redeem|club-redeem:|api-key:|install:|promotion:quote:)/
+  const guarded = /rateLimitHit\(`(login:|email-otp:|sms:otp:|2fa:|reset:|pwd-change:|register:|gift-redeem|club-redeem:|api-key:|install:|promotion:quote:)/
   const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? walk(path.join(dir, entry.name)) : /\.tsx?$/.test(entry.name) ? [path.join(dir, entry.name)] : [])
   const loose = walk(path.join(root, 'src')).filter((file) => guarded.test(fs.readFileSync(file, 'utf8')))
   assert.deepEqual(loose.map((file) => path.relative(root, file)), [])
   const strict = (file) => (fs.readFileSync(path.join(root, file), 'utf8').match(/await rateLimitStrict\(/g) || []).length
-  assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [4, 6, 3, 1])
+  assert.deepEqual([strict('src/modules/identity/auth.ts'), strict('src/modules/identity/server/account-security.ts'), strict('src/modules/store/server/http/marketing.ts'), strict('src/modules/public-api/server/api-keys.ts')], [5, 6, 3, 1])
+  assert.equal(strict('src/modules/identity/server/email-otp.ts'), 1, 'email issuance enforces all three strict buckets')
+  assert.equal(strict('src/modules/sms/server/sms.ts'), 2, 'SMS issuance has strict recipient/IP limits')
 })

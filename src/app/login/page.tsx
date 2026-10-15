@@ -8,6 +8,7 @@ import { dict } from '@/i18n/config'
 import TelegramLoginButton from './TelegramLoginButton'
 import { telegramConfig } from '@/modules/notifications/server/telegram'
 import { otpLoginAvailable } from '@/modules/sms/server/sms'
+import { emailOtpAvailable } from '@/modules/identity/server/email-otp'
 import SignedIn from './SignedIn'
 import { safeNext, signedInPerson } from './signed-in-person'
 
@@ -30,7 +31,7 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
   const t = dict(locale)
   const person = await signedInPerson()
   if (person) return <><SiteHeader theme={theme} /><AuthFrame variant="signed"><SignedIn person={person} next={safeNext(nextPath)} /></AuthFrame></>
-  const [telegram, otp] = await Promise.all([telegramConfig(), otpLoginAvailable().catch(() => false)])
+  const [telegram, otp, emailOtp] = await Promise.all([telegramConfig(), otpLoginAvailable().catch(() => false), emailOtpAvailable().catch(() => false)])
   const botUsername = telegram.ready ? telegram.username : ''
   let registerHref = '/register'
   if (nextPath.startsWith('/telegram/connect?')) {
@@ -41,7 +42,7 @@ async function LoginContent({ nextPath }: { nextPath: string }) {
     <>
       <SiteHeader theme={theme} />
       <AuthFrame>
-        <LoginForm otp={otp} telegramLogin={<TelegramLoginButton botUsername={botUsername} />} />
+        <LoginForm otp={otp} emailOtp={emailOtp} telegramLogin={<TelegramLoginButton botUsername={botUsername} />} />
         <div className="auth-alternative">
           <p className="muted">
             {t.noAccount} <Link href={registerHref} className="text-primary-var">{t.register}</Link>

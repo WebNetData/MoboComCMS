@@ -83,7 +83,8 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.phone || !credentials?.code) return null
         const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
         if (!(await rateLimitStrict(`login:otp:ip:${ip}`, 30, 10 * 60_000)).ok) return null
-        const { userForPhone, verifyOtp } = await import('@/modules/sms/server/sms')
+        const { userForPhone, verifyOtp, otpLoginAvailable } = await import('@/modules/sms/server/sms')
+        if (!await otpLoginAvailable()) return null
         let phone: string
         try {
           // Checked first without using the code up, so asking for the 2-step code does not cost a new SMS.
@@ -96,10 +97,28 @@ export const authOptions: NextAuthOptions = {
         try {
           await verifyOtp({ phone, code: credentials.code, purpose: 'LOGIN' })
           const user = await userForPhone(phone)
+          if (user && ((existing && user.id !== existing.id) || user.totpEnabledAt?.getTime() !== existing?.totpEnabledAt?.getTime())) return null
           return user ? sessionUser(user) : null
         } catch {
           return null
         }
+      },
+    }),
+    CredentialsProvider({
+      id: 'email-otp',
+      name: 'Email code',
+      credentials: { email: { label: 'Email', type: 'text' }, code: { label: 'Code', type: 'text' }, totp: { label: '2-step code', type: 'text' } },
+      async authorize(credentials, req) {
+        if (!credentials?.email || !credentials?.code) return null
+        const ip = clientIp(new Headers((req as { headers?: HeadersInit } | undefined)?.headers || {}))
+        if (!(await rateLimitStrict(`login:email-otp:ip:${ip}`, 30, 10 * 60_000)).ok) return null
+        const { verifyEmailCode, userForEmailCode } = await import('@/modules/identity/server/email-otp')
+        const verified = await verifyEmailCode({ email: credentials.email, code: credentials.code, consume: false })
+        if (!verified) return null
+        if (verified.user) await secondFactor(verified.user, credentials.totp)
+        const user = await userForEmailCode({ email: credentials.email, code: credentials.code })
+        if (user?.totpEnabledAt?.getTime() !== verified.user?.totpEnabledAt?.getTime()) return null
+        return user ? sessionUser(user) : null
       },
     }),
     CredentialsProvider({

@@ -4,6 +4,11 @@
 export const RESET_TTL_MS = 30 * 60_000
 export const BACKUP_CODE_COUNT = 10
 
+export function initialEntryMethod(input: { sms: boolean; email: boolean; registered: boolean; passwordChanged: boolean }): 'phone' | 'email' | 'password' {
+  if (input.registered || input.passwordChanged) return 'password'
+  return input.sms ? 'phone' : input.email ? 'email' : 'password'
+}
+
 /** Why a new password is refused, or '' when it is acceptable. */
 export function passwordProblem(password: unknown, context: { email?: string; name?: string } = {}): string {
   const value = typeof password === 'string' ? password : ''
@@ -35,14 +40,16 @@ export type SecurityPolicy = {
   emailReset: boolean
   /** Password reset by an SMS code to the verified mobile. */
   smsReset: boolean
+  /** Passwordless email entry, delivered by the site's configured SMTP. */
+  emailOtp: boolean
 }
 
-export const DEFAULT_SECURITY_POLICY: SecurityPolicy = { requireAdmin2fa: false, emailReset: true, smsReset: true }
+export const DEFAULT_SECURITY_POLICY: SecurityPolicy = { requireAdmin2fa: false, emailReset: true, smsReset: true, emailOtp: true }
 
 export function normalizeSecurityPolicy(input: unknown): SecurityPolicy {
   const raw = input && typeof input === 'object' ? input as Record<string, unknown> : {}
   const flag = (key: keyof SecurityPolicy) => typeof raw[key] === 'boolean' ? raw[key] as boolean : DEFAULT_SECURITY_POLICY[key]
-  return { requireAdmin2fa: flag('requireAdmin2fa'), emailReset: flag('emailReset'), smsReset: flag('smsReset') }
+  return { requireAdmin2fa: flag('requireAdmin2fa'), emailReset: flag('emailReset'), smsReset: flag('smsReset'), emailOtp: flag('emailOtp') }
 }
 
 /** A session is void once the password changed after it signed in (1s slack for clock rounding). */

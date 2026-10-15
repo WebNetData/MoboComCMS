@@ -63,7 +63,8 @@
 .auth-form-eyebrow { display: inline-block; padding: 3px 10px; border-radius: 99px; background: var(--primary-soft); }
 
 /* The way in: mobile or e-mail. */
-.auth-page .auth-mode { position: relative; padding: 5px; border-radius: 16px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.auth-page .auth-mode { position: relative; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 5px; border-radius: 16px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.auth-code-recipient { display: inline-block; max-width: 100%; overflow-wrap: anywhere; unicode-bidi: isolate; }
 .auth-page .auth-mode button { position: relative; z-index: 1; min-height: 44px; border-radius: 12px; font-weight: 750; color: var(--muted); transition: color .2s ease, background-color .2s ease, box-shadow .2s ease; }
 .auth-page .auth-mode button.is-active { color: var(--text); background: var(--card); box-shadow: 0 6px 16px -10px rgb(0 0 0 / .45), 0 0 0 1px var(--border); }
 
