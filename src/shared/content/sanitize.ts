@@ -25,6 +25,7 @@ const OPTIONS: sanitizeHtml.IOptions = {
     span: ['class', 'style'],
     div: ['class', 'style'],
     p: ['class', 'style'],
+    pre: ['tabindex', 'role', 'aria-label'],
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan', 'scope'],
     label: ['for'],
@@ -45,6 +46,8 @@ const OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemesByTag: { img: ['http', 'https', 'data'] },
   allowProtocolRelative: false,
   transformTags: {
+    // Scrollable code stays reachable by keyboard; author HTML cannot choose its tab order.
+    pre: (tagName, attribs) => ({ tagName, attribs: { ...attribs, tabindex: '0', role: 'region', 'aria-label': 'بلوک کد' } }),
     // external links open in a new tab, safely
     a: (tagName, attribs) => {
       const href = attribs.href || ''

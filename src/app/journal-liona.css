@@ -25,7 +25,7 @@
 .journal-lh .mm-bar-wrap { --mm-surface: var(--lh-bg-2); --mm-soft: var(--lh-card); --mm-line: var(--lh-line); --mm-text: var(--lh-text); --mm-muted: var(--lh-muted); --mm-accent: var(--lh-accent); }
 
 /* ---------- atoms ---------- */
-.lh-badge { --lh-c: var(--lh-accent); display: inline-block; padding: 2px 9px; border-radius: 6px; background: var(--lh-c); color: #fff; font-size: 10.5px; font-style: normal; font-weight: 800; line-height: 1.8; }
+.lh-badge { --lh-c: var(--lh-accent); display: inline-block; padding: 2px 9px; border-radius: 6px; background: color-mix(in srgb, var(--lh-c) 40%, #0e0f16); color: #fff; font-size: 10.5px; font-style: normal; font-weight: 800; line-height: 1.8; }
 .lh-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--lh-muted); font-size: 11px; }
 .lh-meta > span { display: inline-flex; align-items: center; gap: 4px; }
 .lh-author i { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--lh-accent); color: #062a31; font-size: 10px; font-style: normal; font-weight: 800; }
@@ -111,7 +111,7 @@
 .lh-chips small { font-size: 10.5px; opacity: .85; }
 .lh-chips.is-small { display: flex; flex-wrap: wrap; gap: 8px; }
 .lh-chips.is-small a { display: inline-flex; padding: 6px 14px; border-radius: 999px; background: var(--lh-card); color: var(--lh-muted); box-shadow: none; font-size: 12.5px; font-weight: 700; }
-.lh-chips.is-small a.is-active, .lh-chips.is-small a:hover { background: var(--lh-c); color: #fff; }
+.lh-chips.is-small a.is-active, .lh-chips.is-small a:hover { background: color-mix(in srgb, var(--lh-c) 40%, #0e0f16); color: #fff; }
 
 /* ---------- news rows (home-4 bordered boxes) ---------- */
 .lh-boxed-rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
