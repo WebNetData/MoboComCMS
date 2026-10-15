@@ -1,20 +1,17 @@
-import { randomUUID } from 'node:crypto'
-import { basename, join } from 'node:path'
-import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import type { NextRequest } from 'next/server'
-import { sniffImage as imageType } from '@/shared/files/image-type'
+import { preparePrivateImage, PrivateImageError, privateImageDirectory, removePrivateImages, savePrivateImages, type PrivateImage } from '@/shared/files/private-images'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const MAX_FILES = 3
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
-export type TicketFile = { filename: string; originalName: string; mimeType: string; size: number; bytes: Buffer }
+export type TicketFile = PrivateImage
 
 export class TicketUploadError extends Error {
   constructor(message: string, readonly status = 400) { super(message) }
 }
 
-export function ticketFileDirectory() { return join(process.cwd(), 'storage', 'tickets') }
+export function ticketFileDirectory() { return privateImageDirectory('tickets') }
 
 
 export async function parseTicketSubmission(req: NextRequest): Promise<{ body: any; files: TicketFile[] }> {
@@ -45,32 +42,18 @@ export async function parseTicketSubmission(req: NextRequest): Promise<{ body: a
   for (const upload of uploads) {
     if (typeof upload === 'string') continue
     if (upload.size > MAX_FILE_BYTES) throw new TicketUploadError('Each image must be at most 5 MB / هر تصویر حداکثر ۵ مگابایت است', 413)
-    const bytes = Buffer.from(await upload.arrayBuffer())
-    const type = imageType(bytes)
-    if (!type) throw new TicketUploadError('Only PNG, JPEG and WebP images are allowed / فقط تصویر PNG، JPEG یا WebP مجاز است')
-    const originalName = basename(upload.name.replace(/\\/g, '/')).replace(/[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/g, '').slice(0, 120) || `image.${type.extension}`
-    files.push({ filename: `${randomUUID()}.${type.extension}`, originalName, mimeType: type.mimeType, size: bytes.length, bytes })
+    try { files.push(await preparePrivateImage(upload)) }
+    catch (error) { if (error instanceof PrivateImageError) throw new TicketUploadError(error.message, error.status); throw error }
   }
   return { body, files }
 }
 
 export async function saveTicketFiles(files: TicketFile[]) {
-  if (!files.length) return
-  await mkdir(ticketFileDirectory(), { recursive: true })
-  const written: TicketFile[] = []
-  try {
-    for (const file of files) {
-      await writeFile(join(ticketFileDirectory(), file.filename), file.bytes, { flag: 'wx', mode: 0o600 })
-      written.push(file)
-    }
-  } catch (error) {
-    await removeTicketFiles(written)
-    throw error
-  }
+  await savePrivateImages('tickets', files)
 }
 
 export async function removeTicketFiles(files: TicketFile[]) {
-  await Promise.allSettled(files.map(file => unlink(join(ticketFileDirectory(), file.filename))))
+  await removePrivateImages('tickets', files)
 }
 
 export function ticketAttachmentRows(files: TicketFile[]) {

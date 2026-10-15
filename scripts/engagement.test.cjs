@@ -23,6 +23,14 @@ const dl = load('src/modules/downloads/domain/downloads')
 const rv = load('src/modules/reviews/domain/reviews')
 const businesses = load('src/modules/businesses/domain/businesses')
 const businessRequests = load('src/modules/businesses/domain/requests')
+const trust = load('src/modules/businesses/domain/trust')
+
+test('business trust accepts explicit report reasons and bounded private explanations only', () => {
+  assert.equal(trust.reportReason('ABUSE'), 'ABUSE')
+  for (const value of ['constructor', '__proto__', '', null, 'UNREVIEWED']) assert.throws(() => trust.reportReason(value), businesses.BusinessError)
+  assert.equal(trust.trustNote('  A detailed independent decision.  '), 'A detailed independent decision.')
+  for (const value of ['', 'short', null, {}, 'x'.repeat(1001)]) assert.throws(() => trust.trustNote(value), businesses.BusinessError)
+})
 
 test('business requests validate normalized public identities and reviewed claims without trusting client state', () => {
   const note = 'این درخواست برای بررسی مستقل مدیریت و ثبت تجربهٔ خرید است'

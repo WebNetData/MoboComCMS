@@ -217,7 +217,7 @@ function nodeHtml(node: RichTextNode, inherited?: unknown): string {
     case 'taskList': return `<ul class="mcb-tasks"${dirAttr(node, inherited)}>${inner()}</ul>`
     case 'taskItem': return `<li class="mcb-task${node.attrs?.checked === true ? ' is-done' : ''}"><input type="checkbox" disabled${node.attrs?.checked === true ? ' checked' : ''}><div>${inner()}</div></li>`
     case 'blockquote': return `<blockquote${dirAttr(node, inherited)}>${inner()}</blockquote>`
-    case 'codeBlock': { const language = oneOf(CODE_LANGUAGES, node.attrs?.language) || 'plain'; return `<pre dir="ltr"><code class="language-${language}">${(node.content || []).map((child) => escapeHtml(child.text || '')).join('')}</code></pre>` }
+    case 'codeBlock': { const language = oneOf(CODE_LANGUAGES, node.attrs?.language) || 'plain'; return `<pre dir="ltr" tabindex="0" role="region" aria-label="بلوک کد"><code class="language-${language}">${(node.content || []).map((child) => escapeHtml(child.text || '')).join('')}</code></pre>` }
     default: return ''
   }
 }

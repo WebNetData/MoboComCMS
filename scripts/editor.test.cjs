@@ -118,7 +118,7 @@ test('rich text is Tiptap JSON checked against a closed list, and rendered with 
   assert.deepEqual(checked.issues, [])
   assert.deepEqual(rich.normalizeRichText(checked.doc).doc, checked.doc)
   const html = rich.richTextHtml(persian)
-  assert.equal(html, '<h2 class="mcb-align-center" dir="rtl">عنوان</h2><p dir="rtl">متن <strong><em>پررنگ</em></strong> و English mixed 123 <a href="/blog/x">پیوند</a><br><code>کد</code></p><ul dir="rtl"><li><p dir="rtl">یک</p></li><li><p dir="rtl">دو</p><ol start="3" dir="rtl"><li><p dir="rtl">سه</p></li></ol></li></ul><ul class="mcb-tasks" dir="rtl"><li class="mcb-task is-done"><input type="checkbox" disabled checked><div><p dir="rtl">انجام شد</p></div></li></ul><blockquote dir="rtl"><p dir="rtl">نقل</p></blockquote><pre dir="ltr"><code class="language-bash">echo &quot;&lt;b&gt;&quot; &amp;&amp; ls</code></pre><hr>')
+  assert.equal(html, '<h2 class="mcb-align-center" dir="rtl">عنوان</h2><p dir="rtl">متن <strong><em>پررنگ</em></strong> و English mixed 123 <a href="/blog/x">پیوند</a><br><code>کد</code></p><ul dir="rtl"><li><p dir="rtl">یک</p></li><li><p dir="rtl">دو</p><ol start="3" dir="rtl"><li><p dir="rtl">سه</p></li></ol></li></ul><ul class="mcb-tasks" dir="rtl"><li class="mcb-task is-done"><input type="checkbox" disabled checked><div><p dir="rtl">انجام شد</p></div></li></ul><blockquote dir="rtl"><p dir="rtl">نقل</p></blockquote><pre dir="ltr" tabindex="0" role="region" aria-label="بلوک کد"><code class="language-bash">echo &quot;&lt;b&gt;&quot; &amp;&amp; ls</code></pre><hr>')
   // What a hostile value may try.
   const issuesOf = (value) => rich.normalizeRichText(value).issues.map((issue) => issue.code)
   const hostile = richDoc(
@@ -131,7 +131,7 @@ test('rich text is Tiptap JSON checked against a closed list, and rendered with 
     { type: 'codeBlock', attrs: { language: '"><script>' }, content: [text('code', [{ type: 'bold' }])] },
   )
   const out = rich.richTextHtml(hostile)
-  assert.equal(out, '<p dir="ltr">&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;</p><p dir="ltr">x<a href="https://example.com/" target="_blank" rel="noopener noreferrer nofollow">y</a></p><p dir="ltr">p</p><p dir="ltr">c</p><h2 dir="ltr">h1</h2><pre dir="ltr"><code class="language-plain">code</code></pre>')
+  assert.equal(out, '<p dir="ltr">&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;</p><p dir="ltr">x<a href="https://example.com/" target="_blank" rel="noopener noreferrer nofollow">y</a></p><p dir="ltr">p</p><p dir="ltr">c</p><h2 dir="ltr">h1</h2><pre dir="ltr" tabindex="0" role="region" aria-label="بلوک کد"><code class="language-plain">code</code></pre>')
   assert.doesNotMatch(out, /<script|<iframe|<img| on[a-z]+="|href="javascript|style="/)
   assert.deepEqual([...new Set(issuesOf(hostile))].sort(), ['rich-text.color', 'rich-text.heading', 'rich-text.link', 'rich-text.mark', 'rich-text.node'])
   const kept = rich.normalizeRichText(hostile).doc
@@ -375,7 +375,7 @@ test('text with any Persian letter reads from the right; only all-Latin text rea
   assert.match(field, /BlockAttributes, TypedDirection\]/)
   // The older HTML editor follows the same rule, starts right to left, and its body field is not mistaken for an English one.
   const old = src('src/components/RichEditor.tsx')
-  assert.match(old, /dir = 'rtl', minHeight/); assert.match(old, /\n      TypedDirection,\n/)
+  assert.match(old, /dir = 'rtl', minHeight/); assert.match(old, /\r?\n      TypedDirection,\r?\n/)
   const crud = src('src/app/admin/cms/AdminCrud.tsx').match(/dir=\{fl\.dir \|\| \((.+?) \? 'ltr' : 'rtl'\)\}/)[1]
   const isLtr = (key) => new Function('fl', `return ${crud}`)({ key })
   for (const [key, ltr] of [['content', false], ['excerpt', false], ['contentEn', true], ['titleEn', true], ['agenda', false]]) assert.equal(isLtr(key), ltr, key)
@@ -404,7 +404,7 @@ test('paragraph choice, block direction and automatic inference agree in rendere
   assert.equal(rich.resolveTextDirection(null, 'invalid', 'Hello'), 'ltr')
   const nested = richDoc({ type: 'blockquote', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [para(text('سلام'))] }] }] })
   assert.equal(rich.richTextHtml(nested, 'ltr'), '<blockquote dir="ltr"><ul dir="ltr"><li><p dir="ltr">سلام</p></li></ul></blockquote>')
-  assert.equal(rich.richTextHtml(richDoc({ type: 'codeBlock', content: [text('سلام')] }), 'rtl'), '<pre dir="ltr"><code class="language-plain">سلام</code></pre>')
+  assert.equal(rich.richTextHtml(richDoc({ type: 'codeBlock', content: [text('سلام')] }), 'rtl'), '<pre dir="ltr" tabindex="0" role="region" aria-label="بلوک کد"><code class="language-plain">سلام</code></pre>')
 })
 
 test('stored HTML is given a direction per paragraph where it is shown, and a written direction is kept', () => {
@@ -587,4 +587,12 @@ test('fonts, sizes and emoji in the editor: one list, and the server keeps a fon
   assert.match(editor, /emoticons_database: 'emojis'/)
   for (const tool of ['fontfamily', 'fontsize', 'lineheight', 'emoticons']) assert.ok(classic.CLASSIC_TOOLBARS.full.split(/[\s|]+/).includes(tool), tool)
   assert.match(classic.CLASSIC_TOOLBARS.basic, /\bemoticons\b/)
+})
+
+test('legacy code is keyboard reachable without accepting authored tab order or handlers', () => {
+  const cleaning = { exports: {} }
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/shared/content/sanitize.ts'), 'utf8')
+  new Function('require', 'module', 'exports', ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText)((name) => (name.startsWith('@/') ? load('src/' + name.slice(2)) : require(name)), cleaning, cleaning.exports)
+  const html = cleaning.exports.cleanRichText('<pre tabindex="99" role="button" aria-label="wrong" onclick="evil()"><code>&lt;script&gt;literal&lt;/script&gt;</code></pre>')
+  assert.equal(html, '<pre tabindex="0" role="region" aria-label="بلوک کد"><code>&lt;script&gt;literal&lt;/script&gt;</code></pre>')
 })

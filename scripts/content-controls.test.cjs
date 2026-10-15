@@ -5,6 +5,25 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('shared private images use exclusive private writes and compensate only newly written files', async () => {
+  const written = [], removed = []
+  let failAt = 2
+  const images = load('src/shared/files/private-images.ts', { 'node:fs/promises': {
+    mkdir: async () => {},
+    writeFile: async (file, bytes, options) => { assert.equal(options.flag, 'wx'); assert.equal(options.mode, 0o600); assert.ok(!file.includes(`${path.sep}public${path.sep}`)); written.push(file); if (written.length === failAt) throw Error('owned write failure') },
+    unlink: async file => removed.push(file),
+    readFile: async () => { throw Error('must not read traversal') },
+  } })
+  const first = { filename: '11111111-1111-1111-1111-111111111111.png', originalName: 'receipt.png', mimeType: 'image/png', size: 1, bytes: Buffer.from('x') }
+  const second = { ...first, filename: '22222222-2222-2222-2222-222222222222.png' }
+  await assert.rejects(images.savePrivateImages('business-proofs', [first, second]), /owned write failure/)
+  assert.deepEqual(removed, [written[0]], 'partial failure removes only the successfully created first image')
+  written.length = 0; removed.length = 0; failAt = 1
+  await assert.rejects(images.savePrivateImages('tickets', [first]), /owned write failure/)
+  assert.deepEqual(removed, [], 'a failed exclusive write must never remove a file that already existed')
+  await assert.rejects(images.readPrivateImage('business-proofs', '../../receipt.png'), error => error.status === 404)
+})
+
 test('backup settings and execution require settings permission', async () => {
   const route = load('src/modules/notifications/server/http/admin/backups/route.ts', {
     '@/modules/identity/server/access': { requirePerm: async () => null },

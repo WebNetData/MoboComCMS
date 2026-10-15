@@ -16,7 +16,7 @@ export async function communityDashboard(now = new Date()) {
     db.communityComment.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true, authorId: true } }),
     db.communityLike.count({ where: { createdAt: { gte: since } } }),
     db.userFollow.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
-    db.communityReport.count({ where: { status: 'OPEN' } }),
+    db.communityReport.count({ where: { businessId: null, status: 'OPEN' } }),
     db.userProfile.count(),
     db.userProfile.count({ where: { verified: true } }),
     db.communityPost.findMany({ where: { status: 'VISIBLE', createdAt: { gte: since } }, orderBy: [{ likeCount: 'desc' }, { commentCount: 'desc' }], take: 6 }),
@@ -40,11 +40,11 @@ export async function communityDashboard(now = new Date()) {
 
 export async function reportQueue(status: string) {
   const rows = await db.communityReport.findMany({
-    where: { status: ['OPEN', 'RESOLVED', 'DISMISSED'].includes(status) ? status : 'OPEN' }, orderBy: { createdAt: 'desc' }, take: 100,
+    where: { businessId: null, status: ['OPEN', 'RESOLVED', 'DISMISSED'].includes(status) ? status : 'OPEN' }, orderBy: { createdAt: 'desc' }, take: 100,
     include: { post: { select: { id: true, content: true, images: true, status: true, authorId: true, createdAt: true } }, comment: { select: { id: true, content: true, status: true, authorId: true, postId: true } } },
   })
   const cards = await profileCards(rows.flatMap((row) => [row.reporterId, row.post?.authorId, row.comment?.authorId].filter((v): v is number => !!v)))
-  const counts = await db.communityReport.groupBy({ by: ['status'], _count: { _all: true } })
+  const counts = await db.communityReport.groupBy({ where: { businessId: null }, by: ['status'], _count: { _all: true } })
   return {
     counts: Object.fromEntries(counts.map((row) => [row.status, row._count._all])),
     reasons: REPORT_REASONS,
@@ -67,7 +67,7 @@ async function refreshCounts(postId: number) {
 /** Closes a report; `hide` also hides the reported post or comment (and closes other open reports on it). */
 export async function resolveReport(reportId: number, action: 'resolve' | 'dismiss', adminId: number, hide: boolean) {
   const row = await db.communityReport.findUnique({ where: { id: reportId } })
-  if (!row) throw new CommunityError('گزارش پیدا نشد', 404)
+  if (!row || row.businessId) throw new CommunityError('گزارش پیدا نشد', 404)
   const status = action === 'resolve' ? 'RESOLVED' : 'DISMISSED'
   if (hide && action === 'resolve') {
     if (row.postId) {
@@ -130,8 +130,8 @@ export async function setVerified(userId: number, verified: boolean) {
 /** For the staff moderation overview: open reports of posts and comments, oldest first. */
 export async function waitingForModeration(take = 5) {
   const [count, rows] = await Promise.all([
-    db.communityReport.count({ where: { status: 'OPEN' } }),
-    db.communityReport.findMany({ where: { status: 'OPEN' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, reason: true, note: true, createdAt: true, reporter: { select: { name: true } }, post: { select: { content: true } }, comment: { select: { content: true } } } }),
+    db.communityReport.count({ where: { businessId: null, status: 'OPEN' } }),
+    db.communityReport.findMany({ where: { businessId: null, status: 'OPEN' }, orderBy: { createdAt: 'asc' }, take, select: { id: true, reason: true, note: true, createdAt: true, reporter: { select: { name: true } }, post: { select: { content: true } }, comment: { select: { content: true } } } }),
   ])
   return { count, items: rows.map((row) => ({ id: row.id, text: plainText(row.note, 160) || row.reason, full: plainText(row.comment?.content || row.post?.content || '', 2000), by: row.reporter.name || '', about: plainText(row.comment?.content || row.post?.content || '', 80), at: row.createdAt })) }
 }
