@@ -107,7 +107,7 @@ function AccountMenu({ L }: { L: (fa: string, en: string) => string }) {
   useDismiss(box, open, () => setOpen(false))
   if (!user) return <div className="mb-guest" data-loading={status === 'loading' || undefined}>
     <Link href="/login" className="mb-login">{L('ورود', 'Log in')}</Link>
-    <Link href="/register" className="mb-account"><Icon name="user" size={18}/><span>{L('ثبت‌نام', 'Sign up')}</span></Link>
+    <Link href="/register" className="mb-account" aria-label={L('ثبت‌نام', 'Sign up')}><Icon name="user" size={18}/><span>{L('ثبت‌نام', 'Sign up')}</span></Link>
   </div>
   const name = user.name?.trim() || L('حساب من', 'My account')
   const real = user.email && !/\.local$/.test(user.email) ? user.email : ''

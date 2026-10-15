@@ -1,5 +1,7 @@
 # Shared site footer — 2026-10-15
 
+Follow-up after owner-merged PR187: the independent Homepage320 overflow recorded below is now resolved by the existing theme's mobile constraints. See [mobile continuation and its separate evidence](MOBILE_LAYOUT.md); the original footer verification scope below remains historical evidence.
+
 ## Owner requirement and current source
 
 The owner requested a modern, polished footer and explicitly corrected the initial inset/card draft: **the footer must be wide**. The final MoboCom/default footer is edge-to-edge at the viewport width, with responsive inner padding and no maximum-width shell. Preserve that requirement. Keep the site's semantic dark/light colors, current branding, navigation, published page links, account destinations, configured trust seals and plugin slots.

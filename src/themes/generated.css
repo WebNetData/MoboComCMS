@@ -620,11 +620,11 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
   .mbx-section-copy small { display: none; }
   .mbx-section.is-big .mbx-section-copy small { display: block; }
   .mbx-section-go { display: none; }
-  .mbx-products { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin-inline: -20px; padding: 4px 20px 10px; scrollbar-width: none; }
+  .mbx-products { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin-inline: -12px; padding: 4px 12px 10px; scrollbar-width: none; }
   .mbx-products > * { flex: 0 0 46%; scroll-snap-align: start; }
   .mbx-post.is-invite { grid-template-columns: auto 1fr; }
   .mbx-post.is-invite .mb-btn { grid-column: 1 / -1; }
-  .mbx-posters { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin-inline: -20px; padding-inline: 20px; scrollbar-width: none; }
+  .mbx-posters { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; margin-inline: -12px; padding-inline: 12px; scrollbar-width: none; }
   .mbx-posters > * { display: grid !important; flex: 0 0 38%; scroll-snap-align: start; }
   .mbx-posters.is-square > * { flex-basis: 44%; }
   .mbx-feed, .mbx-side { grid-template-columns: 1fr; }
@@ -941,6 +941,14 @@ html[data-design="mobocom"] .journal-crumb-pill { display: inline-flex; flex-wra
   .mb-header .mb-search { flex: 0 0 auto; width: 44px; max-width: none; margin-inline: auto 0; padding: 0; justify-content: center; }
   .mb-header .mb-search .ss-trigger-label, .mb-header .mb-search kbd { display: none; }
   .mb-header-actions { margin-inline-start: 0; }
+}
+/* Keep every action reachable on narrow phones; only branding yields space. */
+@media (max-width: 620px) {
+  .mb-header-bar { gap: 8px; }
+  .mb-header .mb-brand { flex-shrink: 1; }
+  .mb-header .site-wordmark { flex-shrink: 1; min-width: 0; max-width: 100%; }
+  .mb-header .site-wordmark img { height: auto; max-height: min(var(--wm-h, 40px), 36px); }
+  .mb-header .mb-brand-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .mb-header-bar::after, .mb-nav-rail > a, .mb-nav-rail > .mb-nav-more, .mb-nav-rail > a[aria-current=page] svg { animation: none; } .mb-navbar, .mb-nav-glider { transition: none; } }
 
