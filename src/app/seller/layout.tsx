@@ -7,6 +7,7 @@ import { usePathname } from '@/platform/routing/navigation'
 import { useSite } from '@/components/site/SiteProvider'
 import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
+import BrandLockup from '@/components/site/SiteLogo'
 import NotificationCount from '@/components/NotificationCount'
 import ApplyForm from './ApplyForm'
 import { SellerContext, type SellerAccount } from './SellerContext'
@@ -72,7 +73,7 @@ export default function SellerLayout({ children }: { children: React.ReactNode }
   return <SellerContext.Provider value={{ seller, reload: () => void load() }}>
     <div className="app-shell user-shell sl-shell" dir="rtl">
       <aside className="side">
-        <Link href="/" className="side-brand"><span className="brand-mark"><BrandMark /></span> {site.brand}</Link>
+        <Link href="/" className="side-brand"><BrandLockup /></Link>
         <div className="side-user sl-side-shop">
           {seller.logo ? <img src={seller.logo} alt="" className="sl-logo" /> : <span className="avatar" style={{ background: 'var(--primary)' }}>{seller.shopName.slice(0, 1)}</span>}
           <div className="min-w-0"><div className="font-semibold text-sm truncate">{seller.shopName}</div><div className="muted text-xs">پنل فروشندگی</div></div>

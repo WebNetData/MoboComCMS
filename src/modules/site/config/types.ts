@@ -13,7 +13,14 @@ export type SiteConfig = {
   /** Runtime only (from the trust-seals setting): badges shown in the footer. */
   trustSeals?: { title: string; seals: { id: string; kind: string; title: string; href: string; image: string }[] }
   copy?: Record<string, LocalText>
+  /** A square mark (favicon-like): the panels, the mini app, structured data. */
   logo?: string
+  /** A wide logo with the name in it, for headers; when set, the brand name is not written beside it. */
+  wordmark?: string
+  /** The same for dark pages (a light logo on dark), optional. */
+  wordmarkDark?: string
+  /** Height of the wide logo in the site header, in pixels (24–72). */
+  wordmarkHeight?: number
   fonts?: SiteFonts
   customCss?: string
   version: 1; brand: string; tagline: LocalText; announcement: { enabled: boolean; text: LocalText; link: SiteLink }

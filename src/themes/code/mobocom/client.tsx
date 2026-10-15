@@ -3,7 +3,7 @@
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeTrustSeals, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
+import { ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeTrustSeals, ThemeWordmark, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
 import Icon from './icons'
 
@@ -13,6 +13,7 @@ const tx = (value: LocalText, locale: string) => value[locale] || value[locale.s
 function Brand({ footer = false }: { footer?: boolean }) {
   const site = useThemeSite()
   const { locale } = useThemeI18n()
+  if (site.wordmark) return <Link href="/" className="mb-brand has-wordmark" aria-label={site.brand}><ThemeWordmark height={footer ? Math.min(site.wordmarkHeight || 40, 40) : undefined} /></Link>
   return <Link href="/" className="mb-brand" aria-label={site.brand}>
     {site.logo ? <img src={site.logo} alt="" className="mb-logo"/> : <span className="mb-mark" aria-hidden="true">{site.brand.trim().slice(0, 1)}</span>}
     <span className="mb-brand-copy"><strong>{site.brand}</strong>{!footer && <small>{tx(site.tagline, locale)}</small>}</span>

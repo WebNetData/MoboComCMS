@@ -11,6 +11,7 @@ import { useSite } from '@/components/site/SiteProvider'
 import { translate } from '@/modules/site/config/types'
 import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
+import { Wordmark } from '@/components/site/SiteLogo'
 import { Breadcrumbs } from '@/components/content/ContentPrimitives'
 
 interface NavPage {
@@ -34,8 +35,8 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
     <><PluginOutlet slot="site.before-header" site={site} locale={locale}/><header className="site-header">
       <div className="container flex items-center justify-between gap-3 py-3">
         <Link href="/" className="flex items-center gap-2 font-extrabold whitespace-nowrap">
-          <span className="brand-mark"><Icon name="shield"/></span>
-          <span className="text-lg" dir="ltr">{site.brand}</span>
+          {site.wordmark ? <Wordmark /> : <><span className="brand-mark"><Icon name="shield"/></span>
+          <span className="text-lg" dir="ltr">{site.brand}</span></>}
         </Link>
 
         <nav className="flex items-center only-desktop" style={{ gap: 'var(--sds-size-space-600)' }}>

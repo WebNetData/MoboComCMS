@@ -9,7 +9,7 @@ import ThemeLangControls from '@/components/ThemeLangControls'
 import { getCookie } from '@/platform/browser/preferences'
 import { useSite } from '@/components/site/SiteProvider'
 import Icon from '@/components/site/Icon'
-import BrandMark from '@/components/BrandMark'
+import BrandLockup from '@/components/site/SiteLogo'
 
 /**
  * Reseller (agency) panel shell. Access comes from an active Reseller contract
@@ -109,7 +109,7 @@ export default function ResellerLayout({ children }: { children: React.ReactNode
     <div className="app-shell">
       <aside className="side">
         <Link href="/" className="side-brand">
-          <span className="brand-mark"><BrandMark/></span> {site.brand}
+          <BrandLockup />
         </Link>
 
         <div className="side-user">
@@ -134,7 +134,7 @@ export default function ResellerLayout({ children }: { children: React.ReactNode
       <div className="flex-1 min-w-0">
         <div className="mobile-bar">
           <Link href="/" className="side-brand" style={{ padding: 0 }}>
-            <span className="brand-mark"><BrandMark/></span> {site.brand}
+            <BrandLockup />
           </Link>
           <div className="flex items-center gap-2">
             <span className="badge badge-purple">{t.reseller}</span>

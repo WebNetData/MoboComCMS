@@ -11,6 +11,7 @@ import { getCookie } from '@/platform/browser/preferences'
 import { useSite } from '@/components/site/SiteProvider'
 import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
+import BrandLockup, { Wordmark } from '@/components/site/SiteLogo'
 import { QUEUE_PERMISSIONS } from '@/modules/moderation/domain/queue'
 import ShellNav, { type ShellGroup } from '@/components/shell/ShellNav'
 
@@ -132,6 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ...sectionNav,
     { id: 'design', part: WEBSITE, title: L('ظاهر و صفحه‌ها', 'Design & pages'), icon: 'palette', items: [
       { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
+      { href: '/admin/branding', label: L('لوگو و هویت برند', 'Logo & brand'), icon: 'image', perm: 'settings.manage' },
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
       { href: '/admin/mega-menu', label: L('منو و مگامنوی بخش‌ها', 'Section menus'), icon: 'grid', perm: 'settings.manage' },
@@ -256,7 +258,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="app-shell admin-shell">
       <aside className="side">
         <Link href="/admin" className="side-brand">
-          <span className="brand-mark"><BrandMark/></span> {site.brand} <span className="badge badge-purple">{t.admin}</span>
+          <BrandLockup /> <span className="badge badge-purple">{t.admin}</span>
         </Link>
 
         {workspace}
@@ -277,7 +279,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex-1 min-w-0">
         <div className="mobile-bar">
           <Link href="/admin" className="side-brand" style={{ padding: 0 }} aria-label={`${site.brand} — ${t.admin}`}>
-            <span className="brand-mark"><BrandMark/></span> <span className="badge badge-purple">{t.admin}</span>
+            {site.wordmark ? <Wordmark height={26} /> : <span className="brand-mark"><BrandMark/></span>} <span className="badge badge-purple">{t.admin}</span>
           </Link>
           <div className="flex items-center gap-2">
             <ThemeLangControls locale={locale} theme={theme} />
