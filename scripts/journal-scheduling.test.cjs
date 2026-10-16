@@ -3,6 +3,32 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
+
+test('journal archive starts at explicit page1, retains filters and never skips initial stories', () => {
+  const { journalBrowseUrl, journalPagination } = load('src/modules/journal/domain/pagination.ts')
+  assert.equal(journalBrowseUrl(), '/blog')
+  assert.equal(journalBrowseUrl({ archive: true }), '/blog?page=1')
+  const url = new URL(journalBrowseUrl({ category: 'آموزش', query: 'عنوان & راهنما', page: 2, archive: true }), 'https://example.invalid')
+  assert.equal(url.searchParams.get('category'), 'آموزش'); assert.equal(url.searchParams.get('q'), 'عنوان & راهنما'); assert.equal(url.searchParams.get('page'), '2')
+  assert.equal(journalBrowseUrl({ category: 'training', query: 'guide', page: 1, archive: true }), '/blog?category=training&q=guide')
+  assert.deepEqual(journalPagination(25, 12, '2'), { page: 2, pages: 3, skip: 12, first: 13, last: 24 })
+  for (const invalid of [undefined, '', '-3', 'NaN', 'Infinity', '2.5', '9007199254740992']) assert.equal(journalPagination(25, 12, invalid).page, 1)
+  assert.deepEqual(journalPagination(5, 24, '2'), { page: 1, pages: 1, skip: 0, first: 1, last: 5 })
+  assert.deepEqual(journalPagination(0, 24, '99'), { page: 1, pages: 1, skip: 0, first: 0, last: 0 })
+  assert.deepEqual(journalPagination(25, 12, '99'), { page: 3, pages: 3, skip: 24, first: 25, last: 25 })
+})
+
+test('journal numbered navigation stays bounded, ordered and reachable for large archives', () => {
+  const { journalPageNumbers } = load('src/modules/journal/domain/pagination.ts')
+  assert.deepEqual(journalPageNumbers(1, 1), [1])
+  assert.deepEqual(journalPageNumbers(4, 7), [1, 2, 3, 4, 5, 6, 7])
+  for (const pages of [2, 5, 10, 100, 1000000]) for (const page of new Set([1, Math.ceil(pages / 2), pages])) {
+    const items = journalPageNumbers(page, pages), numbers = items.filter(x => typeof x === 'number')
+    assert.equal(numbers[0], 1); assert.equal(numbers.at(-1), pages); assert.ok(numbers.includes(page)); assert.ok(items.length <= 9)
+    assert.deepEqual(numbers, [...new Set(numbers)].sort((a, b) => a - b))
+    assert.ok(numbers.every(n => n >= 1 && n <= pages))
+  }
+})
 const { NextRequest } = require('next/server')
 
 function load(file, mocks = {}, cache = new Map()) {

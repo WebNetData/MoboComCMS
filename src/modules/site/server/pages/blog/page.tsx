@@ -18,6 +18,8 @@ import { livePostWhere } from '@/modules/journal/domain/journal'
 import { railOrder } from '@/shared/section-layout'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 import { Icon } from '@/components/media/PortalIcons'
+import JournalPagination from '@/components/journal/JournalPagination'
+import { journalBrowseUrl, journalPagination } from '@/modules/journal/domain/pagination'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -36,14 +38,14 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   const isFa = locale === 'fa'
   const query = typeof searchParams.q === 'string' ? searchParams.q.trim().slice(0, 120) : ''
   const category = typeof searchParams.category === 'string' ? searchParams.category : ''
-  const requestedPage = Number(searchParams.page)
   const pageSize = settings.pageSize
   const now = new Date()
   const where = { ...livePostWhere(now), AND: [await categoryFilter(category)], ...(query ? { OR: [{ title: { contains: query } }, { titleEn: { contains: query } }, { excerpt: { contains: query } }, { excerptEn: { contains: query } }] } : {}) }
   const total = await db.post.count({ where })
-  const pages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = Math.min(pages, Math.max(1, Number.isSafeInteger(requestedPage) ? requestedPage : 1))
-  const isLanding = !category && !query && currentPage === 1
+  const pagination = journalPagination(total, pageSize, searchParams.page)
+  const { skip } = pagination
+  const archive = typeof searchParams.page === 'string'
+  const isLanding = !category && !query && !archive
   const chromeContext = { route: 'blog' } as const
   if (isLanding) {
     // A theme page placed as the journal landing wins, unless the blog document itself is edited.
@@ -67,17 +69,11 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       )
     }
   }
-  const browseUrl = (cat = category, page = 1) => {
-    const params = new URLSearchParams()
-    if (cat) params.set('category', cat)
-    if (query) params.set('q', query)
-    if (page > 1) params.set('page', String(page))
-    return `/blog${params.size ? '?' + params.toString() : ''}`
-  }
+  const browseUrl = (cat = category, page = 1) => journalBrowseUrl({ category: cat, query, page, archive: true })
   const include = { category: true, categories: { include: { category: true } }, author: { select: { name: true } } } as const
   const [cats, listed, pool] = await Promise.all([
     db.postCategory.findMany({ orderBy: { name: 'asc' } }),
-    isLanding ? Promise.resolve([]) : db.post.findMany({ where, take: pageSize, skip: (currentPage - 1) * pageSize, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }),
+    isLanding ? Promise.resolve([]) : db.post.findMany({ where, take: pageSize, skip, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }),
     isLanding ? db.post.findMany({ where: livePostWhere(now), take: 60, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }) : Promise.resolve([]),
   ])
   type Story = typeof pool[number]
@@ -113,6 +109,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
   }
   const currentCategory = cats.find((c) => c.slug === category)
   const searchForm = <form action="/blog" className="lh-search" role="search">
+    {!isLanding && <input type="hidden" name="page" value="1" />}
     {category && <input type="hidden" name="category" value={category} />}
     <LiveSearchInput key={query} action="/blog" defaultValue={query} placeholder={isFa ? 'جست‌وجو در مجله…' : 'Search the journal…'} />
     <button type="submit" aria-label={isFa ? 'جست‌وجو' : 'Search'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg></button>
@@ -165,9 +162,9 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       panel: busiest[2] ? { category: busiest[2], stories: panelStories } : null,
       social: editorPicks.length >= 4 ? editorPicks : [...editorPicks, ...(pool.filter((post) => post.featured).length >= 4 ? pool.filter((post) => post.featured).map(story) : byViews).filter((entry) => !editorPicks.some((pick) => pick.id === entry.id))].slice(0, 4),
     }
-    body = stories.length ? <LionaHome data={data} search={searchForm} order={railOrder(settings.rails)} /> : <div className="container lh-section"><div className="journal-empty"><p>{t.noPosts}</p></div></div>
+    body = stories.length ? <><LionaHome data={data} search={searchForm} order={railOrder(settings.rails)} /><section className="container lh-section"><div className="lh-archive-entry"><div><span className="lh-eyebrow">{isFa ? 'ادامهٔ خواندن' : 'Keep reading'}</span><h2>{isFa ? 'همهٔ نوشته‌ها، یک‌جا' : 'Every story, in one place'}</h2><p>{isFa ? `${total.toLocaleString('fa-IR')} مطلب در آرشیو مجله؛ از تازه‌ترین‌ها تا نوشته‌های قدیمی‌تر.` : `${total.toLocaleString('en-US')} stories in the journal archive.`}</p></div><Link href="/blog?page=1" className="lh-btn">{isFa ? 'مشاهدهٔ همهٔ مطالب' : 'Browse all stories'}<Icon name="arrow" size={18} /></Link></div></section></> : <div className="container lh-section"><div className="journal-empty"><p>{t.noPosts}</p></div></div>
   } else {
-    body = <div className="container lh-section lh-listing">
+    body = <div className="container lh-section lh-listing" id="journal-results">
       <header className="lh-list-head">
         <nav className="lh-crumbs" aria-label={isFa ? 'مسیر صفحه' : 'Breadcrumb'}>
           <ol>
@@ -186,11 +183,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
         {searchForm}
       </div>
       {listed.length ? <LionaGrid stories={listed.map(story)} /> : <div className="journal-empty"><p>{t.noPosts}</p>{(query || category) && <Link href="/blog">{isFa ? 'بازگشت به همه نوشته‌ها' : 'View all stories'} ↗</Link>}</div>}
-      {pages > 1 && <nav className="lh-pager" aria-label={isFa ? 'صفحه‌بندی نوشته‌ها' : 'Article pagination'}>
-        {currentPage > 1 && <Link href={browseUrl(category, currentPage - 1)} rel="prev">{isFa ? 'صفحهٔ قبل' : 'Previous'}</Link>}
-        <span>{currentPage.toLocaleString(isFa ? 'fa-IR' : 'en-US')} / {pages.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</span>
-        {currentPage < pages && <Link href={browseUrl(category, currentPage + 1)} rel="next">{isFa ? 'صفحهٔ بعد' : 'Next'}</Link>}
-      </nav>}
+      {total > 0 && <JournalPagination {...pagination} total={total} category={category} query={query} isFa={isFa} />}
     </div>
   }
 
