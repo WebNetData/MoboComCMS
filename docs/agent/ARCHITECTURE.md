@@ -35,6 +35,8 @@ The optional **businesses** module composes existing platform services for exter
 Implementation maturity, executed evidence, current source checkout and remaining slices are recorded once in [Business experiences handoff](handoffs/BUSINESS_EXPERIENCES.md). The feature is PARTIAL, not a production-readiness claim. Read that document before coding; a checkout without these files does not prove the capability is missing.
 <!-- mobocom-business-architecture:end -->
 
+Business public presentation uses the full responsive site shell, existing SDS/MoboCom theme tokens and scoped `BusinessExperience.module.css`; server-only compositions under `components/businesses` consume the same public owner. Search/filter/pagination remain URL-based. Current design scope/evidence: [business handoff](handoffs/BUSINESS_EXPERIENCES.md#wide-public-presentation--2026-10-16).
+
 ## 1. High-level architecture
 
 ```text
