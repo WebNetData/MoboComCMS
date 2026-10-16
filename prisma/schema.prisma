@@ -9,6 +9,9 @@ datasource db {
 }
 
 model User {
+  libraryFolders MediaFolder[] @relation("MediaFolderCreator")
+  libraryAssets MediaAsset[] @relation("MediaAssetCreator")
+  mediaTransfers MediaTransfer[] @relation("MediaTransferActor")
   representedBusinesses BusinessProfile[] @relation("BusinessRepresentative")
   businessRequests BusinessRequest[] @relation("BusinessRequester")
   decidedBusinessRequests BusinessRequest[] @relation("BusinessRequestReviewer")
@@ -3608,6 +3611,7 @@ model ModerationCase {
 }
 
 model BackgroundJob {
+  mediaTransfer MediaTransfer?
   id         Int       @id @default(autoincrement())
   kind       String
   payload    String    @default("{}")
@@ -4125,4 +4129,82 @@ model BusinessPurchaseProof {
   @@index([status, id])
   @@index([userId, id])
   @@index([reviewId, status])
+}
+
+// Public media metadata only; existing cover/download stores retain the bytes and URLs.
+model MediaFolder {
+  id Int @id @default(autoincrement())
+  name String
+  key String @unique
+  parentId Int?
+  parent MediaFolder? @relation("MediaFolderTree", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  children MediaFolder[] @relation("MediaFolderTree")
+  assets MediaAsset[]
+  transfers MediaTransfer[]
+  createdById Int?
+  createdBy User? @relation("MediaFolderCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  revision Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([parentId])
+}
+
+model MediaAsset {
+  id String @id @default(uuid())
+  storage String // covers | downloads; never private form/support/proof storage
+  key String
+  name String
+  mime String @default("application/octet-stream")
+  kind String @default("file")
+  bytes BigInt @default(0)
+  width Int @default(0)
+  height Int @default(0)
+  alt String @default("")
+  caption String @default("")
+  tags String @default("[]")
+  folderId Int?
+  folder MediaFolder? @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  createdById Int?
+  createdBy User? @relation("MediaAssetCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  transfers MediaTransfer[]
+  archivedAt DateTime?
+  revision Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@unique([storage, key])
+  @@index([folderId, archivedAt, createdAt])
+  @@index([kind, archivedAt])
+}
+
+// Workflow metadata; BackgroundJob is the only executable queue.
+model MediaTransfer {
+  id String @id @default(uuid())
+  authority String @default("media")
+  sourceHash String @unique
+  sourceUrl String
+  kind String // image | file
+  section String @default("posts")
+  name String @default("")
+  status String @default("QUEUED")
+  actorId Int?
+  actor User? @relation("MediaTransferActor", fields: [actorId], references: [id], onDelete: SetNull)
+  authAt DateTime?
+  folderId Int?
+  folder MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  assetId String?
+  asset MediaAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  jobId Int? @unique
+  job BackgroundJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  runAt DateTime @default(now())
+  generation Int @default(0)
+  leaseToken String @default("")
+  lockedUntil DateTime?
+  receivedBytes BigInt @default(0)
+  totalBytes BigInt?
+  attempts Int @default(0)
+  lastError String @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([status, runAt])
+  @@index([actorId, createdAt])
 }

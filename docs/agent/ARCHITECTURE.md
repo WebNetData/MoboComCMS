@@ -339,6 +339,10 @@ Other modules reference by explicit typed relations for high-value paths or a st
 
 Transaction snapshots are legitimate copies when immutability is required (e.g. order line title/price at purchase time).
 
+### Shared public media catalog
+
+`src/modules/media/server/library.ts` owns logical asset/folder/transfer metadata, composing existing Site covers, Downloads chunk/range storage, Imports image dedupe, canonical Identity/Settings/Audit and Operations queue. It is the public library address; never duplicate storage or jobs. Rename/move/archive preserve published URLs/bytes; private uploads stay excluded. New bulk jobs opt out server-side unless explicitly checked; historical jobs retain prior behavior. Continue [Media library](handoffs/MEDIA_LIBRARY.md) for contracts, authority fencing, migrations, UI and bounded evidence.
+
 ## 10. Extension architecture
 
 Three extension levels:

@@ -1,3 +1,4 @@
+import type { OptionDef } from '@/modules/imports/server/registry'
 import { db } from '@/platform/database/prisma'
 import { STAT_LABELS, toCsv } from '@/modules/imports/domain/report'
 import { LIMITS, type ImportSettings, type Message } from '@/modules/imports/domain/types'
@@ -50,7 +51,7 @@ export async function destinations() {
       id: adapter.id, label: adapter.label, description: adapter.description, entity: adapter.entity,
       enabled: adapter.module ? await isModuleEnabled(adapter.module) : true,
       fields: adapter.fields, variantFields: adapter.variantFields || [], variantLabel: adapter.variantLabel || '',
-      supports: adapter.supports, identity: adapter.identity, options: adapter.options,
+      supports: adapter.supports, identity: adapter.identity, options: [...adapter.options, ...MEDIA_OPTIONS],
     })
   }
   return { destinations: out, limits: LIMITS, statLabels: STAT_LABELS }
@@ -79,7 +80,7 @@ export async function uploadChunk(actor: Actor, input: { adapter: unknown; name:
       data: {
         adapter: adapter.id, status: 'DRAFT', fileName: name, fileKey: saved.fileKey, fileHash: saved.hash, format: saved.parsed.format,
         total: saved.parsed.rows.length, createdById: actor.id, createdByEmail: actor.email,
-        settings: JSON.stringify({ sheet: saved.parsed.sheet || '' }),
+        settings: JSON.stringify({ sheet: saved.parsed.sheet || '', options: { mediaPolicyVersion: 1, copyAssets: false } }),
       },
     })
     return { done: true as const, job: jobView(job), size: saved.size, rows: saved.parsed.rows.length, sheets: saved.parsed.sheets || [] }
@@ -102,7 +103,7 @@ export async function analyze(job: Job, sheet?: unknown) {
 /** Stores the wizard's settings (validated); any earlier dry run no longer applies. */
 export async function saveSettings(job: Job, raw: unknown, templateId?: unknown) {
   draftOnly(job)
-  const settings = settingsFor(adapterFor(job.adapter), raw)
+  const settings = settingsFor(adapterFor(job.adapter), raw, job)
   const template = templateId ? await db.importTemplate.findUnique({ where: { id: idOf(templateId) }, select: { id: true } }) : null
   const updated = await db.importJob.update({ where: { id: job.id }, data: { settings: JSON.stringify(settings), dryRun: '', ...(template ? { templateId: template.id } : {}) } })
   return jobView(updated)
@@ -218,3 +219,9 @@ export async function templateSave(actor: Actor, input: { id?: unknown; name?: u
 export async function templateDelete(id: unknown) {
   await db.importTemplate.delete({ where: { id: idOf(id) } }).catch(() => { throw new ImportError('الگو پیدا نشد', 404) })
 }
+
+const MEDIA_OPTIONS: OptionDef[] = [
+  { key: 'copyAssets', label: 'تصاویر و فایل‌ها به سرور سایت منتقل شوند', type: 'bool', default: false, step: 8, hint: 'خاموش: لینک‌های بیرونی حفظ می‌شوند و هیچ فایل رسانه‌ای دانلود نمی‌شود. روشن: تصاویر، فایل‌های صوتی و لینک‌های دانلود انتخاب‌شده منتقل می‌شوند.' },
+  { key: 'mediaTransferMode', label: 'زمان انتقال رسانه', type: 'select', default: 'immediate', step: 8, when: { key: 'copyAssets', values: [true] }, choices: [{ value: 'immediate', label: 'هنگام ورود اطلاعات' }, { value: 'queued', label: 'در پس‌زمینه' }, { value: 'scheduled', label: 'در زمان مشخص' }], hint: 'در انتقال پس‌زمینه، لینک سایت تا تکمیل انتقال به منبع اصلی هدایت می‌شود.' },
+  { key: 'mediaTransferAt', label: 'تاریخ و ساعت انتقال (ISO 8601)', type: 'text', default: '', step: 8, when: { key: 'mediaTransferMode', values: ['scheduled'] }, hint: 'برای مثال: 2026-10-20T02:00:00+03:30' },
+]

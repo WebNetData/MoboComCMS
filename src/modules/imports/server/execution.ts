@@ -12,7 +12,9 @@ import { normalizeSettings } from '@/modules/imports/domain/settings'
 import { LIMITS, type FieldDef, type ImportSettings, type Message, type PreviewCard, type PreviewLine, type SourceItem } from '@/modules/imports/domain/types'
 import { normalizeValue, toText } from '@/modules/imports/domain/values'
 import { loadParsed } from '@/modules/imports/server/files'
-import { importImage, knownSources } from '@/modules/imports/server/media'
+import { importMediaOptions } from '@/modules/imports/domain/media-options'
+import { importMediaServices } from '@/modules/imports/server/library-media'
+import { knownSources } from '@/modules/imports/server/media'
 import { ApplyFailure, getImporter, type ApplyResult, type Change, type Finding, type ImportAdapter, type ImportContext, type Plan } from '@/modules/imports/server/registry'
 import '@/modules/imports/server/adapters'
 import { continuingImportActor, currentImportActor, pauseForImportAuthority } from '@/modules/imports/server/authority'
@@ -52,9 +54,14 @@ export async function ensureModule(adapter: ImportAdapter) {
 }
 
 /** Untrusted settings → validated settings for this destination. */
-export function settingsFor(adapter: ImportAdapter, raw: unknown): ImportSettings {
+export function settingsFor(adapter: ImportAdapter, raw: unknown, job?: Pick<Job, 'settings'>): ImportSettings {
   const settings = normalizeSettings(raw, adapter.id, adapter.fields, adapter.variantFields || [])
-  settings.options = adapter.normalizeOptions(settings.options)
+  settings.options = { ...adapter.normalizeOptions(settings.options), ...importMediaOptions(settings.options) }
+  if (job) {
+    let stored: { options?: { mediaPolicyVersion?: number } } = {}
+    try { stored = JSON.parse(job.settings || '{}') } catch { /* legacy normalization remains below */ }
+    if (stored.options?.mediaPolicyVersion === 1) settings.options = { ...settings.options, mediaPolicyVersion: 1, copyAssets: settings.options.copyAssets === true }
+  }
   for (const field of adapter.fields) if (field.implicit) delete settings.mapping[field.key]
   if (!adapter.supports.variants) {
     settings.variants = { mode: 'none', source: '', groupBy: '' }
@@ -154,10 +161,7 @@ function makeContext(job: Job | null, settings: ImportSettings, actor: Actor, dr
   return {
     jobId: job?.id ?? null, actor, dryRun, settings,
     cache: new Map(), planned: new Set(), knownImages: new Set(),
-    importImage: async (url) => {
-      if (dryRun) throw new Error('dry run never downloads')
-      return importImage(url)
-    },
+    ...importMediaServices(job, settings, dryRun),
     allow: (values, mode, current) => allowedValues(values, settings.policies, mode, settings.existing, current),
     allowVariant: (values, mode, current) => allowedValues(values, settings.variantPolicies, mode, settings.existing, current),
     previewLines,
@@ -223,7 +227,7 @@ export type DryRun = {
 export async function planJob(job: Job, rawSettings: unknown, actor: Actor, limit = 0) {
   const adapter = adapterFor(job.adapter)
   await ensureModule(adapter)
-  const settings = settingsFor(adapter, rawSettings)
+  const settings = settingsFor(adapter, rawSettings, job)
   const all = await itemsFor(job, settings)
   const items = limit ? all.slice(0, limit) : all
   const ctx = makeContext(job, settings, actor, true)
@@ -297,7 +301,7 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
     const actor = await currentImportActor(job)
     if (!actor) { await pauseForImportAuthority(job); return { done: false, next: false } }
     const adapter = adapterFor(job.adapter)
-    const settings = settingsFor(adapter, readSettings(job))
+    const settings = settingsFor(adapter, readSettings(job), job)
     const items = await itemsFor(job, settings)
     if (job.status === 'QUEUED') {
       const opened = await db.importJob.updateMany({ where: { id: jobId, status: 'QUEUED', executionActorId: job.executionActorId, executionAuthorizedAt: job.executionAuthorizedAt, executionGeneration: job.executionGeneration }, data: { status: 'RUNNING', startedAt: job.startedAt ?? new Date(), total: items.length } })

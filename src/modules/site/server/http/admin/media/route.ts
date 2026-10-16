@@ -8,7 +8,7 @@ import { coverFormat, listCoverImages, storeCoverImage } from '@/modules/site/se
 
 /** Whoever may put a picture into content may also pick one that is already here: any content section's manager or author, or settings. */
 async function mayUsePictures(req: NextRequest) {
-  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'settings.manage']) if (await requirePerm(req, permission)) return true
+  for (const permission of [...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS, 'settings.manage', 'media.manage']) if (await requirePerm(req, permission)) return true
   return false
 }
 
@@ -21,11 +21,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   if (!await mayUsePictures(req)) return err('forbidden', 403)
-  return receiveImage(req)
+  const { libraryActor, currentLibraryUser } = await import('@/modules/media/server/library')
+  const user = await currentLibraryUser(await libraryActor(req))
+  return receiveImage(req, user.id)
 }
 
 /** Reads one uploaded image (multipart "file"), stores it as WebP and returns its URL. Callers check access first. */
-export async function receiveImage(req: NextRequest) {
+export async function receiveImage(req: NextRequest, creator?: number) {
   if (Number(req.headers.get('content-length')) > 16 * 1024 * 1024) return err('حداکثر حجم تصویر ۱۵ مگابایت است', 413)
   try {
     const reader = req.body?.getReader()
@@ -45,7 +47,9 @@ export async function receiveImage(req: NextRequest) {
     const bytes = Buffer.from(await file.arrayBuffer())
     if (!coverFormat(bytes)) return err('فقط تصاویر PNG، JPEG و WebP مجاز هستند', 400)
     // Stored as WebP (max 2400px, EXIF orientation applied) — much smaller pages.
-    return ok({ url: await storeCoverImage(bytes) })
+    const url = await storeCoverImage(bytes)
+    const asset = creator ? await (await import('@/modules/media/server/library')).registerLocalAsset(url, creator, null, file.name) : null
+    return ok({ url, ...(asset ? { assetId: asset.id, revision: asset.revision } : {}) })
   } catch {
     return err('بارگذاری تصویر انجام نشد؛ دوباره تلاش کنید', 400)
   }

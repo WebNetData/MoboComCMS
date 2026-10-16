@@ -2,37 +2,10 @@
 
 import { useRef, useState } from 'react'
 
-const CHUNK = 8 * 1024 * 1024
-
-async function json<T>(url: string, init: RequestInit): Promise<T> {
-  const response = await fetch(url, { cache: 'no-store', ...init })
-  const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(body?.error || `خطا ${response.status}`)
-  return body as T
-}
-
-export type Uploaded = { url: string; name: string; size: number; path: string }
-
-/** Sends a file in 8 MB pieces; a dropped connection retries the piece where the server stopped. */
-export async function uploadFile(file: File, section: string, onProgress: (sent: number) => void, signal?: AbortSignal): Promise<Uploaded> {
-  const start = await json<{ id: string }>('/api/admin/uploads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'start', name: file.name, size: file.size, section }) })
-  let offset = 0
-  let failures = 0
-  while (offset < file.size) {
-    if (signal?.aborted) { await json('/api/admin/uploads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'cancel', id: start.id }) }).catch(() => undefined); throw new Error('لغو شد') }
-    try {
-      const piece = file.slice(offset, offset + CHUNK)
-      const result = await json<{ received: number }>(`/api/admin/uploads?id=${start.id}&offset=${offset}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: piece, signal })
-      offset = result.received
-      failures = 0
-      onProgress(offset)
-    } catch (error) {
-      if (signal?.aborted || ++failures > 5) throw error
-      await new Promise((resolve) => setTimeout(resolve, 1500 * failures))
-    }
-  }
-  return json<Uploaded>('/api/admin/uploads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'finish', id: start.id }) })
-}
+import { uploadFile, type Uploaded } from './upload-file'
+export { uploadFile, type Uploaded } from './upload-file'
+import LibraryPicker from '@/components/media/LibraryPicker'
+import RemoteCopy from '@/components/media/RemoteCopy'
 
 const size = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`
 
@@ -68,26 +41,10 @@ export default function FileUpload({ section, accept, onUploaded, label = 'با�
       <small>{percent.toLocaleString('fa-IR')}٪ · {size(state.sent)} / {size(state.total)}</small>
       <button type="button" className="fu-cancel" onClick={() => abort.current?.abort()} aria-label="لغو بارگذاری">✕</button>
     </span> : <button type="button" className="btn btn-ghost btn-sm fu-btn" onClick={() => input.current?.click()} title="فایل روی سرور همین سایت ذخیره می‌شود">⤒ {label}</button>}
+    <LibraryPicker kind={accept?.startsWith('image/') ? 'image' : accept?.startsWith('audio/') ? 'audio' : accept?.startsWith('video/') ? 'video' : undefined} onSelect={asset => onUploaded({ url: asset.url, name: asset.name, size: Number(asset.bytes), path: '' })} />
     {error && <small className="fu-error" role="alert">{error}</small>}
     <input ref={input} type="file" hidden accept={accept} onChange={(e) => void pick(e.target.files?.[0])} />
   </span>
 }
 
-/** For an image address on another site: copies it to this server (WebP) and swaps the address. */
-export function CopyToServer({ url, onCopied, kind = 'image' }: { url: string; onCopied: (url: string) => void; kind?: 'image' | 'file' }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const external = /^https?:\/\//i.test(url) && typeof window !== 'undefined' && (() => { try { const host = new URL(url).hostname; const own = window.location.hostname.replace(/^www\./, ''); return host !== own && !host.endsWith(`.${own}`) } catch { return false } })()
-  if (!external) return null
-  async function copy() {
-    setBusy(true); setError('')
-    try {
-      const result = await json<{ url: string }>('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, kind }) })
-      onCopied(result.url)
-    } catch (e) { setError(e instanceof Error ? e.message : 'انجام نشد') } finally { setBusy(false) }
-  }
-  return <span className="fu">
-    <button type="button" className="btn btn-ghost btn-sm fu-btn" disabled={busy} onClick={() => void copy()} title="تصویر روی سرور همین سایت ذخیره و نشانی آن جایگزین می‌شود">{busy ? 'در حال انتقال…' : '⇩ انتقال به سرور سایت'}</button>
-    {error && <small className="fu-error" role="alert">{error}</small>}
-  </span>
-}
+export const CopyToServer = RemoteCopy

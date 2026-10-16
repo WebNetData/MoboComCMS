@@ -150,6 +150,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       { href: '/admin/downloads', label: L('محافظت از لینک دانلود', 'Download protection'), icon: 'shield', perm: ['downloads.manage', 'settings.manage'] },
       { href: '/admin/copyright', label: L('گزارش‌های حق نشر', 'Copyright reports'), icon: 'shield', perm: ['copyright.manage', 'settings.manage'] },
       { href: '/admin/ai', label: L('دستیار هوش مصنوعی', 'AI assistant'), icon: 'sparkles', perm: ['cms.posts', 'cms.products', 'forum.moderate', 'settings.manage'] },
+      { href: '/admin/media', label: L('کتابخانهٔ رسانه', 'Media library'), icon: 'image', perm: ['media.manage', 'settings.manage', 'cms.posts', 'cms.pages', 'cms.products', 'music.manage', 'cinema.manage', 'games.manage', 'software.manage', 'journal.author', 'music.author', 'cinema.author', 'games.author', 'software.author'] },
       { href: '/admin/images', label: L('بهینه‌سازی تصاویر', 'Image optimization'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/watermark', label: L('واترمارک تصاویر', 'Image watermark'), icon: 'sparkles', perm: 'settings.manage' },
       { href: '/admin/locations', label: t.mapLocations, icon: 'globe', perm: 'settings.manage' },

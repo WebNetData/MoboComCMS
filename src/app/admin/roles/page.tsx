@@ -31,6 +31,7 @@ const PERM_LABELS: Record<string, string> = {
   'cms.posts': '📝 مجله (نوشته‌ها و دیدگاه‌ها)',
   'cms.products': '🛒 Products',
   'roles.manage': '🔑 Roles',
+  'media.manage': 'کتابخانهٔ رسانه (مدیریت همهٔ فایل‌ها و پوشه‌ها)',
   'imports.manage': '📥 Bulk import',
 }
 

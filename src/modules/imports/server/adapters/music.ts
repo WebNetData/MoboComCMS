@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { deleteMediaItem, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import type { Counters, FieldDef, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import { latinSlug, normalizeName, toText } from '@/modules/imports/domain/values'
-import { countImages, delegate, identityOf, importImages, loadIdentities, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
+import { countImages, delegate, identityOf, importImages, importFileLink, loadIdentities, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
 import { ensureTerms, planTerms, undoTerm } from '@/modules/imports/server/adapters/terms'
 import { STATUS_ENUM } from '@/modules/imports/server/adapters/media'
 import { type ApplyResult, type Change, type ImportAdapter, type ImportContext, type OptionDef, type Plan } from '@/modules/imports/server/registry'
@@ -252,6 +252,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   const body: Record<string, unknown> = {}
   for (const key of TRACK_COLUMNS) {
     if (!(key in allowed)) continue
+    if (['audioUrl', 'audioHqUrl'].includes(key)) { body[key] = await importFileLink(ctx, String(allowed[key]), messages); continue }
     if (key === 'cover') { const [img] = await importImages(ctx, [String(allowed.cover)], messages, counters, 'کاور آهنگ'); if (img) body.cover = img; continue }
     body[key] = allowed[key]
   }

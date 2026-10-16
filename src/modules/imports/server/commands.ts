@@ -63,7 +63,7 @@ export async function startJob(job: Job, rawSettings: unknown, actor: Actor) {
   if (job.status !== 'DRAFT') throw new ImportError('این ورود اطلاعات قبلاً شروع شده است')
   const adapter = adapterFor(job.adapter)
   await ensureModule(adapter)
-  const settings = settingsFor(adapter, rawSettings)
+  const settings = settingsFor(adapter, rawSettings, job)
   let dry: DryRun | null = null
   try { dry = job.dryRun ? JSON.parse(job.dryRun) as DryRun : null } catch { dry = null }
   // Preview and dry run are mandatory, and must match exactly what is started.

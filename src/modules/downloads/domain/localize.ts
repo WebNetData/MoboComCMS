@@ -28,6 +28,14 @@ export function findAssets(html: string, siteHost: string): Asset[] {
     const url = unescapeAttr(match[2] ?? match[3] ?? '')
     if (url && isExternal(url, siteHost)) found.set(url, { url, kind: 'image' })
   }
+  for (const match of html.matchAll(/<(video|audio|source)\b[^>]*?\ssrc\s*=\s*("([^"]*)"|'([^']*)')/gi)) {
+    const url = unescapeAttr(match[3] ?? match[4] ?? '')
+    if (url && isExternal(url, siteHost) && !url.startsWith('data:')) found.set(url, { url, kind: 'file' })
+  }
+  for (const match of html.matchAll(/<video\b[^>]*?\sposter\s*=\s*("([^"]*)"|'([^']*)')/gi)) {
+    const url = unescapeAttr(match[2] ?? match[3] ?? '')
+    if (url && isExternal(url, siteHost)) found.set(url, { url, kind: 'image' })
+  }
   for (const match of html.matchAll(/<a\b[^>]*?\shref\s*=\s*("([^"]*)"|'([^']*)')/gi)) {
     const url = unescapeAttr(match[2] ?? match[3] ?? '')
     if (!url || !isExternal(url, siteHost) || url.startsWith('data:')) continue
