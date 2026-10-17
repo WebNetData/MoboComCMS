@@ -4,7 +4,7 @@ import { cleanLinks, type LinkOwner } from '@/modules/media/domain/media'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import type { Counters, FieldDef, ImportSettings, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import { isBlank, latinSlug, normalizeName, toInt, toText } from '@/modules/imports/domain/values'
-import { countImages, delegate, htmlImageUrls, identityOf, importImages, loadIdentities, localizeHtml, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
+import { countImages, delegate, htmlImageUrls, identityOf, importImages, importFileLink, loadIdentities, localizeHtml, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
 import { ensureTerms, planTerms, undoTerm } from '@/modules/imports/server/adapters/terms'
 import type { ApplyResult, Change, ImportAdapter, ImportContext, OptionDef, Plan } from '@/modules/imports/server/registry'
 
@@ -193,6 +193,7 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
       const value = allowed[f.key]
       if (f.type === 'image') { const [img] = await importImages(ctx, [String(value)], messages, counters, f.label); if (img) body[f.key] = img; continue }
       if (f.type === 'images') { const imgs = await importImages(ctx, value as string[], messages, counters, f.label); body[f.key] = imgs.map((src) => ({ src })); continue }
+      if (f.type === 'url' && f.key === 'trailerUrl' && /\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))) { body[f.key] = await importFileLink(ctx, String(value), messages); continue }
       if (f.type === 'html') { body[f.key] = await localizeHtml(ctx, String(value), messages, counters, f.label); continue }
       if (f.key === 'cast') {
         const cast = castOf(value)
@@ -210,6 +211,7 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     if ('categories' in allowed && data.paths.length) body.terms = { ids: await ensureTerms(ctx, spec.taxonomy, data.paths, changes, counters) }
     if ('links' in allowed) {
       const incoming = linksOf(allowed.links)
+      for (const link of incoming) link.url = await importFileLink(ctx, link.url, messages)
       const current = existing ? await mediaLinksOf(spec.linkOwner, existing.id) : []
       const known = new Set(current.map((l) => l.url))
       body.links = [...current, ...incoming.filter((l) => !known.has(l.url))]

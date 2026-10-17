@@ -527,9 +527,25 @@ test('the media library: a chosen picture becomes clean markup, the listing is t
     assert.equal((await store.exports.listCoverImages(1, 2)).total, 6)
   } finally { process.chdir(cwd); fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(path.join(os.tmpdir(), path.basename(dir) + '-outside.webp'), { force: true }) }
   // Listing and uploading ask the same question of the caller; a member without a content permission gets neither.
-  const route = read('src/modules/site/server/http/admin/media/route.ts')
-  assert.match(route, /export async function GET\(req: NextRequest\) \{\n  if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)/)
-  assert.match(route, /if \(!await mayUsePictures\(req\)\) return err\('forbidden', 403\)\n  return receiveImage\(req\)/)
+  const route = { exports: {} }; let permitted = false, registered
+  const mocked = {
+    '@/modules/identity/server/access': { requirePerm: async () => permitted ? { id: 23 } : null },
+    '@/modules/identity/rbac': { CONTENT_EDIT_PERMISSIONS: ['cms.posts'] },
+    '@/modules/identity/domain/sections': { AUTHOR_PERMISSIONS: ['journal.author'] },
+    '@/platform/http/response': { err: (error, status) => Response.json({ error }, { status }), ok: value => Response.json(value) },
+    '@/modules/site/server/cover-store': { coverFormat: () => true, storeCoverImage: async () => '/api/media/covers/owned.webp', listCoverImages: async () => ({ items: [], total: 0 }) },
+    '@/modules/media/server/library': { libraryActor: async () => ({ id: 23 }), currentLibraryUser: async actor => actor, registerLocalAsset: async (url, creator) => { registered = { url, creator }; return { id: 'owned', revision: 0 } } },
+  }
+  new Function('require', 'module', 'exports', ts.transpileModule(read('src/modules/site/server/http/admin/media/route.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(name => mocked[name] || (name.startsWith('@/') ? load('src/' + name.slice(2)) : require(name)), route, route.exports)
+  const request = () => { const form = new FormData(); form.set('file', new Blob(['owned']), 'test.png'); const req = new Request('http://localhost:3000/api/admin/media', { method: 'POST', headers: { Origin: 'http://localhost:3000', Host: 'localhost:3000' }, body: form }); req.nextUrl = new URL(req.url); return req }
+  assert.equal((await route.exports.GET(request())).status, 403)
+  assert.equal((await route.exports.POST(request())).status, 403)
+  permitted = true
+  assert.equal((await route.exports.GET(request())).status, 200)
+  const uploaded = await route.exports.POST(request())
+  assert.equal(uploaded.status, 200)
+  assert.deepEqual(await uploaded.json(), { url: '/api/media/covers/owned.webp', assetId: 'owned', revision: 0 })
+  assert.deepEqual(registered, { url: '/api/media/covers/owned.webp', creator: 23 })
   // Persian interface: the language is registered from this repository's own file, never fetched; and every tool on the toolbars has a Persian name.
   const editor = read('src/components/editor/classic/ClassicEditor.tsx')
   assert.match(editor, /tinymce\.addI18n\('fa', TINYMCE_FA\)/)

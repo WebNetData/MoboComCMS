@@ -4,6 +4,8 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'media-library',
+  'journal-pagination',
   'invoice-logo',
   'identity-otp',
   'business-trust',
@@ -71,14 +73,18 @@ const CHECKS = [
   'episode-air-alerts', 'cinema-people',
 ]
 
+// These invoke optional archive binaries / protocol servers and a queue-wide worker.
+// Run explicitly against an owned mobocom_media_* database, never the site's database.
+const OPTIONAL_CHECKS = ['media-archive', 'media-storage']
+const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')
   process.exit(2)
 }
 const only = process.argv.slice(2)
-const unknown = only.filter((name) => !CHECKS.includes(name))
+const unknown = only.filter((name) => !REGISTERED.includes(name))
 if (unknown.length) {
-  console.error(`Unknown check: ${unknown.join(', ')}. Available: ${CHECKS.join(', ')}`)
+  console.error(`Unknown check: ${unknown.join(', ')}. Available: ${REGISTERED.join(', ')}`)
   process.exit(2)
 }
 let failed = 0
@@ -93,5 +99,6 @@ for (const name of only.length ? only : CHECKS) {
     console.log(`${run.stdout || ''}${run.stderr || ''}`.trim().split('\n').slice(0, 25).join('\n'))
   }
 }
-console.log(failed ? `${failed} PostgreSQL check(s) failed` : 'All PostgreSQL checks passed')
+console.log(failed ? `${failed} PostgreSQL check(s) failed` : 'Requested PostgreSQL checks passed')
+if (!only.length) console.log(`Optional isolated checks not run: ${OPTIONAL_CHECKS.join(', ')}`)
 process.exit(failed ? 1 : 0)

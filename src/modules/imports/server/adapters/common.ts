@@ -1,3 +1,4 @@
+import { copiesFiles, copiesImages } from '@/modules/imports/domain/media-options'
 import { db } from '@/platform/database/prisma'
 import { findAssets, rewriteAssets } from '@/modules/downloads/domain/localize'
 import type { Counters, Message } from '@/modules/imports/domain/types'
@@ -68,6 +69,7 @@ export function planOnce(ctx: ImportContext, key: string, counters: Counters, co
 
 /** Dry-run image counts: new downloads versus images already in the library. */
 export function countImages(ctx: ImportContext, urls: string[], counters: Counters) {
+  if (!copiesImages(ctx.settings.options)) return
   for (const url of urls) {
     if (!/^https?:/i.test(url)) continue
     if (ctx.knownImages.has(url)) continue
@@ -77,13 +79,16 @@ export function countImages(ctx: ImportContext, urls: string[], counters: Counte
 
 /** Downloads images into the library; a failed image is a warning, never a failed record. */
 export async function importImages(ctx: ImportContext, urls: string[], messages: Message[], counters: Counters, label: string): Promise<string[]> {
+  if (!copiesImages(ctx.settings.options)) return [...urls]
   const out: string[] = []
   for (const url of urls) {
     try {
       const result = await ctx.importImage(url)
       out.push(result.url)
-      counters[result.reused ? 'imagesReused' : 'imagesDownloaded'] = (counters[result.reused ? 'imagesReused' : 'imagesDownloaded'] || 0) + 1
+      const counter = result.deferred ? 'imagesQueued' : result.reused ? 'imagesReused' : 'imagesDownloaded'
+      counters[counter] = (counters[counter] || 0) + 1
     } catch (error) {
+      out.push(url) // optional copying never erases the original asset
       counters.imagesFailed = (counters.imagesFailed || 0) + 1
       messages.push({ level: 'warning', text: `${label}: تصویر دریافت نشد (${toText(url, 80)}) — ${error instanceof Error ? error.message : 'خطا'}` })
     }
@@ -93,11 +98,12 @@ export async function importImages(ctx: ImportContext, urls: string[], messages:
 
 /** Images inside HTML are copied too, so no external address is left in the content. */
 export async function localizeHtml(ctx: ImportContext, html: string, messages: Message[], counters: Counters, label: string): Promise<string> {
-  const assets = findAssets(html, '').filter((asset) => asset.kind === 'image' && /^https?:/i.test(asset.url))
+  if (!copiesImages(ctx.settings.options) && !copiesFiles(ctx.settings.options)) return html
+  const assets = findAssets(html, '').filter((asset) => /^https?:/i.test(asset.url) && (asset.kind === 'image' ? copiesImages(ctx.settings.options) : copiesFiles(ctx.settings.options)))
   if (!assets.length) return html
   const map = new Map<string, string>()
   for (const asset of assets.slice(0, 40)) {
-    const [local] = await importImages(ctx, [asset.url], messages, counters, label)
+    const local = asset.kind === 'image' ? (await importImages(ctx, [asset.url], messages, counters, label))[0] : await importFileLink(ctx, asset.url, messages)
     if (local) map.set(asset.url, local)
   }
   return map.size ? rewriteAssets(html, map) : html
@@ -180,4 +186,10 @@ export async function tracked<T>(write: (changes: Change[]) => Promise<T>): Prom
     if (!changes.length) throw error
     throw new ApplyFailure(error instanceof Error ? error.message : 'خطای ناشناخته', changes)
   }
+}
+
+/** Only mapped downloadable media fields call this; normal web links are never downloaded. */
+export async function importFileLink(ctx: ImportContext, url: string, messages: Message[]) {
+  if (!copiesFiles(ctx.settings.options) || !/^https?:/i.test(url) || !ctx.importFile) return url
+  try { return (await ctx.importFile(url)).url } catch { messages.push({ level: 'warning', text: 'انتقال فایل انجام نشد؛ لینک اصلی حفظ شد' }); return url }
 }

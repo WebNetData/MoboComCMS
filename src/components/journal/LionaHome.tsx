@@ -132,12 +132,12 @@ export default function LionaHome({ data, search, order = LIONA_SECTIONS }: { da
       </div>
     </section>,
     trending: () => data.trending.length >= 4 && <section className="container lh-section">
-      <Head title="اخبار ترند تکنولوژی" sub="مطالب محبوب" more="/blog?page=2" icon="sparkle" />
+      <Head title="اخبار ترند تکنولوژی" sub="مطالب محبوب" more="/blog?page=1" icon="sparkle" />
       <div className="lh-grid-4">{data.trending.map((story) => <Card key={story.id} story={story} />)}</div>
     </section>,
     latest: () => data.latestLead && <section className="lh-band">
       <div className="container lh-section">
-        <Head title="جدیدترین مطالب ما" sub="مطالب اخیر مجله" more="/blog?page=2" icon="clock" />
+        <Head title="جدیدترین مطالب ما" sub="مطالب اخیر مجله" more="/blog?page=1" icon="clock" />
         <div className="lh-latest">
           <Overlay story={data.latestLead} tall />
           {data.latestStrip.length > 0 && <div className="lh-strips">{data.latestStrip.map((story) => <StripRow key={story.id} story={story} />)}</div>}
@@ -152,7 +152,7 @@ export default function LionaHome({ data, search, order = LIONA_SECTIONS }: { da
       </Link>)}</nav>
     </section>,
     news: () => data.news.length >= 3 && <section className="container lh-section">
-      <Head title="آخرین اخبار" sub="تازه‌ترین‌های مجلهٔ موبوکام" more="/blog?page=2" icon="info" />
+      <Head title="آخرین اخبار" sub="تازه‌ترین‌های مجلهٔ موبوکام" more="/blog?page=1" icon="info" />
       <div className="lh-grid-3">{data.news.map((story) => <Card key={story.id} story={story} excerpt={false} />)}</div>
       {data.newsRows.length > 0 && <div className="lh-boxed-rows">{data.newsRows.map((story) => <RoundRow key={story.id} story={story} />)}</div>}
     </section>,
@@ -164,13 +164,13 @@ export default function LionaHome({ data, search, order = LIONA_SECTIONS }: { da
       <div className="lh-archive-veil" aria-hidden="true" />
       <span className="lh-notch is-top">مشاهدهٔ آرشیو بهترین‌ها</span>
       <div className="container lh-section">
-        <Head title="تازه‌ترین‌های مجله" more="/blog?page=2" icon="star" />
+        <Head title="تازه‌ترین‌های مجله" more="/blog?page=1" icon="star" />
         <div className="lh-archive-grid">
           <Overlay story={data.archive[0]} tall />
           {data.archive.slice(1, 3).map((story) => <Card key={story.id} story={story} />)}
         </div>
       </div>
-      <Link href="/blog?page=2" className="lh-notch is-bottom">مشاهدهٔ آرشیو بهترین‌ها</Link>
+      <Link href="/blog?page=1" className="lh-notch is-bottom">مشاهدهٔ آرشیو بهترین‌ها</Link>
     </section>,
     blocks: () => data.blocks.map(({ category, stories }) => stories.length >= 4 && <section key={category.id} className="container lh-section">
       <Head title={category.name} sub="مطالب محبوب این موضوع" more={category.href} icon="star" />
@@ -186,7 +186,7 @@ export default function LionaHome({ data, search, order = LIONA_SECTIONS }: { da
     social: () => data.social.length >= 4 && <section className="container lh-section">
       <Head title="انتخاب سردبیر" sub="مطالب پیشنهادی" icon="star" />
       <div className="lh-grid-4">{data.social.map((story) => <Overlay key={story.id} story={story} tall />)}</div>
-      <div className="lh-center"><Link href="/blog?page=2" className="lh-btn is-ghost">مشاهدهٔ همه</Link></div>
+      <div className="lh-center"><Link href="/blog?page=1" className="lh-btn is-ghost">مشاهدهٔ همه</Link></div>
     </section>,
   }
   // The search toolbar stays right under the hero (or first when the hero is hidden).

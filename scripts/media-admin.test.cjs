@@ -190,3 +190,44 @@ test('episode code and wiring', () => {
   assert.match(page, /await requireModule\('cinema'\)/)
   for (const schema of ['prisma/schema.postgresql.prisma', 'prisma/schema.prisma']) assert.match(fs.readFileSync(path.join(calendarRoot, schema), 'utf8'), /model CinemaEpisode \{[\s\S]*?@@index\(\[airDate\]\)[\s\S]*?\n\}/)
 })
+
+test('library metadata keeps folder identities unambiguous and bounds reusable labels', () => {
+ const lib=load('src/modules/media/domain/library')
+ assert.equal(lib.folderId(''),null);assert.equal(lib.folderId('12'),12)
+ for(const value of [-1,1.2,Infinity,'../private'])assert.throws(()=>lib.folderId(value))
+ assert.equal(lib.folderKey(null,' Example '), '0: example ')
+ assert.notEqual(lib.folderKey(1,'same'),lib.folderKey(2,'same'))
+ assert.deepEqual(lib.libraryTags('آموزش، آموزش, محصول'),['آموزش','محصول'])
+ assert.throws(()=>lib.libraryName(' '));assert.throws(()=>lib.libraryName('x'.repeat(121)))
+ assert.equal(lib.libraryKind('video/mp4','a.mp4'),'video')
+ assert.equal(lib.libraryKind('application/zip','a.zip'),'archive')
+})
+test('new import media decisions preserve explicit opt-out and legacy image behavior', () => {
+ const opts=load('src/modules/imports/domain/media-options')
+ assert.equal(opts.copiesImages(opts.importMediaOptions({})),true)
+ assert.equal(opts.copiesFiles(opts.importMediaOptions({})),false)
+ const off=opts.importMediaOptions({copyAssets:false,mediaTransferMode:'evil'})
+ assert.equal(opts.copiesImages(off),false);assert.equal(opts.copiesFiles(off),false)
+ assert.equal(off.mediaTransferMode,'immediate')
+ assert.equal(opts.copiesFiles(opts.importMediaOptions({copyAssets:true})),true)
+})
+
+test('media JSON bodies enforce streamed size and object shape, without trusting Content-Length', async () => {
+ const {readJsonObject,JsonBodyError}=load('src/platform/http/read-json')
+ assert.deepEqual(await readJsonObject(new Request('https://example.invalid',{method:'POST',body:'{"name":"عکس"}'})),{name:'عکس'})
+ for(const body of ['null','[]','1','{broken'])await assert.rejects(readJsonObject(new Request('https://example.invalid',{method:'POST',body})),JsonBodyError)
+ const stream=new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode('{"name":"'));controller.enqueue(new TextEncoder().encode('x'.repeat(100)));controller.close()}})
+ await assert.rejects(readJsonObject(new Request('https://example.invalid',{method:'POST',body:stream,duplex:'half'}),32),e=>e.status===413)
+ await assert.rejects(readJsonObject(new Request('https://example.invalid',{method:'POST',headers:{'content-length':'1000'},body:'{}'}),32),e=>e.status===413)
+})
+
+test('HTML media discovery includes playable files and posters, deduplicates and preserves unrelated links', () => {
+ const {findAssets,rewriteAssets}=load('src/modules/downloads/domain/localize')
+ const html='<video src="https://cdn.example/v.mp4" poster="https://cdn.example/p.jpg"><source src="https://cdn.example/v.mp4"></video><audio src="https://cdn.example/a.mp3"></audio><img src="/local.jpg"><a href="https://cdn.example/page">page</a>'
+ const assets=findAssets(html,'mobocom.example')
+ assert.deepEqual(assets,[{url:'https://cdn.example/v.mp4',kind:'file'},{url:'https://cdn.example/a.mp3',kind:'file'},{url:'https://cdn.example/p.jpg',kind:'image'}])
+ const replaced=rewriteAssets(html,new Map([['https://cdn.example/v.mp4','/api/media/transfers/fixture']]))
+ assert.equal((replaced.match(/\/api\/media\/transfers\/fixture/g)||[]).length,2)
+ assert.ok(replaced.includes('https://cdn.example/page'));assert.ok(replaced.includes('https://cdn.example/p.jpg'))
+ assert.equal(findAssets('<img src="https://mobocom.example/p.jpg"><img src="https://cdn.mobocom.example/p.jpg">','mobocom.example').length,0)
+})

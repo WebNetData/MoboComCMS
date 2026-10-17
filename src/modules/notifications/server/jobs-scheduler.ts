@@ -69,6 +69,10 @@ const JOBS: Job[] = [
     run: async () => (await import('@/modules/imports/server/engine')).sweepImportJobs(),
   },
   {
+    name: 'media-transfers', everyMs: 5 * 60_000,
+    run: async () => (await import('@/modules/media/server/library')).sweepMediaTransfers(),
+  },
+  {
     // Advertising: writes impression/click counters, ends finished campaigns, prunes old daily rows.
     name: 'ads', everyMs: 60_000,
     run: async (tick) => {

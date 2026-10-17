@@ -8,10 +8,27 @@ function load(relative) {
   const file = path.resolve(__dirname, '..', `${relative}.ts`)
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
-  new Function('require', 'module', 'exports', source)(require, mod, mod.exports)
+  new Function('require', 'module', 'exports', source)(name => name.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), name))) : require(name), mod, mod.exports)
   return mod.exports
 }
 const d = load('src/modules/server-panel/domain/downloads')
+const edit = load('src/modules/server-panel/domain/archive-edits')
+
+test('archive edit plans refuse traversal, option/list-file names and unbounded edits', () => {
+  for (const value of ['../x','/etc/passwd','C:/a','a\\b','a/../b','a\nPath = x','@list','-switch','a/*','a//b']) assert.throws(() => edit.archivePath(value), value)
+  assert.equal(edit.archivePath('docs/راهنما.txt'),'docs/راهنما.txt')
+  assert.deepEqual(edit.archiveEdits([{op:'rename',path:'a.txt',to:'docs/b.txt'},{op:'text',path:'new.txt',text:'سلام'}]),[{op:'rename',path:'a.txt',to:'docs/b.txt'},{op:'text',path:'new.txt',text:'سلام'}])
+  assert.throws(()=>edit.archiveEdits(Array.from({length:201},()=>({op:'delete',path:'a'}))))
+  assert.throws(()=>edit.archiveEdits([{op:'text',path:'a.txt',text:'x'.repeat(2*1024**2+1)}]))
+  assert.throws(()=>edit.archiveEdits([{op:'asset',path:'a',assetId:'untrusted-path'}]))
+})
+
+test('archive admission requires complete metadata, bounded sizes, unique paths and no links', () => {
+  const listing=block=>'Header\n----------\n'+block+'\n\n'
+  assert.deepEqual(edit.inspectTechnicalListing(listing('Path = docs/a.txt\nSize = 2\nAttributes = A -rw-r--r--')),[{path:'docs/a.txt',type:'file',size:2}])
+  for(const block of ['Path = ../outside\nSize = 1','Path = a\nSize = 2\nSymbolic Link = ../../outside','Path = a\nSize = 2\nHard Link = b','Path = a\nSize = -1','Path = a\nSize = 1e20','Path = a','Path = a\nSize = 1\n\nPath = A\nSize = 1']) assert.throws(()=>edit.inspectTechnicalListing(listing(block)),block)
+  assert.throws(()=>edit.inspectTechnicalListing('Path = a\nSize = 2'))
+})
 
 test('storage paths never escape the root', () => {
   assert.equal(d.normalizeRelPath('a//b/./c/'), '/a/b/c')

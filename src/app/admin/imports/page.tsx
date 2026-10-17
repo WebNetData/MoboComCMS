@@ -20,7 +20,7 @@ const OUTCOME: Record<Finding['outcome'], string> = { ignored: 'نادیده گ�
 
 const emptySettings = (): Settings => ({
   sheet: '', source: 'default', mapping: {}, variantMapping: {}, policies: {}, variantPolicies: {}, existing: 'skip',
-  variants: { mode: 'none', source: '', groupBy: '' }, attributes: [], specsSource: '', options: {},
+  variants: { mode: 'none', source: '', groupBy: '' }, attributes: [], specsSource: '', options: { copyAssets: false, mediaTransferMode: 'immediate' },
 })
 const defaultPolicy = (field: FieldDef, mapped: boolean): Policy => ({ create: mapped, update: mapped && field.updatable !== false && field.updateByDefault !== false })
 

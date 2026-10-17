@@ -1,4 +1,3 @@
-import dns from 'node:dns/promises'
 import fs from 'node:fs/promises'
 import { createReadStream, createWriteStream } from 'node:fs'
 import path from 'node:path'
@@ -57,12 +56,12 @@ const relativeOf = (abs: string) => path.relative(filesRoot(), abs).split(path.s
 // ------------------------------------------------------------------ resumable uploads
 
 const MAX_UPLOAD = () => Math.max(1, Number(env('UPLOAD_MAX_GB') || 20)) * 1024 ** 3
-type Session = { name: string; size: number; section: string; createdAt: number }
+type Session = { name: string; size: number; section: string; createdAt: number; ownerId?: number }
 const sessionFile = (id: string) => path.join(incoming(), `up-${id}.json`)
 const partFile = (id: string) => path.join(incoming(), `up-${id}.part`)
 const validId = (id: unknown) => { const value = String(id ?? ''); if (!/^[a-f0-9]{32}$/.test(value)) throw new FileError('شناسهٔ بارگذاری نامعتبر است'); return value }
 
-export async function startUpload(input: { name?: unknown; size?: unknown; section?: unknown }) {
+export async function startUpload(input: { name?: unknown; size?: unknown; section?: unknown; ownerId?: number }) {
   const name = cleanFileName(input.name)
   const size = Math.floor(Number(input.size))
   if (!Number.isSafeInteger(size) || size <= 0) throw new FileError('حجم فایل معتبر نیست')
@@ -72,7 +71,7 @@ export async function startUpload(input: { name?: unknown; size?: unknown; secti
   const section = SECTIONS.has(String(input.section)) ? String(input.section) : 'general'
   const id = randomBytes(16).toString('hex')
   await fs.mkdir(incoming(), { recursive: true })
-  await fs.writeFile(sessionFile(id), JSON.stringify({ name, size, section, createdAt: Date.now() } satisfies Session))
+  await fs.writeFile(sessionFile(id), JSON.stringify({ name, size, section, createdAt: Date.now(), ownerId: input.ownerId } satisfies Session))
   await fs.writeFile(partFile(id), '')
   return { id, received: 0 }
 }
@@ -82,9 +81,10 @@ async function session(id: string): Promise<Session> {
 }
 
 /** Appends one chunk at `offset` (must equal what is already stored; a retry after a lost answer is answered with the real offset). */
-export async function appendChunk(idInput: unknown, offsetInput: unknown, body: ReadableStream<Uint8Array> | null) {
+export async function appendChunk(idInput: unknown, offsetInput: unknown, body: ReadableStream<Uint8Array> | null, ownerId?: number) {
   const id = validId(idInput)
   const meta = await session(id)
+  if (ownerId !== undefined && meta.ownerId !== undefined && meta.ownerId !== ownerId) throw new FileError('این بارگذاری به حساب دیگری تعلق دارد', 403)
   const stat = await fs.stat(partFile(id)).catch(() => null)
   if (!stat) throw new FileError('این بارگذاری پیدا نشد', 404)
   const offset = Number(offsetInput)
@@ -98,9 +98,10 @@ export async function appendChunk(idInput: unknown, offsetInput: unknown, body: 
   return { received: stat.size + written, mismatch: false }
 }
 
-export async function finishUpload(idInput: unknown) {
+export async function finishUpload(idInput: unknown, ownerId?: number) {
   const id = validId(idInput)
   const meta = await session(id)
+  if (ownerId !== undefined && meta.ownerId !== undefined && meta.ownerId !== ownerId) throw new FileError('این بارگذاری به حساب دیگری تعلق دارد', 403)
   const stat = await fs.stat(partFile(id)).catch(() => null)
   if (!stat || stat.size !== meta.size) throw new FileError('فایل کامل بارگذاری نشده است', 409)
   const target = await uniquePath(path.join(filesRoot(), 'uploads', meta.section, month()), meta.name)
@@ -111,8 +112,10 @@ export async function finishUpload(idInput: unknown) {
   return { path: relative, url: await publicFileUrl(relative), size: meta.size, name: path.basename(target) }
 }
 
-export async function cancelUpload(idInput: unknown) {
+export async function cancelUpload(idInput: unknown, ownerId?: number) {
   const id = validId(idInput)
+  const meta = await session(id)
+  if (ownerId !== undefined && meta.ownerId !== undefined && meta.ownerId !== ownerId) throw new FileError('این بارگذاری به حساب دیگری تعلق دارد', 403)
   await fs.rm(partFile(id), { force: true }); await fs.rm(sessionFile(id), { force: true })
 }
 
@@ -169,67 +172,30 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
 
 // ------------------------------------------------------------------ copying pasted content
 
-const PRIVATE = /^(0\.|10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|::1$|f[cd]|fe[89ab])/i
-
-async function publicHost(url: URL) {
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new FileError('فقط نشانی http و https')
-  if (env('DOWNLOADS_ALLOW_PRIVATE') === '1') return
-  const host = url.hostname.replace(/^\[|\]$/g, '')
-  const addresses = /^[\d.]+$|:/.test(host) ? [host] : (await dns.lookup(host, { all: true }).catch(() => [])).map((item) => item.address)
-  if (!addresses.length || addresses.some((ip) => PRIVATE.test(ip.replace(/^::ffff:/, '')))) throw new FileError('این نشانی مجاز نیست')
-}
-
-async function fetchRemote(raw: string, maxBytes: number) {
-  let url = new URL(raw)
-  for (let hop = 0; hop < 5; hop++) {
-    await publicHost(url)
-    const response = await fetch(url, { redirect: 'manual', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MoboComImporter/1.0)', Accept: '*/*', Referer: `${url.origin}/` }, signal: AbortSignal.timeout(60_000), cache: 'no-store' })
-    if (response.status >= 300 && response.status < 400 && response.headers.get('location')) { await response.body?.cancel().catch(() => undefined); url = new URL(response.headers.get('location') as string, url); continue }
-    if (!response.ok || !response.body) throw new FileError(`دریافت نشد (${response.status})`)
-    const declared = Number(response.headers.get('content-length')) || 0
-    if (declared > maxBytes) { await response.body.cancel().catch(() => undefined); throw new FileError('فایل بزرگ‌تر از سقف کپی خودکار است', 413) }
-    return { response, url }
-  }
-  throw new FileError('انتقال بیش از حد')
-}
-
-/** The bytes of a small remote file (a subtitle), through the same public-address check and redirect limit as every copy from another site. */
+/** Small remote resources share the bounded, socket-guarded transport. */
 export async function fetchRemoteBytes(raw: string, maxBytes: number): Promise<Uint8Array> {
-  const { response } = await fetchRemote(raw, maxBytes)
-  const buffer = Buffer.from(await response.arrayBuffer())
-  if (buffer.length > maxBytes) throw new FileError('فایل بزرگ‌تر از سقف مجاز است', 413)
-  return buffer
+  const { Writable } = await import('node:stream')
+  const chunks: Buffer[] = []
+  const sink = new Writable({ write(chunk: Buffer, _encoding, done) { chunks.push(chunk); done() } })
+  await (await import('./remote')).streamPublicFile(raw, sink, { maxBytes, timeoutMs: 60000 })
+  return Buffer.concat(chunks)
 }
-
-/** Copies a remote image into the content images (WebP, max 2400px) and returns its address on this site. */
 export async function importImage(raw: string): Promise<string> {
-  const { response } = await fetchRemote(raw, 25 * 1024 * 1024)
-  const buffer = Buffer.from(await response.arrayBuffer())
-  if (buffer.length > 25 * 1024 * 1024) throw new FileError('تصویر بیش از حد بزرگ است', 413)
-  const sharp = (await import('sharp')).default
-  const image = sharp(buffer, { animated: true, limitInputPixels: 80_000_000 })
-  const meta = await image.metadata().catch(() => null)
-  if (!meta?.format) throw new FileError('فایل تصویر معتبر نیست')
-  const out = await image.rotate().resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82, effort: 4 }).toBuffer()
-  const file = `${randomUUID()}.webp`
-  const dir = path.join(process.cwd(), 'storage', 'covers')
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path.join(dir, file), out, { flag: 'wx' })
-  return `/api/media/covers/${file}`
+  return (await (await import('@/modules/imports/server/media')).importImage(raw)).url
 }
-
-/** Copies a remote file (archive, audio, video, document…) into the download folder. */
-export async function importFile(raw: string, section = 'posts'): Promise<string> {
-  const { response, url } = await fetchRemote(raw, Math.min(MAX_UPLOAD(), 4 * 1024 ** 3))
-  const name = cleanFileName(fileNameOf(url.toString(), 'file'))
-  const target = await uniquePath(path.join(filesRoot(), 'uploads', SECTIONS.has(section) ? section : 'posts', month()), name)
-  const temp = path.join(incoming(), `imp-${randomBytes(8).toString('hex')}`)
-  await fs.mkdir(incoming(), { recursive: true })
+export async function importFile(raw: string, section = 'posts', options: { maxBytes?: number; timeoutMs?: number; checkpoint?: () => Promise<void>; canonical?: boolean } = {}): Promise<string> {
+  const name = cleanFileName(fileNameOf(raw, 'file'))
+  const dir = path.join(filesRoot(), 'uploads', SECTIONS.has(section) ? section : 'posts', month())
+  await fs.mkdir(dir, { recursive: true }); await fs.mkdir(incoming(), { recursive: true })
+  const temp = path.join(incoming(), `imp-${randomBytes(12).toString('hex')}`)
+  // Unique immutable storage key: logical renaming in the library never changes URLs.
+  const target = path.join(dir, `${randomUUID()}-${name}`)
   try {
-    await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream<Uint8Array>), createWriteStream(temp))
-    await fs.rename(temp, target)
+    await (await import('./remote')).streamPublicFile(raw, createWriteStream(temp, { flags: 'wx', mode: 0o600 }), { ...options, maxBytes: Math.min(options.maxBytes || 512 * 1024 ** 2, MAX_UPLOAD(), 4 * 1024 ** 3) })
+    await options.checkpoint?.()
+    await fs.rename(temp, target); await fs.chmod(target, 0o644)
   } finally { await fs.rm(temp, { force: true }) }
-  return publicFileUrl(relativeOf(target))
+  return options.canonical ? `/files/${relativeOf(target).split('/').map(encodeURIComponent).join('/')}` : publicFileUrl(relativeOf(target))
 }
 
 export function logImportFailure(url: string, error: unknown) {

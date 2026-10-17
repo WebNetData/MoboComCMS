@@ -33,6 +33,8 @@ import 'tinymce/plugins/table'
 import 'tinymce/plugins/wordcount'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { CLASSIC_TOOLBARS, QUICKTAGS, applyQuicktag, type ClassicToolbar } from '@/modules/editor/domain/classic'
+import ContentTransfer from '@/components/media/ContentTransfer'
+import { rewriteAssets } from '@/modules/downloads/domain/localize'
 import MediaLibrary from '@/components/editor/MediaLibrary'
 import { CONTENT_FONTS, CONTENT_FONT_SIZES, CONTENT_LINE_HEIGHTS, DEFAULT_FONT_STACK, fontStack } from '@/shared/content/fonts'
 import { TINYMCE_FA } from './tinymce-fa'
@@ -186,6 +188,7 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
         <button type="button" role="tab" id={`${id}-text`} aria-selected={mode === 'text'} aria-controls={`${id}-panel`} className={mode === 'text' ? 'is-on' : ''} onClick={() => { editor.current = null; setMode('text') }}>{L('متن', 'Text')}</button>
       </div>
     </div>
+    {!noMedia && <ContentTransfer getHtml={() => mode === 'text' ? area.current?.value ?? value : editor.current?.getContent() ?? value} apply={map => { const current = mode === 'text' ? area.current?.value ?? value : editor.current?.getContent() ?? value; const next = rewriteAssets(current, map); if (mode === 'visual') editor.current?.setContent(next); onChange(next) }} />}
     <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${mode}`} className="ce-panel">
       {mode === 'visual'
         ? <>

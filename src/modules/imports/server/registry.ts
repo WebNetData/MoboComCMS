@@ -43,7 +43,8 @@ export interface ImportContext {
   /** Keys of rows the dry run would create, so "17 categories to create" counts each once. */
   planned: Set<string>
   /** Copies a remote image into the media library (apply only). */
-  importImage: (url: string) => Promise<MediaResult>
+  importImage: (url: string) => Promise<MediaResult & { deferred?: boolean }>
+  importFile?: (url: string) => Promise<MediaResult & { deferred?: boolean }>
   /** Remote image addresses already in the library (dry run counts). */
   knownImages: Set<string>
   /** The field policy, enforced: only the values this record may write (create, or update of `current`). */

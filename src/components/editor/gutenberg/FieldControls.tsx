@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { Button, RangeControl, SelectControl, TextControl, TextareaControl, ToggleControl } from '@wordpress/components'
+import LibraryPicker from '@/components/media/LibraryPicker'
+import RemoteCopy from '@/components/media/RemoteCopy'
 import { uploadFile } from '@/components/admin/FileUpload'
 import { BREAKPOINTS, defaultProps, fieldDefault, type AssetValue, type FieldSchema, type FieldSpec } from '@/modules/editor/domain/fields'
 import type { RichTextDoc } from '@/modules/editor/domain/rich-text'
@@ -37,6 +39,8 @@ function AssetControl({ spec, value, onChange, label }: { spec: Extract<FieldSpe
         <span className="components-button is-secondary" aria-disabled={busy}>{busy ? 'در حال بارگذاری…' : 'بارگذاری از رایانه'}</span>
         <input type="file" accept={spec.accept === 'image' ? 'image/*' : spec.accept === 'video' ? 'video/*' : undefined} disabled={busy} onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = '' }} />
       </label>
+      <LibraryPicker kind={spec.accept === 'image' ? 'image' : spec.accept === 'video' ? 'video' : undefined} onSelect={picked => onChange({ ...asset, src: picked.url, alt: picked.alt, caption: picked.caption, width: picked.width, height: picked.height, mime: picked.mime })} />
+      <RemoteCopy url={asset.src} kind={spec.accept === 'image' ? 'image' : 'file'} onCopied={src => void setSrc(src)} />
       {error ? <p className="mc-field-error" role="alert">{error}</p> : null}
       {spec.accept === 'image' ? <TextControl __nextHasNoMarginBottom label="متن جایگزین" help="تصویر چه چیزی را نشان می‌دهد؟ برای نابینایان و موتورهای جست‌وجو" value={asset.alt} onChange={(alt) => onChange({ ...asset, alt })} /> : null}
       <TextControl __nextHasNoMarginBottom label="زیرنویس" value={asset.caption} onChange={(caption) => onChange({ ...asset, caption })} />

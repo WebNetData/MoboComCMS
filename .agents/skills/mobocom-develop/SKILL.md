@@ -74,6 +74,10 @@ When this workflow touches business/Trustpilot-style experiences, first read doc
 When this workflow touches forms, form payments, appointments, staff queues, ticket ownership, SMS sending, sign-in limits or automation rules, first read docs/agent/handoffs/FORMS_AND_OPERATIONS.md. Extend src/modules/forms; charge through the site checkout; keep the rule that work somebody holds is changed only by its holder or a manager of that section. The handoff lists what is still untested — run those before calling anything ready.
 <!-- mobocom-forms-skill:end -->
 
+## Shared media continuation
+
+For library, uploads, editor asset selection, URL localization or import media copying, read `docs/agent/handoffs/MEDIA_LIBRARY.md` first. Continue the public Media library owner and existing Site/Downloads/Imports/Operations services; preserve URLs/private-upload boundaries and explicit new-import opt-out. Never rebuild storage or a queue from an older checkout.
+
 <!-- mobocom-engineering-skills:start -->
 ## Supporting engineering skills
 

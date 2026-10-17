@@ -53,6 +53,10 @@ Core themes PI reflects implemented global themes and planned module assignment.
 
 ## Operations and verification
 
+Shared Media now has a bounded, locally verified catalog/folder/transfer implementation composing existing storage/import/queue owners. New imports explicitly opt out; historical behavior stays compatible. Use [Media library continuation](handoffs/MEDIA_LIBRARY.md) for actual PostgreSQL/browser/build evidence and limits (metadata trash, no reference-aware blob purge). This does not promote unrelated domain cells to production-ready.
+
+The library also composes existing guarded SFTP/FTP/FTPS browsing and ZIP/RAR password/content tools. Source-preserving content versions and explicit host-to-local copies register in that catalog; current authority, strict storage audit and bounded unsafe-entry refusal were exercised on real tools/protocol fixtures. The same continuation records prerequisites and untested real FTPS/production-provider boundaries; no new storage owner or remote in-place archive editor.
+
 | Domain | Import/export | Automation | Search | Analytics | Security | Testing | Deployment |
 |---|---|---|---|---|---|---|---|
 | Platform Core | F | U | F | PI | PI | PI | U |

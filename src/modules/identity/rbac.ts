@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   'audit.view',
   // Bulk import (upload, mapping, run, rollback); separate from settings.manage.
   'imports.manage',
+  'media.manage',
   // Apply code packages and edit built-in plugin/theme source (full server trust).
   'extensions.code',
 ] as const
@@ -78,7 +79,7 @@ export const FULL_ACCESS = '*'
  * test. **Every core permission added from now on goes in this list** (leaving one out takes the extension
  * permissions away from every general manager, which is what happened with `forms.handle` in October 2026).
  */
-export const CORE_ADDED_LATER: readonly string[] = ['forms.handle', 'automation.manage']
+export const CORE_ADDED_LATER: readonly string[] = ['forms.handle', 'automation.manage', 'media.manage']
 const holdsEveryOriginal = (listed: string[]) => PERMISSIONS.filter((permission) => !CORE_ADDED_LATER.includes(permission)).every((permission) => listed.includes(permission))
 
 /**

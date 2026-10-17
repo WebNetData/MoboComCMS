@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
-import type { Prisma } from '@prisma/client'
+import { JOB_LABEL } from '@/modules/operations/domain/job-kinds'
+import { enqueue } from './enqueue'
 
 /**
  * Background queue for heavy work. Requests enqueue and return at once; the
@@ -15,9 +16,9 @@ type Handler = (payload: Record<string, unknown>, job: {
 }) => Promise<unknown>
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
-const HANDLERS: Record<string, { label: string; run: Handler }> = {
+const HANDLERS: Record<string, { run: Handler }> = {
+  'media.transfer': { run: async payload => (await import('@/modules/media/server/library')).runTransfer(payload) },
   'store.price-drop': {
-    label: 'اعلان کاهش قیمت محصول',
     run: async (payload, job) => {
       const { deliverProductPriceDrop } = await import('@/modules/catalog/server/price-drop-notifications')
       const result = await deliverProductPriceDrop(payload)
@@ -26,7 +27,6 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     },
   },
   'store.price-history-baseline': {
-    label: 'ثبت نقطهٔ شروع تاریخچهٔ قیمت محصولات',
     run: async (payload, job) => {
       const { baselineProductPrices } = await import('@/modules/catalog/server/price-history-baseline')
       const result = await baselineProductPrices(payload.cursor ?? 0)
@@ -35,21 +35,18 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     },
   },
   'notification.deliver': {
-    label: 'تحویل اعلان کاربر',
     run: async (payload) => {
       const { deliverInboxCopy } = await import('@/modules/notifications/server/inbox')
       return deliverInboxCopy(Number(payload.notificationId), String(payload.channel || ''))
     },
   },
   'notification.digest': {
-    label: 'خلاصهٔ روزانهٔ اعلان‌ها',
     run: async (payload) => {
       const { deliverInboxDigest } = await import('@/modules/notifications/server/policy')
       return deliverInboxDigest(Number(payload.userId), String(payload.day || ''))
     },
   },
   'forum.reputation-recount': {
-    label: 'بازشماری اعتبار اعضای تالار',
     run: async (payload, job) => {
       const { recountReputation } = await import('@/modules/forum/server/community')
       let cursor = Number(payload.cursor) || 0, changed = 0
@@ -66,7 +63,6 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     },
   },
   'images.optimize': {
-    label: 'بهینه‌سازی همهٔ تصاویر',
     run: async (payload, job) => {
       const { optimizeImages } = await import('@/modules/site/server/images')
       let cursor = payload.cursor ?? 0
@@ -84,12 +80,11 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
       return { changed, saved, done: false, continuedFrom: cursor }
     },
   },
-  'images.clear-cache': { label: 'پاک‌کردن کش اندازه‌های تصویر', run: async () => (await import('@/modules/site/server/images')).clearImageCache() },
-  'search.reindex': { label: 'بازسازی کامل نمایهٔ جست‌وجو', run: async () => (await import('@/modules/content/server/jobs')).runEngagementJobs({ full: true }) },
-  'cdn.purge': { label: 'پاک‌کردن کش CDN', run: async () => (await import('@/modules/server-panel/server/domains')).purgeCloudflareCache() },
+  'images.clear-cache': { run: async () => (await import('@/modules/site/server/images')).clearImageCache() },
+  'search.reindex': { run: async () => (await import('@/modules/content/server/jobs')).runEngagementJobs({ full: true }) },
+  'cdn.purge': { run: async () => (await import('@/modules/server-panel/server/domains')).purgeCloudflareCache() },
   // Bulk import: one time-boxed slice per queue job; the import's own history is in ImportJob/ImportRecord.
   'imports.run': {
-    label: 'ورود گروهی اطلاعات',
     run: async (payload, job) => {
       const jobId = Number(payload.jobId)
       if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
@@ -100,7 +95,6 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
     },
   },
   'imports.rollback': {
-    label: 'بازگردانی ورود گروهی اطلاعات',
     run: async (payload, job) => {
       const jobId = Number(payload.jobId)
       if (!Number.isSafeInteger(jobId) || jobId <= 0) return { skipped: true }
@@ -112,33 +106,9 @@ const HANDLERS: Record<string, { label: string; run: Handler }> = {
   },
 }
 
-export const JOB_LABEL: Record<string, string> = Object.fromEntries(Object.entries(HANDLERS).map(([kind, handler]) => [kind, handler.label]))
-export const isJobKind = (kind: string) => Object.prototype.hasOwnProperty.call(HANDLERS, kind)
+export { JOB_LABEL } from '@/modules/operations/domain/job-kinds'
+export { enqueue, isJobKind } from './enqueue'
 
-export async function enqueue(kind: string, payload: Record<string, unknown> = {}, options: { dedupeKey?: string; runAt?: Date } = {}, client: Pick<Prisma.TransactionClient, 'backgroundJob'> = db) {
-  if (!isJobKind(kind)) throw new Error(`unknown job kind: ${kind}`)
-  if (options.dedupeKey) {
-    const existing = await client.backgroundJob.findUnique({ where: { dedupeKey: options.dedupeKey } })
-    if (existing && (existing.status === 'QUEUED' || existing.status === 'RUNNING')) return existing
-    if (existing) {
-      const released = await client.backgroundJob.updateMany({ where: { id: existing.id, status: existing.status, dedupeKey: options.dedupeKey }, data: { dedupeKey: null } })
-      if (!released.count) {
-        const current = await client.backgroundJob.findUnique({ where: { dedupeKey: options.dedupeKey } })
-        if (current) return current
-      }
-    }
-  }
-  try {
-    return await client.backgroundJob.create({ data: { kind, payload: JSON.stringify(payload), dedupeKey: options.dedupeKey ?? null, runAt: options.runAt ?? new Date() } })
-  } catch (error) {
-    // A unique conflict aborts a PostgreSQL transaction; its caller retries the whole command.
-    if (client !== db) throw error
-    // Two callers queued the same key at once: the job exists, which is what both asked for.
-    const existing = options.dedupeKey && (error as { code?: string }).code === 'P2002' ? await db.backgroundJob.findUnique({ where: { dedupeKey: options.dedupeKey } }) : null
-    if (existing) return existing
-    throw error
-  }
-}
 
 const backoff = (attempts: number) => Math.min(60, 2 ** attempts) * 60_000
 const MAX_ATTEMPTS = 5

@@ -1,5 +1,5 @@
 // Real PostgreSQL background queue; the handler module is a test double and the run only sees this script's jobs.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `queue-jobs-${Date.now()}`
 const baseline = process.env.QUEUE_JOBS_BASELINE
 const state = {fail: false, runs: 0}
@@ -14,9 +14,18 @@ const mocks = {
  '@/platform/observability/logger': {logEvent: () => {}},
  '@/modules/site/server/images': {clearImageCache: async () => {state.runs++; if (state.fail) throw new Error('disk unavailable'); return {cleared: 3}}},
 }
-function load() {
+const modules = new Map()
+function load(relative = file) {
+ if (modules.has(relative)) return modules.get(relative).exports
  const mod = {exports: {}}
- new Function('require', 'module', 'exports', ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), mod, mod.exports)
+ modules.set(relative, mod)
+ const code = relative === file ? source : fs.readFileSync(relative, 'utf8')
+ new Function('require', 'module', 'exports', ts.transpileModule(code, {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
+  if (Object.hasOwn(mocks, name)) return mocks[name]
+  if (name.startsWith('@/')) return load('src/' + name.slice(2) + '.ts')
+  if (name.startsWith('.')) return load(path.resolve(path.dirname(relative), name) + '.ts')
+  return require(name)
+ }, mod, mod.exports)
  return mod.exports
 }
 let count = 0

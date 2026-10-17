@@ -1,5 +1,7 @@
 'use client'
 
+import LibraryPicker from '@/components/media/LibraryPicker'
+import ContentTransfer from '@/components/media/ContentTransfer'
 import { useEffect, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -97,7 +99,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
     ],
     content: value || '',
     editorProps: {
-      handlePaste: () => { setTimeout(() => localizeRef.current(true), 60); return false },
+      // Remote media is kept external until the operator explicitly requests transfer.
       handleDrop: () => { setTimeout(() => localizeRef.current(true), 60); return false },
       attributes: {
         dir,
@@ -118,7 +120,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
     }
   }, [value, editor])
 
-  localizeRef.current = (auto: boolean) => { void localizeAssets(auto) }
+  useEffect(() => { localizeRef.current = (auto: boolean) => { void localizeAssets(auto) } })
   async function localizeAssets(auto: boolean) {
     if (!editor || !localizeOn || importing?.busy) return
     const html = editor.getHTML()
@@ -127,7 +129,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
     if (!external.length) { if (!auto) setImporting({ busy: false, text: 'تصویر یا فایلی از سایت دیگر در متن نیست.' }); return }
     setImporting({ busy: true, text: 'در حال انتقال تصاویر و فایل‌های متن به سرور سایت…' })
     try {
-      const response = await fetch('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html, section: assetSection }) })
+      const response = await fetch('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html, section: assetSection, inlineOnly: auto }) })
       const data = await response.json().catch(() => null)
       if (!response.ok) { setImporting({ busy: false, text: data?.error || 'انتقال انجام نشد' }); return }
       const replacements = new Map<string, string>(data.replacements || [])
@@ -218,7 +220,7 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
           <>
             <Btn title={t.editorImage} on={addImage}>🖼</Btn>
             <Btn title={t.editorUploadImage} on={() => fileInput.current?.click()}>📤</Btn>
-            {localizeOn && <Btn title="انتقال تصاویر و فایل‌های سایت‌های دیگر به سرور همین سایت" on={() => void localizeAssets(false)}>⇩</Btn>}
+            {localizeOn && <LibraryPicker onSelect={asset => { if (asset.kind === 'image') editor.chain().focus().setImage({ src: asset.url, alt: asset.alt }).run(); else editor.chain().focus().insertContent({ type: 'text', text: asset.name, marks: [{ type: 'link', attrs: { href: asset.url } }] }).run() }} />}
           </>
         )}
         {!ticketMode && <Btn title={t.editorRule} on={() => editor.chain().focus().setHorizontalRule().run()}>―</Btn>}
@@ -234,9 +236,11 @@ export default function RichEditor({ value, onChange, placeholder, dir = 'rtl', 
         <Btn title={t.editorRedo} on={() => editor.chain().focus().redo().run()}>↻</Btn>
         {!ticketMode && <Btn title={t.editorClear} on={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>✕</Btn>}
       </div>
+      {!compact && localizeOn && <ContentTransfer section={assetSection} getHtml={() => codeMode ? codeDraft : editor.getHTML()} apply={map => { if (codeMode) setCodeDraft(current => rewriteAssets(current, map)); else editor.commands.setContent(rewriteAssets(editor.getHTML(), map), { emitUpdate: true }) }} />}
       {codeMode ? (
         <textarea
           className="rich-code"
+          aria-label="کد HTML نوشته"
           dir="ltr"
           spellCheck={false}
           value={codeDraft}

@@ -1,5 +1,7 @@
 'use client'
 
+import LibraryPicker from '@/components/media/LibraryPicker'
+import RemoteCopy from '@/components/media/RemoteCopy'
 import { useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 
@@ -49,6 +51,7 @@ export default function CoverField({ value, title, onChange, onBusy, mode = 'cov
       <label className="label">{fa ? 'یا نشانی تصویر' : 'Or image URL'}<input className="input" dir="ltr" value={value} disabled={busy} placeholder="https://…" onChange={e => onChange(e.target.value)} /></label>
       {value && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => onChange('')}>{mode === 'logo' ? (fa ? 'حذف نشان' : 'Remove logo') : mode === 'section' ? (fa ? 'حذف تصویر بخش' : 'Remove section image') : (fa ? 'حذف تصویر شاخص' : 'Remove featured image')}</button>}
     </div>
+    <div className="mcl-actions"><LibraryPicker kind="image" onSelect={asset => onChange(asset.url)} /><RemoteCopy url={value} onCopied={onChange} /></div>
     {busy && <p role="status">{fa ? 'در حال آماده‌سازی و بارگذاری تصویر…' : 'Preparing and uploading image…'}</p>}
     {error && <p className="error-text" role="alert">{error}</p>}
     {value && <div className="cms-cover-preview"><img src={value} alt={mode === 'logo' ? (fa ? `پیش‌نمایش نشان ${title}` : `${title} logo preview`) : (fa ? 'پیش‌نمایش تصویر شاخص' : 'Featured image preview')} />{mode !== 'logo' && <strong>{title || (fa ? 'عنوان شما روی کاور' : 'Your title on the cover')}</strong>}</div>}
