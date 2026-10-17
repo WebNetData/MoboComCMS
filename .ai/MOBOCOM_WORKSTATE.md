@@ -321,3 +321,8 @@ Owner requested publication for owner merge. Fetched origin/main e098d59a is an 
 ## Navigation control — 2026-10-17
 
 Existing Site/Navigation settings now own nested header/footer/section menus, category presentation overrides and icon/visibility/order controls. Canonical taxonomies, URLs, permissions and protected visuals remain. Completed local units83, disposable PG119 migrations/native claims-audit-cache-query-budget checks, maintained draft browser regression, twelve themed views/scoped Admin axe0, full TypeScript/gates, scoped Doctor0 errors and Gitleaks0. Production build includes the server follow-up and precedes the final small client refinement; that refinement passed full TypeScript and browser. Existing notification type-only dependency cycle remains. Exact evidence/limits: docs/agent/handoffs/NAVIGATION_CONTROL.md. No hosted Actions/push/PR/deployment; preserve unrelated work.
+
+
+## Content authoring and organized media — 2026-10-17
+
+Existing Site excerpt composition, specialist ContentEditor fields, Cinema metadata facade/settings, canonical term projections and new-copy organization are implemented. See docs/agent/handoffs/CONTENT_AUTHORING.md for ownership, exact paths, additive migration, actual Linux/PostgreSQL/browser/permission/fault evidence and live provider activation limits. Linux non-root production build passed before the final small refinements; final TypeScript/Doctor/browser/scoped units passed. Broad suite has four pre-existing unrelated harness failures, recorded in the handoff; no green full-release claim. No Actions/push/PR. Preserve .serena/public/demo.

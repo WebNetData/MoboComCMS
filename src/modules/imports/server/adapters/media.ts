@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
-import { deleteMediaItem, mediaLinksOf, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
+import { appendMediaLinks, deleteMediaItem, mediaLinksOf, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
+import { cleanRichText } from '@/shared/content/sanitize'
 import { cleanLinks, type LinkOwner } from '@/modules/media/domain/media'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import type { Counters, FieldDef, ImportSettings, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
@@ -40,7 +41,8 @@ const EPISODE_FIELDS: FieldDef[] = [
   { key: 'episode', label: 'شمارهٔ قسمت', type: 'int', requiredOnCreate: true, updatable: false, synonyms: ['episode', 'episode_number', 'episode_no', 'number', 'قسمت'] },
   { key: 'title', label: 'نام قسمت', type: 'text', synonyms: ['episode_title', 'title', 'name', 'عنوان قسمت'] },
   { key: 'titleEn', label: 'نام انگلیسی قسمت', type: 'text', synonyms: ['episode_title_en', 'title_en'] },
-  { key: 'summary', label: 'خلاصهٔ قسمت', type: 'longtext', synonyms: ['episode_summary', 'summary', 'overview', 'plot'] },
+  { key: 'summary', label: 'خلاصهٔ قسمت', type: 'html', synonyms: ['episode_summary', 'summary', 'overview', 'plot'] },
+  { key: 'links', label: 'لینک‌های دانلود قسمت', type: 'json', synonyms: ['episode_links', 'download_links', 'downloads', 'links'] },
   { key: 'still', label: 'تصویر قسمت', type: 'image', synonyms: ['still', 'episode_image', 'image', 'thumbnail'] },
   { key: 'runtime', label: 'مدت قسمت (دقیقه)', type: 'int', synonyms: ['runtime', 'duration', 'episode_runtime'] },
   { key: 'airDate', label: 'تاریخ پخش', type: 'date', synonyms: ['air_date', 'airdate', 'aired', 'release_date'] },
@@ -187,13 +189,15 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     }
     const mode = existing ? 'update' : 'create'
     const allowed = ctx.allow(data.values, mode, existing ? snapshot(existing, spec.fields.map((f) => f.key)) : undefined)
+    const metadata={...existing,...allowed,...spec.fixed}
+    ctx={...ctx,organization:{section:spec.resource==='cinema-titles'?metadata.kind==='SERIES'?'series':'film':spec.resource,title:String(metadata.originalTitle||metadata.titleEn||metadata.title||''),category:String(('categories' in allowed?data.paths[0]?.at(-1):'')||metadata.category||metadata.genres||'Uncategorized').split(/[,،]/)[0]}}
     const body: Record<string, unknown> = {}
     for (const f of spec.fields) {
       if (!(f.key in allowed) || ['externalId', 'categories', 'links'].includes(f.key)) continue
       const value = allowed[f.key]
       if (f.type === 'image') { const [img] = await importImages(ctx, [String(value)], messages, counters, f.label); if (img) body[f.key] = img; continue }
       if (f.type === 'images') { const imgs = await importImages(ctx, value as string[], messages, counters, f.label); body[f.key] = imgs.map((src) => ({ src })); continue }
-      if (f.type === 'url' && f.key === 'trailerUrl' && /\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))) { body[f.key] = await importFileLink(ctx, String(value), messages); continue }
+      if (f.type === 'url' && f.key === 'trailerUrl' && /\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))) { body[f.key] = await importFileLink({...ctx,organization:{...ctx.organization!,video:true}}, String(value), messages); continue }
       if (f.type === 'html') { body[f.key] = await localizeHtml(ctx, String(value), messages, counters, f.label); continue }
       if (f.key === 'cast') {
         const cast = castOf(value)
@@ -243,7 +247,8 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
         const row: Record<string, unknown> = {}
         if ('title' in allowedEp) row.title = toText(allowedEp.title, 200)
         if ('titleEn' in allowedEp) row.titleEn = toText(allowedEp.titleEn, 200)
-        if ('summary' in allowedEp) row.summary = toText(allowedEp.summary, 3000)
+        const episodeContext={...ctx,organization:{...ctx.organization!,season:ep.season}}
+        if ('summary' in allowedEp) row.summary = cleanRichText(await localizeHtml(episodeContext,String(allowedEp.summary||'').slice(0,10000),messages,counters,'رسانهٔ خلاصه قسمت'))
         if ('runtime' in allowedEp) row.runtime = toInt(allowedEp.runtime, 0, 1000) ?? 0
         if ('airDate' in allowedEp) row.airDate = allowedEp.airDate as Date
         if ('still' in allowedEp) { const [img] = await importImages(ctx, [String(allowedEp.still)], messages, counters, `تصویر فصل ${ep.season} قسمت ${ep.episode}`); if (img) row.still = img }
@@ -257,7 +262,14 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
           changes.push({ kind: 'updated', entity: 'cinemaEpisode', id: current.id, before: snapshot(current as unknown as Record<string, unknown>, Object.keys(row)), after: snapshot(updated as unknown as Record<string, unknown>, Object.keys(row)) })
           counters.episodesUpdated = (counters.episodesUpdated || 0) + 1
         }
-        if (toText(ep.values.externalId, 190)) await saveIdentity(db, ctx, `${entity}.episode`, toText(ep.values.externalId, 190), season.id)
+        const savedEpisode=await db.cinemaEpisode.findUniqueOrThrow({where:{seasonId_number:{seasonId:season.id,number:ep.episode}}})
+        if('links' in allowedEp) {
+          const incoming=linksOf(allowedEp.links)
+          for(const link of incoming)link.url=await importFileLink(episodeContext,link.url,messages)
+          const created=await appendMediaLinks('episode',savedEpisode.id,incoming)
+          for(const link of created)changes.push({kind:'created',entity:'mediaLink',id:link.id,stamp:JSON.stringify(snapshot(link as unknown as Record<string,unknown>,['url','label','quality','size','disabled','clicks']))})
+        }
+        if (toText(ep.values.externalId, 190)) await saveIdentity(db, ctx, `${entity}.episode`, toText(ep.values.externalId, 190), savedEpisode.id)
       }
     }
     return { action: existing ? 'UPDATE' : 'CREATE', entityType: spec.model, entityId: id, changes, messages, counters }
@@ -275,6 +287,10 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
           if (row && change.stamp && (row.updatedAt as Date).toISOString() !== change.stamp) problem = `${spec.entity} #${change.id} پس از ورود اطلاعات ویرایش شده؛ حذف نشد`
           else if (row) await deleteMediaItem(spec.resource, change.id)
         }
+      } else if (change.entity === 'mediaLink' && change.kind === 'created') {
+        const row=await db.mediaLink.findUnique({where:{id:change.id}})
+        if(row && JSON.stringify(snapshot(row as unknown as Record<string,unknown>,['url','label','quality','size','disabled','clicks']))!==change.stamp)problem=`لینک #${change.id} پس از ورود اطلاعات تغییر کرده؛ حذف نشد`
+        else if(row)await db.mediaLink.delete({where:{id:row.id}})
       } else if (change.entity === 'cinemaEpisode') {
         if (change.kind === 'updated') problem = await undoChange(change, 'cinemaEpisode', { label: 'قسمت', dates: ['airDate'] })
         else {

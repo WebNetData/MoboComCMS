@@ -2726,6 +2726,7 @@ model DeliveryBooking {
 /// linked through TaxonomyAssignment, whose ownerId points at that section's
 /// own table.
 model TaxonomyTerm {
+  facet          String    @default("")
   id             Int       @id @default(autoincrement())
   taxonomy       String
   slug           String
@@ -4178,6 +4179,7 @@ model MediaAsset {
 
 // Workflow metadata; BackgroundJob is the only executable queue.
 model MediaTransfer {
+  destination String @default("")
   id String @id @default(uuid())
   authority String @default("media")
   sourceHash String @unique

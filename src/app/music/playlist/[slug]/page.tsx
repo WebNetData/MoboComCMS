@@ -47,7 +47,7 @@ export default async function PlaylistPage({ params }: Props) {
           <div className="mu-detail-info">
             <span className="md-eyebrow">{fa ? 'پلی‌لیست' : 'Playlist'}</span>
             <h1>{name}</h1>
-            {playlist.description && <p className="mu-detail-desc">{playlist.description}</p>}
+            {playlist.description && <div className="mu-detail-desc prose" dangerouslySetInnerHTML={{ __html: playlist.descriptionHtml }} />}
             <div className="mu-hero-tags">
               <span>{data.tracks.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آهنگ' : 'tracks'}</span>
               {total > 0 && <span dir="ltr">⏱ {formatDuration(total)}</span>}

@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 
-export type SeasonView = { number: number; name: string; episodes: { id: number; number: number; title: string; summary: string; still: string; runtime: string; airDate: string; vip: boolean; linkCount: number; links: ReactNode }[] }
+export type SeasonView = { number: number; name: string; episodes: { id: number; number: number; title: string; summary: string; summaryHtml?: string; still: string; runtime: string; airDate: string; vip: boolean; linkCount: number; links: ReactNode }[] }
 
 /** Season tabs + collapsible episode rows with their download box. */
 export default function SeasonTabs({ seasons, fa }: { seasons: SeasonView[]; fa: boolean }) {
@@ -33,7 +33,7 @@ export default function SeasonTabs({ seasons, fa }: { seasons: SeasonView[]; fa:
                 <span className="cn-ep-count">{num(episode.linkCount)} {fa ? 'لینک' : 'links'}</span>
                 <span className="cn-ep-caret" aria-hidden="true">⌄</span>
               </button>
-              {isOpen && <div className="cn-episode-body">{episode.summary && <p className="muted">{episode.summary}</p>}{episode.links}</div>}
+              {isOpen && <div className="cn-episode-body">{episode.summaryHtml ? <div className="prose cn-episode-summary" dangerouslySetInnerHTML={{ __html: episode.summaryHtml }} /> : episode.summary ? <p className="muted">{episode.summary}</p> : null}{episode.links}</div>}
             </li>
           )
         })}

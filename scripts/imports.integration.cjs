@@ -376,15 +376,20 @@ async function magazineCinemaMusic() {
   r = await importFile('movies', `${m}-movies.json`, [{ id: `${m}-mv`, title: `Film ${m}`, imdb: 'tt9990001', year: 2024 }], { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title', imdbId: 'imdb', year: 'year' } })
   const movie = await db.cinemaTitle.findFirst({ where: { title: `Film ${m}` } })
   assert.equal(movie.kind, 'MOVIE')
-  const seriesFile = [{ id: `${m}-sr`, title: `Series ${m}`, episodes: [{ season: 1, episode: 1, title: 'Pilot' }, { season: 1, episode: 2, title: 'Two' }, { season: 2, episode: 1, title: 'Back' }] }]
-  const seriesSettings = { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title' }, variants: { mode: 'nested', source: 'episodes', groupBy: '' }, variantMapping: { season: 'episodes[].season', episode: 'episodes[].episode', title: 'episodes[].title' } }
+  const episodeUrl=`https://cdn.example.invalid/${m}/pilot.mkv`
+  const seriesFile = [{ id: `${m}-sr`, title: `Series ${m}`, episodes: [{ season: 1, episode: 1, title: 'Pilot',summary:'<p><strong>Episode story</strong></p><script>bad()</script>',links:[{url:episodeUrl,quality:'1080p'}] }, { season: 1, episode: 2, title: 'Two' }, { season: 2, episode: 1, title: 'Back' }] }]
+  const seriesSettings = { source: `imdb-${m}`, options:{copyAssets:false}, mapping: { externalId: 'id', title: 'title' }, variants: { mode: 'nested', source: 'episodes', groupBy: '' }, variantMapping: { season: 'episodes[].season', episode: 'episodes[].episode', title: 'episodes[].title',summary:'episodes[].summary',links:'episodes[].links' } }
   r = await importFile('series', `${m}-series.json`, seriesFile, seriesSettings)
   const series = await db.cinemaTitle.findFirst({ where: { title: `Series ${m}` }, include: { seasons: { include: { episodes: true } } } })
   assert.equal(series.kind, 'SERIES')
   assert.equal(series.seasons.length, 2); assert.equal(series.seasons.flatMap((s) => s.episodes).length, 3)
+  const pilot=series.seasons.find(s=>s.number===1).episodes.find(e=>e.number===1)
+  assert.match(pilot.summary,/<strong>/);assert.doesNotMatch(pilot.summary,/<script/)
+  assert.equal((await db.mediaLink.findFirstOrThrow({where:{ownerType:'episode',ownerId:pilot.id}})).url,episodeUrl,'unchecked copy keeps the external episode file')
   r = await importFile('series', `${m}-series2.json`, seriesFile, { ...seriesSettings, existing: 'update' })
   const again = await db.cinemaSeason.findMany({ where: { titleId: series.id }, include: { episodes: true } })
   assert.equal(again.length, 2); assert.equal(again.flatMap((s) => s.episodes).length, 3)
+  assert.equal(await db.mediaLink.count({where:{ownerType:'episode',ownerId:pilot.id,url:episodeUrl}}),1,'re-import keeps one episode link')
   pass('movie and series on CinemaTitle (MOVIE/SERIES) with CinemaSeason/CinemaEpisode, no duplicates')
 
   // Music: artist → album → track, each artist and album once

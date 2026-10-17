@@ -1,9 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { libraryApi } from './api'
+import OrganizationFields from './OrganizationFields'
+import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 type Transfer = { id: string; name: string; host: string; status: string; runAt: string; attempts: number; error: string; url: string }
 const labels: Record<string, string> = { QUEUED: 'در صف', RUNNING: 'در حال انتقال', READY: 'آماده', FAILED: 'ناموفق', PAUSED: 'متوقف: بررسی دسترسی', CANCELLED: 'لغوشده' }
 export default function TransferPanel({ folderId, onChange }: { folderId: number | null; onChange: () => void }) {
+  const [organization,setOrganization]=useState<AssetOrganization>({section:''})
   const [items, setItems] = useState<Transfer[]>([]), [url, setUrl] = useState(''), [name, setName] = useState(''), [kind, setKind] = useState('image'), [mode, setMode] = useState('queued'), [at, setAt] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
   async function load(signal?: AbortSignal) { const r = await fetch('/api/admin/media/library?view=transfers', { signal, cache: 'no-store' }); if (!r.ok) throw new Error('دریافت انتقال‌ها انجام نشد'); setItems((await r.json()).items) }
   useEffect(() => {
@@ -18,10 +21,11 @@ export default function TransferPanel({ folderId, onChange }: { folderId: number
   }
   return <section className="mcl-transfers" aria-label="انتقال از لینک">
     <div><h3>فایل‌های بیرونی، در کتابخانهٔ شما</h3><p>لینک عمومی را وارد کنید؛ فایل در پوشهٔ انتخاب‌شده ذخیره می‌شود. انتقال‌های زمان‌بندی‌شده با زمان‌بند فعلی سایت اجرا می‌شوند.</p></div>
-    <form className="mcl-transfer-form" onSubmit={e => { e.preventDefault(); if (mode === 'scheduled' && !at) { setError('زمان انتقال را مشخص کنید'); return } void command({ action: 'transfer.create', url, name, kind, folderId, mode, ...(mode === 'scheduled' ? { runAt: new Date(at).toISOString() } : {}) }) }}>
+    <form className="mcl-transfer-form" onSubmit={e => { e.preventDefault(); if (mode === 'scheduled' && !at) { setError('زمان انتقال را مشخص کنید'); return } void command({ action: 'transfer.create', url, name, kind, folderId, organization, mode, ...(mode === 'scheduled' ? { runAt: new Date(at).toISOString() } : {}) }) }}>
       <label>نشانی مستقیم<input type="url" dir="ltr" className="input" placeholder="https://example.com/image.webp" required value={url} onChange={e => setUrl(e.target.value)} /></label>
       <label>نام دلخواه<input className="input" maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
       <label>نوع انتقال<select className="select" value={kind} onChange={e => setKind(e.target.value)}><option value="image">تصویر (بهینه‌سازی WebP)</option><option value="file">فایل، ویدئو یا صوت (اصل فایل)</option></select></label>
+      {folderId?<small>پوشهٔ انتخابی اولویت دارد؛ برای پوشه‌بندی خودکار به ریشهٔ کتابخانه بروید.</small>:<OrganizationFields value={organization} onChange={setOrganization} kind={kind==='image'?'image':'file'}/>}
       <label>زمان انتقال<select className="select" value={mode} onChange={e => setMode(e.target.value)}><option value="queued">در پس‌زمینه</option><option value="immediate">همین حالا</option><option value="scheduled">زمان‌بندی</option></select></label>
       {mode === 'scheduled' && <label>تاریخ و ساعت<input type="datetime-local" className="input" required value={at} onChange={e => setAt(e.target.value)} /></label>}
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال پردازش…' : '↓ انتقال به کتابخانه'}</button>

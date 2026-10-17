@@ -143,6 +143,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
   if ('category' in allowed && data.categoryPath.length && !category) throw new Error('دسته ساخته نشد')
   const brand = 'brand' in allowed ? await ensureBrand(ctx, c, data.brandName, changes, counters) : null
   const group = await ensureGroup(c, data, category, data.kind, changes, counters)
+  ctx={...ctx,organization:{section:'products',title:toText(allowed.title||existing?.name||data.values.title,200),category:toText(category?.name||data.categoryPath.at(-1)||'Uncategorized',100)}}
 
   // Images into the media library.
   const row: Record<string, unknown> = {}

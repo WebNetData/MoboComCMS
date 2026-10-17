@@ -26,7 +26,7 @@ const cinemaFields = (series: boolean): FieldDef[] => [
   ...common(series ? 'series' : 'movie'),
   { key: 'originalTitle', label: 'عنوان اصلی', type: 'text', group: 'main', synonyms: ['original_title', 'originaltitle', 'original_name', 'عنوان اصلی'] },
   { key: 'imdbId', label: 'شناسهٔ IMDb', type: 'text', group: 'meta', updatable: false, synonyms: ['imdb_id', 'imdbid', 'imdb', 'tt'] },
-  { key: 'summary', label: 'خلاصه / توضیحات', type: 'longtext', group: 'content', synonyms: ['summary', 'description', 'overview', 'plot', 'synopsis', 'خلاصه', 'داستان'] },
+  { key: 'summary', label: 'خلاصه / توضیحات', type: 'html', group: 'content', synonyms: ['summary', 'description', 'overview', 'plot', 'synopsis', 'خلاصه', 'داستان'] },
   { key: 'summaryEn', label: 'خلاصهٔ انگلیسی', type: 'longtext', group: 'content', synonyms: ['summary_en', 'overview_en', 'plot_en'] },
   { key: 'poster', label: 'پوستر', type: 'image', group: 'media', synonyms: ['poster', 'poster_url', 'poster_path', 'cover', 'image', 'پوستر'] },
   { key: 'backdrop', label: 'تصویر پس‌زمینه', type: 'image', group: 'media', synonyms: ['backdrop', 'backdrop_url', 'backdrop_path', 'fanart', 'background', 'بک‌دراپ'] },

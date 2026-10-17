@@ -16,7 +16,8 @@ import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
-import { assignTerms, assignmentsFor, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
+import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
@@ -122,6 +123,17 @@ async function saveLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: u
   }
 }
 
+/** Import appends only new URLs through the same link owner; existing moderation and counters stay intact. */
+export async function appendMediaLinks(ownerType: LinkOwner, ownerId: number, input: unknown) {
+  return db.$transaction(async tx => {
+    const old=await tx.mediaLink.findMany({where:{ownerType,ownerId},orderBy:{id:'asc'}})
+    const known=new Set(old.map(row=>row.url)), incoming=cleanLinks(input).filter(row=>!known.has(row.url))
+    if(!incoming.length)return []
+    await saveLinks(tx,ownerType,ownerId,[...old,...incoming])
+    return tx.mediaLink.findMany({where:{ownerType,ownerId,id:{notIn:old.map(row=>row.id)}}})
+  })
+}
+
 /**
  * Own prices typed on link rows (url → price). Only rows that carry a `price`
  * key are touched; only titles, games and software keep stable link ids, so
@@ -225,7 +237,7 @@ const RESOURCES: Record<string, Resource> = {
         audioHqUrl: when(b, 'audioHqUrl', mediaUrl),
         duration: when(b, 'duration', (v) => int(v, 0, 36000, 0) ?? 0),
         genre: when(b, 'genre', (v) => joinList(v, 6)),
-        lyrics: when(b, 'lyrics', (v) => text(v, 20000)),
+        lyrics: when(b, 'lyrics', (v) => html(v, 20000)),
         access: when(b, 'access', normalizeAccess),
         status: when(b, 'status', status),
         featured: when(b, 'featured', bool),
@@ -242,7 +254,7 @@ const RESOURCES: Record<string, Resource> = {
       title: when(b, 'title', (v) => text(v, 200)),
       titleEn: when(b, 'titleEn', (v) => text(v, 200)),
       cover: when(b, 'cover', validateCover),
-      description: when(b, 'description', (v) => text(v, 2000)),
+      description: when(b, 'description', (v) => html(v, 10000)),
       trackIds: when(b, 'trackIds', (v) => JSON.stringify((Array.isArray(v) ? v : []).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 200))),
       access: when(b, 'access', normalizeAccess),
       status: when(b, 'status', status),
@@ -267,7 +279,7 @@ const RESOURCES: Record<string, Resource> = {
       endYear: when(b, 'endYear', (v) => int(v, 1880, 2100)),
       releaseDate: when(b, 'releaseDate', date),
       imdbRating: when(b, 'imdbRating', (v) => float(v, 0, 10)),
-      imdbId: when(b, 'imdbId', (v) => text(v, 20).replace(/[^a-z0-9]/gi, '')),
+      imdbId: when(b, 'imdbId', imdbIdentifier),
       runtime: when(b, 'runtime', (v) => int(v, 0, 1000, 0) ?? 0),
       ageRating: when(b, 'ageRating', (v) => text(v, 20)),
       countries: when(b, 'countries', (v) => joinList(v, 10)),
@@ -275,7 +287,7 @@ const RESOURCES: Record<string, Resource> = {
       genres: when(b, 'genres', (v) => joinList(v, 10)),
       director: when(b, 'director', (v) => text(v, 200)),
       cast: when(b, 'cast', (v) => JSON.stringify(cleanRecords(v, ['name', 'role', 'image'], 40, 300))),
-      summary: when(b, 'summary', (v) => text(v, 6000)),
+      summary: when(b, 'summary', (v) => html(v, 20000)),
       summaryEn: when(b, 'summaryEn', (v) => text(v, 6000)),
       trailerUrl: when(b, 'trailerUrl', mediaUrl),
       quality: when(b, 'quality', (v) => text(v, 60)),
@@ -290,7 +302,7 @@ const RESOURCES: Record<string, Resource> = {
     afterSave: async (tx, id, b) => {
       if (has(b, 'links')) await saveLinks(tx, 'title', id, b.links)
       // The people of the title follow its director line and cast list.
-      if (has(b, 'director') || has(b, 'cast')) await syncCredits(tx, id)
+      if (has(b, 'director') || has(b, 'cast')) await syncCredits(tx, id, b.directorImages)
       if (!has(b, 'seasons')) return
       const seasons = Array.isArray(b.seasons) ? b.seasons.slice(0, 60) : []
       // Replace the season/episode tree; episode links are rebuilt with it.
@@ -314,7 +326,7 @@ const RESOURCES: Record<string, Resource> = {
           if (seenEpisodes.has(epNumber)) throw new Error(`قسمت تکراری / Duplicate episode ${number}x${epNumber}`)
           seenEpisodes.add(epNumber)
           const episode = await tx.cinemaEpisode.create({ data: {
-            seasonId: season.id, number: epNumber, title: text(e.title, 200), titleEn: text(e.titleEn, 200), summary: text(e.summary, 3000),
+            seasonId: season.id, number: epNumber, title: text(e.title, 200), titleEn: text(e.titleEn, 200), summary: html(e.summary, 10000),
             still: e.still ? validateCover(e.still) : '', runtime: int(e.runtime, 0, 1000, 0) ?? 0, airDate: date(e.airDate), access: normalizeAccess(e.access),
           } })
           if (e.links) await saveLinks(tx, 'episode', episode.id, e.links)
@@ -586,6 +598,7 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   if (id && !existing) throw new Error('not found')
   const data = await resource.parse(body, existing)
   const row = await db.$transaction(async (tx) => {
+    if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
     if (type === 'games' || type === 'software') {
       for (const role of ['developer', 'publisher'] as const) {
         if (data[role] !== undefined) data[`${role}StudioId`] = await resolveStudioId(tx, data[role])

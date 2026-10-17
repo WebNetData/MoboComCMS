@@ -5,6 +5,44 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('selected terms project leaves and inherited semantic fields without duplicate typing', () => {
+  const { projectTerms, termProjectionChange }=load('src/modules/taxonomy/domain/projection.ts')
+  const terms=[{id:1,parentId:null,name:'فیلم',slug:'movies'}, {id:2,parentId:1,name:'درام'}, {id:3,parentId:null,name:'کشور',facet:'countries'}, {id:4,parentId:3,name:'ایران'}, {id:5,parentId:null,name:'ویژه',facet:'none'}]
+  assert.deepEqual(projectTerms('cinema',terms,{ids:[1,2,4,5]}),{genres:'درام',countries:'ایران'})
+  assert.deepEqual(termProjectionChange('cinema',terms,{ids:[2,4]},{ids:[4]}),{genres:'',countries:'ایران'})
+  assert.deepEqual(projectTerms('cinema',terms,{ids:[999]}),{})
+  assert.deepEqual(projectTerms('software',[{id:1,parentId:null,name:'Windows'},{id:2,parentId:1,name:'Security'}],{ids:[2]}),{category:'Security',platforms:'Windows'})
+})
+
+test('IMDb accepts official title URLs/IDs and never arbitrary network targets', () => {
+  const {imdbIdentifier}=load('src/modules/cinema/domain/metadata.ts')
+  for(const value of ['tt1375666','https://www.imdb.com/title/tt1375666/?ref_=x','https://m.imdb.com/title/tt1375666'])assert.equal(imdbIdentifier(value),'tt1375666')
+  for(const value of ['https://imdb.com.evil.test/title/tt1375666','https://u:p@imdb.com/title/tt1375666','https://imdb.com:444/title/tt1375666','http://127.0.0.1/tt1375666','file:///tt1375666'])assert.equal(imdbIdentifier(value),'')
+})
+
+test('Cinema enrichment uses fixed official providers and never labels TMDb votes as IMDb ratings', async () => {
+  const previous=global.fetch,calls=[]
+  global.fetch=async(url,options)=>{calls.push([String(url),options]);const u=new URL(url);if(u.pathname.includes('/find/'))return Response.json({movie_results:[{id:27205}]});if(u.hostname==='www.omdbapi.com')return Response.json({Response:'True',imdbRating:'8.8',Rated:'PG-13'});return Response.json({title:'تلقین',original_title:'Inception',overview:'خلاصه',release_date:'2010-07-16',runtime:148,vote_average:9.9,genres:[{name:'علمی تخیلی'}],credits:{cast:[{name:'Leonardo',character:'Cobb',profile_path:'/photo.jpg'}],crew:[{name:'Christopher Nolan',job:'Director',profile_path:'/nolan.jpg'}]}})}
+  try {
+    let omdbKey=''
+    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled:true,tmdbToken:'owned-fixture-token',omdbKey})}})
+    const first=await provider.lookupCinemaMetadata('https://www.imdb.com/title/tt1375666/')
+    assert.equal(first.fields.year,2010);assert.equal(first.fields.imdbRating,undefined);assert.equal(first.fields.cast[0].image,'https://image.tmdb.org/t/p/w185/photo.jpg');assert.equal(first.fields.directorImages[0].name,'Christopher Nolan')
+    omdbKey='owned-fixture-key';assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.imdbRating,8.8)
+    assert.ok(calls.every(([url,opts])=>new URL(url).protocol==='https:'&&opts.redirect==='error'&&opts.cache==='no-store'))
+    await assert.rejects(()=>provider.lookupCinemaMetadata('http://127.0.0.1/private'),/معتبر/)
+  } finally {global.fetch=previous}
+})
+
+test('organized destinations preserve requested layouts and reject path escapes', () => {
+  const {organizationPath:p,validOrganizationPath:valid}=load('src/modules/downloads/domain/organization.ts')
+  const cases=[['film',{title:'Inception'},'image','download/film/Inception/images'],['film',{title:'Inception'},'file','download/film/Inception/video'],['series',{title:'Dark',season:2},'file','download/series/Dark/Season2'],['series',{title:'Dark'},'image','download/series/Dark/images'],['music',{artist:'Haamim',artistImage:true},'image','download/music/Haamim/image'],['music',{artist:'Haamim',album:'AlbumX'},'image','download/music/Haamim/AlbumX/image'],['music',{artist:'Haamim',album:'AlbumX'},'file','download/music/Haamim/AlbumX'],['music',{artist:'Haamim'},'file','download/music/Haamim'],['software',{category:'Tools',title:'App'},'file','download/Sofware/Tools/App'],['software',{category:'Tools',title:'App'},'image','download/Sofware/Tools/App/images'],['games',{category:'Action',title:'Game'},'file','download/Game/Action/Game'],['games',{category:'Action',title:'Game',video:true},'file','download/Game/Action/Game/videos'],['products',{category:'Book',title:'Product'},'image','download/Products/Book/Product/images'],['products',{category:'Book',title:'Product'},'file','download/Products/Book/Product/videos']]
+  for(const [section,context,kind,path]of cases){assert.equal(p({section,...context},kind),path);assert.equal(valid(path),true)}
+  for(const v of ['download/film/../../private','/download/film/x/images','download/film/%2e%2e/images','download/film/x/other','download/Game/x/y/../../.env','download/film/CON/images'])assert.equal(valid(v),false,v)
+  assert.equal(p({section:'film',title:'../../Inception'},'image'),'download/film/Inception/images')
+  assert.equal(p({section:'film',title:'Inception',enabled:false},'file'),'')
+})
+
 test('shared private images use exclusive private writes and compensate only newly written files', async () => {
   const written = [], removed = []
   let failAt = 2
@@ -1150,4 +1188,23 @@ test("a person's own picture stands beside what they wrote, with the initial as 
   assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /deleted: true, user: \{ name: '', avatar: '' \}/)
   assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /viewer: mine \? \{ avatar: pictureOf\(mine\) \} : null/)
   for (const file of ['src/components/PostComments.tsx', 'src/components/engage/ReviewList.tsx', 'src/components/ProductTabs.tsx']) assert.match(sourceOf(file), /is-photo/, file)
+})
+test('complete article excerpts are rendered inside the reading body without changing its canonical markup', () => {
+  const { articleBodyWithExcerpt } = load('src/modules/site/domain/article-output.ts')
+  const body = '<div class="mcb-block" id="canonical-block"><h2>متن اصلی</h2></div>'
+  const excerpt = 'خلاصهٔ کامل '.repeat(60) + 'پایان خلاصه'
+  const result = articleBodyWithExcerpt(body, excerpt)
+  assert.ok(result.includes('پایان خلاصه'))
+  assert.ok(result.indexOf('پایان خلاصه') < result.indexOf('canonical-block'))
+  assert.ok(result.endsWith(body))
+  assert.equal(articleBodyWithExcerpt(body, ''), body)
+  assert.doesNotMatch(articleBodyWithExcerpt(body, '<img src=x onerror="alert(1)"><script>alert(1)</script>متن'), /onerror|<script/)
+})
+
+test('editorial display retains historical text/newlines and cleans formatted content', () => {
+  const { renderEditorialText } = load('src/shared/content/sanitize.ts')
+  assert.equal(renderEditorialText('سطر یک\nسطر دو & سه'), 'سطر یک<br />سطر دو &amp; سه')
+  const rich = renderEditorialText('<p dir="rtl"><strong>داستان</strong></p><img src=x onerror="alert(1)"><script>alert(1)</script>')
+  assert.match(rich, /<strong>داستان<\/strong>/)
+  assert.doesNotMatch(rich, /onerror|<script/)
 })

@@ -8,6 +8,8 @@ import { LibraryError, folderId, transferUrl } from '@/modules/media/domain/libr
 import { currentLibraryUser, libraryTransaction, type LibraryActor } from './authority'
 import { assetUrl, registerLocalAsset } from './catalog'
 import { mediaSettings } from './settings'
+import { organizationPath, validOrganizationPath, type AssetOrganization } from '@/modules/downloads/domain/organization'
+import { ensureOrganizationFolders } from './organization'
 
 const safeUrl = (raw: string) => {
   if (raw.length > 4000) throw new LibraryError('نشانی بیش از حد طولانی است')
@@ -23,14 +25,16 @@ export async function requestTransfer(actor: LibraryActor, input: Record<string,
   if (!config.enabled) throw new LibraryError('انتقال از لینک در تنظیمات کتابخانه غیرفعال است', 409)
   const row = await libraryTransaction(async tx => {
     const user = await currentLibraryUser(actor, tx)
-    const sourceHash = createHash('sha256').update(`${user.id}:${kind}:${sourceUrl}`).digest('hex')
+    let folder = folderId(input.folderId)
+    let destination = retryId && validOrganizationPath(input.destination) ? input.destination : config.organize && !folder ? organizationPath(input.organization as AssetOrganization | undefined, kind) : ''
+    if (folder && !await tx.mediaFolder.findUnique({ where: { id: folder } })) throw new LibraryError('پوشه پیدا نشد', 404)
+    const sourceHash = createHash('sha256').update(`${user.id}:${kind}:${sourceUrl}${destination ? ':'+destination : folder ? ':folder:'+folder : ''}`).digest('hex')
     const known = await tx.mediaTransfer.findUnique({ where: retryId ? { id: retryId } : { sourceHash }, include: { asset: true } })
     if (retryId && (!known || (!user.manageLibrary && known.actorId !== user.id))) throw new LibraryError('انتقال پیدا نشد', 404)
     if (known && ['READY', 'QUEUED', 'RUNNING'].includes(known.status)) return known
     if (await tx.mediaTransfer.count({ where: { actorId: user.id, status: { in: ['QUEUED', 'RUNNING'] } } }) >= 100) throw new LibraryError('ابتدا انتقال‌های قبلی را تکمیل کنید', 429)
-    const folder = folderId(input.folderId)
-    if (folder && !await tx.mediaFolder.findUnique({ where: { id: folder } })) throw new LibraryError('پوشه پیدا نشد', 404)
-    const data = { authority: actor.purpose === 'import' ? 'import' : 'media', sourceUrl, kind, actorId: user.id, authAt: actor.authAt, folderId: folder, name: String(input.name || '').slice(0, 120), section: String(input.section || 'posts'), runAt, status: 'QUEUED', lastError: '', leaseToken: '', lockedUntil: null, attempts: 0, receivedBytes: 0n, totalBytes: null }
+    if(destination && !folder)folder=await ensureOrganizationFolders(tx,destination,user.id)
+    const data = { authority: actor.purpose === 'import' ? 'import' : 'media', sourceUrl, kind, destination, actorId: user.id, authAt: actor.authAt, folderId: folder, name: String(input.name || '').slice(0, 120), section: String(input.section || 'posts'), runAt, status: 'QUEUED', lastError: '', leaseToken: '', lockedUntil: null, attempts: 0, receivedBytes: 0n, totalBytes: null }
     const transfer = known ? await tx.mediaTransfer.update({ where: { id: known.id }, data: { ...data, generation: { increment: 1 } } }) : await tx.mediaTransfer.create({ data: { ...data, sourceHash } })
     const job = await enqueue('media.transfer', { id: transfer.id, generation: transfer.generation }, { runAt, dedupeKey: `media:${transfer.id}:${transfer.generation}` }, tx)
     const updated = await tx.mediaTransfer.update({ where: { id: transfer.id }, data: { jobId: job.id }, include: { asset: true } })
@@ -61,8 +65,10 @@ export async function runTransfer(payload: Record<string, unknown>) {
     await checkpoint()
     const config = (await mediaSettings()).value
     let url: string
-    if (row.kind === 'image') url = (await (await import('@/modules/imports/server/media')).importImage(row.sourceUrl)).url
-    else url = await (await import('@/modules/downloads/server/files')).importFile(row.sourceUrl, row.section, { maxBytes: config.maxFileMB * 1024 ** 2, timeoutMs: config.timeoutSeconds * 1000, checkpoint, canonical: true })
+    if (row.kind === 'image') {
+      url = (await (await import('@/modules/imports/server/media')).importImage(row.sourceUrl)).url
+      if(row.destination)url=await (await import('@/modules/downloads/server/files')).organizeCoverImage(url,row.destination,checkpoint)
+    } else url = await (await import('@/modules/downloads/server/files')).importFile(row.sourceUrl, row.section, { maxBytes: config.maxFileMB * 1024 ** 2, timeoutMs: config.timeoutSeconds * 1000, checkpoint, canonical: true, destination: row.destination })
     await checkpoint()
     const asset = await libraryTransaction(async tx => {
       await currentLibraryUser(actor, tx)

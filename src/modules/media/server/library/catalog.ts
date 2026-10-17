@@ -6,6 +6,7 @@ import { filesRoot } from '@/modules/downloads/server/files'
 import { contentTypeFor } from '@/modules/downloads/domain/mask'
 import { LibraryError, libraryKind, type LibraryAsset } from '@/modules/media/domain/library'
 import type { LibraryUser } from './authority'
+import { validOrganizationPath } from '@/modules/downloads/domain/organization'
 
 const coverKey = /^[0-9a-f-]{36}\.(webp|png|jpg)$/i
 export const assetUrl = (row: { storage: string; key: string }) => row.storage === 'covers' ? `/api/media/covers/${row.key}` : `/files/${row.key.split('/').map(encodeURIComponent).join('/')}`
@@ -14,7 +15,7 @@ export function localDescriptor(url: string) {
   if (url.startsWith('/files/')) {
     let key: string
     try { key = url.slice(7).split('/').map(decodeURIComponent).join('/') } catch { throw new LibraryError('آدرس فایل نامعتبر است') }
-    if (/^uploads\/(music|cinema|software|games|posts|products|general)\/[0-9]{4}-[0-9]{2}\//.test(key) && key.split('/').every(p => p && !p.startsWith('.') && !/[\\\u0000-\u001f]/.test(p))) return { storage: 'downloads', key }
+    if ((/^uploads\/(music|cinema|software|games|posts|products|general)\/[0-9]{4}-[0-9]{2}\//.test(key) || validOrganizationPath(key.split('/').slice(0,-1).join('/'))) && key.split('/').every(p => p && !p.startsWith('.') && !/[\\\u0000-\u001f]/.test(p))) return { storage: 'downloads', key }
   }
   throw new LibraryError('فقط فایل عمومیِ بارگذاری‌شده در سایت قابل ثبت است')
 }
@@ -30,7 +31,7 @@ export async function registerLocalAsset(url: string, creator: number | null = n
   const name = displayName?.slice(0, 120) || path.basename(desc.key).slice(0, 120)
   const mime = contentTypeFor(desc.key, null)
   let width = 0, height = 0
-  if (desc.storage === 'covers') {
+  if (desc.storage === 'covers' || mime === 'image/webp' && validOrganizationPath(desc.key.split('/').slice(0,-1).join('/'))) {
     const meta = await (await import('sharp')).default(real).metadata().catch(() => null)
     width = meta?.width || 0; height = meta?.height || 0
   }

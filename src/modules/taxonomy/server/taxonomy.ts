@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { TERM_FACETS, termProjectionChange } from '@/modules/taxonomy/domain/projection'
 import {
   LEGACY_SOURCES, MAX_TERMS, TaxonomyError, assertParent, buildTree, descendants, flatten, normalizeAssignment, slugify, termBySlugs, termPath, validateTerm,
   type Taxonomy,
@@ -43,6 +44,9 @@ async function uniqueSlug(tx: Tx, taxonomy: Taxonomy, slug: string, exceptId: nu
 
 export async function saveTerm(taxonomy: Taxonomy, input: Record<string, unknown>, id: number | null = null) {
   const data = validateTerm(input)
+  const facet = String(input.facet ?? '')
+  if (facet && facet !== 'none' && !Object.hasOwn(TERM_FACETS[taxonomy], facet)) throw new TaxonomyError('فیلد مرتبط با این دسته معتبر نیست')
+  const mapping = Object.hasOwn(input, 'facet') ? { facet } : {}
   return db.$transaction(async (tx) => {
     const nodes = await tx.taxonomyTerm.findMany({ where: { taxonomy }, select: { id: true, parentId: true } })
     if (id !== null && !nodes.some((node) => node.id === id)) throw new TaxonomyError('دسته پیدا نشد', 404)
@@ -51,8 +55,8 @@ export async function saveTerm(taxonomy: Taxonomy, input: Record<string, unknown
     const slug = await uniqueSlug(tx, taxonomy, data.slug, id)
     const sortOrder = id === null && !input.sortOrder ? (await tx.taxonomyTerm.count({ where: { taxonomy, parentId: data.parentId } })) * 10 : data.sortOrder
     return id === null
-      ? tx.taxonomyTerm.create({ data: { ...data, slug, sortOrder, taxonomy } })
-      : tx.taxonomyTerm.update({ where: { id }, data: { ...data, slug, sortOrder } })
+      ? tx.taxonomyTerm.create({ data: { ...data, ...mapping, slug, sortOrder, taxonomy } })
+      : tx.taxonomyTerm.update({ where: { id }, data: { ...data, ...mapping, slug, sortOrder } })
   })
 }
 
@@ -94,6 +98,13 @@ export async function assignTerms(tx: Tx, taxonomy: Taxonomy, ownerId: number, i
   const { ids, primary } = normalizeAssignment(input, valid)
   await tx.taxonomyAssignment.deleteMany({ where: { taxonomy, ownerId } })
   if (ids.length) await tx.taxonomyAssignment.createMany({ data: ids.map((termId) => ({ termId, ownerId, taxonomy, primary: termId === primary })) })
+}
+
+/** The content owner writes these fields in the same transaction as its assignments. */
+export async function projectedTermFields(tx: Tx, taxonomy: Taxonomy, ownerId: number | null, input: unknown) {
+  const terms = await listTerms(taxonomy, tx)
+  const old = ownerId ? await tx.taxonomyAssignment.findMany({ where: { taxonomy, ownerId } }) : []
+  return termProjectionChange(taxonomy, terms, { ids: old.map(t => t.termId), primary: old.find(t => t.primary)?.termId }, input)
 }
 
 export async function removeOwner(tx: Tx, taxonomy: Taxonomy, ownerId: number) {
@@ -240,5 +251,5 @@ export async function importLegacy(taxonomy: Taxonomy) {
 
 /** Flat indented options for pickers. */
 export async function termOptions(taxonomy: Taxonomy) {
-  return flatten(buildTree(await listTerms(taxonomy))).map((term) => ({ id: term.id, name: term.name, depth: term.depth, parentId: term.parentId, count: term.count }))
+  return flatten(buildTree(await listTerms(taxonomy))).map((term) => ({ id: term.id, name: term.name, slug: term.slug, facet: term.facet, depth: term.depth, parentId: term.parentId, count: term.count }))
 }

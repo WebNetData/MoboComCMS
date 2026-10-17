@@ -11,10 +11,15 @@ const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
  * normalized name or created, credits no longer named are removed. A person left without any credit stays
  * (their address keeps working and they return with their next film). Safe to repeat.
  */
-export async function syncCredits(tx: Tx, titleId: number) {
+export async function syncCredits(tx: Tx, titleId: number, directorImages?: unknown) {
   const title = await tx.cinemaTitle.findUnique({ where: { id: titleId }, select: { director: true, cast: true } })
   if (!title) return 0
   const credits = creditsOf(title)
+  if (Array.isArray(directorImages)) for (const credit of credits) {
+    if (credit.role !== 'DIRECTOR') continue
+    const photo = directorImages.slice(0,8).find(row => row && normalizePersonName(String(row.name || '')) === normalizePersonName(credit.name))
+    if (photo && /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(String(photo.image))) credit.image=String(photo.image).slice(0,1000)
+  }
   const keep: number[] = []
   for (const credit of credits) {
     const normalizedName = normalizePersonName(credit.name)

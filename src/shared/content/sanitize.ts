@@ -64,6 +64,13 @@ export function cleanRichText(input: string | null | undefined): string {
   return sanitizeHtml(String(input), OPTIONS)
 }
 
+/** Editorial HTML and historical plain text share one safe display boundary. */
+export function renderEditorialText(input: string | null | undefined): string {
+  const raw = String(input || '')
+  const html = /<\/?[a-z][^>]*>/i.test(raw) ? raw : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>')
+  return cleanRichText(html)
+}
+
 const MESSAGE_OPTIONS: sanitizeHtml.IOptions = {
   ...OPTIONS,
   // conversations keep inline formatting only

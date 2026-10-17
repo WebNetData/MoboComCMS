@@ -3,13 +3,14 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { LEGACY_SOURCES, TAXONOMIES, TAXONOMY_INFO, descendants, flatten, isTaxonomy, type Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
+import { TERM_FACETS } from '@/modules/taxonomy/domain/projection'
 
 type Node = {
-  id: number; parentId: number | null; slug: string; name: string; sortOrder: number; description: string; icon: string; image: string
+  facet: string; id: number; parentId: number | null; slug: string; name: string; sortOrder: number; description: string; icon: string; image: string
   color: string; inMenu: boolean; count: number; seoTitle: string; seoDescription: string; path: string; depth: number; children: Node[]
 }
-type Draft = { id: number | null; name: string; slug: string; parentId: number | null; description: string; icon: string; image: string; color: string; inMenu: boolean; seoTitle: string; seoDescription: string }
-const EMPTY: Draft = { id: null, name: '', slug: '', parentId: null, description: '', icon: '', image: '', color: '', inMenu: true, seoTitle: '', seoDescription: '' }
+type Draft = { facet: string; id: number | null; name: string; slug: string; parentId: number | null; description: string; icon: string; image: string; color: string; inMenu: boolean; seoTitle: string; seoDescription: string }
+const EMPTY: Draft = { facet: '', id: null, name: '', slug: '', parentId: null, description: '', icon: '', image: '', color: '', inMenu: true, seoTitle: '', seoDescription: '' }
 
 /** Category and sub-category manager for each content section. */
 function TaxonomyManager() {
@@ -60,7 +61,7 @@ function TaxonomyManager() {
     await call({ method: 'POST', body: JSON.stringify({ action: 'reorder', moves: order.map((id, i) => ({ id, parentId: node.parentId, sortOrder: i * 10 })) }) })
   }
 
-  const edit = (node: Node) => setDraft({ id: node.id, name: node.name, slug: node.slug, parentId: node.parentId, description: node.description, icon: node.icon, image: node.image, color: node.color, inMenu: node.inMenu, seoTitle: node.seoTitle, seoDescription: node.seoDescription })
+  const edit = (node: Node) => setDraft({ facet: node.facet || '', id: node.id, name: node.name, slug: node.slug, parentId: node.parentId, description: node.description, icon: node.icon, image: node.image, color: node.color, inMenu: node.inMenu, seoTitle: node.seoTitle, seoDescription: node.seoDescription })
   const blocked = draft?.id ? new Set(descendants(flat, draft.id)) : new Set<number>()
   const info = TAXONOMY_INFO[taxonomy]
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => (current ? { ...current, [key]: value } : current))
@@ -119,6 +120,7 @@ function TaxonomyManager() {
             <option value="">— دستهٔ اصلی (بدون والد) —</option>
             {flat.filter((n) => !blocked.has(n.id) && n.depth < 4).map((n) => <option key={n.id} value={n.id}>{'— '.repeat(n.depth - 1)}{n.name}</option>)}
           </select></label>
+        {Object.keys(TERM_FACETS[taxonomy]).length > 0 && <label className="sh-field"><span>پر کردن خودکار فیلد محتوا</span><select className="sh-input" value={draft.facet} onChange={e => set('facet', e.target.value)}><option value="">خودکار / ارث‌بری از والد</option><option value="none">بدون ارتباط با فیلد</option>{Object.entries(TERM_FACETS[taxonomy]).map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select><small className="muted">انتخاب این دسته یا زیردسته‌های آن، فیلد مرتبط را در ویرایشگر محتوا پر می‌کند.</small></label>}
         <label className="sh-field"><span>توضیح (بالای صفحهٔ دسته)</span><textarea className="sh-input tx-textarea" rows={3} maxLength={1000} value={draft.description} onChange={(e) => set('description', e.target.value)} /></label>
         <div className="sh-grid">
           <label className="sh-field"><span>رنگ</span><input className="sh-input" type="color" value={draft.color || '#5b36f2'} onChange={(e) => set('color', e.target.value)} /></label>

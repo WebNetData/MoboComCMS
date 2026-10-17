@@ -75,7 +75,7 @@ const CHECKS = [
 
 // These invoke optional archive binaries / protocol servers and a queue-wide worker.
 // Run explicitly against an owned mobocom_media_* database, never the site's database.
-const OPTIONAL_CHECKS = ['media-archive', 'media-storage']
+const OPTIONAL_CHECKS = ['media-archive', 'media-storage', 'content-authoring']
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')

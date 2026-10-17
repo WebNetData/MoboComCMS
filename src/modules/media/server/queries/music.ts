@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { parseJsonList } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
-import { cleanRichText } from '@/shared/content/sanitize'
+import { cleanRichText, renderEditorialText } from '@/shared/content/sanitize'
 import { relatedAlbums, relatedTracks } from '@/modules/recommendations/server/contextual'
 import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
@@ -207,5 +207,5 @@ export async function getPlaylist(slug: string) {
   const ids = parseJsonList<number>(row.trackIds).map(Number).filter(Number.isSafeInteger)
   const rows = ids.length ? await db.musicTrack.findMany({ where: { id: { in: ids }, ...live() }, include: trackInclude }) : []
   const byId = new Map(rows.map((r) => [r.id, r]))
-  return { playlist: toPlaylist(row), tracks: ids.flatMap((id) => (byId.has(id) ? [toTrack(byId.get(id))] : [])) }
+  return { playlist: { ...toPlaylist(row), descriptionHtml: renderEditorialText(row.description) }, tracks: ids.flatMap((id) => (byId.has(id) ? [toTrack(byId.get(id))] : [])) }
 }

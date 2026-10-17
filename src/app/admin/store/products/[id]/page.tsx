@@ -13,6 +13,7 @@ import PublishReview, { previewValue, type ReviewRow } from '../../../cms/Publis
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
 import OrderAsk from '../OrderAsk'
+import { OrganizationScope } from '@/components/media/OrganizationScope'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -153,7 +154,7 @@ export default function ProductEditorPage() {
     <AiAutofill section="products" fields={aiFields} form={form} onApply={applyAi} />
     <PublishReview open={review} title={form.name} rows={reviewRows} busy={busy} onCancel={() => setReview(false)} onConfirm={() => void save()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.map(([key, label]) => <a key={key} href={`#sa-${key}`}>{label}</a>)}</nav>
-    <form className="sa-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
+    <OrganizationScope value={{section:'products',title:form.nameEn||form.name,category:categories.find(c=>String(c.id)===String(form.categoryId))?.name}}><form className="sa-editor" onSubmit={(event) => { event.preventDefault(); void save() }}>
       <div className="sa-stack">
         <section id="sa-general" className="sa-card">
           <header className="sa-card-head"><h2>اطلاعات اصلی</h2></header>
@@ -246,6 +247,6 @@ export default function ProductEditorPage() {
         </section>
         {form.image && <section className="sa-card sa-preview"><header className="sa-card-head"><h2>پیش‌نمایش کارت</h2></header><img src={form.image} alt="" /><b>{form.name}</b></section>}
       </aside>
-    </form>
+    </form></OrganizationScope>
   </StoreShell>
 }
