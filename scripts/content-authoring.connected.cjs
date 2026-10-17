@@ -51,14 +51,15 @@ async function main(){try{
  try {
    const settings=load('src/modules/cinema/server/metadata.ts')
    await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
-   await Promise.all([settings.saveMetadataConfig({enabled:false}),settings.saveMetadataConfig({omdbKey:'owned-key'})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true)
+   await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false)
+   await assert.rejects(()=>settings.saveMetadataConfig({provider:'arbitrary-host'}),/معتبر/)
  }finally{await db.setting.deleteMany({where:{key:secretKey}});if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey}
  await checkOrganization()
  console.log('Content authoring PostgreSQL: sanitized formatted stories/episodes/lyrics/playlists, plain card projections and historical newlines passed.')
 }finally{
  await db.contentRevision.deleteMany({where:{OR:Object.entries({ 'cinema-titles':ids.title,'music-artists':ids.artist,'music-tracks':ids.track,'music-playlists':ids.playlist }).filter(([,id])=>id).map(([entityType,entityId])=>({entityType,entityId}))}}).catch(()=>{})
  await db.taxonomyAssignment.deleteMany({where:{taxonomy:'cinema',ownerId:ids.title||-1}});await db.taxonomyTerm.deleteMany({where:{name:{startsWith:stamp}}})
- await db.cinemaTitle.deleteMany({where:{slug:{startsWith:stamp}}});await db.musicPlaylist.deleteMany({where:{slug:{startsWith:stamp}}});await db.musicTrack.deleteMany({where:{slug:{startsWith:stamp}}});await db.musicArtist.deleteMany({where:{slug:{startsWith:stamp}}});await db.$disconnect()
+ await db.cinemaTitle.deleteMany({where:{slug:{startsWith:stamp}}});await db.cinemaPerson.deleteMany({where:{name:{startsWith:stamp}}});await db.musicPlaylist.deleteMany({where:{slug:{startsWith:stamp}}});await db.musicTrack.deleteMany({where:{slug:{startsWith:stamp}}});await db.musicArtist.deleteMany({where:{slug:{startsWith:stamp}}});await db.$disconnect()
 }}
 async function checkOrganization(){
  const http=require('node:http'),fsp=require('node:fs/promises'),crypto=require('node:crypto'),oldRoot=process.env.DOWNLOADS_ROOT,oldLoop=process.env.IMPORT_ALLOW_LOOPBACK,root='/tmp/'+stamp,users=[]
@@ -72,16 +73,39 @@ async function checkOrganization(){
   server=http.createServer((req,res)=>{hits++;res.setHeader('content-type',req.url.endsWith('.png')?'image/png':'application/octet-stream');res.end(req.url.endsWith('.png')?image:Buffer.from('owned bytes'))});await new Promise(r=>server.listen(0,'0.0.0.0',r));base='http://127.0.0.1:'+server.address().port
   const lib=load('src/modules/media/server/library.ts'),actor={id:user.id,authAt:new Date()},organization={section:'film',title:stamp},input={url:base+'/file.mp4',kind:'file',organization,mode:'immediate'}
   const file=await lib.requestTransfer(actor,input);transfers.push(file.id);const row=await db.mediaTransfer.findUniqueOrThrow({where:{id:file.id},include:{asset:true,folder:true}})
-  assert.equal(row.destination,`download/film/${stamp}/video`);assert.equal(row.folder.name,'video');assert.ok(row.asset.key.startsWith(row.destination+'/'));assert.equal(await fsp.readFile(path.join(root,row.asset.key),'utf8'),'owned bytes');assert.ok(file.url.startsWith('/files/download/film/'))
+  assert.equal(row.destination,`download/movie/${stamp}`);assert.equal(row.folder.name,stamp);assert.ok(row.asset.key.startsWith(row.destination+'/'));assert.equal(await fsp.readFile(path.join(root,row.asset.key),'utf8'),'owned bytes');assert.ok(file.url.startsWith('/files/download/movie/'))
   assert.equal((await lib.requestTransfer(actor,input)).id,file.id)
-  const pic=await lib.requestTransfer(actor,{...input,url:base+'/cover.png',kind:'image'});transfers.push(pic.id);const picture=await db.mediaTransfer.findUniqueOrThrow({where:{id:pic.id},include:{asset:true,folder:true}});assert.equal(picture.destination,`download/film/${stamp}/images`);assert.equal(picture.asset.mime,'image/webp');assert.equal(picture.folder.name,'images');assert.ok((await require('sharp')(path.join(root,picture.asset.key)).metadata()).width>0)
+  const pic=await lib.requestTransfer(actor,{...input,url:base+'/cover.png',kind:'image'});transfers.push(pic.id);const picture=await db.mediaTransfer.findUniqueOrThrow({where:{id:pic.id},include:{asset:true,folder:true}});assert.equal(picture.destination,`download/movie/${stamp}/images`);assert.equal(picture.asset.mime,'image/webp');assert.equal(picture.folder.name,'images');assert.ok((await require('sharp')(path.join(root,picture.asset.key)).metadata()).width>0)
   assert.ok(picture.asset.width>0 && picture.asset.height>0,'organized images retain Library dimensions')
   const legacy=await db.importMedia.findFirstOrThrow({where:{sourceUrl:base+'/cover.png'}});blobs.push(path.join(process.cwd(),'storage','covers',legacy.localUrl.split('/').pop()))
   const queued=await lib.requestTransfer(actor,{...input,url:base+'/season.mp4',organization:{section:'series',title:stamp,season:3},mode:'queued'});transfers.push(queued.id);await lib.runTransfer({id:queued.id,generation:0});assert.equal((await db.mediaTransfer.findUniqueOrThrow({where:{id:queued.id}})).destination,`download/series/${stamp}/Season3`)
+  const localPeople=[]
+  for(const personRole of ['actor','director']) {
+   const name=stamp+' '+personRole,pending=await lib.requestTransfer(actor,{url:base+'/'+personRole+'.png',kind:'image',name,section:'cinema',mode:'queued',organization:{section:'cinema-person',title:name,personRole}});transfers.push(pending.id)
+   assert.equal(pending.status,'QUEUED');assert.match(pending.url,/^\/api\/media\/transfers\//)
+   await lib.runTransfer({id:pending.id,generation:0})
+   const copied=await db.mediaTransfer.findUniqueOrThrow({where:{id:pending.id},include:{asset:true,folder:true}}),dest=`download/cinema/images/${personRole==='actor'?'actors':'director'}/${name}`
+   assert.equal(copied.status,'READY');assert.equal(copied.destination,dest);assert.equal(copied.folder.name,name);assert.equal(copied.asset.mime,'image/webp');assert.ok(copied.asset.width>0);assert.ok(copied.asset.key.startsWith(dest+'/'));assert.ok((await fsp.stat(path.join(root,copied.asset.key))).size>0)
+   assert.equal((await lib.publicTransfer(pending.id)).headers.get('location'),lib.assetUrl(copied.asset))
+   const served=await load('src/modules/downloads/server/files.ts').serveLocalFile(new Request('http://localhost'+lib.assetUrl(copied.asset)),copied.asset.key.split('/'));assert.equal(served.status,200);assert.equal(served.headers.get('content-type'),'image/webp');assert.equal((await require('sharp')(Buffer.from(await served.arrayBuffer())).metadata()).width,17)
+   const legacy=await db.importMedia.findFirstOrThrow({where:{sourceUrl:base+'/'+personRole+'.png'}});blobs.push(path.join(process.cwd(),'storage','covers',legacy.localUrl.split('/').pop()))
+   localPeople.push({name,image:pending.url})
+  }
+  const media=load('src/modules/media/server/admin.ts'),normalize=load('src/modules/cinema/domain/people.ts').normalizePersonName
+  await db.cinemaPerson.create({data:{name:localPeople[0].name,normalizedName:normalize(localPeople[0].name),image:'https://m.media-amazon.com/images/existing.jpg'}})
+  await media.saveMediaItem('cinema-titles',{cast:[{...localPeople[0],role:'Hero'}],director:localPeople[1].name,directorImages:[localPeople[1]]},ids.title)
+  for(const p of localPeople)assert.equal((await db.cinemaPerson.findUniqueOrThrow({where:{normalizedName:normalize(p.name)}})).image,p.image)
+  await media.saveMediaItem('cinema-titles',{cast:[{name:localPeople[0].name,image:'https://m.media-amazon.com/images/other.jpg'}]},ids.title)
+  assert.equal((await db.cinemaPerson.findUniqueOrThrow({where:{normalizedName:normalize(localPeople[0].name)}})).image,localPeople[0].image,'existing local person pictures stay local')
+  const legacyDestination=`download/film/${stamp}/video`,oldTransfer=await db.mediaTransfer.create({data:{actorId:user.id,authAt:actor.authAt,sourceUrl:base+'/legacy.mp4',sourceHash:stamp+'-legacy',destination:legacyDestination,kind:'file',section:'cinema',status:'FAILED'}})
+  transfers.push(oldTransfer.id)
+  const retry=await lib.requestTransfer(actor,{url:oldTransfer.sourceUrl,destination:oldTransfer.destination,mode:'queued'},undefined,oldTransfer.id)
+  const generation=(await db.mediaTransfer.findUniqueOrThrow({where:{id:retry.id}})).generation;await lib.runTransfer({id:retry.id,generation})
+  const legacyReady=await db.mediaTransfer.findUniqueOrThrow({where:{id:retry.id},include:{asset:true}});assert.equal(legacyReady.destination,legacyDestination);assert.ok(lib.assetUrl(legacyReady.asset).startsWith('/files/download/film/'))
   const before=hits,services=load('src/modules/imports/server/library-media.ts').importMediaServices
   const keep=services(null,{options:{copyAssets:false}},false);assert.equal((await keep.importFile(base+'/skip.mp4',organization)).url,base+'/skip.mp4');assert.equal((await keep.importImage(base+'/skip.png',organization)).url,base+'/skip.png');assert.equal(hits,before)
   const guard=load('src/modules/downloads/server/organization.ts');await fsp.mkdir(root+'/outside',{recursive:true});await fsp.symlink(root+'/outside',root+'/download/film/escape');await assert.rejects(()=>guard.organizedDirectory(root,'download/film/escape/video'),/امن/);await assert.rejects(()=>guard.organizedDirectory(root,'download/film/../../outside'),/معتبر/)
-  console.log('Connected: category projections/clear/legacy preservation; encrypted settings + concurrent merge; actual file/image copies, shared folder tree, dedupe, queued Season3, explicit zero-fetch opt-out and symlink/traversal denial passed.')
+  console.log('Connected: category projections, encrypted settings/source/copy CAS; actual movie/actor/director WebP folders, served local READY bytes, CinemaPerson image promotion/preservation, legacy film retry, dedupe/Season3/opt-out and path guards passed.')
  }finally {
   if(server)await new Promise(r=>server.close(r))
   const rows=await db.mediaTransfer.findMany({where:{actorId:{in:users}}});const assetIds=rows.map(r=>r.assetId).filter(Boolean)

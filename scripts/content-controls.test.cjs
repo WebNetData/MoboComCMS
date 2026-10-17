@@ -5,6 +5,50 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+const imdbHtml = (node, next={}) => `<script type="application/ld+json">${JSON.stringify(node)}</script><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:next}})}</script>`
+const imdbTitle = () => ({'@type':'Movie',url:'https://www.imdb.com/title/tt1375666/',name:'Inception',description:'A dream &amp; a memory.',datePublished:'2010-07-16',duration:'PT2H28M',genre:['Action','Sci-Fi'],aggregateRating:{ratingValue:8.8},contentRating:'PG-13',image:'https://m.media-amazon.com/images/cover.jpg',actor:[{'@type':'Person',name:'Leonardo DiCaprio',url:'https://www.imdb.com/name/nm0000138/'}],director:[{'@type':'Person',name:'Christopher Nolan',url:'https://www.imdb.com/name/nm0634240/'}]})
+
+test('IMDb page parser reads title, actual rating and hydrated cast without executing markup', () => {
+  const {parseImdbTitle,parseImdbPerson,imdbPhoto}=load('src/modules/cinema/domain/imdb-page.ts')
+  const next={aboveTheFoldData:{id:'tt1375666',originalTitleText:{text:'Inception'},countriesOfOrigin:{countries:[{text:'United States'}]},spokenLanguages:{spokenLanguages:[{text:'English'}]}},mainColumnData:{cast:{edges:[{node:{name:{id:'nm0000138',nameText:{text:'Leonardo DiCaprio'},primaryImage:{url:'https://m.media-amazon.com/images/leo.jpg'}},characters:[{name:'Cobb'}]}}]}}}
+  const result=parseImdbTitle(imdbHtml(imdbTitle(),next),'tt1375666')
+  assert.deepEqual([result.fields.title,result.fields.year,result.fields.runtime,result.fields.imdbRating,result.fields.countries,result.fields.languages],['Inception',2010,148,8.8,'United States','English'])
+  assert.equal(result.fields.summary,'A dream & a memory.');assert.equal(result.cast.length,1);assert.equal(result.cast[0].role,'Cobb');assert.match(result.cast[0].image,/leo.jpg$/)
+  assert.equal(parseImdbPerson(imdbHtml({'@type':'Person',url:'https://www.imdb.com/name/nm0000138/',image:'https://m.media-amazon.com/images/leo.jpg'}),'nm0000138'),'https://m.media-amazon.com/images/leo.jpg')
+  assert.equal(parseImdbPerson(imdbHtml({'@type':'Person',url:'https://www.imdb.com/name/nm0634240/',image:'https://m.media-amazon.com/images/wrong.jpg'}),'nm0000138'),'')
+  for(const url of ['http://m.media-amazon.com/images/x.jpg','https://m.media-amazon.com.evil.test/images/x.jpg','https://user@ m.media-amazon.com/images/x.jpg','https://127.0.0.1/a.jpg'])assert.equal(imdbPhoto(url),'')
+  assert.throws(()=>parseImdbTitle('<html>challenge</html>','tt1375666'),/پیدا نشد/)
+  assert.throws(()=>parseImdbTitle(imdbHtml({...imdbTitle(),url:'https://www.imdb.com/title/tt9999999/'}),'tt1375666'),/پیدا نشد/)
+  assert.throws(()=>parseImdbTitle(imdbHtml({...imdbTitle(),url:'https://evil.test/title/tt1375666/'}),'tt1375666'),/پیدا نشد/)
+})
+
+test('IMDb direct server lookup needs no key and fetches only canonical title/name pages', async () => {
+  const previous=global.fetch,calls=[]
+  global.fetch=async(url,options)=>{calls.push([String(url),options]);const id=String(url).match(/\/name\/(nm\d+)/)?.[1];return new Response(imdbHtml(id?{'@type':'Person',url:`https://www.imdb.com/name/${id}/`,image:`https://m.media-amazon.com/images/${id}.jpg`}:imdbTitle()),{headers:{'content-type':'text/html'}})}
+  try {
+    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled:true,provider:'imdb',copyImages:false})}})
+    const result=await provider.lookupCinemaMetadata('tt1375666')
+    assert.equal(result.fields.imdbRating,8.8);assert.match(result.fields.cast[0].image,/nm0000138.jpg$/);assert.match(result.fields.directorImages[0].image,/nm0634240.jpg$/)
+    assert.deepEqual(calls.map(([url])=>url).sort(),['https://www.imdb.com/title/tt1375666/','https://www.imdb.com/name/nm0000138/','https://www.imdb.com/name/nm0634240/'].sort())
+    assert.ok(calls.every(([,o])=>o.redirect==='error' && o.cache==='no-store' && !o.headers.Authorization && !o.headers.Cookie))
+    global.fetch=async url=>new Response(String(url).includes('/title/')?imdbHtml(imdbTitle()):'challenge',{status:String(url).includes('/title/')?200:202,headers:{'content-type':'text/html'}})
+    const partial=await provider.lookupCinemaMetadata('tt1375666');assert.equal(partial.fields.imdbRating,8.8);assert.equal(partial.fields.cast[0].image,'');assert.ok(partial.warnings.some(x=>x.includes('2')))
+    global.fetch=async()=>{throw new TypeError('fetch failed')};await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/اتصال سرور به IMDb/)
+    global.fetch=async()=>new Response('challenge',{status:202,headers:{'content-type':'text/html'}})
+    await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/محدود/)
+    global.fetch=async()=>new Response('x'.repeat(6*1024*1024+1),{headers:{'content-type':'text/html'}})
+    await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/بزرگ/)
+  }finally{global.fetch=previous}
+})
+
+test('metadata images reuse the shared queued transfer and preserve external URLs on failure', async () => {
+  const calls=[],lib={currentLibraryUser:async()=>({}),requestTransfer:async(actor,input)=>{calls.push(input);if(input.name==='Unavailable')throw Error('fixture failure');return {url:'/api/media/transfers/11111111-1111-1111-1111-111111111111'}}}
+  const {localizeMetadataImages}=load('src/modules/cinema/server/metadata/images.ts',{'@/modules/media/server/library':lib})
+  const result=await localizeMetadataImages({fields:{originalTitle:'Inception',kind:'MOVIE',poster:'https://m.media-amazon.com/images/poster.jpg',cast:[{name:'Leonardo',image:'https://m.media-amazon.com/images/leo.jpg'},{name:'Unavailable',image:'https://m.media-amazon.com/images/no.jpg'}],directorImages:[{name:'Nolan',image:'https://m.media-amazon.com/images/nolan.jpg'}]},source:'IMDb',warnings:[]},{id:7,authAt:null})
+  assert.deepEqual(calls.map(x=>[x.mode,x.organization.section,x.organization.title,x.organization.personRole]),[['queued','film','Inception',undefined],['queued','cinema-person','Leonardo','actor'],['queued','cinema-person','Unavailable','actor'],['queued','cinema-person','Nolan','director']])
+  assert.match(result.fields.cast[0].image,/^\/api\/media\/transfers\//);assert.equal(result.fields.cast[1].image,'https://m.media-amazon.com/images/no.jpg');assert.ok(result.warnings.some(x=>x.includes('1')))
+})
+
 test('selected terms project leaves and inherited semantic fields without duplicate typing', () => {
   const { projectTerms, termProjectionChange }=load('src/modules/taxonomy/domain/projection.ts')
   const terms=[{id:1,parentId:null,name:'فیلم',slug:'movies'}, {id:2,parentId:1,name:'درام'}, {id:3,parentId:null,name:'کشور',facet:'countries'}, {id:4,parentId:3,name:'ایران'}, {id:5,parentId:null,name:'ویژه',facet:'none'}]
@@ -36,10 +80,15 @@ test('Cinema enrichment uses fixed official providers and never labels TMDb vote
 
 test('organized destinations preserve requested layouts and reject path escapes', () => {
   const {organizationPath:p,validOrganizationPath:valid}=load('src/modules/downloads/domain/organization.ts')
-  const cases=[['film',{title:'Inception'},'image','download/film/Inception/images'],['film',{title:'Inception'},'file','download/film/Inception/video'],['series',{title:'Dark',season:2},'file','download/series/Dark/Season2'],['series',{title:'Dark'},'image','download/series/Dark/images'],['music',{artist:'Haamim',artistImage:true},'image','download/music/Haamim/image'],['music',{artist:'Haamim',album:'AlbumX'},'image','download/music/Haamim/AlbumX/image'],['music',{artist:'Haamim',album:'AlbumX'},'file','download/music/Haamim/AlbumX'],['music',{artist:'Haamim'},'file','download/music/Haamim'],['software',{category:'Tools',title:'App'},'file','download/Sofware/Tools/App'],['software',{category:'Tools',title:'App'},'image','download/Sofware/Tools/App/images'],['games',{category:'Action',title:'Game'},'file','download/Game/Action/Game'],['games',{category:'Action',title:'Game',video:true},'file','download/Game/Action/Game/videos'],['products',{category:'Book',title:'Product'},'image','download/Products/Book/Product/images'],['products',{category:'Book',title:'Product'},'file','download/Products/Book/Product/videos']]
+  assert.equal(p({section:'cinema-person',title:'Leonardo DiCaprio',personRole:'actor'},'image'),'download/cinema/images/actors/Leonardo DiCaprio')
+  assert.equal(p({section:'cinema-person',title:'Christopher Nolan',personRole:'director'},'image'),'download/cinema/images/director/Christopher Nolan')
+  for(const path of ['download/film/Inception/images','download/film/Inception/video','download/movie/Inception','download/cinema/images/actors/Leonardo DiCaprio','download/cinema/images/director/Christopher Nolan'])assert.equal(valid(path),true,path)
+  for(const path of ['download/movie/x/video','download/cinema/images/actors','download/cinema/images/crew/x','download/cinema/images/actors/CON','donwload/cinema/images/actors/x'])assert.equal(valid(path),false,path)
+  assert.equal(p({section:'cinema-person',title:'Nolan',personRole:'director'},'file'),'')
+  const cases=[['film',{title:'Inception'},'image','download/movie/Inception/images'],['film',{title:'Inception'},'file','download/movie/Inception'],['series',{title:'Dark',season:2},'file','download/series/Dark/Season2'],['series',{title:'Dark'},'image','download/series/Dark/images'],['music',{artist:'Haamim',artistImage:true},'image','download/music/Haamim/image'],['music',{artist:'Haamim',album:'AlbumX'},'image','download/music/Haamim/AlbumX/image'],['music',{artist:'Haamim',album:'AlbumX'},'file','download/music/Haamim/AlbumX'],['music',{artist:'Haamim'},'file','download/music/Haamim'],['software',{category:'Tools',title:'App'},'file','download/Sofware/Tools/App'],['software',{category:'Tools',title:'App'},'image','download/Sofware/Tools/App/images'],['games',{category:'Action',title:'Game'},'file','download/Game/Action/Game'],['games',{category:'Action',title:'Game',video:true},'file','download/Game/Action/Game/videos'],['products',{category:'Book',title:'Product'},'image','download/Products/Book/Product/images'],['products',{category:'Book',title:'Product'},'file','download/Products/Book/Product/videos']]
   for(const [section,context,kind,path]of cases){assert.equal(p({section,...context},kind),path);assert.equal(valid(path),true)}
   for(const v of ['download/film/../../private','/download/film/x/images','download/film/%2e%2e/images','download/film/x/other','download/Game/x/y/../../.env','download/film/CON/images'])assert.equal(valid(v),false,v)
-  assert.equal(p({section:'film',title:'../../Inception'},'image'),'download/film/Inception/images')
+  assert.equal(p({section:'film',title:'../../Inception'},'image'),'download/movie/Inception/images')
   assert.equal(p({section:'film',title:'Inception',enabled:false},'file'),'')
 })
 

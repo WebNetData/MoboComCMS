@@ -6,6 +6,7 @@ import { auditAdminStrict } from '@/platform/audit/server'
 import { metadataConfig, saveMetadataConfig, lookupCinemaMetadata } from '@/modules/cinema/server/metadata'
 import { readJsonObject } from '@/platform/http/read-json'
 import { originIsThisSite } from '@/platform/http/origin-policy'
+import { libraryActor } from '@/modules/media/server/library'
 
 export async function GET(req: NextRequest) {
   const g=await adminGuard(req,'cinema',['cinema.manage']);if('response' in g)return g.response
@@ -19,9 +20,11 @@ export async function POST(req: NextRequest) {
     const input=await readJsonObject(req,12000)
     if(input.action==='configure') {
       const config=await saveMetadataConfig(input)
-      await auditAdminStrict({req,actor:g.admin,action:'cinema.metadata.settings',targetType:'setting',targetId:0,metadata:{enabled:config.enabled,tmdbConfigured:config.tmdbConfigured,omdbConfigured:config.omdbConfigured}})
+      await auditAdminStrict({req,actor:g.admin,action:'cinema.metadata.settings',targetType:'setting',targetId:0,metadata:{enabled:config.enabled,provider:config.provider,copyImages:config.copyImages,tmdbConfigured:config.tmdbConfigured,omdbConfigured:config.omdbConfigured}})
       return ok({config})
     }
-    return ok(await lookupCinemaMetadata(input.imdbId,input.kind))
+    const result=await lookupCinemaMetadata(input.imdbId,input.kind,await libraryActor(req))
+    await auditAdminStrict({req,actor:g.admin,action:'cinema.metadata.lookup',targetType:'cinema-metadata',targetId:0,metadata:{source:result.source}})
+    return ok(result)
   }catch(error){return err(error instanceof Error && !/fetch|JSON|decrypt|cipher|token|Bearer/i.test(error.message)?error.message:'دریافت اطلاعات انجام نشد؛ تنظیمات سرویس را بررسی کنید',422)}
 }

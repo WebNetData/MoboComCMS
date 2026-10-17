@@ -8,5 +8,5 @@ export function imdbIdentifier(raw: unknown): string {
     return url.pathname.match(/^\/title\/(tt\d{7,12})(?:\/|$)/i)?.[1].toLowerCase() || ''
   } catch { return '' }
 }
-export type CinemaMetadataConfig = { enabled: boolean; tmdbConfigured: boolean; omdbConfigured: boolean; canSaveSecrets: boolean }
+export type CinemaMetadataConfig = { enabled: boolean; provider: 'imdb'|'tmdb'; copyImages: boolean; tmdbConfigured: boolean; omdbConfigured: boolean; canSaveSecrets: boolean }
 export type CinemaMetadataResult = { fields: Record<string, unknown>; source: string; warnings: string[] }

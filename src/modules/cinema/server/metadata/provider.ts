@@ -1,5 +1,7 @@
 import { imdbIdentifier, type CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
 import { metadataCredentials } from './config'
+import { lookupImdbPage } from './imdb'
+import type { LibraryActor } from '@/modules/media/server/library'
 
 type Data = Record<string, any>
 const text = (v: unknown, max=400) => String(v ?? '').replace(/[<>\u0000-\u001f]/g,' ').trim().slice(0,max)
@@ -17,12 +19,18 @@ async function json(url: URL, headers: HeadersInit = {}): Promise<Data> {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('پاسخ سرویس معتبر نیست')
   return data
 }
-/** Fetches only from fixed official APIs. Lookup itself never publishes or downloads media. */
-export async function lookupCinemaMetadata(raw: unknown, preferredKind?: unknown): Promise<CinemaMetadataResult> {
+/** Fixed public IMDb pages or the existing optional APIs; never publishes a title. */
+export async function lookupCinemaMetadata(raw: unknown, preferredKind?: unknown, actor?: LibraryActor): Promise<CinemaMetadataResult> {
   const id=imdbIdentifier(raw)
   if (!id) throw new Error('شناسه یا لینک عنوان IMDb معتبر نیست')
   const credentials=await metadataCredentials()
-  if (!credentials.enabled || !credentials.tmdbToken) throw new Error('دریافت اطلاعات در تنظیمات فیلم و سریال فعال یا پیکربندی نشده است')
+  if (!credentials.enabled) throw new Error('دریافت اطلاعات در تنظیمات فیلم و سریال غیرفعال است')
+  const provider=credentials.provider || (credentials.tmdbToken ? 'tmdb' : 'imdb')
+  const result=provider==='imdb' ? await lookupImdbPage(id) : await lookupTmdbMetadata(id,preferredKind,credentials)
+  return actor && credentials.copyImages !== false ? (await import('./images')).localizeMetadataImages(result,actor) : result
+}
+async function lookupTmdbMetadata(id: string, preferredKind: unknown, credentials: Awaited<ReturnType<typeof metadataCredentials>>): Promise<CinemaMetadataResult> {
+  if(!credentials.tmdbToken)throw new Error('کلید TMDb تنظیم نشده است؛ دریافت مستقیم IMDb هم در تنظیمات قابل انتخاب است')
   const headers={Authorization:`Bearer ${credentials.tmdbToken}`,Accept:'application/json'}
   const found=await json(new URL(`https://api.themoviedb.org/3/find/${id}?external_source=imdb_id&language=fa-IR`),headers)
   const movie=found.movie_results?.[0], series=found.tv_results?.[0]

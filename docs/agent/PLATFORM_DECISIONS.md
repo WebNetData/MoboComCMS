@@ -322,6 +322,10 @@ The owner asked for strong automation and chose all four kinds: a rule builder (
 - Webhooks from rules follow the form webhooks' rules (https, public addresses, signed).
 - Not built: delays inside a rule ("wait two days, then…"), branches, A/B tests, retries for a failed action. Spec: `docs/specs/automation/SPEC.md`.
 
+## 6S. Cinema metadata and organized photos (owner, 2026-10-17)
+
+The owner requests server-side IMDb enrichment without an API key and automatic Library copies of actor/director images. Extend Cinema's existing metadata facade and Media's queue; source and copy behavior belong in Cinema Admin settings. New movie files go under `download/movie/<name>/`, pictures under its `images/`; actor/director photos under `download/cinema/images/actors/<name>/` and `download/cinema/images/director/<name>/`. Keep internal `film` keys, captured old destinations and published URLs compatible; no automatic move of old files. Use the existing canonical `download` root (the request's `donwload` is a typo). Direct pages must fail visibly on unavailable/challenge data and preserve existing form fields. Implementation and live-network limitations: [Content authoring handoff](handoffs/CONTENT_AUTHORING.md).
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).
