@@ -1,6 +1,7 @@
 import { parseImdbTitle, parseImdbPerson, type ImdbPerson } from '@/modules/cinema/domain/imdb-page'
 import { parseImdbSearch } from '@/modules/cinema/domain/imdb-search'
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
+import { lookupCinemeta } from './cinemeta'
 
 class ImdbRateLimit extends Error {}
 /** Fixed public pages/search only: no cookies, proxy, challenge solving or internal API. */
@@ -21,11 +22,15 @@ async function page(kind: 'title'|'name'|'search', id: string, signal?: AbortSig
   finally {await reader.cancel().catch(()=>{})}
   return Buffer.concat(chunks).toString('utf8')
 }
-export async function lookupImdbPage(id: string): Promise<CinemaMetadataResult> {
+export async function lookupImdbPage(id: string, cinemetaFallback = false, preferredKind?: unknown): Promise<CinemaMetadataResult> {
   let result: ReturnType<typeof parseImdbTitle>
   try {result=parseImdbTitle(await page('title',id),id)}
   catch(error) {
     if(error instanceof ImdbRateLimit || !/^tt\d{7,12}$/.test(id))throw error
+    if(cinemetaFallback) {
+      try { return await lookupCinemeta(id,preferredKind) }
+      catch { /* Independent provider is unavailable; exact-ID public basics remain useful. */ }
+    }
     try {
       const fields=parseImdbSearch(JSON.parse(await page('search',id)),id)
       return {fields,source:'IMDb · جستجوی عمومی (اطلاعات پایه)',warnings:['نتیجه ناقص است: صفحهٔ کامل IMDb در دسترس سرور نیست؛ فقط نام، نوع اثر، سال و پوسترِ موجود از جستجوی عمومی دریافت شد. خلاصه، امتیاز و عوامل دریافت نشده‌اند و اطلاعات قبلی این فیلدها تغییر نمی‌کند.']}

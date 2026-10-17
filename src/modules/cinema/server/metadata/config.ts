@@ -3,17 +3,17 @@ import { decryptPanelCredential, encryptPanelCredential } from '@/modules/provid
 import type { CinemaMetadataConfig } from '@/modules/cinema/domain/metadata'
 
 const KEY = 'cinema.metadata.secret.v1'
-type Stored = { enabled?: boolean; provider?: 'imdb'|'tmdb'; copyImages?: boolean; tmdbToken?: string; omdbKey?: string }
+type Stored = { enabled?: boolean; provider?: 'imdb'|'tmdb'; copyImages?: boolean; cinemetaFallback?: boolean; tmdbToken?: string; omdbKey?: string }
 function parse(value?: string): Stored { return value ? JSON.parse(value) : {} }
 export async function metadataCredentials() {
   const row = await db.setting.findUnique({ where: { key: KEY } })
   const saved = parse(row?.value)
   const tmdbToken=saved.tmdbToken ? decryptPanelCredential(saved.tmdbToken) : process.env.TMDB_READ_ACCESS_TOKEN || ''
-  return { enabled: saved.enabled !== false, provider: saved.provider || (tmdbToken ? 'tmdb' : 'imdb'), copyImages: saved.copyImages !== false, tmdbToken, omdbKey: saved.omdbKey ? decryptPanelCredential(saved.omdbKey) : process.env.OMDB_API_KEY || '' }
+  return { enabled: saved.enabled !== false, provider: saved.provider || (tmdbToken ? 'tmdb' : 'imdb'), copyImages: saved.copyImages !== false, cinemetaFallback: saved.cinemetaFallback !== false, tmdbToken, omdbKey: saved.omdbKey ? decryptPanelCredential(saved.omdbKey) : process.env.OMDB_API_KEY || '' }
 }
 export async function metadataConfig(): Promise<CinemaMetadataConfig> {
   const credentials = await metadataCredentials()
-  return { enabled: credentials.enabled, provider: credentials.provider, copyImages: credentials.copyImages, tmdbConfigured: !!credentials.tmdbToken, omdbConfigured: !!credentials.omdbKey, canSaveSecrets: /^[a-f\d]{64}$/i.test(process.env.PANEL_CREDENTIAL_KEY || '') }
+  return { enabled: credentials.enabled, provider: credentials.provider, copyImages: credentials.copyImages, cinemetaFallback: credentials.cinemetaFallback, tmdbConfigured: !!credentials.tmdbToken, omdbConfigured: !!credentials.omdbKey, canSaveSecrets: /^[a-f\d]{64}$/i.test(process.env.PANEL_CREDENTIAL_KEY || '') }
 }
 export async function saveMetadataConfig(input: Record<string, unknown>) {
   const tokens = ['tmdbToken','omdbKey'] as const
@@ -25,6 +25,7 @@ export async function saveMetadataConfig(input: Record<string, unknown>) {
     if (typeof input.enabled === 'boolean') next.enabled=input.enabled
     if (input.provider === 'imdb' || input.provider === 'tmdb') next.provider=input.provider
     if (typeof input.copyImages === 'boolean') next.copyImages=input.copyImages
+    if (typeof input.cinemetaFallback === 'boolean') next.cinemetaFallback=input.cinemetaFallback
     for (const key of tokens) {
       if (input[`clear_${key}`] === true) delete next[key]
       else if (String(input[key] || '').trim()) next[key]=encryptPanelCredential(String(input[key]).trim())

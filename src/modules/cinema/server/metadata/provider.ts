@@ -26,7 +26,7 @@ export async function lookupCinemaMetadata(raw: unknown, preferredKind?: unknown
   const credentials=await metadataCredentials()
   if (!credentials.enabled) throw new Error('دریافت اطلاعات در تنظیمات فیلم و سریال غیرفعال است')
   const provider=credentials.provider || (credentials.tmdbToken ? 'tmdb' : 'imdb')
-  const result=provider==='imdb' ? await lookupImdbPage(id) : await lookupTmdbMetadata(id,preferredKind,credentials)
+  const result=provider==='imdb' ? await lookupImdbPage(id,credentials.cinemetaFallback !== false,preferredKind) : await lookupTmdbMetadata(id,preferredKind,credentials)
   return actor && credentials.copyImages !== false ? (await import('./images')).localizeMetadataImages(result,actor) : result
 }
 async function lookupTmdbMetadata(id: string, preferredKind: unknown, credentials: Awaited<ReturnType<typeof metadataCredentials>>): Promise<CinemaMetadataResult> {

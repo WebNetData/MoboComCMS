@@ -20,6 +20,47 @@ test('import image failures reject invalid media while retaining transient sourc
 
 const imdbHtml = (node, next={}) => `<script type="application/ld+json">${JSON.stringify(node)}</script><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:next}})}</script>`
 const imdbTitle = () => ({'@type':'Movie',url:'https://www.imdb.com/title/tt1375666/',name:'Inception',description:'A dream &amp; a memory.',datePublished:'2010-07-16',duration:'PT2H28M',genre:['Action','Sci-Fi'],aggregateRating:{ratingValue:8.8},contentRating:'PG-13',image:'https://m.media-amazon.com/images/cover.jpg',actor:[{'@type':'Person',name:'Leonardo DiCaprio',url:'https://www.imdb.com/name/nm0000138/'}],director:[{'@type':'Person',name:'Christopher Nolan',url:'https://www.imdb.com/name/nm0634240/'}]})
+const cinemetaTitle = () => ({meta:{id:'tt1375666',imdb_id:'tt1375666',type:'movie',name:'Inception',description:'A fixture synopsis.',imdbRating:'8.8',cast:['Leonardo DiCaprio','Joseph Gordon-Levitt'],director:['Christopher Nolan'],releaseInfo:'2010',runtime:'148 min',genres:['Action','Sci-Fi'],poster:'https://images.metahub.space/poster/small/tt1375666/img'}})
+
+test('Cinemeta exact-ID details supply real fields without inventing missing metadata', () => {
+  const {parseCinemeta,cinemetaImage}=load('src/modules/cinema/domain/cinemeta.ts')
+  const {fields,warnings}=parseCinemeta(cinemetaTitle(),'tt1375666')
+  assert.equal(fields.summary,'A fixture synopsis.');assert.equal(fields.imdbRating,8.8);assert.equal(fields.director,'Christopher Nolan');assert.equal(fields.cast[0].name,'Leonardo DiCaprio');assert.equal(fields.runtime,148)
+  assert.equal(Object.hasOwn(fields,'originalTitle'),false);assert.ok(warnings.some(x=>x.includes('عکس')))
+  const missing=parseCinemeta({meta:{...cinemetaTitle().meta,type:'series',director:null,description:null,cast:[],imdbRating:'N/A'}},'tt1375666')
+  for(const key of ['summary','cast','director','imdbRating'])assert.equal(Object.hasOwn(missing.fields,key),false,key)
+  for(const meta of [{...cinemetaTitle().meta,id:'tt9999999'},{...cinemetaTitle().meta,imdb_id:'tt9999999'},{...cinemetaTitle().meta,type:'channel'},null])assert.throws(()=>parseCinemeta({meta},'tt1375666'),/معتبر|مطابقت/)
+  for(const url of ['https://images.metahub.space.evil.test/poster/small/tt1375666/img','https://images.metahub.space/poster/small/tt9999999/img','http://images.metahub.space/poster/small/tt1375666/img','https://127.0.0.1/a'])assert.equal(cinemetaImage(url,'tt1375666'),'')
+})
+
+test('name-only metadata credits keep an existing photo and role even on explicit replacement', () => {
+  const {applyCinemaMetadata}=load('src/modules/cinema/domain/metadata.ts')
+  const current={title:'نام ویرایش‌شده',summary:'داستان قبلی',kind:'SERIES',cast:[{name:'Leonardo DiCaprio',role:'Cobb',image:'/files/owned.webp'}]}
+  const incoming={imdbId:'tt1375666',kind:'MOVIE',title:'Inception',cast:[{name:'Leonardo DiCaprio'},{name:'Joseph Gordon-Levitt'}]}
+  assert.equal(applyCinemaMetadata(current,incoming,false,false).title,current.title)
+  const result=applyCinemaMetadata(current,incoming,true,false)
+  assert.equal(result.title,'Inception');assert.equal(result.summary,current.summary);assert.equal(result.kind,'MOVIE');assert.deepEqual(result.cast[0],current.cast[0]);assert.equal(result.cast[1].name,'Joseph Gordon-Levitt')
+  assert.equal(current.title,'نام ویرایش‌شده');assert.equal(incoming.cast[0].image,undefined)
+})
+
+test('enabled keyless details fallback fetches only the public Cinemeta title, honors opt-out and retains safe failures', async () => {
+  const previous=global.fetch,calls=[];let enabled=true,fallback=true,body=cinemetaTitle(),status=200,mode=''
+  global.fetch=async(url,options)=>{calls.push([String(url),options]);if(String(url).startsWith('https://v3-cinemeta.strem.io/')){if(mode==='oversize')return new Response('x'.repeat(2*1024*1024+1),{headers:{'content-type':'application/json'}});if(mode==='html')return new Response('<html>unavailable</html>',{headers:{'content-type':'text/html'}});if(mode==='redirect')return Response.redirect('https://127.0.0.1/private');if(mode==='series'&&String(url).includes('/movie/'))return new Response('',{status:404});return Response.json(mode==='series'?{meta:{...cinemetaTitle().meta,type:'series'}}:body,{status})}if(String(url).includes('/suggestion/'))return Response.json({d:[{id:'tt1375666',l:'Inception',qid:'movie',y:2010}]});return new Response('unavailable',{status:202,headers:{'content-type':'text/html'}})}
+  try{
+    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled,provider:'imdb',cinemetaFallback:fallback,copyImages:false})}})
+    const result=await provider.lookupCinemaMetadata('tt1375666')
+    assert.equal(result.fields.summary,'A fixture synopsis.');assert.equal(result.fields.imdbRating,8.8);assert.equal(result.fields.cast.length,2);assert.match(result.source,/Cinemeta/)
+    assert.deepEqual(calls.map(([url])=>url),['https://www.imdb.com/title/tt1375666/','https://v3-cinemeta.strem.io/meta/movie/tt1375666.json'])
+    assert.ok(calls.every(([,o])=>o.redirect==='error'&&!o.headers.Cookie&&!o.headers.Authorization))
+    calls.length=0;fallback=false;assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.summary,undefined);assert.equal(calls.some(([url])=>url.includes('cinemeta')),false)
+    fallback=true;body={meta:{...cinemetaTitle().meta,id:'tt9999999'}};assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.summary,undefined)
+    status=429;calls.length=0;assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.imdbRating,undefined);assert.equal(calls.filter(([url])=>url.includes('cinemeta')).length,1)
+    status=200;body=cinemetaTitle()
+    for(mode of ['oversize','html','redirect']){calls.length=0;assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.summary,undefined);assert.ok(calls.every(([url])=>!url.includes('127.0.0.1')))}
+    mode='series';calls.length=0;assert.equal((await provider.lookupCinemaMetadata('tt1375666')).fields.kind,'SERIES');assert.deepEqual(calls.filter(([url])=>url.includes('cinemeta')).map(([url])=>url),['https://v3-cinemeta.strem.io/meta/movie/tt1375666.json','https://v3-cinemeta.strem.io/meta/series/tt1375666.json'])
+    const count=calls.length;enabled=false;await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/غیرفعال/);assert.equal(calls.length,count)
+  }finally{global.fetch=previous}
+})
 
 test('IMDb public search selects the exact ID and returns only supplied movie/series facts', () => {
   const {parseImdbSearch}=load('src/modules/cinema/domain/imdb-search.ts')
@@ -37,7 +78,7 @@ test('IMDb server can use anonymous public search when the full page is unavaila
   const previous=global.fetch,calls=[];let enabled=true
   global.fetch=async(url,options)=>{calls.push([String(url),options]);return String(url).includes('/suggestion/')?Response.json({d:[{id:'tt1375666',l:'Inception',qid:'movie',y:2010,i:{imageUrl:'https://m.media-amazon.com/images/poster.jpg'}}]}):new Response('challenge',{status:202,headers:{'content-type':'text/html'}})}
   try {
-    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled,provider:'imdb',copyImages:false})}})
+    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled,provider:'imdb',copyImages:false,cinemetaFallback:false})}})
     const result=await provider.lookupCinemaMetadata('https://www.imdb.com/title/tt1375666/')
     assert.equal(result.fields.title,'Inception');assert.equal(result.fields.year,2010)
     assert.match(result.source,/جستجوی عمومی/);assert.ok(result.warnings.some(x=>x.includes('ناقص')))
@@ -95,6 +136,9 @@ test('metadata images reuse the shared queued transfer and preserve external URL
   const result=await localizeMetadataImages({fields:{originalTitle:'Inception',kind:'MOVIE',poster:'https://m.media-amazon.com/images/poster.jpg',cast:[{name:'Leonardo',image:'https://m.media-amazon.com/images/leo.jpg'},{name:'Unavailable',image:'https://m.media-amazon.com/images/no.jpg'}],directorImages:[{name:'Nolan',image:'https://m.media-amazon.com/images/nolan.jpg'}]},source:'IMDb',warnings:[]},{id:7,authAt:null})
   assert.deepEqual(calls.map(x=>[x.mode,x.organization.section,x.organization.title,x.organization.personRole]),[['queued','film','Inception',undefined],['queued','cinema-person','Leonardo','actor'],['queued','cinema-person','Unavailable','actor'],['queued','cinema-person','Nolan','director']])
   assert.match(result.fields.cast[0].image,/^\/api\/media\/transfers\//);assert.equal(result.fields.cast[1].image,'https://m.media-amazon.com/images/no.jpg');assert.ok(result.warnings.some(x=>x.includes('1')))
+  calls.length=0
+  await localizeMetadataImages({fields:{imdbId:'tt1375666',title:'Inception',kind:'MOVIE',poster:'https://images.metahub.space/poster/small/tt1375666/img',backdrop:'https://images.metahub.space/background/medium/tt9999999/img'},source:'Cinemeta',warnings:[]},{id:7,authAt:null})
+  assert.equal(calls.length,1,'only the matching provider image is queued');assert.equal(calls[0].organization.title,'Inception')
 })
 
 test('selected terms project leaves and inherited semantic fields without duplicate typing', () => {

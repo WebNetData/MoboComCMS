@@ -50,10 +50,10 @@ async function main(){try{
  process.env.PANEL_CREDENTIAL_KEY='a'.repeat(64)
  try {
    const settings=load('src/modules/cinema/server/metadata.ts')
-   await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
-   await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false)
+   await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.equal(cfg.cinemetaFallback,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
+   await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false}),settings.saveMetadataConfig({cinemetaFallback:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false);assert.equal(merged.cinemetaFallback,false)
    await assert.rejects(()=>settings.saveMetadataConfig({provider:'arbitrary-host'}),/معتبر/)
-   await settings.saveMetadataConfig({enabled:true,provider:'imdb',copyImages:false})
+   await settings.saveMetadataConfig({enabled:true,provider:'imdb',copyImages:false,cinemetaFallback:false})
    const priorFetch=global.fetch,metadataCalls=[]
    try {
      global.fetch=async(url)=>{metadataCalls.push(String(url));return String(url).includes('/suggestion/')?Response.json({d:[{id:'tt0944947',l:'Game of Thrones',qid:'tvSeries',y:2011}]}):new Response('challenge',{status:202,headers:{'content-type':'text/html'}})}
@@ -64,6 +64,17 @@ async function main(){try{
      assert.equal(after.title,'Game of Thrones');assert.equal(after.year,2011);assert.equal(after.imdbId,'tt0944947')
      for(const key of ['summary','director','genres','countries','languages','imdbRating','poster'])assert.deepEqual(after[key],before[key],key+' must not be erased by partial metadata')
      assert.deepEqual(metadataCalls,['https://www.imdb.com/title/tt0944947/','https://v3.sg.media-imdb.com/suggestion/t/tt0944947.json'])
+   }finally{global.fetch=priorFetch}
+   await settings.saveMetadataConfig({cinemetaFallback:true})
+   try {
+     global.fetch=async(url)=>String(url).startsWith('https://v3-cinemeta.strem.io/')?Response.json({meta:{id:'tt1375666',imdb_id:'tt1375666',type:'movie',name:'Inception fixture',description:'Owned metadata synopsis',imdbRating:'8.8',cast:[stamp+' metadata actor'],director:[stamp+' metadata director']}}):new Response('unavailable',{status:202,headers:{'content-type':'text/html'}})
+     await media.saveMediaItem('cinema-titles',{cast:[{name:stamp+' metadata actor',role:'Existing role',image:'/files/owned-before.webp'}]},title.id)
+     const before=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}}),result=await settings.lookupCinemaMetadata('tt1375666')
+     const {applyCinemaMetadata}=load('src/modules/cinema/domain/metadata.ts')
+     await media.saveMediaItem('cinema-titles',applyCinemaMetadata({cast:JSON.parse(before.cast)},result.fields,true,false),title.id)
+     const after=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id},include:{credits:{include:{person:true}}}}),cast=JSON.parse(after.cast)
+     assert.equal(after.summary,'Owned metadata synopsis');assert.equal(after.imdbRating,8.8);assert.equal(after.director,stamp+' metadata director')
+     assert.equal(cast[0].image,'/files/owned-before.webp');assert.equal(cast[0].role,'Existing role');assert.ok(after.credits.some(c=>c.role==='CAST'&&c.person.name===stamp+' metadata actor'));assert.ok(after.credits.some(c=>c.role==='DIRECTOR'&&c.person.name===stamp+' metadata director'))
    }finally{global.fetch=priorFetch}
  }finally{await db.setting.deleteMany({where:{key:secretKey}});if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey}
  await checkOrganization()
