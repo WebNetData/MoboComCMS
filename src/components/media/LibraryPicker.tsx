@@ -16,7 +16,7 @@ export function LibraryDialog({ onClose, onSelect, kind, renderSelection }: { on
     return () => { dialog?.close(); document.body.style.overflow = overflow; before?.focus() }
   }, [])
   if (typeof document === 'undefined') return null
-  return createPortal(<dialog ref={box} aria-labelledby={title} className="mcl-dialog" onCancel={e => { e.preventDefault(); onClose() }}><header><h2 id={title}>کتابخانهٔ رسانه</h2><button type="button" className="btn btn-ghost" onClick={onClose} aria-label="بستن کتابخانه">✕</button></header><LibraryView kind={kind} onSelect={onSelect} renderSelection={renderSelection} /></dialog>, document.body)
+  return createPortal(<dialog ref={box} aria-labelledby={title} className="mcl-dialog" onSubmit={event => event.stopPropagation()} onCancel={e => { e.preventDefault(); onClose() }}><header><h2 id={title}>کتابخانهٔ رسانه</h2><button type="button" className="btn btn-ghost" onClick={onClose} aria-label="بستن کتابخانه">✕</button></header><LibraryView kind={kind} onSelect={onSelect} renderSelection={renderSelection} /></dialog>, document.body)
 }
 export default function LibraryPicker({ onSelect, kind }: { onSelect: (asset: LibraryAsset) => void; kind?: LibraryKind }) {
   const [open, setOpen] = useState(false)

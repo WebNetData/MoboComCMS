@@ -2,17 +2,23 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { NextResponse, type NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { readJsonObject, JsonBodyError } from '@/platform/http/read-json'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
+import { getRawToken } from '@/modules/identity/server/access'
+import { requestIp } from '@/modules/server-panel/server/gate'
 import { env } from '@/platform/config/env'
 import { serverGate } from '@/modules/server-panel/server/gate'
 import { DownloadError } from '@/modules/server-panel/domain/downloads'
 import {
   cancelJob, clearJobs, deletePaths, downloadsOverview, listArchive, listFiles, listJobs, localRoot, makeDir, movePaths, openStoredFile, queueArchive, queueFetch,
   queueTransfer, readTextFile, removeStorage, renamePath, retryJob, saveStorage, setLocalBaseUrl, storeUploads, testStorage, writeTextFile,
+  readArchiveText,
 } from '@/modules/server-panel/server/downloads'
 
 function failure(error: unknown) {
-  if (error instanceof DownloadError) return err(error.message, error.status)
+  if (error instanceof DownloadError || error instanceof JsonBodyError) return err(error.message, error.status)
   return err('عملیات انجام نشد', 500)
 }
 
@@ -41,9 +47,13 @@ type Body = Record<string, unknown> & { op?: string }
 
 /** POST /api/admin/server/downloads {op, …} — every change is audited (never with passwords). */
 export async function POST_downloads(req: NextRequest) {
+  if (!originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   const gate = await serverGate(req)
   if ('response' in gate) return gate.response
-  const body = (await req.json().catch(() => null) || {}) as Body
+  const limit = await rateLimitStrict(`server-downloads:${gate.user.id}`, 60, 60000)
+  if (!limit.ok) return err('کمی صبر کنید و دوباره تلاش کنید', 429)
+  let body: Body
+  try { body = await readJsonObject(req, 3_100_000) as Body } catch (error) { return failure(error) }
   const actor = gate.user
   const audit = (action: string, target: unknown, metadata?: Record<string, unknown>) => auditAdmin({ req, actor, action: `server.downloads_${action}`, targetType: 'download', targetId: String(target ?? ''), metadata })
   const storage = body.storage
@@ -51,26 +61,28 @@ export async function POST_downloads(req: NextRequest) {
     switch (body.op) {
       case 'storage-save': {
         const input = body.item && typeof body.item === 'object' ? body.item as Record<string, unknown> : {}
-        const r = await saveStorage(input)
-        await audit('storage_save', r.id, { kind: r.kind, host: r.host, secretChanged: !!input.secret })
+        const r = await saveStorage(input, { req, actor })
         return ok(r)
       }
-      case 'storage-delete': { await removeStorage(body.id); await audit('storage_delete', body.id); return ok({ removed: true }) }
+      case 'storage-delete': { await removeStorage(body.id, { req, actor }); return ok({ removed: true }) }
       case 'storage-test': return ok(await testStorage(body.id))
-      case 'base-url': { const r = await setLocalBaseUrl(body.url); await audit('base_url', r.baseUrl); return ok(r) }
+      case 'base-url': { const r = await setLocalBaseUrl(body.url, { req, actor }); return ok(r) }
       case 'mkdir': { const r = await makeDir(storage, body.dir, body.name); await audit('mkdir', `${storage}:${r.path}`); return ok(r) }
       case 'rename': { const r = await renamePath(storage, body.path, body.name); await audit('rename', `${storage}:${body.path}`, { to: r.path }); return ok(r) }
       case 'move': { const r = await movePaths(storage, body.paths, body.dest); await audit('move', `${storage}:${body.dest}`, { paths: body.paths }); return ok(r) }
       case 'delete': { const r = await deletePaths(storage, body.paths); await audit('delete', String(storage), { paths: body.paths }); return ok(r) }
       case 'write': { const r = await writeTextFile(storage, body.path, body.content, body.etag); await audit('write', `${storage}:${r.path}`); return ok(r) }
       case 'fetch': { const r = await queueFetch({ storage, dir: body.dir, list: body.list }, actor.id); await audit('fetch', `${storage}:${body.dir}`, { urls: String(body.list || '').split('\n').slice(0, 50) }); return ok(r) }
-      case 'transfer': { const r = await queueTransfer({ from: storage, paths: body.paths, to: body.to, dir: body.dir, move: body.move }, actor.id); await audit('transfer', `${storage}→${body.to}`, { paths: body.paths, move: body.move === true }); return ok(r) }
+      case 'transfer': { const token = await getRawToken(req); const at = token?.authAt ? new Date(token.authAt as string | number).getTime() : null; const r = await queueTransfer({ from: storage, paths: body.paths, to: body.to, dir: body.dir, move: body.move }, actor.id, { id: actor.id, authAt: at && Number.isFinite(at) ? at : null, ip: requestIp(req) }); await audit('transfer', `${storage}→${body.to}`, { paths: body.paths, move: body.move === true }); return ok(r) }
       case 'archive-list': return ok(await listArchive(storage, body.path, body.password))
+      case 'archive-read': return ok(await readArchiveText(storage, body.path, body.entry, body.password))
       case 'extract':
       case 'repack':
       case 'pack': {
-        const job = await queueArchive(body, actor.id)
-        await audit(body.op, `${storage}:${body.path || body.dir}`, { format: body.format, passwordChange: body.op === 'repack' ? (body.newPassword ? 'set' : 'remove') : undefined, names: body.names })
+        const token = await getRawToken(req)
+        const at = token?.authAt ? new Date(token.authAt as string | number).getTime() : null
+        await auditAdminStrict({ req, actor, action: `server.downloads_${body.op}_requested`, targetType: 'download', targetId: `${storage}:${body.path || body.dir}`, metadata: { format: body.format, edits: Array.isArray(body.edits) ? body.edits.length : 0 } })
+        const job = await queueArchive({ ...body, authority: { id: actor.id, authAt: at && Number.isFinite(at) ? at : null, ip: requestIp(req) } }, actor.id)
         return ok({ id: job.id })
       }
       case 'job-cancel': { await cancelJob(body.id); return ok({ cancelled: true }) }

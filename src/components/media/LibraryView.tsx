@@ -7,9 +7,10 @@ import AssetDetails from './AssetDetails'
 import FolderTree from './FolderTree'
 import TransferPanel from './TransferPanel'
 import LibrarySettings from './LibrarySettings'
+import ConnectedLibrary from './ConnectedLibrary'
 import './library.css'
 
-type Listing = { items: LibraryAsset[]; folders: LibraryFolder[]; total: number; page: number; pages: number; manage: boolean; configure?: boolean }
+type Listing = { items: LibraryAsset[]; folders: LibraryFolder[]; total: number; page: number; pages: number; manage: boolean; configure?: boolean; serverTools?: boolean }
 const KIND_LABELS = { image: 'تصویر', audio: 'صوت', video: 'ویدئو', document: 'سند', archive: 'آرشیو', file: 'فایل' }
 export default function LibraryView({ onSelect, kind, renderSelection }: { onSelect?: (asset: LibraryAsset) => void; kind?: LibraryKind; renderSelection?: (asset: LibraryAsset) => ReactNode }) {
   const [data, setData] = useState<Listing>({ items: [], folders: [], total: 0, page: 1, pages: 1, manage: false })
@@ -18,6 +19,7 @@ export default function LibraryView({ onSelect, kind, renderSelection }: { onSel
   const [newFolder, setNewFolder] = useState(''), [folderEdit, setFolderEdit] = useState(false), [parent, setParent] = useState(''), [moveTo, setMoveTo] = useState(''), [tags, setTags] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
   const discovered = useRef(false)
+  const [archivePath, setArchivePath] = useState('')
   const refresh = useCallback(() => setVersion(v => v + 1), [])
   useEffect(() => {
     const controller = new AbortController()
@@ -58,9 +60,9 @@ export default function LibraryView({ onSelect, kind, renderSelection }: { onSel
   }
   return <div className="mcl" dir="rtl">
     <div className="mcl-topline"><div><span className="mcl-eyebrow">رسانه‌های سایت</span><h2>یک کتابخانه، برای همهٔ محتواها</h2><p>فایل‌ها را مرتب کنید و هر بار از همان رسانه استفاده کنید.</p></div><div className="mcl-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={() => fileInput.current?.click()}>＋ بارگذاری فایل</button><button type="button" className="btn btn-ghost" onClick={() => setTab('transfers')}>↓ دریافت از لینک</button></div><input type="file" ref={fileInput} hidden multiple onChange={e => { if (e.target.files?.length) void upload(e.target.files); e.target.value = '' }} /></div>
-    <nav className="mcl-tabs" aria-label="بخش‌های کتابخانه"><button type="button" aria-current={tab === 'files' ? 'page' : undefined} onClick={() => setTab('files')}>کتابخانه <b>{data.total.toLocaleString('fa-IR')}</b></button><button type="button" aria-current={tab === 'transfers' ? 'page' : undefined} onClick={() => setTab('transfers')}>انتقال‌ها</button>{data.configure && <button type="button" aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => setTab('settings')}>تنظیمات</button>}</nav>
+    <nav className="mcl-tabs" aria-label="بخش‌های کتابخانه"><button type="button" aria-current={tab === 'files' ? 'page' : undefined} onClick={() => { setTab('files'); refresh() }}>کتابخانه <b>{data.total.toLocaleString('fa-IR')}</b></button><button type="button" aria-current={tab === 'transfers' ? 'page' : undefined} onClick={() => setTab('transfers')}>انتقال‌ها</button>{data.serverTools && <button type="button" aria-current={tab === 'connected' ? 'page' : undefined} onClick={() => { setArchivePath(''); setTab('connected') }}>فضاهای متصل و آرشیوها</button>}{data.configure && <button type="button" aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => setTab('settings')}>تنظیمات</button>}</nav>
     {error && <p className="mcl-message is-error" role="alert">{error}</p>}<p className="mcl-message" role="status">{notice}</p>
-    {tab === 'transfers' ? <TransferPanel folderId={currentFolder?.id || null} onChange={refresh} /> : tab === 'settings' ? <LibrarySettings /> : <div className="mcl-workspace">
+    {tab === 'connected' ? <ConnectedLibrary key={archivePath} initialPath={archivePath} kind={kind} onSelect={onSelect} /> : tab === 'transfers' ? <TransferPanel folderId={currentFolder?.id || null} onChange={refresh} /> : tab === 'settings' ? <LibrarySettings /> : <div className="mcl-workspace">
       <aside className="mcl-folders" aria-label="پوشه‌ها"><h3>پوشه‌های من</h3><button type="button" aria-current={folder === 'all' ? 'true' : undefined} onClick={() => pickFolder('all')}>▧ همهٔ فایل‌ها</button><button type="button" aria-current={folder === '' ? 'true' : undefined} onClick={() => pickFolder('')}>▱ بدون پوشه</button><FolderTree folders={data.folders} selected={folder} onSelect={pickFolder} />
         <form className="mcl-folder-form" onSubmit={e => { e.preventDefault(); void command({ action: folderEdit ? 'folder.update' : 'folder.create', ...(folderEdit && currentFolder ? { id: currentFolder.id, revision: currentFolder.revision } : {}), name: newFolder, parentId: folderEdit ? parent : currentFolder?.id || null }); setNewFolder('') }}>
           <label>{folderEdit ? 'تغییر پوشه' : currentFolder ? 'زیرپوشهٔ جدید' : 'پوشهٔ جدید'}<input className="input" value={newFolder} maxLength={120} required onChange={e => setNewFolder(e.target.value)} /></label>
@@ -77,7 +79,7 @@ export default function LibraryView({ onSelect, kind, renderSelection }: { onSel
         {!loading && !data.items.length && <div className="mcl-empty"><span aria-hidden="true">▧</span><h3>{q ? 'فایلی با این جست‌وجو پیدا نشد' : 'این‌جا هنوز فایلی ندارید'}</h3><p>فایل را این‌جا رها کنید، بارگذاری کنید یا از لینک دریافت کنید.</p></div>}
         <nav className="mcl-pagination" aria-label="صفحه‌بندی کتابخانه"><button type="button" className="btn btn-ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>صفحهٔ قبل</button><span>{page.toLocaleString('fa-IR')} از {data.pages.toLocaleString('fa-IR')}</span><button type="button" className="btn btn-ghost" disabled={page >= data.pages || loading} onClick={() => setPage(page + 1)}>صفحهٔ بعد</button></nav>
       </section>
-      {chosen.length === 1 && <aside className="mcl-inspector" aria-label="جزئیات فایل">{onSelect && !trash && <button className="btn btn-primary mcl-select" type="button" onClick={() => onSelect(chosen[0])}>استفاده از این فایل ←</button>}{renderSelection ? renderSelection(chosen[0]) : <AssetDetails key={`${chosen[0].id}:${chosen[0].revision}`} asset={chosen[0]} folders={data.folders} onSave={patch} />}</aside>}
+      {chosen.length === 1 && <aside className="mcl-inspector" aria-label="جزئیات فایل">{onSelect && !trash && <button className="btn btn-primary mcl-select" type="button" onClick={() => onSelect(chosen[0])}>استفاده از این فایل ←</button>}{data.serverTools && chosen[0].kind === 'archive' && chosen[0].url.startsWith('/files/') && <button type="button" className="btn btn-ghost" onClick={() => { setArchivePath(decodeURIComponent(chosen[0].url.slice(6))); setTab('connected') }}>ویرایش آرشیو و رمز</button>}{renderSelection ? renderSelection(chosen[0]) : <AssetDetails key={`${chosen[0].id}:${chosen[0].revision}`} asset={chosen[0]} folders={data.folders} onSave={patch} />}</aside>}
     </div>}
   </div>
 }

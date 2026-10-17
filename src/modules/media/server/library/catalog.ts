@@ -39,6 +39,19 @@ export async function registerLocalAsset(url: string, creator: number | null = n
 export function assetView(row: Awaited<ReturnType<typeof registerLocalAsset>>, user: LibraryUser): LibraryAsset {
   return { id: row.id, url: assetUrl(row), name: row.name, mime: row.mime, kind: row.kind as LibraryAsset['kind'], bytes: String(row.bytes), width: row.width, height: row.height, alt: row.alt, caption: row.caption, tags: JSON.parse(row.tags), folderId: row.folderId, revision: row.revision, archivedAt: row.archivedAt?.toISOString() || null, editable: user.manageLibrary || row.createdById === user.id }
 }
+
+/** Trusted server composition only: resolves an existing public blob, never a caller-supplied path. */
+export async function publicAssetFile(id: string) {
+  const asset = await db.mediaAsset.findUnique({ where: { id } })
+  if (!asset || asset.archivedAt) throw new LibraryError('فایل کتابخانه پیدا نشد', 404)
+  const desc = localDescriptor(assetUrl(asset))
+  const root = desc.storage === 'covers' ? path.join(process.cwd(), 'storage', 'covers') : filesRoot()
+  const file = await fs.realpath(path.join(root, desc.key))
+  if (!file.startsWith(await fs.realpath(root) + path.sep)) throw new LibraryError('فایل عمومی معتبر نیست', 403)
+  const info = await fs.lstat(file)
+  if (!info.isFile()) throw new LibraryError('فایل عمومی معتبر نیست', 403)
+  return { file, name: asset.name, size: info.size }
+}
 /** Bounded, resumable discovery of existing public files. Private and generated trees are never visited. */
 async function* publicFiles() {
   const covers = await fs.readdir(path.join(process.cwd(), 'storage', 'covers')).catch(() => [])

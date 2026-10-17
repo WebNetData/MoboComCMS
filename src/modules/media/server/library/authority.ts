@@ -7,7 +7,7 @@ import { AUTHOR_PERMISSIONS } from '@/modules/identity/domain/sections'
 import { LibraryError } from '@/modules/media/domain/library'
 
 export type LibraryActor = { id: number; authAt: Date | null; purpose?: 'import' }
-export type LibraryUser = AuthedUser & { manageLibrary: boolean; configureLibrary: boolean }
+export type LibraryUser = AuthedUser & { manageLibrary: boolean; configureLibrary: boolean; serverTools: boolean }
 export async function libraryActor(req: NextRequest): Promise<LibraryActor> {
   const token = await getRawToken(req)
   if (!token?.uid) throw new LibraryError('دسترسی مجاز نیست', 403)
@@ -21,7 +21,7 @@ export async function currentLibraryUser(actor: LibraryActor, reader: Prisma.Tra
   const manageLibrary = has('media.manage') || has('settings.manage')
   if (actor.purpose === 'import' && !has('imports.manage')) throw new LibraryError('اختیار ورود اطلاعات معتبر نیست', 403)
   if (!manageLibrary && !(actor.purpose === 'import' && has('imports.manage')) && ![...CONTENT_EDIT_PERMISSIONS, ...AUTHOR_PERMISSIONS].some(has)) throw new LibraryError('دسترسی مجاز نیست', 403)
-  return { ...user, manageLibrary, configureLibrary: has('settings.manage') }
+  return { ...user, manageLibrary, configureLibrary: has('settings.manage'), serverTools: has('server.manage') }
 }
 export function owns(user: LibraryUser, row: { createdById: number | null }) {
   if (!user.manageLibrary && row.createdById !== user.id) throw new LibraryError('ویرایش این مورد به مدیر کتابخانه یا بارگذار آن اختصاص دارد', 403)

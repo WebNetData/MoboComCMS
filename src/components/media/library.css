@@ -14,3 +14,12 @@
 .mcl-dialog{padding:0;margin:auto;inline-size:min(1500px,calc(100vw - 24px))}.mcl-dialog::backdrop{background:#0009;backdrop-filter:blur(6px)}
 .mcl .btn-primary{background:color-mix(in srgb,var(--primary) 78%,#000);color:var(--sds-theme-accent-on);border-color:transparent}.mcl-folders button[aria-current]{color:var(--text);border-inline-start:2px solid var(--primary)}
 .mcl-content-copy{padding:10px 14px;border-block:1px solid var(--border);font-size:12px;color:var(--text);background:var(--card)}.mcl-content-copy>summary{cursor:pointer;padding:5px 0;color:var(--text)}.mcl-content-copy .mcl-copy-panel{margin-block-start:10px}.mcl-content-copy>p:empty{display:none}.mcl-content-copy>p{font-size:11px;color:var(--muted);line-height:1.9}
+
+/* Existing guarded download center, composed inside the shared library. */
+.mcl-connected{min-width:0}.mcl-connected>p{color:var(--muted);line-height:1.9}.mcl-connected .dl-layout,.mcl-connected .dl-archive-body{min-width:0}.mcl-connected .sa-table-wrap{overflow:auto;max-width:100%}.mcl-archive-edits{display:grid;gap:14px;min-width:0}.mcl-archive-edits label{display:grid;gap:8px}.mcl-archive-edits fieldset{display:grid;gap:12px;border:1px solid var(--border);border-radius:16px;padding:16px;min-width:0}.mcl-archive-entries{display:grid;max-height:360px;overflow:auto}.mcl-archive-entries>div,.mcl-archive-plan>li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}.mcl-archive-entries>div>label{display:flex;align-items:center;gap:10px;min-width:0}.mcl-archive-entries bdi,.mcl-archive-plan bdi{overflow-wrap:anywhere;min-width:0}.mcl-archive-plan{list-style:none;padding:0}.mcl-archive-edits small{color:var(--muted);line-height:1.8}.mcl-connected .dl-archive-list{padding:18px}.mcl-connected .input{max-width:100%}@media(max-width:700px){.mcl-connected .dl-archive-body,.mcl-connected .dl-layout{grid-template-columns:minmax(0,1fr)}.mcl-archive-entries>div,.mcl-archive-plan>li{flex-wrap:wrap}.mcl-connected .dl-archive-list{padding:12px}}
+
+.mcl-connected .sa-tabs a,.mcl-connected .dl-warn,.mcl-connected .dl-lock,.mcl-connected .dl-badge,.mcl-connected .dl-crumbs button{color:var(--text);opacity:1}
+
+.mcl-connected .btn-ghost:not(:disabled),.mcl-connected .dl-storage.is-add small{color:var(--text);opacity:1}
+
+.mcl-connected .sa-link{color:var(--text)}

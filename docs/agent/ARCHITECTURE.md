@@ -343,6 +343,8 @@ Transaction snapshots are legitimate copies when immutability is required (e.g. 
 
 `src/modules/media/server/library.ts` owns logical asset/folder/transfer metadata, composing existing Site covers, Downloads chunk/range storage, Imports image dedupe, canonical Identity/Settings/Audit and Operations queue. It is the public library address; never duplicate storage or jobs. Rename/move/archive preserve published URLs/bytes; private uploads stay excluded. New bulk jobs opt out server-side unless explicitly checked; historical jobs retain prior behavior. Continue [Media library](handoffs/MEDIA_LIBRARY.md) for contracts, authority fencing, migrations, UI and bounded evidence.
 
+Connected hosts and ZIP/RAR editing compose the existing Server Panel Downloads owner and `DownloadJob` through that library, retaining `serverGate` and its encrypted storage settings. Remote public references stay live; explicit local copies and verified archive versions join the same catalog. Private archive validation/materialization, current worker authority and transactional settings parts remain behind `server-panel/server/downloads.ts`; no second storage registry, credential store or queue. See the same continuation for tool prerequisites, bounded extraction and original-file preservation.
+
 ## 10. Extension architecture
 
 Three extension levels:

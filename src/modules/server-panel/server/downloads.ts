@@ -6,6 +6,10 @@ import { spawn } from 'node:child_process'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { db } from '@/platform/database/prisma'
+import { archiveEdits, type ArchiveEdit } from '@/modules/server-panel/domain/archive-edits'
+import { archiveStamp, materializeArchive, applyArchiveEdits, readArchivedText } from './downloads/archive-content'
+import { assertArchiveAuthority, type ArchiveAuthority } from './downloads/archive-authority'
+import { changeDownloadSettings, type DownloadSettingsContext } from './downloads/settings'
 import { env } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
@@ -32,11 +36,6 @@ async function loadSettings(): Promise<Settings> {
     }).filter(Boolean) as Storage[]
     return { localBaseUrl: normalizeBaseUrl(raw.localBaseUrl), storages }
   } catch { return { localBaseUrl: '', storages: [] } }
-}
-
-async function saveSettings(settings: Settings) {
-  const value = JSON.stringify(settings)
-  await db.setting.upsert({ where: { key: KEY }, create: { key: KEY, value }, update: { value } })
 }
 
 /** This server's download folder (DOWNLOADS_ROOT; storage/downloads in development). */
@@ -76,27 +75,28 @@ const rel = (input: unknown) => { const value = normalizeRelPath(input); if (val
 
 let toolCache: { at: number; tools: Record<'sevenZip' | 'rar' | 'unrar', string> } | null = null
 async function findTool(names: string[]) {
-  for (const dir of (process.env.PATH || '/usr/bin:/bin').split(':')) {
-    for (const name of names) if (await fs.access(path.join(dir, name), constants.X_OK).then(() => true, () => false)) return path.join(dir, name)
+  for (const dir of (process.env.PATH || '/usr/bin:/bin').split(path.delimiter)) {
+    for (const name of names.flatMap(n => process.platform === 'win32' ? [n + '.exe', n] : [n])) if (await fs.access(path.join(dir, name), constants.X_OK).then(() => true, () => false)) return path.join(dir, name)
   }
   return ''
 }
 export async function archiveTools() {
   if (toolCache && Date.now() - toolCache.at < 60_000) return toolCache.tools
-  const tools = { sevenZip: await findTool(['7z', '7zz', '7za']), rar: await findTool(['rar']), unrar: await findTool(['unrar']) }
+  const tools = { sevenZip: await findTool(['7zz', '7z', '7za']), rar: await findTool(['rar']), unrar: await findTool(['unrar']) }
   toolCache = { at: Date.now(), tools }
   return tools
 }
 
-type RunResult = { ok: boolean; out: string; code: number | null }
+type RunResult = { ok: boolean; out: string; code: number | null; truncated?: boolean }
 /** Runs a tool without a shell; progress gets the last "NN%" the tool printed. */
 function run(file: string, args: string[], options: { cwd?: string; timeout?: number; signal?: AbortSignal; progress?: (percent: number) => void } = {}): Promise<RunResult> {
   return new Promise((resolve) => {
     const child = spawn(file, args, { cwd: options.cwd, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, LC_ALL: 'C' }, signal: options.signal })
-    let out = ''
+    let out = '', truncated = false
     const collect = (chunk: Buffer) => {
       const text = chunk.toString('utf8')
-      out = (out + text).slice(-200_000)
+      if (out.length + text.length > 4 * 1024 * 1024) { truncated = true; child.kill('SIGKILL'); return }
+      out += text
       const match = text.match(/(\d{1,3})%/g)
       if (match && options.progress) options.progress(Math.min(100, Number(match[match.length - 1].replace('%', ''))))
     }
@@ -104,7 +104,7 @@ function run(file: string, args: string[], options: { cwd?: string; timeout?: nu
     child.stderr.on('data', collect)
     const timer = setTimeout(() => child.kill('SIGKILL'), options.timeout ?? 6 * 60 * 60_000)
     child.on('error', (error) => { clearTimeout(timer); resolve({ ok: false, out: `${out}\n${error.message}`, code: null }) })
-    child.on('close', (code) => { clearTimeout(timer); resolve({ ok: code === 0, out, code }) })
+    child.on('close', (code) => { clearTimeout(timer); resolve({ ok: code === 0 && !truncated, out, code, truncated }) })
   })
 }
 
@@ -124,7 +124,7 @@ export async function downloadsOverview() {
   }
 }
 
-export async function saveStorage(input: Record<string, unknown>) {
+export async function saveStorage(input: Record<string, unknown>, context?: DownloadSettingsContext) {
   const settings = await loadSettings()
   const storage = validateStorage(input, settings.storages.map((item) => item.id))
   const previous = settings.storages.find((item) => item.id === storage.id)
@@ -134,25 +134,24 @@ export async function saveStorage(input: Record<string, unknown>) {
   if (!secret) throw new DownloadError(storage.auth === 'key' ? 'کلید خصوصی SSH را وارد کنید' : 'رمز عبور را وارد کنید')
   const next: Storage = { ...storage, secret }
   if (input.test !== false) { const driver = await connect(next); try { await driver.list('/') } finally { await driver.close() } }
-  await saveSettings({ ...settings, storages: [...settings.storages.filter((item) => item.id !== next.id), next] })
+  await changeDownloadSettings(current => { const rows = current.storages || []; const fresh = rows.find((item: Storage) => item.id === next.id); return { ...current, storages: [...rows.filter((item: Storage) => item.id !== next.id), { ...next, secret: secretInput ? secret : fresh?.secret || secret }] } }, context ? { ...context, action: 'server.downloads_storage_save', targetType: 'download-storage', targetId: next.id, metadata: { kind: next.kind, host: next.host, secretChanged: !!secretInput } } : undefined)
   return publicStorage(next)
 }
 
-export async function removeStorage(id: unknown) {
+export async function removeStorage(id: unknown, context?: DownloadSettingsContext) {
   const settings = await loadSettings()
   if (!settings.storages.some((item) => item.id === id)) throw new DownloadError('فضای ذخیره پیدا نشد', 404)
-  await saveSettings({ ...settings, storages: settings.storages.filter((item) => item.id !== id) })
+  await changeDownloadSettings(current => ({ ...current, storages: (current.storages || []).filter((item: Storage) => item.id !== id) }), context ? { ...context, action: 'server.downloads_storage_delete', targetType: 'download-storage', targetId: String(id) } : undefined)
 }
 
 export async function testStorage(id: unknown) {
   return withDriver(id, async (driver) => ({ entries: (await driver.list('/')).length }))
 }
 
-export async function setLocalBaseUrl(input: unknown) {
+export async function setLocalBaseUrl(input: unknown, context?: DownloadSettingsContext) {
   const url = normalizeBaseUrl(input)
   if (String(input ?? '').trim() && !url) throw new DownloadError('نشانی عمومی معتبر نیست (مثل https://dl.mobocom.net)')
-  const settings = await loadSettings()
-  await saveSettings({ ...settings, localBaseUrl: url })
+  await changeDownloadSettings(current => ({ ...current, localBaseUrl: url }), context ? { ...context, action: 'server.downloads_base_url', targetType: 'download-storage', targetId: 'local' } : undefined)
   return { baseUrl: url }
 }
 
@@ -314,7 +313,7 @@ export async function retryJob(id: unknown) {
   const job = await db.downloadJob.findUnique({ where: { id: Number(id) } })
   if (!job || !['failed', 'cancelled'].includes(job.status)) throw new DownloadError('این کار قابل تکرار نیست', 409)
   const params = JSON.parse(job.params || '{}')
-  if (params.needsPassword && !state.secrets.has(job.id)) throw new DownloadError('رمز آرشیو نگه داشته نمی‌شود؛ این کار را دوباره از فهرست فایل‌ها بسازید', 409)
+  if ((params.needsPassword || params.needsSecrets) && !state.secrets.has(job.id)) throw new DownloadError('رمز آرشیو نگه داشته نمی‌شود؛ این کار را دوباره از فهرست فایل‌ها بسازید', 409)
   await db.downloadJob.update({ where: { id: job.id }, data: { status: 'queued', error: '', received: 0, speed: 0, startedAt: null, finishedAt: null, params: JSON.stringify({ ...params, phase: '' }) } })
   void pump()
 }
@@ -364,19 +363,26 @@ async function execute(id: number, controller: AbortController) {
   if (!job) return
   try {
     const params = JSON.parse(job.params || '{}') as Record<string, unknown>
+    if (params.authority) await assertArchiveAuthority(params.authority as ArchiveAuthority, id)
+    if ((params.needsSecrets || params.needsPassword) && !state.secrets.has(id)) throw new DownloadError('رمز آرشیو پس از راه‌اندازی مجدد نگه داشته نمی‌شود؛ کار را با رمز دوباره بسازید', 409)
     const secrets = state.secrets.get(id) || {}
     let result = ''
     if (job.kind === 'fetch') result = await runFetch(job, controller.signal)
     else if (job.kind === 'transfer') result = await runTransfer(job, params, controller.signal)
     else result = await runArchive(job, params as ArchiveParams, secrets, controller.signal)
-    await db.downloadJob.update({ where: { id }, data: { status: 'done', result, speed: 0, finishedAt: new Date() } })
+    await db.$transaction(async tx => {
+      if (params.authority) await assertArchiveAuthority(params.authority as ArchiveAuthority, id, tx)
+      const adopted = await tx.downloadJob.updateMany({ where: { id, status: 'running' }, data: { status: 'done', result, speed: 0, finishedAt: new Date() } })
+      if (!adopted.count) return
+      if ((['repack', 'pack'].includes(job.kind) || (job.kind === 'transfer' && job.storageId === LOCAL_ID)) && /^\/uploads\/(music|cinema|software|games|posts|products|general)\//.test(result)) await (await import('@/modules/media/server/library')).registerLocalAsset(`/files${result.split('/').map(encodeURIComponent).join('/')}`, job.createdBy, null, undefined, tx)
+    }, { isolationLevel: 'Serializable' })
     logEvent('info', 'server.downloads.job_done', { id, kind: job.kind })
   } catch (error) {
     const cancelled = controller.signal.aborted
-    const message = error instanceof DownloadError ? error.message : error instanceof Error ? error.message : String(error)
-    await db.downloadJob.update({ where: { id }, data: { status: cancelled ? 'cancelled' : 'failed', error: cancelled ? '' : message.slice(0, 1000), speed: 0, finishedAt: new Date() } }).catch(() => undefined)
+    const message = error instanceof DownloadError ? error.message : 'کار فایل انجام نشد؛ دسترسی، فضای دیسک و سلامت فایل را بررسی کنید'
+    await db.downloadJob.updateMany({ where: { id, status: 'running' }, data: { status: cancelled ? 'cancelled' : 'failed', error: cancelled ? '' : message.slice(0, 1000), speed: 0, finishedAt: new Date() } }).catch(() => undefined)
     if (!cancelled) logEvent('warn', 'server.downloads.job_failed', { id, kind: job.kind, error: message.slice(0, 300) })
-  }
+  } finally { state.secrets.delete(id) }
 }
 
 // ------------------------------------------------------------------ remote URL downloader
@@ -486,7 +492,7 @@ export async function queueFetch(input: { storage: unknown; dir: unknown; list: 
 
 // ------------------------------------------------------------------ transfers between storages
 
-export async function queueTransfer(input: { from: unknown; paths: unknown; to: unknown; dir: unknown; move?: unknown }, userId: number | null) {
+export async function queueTransfer(input: { from: unknown; paths: unknown; to: unknown; dir: unknown; move?: unknown }, userId: number | null, authority?: ArchiveAuthority) {
   const from = await storageById(input.from)
   const to = await storageById(input.to)
   const paths = (Array.isArray(input.paths) ? input.paths : []).slice(0, 100).map(rel)
@@ -494,7 +500,7 @@ export async function queueTransfer(input: { from: unknown; paths: unknown; to: 
   if (from.storage.id === to.storage.id) throw new DownloadError('مبدأ و مقصد یکی است؛ از «انتقال» استفاده کنید')
   const dir = rel(input.dir || '/')
   const jobs = []
-  for (const source of paths) jobs.push(await createJob({ kind: 'transfer', title: `${baseName(source)} → ${to.storage.name}`, storageId: to.storage.id, dir, name: baseName(source), params: { from: from.storage.id, path: source, move: input.move === true }, createdBy: userId }))
+  for (const source of paths) jobs.push(await createJob({ kind: 'transfer', title: `${baseName(source)} → ${to.storage.name}`, storageId: to.storage.id, dir, name: baseName(source), params: { from: from.storage.id, path: source, move: input.move === true, authority }, createdBy: userId }))
   return { queued: jobs.length }
 }
 
@@ -523,12 +529,14 @@ async function runTransfer(job: JobRow, params: Record<string, unknown>, signal:
 const localAbs = (relPath: string) => path.join(localRoot(), relPath)
 
 async function requireLocalFile(storageId: unknown, pathInput: unknown) {
-  if (String(storageId || LOCAL_ID) !== LOCAL_ID) throw new DownloadError('ابزار آرشیو روی فایل‌های همین سرور کار می‌کند؛ فایل را اول به «پوشهٔ دانلود همین سرور» منتقل کنید', 409)
-  const target = rel(pathInput)
-  const info = await fs.stat(localAbs(target)).catch(() => null)
-  if (!info?.isFile()) throw new DownloadError('فایل پیدا نشد', 404)
+  if (String(storageId || LOCAL_ID) !== LOCAL_ID) throw new DownloadError('ابتدا فایل دوردست را به پوشهٔ دانلود همین سرور کپی کنید', 409)
+  const target = rel(pathInput), file = localAbs(target)
+  const real = await fs.realpath(file).catch(() => '')
+  if (!real.startsWith(await fs.realpath(localRoot()) + path.sep) || (await fs.lstat(file)).isSymbolicLink()) throw new DownloadError('آرشیو خارج از فضای دانلود است', 403)
+  const info = await fs.stat(real)
+  if (!info.isFile()) throw new DownloadError('فایل پیدا نشد', 404)
   const format = archiveFormat(target)
-  if (!format) throw new DownloadError('این فایل آرشیو شناخته‌شده‌ای نیست (zip، 7z، rar، tar)')
+  if (!format) throw new DownloadError('این فایل آرشیو شناخته‌شده‌ای نیست')
   return { target, format, size: info.size }
 }
 
@@ -544,12 +552,13 @@ async function toolFor(format: ArchiveFormat, action: 'read' | 'write') {
   return tools.sevenZip
 }
 
-export type ArchiveListing = { format: ArchiveFormat; encrypted: boolean; needsPassword: boolean; entries: ArchiveEntry[]; files: number; unpacked: number }
+export type ArchiveListing = { format: ArchiveFormat; encrypted: boolean; needsPassword: boolean; entries: ArchiveEntry[]; files: number; unpacked: number; stamp?: string }
 
 export async function listArchive(storageId: unknown, pathInput: unknown, passwordInput: unknown): Promise<ArchiveListing> {
   const { target, format } = await requireLocalFile(storageId, pathInput)
   const password = validArchivePassword(passwordInput, false)
   const file = localAbs(target)
+  const stamp = await archiveStamp(file)
   let entries: ArchiveEntry[]
   if (format === 'tar') {
     const result = await run('tar', ['-tvf', file], { timeout: 120_000 })
@@ -572,13 +581,24 @@ export async function listArchive(storageId: unknown, pathInput: unknown, passwo
     needsPassword = !check.ok && (wrongPassword(check.out) || !password)
   }
   const files = entries.filter((entry) => !entry.dir)
-  return { format, encrypted, needsPassword, entries: entries.slice(0, 2000), files: files.length, unpacked: files.reduce((sum, entry) => sum + entry.size, 0) }
+  if (await archiveStamp(file) !== stamp) throw new DownloadError('آرشیو هنگام خواندن تغییر کرد', 409)
+  return { format, encrypted, needsPassword, entries: entries.slice(0, 20000), files: files.length, unpacked: files.reduce((sum, entry) => sum + entry.size, 0), stamp }
 }
 
-type ArchiveParams = { action: 'extract' | 'repack' | 'pack'; path?: string; dest?: string; folder?: boolean; format?: Exclude<ArchiveFormat, 'tar'>; replace?: boolean; names?: string[]; needsPassword?: boolean; phase?: string }
+export async function readArchiveText(storage: unknown, pathInput: unknown, entry: unknown, password: unknown) {
+  const { target } = await requireLocalFile(storage, pathInput), file = localAbs(target), stamp = await archiveStamp(file), tool = (await archiveTools()).sevenZip
+  if (!tool) throw new DownloadError('ابزار 7zz یا 7z نصب نیست', 501)
+  const content = await readArchivedText(file, String(entry || ''), validArchivePassword(password, false), tool, run)
+  if (await archiveStamp(file) !== stamp) throw new DownloadError('آرشیو هنگام خواندن تغییر کرد', 409)
+  return { content, stamp }
+}
+
+type ArchiveParams = { action: 'extract' | 'repack' | 'pack'; path?: string; dest?: string; folder?: boolean; format?: Exclude<ArchiveFormat, 'tar'>; replace?: boolean; names?: string[]; needsPassword?: boolean; needsSecrets?: boolean; phase?: string; edits?: ArchiveEdit[]; sourceStamp?: string; authority?: ArchiveAuthority }
 
 export async function queueArchive(body: Record<string, unknown>, userId: number | null) {
   const op = String(body.op)
+  const authority = body.authority as ArchiveAuthority | undefined
+  if (authority && authority.id !== userId) throw new DownloadError('سازندهٔ کار معتبر نیست', 403)
   if (op === 'pack') {
     if (String(body.storage || LOCAL_ID) !== LOCAL_ID) throw new DownloadError('ساخت آرشیو فقط برای فایل‌های همین سرور است', 409)
     const dir = rel(body.dir)
@@ -588,46 +608,40 @@ export async function queueArchive(body: Record<string, unknown>, userId: number
     await toolFor(format, 'write')
     const newPassword = validArchivePassword(body.newPassword, false)
     const name = withFormat(cleanName(body.name) || (names.length === 1 ? names[0] : `archive-${new Date().toISOString().slice(0, 10)}`), format)
-    return createJob({ kind: 'pack', title: `${name} (${names.length} مورد)`, storageId: LOCAL_ID, dir, name, params: { action: 'pack', names, format }, createdBy: userId }, { newPassword })
+    return createJob({ kind: 'pack', title: `${name} (${names.length} مورد)`, storageId: LOCAL_ID, dir, name, params: { action: 'pack', names, format, needsSecrets: !!newPassword, authority }, createdBy: userId }, { newPassword })
   }
   const { target, format } = await requireLocalFile(body.storage, body.path)
+  if (body.stamp && body.stamp !== await archiveStamp(localAbs(target))) throw new DownloadError('آرشیو پس از نمایش فهرست تغییر کرده؛ دوباره باز کنید', 409)
   const password = validArchivePassword(body.password, false)
   await toolFor(format, 'read')
   if (op === 'extract') {
     const dest = rel(body.dest || parentRel(target))
-    return createJob({ kind: 'extract', title: baseName(target), storageId: LOCAL_ID, dir: dest, name: baseName(target), params: { action: 'extract', path: target, dest, folder: body.folder !== false, needsPassword: !!password }, createdBy: userId }, { password })
+    return createJob({ kind: 'extract', title: baseName(target), storageId: LOCAL_ID, dir: dest, name: baseName(target), params: { action: 'extract', path: target, dest, folder: body.folder !== false, needsPassword: !!password, needsSecrets: !!password, sourceStamp: await archiveStamp(localAbs(target)), authority }, createdBy: userId }, { password })
   }
   if (op === 'repack') {
     const outFormat = (['zip', '7z', 'rar'].includes(String(body.format)) ? body.format : format === 'tar' ? 'zip' : format) as Exclude<ArchiveFormat, 'tar'>
     await toolFor(outFormat, 'write')
     const newPassword = validArchivePassword(body.newPassword, false)
-    const title = `${baseName(target)} — ${newPassword ? (password ? 'تغییر رمز' : 'رمزگذاری') : 'برداشتن رمز'}${outFormat !== format ? ` (${outFormat})` : ''}`
-    return createJob({ kind: 'repack', title, storageId: LOCAL_ID, dir: parentRel(target), name: baseName(target), params: { action: 'repack', path: target, format: outFormat, replace: body.replace === true, needsPassword: !!password }, createdBy: userId }, { password, newPassword })
+    const edits = archiveEdits(body.edits)
+    const title = `${baseName(target)} — ${edits.length ? 'ویرایش محتویات' : newPassword ? (password ? 'تغییر رمز' : 'رمزگذاری') : 'برداشتن رمز'}${outFormat !== format ? ` (${outFormat})` : ''}`
+    return createJob({ kind: 'repack', title, storageId: LOCAL_ID, dir: parentRel(target), name: baseName(target), params: { action: 'repack', path: target, format: outFormat, replace: edits.length ? false : body.replace === true, needsPassword: !!password, needsSecrets: !!password || !!newPassword, edits, sourceStamp: await archiveStamp(localAbs(target)), authority }, createdBy: userId }, { password, newPassword })
   }
   throw new DownloadError('عملیات نامعتبر است')
 }
 
-async function extractTo(file: string, format: ArchiveFormat, dest: string, password: string, signal: AbortSignal, progress: (p: number) => void) {
-  await fs.mkdir(dest, { recursive: true })
-  let result: RunResult
-  if (format === 'tar') result = await run('tar', ['-xf', file, '-C', dest, '--no-same-owner'], { signal })
-  else if (format === 'rar') result = await run(await toolFor('rar', 'read'), ['x', '-o+', '-idc', `-p${password || '-'}`, '--', file, `${dest}/`], { signal, progress })
-  else result = await run(await toolFor(format, 'read'), ['x', '-y', '-bsp1', `-p${password}`, `-o${dest}`, '--', file], { signal, progress })
-  if (!result.ok) {
-    if (signal.aborted) throw new DownloadError('لغو شد')
-    if (wrongPassword(result.out)) throw new DownloadError(password ? 'رمز آرشیو درست نیست' : 'این آرشیو رمز دارد؛ رمز را وارد کنید')
-    throw new DownloadError(`باز کردن آرشیو انجام نشد: ${result.out.split('\n').filter((line) => /error|ERROR|Cannot|CRC/i.test(line)).slice(0, 2).join(' ').slice(0, 240) || `کد ${result.code}`}`)
-  }
+async function extractTo(file: string, _format: ArchiveFormat, dest: string, password: string, signal: AbortSignal, progress: (p: number) => void, checkpoint: () => Promise<void> = async () => undefined) {
+  const tool = (await archiveTools()).sevenZip
+  if (!tool) throw new DownloadError('برای بررسی و باز کردن امن آرشیو، ابزار 7zz یا 7z را نصب کنید', 501)
+  await materializeArchive(file, dest, password, tool, run, signal, checkpoint)
+  progress(100)
 }
 
 async function packDir(srcDir: string, names: string[], out: string, format: Exclude<ArchiveFormat, 'tar'>, password: string, signal: AbortSignal, progress: (p: number) => void) {
-  let result: RunResult
-  if (format === 'rar') result = await run(await toolFor('rar', 'write'), ['a', '-r', '-idc', '-ma5', ...(password ? [`-hp${password}`] : []), '--', out, ...names], { cwd: srcDir, signal, progress })
-  else result = await run(await toolFor(format, 'write'), ['a', '-bsp1', '-y', format === 'zip' ? '-tzip' : '-t7z', ...(password ? [`-p${password}`, format === 'zip' ? '-mem=AES256' : '-mhe=on'] : []), '--', out, ...names], { cwd: srcDir, signal, progress })
-  if (!result.ok) {
-    if (signal.aborted) throw new DownloadError('لغو شد')
-    throw new DownloadError(`ساخت آرشیو انجام نشد: ${result.out.split('\n').filter((line) => /error|ERROR|WARNING/i.test(line)).slice(0, 2).join(' ').slice(0, 240) || `کد ${result.code}`}`)
-  }
+  const items = names.map(name => `./${name}`)
+  const result = format === 'rar'
+    ? await run(await toolFor('rar', 'write'), ['a', '-r', '-idc', '-ma5', ...(password ? [`-hp${password}`] : []), '--', out, ...items], { cwd: srcDir, signal, progress })
+    : await run(await toolFor(format, 'write'), ['a', '-bsp1', '-y', '-spd', format === 'zip' ? '-tzip' : '-t7z', ...(password ? [`-p${password}`, format === 'zip' ? '-mem=AES256' : '-mhe=on'] : []), '--', out, ...items], { cwd: srcDir, signal, progress })
+  if (!result.ok) throw new DownloadError(signal.aborted ? 'لغو شد' : 'ساخت آرشیو انجام نشد؛ فضای دیسک و ابزار آرشیو را بررسی کنید')
 }
 
 async function moveInto(from: string, dir: string, name: string) {
@@ -640,44 +654,49 @@ async function moveInto(from: string, dir: string, name: string) {
 const toRel = (abs: string) => `/${path.relative(localRoot(), abs).split(path.sep).join('/')}`
 
 async function runArchive(job: JobRow, params: ArchiveParams, secrets: Secrets, signal: AbortSignal) {
+  const checkpoint = async () => { signal.throwIfAborted(); if (params.authority) await assertArchiveAuthority(params.authority, job.id) }
+  await checkpoint()
   const work = await tempFile(`job${job.id}`)
-  await fs.mkdir(work, { recursive: true })
-  await db.downloadJob.update({ where: { id: job.id }, data: { total: 100, received: 0 } })
+  await fs.mkdir(work, { recursive: true, mode: 0o700 })
+  await db.downloadJob.updateMany({ where: { id: job.id, status: 'running' }, data: { total: 100, received: 0 } })
   const write = progressWriter(job.id)
-  const progress = (share: number, offset: number) => (percent: number) => void write(Math.round(offset + (percent * share) / 100))
+  const progress = (share: number, offset: number) => (percent: number) => void write(Math.round(offset + percent * share / 100))
   try {
     if (params.action === 'pack') {
-      const dir = localAbs(rel(job.dir))
-      const out = path.join(work, cleanName(job.name) || 'archive.zip')
+      const dir = localAbs(rel(job.dir)), out = path.join(work, cleanName(job.name) || 'archive.zip')
       await packDir(dir, params.names || [], out, params.format || 'zip', secrets.newPassword || '', signal, progress(100, 0))
+      await checkpoint()
       return toRel(await moveInto(out, dir, path.basename(out)))
     }
-    const source = rel(params.path)
-    const file = localAbs(source)
-    const format = archiveFormat(source) as ArchiveFormat
+    const { target: source, format } = await requireLocalFile(LOCAL_ID, params.path)
+    const file = localAbs(source), stamp = await archiveStamp(file)
+    if (params.sourceStamp && params.sourceStamp !== stamp) throw new DownloadError('آرشیو پس از ثبت کار تغییر کرده است', 409)
+    const snapshot = path.join(work, `source${path.extname(source)}`)
+    await fs.copyFile(file, snapshot)
+    if (await archiveStamp(file) !== stamp) throw new DownloadError('آرشیو هنگام کپی تغییر کرد', 409)
     const extracted = path.join(work, 'x')
     await setPhase(job, 'extract')
-    await extractTo(file, format, extracted, secrets.password || '', signal, progress(params.action === 'extract' ? 100 : 50, 0))
+    await extractTo(snapshot, format, extracted, secrets.password || '', signal, progress(params.action === 'extract' ? 100 : 50, 0), checkpoint)
+    if (params.edits?.length) await applyArchiveEdits(extracted, params.edits, checkpoint)
     const names = await fs.readdir(extracted)
-    if (!names.length) throw new DownloadError('آرشیو خالی است')
+    if (!names.length) throw new DownloadError('آرشیو خروجی باید حداقل یک فایل داشته باشد')
+    await checkpoint()
+    if (await archiveStamp(file) !== stamp) throw new DownloadError('نسخهٔ اصلی تغییر کرده؛ خروجی ثبت نشد', 409)
     if (params.action === 'extract') {
       const dest = localAbs(rel(params.dest || parentRel(source)))
       await fs.mkdir(dest, { recursive: true })
-      if (params.folder !== false) return toRel(await moveInto(extracted, dest, baseName(source).replace(/\.part\d+\.rar$/i, '').replace(/\.(zip|7z|rar|tar|tar\.gz|tgz|tar\.xz|txz|tar\.bz2|tbz2)$/i, '') || 'extracted'))
+      if (params.folder !== false) return toRel(await moveInto(extracted, dest, baseName(source).replace(/\.(zip|7z|rar|tar|gz)$/i, '') || 'extracted'))
       for (const name of names) await moveInto(path.join(extracted, name), dest, name)
       return toRel(dest)
     }
-    // repack: same content, new (or no) password, maybe another format.
     await setPhase(job, 'pack')
-    const outFormat = params.format || (format === 'tar' ? 'zip' : format)
-    const outName = withFormat(baseName(source), outFormat)
-    const out = path.join(work, outName)
+    const outFormat = params.format || (format === 'tar' ? 'zip' : format), outName = withFormat(baseName(source), outFormat), out = path.join(work, outName)
     await packDir(extracted, names, out, outFormat, secrets.newPassword || '', signal, progress(50, 50))
-    const dir = path.dirname(file)
-    if (params.replace) {
-      await fs.rm(file, { force: true })
-      if (format === 'rar') for (const part of (await fs.readdir(dir)).filter((name) => /\.part\d+\.rar$/i.test(name) && name.replace(/\.part\d+\.rar$/i, '') === baseName(source).replace(/\.part\d+\.rar$/i, ''))) await fs.rm(path.join(dir, part), { force: true })
-    }
-    return toRel(await moveInto(out, dir, outName))
+    const tool = (await archiveTools()).sevenZip
+    if (!tool || !(await run(tool, ['t', `-p${secrets.newPassword || ''}`, '--', out], { signal, timeout: 600000 })).ok) throw new DownloadError('آرشیو خروجی تأیید نشد؛ نسخهٔ اصلی حفظ شد')
+    await checkpoint()
+    if (await archiveStamp(file) !== stamp) throw new DownloadError('نسخهٔ اصلی تغییر کرده؛ خروجی ثبت نشد', 409)
+    if (params.replace && !params.edits?.length && outFormat === format && !/\.part\d+\.rar$/i.test(source)) { await fs.rename(out, file); return source }
+    return toRel(await moveInto(out, path.dirname(file), outName))
   } finally { await fs.rm(work, { recursive: true, force: true }) }
 }

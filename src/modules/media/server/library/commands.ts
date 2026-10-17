@@ -23,7 +23,7 @@ export async function queryLibrary(actor: LibraryActor, params: URLSearchParams)
     db.mediaFolder.findMany({ orderBy: { name: 'asc' } }), db.mediaAsset.count({ where }),
     db.mediaAsset.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * 40, take: 40 }),
   ])
-  return { items: items.map(r => assetView(r, user)), folders: folders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId, revision: f.revision, editable: user.manageLibrary || f.createdById === user.id })), total, page, pages: Math.max(1, Math.ceil(total / 40)), manage: user.manageLibrary, configure: user.configureLibrary, userId: user.id }
+  return { items: items.map(r => assetView(r, user)), folders: folders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId, revision: f.revision, editable: user.manageLibrary || f.createdById === user.id })), total, page, pages: Math.max(1, Math.ceil(total / 40)), manage: user.manageLibrary, configure: user.configureLibrary, serverTools: user.serverTools, userId: user.id }
 }
 
 export async function libraryCommand(actor: LibraryActor, input: Record<string, unknown>, req: NextRequest) {
