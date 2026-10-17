@@ -8,7 +8,7 @@ import Slider from '@/components/site/Slider'
 
 // Games portal: GameUp's catalogue (square covers, rails, platform and genre
 // tiles, filter bar) blended with Liona's editorial blocks (review band with
-// tabs, latest-posts block with a lead story and a round-thumb list).
+// tabs, plus a featured Games post, card grid and quick-read list).
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const day = (value: Date | null) => (value ? new Date(value).toLocaleDateString('fa-IR', { day: 'numeric', month: 'long', year: 'numeric' }) : '')
@@ -99,35 +99,33 @@ export function ReviewBand({ lead, groups }: { lead: Game | undefined; groups: {
   </section>
 }
 
-export type Post = { slug: string; title: string; excerpt: string; cover: string; publishedAt: Date; views: number; category: { name: string } | null }
-
-/** Server-rendered article cards share one bounded artwork frame and semantic metadata. */
-function PostStory({ post, featured = false }: { post: Post; featured?: boolean }) {
-  return <Link href={`/blog/${post.slug}`} className={featured ? 'gx-post-lead' : 'gx-post-card'}>
+/** Server-rendered Games posts reuse the catalogue projection and canonical game URLs. */
+function PostStory({ post, featured = false }: { post: Game; featured?: boolean }) {
+  return <Link href={`/games/${post.slug}`} className={featured ? 'gx-post-lead' : 'gx-post-card'}>
     <div className="gx-post-art">
       {post.cover ? <img src={post.cover} alt="" width={960} height={600} loading="lazy" /> : <span className="gx-post-placeholder"><Icon name="gamepad" size={48} /></span>}
-      <span className="gx-post-category">{post.category?.name || 'مجله'}</span>
+      <span className="gx-post-category">{post.genres[0] || post.platforms[0] || 'بازی'}</span>
     </div>
     <div className="gx-post-copy">
       <span className="gx-post-meta"><span><Icon name="calendar" size={13} /><time dateTime={new Date(post.publishedAt).toISOString()}>{day(post.publishedAt)}</time></span><span><Icon name="eye" size={13} /><span className="sr-only">بازدید: </span>{fa(post.views)}</span></span>
       <h3 dir="auto">{post.title}</h3>
-      {featured && post.excerpt ? <p dir="auto">{post.excerpt}</p> : null}
-      {featured ? <span className="gx-post-cta">خواندن مطلب<Icon name="arrow" size={17} /></span> : null}
+      {featured && post.summary ? <p dir="auto">{post.summary}</p> : null}
+      {featured ? <span className="gx-post-cta">مشاهدهٔ بازی<Icon name="arrow" size={17} /></span> : null}
     </div>
   </Link>
 }
 
-export function PostsBlock({ posts }: { posts: Post[] }) {
+export function PostsBlock({ posts, popularPosts }: { posts: Game[]; popularPosts?: Game[] }) {
   if (!posts.length) return null
-  const popular = [...posts].sort((a, b) => b.views - a.views)
-  const panel = (items: Post[]) => <div className="gx-post-editorial">
+  const popular = popularPosts?.length ? popularPosts : [...posts].sort((a, b) => b.views - a.views)
+  const panel = (items: Game[]) => <div className="gx-post-editorial">
     <PostStory post={items[0]} featured />
     {items.length > 1 ? <div className="gx-post-grid">{items.slice(1, 5).map(post => <PostStory key={post.slug} post={post} />)}</div> : null}
   </div>
   return <section className="container gx-posts" aria-label="آخرین مطالب بازی">
     <div className="gx-posts-heading">
-      <GxTitle title="آخرین مطالب بازی" icon="sparkle" more="/blog" />
-      <p>تازه‌های مجله، خبرها و راهنماهای خواندنی</p>
+      <GxTitle title="آخرین مطالب بازی" icon="sparkle" more="/games/browse" />
+      <p>جدیدترین پست‌های منتشرشده در بخش بازی</p>
     </div>
     <div className="gx-posts-layout">
       <div className="gx-posts-main">
@@ -137,12 +135,12 @@ export function PostsBlock({ posts }: { posts: Post[] }) {
         ]} />
       </div>
       <aside className="gx-posts-side" aria-label="مرور سریع مطالب">
-        <div className="gx-posts-side-head"><Icon name="archive" size={18} /><h3>در یک نگاه</h3><span>تازه‌های مجله</span></div>
-        <ul>{posts.slice(0, 5).map(post => <li key={post.slug}><Link href={`/blog/${post.slug}`} className="gx-post-brief">
+        <div className="gx-posts-side-head"><Icon name="archive" size={18} /><h3>در یک نگاه</h3><span>جدیدترین بازی‌ها</span></div>
+        <ul>{posts.slice(0, 5).map(post => <li key={post.slug}><Link href={`/games/${post.slug}`} className="gx-post-brief">
           <span className="gx-post-brief-art">{post.cover ? <img src={post.cover} alt="" width={128} height={96} loading="lazy" /> : <Icon name="gamepad" size={22} />}</span>
-          <span className="gx-post-brief-copy"><small>{post.category?.name || 'مجله'}</small><b dir="auto">{post.title}</b><time dateTime={new Date(post.publishedAt).toISOString()}>{day(post.publishedAt)}</time></span>
+          <span className="gx-post-brief-copy"><small>{post.genres[0] || post.platforms[0] || 'بازی'}</small><b dir="auto">{post.title}</b><time dateTime={new Date(post.publishedAt).toISOString()}>{day(post.publishedAt)}</time></span>
         </Link></li>)}</ul>
-        <Link href="/blog" className="gx-posts-archive">آرشیو مطالب<Icon name="arrow" size={16} /></Link>
+        <Link href="/games/browse" className="gx-posts-archive">آرشیو بازی‌ها<Icon name="arrow" size={16} /></Link>
       </aside>
     </div>
   </section>

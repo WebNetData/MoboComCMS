@@ -52,7 +52,7 @@ export default async function GamesHomePage() {
     popular: <GameRail title="محبوب‌ترین‌ها" games={data.popular} more="/games/top" icon="star" />,
     wanted: <WantedRail rows={home.wanted} />,
     franchises: <FranchiseTiles items={home.franchises} />,
-    news: <PostsBlock posts={home.news} />,
+    news: <PostsBlock posts={home.news} popularPosts={data.popular} />,
   }
   return (
     <MediaShell section="games">

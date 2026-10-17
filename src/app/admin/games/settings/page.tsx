@@ -62,7 +62,7 @@ export default function GamesSettingsPage() {
           <header className="sa-card-head"><h2>گزینه‌ها</h2></header>
           <label className="sa-check"><input type="checkbox" checked={form.libraryEnabled} onChange={(e) => set({ libraryEnabled: e.target.checked })} />کتابخانهٔ بازی کاربران (بازی کرده‌ام / می‌خواهم بازی کنم)</label>
           <label className="sa-check"><input type="checkbox" checked={form.showMemberScore} onChange={(e) => set({ showMemberScore: e.target.checked })} />نمایش نمرهٔ کاربران در صفحهٔ بازی</label>
-          <label className="sa-field"><span>کلیدواژه‌های اخبار بازی در مجله (با ویرگول)</span><input className="input" value={form.newsKeywords.join('، ')} onChange={(e) => set({ newsKeywords: e.target.value.split(/[,،]/).map((w) => w.trim()).filter(Boolean) })} /><small className="sa-sub">مطالبی که دسته یا عنوانشان یکی از این واژه‌ها را دارد در بلوک «اخبار و مقالات» می‌آیند.</small></label>
+          <p className="sa-sub">بلوک «آخرین مطالب بازی» پست‌های منتشرشدهٔ خود بخش بازی را نمایش می‌دهد. تب‌ها بر اساس تازه‌ترین و پربازدیدترین بازی‌ها مرتب می‌شوند؛ نمایش و جایگاه این بلوک از فهرست بلوک‌های همین صفحه مدیریت می‌شود.</p>
         </section>
       </div>
     </div>

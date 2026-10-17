@@ -6,6 +6,7 @@ const { spawnSync } = require('node:child_process'), path = require('node:path')
 const CHECKS = [
   'media-library',
   'journal-pagination',
+  'games-editorial',
   'invoice-logo',
   'identity-otp',
   'business-trust',

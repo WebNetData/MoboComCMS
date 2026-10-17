@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { ratingsFor } from '@/modules/reviews/server/reviews'
-import { gamePosts, getGamesHome, publicLinks, toGame, type GameCard } from '@/modules/media/server/queries'
+import { getGamesHome, publicLinks, toGame, type GameCard } from '@/modules/media/server/queries'
 import { calendarMonth, cleanReleases, memberScore, normalizeGamesSettings, type GamesSettings, type UpdateKind } from '@/modules/games/domain/games'
 import { libraryCounts, libraryEntry, mostWanted } from '@/modules/games/server/library'
 
@@ -167,13 +167,7 @@ export async function gamesHome() {
   ])
   const heroById = new Map(heroRows.map((row) => [row.id, toGame(row)]))
   const hero = settings.heroIds.flatMap((id) => (heroById.has(id) ? [heroById.get(id)!] : []))
-  const news = settings.rails.some((rail) => rail.key === 'news' && rail.enabled) && await isModuleEnabled('journal') ? await newsByKeywords(settings.newsKeywords) : []
+  // Keep the stored rail key; this block lists actual Games posts, never Journal fallbacks.
+  const news = settings.rails.some((rail) => rail.key === 'news' && rail.enabled) ? base.latest : []
   return { settings, base: { ...base, hero: hero.length ? hero : base.hero }, editors: editors.map(toGame), upcoming, wanted, franchises: franchises.slice(0, 12), news }
-}
-
-async function newsByKeywords(words: string[]) {
-  if (!words.length) return gamePosts(9)
-  const select = { slug: true, title: true, excerpt: true, cover: true, publishedAt: true, views: true, category: { select: { name: true } } } as const
-  const rows = await db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, cover: { not: '' }, OR: words.flatMap((word) => [{ category: { name: { contains: word } } }, { title: { contains: word } }]) }, orderBy: { publishedAt: 'desc' }, take: 9, select }).catch(() => [])
-  return rows.length >= 3 ? rows : gamePosts(9)
 }

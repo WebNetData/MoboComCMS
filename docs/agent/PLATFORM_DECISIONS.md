@@ -328,6 +328,10 @@ The owner requests server-side IMDb-ID enrichment without an API key, including 
 
 Photo follow-up: fill available actors/directors without paid keys through the same facade. Reuse stored/supplied photos; additional `peoplePhotos` setting controls bounded Wikidata exact-work relationships → exact person IMDb IDs → public suggestion photos, independently of local transfer selection. Never infer identity from a first name-search result. Preserve entered cast names/roles/pictures during ordinary autofill; skip ambiguous/truncated data and disclose omissions. Existing Media folders, queue and canonical CinemaPerson claims own copies/persistence. [Executed evidence and remaining limits](handoffs/CONTENT_AUTHORING.md#keyless-actordirector-photos--2026-10-17).
 
+## 6T. Latest Games posts use Games records (owner correction, 2026-10-17)
+
+«آخرین مطالب بازی» on the Games homepage lists actual published `GameTitle` records, not Journal articles or a fallback to Magazine. Reuse the existing latest/popular Games catalogue read models and canonical Games links. Retain the stored `news` rail key/order/visibility and legacy `newsKeywords` compatibility; Admin must describe the actual source. Per-game related Journal articles remain a distinct existing feature. [Implementation and evidence](handoffs/GAMES_EDITORIAL.md).
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).
