@@ -21,6 +21,57 @@ test('import image failures reject invalid media while retaining transient sourc
 const imdbHtml = (node, next={}) => `<script type="application/ld+json">${JSON.stringify(node)}</script><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:next}})}</script>`
 const imdbTitle = () => ({'@type':'Movie',url:'https://www.imdb.com/title/tt1375666/',name:'Inception',description:'A dream &amp; a memory.',datePublished:'2010-07-16',duration:'PT2H28M',genre:['Action','Sci-Fi'],aggregateRating:{ratingValue:8.8},contentRating:'PG-13',image:'https://m.media-amazon.com/images/cover.jpg',actor:[{'@type':'Person',name:'Leonardo DiCaprio',url:'https://www.imdb.com/name/nm0000138/'}],director:[{'@type':'Person',name:'Christopher Nolan',url:'https://www.imdb.com/name/nm0634240/'}]})
 const cinemetaTitle = () => ({meta:{id:'tt1375666',imdb_id:'tt1375666',type:'movie',name:'Inception',description:'A fixture synopsis.',imdbRating:'8.8',cast:['Leonardo DiCaprio','Joseph Gordon-Levitt'],director:['Christopher Nolan'],releaseInfo:'2010',runtime:'148 min',genres:['Action','Sci-Fi'],poster:'https://images.metahub.space/poster/small/tt1375666/img'}})
+const personBinding=(name,id,role='CAST',entity='Q38111')=>({titleId:{value:'tt1375666'},work:{value:'http://www.wikidata.org/entity/Q25188'},person:{value:'http://www.wikidata.org/entity/'+entity},personLabel:{value:name},imdb:{value:id},role:{value:role}})
+
+test('photo identities require the exact title/role and reject ambiguous people and unsafe person images',()=>{
+  const {parsePhotoIdentities,photoIdentityKey}=load('src/modules/cinema/domain/people-photos.ts'),{parseImdbPersonSearch}=load('src/modules/cinema/domain/imdb-search.ts')
+  const good=personBinding('Leonardo DiCaprio','nm0000138'),director=personBinding('Christopher Nolan','nm0634240','DIRECTOR','Q25191')
+  let rows=[good,director,{...good,titleId:{value:'tt9999999'},personLabel:{value:'Wrong'}}]
+  let ids=parsePhotoIdentities({results:{bindings:rows}},'tt1375666');assert.equal(ids.get(photoIdentityKey('CAST','Leonardo DiCaprio')),'nm0000138');assert.equal(ids.get(photoIdentityKey('DIRECTOR','Christopher Nolan')),'nm0634240')
+  rows.push(personBinding('Leonardo DiCaprio','nm9999999','CAST','Q99999'));ids=parsePhotoIdentities({results:{bindings:rows}},'tt1375666');assert.equal(ids.has(photoIdentityKey('CAST','Leonardo DiCaprio')),false)
+  assert.equal(parsePhotoIdentities({results:{bindings:[good,{...director,work:{value:'http://www.wikidata.org/entity/Q99999'}}]}},'tt1375666').size,0)
+  assert.equal(parsePhotoIdentities({results:{bindings:Array(201).fill(good)}},'tt1375666').size,0)
+  const image='https://m.media-amazon.com/images/M/leo@@._V1_.jpg'
+  assert.equal(parseImdbPersonSearch({d:[{id:'nm9999999',i:{imageUrl:'https://m.media-amazon.com/images/wrong.jpg'}},{id:'nm0000138',i:{imageUrl:image}}]},'nm0000138'),image)
+  for(const url of ['https://127.0.0.1/a','https://m.media-amazon.com.evil.test/images/a.jpg','http://m.media-amazon.com/images/a.jpg'])assert.equal(parseImdbPersonSearch({d:[{id:'nm0000138',i:{imageUrl:url}}]},'nm0000138'),'')
+})
+
+test('photo enrichment uses title-linked exact person IDs and keeps stored/entered images and textual results',async()=>{
+  const previous=global.fetch,calls=[];let stored=new Map(),unavailable=false
+  global.fetch=async(url,options)=>{calls.push([String(url),options]);if(String(url).startsWith('https://query.wikidata.org/sparql'))return unavailable?new Response('',{status:429}):Response.json({results:{bindings:[personBinding('Leonardo DiCaprio','nm0000138'),personBinding('Christopher Nolan','nm0634240','DIRECTOR','Q25191')]}});const id=String(url).match(/\/(nm\d+)\.json$/)?.[1];return Response.json({d:[{id,i:{imageUrl:`https://m.media-amazon.com/images/${id}@@.jpg`}}]})}
+  try{
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>stored}})
+    const make=()=>({fields:{imdbId:'tt1375666',summary:'Kept story',cast:[{name:'Leonardo DiCaprio',role:'Cobb'},{name:'Already entered',image:'/files/keep.webp'}],director:'Christopher Nolan'},source:'Cinemeta',warnings:[]})
+    let result=await enrichPeoplePhotos(make());assert.match(result.fields.cast[0].image,/nm0000138@@/);assert.match(result.fields.directorImages[0].image,/nm0634240@@/);assert.equal(result.fields.cast[1].image,'/files/keep.webp');assert.equal(result.fields.summary,'Kept story')
+    assert.equal(calls.length,3);assert.ok(calls.every(([,o])=>o.redirect==='error'&&!o.headers.Cookie&&!o.headers.Authorization));assert.ok(calls[0][0].includes('tt1375666'))
+    stored=new Map([['leonardo dicaprio','/files/owned-leo.webp'],['christopher nolan','/files/owned-nolan.webp']]);calls.length=0;result=await enrichPeoplePhotos(make());assert.equal(result.fields.cast[0].image,'/files/owned-leo.webp');assert.equal(calls.length,0)
+    stored=new Map();unavailable=true;calls.length=0;result=await enrichPeoplePhotos(make());assert.equal(result.fields.summary,'Kept story');assert.equal(result.fields.cast[0].image,undefined);assert.equal(calls.length,1);assert.ok(result.warnings.length>0)
+  }finally{global.fetch=previous}
+})
+
+test('photo enrichment stops further person requests after an IMDb rate limit',async()=>{
+  const previous=global.fetch,calls=[]
+  global.fetch=async(url)=>{calls.push(String(url));return String(url).includes('query.wikidata.org')?Response.json({results:{bindings:Array.from({length:5},(_,i)=>personBinding('Person '+i,'nm100000'+i,'CAST','Q100'+i))}}):new Response('',{status:429})}
+  try{
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>new Map()}})
+    const result=await enrichPeoplePhotos({fields:{imdbId:'tt1375666',summary:'Keep',cast:Array.from({length:5},(_,i)=>({name:'Person '+i}))},source:'Cinemeta',warnings:[]})
+    assert.equal(result.fields.summary,'Keep');assert.ok(calls.length>=2&&calls.length<=5,'at most the four already-started requests, no retry or fifth request');assert.ok(result.fields.cast.every(p=>!p.image));assert.ok(result.warnings.some(w=>w.includes('5')))
+  }finally{global.fetch=previous}
+})
+
+test('photo-only autofill updates blank pictures in existing cast without replacing entered names/roles/photos',()=>{
+  const {applyCinemaMetadata}=load('src/modules/cinema/domain/metadata.ts')
+  const current={title:'Keep title',cast:[{name:'Leonardo DiCaprio',role:'Cobb',image:''},{name:'Existing actor',image:'/files/keep.webp'}]}
+  const incoming={title:'Inception',cast:[{name:'Leonardo DiCaprio',image:'https://m.media-amazon.com/images/leo.jpg'},{name:'Existing actor',image:'https://m.media-amazon.com/images/new.jpg'},{name:'Other actor',image:'https://m.media-amazon.com/images/other.jpg'}]}
+  const result=applyCinemaMetadata(current,incoming,false,false)
+  assert.equal(result.title,current.title);assert.equal(result.cast.length,2);assert.equal(result.cast[0].image,incoming.cast[0].image);assert.equal(result.cast[0].role,'Cobb');assert.equal(result.cast[1].image,'/files/keep.webp');assert.equal(current.cast[0].image,'')
+})
+
+test('canonical director credits accept actual IMDb photo URLs containing @',async()=>{
+  const {syncCredits}=load('src/modules/cinema/server/people.ts',{'@/platform/database/prisma':{db:{}}});let created
+  const tx={cinemaTitle:{findUnique:async()=>({director:'Christopher Nolan',cast:'[]'})},cinemaPerson:{upsert:async input=>{created=input.create;return{id:1,...input.create}},updateMany:async()=>({count:1})},cinemaCredit:{upsert:async()=>({id:1}),deleteMany:async()=>({count:0})}}
+  const image='https://m.media-amazon.com/images/M/nolan@@._V1_.jpg';await syncCredits(tx,1,[{name:'Christopher Nolan',image}]);assert.equal(created.image,image)
+})
 
 test('Cinemeta exact-ID details supply real fields without inventing missing metadata', () => {
   const {parseCinemeta,cinemetaImage}=load('src/modules/cinema/domain/cinemeta.ts')

@@ -31,6 +31,14 @@ Implement in coherent slices with actual units, connected PostgreSQL and deliber
 
 ## Progress
 
+### Keyless cast/director photos — 2026-10-17
+
+Extend the same Cinema metadata facade for the owner's requested cast/director images. Reuse canonical stored people pictures first. For remaining names, a bounded fixed Wikidata query joins the exact title IMDb ID to cast/director people and their IMDb IDs; only unique normalized-name/role/identity matches qualify. Fetch the public IMDb suggestion by exact `nm` ID and accept that ID's validated image only, never search rank or an ambiguous name. Existing richer provider images win. Admin `peoplePhotos` defaults on, independently of `copyImages` (which controls local copying); disabled lookups/options do not contact photo providers. No new schema, downloader, queue or cache.
+
+Apply new pictures to blank image fields of existing cast without replacing entered names/roles/photos. Director images retain canonical validation, including actual IMDb URLs containing `@`. Existing safe Media image intake/queue owns `download/cinema/images/{actors|director}/<name>/`, decoded WebP/READY URLs and authority. Missing/ambiguous/unavailable identities are disclosed while retaining textual metadata.
+
+Acceptance: parser wrong-title/role/name/ID/ambiguity/unsafe URL cases; photo opt-out and existing-image zero-fetch; actual movie/series photo lookup; native PG blank-photo enrichment, saved credits, director URL validation and real queued/local served photo bytes; deliberate fault detected/restored; actual Admin form/settings/theme/mobile/permission/Origin checks. Preserve prior release evidence separately; no hosted Actions.
+
 ### Free detailed IMDb-ID enrichment — 2026-10-17
 
 Owner follow-up requires real synopsis, IMDb rating and credits, not only public-search basics. Full IMDb pages are currently202/403, while the documented Stremio Cinemeta endpoint returns those fields for exact IMDb IDs. Extend the same Cinema fallback with `cinemetaFallback` in existing encrypted Settings/CAS config, default on for this requested keyless flow, explicitly named in Admin and result provenance. Off retains the existing direct-page/public-search behavior. TMDb and all guards remain unchanged.

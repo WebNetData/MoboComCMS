@@ -1,14 +1,14 @@
 import { parseImdbTitle, parseImdbPerson, type ImdbPerson } from '@/modules/cinema/domain/imdb-page'
-import { parseImdbSearch } from '@/modules/cinema/domain/imdb-search'
+import { parseImdbSearch, parseImdbPersonSearch } from '@/modules/cinema/domain/imdb-search'
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
 import { lookupCinemeta } from './cinemeta'
 
-class ImdbRateLimit extends Error {}
+export class ImdbRateLimit extends Error {}
 /** Fixed public pages/search only: no cookies, proxy, challenge solving or internal API. */
-async function page(kind: 'title'|'name'|'search', id: string, signal?: AbortSignal) {
-  if(!(kind==='name'?/^nm\d{7,12}$/:/^tt\d{7,12}$/).test(id))throw new Error('شناسهٔ IMDb معتبر نیست')
-  const search=kind==='search',accept=search?'application/json':'text/html'
-  const url=search?`https://v3.sg.media-imdb.com/suggestion/t/${id}.json`:`https://www.imdb.com/${kind}/${id}/`
+async function page(kind: 'title'|'name'|'search'|'person-search', id: string, signal?: AbortSignal) {
+  if(!(kind==='name'||kind==='person-search'?/^nm\d{7,12}$/:/^tt\d{7,12}$/).test(id))throw new Error('شناسهٔ IMDb معتبر نیست')
+  const search=kind==='search'||kind==='person-search',accept=search?'application/json':'text/html'
+  const url=search?`https://v3.sg.media-imdb.com/suggestion/${kind==='person-search'?'n':'t'}/${id}.json`:`https://www.imdb.com/${kind}/${id}/`
   let response: Response
   try { response=await fetch(url,{headers:{Accept:accept,'Accept-Language':'en-US,en;q=0.8','User-Agent':'MoboComMetadata/1.0'},redirect:'error',cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(6000)]):AbortSignal.timeout(search?6000:12000)}) }
   catch {throw new Error('اتصال سرور به IMDb انجام نشد؛ دسترسی شبکه یا محدودیت IMDb را بررسی کنید')}
@@ -21,6 +21,9 @@ async function page(kind: 'title'|'name'|'search', id: string, signal?: AbortSig
   try { for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>(search?256*1024:6*1024*1024))throw new Error('پاسخ IMDb بیش از حد بزرگ است');chunks.push(value)} }
   finally {await reader.cancel().catch(()=>{})}
   return Buffer.concat(chunks).toString('utf8')
+}
+export async function lookupImdbPersonPhoto(id: string, signal?: AbortSignal) {
+  return parseImdbPersonSearch(JSON.parse(await page('person-search',id,signal)),id)
 }
 export async function lookupImdbPage(id: string, cinemetaFallback = false, preferredKind?: unknown): Promise<CinemaMetadataResult> {
   let result: ReturnType<typeof parseImdbTitle>

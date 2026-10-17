@@ -52,7 +52,7 @@ export function parseCinemeta(payload: unknown, id: string): CinemaMetadataResul
   if (runtime && Number(runtime[1]) > 0) fields.runtime = Number(runtime[1])
   for (const [key, raw] of [['poster', meta.poster], ['backdrop', meta.background]] as const) { const image = cinemetaImage(raw, id); if (image) fields[key] = image }
   const missing = [['summary', 'خلاصه'], ['imdbRating', 'امتیاز'], ['cast', 'بازیگران'], ['director', 'کارگردان']].filter(([key]) => !(key in fields)).map(([, label]) => label)
-  const warnings = ['جزئیات از منبع عمومی Cinemeta با شناسهٔ IMDb دریافت شد؛ پیش از انتشار بازبینی کنید', 'Cinemeta عکس اشخاص را ارائه نمی‌کند؛ عکس و نقش قبلیِ افراد هم‌نام حفظ می‌شود']
+  const warnings = ['جزئیات از منبع عمومی Cinemeta با شناسهٔ IMDb دریافت شد؛ پیش از انتشار بازبینی کنید', 'عکس و نقش قبلیِ افراد هم‌نام حفظ می‌شود؛ دریافت عکس‌های تازه تابع تنظیمات عکس عوامل است']
   if (missing.length) warnings.push(`${missing.join('، ')} برای این عنوان در منبع موجود نبود؛ اطلاعات قبلی این فیلدها حفظ می‌شود`)
   return { fields, source: 'Cinemeta · شناسه IMDb', warnings }
 }

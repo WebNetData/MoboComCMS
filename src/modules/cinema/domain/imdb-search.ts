@@ -1,6 +1,14 @@
 import { plainText } from '@/shared/text/plain'
 import { imdbPhoto } from './imdb-page'
 
+/** An exact person ID comes from the title's verified credits, never a name search's first hit. */
+export function parseImdbPersonSearch(payload: unknown, id: string): string {
+  const rows = payload && typeof payload === 'object' && 'd' in payload ? payload.d : null
+  if (!/^nm\d{7,12}$/.test(id) || !Array.isArray(rows)) return ''
+  const person = rows.slice(0, 100).find(row => row && typeof row === 'object' && row.id === id)
+  return imdbPhoto(person?.i?.imageUrl)
+}
+
 /** Public search is a limited source, not full title metadata or verified credits. */
 export function parseImdbSearch(payload: unknown, id: string): Record<string, unknown> {
   const rows = payload && typeof payload === 'object' && 'd' in payload ? payload.d : null
