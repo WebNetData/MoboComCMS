@@ -50,9 +50,46 @@ async function main(){try{
  process.env.PANEL_CREDENTIAL_KEY='a'.repeat(64)
  try {
    const settings=load('src/modules/cinema/server/metadata.ts')
-   await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
-   await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false)
+   await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.equal(cfg.cinemetaFallback,true);assert.equal(cfg.peoplePhotos,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
+   await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false}),settings.saveMetadataConfig({cinemetaFallback:false}),settings.saveMetadataConfig({peoplePhotos:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false);assert.equal(merged.cinemetaFallback,false);assert.equal(merged.peoplePhotos,false)
    await assert.rejects(()=>settings.saveMetadataConfig({provider:'arbitrary-host'}),/معتبر/)
+   await settings.saveMetadataConfig({enabled:true,provider:'imdb',copyImages:false,cinemetaFallback:false})
+   const priorFetch=global.fetch,metadataCalls=[]
+   try {
+     global.fetch=async(url)=>{metadataCalls.push(String(url));return String(url).includes('/suggestion/')?Response.json({d:[{id:'tt0944947',l:'Game of Thrones',qid:'tvSeries',y:2011}]}):new Response('challenge',{status:202,headers:{'content-type':'text/html'}})}
+     const before=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}}),result=await settings.lookupCinemaMetadata('tt0944947')
+     assert.match(result.source,/جستجوی عمومی/);assert.ok(result.warnings.some(x=>x.includes('ناقص')))
+     await media.saveMediaItem('cinema-titles',result.fields,title.id)
+     const after=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}})
+     assert.equal(after.title,'Game of Thrones');assert.equal(after.year,2011);assert.equal(after.imdbId,'tt0944947')
+     for(const key of ['summary','director','genres','countries','languages','imdbRating','poster'])assert.deepEqual(after[key],before[key],key+' must not be erased by partial metadata')
+     assert.deepEqual(metadataCalls,['https://www.imdb.com/title/tt0944947/','https://v3.sg.media-imdb.com/suggestion/t/tt0944947.json'])
+   }finally{global.fetch=priorFetch}
+   await settings.saveMetadataConfig({cinemetaFallback:true})
+   try {
+     global.fetch=async(url)=>String(url).startsWith('https://v3-cinemeta.strem.io/')?Response.json({meta:{id:'tt1375666',imdb_id:'tt1375666',type:'movie',name:'Inception fixture',description:'Owned metadata synopsis',imdbRating:'8.8',cast:[stamp+' metadata actor'],director:[stamp+' metadata director']}}):new Response('unavailable',{status:202,headers:{'content-type':'text/html'}})
+     await media.saveMediaItem('cinema-titles',{cast:[{name:stamp+' metadata actor',role:'Existing role',image:'/files/owned-before.webp'}]},title.id)
+     const before=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}}),result=await settings.lookupCinemaMetadata('tt1375666')
+     const {applyCinemaMetadata}=load('src/modules/cinema/domain/metadata.ts')
+     await media.saveMediaItem('cinema-titles',applyCinemaMetadata({cast:JSON.parse(before.cast)},result.fields,true,false),title.id)
+     const after=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id},include:{credits:{include:{person:true}}}}),cast=JSON.parse(after.cast)
+     assert.equal(after.summary,'Owned metadata synopsis');assert.equal(after.imdbRating,8.8);assert.equal(after.director,stamp+' metadata director')
+     assert.equal(cast[0].image,'/files/owned-before.webp');assert.equal(cast[0].role,'Existing role');assert.ok(after.credits.some(c=>c.role==='CAST'&&c.person.name===stamp+' metadata actor'));assert.ok(after.credits.some(c=>c.role==='DIRECTOR'&&c.person.name===stamp+' metadata director'))
+   }finally{global.fetch=priorFetch}
+   await settings.saveMetadataConfig({peoplePhotos:true})
+   try {
+     const actor=stamp+' photo actor',director=stamp+' photo director',photo='https://m.media-amazon.com/images/M/MV5BMjI0MTg3MzI0M15BMl5BanBnXkFtZTcwMzQyODU2Mw@@._V1_.jpg',calls=[]
+     global.fetch=async(url)=>{const u=String(url);calls.push(u)
+       if(u.startsWith('https://v3-cinemeta.strem.io/'))return Response.json({meta:{id:'tt1375666',type:'movie',name:'Owned photo film',cast:[actor],director:[director]}})
+       if(u.startsWith('https://query.wikidata.org/sparql'))return Response.json({results:{bindings:[[actor,'nm0000138','CAST','Q38111'],[director,'nm0634240','DIRECTOR','Q25191']].map(([name,id,role,q])=>({work:{value:'http://www.wikidata.org/entity/Q25188'},titleId:{value:'tt1375666'},person:{value:'http://www.wikidata.org/entity/'+q},personLabel:{value:name},imdb:{value:id},role:{value:role}}))}})
+       const id=u.match(/\/(nm\d+)\.json$/)?.[1];return id?Response.json({d:[{id,i:{imageUrl:photo}}]}):new Response('unavailable',{status:202,headers:{'content-type':'text/html'}})
+     }
+     const before={cast:[{name:actor,role:'Kept role',image:''}]},result=await settings.lookupCinemaMetadata('tt1375666'),{applyCinemaMetadata}=load('src/modules/cinema/domain/metadata.ts')
+     await media.saveMediaItem('cinema-titles',applyCinemaMetadata(before,result.fields,false,false),title.id)
+     const saved=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id},include:{credits:{include:{person:true}}}}),cast=JSON.parse(saved.cast)
+     assert.equal(cast[0].image,photo);assert.equal(cast[0].role,'Kept role');assert.ok(saved.credits.some(c=>c.role==='CAST'&&c.person.name===actor&&c.person.image===photo));assert.ok(saved.credits.some(c=>c.role==='DIRECTOR'&&c.person.name===director&&c.person.image===photo))
+     assert.equal(calls.filter(u=>u.includes('query.wikidata.org')).length,1);assert.equal(calls.filter(u=>/\/nm\d+\.json$/.test(u)).length,2)
+   }finally{global.fetch=priorFetch}
  }finally{await db.setting.deleteMany({where:{key:secretKey}});if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey}
  await checkOrganization()
  console.log('Content authoring PostgreSQL: sanitized formatted stories/episodes/lyrics/playlists, plain card projections and historical newlines passed.')

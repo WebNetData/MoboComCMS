@@ -19,6 +19,7 @@ import dynamic from 'next/dynamic'
 import { isTaxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import { termProjectionChange } from '@/modules/taxonomy/domain/projection'
 import { CinemaMetadataLookup } from '@/components/admin/CinemaMetadata'
+import { applyCinemaMetadata } from '@/modules/cinema/domain/metadata'
 import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 
@@ -322,7 +323,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
         <form onSubmit={save} className="card mb-6 mx-form">
           <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
-          {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => { if(!current)return current;const next={...current};for(const [key,value] of Object.entries(values))if(key==='imdbId' || key==='kind' && !editId || replace || !next[key] || Array.isArray(next[key]) && !next[key].length)next[key]=value;return next });setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
+          {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => current ? applyCinemaMetadata(current,values,replace,!editId) : current);setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
           <div className="mx-grid">
             {fields.map((field) => (
               <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}${aiKeys.has(field.key) ? ' is-ai' : ''}`}>

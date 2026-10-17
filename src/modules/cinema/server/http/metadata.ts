@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const input=await readJsonObject(req,12000)
     if(input.action==='configure') {
       const config=await saveMetadataConfig(input)
-      await auditAdminStrict({req,actor:g.admin,action:'cinema.metadata.settings',targetType:'setting',targetId:0,metadata:{enabled:config.enabled,provider:config.provider,copyImages:config.copyImages,tmdbConfigured:config.tmdbConfigured,omdbConfigured:config.omdbConfigured}})
+      await auditAdminStrict({req,actor:g.admin,action:'cinema.metadata.settings',targetType:'setting',targetId:0,metadata:{enabled:config.enabled,provider:config.provider,copyImages:config.copyImages,cinemetaFallback:config.cinemetaFallback,peoplePhotos:config.peoplePhotos,tmdbConfigured:config.tmdbConfigured,omdbConfigured:config.omdbConfigured}})
       return ok({config})
     }
     const result=await lookupCinemaMetadata(input.imdbId,input.kind,await libraryActor(req))

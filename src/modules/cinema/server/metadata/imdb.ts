@@ -1,23 +1,45 @@
 import { parseImdbTitle, parseImdbPerson, type ImdbPerson } from '@/modules/cinema/domain/imdb-page'
+import { parseImdbSearch, parseImdbPersonSearch } from '@/modules/cinema/domain/imdb-search'
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
+import { lookupCinemeta } from './cinemeta'
 
-/** Public canonical pages only: no cookies, proxy, challenge bypass or internal GraphQL endpoint. */
-async function page(kind: 'title'|'name', id: string, signal?: AbortSignal) {
-  if(!(kind==='title'?/^tt\d{7,12}$/:/^nm\d{7,12}$/).test(id))throw new Error('شناسهٔ IMDb معتبر نیست')
+export class ImdbRateLimit extends Error {}
+/** Fixed public pages/search only: no cookies, proxy, challenge solving or internal API. */
+async function page(kind: 'title'|'name'|'search'|'person-search', id: string, signal?: AbortSignal) {
+  if(!(kind==='name'||kind==='person-search'?/^nm\d{7,12}$/:/^tt\d{7,12}$/).test(id))throw new Error('شناسهٔ IMDb معتبر نیست')
+  const search=kind==='search'||kind==='person-search',accept=search?'application/json':'text/html'
+  const url=search?`https://v3.sg.media-imdb.com/suggestion/${kind==='person-search'?'n':'t'}/${id}.json`:`https://www.imdb.com/${kind}/${id}/`
   let response: Response
-  try { response=await fetch(`https://www.imdb.com/${kind}/${id}/`,{headers:{Accept:'text/html','Accept-Language':'en-US,en;q=0.8','User-Agent':'MoboComMetadata/1.0'},redirect:'error',cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(6000)]):AbortSignal.timeout(12000)}) }
+  try { response=await fetch(url,{headers:{Accept:accept,'Accept-Language':'en-US,en;q=0.8','User-Agent':'MoboComMetadata/1.0'},redirect:'error',cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(6000)]):AbortSignal.timeout(search?6000:12000)}) }
   catch {throw new Error('اتصال سرور به IMDb انجام نشد؛ دسترسی شبکه یا محدودیت IMDb را بررسی کنید')}
-  if(response.status!==200 || !response.headers.get('content-type')?.includes('text/html') || !response.body) {
+  if(response.status===429){await response.body?.cancel();throw new ImdbRateLimit('IMDb تعداد درخواست‌ها را محدود کرده است؛ کمی صبر کنید')}
+  if(response.status!==200 || !response.headers.get('content-type')?.includes(accept) || !response.body) {
     await response.body?.cancel()
     throw new Error('IMDb دسترسی سرور به صفحه را محدود کرده یا پاسخ قابل‌خواندن نداده است؛ اطلاعات قبلی حفظ شد')
   }
   const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0
-  try { for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>6*1024*1024)throw new Error('صفحهٔ IMDb بیش از حد بزرگ است');chunks.push(value)} }
+  try { for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>(search?256*1024:6*1024*1024))throw new Error('پاسخ IMDb بیش از حد بزرگ است');chunks.push(value)} }
   finally {await reader.cancel().catch(()=>{})}
   return Buffer.concat(chunks).toString('utf8')
 }
-export async function lookupImdbPage(id: string): Promise<CinemaMetadataResult> {
-  const result=parseImdbTitle(await page('title',id),id),warnings:string[]=[]
+export async function lookupImdbPersonPhoto(id: string, signal?: AbortSignal) {
+  return parseImdbPersonSearch(JSON.parse(await page('person-search',id,signal)),id)
+}
+export async function lookupImdbPage(id: string, cinemetaFallback = false, preferredKind?: unknown): Promise<CinemaMetadataResult> {
+  let result: ReturnType<typeof parseImdbTitle>
+  try {result=parseImdbTitle(await page('title',id),id)}
+  catch(error) {
+    if(error instanceof ImdbRateLimit || !/^tt\d{7,12}$/.test(id))throw error
+    if(cinemetaFallback) {
+      try { return await lookupCinemeta(id,preferredKind) }
+      catch { /* Independent provider is unavailable; exact-ID public basics remain useful. */ }
+    }
+    try {
+      const fields=parseImdbSearch(JSON.parse(await page('search',id)),id)
+      return {fields,source:'IMDb · جستجوی عمومی (اطلاعات پایه)',warnings:['نتیجه ناقص است: صفحهٔ کامل IMDb در دسترس سرور نیست؛ فقط نام، نوع اثر، سال و پوسترِ موجود از جستجوی عمومی دریافت شد. خلاصه، امتیاز و عوامل دریافت نشده‌اند و اطلاعات قبلی این فیلدها تغییر نمی‌کند.']}
+    } catch {throw error}
+  }
+  const warnings:string[]=[]
   const missing=[...result.cast,...result.directors].filter(p=>!p.image && p.id)
   const pending=new Map<string,ImdbPerson[]>();for(const p of missing)pending.set(p.id,[...(pending.get(p.id)||[]),p])
   const entries=[...pending],deadline=AbortSignal.timeout(18000);let cursor=0

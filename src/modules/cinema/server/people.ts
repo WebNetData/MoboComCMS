@@ -1,10 +1,19 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { PEOPLE_PAGE, creditsOf, normalizePersonName, type CreditRole } from '@/modules/cinema/domain/people'
+import { imdbPhoto } from '@/modules/cinema/domain/imdb-page'
 
 type Tx = Prisma.TransactionClient
 const CURSOR = 'cinema.people.backfill'
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
+
+/** Reuse the canonical person's established pictures before contacting an outside source. */
+export async function storedPersonPictures(names: string[]): Promise<Map<string, string>> {
+  const keys = [...new Set(names.slice(0,48).map(normalizePersonName).filter(Boolean))]
+  if (!keys.length) return new Map()
+  const rows = await db.cinemaPerson.findMany({ where: { normalizedName: { in: keys } }, select: { normalizedName: true, image: true }, take: 48 })
+  return new Map(rows.filter(row => /^\/(?:files\/|api\/media\/)/.test(row.image) || imdbPhoto(row.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(row.image)).map(row => [row.normalizedName,row.image]))
+}
 
 /**
  * Makes a title's credits say what its director line and cast list say now: people are found by their
@@ -18,7 +27,7 @@ export async function syncCredits(tx: Tx, titleId: number, directorImages?: unkn
   if (Array.isArray(directorImages)) for (const credit of credits) {
     if (credit.role !== 'DIRECTOR') continue
     const photo = directorImages.slice(0,8).find(row => row && normalizePersonName(String(row.name || '')) === normalizePersonName(credit.name))
-    if (photo && (/^https:\/\/(image\.tmdb\.org\/t\/p\/|m\.media-amazon\.com\/images\/|ia\.media-imdb\.com\/images\/)[A-Za-z0-9/._-]+$/.test(String(photo.image)) || /^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(String(photo.image)) || /^\/files\/download\/cinema\/images\/director\/[^?#]+\.webp$/.test(String(photo.image)))) credit.image=String(photo.image).slice(0,1000)
+    if (photo && (imdbPhoto(photo.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(String(photo.image)) || /^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(String(photo.image)) || /^\/files\/download\/cinema\/images\/director\/[^?#]+\.webp$/.test(String(photo.image)))) credit.image=String(photo.image).slice(0,1000)
   }
   const keep: number[] = []
   for (const credit of credits) {

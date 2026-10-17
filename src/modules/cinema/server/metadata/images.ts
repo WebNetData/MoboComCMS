@@ -1,6 +1,7 @@
 import { requestTransfer, currentLibraryUser, type LibraryActor } from '@/modules/media/server/library'
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
 import { imdbPhoto } from '@/modules/cinema/domain/imdb-page'
+import { cinemetaImage } from '@/modules/cinema/domain/cinemeta'
 
 type Photo = {name: string; image: string}
 /** One shared transfer queue owns retries, decoding, disk paths, folders and current authority. */
@@ -8,7 +9,7 @@ export async function localizeMetadataImages(result: CinemaMetadataResult, actor
   await currentLibraryUser(actor)
   let copied=0,failed=0
   const transfer=async(url:string,name:string,organization:Record<string,unknown>)=>{
-    if(!imdbPhoto(url) && !/^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(url))return url
+    if(!imdbPhoto(url) && !cinemetaImage(url,String(result.fields.imdbId || '')) && !/^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(url))return url
     try {const row=await requestTransfer(actor,{url,kind:'image',name,section:'cinema',mode:'queued',organization});copied++;return row.url}catch{failed++;return url}
   }
   const title=String(result.fields.originalTitle || result.fields.title || ''),section=result.fields.kind==='SERIES'?'series':'film'
