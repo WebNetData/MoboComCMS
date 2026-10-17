@@ -21,6 +21,41 @@ test('import image failures reject invalid media while retaining transient sourc
 const imdbHtml = (node, next={}) => `<script type="application/ld+json">${JSON.stringify(node)}</script><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:next}})}</script>`
 const imdbTitle = () => ({'@type':'Movie',url:'https://www.imdb.com/title/tt1375666/',name:'Inception',description:'A dream &amp; a memory.',datePublished:'2010-07-16',duration:'PT2H28M',genre:['Action','Sci-Fi'],aggregateRating:{ratingValue:8.8},contentRating:'PG-13',image:'https://m.media-amazon.com/images/cover.jpg',actor:[{'@type':'Person',name:'Leonardo DiCaprio',url:'https://www.imdb.com/name/nm0000138/'}],director:[{'@type':'Person',name:'Christopher Nolan',url:'https://www.imdb.com/name/nm0634240/'}]})
 
+test('IMDb public search selects the exact ID and returns only supplied movie/series facts', () => {
+  const {parseImdbSearch}=load('src/modules/cinema/domain/imdb-search.ts')
+  const exact={id:'tt1375666',l:'Inception',qid:'movie',y:2010,i:{imageUrl:'https://m.media-amazon.com/images/poster.jpg'},s:'Unstructured names, not verified credits'}
+  const fields=parseImdbSearch({d:[{...exact,id:'tt9999999',l:'Wrong title'},exact]},'tt1375666')
+  assert.deepEqual(fields,{imdbId:'tt1375666',title:'Inception',kind:'MOVIE',year:2010,poster:exact.i.imageUrl})
+  for(const key of ['summary','imdbRating','cast','director','directorImages','originalTitle','genres'])assert.equal(Object.hasOwn(fields,key),false,key+' must preserve existing data')
+  assert.equal(parseImdbSearch({d:[{...exact,qid:'tvSeries'}]},'tt1375666').kind,'SERIES')
+  const absent=parseImdbSearch({d:[{...exact,y:0,i:{imageUrl:'https://127.0.0.1/image.jpg'}}]},'tt1375666')
+  assert.equal(Object.hasOwn(absent,'poster'),false);assert.equal(Object.hasOwn(absent,'year'),false)
+  for(const payload of [null,{}, {d:[{...exact,id:'tt9999999'}]}, {d:[{...exact,qid:'tvEpisode'}]}, {d:[{...exact,l:''}]}])assert.throws(()=>parseImdbSearch(payload,'tt1375666'),/پیدا نشد/)
+})
+
+test('IMDb server can use anonymous public search when the full page is unavailable', async () => {
+  const previous=global.fetch,calls=[];let enabled=true
+  global.fetch=async(url,options)=>{calls.push([String(url),options]);return String(url).includes('/suggestion/')?Response.json({d:[{id:'tt1375666',l:'Inception',qid:'movie',y:2010,i:{imageUrl:'https://m.media-amazon.com/images/poster.jpg'}}]}):new Response('challenge',{status:202,headers:{'content-type':'text/html'}})}
+  try {
+    const provider=load('src/modules/cinema/server/metadata/provider.ts',{'./config':{metadataCredentials:async()=>({enabled,provider:'imdb',copyImages:false})}})
+    const result=await provider.lookupCinemaMetadata('https://www.imdb.com/title/tt1375666/')
+    assert.equal(result.fields.title,'Inception');assert.equal(result.fields.year,2010)
+    assert.match(result.source,/جستجوی عمومی/);assert.ok(result.warnings.some(x=>x.includes('ناقص')))
+    assert.deepEqual(calls.map(([url])=>url),['https://www.imdb.com/title/tt1375666/','https://v3.sg.media-imdb.com/suggestion/t/tt1375666.json'])
+    assert.ok(calls.every(([,o])=>o.redirect==='error'&&o.cache==='no-store'&&!o.headers.Cookie&&!o.headers.Authorization))
+    assert.equal(Object.hasOwn(result.fields,'cast'),false)
+    const fail=async response=>{global.fetch=async url=>String(url).includes('/suggestion/')?response():new Response('challenge',{status:202,headers:{'content-type':'text/html'}});await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/محدود/)}
+    await fail(()=>Response.json({d:[{id:'tt9999999',l:'Wrong',qid:'movie'}]}))
+    await fail(()=>new Response(JSON.stringify({d:[]}),{headers:{'content-type':'text/html'}}))
+    await fail(()=>new Response('x'.repeat(256*1024+1),{headers:{'content-type':'application/json'}}))
+    await fail(()=>Response.json({d:[]},{status:429}))
+    let limitedCalls=0;global.fetch=async()=>{limitedCalls++;return new Response('rate limited',{status:429})}
+    await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/تعداد درخواست/);assert.equal(limitedCalls,1,'a provider rate limit never triggers another request')
+    const before=calls.length;await assert.rejects(()=>provider.lookupCinemaMetadata('https://127.0.0.1/secret'),/معتبر/);assert.equal(calls.length,before)
+    enabled=false;await assert.rejects(()=>provider.lookupCinemaMetadata('tt1375666'),/غیرفعال/);assert.equal(limitedCalls,1,'disabled source never reaches either public interface')
+  }finally{global.fetch=previous}
+})
+
 test('IMDb page parser reads title, actual rating and hydrated cast without executing markup', () => {
   const {parseImdbTitle,parseImdbPerson,imdbPhoto}=load('src/modules/cinema/domain/imdb-page.ts')
   const next={aboveTheFoldData:{id:'tt1375666',originalTitleText:{text:'Inception'},countriesOfOrigin:{countries:[{text:'United States'}]},spokenLanguages:{spokenLanguages:[{text:'English'}]}},mainColumnData:{cast:{edges:[{node:{name:{id:'nm0000138',nameText:{text:'Leonardo DiCaprio'},primaryImage:{url:'https://m.media-amazon.com/images/leo.jpg'}},characters:[{name:'Cobb'}]}}]}}}

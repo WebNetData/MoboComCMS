@@ -53,6 +53,18 @@ async function main(){try{
    await settings.saveMetadataConfig({tmdbToken:'owned-token',enabled:true});const cfg=await settings.metadataConfig();assert.equal(cfg.tmdbConfigured,true);assert.ok(!JSON.stringify(cfg).includes('owned-token'));assert.ok(!(await db.setting.findUnique({where:{key:secretKey}})).value.includes('owned-token'))
    await Promise.all([settings.saveMetadataConfig({enabled:false,provider:'imdb'}),settings.saveMetadataConfig({omdbKey:'owned-key',copyImages:false})]);const merged=await settings.metadataConfig();assert.equal(merged.enabled,false);assert.equal(merged.omdbConfigured,true);assert.equal(merged.provider,'imdb');assert.equal(merged.copyImages,false)
    await assert.rejects(()=>settings.saveMetadataConfig({provider:'arbitrary-host'}),/معتبر/)
+   await settings.saveMetadataConfig({enabled:true,provider:'imdb',copyImages:false})
+   const priorFetch=global.fetch,metadataCalls=[]
+   try {
+     global.fetch=async(url)=>{metadataCalls.push(String(url));return String(url).includes('/suggestion/')?Response.json({d:[{id:'tt0944947',l:'Game of Thrones',qid:'tvSeries',y:2011}]}):new Response('challenge',{status:202,headers:{'content-type':'text/html'}})}
+     const before=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}}),result=await settings.lookupCinemaMetadata('tt0944947')
+     assert.match(result.source,/جستجوی عمومی/);assert.ok(result.warnings.some(x=>x.includes('ناقص')))
+     await media.saveMediaItem('cinema-titles',result.fields,title.id)
+     const after=await db.cinemaTitle.findUniqueOrThrow({where:{id:title.id}})
+     assert.equal(after.title,'Game of Thrones');assert.equal(after.year,2011);assert.equal(after.imdbId,'tt0944947')
+     for(const key of ['summary','director','genres','countries','languages','imdbRating','poster'])assert.deepEqual(after[key],before[key],key+' must not be erased by partial metadata')
+     assert.deepEqual(metadataCalls,['https://www.imdb.com/title/tt0944947/','https://v3.sg.media-imdb.com/suggestion/t/tt0944947.json'])
+   }finally{global.fetch=priorFetch}
  }finally{await db.setting.deleteMany({where:{key:secretKey}});if(priorKey===undefined)delete process.env.PANEL_CREDENTIAL_KEY;else process.env.PANEL_CREDENTIAL_KEY=priorKey}
  await checkOrganization()
  console.log('Content authoring PostgreSQL: sanitized formatted stories/episodes/lyrics/playlists, plain card projections and historical newlines passed.')
