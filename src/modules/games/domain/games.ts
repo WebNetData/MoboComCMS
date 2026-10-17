@@ -244,13 +244,14 @@ export const HOME_RAILS = {
   popular: 'محبوب‌ترین‌ها',
   wanted: 'موردانتظارترین‌ها (کاربران)',
   franchises: 'مجموعه‌ها',
-  news: 'اخبار و مقالات',
+  news: 'آخرین مطالب بازی',
 } as const
 export type HomeRail = keyof typeof HOME_RAILS
 
 export type GamesSettings = {
   heroIds: number[]
   rails: { key: HomeRail; enabled: boolean }[]
+  /** Legacy Journal selection retained for stored settings compatibility; home lists Games posts. */
   newsKeywords: string[]
   libraryEnabled: boolean
   showMemberScore: boolean
