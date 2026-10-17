@@ -101,38 +101,50 @@ export function ReviewBand({ lead, groups }: { lead: Game | undefined; groups: {
 
 export type Post = { slug: string; title: string; excerpt: string; cover: string; publishedAt: Date; views: number; category: { name: string } | null }
 
-/** Liona “latest posts”: four cards, a wide lead story and a side list with round thumbnails. */
-export function PostsBlock({ posts }: { posts: Post[] }) {
-  if (posts.length < 2) return null
-  const [lead, ...rest] = posts
-  const small = (post: Post) => <Link key={post.slug} href={`/blog/${post.slug}`} className="gx-post-card">
-    <img src={post.cover} alt="" loading="lazy" />
-    <b>{post.title}</b>
-    <span className="gx-review-meta"><span><Icon name="calendar" size={13} />{day(post.publishedAt)}</span><span><Icon name="eye" size={13} />{fa(post.views)}</span></span>
-  </Link>
-  const newest = rest.slice(0, 4)
-  const popular = [...posts].sort((a, b) => b.views - a.views).slice(0, 4)
-  return <section className="container gx-posts">
-    <div className="gx-posts-main">
-      <GxTitle title="آخرین مطالب بازی" icon="sparkle" more="/blog" />
-      <TabSwitch tabs={[
-        { key: 'new', label: 'تازه‌ترین‌ها', panel: <div className="gx-post-grid">{newest.map(small)}</div> },
-        { key: 'popular', label: 'پربازدیدترین‌ها', panel: <div className="gx-post-grid">{popular.map(small)}</div> },
-      ]} />
-      <Link href={`/blog/${lead.slug}`} className="gx-post-lead">
-        <img src={lead.cover} alt="" loading="lazy" />
-        <b>{lead.title}</b>
-        <span className="gx-review-meta">{lead.category && <span>{lead.category.name}</span>}<span><Icon name="calendar" size={13} />{day(lead.publishedAt)}</span></span>
-        {lead.excerpt && <p>{lead.excerpt}</p>}
-      </Link>
+/** Server-rendered article cards share one bounded artwork frame and semantic metadata. */
+function PostStory({ post, featured = false }: { post: Post; featured?: boolean }) {
+  return <Link href={`/blog/${post.slug}`} className={featured ? 'gx-post-lead' : 'gx-post-card'}>
+    <div className="gx-post-art">
+      {post.cover ? <img src={post.cover} alt="" width={960} height={600} loading="lazy" /> : <span className="gx-post-placeholder"><Icon name="gamepad" size={48} /></span>}
+      <span className="gx-post-category">{post.category?.name || 'مجله'}</span>
     </div>
-    <aside className="gx-posts-side" aria-label="فهرست مطالب">
-      <ul>{posts.slice(0, 6).map((post) => <li key={post.slug}><Link href={`/blog/${post.slug}`}>
-        <img src={post.cover} alt="" loading="lazy" />
-        <span><small>{post.category?.name || 'بازی'} · {day(post.publishedAt)}</small><b>{post.title}</b></span>
-      </Link></li>)}</ul>
-      <Link href="/blog" className="gx-btn is-block is-purple">آرشیو مطالب</Link>
-    </aside>
+    <div className="gx-post-copy">
+      <span className="gx-post-meta"><span><Icon name="calendar" size={13} /><time dateTime={new Date(post.publishedAt).toISOString()}>{day(post.publishedAt)}</time></span><span><Icon name="eye" size={13} /><span className="sr-only">بازدید: </span>{fa(post.views)}</span></span>
+      <h3 dir="auto">{post.title}</h3>
+      {featured && post.excerpt ? <p dir="auto">{post.excerpt}</p> : null}
+      {featured ? <span className="gx-post-cta">خواندن مطلب<Icon name="arrow" size={17} /></span> : null}
+    </div>
+  </Link>
+}
+
+export function PostsBlock({ posts }: { posts: Post[] }) {
+  if (!posts.length) return null
+  const popular = [...posts].sort((a, b) => b.views - a.views)
+  const panel = (items: Post[]) => <div className="gx-post-editorial">
+    <PostStory post={items[0]} featured />
+    {items.length > 1 ? <div className="gx-post-grid">{items.slice(1, 5).map(post => <PostStory key={post.slug} post={post} />)}</div> : null}
+  </div>
+  return <section className="container gx-posts" aria-label="آخرین مطالب بازی">
+    <div className="gx-posts-heading">
+      <GxTitle title="آخرین مطالب بازی" icon="sparkle" more="/blog" />
+      <p>تازه‌های مجله، خبرها و راهنماهای خواندنی</p>
+    </div>
+    <div className="gx-posts-layout">
+      <div className="gx-posts-main">
+        <TabSwitch className="gx-posts-tabs" label="مرتب‌سازی مطالب بازی" tabs={[
+          { key: 'new', label: 'تازه‌ترین‌ها', panel: panel(posts) },
+          { key: 'popular', label: 'پربازدیدترین‌ها', panel: panel(popular) },
+        ]} />
+      </div>
+      <aside className="gx-posts-side" aria-label="مرور سریع مطالب">
+        <div className="gx-posts-side-head"><Icon name="archive" size={18} /><h3>در یک نگاه</h3><span>تازه‌های مجله</span></div>
+        <ul>{posts.slice(0, 5).map(post => <li key={post.slug}><Link href={`/blog/${post.slug}`} className="gx-post-brief">
+          <span className="gx-post-brief-art">{post.cover ? <img src={post.cover} alt="" width={128} height={96} loading="lazy" /> : <Icon name="gamepad" size={22} />}</span>
+          <span className="gx-post-brief-copy"><small>{post.category?.name || 'مجله'}</small><b dir="auto">{post.title}</b><time dateTime={new Date(post.publishedAt).toISOString()}>{day(post.publishedAt)}</time></span>
+        </Link></li>)}</ul>
+        <Link href="/blog" className="gx-posts-archive">آرشیو مطالب<Icon name="arrow" size={16} /></Link>
+      </aside>
+    </div>
   </section>
 }
 
