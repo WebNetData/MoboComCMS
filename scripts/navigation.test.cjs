@@ -12,13 +12,62 @@ function load(relative) {
   const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
   const mod = { exports: {} }
   cache.set(file, mod)
-  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : require(specifier))
+  const localRequire = (specifier) => (specifier.startsWith('@/') ? load(`src/${specifier.slice(2)}`) : specifier.startsWith('.') ? load(path.relative(path.resolve(__dirname, '..'), path.resolve(path.dirname(file), specifier))) : require(specifier))
   new Function('require', 'module', 'exports', source)(localRequire, mod, mod.exports)
   return mod.exports
 }
 
 const mm = load('src/modules/navigation/domain/megamenu')
 const tt = load('src/modules/site/domain/theme-templates')
+const menus = load('src/modules/site/config/menus')
+const { validateMenu, validateSite } = load('src/modules/site/config/validation')
+const { menuNodes } = load('src/modules/navigation/domain/presentation')
+
+test('nested menus preserve old links, explicit icon removal and hidden ancestor semantics', () => {
+  const links = [{ label: { fa: 'مجله', en: 'Magazine' }, href: '/blog', icon: '', children: [{ label: { fa: 'آموزش', en: 'Learn' }, href: '/blog?category=learn', icon: 'book' }] }]
+  assert.equal(validateMenu(links), true)
+  assert.equal(menus.localizeMenu(links, 'fa')[0].icon, '')
+  assert.equal(menus.localizeMenu(links, 'fa')[0].children[0].label, 'آموزش')
+  assert.deepEqual(menus.filterMenu([{ ...links[0], enabled: false }], () => true), [])
+  assert.equal(links[0].children.length, 1, 'public filtering never mutates stored branches')
+  assert.deepEqual(menus.filterMenu(links, link => !link.href.startsWith('/blog')), [])
+})
+
+test('menus bound depth/size, reject unsafe descendants, duplicate IDs and wrong child shapes', () => {
+  const leaf = () => ({ label: { fa: 'یک', en: 'One' }, href: '/' })
+  let tree = [leaf()]
+  for (let i = 1; i < menus.MENU_DEPTH; i++) tree = [{ ...leaf(), children: tree }]
+  assert.equal(validateMenu(tree), true)
+  assert.equal(validateMenu([{ ...leaf(), children: tree }]), false)
+  assert.equal(validateMenu(Array.from({ length: menus.MENU_ITEMS + 1 }, leaf)), false)
+  for (const children of [{}, 'x', { length: 0 }]) assert.equal(validateMenu([{ ...leaf(), children }]), false)
+  assert.equal(validateMenu([{ ...leaf(), children: [{ ...leaf(), href: 'javascript:alert(1)' }] }]), false)
+  assert.equal(validateMenu([{ ...leaf(), icon: '<svg onload=x>' }]), false)
+  assert.equal(validateMenu([{ ...leaf(), id: 'same' }, { ...leaf(), id: 'same' }]), false)
+  const site = load('src/modules/site/config/defaults').defaultSite
+  assert.equal(validateSite({ ...site, footerAccount: tree, footerExplore: [], automaticPageLinks: false }), true)
+})
+
+test('automatic categories keep canonical IDs, prune hidden families and apply menu-only overrides', () => {
+  const nodes = [{ id: 1, parentId: null, label: 'root', href: '/a', icon: 'book' }, { id: 2, parentId: 1, label: 'child', href: '/b' }, { id: 3, parentId: 2, label: 'deep', href: '/c' }, { id: 4, parentId: null, label: 'other', href: '/d' }]
+  const cfg = mm.defaultSectionConfig()
+  assert.deepEqual(menuNodes(nodes, { ...cfg, nodeOverrides: { c1: { hidden: true } } }).map(n => n.id), [4])
+  assert.deepEqual(menuNodes(nodes.map(n => n.id === 1 ? { ...n, inMenu: false } : n), cfg).map(n => n.id), [4])
+  const displayed = menuNodes(nodes, { ...cfg, itemOrder: ['c4'], nodeOverrides: { c1: { label: 'Changed', icon: '' } } })
+  assert.equal(displayed[0].id, 4); assert.equal(displayed[1].label, 'Changed'); assert.equal(displayed[1].icon, '')
+  assert.equal(nodes[0].label, 'root'); assert.equal(nodes[0].icon, 'book')
+})
+
+test('section settings preserve custom trees, allow restoring automatic icons and reject executable links', () => {
+  const cfg = mm.normalizeSectionConfig({ customItems: [{ label: { fa: 'تازه', en: 'New' }, href: '/games', children: [{ label: { fa: 'آرشیو', en: 'Browse' }, href: '/games/browse', icon: '' }] }], homeIcon: '', nodeOverrides: { c1: { icon: '', label: 'New' }, 'Windows PC': { hidden: true } } })
+  assert.equal(cfg.customItems[0].children[0].icon, '')
+  assert.equal(cfg.nodeOverrides.c1.icon, '')
+  assert.equal(mm.normalizeSectionConfig({ homeIcon: null }, cfg).homeIcon, undefined)
+  assert.throws(() => mm.normalizeSectionConfig({ customItems: [{ label: { fa: 'بد', en: 'Bad' }, href: 'data:text/html,test' }] }))
+  assert.throws(() => mm.normalizeSectionConfig({ nodeOverrides: JSON.parse('{"__proto__":{"hidden":true}}') }))
+  assert.equal(mm.normalizeSectionConfig({ links: [{ label: 'Saved', href: '/blog', enabled: false }] }).links[0].enabled, false)
+  assert.throws(() => mm.normalizeSectionConfig({ links: [{ label: 'Bad', href: '/blog', enabled: 'false' }] }))
+})
 
 test('a category dropdown lists the sub-tree of one top-level category', () => {
   const nodes = [
@@ -144,7 +193,7 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.ok(named.length > 5)
   for (const name of used) assert.ok(new RegExp('\\n  ' + name + ': ').test(icons), 'icon ' + name)
   // The ruler that decides how many links fit measures the same content as the links themselves.
-  assert.match(client, /mb-nav-measure" aria-hidden="true">\{links\.map\(link => <span key=\{link\.href\}><Icon name=\{navIcon\(link\.href\)\} size=\{17\}\/>/)
+  assert.match(client, /mb-nav-measure" aria-hidden="true">\{links\.map\(link => <span key=\{link\.id \|\| link\.href\}><EntryIcon link=\{link\}\/>/)
   // Popovers close on Escape, a press outside and a change of address; the drawer also holds the page still.
   assert.match(client, /function useDismiss\(/)
   assert.equal((client.match(/useDismiss\(/g) || []).length, 3)

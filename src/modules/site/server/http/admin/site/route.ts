@@ -1,14 +1,19 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { db } from '@/platform/database/prisma'
 import { getSiteConfig, SITE_KEY } from '@/modules/site/config/store'
 import { validateSite } from '@/modules/site/config/validation'
 import { bundledThemes } from '@/themes/registry'
 import { extensionCatalog } from '@/extensions/generated/catalog'
+import { createHash } from 'node:crypto'
+import { getSiteConfigFrom } from '@/modules/site/config/store'
+import { updateJsonSetting, JsonSettingMutationError } from '@/modules/settings/server'
+import { auditAdminStrict } from '@/platform/audit/server'
+const revision = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
-  return ok({ config: await getSiteConfig(), themes: bundledThemes })
+  const config = await getSiteConfig()
+  return ok({ config, revision: revision(config), themes: bundledThemes })
 }
 export async function PUT(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
@@ -22,6 +27,21 @@ export async function PUT(req: NextRequest) {
   // Legacy keys are retained for old site documents, but runtime activation is
   // exclusively owned by the extension manager.
   if (Object.keys(value.plugins).some(id => !extensionCatalog.some(p => p.id === id))) return err('افزونه در پروژه ثبت نشده است')
-  await db.setting.upsert({ where: { key: SITE_KEY }, create: { key: SITE_KEY, value: JSON.stringify(value) }, update: { value: JSON.stringify(value) } })
-  return ok({ saved: true })
+  try {
+    await updateJsonSetting(SITE_KEY, async (stored, tx) => {
+      const actor = await requirePerm(req, 'settings.manage', tx)
+      if (!actor) throw new JsonSettingMutationError('forbidden')
+      const current = await getSiteConfigFrom(tx, true)
+      if (req.headers.has('if-match') && req.headers.get('if-match') !== revision(current)) throw new JsonSettingMutationError('stale')
+      Object.keys(stored).forEach(key => delete stored[key])
+      Object.assign(stored, value)
+      await auditAdminStrict({ req, actor, action: 'site.update', targetType: 'setting', targetId: SITE_KEY }, tx)
+    })
+    return ok({ saved: true, revision: revision(value) })
+  } catch (error) {
+    if (error instanceof JsonSettingMutationError && error.message === 'forbidden') return err('دسترسی مجاز نیست', 403)
+    if (error instanceof JsonSettingMutationError || (error instanceof Error && error.message.includes('invalid stored'))) return err('تنظیمات تغییر کرده یا نیاز به بررسی دارد؛ صفحه را تازه‌سازی کنید و دوباره ذخیره کنید', 409)
+    console.error('[site.update]', error)
+    return err('ذخیره نشد؛ دوباره تلاش کنید', 500)
+  }
 }

@@ -1,5 +1,5 @@
 export type LocalText = { fa: string; en: string; [locale: string]: string }
-export type SiteLink = { label: LocalText; href: string }
+export type SiteLink = { id?: string; label: LocalText; href: string; /** Unset preserves theme defaults; empty removes the icon. */ icon?: string; enabled?: boolean; children?: SiteLink[] }
 export type ContentItem = { title: LocalText; text: LocalText; icon: string; href: string; /** Optional background image (section cards on the homepage). */ image?: string }
 export type SectionKind = 'hero' | 'features' | 'plans' | 'network' | 'steps' | 'apps' | 'products' | 'posts' | 'faq' | 'cta' | 'form' | 'services' | 'showcase'
 export type SiteSection = { id: string; kind: SectionKind; enabled: boolean; eyebrow: LocalText; title: LocalText; description: LocalText; items: ContentItem[]; action: SiteLink; formSlug: string; image?: string; /** Also show this section on the Telegram mini app home. Unset → kind default (see showsInMiniApp). */ miniapp?: boolean }
@@ -27,6 +27,7 @@ export type SiteConfig = {
   customCss?: string
   version: 1; brand: string; tagline: LocalText; announcement: { enabled: boolean; text: LocalText; link: SiteLink }
   navigation: SiteLink[]; footer: SiteLink[]; copyright: LocalText
+  footerExplore?: SiteLink[]; footerAccount?: SiteLink[]; automaticPageLinks?: boolean
   themeId: string; themes: ThemeManifest[]; /** @deprecated runtime extension state lives outside SiteConfig */ plugins: Record<string, boolean>; sections: SiteSection[]
 }
 export const local = (fa: string, en: string): LocalText => ({ fa, en })

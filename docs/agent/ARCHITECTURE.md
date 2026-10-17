@@ -201,6 +201,8 @@ CMS
 
 Specialist modules keep typed canonical domain entities.
 
+Navigation extends the existing Site Studio `site.config.v1` and section `site.megamenu.v1` documents. Header/footer trees, independent footer lists and section custom trees are presentation; canonical Magazine/Store/specialist/Forum taxonomies keep their CRUD, IDs, URLs and section permissions. Hidden ancestors prune the whole public branch without deleting data or changing access. Forum menu sources use the canonical guest visibility resolver. Settings writes use revision claims and transactional audit; rendering checks the section document revision before reusing a cached tree. Contracts, Admin paths, verification and continuation: [navigation control](handoffs/NAVIGATION_CONTROL.md).
+
 A generic Article may be CMS/Publishing. A Movie is Cinema, not a generic custom-content row unless product architecture explicitly chooses otherwise.
 
 Pages and magazine articles use the canonical editor document and revision services. A legacy conversion stays a preview through edits until its explicit first save; omitted parts must be disclosed before acceptance, and autosave resumes only after success. Direction precedence belongs to the editor domain (`resolveTextDirection`), shared by the editing view and public renderer: paragraph choice → block choice → first Unicode letter → page default. See [editor architecture](../editor/ARCHITECTURE.md) for the storage contract and regression checks.

@@ -108,13 +108,14 @@
 .mmx-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: start; }
 .mmx-sections { position: sticky; top: 16px; display: grid; gap: 4px; margin: 0; padding: 8px; list-style: none; border: 1px solid var(--mm-line); border-radius: 14px; background: var(--mm-surface); }
 .mmx-sections button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--mm-text); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
-.mmx-sections button[aria-current='true'] { background: var(--mm-accent-soft); color: var(--mm-accent); font-weight: 700; }
+.mmx-sections button[aria-selected='true'] { background: var(--mm-accent-soft); color: var(--mm-accent); font-weight: 700; }
 .mmx-sections small { color: var(--mm-muted); font-size: 11px; }
 .mmx-editor { display: grid; gap: 16px; min-width: 0; }
 .mmx-preview { overflow: hidden; border: 1px solid var(--mm-line); border-radius: 16px; background: var(--mm-surface); }
 .mmx-preview-label { padding: 8px 16px; border-bottom: 1px solid var(--mm-line); color: var(--mm-muted); font-size: 12px; }
 .mmx-links { display: grid; gap: 8px; }
-.mmx-link-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: center; }
+.mmx-link-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px; align-items: center; }
+.mmx-link-controls { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 900px) {
   .mmx-layout { grid-template-columns: minmax(0, 1fr); }
   .mmx-sections { position: static; display: flex; overflow-x: auto; }
@@ -125,7 +126,8 @@
 .mmx-bar-preview .mm-bar-wrap { position: relative; top: 0; }
 .mmx-panel-pick { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px 0; }
 .mmx-panel-pick button { padding: 6px 12px; border: 1px solid var(--mm-line); border-radius: 999px; background: var(--mm-surface); color: var(--mm-text); font: inherit; font-size: 12.5px; cursor: pointer; }
-.mmx-panel-pick button[aria-selected='true'] { border-color: var(--mm-accent); background: var(--mm-accent-soft); color: var(--mm-accent); font-weight: 700; }
+.mmx-panel-pick button[aria-pressed='true'] { border-color: var(--mm-accent); background: var(--mm-accent-soft); color: var(--mm-accent); font-weight: 700; }
+.xm-page .sh-sticky-save .sh-btn-primary { background: var(--sds-color-background-brand-default); color: var(--sds-color-text-brand-on-brand); }
 .mmx-empty-note { padding: 16px; }
 
 /* «بیشتر»: entries that do not fit the bar (priority+ menu) */

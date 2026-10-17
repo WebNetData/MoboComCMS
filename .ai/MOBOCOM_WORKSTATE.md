@@ -1,6 +1,7 @@
 # MoboCom Work State
 
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
+Active continuation (2026-10-17): navigation/category control implemented in `.mobocom/autonomous-foundation`, branch `feat/navigation-taxonomy-control-2026-10-17`; existing Site/Navigation/taxonomy owners. See `docs/agent/handoffs/NAVIGATION_CONTROL.md` for implemented scope, actually executed checks and bounded production limits. Do not restart from root source or include unrelated `.serena/` and `public/demo/` work.
 Current milestone: Bundle #53, scheduler lease #54 and checkout replay #55 are merged; finish ownership-safe guest cart claim/merge and continue real full-Goal gaps.
 Risk: Privacy checks are request-time checks rather than serializable ordering with concurrent block edits. Broad search still scans all matching rows, and production migrations/backup validation remain pending.
 Owner/contracts: `identity` owns canonical profiles, privacy and follow/block graph; `community` exposes its APIs/UI; `forum` owns existing private conversations.
@@ -316,3 +317,7 @@ Actually executed:85 Linux UID1000/no-.env affected units; registered native med
 ## Consolidated PR preparation — 2026-10-17
 
 Owner requested publication for owner merge. Fetched origin/main e098d59a is an ancestor, with four unpublished product commits: businesses8856859e, journal1d5b7c91, library3c0ed764 and archives6ea0aa11. Publish feat/media-archive-storage-2026-10-17 to main as one PR; preserve unrelated .serena/public/demo and older root owner work. Existing per-slice native PostgreSQL/browser/scoped SAST/build evidence and limits remain in the three handoffs, with no claim of a new full release suite or rebuilt artifact after the final dialog guard. Publication validation actually executed: whole four-commit redacted Gitleaks0, CRLF-aware range whitespace0, release manifest check0. This documentation commit uses [skip ci] under the owner's hosted Actions quota instruction; workflows unchanged, no hosted/browser dispatch. Owner handles merge and deployment, including the two additive media migrations and archive-tool/server-panel prerequisites documented in MEDIA_LIBRARY.md.
+
+## Navigation control — 2026-10-17
+
+Existing Site/Navigation settings now own nested header/footer/section menus, category presentation overrides and icon/visibility/order controls. Canonical taxonomies, URLs, permissions and protected visuals remain. Completed local units83, disposable PG119 migrations/native claims-audit-cache-query-budget checks, maintained draft browser regression, twelve themed views/scoped Admin axe0, full TypeScript/gates, scoped Doctor0 errors and Gitleaks0. Production build includes the server follow-up and precedes the final small client refinement; that refinement passed full TypeScript and browser. Existing notification type-only dependency cycle remains. Exact evidence/limits: docs/agent/handoffs/NAVIGATION_CONTROL.md. No hosted Actions/push/PR/deployment; preserve unrelated work.

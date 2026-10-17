@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { usePathname } from '@/platform/routing/navigation'
-import type { SectionBar, SectionBarItem, MegaPromo } from '@/modules/navigation/domain/megamenu'
+import type { SectionBar, SectionBarItem, MegaPromo, MegaLink } from '@/modules/navigation/domain/megamenu'
+import NavigationIcon from './NavigationIcon'
+import NavigationBranch from './NavigationBranch'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 
 const OPEN_DELAY = 110
@@ -32,8 +34,8 @@ export function MegaPanel({ item, promo, onNavigate }: { item: SectionBarItem; p
       </div>
       {item.columns.length ? <div className="mm-columns" style={{ '--mm-cols': Math.min(item.columns.length, 4) } as React.CSSProperties}>
         {item.columns.map((column, index) => <section key={`${column.title}-${index}`} className="mm-column" aria-label={column.title}>
-          <h3 className="mm-column-title">{column.href ? <Link href={column.href} onClick={onNavigate}>{column.title}</Link> : column.title}</h3>
-          <ul>{column.links.map((link) => <li key={link.href}><Link href={link.href} onClick={onNavigate}><span>{link.label}</span>{count(link.count)}</Link></li>)}</ul>
+          <h3 className="mm-column-title">{column.href ? <Link href={column.href} onClick={onNavigate}><NavigationIcon name={column.icon} />{column.title}</Link> : column.title}</h3>
+          <ul>{column.links.map((link, index) => <li key={`${link.href}-${index}`}><NavigationBranch link={link} inline onNavigate={onNavigate}><Link href={link.href} onClick={onNavigate}><NavigationIcon name={link.icon} /><span>{link.label}</span>{count(link.count)}</Link></NavigationBranch></li>)}</ul>
         </section>)}
       </div> : <p className="mm-empty">زیردسته‌ای ثبت نشده است؛ <Link href={item.href} onClick={onNavigate}>همهٔ موارد {item.label}</Link> را ببینید.</p>}
     </div>
@@ -56,14 +58,14 @@ const MORE = '__more__'
 const MORE_WIDTH = 96
 
 /** Entries that did not fit in the bar: each category with its first sub-links, then the quick links. */
-function MorePanel({ items, quick, onNavigate }: { items: SectionBarItem[]; quick: { label: string; href: string }[]; onNavigate: () => void }) {
+function MorePanel({ items, quick, onNavigate }: { items: SectionBarItem[]; quick: MegaLink[]; onNavigate: () => void }) {
   return <div className="mm-body is-wide mm-more-body">
     <div className="mm-main">
       {items.length > 0 && <div className="mm-more-grid">{items.map((item) => <section key={item.key} className="mm-column">
-        <h3 className="mm-column-title"><Link href={item.href} onClick={onNavigate}>{item.label}</Link></h3>
-        <ul>{item.columns.flatMap((column) => column.links).slice(0, 6).map((link) => <li key={link.href}><Link href={link.href} onClick={onNavigate}><span>{link.label}</span>{count(link.count)}</Link></li>)}</ul>
+        <h3 className="mm-column-title"><Link href={item.href} onClick={onNavigate}><NavigationIcon name={item.icon} />{item.label}</Link></h3>
+        <ul>{item.columns.flatMap((column) => column.links).slice(0, 6).map((link, index) => <li key={`${link.href}-${index}`}><NavigationBranch link={link} inline onNavigate={onNavigate}><Link href={link.href} onClick={onNavigate}><NavigationIcon name={link.icon} /><span>{link.label}</span>{count(link.count)}</Link></NavigationBranch></li>)}</ul>
       </section>)}</div>}
-      {quick.length > 0 && <div className="mm-more-quick">{quick.map((link) => <Link key={link.href + link.label} href={link.href} onClick={onNavigate}>{link.label}</Link>)}</div>}
+      {quick.length > 0 && <div className="mm-more-quick">{quick.map((link) => <Link key={link.href + link.label} href={link.href} onClick={onNavigate}><NavigationIcon name={link.icon} />{link.label}</Link>)}</div>}
     </div>
   </div>
 }
@@ -108,7 +110,7 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
   // Priority+ layout: as many entries as fit (and at most bar.maxItems categories); the rest go under «بیشتر».
   const nav = useRef<HTMLElement>(null)
   const widths = useRef<number[] | null>(null)
-  const signature = [...bar.items.map((item) => item.key), '|', ...bar.quick.map((link) => link.href), bar.maxItems].join(',')
+  const signature = JSON.stringify([bar.items.map(({ key, label, icon }) => [key, label, icon]), bar.quick.map(({ href, label, icon }) => [href, label, icon]), bar.maxItems, bar.showHome, bar.homeIcon, bar.homeLabel])
   const [fit, setFit] = useState<{ items: number; quick: number } | null>(null)
   const layout = useCallback(() => {
     const el = nav.current
@@ -155,18 +157,18 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
   return <div ref={root} className="mm-bar-wrap" onBlur={(event) => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(null) }}>
     <div className="container mm-bar">
       <nav ref={nav} className={`mm-bar-nav${fit ? ' is-fitted' : ''}`} aria-label={`منوی ${bar.title}`}>
-        <Link href={bar.home} className={`mm-bar-home${pathname === bar.home ? ' is-active' : ''}`} aria-current={pathname === bar.home ? 'page' : undefined}><HomeIcon /><span>خانهٔ {bar.title}</span></Link>
+        {bar.showHome !== false && <Link href={bar.home} className={`mm-bar-home${pathname === bar.home ? ' is-active' : ''}`} aria-current={pathname === bar.home ? 'page' : undefined}>{bar.homeIcon === undefined ? <HomeIcon /> : <NavigationIcon name={bar.homeIcon} />}<span>{bar.homeLabel || `خانهٔ ${bar.title}`}</span></Link>}
         {shownItems.map((item) => {
           const expanded = open === item.key
           const on = isOn(item.href)
-          if (!item.columns.length && !item.features.length) return <Link key={item.key} data-mm-entry="" href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>{item.label}</Link>
+          if (!item.columns.length && !item.features.length) return <Link key={item.key} data-mm-entry="" href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}><NavigationIcon name={item.icon} />{item.label}</Link>
           return <div key={item.key} data-mm-entry="" className={`mm-bar-item${expanded ? ' is-open' : ''}`} onMouseEnter={() => schedule(item.key, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
-            <Link href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>{item.label}</Link>
+            <Link href={item.href} className={`mm-bar-link${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}><NavigationIcon name={item.icon} />{item.label}</Link>
             <button type="button" className="mm-trigger" data-mm-trigger={item.key} aria-expanded={expanded} aria-controls={panelId} aria-label={`زیردسته‌های ${item.label}`} onClick={() => { clear(); setOpen(expanded ? null : item.key) }}><Chevron /></button>
           </div>
         })}
         {shownQuick.length > 0 && <span className="mm-bar-sep" aria-hidden="true" />}
-        {shownQuick.map((link) => <Link key={link.href + link.label} data-mm-entry="" href={link.href} className="mm-bar-quick">{link.label}</Link>)}
+        {shownQuick.map((link) => <Link key={link.href + link.label} data-mm-entry="" href={link.href} className="mm-bar-quick"><NavigationIcon name={link.icon} />{link.label}</Link>)}
         {hasMore && <div className={`mm-bar-item mm-more${open === MORE ? ' is-open' : ''}`} onMouseEnter={() => schedule(MORE, open ? 0 : OPEN_DELAY)} onMouseLeave={() => schedule(null, CLOSE_DELAY)}>
           <button type="button" className="mm-more-btn" data-mm-trigger={MORE} aria-expanded={open === MORE} aria-controls={panelId} onClick={() => { clear(); setOpen(open === MORE ? null : MORE) }}>
             بیشتر<span className="mm-more-count">{(moreItems.length + moreQuick.length).toLocaleString('fa-IR')}</span><Chevron />

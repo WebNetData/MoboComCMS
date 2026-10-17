@@ -6,6 +6,8 @@
  * Pure types and validation — data sources live in ../server.
  */
 
+import type { SiteLink } from '@/modules/site/config/types'
+import { validateMenu } from '@/modules/site/config/validation'
 export const MEGA_SECTIONS = ['shop', 'blog', 'music', 'cinema', 'games', 'software', 'forum'] as const
 export type MegaSection = typeof MEGA_SECTIONS[number]
 
@@ -18,8 +20,8 @@ export const SECTION_LABEL: Record<MegaSection, string> = {
   shop: 'فروشگاه', blog: 'مجله', music: 'موزیک', cinema: 'فیلم و سریال', games: 'بازی', software: 'نرم‌افزار', forum: 'تالار گفتمان',
 }
 
-export type MegaLink = { label: string; href: string; count?: number; hint?: string }
-export type MegaColumn = { title: string; href?: string; links: MegaLink[] }
+export type MegaLink = { label: string; href: string; count?: number; hint?: string; icon?: string; enabled?: boolean; children?: MegaLink[] }
+export type MegaColumn = { title: string; href?: string; icon?: string; links: MegaLink[] }
 export type MegaFeature = { title: string; href: string; image: string; kicker?: string }
 export type MegaPromo = { title: string; text: string; href: string; image: string; cta: string }
 
@@ -43,6 +45,11 @@ export type SectionMenuConfig = {
   maxItems: number
   showSearch: boolean
   showQuick: boolean
+  customItems: SiteLink[]
+  nodeOverrides: Record<string, { label?: string; icon?: string; hidden?: boolean }>
+  showHome: boolean
+  homeIcon?: string | null
+  homeLabel?: string
 }
 
 export type MegaMenuConfig = { enabled: boolean; sections: Record<MegaSection, SectionMenuConfig> }
@@ -54,7 +61,7 @@ export class MegaMenuError extends Error {
 const EMPTY_PROMO = { enabled: false, title: '', text: '', href: '', image: '', cta: '' }
 
 export function defaultSectionConfig(): SectionMenuConfig {
-  return { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { ...EMPTY_PROMO }, hiddenItems: [], itemOrder: [], maxItems: 0, showSearch: true, showQuick: true }
+  return { enabled: true, columns: 4, linksPerColumn: 8, features: 2, links: [], hideAutoLinks: false, promo: { ...EMPTY_PROMO }, hiddenItems: [], itemOrder: [], maxItems: 0, showSearch: true, showQuick: true, customItems: [], nodeOverrides: {}, showHome: true }
 }
 
 export function defaultMegaConfig(): MegaMenuConfig {
@@ -91,12 +98,22 @@ function normalizeLinks(value: unknown, fallback: MegaLink[]): MegaLink[] {
     const href = safeHref(row.href)
     if (!label && !href) continue
     if (!label || !href) throw new MegaMenuError(`لینک «${label || href}» باید هم عنوان و هم نشانی معتبر (شروع با / یا https://) داشته باشد`)
-    links.push({ label, href })
+    if (row.enabled !== undefined && typeof row.enabled !== 'boolean') throw new MegaMenuError('وضعیت نمایش لینک معتبر نیست')
+    links.push({ label, href, ...(row.icon !== undefined ? { icon: text(row.icon, 40) } : {}), ...(typeof row.enabled === 'boolean' ? { enabled: row.enabled } : {}) })
   }
   return links
 }
 
-const keys = (value: unknown) => (Array.isArray(value) ? [...new Set(value.map((key) => String(key ?? '').trim().slice(0, 80)).filter(Boolean))].slice(0, 60) : [])
+const keys = (value: unknown) => (Array.isArray(value) ? [...new Set(value.map((key) => String(key ?? '').trim().slice(0, 80)).filter(Boolean))].slice(0, 1000) : [])
+
+function normalizeOverrides(value: unknown): SectionMenuConfig['nodeOverrides'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 1000) throw new MegaMenuError('تنظیمات آیتم‌ها معتبر نیست')
+  return Object.fromEntries(Object.entries(value).map(([key, raw]) => {
+    if (!key || key.length > 80 || /[\u0000-\u001f<>]/.test(key) || ['__proto__', 'constructor', 'prototype'].includes(key) || !raw || typeof raw !== 'object' || Array.isArray(raw)) throw new MegaMenuError('آیتم منو معتبر نیست')
+    const row = raw as Record<string, unknown>
+    return [key, { ...(typeof row.label === 'string' && row.label.trim() ? { label: text(row.label, 120) } : {}), ...(typeof row.icon === 'string' ? { icon: text(row.icon, 40) } : {}), ...(typeof row.hidden === 'boolean' ? { hidden: row.hidden } : {}) }]
+  }))
+}
 
 /** Applies the editor's order and hidden list to a section's bar entries. */
 export function arrangeItems<T extends { key: string }>(items: T[], cfg: Pick<SectionMenuConfig, 'hiddenItems' | 'itemOrder'>): T[] {
@@ -118,6 +135,7 @@ export function normalizeSectionConfig(input: unknown, previous: SectionMenuConf
     href: safeHref(promoIn.href), image: safeImage(promoIn.image),
   }
   if (promo.enabled && (!promo.title || !promo.href)) throw new MegaMenuError('بنر تبلیغاتی به عنوان و نشانی معتبر نیاز دارد')
+  if (row.customItems !== undefined && !validateMenu(row.customItems)) throw new MegaMenuError('درخت منو، تعداد، عمق یا نشانی لینک‌ها معتبر نیست')
   return {
     enabled: typeof row.enabled === 'boolean' ? row.enabled : previous.enabled,
     columns: row.columns === undefined ? previous.columns : int(row.columns, 1, 6, 4),
@@ -131,6 +149,11 @@ export function normalizeSectionConfig(input: unknown, previous: SectionMenuConf
     maxItems: row.maxItems === undefined ? previous.maxItems ?? 0 : int(row.maxItems, 0, 20, 0),
     showSearch: typeof row.showSearch === 'boolean' ? row.showSearch : previous.showSearch ?? true,
     showQuick: typeof row.showQuick === 'boolean' ? row.showQuick : previous.showQuick ?? true,
+    customItems: row.customItems === undefined ? previous.customItems ?? [] : row.customItems as SiteLink[],
+    nodeOverrides: row.nodeOverrides === undefined ? previous.nodeOverrides ?? {} : normalizeOverrides(row.nodeOverrides),
+    showHome: typeof row.showHome === 'boolean' ? row.showHome : previous.showHome ?? true,
+    homeIcon: row.homeIcon === null ? undefined : row.homeIcon === undefined ? previous.homeIcon : text(row.homeIcon, 40),
+    homeLabel: row.homeLabel === undefined ? previous.homeLabel : text(row.homeLabel, 120),
   }
 }
 
@@ -149,7 +172,7 @@ export function normalizeMegaConfig(input: unknown, previous: MegaMenuConfig = d
  * Turns a category forest into panel columns: every root with children is a
  * column of its children; childless roots are gathered into one leading column.
  */
-export function treeColumns<T extends { id: number; parentId: number | null; label: string; href: string; count?: number }>(
+export function treeColumns<T extends { id: number; parentId: number | null; label: string; href: string; count?: number; icon?: string }>(
   nodes: T[], options: { columns: number; perColumn: number; looseTitle: string },
 ): MegaColumn[] {
   const byParent = new Map<number | null, T[]>()
@@ -158,13 +181,17 @@ export function treeColumns<T extends { id: number; parentId: number | null; lab
     const parent = node.parentId !== null && ids.has(node.parentId) ? node.parentId : null
     byParent.set(parent, [...(byParent.get(parent) || []), node])
   }
-  const link = (node: T): MegaLink => ({ label: node.label, href: node.href, ...(node.count !== undefined ? { count: node.count } : {}) })
+  const link = (node: T, seen = new Set<number>()): MegaLink => {
+    const visited = new Set([...seen, node.id])
+    const children = (byParent.get(node.id) || []).filter(child => !visited.has(child.id)).map(child => link(child, visited))
+    return { label: node.label, href: node.href, ...(node.icon !== undefined ? { icon: node.icon } : {}), ...(node.count !== undefined ? { count: node.count } : {}), ...(children.length ? { children } : {}) }
+  }
   const roots = byParent.get(null) || []
   const loose = roots.filter((root) => !(byParent.get(root.id) || []).length)
   const branches = roots.filter((root) => (byParent.get(root.id) || []).length)
   const columns: MegaColumn[] = []
-  if (loose.length) columns.push({ title: options.looseTitle, links: loose.slice(0, options.perColumn).map(link) })
-  for (const root of branches) columns.push({ title: root.label, href: root.href, links: (byParent.get(root.id) || []).slice(0, options.perColumn).map(link) })
+  if (loose.length) columns.push({ title: options.looseTitle, links: loose.slice(0, options.perColumn).map(node => link(node)) })
+  for (const root of branches) columns.push({ title: root.label, href: root.href, icon: root.icon, links: (byParent.get(root.id) || []).slice(0, options.perColumn).map(node => link(node)) })
   return columns.slice(0, options.columns)
 }
 
@@ -180,12 +207,15 @@ export function facetCounts(values: string[], limit: number): { name: string; co
 // ------------------------------------------------------------------ section menu bar
 
 /** One top-level entry of a section's own menu bar, with its dropdown panel. */
-export type SectionBarItem = { key: string; label: string; href: string; columns: MegaColumn[]; features: MegaFeature[] }
+export type SectionBarItem = { key: string; label: string; href: string; icon?: string; columns: MegaColumn[]; features: MegaFeature[] }
 
 export type SectionBar = {
   section: MegaSection
   title: string
   home: string
+  showHome?: boolean
+  homeIcon?: string
+  homeLabel?: string
   items: SectionBarItem[]
   /** Plain links after the category items (newest, most downloaded, …). */
   quick: MegaLink[]
@@ -193,6 +223,8 @@ export type SectionBar = {
   maxItems: number
   /** Every entry in editor order, hidden ones included (admin list). */
   catalog: { key: string; label: string; hidden: boolean }[]
+  categoryCatalog?: { key: string; parentKey: string | null; label: string; href: string; icon?: string; inMenu: boolean }[]
+  quickCatalog?: { key: string; label: string; href: string; icon?: string }[]
   promo: MegaPromo | null
   search: { action: string; placeholder: string; param: string; categories: { value: string; label: string }[] } | null
 }
@@ -201,7 +233,7 @@ export type SectionBar = {
  * Dropdown columns for one top-level category: its children become columns
  * of their own children; childless children are gathered in a leading column.
  */
-export function subtreeColumns<T extends { id: number; parentId: number | null; label: string; href: string; count?: number }>(
+export function subtreeColumns<T extends { id: number; parentId: number | null; label: string; href: string; count?: number; icon?: string }>(
   nodes: T[], rootId: number, options: { columns: number; perColumn: number; looseTitle: string },
 ): MegaColumn[] {
   const inside = new Set<number>()

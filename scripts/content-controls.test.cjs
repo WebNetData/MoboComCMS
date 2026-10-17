@@ -489,6 +489,9 @@ test('media upload requires CMS access, rejects invalid bytes, and serves upload
   const files = new Map()
   const mocks = {
     '@/modules/identity/server/access': { requirePerm: async () => allowed ? { id: 1 } : null },
+    // This test owns upload validation/storage. Library identity and persistence
+    // have their own connected tests; keep that shared boundary explicit here.
+    '@/modules/media/server/library': { libraryActor: async () => ({ id: 1 }), currentLibraryUser: async actor => actor, registerLocalAsset: async () => ({ id: 9, revision: 1 }) },
     'node:fs/promises': { mkdir: async () => {}, writeFile: async (file, bytes) => files.set(file, bytes), readFile: async file => { if (!files.has(file)) throw new Error('missing'); return files.get(file) } },
   }
   const { POST } = load('src/modules/site/server/http/admin/media/route.ts', mocks)
@@ -1132,7 +1135,7 @@ test('a switched-off module leaves no trace in the public site config, and retur
   assert.deepEqual(hideDisabledModules(site, on), site)
   assert.equal(hideDisabledModules(site, on).sections[1], site.sections[1])
   // The public config goes through it, so every theme and the home page get the same answer.
-  assert.match(sourceOf('src/modules/site/config/store.ts'), /hideDisabledModules\(await getSiteConfig\(\), runtime\)/)
+  assert.match(sourceOf('src/modules/site/config/store.ts'), /hideDisabledModules\(\{ \.\.\.saved, footerExplore: saved\.footerExplore \?\? saved\.navigation \}, runtime\)/)
 })
 
 test("a person's own picture stands beside what they wrote, with the initial as the fallback", () => {

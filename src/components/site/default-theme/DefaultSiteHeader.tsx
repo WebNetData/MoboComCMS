@@ -8,7 +8,9 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import ThemeLangControls from '@/components/ThemeLangControls'
 import SiteSearch from '@/components/search/SiteSearch'
 import { useSite } from '@/components/site/SiteProvider'
-import { translate } from '@/modules/site/config/types'
+import { localizeMenu } from '@/modules/site/config/menus'
+import NavigationBranch from '../NavigationBranch'
+import NavigationIcon from '../NavigationIcon'
 import { PluginOutlet } from '@/plugins/registry'
 import Icon from '@/components/site/Icon'
 import { Wordmark } from '@/components/site/SiteLogo'
@@ -27,7 +29,7 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
   const [open, setOpen] = useState(false)
   const site = useSite()
 
-  const links: [string, string][] = site.navigation.map(l => [l.href, translate(l.label, locale)])
+  const links = localizeMenu(site.navigation, locale)
 
   const isOn = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
 
@@ -40,11 +42,9 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
         </Link>
 
         <nav className="flex items-center only-desktop" style={{ gap: 'var(--sds-size-space-600)' }}>
-          {links.map(([href, label]) => (
-            <Link key={href} href={href} className={`nav-link ${isOn(href) ? 'nav-link-on' : ''}`}>
-              {label}
-            </Link>
-          ))}
+          {links.map(link => { const { href, label } = link; return <NavigationBranch key={href} link={link} inline={false} onNavigate={() => setOpen(false)}><Link href={href} className={`nav-link ${isOn(href) ? 'nav-link-on' : ''}`}>
+              <NavigationIcon name={link.icon}/>{label}
+            </Link></NavigationBranch> })}
           {navPages?.map((p) => (
             <Link key={p.slug} href={`/p/${p.slug}`} className={`nav-link ${isOn(`/p/${p.slug}`) ? 'nav-link-on' : ''}`}>
               {locale === 'fa' ? p.title : p.titleEn || p.title}
@@ -85,16 +85,14 @@ export default function DefaultSiteHeader({ theme, navPages, breadcrumbs }: { th
       {open && (
         <div className="container only-mobile" style={{ paddingBottom: '1rem' }}>
           <div className="card flex flex-col gap-1">
-            {links.map(([href, label]) => (
-              <Link
+            {links.map(link => { const { href, label } = link; return <NavigationBranch key={href} link={link} inline={true} onNavigate={() => setOpen(false)}><Link
                 key={href}
                 href={href}
                 onClick={() => setOpen(false)}
                 className={`side-link ${isOn(href) ? 'side-link-active' : ''}`}
               >
-                {label}
-              </Link>
-            ))}
+                <NavigationIcon name={link.icon}/>{label}
+              </Link></NavigationBranch> })}
             {navPages?.map((p) => (
               <Link key={p.slug} href={`/p/${p.slug}`} onClick={() => setOpen(false)} className="side-link">
                 {locale === 'fa' ? p.title : p.titleEn || p.title}

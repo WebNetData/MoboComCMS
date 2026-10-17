@@ -66,6 +66,7 @@ const paths: Record<string, React.ReactNode> = {
   layout: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></>,
   chevron: <path d="m6 9 6 6 6-6"/>,
 }
+export const ICON_NAMES = Object.keys(paths)
 export default function Icon({ name = 'shield', size = 22, className = '' }: { name?: string; size?: number; className?: string }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">{paths[name] || paths.shield}</svg>
 }

@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdminStrict } from '@/platform/audit/server'
+import { requirePerm } from '@/modules/identity/server/access'
+import { JsonSettingMutationError } from '@/modules/settings/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { MEGA_SECTIONS, MegaMenuError, normalizeSectionConfig, type MegaSection } from '@/modules/navigation/domain/megamenu'
 import { buildSectionBar, megaMenuAdminState, saveMegaConfig } from '@/modules/navigation/server/megamenu'
@@ -9,6 +11,7 @@ const guard = (req: NextRequest) => adminGuard(req, 'mega-menu', ['settings.mana
 
 function failure(error: unknown) {
   if (error instanceof MegaMenuError) return err(error.message, error.status)
+  if (error instanceof JsonSettingMutationError) return err('تنظیمات ذخیره‌شده نیاز به بررسی دارد؛ تغییری اعمال نشد', 409)
   console.error('[mega-menu]', error)
   return err('خطای داخلی؛ دوباره تلاش کنید', 500)
 }
@@ -24,15 +27,22 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const g = await guard(req)
   if ('response' in g) return g.response
-  const body = (await req.json().catch(() => null)) || {}
+  const raw = await req.text()
+  if (raw.length > 250000) return err('حجم تنظیمات بیش از حد مجاز است', 413)
+  let body
+  try { body = JSON.parse(raw) } catch { return err('ساختار تنظیمات معتبر نیست') }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return err('ساختار تنظیمات معتبر نیست')
   try {
     if (typeof body.preview === 'string') {
       if (!(MEGA_SECTIONS as readonly string[]).includes(body.preview)) return err('invalid section')
       const section = body.preview as MegaSection
       return ok({ preview: await buildSectionBar(section, { ...normalizeSectionConfig(body.config), enabled: true }) })
     }
-    const config = await saveMegaConfig(body)
-    await auditAdmin({ req, actor: g.admin, action: 'mega_menu.update', targetType: 'setting', targetId: 'site.megamenu.v1', metadata: { enabled: config.enabled } })
+    await saveMegaConfig(body, { revision: req.headers.get('if-match') ?? undefined, beforeCommit: async (tx, config) => {
+      const actor = await requirePerm(req, 'settings.manage', tx)
+      if (!actor) throw new MegaMenuError('دسترسی مجاز نیست', 403)
+      await auditAdminStrict({ req, actor, action: 'mega_menu.update', targetType: 'setting', targetId: 'site.megamenu.v1', metadata: { enabled: config.enabled } }, tx)
+    } })
     return ok(await megaMenuAdminState())
   } catch (error) { return failure(error) }
 }
