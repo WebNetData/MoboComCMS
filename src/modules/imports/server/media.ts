@@ -43,6 +43,10 @@ function guardedLookup(hostname: string, options: dns.LookupOptions, callback: (
 }
 
 type Fetched = { bytes: Buffer; type: string; finalUrl: string }
+function imageUrl(raw: string) {
+  try { return checkRemoteUrl(raw, { allowLoopback: allowLoopback() }) }
+  catch (error) { throw new MediaError(error instanceof Error ? error.message : 'نشانی تصویر معتبر نیست') }
+}
 
 function requestOnce(url: URL): Promise<{ status: number; location: string; type: string; body: Buffer }> {
   return new Promise((resolve, reject) => {
@@ -76,13 +80,13 @@ function requestOnce(url: URL): Promise<{ status: number; location: string; type
 
 /** GET with every hop checked; the final response must be a success. */
 export async function safeFetch(raw: string): Promise<Fetched> {
-  let url = checkRemoteUrl(raw, { allowLoopback: allowLoopback() })
+  let url = imageUrl(raw)
   for (let hop = 0; hop <= MEDIA_LIMITS.redirects; hop++) {
     const res = await requestOnce(url)
     if (res.status >= 300 && res.status < 400) {
       if (!res.location) throw new MediaError('تغییر مسیر بدون مقصد')
       if (hop === MEDIA_LIMITS.redirects) throw new MediaError('تعداد تغییر مسیرها بیش از حد مجاز است')
-      url = checkRemoteUrl(new URL(res.location, url).toString(), { allowLoopback: allowLoopback() })
+      url = imageUrl(new URL(res.location, url).toString())
       continue
     }
     if (res.status >= 500 || res.status === 429) throw new MediaError(`سرور تصویر خطا داد (${res.status})`, true)

@@ -4,6 +4,8 @@ import { findAssets, rewriteAssets } from '@/modules/downloads/domain/localize'
 import type { Counters, Message } from '@/modules/imports/domain/types'
 import { stableHash, toText } from '@/modules/imports/domain/values'
 import { ApplyFailure, type Change, type ImportContext } from '@/modules/imports/server/registry'
+import { MediaError } from '@/modules/imports/server/media'
+import { LibraryError } from '@/modules/media/domain/library'
 
 /** Helpers every adapter uses: identities, in-file duplicates, images, snapshots and safe rollback. */
 
@@ -88,7 +90,9 @@ export async function importImages(ctx: ImportContext, urls: string[], messages:
       const counter = result.deferred ? 'imagesQueued' : result.reused ? 'imagesReused' : 'imagesDownloaded'
       counters[counter] = (counters[counter] || 0) + 1
     } catch (error) {
-      out.push(url) // optional copying never erases the original asset
+      // A transient outage retains a source; a refused or invalid image never becomes a new cover.
+      const invalid = error instanceof MediaError && !error.retry || error instanceof LibraryError && error.reason === 'invalid-media'
+      if (!invalid) out.push(url)
       counters.imagesFailed = (counters.imagesFailed || 0) + 1
       messages.push({ level: 'warning', text: `${label}: تصویر دریافت نشد (${toText(url, 80)}) — ${error instanceof Error ? error.message : 'خطا'}` })
     }

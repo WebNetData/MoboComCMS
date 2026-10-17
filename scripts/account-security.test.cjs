@@ -333,8 +333,13 @@ test('an author permission is taken only by the content owners, through the scop
     'src/modules/editor/server/documents.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/media/server/admin.ts', 'src/modules/site/server/http/admin/cms/route.ts',
     // Games have an admin of their own: its routes take the author through the same guard, and its shell only decides which tabs to show.
     'src/modules/games/server/http/routes.ts', 'src/app/admin/games/shared.tsx',
+    // Authors may open their existing shared media library; this shell only exposes its menu.
+    'src/app/admin/layout.tsx',
     'src/plugins/cinema/manifest.json', 'src/plugins/games/manifest.json', 'src/plugins/journal/manifest.json', 'src/plugins/music/manifest.json', 'src/plugins/software/manifest.json',
   ].sort(), 'a new place accepts an author permission: it must hold the author to their own items, then be listed here')
+  const authorMenus = read('src/app/admin/layout.tsx').split(/\r?\n/).filter(line => names.some(name => line.includes(name)))
+  assert.equal(authorMenus.length, 1, 'author permissions expose only the shared Library menu in this shell')
+  assert.match(authorMenus[0], /href: '\/admin\/media'/)
   // Where a section's permission is asked plainly, the author permission is not offered beside it.
   const cms = read('src/modules/site/server/http/admin/cms/route.ts').split('\r\n').join('\n')
   assert.ok(cms.includes("if (type === 'posts' || (type === 'postcats' && reading)) return requireContentScope(req, perm, 'journal.author')"))

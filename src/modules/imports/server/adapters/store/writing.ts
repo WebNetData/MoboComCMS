@@ -148,7 +148,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
   // Images into the media library.
   const row: Record<string, unknown> = {}
   if ('image' in allowed && data.images.image) { const [img] = await importImages(ctx, [data.images.image], messages, counters, 'تصویر شاخص'); if (img) row.image = img }
-  if ('gallery' in allowed && data.images.gallery.length) { const imgs = await importImages(ctx, data.images.gallery, messages, counters, 'گالری'); row.gallery = JSON.stringify([...new Set(imgs)].slice(0, 12)) }
+  if ('gallery' in allowed && data.images.gallery.length) { const imgs = await importImages(ctx, data.images.gallery, messages, counters, 'گالری'); if(imgs.length || !existing)row.gallery = JSON.stringify([...new Set(imgs)].slice(0, 12)) }
   if ('description' in allowed) row.description = cleanRichText(await localizeHtml(ctx, String(data.values.description || ''), messages, counters, 'تصویر توضیحات'))
 
   // Plain columns.

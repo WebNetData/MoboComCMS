@@ -14,7 +14,7 @@ import { ensureOrganizationFolders } from './organization'
 const safeUrl = (raw: string) => {
   if (raw.length > 4000) throw new LibraryError('نشانی بیش از حد طولانی است')
   try { return checkRemoteUrl(raw, { allowLoopback: process.env.NODE_ENV !== 'production' && process.env.IMPORT_ALLOW_LOOPBACK === '1' }).toString() }
-  catch (error) { throw new LibraryError(error instanceof Error ? error.message : 'نشانی نامعتبر است') }
+  catch (error) { throw new LibraryError(error instanceof Error ? error.message : 'نشانی نامعتبر است', 400, 'invalid-media') }
 }
 export async function requestTransfer(actor: LibraryActor, input: Record<string, unknown>, req?: NextRequest, retryId?: string) {
   const sourceUrl = safeUrl(String(input.url || '').trim())
@@ -84,7 +84,9 @@ export async function runTransfer(payload: Record<string, unknown>) {
     // Never persist remote credentials/query strings or raw transport errors.
     const message = error instanceof LibraryError ? error.message : 'انتقال انجام نشد؛ نوع، حجم، دسترسی عمومی لینک یا زمان دریافت را بررسی کنید'
     await db.mediaTransfer.updateMany({ where: claim, data: { status: error instanceof LibraryError && error.status === 403 ? 'PAUSED' : 'FAILED', lastError: message, lockedUntil: null } })
-    throw new LibraryError(message, 422)
+    const mediaError = row.kind === 'image' && error instanceof (await import('@/modules/imports/server/media')).MediaError ? error : null
+    const reason = error instanceof LibraryError ? error.reason : mediaError && !mediaError.retry ? 'invalid-media' : 'unavailable'
+    throw new LibraryError(message, 422, reason)
   }
 }
 export async function listTransfers(actor: LibraryActor) {

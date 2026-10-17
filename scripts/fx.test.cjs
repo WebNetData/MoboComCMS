@@ -189,10 +189,10 @@ test('wiring: scheduler job, admin page, product editor, inbox kind', () => {
 })
 
 test('switching a variant product to FX keeps the price differences between variants', () => {
-  const source = read('src/modules/fx/server/fx.ts')
-  const start = source.indexOf('export function proportionalCost')
-  const body = source.slice(start, source.indexOf('\n}\n', start) + 2).replace('export function', 'function').replace(/: bigint/g, '').replace(/: number/g, '')
-  const proportionalCost = new Function(`${body}; return proportionalCost`)()
+  const { proportionalCost } = load('src/modules/fx/server/fx.ts', {
+    '@/platform/database/prisma': { db: {} },
+    '@/modules/settings/server': {},
+  })
   assert.equal(proportionalCost(1000n, 1_500_000, 1_000_000), 1500n, 'a white shirt 50% dearer costs 15 USD when the product costs 10')
   assert.equal(proportionalCost(1000n, 1_000_000, 1_000_000), 0n, 'same price → follows the product')
   assert.equal(proportionalCost(1000n, 0, 1_000_000), 0n)

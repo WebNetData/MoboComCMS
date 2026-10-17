@@ -5,6 +5,19 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('import image failures reject invalid media while retaining transient sources and explicit opt-out', async () => {
+  class MediaError extends Error { constructor(retry){super('fixture media failure');this.retry=retry} }
+  const { LibraryError }=load('src/modules/media/domain/library.ts')
+  const { importImages }=load('src/modules/imports/server/adapters/common.ts',{'@/platform/database/prisma':{db:{}},'@/modules/imports/server/media':{MediaError},'@/modules/media/domain/library':{LibraryError}})
+  for(const [error,kept]of [[new MediaError(false),false],[new MediaError(true),true],[new LibraryError('invalid',422,'invalid-media'),false],[new LibraryError('unavailable',422,'unavailable'),true]]){
+    const messages=[],counters={},url='https://images.example.test/picture.jpg'
+    const ctx={settings:{options:{copyAssets:true}},importImage:async()=>{throw error}}
+    assert.deepEqual(await importImages(ctx,[url],messages,counters,'cover'),kept?[url]:[])
+    assert.equal(counters.imagesFailed,1);assert.equal(messages[0].level,'warning')
+    ctx.settings.options.copyAssets=false;assert.deepEqual(await importImages(ctx,[url],[],{},'cover'),[url])
+  }
+})
+
 const imdbHtml = (node, next={}) => `<script type="application/ld+json">${JSON.stringify(node)}</script><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:next}})}</script>`
 const imdbTitle = () => ({'@type':'Movie',url:'https://www.imdb.com/title/tt1375666/',name:'Inception',description:'A dream &amp; a memory.',datePublished:'2010-07-16',duration:'PT2H28M',genre:['Action','Sci-Fi'],aggregateRating:{ratingValue:8.8},contentRating:'PG-13',image:'https://m.media-amazon.com/images/cover.jpg',actor:[{'@type':'Person',name:'Leonardo DiCaprio',url:'https://www.imdb.com/name/nm0000138/'}],director:[{'@type':'Person',name:'Christopher Nolan',url:'https://www.imdb.com/name/nm0634240/'}]})
 

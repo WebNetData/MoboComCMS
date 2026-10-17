@@ -83,7 +83,7 @@ async function checkOrganization(){
   for(const personRole of ['actor','director']) {
    const name=stamp+' '+personRole,pending=await lib.requestTransfer(actor,{url:base+'/'+personRole+'.png',kind:'image',name,section:'cinema',mode:'queued',organization:{section:'cinema-person',title:name,personRole}});transfers.push(pending.id)
    assert.equal(pending.status,'QUEUED');assert.match(pending.url,/^\/api\/media\/transfers\//)
-   await lib.runTransfer({id:pending.id,generation:0})
+   const drained=await load('src/modules/operations/server/queue.ts').runQueue(5000);assert.ok(drained.ran>0,'the registered queue worker handles the queued image')
    const copied=await db.mediaTransfer.findUniqueOrThrow({where:{id:pending.id},include:{asset:true,folder:true}}),dest=`download/cinema/images/${personRole==='actor'?'actors':'director'}/${name}`
    assert.equal(copied.status,'READY');assert.equal(copied.destination,dest);assert.equal(copied.folder.name,name);assert.equal(copied.asset.mime,'image/webp');assert.ok(copied.asset.width>0);assert.ok(copied.asset.key.startsWith(dest+'/'));assert.ok((await fsp.stat(path.join(root,copied.asset.key))).size>0)
    assert.equal((await lib.publicTransfer(pending.id)).headers.get('location'),lib.assetUrl(copied.asset))
