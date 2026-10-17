@@ -31,4 +31,6 @@ Implement in coherent slices with actual units, connected PostgreSQL and deliber
 
 ## Progress
 
+Release follow-up: typed invalid-image failures cannot overwrite an existing product cover/gallery; transient network failures and explicit copying opt-out keep their source behavior. Regression coverage includes real invalid-image/private-redirect HTTP and persisted old-image checks. Local site676/application53/backup4/billing10 checks,117 native PG checks verified with targeted repairs,18 full import scenarios, types/gates, fresh themed browser and the191-second production build of runtime2aa846bf are recorded in the handoff. Direct IMDb remains live-provider PARTIAL because it returns challenge202; do not equate parser fixtures with live retrieval.
+
 Implementation and bounded local verification are recorded in [the continuation handoff](../../agent/handoffs/CONTENT_AUTHORING.md). Source is on `feat/content-authoring-media-layout-2026-10-17` in `.mobocom/autonomous-foundation`; direct IMDb needs live network/page verification, while optional API providers need owner credentials. Preserve existing owners and do not restart this work from the root checkout.

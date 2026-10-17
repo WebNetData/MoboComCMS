@@ -18,6 +18,7 @@ function load(file, cache = new Map()) {
  new Function('require', 'module', 'exports', ts.transpileModule(source(file), {compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}}).outputText)(name => {
   if (Object.hasOwn(mocks, name)) return mocks[name]
   if (name.startsWith('@/')) {const path = `src/${name.slice(2)}`; return load(fs.existsSync(path + '.ts') ? path + '.ts' : path + '/index.ts', cache)}
+  if (name.startsWith('.')) {const path = require('node:path').join(require('node:path').dirname(file), name); return load(fs.existsSync(path + '.ts') ? path + '.ts' : path + '/index.ts', cache)}
   return require(name)
  }, mod, mod.exports)
  return mod.exports
