@@ -8,11 +8,15 @@ const CURSOR = 'cinema.people.backfill'
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 
 /** Reuse the canonical person's established pictures before contacting an outside source. */
-export async function storedPersonPictures(names: string[]): Promise<Map<string, string>> {
+export async function storedPersonPhotoStates(names: string[]): Promise<Map<string, {image:string;locked:boolean}>> {
   const keys = [...new Set(names.slice(0,48).map(normalizePersonName).filter(Boolean))]
   if (!keys.length) return new Map()
-  const rows = await db.cinemaPerson.findMany({ where: { normalizedName: { in: keys } }, select: { normalizedName: true, image: true }, take: 48 })
-  return new Map(rows.filter(row => /^\/(?:files\/|api\/media\/)/.test(row.image) || imdbPhoto(row.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(row.image)).map(row => [row.normalizedName,row.image]))
+  const rows = await db.cinemaPerson.findMany({ where: { normalizedName: { in: keys } }, select: { normalizedName: true, image: true, imageLocked:true }, take: 48 })
+  return new Map(rows.filter(row => row.imageLocked || /^\/(?:files\/|api\/media\/)/.test(row.image) || imdbPhoto(row.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(row.image)).map(row => [row.normalizedName,{image:row.image,locked:row.imageLocked}]))
+}
+/** Retain the existing picture-only helper contract. */
+export async function storedPersonPictures(names:string[]):Promise<Map<string,string>> {
+  return new Map([...await storedPersonPhotoStates(names)].map(([key,value])=>[key,value.image]))
 }
 
 /**
@@ -35,7 +39,7 @@ export async function syncCredits(tx: Tx, titleId: number, directorImages?: unkn
     const person = await tx.cinemaPerson.upsert({ where: { normalizedName }, create: { name: credit.name, normalizedName, image: credit.image }, update: {} })
     // Keep an established local picture. Promote an external picture to its local copy with a claim.
     const localCopy=/^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(credit.image) || /^\/files\/download\/cinema\/images\/(actors|director)\/[^?#]+\.webp$/.test(credit.image)
-    if (credit.image && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image }, data: { image: credit.image } })
+    if (credit.image && !person.imageLocked && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image, imageLocked:false, profileVersion:person.profileVersion }, data: { image: credit.image,profileVersion:{increment:1} } })
     const row = await tx.cinemaCredit.upsert({
       where: { titleId_personId_role: { titleId, personId: person.id, role: credit.role } },
       create: { titleId, personId: person.id, role: credit.role, character: credit.character, sortOrder: credit.order },
@@ -67,6 +71,12 @@ export async function creditLinks(titleId: number): Promise<Map<string, number>>
   return new Map(rows.map((row) => [row.person.normalizedName, row.person.id]))
 }
 
+/** Public presentation reuses canonical people without rewriting a title's stored cast. */
+export async function creditProfiles(titleId:number) {
+  const rows=await db.cinemaCredit.findMany({where:{titleId},select:{person:{select:{id:true,normalizedName:true,image:true,imageLocked:true}}}})
+  return new Map(rows.map(row=>[row.person.normalizedName,row.person]))
+}
+
 /** A person with the published titles they are credited on, newest first, by role. Null when nothing of theirs is public. */
 export async function personPage(id: number, now = new Date()) {
   if (!Number.isSafeInteger(id) || id <= 0) return null
@@ -82,7 +92,7 @@ export async function personPage(id: number, now = new Date()) {
 export async function peopleDirectory(input: { page?: unknown; q?: unknown }, now = new Date()) {
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
-  const where = { credits: { some: { title: live(now) } }, ...(q ? { normalizedName: { contains: q } } : {}) }
+  const where = { credits: { some: { title: live(now) } }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}] } : {}) }
   const [total, rows] = await Promise.all([
     db.cinemaPerson.count({ where }),
     db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: { title: live(now) }, select: { role: true } } } }),

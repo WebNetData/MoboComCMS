@@ -5,6 +5,46 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('Cinema profile input bounds rich text and accepts only public image addresses',()=>{
+  const {personProfileInput}=load('src/modules/cinema/domain/person-profile.ts')
+  const input={name:'  Test   Actor  ',bio:'<p>Hello <b>actor</b></p><img src="/files/a.webp" onerror="bad()"><script>bad()</script>',image:'/files/person.webp',imageLocked:true}
+  const result=personProfileInput(input);assert.equal(result.name,'Test Actor');assert.equal(result.displayNameKey,'test actor');assert.doesNotMatch(result.bio,/onerror|script/)
+  for(const image of ['javascript:alert(1)','https://user:pass@example.invalid/p.jpg','/api/admin/private','/files/../secret','/files/%2E%2E/secret','//example.invalid/p.jpg'])assert.throws(()=>personProfileInput({...input,image}),e=>e.status===422)
+  for(const extra of [{name:'a'},{bio:'x'.repeat(30001)},{imageLocked:'true'},{image:null}])assert.throws(()=>personProfileInput({...input,...extra}),e=>e.status===422)
+  assert.equal(personProfileInput({...input,image:''}).image,'')
+})
+
+test('Cinema manual photo locks override provider photos, including an intentionally blank picture',async()=>{
+  const previous=global.fetch;let calls=0
+  global.fetch=async()=>{calls++;throw Error('unexpected network')}
+  try{
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map([['test actor',{image:'',locked:true}],['test director',{image:'/files/manual.webp',locked:true}]])}})
+    const result=await enrichPeoplePhotos({fields:{imdbId:'tt1375666',cast:[{name:'Test Actor',image:'https://m.media-amazon.com/images/provider.jpg'}],director:'Test Director',directorImages:[{name:'Test Director',image:'https://m.media-amazon.com/images/provider.jpg'}]},source:'fixture',warnings:[]})
+    assert.equal(result.fields.cast[0].image,'');assert.equal(result.fields.directorImages[0].image,'/files/manual.webp');assert.equal(calls,0)
+  }finally{global.fetch=previous}
+})
+
+test('Cinema people HTTP checks Origin, module, owning permission, strict limit and invalid input',async()=>{
+  let permitted=false,enabled=true,limited=false,writes=0
+  const route=load('src/modules/cinema/server/http/people.ts',{
+    '@/modules/identity/server/access':{requirePerm:async(_req,permission)=>permitted&&permission==='cinema.manage'?{id:1,email:'fixture@example.invalid'}:null},
+    '@/extensions/server/modules':{moduleGuard:async()=>enabled?null:Response.json({error:'off'},{status:404})},
+    '@/platform/http/rate-limit':{rateLimitStrict:async()=>({ok:!limited})},
+    '@/platform/audit/server':{auditAdminStrict:async()=>{}},
+    '@/modules/cinema/server/person-admin':{adminPeople:async()=>({people:[]}),savePerson:async()=>{writes++;return{id:1}}},
+  })
+  const request=(origin='http://localhost:3000',body={name:'Test Actor'})=>new NextRequest('http://localhost:3000/api/admin/cinema/people',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)})
+  assert.equal((await route.GET(new NextRequest('http://localhost:3000/api/admin/cinema/people'))).status,403)
+  assert.equal((await route.POST(request())).status,403);permitted=true
+  assert.equal((await route.POST(request('https://foreign.invalid'))).status,403)
+  assert.equal((await route.POST(request(''))).status,403)
+  enabled=false;assert.equal((await route.POST(request())).status,404);enabled=true
+  limited=true;assert.equal((await route.POST(request())).status,429);limited=false
+  assert.equal((await route.PATCH(request())).status,422)
+  assert.equal((await route.POST(request('http://localhost:3000',{id:1}))).status,422)
+  assert.equal(writes,0);assert.equal((await route.POST(request())).status,200);assert.equal(writes,1)
+})
+
 test('import image failures reject invalid media while retaining transient sources and explicit opt-out', async () => {
   class MediaError extends Error { constructor(retry){super('fixture media failure');this.retry=retry} }
   const { LibraryError }=load('src/modules/media/domain/library.ts')
@@ -40,7 +80,7 @@ test('photo enrichment uses title-linked exact person IDs and keeps stored/enter
   const previous=global.fetch,calls=[];let stored=new Map(),unavailable=false
   global.fetch=async(url,options)=>{calls.push([String(url),options]);if(String(url).startsWith('https://query.wikidata.org/sparql'))return unavailable?new Response('',{status:429}):Response.json({results:{bindings:[personBinding('Leonardo DiCaprio','nm0000138'),personBinding('Christopher Nolan','nm0634240','DIRECTOR','Q25191')]}});const id=String(url).match(/\/(nm\d+)\.json$/)?.[1];return Response.json({d:[{id,i:{imageUrl:`https://m.media-amazon.com/images/${id}@@.jpg`}}]})}
   try{
-    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>stored}})
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map([...stored].map(([key,image])=>[key,{image,locked:false}]))}})
     const make=()=>({fields:{imdbId:'tt1375666',summary:'Kept story',cast:[{name:'Leonardo DiCaprio',role:'Cobb'},{name:'Already entered',image:'/files/keep.webp'}],director:'Christopher Nolan'},source:'Cinemeta',warnings:[]})
     let result=await enrichPeoplePhotos(make());assert.match(result.fields.cast[0].image,/nm0000138@@/);assert.match(result.fields.directorImages[0].image,/nm0634240@@/);assert.equal(result.fields.cast[1].image,'/files/keep.webp');assert.equal(result.fields.summary,'Kept story')
     assert.equal(calls.length,3);assert.ok(calls.every(([,o])=>o.redirect==='error'&&!o.headers.Cookie&&!o.headers.Authorization));assert.ok(calls[0][0].includes('tt1375666'))
@@ -53,7 +93,7 @@ test('photo enrichment stops further person requests after an IMDb rate limit',a
   const previous=global.fetch,calls=[]
   global.fetch=async(url)=>{calls.push(String(url));return String(url).includes('query.wikidata.org')?Response.json({results:{bindings:Array.from({length:5},(_,i)=>personBinding('Person '+i,'nm100000'+i,'CAST','Q100'+i))}}):new Response('',{status:429})}
   try{
-    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>new Map()}})
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map()}})
     const result=await enrichPeoplePhotos({fields:{imdbId:'tt1375666',summary:'Keep',cast:Array.from({length:5},(_,i)=>({name:'Person '+i}))},source:'Cinemeta',warnings:[]})
     assert.equal(result.fields.summary,'Keep');assert.ok(calls.length>=2&&calls.length<=5,'at most the four already-started requests, no retry or fifth request');assert.ok(result.fields.cast.every(p=>!p.image));assert.ok(result.warnings.some(w=>w.includes('5')))
   }finally{global.fetch=previous}

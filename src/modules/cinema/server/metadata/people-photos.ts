@@ -1,7 +1,7 @@
 import { creditsOf, normalizePersonName, type CreditRole } from '@/modules/cinema/domain/people'
 import { parsePhotoIdentities, photoIdentityKey } from '@/modules/cinema/domain/people-photos'
 import type { CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
-import { storedPersonPictures } from '@/modules/cinema/server/people'
+import { storedPersonPhotoStates } from '@/modules/cinema/server/people'
 import { ImdbRateLimit, lookupImdbPersonPhoto } from './imdb'
 
 type Photo = { name: string; image?: string }
@@ -26,14 +26,16 @@ export async function enrichPeoplePhotos(result: CinemaMetadataResult): Promise<
   const fields = result.fields, cast: Photo[] = Array.isArray(fields.cast) ? fields.cast.filter(p => p && typeof p.name === 'string').slice(0,40) : []
   const prior: Photo[] = Array.isArray(fields.directorImages) ? fields.directorImages.filter(p => p && typeof p.name === 'string') : []
   const directors = creditsOf({ director: typeof fields.director === 'string' ? fields.director : '', cast: [] }).filter(p => p.role === 'DIRECTOR').slice(0,8).map(p => prior.find(row => normalizePersonName(row.name) === normalizePersonName(p.name)) || { name: p.name })
-  const targets: Target[] = [...cast.map(person => ({ role: 'CAST' as const, person })), ...directors.map(person => ({ role: 'DIRECTOR' as const, person }))].filter(({person}) => !person.image)
-  if (!targets.length) return result
+  const all: Target[] = [...cast.map(person => ({ role: 'CAST' as const, person })), ...directors.map(person => ({ role: 'DIRECTOR' as const, person }))]
+  if (!all.length) return result
   if (directors.length) fields.directorImages = directors
   let copied = 0
+  const locked=new Set<Photo>()
   try {
-    const stored = await storedPersonPictures(targets.map(({person}) => person.name))
-    for (const {person} of targets) { const image = stored.get(normalizePersonName(person.name)); if (image) person.image = image }
+    const stored = await storedPersonPhotoStates(all.map(({person}) => person.name))
+    for (const {person} of all) { const state = stored.get(normalizePersonName(person.name)); if(state?.locked){person.image=state.image;locked.add(person)}else if(!person.image&&state?.image)person.image=state.image }
   } catch { /* A missing optional picture lookup must not discard textual metadata. */ }
+  const targets=all.filter(({person})=>!person.image&&!locked.has(person))
   const missing = targets.filter(({person}) => !person.image)
   if (missing.length && /^tt\d{7,12}$/.test(String(fields.imdbId))) {
     const stop = new AbortController(), deadline = AbortSignal.any([stop.signal,AbortSignal.timeout(12000)])

@@ -986,6 +986,10 @@ a.cn-person { color: inherit; text-decoration: none; }
 .cn-person-head h1 { margin: 4px 0; }
 .cn-person.is-large img, .cn-person.is-large i { width: 120px; height: 120px; }
 .cn-person-bio { max-width: 70ch; }
+.cn-person-bio { overflow-wrap: anywhere; line-height: 1.95; }
+.cn-person-bio img { max-width: 100%; height: auto; border-radius: 12px; }
+.cn-person-bio a { text-decoration: underline; text-underline-offset: 3px; }
+.cn-person-bio ul, .cn-person-bio ol { padding-inline-start: 24px; }
 @media (max-width: 600px) { .cn-person-head { flex-direction: column; align-items: flex-start; } }
 
 /* The public timeline of an item. */

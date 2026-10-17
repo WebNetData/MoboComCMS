@@ -125,6 +125,8 @@ export default function ClassicEditor({ value, onChange, placeholder, dir = 'rtl
     menubar: false,
     language: fa ? 'fa' : undefined,
     language_load: false,
+    // Keep the frame itself named as well as TinyMCE 8's editable body.
+    iframe_attrs: { title: fa ? 'ویرایش متن' : 'Text editor' },
     promotion: false,
     directionality: dir,
     placeholder,

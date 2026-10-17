@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { creditLinks } from '@/modules/cinema/server/people'
+import { creditProfiles } from '@/modules/cinema/server/people'
 import { creditsOf, normalizePersonName } from '@/modules/cinema/domain/people'
 import ManageBar from '@/components/admin/ManageBar'
 import Link from '@/components/AppLink'
@@ -71,8 +71,8 @@ export default async function TitlePage({ params }: Props) {
   }))
   const episodes = data.seasons.reduce((sum, s) => sum + s.episodes.length, 0)
   // Names the page shows lead to the person's own page when the person is known.
-  const people = await creditLinks(ti.id)
-  const personHref = (name: string) => { const id = people.get(normalizePersonName(name)); return id ? `/cinema/people/${id}` : null }
+  const people = await creditProfiles(ti.id)
+  const personHref = (name: string) => { const id = people.get(normalizePersonName(name))?.id; return id ? `/cinema/people/${id}` : null }
   const facts: [string, string][] = [
     [fa ? 'کارگردان' : 'Director', ti.director],
     [fa ? 'کشور' : 'Country', ti.countries.join('، ')],
@@ -122,7 +122,7 @@ export default async function TitlePage({ params }: Props) {
         {ti.cast.length > 0 && (
           <section className="md-shelf">
             <header className="md-shelf-head"><h2>{fa ? 'بازیگران' : 'Cast'}</h2></header>
-            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => { const href = personHref(person.name); const inner = <>{person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</>; return href ? <Link key={`${person.name}-${i}`} href={href} className="cn-person">{inner}</Link> : <div key={`${person.name}-${i}`} className="cn-person">{inner}</div> })}</Slider>
+            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => { const href = personHref(person.name); const profile=people.get(normalizePersonName(person.name)); const image=profile&&(profile.imageLocked||profile.image)?profile.image:person.image; const inner = <>{image ? <img src={image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</>; return href ? <Link key={`${person.name}-${i}`} href={href} className="cn-person">{inner}</Link> : <div key={`${person.name}-${i}`} className="cn-person">{inner}</div> })}</Slider>
           </section>
         )}
 
