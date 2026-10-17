@@ -4,6 +4,8 @@ import { findAssets, rewriteAssets } from '@/modules/downloads/domain/localize'
 import type { Counters, Message } from '@/modules/imports/domain/types'
 import { stableHash, toText } from '@/modules/imports/domain/values'
 import { ApplyFailure, type Change, type ImportContext } from '@/modules/imports/server/registry'
+import { MediaError } from '@/modules/imports/server/media'
+import { LibraryError } from '@/modules/media/domain/library'
 
 /** Helpers every adapter uses: identities, in-file duplicates, images, snapshots and safe rollback. */
 
@@ -83,12 +85,14 @@ export async function importImages(ctx: ImportContext, urls: string[], messages:
   const out: string[] = []
   for (const url of urls) {
     try {
-      const result = await ctx.importImage(url)
+      const result = await ctx.importImage(url,ctx.organization)
       out.push(result.url)
       const counter = result.deferred ? 'imagesQueued' : result.reused ? 'imagesReused' : 'imagesDownloaded'
       counters[counter] = (counters[counter] || 0) + 1
     } catch (error) {
-      out.push(url) // optional copying never erases the original asset
+      // A transient outage retains a source; a refused or invalid image never becomes a new cover.
+      const invalid = error instanceof MediaError && !error.retry || error instanceof LibraryError && error.reason === 'invalid-media'
+      if (!invalid) out.push(url)
       counters.imagesFailed = (counters.imagesFailed || 0) + 1
       messages.push({ level: 'warning', text: `${label}: تصویر دریافت نشد (${toText(url, 80)}) — ${error instanceof Error ? error.message : 'خطا'}` })
     }
@@ -103,7 +107,8 @@ export async function localizeHtml(ctx: ImportContext, html: string, messages: M
   if (!assets.length) return html
   const map = new Map<string, string>()
   for (const asset of assets.slice(0, 40)) {
-    const local = asset.kind === 'image' ? (await importImages(ctx, [asset.url], messages, counters, label))[0] : await importFileLink(ctx, asset.url, messages)
+    const scoped={...ctx,organization:ctx.organization?{...ctx.organization,video:/\.(mp4|webm|mkv|mov)(\?|$)/i.test(asset.url)}:undefined}
+    const local = asset.kind === 'image' ? (await importImages(scoped, [asset.url], messages, counters, label))[0] : await importFileLink(scoped, asset.url, messages)
     if (local) map.set(asset.url, local)
   }
   return map.size ? rewriteAssets(html, map) : html
@@ -191,5 +196,5 @@ export async function tracked<T>(write: (changes: Change[]) => Promise<T>): Prom
 /** Only mapped downloadable media fields call this; normal web links are never downloaded. */
 export async function importFileLink(ctx: ImportContext, url: string, messages: Message[]) {
   if (!copiesFiles(ctx.settings.options) || !/^https?:/i.test(url) || !ctx.importFile) return url
-  try { return (await ctx.importFile(url)).url } catch { messages.push({ level: 'warning', text: 'انتقال فایل انجام نشد؛ لینک اصلی حفظ شد' }); return url }
+  try { return (await ctx.importFile(url,ctx.organization)).url } catch { messages.push({ level: 'warning', text: 'انتقال فایل انجام نشد؛ لینک اصلی حفظ شد' }); return url }
 }

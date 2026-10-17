@@ -1,4 +1,5 @@
 import type { SiteConfig, ThemeManifest } from './types'
+import { MENU_DEPTH, MENU_ITEMS } from './menus'
 
 export function safeHref(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 2048 && !/[\s\\\u0000-\u001f]/.test(value) && (/^\/(?!\/)/.test(value) || /^#[\w-]*$/.test(value) || /^https:\/\//.test(value) || /^mailto:[^@]+@[^@]+$/.test(value))
@@ -7,6 +8,16 @@ const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'ob
 const text = (v: unknown, max = 6000): v is string => typeof v === 'string' && v.length <= max
 const localized = (v: unknown) => record(v) && text(v.fa) && text(v.en)
 const link = (v: unknown) => record(v) && localized(v.label) && safeHref(v.href)
+export function validateMenu(value: unknown): boolean {
+  let count = 0
+  const ids = new Set<string>()
+  const visit = (items: unknown, depth: number): boolean => Array.isArray(items) && depth <= MENU_DEPTH && items.every(item => {
+    if (++count > MENU_ITEMS || !link(item)) return false
+    if (item.id !== undefined) { if (typeof item.id !== 'string' || !/^[\w-]{1,80}$/.test(item.id) || ids.has(item.id)) return false; ids.add(item.id) }
+    return (item.enabled === undefined || typeof item.enabled === 'boolean') && (item.icon === undefined || (text(item.icon, 40) && !/[<>\u0000-\u001f]/.test(item.icon))) && (item.children === undefined || (Array.isArray(item.children) && (!item.children.length || visit(item.children, depth + 1))))
+  })
+  return visit(value, 1)
+}
 const palette = (v: unknown) => record(v) && ['background', 'surface', 'accent', 'text', 'muted', 'border'].every(k => /^#[0-9a-fA-F]{6}$/.test((v as any)[k]))
 const FONT_STACK = /^[A-Za-z0-9 ,.'"()\[\]-]*$/
 export function validateFonts(v: unknown): v is { body: string; heading: string } {
@@ -32,7 +43,9 @@ export function validateSite(v: unknown): v is SiteConfig {
   if (v.copy !== undefined && (!record(v.copy) || Object.keys(v.copy).length > 300 || !Object.entries(v.copy).every(([key, value]) => key.length <= 300 && localized(value)))) return false
   if (Array.isArray(v.sections) && v.sections.some((s: any) => s.image !== undefined && s.image !== '' && !safeHref(s.image))) return false
   if (!record(v.announcement) || typeof v.announcement.enabled !== 'boolean' || !localized(v.announcement.text) || !link(v.announcement.link)) return false
-  if (![v.navigation, v.footer].every(a => Array.isArray(a) && a.length <= 12 && a.every(link))) return false
+  if (![v.navigation, v.footer].every(validateMenu)) return false
+  if ([v.footerExplore, v.footerAccount].some(menu => menu !== undefined && !validateMenu(menu))) return false
+  if (v.automaticPageLinks !== undefined && typeof v.automaticPageLinks !== 'boolean') return false
   if (!text(v.themeId, 50) || !Array.isArray(v.themes) || v.themes.length > 20 || !v.themes.every(validateTheme) || new Set(v.themes.map((t: ThemeManifest) => t.id)).size !== v.themes.length) return false
   if (!record(v.plugins) || Object.keys(v.plugins).length > 50 || !Object.entries(v.plugins).every(([k, enabled]) => /^[a-z][a-z0-9-]{1,60}$/.test(k) && typeof enabled === 'boolean')) return false
   if (!Array.isArray(v.sections) || v.sections.length > 30 || new Set(v.sections.map((s: any) => s?.id)).size !== v.sections.length) return false

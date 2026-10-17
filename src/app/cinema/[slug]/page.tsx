@@ -61,7 +61,7 @@ export default async function TitlePage({ params }: Props) {
     episodes: season.episodes.map((episode) => ({
       id: episode.id, number: episode.number,
       title: fa ? episode.title : episode.titleEn || episode.title,
-      summary: episode.summary, still: episode.still,
+      summary: episode.summary, summaryHtml: episode.summaryHtml, still: episode.still,
       runtime: episode.runtime ? formatRuntime(episode.runtime, fa) : '',
       airDate: episode.airDate ? new Date(episode.airDate).toLocaleDateString(fa ? 'fa-IR' : 'en-US') : '',
       vip: !paywall && (episode.access === 'MEMBERS' || ti.access === 'MEMBERS'),
@@ -107,7 +107,7 @@ export default async function TitlePage({ params }: Props) {
               {ti.subtitle && <span className="cn-badge is-sub">{fa ? 'زیرنویس فارسی' : 'Persian subs'}</span>}
             </div>
             <div className="cn-genres">{ti.genres.map((g) => <Link key={g} href={`/cinema/browse?genre=${encodeURIComponent(g)}`}>{g}</Link>)}</div>
-            {summary && <p className="cn-summary">{summary}</p>}
+            {summary && <div className="cn-summary prose" dangerouslySetInnerHTML={{ __html: fa ? ti.summaryHtml : ti.summaryEnHtml || ti.summaryHtml }} />}
             <div className="cn-hero-actions">
               <a href="#watch" className="btn cn-btn-primary">{locked ? (paywall ? `🛒 ${fa ? 'خرید' : 'Buy'} · ${paywall.price}` : `♛ ${fa ? 'ویژه VIP' : 'VIP only'}`) : `▶ ${fa ? 'تماشا و دانلود' : 'Watch & download'}`}</a>
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />

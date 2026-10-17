@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { deleteMediaItem, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import type { Counters, FieldDef, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import { latinSlug, normalizeName, toText } from '@/modules/imports/domain/values'
-import { countImages, delegate, identityOf, importImages, importFileLink, loadIdentities, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
+import { countImages, delegate, identityOf, importImages, importFileLink, localizeHtml, loadIdentities, planOnce, saveIdentity, seenBefore, snapshot, suffixOf, tracked, undoChange } from '@/modules/imports/server/adapters/common'
 import { ensureTerms, planTerms, undoTerm } from '@/modules/imports/server/adapters/terms'
 import { STATUS_ENUM } from '@/modules/imports/server/adapters/media'
 import { type ApplyResult, type Change, type ImportAdapter, type ImportContext, type OptionDef, type Plan } from '@/modules/imports/server/registry'
@@ -37,7 +37,7 @@ const FIELDS: FieldDef[] = [
   { key: 'audioHqUrl', label: 'فایل صوتی کیفیت بالا', type: 'url', group: 'media', synonyms: ['audio_hq', 'hq_url', 'link_320', 'mp3_320'] },
   { key: 'duration', label: 'مدت (ثانیه یا m:ss)', type: 'duration', group: 'main', synonyms: ['duration', 'length', 'time', 'مدت'] },
   { key: 'genre', label: 'سبک', type: 'list', group: 'relations', synonyms: ['genre', 'genres', 'style', 'سبک', 'ژانر'] },
-  { key: 'lyrics', label: 'متن آهنگ', type: 'longtext', group: 'content', synonyms: ['lyrics', 'lyric', 'text', 'متن', 'متن آهنگ'] },
+  { key: 'lyrics', label: 'متن آهنگ', type: 'html', group: 'content', synonyms: ['lyrics', 'lyric', 'text', 'متن', 'متن آهنگ'] },
   { key: 'categories', label: 'دسته‌های بخش (روی آلبوم)', type: 'category', group: 'relations', synonyms: ['category', 'categories', 'دسته'] },
   { key: 'access', label: 'دسترسی', type: 'enum', group: 'meta', enum: ACCESS_ENUM, synonyms: ['access', 'visibility', 'دسترسی'] },
   { key: 'status', label: 'وضعیت انتشار', type: 'enum', group: 'meta', enum: STATUS_ENUM, synonyms: ['status', 'وضعیت'] },
@@ -199,6 +199,9 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   }
   const mode = existing ? 'update' : 'create'
   const allowed = ctx.allow(data.values, mode, existing ? snapshot(existing, TRACK_COLUMNS) : undefined)
+  const savedArtist=existing?.artistId?await db.musicArtist.findUnique({where:{id:existing.artistId},select:{name:true,nameEn:true}}):null
+  const savedAlbum=existing?.albumId?await db.musicAlbum.findUnique({where:{id:existing.albumId},select:{title:true,titleEn:true}}):null
+  ctx={...ctx,organization:{section:'music',artist:toText(savedArtist?.nameEn||savedArtist?.name||data.values.artistEn||data.artistName,160),album:toText(existing&&!('album' in allowed)?savedAlbum?.titleEn||savedAlbum?.title:data.values.albumEn||data.albumName||savedAlbum?.titleEn||savedAlbum?.title,200)}}
 
   // Artist: found by name or created once (re-checked in the database, so a parallel import cannot duplicate it).
   let artist: Artist | null = null
@@ -209,7 +212,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
     if (!artist) {
       if (o.missingArtists === 'error') throw new Error(`هنرمند «${data.artistName}» وجود ندارد`)
       const body: Record<string, unknown> = { name: data.artistName, nameEn, slug: await uniqueSlug('musicArtist', latinSlug(nameEn || data.artistName, 90), `artist-${suffixOf(normalizeName(data.artistName))}`) }
-      if ('artistImage' in allowed) { const [img] = await importImages(ctx, [String(allowed.artistImage)], messages, counters, 'تصویر هنرمند'); if (img) body.image = img }
+      if ('artistImage' in allowed) { const [img] = await importImages({...ctx,organization:{...ctx.organization!,artistImage:true}}, [String(allowed.artistImage)], messages, counters, 'تصویر هنرمند'); if (img) body.image = img }
       const { row } = await saveMediaItem('music-artists', body, null)
       artist = { id: row.id, name: row.name, nameEn: row.nameEn }
       changes.push({ kind: 'created', entity: 'musicArtist', id: row.id, stamp: (row.updatedAt as Date).toISOString() })
@@ -253,6 +256,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   for (const key of TRACK_COLUMNS) {
     if (!(key in allowed)) continue
     if (['audioUrl', 'audioHqUrl'].includes(key)) { body[key] = await importFileLink(ctx, String(allowed[key]), messages); continue }
+    if (key === 'lyrics') { body[key] = await localizeHtml(ctx, String(allowed[key]), messages, counters, 'رسانهٔ ترانه'); continue }
     if (key === 'cover') { const [img] = await importImages(ctx, [String(allowed.cover)], messages, counters, 'کاور آهنگ'); if (img) body.cover = img; continue }
     body[key] = allowed[key]
   }

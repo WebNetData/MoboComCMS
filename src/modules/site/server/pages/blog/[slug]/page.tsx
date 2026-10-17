@@ -1,3 +1,4 @@
+import { articleBodyWithExcerpt } from '@/modules/site/domain/article-output'
 import { categoryMembership } from '@/modules/site/server/categories'
 import { Fragment } from 'react'
 import ManageBar from '@/components/admin/ManageBar'
@@ -225,7 +226,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
-        dangerouslySetInnerHTML={{ __html: articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)) }}
+        dangerouslySetInnerHTML={{ __html: articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa) }}
       />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
       {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}

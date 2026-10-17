@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import Icon from '@/components/site/Icon'
+import { identifySiteMenus } from '@/modules/site/config/menus'
 import { publicCopy } from '@/modules/site/config/public-copy'
 import CoverField from '../cms/CoverField'
 import { local, type SiteConfig, type SiteSection, type ThemeManifest } from '@/modules/site/config/types'
@@ -25,14 +26,19 @@ export default function StudioPage() {
   useEffect(() => { const requested = new URLSearchParams(window.location.search).get('tab'); if (requested && ['content','design','themes','copy','plugins','preview'].includes(requested)) setTab(requested) }, [])
   const [selected,setSelected] = useState('hero')
   const [dirty,setDirty] = useState(false)
+  const [revision,setRevision] = useState('')
   const [busy,setBusy] = useState(false)
   const [notice,setNotice] = useState('')
   const [failed,setFailed] = useState(false)
   const [preview,setPreview] = useState(0)
-  useEffect(()=>{ fetch('/api/admin/site').then(async r=>{if(!r.ok) throw new Error('دریافت تنظیمات ممکن نشد؛ دسترسی مدیریت تنظیمات لازم است.');return r.json()}).then(d=>{setConfig(d.config);setThemes(d.themes)}).catch(e=>{setNotice(e.message);setFailed(true)}) },[])
+  useEffect(()=>{
+    const controller = new AbortController()
+    fetch('/api/admin/site', { signal: controller.signal, cache: 'no-store' }).then(async r=>{if(!r.ok) throw new Error('دریافت تنظیمات ممکن نشد؛ دسترسی مدیریت تنظیمات لازم است.');return r.json()}).then(d=>{if(controller.signal.aborted)return;setConfig(identifySiteMenus(d.config));setThemes(d.themes);setRevision(d.revision)}).catch(e=>{if(controller.signal.aborted)return;setNotice(e.message);setFailed(true)})
+    return () => controller.abort()
+  },[])
   useEffect(()=>{const guard=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard)},[dirty])
   function change(value:SiteConfig){setConfig(value);setDirty(true);setNotice('')}
-  async function save(){if(!config)return;setBusy(true);setNotice('');try{const r=await fetch('/api/admin/site',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)});const d=await r.json();if(!r.ok)throw new Error(d.error);setDirty(false);setFailed(false);setNotice('تغییرات منتشر شد و روی سایت قابل مشاهده است.');setPreview(v=>v+1);router.refresh()}catch(e){setFailed(true);setNotice(e instanceof Error?e.message:'ذخیره ناموفق')}finally{setBusy(false)}}
+  async function save(){if(!config)return;setBusy(true);setNotice('');try{const r=await fetch('/api/admin/site',{method:'PUT',headers:{'Content-Type':'application/json','If-Match':revision},body:JSON.stringify(config)});const d=await r.json();if(!r.ok)throw new Error(d.error);setRevision(d.revision);setDirty(false);setFailed(false);setNotice('تغییرات منتشر شد و روی سایت قابل مشاهده است.');setPreview(v=>v+1);router.refresh()}catch(e){setFailed(true);setNotice(e instanceof Error?e.message:'ذخیره ناموفق')}finally{setBusy(false)}}
   async function importTheme(file?:File){if(!file||!config)return;try{if(file.size>20000)throw new Error('حداکثر حجم فایل قالب ۲۰ کیلوبایت است.');const theme:unknown=JSON.parse(await file.text());if(!validateTheme(theme))throw new Error('فایل قالب معتبر نیست؛ نمونه مستندات را بررسی کنید.');if([...themes,...config.themes].some(t=>t.id===theme.id))throw new Error('قالبی با این شناسه قبلاً نصب شده است.');change({...config,themes:[...config.themes,theme],themeId:theme.id});setNotice('قالب اضافه شد. برای اعمال روی سایت، انتشار تغییرات را بزنید.');setFailed(false)}catch(e){setFailed(true);setNotice(e instanceof Error?e.message:'فایل نامعتبر')}}
   function exportConfig(){if(!config)return;const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='happ-site-settings.json';a.click();URL.revokeObjectURL(url)}
   if(!config)return <div className={failed?'studio-notice studio-error':'studio-notice'} role="status">{notice||'در حال آماده‌سازی استودیو…'}</div>
@@ -42,6 +48,7 @@ export default function StudioPage() {
   function addSection(kind: string){if(!config)return;const base=defaultSite.sections.find(s=>s.kind===kind) || {...defaultSite.sections[1],kind:'form' as const,title:local('با ما در ارتباط باش','Get in touch'),items:[],formSlug:''};const added={...structuredClone(base),id:`${kind}-${Date.now().toString(36)}`};change({...config,sections:[...config.sections,added]});setSelected(added.id)}
   return <div dir="rtl"><div className="studio-header"><div><span className="section-kicker">HAPP / SITE STUDIO</span><h1>استودیوی سایت</h1><p>محتوا، ظاهر و قابلیت‌های سایت؛ همه در اختیار تو.</p></div><div className="studio-actions"><Link href="/" target="_blank" className="btn btn-ghost">مشاهده سایت ↗</Link><button className="btn btn-primary" disabled={busy||uploading||!dirty} onClick={save}>{busy?'در حال ذخیره…':dirty?'انتشار تغییرات':'همه تغییرات ذخیره شده'}</button></div></div>
     {notice&&<div role={failed?'alert':'status'} className={`studio-notice ${failed?'studio-error':''}`}>{notice}</div>}
+    <fieldset disabled={busy} aria-label="ویرایش تنظیمات سایت" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <div className="studio-tabs" role="tablist">{[['content','محتوای صفحه'],['design','طراحی و رنگ‌ها'],['themes','قالب‌ها'],['copy','متن‌های عمومی'],['plugins','افزونه‌ها'],['preview','پیش‌نمایش']].map(([id,name])=><button role="tab" aria-selected={tab===id} className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}>{name}</button>)}</div>
     {tab==='design'&&<DesignTab config={config} themes={themes} change={change} setUploading={setUploading} exportConfig={exportConfig}/>}
     {tab==='content'&&<div className="studio-layout"><aside className="card studio-section-list">{config.sections.map((s,i)=><div key={s.id} className={`studio-section-row ${selected===s.id?'selected':''}`}><button onClick={()=>setSelected(s.id)}><Icon name={sectionIcons[s.kind]}/><span>{sectionNames[s.kind]}{!s.enabled?' · پنهان':''}</span></button><div className="order-buttons"><button disabled={i===0} aria-label="انتقال به بالا" onClick={()=>move(i,-1)}>↑</button><button disabled={i===config.sections.length-1} aria-label="انتقال به پایین" onClick={()=>move(i,1)}>↓</button></div></div>)}<label className="studio-field"><span>افزودن بخش جدید</span><select className="input" value="" onChange={e=>{if(e.target.value)addSection(e.target.value)}}><option value="">انتخاب نوع بخش…</option>{Object.entries(sectionNames).map(([id,name])=><option value={id} key={id}>{name}</option>)}</select></label></aside>
@@ -56,5 +63,6 @@ export default function StudioPage() {
     {tab==='copy'&&<div className="card studio-editor"><h2>متن‌های عمومی وب‌سایت</h2><p className="studio-help">متن دکمه‌ها، توضیح‌های ثابت، سربرگ و پایین سایت را در دو زبان ویرایش کنید. عنوان و محتوای بخش‌ها در زبانه محتوای صفحه قرار دارند.</p><label className="studio-field"><span>جست‌وجوی متن</span><input className="input" type="search" value={copySearch} onChange={e=>setCopySearch(e.target.value)} /></label>{Object.entries(publicCopy).filter(([key,value])=>(key+' '+value.fa+' '+(config.copy?.[key]?.fa || '')).toLowerCase().includes(copySearch.toLowerCase())).map(([key,value])=><div className="studio-item" key={key}><TextEditor label="متن" value={config.copy?.[key] || value} onChange={text=>change({...config,copy:{...config.copy,[key]:text}})}/>{config.copy?.[key]&&<button className="btn btn-ghost" onClick={()=>{const copy={...config.copy};delete copy[key];change({...config,copy})}}>بازگرداندن متن پیش‌فرض</button>}</div>)}</div>}
     {tab==='plugins'&&<><div className="studio-notice mb-4">افزونه‌ها مستقل از قالب و محتوای سایت فعال و تنظیم می‌شوند. تغییرات این بخش همان لحظه ذخیره می‌شود و به دکمهٔ «انتشار تغییرات» نیاز ندارد.</div><ExtensionManager embedded /></>}
     {tab==='preview'&&<><div className="studio-notice">این پیش‌نمایش نسخه ذخیره‌شده سایت است.{dirty?' تغییرات فعلی هنوز منتشر نشده‌اند.':''}</div><iframe key={preview} title="پیش‌نمایش سایت" className="studio-preview" src="/?preview=studio"/></>}
+    </fieldset>
   </div>
 }

@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Content authoring2026-10-17:** Site's article slot prepends the complete excerpt; specialist fields use ContentEditor. Cinema's metadata facade accepts IMDb IDs/URLs via direct public pages without a key or optional TMDb/OMDb, with source/copy controls in Admin. Live direct IMDb is currently network-blocked/unverified. Shared transfers organize new movie files under `download/movie/<title>/`, actor/director photos under `download/cinema/images/{actors|director}/<name>/`; old film paths remain valid. Canonical term projections and explicit import copy opt-out remain. Continue [authoring evidence/contracts](handoffs/CONTENT_AUTHORING.md), not older root source.
+
 - **Magazine covers/archive2026-10-16:** continue `fix/journal-cover-pagination-2026-10-16` in the authoritative worktree, stacked on the pending business UI batch. Existing BlogPage queries/Admin page size remain; explicit `/blog?page=1` is the complete archive, scoped TextCard gradient preserves visible covers. Pure `journal/domain/pagination.ts` + server `JournalPagination`; [verified scope/continuation](handoffs/JOURNAL_THEMES.md#cover-visibility-and-archive-pagination--2026-10-16).
 
 - **Invoice branding:** Billing resolves the existing override or canonical Site wordmark/mark for standard, official and native-PDF invoices across sources. Raw Admin save, fresh profile reads, pre-hydration image fallback and separate invoice/label print pages are verified. [Continuation](handoffs/INVOICE_BRANDING.md).

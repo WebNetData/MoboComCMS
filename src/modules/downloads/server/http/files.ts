@@ -96,7 +96,7 @@ export async function POST_localize(req: NextRequest) {
     const section = typeof body.section === 'string' ? body.section : 'posts'
     const library = await import('@/modules/media/server/library')
     const actor = await library.libraryActor(req)
-    const copyAsset = async (url: string, kind: 'image' | 'file') => url.startsWith('data:') ? importData(url, admin.id) : (await library.requestTransfer(actor, { url, kind, section, mode: body.mode || 'immediate', runAt: body.runAt }, req)).url
+    const copyAsset = async (url: string, kind: 'image' | 'file') => url.startsWith('data:') ? importData(url, admin.id) : (await library.requestTransfer(actor, { url, kind, section, organization:body.organization&&typeof body.organization==='object'?{...body.organization,video:kind==='file'&&/\.(mp4|webm|mkv|mov)(\?|$)/i.test(url)}:undefined, mode: body.mode || 'immediate', runAt: body.runAt }, req)).url
     if (typeof body.url === 'string') {
       const url = body.url.trim()
       const local = await copyAsset(url, body.kind === 'file' ? 'file' : 'image')

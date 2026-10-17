@@ -7,6 +7,7 @@ import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
 import { normalizeTrustSeals, visibleSeals } from './trust-seals'
 import { hideDisabledModules } from './visibility'
+import { filterSiteMenus } from './menus'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
 export const SITE_KEY = 'site.config.v1'
 export const TRUST_SEALS_KEY = 'site.trust-seals.v1'
@@ -39,17 +40,16 @@ export const getSiteConfig = cache(() => getSiteConfigFrom(db))
 export const getPublicSiteConfig = cache(async () => {
   // Menus, the announcement and home sections that lead into a switched-off module are left out of the public copy.
   const runtime = await getPublicExtensionRuntime().catch(() => ({}))
-  const editable = hideDisabledModules(await getSiteConfig(), runtime)
+  const saved = await getSiteConfig()
+  const editable = hideDisabledModules({ ...saved, footerExplore: saved.footerExplore ?? saved.navigation }, runtime)
   const [publicApiEnabled, seals] = await Promise.all([isPublicApiEnabled(), getTrustSeals()])
   const shown = visibleSeals(seals)
   const trustSeals = shown.length ? { title: seals.title, seals: shown.map(({ id, kind, title, href, image }) => ({ id, kind, title, href, image })) } : undefined
-  const site = { ...editable, publicApiEnabled, trustSeals, navigation: editable.navigation.filter(link => publicApiEnabled || !link.href.startsWith('/dashboard/api')), footer: editable.footer.filter(link => publicApiEnabled || !link.href.startsWith('/dashboard/api')) }
+  const site = { ...filterSiteMenus(editable, link => publicApiEnabled || !link.href.startsWith('/dashboard/api')), publicApiEnabled, trustSeals }
   if (await isStoreEnabled()) return site
   const isShopLink = (link: { href: string }) => /^\/products(?:[/?#]|$)/.test(link.href)
   return {
-    ...site,
-    navigation: site.navigation.filter(link => !isShopLink(link)),
-    footer: site.footer.filter(link => !isShopLink(link)),
+    ...filterSiteMenus(site, link => !isShopLink(link)),
     sections: site.sections.map(section => section.kind === 'products' ? { ...section, enabled: false } : section),
   }
 })

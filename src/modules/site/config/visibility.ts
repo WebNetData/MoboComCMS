@@ -1,5 +1,6 @@
 import { pathDisabled, type ExtensionPublicState } from '@/platform/extensions/contracts'
 import type { LocalText, SiteConfig } from './types'
+import { filterSiteMenus } from './menus'
 
 // What the owner wrote for the site (menus, the announcement bar, the home page's sections) keeps pointing at
 // a module after it is switched off. Nothing stored is changed: the public copy of the config simply leaves
@@ -18,10 +19,8 @@ export function hideDisabledModules<T extends SiteConfig>(site: T, runtime: Runt
   const speaks = (...texts: (LocalText | undefined)[]) => words.length > 0 && texts.some((text) => !!text && Object.values(text).some((value) => typeof value === 'string' && words.some((word) => word.test(value))))
   const announcement = off(site.announcement.link.href) || speaks(site.announcement.text, site.announcement.link.label) ? { ...site.announcement, enabled: false } : site.announcement
   return {
-    ...site,
+    ...filterSiteMenus(site, (link) => !off(link.href) && !speaks(link.label)),
     announcement,
-    navigation: site.navigation.filter((link) => !off(link.href) && !speaks(link.label)),
-    footer: site.footer.filter((link) => !off(link.href) && !speaks(link.label)),
     sections: site.sections.map((section) => {
       // A section that is about the module (its heading says so, or it is a call to action leading there) goes whole.
       if (speaks(section.eyebrow, section.title) || (section.kind === 'cta' && off(section.action.href))) return { ...section, enabled: false }

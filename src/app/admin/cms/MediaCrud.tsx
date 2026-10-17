@@ -16,6 +16,11 @@ import { TRACK_LANGUAGES, playbackKind } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import dynamic from 'next/dynamic'
+import { isTaxonomy } from '@/modules/taxonomy/domain/taxonomy'
+import { termProjectionChange } from '@/modules/taxonomy/domain/projection'
+import { CinemaMetadataLookup } from '@/components/admin/CinemaMetadata'
+import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
+import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -114,6 +119,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
   const [originalStatus, setOriginalStatus] = useState('')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkProgress, setBulkProgress] = useState(0)
+  const sourceLabel=(resource:string,id:unknown)=>(sources[resource]||[]).find(o=>o.value===String(id))?.label||''
+  const assetOrganization:AssetOrganization|undefined=form?{section:type==='cinema-titles'?form.kind==='SERIES'?'series':'film':type.startsWith('music-')?'music':type,title:form.originalTitle||form.titleEn||form.title||form.name,category:String(form.category||form.genres||'').split(/[,،]/)[0],artist:type==='music-artists'?form.nameEn||form.name:sourceLabel('music-artists',form.artistId),album:type==='music-albums'?form.titleEn||form.title:sourceLabel('music-albums',form.albumId),artistImage:type==='music-artists'}:undefined
 
   const load = useCallback(async () => {
     const requestId = ++loadId.current
@@ -315,11 +322,12 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
         <form onSubmit={save} className="card mb-6 mx-form">
           <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
+          {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => { if(!current)return current;const next={...current};for(const [key,value] of Object.entries(values))if(key==='imdbId' || key==='kind' && !editId || replace || !next[key] || Array.isArray(next[key]) && !next[key].length)next[key]=value;return next });setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
           <div className="mx-grid">
             {fields.map((field) => (
               <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}${aiKeys.has(field.key) ? ' is-ai' : ''}`}>
                 {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}{aiKeys.has(field.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>}
-                <FieldInput field={field} value={form[field.key]} onChange={(value) => set(field.key, value)} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} />
+                <OrganizationScope value={assetOrganization?{...assetOrganization,video:field.key==='trailerUrl'}:undefined}><FieldInput field={field} value={form[field.key]} onChange={(value, projected) => { if(projected)setForm(current => current?({ ...current, ...projected, [field.key]: value }):current);else set(field.key,value) }} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} /></OrganizationScope>
                 {field.hint && <small className="muted mx-hint">{field.hint}</small>}
               </div>
             ))}
@@ -388,20 +396,20 @@ function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
   return str.length > 50 ? `${str.slice(0, 50)}…` : str || '—'
 }
 
-function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: { field: MediaField; value: any; onChange: (value: unknown) => void; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string }) {
+function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: { field: MediaField; value: any; onChange: (value: unknown, projected?: Record<string, string>) => void; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string }) {
   switch (field.type) {
     case 'checkbox':
       return <label className="flex items-center gap-2 text-sm mx-check"><input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />{field.label}</label>
     case 'richtext':
       return <RichEditor value={String(value || '')} onChange={(next) => onChange(next)} placeholder={field.placeholder} dir={field.dir || 'rtl'} minHeight={170} assetSection={field.upload || 'general'} />
     case 'textarea':
-      return <textarea className="textarea" rows={5} dir={field.dir} value={value || ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
+      return <textarea className="textarea" aria-label={field.label} rows={5} dir={field.dir} value={value || ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
       return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /></div>
     case 'date': case 'datetime':
-      return <input className="input" dir="ltr" type={field.type === 'date' ? 'date' : 'datetime-local'} value={value || ''} onChange={(e) => onChange(e.target.value)} />
+      return <input className="input" aria-label={field.label} dir="ltr" type={field.type === 'date' ? 'date' : 'datetime-local'} value={value || ''} onChange={(e) => onChange(e.target.value)} />
     case 'links':
       return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} priced={field.upload === 'cinema' || field.upload === 'software' || field.upload === 'games'} />
     case 'records':
@@ -415,18 +423,19 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
     default:
+      if (field.key === 'trailerUrl') return <div className="mx-upload-field"><input className="input" aria-label={field.label} dir="ltr" value={value??''} onChange={e=>onChange(e.target.value)} placeholder={field.placeholder}/><CopyToServer kind="file" section="cinema" url={/\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))?String(value):''} onCopied={onChange}/></div>
       if (field.upload) return <div className="mx-upload-field"><input className="input" dir={field.dir || 'ltr'} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} /><FileUpload section={field.upload} accept={field.accept} onUploaded={(file) => onChange(file.url)} label={fa ? 'بارگذاری از رایانه' : 'Upload'} /><CopyToServer kind="file" section={field.upload} url={String(value || '')} onCopied={onChange} /></div>
-      return <input className="input" dir={field.dir} type={field.type === 'number' ? 'number' : 'text'} step={field.type === 'number' ? 'any' : undefined} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
+      return <input className="input" aria-label={field.label} dir={field.dir} type={field.type === 'number' ? 'number' : 'text'} step={field.type === 'number' ? 'any' : undefined} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
   }
 }
 
 // ------------------------------------------------------------------ nested editors
 
-type TermOption = { id: number; name: string; depth: number; parentId: number | null; count: number }
+type TermOption = { id: number; name: string; slug?: string; facet?: string; depth: number; parentId: number | null; count: number }
 type TermValue = { ids: number[]; primary: number | null }
 
 /** Category tree checkboxes with a “main category” choice (used for URLs and breadcrumbs). */
-export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: TermValue; onChange: (value: TermValue) => void }) {
+export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; value: TermValue; onChange: (value: TermValue, projected?: Record<string, string>) => void }) {
   const [options, setOptions] = useState<TermOption[] | null>(null)
   const [filter, setFilter] = useState('')
   useEffect(() => {
@@ -434,9 +443,10 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
     fetch(`/api/admin/taxonomy?tax=${encodeURIComponent(taxonomy)}&options=1`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { options: [] })).then((d) => alive && setOptions(d.options || [])).catch(() => alive && setOptions([]))
     return () => { alive = false }
   }, [taxonomy])
+  const change = (next: TermValue) => onChange(next, options && isTaxonomy(taxonomy) ? termProjectionChange(taxonomy, options, value, next) : {})
   const toggle = (id: number) => {
     const ids = value.ids.includes(id) ? value.ids.filter((x) => x !== id) : [...value.ids, id]
-    onChange({ ids, primary: ids.includes(value.primary ?? -1) ? value.primary : ids[0] ?? null })
+    change({ ids, primary: ids.includes(value.primary ?? -1) ? value.primary : ids[0] ?? null })
   }
   const manage = <Link href={`/admin/taxonomy?tax=${taxonomy}`} target="_blank" className="text-sm">مدیریت دسته‌ها ↗</Link>
   if (!options) return <p className="muted text-sm">در حال بارگذاری دسته‌ها…</p>
@@ -447,10 +457,10 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
     <ul role="group" aria-label="دسته‌ها">
       {shown.map((o) => <li key={o.id} style={{ paddingInlineStart: `${(filter ? 0 : o.depth - 1) * 18}px` }}>
         <label><input type="checkbox" checked={value.ids.includes(o.id)} onChange={() => toggle(o.id)} />{o.name}</label>
-        {value.ids.includes(o.id) && <button type="button" className={`tx-primary${value.primary === o.id ? ' is-on' : ''}`} aria-pressed={value.primary === o.id} onClick={() => onChange({ ...value, primary: o.id })}>{value.primary === o.id ? '★ دستهٔ اصلی' : '☆ اصلی شود'}</button>}
+        {value.ids.includes(o.id) && <button type="button" className={`tx-primary${value.primary === o.id ? ' is-on' : ''}`} aria-pressed={value.primary === o.id} onClick={() => change({ ...value, primary: o.id })}>{value.primary === o.id ? '★ دستهٔ اصلی' : '☆ اصلی شود'}</button>}
       </li>)}
     </ul>
-    <small className="muted">{value.ids.length ? `${value.ids.length.toLocaleString('fa-IR')} دسته انتخاب شده؛ دستهٔ اصلی در نشانی و مسیر صفحه نمایش داده می‌شود.` : 'حداقل یک دسته انتخاب کنید.'}</small>
+    <small className="muted">{value.ids.length ? `${value.ids.length.toLocaleString('fa-IR')} دسته انتخاب شده؛ دستهٔ اصلی در نشانی و مسیر صفحه نمایش داده می‌شود.` : 'حداقل یک دسته انتخاب کنید.'} فیلدهای مرتبط مثل ژانر از دسته‌های انتخابی پر می‌شوند؛ ارتباط هر شاخه در مدیریت دسته‌ها قابل تنظیم است.</small>
   </div>
 }
 
@@ -527,7 +537,7 @@ function RecordsEditor({ value, keys, onChange, fa }: { value: Record<string, st
     <div className="mx-records">
       {value.map((row, index) => (
         <div key={index} className="mx-record-row">
-          {keys.map((k) => <input key={k.key} className={`input${k.wide ? ' is-wide' : ''}`} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />)}
+          {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}><input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
           <div className="mx-row-tools">
             <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
             <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))}>✕</button>
@@ -543,6 +553,7 @@ type Episode = { number: number | string; title: string; titleEn: string; summar
 type Season = { number: number | string; name: string; poster: string; episodes: Episode[] }
 
 function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (value: Season[]) => void; fa: boolean }) {
+  const organization=useAssetOrganization()
   const [open, setOpen] = useState<string>('')
   const setSeason = (index: number, patch: Partial<Season>) => onChange(value.map((s, i) => (i === index ? { ...s, ...patch } : s)))
   const setEpisode = (si: number, ei: number, patch: Partial<Episode>) => setSeason(si, { episodes: value[si].episodes.map((e, i) => (i === ei ? { ...e, ...patch } : e)) })
@@ -555,6 +566,7 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
             <input className="input" type="number" value={season.number} onChange={(e) => setSeason(si, { number: e.target.value })} aria-label="season number" />
             <input className="input" placeholder={fa ? 'نام فصل (اختیاری)' : 'Season name (optional)'} value={season.name || ''} onChange={(e) => setSeason(si, { name: e.target.value })} />
             <input className="input" dir="ltr" placeholder={fa ? 'پوستر فصل (URL)' : 'Season poster URL'} value={season.poster || ''} onChange={(e) => setSeason(si, { poster: e.target.value })} />
+            <CopyToServer url={season.poster||''} onCopied={poster=>setSeason(si,{poster})}/>
             <button type="button" className="badge badge-red" onClick={() => confirm(fa ? 'این فصل و قسمت‌هایش حذف شود؟' : 'Remove this season and its episodes?') && onChange(value.filter((_, i) => i !== si))}>✕</button>
           </header>
           <div className="mx-episodes">
@@ -577,9 +589,10 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
                         <input className="input" type="number" placeholder={fa ? 'مدت (دقیقه)' : 'Runtime (min)'} value={episode.runtime ?? ''} onChange={(e) => setEpisode(si, ei, { runtime: e.target.value })} />
                         <input className="input" type="date" dir="ltr" value={episode.airDate || ''} onChange={(e) => setEpisode(si, ei, { airDate: e.target.value })} />
                         <input className="input" dir="ltr" placeholder={fa ? 'تصویر قسمت (URL)' : 'Still image URL'} value={episode.still || ''} onChange={(e) => setEpisode(si, ei, { still: e.target.value })} />
+                        <CopyToServer url={episode.still||''} onCopied={still=>setEpisode(si,ei,{still})}/>
                       </div>
-                      <textarea className="textarea mt-2" rows={2} placeholder={fa ? 'خلاصه قسمت' : 'Episode summary'} value={episode.summary || ''} onChange={(e) => setEpisode(si, ei, { summary: e.target.value })} />
-                      <LinksEditor compact value={episode.links || []} onChange={(links) => setEpisode(si, ei, { links })} fa={fa} section="cinema" />
+                      <div className="mt-2"><p className="text-sm">{fa ? 'خلاصه قسمت' : 'Episode summary'}</p><RichEditor value={episode.summary || ''} onChange={summary => setEpisode(si, ei, { summary })} placeholder={fa ? 'خلاصه قسمت' : 'Episode summary'} compact minHeight={120} assetSection="cinema" /></div>
+                      <OrganizationScope value={organization?{...organization,section:'series',season:Number(season.number)}:undefined}><LinksEditor compact value={episode.links || []} onChange={(links) => setEpisode(si, ei, { links })} fa={fa} section="cinema" /></OrganizationScope>
                     </div>
                   )}
                 </div>

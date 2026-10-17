@@ -2,6 +2,7 @@
 
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
+import { localizeMenu, ThemeNavigationBranch, ThemeNavigationIcon, type PublicMenuLink } from '@/themes/sdk/client'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { DefaultThemeFooter, ThemeLangControls, ThemePluginOutlet, ThemeSiteSearch, ThemeWordmark, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeClientModule, ThemeFooterProps, ThemeHeaderProps } from '@/themes/types'
@@ -20,7 +21,8 @@ function Brand({ footer = false }: { footer?: boolean }) {
   </Link>
 }
 
-type NavLink = { href: string; label: string }
+type NavLink = PublicMenuLink
+const EntryIcon = ({ link, size = 17 }: { link: NavLink; size?: number }) => link.icon === undefined ? <Icon name={navIcon(link.href)} size={size}/> : <ThemeNavigationIcon name={link.icon} size={size}/>
 
 // The icon of a section, from the first part of its address.
 const NAV_ICONS: Record<string, string> = {
@@ -84,13 +86,13 @@ function PriorityNav({ links, isOn, label, more }: { links: NavLink[]; isOn: (hr
     if (item && rail.current?.contains(item)) setGlide({ x: item.offsetLeft, width: item.offsetWidth })
   }
   return <nav ref={nav} className="mb-nav" aria-label={label}>
-    <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.href}><Icon name={navIcon(link.href)} size={17}/>{link.label}</span>)}</div>
+    <div ref={measure} className="mb-nav-measure" aria-hidden="true">{links.map(link => <span key={link.id || link.href}><EntryIcon link={link}/>{link.label}{!!link.children?.length && <b style={{ display: 'inline-block', width: 34 }} aria-hidden="true">⌄</b>}</span>)}</div>
     <div ref={rail} className="mb-nav-rail" onMouseOver={event => glideTo(event.target)} onFocus={event => glideTo(event.target)} onMouseLeave={() => setGlide(null)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setGlide(null) }}>
       <span className="mb-nav-glider" aria-hidden="true" data-on={glide ? '' : undefined} style={glide ? { width: glide.width, transform: `translateX(${glide.x}px)` } : undefined}/>
-      {links.slice(0, visible).map(link => <Link key={link.href} href={link.href} data-nav-item="" aria-current={isOn(link.href) ? 'page' : undefined}><Icon name={navIcon(link.href)} size={17}/><span>{link.label}</span></Link>)}
+      {links.slice(0, visible).map(link => <ThemeNavigationBranch key={link.id || link.href} link={link}><Link className="mb-nav-entry" href={link.href} data-nav-item="" aria-current={isOn(link.href) ? 'page' : undefined}><EntryIcon link={link}/><span>{link.label}</span></Link></ThemeNavigationBranch>)}
       {overflow.length > 0 && <div className="mb-nav-more">
         <button type="button" data-nav-item="" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(value => !value)} className={overflow.some(link => isOn(link.href)) ? 'is-active' : ''}><Icon name="grid" size={17}/><span>{more}</span><Icon name="chevron" size={14}/></button>
-        {open && <div className="mb-nav-dropdown mb-pop" role="menu">{overflow.map(link => <Link key={link.href} href={link.href} role="menuitem" aria-current={isOn(link.href) ? 'page' : undefined}><i><Icon name={navIcon(link.href)} size={17}/></i>{link.label}</Link>)}</div>}
+        {open && <div className="mb-nav-dropdown mb-pop">{overflow.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link}/></i>{link.label}</Link></ThemeNavigationBranch>)}</div>}
       </div>}
     </div>
   </nav>
@@ -142,8 +144,8 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
   const drawer = useRef<HTMLDivElement>(null)
   const L = (fa: string, en: string) => site.copy?.[en]?.[locale] || (locale === 'fa' ? fa : en)
   const links = useMemo(() => {
-    const items = [...site.navigation.map(item => ({ href: item.href, label: tx(item.label, locale) })), ...(navPages || []).map(page => ({ href: `/p/${page.slug}`, label: locale === 'fa' ? page.title : page.titleEn || page.title }))]
-    return items.filter((item, index) => items.findIndex(other => other.href === item.href) === index)
+    const items: PublicMenuLink[] = [...localizeMenu(site.navigation, locale), ...(navPages || []).map(page => ({ href: `/p/${page.slug}`, label: locale === 'fa' ? page.title : page.titleEn || page.title }))]
+    return items.filter((item, index) => !!item.id || items.findIndex(other => other.href === item.href) === index)
   }, [locale, navPages, site.navigation])
   const isOn = (href: string) => !href.includes('#') && (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
   useEffect(() => { setOpen(false) }, [pathname])
@@ -199,7 +201,7 @@ function MobocomHeader({ theme, navPages, breadcrumbs }: ThemeHeaderProps) {
       <button type="button" className="mb-drawer-shade" aria-label={L('بستن منو', 'Close menu')} onClick={() => setOpen(false)}/>
       <div ref={drawer} id="mb-mobile-nav" className="mb-drawer" role="dialog" aria-modal="true" aria-label={L('منوی سایت', 'Site menu')}>
         <div className="mb-drawer-head"><Brand/><button type="button" className="mb-menu-button" onClick={() => setOpen(false)} aria-label={L('بستن منو', 'Close menu')}><Icon name="close" size={20}/></button></div>
-        <nav className="mb-drawer-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><Icon name={navIcon(link.href)} size={20}/></i><span>{link.label}</span></Link>)}</nav>
+        <nav className="mb-drawer-nav" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined}><i><EntryIcon link={link} size={20}/></i><span>{link.label}</span></Link></ThemeNavigationBranch>)}</nav>
         <div className="mb-drawer-foot">
           {user
             ? <><Link href="/dashboard" className="mb-drawer-cta"><Icon name="grid" size={18}/>{L('پیشخوان من', 'My dashboard')}</Link><button type="button" className="mb-drawer-out" onClick={() => themeSignOut({ callbackUrl: '/' })}><Icon name="logout" size={18}/>{L('خروج', 'Log out')}</button></>

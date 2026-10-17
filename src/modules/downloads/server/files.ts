@@ -183,9 +183,9 @@ export async function fetchRemoteBytes(raw: string, maxBytes: number): Promise<U
 export async function importImage(raw: string): Promise<string> {
   return (await (await import('@/modules/imports/server/media')).importImage(raw)).url
 }
-export async function importFile(raw: string, section = 'posts', options: { maxBytes?: number; timeoutMs?: number; checkpoint?: () => Promise<void>; canonical?: boolean } = {}): Promise<string> {
+export async function importFile(raw: string, section = 'posts', options: { maxBytes?: number; timeoutMs?: number; checkpoint?: () => Promise<void>; canonical?: boolean; destination?: string } = {}): Promise<string> {
   const name = cleanFileName(fileNameOf(raw, 'file'))
-  const dir = path.join(filesRoot(), 'uploads', SECTIONS.has(section) ? section : 'posts', month())
+  const dir = options.destination ? await (await import('./organization')).organizedDirectory(filesRoot(), options.destination) : path.join(filesRoot(), 'uploads', SECTIONS.has(section) ? section : 'posts', month())
   await fs.mkdir(dir, { recursive: true }); await fs.mkdir(incoming(), { recursive: true })
   const temp = path.join(incoming(), `imp-${randomBytes(12).toString('hex')}`)
   // Unique immutable storage key: logical renaming in the library never changes URLs.
@@ -193,9 +193,15 @@ export async function importFile(raw: string, section = 'posts', options: { maxB
   try {
     await (await import('./remote')).streamPublicFile(raw, createWriteStream(temp, { flags: 'wx', mode: 0o600 }), { ...options, maxBytes: Math.min(options.maxBytes || 512 * 1024 ** 2, MAX_UPLOAD(), 4 * 1024 ** 3) })
     await options.checkpoint?.()
+    if(options.destination)await (await import('./organization')).organizedDirectory(filesRoot(),options.destination)
     await fs.rename(temp, target); await fs.chmod(target, 0o644)
   } finally { await fs.rm(temp, { force: true }) }
-  return options.canonical ? `/files/${relativeOf(target).split('/').map(encodeURIComponent).join('/')}` : publicFileUrl(relativeOf(target))
+  const relative=options.destination ? `${options.destination}/${path.basename(target)}` : relativeOf(target)
+  return options.canonical ? `/files/${relative.split('/').map(encodeURIComponent).join('/')}` : publicFileUrl(relative)
+}
+
+export async function organizeCoverImage(url: string, destination: string, checkpoint?:()=>Promise<void>) {
+  return (await import('./organization')).copyOrganizedCover(filesRoot(),url,destination,checkpoint)
 }
 
 export function logImportFailure(url: string, error: unknown) {

@@ -1926,3 +1926,7 @@ html[data-design="mobocom"]:has(.mm-bar-wrap) .jp-rail { inset-block-start: 176p
 
 /* Match the light magazine canvas without changing the cinematic cover treatment. */
 html[data-theme="light"] .journal-post { background: var(--card); }
+
+.journal-prose .journal-article-summary { margin-block: 0 28px; padding: 20px 24px; border: 1px solid var(--border); border-inline-start: 4px solid var(--primary); border-radius: 16px; background: color-mix(in srgb, var(--primary) 5%, var(--card)); overflow-wrap: anywhere; }
+.journal-article-summary > b { display: block; margin-block-end: 8px; color: var(--primary); font-size: .85em; }
+.journal-article-summary > div { font-size: .95em; line-height: 2.1; }

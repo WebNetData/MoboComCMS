@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { CALENDAR_PAGE, calendarPage, groupByDay, groupDays, normalizeWhen, type CalendarEpisode, type CalendarFilm } from '@/modules/cinema/domain/calendar'
 import { parseJsonList, splitList } from '@/modules/media/domain/media'
 import { plainText } from '@/shared/text/plain'
+import { renderEditorialText } from '@/shared/content/sanitize'
 import { relatedCinema } from '@/modules/recommendations/server/contextual'
 import { allOrEmpty } from '@/modules/media/server/queries/music'
 import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
@@ -103,13 +104,13 @@ export async function getTitle(slug: string) {
   const similarById = new Map(similarRows.map((item) => [item.id, item]))
   return {
     title: {
-      ...toTitle(row), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
+      ...toTitle(row), summaryHtml: renderEditorialText(row.summary), summaryEnHtml: renderEditorialText(row.summaryEn), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
       cast: parseJsonList<{ name: string; role?: string; image?: string }>(row.cast), trailerUrl: row.trailerUrl, seriesStatus: row.seriesStatus, views: row.views, publishedAt: row.publishedAt,
     },
     links: titleLinks.get(row.id) || [],
     seasons: row.seasons.map((season) => ({
       id: season.id, number: season.number, name: season.name, poster: season.poster,
-      episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
+      episodes: season.episodes.map((episode) => ({ id: episode.id, number: episode.number, title: episode.title, titleEn: episode.titleEn, summary: plainText(episode.summary), summaryHtml: renderEditorialText(episode.summary), still: episode.still, runtime: episode.runtime, airDate: episode.airDate, access: episode.access, links: episodeLinks.get(episode.id) || [] })),
     })),
     similar: recommendations.flatMap((result) => { const item = similarById.get(result.item.id); return item ? [{ ...toTitle(item), recommendationReason: result.reason }] : [] }),
   }

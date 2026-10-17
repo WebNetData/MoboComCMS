@@ -1,17 +1,22 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useAssetOrganization } from './OrganizationScope'
 export default function ContentTransfer({ getHtml, apply, section = 'posts' }: { getHtml: () => string; apply: (map: Map<string, string>) => void; section?: string }) {
   const [mode, setMode] = useState('immediate'), [at, setAt] = useState(''), [busy, setBusy] = useState(false), [message, setMessage] = useState('')
-  const current = useRef({ getHtml, apply })
-  useEffect(() => { current.current = { getHtml, apply } }, [getHtml, apply])
+  const organization=useAssetOrganization()
+  const current = useRef({ getHtml, apply, organization })
+  useEffect(() => { current.current = { getHtml, apply, organization } }, [getHtml, apply, organization])
   async function copy() {
     if (mode === 'scheduled' && !at) { setMessage('زمان انتقال را مشخص کنید'); return }
     setBusy(true); setMessage('')
+    const original=current.current.getHtml(), context=JSON.stringify(organization)
     try {
-      const response = await fetch('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: current.current.getHtml(), section, mode, ...(mode === 'scheduled' ? { runAt: new Date(at).toISOString() } : {}) }) })
+      const response = await fetch('/api/admin/content/localize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ html: original, section, organization, mode, ...(mode === 'scheduled' ? { runAt: new Date(at).toISOString() } : {}) }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'انتقال انجام نشد')
-      current.current.apply(new Map(result.replacements || []))
+      if(context!==JSON.stringify(current.current.organization))throw new Error('محتوا تغییر کرده؛ فایل‌ها در کتابخانه باقی می‌مانند و لینک این مطلب عوض نشد')
+      const replacements=new Map<string,string>(result.replacements || [])
+      current.current.apply(replacements)
       setMessage(`${result.copied || 0} مورد ${mode === 'immediate' ? 'منتقل شد' : 'برای انتقال ثبت شد'}${result.failed?.length ? `؛ ${result.failed.length} مورد منتقل نشد و لینک اصلی آن حفظ شد` : ''}. برای اعمال لینک‌ها، مطلب را ذخیره کنید.`)
     } catch (e) { setMessage(e instanceof Error ? e.message : 'انتقال انجام نشد') } finally { setBusy(false) }
   }

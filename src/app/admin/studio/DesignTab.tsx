@@ -4,6 +4,8 @@ import Link from '@/components/AppLink'
 import CoverField from '../cms/CoverField'
 import { defaultSiteFonts, local, type SiteConfig, type ThemeColors, type ThemeManifest } from '@/modules/site/config/types'
 import { TextEditor, LinkEditor } from './fields'
+import MenuTreeEditor from '@/components/admin/MenuTreeEditor'
+import { identifyMenu, DEFAULT_FOOTER_ACCOUNT } from '@/modules/site/config/menus'
 
 const COLOR_LABELS: Record<string, string> = { background: 'پس‌زمینه', surface: 'کارت‌ها', accent: 'رنگ اصلی', text: 'متن', muted: 'متن فرعی', border: 'خطوط' }
 const COLOR_KEYS = ['background', 'surface', 'accent', 'text', 'muted', 'border'] as const
@@ -98,7 +100,10 @@ export default function DesignTab({ config, themes, change, setUploading, export
       </section>
 
       <section className="card studio-editor">
-        {(['navigation', 'footer'] as const).map(group => <div key={group}><h2 className="mb-4">{group === 'navigation' ? 'منوی اصلی (هِدِر)' : 'لینک‌های پشتیبانی در فوتر'}</h2>{config[group].map((link, i) => <div className="studio-item" key={i}><LinkEditor value={link} onChange={v => change({ ...config, [group]: config[group].map((old, j) => i === j ? v : old) })} /><div className="studio-actions"><button className="btn btn-ghost" disabled={i === 0} onClick={() => { const values = [...config[group]]; [values[i], values[i - 1]] = [values[i - 1], values[i]]; change({ ...config, [group]: values }) }}>انتقال به بالا ↑</button><button className="btn btn-ghost" onClick={() => change({ ...config, [group]: config[group].filter((_, j) => i !== j) })}>حذف لینک</button></div></div>)}<button className="btn btn-ghost mb-6" onClick={() => change({ ...config, [group]: [...config[group], { label: local('لینک جدید', 'New link'), href: '/' }] })}>+ افزودن لینک</button></div>)}
+        {(['navigation', 'footer'] as const).map(group => <div key={group}><h2 className="mb-4">{group === 'navigation' ? 'منوی اصلی (هدر و ناوبری)' : 'لینک‌های پشتیبانی در فوتر'}</h2><p className="studio-help">لینک، زیرمنو، ترتیب، نمایش و آیکن را تنظیم کنید. پنهان‌کردن یک لینک، زیرمنوهایش را هم پنهان می‌کند. صفحات خودکار از بخش مدیریت صفحه‌ها کنترل می‌شوند.</p><MenuTreeEditor value={config[group]} onChange={items => change({ ...config, [group]: items })} /></div>)}
+        {(['footerExplore', 'footerAccount'] as const).map(group => <div key={group}><h2 className="mb-4">{group === 'footerExplore' ? 'فهرست دنیای موبوکام در فوتر' : 'فهرست فضای شخصی در فوتر'}</h2><label className="studio-switch mb-4"><input type="checkbox" checked={config[group] !== undefined} onChange={event => change({ ...config, [group]: event.target.checked ? identifyMenu(structuredClone(group === 'footerExplore' ? config.navigation : DEFAULT_FOOTER_ACCOUNT)) : undefined })} />فهرست مستقل (بدون تغییر منوی هدر)</label>{config[group] !== undefined && <MenuTreeEditor value={config[group]!} onChange={items => change({ ...config, [group]: items })} />}</div>)}
+        <label className="studio-switch mb-4"><input type="checkbox" checked={config.automaticPageLinks !== false} onChange={event => change({ ...config, automaticPageLinks: event.target.checked })} />افزودن خودکار صفحات منتشرشده‌ای که نمایش در منو دارند</label>
+        <Link href="/admin/mega-menu" className="text-link">مدیریت منو و دسته‌بندی بخش‌ها</Link>
       </section>
 
       <section className="card studio-editor">

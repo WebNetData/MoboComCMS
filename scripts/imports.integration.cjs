@@ -4,6 +4,8 @@
         node --env-file=.env scripts/imports.integration.cjs */
 const assert = require('node:assert/strict')
 const http = require('node:http')
+const fs = require('node:fs/promises')
+const path = require('node:path')
 const { PrismaClient } = require('@prisma/client')
 const { encode } = require('next-auth/jwt')
 const sharp = require('sharp')
@@ -90,17 +92,20 @@ const allMessages = (rs) => rs.flatMap((r) => r.messages.map((x) => x.text)).joi
 
 let images
 async function imageServer() {
+  const hits = new Map()
   const png = (color) => sharp({ create: { width: 64, height: 64, channels: 3, background: color } }).png().toBuffer()
   const files = { '/p.png': await png('#3355ff'), '/orange.png': await png('#ff8800'), '/white.png': await png('#f5f5f5'), '/black.png': await png('#111111') }
   const server = http.createServer((req, res) => {
     const path = req.url.split('?')[0]
+    hits.set(path, (hits.get(path) || 0) + 1)
     if (files[path]) { res.writeHead(200, { 'content-type': 'image/png' }); return res.end(files[path]) }
     if (path === '/fake.png') { res.writeHead(200, { 'content-type': 'image/png' }); return res.end('<?php echo "not an image"; ?>') }
     if (path === '/to-metadata.png') { res.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data/' }); return res.end() }
     res.writeHead(404); res.end()
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-  return { server, url: (p) => `http://127.0.0.1:${server.address().port}${p}` }
+  const origin = `http://127.0.0.1:${server.address().port}`
+  return { server, hits, url: (p) => origin + p }
 }
 
 // ------------------------------------------------------------------ fixtures
@@ -141,7 +146,7 @@ const STORE_SETTINGS = (extra = {}) => ({
   existing: extra.existing || 'skip',
   policies: extra.policies || {},
   variantPolicies: extra.variantPolicies || {},
-  options: { productType: 'PHYSICAL', groupMode: 'category', currency: 'IRT', ...(extra.options || {}) },
+  options: { productType: 'PHYSICAL', groupMode: 'category', currency: 'IRT', copyAssets: false, ...(extra.options || {}) },
 })
 const COLORS = ['Orange', 'White'], STORAGES = ['128GB', '256GB']
 function product(i, extra = {}) {
@@ -183,7 +188,8 @@ async function security(admin) {
 
 async function variable100() {
   const file = Array.from({ length: 100 }, (_x, i) => product(i))
-  const { id, dry } = await importFile('store', `${m}-100.json`, file, STORE_SETTINGS(), { start: false })
+  const settings = STORE_SETTINGS({ options: { copyAssets: true, mediaTransferMode: 'immediate' } })
+  const { id, dry } = await importFile('store', `${m}-100.json`, file, settings, { start: false })
   assert.equal(dry.total, 100); assert.equal(dry.invalid, 0, JSON.stringify(dry.problems.slice(0, 3)))
   assert.equal(dry.actions.CREATE, 100)
   assert.equal(dry.counters.variantsCreated, 400)
@@ -194,7 +200,7 @@ async function variable100() {
   assert.equal(await db.productBrand.count({ where: { name: { startsWith: `Brand ${m}` } } }), 0)
   assert.equal(await db.product.count({ where: { name: { startsWith: `iPhone ${m} #` } } }), 0)
   assert.equal(await db.productAttributeGroup.count({ where: { name: { contains: m } } }), 2)
-  ok(await call({ op: 'start', id, settings: STORE_SETTINGS() }), 'start')
+  ok(await call({ op: 'start', id, settings }), 'start')
   const job = await waitJob(id)
   assert.equal(job.status, 'DONE', JSON.stringify(job.stats))
   assert.equal(job.stats.created, 100)
@@ -215,27 +221,33 @@ async function variable100() {
   assert.equal(v.priceMinor, 12_007_000n); assert.equal(v.stock, 5)
   assert.equal(sample.priceMinor, 10_007_000n, 'a new variable product without a base price takes its lowest variant price')
   assert.equal(await db.productVariant.count({ where: { sku: { startsWith: `${M}-P` } } }), 400)
-  // images: through the site store, one file per distinct picture
-  assert.match(sample.image, /^\/api\/media\/covers\/[0-9a-f-]{36}\.webp$/)
-  assert.equal(new Set(products.map((p) => p.image)).size, 1, 'the same remote image is stored once')
-  assert.match(v.image, /^\/api\/media\/covers\//)
-  assert.equal(new Set(products.flatMap((p) => p.variants.map((x) => x.image))).size, 2, 'orange and white variant pictures')
-  // 100 product images + 400 variant images, each resolved once per product/variant; identical content is stored once.
+  // Each product owns its requested directory; a repeated picture in that directory is reused.
+  for (const p of products) {
+    assert.match(p.image, /^\/files\/download\/Products\/.+\/images\/[0-9a-f-]{36}\.webp$/)
+    assert.ok(decodeURIComponent(p.image).includes(`/${p.name}/images/`))
+    assert.equal(new Set(p.variants.map(x => x.image)).size, 2, 'the two storage options reuse their color picture')
+  }
+  assert.equal(new Set(products.map((p) => p.image)).size, 100, 'one organized cover per product directory')
+  assert.match(v.image, /^\/files\/download\/Products\//)
+  assert.equal(new Set(products.flatMap((p) => p.variants.map((x) => x.image))).size, 200)
+  // Safe image intake caches the three distinct remote sources across all organized copies.
   assert.equal((job.stats.imagesDownloaded || 0) + (job.stats.imagesReused || 0), 500, JSON.stringify(job.stats))
   assert.ok((job.stats.imagesDownloaded || 0) <= 3, 'at most one download per distinct remote address')
   assert.ok(!job.stats.imagesFailed)
+  for (const source of ['/p.png', '/orange.png', '/white.png']) assert.equal(images.hits.get(source), 1, source+' is fetched once')
   // external ids are kept per source
   assert.equal(await db.importExternalRef.count({ where: { source: `supplier-${m}`, entityType: 'store.product' } }), 100)
   assert.equal(await db.importExternalRef.count({ where: { source: `supplier-${m}`, entityType: 'store.variant' } }), 400)
   pass('100 variable products: categories, brands, inherited group, attributes, variants, prices, stock, images')
 
   // Same file again, existing records updated: nothing is duplicated.
-  const again = await importFile('store', `${m}-100b.json`, file, STORE_SETTINGS({ existing: 'update' }))
+  const again = await importFile('store', `${m}-100b.json`, file, STORE_SETTINGS({ existing: 'update', options: { copyAssets: true } }))
   assert.equal(again.dry.actions.UPDATE, 100)
   assert.ok(['DONE', 'DONE_WITH_ERRORS'].includes(again.job.status))
   assert.equal(await db.product.count({ where: { name: { startsWith: `iPhone ${m} #` } } }), 100)
   assert.equal(await db.productVariant.count({ where: { sku: { startsWith: `${M}-P` } } }), 400)
   assert.equal(await db.productBrand.count({ where: { name: { startsWith: `Brand ${m}` } } }), 5)
+  assert.equal((await db.product.findUniqueOrThrow({ where: { id: sample.id } })).image, sample.image, 'reimport reuses the stable organized URL')
   pass('same import twice: no duplicate products, variants or brands')
   return id
 }
@@ -376,15 +388,20 @@ async function magazineCinemaMusic() {
   r = await importFile('movies', `${m}-movies.json`, [{ id: `${m}-mv`, title: `Film ${m}`, imdb: 'tt9990001', year: 2024 }], { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title', imdbId: 'imdb', year: 'year' } })
   const movie = await db.cinemaTitle.findFirst({ where: { title: `Film ${m}` } })
   assert.equal(movie.kind, 'MOVIE')
-  const seriesFile = [{ id: `${m}-sr`, title: `Series ${m}`, episodes: [{ season: 1, episode: 1, title: 'Pilot' }, { season: 1, episode: 2, title: 'Two' }, { season: 2, episode: 1, title: 'Back' }] }]
-  const seriesSettings = { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title' }, variants: { mode: 'nested', source: 'episodes', groupBy: '' }, variantMapping: { season: 'episodes[].season', episode: 'episodes[].episode', title: 'episodes[].title' } }
+  const episodeUrl=`https://cdn.example.invalid/${m}/pilot.mkv`
+  const seriesFile = [{ id: `${m}-sr`, title: `Series ${m}`, episodes: [{ season: 1, episode: 1, title: 'Pilot',summary:'<p><strong>Episode story</strong></p><script>bad()</script>',links:[{url:episodeUrl,quality:'1080p'}] }, { season: 1, episode: 2, title: 'Two' }, { season: 2, episode: 1, title: 'Back' }] }]
+  const seriesSettings = { source: `imdb-${m}`, options:{copyAssets:false}, mapping: { externalId: 'id', title: 'title' }, variants: { mode: 'nested', source: 'episodes', groupBy: '' }, variantMapping: { season: 'episodes[].season', episode: 'episodes[].episode', title: 'episodes[].title',summary:'episodes[].summary',links:'episodes[].links' } }
   r = await importFile('series', `${m}-series.json`, seriesFile, seriesSettings)
   const series = await db.cinemaTitle.findFirst({ where: { title: `Series ${m}` }, include: { seasons: { include: { episodes: true } } } })
   assert.equal(series.kind, 'SERIES')
   assert.equal(series.seasons.length, 2); assert.equal(series.seasons.flatMap((s) => s.episodes).length, 3)
+  const pilot=series.seasons.find(s=>s.number===1).episodes.find(e=>e.number===1)
+  assert.match(pilot.summary,/<strong>/);assert.doesNotMatch(pilot.summary,/<script/)
+  assert.equal((await db.mediaLink.findFirstOrThrow({where:{ownerType:'episode',ownerId:pilot.id}})).url,episodeUrl,'unchecked copy keeps the external episode file')
   r = await importFile('series', `${m}-series2.json`, seriesFile, { ...seriesSettings, existing: 'update' })
   const again = await db.cinemaSeason.findMany({ where: { titleId: series.id }, include: { episodes: true } })
   assert.equal(again.length, 2); assert.equal(again.flatMap((s) => s.episodes).length, 3)
+  assert.equal(await db.mediaLink.count({where:{ownerType:'episode',ownerId:pilot.id,url:episodeUrl}}),1,'re-import keeps one episode link')
   pass('movie and series on CinemaTitle (MOVIE/SERIES) with CinemaSeason/CinemaEpisode, no duplicates')
 
   // Music: artist → album → track, each artist and album once
@@ -404,7 +421,7 @@ async function mediaFailures() {
     product(501, { id: `${m}-p501`, title: `iPhone ${m} ssrf-image`, image: images.url('/to-metadata.png'), variants: product(501).variants.slice(0, 1) }),
     product(502, { id: `${m}-p502`, title: `iPhone ${m} metadata`, image: 'http://169.254.169.254/latest/meta-data/iam', variants: product(502).variants.slice(0, 1) }),
   ]
-  const r = await importFile('store', `${m}-badimg.json`, bad, STORE_SETTINGS())
+  const r = await importFile('store', `${m}-badimg.json`, bad, STORE_SETTINGS({ options: { copyAssets: true } }))
   assert.equal(r.job.status, 'DONE', 'a broken image never fails the record')
   assert.equal(r.job.stats.created, 3)
   assert.ok(r.job.stats.imagesFailed >= 3)
@@ -414,7 +431,25 @@ async function mediaFailures() {
   assert.match(allMessages(rs), /داخلی|رزرو/)
   const rows = await db.product.findMany({ where: { name: { in: bad.map((b) => b.title) } } })
   assert.ok(rows.every((p) => !p.image.includes('169.254') && !p.image.includes('fake')))
+  const previous=await db.product.findFirstOrThrow({where:{name:`iPhone ${m} #7`}}),gallery=JSON.stringify(['https://images.example.test/previous.jpg'])
+  await db.product.update({where:{id:previous.id},data:{gallery}})
+  const update=await importFile('store',`${m}-invalid-replacement.json`,[product(7,{image:images.url('/fake.png'),gallery:[images.url('/fake.png')]})],STORE_SETTINGS({existing:'update',mapping:{gallery:'gallery'},options:{copyAssets:true}}))
+  assert.equal(update.job.status,'DONE');const retained=await db.product.findUniqueOrThrow({where:{id:previous.id}})
+  assert.equal(retained.image,previous.image,'an invalid replacement never erases the prior cover');assert.equal(retained.gallery,gallery,'a wholly invalid replacement gallery preserves the old gallery')
   pass('media: invalid image, redirect to metadata and metadata URL are refused without failing the record')
+}
+
+async function mediaOptOut() {
+  const item=product(503,{id:`${m}-external`,title:`iPhone ${m} external-only`,image:images.url('/unchecked.png'),variants:product(503).variants.slice(0,1)})
+  item.variants[0].image=images.url('/unchecked-variant.png')
+  const before=[...images.hits]
+  const r=await importFile('store',`${m}-external.json`,[item],STORE_SETTINGS({options:{copyAssets:false}}))
+  assert.equal(r.job.status,'DONE')
+  const row=await db.product.findFirstOrThrow({where:{name:item.title},include:{variants:true}})
+  assert.equal(row.image,item.image);assert.equal(row.variants[0].image,item.variants[0].image)
+  assert.deepEqual([...images.hits],before,'unchecked product/variant media never hits the image server')
+  assert.equal(await db.mediaTransfer.count({where:{actorId:fx.adminId,sourceUrl:{in:[item.image,item.variants[0].image]}}}),0)
+  pass('explicit media opt-out preserves external product/variant URLs without fetching or queuing')
 }
 
 async function jobsControl() {
@@ -482,6 +517,17 @@ async function cleanup(admin) {
   await db.musicArtist.deleteMany({ where: { name: byMarker } }) // albums and tracks cascade
   await db.importExternalRef.deleteMany({ where: { source: { contains: m } } })
   await db.importJob.deleteMany({ where: { fileName: byMarker } })
+  // Only this owned test actor's organized files are removed; shared source-image cache bytes stay.
+  const transfers=await db.mediaTransfer.findMany({where:{actorId:admin.id},select:{id:true,jobId:true}})
+  const assets=await db.mediaAsset.findMany({where:{createdById:admin.id,storage:'downloads',key:{contains:m}},select:{id:true,key:true}})
+  await db.mediaTransfer.deleteMany({where:{actorId:admin.id}})
+  await db.backgroundJob.deleteMany({where:{id:{in:transfers.map(x=>x.jobId).filter(Boolean)}}})
+  await db.mediaAsset.deleteMany({where:{id:{in:assets.map(x=>x.id)}}})
+  for(let n=0;n<8;n++)await db.mediaFolder.deleteMany({where:{createdById:admin.id,assets:{none:{}},transfers:{none:{}},children:{none:{}}}})
+  const root=path.resolve(process.env.DOWNLOADS_ROOT||path.join(process.cwd(),'storage','downloads'))
+  for(const asset of assets){const target=path.resolve(root,asset.key);assert.ok(target.startsWith(root+path.sep) && asset.key.split('/').some(s=>s.includes(m)),'owned test download only');await fs.unlink(target).catch(error=>{if(error.code!=='ENOENT')throw error})}
+  await db.importMedia.deleteMany({where:{sourceUrl:{startsWith:images.url('/')}}})
+  await db.auditLog.deleteMany({where:{actorUserId:admin.id}})
   if (fx.staff) await db.user.delete({ where: { id: fx.staff.id } }).catch(() => undefined)
   if (fx.role) await db.role.delete({ where: { id: fx.role.id } }).catch(() => undefined)
   void admin
@@ -489,6 +535,7 @@ async function cleanup(admin) {
 
 async function main() {
   const admin = await db.user.create({ data: { email: `${m}-admin@example.invalid`, passwordHash: 'integration-only', role: 'ADMIN', totpEnabledAt: new Date() } })
+  fx.adminId=admin.id
   cookie = await session(admin, null)
   images = await imageServer()
   try {
@@ -496,6 +543,7 @@ async function main() {
       await fixtures()
       await security(admin)
       await variable100()
+      await mediaOptOut()
       await attributesAndOptions()
       await variantPolicies()
       await flatFile()

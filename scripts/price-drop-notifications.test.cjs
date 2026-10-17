@@ -1,9 +1,15 @@
 const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
-function load(relative, mocks = {}) {
-  const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '..', relative), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, mod = { exports: {} }
+function load(relative, mocks = {}, cache = new Map()) {
+  const absolute = path.resolve(__dirname, '..', relative)
+  if (cache.has(absolute)) return cache.get(absolute).exports
+  const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, mod = { exports: {} }
+  cache.set(absolute, mod)
   new Function('require', 'module', 'exports', code)(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name]
-    if (name.startsWith('@/')) for (const suffix of ['.ts', '/index.ts']) { const file = `src/${name.slice(2)}${suffix}`; if (fs.existsSync(path.join(__dirname, '..', file))) return load(file, mocks) }
+    if (name.startsWith('@/') || name.startsWith('.')) {
+      const base = name.startsWith('@/') ? path.resolve(__dirname, '../src', name.slice(2)) : path.resolve(path.dirname(absolute), name)
+      for (const suffix of ['.ts', '/index.ts']) if (fs.existsSync(base + suffix)) return load(base + suffix, mocks, cache)
+    }
     return require(name)
   }, mod, mod.exports)
   return mod.exports

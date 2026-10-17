@@ -2,6 +2,7 @@
 
 import Link from '@/platform/routing/Link'
 import { usePathname } from '@/platform/routing/navigation'
+import { localizeMenu, ThemeNavigationBranch, ThemeNavigationIcon, type PublicMenuLink } from '@/themes/sdk/client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ThemeWordmark, ThemeLangControls, ThemePluginOutlet, themeSignOut, useThemeI18n, useThemeSession, useThemeSite } from '@/themes/sdk/client'
 import type { ThemeHeaderProps } from '@/themes/types'
@@ -26,8 +27,8 @@ export default function OrbitalHeader({ theme, navPages, breadcrumbs }: ThemeHea
   const mobileNav = useRef<HTMLElement>(null)
   const L = (fa: string, en: string) => site.copy?.[en]?.[locale] || (locale === 'fa' ? fa : en)
   const links = useMemo(() => {
-    const items = [...site.navigation.map(item => ({ href: item.href, label: tx(item.label, locale) })), ...(navPages || []).map(page => ({ href: `/p/${page.slug}`, label: locale === 'fa' ? page.title : page.titleEn || page.title }))]
-    return items.filter((item, index) => items.findIndex(other => other.href === item.href) === index)
+    const items: PublicMenuLink[] = [...localizeMenu(site.navigation, locale), ...(navPages || []).map(page => ({ href: `/p/${page.slug}`, label: locale === 'fa' ? page.title : page.titleEn || page.title }))]
+    return items.filter((item, index) => !!item.id || items.findIndex(other => other.href === item.href) === index)
   }, [locale, navPages, site.navigation])
   // Section links do not mark every page under the root path as active.
   const isOn = (href: string) => !href.includes('#') && (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
@@ -63,7 +64,7 @@ export default function OrbitalHeader({ theme, navPages, breadcrumbs }: ThemeHea
     <header ref={headerRef} className="site-header orbital-header-shell" onBlur={event => { if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setSearchOpen(false) } }}>
       <div className="container orbital-header-bar">
         <Link href="/" className="orbital-brand" aria-label={site.brand}>{site.wordmark ? <ThemeWordmark /> : site.logo ? <img className="orbital-custom-logo" src={site.logo} alt=""/> : <span className="orbital-brand-mark orbital-h-logo" aria-hidden="true"><i /><i /><b /></span>}<span className="orbital-brand-copy"><strong dir="ltr">{brandName}</strong><small>{tx(site.tagline, locale)}</small></span></Link>
-        <nav className="orbital-nav orbital-desktop-only" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <Link key={link.href} href={link.href} aria-current={isOn(link.href) ? 'page' : undefined} className={`orbital-nav-link ${isOn(link.href) ? 'is-active' : ''}`}>{link.label}</Link>)}</nav>
+        <nav className="orbital-nav orbital-desktop-only" aria-label={L('ناوبری اصلی', 'Primary navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline={false} onNavigate={() => setOpen(false)}><Link href={link.href} aria-current={isOn(link.href) ? 'page' : undefined} className={`orbital-nav-link ${isOn(link.href) ? 'is-active' : ''}`}><ThemeNavigationIcon name={link.icon}/>{link.label}</Link></ThemeNavigationBranch>)}</nav>
         <div className="orbital-header-actions">
           <button ref={searchButton} type="button" className={`orbital-icon-button orbital-desktop-only ${searchOpen ? 'is-active' : ''}`} onClick={() => { setSearchOpen(value => !value); setOpen(false) }} aria-label={L('جست‌وجو در مجله', 'Search the journal')} aria-expanded={searchOpen} aria-controls="orbital-header-search"><SearchIcon /></button>
           <div className="orbital-preferences"><ThemeLangControls locale={locale} theme={theme} /></div>
@@ -74,7 +75,7 @@ export default function OrbitalHeader({ theme, navPages, breadcrumbs }: ThemeHea
       </div>
       {searchOpen && <div id="orbital-header-search" className="container orbital-search-panel orbital-desktop-only">{searchForm()}</div>}
       {breadcrumbs?.length ? <div className="orbital-breadcrumb-bar"><nav className="container breadcrumbs" aria-label={L('مسیر صفحه', 'Breadcrumb')}>{breadcrumbs.map((item, index) => <span key={`${item.label}-${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}{index < breadcrumbs.length - 1 && <span aria-hidden="true"> / </span>}</span>)}</nav></div> : null}
-      {open && <div id="orbital-mobile-navigation" className="container orbital-mobile-panel orbital-mobile-only"><div className="orbital-mobile-card"><nav ref={mobileNav} className="orbital-mobile-links" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <Link key={link.href} href={link.href} onClick={() => setOpen(false)} aria-current={isOn(link.href) ? 'page' : undefined} className={`orbital-mobile-link ${isOn(link.href) ? 'is-active' : ''}`}>{link.label}<span aria-hidden="true">↗</span></Link>)}</nav>{searchForm(true)}<div className="orbital-mobile-footer">{session ? <button type="button" className="orbital-header-link" onClick={() => themeSignOut({ callbackUrl: '/' })}>{L('خروج', 'Logout')}</button> : <Link href="/login" onClick={() => setOpen(false)} className="orbital-header-link">{L('ورود به حساب', 'Login')}</Link>}<Link href={session ? '/dashboard' : '/register'} onClick={() => setOpen(false)} className="orbital-cta">{session ? L('ورود به پنل', 'Open dashboard') : L('شروع با MoboComCMS', 'Get MoboComCMS')}</Link></div></div></div>}
+      {open && <div id="orbital-mobile-navigation" className="container orbital-mobile-panel orbital-mobile-only"><div className="orbital-mobile-card"><nav ref={mobileNav} className="orbital-mobile-links" aria-label={L('ناوبری موبایل', 'Mobile navigation')}>{links.map(link => <ThemeNavigationBranch key={link.id || link.href} link={link} inline={true} onNavigate={() => setOpen(false)}><Link href={link.href} onClick={() => setOpen(false)} aria-current={isOn(link.href) ? 'page' : undefined} className={`orbital-mobile-link ${isOn(link.href) ? 'is-active' : ''}`}><ThemeNavigationIcon name={link.icon}/>{link.label}<span aria-hidden="true">↗</span></Link></ThemeNavigationBranch>)}</nav>{searchForm(true)}<div className="orbital-mobile-footer">{session ? <button type="button" className="orbital-header-link" onClick={() => themeSignOut({ callbackUrl: '/' })}>{L('خروج', 'Logout')}</button> : <Link href="/login" onClick={() => setOpen(false)} className="orbital-header-link">{L('ورود به حساب', 'Login')}</Link>}<Link href={session ? '/dashboard' : '/register'} onClick={() => setOpen(false)} className="orbital-cta">{session ? L('ورود به پنل', 'Open dashboard') : L('شروع با MoboComCMS', 'Get MoboComCMS')}</Link></div></div></div>}
     </header>
     <ThemePluginOutlet slot="site.after-header" site={site} locale={locale} />
   </>

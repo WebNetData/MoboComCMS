@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { CINEMA_RAILS, type CinemaSettings } from '@/modules/cinema/domain/cinema'
 import { OrderedPicker, RailsEditor } from '../../cms/SectionAdmin'
 import { CinemaShell, Notice, fa, send, useJson } from '../shared'
+import { CinemaMetadataSettings } from '@/components/admin/CinemaMetadata'
 
 type Picker = { id: number; title: string; poster: string; kind: string; year: number | null }
 
@@ -34,6 +35,7 @@ export default function CinemaSettingsPage() {
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
     <div className="sa-cols">
       <div className="sa-stack">
+        <CinemaMetadataSettings />
         <section className="sa-card">
           <header className="sa-card-head"><h2>بلوک‌های صفحهٔ اصلی</h2><small>ترتیب و نمایش</small></header>
           <RailsEditor rails={form.rails} labels={CINEMA_RAILS} onChange={(rails) => set({ rails })} />

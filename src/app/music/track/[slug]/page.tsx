@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { renderEditorialText, richTextToPlain } from '@/shared/content/sanitize'
 import { primaryTerms } from '@/modules/taxonomy/server/taxonomy'
 import ManageBar from '@/components/admin/ManageBar'
 import { ItemActionBar, ReviewSection } from '@/components/engage/Engagement'
@@ -102,7 +103,7 @@ export default async function TrackPage({ params }: Props) {
         <div className="mu-columns">
           {layout.showLyrics && <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? 'متن آهنگ' : 'Lyrics'}</h2></header>
-            {track.lyrics ? <div className={`mu-lyrics${locked ? ' is-teaser' : ''}`}>{locked ? track.lyrics.split('\n').slice(0, 6).join('\n') : track.lyrics}</div> : <p className="muted">{fa ? 'متن این آهنگ هنوز ثبت نشده است.' : 'No lyrics yet.'}</p>}
+            {track.lyrics ? <div className={`mu-lyrics prose${locked ? ' is-teaser' : ''}`} dangerouslySetInnerHTML={{ __html: renderEditorialText(locked ? richTextToPlain(track.lyrics, 300) : track.lyrics) }} /> : <p className="muted">{fa ? 'متن این آهنگ هنوز ثبت نشده است.' : 'No lyrics yet.'}</p>}
           </section>}
           {album.length > 1 ? (
             <section className="mu-panel">

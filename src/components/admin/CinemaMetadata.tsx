@@ -1,0 +1,39 @@
+'use client'
+import { useEffect, useRef, useState } from 'react'
+import { imdbIdentifier, type CinemaMetadataConfig, type CinemaMetadataResult } from '@/modules/cinema/domain/metadata'
+import Link from '@/components/AppLink'
+
+/** Results may fill empty fields automatically; replacing edited content is always an explicit action. */
+export function CinemaMetadataLookup({value,kind,onApply}:{value:unknown;kind:unknown;onApply:(fields:Record<string,unknown>,replace:boolean)=>void}) {
+  const [config,setConfig]=useState<CinemaMetadataConfig|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[replace,setReplace]=useState(false)
+  const current=useRef(''),applied=useRef(''),apply=useRef(onApply)
+  const mounted=useRef(true)
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
+  const id=imdbIdentifier(value)
+  const ready=!!config && (config.provider==='imdb' || config.tmdbConfigured)
+  useEffect(()=>{current.current=id;apply.current=onApply},[id,onApply])
+  useEffect(()=>{let alive=true;fetch('/api/admin/cinema/metadata').then(r=>r.ok?r.json():null).then(d=>{if(alive)setConfig(d?.config||null)}).catch(()=>{});return()=>{alive=false}},[])
+  async function lookup(overwrite=false) {
+    if(!id)return
+    const requested=id;setBusy(true);setMessage('در حال دریافت اطلاعات…')
+    try {const r=await fetch('/api/admin/cinema/metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imdbId:requested,kind})});const d=await r.json();if(!mounted.current || current.current!==requested)return;if(!r.ok)throw new Error(d.error||'دریافت انجام نشد');const result=d as CinemaMetadataResult;apply.current(result.fields,overwrite);applied.current=requested;setMessage(`${result.source} · اطلاعات به فرم اضافه شد. ${result.warnings.join(' · ')}`)}catch(e){if(mounted.current && current.current===requested)setMessage(e instanceof Error?e.message:'دریافت انجام نشد')}finally{if(mounted.current)setBusy(false)}
+  }
+  useEffect(()=>{if(!id||!config?.enabled||!ready||applied.current===id)return;const timer=setTimeout(()=>void lookup(false),800);return()=>clearTimeout(timer)},[id,config?.enabled,ready]) // eslint-disable-line react-hooks/exhaustive-deps
+  if(!config)return null
+  return <section className="sa-card" aria-label="اطلاعات خودکار IMDb"><header className="sa-card-head"><h2>تکمیل خودکار از IMDb</h2><small>{config.provider==='imdb'?'مستقیم · بدون کلید API':'TMDb'}</small></header><p className="muted text-sm">شناسه یا لینک IMDb را در فیلد زیر وارد کنید؛ فیلدهای خالی خودکار پر می‌شوند. اطلاعات را قبل از انتشار بازبینی کنید.</p>{!ready?<Link href="/admin/cinema/settings">اتصال سرویس در تنظیمات فیلم و سریال</Link>:<><label className="sa-check"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)}/>جایگزینی اطلاعات واردشده با نتیجهٔ سرویس</label><button type="button" className="btn btn-ghost" disabled={!id||busy||!config.enabled} onClick={()=>void lookup(replace)}>{busy?'دریافت…':'دریافت دوبارهٔ اطلاعات'}</button></>}<p className="muted text-sm" role="status">{message}</p>{config.copyImages&&<p className="sa-sub">عکس پوستر و عوامل خودکار در صف کتابخانه قرار می‌گیرد؛ بعد از تکمیل انتقال، تصویر از سرور سایت خوانده می‌شود.</p>}<Link href="/admin/cinema/settings">تنظیمات دریافت اطلاعات و عکس‌ها</Link>{config.provider==='tmdb'&&<small>This product uses the TMDB API but is not endorsed or certified by TMDB.</small>}</section>
+}
+
+export function CinemaMetadataSettings() {
+  const [config,setConfig]=useState<CinemaMetadataConfig|null>(null),[tmdbToken,setToken]=useState(''),[omdbKey,setOmdb]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false)
+  useEffect(()=>{let alive=true;fetch('/api/admin/cinema/metadata').then(r=>{if(!r.ok)throw new Error('خواندن تنظیمات انجام نشد');return r.json()}).then(d=>{if(alive)setConfig(d.config||null)}).catch(()=>{if(alive)setMessage('خواندن تنظیمات انجام نشد')});return()=>{alive=false}},[])
+  async function save(clear?:string){setBusy(true);try{const r=await fetch('/api/admin/cinema/metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'configure',enabled:config?.enabled,provider:config?.provider,copyImages:config?.copyImages,tmdbToken,omdbKey,...(clear?{['clear_'+clear]:true}:{})})});const d=await r.json();if(!r.ok)throw new Error(d.error);setConfig(d.config);setToken('');setOmdb('');setMessage('تنظیمات اتصال ذخیره شد')}catch(e){setMessage(e instanceof Error?e.message:'ذخیره نشد')}finally{setBusy(false)}}
+  return <section className="sa-card"><header className="sa-card-head"><h2>اطلاعات خودکار فیلم و سریال</h2></header>{config?<>
+    <label className="sa-check"><input type="checkbox" checked={config.enabled} onChange={e=>setConfig({...config,enabled:e.target.checked})}/>دریافت خودکار با شناسه یا لینک IMDb</label>
+    <label className="sa-field"><span>منبع دریافت اطلاعات</span><select className="input" value={config.provider} onChange={e=>setConfig({...config,provider:e.target.value==='tmdb'?'tmdb':'imdb'})}><option value="imdb">IMDb مستقیم — بدون کلید API</option><option value="tmdb">TMDb — اتصال با کلید</option></select></label>
+    {config.provider==='imdb'&&<p className="sa-sub">سرور صفحهٔ عمومی IMDb را می‌خواند. اگر IMDb دسترسی را محدود کند یا ساختار صفحه تغییر کند، پیام خطا نمایش داده می‌شود و اطلاعات قبلی باقی می‌ماند.</p>}
+    <label className="sa-check"><input type="checkbox" checked={config.copyImages} onChange={e=>setConfig({...config,copyImages:e.target.checked})}/>انتقال خودکار پوستر و عکس بازیگران و کارگردان‌ها به کتابخانه</label>
+    <p className="sa-sub">پوشه‌ها خودکار ساخته می‌شوند؛ وضعیت، تلاش مجدد و لغو انتقال از کتابخانه در دسترس است. با خاموش‌کردن این گزینه، لینک تصاویر بیرونی حفظ می‌شود.</p>
+    {config.provider==='tmdb'&&<><label className="sa-field"><span>TMDb API Read Access Token {config.tmdbConfigured?'(تنظیم شده)':''}</span><input type="password" className="input" autoComplete="new-password" dir="ltr" value={tmdbToken} onChange={e=>setToken(e.target.value)}/></label><label className="sa-field"><span>OMDb API Key — امتیاز واقعی IMDb {config.omdbConfigured?'(تنظیم شده)':''}</span><input type="password" className="input" autoComplete="new-password" dir="ltr" value={omdbKey} onChange={e=>setOmdb(e.target.value)}/></label><p className="sa-sub">فیلد خالی کلید قبلی را حفظ می‌کند. {config.canSaveSecrets?'کلیدهای جدید رمزگذاری می‌شوند.':'برای ذخیرهٔ کلید، PANEL_CREDENTIAL_KEY لازم است؛ متغیرهای محیطی هم پشتیبانی می‌شوند.'}</p></>}
+    <div className="flex gap-2 flex-wrap"><button type="button" className="btn btn-primary" disabled={busy} onClick={()=>void save()}>ذخیرهٔ اتصال</button>{config.tmdbConfigured&&<button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void save('tmdbToken')}>حذف کلید ذخیره‌شدهٔ TMDb</button>}{config.omdbConfigured&&<button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>void save('omdbKey')}>حذف کلید ذخیره‌شدهٔ OMDb</button>}</div>
+  </>:<p>در حال خواندن تنظیمات…</p>}<p role="status">{message}</p>{config?.provider==='tmdb'&&<><p className="sa-sub"><a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">دریافت کلید TMDb</a> · <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noreferrer">دریافت کلید OMDb</a></p><small>This product uses the TMDB API but is not endorsed or certified by TMDB.</small></>}</section>
+}

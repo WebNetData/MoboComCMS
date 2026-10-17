@@ -11,6 +11,9 @@ export { useSession as useThemeSession, signOut as themeSignOut } from 'next-aut
 export { default as ThemeSiteSearch } from '@/components/search/SiteSearch'
 export { default as Link } from '@/platform/routing/Link'
 export { default as ThemeLiveSearch } from '@/components/search/LiveSearchInput'
+export { default as ThemeNavigationBranch } from '@/components/site/NavigationBranch'
+export { default as ThemeNavigationIcon } from '@/components/site/NavigationIcon'
+export { localizeMenu, flattenMenu, DEFAULT_FOOTER_ACCOUNT, type PublicMenuLink } from '@/modules/site/config/menus'
 
 /** Trust seals (eNamad, Samandehi, …) configured in the admin; renders nothing when none are set. */
 export { default as ThemeTrustSeals } from '@/components/site/TrustSeals'

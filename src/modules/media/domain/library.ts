@@ -2,7 +2,7 @@ export const LIBRARY_KINDS = ['image', 'audio', 'video', 'document', 'archive', 
 export type LibraryKind = typeof LIBRARY_KINDS[number]
 export type LibraryAsset = { id: string; url: string; name: string; mime: string; kind: LibraryKind; bytes: string; width: number; height: number; alt: string; caption: string; tags: string[]; folderId: number | null; revision: number; archivedAt: string | null; editable: boolean }
 export type LibraryFolder = { id: number; name: string; parentId: number | null; revision: number; editable: boolean }
-export class LibraryError extends Error { constructor(message: string, readonly status = 400) { super(message) } }
+export class LibraryError extends Error { constructor(message: string, readonly status = 400, readonly reason: ''|'invalid-media'|'unavailable' = '') { super(message) } }
 export function libraryName(value: unknown) {
   const name = String(value ?? '').normalize('NFC').trim()
   if (!name || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) throw new LibraryError('نام باید بین ۱ تا ۱۲۰ نویسه باشد')

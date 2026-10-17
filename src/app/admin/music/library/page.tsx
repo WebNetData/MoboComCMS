@@ -45,7 +45,7 @@ export default function AdminMusicPage() {
         { key: 'audioHqUrl', label: fa ? 'فایل صوتی ۳۲۰ (کیفیت بالا)' : 'Audio 320 kbps (HQ) URL', dir: 'ltr', wide: true, upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac' },
         { key: 'duration', label: fa ? 'مدت (ثانیه)' : 'Duration (seconds)', type: 'number' },
         { key: 'cover', label: fa ? 'کاور (خالی = کاور آلبوم)' : 'Cover (empty = album cover)', type: 'image' },
-        { key: 'lyrics', label: fa ? 'متن ترانه' : 'Lyrics', type: 'textarea' },
+        { key: 'lyrics', label: fa ? 'متن ترانه' : 'Lyrics', type: 'richtext', wide: true, upload: 'music' },
         access, status, featured, publishedAt, slug,
       ],
     },
@@ -83,7 +83,7 @@ export default function AdminMusicPage() {
       fields: [
         { key: 'title', label: fa ? 'نام پلی‌لیست' : 'Title', required: true, table: true },
         { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        { key: 'description', label: fa ? 'توضیح کوتاه' : 'Short description', type: 'textarea' },
+        { key: 'description', label: fa ? 'توضیحات پلی‌لیست' : 'Playlist description', type: 'richtext', wide: true, upload: 'music' },
         { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
         { key: 'trackIds', label: fa ? 'آهنگ‌ها (به ترتیب)' : 'Tracks (in order)', type: 'picklist', source: { type: 'music-tracks', label: (row) => `${row.title} — ${row.artist?.name || ''}` } },
         { key: 'sortOrder', label: fa ? 'ترتیب' : 'Order', type: 'number' },

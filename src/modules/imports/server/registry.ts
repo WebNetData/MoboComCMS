@@ -1,5 +1,6 @@
 import type { Action, Counters, FieldDef, FieldPolicy, ImportSettings, Message, PreviewCard, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import type { MediaResult } from '@/modules/imports/server/media'
+import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 
 /**
  * Import adapters: the business rules of one destination (store products,
@@ -34,6 +35,7 @@ export interface OptionDef {
 
 /** Per-run services the engine gives adapters. */
 export interface ImportContext {
+  organization?: AssetOrganization
   jobId: number | null
   actor: { id: number; email: string }
   dryRun: boolean
@@ -43,8 +45,8 @@ export interface ImportContext {
   /** Keys of rows the dry run would create, so "17 categories to create" counts each once. */
   planned: Set<string>
   /** Copies a remote image into the media library (apply only). */
-  importImage: (url: string) => Promise<MediaResult & { deferred?: boolean }>
-  importFile?: (url: string) => Promise<MediaResult & { deferred?: boolean }>
+  importImage: (url: string, organization?: AssetOrganization) => Promise<MediaResult & { deferred?: boolean }>
+  importFile?: (url: string, organization?: AssetOrganization) => Promise<MediaResult & { deferred?: boolean }>
   /** Remote image addresses already in the library (dry run counts). */
   knownImages: Set<string>
   /** The field policy, enforced: only the values this record may write (create, or update of `current`). */
