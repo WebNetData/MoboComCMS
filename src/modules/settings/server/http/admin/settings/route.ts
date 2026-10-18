@@ -1,40 +1,35 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/platform/database/prisma'
-import type { Permission } from '@/modules/identity/rbac'
 import { err, ok } from '@/platform/http/response'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { readJsonObject } from '@/platform/http/read-json'
 import { requirePerm } from '@/modules/identity/server/access'
-import { getSettings, setSetting } from '@/modules/settings/server'
+import { generalSettingsState, generalSettingsRevision, saveGeneralSettings } from '@/modules/settings/server'
+import { RevisionError } from '@/modules/content/server/revisions'
 
-export async function GET(req: NextRequest) {
-  const admin = await requirePerm(req, 'settings.manage' as Permission)
-  if (!admin) return err('forbidden', 403)
-  const settings = await getSettings()
-  return ok(Object.fromEntries(Object.entries(settings).filter(([key]) => !key.startsWith('telegram.') && !key.startsWith('happ.') && !/token|secret|password|apiKey/i.test(key))))
+async function answer() {
+  const state = await generalSettingsState()
+  const response = ok(Object.fromEntries(Object.entries(state).filter(([, value]) => value !== null)))
+  response.headers.set('ETag', generalSettingsRevision(state))
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }
-
+export async function GET(req: NextRequest) {
+  if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
+  return answer()
+}
 export async function PATCH(req: NextRequest) {
-  const admin = await requirePerm(req, 'settings.manage' as Permission)
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+  const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('forbidden', 403)
-  const b = await req.json().catch(() => null)
-  const allowed = ['supportTelegram', 'supportEmail', 'siteUrl', 'usdRateToman', 'seoDescription', 'ogImage', 'googleVerification', 'subscriptionPrefix', 'storeEnabled', 'publicApiEnabled', 'personalRecommendationsEnabled']
-  if (b?.storeEnabled !== undefined && !['true', 'false'].includes(b.storeEnabled)) return err('وضعیت فروشگاه معتبر نیست')
-  if (b?.publicApiEnabled !== undefined && !['true', 'false'].includes(b.publicApiEnabled)) return err('وضعیت API معتبر نیست')
-  if (b?.personalRecommendationsEnabled !== undefined && !['true', 'false'].includes(b.personalRecommendationsEnabled)) return err('وضعیت پیشنهادهای شخصی معتبر نیست')
-  if (b?.subscriptionPrefix && !/^[a-z][a-z0-9_]{0,11}$/.test(b.subscriptionPrefix)) return err('پیشوند باید با حرف کوچک انگلیسی شروع شود و حداکثر ۱۲ حرف، عدد یا _ باشد')
-  if (b?.usdRateToman !== undefined && b.usdRateToman !== '') {
-    const rate = String(b.usdRateToman).trim()
-    if (!/^\d{1,12}$/.test(rate) || BigInt(rate) <= 0n) return err('نرخ دلار به تومان باید یک عدد صحیح مثبت باشد')
-    b.usdRateToman = rate
+  let body: Record<string, unknown>
+  try { body = await readJsonObject(req, 80_000) } catch { return err('درخواست معتبر نیست', 422) }
+  try {
+    await saveGeneralSettings(body, { req, actor: admin }, req.headers.get('if-match'))
+    return answer()
+  } catch (error) {
+    if (error instanceof RevisionError) return err(error.message, error.status)
+    if ((error as { code?: string }).code === 'P2034' || (error as { code?: string }).code === 'P2002') return err('تنظیمات هم‌زمان تغییر کرده است؛ دوباره بررسی کنید', 409)
+    console.error('[settings.general]', error)
+    return err('ذخیره نشد؛ دوباره تلاش کنید', 500)
   }
-  if (b?.siteUrl) {
-    try { const u = new URL(b.siteUrl); if (!['http:', 'https:'].includes(u.protocol)) return err('نشانی سایت معتبر نیست') } catch { return err('نشانی سایت معتبر نیست') }
-  }
-  if (b?.ogImage && !/^(https?:\/\/|\/(?!\/))/.test(b.ogImage)) return err('نشانی تصویر معتبر نیست')
-  for (const key of allowed) {
-    if (typeof b?.[key] === 'string' && b[key].length <= 6000) {
-      await setSetting(key, b[key])
-    }
-  }
-  const settings = await getSettings()
-  return ok(Object.fromEntries(Object.entries(settings).filter(([key]) => !key.startsWith('telegram.') && !/token|secret|password|apiKey/i.test(key))))
 }

@@ -13,8 +13,8 @@ import { searchIndexPage, enabledItemTypes, searchIndexCard, itemCards, type Ite
 import { recordSearch } from '@/modules/analytics/server/collect'
 import { RankedWindow } from '@/modules/search/domain/ranked-window'
 import { compareSearchBoundary, decodeSearchCursor, encodeSearchCursor, searchCursorScope } from './cursor'
-import { NO_FACETS, facetKey, meetsRating, normalizeFacets, sinceDate, type SearchFacets } from '@/modules/search/domain/facets'
-import { ratingsOfItems, type ItemRating } from '@/modules/reviews/server/ratings'
+import { NO_FACETS, facetKey, meetsRating, normalizeFacets, sinceDate, type SearchFacets, type SearchFacetInput } from '@/modules/search/domain/facets'
+import { ratingsOfItems, dimensionRatingsOfItems, type ItemRating } from '@/modules/reviews/server/ratings'
 
 /**
  * Site-wide search over one denormalized table (SearchDocument). Documents hold
@@ -117,10 +117,10 @@ export async function reindexItem(ref: ItemRef) {
 
 export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string; rating: ItemRating | null }
 export type SearchResult = { facets: SearchFacets; query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
-type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number }
+type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number; orderScore: number; orderPublishedAt: number }
 
-const boundary = (candidate: RankedCandidate) => ({ score: candidate.score, publishedAt: candidate.row.publishedAt.getTime(), boost: candidate.row.boost, id: candidate.row.id })
-const byRank = (a: RankedCandidate, b: RankedCandidate) => b.score - a.score || b.row.publishedAt.getTime() - a.row.publishedAt.getTime() || b.row.boost - a.row.boost || a.row.id - b.row.id
+const boundary = (candidate: RankedCandidate) => ({ score: candidate.orderScore, publishedAt: candidate.orderPublishedAt, boost: candidate.row.boost, id: candidate.row.id })
+const byRank = (a: RankedCandidate, b: RankedCandidate) => compareSearchBoundary(boundary(a), boundary(b))
 
 /** A short piece of the indexed text around the first matching token. */
 function snippet(text: string, tokens: string[]): string {
@@ -130,7 +130,7 @@ function snippet(text: string, tokens: string[]): string {
   return words.slice(Math.max(0, at - 8), at + 18).join(' ')
 }
 
-export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean; facets?: { access?: unknown; rated?: unknown; since?: unknown } | null }): Promise<SearchResult> {
+export async function searchSite(input: { q: unknown; type?: unknown; page?: unknown; cursor?: unknown; log?: boolean; suggestion?: boolean; facets?: SearchFacetInput | null }): Promise<SearchResult> {
   const query = String(input.q ?? '').trim().slice(0, 100)
   const tokens = searchTokens(query)
   // A section in maintenance is not offered to a search: its pages would answer with the notice.
@@ -172,20 +172,26 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
     // Recheck current source visibility because SearchDocument can lag a publication change.
     const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
     // Ratings are asked of their owners for this batch only, and only when the search is narrowed by them.
-    const rated = facets.rated ? await ratingsOfItems([...publicCards.values()].map((card) => ({ type: card.type, id: card.id }))) : null
+    const refs = [...publicCards.values()].map(card => ({ type: card.type, id: card.id }))
+    const [rated, dimensions] = await Promise.all([
+      facets.rated || facets.sort === 'rating' ? ratingsOfItems(refs) : null,
+      facets.dimension ? dimensionRatingsOfItems(refs, facets.dimension) : null,
+    ])
     for (const row of rows) {
       const card = publicCards.get(`${row.itemType}:${row.itemId}`)
       if (!card) continue
       // The source decides who may open an item; the index can lag behind a change of it.
       if (facets.access && (card.access === 'MEMBERS') !== (facets.access === 'members')) continue
       if (rated && !meetsRating(rated.get(`${row.itemType}:${row.itemId}`), facets.rated)) continue
+      if (dimensions && !meetsRating(dimensions.get(`${row.itemType}:${row.itemId}`), facets.dimensionMin || 4)) continue
       const relevanceScore = relevance(tokens, row.title, row.text, phrase)
       if (relevanceScore <= 0) continue
       matchedTotal++
       counts[row.itemType as ItemType] = (counts[row.itemType as ItemType] || 0) + 1
       if (type !== 'all' && row.itemType !== type) continue
       // Popularity breaks ties without drowning relevance (log scale, ≤ ~6 points).
-      const candidate = { row, card, score: relevanceScore + Math.log10(1 + row.boost) }
+      const score = relevanceScore + Math.log10(1 + row.boost)
+      const candidate = { row, card, score, orderScore: facets.sort === 'newest' ? 0 : facets.sort === 'rating' ? rated?.get(`${row.itemType}:${row.itemId}`)?.average || 0 : score, orderPublishedAt: (facets.sort ? card.publishedAt : row.publishedAt).getTime() }
       const order = cursor ? compareSearchBoundary(boundary(candidate), cursor) : 0
       if (cursor && (cursor.direction === 'after' ? order <= 0 : order >= 0)) continue
       eligible++

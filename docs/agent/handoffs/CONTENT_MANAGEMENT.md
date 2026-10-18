@@ -1,5 +1,7 @@
 # Content management continuation — 2026-10-18
 
+Subsequent selected items3–7 continue in [AUTHORING_OPERATIONS](AUTHORING_OPERATIONS.md). That handoff supersedes this batch's two-step restore, single-round, General/Forum history and rich-text/search gaps. This document retains the original batch's verified evidence and other limits. The original batch is published as PR197; the owner merges.
+
 Continues merged PR196 in `.mobocom/autonomous-foundation`, branch `feat/content-management-completion-2026-10-18`. Scope: the owner's requested items2–5, specified in [the implementation scenario](../../specs/content-management-completion/SPEC.md). Do not rebuild the Admin directory, identity, import engine, history, favorites, notifications or player.
 
 ## Owners and implemented behavior

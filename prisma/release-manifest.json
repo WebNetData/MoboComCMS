@@ -412,6 +412,8 @@
     "20270105121000_media_transfer_authority",
     "20270106120000_content_authoring",
     "20270107120000_cinema_people_profiles",
-    "20270108120000_people_profile_merges"
+    "20270108120000_people_profile_merges",
+    "20270109120000_moderation_rounds",
+    "20270109121000_moderation_pending_rounds"
   ]
 }

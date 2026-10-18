@@ -9,6 +9,9 @@ export class RevisionError extends Error {
 
 type Actor = { id: number; email: string } | null
 
+/** Owners call this before committing a restore; a failure rolls back content and relationships too. */
+export type RestoreCommit = (tx: Prisma.TransactionClient, before: Record<string, unknown>, after: Record<string, unknown>) => Promise<void>
+
 /**
  * Keeps the state of an item after a save as its next version. The first time an item that existed before
  * versions is edited, the state it had is kept first, so its history starts with what it was. A save that

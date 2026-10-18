@@ -4,6 +4,7 @@
  * here from the checked JSON, with every piece of text escaped.
  */
 import type { DocumentIssue } from '@/modules/editor/domain/document'
+import { TABLE_LIMITS, validTable } from '@/modules/editor/domain/rich-table'
 
 export interface RichTextMark { type: string; attrs?: Record<string, unknown> }
 export interface RichTextNode { type: string; attrs?: Record<string, unknown>; content?: RichTextNode[]; text?: string; marks?: RichTextMark[] }
@@ -16,16 +17,19 @@ export const TEXT_DIRECTIONS = ['rtl', 'ltr', 'auto'] as const
 export const TEXT_COLORS = ['accent', 'muted', 'success', 'warning', 'danger'] as const
 export const CODE_LANGUAGES = ['plain', 'bash', 'json', 'javascript', 'typescript', 'html', 'css', 'sql', 'python', 'php', 'yaml', 'ini', 'nginx'] as const
 
-const BLOCK_NODES = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'blockquote', 'codeBlock', 'horizontalRule', 'hardBreak', 'text'])
+const BLOCK_NODES = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'blockquote', 'codeBlock', 'horizontalRule', 'hardBreak', 'text', 'table', 'tableRow', 'tableCell', 'tableHeader'])
 const MARKS = new Set(['bold', 'italic', 'underline', 'strike', 'code', 'link', 'highlight', 'textStyle'])
 const CHILDREN: Record<string, readonly string[]> = {
-  doc: ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock', 'horizontalRule'],
+  doc: ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock', 'horizontalRule', 'table'],
   paragraph: ['text', 'hardBreak'], heading: ['text', 'hardBreak'],
   bulletList: ['listItem'], orderedList: ['listItem'], taskList: ['taskItem'],
   listItem: ['paragraph', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock'],
   taskItem: ['paragraph', 'bulletList', 'orderedList', 'taskList'],
   blockquote: ['paragraph', 'heading', 'bulletList', 'orderedList', 'blockquote', 'codeBlock'],
   codeBlock: ['text'],
+  table: ['tableRow'], tableRow: ['tableCell', 'tableHeader'],
+  tableCell: ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock'],
+  tableHeader: ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock'],
 }
 
 export const emptyRichText = (): RichTextDoc => ({ type: 'doc', content: [] })
@@ -152,10 +156,19 @@ export function normalizeRichText(input: unknown, path = 'content'): { doc: Rich
     if (type === 'orderedList') { const start = Number(attrsIn.start); if (Number.isInteger(start) && start > 1 && start < 100000) attrs.start = start }
     if (type === 'taskItem') attrs.checked = attrsIn.checked === true
     if (type === 'codeBlock') attrs.language = oneOf(CODE_LANGUAGES, attrsIn.language) || 'plain'
+    if (type === 'tableCell' || type === 'tableHeader') {
+      for (const [key, max] of [['colspan', TABLE_LIMITS.columns], ['rowspan', TABLE_LIMITS.rows]] as const) {
+        const value = attrsIn[key] == null ? 1 : Number(attrsIn[key])
+        if (!Number.isSafeInteger(value) || value < 1 || value > max) issue(at, 'rich-text.table-span', 'a table span is outside its bounds')
+        attrs[key] = Number.isSafeInteger(value) && value > 0 && value <= max ? value : 1
+      }
+    }
     const out: RichTextNode = { type, ...(Object.keys(attrs).length ? { attrs } : {}) }
     if (CHILDREN[type]) {
       const children = Array.isArray(node.content) ? node.content : []
       out.content = children.map((child, index) => walk(child, type, `${at}.content[${index}]`, depth + 1)).filter((child): child is RichTextNode => child !== null)
+      if (type === 'table' && !validTable(out.content)) { issue(at, 'rich-text.table', 'a table must be a bounded rectangular grid'); return null }
+      if ((type === 'tableCell' || type === 'tableHeader') && !out.content.length) out.content = [{ type: 'paragraph', content: [] }]
     }
     return out
   }
@@ -218,6 +231,9 @@ function nodeHtml(node: RichTextNode, inherited?: unknown): string {
     case 'taskItem': return `<li class="mcb-task${node.attrs?.checked === true ? ' is-done' : ''}"><input type="checkbox" disabled${node.attrs?.checked === true ? ' checked' : ''}><div>${inner()}</div></li>`
     case 'blockquote': return `<blockquote${dirAttr(node, inherited)}>${inner()}</blockquote>`
     case 'codeBlock': { const language = oneOf(CODE_LANGUAGES, node.attrs?.language) || 'plain'; return `<pre dir="ltr" tabindex="0" role="region" aria-label="بلوک کد"><code class="language-${language}">${(node.content || []).map((child) => escapeHtml(child.text || '')).join('')}</code></pre>` }
+    case 'table': return `<div class="mcb-table-scroll" tabindex="0" role="region" aria-label="جدول"><table><tbody>${inner()}</tbody></table></div>`
+    case 'tableRow': return `<tr>${inner()}</tr>`
+    case 'tableCell': case 'tableHeader': { const tag = node.type === 'tableHeader' ? 'th' : 'td'; return `<${tag}${Number(node.attrs?.colspan) > 1 ? ` colspan="${Number(node.attrs?.colspan)}"` : ''}${Number(node.attrs?.rowspan) > 1 ? ` rowspan="${Number(node.attrs?.rowspan)}"` : ''}>${inner()}</${tag}>` }
     default: return ''
   }
 }

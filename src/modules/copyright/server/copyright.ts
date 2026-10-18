@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
-import { completeOwnerCase } from '@/modules/moderation/server/cases'
+import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { ITEM_LABEL, parseItemKey, parseItemPath, type ItemRef } from '@/modules/content/domain/items'
 import { itemBySlug, type ItemCard } from '@/modules/content/server/registry'
@@ -129,6 +129,7 @@ export async function decideReport(id: number, input: { status: unknown; resolut
     resolvedAt: status === 'REVIEWING' ? null : new Date(),
   } })
   if (status !== 'REVIEWING') await completeOwnerCase(tx, 'copyright', id, adminId, status === 'ACCEPTED' ? 'approve' : 'reject')
+  if (status === 'REVIEWING' && row.status !== 'REVIEWING' && row.status !== 'NEW') await reopenOwnerCase(tx, 'copyright', id)
   })
   return { id, status, actions: log }
 }

@@ -5,8 +5,11 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Extension } from '@tiptap/core'
+import { TableKit } from '@tiptap/extension-table'
 import type { RichTextDoc } from '@/modules/editor/domain/rich-text'
 import { TypedDirection } from '@/components/editor/TypedDirection'
+import { SemanticTextStyle, SemanticHighlight } from './RichTextMarks'
+import RichTextTools from './RichTextTools'
 
 /** Alignment and direction of a paragraph or heading, as attributes the document format knows. */
 const BlockAttributes = Extension.create({
@@ -23,12 +26,12 @@ const BlockAttributes = Extension.create({
 })
 
 /** The Tiptap extensions of MoboCom rich text: what the field edits with, and what an old HTML body is read with. */
-export const richTextExtensions = [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), BlockAttributes, TypedDirection]
+export const richTextExtensions = [StarterKit.configure({ heading: { levels: [2, 3, 4, 5, 6] }, link: { openOnClick: false, autolink: true, protocols: ['http', 'https', 'mailto', 'tel'] } }), TaskList, TaskItem.configure({ nested: true }), TableKit.configure({ table: { resizable: false } }), SemanticTextStyle, SemanticHighlight, BlockAttributes, TypedDirection]
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 /**
- * Rich text of a block, edited with Tiptap and kept as Tiptap JSON. Nothing here produces HTML that
+ * Rich text of a block, edited with Tiptap and checked as MoboCom's closed rich-text subset. Nothing here produces HTML that
  * is stored: the value handed up is the editor's JSON, and the server checks it against the format.
  */
 export default function RichTextField({ value, onChange, label, compact = false, blockDirection }: { value: RichTextDoc; onChange: (next: RichTextDoc) => void; label: string; compact?: boolean; blockDirection?: unknown }) {
@@ -95,6 +98,7 @@ export default function RichTextField({ value, onChange, label, compact = false,
         {button('واگرد', '↶', false, () => editor.chain().focus().undo().run())}
         {button('ازنو', '↷', false, () => editor.chain().focus().redo().run())}
       </div>
+      <RichTextTools editor={editor} compact={compact} />
       <EditorContent editor={editor} />
     </div>
   )

@@ -6,7 +6,7 @@ import { err, ok } from '@/platform/http/response'
 import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, formStatus, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
-import { completeTrashCase } from '@/modules/moderation/server/cases'
+import { completeTrashCase, reopenTrashCase } from '@/modules/moderation/server/cases'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
@@ -464,7 +464,11 @@ async function trashOwnPost(id: number, authorId: number): Promise<'trashed' | '
   const row = await db.post.findFirst({ where: { id, authorId } })
   if (!row) return 'missing'
   if (isTrashed(row)) return 'already'
-  const claimed = await db.post.updateMany({ where: { id, authorId, status: row.status }, data: trashData(row, authorId) })
+  const claimed = await db.$transaction(async tx => {
+    const changed = await tx.post.updateMany({ where: { id, authorId, status: row.status }, data: trashData(row, authorId) })
+    if (changed.count) await reopenTrashCase(tx, 'post', id)
+    return changed
+  })
   if (!claimed.count) return 'already'
   contentChanged({ type: 'post', id }, row, { ...row, status: TRASHED })
   return 'trashed'

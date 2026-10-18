@@ -11,6 +11,7 @@ function world(db) {
     new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(full, 'utf8'), { fileName: full, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)(name => {
       if (name === '@/platform/database/prisma') return { db }
       if (name.startsWith('@/')) return load(`src/${name.slice(2)}`)
+      if (name.startsWith('.')) return load(path.resolve(path.dirname(full), name))
       return require(name)
     }, mod, mod.exports)
     return mod.exports
@@ -57,13 +58,16 @@ async function main() {
 
   // ---- the record of a decision sent from the overview
   await refused(a.cases.recordDecision(S, 3, ana.id, 'maybe'), 400, 'a decision that is not one')
+  assert.deepEqual(await a.cases.recordDecision(S, 3, ana.id, 'approve'), { recorded: false }, 'the overview cannot invent an owner decision')
+  await prisma.$transaction(tx => a.cases.completeOwnerCase(tx, S, 3, ana.id, 'approve'))
   assert.deepEqual(await a.cases.recordDecision(S, 3, ana.id, 'approve'), { recorded: true })
   const decided = await row(3)
   assert.deepEqual([decided.status, decided.decision, decided.decidedById, decided.assigneeId, decided.decidedAt instanceof Date], ['DECIDED', 'approve', ana.id, null, true])
   assert.deepEqual([await a.cases.recordDecision(S, 3, bob.id, 'reject'), (await row(3)).decision, (await row(3)).decidedById], [{ recorded: false }, 'approve', ana.id], 'decided once: the first record stays')
   await refused(a.cases.claimCase(S, 3, bob.id, true), 409, 'taking a decided item')
   await refused(a.cases.noteCase(S, 3, 'afterthought'), 409, 'noting a decided item')
-  assert.deepEqual(await a.cases.recordDecision(S, 7, bob.id, 'reject'), { recorded: true }, 'an item nobody took is recorded too')
+  await prisma.$transaction(tx => a.cases.completeOwnerCase(tx, S, 7, bob.id, 'reject'))
+  assert.deepEqual(await a.cases.recordDecision(S, 7, bob.id, 'reject'), { recorded: true }, 'an owner decision is recorded even without a prior claim')
   const recent = await a.cases.recentDecisions([S])
   assert.deepEqual([recent.map(item => [item.itemId, item.decision, item.by.split(' ')[1]]).sort(), await a.cases.recentDecisions([OTHER]), await a.cases.recentDecisions([])], [[[3, 'approve', 'ana'], [7, 'reject', 'bob']], [], []], 'only the sources asked for')
 

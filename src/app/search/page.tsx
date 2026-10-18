@@ -8,10 +8,11 @@ import { ITEM_LABEL, type ItemType } from '@/modules/content/domain/items'
 import { normalizePersian } from '@/shared/text/persian'
 import MediaShell from '@/components/media/MediaShell'
 import { RatingMeter } from '@/components/engage/RatingMeter'
+import SearchAdvancedControls from '@/components/search/SearchAdvancedControls'
 
 export const dynamic = 'force-dynamic'
 
-type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string; cursor?: string; access?: string; rated?: string; since?: string }> }
+type Props = { searchParams: Promise<{ q?: string; type?: string; page?: string; cursor?: string; access?: string; rated?: string; since?: string; sort?: string; dimension?: string; dimensionMin?: string }> }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { q } = await searchParams
@@ -38,8 +39,8 @@ export default async function SearchPage({ searchParams }: Props) {
   const narrowed = facetParams(data.facets)
   const href = (type: string, page = 1) => `/search?q=${encodeURIComponent(q)}${type !== 'all' ? `&type=${type}` : ''}${narrowed ? `&${narrowed}` : ''}${page > 1 ? `&page=${page}` : ''}`
   // The same search with one facet changed (the page starts again from the first).
-  const facetHref = (patch: Partial<SearchFacets>) => { const next = facetParams({ ...data.facets, ...patch }); return `/search?q=${encodeURIComponent(q)}${data.type !== 'all' ? `&type=${data.type}` : ''}${next ? `&${next}` : ''}` }
-  const chip = (label: string, patch: Partial<SearchFacets>, on: boolean) => <Link key={label} href={facetHref(patch)} className={on ? 'is-active' : ''} aria-pressed={on} rel="nofollow">{label}</Link>
+  const facetHref = (patch: Partial<SearchFacets>) => { const next = facetParams(patch === NO_FACETS ? NO_FACETS : { ...data.facets, ...patch }); return `/search?q=${encodeURIComponent(q)}${data.type !== 'all' ? `&type=${data.type}` : ''}${next ? `&${next}` : ''}` }
+  const chip = (label: string, patch: Partial<SearchFacets>, on: boolean) => <Link key={label} href={facetHref(patch)} className={on ? 'is-active' : ''} aria-current={on ? 'true' : undefined} rel="nofollow">{label}</Link>
   const cursorHref = (cursor: string) => `${href(data.type)}&cursor=${encodeURIComponent(cursor)}`
   const previousHref = params.cursor && !data.cursorReset
     ? (data.previousCursor ? cursorHref(data.previousCursor) : null)
@@ -58,10 +59,11 @@ export default async function SearchPage({ searchParams }: Props) {
           <form className="sr-form" role="search" action="/search">
             <input name="q" type="search" dir="rtl" defaultValue={q} className="input" placeholder="نرم‌افزار، بازی، فیلم، آهنگ، محصول یا مقاله…" aria-label="عبارت جست‌وجو" autoFocus={!q} enterKeyHint="search" />
             {data.type !== 'all' && <input type="hidden" name="type" value={data.type} />}
-            <button className="btn btn-primary">جست‌وجو</button>
+            <button type="submit" className="btn btn-primary">جست‌وجو</button>
           </form>
           {q && data.tokens.length === 0 && <p className="muted">دست‌کم دو حرف بنویسید.</p>}
         </header>
+        {data.tokens.length > 0 && <SearchAdvancedControls query={q} type={data.type} facets={data.facets} />}
 
         {totalAll > 0 && (
           <nav className="sr-tabs" aria-label="نوع نتیجه">

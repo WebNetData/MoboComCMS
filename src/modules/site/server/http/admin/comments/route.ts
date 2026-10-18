@@ -4,7 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
-import { completeOwnerCase } from '@/modules/moderation/server/cases'
+import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'cms.posts')) return err('forbidden', 403)
@@ -39,6 +39,7 @@ export async function PATCH(req: NextRequest) {
   const changed = await db.$transaction(async tx => {
     const claimed = await tx.postComment.updateMany({ where: { id, status: existing.status }, data: { status } })
     if (claimed.count && status !== 'PENDING') await completeOwnerCase(tx, 'article-comments', id, admin.id, status === 'APPROVED' ? 'approve' : 'reject')
+    if (claimed.count && status === 'PENDING' && existing.status !== 'PENDING') await reopenOwnerCase(tx, 'article-comments', id)
     return claimed.count
   })
   if (!changed) return err('دیدگاه هم‌زمان تغییر کرده است', 409)

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { recordRevision } from '@/modules/content/server/revisions'
+import { recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
 import { mediaRevisionState, restoreMediaRelations } from '@/modules/media/server/revision-state'
 import { syncCredits } from '@/modules/cinema/server/people'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
@@ -8,7 +8,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
-import { completeTrashCase } from '@/modules/moderation/server/cases'
+import { completeTrashCase, reopenTrashCase } from '@/modules/moderation/server/cases'
 import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonObject } from '@/platform/http/read-json'
@@ -650,13 +650,13 @@ export const mediaResource = (type: string) => (Object.hasOwn(RESOURCES, type) ?
  * to write. Versioned relationship snapshots restore through their owner; legacy snapshots leave them alone. Everything that
  * follows a change of the item (search, feeds, the people of a film) follows this one too.
  */
-export async function restoreMediaItem(type: string, id: number, values: (current: Record<string, unknown>) => Record<string, unknown>) {
+export async function restoreMediaItem(type: string, id: number, values: (current: Record<string, unknown>) => Record<string, unknown>, commit?: RestoreCommit) {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
-  const before = await mediaItemRow(type, id)
-  if (!before) throw Object.assign(new Error('not found'), { status: 404 })
-  if (type === 'music-artists' && before.mergedIntoId) throw new ArtistProfileError('پروفایل ادغام شده است؛ تاریخچهٔ پروفایل اصلی را باز کنید', 409)
-  const after = await db.$transaction(async (tx) => {
+  const { before, after } = await db.$transaction(async (tx) => {
+    const before = await mediaRevisionState(type, await resource.delegate(tx).findUnique({ where: { id } }), tx)
+    if (!before) throw Object.assign(new Error('not found'), { status: 404 })
+    if (type === 'music-artists' && before.mergedIntoId) throw new ArtistProfileError('پروفایل ادغام شده است؛ تاریخچهٔ پروفایل اصلی را باز کنید', 409)
     const data = values(before), relations = data.__relations
     delete data.__relations
     if (resource.taxonomy && typeof relations === 'string') {
@@ -668,8 +668,10 @@ export async function restoreMediaItem(type: string, id: number, values: (curren
     const saved = await resource.delegate(tx).update({ where: { id }, data })
     await restoreMediaRelations(tx, type, id, relations)
     if (type === 'cinema-titles') await syncCredits(tx, id)
-    return (await mediaRevisionState(type, saved, tx))!
-  }, { timeout: 30_000 })
+    const after = (await mediaRevisionState(type, saved, tx))!
+    await commit?.(tx, before, after)
+    return { before, after }
+  }, { isolationLevel: 'Serializable', timeout: 30_000 })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, before, after)
   await recountFor(resource)
   return { before, after }
@@ -801,7 +803,11 @@ async function trashOwnItem(type: string, id: number, authorId: number): Promise
   if (!row) return 'missing'
   if (!trashable(type)) return 'refused'
   if (isTrashed(row as { status: string })) return 'already'
-  const claimed = await resource.delegate(db).updateMany({ where: { id, createdById: authorId, status: row.status }, data: trashData(row as { status: string }, authorId) })
+  const claimed = await db.$transaction(async tx => {
+    const changed = await resource.delegate(tx).updateMany({ where: { id, createdById: authorId, status: row.status }, data: trashData(row as { status: string }, authorId) })
+    if (changed.count) await reopenTrashCase(tx, type, id)
+    return changed
+  })
   if (!claimed.count) return 'already'
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, { ...row, status: TRASHED })
   return 'trashed'

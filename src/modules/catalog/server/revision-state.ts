@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
-import { RevisionError } from '@/modules/content/server/revisions'
+import { RevisionError, type RestoreCommit } from '@/modules/content/server/revisions'
 import { replaceProductRelationships } from '@/modules/catalog/server/product-relationships'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
 import { productInput } from '@/modules/catalog/server/product-input'
@@ -15,7 +15,7 @@ export async function productRevisionState(id: number, tx: Prisma.TransactionCli
   return { ...Object.fromEntries(FIELDS.map(key => [key, row[key]])), __relations: JSON.stringify({ version: 1, relationships }) }
 }
 
-export async function restoreProductRevision(id: number, snapshot: Snapshot) {
+export async function restoreProductRevision(id: number, snapshot: Snapshot, commit?: RestoreCommit) {
   return db.$transaction(async tx => {
     const before = await productRevisionState(id, tx)
     if (!before) throw new RevisionError('محصول پیدا نشد', 404)
@@ -31,6 +31,8 @@ export async function restoreProductRevision(id: number, snapshot: Snapshot) {
     const current = await tx.product.findUniqueOrThrow({ where: { id } }), validated = await productInput(data, current)
     const allowed = new Set<string>(FIELDS.filter(key => key !== 'id' && key !== 'updatedAt'))
     await tx.product.update({ where: { id }, data: Object.fromEntries(Object.entries(validated.data).filter(([key]) => allowed.has(key))) })
-    return { before, after: (await productRevisionState(id, tx))! }
-  })
+    const after = (await productRevisionState(id, tx))!
+    await commit?.(tx, before, after)
+    return { before, after }
+  }, { isolationLevel: 'Serializable', timeout: 30_000 })
 }

@@ -33,7 +33,7 @@ export const CORE_BLOCKS: BlockDefinition[] = [
     fields: { line: { kind: 'enum', values: ['solid', 'dashed', 'dots'], default: 'solid' } } },
 
   // ---------------------------------------------------------------- content
-  { type: 'content.richText', version: 1, category: 'content', kind: 'static', icon: 'text', label: { fa: 'متن', en: 'Rich text' },
+  { type: 'content.richText', version: 2, migrate: { 1: props => props }, category: 'content', kind: 'static', icon: 'text', label: { fa: 'متن', en: 'Rich text' },
     fields: { content: { kind: 'richText' }, dir: { kind: 'enum', values: ['auto', 'rtl', 'ltr'], default: 'auto' } } },
   { type: 'content.heading', version: 1, category: 'content', kind: 'static', icon: 'heading', label: { fa: 'تیتر', en: 'Heading' },
     // H1 is the page's own title: a document's headings start at 2, so a page never has two H1.

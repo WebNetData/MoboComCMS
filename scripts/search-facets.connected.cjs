@@ -86,6 +86,28 @@ async function main() {
   assert.deepEqual([other.cursorReset, other.page], [true, 1], 'the same cursor under other facets starts again instead of continuing another list')
   assert.equal((await find(null, { cursor: first.nextCursor })).cursorReset, true)
 
+  // Explicit orders use the same bounded window/cursor; old relevance cursor scopes stay unchanged.
+  await prisma.searchDocument.updateMany({ where: { itemType: 'track', itemId: loved.id }, data: { publishedAt: ago(1) } })
+  await prisma.musicTrack.update({ where: { id: loved.id }, data: { publishedAt: ago(1) } })
+  assert.equal(facetRules.normalizeFacets({ since: 'constructor' }).since, '')
+  const newest = await find({ sort: 'newest' }), highest = await find({ sort: 'rating' })
+  assert.deepEqual([newest.hits[0].type, newest.hits[0].id], ['product', product.id], 'newest uses the current owner publication time, including a product just created')
+  assert.equal(highest.hits[0].id, old.id, 'highest-rated outranks a more recent, more relevant lower rating')
+  for (const sort of ['newest', 'rating']) {
+    const firstPage = await find({ sort }), nextPage = await find({ sort }, { cursor: firstPage.nextCursor })
+    assert.equal(new Set([...firstPage.hits, ...nextPage.hits].map(hit => `${hit.type}:${hit.id}`)).size, firstPage.total)
+    assert.equal((await find({ sort }, { cursor: nextPage.previousCursor })).hits[0].id, firstPage.hits[0].id)
+    assert.equal((await find({ sort: sort === 'newest' ? 'rating' : 'newest' }, { cursor: firstPage.nextCursor })).cursorReset, true)
+  }
+  const scored = await prisma.itemReview.create({ data: { itemType: 'track', itemId: loved.id, userId: buyers[0].id, rating: 5, body: 'approved dimensions', status: 'APPROVED', scores: { create: [{ key: 'lyrics', score: 5 }, { key: 'production', score: 3 }] } } })
+  await prisma.itemReview.create({ data: { itemType: 'track', itemId: poor.id, userId: buyers[1].id, rating: 5, body: 'private pending', status: 'PENDING', scores: { create: { key: 'lyrics', score: 5 } } } })
+  assert.deepEqual(names(await find({ dimension: 'lyrics', dimensionMin: 4 })), ['loved'], 'only approved scores count; unsupported/unscored items do not pass')
+  assert.deepEqual(names(await find({ dimension: 'production', dimensionMin: 4 })), [])
+  assert.deepEqual(names(await find({ dimension: 'production', dimensionMin: 3, sort: 'newest' })), ['loved'])
+  assert.equal((await find({ dimension: 'lyrics' }, { cursor: newest.nextCursor })).cursorReset, true)
+  await prisma.itemReview.update({ where: { id: scored.id }, data: { status: 'REJECTED' } })
+  assert.deepEqual(names(await find({ dimension: 'lyrics' })), [], 'a changed approval is reflected without rebuilding search')
+
   // ---- autocomplete is never narrowed; reviews switched off
   assert.equal((await searchSite({ q: seed, log: false, suggestion: true, facets: { rated: 4, access: 'members' } })).hits.length > 4, true)
   state.reviews = false
@@ -100,6 +122,7 @@ main().catch(error => { console.error(error); process.exitCode = 1 }).finally(as
     const products = (await prisma.product.findMany({ where: { slug: { startsWith: seed } }, select: { id: true } })).map(row => row.id)
     await prisma.searchDocument.deleteMany({ where: { OR: [{ itemType: 'track', itemId: { in: tracks } }, { itemType: 'product', itemId: { in: products } }] } })
     await prisma.itemStat.deleteMany({ where: { itemType: 'track', itemId: { in: tracks } } })
+    await prisma.itemReview.deleteMany({ where: { itemType: 'track', itemId: { in: tracks } } })
     await prisma.productReview.deleteMany({ where: { productId: { in: products } } }); await prisma.product.deleteMany({ where: { id: { in: products } } })
     await prisma.musicTrack.deleteMany({ where: { id: { in: tracks } } }); await prisma.musicArtist.deleteMany({ where: { slug: seed } })
     await prisma.user.deleteMany({ where: { email: { startsWith: seed } } })

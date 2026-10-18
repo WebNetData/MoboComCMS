@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const q = params.get('q') || ''
   const response = params.get('suggest') === '1'
     ? ok({ results: await suggest(q, parseTypes(params.get('types'))) })
-    : ok(await searchSite({ q, type: params.get('type'), page: params.get('page'), cursor: params.get('cursor'), facets: { access: params.get('access'), rated: params.get('rated'), since: params.get('since') } }))
+    : ok(await searchSite({ q, type: params.get('type'), page: params.get('page'), cursor: params.get('cursor'), facets: { access: params.get('access'), rated: params.get('rated'), since: params.get('since'), sort: params.get('sort'), dimension: params.get('dimension'), dimensionMin: params.get('dimensionMin') } }))
   response.headers.set('Cache-Control', 'private, no-store')
   return response
 }

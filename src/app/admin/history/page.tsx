@@ -3,13 +3,14 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from '@/components/AppLink'
+import '@/components/admin/authoring-controls.css'
 
 type Version = { version: number; changed: string[]; source: string; by: string; at: string }
 type Provenance = { sources: { source: string; externalId: string }[]; imports: { job: number; adapter: string; file: string; by: string; at: string; action: string; undone: boolean; fields: string[] }[]; editedSince: string[] | boolean } | null
 type Detail = { version: number; source: string; by: string; at: string; diff: { field: string; before: string; after: string }[] }
 const SOURCE: Record<string, string> = { baseline: 'وضعیت پیش از ثبت نسخه‌ها', edit: 'ویرایش', restore: 'بازگردانی', import: 'ورود گروهی' }
 const fa = (value: number) => value.toLocaleString('fa-IR')
-const FIELD_NAMES: Record<string, string> = { __relations: 'روابط محتوا', title: 'عنوان', name: 'نام', summary: 'خلاصه', description: 'توضیحات', content: 'متن', categoryId: 'دسته‌بندی', year: 'سال', image: 'عکس', cover: 'کاور', status: 'وضعیت' }
+const FIELD_NAMES: Record<string, string> = { __relations: 'روابط محتوا', title: 'عنوان', name: 'نام', summary: 'خلاصه', description: 'توضیحات', content: 'متن', categoryId: 'دسته‌بندی', year: 'سال', image: 'عکس', cover: 'کاور', status: 'وضعیت', supportEmail: 'ایمیل پشتیبانی', supportTelegram: 'تلگرام پشتیبانی', siteUrl: 'نشانی سایت', usdRateToman: 'نرخ دلار', seoDescription: 'توضیحات جست‌وجو', ogImage: 'تصویر اشتراک‌گذاری', googleVerification: 'تأیید گوگل', subscriptionPrefix: 'پیشوند اشتراک', storeEnabled: 'فروشگاه', publicApiEnabled: 'API عمومی', personalRecommendationsEnabled: 'پیشنهادهای شخصی', imagesMinTrust: 'سطح درج تصویر', linksMinTrust: 'سطح درج پیوند', newUserMaxLinks: 'پیوندهای تازه‌وارد', newUserTopicsPerDay: 'موضوع روزانه', editWindowHours: 'مهلت ویرایش', flagHideWeight: 'وزن گزارش', maxTagsPerTopic: 'تعداد برچسب', membersCreateTags: 'ساخت برچسب', reactions: 'واکنش‌ها', reactionWeights: 'وزن واکنش‌ها', trust: 'سطح اعتماد', approveNewUserPosts: 'تأیید پیام‌های نخست', messagesEnabled: 'پیام خصوصی', messagesMinTrust: 'سطح پیام خصوصی', pollsMinTrust: 'سطح نظرسنجی', watchedWords: 'واژه‌های تحت نظر', clubsEnabled: 'کلوب‌ها', clubsMinTrust: 'سطح ایجاد کلوب', clubsMaxOwned: 'تعداد کلوب', levels: 'درجه‌های کاربری' }
 const fieldName = (field: string) => FIELD_NAMES[field] || field
 const when = (iso: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' }).format(new Date(iso))
 
@@ -37,7 +38,7 @@ function History() {
   }
 
   async function restore(version: number) {
-    if (!window.confirm(`محتوا و روابط ثبت‌شدهٔ این مورد به نسخهٔ ${fa(version)} برگردد؟ خود این بازگردانی هم ثبت می‌شود. نسخه‌های قدیمیِ بدون روابط، روابط فعلی را حفظ می‌کنند. قیمت، موجودی و تاریخچهٔ مالی محصول برنمی‌گردد. لینک‌های حذف‌شده از نسخه غیرفعال می‌شوند و محدودیت‌های نظارتی حفظ می‌شوند.`)) return
+    if (!window.confirm(type.startsWith('settings-') ? `تنظیمات ثبت‌شده به نسخهٔ ${fa(version)} برگردد؟ این کار روی تنظیمات فعال سایت اعمال و خودش هم ثبت می‌شود. اطلاعات محرمانه و تنظیمات ناشناخته بازگردانی نمی‌شوند. تغییر وزن واکنش‌های تالار، بازشماری سابقهٔ واکنش‌ها را در صف قرار می‌دهد.` : `محتوا و روابط ثبت‌شدهٔ این مورد به نسخهٔ ${fa(version)} برگردد؟ خود این بازگردانی هم ثبت می‌شود. نسخه‌های قدیمیِ بدون روابط، روابط فعلی را حفظ می‌کنند. قیمت، موجودی و تاریخچهٔ مالی محصول برنمی‌گردد. لینک‌های حذف‌شده از نسخه غیرفعال می‌شوند و محدودیت‌های نظارتی حفظ می‌شوند.`)) return
     setBusy(true); setMessage(null)
     const response = await fetch('/api/admin/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, id: Number(id), version }) }).catch(() => null)
     const body = await response?.json().catch(() => null)
@@ -48,7 +49,7 @@ function History() {
   }
 
   const newest = versions?.[0]?.version
-  return <div className="sa" dir="rtl">
+  return <div className="sa cm-history" dir="rtl">
     <header className="sa-head"><div><h1>تاریخچهٔ نسخه‌ها</h1><p className="sa-sub"><bdi dir="ltr">{type} #{id}</bdi> · پس از هر ذخیره، فیلدهای خودِ مورد به‌صورت یک نسخه نگه داشته می‌شود.</p></div><Link className="btn btn-ghost btn-sm" href={`/admin/audit?targetType=${encodeURIComponent(type)}&targetId=${encodeURIComponent(id)}`}>رخدادهای ممیزی این مورد</Link></header>
     {message && <p className={`sa-notice ${message.error ? 'is-error' : 'is-ok'}`} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
     <section className="sa-card" aria-label="نسخه‌ها">

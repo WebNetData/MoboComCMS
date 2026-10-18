@@ -54,7 +54,7 @@ async function main() {
   await db.userRecentView.create({ data: { userId: user.id, itemType: 'game', itemId: source.id } })
   const token = await encode({ token: { uid: String(user.id), sub: String(user.id), email: user.email, name: user.name, role: user.role, authAt: Date.now() }, secret: process.env.NEXTAUTH_SECRET, maxAge: 3600 })
   const cookie = `next-auth.session-token=${token}`
-  const request = async (method, url, body) => fetch(`http://127.0.0.1:3000${url}`, { method, headers: { cookie, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(60_000) })
+  const request = async (method, url, body) => fetch(`http://127.0.0.1:3000${url}`, { method, headers: { cookie, origin: 'http://127.0.0.1:3000', ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(60_000) })
   const originalGlobal = await db.setting.findUnique({ where: { key: 'personalRecommendationsEnabled' } })
   restoreGlobal = async () => {
     await request('PATCH', '/api/admin/settings', { personalRecommendationsEnabled: originalGlobal?.value || 'true' })

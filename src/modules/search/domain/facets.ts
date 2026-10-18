@@ -1,5 +1,8 @@
 // Narrowing a search beyond the kind of item: who may open it, how members rated it, how new it is.
-// A facet only ever removes results; the order of what is left is the ranking's, unchanged.
+import { REVIEW_DIMENSIONS } from '@/modules/reviews/domain/dimensions'
+
+export const SEARCH_DIMENSIONS = [...new Map(Object.values(REVIEW_DIMENSIONS).flat().map(dimension => [dimension.key, dimension])).values()]
+export type SearchFacetInput = { access?: unknown; rated?: unknown; since?: unknown; sort?: unknown; dimension?: unknown; dimensionMin?: unknown }
 
 export const SINCE_DAYS = { week: 7, month: 30, year: 365 } as const
 export type Since = keyof typeof SINCE_DAYS
@@ -11,27 +14,34 @@ export type SearchFacets = {
   /** The least average rating (out of 5) an item must have; 0 = any, rated or not. */
   rated: 0 | 3 | 4
   since: '' | Since
+  /** Absent retains the original relevance ranking and original cursor scope. */
+  sort?: 'newest' | 'rating'
+  dimension?: string
+  dimensionMin?: 3 | 4
 }
 
 export const NO_FACETS: SearchFacets = { access: '', rated: 0, since: '' }
 
-export function normalizeFacets(input: { access?: unknown; rated?: unknown; since?: unknown } | null | undefined): SearchFacets {
+export function normalizeFacets(input: SearchFacetInput | null | undefined): SearchFacets {
   const rated = Number(input?.rated)
+  const dimension = SEARCH_DIMENSIONS.find(dimension => dimension.key === input?.dimension)?.key
   return {
     access: input?.access === 'free' || input?.access === 'members' ? input.access : '',
     rated: rated === 3 || rated === 4 ? rated : 0,
-    since: typeof input?.since === 'string' && input.since in SINCE_DAYS ? input.since as Since : '',
+    since: typeof input?.since === 'string' && Object.hasOwn(SINCE_DAYS, input.since) ? input.since as Since : '',
+    ...(input?.sort === 'newest' || input?.sort === 'rating' ? { sort: input.sort } : {}),
+    ...(dimension ? { dimension, dimensionMin: Number(input?.dimensionMin) === 3 ? 3 : 4 } as const : {}),
   }
 }
 
-export const hasFacets = (facets: SearchFacets) => Boolean(facets.access || facets.rated || facets.since)
+export const hasFacets = (facets: SearchFacets) => Boolean(facets.access || facets.rated || facets.since || facets.sort || facets.dimension)
 
 /** Names the facets in force: part of what a page cursor belongs to, and '' when there are none. */
-export const facetKey = (facets: SearchFacets) => (hasFacets(facets) ? `a=${facets.access};r=${facets.rated};s=${facets.since}` : '')
+export const facetKey = (facets: SearchFacets) => (hasFacets(facets) ? `a=${facets.access};r=${facets.rated};s=${facets.since}${facets.sort ? `;o=${facets.sort}` : ''}${facets.dimension ? `;d=${facets.dimension};m=${facets.dimensionMin || 4}` : ''}` : '')
 
 /** The facets as query parameters, in a fixed order, leaving out the ones that are off. */
 export function facetParams(facets: SearchFacets): string {
-  return [facets.access && `access=${facets.access}`, facets.rated && `rated=${facets.rated}`, facets.since && `since=${facets.since}`].filter(Boolean).join('&')
+  return [facets.access && `access=${facets.access}`, facets.rated && `rated=${facets.rated}`, facets.since && `since=${facets.since}`, facets.sort && `sort=${facets.sort}`, facets.dimension && `dimension=${facets.dimension}&dimensionMin=${facets.dimensionMin || 4}`].filter(Boolean).join('&')
 }
 
 /** The earliest publication time the "since" facet lets through, or null when it is off. */

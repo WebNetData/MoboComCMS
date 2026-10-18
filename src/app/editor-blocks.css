@@ -52,7 +52,15 @@
 .mcb-content-richText blockquote, .mcb-content-quote blockquote { margin: 0; padding-inline-start: 1rem; border-inline-start: 3px solid var(--accent, #2563eb); }
 .mcb-tasks { list-style: none; padding-inline-start: 0; }
 .mcb-task { display: flex; gap: .6rem; align-items: flex-start; } .mcb-task.is-done > div { opacity: .65; text-decoration: line-through; }
-.mcb-color-accent { color: var(--accent, #2563eb); } .mcb-color-muted { color: var(--muted, #64748b); } .mcb-color-success { color: #16a34a; } .mcb-color-warning { color: #d97706; } .mcb-color-danger { color: #dc2626; }
+.mcb-table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius, 12px); }
+.mcb-table-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.mcb-table-scroll table { width: 100%; border-collapse: collapse; color: inherit; background: var(--card); }
+.mcb-table-scroll :is(th, td) { min-width: 7rem; padding: .8rem 1rem; border: 1px solid var(--border); vertical-align: top; text-align: start; }
+.mcb-table-scroll th { background: var(--bg-soft); font-weight: 700; }
+.mcb-table-scroll :is(th, td) > :first-child { margin-block-start: 0; }
+.mcb-table-scroll :is(th, td) > :last-child { margin-block-end: 0; }
+.mcb-document mark, .mc-rich-input mark { background: color-mix(in srgb, var(--warning) 28%, var(--card)); color: var(--text); border-radius: .15em; padding-inline: .1em; }
+.mcb-color-accent { color: var(--sds-color-text-brand-default, var(--primary)); } .mcb-color-muted { color: var(--sds-color-text-default-secondary, var(--muted)); } .mcb-color-success { color: var(--sds-color-text-positive-default); } .mcb-color-warning { color: var(--sds-color-text-warning-default); } .mcb-color-danger { color: var(--sds-color-text-danger-default); }
 .mcb-content-heading { margin: 0; scroll-margin-block-start: 6rem; }
 .mcb-content-image img, .mcb-content-gallery img { display: block; max-width: 100%; height: auto; }
 .mcb-content-image.is-rounded img, .mcb-content-gallery img { border-radius: var(--radius-lg, 16px); }

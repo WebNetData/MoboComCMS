@@ -38,6 +38,7 @@ export function claimRefusal(row: CaseRow | null, staffId: number, now: Date, ta
 }
 
 export interface CaseView {
+  round: number
   status: CaseStatus
   /** Who holds it now (a stale claim holds nothing). */
   assignee: { id: number; name: string } | null

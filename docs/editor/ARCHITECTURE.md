@@ -64,11 +64,13 @@ A missing value takes its default. A wrong value is an error and is replaced by 
 
 Tiptap JSON is the stored value of a rich text field. It is checked against a closed list:
 
-- nodes: paragraph, heading (levels 2 to 6), bullet, ordered and task lists, blockquote, code block, hard break, horizontal rule
+- nodes: paragraph, heading (levels 2 to 6), bullet, ordered and task lists, blockquote, code block, hard break, horizontal rule, table, tableRow, tableCell and tableHeader
 - marks: bold, italic, underline, strike, code, link, highlight, text colour (a theme colour name)
 - attributes: text alignment, direction, heading level, list start, task checked, code language
 
 H1 is not allowed anywhere in a document: the page's own title is the H1.
+
+**Rich-text version2 (2026-10-18).** `content.richText` is version2 with an identity migration from1; the document stays version1/`blocks-v1`. Tables use a closed rectangular schema with positive bounded row/column spans, maximum100 rows and20 columns, no nested tables, arbitrary style or engine width metadata. The server rejects invalid grids; the renderer escapes content into a named scrollable region with semantic table/header cells. Version1 documents migrate without changing their text; a registry that only knows version1 retains a newer block as unsupported. `rich-table.ts` owns the bounds. The adapter's exact `@tiptap/extension-table`3.31.3 matches the existing Tiptap version. Semantic color/highlight controls and table row/column/header/merge/split/delete actions live in `RichTextTools.tsx`; they store only the same validated MoboCom rich-text subset. See [verified continuation](../agent/handoffs/AUTHORING_OPERATIONS.md).
 
 **Direction.** The site is right to left, and so is an empty editor. A paragraph, heading, list or quote reads in the direction of its first letter (`textDirection`: Persian, Arabic and Hebrew from the right; Latin, Greek and Cyrillic from the left; digits and punctuation decide nothing). The rule is applied when reading, so `richTextHtml` and the heading block write `dir` on each of them, and nothing about it is stored; a direction the writer chose is stored and wins. Precedence is explicit paragraph direction → explicit containing rich-text block direction → first-letter inference → page default. `resolveTextDirection` applies that precedence in the renderer and in editor decorations; changing the inspector direction refreshes the editor without rewriting text. Only Unicode letters decide automatic direction, never punctuation, marks or digits. While writing, `src/components/editor/TypedDirection.ts` shows the same thing from the same rule in both editors (the block editor's rich text and the older `RichEditor`). A wrapper around rendered blocks must not say `dir="auto"`: the browser skips children that carry their own `dir`, so it would fall back to left to right.
 
@@ -194,7 +196,7 @@ Packages (all GPL-2.0-or-later; used as dependencies, nothing copied): `@wordpre
 ### Adding a block
 
 1. Define it (see "The registry") and hand it in with `registerModuleBlocks` on the server.
-2. That is all for editing and validation: it appears in the inserter with a settings panel.
+2. Server validation accepts the definition. The browser currently has only the core registry, so a module definition remains unsupported there until definitions are shared; do not claim it already appears in the inserter.
 3. For its look on a page, add its case to the renderer. (A way for a module to supply a component without touching the renderer is not built yet.)
 
 Browser test: `e2e/tests/block-editor.spec.ts`.
@@ -208,7 +210,7 @@ The owner's decision (2026-10-07): the block editor is the editor of the site, n
 - **API**: `GET`/`PUT /api/admin/editor/:entity/:id`.
 - **The article page** (`/blog/<slug>`, a protected surface) is unchanged except for where the body's HTML comes from: an article written in blocks shows its document inside the same `#article-body` frame. A locked article still shows the teaser cut from its HTML copy; a visitor reading in English gets the English body when the article has one.
 - **The admin forms** (`/admin/pages`, `/admin/posts`): the body field is a button into the block editor. Saving a new page or article goes straight there. The forms still hold everything else (title, address, cover, categories, state) and do not send a body they did not edit; the server refuses a body for an item written in blocks. For an item still written the old way, "keep using the old editor" brings the old field back.
-- **An old body opens as blocks** (`src/components/editor/gutenberg/legacy.ts`, in the browser): words become rich text blocks (Tiptap reads the HTML with the same extensions it edits with; an H1 becomes an H2), an image standing by itself becomes an image block, a YouTube, Aparat or Vimeo frame becomes a video block. Tables, images inside running text, frames of other sites, scripts and styles have no place in a document: they are left out and the writer is told how many. **Opening or editing the conversion changes no stored body**: autosave stays off until the writer explicitly saves the first conversion. If parts were omitted, the save button says «تأیید تبدیل و ذخیره» beside the omission notice. After that successful save, ordinary autosave resumes. A failed or conflicting save leaves conversion pending; the old body stays in the item's history. Regression: the legacy-conversion browser test edits text, waits longer than autosave, checks the unchanged legacy body, explicitly saves, then verifies ordinary autosave resumes.
+- **An old body opens as blocks** (`src/components/editor/gutenberg/legacy.ts`, in the browser): words become rich text blocks (Tiptap reads the HTML with the same extensions it edits with; an H1 becomes an H2), an image standing by itself becomes an image block, a YouTube, Aparat or Vimeo frame becomes a video block. Valid tables carry into rich text. Images inside running text, frames of other sites, scripts and styles have no place in a document: they are left out and the writer is told how many. **Opening or editing the conversion changes no stored body**: autosave stays off until the writer explicitly saves the first conversion. If parts were omitted, the save button says «تأیید تبدیل و ذخیره» beside the omission notice. After that successful save, ordinary autosave resumes. A failed or conflicting save leaves conversion pending; the old body stays in the item's history. Regression: the legacy-conversion browser test edits text, waits longer than autosave, checks the unchanged legacy body, explicitly saves, then verifies ordinary autosave resumes.
 
 ## What is not built
 
@@ -217,15 +219,14 @@ The owner's decision (2026-10-07): the block editor is the editor of the site, n
 - **There is no English body field.** The site is written in one language and translated by Google Translate (owner, 2026-10-07): the pages and articles forms no longer show `contentEn`. The column and what it holds are kept; an item that has an English body still shows it to a visitor reading in English.
 - Products, games, software and other items: their descriptions are still written in the old editor.
 - Extensions registering blocks.
-- Picking an existing file from a gallery: a field uploads a new file or takes an address.
+- Existing asset fields already compose shared LibraryPicker in FieldControls.tsx, in addition to upload/address entry. Do not recreate a gallery. Full browser coverage of every asset/list-field combination is not part of this slice.
 - Labels for the values of a choice (`container`, `narrow`, …) are shown as they are stored. Field names have Persian labels.
-- Text colour and highlight are in the format and are rendered, but the rich text toolbar has no button for them. Tables are not in the format.
-- Tables in an old body are not carried into blocks (the format has none yet).
+- Tables and semantic text colour/highlight are implemented in the existing toolbar and renderer; valid legacy tables carry into the explicit first-save conversion. Unsupported inline images/foreign frames remain disclosed omissions.
 
 Phase 2 (patterns, templates, locking, reusable blocks, responsive previews, domain blocks) and Phase 3 start after this has been used.
 
 ## Known limits
 
-- Media has no asset id in this codebase; a block stores the file's address.
+- A block asset stores the file's address, not a Library asset foreign key. The shared Library has its own IDs; the existing picker returns the address and descriptive metadata.
 - `documentHtml` knows the core blocks by name. A block from a module leaves a marked empty element there; its page rendering is the module's component.
-- Tables are not in rich text yet.
+- Table bounds are100 rows/20 columns and forbid nesting. Module/browser registry and dynamic-renderer limitations above remain.

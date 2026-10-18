@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { requireAdmin } from '@/modules/identity/server/access'
-import { bulkSameOrigin } from '@/modules/content/server/bulk'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { readJsonObject } from '@/platform/http/read-json'
 import { hasPermission } from '@/modules/identity/rbac'
 import { getModuleStates } from '@/extensions/server/modules'
 import { visibleSources, type QueueSourceKey } from '@/modules/moderation/domain/queue'
@@ -40,20 +41,23 @@ export async function GET(req: NextRequest) {
  * the owning module has just accepted. It decides nothing itself.
  */
 export async function POST(req: NextRequest) {
-  if (!bulkSameOrigin(req)) return err('forbidden', 403)
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   const who = await staff(req)
   if (!who) return err('forbidden', 403)
-  const body = (await req.json().catch(() => null)) || {}
+  let body: Record<string, unknown>
+  try { body = await readJsonObject(req, 8192) } catch { return err('درخواست نامعتبر است', 422) }
   const action = body.action as CaseAction, id = Number(body.id)
   if (!(CASE_ACTIONS as readonly string[]).includes(action) || !Number.isSafeInteger(id) || id <= 0) return err('درخواست نامعتبر است', 400)
   // A source this staff member may not moderate does not exist for them.
   if (!isQueueSource(body.source, who.sources)) return err('forbidden', 403)
   const source: QueueSourceKey = body.source
+  const round = body.round === undefined ? 1 : Number(body.round)
+  if (!Number.isSafeInteger(round) || round < 1) return err('دور بررسی معتبر نیست', 422)
   try {
-    const result = action === 'claim' ? await claimCase(source, id, who.admin.id, body.takeOver === true)
-      : action === 'release' ? await releaseCase(source, id, who.admin.id)
-      : action === 'note' ? await noteCase(source, id, body.note)
-      : await recordDecision(source, id, who.admin.id, body.decision)
+    const result = action === 'claim' ? await claimCase(source, id, who.admin.id, body.takeOver === true, new Date(), round)
+      : action === 'release' ? await releaseCase(source, id, who.admin.id, round)
+      : action === 'note' ? await noteCase(source, id, body.note, round)
+      : await recordDecision(source, id, who.admin.id, body.decision, round)
     if (action !== 'decided') await auditAdmin({ req, actor: who.admin, action: `moderation.case.${action}`, targetType: source, targetId: id, metadata: action === 'claim' && body.takeOver === true ? { takeOver: true } : undefined })
     return ok(result)
   } catch (error) {

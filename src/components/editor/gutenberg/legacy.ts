@@ -12,7 +12,7 @@ import { richTextExtensions } from './RichTextField'
  * Vimeo frame becomes a video block. Nothing here is stored: the result is what the editor opens
  * with, and the server checks whatever is saved from it like any other document.
  *
- * What the document format has no place for (tables, frames of other sites, scripts, styles) is
+ * What the document format has no place for (frames of other sites, scripts, styles) is
  * left out and counted, so the writer is told.
  */
 export function legacyToEngineBlocks(html: string, registry: BlockRegistry): { blocks: EngineBlock[]; dropped: number } {
@@ -55,9 +55,8 @@ export function legacyToEngineBlocks(html: string, registry: BlockRegistry): { b
       blocks.push(block('content.image', { image: { src, alt: image.getAttribute('alt') || '', caption: element.querySelector('figcaption')?.textContent?.trim() || '', width: size('width'), height: size('height'), mime: '' } }))
       continue
     }
-    if (element.tagName === 'TABLE') dropped += 1
     // Images inside running text have no place in rich text: they are counted, the words around them are kept.
-    dropped += element.tagName === 'TABLE' ? 0 : element.querySelectorAll('img, iframe, table, video, audio').length
+    dropped += element.querySelectorAll('img, iframe, video, audio').length
     pending.push(element.outerHTML)
   }
   flush()

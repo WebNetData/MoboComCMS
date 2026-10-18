@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
-import { completeOwnerCase } from '@/modules/moderation/server/cases'
+import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 export { mergeProfileFavorites } from '@/modules/reviews/server/profile-merges'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
@@ -147,6 +147,7 @@ export async function saveReview(userId: number, ref: ItemRef, input: { rating: 
   const verified = (previous && verifiedOf(previous.verified)) || await memberItemExperience(userId, ref).catch(() => '' as const)
   const saved = await db.$transaction(async (tx) => {
     const review = await tx.itemReview.upsert({ where, create: { itemType: ref.type, itemId: ref.id, userId, rating, body, status, verified }, update: { rating, body, status, verified } })
+    if (status === 'PENDING' && previous?.status !== 'PENDING') await reopenOwnerCase(tx, 'item-reviews', review.id)
     if (previous && previous.body !== body) await tx.itemReviewHelpful.deleteMany({ where: { reviewId: review.id } })
     if (scores) {
       await tx.itemReviewScore.deleteMany({ where: { reviewId: review.id } })
