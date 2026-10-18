@@ -2,7 +2,36 @@
 
 ## Continue this implementation
 
-Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/unified-avatar-admin-controls-2026-10-18`, stacked on Cinema discovery commit `e1f8b499`. Root product checkout is older. [Scoped spec](../../specs/unified-avatar-admin-controls/SPEC.md). Do not create another identity, upload catalog, settings resolver or navigation registry.
+Authoritative checkout: `.mobocom/autonomous-foundation`. Current reader-correction branch is `fix/member-avatar-surfaces-2026-10-18`, stacked on first avatar/Admin commit `5b8fdc81` (original branch `feat/unified-avatar-admin-controls-2026-10-18`). Root product checkout is older. [Scoped spec](../../specs/unified-avatar-admin-controls/SPEC.md). Do not create another identity, upload catalog, settings resolver or navigation registry.
+
+## Reader correction — 2026-10-18
+
+The owner's screenshots proved the earlier whole-site avatar wording exceeded the shell/profile checks. Before deploying this correction, a real single profile upload/save reproduced all three gaps on the prior runtime: no photo on external business reviews, seller business reviews or Journal cards. Those baseline captures remain under ignored root `.mobocom/avatar-surfaces-evidence`.
+
+| Human picture surface | Correction / existing owner |
+| --- | --- |
+| Journal landing hero/cards, archive/search/category grids | BlogPage joins canonical picture fields and sends additive optional LionaStory.authorAvatar; shared Meta renders20px circular photo, preserving initial/cover/layout |
+| External and site business experiences | Existing ItemReview/pictureOf DTO was correct; BusinessProfilePage now consumes its avatar |
+| Seller business experiences | Existing SellerReview rows remain; one batched User join projects canonical name/color/avatar, using the same page renderer |
+| Admin user detail / customer search and selection | Existing guarded User endpoints expose only additive resolved avatar; Detail/CustomerPicker render it, retaining photo on selection |
+| Existing invoice / recurring customer picker values | Existing serializers carry resolved avatar; no amounts, states, schedule or history mutation |
+| Customer and Admin ticket customer portraits | Existing authorized ticket detail adds userAvatar; clients consume it. Internal-note filtering and generic support-team identity remain |
+| Reseller human account shell | Existing session.user.image is rendered. Disabled module retained; this branch was type/source reviewed, not activated or browser-certified |
+
+Already-connected human readers were source-audited: shared section reviews/comments, article author/bio, Community/profile/feed/home, Forum cards/messages/composer and account/Admin headers. They retain their existing owner. Seller/business/studio logos, Cinema/Music catalog people, configurable testimonial images and CRM Contact initials are separate entities; never infer a UserId from their name or email.
+
+### Executed correction evidence
+
+-168 relevant unit tests passed as Linux UID1000 without .env: content-controls (including actual React static byline photo/initial/cover render), engagement, navigation, returns-invoice, account-security and forms. Full TypeScript plus architecture/source1987/security/audit gates passed on the final semantic source.
+- Registered `member-avatar-surfaces` passed against owned PostgreSQL using real signed cookies/current guards and real Journal/Businesses/User/Ticket/Invoice/Recurring reads. Cases: uploaded canonical vs deliberately stale Forum photo, replacement, removal, Telegram fallback, all DTOs, own/staff/foreign/guest access, private-note filtering, no raw nested profile/Telegram DTO leakage, unchanged financial rows/schedules. Existing unified-avatar, journal-pagination and business-experiences checks also passed.
+- Four deliberate faults in an isolated source snapshot were detected: Journal projection, seller projection, ticket projection and Journal photo renderer. Restored native/render checks passed. No deployed source was faulted.
+- Actual localhost3000: external/seller reviews and Journal category cards display the same loaded uploaded image (naturalWidth checked), circle dimensions/object-fit intact, one no-photo author still draws an initial. Twelve loaded light/dark1440/390 scoped axe views passed without overflow; representative screenshots inspected. An actual second Dashboard upload/save changed all open signed-in review/Journal pages through the existing session broadcast, without per-page reload. Landing and full article/bio photo checks passed too.
+- Final browser continuation verified real Admin user portrait, invoice customer search and selected value, Admin/customer ticket pictures; journal-only Admin reads remained403 and anonymous ticket read401. Clearing the uploaded photo propagated to open business reviews and returned Journal cards to initials. No invoice or ticket was submitted. Final continuation collected zero page errors.
+- React Doctor0.9.17 on seven affected React files: exit0/0 errors/43 warnings. Existing fetch/complexity/forms/labels/localized-date diagnostics remain; no rule disabled. Scoped Semgrep: one local configured rule,17 production files,0 findings/errors; existing anchoring warning retained. These are scoped checks, not a full accessibility/security certification.
+- Initial native cleanup failed on the existing TicketMessage foreign key after assertions; cleanup now explicitly removes only fixture messages before their ticket. Abandoned fixtures were removed only from the named disposable database and the corrected check passed. The first browser helper's remaining Admin step used an incorrect button label; it was not counted as passed, and the actual “فاکتور تازه” control was exercised in the final continuation. No production invariant was weakened.
+- Final cleanup removed only owned public fixtures, users/roles, ticket messages, invoice and uploaded files; private browser auth JSON was removed on both host/container. Health returned200/database ready. Redacted Gitleaks on the staged patch found no leaks; no exclusions were added.
+
+Reproduce regression: `node scripts/run-pg-checks.cjs member-avatar-surfaces unified-avatar journal-pagination business-experiences` with an owned migrated DATABASE_URL. Unit runner adds `scripts/engagement.test.cjs`, `scripts/returns-invoice.test.cjs` and `scripts/forms.test.cjs` to the focused content/navigation/account set. Raw ignored helpers/reports: root `.mobocom/avatar-surfaces-*.cjs`, `avatar-surfaces-evidence`, Doctor/Semgrep reports; Linux `/tmp/avatar-surfaces-*.log`. All browser data/uploads are fixture-owned and cleaned after evidence capture. No new migration, external service, dependency, hosted Actions or production-build claim.
 
 ## Ownership and changes
 

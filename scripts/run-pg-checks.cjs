@@ -24,6 +24,7 @@ const CHECKS = [
   'global-authentication',
   'current-account-consumers',
   'unified-avatar',
+  'member-avatar-surfaces',
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',

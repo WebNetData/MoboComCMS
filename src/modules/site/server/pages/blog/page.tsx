@@ -20,6 +20,7 @@ import LiveSearchInput from '@/components/search/LiveSearchInput'
 import { Icon } from '@/components/media/PortalIcons'
 import JournalPagination from '@/components/journal/JournalPagination'
 import { journalBrowseUrl, journalPagination } from '@/modules/journal/domain/pagination'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 /** Badge colours for the journal's main categories (Liona palette). */
@@ -70,7 +71,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
     }
   }
   const browseUrl = (cat = category, page = 1) => journalBrowseUrl({ category: cat, query, page, archive: true })
-  const include = { category: true, categories: { include: { category: true } }, author: { select: { name: true } } } as const
+  const include = { category: true, categories: { include: { category: true } }, author: { select: { name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } } } as const
   const [cats, listed, pool] = await Promise.all([
     db.postCategory.findMany({ orderBy: { name: 'asc' } }),
     isLanding ? Promise.resolve([]) : db.post.findMany({ where, take: pageSize, skip, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], include }),
@@ -104,7 +105,7 @@ export default async function BlogPage({ searchParams: searchParamsPromise, prev
       id: post.id, slug: post.slug, title: isFa ? post.title : post.titleEn || post.title,
       excerpt: richTextToPlain(isFa ? post.excerpt : post.excerptEn || post.excerpt, 160), cover: post.cover || FALLBACK,
       date: fmt(post.publishedAt), minutes: readingMinutes(isFa ? post.content : post.contentEn || post.content), views: post.views,
-      author: post.author?.name || '', category: first ? categoryOf(first) : null,
+      author: post.author?.name || '', authorAvatar: pictureOf(post.author), category: first ? categoryOf(first) : null,
     }
   }
   const currentCategory = cats.find((c) => c.slug === category)

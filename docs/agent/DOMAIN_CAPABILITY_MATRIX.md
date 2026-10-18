@@ -72,7 +72,7 @@ Shared import providers/jobs, search and security owners already exist. U means 
 
 ## Updating this view
 
-2026-10-18 bounded Identity/Admin continuation: shared avatar writers/projections/session refresh and permission-aware control discovery have local Functional evidence;138 units/full types/gates, native PostgreSQL/fault checks and actual themed browser flows. This does not promote all Identity dimensions or assert universal field-level Admin configuration. Continue the [scoped handoff and remaining limits](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
+2026-10-18 bounded Identity/Admin continuation: shared avatar writers/session refresh and permission-aware control discovery have local Functional evidence. Owner screenshots subsequently exposed disconnected business-review/Journal-card readers; the focused correction adds guarded customer/ticket/invoice projections,168 units/full types/gates, four PG regressions/fault checks and actual themed/browser picture flows. This does not promote all Identity dimensions or assert universal field-level Admin configuration. Continue the [scoped handoff and remaining limits](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
 
 2026-10-10 Store PI cells above reflect only the [real buyer/return compiled-runtime slice](audits/2026-10-10-buyer-return-runtime.md): wallet checkout/replay, delivered-code privacy, scoped return/refund, inspected light/dark/mobile views, and isolated HTTPS/PostgreSQL execution. They do not assess all Store surfaces, all security, real providers or a deployed production environment. Other domain cells are unchanged.
 

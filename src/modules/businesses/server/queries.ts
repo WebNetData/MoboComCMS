@@ -6,6 +6,7 @@ import { BusinessError } from '../domain/businesses'
 import type { BusinessProfile } from '@prisma/client'
 import { reviewedPurchaseProofs } from './trust-queries'
 import { reviewDigest } from './trust-content'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 const publicWhere = { status: 'PUBLISHED', OR: [{ kind: { not: 'SELLER' } }, { seller: { is: { status: 'ACTIVE' } } }] }
 const pageNumber = (input: unknown) => Math.min(10000, Math.max(1, Number.isSafeInteger(Number(input)) ? Number(input) : 1))
@@ -47,11 +48,11 @@ export async function businessPage(slug: string, viewerId: number | null, input:
     db.sellerReview.findMany({ where, orderBy: sort === 'new' ? [{ createdAt: 'desc' }, { id: 'desc' }] : [{ rating: sort === 'high' ? 'desc' : 'asc' }, { id: 'desc' }], skip: (page - 1) * 10, take: 10 }),
     viewerId && !canReply ? db.order.findMany({ where: { userId: viewerId, status: 'PAID', productDelivery: { is: { status: 'DELIVERED' } }, lines: { some: { sellerId: profile.sellerId! } } }, select: { id: true }, orderBy: { id: 'desc' }, take: 30 }) : [],
   ])
-  const names = new Map((await db.user.findMany({ where: { id: { in: rows.map(row => row.userId) } }, select: { id: true, name: true } })).map(row => [row.id, row.name]))
+  const authors = new Map((await db.user.findMany({ where: { id: { in: rows.map(row => row.userId) } }, select: { id: true, name: true, avatarColor: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })).map(row => [row.id, { name: row.name || 'خریدار موبوکام', color: row.avatarColor, avatar: pictureOf(row) }]))
   const reviewed = new Set((await db.sellerReview.findMany({ where: { sellerId: profile.sellerId!, orderId: { in: orders.map(order => order.id) } }, select: { orderId: true } })).map(row => row.orderId))
   const distribution: [number, number, number, number, number] = [0, 0, 0, 0, 0]
   for (const bucket of buckets) if (bucket.rating >= 1 && bucket.rating <= 5) distribution[bucket.rating - 1] = bucket._count
-  return { profile: publicProfile, canReply, dimensions: [], page, pages: Math.ceil(total / 10), total, summary: summarizeDistribution(distribution), sort, stars: rating, mine: null, orders: orders.filter(order => !reviewed.has(order.id)), reviews: rows.map(row => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt.toISOString(), author: { name: names.get(row.userId) || 'خریدار موبوکام', color: '' }, mine: row.userId === viewerId, helpfulCount: 0, helpfulByMe: false, verified: 'PURCHASE', proofVerified: false, scores: {}, reply: row.reply, experiencedOn: null as string | null })) }
+  return { profile: publicProfile, canReply, dimensions: [], page, pages: Math.ceil(total / 10), total, summary: summarizeDistribution(distribution), sort, stars: rating, mine: null, orders: orders.filter(order => !reviewed.has(order.id)), reviews: rows.map(row => ({ id: row.id, rating: row.rating, body: row.body, createdAt: row.createdAt.toISOString(), author: authors.get(row.userId) || { name: 'خریدار موبوکام', color: '', avatar: '' }, mine: row.userId === viewerId, helpfulCount: 0, helpfulByMe: false, verified: 'PURCHASE', proofVerified: false, scores: {}, reply: row.reply, experiencedOn: null as string | null })) }
 }
 
 /**

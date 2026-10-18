@@ -2,7 +2,7 @@ import { BASE_CURRENCY, formatCurrency } from '@/shared/money/client'
 
 // Plain helpers of the invoice desk (no components here).
 
-export type Person = { id: number; email: string; name: string }
+export type Person = { id: number; email: string; name: string; avatar?: string }
 export type Gateway = { id: number; name: string; fiat?: string; active?: boolean }
 
 export const STATUS_LABEL: Record<string, string> = { UNPAID: 'پرداخت‌نشده', PAID: 'پرداخت‌شده', VOID: 'باطل', REFUNDED: 'بازپرداخت', DRAFT: 'پیش‌نویس' }

@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Canonical member pictures2026-10-18:** Identity/Forum writers and session refresh continue in the authoritative worktree. The owner found disconnected business-review and Journal-card readers after the first shell-only validation. Those projections/renderers now carry the canonical photo, including seller reviews; user/customer/invoice/recurring/ticket portraits and reseller shell were audited and connected. Never map pictures by a shared name or confuse business/CRM/team icons with user identity. [Verified scope, regression and continuation](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md#reader-correction--2026-10-18).
+
 - **Cinema discovery2026-10-18:** repaired wide browse layout, exact actor/director filters on existing credits, bounded public people suggestions and complete filtered filmographies. Counts mean distinct works available here; roles/counts are clearly labeled. Existing homepage/title design and data stay protected. [Continuation/evidence](handoffs/CINEMA_DISCOVERY.md).
 
 - **Music artist profiles2026-10-18:** `/admin/music/artists` extends canonical MusicArtist and existing Media API; Library/editor, history/bulk operations, author ownership, stable URLs/FKs, timestamp claims and transactional audit. Legacy artist links redirect; public Music composition remains. [Continuation and verified scope](handoffs/MUSIC_ARTIST_PROFILES.md).

@@ -278,6 +278,8 @@ MessengerPreferences.userId
 
 The member avatar belongs to Identity `UserProfile`. Dashboard and Forum saves use `updateUserProfile`; ForumProfile is a compatibility mirror, never a higher-priority picture source. Keep legacy profile/forum media URLs. Existing NextAuth session refresh/broadcast carries picture changes to open account shells; no second avatar store or browser identity bus. Scoped implementation, evidence and limits: [shared avatar and Admin controls](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
 
+Human bylines, review cards and customer portraits must carry the canonical picture through both layers: select `userProfile.avatar` plus the existing Telegram fallback, project it with Identity `pictureOf`, then render the photo before the initial. A working header does not prove its readers are connected. Journal landing/archive cards, external/site/seller experiences, guarded user/customer/invoice/recurring/ticket reads and the reseller shell follow this contract. Match the actual UserId; never assign a picture by matching a display name, email or business logo. Team/bot icons and CRM/business/catalog entities retain their separate meaning. Registered regression: `member-avatar-surfaces`; exact browser coverage remains in the same handoff.
+
 ### Identity vs CRM
 
 CRM `Contact` is not the authentication identity.

@@ -14,6 +14,7 @@ import { subscriptionAction, type SubAction } from '@/modules/subscriptions/serv
 import { getPanelAdapter } from '@/modules/providers/server/panels'
 import { auditAdmin } from '@/platform/audit/server'
 import { provisionSubscription } from '@/modules/subscriptions/server/provision'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
 
   const user = await db.user.findUnique({
     where: { id },
-    include: { roleRef: { select: { id: true, name: true, nameFa: true } } },
+    include: { roleRef: { select: { id: true, name: true, nameFa: true } }, userProfile: { select: { avatar: true } } },
   })
   if (!user) return err('not found', 404)
 
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
       id: user.id,
       email: user.email,
       name: user.name,
+      avatar: pictureOf(user),
       phone: user.phone,
       telegramId: user.telegramId,
       telegramUsername: user.telegramUsername,

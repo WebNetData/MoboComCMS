@@ -14,6 +14,7 @@ interface Detail {
     id: number
     email: string
     name: string
+    avatar?: string
     phone: string
     telegramId: string | null
     telegramUsername: string
@@ -115,7 +116,7 @@ export default function AdminCustomerPage() {
     <div>
       <div className="appbar">
         <div className="flex items-center gap-3">
-          <span className="avatar" style={{ background: 'var(--primary)' }}>{(u.name || u.email).charAt(0).toUpperCase()}</span>
+          <span className="avatar" style={{ background: 'var(--primary)' }}>{u.avatar ? <img src={u.avatar} alt="" /> : (u.name || u.email).charAt(0).toUpperCase()}</span>
           <div>
             <h1 className="h2">{u.name || u.email}</h1>
             <p className="muted" dir="ltr">{u.email} · <span className="num">#{u.id}</span></p>

@@ -29,6 +29,7 @@
 .lh-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--lh-muted); font-size: 11px; }
 .lh-meta > span { display: inline-flex; align-items: center; gap: 4px; }
 .lh-author i { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--lh-accent); color: #062a31; font-size: 10px; font-style: normal; font-weight: 800; }
+.lh-meta .lh-author .lh-author-avatar { display: block; flex: 0 0 20px; width: 20px; height: 20px; aspect-ratio: 1; border-radius: 50%; object-fit: cover; }
 .lh-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--lh-accent); color: #062a31 !important; font-size: 13px; font-weight: 800; transition: transform .15s, filter .15s; }
 .lh-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
 .lh-btn.is-ghost { background: var(--lh-card-2); color: var(--lh-text) !important; }

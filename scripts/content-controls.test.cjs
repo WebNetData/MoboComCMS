@@ -1458,6 +1458,20 @@ test("a person's own picture stands beside what they wrote, with the initial as 
   for (const file of ['src/components/PostComments.tsx', 'src/components/engage/ReviewList.tsx', 'src/components/ProductTabs.tsx']) assert.match(sourceOf(file), /is-photo/, file)
 })
 
+test('Journal card bylines render the canonical avatar without replacing cover art or dropping the initial fallback', () => {
+  const React = require('react'), { renderToStaticMarkup } = require('react-dom/server')
+  const { LionaGrid } = load('src/components/journal/LionaHome.tsx', {
+    '@/components/AppLink': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children),
+  })
+  const story = { id: 7, slug: 'owned-avatar', title: 'عنوان', excerpt: '', cover: '/cover.png', date: 'امروز', minutes: 1, views: 0, category: null, author: 'نویسنده', authorAvatar: '/api/profile/media/11111111-1111-4111-8111-111111111111.png' }
+  const html = renderToStaticMarkup(React.createElement(LionaGrid, { stories: [story] }))
+  assert.match(html, /class="lh-author-avatar"[^>]*src="\/api\/profile\/media\//)
+  assert.match(html, /src="\/cover.png"/)
+  const fallback = renderToStaticMarkup(React.createElement(LionaGrid, { stories: [{ ...story, authorAvatar: '' }] }))
+  assert.doesNotMatch(fallback, /class="lh-author-avatar"/)
+  assert.match(fallback, /<i aria-hidden="true">ن<\/i>/)
+})
+
 test('Admin control discovery searches only the supplied permitted projection, preserving groups and independent filters', () => {
   const { searchControlGroups } = load('src/components/admin/navigation/groups.ts')
   const groups = [
