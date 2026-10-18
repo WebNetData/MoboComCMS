@@ -113,7 +113,7 @@ export default function ResellerLayout({ children }: { children: React.ReactNode
         </Link>
 
         <div className="side-user">
-          <span className="avatar" style={{ background: 'var(--primary)' }}>{initial}</span>
+          <span className="avatar" style={{ background: 'var(--primary)' }}>{session?.user?.image ? <img src={session.user.image} alt="" /> : initial}</span>
           <div className="min-w-0">
             <div className="font-semibold text-sm truncate">{session?.user?.name || '—'}</div>
             <div className="muted text-xs truncate" dir="ltr">{session?.user?.email}</div>

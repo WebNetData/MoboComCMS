@@ -7,7 +7,11 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
+import { rateLimitStrict } from '@/platform/http/rate-limit'
+import { readJsonObject } from '@/platform/http/read-json'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { ArtistProfileError, artistProfilePatch, artistExpectedUpdate, artistProfileFilter } from '@/modules/music/domain/artist-profile'
 import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
@@ -176,14 +180,11 @@ const RESOURCES: Record<string, Resource> = {
   'music-artists': {
     module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicArtist, orderBy: { id: 'desc' },
+    include: { _count: { select: { tracks: true, albums: true } } },
     label: (row) => row.name,
     parse: (b, existing) => pickDefined({
       slug: when(b, 'slug', (v) => slugOf(v)) ?? (existing ? undefined : slugOf(b.nameEn || b.name)),
-      name: when(b, 'name', (v) => text(v, 160)),
-      nameEn: when(b, 'nameEn', (v) => text(v, 160)),
-      bio: when(b, 'bio', (v) => html(v, 20000)),
-      image: when(b, 'image', validateCover),
-      cover: when(b, 'cover', validateCover),
+      ...artistProfilePatch(b,!existing),
       featured: when(b, 'featured', bool),
     }),
   },
@@ -536,6 +537,7 @@ function resourceOf(req: NextRequest): [string, Resource] | null {
 }
 
 function failure(error: unknown) {
+  if (error instanceof ArtistProfileError) return err(error.message,error.status)
   const message = error instanceof Error ? error.message : 'Invalid input'
   if (/Unique constraint/i.test(message)) return err('این نشانی (slug) قبلاً استفاده شده / This slug is already used', 409)
   if (/Foreign key/i.test(message)) return err('مورد مرتبط پیدا نشد / Related item not found', 400)
@@ -571,14 +573,18 @@ export async function GET(req: NextRequest) {
     'vip-plans': ['name', 'nameEn', 'slug'],
   }
   const asked = Number.isSafeInteger(one) && one > 0 ? { id: one } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
-  const where = own ? { ...(asked || {}), ...own } : asked
+  let artistFilter:Record<string,unknown> = {}
+  if(type==='music-artists')try{artistFilter=artistProfileFilter(req.nextUrl.searchParams.get('profileFilter')||'')}catch(error){return failure(error)}
+  const where = own ? { ...(asked || {}), ...own } : type==='music-artists'?{...(asked||{}),...artistFilter}:asked
   const total = pageInfo ? await resource.delegate(db).count({ where }) as number : 0
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const orderBy = Array.isArray(resource.orderBy) || 'id' in resource.orderBy ? resource.orderBy : [resource.orderBy, { id: 'desc' as const }]
-  const rows = await resource.delegate(db).findMany({ ...(where ? { where } : {}), orderBy, include: resource.include, skip: slice?.skip ?? offset, ...(slice ? slice.take ? { take: slice.take } : {} : { take: 1000 }) })
+  // Authors may read shared artist names, but not other authors' unpublished work titles.
+  const related = type==='music-artists' && Number.isSafeInteger(one) && one>0 ? {tracks:{where:caller.authorId?{createdById:caller.authorId}:undefined,take:30,orderBy:{id:'desc'},select:{id:true,title:true,slug:true,status:true}},albums:{where:caller.authorId?{createdById:caller.authorId}:undefined,take:30,orderBy:{id:'desc'},select:{id:true,title:true,slug:true,status:true}}} : {}
+  const rows = await resource.delegate(db).findMany({ ...(where ? { where } : {}), orderBy, include: {...resource.include,...related}, skip: slice?.skip ?? offset, ...(slice ? slice.take ? { take: slice.take } : {} : { take: 1000 }) })
   const expanded = resource.expand ? await resource.expand(rows) : rows
   const terms = resource.taxonomy ? await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id)) : null
-  const result = terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
+  const result = type==='music-artists'?expanded.map((row:Record<string,unknown>)=>({...row,profileCanEdit:!caller.authorId||row.createdById===caller.authorId})):terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
   if (!pageInfo || !slice) return ok(result)
   const overall = await resource.delegate(db).count(own ? { where: own } : undefined) as number
   const vip = type !== 'music-artists' && type !== 'vip-plans' ? await resource.delegate(db).count({ where: { access: 'MEMBERS', ...(own || {}) } }) as number : null
@@ -591,12 +597,13 @@ export async function GET(req: NextRequest) {
  * section categories). Shared with the bulk import engine; the caller recounts taxonomy.
  */
 /** `actor` is the staff member saving through the admin form; an import passes none and is recorded as such. */
-export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
+export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null, options: { audit?: (tx:Tx,row:Record<string,any>)=>Promise<unknown> } = {}): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
   const existing = id ? await resource.delegate(db).findUnique({ where: { id } }) : null
   if (id && !existing) throw new Error('not found')
   const data = await resource.parse(body, existing)
+  const expected=type==='music-artists'&&id?artistExpectedUpdate(body):null
   const row = await db.$transaction(async (tx) => {
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
     if (type === 'games' || type === 'software') {
@@ -605,11 +612,17 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
       }
     }
     // Who created an item is written once, by the admin form; an import has no staff member behind it.
-    const saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data: AUTHORED[type] && actor ? { ...data, createdById: actor.id } : data })
+    let saved: any // Resource delegates retain their existing heterogeneous row contract.
+    if (expected && id) {
+      const claim=await tx.musicArtist.updateMany({where:{id,updatedAt:expected},data:{...data,updatedAt:new Date(Math.max(Date.now(),expected.getTime()+1))}})
+      if(!claim.count)throw new ArtistProfileError('پروفایل هم‌زمان تغییر کرده است؛ نسخهٔ تازه را دریافت کنید',409)
+      saved=await tx.musicArtist.findUniqueOrThrow({where:{id}})
+    } else saved = id ? await resource.delegate(tx).update({ where: { id }, data }) : await resource.delegate(tx).create({ data: AUTHORED[type] && actor ? { ...data, createdById: actor.id } : data })
     if (type === 'games' || type === 'software') await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', saved, existing)
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
     if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
+    if (options.audit) await options.audit(tx,saved)
     return saved
   }, { timeout: 30_000 })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
@@ -677,7 +690,12 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
   const caller = await authorize(req, resource, type)
   if (!caller) return err('forbidden', 403)
   const admin = caller.admin
-  const body = (await req.json().catch(() => null)) as Input | null
+  let body:Input|null
+  if(type==='music-artists') {
+    if(!req.headers.get('origin')||!originIsThisSite(req.headers.get('origin'),req.headers.get('host')||req.nextUrl.host))return err('forbidden',403)
+    if(!(await rateLimitStrict(`music.artist:${admin.id}`,30)).ok)return err('تعداد درخواست زیاد است؛ کمی صبر کنید',429)
+    try{body=await readJsonObject(req,160000)}catch{return err('محتوای درخواست معتبر نیست',422)}
+  } else body = (await req.json().catch(() => null)) as Input | null
   if (!body || typeof body !== 'object') return err('Invalid body')
   const id = mode === 'update' ? Number(body.id) : 0
   if (mode === 'update' && (!Number.isSafeInteger(id) || id <= 0)) return err('invalid id')
@@ -702,9 +720,9 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
       }
       if (body.restore === true) return err('این مورد در سطل زباله نیست', 409)
     }
-    const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null, { id: admin.id, email: admin.email })
+    const { row } = await saveMediaItem(type, body, mode === 'update' ? id : null, { id: admin.id, email: admin.email }, type==='music-artists'?{audit:(tx,saved)=>auditAdminStrict({req,actor:admin,action:`media.${type}.${mode}`,targetType:type,targetId:saved.id,metadata:{label:resource.label(saved)}},tx)}:{})
     await recountFor(resource)
-    await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
+    if(type!=='music-artists')await auditAdmin({ req, actor: admin, action: `media.${type}.${mode}`, targetType: type, targetId: row.id, metadata: { label: resource.label(row) } })
     return ok({ id: row.id, slug: row.slug, status: row.status }, mode === 'create' ? 201 : 200)
   } catch (error) {
     return failure(error)

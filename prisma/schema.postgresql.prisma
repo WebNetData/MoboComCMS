@@ -1711,6 +1711,9 @@ model CinemaPerson {
   normalizedName String         @unique
   image          String         @default("")
   bio            String         @default("")
+  displayNameKey String         @default("")
+  imageLocked    Boolean        @default(false)
+  profileVersion Int            @default(0)
   createdAt      DateTime       @default(now())
   credits        CinemaCredit[]
 }

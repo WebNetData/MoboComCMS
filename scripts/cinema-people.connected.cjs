@@ -59,7 +59,7 @@ async function main() {
 
   // ---- the directory
   const listed = await people.peopleDirectory({ q: seed })
-  assert.deepEqual(listed.people.map(p => [p.name.replace(`${seed} `, ''), p.titles, p.director, p.cast]), [['Dir', 3, true, true], ['Star', 2, false, true], ['Second', 1, true, false]], 'the most credited first; nobody whose only title is a draft')
+  assert.deepEqual(listed.people.map(p => [p.name.replace(`${seed} `, ''), p.titles, p.director, p.cast]), [['Dir', 2, true, true], ['Star', 2, false, true], ['Second', 1, true, false]], 'distinct published works; two roles on one film count once; nobody whose only title is a draft')
   assert.deepEqual([(await people.peopleDirectory({ q: `${seed} sta` })).people.map(p => p.id), (await people.peopleDirectory({ q: `${seed} nobody` })).total], [[star], 0])
 
   // ---- an edit: credits follow the title; a save that does not touch them leaves them

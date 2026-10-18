@@ -198,7 +198,7 @@ export async function getArtist(slug: string) {
     db.musicAlbum.findMany({ where: { artistId: row.id, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { artistId: row.id, ...live() }, include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 30 }),
   ])
-  return { artist: { ...row, bio: cleanRichText(row.bio) }, albums: albums.map(toAlbum), tracks: tracks.map(toTrack) }
+  return { artist: { ...row, bio: renderEditorialText(row.bio) }, albums: albums.map(toAlbum), tracks: tracks.map(toTrack) }
 }
 
 export async function getPlaylist(slug: string) {

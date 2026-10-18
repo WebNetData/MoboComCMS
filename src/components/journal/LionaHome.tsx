@@ -11,7 +11,7 @@ import { Icon, type IconName } from '@/components/media/PortalIcons'
 export type LionaCategory = { id: number; name: string; slug: string; color: string; count: number; href: string }
 export type LionaStory = {
   id: number; slug: string; title: string; excerpt: string; cover: string; date: string; minutes: number; views: number
-  author: string; category: LionaCategory | null
+  author: string; authorAvatar?: string; category: LionaCategory | null
 }
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
@@ -25,7 +25,7 @@ function Badge({ category }: { category: LionaCategory | null }) {
 
 function Meta({ story, author = false }: { story: LionaStory; author?: boolean }) {
   return <span className="lh-meta">
-    {author && story.author && <span className="lh-author"><i aria-hidden="true">{story.author.slice(0, 1)}</i>{story.author}</span>}
+    {author && story.author && <span className="lh-author">{story.authorAvatar ? <img className="lh-author-avatar" src={story.authorAvatar} alt="" width={20} height={20} loading="lazy" decoding="async" /> : <i aria-hidden="true">{story.author.slice(0, 1)}</i>}{story.author}</span>}
     <span><Icon name="calendar" size={13} />{story.date}</span>
     <span><Icon name="clock" size={13} />{fa(story.minutes)} دقیقه</span>
   </span>

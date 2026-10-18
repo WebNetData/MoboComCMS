@@ -7,6 +7,7 @@ import { relatedCinema } from '@/modules/recommendations/server/contextual'
 import { allOrEmpty } from '@/modules/media/server/queries/music'
 import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
+import { cinemaBrowsePage, cinemaPersonId } from '@/modules/cinema/domain/discovery'
 
 export type TitleCard = {
   id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
@@ -64,9 +65,12 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
   }
 }
 
-export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[] }) {
-  const page = Math.max(1, Math.min(500, Number(input.page) || 1))
+export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string }) {
+  const page = cinemaBrowsePage(input.page)
   const where: any = { ...live() }
+  const actor=cinemaPersonId(input.actor),director=cinemaPersonId(input.director)
+  const credits=[actor!==null?{credits:{some:{personId:actor,role:'CAST'}}}:null,director!==null?{credits:{some:{personId:director,role:'DIRECTOR'}}}:null].filter(Boolean)
+  if(credits.length)where.AND=credits
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 60) }
@@ -75,15 +79,19 @@ export async function browseCinema(input: { kind?: string; genre?: string; year?
   const year = Number(input.year)
   if (Number.isSafeInteger(year) && year > 1880) where.year = year
   const q = String(input.q || '').trim().slice(0, 80)
-  if (q) where.OR = [{ title: { contains: q } }, { titleEn: { contains: q } }, { originalTitle: { contains: q } }, { director: { contains: q } }]
+  if (q) where.OR = [{ title: { contains: q,mode:'insensitive' } }, { titleEn: { contains: q,mode:'insensitive' } }, { originalTitle: { contains: q,mode:'insensitive' } }, { director: { contains: q,mode:'insensitive' } }]
   const orderBy = input.sort === 'imdb' ? [{ imdbRating: 'desc' as const }] : input.sort === 'year' ? [{ year: 'desc' as const }] : input.sort === 'popular' ? [{ views: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
-  const [rows, total, facets] = await Promise.all([
-    db.cinemaTitle.findMany({ where, include: titleInclude, orderBy, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+  let unavailable=false
+  const stableOrder=[...orderBy,{id:'desc' as const}]
+  let [rows, total, facets] = await Promise.all([
+    db.cinemaTitle.findMany({ where, include: titleInclude, orderBy:stableOrder, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.cinemaTitle.count({ where }),
     db.cinemaTitle.findMany({ where: live(), select: { genres: true, countries: true, year: true }, take: 1500 }),
-  ]).catch(() => [[], 0, []] as [any[], number, any[]])
+  ]).catch(() => {unavailable=true;return [[], 0, []] as [any[], number, any[]]})
+  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE)),shownPage=Math.min(page,pages)
+  if(shownPage!==page&&!unavailable)rows=await db.cinemaTitle.findMany({where,include:titleInclude,orderBy:stableOrder,skip:(shownPage-1)*PAGE_SIZE,take:PAGE_SIZE}).catch(()=>{unavailable=true;return []})
   return {
-    titles: rows.map(toTitle), total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    titles: rows.map(toTitle), total, page:shownPage, pages, unavailable,
     genres: countList(facets.map((f: any) => f.genres)).slice(0, 40),
     countries: countList(facets.map((f: any) => f.countries)).slice(0, 40),
     years: [...new Set(facets.map((f: any) => f.year).filter(Boolean) as number[])].sort((a, b) => b - a).slice(0, 60),

@@ -8,6 +8,7 @@ import { randomPassword } from '@/shared/security/random'
 import { walletBalancesForUsers } from '@/modules/wallet/server/wallet'
 import bcrypt from 'bcryptjs'
 import { auditAdmin } from '@/platform/audit/server'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 export async function GET(req: NextRequest) {
   const admin =
@@ -20,11 +21,11 @@ export async function GET(req: NextRequest) {
   if (slim) {
     const basic = await db.user.findMany({
       where: q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }] } : undefined,
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
     })
-    return ok({ users: basic.map((u) => ({ ...u, role: 'CUSTOMER', status: 'ACTIVE', orders: 0, subs: 0, tickets: 0 })), roles: [] })
+    return ok({ users: basic.map((u) => ({ id: u.id, email: u.email, name: u.name, avatar: pictureOf(u), role: 'CUSTOMER', status: 'ACTIVE', orders: 0, subs: 0, tickets: 0 })), roles: [] })
   }
   const users = await db.user.findMany({
     where: q
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
       : undefined,
     include: {
       roleRef: true,
+      userProfile: { select: { avatar: true } },
       _count: { select: { orders: true, subscriptions: true, tickets: true } },
     },
     orderBy: { createdAt: 'desc' },
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
       id: u.id,
       email: u.email,
       name: u.name,
+      avatar: pictureOf(u),
       role: u.role,
       roleId: u.roleId,
       roleName: u.roleRef?.name || null,

@@ -2,6 +2,7 @@
 
 import Link from '@/components/AppLink'
 import { useEffect, useRef, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { LINK_KINDS, MESSAGE_POLICY, PROFILE_VISIBILITY, type Privacy } from '@/modules/identity/domain/profile'
 
 type Profile = { username: string; name: string; headline: string; bio: string; location: string; website: string; avatar: string; cover: string; links: { kind: string; url: string }[]; privacy: Privacy }
@@ -44,6 +45,7 @@ const Camera = () => <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
 
 /** Public profile editor: images, identity, social links and privacy, with a live preview. */
 export default function PublicProfilePage() {
+  const { update } = useSession()
   const [form, setForm] = useState<Profile | null>(null)
   const [saved, setSaved] = useState<Profile | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -75,6 +77,7 @@ export default function PublicProfilePage() {
     setBusy(false)
     if (!response?.ok) { setMessage({ ok: false, text: data?.error || 'ذخیره نشد' }); return }
     setForm(data); setSaved(data); setMessage({ ok: true, text: 'پروفایل به‌روز شد' })
+    void update().catch(() => undefined)
   }
 
   const checks = [

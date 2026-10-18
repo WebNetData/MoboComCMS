@@ -10,6 +10,7 @@ import { moveWallet } from '@/modules/wallet/server/wallet'
 import { legacyNumber, minorToNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { auditAdmin } from '@/platform/audit/server'
 import { parseFxRates } from '@/modules/billing/domain/invoice-rules'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 /** A closing time from "hours from now" (0 or empty: none). */
@@ -28,7 +29,7 @@ function serialize(i: any) {
     id: i.id,
     number: i.number,
     userId: i.userId,
-    user: i.user ? { id: i.user.id, email: i.user.email, name: i.user.name } : null,
+    user: i.user ? { id: i.user.id, email: i.user.email, name: i.user.name, avatar: pictureOf(i.user) } : null,
     orderId: i.orderId,
     planId: i.planId,
     planName: i.plan?.name || '',
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
       where,
       take,
       orderBy: { id: 'desc' },
-      include: { user: { select: { id: true, email: true, name: true } }, plan: { select: { name: true } }, product: { select: { name: true } }, gateway: { select: { name: true } } },
+      include: { user: { select: { id: true, email: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, plan: { select: { name: true } }, product: { select: { name: true } }, gateway: { select: { name: true } } },
     }),
     db.invoice.findMany({ where: { currency }, select: { status: true, total: true, totalMinor: true, walletApplied: true, walletAppliedMinor: true, currency: true } }),
   ])
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
     if (order) await db.order.update({ where: { id: order.id }, data: { paymentUrl: `/invoice/${invoice.number}` } }).catch(() => {})
     const title = text(b?.title, 120), detail = text(b?.detail, 500), expiresAt = expiryFrom(b?.expiresHours)
     if (title || detail || expiresAt) await db.invoice.update({ where: { id: invoice.id }, data: { title, detail, ...(expiresAt ? { expiresAt } : {}) } })
-    const full = await db.invoice.findUnique({ where: { id: invoice.id }, include: { user: { select: { id: true, email: true, name: true } }, plan: { select: { name: true } }, product: { select: { name: true } }, gateway: { select: { name: true } } } })
+    const full = await db.invoice.findUnique({ where: { id: invoice.id }, include: { user: { select: { id: true, email: true, name: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, plan: { select: { name: true } }, product: { select: { name: true } }, gateway: { select: { name: true } } } })
     await auditAdmin({ req, actor: admin, action: 'invoice.create', targetType: 'invoice', targetId: invoice.id, metadata: { userId, orderId: order?.id || null, planId, productId, currency, totalMinor: totalMinor.toString(), status } })
     return ok(serialize(full))
   } catch (error) {

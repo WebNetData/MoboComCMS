@@ -8,6 +8,7 @@ import { parseFields } from '@/modules/support/domain/department-config'
 import { safeHappLink } from '@/modules/subscriptions/server/happ-protocol'
 import { parseTicketSubmission, removeTicketFiles, saveTicketFiles, ticketAttachmentRows, TicketUploadError } from '@/modules/support/server/ticket-attachments'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 export async function GET(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   if (!user) return err('unauthorized', 401)
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid ticket id', 400)
-  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true } }, subscription: { select: { username: true, subToken: true } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
+  const ticket = await db.ticket.findUnique({ where: { id }, include: { user: { select: { name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } }, subscription: { select: { username: true, subToken: true } }, messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } } })
   if (!ticket) return err('not found', 404)
   const staffView = user.role === 'ADMIN' && req.nextUrl.searchParams.get('asCustomer') !== '1'
   if (staffView) {
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     userId: ticket.userId,
     user: ticket.user.email,
     userName: ticket.user.name,
+    userAvatar: pictureOf(ticket.user),
     updatedAt: ticket.updatedAt,
     subscriptionId: ticket.subscriptionId,
     subscriptionUsername: ticket.subscriptionUsername || ticket.subscription?.username || '',

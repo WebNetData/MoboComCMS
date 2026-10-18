@@ -12,7 +12,7 @@ import RecommendationPreference from '@/components/RecommendationPreference'
 import PlaybackPreference from '@/components/media/PlaybackPreference'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
-import { signOut } from 'next-auth/react'
+import { signOut, useSession } from 'next-auth/react'
 
 const COLORS = ['#4b45ee', '#7c3aed', '#db2777', '#e11d48', '#ea580c', '#d97706', '#16a34a', '#0d9488', '#0284c7', '#475569']
 
@@ -21,8 +21,8 @@ type Account = { name: string; email: string; avatarColor: string }
 /** Account settings: identity, sign-in security, and every notification channel in one place. */
 export default function ProfilePage() {
   const { t } = useI18n()
+  const { data: session, update } = useSession()
   const vpnOn = useModuleEnabled('vpn')
-  const communityOn = useModuleEnabled('community')
   const [account, setAccount] = useState<Account | null>(null)
   const [saved, setSaved] = useState<Account | null>(null)
   const [pass, setPass] = useState({ currentPassword: '', newPassword: '', confirm: '' })
@@ -30,11 +30,13 @@ export default function ProfilePage() {
   const [busy, setBusy] = useState('')
 
   useEffect(() => {
-    fetch('/api/profile').then((r) => (r.ok ? r.json() : null)).then((d) => {
-      if (!d) return
+    const controller = new AbortController()
+    fetch('/api/profile', { signal: controller.signal }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d || controller.signal.aborted) return
       const value = { name: d.name || '', email: d.email || '', avatarColor: /^#[0-9a-f]{6}$/i.test(d.avatarColor || '') ? d.avatarColor : '#4b45ee' }
       setAccount(value); setSaved(value)
-    })
+    }).catch(() => undefined)
+    return () => controller.abort()
   }, [])
 
   async function saveAccount(e: FormEvent) {
@@ -44,7 +46,7 @@ export default function ProfilePage() {
     const res = await fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: account.name, avatarColor: account.avatarColor }) }).catch(() => null)
     const data = await res?.json().catch(() => null)
     setBusy('')
-    if (res?.ok) setSaved(account)
+    if (res?.ok) { setSaved(account); void update().catch(() => undefined) }
     setMsg({ ok: !!res?.ok, text: res?.ok ? t.saved : data?.error || t.errGeneric, where: 'account' })
   }
 
@@ -70,7 +72,7 @@ export default function ProfilePage() {
   return <div className="dash-page" dir="rtl">
     <header className="dash-page-head">
       <div><h1>تنظیمات حساب</h1><p>اطلاعات حساب، امنیت ورود و همهٔ راه‌های اطلاع‌رسانی (پیامک، ایمیل و تلگرام) در یک جا.</p></div>
-      {communityOn && <div className="dash-page-actions"><Link href="/dashboard/public-profile" className="btn btn-ghost">ویرایش پروفایل عمومی</Link></div>}
+      <div className="dash-page-actions"><Link href="/dashboard/public-profile" className="btn btn-ghost">تصویر و پروفایل من</Link></div>
     </header>
 
     <div className="ac-layout">
@@ -79,11 +81,11 @@ export default function ProfilePage() {
           <div className="dash-card-head"><div><h2>اطلاعات حساب</h2><p>نام شما در فاکتورها، سفارش‌ها و پشتیبانی استفاده می‌شود.</p></div></div>
           {account ? <>
             <div className="ac-identity">
-              <span className="avatar" style={{ background: account.avatarColor }}>{(account.name || account.email || '?').charAt(0)}</span>
+              <span className="avatar" style={{ background: account.avatarColor }}>{session?.user?.image ? <img src={session.user.image} alt="" /> : (account.name || account.email || '?').charAt(0)}</span>
               <div><b>{account.name || 'بدون نام'}</b><span dir="ltr">{account.email}</span></div>
             </div>
             <label className="dash-field"><span>{t.nameLabel}</span><input className="input" value={account.name} maxLength={80} onChange={(e) => setAccount({ ...account, name: e.target.value })} /></label>
-            <div className="dash-field"><span>رنگ نمایه</span>
+            <div className="dash-field"><span>رنگ نمایه در نبود تصویر</span>
               <div className="ac-swatches" role="group" aria-label="رنگ نمایه">
                 {COLORS.map((color) => <button key={color} type="button" className="ac-swatch" style={{ background: color }} aria-pressed={account.avatarColor.toLowerCase() === color} aria-label={color} onClick={() => setAccount({ ...account, avatarColor: color })} />)}
                 <label className="ac-swatch-custom" title="رنگ دلخواه" style={COLORS.includes(account.avatarColor.toLowerCase()) ? undefined : { background: account.avatarColor, borderStyle: 'solid', borderColor: 'var(--text)', color: '#fff' }}>+<input type="color" value={account.avatarColor} onChange={(e) => setAccount({ ...account, avatarColor: e.target.value })} aria-label="رنگ دلخواه" /></label>

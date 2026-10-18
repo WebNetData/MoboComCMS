@@ -410,6 +410,7 @@
     "20270104120000_email_otp",
     "20270105120000_media_library",
     "20270105121000_media_transfer_authority",
-    "20270106120000_content_authoring"
+    "20270106120000_content_authoring",
+    "20270107120000_cinema_people_profiles"
   ]
 }

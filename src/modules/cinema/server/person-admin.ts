@@ -1,0 +1,41 @@
+import type { Prisma } from '@prisma/client'
+import { db } from '@/platform/database/prisma'
+import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
+import { normalizePersonName } from '@/modules/cinema/domain/people'
+import { personProfileInput, PersonProfileError } from '@/modules/cinema/domain/person-profile'
+
+const profile = { id:true, name:true, normalizedName:true, bio:true, image:true, imageLocked:true, profileVersion:true } as const
+export async function adminPeople(params: URLSearchParams) {
+  let pagination: ReturnType<typeof adminPageParams>
+  try { pagination=adminPageParams(params) } catch { throw new PersonProfileError('جست‌وجو یا صفحه‌بندی معتبر نیست') }
+  const {size,page,query}=pagination,role=params.get('role') || ''
+  if (role && !['CAST','DIRECTOR','uncredited'].includes(role)) throw new PersonProfileError('نوع عوامل معتبر نیست')
+  const q=normalizePersonName(query)
+  const where: Prisma.CinemaPersonWhereInput={...(q?{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}:{}),...(role==='uncredited'?{credits:{none:{}}}:role?{credits:{some:{role}}}:{})}
+  const total=await db.cinemaPerson.count({where}),slice=adminPageSlice(total,page,size)
+  const rows=await db.cinemaPerson.findMany({where,skip:slice.skip,take:slice.take,orderBy:{id:'desc'},select:{id:true,name:true,image:true,imageLocked:true,credits:{select:{role:true}},_count:{select:{credits:{where:{title:{status:'PUBLISHED',publishedAt:{lte:new Date()}}}}}}}})
+  return {people:rows.map(({credits,_count,...person})=>({...person,roles:[...new Set(credits.map(c=>c.role))],creditCount:credits.length,publicCredits:_count.credits})),total,page:slice.page,pages:slice.pages,limit:size}
+}
+export async function adminPerson(id: number) {
+  const person=await db.cinemaPerson.findUnique({where:{id},select:{...profile,credits:{orderBy:{id:'asc'},take:101,select:{id:true,role:true,character:true,title:{select:{id:true,title:true,slug:true,status:true,publishedAt:true,kind:true}}}}}})
+  if (!person) throw new PersonProfileError('پروفایل پیدا نشد',404)
+  const publicCredits=await db.cinemaCredit.count({where:{personId:id,title:{status:'PUBLISHED',publishedAt:{lte:new Date()}}}})
+  return {...person,credits:person.credits.slice(0,100),moreCredits:person.credits.length>100,publicCredits}
+}
+/** HTTP guard owns authority; atomic audit callback and version claim share this transaction. */
+export async function savePerson(input: Record<string,unknown>,audit: (tx:Prisma.TransactionClient,id:number,created:boolean)=>Promise<unknown>) {
+  const data=personProfileInput(input),id=input.id
+  if(id!==undefined && (!Number.isSafeInteger(id)||Number(id)<=0))throw new PersonProfileError('شناسه معتبر نیست')
+  if(id!==undefined && (!Number.isSafeInteger(input.profileVersion)||Number(input.profileVersion)<0))throw new PersonProfileError('نسخهٔ فرم معتبر نیست؛ پروفایل را دوباره باز کنید')
+  try {return await db.$transaction(async tx=>{
+    let person
+    if(id===undefined)person=await tx.cinemaPerson.create({data:{...data,normalizedName:normalizePersonName(data.name)},select:profile})
+    else {
+      const changed=await tx.cinemaPerson.updateMany({where:{id:Number(id),profileVersion:Number(input.profileVersion)},data:{...data,profileVersion:{increment:1}}})
+      if(!changed.count){if(!await tx.cinemaPerson.findUnique({where:{id:Number(id)},select:{id:true}}))throw new PersonProfileError('پروفایل پیدا نشد',404);throw new PersonProfileError('پروفایل هم‌زمان تغییر کرده است؛ نسخهٔ تازه را باز کنید',409)}
+      person=await tx.cinemaPerson.findUniqueOrThrow({where:{id:Number(id)},select:profile})
+    }
+    await audit(tx,person.id,id===undefined)
+    return person
+  })}catch(error){if((error as {code?:string}).code==='P2002')throw new PersonProfileError('این شخص از قبل ثبت شده است؛ پروفایل موجود را جست‌وجو کنید',409);throw error}
+}

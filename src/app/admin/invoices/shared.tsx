@@ -31,10 +31,10 @@ export function CustomerPicker({ value, onChange }: { value: Person | null; onCh
     }, 250)
     return () => { live = false; clearTimeout(timer) }
   }, [query])
-  if (value) return <div className="ivd-chosen"><span className="ivd-avatar">{(value.name || value.email).slice(0, 1).toUpperCase()}</span><div><b>{value.name || '—'}</b><small dir="ltr">{value.email}</small></div><button type="button" className="ivd-link" onClick={() => { onChange(null); setQuery('') }}>تغییر</button></div>
+  if (value) return <div className="ivd-chosen"><span className="ivd-avatar">{value.avatar ? <img src={value.avatar} alt="" width={32} height={32} /> : (value.name || value.email).slice(0, 1).toUpperCase()}</span><div><b>{value.name || '—'}</b><small dir="ltr">{value.email}</small></div><button type="button" className="ivd-link" onClick={() => { onChange(null); setQuery('') }}>تغییر</button></div>
   return <div className="ivd-picker">
     <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="نام یا ایمیل مشتری را بنویسید…" aria-label="جست‌وجوی مشتری" />
-    {matches.length > 0 && <ul role="listbox">{matches.map((person) => <li key={person.id}><button type="button" onClick={() => onChange({ id: person.id, email: person.email, name: person.name })}><span className="ivd-avatar">{(person.name || person.email).slice(0, 1).toUpperCase()}</span><span><b>{person.name || '—'}</b><small dir="ltr">{person.email} · #{person.id}</small></span></button></li>)}</ul>}
+    {matches.length > 0 && <ul role="listbox">{matches.map((person) => <li key={person.id}><button type="button" onClick={() => onChange({ id: person.id, email: person.email, name: person.name, avatar: person.avatar })}><span className="ivd-avatar">{person.avatar ? <img src={person.avatar} alt="" width={32} height={32} /> : (person.name || person.email).slice(0, 1).toUpperCase()}</span><span><b>{person.name || '—'}</b><small dir="ltr">{person.email} · #{person.id}</small></span></button></li>)}</ul>}
     {query.trim() && !busy && !matches.length && <p className="ivd-hint">کاربری با این مشخصات پیدا نشد.</p>}
   </div>
 }

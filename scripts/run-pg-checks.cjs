@@ -23,6 +23,8 @@ const CHECKS = [
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',
   'global-authentication',
   'current-account-consumers',
+  'unified-avatar',
+  'member-avatar-surfaces',
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',
@@ -71,7 +73,7 @@ const CHECKS = [
   'referral-reward-recovery', 'loyalty-redemption-recovery',
   'renewal-resume', 'notification-policy',
   'cinema-calendar', 'media-tracks', 'player-subtitles',
-  'episode-air-alerts', 'cinema-people',
+  'episode-air-alerts', 'cinema-people', 'cinema-people-admin', 'music-artist-profiles', 'cinema-discovery',
 ]
 
 // These invoke optional archive binaries / protocol servers and a queue-wide worker.

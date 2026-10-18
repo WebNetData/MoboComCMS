@@ -276,6 +276,10 @@ CommunityMemberSettings.userId
 MessengerPreferences.userId
 ```
 
+The member avatar belongs to Identity `UserProfile`. Dashboard and Forum saves use `updateUserProfile`; ForumProfile is a compatibility mirror, never a higher-priority picture source. Keep legacy profile/forum media URLs. Existing NextAuth session refresh/broadcast carries picture changes to open account shells; no second avatar store or browser identity bus. Scoped implementation, evidence and limits: [shared avatar and Admin controls](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
+
+Human bylines, review cards and customer portraits must carry the canonical picture through both layers: select `userProfile.avatar` plus the existing Telegram fallback, project it with Identity `pictureOf`, then render the photo before the initial. A working header does not prove its readers are connected. Journal landing/archive cards, external/site/seller experiences, guarded user/customer/invoice/recurring/ticket reads and the reseller shell follow this contract. Match the actual UserId; never assign a picture by matching a display name, email or business logo. Team/bot icons and CRM/business/catalog entities retain their separate meaning. Registered regression: `member-avatar-surfaces`; exact browser coverage remains in the same handoff.
+
 ### Identity vs CRM
 
 CRM `Contact` is not the authentication identity.
@@ -348,6 +352,12 @@ Transaction snapshots are legitimate copies when immutability is required (e.g. 
 Import copying distinguishes permanent invalid/refused images from temporary source outages through the existing typed Media/Library errors. Invalid incoming replacements never become a new cover and cannot erase an old cover/gallery; transient fallback and explicit copy opt-out preserve the source. The existing built-in scheduler drains Media jobs by default; external cron replaces it only when disabled. Current local release verification and live IMDb limitation: [Content authoring closeout](handoffs/CONTENT_AUTHORING.md#release-closeout--2026-10-17).
 
 Connected authoring extends those owners: new transfers capture a guarded Downloads destination and matching Library folder tree; existing files are never moved. Canonical Taxonomy terms may map/inherit a content field, projected by the content owner in its save transaction. Cinema owns fixed-host public IMDb pages, a separately attributed/configurable Cinemeta details fallback, exact-ID basic search and optional API adapters behind the same metadata facade/Admin source/copy settings. `cinemetaFallback` defaults on for the requested keyless details flow; off retains direct-page/basic-only behavior. Only supplied fields are returned; known same-name cast photos/roles survive name-only replacement. Search-only results remain explicitly incomplete. It never publishes, invents credits/photos or labels TMDb votes as IMDb ratings; copies compose Media's existing queue, not another downloader. New movies use `download/movie`, legacy film destinations remain valid. Site owns excerpt composition; specialist HTML uses the shared editorial sanitizer/editor. Exact contracts, current live-provider limits and verified scope: [Content authoring](handoffs/CONTENT_AUTHORING.md).
+
+Independent Cinema people management extends `CinemaPerson` through `cinema/server/person-admin.ts`, never a separate actor/director registry. Existing `cinema.manage` owns `/admin/cinema/people` and its API; shared Media/ContentEditor/Identity/Audit remain authoritative. Display-name edits preserve the immutable matching key and historical credits. Versioned saves and automatic photo promotion use claims; manual portrait locks include cleared images. Public profiles still require a published credit and title portraits reuse the canonical person. [Profile contracts/evidence](handoffs/CINEMA_PEOPLE_ADMIN.md).
+
+Cinema discovery extends the same catalogue and people/credits: exact CAST/DIRECTOR filters compose with existing public filters, and bounded anonymous name suggestions project only public people. Dedicated scoped browse presentation avoids homepage column rules. Person shelves show accurate published role totals and link bounded previews to complete paged catalogue queries; directory work counts are distinct across roles. No new registry, storage, identity or schema. [Contracts and scoped evidence](handoffs/CINEMA_DISCOVERY.md).
+
+Independent Music profile management uses existing `MusicArtist` through `media/server/admin.ts`, with `/admin/music/artists` and legacy library redirects. Preserve manager/own-author permissions, artist IDs/slugs, album/track FKs and standalone public visibility. Shared Library, ContentEditor, revisions, bulk operations and transactional Audit remain the owners; the new form claims updatedAt and retains typing on409. Cinema/Music share presentation only, not authorization or identity rules. [Contracts, import-matching limits and executed evidence](handoffs/MUSIC_ARTIST_PROFILES.md).
 
 Cinema's `peoplePhotos` option (default on, independent of `copyImages`) reuses canonical person images, then fills missing actors/directors through exact title/role/name relationships in public Wikidata and exact person-ID public IMDb suggestions. Ambiguous/missing identities never become guessed photos. Existing provider/local images win, plain autofill may fill an existing cast row's empty photo, and canonical credit persistence/Media handles the rest. Photo outages are partial metadata with warnings; no duplicate people registry, image queue or provider-specific storage. [Verified photo scope and limits](handoffs/CONTENT_AUTHORING.md#keyless-actordirector-photos--2026-10-17).
 
@@ -453,6 +463,8 @@ This is how MoboCom adapts to many business types while remaining one product.
 ## 14. Settings architecture
 
 Typed settings are registered by owner.
+
+Website management at `/admin/site-management` discovers the same permission-filtered, enabled-module controls as the Admin menu. The Admin layout is the single navigation projection; the directory has no second permission/settings registry. Add/edit/delete/visibility remain with each existing owner and server guard. New legitimate configurable behavior joins its owner's typed settings or content builder. Arbitrary code-defined fields and immutable financial/security state are not exposed through a generic data editor. [Current coverage and continuation](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
 
 Potential resolution:
 

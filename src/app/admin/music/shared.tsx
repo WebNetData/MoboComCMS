@@ -7,7 +7,8 @@ export { Notice, fa, send, useJson } from '../store/shared'
 
 const TABS: SectionTab[] = [
   { href: '/admin/music', label: 'داشبورد', exact: true },
-  { href: '/admin/music/library', label: 'آهنگ، آلبوم و هنرمند' },
+  { href: '/admin/music/library', label: 'آهنگ، آلبوم و پلی‌لیست' },
+  { href: '/admin/music/artists', label: 'خواننده‌ها و هنرمندان' },
   { href: '/admin/music/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]
 

@@ -7,6 +7,7 @@ import { auditAdmin } from '@/platform/audit/server'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
 import { INTERVALS, intervalOf, normalizeInvoiceRules } from '@/modules/billing/domain/invoice-rules'
 import { getInvoiceRules, issueRecurring, saveInvoiceRules } from '@/modules/billing/server/invoice-rules'
+import { pictureOf } from '@/modules/identity/domain/picture'
 
 // Admin: invoices issued on a schedule, and the rules that close unpaid invoices by themselves. Permission: invoices.manage.
 
@@ -15,7 +16,7 @@ const text = (value: unknown, max: number) => String(value ?? '').replace(/[\u00
 const int = (value: unknown, min: number, max: number, fallback: number) => { const n = Math.trunc(Number(value)); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback }
 
 async function serialize(rows: Awaited<ReturnType<typeof db.recurringInvoice.findMany>>) {
-  const users = await db.user.findMany({ where: { id: { in: [...new Set(rows.map((row) => row.userId))] } }, select: { id: true, name: true, email: true } })
+  const users = (await db.user.findMany({ where: { id: { in: [...new Set(rows.map((row) => row.userId))] } }, select: { id: true, name: true, email: true, telegramPhoto: true, userProfile: { select: { avatar: true } } } })).map(user => ({ id: user.id, name: user.name, email: user.email, avatar: pictureOf(user) }))
   const last = await db.invoice.findMany({ where: { id: { in: rows.map((row) => row.lastInvoiceId).filter((id): id is number => id != null) } }, select: { id: true, number: true, status: true } })
   return rows.map((row) => ({
     id: row.id, userId: row.userId, user: users.find((user) => user.id === row.userId) || null,

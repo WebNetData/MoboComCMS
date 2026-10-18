@@ -12,6 +12,7 @@ import { toPlayerTracks } from '@/components/media/player-types'
 import { toPublicPath } from '@/platform/routing/aliases'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import { plainText } from '@/shared/text/plain'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {}
   const fa = locale === 'fa'
   const name = fa ? data.artist.name : data.artist.nameEn || data.artist.name
-  return { title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: toPublicPath(`/music/artist/${data.artist.slug}`) } }
+  return { title: fa ? `آهنگ‌های ${name}` : `${name} — songs & albums`, description:plainText(data.artist.bio).slice(0,160)||undefined, openGraph: { images: data.artist.image ? [data.artist.image] : undefined }, alternates: { canonical: toPublicPath(`/music/artist/${data.artist.slug}`) } }
 }
 
 export default async function ArtistPage({ params }: Props) {
@@ -37,7 +38,7 @@ export default async function ArtistPage({ params }: Props) {
   const banner = artist.cover || artist.image
   return (
     <MediaShell section="music" active="artists" nav={musicNav(fa)} search={{ action: '/music/browse', placeholder: fa ? 'جست‌وجوی آهنگ یا خواننده…' : 'Search songs or artists…' }}>
-      <ManageBar title="مدیریت هنرمند" anyOf={['music.manage']} links={[{ href: `/admin/music/library?tab=artists&edit=${artist.id}`, label: 'ویرایش هنرمند' }, { href: '/admin/music/library?tab=artists', label: 'همهٔ هنرمندان' }]} />
+      <ManageBar title="مدیریت هنرمند" anyOf={['music.manage']} links={[{ href: `/admin/music/artists?edit=${artist.id}`, label: 'ویرایش هنرمند' }, { href: '/admin/music/artists', label: 'همهٔ هنرمندان' }]} />
       <section className="mu-artist-hero" style={banner ? { backgroundImage: `url("${banner.replace(/"/g, '%22')}")` } : undefined}>
         <div className="container mu-artist-inner">
           <span className="mu-artist-avatar">{artist.image ? <img src={artist.image} alt={name} /> : <i>{name.slice(0, 1)}</i>}</span>

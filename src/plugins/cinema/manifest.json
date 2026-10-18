@@ -54,6 +54,13 @@
         ]
       },
       {
+        "href": "/admin/cinema/people",
+        "label": "بازیگران و کارگردان‌ها",
+        "labelEn": "People",
+        "icon": "users",
+        "permissions": ["cinema.manage"]
+      },
+      {
         "href": "/admin/taxonomy?tax=cinema",
         "label": "دسته‌بندی فیلم و سریال",
         "labelEn": "Categories",

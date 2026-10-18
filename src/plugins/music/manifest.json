@@ -75,13 +75,20 @@
       },
       {
         "href": "/admin/music/library",
-        "label": "آهنگ، آلبوم و هنرمند",
-        "labelEn": "Tracks, albums & artists",
+        "label": "آهنگ، آلبوم و پلی‌لیست",
+        "labelEn": "Tracks, albums & playlists",
         "icon": "grid",
         "permissions": [
           "music.manage",
           "music.author"
         ]
+      },
+      {
+        "href": "/admin/music/artists",
+        "label": "خواننده‌ها و هنرمندان",
+        "labelEn": "Artists",
+        "icon": "users",
+        "permissions": ["music.manage", "music.author"]
       },
       {
         "href": "/admin/taxonomy?tax=music",

@@ -1,6 +1,6 @@
 # Games latest posts — 2026-10-17
 
-Continue `.mobocom/autonomous-foundation`, branch `fix/games-latest-articles-2026-10-17`, based on `5baa3fa3` (Cinema PR194 was still open when this slice began). Keep this slice separate; resolve PR194's merge state before publication. Preserve owner `.serena/` / `public/demo/` work and the older root checkout.
+Games source/UI batch was owner-merged in [PR195](https://github.com/WebNetData/MoboComCMS/pull/195), main `2775a75e`; preceding Cinema PR194 is also merged. Continue the authoritative `.mobocom/autonomous-foundation` checkout and preserve owner `.serena/` / `public/demo/` work and the older root checkout. The next separate slice is [Cinema profile management](CINEMA_PEOPLE_ADMIN.md); do not rebuild either merged batch.
 
 ## Existing ownership and changes
 

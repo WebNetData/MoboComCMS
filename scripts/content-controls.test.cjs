@@ -5,6 +5,82 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('Cinema filters retain exact people IDs and compose safe URLs across sorting and paging',()=>{
+  const {cinemaPersonId,cinemaBrowsePage,cinemaBrowseHref}=load('src/modules/cinema/domain/discovery.ts')
+  assert.equal(cinemaPersonId('42'),42);assert.equal(cinemaPersonId(''),null)
+  for(const value of ['bad','-1','1.5','999999999999',{},['42']])assert.equal(cinemaPersonId(value),-1)
+  assert.equal(cinemaBrowsePage(2.8),2);assert.equal(cinemaBrowsePage(Infinity),1);assert.equal(cinemaBrowsePage(999),500)
+  const filters={actor:'42',director:'7',kind:'MOVIE',genre:'درام',q:'Test',page:'2',dubbed:'1'}
+  let url=new URL(cinemaBrowseHref(filters,{sort:'imdb'}),'https://example.invalid');assert.equal(url.searchParams.has('page'),false);assert.equal(url.searchParams.get('actor'),'42');assert.equal(url.searchParams.get('genre'),'درام')
+  url=new URL(cinemaBrowseHref(filters,{page:'3'}),'https://example.invalid');assert.equal(url.searchParams.get('page'),'3');assert.equal(url.searchParams.get('director'),'7')
+  url=new URL(cinemaBrowseHref(filters,{actor:undefined}),'https://example.invalid');assert.equal(url.searchParams.has('actor'),false);assert.equal(url.searchParams.get('director'),'7')
+})
+
+test('Cinema public people suggestions enforce module, bounded role/name input and unavailable feedback',async()=>{
+  let enabled=true,limited=false,calls=0,fail=false
+  const {GET}=load('src/modules/cinema/server/http/people-search.ts',{
+    '@/extensions/server/modules':{moduleGuard:async()=>enabled?null:Response.json({error:'off'},{status:404})},
+    '@/platform/http/rate-limit':{clientIp:()=> 'fixture',rateLimitHit:()=>({ok:!limited})},
+    '@/modules/cinema/server/people':{publicPeopleChoices:async input=>{calls++;assert.ok(input.q.length<=60);assert.equal(input.role,'CAST');if(fail)throw Error('private failure');return Array.from({length:20},(_,i)=>({id:i+1,name:'Name '+i,image:'',bio:'private',credits:[]}))}},
+  })
+  const request=query=>new NextRequest('http://localhost:3000/api/cinema/people?'+query)
+  assert.deepEqual(await(await GET(request('q=a'))).json(),{options:[]});assert.equal(calls,0)
+  const result=await(await GET(request('q='+ 'x'.repeat(100)))).json();assert.equal(result.options.length,12);assert.deepEqual(Object.keys(result.options[0]).sort(),['id','image','name'])
+  assert.equal((await GET(request('q=test&role=INVALID'))).status,422)
+  fail=true;const failure=await GET(request('q=test'));assert.equal(failure.status,503);assert.doesNotMatch(await failure.text(),/private failure/)
+  limited=true;assert.equal((await GET(request('q=test'))).status,429);limited=false
+  enabled=false;assert.equal((await GET(request('q=test'))).status,404)
+})
+
+test('music artist profile patches preserve omitted fields and bound images, text and stale-form tokens',()=>{
+  const {artistProfilePatch,artistExpectedUpdate,artistProfileFilter}=load('src/modules/music/domain/artist-profile.ts')
+  assert.deepEqual(artistProfilePatch({name:'  Singer   Name ',nameEn:'Alias',bio:'<p><b>Bio</b></p><script>bad()</script>',image:''},true),{name:'Singer Name',nameEn:'Alias',bio:'<p><b>Bio</b></p>',image:''})
+  assert.deepEqual(artistProfilePatch({bio:'Only biography'},false),{bio:'Only biography'});assert.equal(artistExpectedUpdate({}),null)
+  const stamp='2026-10-17T12:00:00.000Z';assert.equal(artistExpectedUpdate({expectedUpdatedAt:stamp}).toISOString(),stamp)
+  for(const input of [{},{name:''},{name:'a'.repeat(161)},{name:'<b>Singer</b>'},{name:'Singer',bio:'x'.repeat(20001)},{name:'Singer',image:'/api/admin/private'},{name:'Singer',cover:'https://user:pass@example.invalid/a.jpg'}])assert.throws(()=>artistProfilePatch(input,true),e=>e.status===422)
+  assert.throws(()=>artistExpectedUpdate({expectedUpdatedAt:'not-a-date'}),e=>e.status===422);assert.throws(()=>artistProfileFilter('bad'),e=>e.status===422)
+})
+
+test('Cinema profile input bounds rich text and accepts only public image addresses',()=>{
+  const {personProfileInput}=load('src/modules/cinema/domain/person-profile.ts')
+  const input={name:'  Test   Actor  ',bio:'<p>Hello <b>actor</b></p><img src="/files/a.webp" onerror="bad()"><script>bad()</script>',image:'/files/person.webp',imageLocked:true}
+  const result=personProfileInput(input);assert.equal(result.name,'Test Actor');assert.equal(result.displayNameKey,'test actor');assert.doesNotMatch(result.bio,/onerror|script/)
+  for(const image of ['javascript:alert(1)','https://user:pass@example.invalid/p.jpg','/api/admin/private','/files/../secret','/files/%2E%2E/secret','//example.invalid/p.jpg'])assert.throws(()=>personProfileInput({...input,image}),e=>e.status===422)
+  for(const extra of [{name:'a'},{bio:'x'.repeat(30001)},{imageLocked:'true'},{image:null}])assert.throws(()=>personProfileInput({...input,...extra}),e=>e.status===422)
+  assert.equal(personProfileInput({...input,image:''}).image,'')
+})
+
+test('Cinema manual photo locks override provider photos, including an intentionally blank picture',async()=>{
+  const previous=global.fetch;let calls=0
+  global.fetch=async()=>{calls++;throw Error('unexpected network')}
+  try{
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map([['test actor',{image:'',locked:true}],['test director',{image:'/files/manual.webp',locked:true}]])}})
+    const result=await enrichPeoplePhotos({fields:{imdbId:'tt1375666',cast:[{name:'Test Actor',image:'https://m.media-amazon.com/images/provider.jpg'}],director:'Test Director',directorImages:[{name:'Test Director',image:'https://m.media-amazon.com/images/provider.jpg'}]},source:'fixture',warnings:[]})
+    assert.equal(result.fields.cast[0].image,'');assert.equal(result.fields.directorImages[0].image,'/files/manual.webp');assert.equal(calls,0)
+  }finally{global.fetch=previous}
+})
+
+test('Cinema people HTTP checks Origin, module, owning permission, strict limit and invalid input',async()=>{
+  let permitted=false,enabled=true,limited=false,writes=0
+  const route=load('src/modules/cinema/server/http/people.ts',{
+    '@/modules/identity/server/access':{requirePerm:async(_req,permission)=>permitted&&permission==='cinema.manage'?{id:1,email:'fixture@example.invalid'}:null},
+    '@/extensions/server/modules':{moduleGuard:async()=>enabled?null:Response.json({error:'off'},{status:404})},
+    '@/platform/http/rate-limit':{rateLimitStrict:async()=>({ok:!limited})},
+    '@/platform/audit/server':{auditAdminStrict:async()=>{}},
+    '@/modules/cinema/server/person-admin':{adminPeople:async()=>({people:[]}),savePerson:async()=>{writes++;return{id:1}}},
+  })
+  const request=(origin='http://localhost:3000',body={name:'Test Actor'})=>new NextRequest('http://localhost:3000/api/admin/cinema/people',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)})
+  assert.equal((await route.GET(new NextRequest('http://localhost:3000/api/admin/cinema/people'))).status,403)
+  assert.equal((await route.POST(request())).status,403);permitted=true
+  assert.equal((await route.POST(request('https://foreign.invalid'))).status,403)
+  assert.equal((await route.POST(request(''))).status,403)
+  enabled=false;assert.equal((await route.POST(request())).status,404);enabled=true
+  limited=true;assert.equal((await route.POST(request())).status,429);limited=false
+  assert.equal((await route.PATCH(request())).status,422)
+  assert.equal((await route.POST(request('http://localhost:3000',{id:1}))).status,422)
+  assert.equal(writes,0);assert.equal((await route.POST(request())).status,200);assert.equal(writes,1)
+})
+
 test('import image failures reject invalid media while retaining transient sources and explicit opt-out', async () => {
   class MediaError extends Error { constructor(retry){super('fixture media failure');this.retry=retry} }
   const { LibraryError }=load('src/modules/media/domain/library.ts')
@@ -40,7 +116,7 @@ test('photo enrichment uses title-linked exact person IDs and keeps stored/enter
   const previous=global.fetch,calls=[];let stored=new Map(),unavailable=false
   global.fetch=async(url,options)=>{calls.push([String(url),options]);if(String(url).startsWith('https://query.wikidata.org/sparql'))return unavailable?new Response('',{status:429}):Response.json({results:{bindings:[personBinding('Leonardo DiCaprio','nm0000138'),personBinding('Christopher Nolan','nm0634240','DIRECTOR','Q25191')]}});const id=String(url).match(/\/(nm\d+)\.json$/)?.[1];return Response.json({d:[{id,i:{imageUrl:`https://m.media-amazon.com/images/${id}@@.jpg`}}]})}
   try{
-    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>stored}})
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map([...stored].map(([key,image])=>[key,{image,locked:false}]))}})
     const make=()=>({fields:{imdbId:'tt1375666',summary:'Kept story',cast:[{name:'Leonardo DiCaprio',role:'Cobb'},{name:'Already entered',image:'/files/keep.webp'}],director:'Christopher Nolan'},source:'Cinemeta',warnings:[]})
     let result=await enrichPeoplePhotos(make());assert.match(result.fields.cast[0].image,/nm0000138@@/);assert.match(result.fields.directorImages[0].image,/nm0634240@@/);assert.equal(result.fields.cast[1].image,'/files/keep.webp');assert.equal(result.fields.summary,'Kept story')
     assert.equal(calls.length,3);assert.ok(calls.every(([,o])=>o.redirect==='error'&&!o.headers.Cookie&&!o.headers.Authorization));assert.ok(calls[0][0].includes('tt1375666'))
@@ -53,7 +129,7 @@ test('photo enrichment stops further person requests after an IMDb rate limit',a
   const previous=global.fetch,calls=[]
   global.fetch=async(url)=>{calls.push(String(url));return String(url).includes('query.wikidata.org')?Response.json({results:{bindings:Array.from({length:5},(_,i)=>personBinding('Person '+i,'nm100000'+i,'CAST','Q100'+i))}}):new Response('',{status:429})}
   try{
-    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPictures:async()=>new Map()}})
+    const {enrichPeoplePhotos}=load('src/modules/cinema/server/metadata/people-photos.ts',{'@/modules/cinema/server/people':{storedPersonPhotoStates:async()=>new Map()}})
     const result=await enrichPeoplePhotos({fields:{imdbId:'tt1375666',summary:'Keep',cast:Array.from({length:5},(_,i)=>({name:'Person '+i}))},source:'Cinemeta',warnings:[]})
     assert.equal(result.fields.summary,'Keep');assert.ok(calls.length>=2&&calls.length<=5,'at most the four already-started requests, no retry or fifth request');assert.ok(result.fields.cast.every(p=>!p.image));assert.ok(result.warnings.some(w=>w.includes('5')))
   }finally{global.fetch=previous}
@@ -1380,6 +1456,37 @@ test("a person's own picture stands beside what they wrote, with the initial as 
   assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /deleted: true, user: \{ name: '', avatar: '' \}/)
   assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /viewer: mine \? \{ avatar: pictureOf\(mine\) \} : null/)
   for (const file of ['src/components/PostComments.tsx', 'src/components/engage/ReviewList.tsx', 'src/components/ProductTabs.tsx']) assert.match(sourceOf(file), /is-photo/, file)
+})
+
+test('Journal card bylines render the canonical avatar without replacing cover art or dropping the initial fallback', () => {
+  const React = require('react'), { renderToStaticMarkup } = require('react-dom/server')
+  const { LionaGrid } = load('src/components/journal/LionaHome.tsx', {
+    '@/components/AppLink': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children),
+  })
+  const story = { id: 7, slug: 'owned-avatar', title: 'عنوان', excerpt: '', cover: '/cover.png', date: 'امروز', minutes: 1, views: 0, category: null, author: 'نویسنده', authorAvatar: '/api/profile/media/11111111-1111-4111-8111-111111111111.png' }
+  const html = renderToStaticMarkup(React.createElement(LionaGrid, { stories: [story] }))
+  assert.match(html, /class="lh-author-avatar"[^>]*src="\/api\/profile\/media\//)
+  assert.match(html, /src="\/cover.png"/)
+  const fallback = renderToStaticMarkup(React.createElement(LionaGrid, { stories: [{ ...story, authorAvatar: '' }] }))
+  assert.doesNotMatch(fallback, /class="lh-author-avatar"/)
+  assert.match(fallback, /<i aria-hidden="true">ن<\/i>/)
+})
+
+test('Admin control discovery searches only the supplied permitted projection, preserving groups and independent filters', () => {
+  const { searchControlGroups } = load('src/components/admin/navigation/groups.ts')
+  const groups = [
+    { id: 'site', title: 'ظاهر و صفحه‌ها', part: 'وب‌سایت', icon: 'grid', items: [{ href: '/admin/theme-builder', label: 'هدر و فوتر', icon: 'grid' }, { href: '/admin/pages', label: 'صفحه‌ها', icon: 'grid' }] },
+    { id: 'music', title: 'موسیقی', part: 'بخش‌های سایت', icon: 'music', items: [{ href: '/admin/music', label: 'موسیقی', icon: 'music' }] },
+  ]
+  const before=structuredClone(groups)
+  assert.deepEqual(searchControlGroups(groups,'فوتر وب‌سایت').flatMap(g=>g.items.map(i=>i.href)),['/admin/theme-builder'])
+  assert.deepEqual(searchControlGroups(groups,'موسيقي').map(g=>g.id),['music'])
+  assert.equal(searchControlGroups(groups,'','وب‌سایت').length,1)
+  assert.equal(searchControlGroups(groups,'هیچ').length,0)
+  assert.equal(searchControlGroups([], '').length,0)
+  assert.equal(searchControlGroups(groups,'/admin/music')[0].items[0].href,'/admin/music')
+  assert.equal(searchControlGroups(groups,'')[0].caption,'وب‌سایت')
+  assert.deepEqual(groups,before,'search must not alter shared Admin navigation')
 })
 test('complete article excerpts are rendered inside the reading body without changing its canonical markup', () => {
   const { articleBodyWithExcerpt } = load('src/modules/site/domain/article-output.ts')

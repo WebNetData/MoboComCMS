@@ -8,11 +8,15 @@ const CURSOR = 'cinema.people.backfill'
 const live = (now: Date) => ({ status: 'PUBLISHED', publishedAt: { lte: now } })
 
 /** Reuse the canonical person's established pictures before contacting an outside source. */
-export async function storedPersonPictures(names: string[]): Promise<Map<string, string>> {
+export async function storedPersonPhotoStates(names: string[]): Promise<Map<string, {image:string;locked:boolean}>> {
   const keys = [...new Set(names.slice(0,48).map(normalizePersonName).filter(Boolean))]
   if (!keys.length) return new Map()
-  const rows = await db.cinemaPerson.findMany({ where: { normalizedName: { in: keys } }, select: { normalizedName: true, image: true }, take: 48 })
-  return new Map(rows.filter(row => /^\/(?:files\/|api\/media\/)/.test(row.image) || imdbPhoto(row.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(row.image)).map(row => [row.normalizedName,row.image]))
+  const rows = await db.cinemaPerson.findMany({ where: { normalizedName: { in: keys } }, select: { normalizedName: true, image: true, imageLocked:true }, take: 48 })
+  return new Map(rows.filter(row => row.imageLocked || /^\/(?:files\/|api\/media\/)/.test(row.image) || imdbPhoto(row.image) || /^https:\/\/image\.tmdb\.org\/t\/p\/[A-Za-z0-9/._-]+$/.test(row.image)).map(row => [row.normalizedName,{image:row.image,locked:row.imageLocked}]))
+}
+/** Retain the existing picture-only helper contract. */
+export async function storedPersonPictures(names:string[]):Promise<Map<string,string>> {
+  return new Map([...await storedPersonPhotoStates(names)].map(([key,value])=>[key,value.image]))
 }
 
 /**
@@ -35,7 +39,7 @@ export async function syncCredits(tx: Tx, titleId: number, directorImages?: unkn
     const person = await tx.cinemaPerson.upsert({ where: { normalizedName }, create: { name: credit.name, normalizedName, image: credit.image }, update: {} })
     // Keep an established local picture. Promote an external picture to its local copy with a claim.
     const localCopy=/^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(credit.image) || /^\/files\/download\/cinema\/images\/(actors|director)\/[^?#]+\.webp$/.test(credit.image)
-    if (credit.image && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image }, data: { image: credit.image } })
+    if (credit.image && !person.imageLocked && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image, imageLocked:false, profileVersion:person.profileVersion }, data: { image: credit.image,profileVersion:{increment:1} } })
     const row = await tx.cinemaCredit.upsert({
       where: { titleId_personId_role: { titleId, personId: person.id, role: credit.role } },
       create: { titleId, personId: person.id, role: credit.role, character: credit.character, sortOrder: credit.order },
@@ -67,28 +71,54 @@ export async function creditLinks(titleId: number): Promise<Map<string, number>>
   return new Map(rows.map((row) => [row.person.normalizedName, row.person.id]))
 }
 
+/** Public presentation reuses canonical people without rewriting a title's stored cast. */
+export async function creditProfiles(titleId:number) {
+  const rows=await db.cinemaCredit.findMany({where:{titleId},select:{person:{select:{id:true,normalizedName:true,image:true,imageLocked:true}}}})
+  return new Map(rows.map(row=>[row.person.normalizedName,row.person]))
+}
+
 /** A person with the published titles they are credited on, newest first, by role. Null when nothing of theirs is public. */
 export async function personPage(id: number, now = new Date()) {
-  if (!Number.isSafeInteger(id) || id <= 0) return null
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) return null
   const person = await db.cinemaPerson.findUnique({ where: { id }, select: { id: true, name: true, image: true, bio: true } })
   if (!person) return null
-  const credits = await db.cinemaCredit.findMany({ where: { personId: id, title: live(now) }, orderBy: [{ title: { publishedAt: 'desc' } }, { titleId: 'desc' }], take: 300, select: { role: true, character: true, titleId: true } })
+  const [credits,counts] = await Promise.all([
+    db.cinemaCredit.findMany({ where: { personId: id, title: live(now) }, orderBy: [{ title: { publishedAt: 'desc' } }, { titleId: 'desc' }], take: 300, select: { role: true, character: true, titleId: true } }),
+    db.cinemaCredit.groupBy({by:['role'],where:{personId:id,title:live(now)},_count:true}),
+  ])
   if (!credits.length) return null
   const idsOf = (role: CreditRole) => credits.filter((credit) => credit.role === role).map((credit) => credit.titleId)
-  return { ...person, directed: idsOf('DIRECTOR'), acted: idsOf('CAST'), characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
+  return { ...person, directed: idsOf('DIRECTOR'), acted: idsOf('CAST'), castCount:counts.find(row=>row.role==='CAST')?._count||0, directorCount:counts.find(row=>row.role==='DIRECTOR')?._count||0, characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
 }
 
 /** People with at least one published title, the most credited first; `q` narrows by name. */
-export async function peopleDirectory(input: { page?: unknown; q?: unknown }, now = new Date()) {
+export async function peopleDirectory(input: { page?: unknown; q?: unknown; role?:CreditRole }, now = new Date()) {
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
-  const where = { credits: { some: { title: live(now) } }, ...(q ? { normalizedName: { contains: q } } : {}) }
+  const publicCredit={title:live(now),...(input.role?{role:input.role}:{})}
+  const where = { credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}] } : {}) }
   const [total, rows] = await Promise.all([
     db.cinemaPerson.count({ where }),
-    db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: { title: live(now) }, select: { role: true } } } }),
+    db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: publicCredit, select: { role: true,titleId:true } } } }),
   ])
   return {
     q, page, pages: Math.max(1, Math.ceil(total / PEOPLE_PAGE)), total,
-    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: row.credits.length, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
+    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: new Set(row.credits.map(credit=>credit.titleId)).size, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
   }
+}
+
+/** A public filter choice cannot reveal a person credited only on private/future titles. */
+export async function publicPersonChoice(id:number,role:CreditRole,now=new Date()) {
+  if(!Number.isSafeInteger(id)||id<=0||id>2147483647)return null
+  return db.cinemaPerson.findFirst({where:{id,credits:{some:{role,title:live(now)}}},select:{id:true,name:true,image:true}})
+}
+
+/** Autocomplete projects only public names, without loading each person's whole filmography. */
+export async function publicPeopleChoices(input:{q:string;role:CreditRole},now=new Date()) {
+  const q=normalizePersonName(input.q).slice(0,60)
+  if(q.length<2)return []
+  return db.cinemaPerson.findMany({
+    where:{credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]},
+    orderBy:[{name:'asc'},{id:'asc'}],take:12,select:{id:true,name:true,image:true},
+  })
 }
