@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Music artist profiles2026-10-18:** `/admin/music/artists` extends canonical MusicArtist and existing Media API; Library/editor, history/bulk operations, author ownership, stable URLs/FKs, timestamp claims and transactional audit. Legacy artist links redirect; public Music composition remains. [Continuation and verified scope](handoffs/MUSIC_ARTIST_PROFILES.md).
+
 - **Cinema profile management2026-10-17:** `/admin/cinema/people`, canonical `person-admin.ts` behind Cinema's existing module/Identity guards, shared Media/ContentEditor and incremental migration20270107120000. Display-name edits preserve matching key/credits; manual image locks survive metadata refresh, including intentional blanks. Version claim/strict audit prevent stale or unaudited writes. Existing public IDs and published-credit privacy remain. [Scoped continuation/evidence](handoffs/CINEMA_PEOPLE_ADMIN.md).
 
 - **Games latest posts2026-10-17:** owner correction binds `PostsBlock` to actual GameTitle projections (`gamesHome().news=base.latest`, popular=`base.popular`), never Journal substitution. Existing styled feature/grid/quick list and TabSwitch remain; all links/archive and summaries refer to Games. Admin keeps rail key `news`/order/visibility, labels it truthfully and retains legacy `newsKeywords` only for compatibility. Registered PG and actual browser verify Games sourcing. [Continuation](handoffs/GAMES_EDITORIAL.md).

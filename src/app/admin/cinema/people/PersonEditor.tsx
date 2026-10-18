@@ -7,8 +7,8 @@ import FileUpload from '@/components/admin/FileUpload'
 import RemoteCopy from '@/components/media/RemoteCopy'
 import { Notice, send, fa } from '../shared'
 import type { Detail, Profile } from './types'
-import styles from './people.module.css'
-import Portrait from './Portrait'
+import styles from '@/components/admin/ProfileManager.module.css'
+import Portrait from '@/components/admin/ProfilePortrait'
 
 export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{person:Detail;loading:boolean;onReload:()=>void;onSaved:(person:Profile)=>void;onClose:()=>void}) {
   const [name,setName]=useState(person.name),[image,setImage]=useState(person.image),[bio,setBio]=useState(person.bio),[locked,setLocked]=useState(person.imageLocked)

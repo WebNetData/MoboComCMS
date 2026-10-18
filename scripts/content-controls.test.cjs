@@ -5,6 +5,15 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('music artist profile patches preserve omitted fields and bound images, text and stale-form tokens',()=>{
+  const {artistProfilePatch,artistExpectedUpdate,artistProfileFilter}=load('src/modules/music/domain/artist-profile.ts')
+  assert.deepEqual(artistProfilePatch({name:'  Singer   Name ',nameEn:'Alias',bio:'<p><b>Bio</b></p><script>bad()</script>',image:''},true),{name:'Singer Name',nameEn:'Alias',bio:'<p><b>Bio</b></p>',image:''})
+  assert.deepEqual(artistProfilePatch({bio:'Only biography'},false),{bio:'Only biography'});assert.equal(artistExpectedUpdate({}),null)
+  const stamp='2026-10-17T12:00:00.000Z';assert.equal(artistExpectedUpdate({expectedUpdatedAt:stamp}).toISOString(),stamp)
+  for(const input of [{},{name:''},{name:'a'.repeat(161)},{name:'<b>Singer</b>'},{name:'Singer',bio:'x'.repeat(20001)},{name:'Singer',image:'/api/admin/private'},{name:'Singer',cover:'https://user:pass@example.invalid/a.jpg'}])assert.throws(()=>artistProfilePatch(input,true),e=>e.status===422)
+  assert.throws(()=>artistExpectedUpdate({expectedUpdatedAt:'not-a-date'}),e=>e.status===422);assert.throws(()=>artistProfileFilter('bad'),e=>e.status===422)
+})
+
 test('Cinema profile input bounds rich text and accepts only public image addresses',()=>{
   const {personProfileInput}=load('src/modules/cinema/domain/person-profile.ts')
   const input={name:'  Test   Actor  ',bio:'<p>Hello <b>actor</b></p><img src="/files/a.webp" onerror="bad()"><script>bad()</script>',image:'/files/person.webp',imageLocked:true}

@@ -6,9 +6,9 @@ import { CinemaShell, Notice, fa, useJson } from '../shared'
 import AdminPagination from '../../cms/AdminPagination'
 import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import PersonEditor from './PersonEditor'
-import Portrait from './Portrait'
+import Portrait from '@/components/admin/ProfilePortrait'
 import type { Detail, People } from './types'
-import styles from './people.module.css'
+import styles from '@/components/admin/ProfileManager.module.css'
 
 export default function PeopleManager({ initialId }: { initialId: number | null }) {
   const [selected,setSelected]=useState<number|'new'|null>(initialId)

@@ -32,7 +32,7 @@ export default function MusicDashboardPage() {
       <div className="sa-queue">
         <Link href="/admin/music/library" className="sa-queue-item"><b className="num">{fa(k.drafts)}</b><span>پیش‌نویس</span></Link>
         <Link href="/admin/music/library" className={`sa-queue-item${k.emptyAlbums ? ' is-warn' : ''}`}><b className="num">{fa(k.emptyAlbums)}</b><span>آلبوم بدون آهنگ</span></Link>
-        <Link href="/admin/music/library" className={`sa-queue-item${k.artistsWithoutPhoto ? ' is-warn' : ''}`}><b className="num">{fa(k.artistsWithoutPhoto)}</b><span>هنرمند بدون عکس</span></Link>
+        <Link href="/admin/music/artists?filter=missing-image" className={`sa-queue-item${k.artistsWithoutPhoto ? ' is-warn' : ''}`}><b className="num">{fa(k.artistsWithoutPhoto)}</b><span>هنرمند بدون عکس</span></Link>
         <Link href="/admin/music/settings" className="sa-queue-item"><b className="num">{fa(k.playlists)}</b><span>پلی‌لیست</span></Link>
       </div>
       <div className="sa-cols">
