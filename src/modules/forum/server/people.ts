@@ -8,7 +8,8 @@ import { ForumError } from '@/modules/forum/domain/forum'
 import { TRUST_NAMES, type Viewer } from '@/modules/forum/domain/community'
 import { markdownExcerpt, renderMarkdown } from '@/modules/forum/domain/markdown'
 import { ensureProfiles, notify, refreshStats } from '@/modules/forum/server/community'
-import { profileByUsername, profileCards, relationBetween, updateUserProfile } from '@/modules/identity/server/profile'
+import { ensureUserProfile, profileByUsername, profileCards, relationBetween, updateUserProfile } from '@/modules/identity/server/profile'
+import { pictureOf } from '@/modules/identity/domain/picture'
 import { ProfileError, canFollow } from '@/modules/identity/domain/profile'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { authorsFor, fallbackAuthor, visibleCategories } from '@/modules/forum/server/forum'
@@ -88,12 +89,6 @@ export async function updateProfile(viewer: Viewer, input: Record<string, unknow
   const profile = await db.forumProfile.findUnique({ where: { userId: viewer.userId } })
   if (!profile) throw new ForumError('پروفایل پیدا نشد', 404)
   const identity = Object.fromEntries(['username', 'bio', 'location', 'website', 'avatar', 'cover'].filter((key) => input[key] !== undefined).map((key) => [key, input[key]]))
-  if (Object.keys(identity).length) {
-    try { await updateUserProfile(viewer.userId, identity) } catch (error) {
-      if (error instanceof ProfileError) throw new ForumError(error.message, error.status)
-      throw error
-    }
-  }
   const data: Record<string, unknown> = {}
   if (input.primaryGroupId !== undefined || input.title !== undefined) {
     const memberships = await db.forumGroupMember.findMany({ where: { userId: viewer.userId, status: 'ACTIVE' }, include: { group: { select: { id: true, title: true } } } })
@@ -107,6 +102,13 @@ export async function updateProfile(viewer: Viewer, input: Record<string, unknow
       const allowed = viewer.moderator || !title || memberships.some((row) => row.group.title === title) || await db.forumUserBadge.count({ where: { userId: viewer.userId, badge: { name: title } } }) > 0
       if (!allowed) throw new ForumError('این عنوان را فقط از گروه‌ها یا نشان‌های خودتان می‌توانید انتخاب کنید', 403)
       data.title = title
+    }
+  }
+  // A rejected forum title/group must not commit the public identity first.
+  if (Object.keys(identity).length) {
+    try { await updateUserProfile(viewer.userId, identity) } catch (error) {
+      if (error instanceof ProfileError) throw new ForumError(error.message, error.status)
+      throw error
     }
   }
   const updated = Object.keys(data).length ? await db.forumProfile.update({ where: { userId: viewer.userId }, data }) : await db.forumProfile.findUniqueOrThrow({ where: { userId: viewer.userId } })
@@ -321,17 +323,22 @@ export async function getBadge(slug: string) {
 export async function profileForEdit(userId: number) {
   const profile = await db.forumProfile.findUnique({ where: { userId }, include: { user: { select: { name: true, avatarColor: true } } } })
   if (!profile) return null
+  const identity = await ensureUserProfile(userId)
   const [groups, badges] = await Promise.all([
     db.forumGroupMember.findMany({ where: { userId, status: 'ACTIVE' }, include: { group: { select: { id: true, name: true, icon: true, title: true } } } }),
     db.forumUserBadge.findMany({ where: { userId }, include: { badge: { select: { name: true } } } }),
   ])
   return {
-    profile,
+    profile: { ...profile, username: identity.username, bio: identity.bio, location: identity.location, website: identity.website, avatar: identity.avatar, cover: identity.cover },
     groups: groups.map((row) => ({ id: row.group.id, name: `${row.group.icon} ${row.group.name}`.trim() })),
     titles: [...new Set([...groups.map((row) => row.group.title), ...badges.map((row) => row.badge.name)].filter(Boolean))],
   }
 }
 
 /** Minimal identity for the forum top bar. */
-export const shellIdentity = (userId: number) =>
-  db.forumProfile.findUnique({ where: { userId }, select: { username: true, avatar: true, user: { select: { name: true, avatarColor: true } } } })
+export async function shellIdentity(userId: number) {
+  const profile = await db.forumProfile.findUnique({ where: { userId }, select: { username: true, user: { select: { name: true, avatarColor: true, telegramPhoto: true } } } })
+  if (!profile) return null
+  const identity = await ensureUserProfile(userId)
+  return { username: identity.username, avatar: pictureOf({ ...profile.user, userProfile: identity }), user: { name: profile.user.name, avatarColor: profile.user.avatarColor } }
+}

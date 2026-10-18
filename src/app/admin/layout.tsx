@@ -13,7 +13,9 @@ import Icon from '@/components/site/Icon'
 import BrandMark from '@/components/BrandMark'
 import BrandLockup, { Wordmark } from '@/components/site/SiteLogo'
 import { QUEUE_PERMISSIONS } from '@/modules/moderation/domain/queue'
-import ShellNav, { type ShellGroup } from '@/components/shell/ShellNav'
+import ShellNav from '@/components/shell/ShellNav'
+import { ControlNavigationProvider } from '@/components/admin/navigation/ControlNavigation'
+import { searchControlGroups, type ControlGroup } from '@/components/admin/navigation/groups'
 
 interface NavItem {
   href: string
@@ -69,6 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sectionNav, setSectionNav] = useState<NavGroup[]>([])
   const [disabledPaths, setDisabledPaths] = useState<string[]>([])
   const [navVersion, setNavVersion] = useState(0)
+  const [navState, setNavState] = useState<'loading' | 'ready' | 'failed'>('loading')
   useEffect(() => {
     const refresh = () => setNavVersion(v => v + 1)
     window.addEventListener('happ:modules-changed', refresh)
@@ -78,7 +81,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // permissions are resolved server-side so role edits apply without re-login
   useEffect(() => {
     if (status !== 'authenticated') return
-    fetch('/api/admin/extensions/navigation').then(r => r.ok ? r.json() : null).then(d => {
+    const controller = new AbortController()
+    setNavState('loading')
+    void Promise.all([
+      fetch('/api/admin/extensions/navigation', { signal: controller.signal, cache: 'no-store' }),
+      fetch('/api/me', { signal: controller.signal, cache: 'no-store' }),
+    ]).then(async ([navigation, account]) => {
+      if (account.status === 401) { void signOut({ callbackUrl: '/login?next=/admin' }); return }
+      if (!account.ok) throw new Error('Admin identity unavailable')
+      const data = await account.json()
+      if (controller.signal.aborted) return
+      // Staff 2-step policy: set it up first (the admin API refuses until then).
+      if (data?.needsTwoFactor) { window.location.href = '/dashboard/profile?require2fa=1#two-factor'; return }
+      setMe(data)
+      if (!navigation.ok) throw new Error('Admin navigation unavailable')
+      const d = await navigation.json()
+      if (!Array.isArray(d?.items) || !Array.isArray(d?.sections) || !Array.isArray(d?.disabledPaths)) throw new Error('Invalid Admin navigation')
+      if (controller.signal.aborted) return
       setExtensionNav((d?.items || []).map((item: any) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permission })))
       setSectionNav((Array.isArray(d?.sections) ? d.sections as SectionMenu[] : []).map((menu) => ({
         id: `section:${menu.id}`,
@@ -88,21 +107,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         items: menu.items.map((item) => ({ href: item.href, label: locale === 'fa' ? item.label : item.labelEn || item.label, icon: item.icon || 'grid', perm: item.permissions && item.permissions.length ? [...item.permissions] : undefined, exact: item.exact })),
       })))
       setDisabledPaths(Array.isArray(d?.disabledPaths) ? d.disabledPaths.filter((p: unknown) => typeof p === 'string') : [])
-    }).catch(() => setExtensionNav([]))
-    fetch('/api/me')
-      .then((r) => {
-        if (r.status === 401) {
-          void signOut({ callbackUrl: '/login?next=/admin' })
-          return null
-        }
-        return r.ok ? r.json() : null
-      })
-      .then((data) => {
-        // Staff 2-step policy: set it up first (the admin API refuses until then).
-        if (data?.needsTwoFactor) { window.location.href = '/dashboard/profile?require2fa=1#two-factor'; return }
-        setMe(data)
-      })
-      .catch(() => setMe(null))
+      setNavState('ready')
+    }).catch(() => { if (!controller.signal.aborted) setNavState('failed') })
+    return () => controller.abort()
   }, [locale, status, navVersion])
 
   const role = me?.role ?? s?.user?.role ?? s?.role
@@ -132,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Every feature module brings its own group (declared in its manifest).
     ...sectionNav,
     { id: 'design', part: WEBSITE, title: L('ظاهر و صفحه‌ها', 'Design & pages'), icon: 'palette', items: [
-      { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid', perm: 'settings.manage' },
+      { href: '/admin/site-management', label: L('مرکز مدیریت سایت', 'Website management'), icon: 'grid' },
       { href: '/admin/branding', label: L('لوگو و هویت برند', 'Logo & brand'), icon: 'image', perm: 'settings.manage' },
       { href: '/admin/studio', label: L('صفحه اصلی، ظاهر و منوها', 'Homepage, design & navigation'), icon: 'sliders', perm: 'settings.manage' },
       { href: '/admin/theme-builder', label: L('سازندهٔ قالب (هدر، فوتر، صفحه، پست، محصول)', 'Theme builder'), icon: 'sparkles', perm: 'cms.pages' },
@@ -223,7 +230,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ] },
   ]
 
-  if (status !== 'authenticated' || !isAdmin) {
+  // Keep editors mounted while NextAuth refreshes an existing session.
+  if (!session || !isAdmin) {
     return <div className="container py-20 text-center muted">{t.loading}</div>
   }
 
@@ -236,23 +244,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   // Mounted once (the navigation itself is rendered twice, for the side and for the phone drawer).
-  const workspace = <AdminWorkspace fa={locale === 'fa'} canGo={(href) => GROUPS.some((group) => group.items.some((item) => item.href === href && allowed(item.perm) && !moduleOff(item.href)))} />
+  const controls: ControlGroup[] = navState === 'ready' ? GROUPS.flatMap(group => {
+    const items = group.items.filter(item => allowed(item.perm) && !moduleOff(item.href))
+    return items.length ? [{ ...group, items }] : []
+  }) : []
+  const workspace = <AdminWorkspace fa={locale === 'fa'} canGo={(href) => controls.some((group) => group.items.some((item) => item.href === href))} />
   // What this person may open, after the search box: a part's name is shown above its first remaining group.
   const query = navQuery.trim().toLowerCase()
-  const visible: ShellGroup[] = []
-  let part = ''
-  for (const group of GROUPS) {
-    const items = group.items.filter(item => allowed(item.perm) && !moduleOff(item.href) && (!query || (item.label + ' ' + group.title).toLowerCase().includes(query)))
-    if (!items.length) continue
-    visible.push({ id: group.id, title: group.title, icon: group.icon, flat: group.flat, items, caption: group.part && group.part !== part ? group.part : undefined })
-    part = group.part
-  }
+  const visible = searchControlGroups(controls, query)
   // The deepest matching entry names the current page in the top bar.
   const current = visible.flatMap(group => group.items.map(item => ({ ...item, group: group.flat ? '' : group.title }))).filter(item => isOn(item.href, item.exact)).sort((a, b) => b.href.length - a.href.length)[0]
   const nav = <>
     <label className="admin-nav-search"><span className="sr-only">{L('جست‌وجوی بخش مدیریت', 'Search admin sections')}</span><Icon name="search" size={16} /><input type="search" className="input" value={navQuery} placeholder={L('جست‌وجوی بخش…', 'Find a section…')} onChange={e => setNavQuery(e.target.value)} /><kbd aria-hidden="true">/</kbd></label>
     <ShellNav groups={visible} isOn={isOn} choice={expanded} onToggle={(id, open) => setExpanded(now => ({ ...now, [id]: open }))} onNavigate={() => setOpen(false)} forceOpen={!!query} shown={open} />
-    {!visible.length && <p className="ws-empty" role="status">{L('بخشی با این نام پیدا نشد.', 'No section matches.')}</p>}
+    {navState === 'failed' ? <button type="button" className="btn btn-ghost" onClick={() => setNavVersion(v => v + 1)}>{L('دریافت دوبارهٔ فهرست', 'Reload navigation')}</button> : !visible.length && <p className="ws-empty" role="status">{navState === 'loading' ? t.loading : L('بخشی با این نام پیدا نشد.', 'No section matches.')}</p>}
   </>
 
   return (
@@ -300,12 +305,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <ThemeLangControls locale={locale} theme={theme} />
           </div>
         </header>
-        <main className="app-main">{moduleOff(pathname) ? <div className="card module-off-card">
+        <main className="app-main"><ControlNavigationProvider value={{ groups: controls, loading: navState === 'loading', failed: navState === 'failed', retry: () => setNavVersion(v => v + 1) }}>{moduleOff(pathname) ? <div className="card module-off-card">
           <span className="section-kicker">MODULE DISABLED</span>
           <h1 className="h2">{L('این بخش غیرفعال است', 'This section is turned off')}</h1>
           <p className="muted">{L('ماژول مربوط به این صفحه در «افزونه‌ها و ماژول‌ها» خاموش شده است. داده‌ها حذف نشده‌اند و با فعال‌سازی دوباره برمی‌گردند.', 'Its feature module is disabled in Extensions & modules. Nothing was deleted — turning it back on restores everything.')}</p>
           <Link className="btn btn-primary" href="/admin/extensions">{L('مدیریت ماژول‌ها', 'Manage modules')}</Link>
-        </div> : children}</main>
+        </div> : children}</ControlNavigationProvider></main>
       </div>
     </div>
   )

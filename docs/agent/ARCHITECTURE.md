@@ -276,6 +276,8 @@ CommunityMemberSettings.userId
 MessengerPreferences.userId
 ```
 
+The member avatar belongs to Identity `UserProfile`. Dashboard and Forum saves use `updateUserProfile`; ForumProfile is a compatibility mirror, never a higher-priority picture source. Keep legacy profile/forum media URLs. Existing NextAuth session refresh/broadcast carries picture changes to open account shells; no second avatar store or browser identity bus. Scoped implementation, evidence and limits: [shared avatar and Admin controls](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
+
 ### Identity vs CRM
 
 CRM `Contact` is not the authentication identity.
@@ -459,6 +461,8 @@ This is how MoboCom adapts to many business types while remaining one product.
 ## 14. Settings architecture
 
 Typed settings are registered by owner.
+
+Website management at `/admin/site-management` discovers the same permission-filtered, enabled-module controls as the Admin menu. The Admin layout is the single navigation projection; the directory has no second permission/settings registry. Add/edit/delete/visibility remain with each existing owner and server guard. New legitimate configurable behavior joins its owner's typed settings or content builder. Arbitrary code-defined fields and immutable financial/security state are not exposed through a generic data editor. [Current coverage and continuation](handoffs/UNIFIED_AVATAR_ADMIN_CONTROLS.md).
 
 Potential resolution:
 

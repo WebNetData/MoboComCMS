@@ -172,13 +172,14 @@ test('the site header: it can stay at the top, its links carry icons, and the ac
   assert.match(css, /html\[data-design="mobocom"\] \.mm-bar-wrap \{ position: sticky; top: 74px;/)
   assert.match(client, /const sectionBar = document\.querySelector\('\.mm-bar-wrap'\)/)
   // The member's picture rides in the session (refreshed by the check that runs on every request), so the header, the
-  // dashboard and the admin shell can draw it without another request; the forum falls back to the same picture.
+  // dashboard and the admin shell can draw it without another request; the forum reads the same canonical picture.
   const auth = read('src/modules/identity/auth.ts')
   assert.match(auth, /select: \{ status: true, passwordChangedAt: true, name: true, telegramPhoto: true, userProfile: \{ select: \{ avatar: true \} \} \}/)
   assert.match(auth, /token\.picture = pictureOf\(current\) \|\| null/)
   assert.match(auth, /session\.user\.image = typeof token\.picture === 'string' && token\.picture \? token\.picture : null/)
   for (const shell of ['src/app/dashboard/layout.tsx', 'src/app/admin/layout.tsx']) assert.match(read(shell), /session\?\.user\?\.image \? <img src=\{session\.user\.image\} alt="" \/> : initial/, shell)
-  assert.match(read('src/modules/forum/server/forum.ts'), /avatar: profile\?\.avatar \|\| pictureOf\(user\)/)
+  assert.match(read('src/modules/forum/server/forum.ts'), /avatar: pictureOf\(user\)/)
+  assert.match(read('src/modules/forum/server/forum.ts'), /await ensureUserProfiles\(ids\)/)
   // An article tells its whole path once: home, the magazine, the categories above it, its category, the title — on the page and to search engines.
   const article = read('src/modules/site/server/pages/blog/[slug]/page.tsx')
   assert.match(article, /const filedUnder = post\.category \?\? postCategories\(post\)\[0\] \?\? null/)

@@ -23,6 +23,7 @@ const CHECKS = [
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',
   'global-authentication',
   'current-account-consumers',
+  'unified-avatar',
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',

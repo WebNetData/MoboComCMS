@@ -2,6 +2,7 @@
 
 import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 type Initial = { username: string; bio: string; location: string; website: string; avatar: string; cover: string; title: string; primaryGroupId: number }
 
@@ -15,6 +16,7 @@ async function upload(file: File): Promise<{ url?: string; error?: string }> {
 
 export default function ProfileEditor({ initial, name, avatarColor, groups, titles }: { initial: Initial; name: string; avatarColor: string; groups: { id: number; name: string }[]; titles: string[] }) {
   const router = useRouter()
+  const { update } = useSession()
   const [form, setForm] = useState(initial)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
@@ -36,6 +38,7 @@ export default function ProfileEditor({ initial, name, avatarColor, groups, titl
     setBusy(false)
     if (!response?.ok) { setMessage({ text: data?.error || 'ذخیره نشد', ok: false }); return }
     setMessage({ text: 'پروفایل ذخیره شد', ok: true })
+    void update().catch(() => undefined)
     router.push(`/forum/u/${data.username}`)
     router.refresh()
   }
@@ -44,12 +47,12 @@ export default function ProfileEditor({ initial, name, avatarColor, groups, titl
     <form className="fx-form" onSubmit={save}>
       <div className="fx-form-media">
         <div className="fx-cover-preview" style={form.cover ? { backgroundImage: `url(${form.cover})` } : { background: avatarColor }}>
-          <label className="btn btn-ghost btn-sm">تصویر کاور<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => void pick('cover', e.target.files?.[0])} /></label>
+          <label className="btn btn-ghost btn-sm">تصویر کاور<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { void pick('cover', e.target.files?.[0]); e.target.value = '' }} /></label>
           {form.cover && <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('cover', '')}>حذف</button>}
         </div>
         <div className="fx-avatar-edit">
           {form.avatar ? <img src={form.avatar} alt="" className="fx-avatar" width={96} height={96} /> : <span className="fx-avatar" style={{ width: 96, height: 96, fontSize: 40, background: avatarColor }}>{name.slice(0, 1)}</span>}
-          <label className="btn btn-ghost btn-sm">تصویر پروفایل<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => void pick('avatar', e.target.files?.[0])} /></label>
+          <label className="btn btn-ghost btn-sm">تصویر پروفایل<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { void pick('avatar', e.target.files?.[0]); e.target.value = '' }} /></label>
           {form.avatar && <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('avatar', '')}>حذف</button>}
         </div>
       </div>
@@ -64,7 +67,7 @@ export default function ProfileEditor({ initial, name, avatarColor, groups, titl
         <label className="fx-field"><span>نشان گروه کنار نام</span><select className="select" value={form.primaryGroupId} onChange={(e) => set('primaryGroupId', Number(e.target.value))}><option value={0}>هیچ‌کدام</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
       </div>
       {message && <p className={message.ok ? 'success-text' : 'error-text'} role="status">{message.text}</p>}
-      <div className="fx-form-actions"><button className="btn btn-primary" disabled={busy}>{busy ? 'لطفاً صبر کنید…' : 'ذخیرهٔ پروفایل'}</button></div>
+      <div className="fx-form-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'لطفاً صبر کنید…' : 'ذخیرهٔ پروفایل'}</button></div>
     </form>
   )
 }

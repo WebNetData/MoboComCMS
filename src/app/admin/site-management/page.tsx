@@ -1,29 +1,46 @@
 'use client'
+
+import { useState } from 'react'
 import Link from '@/components/AppLink'
-import { useI18n } from '@/i18n/LocaleProvider'
 import Icon from '@/components/site/Icon'
-import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { useI18n } from '@/i18n/LocaleProvider'
+import { useControlNavigation } from '@/components/admin/navigation/ControlNavigation'
+import { searchControlGroups } from '@/components/admin/navigation/groups'
+import styles from './controls.module.css'
 
 export default function SiteManagementPage() {
   const { locale } = useI18n()
   const L = (fa: string, en: string) => locale === 'fa' ? fa : en
-  const vpnOn = useModuleEnabled('vpn')
-  // Cards of a switched-off module are left out, like its entries in the admin menu.
-  const vpnOnly = ['/admin/plans', '/admin/locations']
-  const all = [
-    ['/admin/theme-builder', 'sparkles', L('سازندهٔ قالب سایت', 'Theme builder'), L('هدر و فوتر اختصاصی، صفحه‌های کامل، بخش‌ها با آدرس کوتاه (مثل ‎/gaming) و قالب‌های پست و محصول با شرط نمایش.', 'Custom headers & footers, full pages, short-URL sections (e.g. /gaming) and post/product layouts with display rules.')],
-    ['/admin/studio?tab=content', 'grid', L('صفحهٔ اصلی', 'Homepage'), L('عنوان‌ها، متن‌ها، تصویر اصلی، دکمه‌ها، ترتیب و نمایش بخش‌ها، برنامه‌ها و پرسش‌های متداول.', 'Headings, copy, hero image, buttons, section order and visibility, downloads and FAQs.')],
-    ['/admin/builder/home', 'grid', L('صفحه‌ساز صفحه اصلی', 'Home page builder'), L('چیدمان بصری صفحه اصلی با بلوک‌ها و قالب‌های آماده؛ در صورت استفاده، جایگزین بخش‌های پیش‌فرض می‌شود.', 'Visually compose the homepage with blocks and prebuilt templates — takes over the default sections once you save.')],
-    ['/admin/builder/blog', 'sliders', L('صفحه‌ساز مجله (وبلاگ)', 'Journal (blog) builder'), L('چیدمان صفحهٔ اصلی وبلاگ با پیش‌نمایش زنده؛ جست‌وجو و دسته‌بندی‌ها پابرجا می‌مانند.', 'Design the blog landing page with a live preview — search and category browsing stay intact.')],
-    ['/admin/studio?tab=design', 'globe', L('طراحی و ظاهر سایت', 'Design & appearance'), L('رنگ‌های تیره و روشن، فونت، گِردی، لوگو، منوی بالا، فوتر و CSS سفارشی با پیش‌نمایش زنده.', 'Dark and light colors, fonts, radius, logo, header menu, footer and custom CSS with a live preview.')],
-    ['/admin/studio?tab=themes', 'sliders', L('قالب‌ها', 'Themes'), L('انتخاب قالب فعال، نصب Design Theme از فایل JSON و مشاهدهٔ قالب‌های نصب‌شده.', 'Pick the active theme, install design themes from JSON files and review installed themes.')],
-    ['/admin/pages', 'grid', L('صفحه‌های سایت', 'Site pages'), L('ایجاد و ویرایش صفحه، تصویر شاخص، متن فارسی و انگلیسی و چیدمان محتوا.', 'Create pages and manage featured images, bilingual content and layout.')],
-    ['/admin/posts', 'sliders', L('نوشته‌ها و مجله', 'Articles & journal'), L('متن نوشته‌ها، تصویر کاور، دسته‌بندی و وضعیت انتشار.', 'Article content, covers, categories and publication status.')],
-    ['/admin/plans', 'wallet', L('پلن‌ها و قیمت‌ها', 'Plans & pricing'), L('قیمت، حجم، مدت، تعداد دستگاه و پلن‌های قابل نمایش.', 'Prices, traffic allowances, durations, devices and plan availability.')],
-    ['/admin/locations', 'globe', L('شبکهٔ سرورها', 'Server network'), L('کشورها، شهرها و موقعیت‌هایی که روی نقشه نمایش داده می‌شوند.', 'Countries, cities and locations displayed on the map.')],
-    ['/admin/forms', 'chat', L('فرم‌ها و پاسخ‌ها', 'Forms & submissions'), L('ساخت فرم، اتصال به صفحه‌ها و بررسی پاسخ‌ها.', 'Build forms, attach them to pages and review submissions.')],
-    ['/admin/settings', 'sliders', L('امکانات و تنظیمات عمومی', 'Features & settings'), L('فعال‌سازی فروشگاه و API، اطلاعات پشتیبانی و تنظیمات موتور جست‌وجو.', 'Storefront and API availability, support details and SEO settings.')],
-  ]
-  const items = all.filter(([href]) => vpnOn || !vpnOnly.includes(href))
-  return <div><h1 className="h2 mb-4">{L('مرکز مدیریت وب‌سایت', 'Website management')}</h1><p className="muted mb-6">{L('بخش موردنظر را انتخاب کنید؛ تغییرات محتوایی و ظاهری سایت از اینجا در دسترس‌اند.', 'Choose the part of your website you want to update.')}</p><div className="admin-management-grid">{items.map(([href, icon, title, text]) => <Link className="card" href={href} key={href}><Icon name={icon} size={25}/><h2>{title}</h2><p>{text}</p><span className="text-link">{L('مدیریت این بخش ←', 'Manage section →')}</span></Link>)}</div></div>
+  const { groups, loading, failed, retry } = useControlNavigation()
+  const [query, setQuery] = useState('')
+  const [part, setPart] = useState('')
+  const available = groups.map(group => ({ ...group, items: group.items.filter(item => item.href !== '/admin/site-management') })).filter(group => group.items.length)
+  const parts = [...new Set(available.map(group => group.part).filter(Boolean))]
+  const effectivePart = parts.includes(part) ? part : ''
+  const matches = searchControlGroups(available, query, effectivePart)
+  const count = matches.reduce((total, group) => total + group.items.length, 0)
+  const total = available.reduce((sum, group) => sum + group.items.length, 0)
+
+  return <div className={styles.directory} aria-busy={loading}>
+    <header className={styles.heading}>
+      <span className={styles.mark} aria-hidden="true"><Icon name="sliders" size={28} /></span>
+      <div><p className={styles.eyebrow}>{L('کنترل وب‌سایت', 'Website controls')}</p><h1>{L('مرکز مدیریت سایت', 'Website management')}</h1><p>{L('صفحه‌ها، ظاهر، محتوا و تنظیمات هر بخش را از یک جا پیدا کنید. ابزارها مطابق دسترسی شما و ماژول‌های فعال نمایش داده می‌شوند.', 'Find pages, appearance, content and settings in one place. Tools follow your permissions and active modules.')}</p></div>
+    </header>
+
+    {failed ? <div className="card" role="alert"><h2 className="h3">{L('فهرست ابزارها دریافت نشد', 'Controls could not be loaded')}</h2><p className="muted">{L('برای دریافت دسترسی‌ها و وضعیت فعلی بخش‌ها دوباره تلاش کنید.', 'Retry to load current permissions and section availability.')}</p><button className="btn btn-primary" type="button" onClick={retry}>{L('تلاش دوباره', 'Try again')}</button></div>
+      : loading ? <div className={styles.pending} role="status" aria-live="polite">{L('در حال دریافت ابزارها و دسترسی‌ها…', 'Loading controls and permissions…')}</div>
+      : <>
+        <div className={styles.toolbar}>
+          <label className={styles.search}><Icon name="search" size={20} /><span className="sr-only">{L('جست‌وجوی ابزارهای مدیریت', 'Search management tools')}</span><input className="input" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={L('مثلاً منو، فوتر، دسته‌بندی، کاربر…', 'Try menus, footer, categories, members…')} /></label>
+          <label className={styles.select}><span id="control-area-label">{L('حوزهٔ مدیریت', 'Management area')}</span><select aria-labelledby="control-area-label" className="input" value={effectivePart} onChange={event => setPart(event.target.value)}><option value="">{L('همهٔ حوزه‌ها', 'All areas')}</option>{parts.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+        </div>
+        <div className={styles.results}><p role="status" aria-live="polite">{L(`${count.toLocaleString('fa-IR')} ابزار از ${total.toLocaleString('fa-IR')} ابزار در دسترس`, `${count} of ${total} available tools`)}</p>{(query || effectivePart) && <button className="btn btn-ghost" type="button" onClick={() => { setQuery(''); setPart('') }}>{L('پاک کردن فیلترها', 'Clear filters')}</button>}</div>
+        <div className={styles.grid}>{matches.map(group => <section className={`card ${styles.group}`} key={group.id} aria-labelledby={`controls-${group.id.replace(/[^a-z0-9-]/gi, '-')}`}>
+          <header><span className={styles.groupIcon} aria-hidden="true"><Icon name={group.icon} size={21} /></span><div>{group.part && <p>{group.part}</p>}<h2 id={`controls-${group.id.replace(/[^a-z0-9-]/gi, '-')}`}>{group.title}</h2></div><span className={styles.count}>{group.items.length.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en')}</span></header>
+          <ul>{group.items.map(item => <li key={item.href}><Link href={item.href}><Icon name={item.icon} size={18} /><span>{item.label}</span><span className={styles.arrow} aria-hidden="true">←</span></Link></li>)}</ul>
+        </section>)}</div>
+        {!matches.length && <div className={styles.pending}><Icon name="search" size={28} /><h2>{L('ابزاری پیدا نشد', 'No tools found')}</h2><p>{L('نام کوتاه‌تری بنویسید یا فیلتر حوزه را بردارید.', 'Try a shorter search or clear the area filter.')}</p></div>}
+        <p className={styles.note}><Icon name="shield" size={17} />{L('افزودن، ویرایش، حذف و نمایش هر مورد در ابزار همان بخش انجام می‌شود؛ محدودیت‌های دسترسی و حفاظت از داده‌ها برقرار است.', 'Add, edit, delete and visibility actions belong to each section’s tool, with its existing access and data protections.')}</p>
+      </>}
+  </div>
 }

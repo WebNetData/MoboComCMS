@@ -1457,6 +1457,23 @@ test("a person's own picture stands beside what they wrote, with the initial as 
   assert.match(sourceOf('src/modules/site/server/http/public/blog/[slug]/comments/route.ts'), /viewer: mine \? \{ avatar: pictureOf\(mine\) \} : null/)
   for (const file of ['src/components/PostComments.tsx', 'src/components/engage/ReviewList.tsx', 'src/components/ProductTabs.tsx']) assert.match(sourceOf(file), /is-photo/, file)
 })
+
+test('Admin control discovery searches only the supplied permitted projection, preserving groups and independent filters', () => {
+  const { searchControlGroups } = load('src/components/admin/navigation/groups.ts')
+  const groups = [
+    { id: 'site', title: 'ظاهر و صفحه‌ها', part: 'وب‌سایت', icon: 'grid', items: [{ href: '/admin/theme-builder', label: 'هدر و فوتر', icon: 'grid' }, { href: '/admin/pages', label: 'صفحه‌ها', icon: 'grid' }] },
+    { id: 'music', title: 'موسیقی', part: 'بخش‌های سایت', icon: 'music', items: [{ href: '/admin/music', label: 'موسیقی', icon: 'music' }] },
+  ]
+  const before=structuredClone(groups)
+  assert.deepEqual(searchControlGroups(groups,'فوتر وب‌سایت').flatMap(g=>g.items.map(i=>i.href)),['/admin/theme-builder'])
+  assert.deepEqual(searchControlGroups(groups,'موسيقي').map(g=>g.id),['music'])
+  assert.equal(searchControlGroups(groups,'','وب‌سایت').length,1)
+  assert.equal(searchControlGroups(groups,'هیچ').length,0)
+  assert.equal(searchControlGroups([], '').length,0)
+  assert.equal(searchControlGroups(groups,'/admin/music')[0].items[0].href,'/admin/music')
+  assert.equal(searchControlGroups(groups,'')[0].caption,'وب‌سایت')
+  assert.deepEqual(groups,before,'search must not alter shared Admin navigation')
+})
 test('complete article excerpts are rendered inside the reading body without changing its canonical markup', () => {
   const { articleBodyWithExcerpt } = load('src/modules/site/domain/article-output.ts')
   const body = '<div class="mcb-block" id="canonical-block"><h2>متن اصلی</h2></div>'

@@ -105,7 +105,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       { href: '/dashboard/recent', label: L('اخیراً مشاهده‌شده', 'Recently viewed'), icon: 'clock' },
     ] },
     { id: 'people', title: L('جامعه', 'Community'), icon: 'users', items: [
-      ...(communityOn ? [{ href: '/feed', label: L('تازه‌ها (فید)', 'Feed'), icon: 'rss' }, { href: '/dashboard/public-profile', label: L('پروفایل عمومی من', 'My public profile'), icon: 'user' }] : []),
+      ...(communityOn ? [{ href: '/feed', label: L('تازه‌ها (فید)', 'Feed'), icon: 'rss' }] : []),
+      { href: '/dashboard/public-profile', label: L('تصویر و پروفایل من', 'My picture & profile'), icon: 'user' },
       { href: '/dashboard/referrals', label: L('دعوت از دوستان', 'Invite friends'), icon: 'link' },
     ] },
     { id: 'tools', title: L('ابزارها', 'Tools'), icon: 'bolt', items: [
@@ -137,7 +138,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .catch(() => setIsReseller(false))
   }, [status])
 
-  if (status !== 'authenticated') {
+  // Refreshing the session must not discard an editor's local draft.
+  if (!session) {
     return <div className="container py-20 text-center muted">{t.loading}</div>
   }
 
