@@ -2,9 +2,11 @@
 
 ## Resume here
 
-Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/authoring-operations-continuation-2026-10-18`, continuing `61087ae9`. The earlier batch is [PR197](https://github.com/WebNetData/MoboComCMS/pull/197), targeting `main`; the owner merges. Keep this continuation separate. Do not rebuild these capabilities from the older root checkout or stage its unrelated work, `.serena/` or `public/demo/`.
+Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/authoring-operations-continuation-2026-10-18`, continuing `61087ae9`. The earlier batch is [PR197](https://github.com/WebNetData/MoboComCMS/pull/197), targeting `main`; the owner merges. The implementation commits remain separate within the consolidated PR. Do not rebuild these capabilities from the older root checkout or stage its unrelated work, `.serena/` or `public/demo/`.
 
-The owner selected items3–7 after publication. [Scenario](../../specs/authoring-operations-continuation/SPEC.md). This supersedes only the restore atomicity, single-round moderation, table/formatting and search/settings limitations of [the previous handoff](CONTENT_MANAGEMENT.md); its other contracts and historical evidence remain valid.
+Publication2026-10-18: at the owner's request, this completed continuation is appended to the still-open PR197 on remote branch `feat/content-management-completion-2026-10-18`, targeting `main`. The implementation remains its own commit `a19c89d2` after61087ae9; no force push, auto-merge or workflow change. The canonical local continuation branch above remains usable.
+
+The owner selected items3–7 after the earlier publication. [Scenario](../../specs/authoring-operations-continuation/SPEC.md). This supersedes only the restore atomicity, single-round moderation, table/formatting and search/settings limitations of [the previous handoff](CONTENT_MANAGEMENT.md); its other contracts and historical evidence remain valid.
 
 ## Owners and implemented contracts
 
@@ -50,7 +52,7 @@ Owned PostgreSQL fixture:1105 candidates, three batches,20 returned. A warm loca
 
 ## Delivery and remaining limits
 
-PR197 publishes the earlier batch for owner review/merge; its hosted check jobs did not start. GitHub's annotation reports failed account payments or the Actions spending limit (run39125540090), not executed code failures. No workflow was rerun/dispatched or weakened; hosted browser testing stays manual. This continuation is kept local pending the next requested publication. No new production build/deployment, real provider delivery or production restore rehearsal is certified here.
+PR197 publishes the earlier batch for owner review/merge; its hosted check jobs did not start. GitHub's annotation reports failed account payments or the Actions spending limit (run39125540090), not executed code failures. No workflow was rerun/dispatched or weakened; hosted browser testing stays manual. This continuation is now included in the same PR197 for one owner merge. Previously executed local evidence above applies to implementation commit a19c89d2; this publication changes documentation only. Existing PR checks can trigger automatically on the update; no manual dispatch/rerun is requested. No new production build/deployment, real provider delivery or production restore rehearsal is certified here.
 
 Remaining editor work: shared browser registry for module block definitions and module dynamic rendering. The existing LibraryPicker is already wired in Gutenberg FieldControls.tsx and shared FileUpload; retain it rather than building another picker. Browser coverage of every asset/list-field variation is not certified here; patterns/templates are separate future scope. History covers named content owners plus General/Forum settings, not all arbitrary Admin forms/credentials/financial state. Copyright takedown effects and notification delivery retain their existing external transaction boundaries. Search results remain live rather than snapshot pagination; production-size scan behavior needs measured deployment evidence. Graphify assets are absent in this worktree; source/Serena were used, with no graph/token-savings claim.
 
