@@ -6,6 +6,7 @@ import ContentEditor from '@/components/editor/ContentEditor'
 import FileUpload from '@/components/admin/FileUpload'
 import RemoteCopy from '@/components/media/RemoteCopy'
 import Portrait from '@/components/admin/ProfilePortrait'
+import ProfileMergePanel from '@/components/admin/ProfileMergePanel'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
 import { Notice, send, fa } from '../shared'
 import { ARTISTS_API, type Artist, type Work } from './types'
@@ -48,6 +49,7 @@ export default function ArtistEditor({artist,loading,onReload,onSaved,onClose}:{
     {artist.id>0&&<p className={styles.count}><Link href={'/music/artist/'+artist.slug}>مشاهدهٔ پروفایل عمومی ↗</Link> · <span dir="ltr">/music/artist/{artist.slug}</span></p>}
     {artist.id>0&&artist.profileCanEdit&&<Link className="btn btn-ghost btn-sm" href={'/admin/history?type=music-artists&id='+artist.id}>تاریخچهٔ تغییرات</Link>}
     <ArtistWorks artist={artist}/>
+    {artist.id > 0 && artist.profileCanMerge && !dirty && <ProfileMergePanel key={artist.id} sourceId={artist.id} endpoint="/api/admin/music/artists/merge" editor="/admin/music/artists" />}
   </section>
 }
 

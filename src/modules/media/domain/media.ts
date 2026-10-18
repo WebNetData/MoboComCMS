@@ -184,14 +184,15 @@ export function playbackKind(rawUrl: string, kind: string, toEmbed: (raw: string
   // A subtitle or a separate audio file is fetched, never played as the video.
   if (isTrack(kind)) return 'none'
   let url: URL
-  try { url = new URL(String(rawUrl || '').trim()) } catch { return 'none' }
+  const raw = String(rawUrl || '').trim(), local = /^\/files\/[^\s<>\\]+$/.test(raw)
+  let path: string
+  try { url = new URL(raw, local ? 'https://local.invalid' : undefined); path = decodeURIComponent(url.pathname).toLowerCase() } catch { return 'none' }
   const embed = toEmbed(url.toString())
   try {
     const host = new URL(embed).hostname
     if (/(^|\.)(youtube-nocookie\.com|youtube\.com|aparat\.com|vimeo\.com)$/.test(host)) return 'embed'
   } catch { /* not an embed */ }
-  if (url.protocol !== 'https:') return 'none'
-  const path = decodeURIComponent(url.pathname).toLowerCase()
+  if (!local && url.protocol !== 'https:') return 'none'
   const hint = `${path} ${url.search.toLowerCase()}`
   if (/\.m3u8($|[?\s])/.test(hint) || path.endsWith('.m3u8')) return 'hls'
   if (VIDEO_EXT.test(path)) return 'video'
@@ -220,11 +221,33 @@ export function licenseLabel(value: string, fa: boolean): string {
 
 // ------------------------------------------------------------------ subtitles in the player
 
-/** What the site's own player can show: WebVTT as it is, SubRip after conversion. Anything else is download only. */
-export function subtitleFormat(rawUrl: string): 'vtt' | 'srt' | '' {
+/** WebVTT, converted SubRip, and styled ASS/SSA with a plain-caption fallback. */
+export function subtitleFormat(rawUrl: string): 'vtt' | 'srt' | 'ass' | '' {
   let path = ''
-  try { path = decodeURIComponent(new URL(rawUrl).pathname).toLowerCase() } catch { return '' }
-  return path.endsWith('.vtt') ? 'vtt' : path.endsWith('.srt') ? 'srt' : ''
+  try { path = decodeURIComponent(new URL(rawUrl, 'https://local.invalid').pathname).toLowerCase() } catch { return '' }
+  return path.endsWith('.vtt') ? 'vtt' : path.endsWith('.srt') ? 'srt' : /\.(ass|ssa)$/.test(path) ? 'ass' : ''
+}
+
+export function playableAudioFile(rawUrl: string): boolean {
+  try { return /\.(mp3|m4a|aac|ogg|oga|wav|flac|opus|mp4|webm)$/i.test(decodeURIComponent(new URL(rawUrl, 'https://local.invalid').pathname)) } catch { return false }
+}
+
+/** Accessible plain-caption fallback; the styled player receives the original bounded ASS separately. */
+export function assToWebVtt(input: string): string {
+  let events = false, columns: string[] = [], count = 0
+  const cues: string[] = []
+  const time = (value: string) => /^\d{1,2}:\d{2}:\d{2}\.\d{1,3}$/.test(value.trim()) ? value.trim().replace(/^(\d):/, '0$1:').replace(/\.(\d{1,2})$/, (_, ms: string) => '.' + ms.padEnd(3, '0')) : ''
+  for (const line of input.split(/\r?\n/)) {
+    if (/^\[/.test(line)) events = /^\[Events\]\s*$/i.test(line)
+    if (!events) continue
+    if (/^Format:/i.test(line)) columns = line.slice(line.indexOf(':') + 1).split(',').map(value => value.trim().toLowerCase())
+    if (!/^Dialogue:/i.test(line) || !columns.length || columns.at(-1) !== 'text') continue
+    const parts = line.slice(line.indexOf(':') + 1).split(','), text = parts.splice(columns.length - 1).join(',')
+    const start = time(parts[columns.indexOf('start')] || ''), end = time(parts[columns.indexOf('end')] || '')
+    const safe = text.replace(/\{[^}]*\}/g, '').replace(/\\[Nn]/g, '\n').replace(/\\h/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').trim()
+    if (start && end && safe && ++count <= 20000) cues.push(`${start} --> ${end}\n${safe}`)
+  }
+  return cues.length ? 'WEBVTT\n\n' + cues.join('\n\n') + '\n' : ''
 }
 
 export const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024

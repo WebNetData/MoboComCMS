@@ -9,6 +9,7 @@ import { Notice, send, fa } from '../shared'
 import type { Detail, Profile } from './types'
 import styles from '@/components/admin/ProfileManager.module.css'
 import Portrait from '@/components/admin/ProfilePortrait'
+import ProfileMergePanel from '@/components/admin/ProfileMergePanel'
 
 export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{person:Detail;loading:boolean;onReload:()=>void;onSaved:(person:Profile)=>void;onClose:()=>void}) {
   const [name,setName]=useState(person.name),[image,setImage]=useState(person.image),[bio,setBio]=useState(person.bio),[locked,setLocked]=useState(person.imageLocked)
@@ -23,6 +24,7 @@ export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{
     if(!result.ok){setError(result.error);return}
     onSaved(result.data.person)
   }
+  if(person.mergedIntoId)return <section className="sa-card"><Notice>این پروفایل ادغام شده است و اطلاعات آن از پروفایل اصلی مدیریت می‌شود.</Notice><Link href={`/admin/cinema/people?edit=${person.mergedIntoId}`} className="btn btn-primary">باز کردن پروفایل اصلی</Link></section>
   return <section className="sa-card" aria-labelledby="person-editor-title">
     <header className={styles.editorHead}><div><span className={styles.eyebrow}>{person.id?'ویرایش پروفایل':'چهرهٔ جدید'}</span><h2 id="person-editor-title">{person.name||'ثبت بازیگر یا کارگردان'}</h2></div><button type="button" className="btn btn-ghost" disabled={busy} onClick={()=>leave('close')}>بستن</button></header>
     {confirm&&<div className={styles.confirm} role="alert"><p>تغییرات ذخیره نشده است. از تغییرات صرف‌نظر شود؟</p><button className="btn btn-ghost" type="button" onClick={()=>{const action=confirm;setConfirm(null);if(action==='close')onClose();else onReload()}}>بله، صرف‌نظر شود</button><button className="btn btn-primary" type="button" onClick={()=>setConfirm(null)}>ادامهٔ ویرایش</button></div>}
@@ -43,6 +45,7 @@ export default function PersonEditor({person,loading,onReload,onSaved,onClose}:{
       </fieldset>
     </form>
     <Credits person={person}/>
+    {person.id > 0 && !dirty && <ProfileMergePanel key={person.id} sourceId={person.id} endpoint="/api/admin/cinema/people/merge" editor="/admin/cinema/people" />}
   </section>
 }
 

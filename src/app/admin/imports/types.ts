@@ -22,6 +22,7 @@ export type Settings = {
   mapping: Record<string, string>; variantMapping: Record<string, string>
   policies: Record<string, Policy>; variantPolicies: Record<string, Policy>
   existing: 'skip' | 'update' | 'fill-empty' | 'replace'
+  protectEdits?: boolean
   variants: { mode: 'none' | 'nested' | 'flat'; source: string; groupBy: string }
   attributes: Attribute[]; specsSource: string; options: Record<string, unknown>
 }

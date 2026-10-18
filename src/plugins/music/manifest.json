@@ -101,8 +101,8 @@
       },
       {
         "href": "/admin/music/settings",
-        "label": "صفحهٔ اصلی موزیک",
-        "labelEn": "Music home",
+        "label": "صفحهٔ اصلی و نمایش پروفایل‌ها",
+        "labelEn": "Home and profile display",
         "icon": "sliders",
         "permissions": [
           "music.manage",

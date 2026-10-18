@@ -4,6 +4,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'cms.posts')) return err('forbidden', 403)
@@ -35,7 +36,12 @@ export async function PATCH(req: NextRequest) {
     const parent = await db.postComment.findFirst({ where: { id: existing.parentId, postId: existing.postId, status: 'APPROVED' }, select: { id: true } })
     if (!parent) return err('approve the parent first', 409)
   }
-  await db.postComment.update({ where: { id }, data: { status } })
+  const changed = await db.$transaction(async tx => {
+    const claimed = await tx.postComment.updateMany({ where: { id, status: existing.status }, data: { status } })
+    if (claimed.count && status !== 'PENDING') await completeOwnerCase(tx, 'article-comments', id, admin.id, status === 'APPROVED' ? 'approve' : 'reject')
+    return claimed.count
+  })
+  if (!changed) return err('دیدگاه هم‌زمان تغییر کرده است', 409)
   if (status === 'APPROVED' && existing.status !== 'APPROVED') await notifyCommentPublished(id, 'moderator')
   await auditAdmin({ req, actor: admin, action: 'post_comment.moderate', targetType: 'PostComment', targetId: id, metadata: { status, postId: existing.postId } })
   return ok({ id, status })

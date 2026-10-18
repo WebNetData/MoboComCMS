@@ -361,7 +361,7 @@ test('an author permission is taken only by the content owners, through the scop
   for (const piece of ["const ownGames = (scope: GameScope) => (scope.authorId ? { createdById: scope.authorId } : {})", "const where: Record<string, unknown> = { ...own }", "const found = await db.gameTitle.findMany({ where: { id: { in: asked }, ...ownGames(scope) } })", "if (scope.authorId && !AUTHOR_BULK.includes(action)) throw new GameError(", "const game = await db.gameTitle.findFirst({ where: { id: gameId, ...ownGames(scope) }", "await gameFor(gameId, scope, true)"]) assert.ok(owner.includes(piece), piece)
   assert.equal(owner.split('await gameFor(gameId, scope, true)').length - 1, 2, 'saving and deleting an update both ask whose game it is')
   // What an author does not get keeps asking for the section's own permission.
-  assert.ok(read('src/modules/content/server/http/history.ts').includes("if (type === 'posts') return cms('post', 'cms.posts', 'post')"))
+  assert.match(read('src/modules/content/server/http/history.ts'), /if \(type === 'posts'\)\s*\{[\s\S]*?perms:\s*\['cms\.posts'\],\s*module:\s*'journal'/)
   assert.equal(read('src/modules/site/server/http/admin/comments/route.ts').includes('.author'), false)
   assert.equal(read('src/modules/identity/rbac.ts').includes('.author'), false, 'the list of content editors (collections) does not name authors')
 })

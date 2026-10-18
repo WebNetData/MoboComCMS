@@ -104,6 +104,10 @@ export type Change =
 
 export interface ApplyResult {
   action: Action
+  /** Exact parent version returned by this write; later edits cannot become an import baseline. */
+  writtenAt?: string
+  /** Exact content state read inside the writer transaction, never a later observed manual edit. */
+  contentFingerprint?: string
   entityType: string
   entityId?: number
   changes: Change[]

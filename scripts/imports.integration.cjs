@@ -402,6 +402,16 @@ async function magazineCinemaMusic() {
   const again = await db.cinemaSeason.findMany({ where: { titleId: series.id }, include: { episodes: true } })
   assert.equal(again.length, 2); assert.equal(again.flatMap((s) => s.episodes).length, 3)
   assert.equal(await db.mediaLink.count({where:{ownerType:'episode',ownerId:pilot.id,url:episodeUrl}}),1,'re-import keeps one episode link')
+  const baselineRecord=await db.importRecord.findFirstOrThrow({where:{jobId:r.id,entityId:series.id,action:'UPDATE'}})
+  assert.match(JSON.parse(baselineRecord.changes).contentFingerprint,/^[a-f0-9]{64}$/,'writer captured a usable content baseline')
+  await db.cinemaEpisode.update({where:{id:pilot.id},data:{title:'Owned manual correction'}})
+  const protectedRun=await importFile('series',`${m}-series-protected.json`,seriesFile,{...seriesSettings,existing:'update',protectEdits:true})
+  assert.equal((await records(protectedRun.id))[0].action,'SKIP')
+  assert.equal((await db.cinemaEpisode.findUniqueOrThrow({where:{id:pilot.id}})).title,'Owned manual correction')
+  const explicitRun=await importFile('series',`${m}-series-overwrite.json`,seriesFile,{...seriesSettings,existing:'update',protectEdits:false})
+  assert.equal((await records(explicitRun.id))[0].action,'UPDATE')
+  assert.equal((await db.cinemaEpisode.findUniqueOrThrow({where:{id:pilot.id}})).title,'Pilot')
+  pass('series relational manual edit preserved with protection; explicit overwrite restores file value')
   pass('movie and series on CinemaTitle (MOVIE/SERIES) with CinemaSeason/CinemaEpisode, no duplicates')
 
   // Music: artist → album → track, each artist and album once

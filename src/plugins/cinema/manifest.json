@@ -71,8 +71,8 @@
       },
       {
         "href": "/admin/cinema/settings",
-        "label": "صفحهٔ اصلی فیلم و سریال",
-        "labelEn": "Film home",
+        "label": "صفحهٔ اصلی، پروفایل‌ها و پخش‌کننده",
+        "labelEn": "Home, profiles and player",
         "icon": "sliders",
         "permissions": [
           "cinema.manage",

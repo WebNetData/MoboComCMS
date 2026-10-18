@@ -5,33 +5,40 @@ import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import { contentChanged } from '@/modules/content/server/events'
-import { restoreValues } from '@/modules/content/domain/revisions'
+import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
 import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionSnapshot } from '@/modules/content/server/revisions'
 
 // The history of an item for staff, and putting an earlier version back. Who may read or restore the
 // history of an item is whoever may edit that item: the permission comes from the item's own owner.
 
-type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, values: (current: Record<string, unknown>) => Record<string, unknown>) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
+type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 const cms = (model: 'post' | 'page', perm: string, itemType: 'post' | null): Owner => ({
   perms: [perm], module: model === 'post' ? 'journal' : null,
   current: (id) => (model === 'post' ? db.post.findUnique({ where: { id } }) : db.page.findUnique({ where: { id } })) as Promise<Record<string, unknown> | null>,
-  restore: async (id, values) => {
+  restore: async (id, snapshot) => {
     const delegate = (model === 'post' ? db.post : db.page) as unknown as { findUnique: (args: unknown) => Promise<Record<string, unknown> | null>; update: (args: unknown) => Promise<Record<string, unknown>> }
     const before = await delegate.findUnique({ where: { id } })
     if (!before) throw new RevisionError('این مورد پیدا نشد', 404)
-    const after = await delegate.update({ where: { id }, data: values(before) })
+    const after = await delegate.update({ where: { id }, data: restoreValues(snapshot, before) })
     if (itemType) contentChanged({ type: itemType, id }, before, after)
     return { before, after }
   },
 })
 
 async function ownerOf(type: string): Promise<Owner | null> {
-  if (type === 'posts') return cms('post', 'cms.posts', 'post')
+  if (type === 'posts') {
+    const { postRevisionState, restorePostRevision } = await import('@/modules/site/server/revision-state')
+    return { perms: ['cms.posts'], module: 'journal', current: postRevisionState, restore: async (id, snapshot) => { const result = await restorePostRevision(id, snapshot); contentChanged({ type: 'post', id }, result.before, result.after); return result } }
+  }
+  if (type === 'products') {
+    const { productRevisionState, restoreProductRevision } = await import('@/modules/catalog/server/revision-state')
+    return { perms: ['cms.products'], module: 'store', current: productRevisionState, restore: async (id, snapshot) => { const result = await restoreProductRevision(id, snapshot); contentChanged({ type: 'product', id }, result.before, result.after); return result } }
+  }
   if (type === 'pages') return cms('page', 'cms.pages', null)
   const media = await import('@/modules/media/server/admin')
   const resource = media.mediaResource(type)
-  return resource ? { perms: resource.perms, module: resource.module, current: (id) => media.mediaItemRow(type, id), restore: (id, values) => media.restoreMediaItem(type, id, values) } : null
+  return resource ? { perms: resource.perms, module: resource.module, current: (id) => media.mediaItemRow(type, id), restore: (id, snapshot) => media.restoreMediaItem(type, id, current => restoreValues(snapshot, current)) } : null
 }
 
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
@@ -65,7 +72,7 @@ export async function POST_history(req: NextRequest) {
   if ('response' in g) return g.response
   try {
     const snapshot = await revisionSnapshot(type, id, version)
-    const { before, after } = await owner.restore(id, (current) => restoreValues(snapshot, current))
+    const { before, after } = await owner.restore(id, snapshot)
     const made = await recordRevision({ entityType: type, entityId: id, before, after, actor: g.admin, source: 'restore' })
     await auditAdmin({ req, actor: g.admin, action: 'content.restore', targetType: type, targetId: id, metadata: { version, newVersion: made } })
     return ok({ restored: version, version: made })

@@ -1,9 +1,22 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
 import { ABANDONED_DAYS, CLAIM_HOURS, claimIsFresh, claimRefusal, cleanCaseNote, type CaseStatus, type CaseView } from '@/modules/moderation/domain/cases'
 import type { QueueSourceKey } from '@/modules/moderation/domain/queue'
 
 export class CaseError extends Error {
   constructor(message: string, public status = 400) { super(message) }
+}
+
+/** Called only after an authorized owner decision, in its transaction. Never decides or creates content. */
+export async function completeOwnerCase(tx: Prisma.TransactionClient, source: QueueSourceKey, itemId: number, staffId: number, decision: 'approve' | 'reject') {
+  if (!Number.isSafeInteger(itemId) || itemId <= 0 || !Number.isSafeInteger(staffId) || staffId <= 0) throw new CaseError('شناسهٔ تصمیم معتبر نیست')
+  return tx.moderationCase.updateMany({ where: { source, itemId, status: { in: ['OPEN', 'CLAIMED'] } }, data: { status: 'DECIDED', decision, decidedById: staffId, decidedAt: new Date(), assigneeId: null, claimedAt: null } })
+}
+
+/** Trash decisions have the same source keys in both the overview and the owning editor. */
+export async function completeTrashCase(tx: Prisma.TransactionClient, kind: string, itemId: number, staffId: number, decision: 'restored' | 'deleted') {
+  const source: Record<string, QueueSourceKey> = { post: 'trash-posts', 'cinema-titles': 'trash-cinema', 'music-tracks': 'trash-music-tracks', 'music-albums': 'trash-music-albums', games: 'trash-games', software: 'trash-software' }
+  if (source[kind]) await completeOwnerCase(tx, source[kind], itemId, staffId, decision === 'deleted' ? 'approve' : 'reject')
 }
 
 const staffNames = async (ids: (number | null)[]) => {
@@ -47,8 +60,9 @@ export async function releaseCase(source: QueueSourceKey, itemId: number, staffI
 /** A note for colleagues, kept with the case. An empty note removes it. */
 export async function noteCase(source: QueueSourceKey, itemId: number, value: unknown) {
   const note = cleanCaseNote(value)
-  const row = await db.moderationCase.upsert({ where: { source_itemId: { source, itemId } }, create: { source, itemId, note }, update: { note } })
-  if (row.status === 'DECIDED') throw new CaseError('این مورد تصمیم‌گیری شده است', 409)
+  await db.moderationCase.upsert({ where: { source_itemId: { source, itemId } }, create: { source, itemId }, update: {} })
+  const changed = await db.moderationCase.updateMany({ where: { source, itemId, status: { not: 'DECIDED' } }, data: { note } })
+  if (!changed.count) throw new CaseError('این مورد تصمیم‌گیری شده است', 409)
   return { note }
 }
 

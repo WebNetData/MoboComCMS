@@ -35,7 +35,7 @@ export default async function WatchPage({ params, searchParams }: { params: Prom
             </div>
             <div className="vp-tags">{result.quality && <span dir="ltr">{result.quality}</span>}{result.label && <span>{result.label}</span>}</div>
           </header>
-          <VideoPlayer subtitles={result.subtitles} subtitlePreference={result.subtitlePreference} src={result.src} playback={result.playback as 'hls' | 'video' | 'maybe' | 'embed'} poster={result.poster} title={[result.title, result.subtitle].filter(Boolean).join(' — ')} resumeKey={`${result.resumeKey}:${result.id}`} progressLinkId={result.progressEnabled ? result.id : undefined} serverResume={result.serverResume} nextEpisode={result.nextEpisode} downloadHref={result.downloadHref} />
+          <VideoPlayer audioTracks={result.audioTracks} subtitles={result.subtitles} subtitlePreference={result.subtitlePreference} src={result.src} playback={result.playback as 'hls' | 'video' | 'maybe' | 'embed'} poster={result.poster} title={[result.title, result.subtitle].filter(Boolean).join(' — ')} resumeKey={`${result.resumeKey}:${result.id}`} progressLinkId={result.progressEnabled ? result.id : undefined} serverResume={result.serverResume} nextEpisode={result.nextEpisode} downloadHref={result.downloadHref} />
         </> : <section className="vp-denied">
           <h1>{REASON[result.reason].title}</h1>
           <p>{REASON[result.reason].text}</p>

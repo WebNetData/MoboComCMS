@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
 import { requireAdmin } from '@/modules/identity/server/access'
+import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import { hasPermission } from '@/modules/identity/rbac'
 import { getModuleStates } from '@/extensions/server/modules'
 import { visibleSources, type QueueSourceKey } from '@/modules/moderation/domain/queue'
@@ -39,10 +40,9 @@ export async function GET(req: NextRequest) {
  * the owning module has just accepted. It decides nothing itself.
  */
 export async function POST(req: NextRequest) {
+  if (!bulkSameOrigin(req)) return err('forbidden', 403)
   const who = await staff(req)
   if (!who) return err('forbidden', 403)
-  const origin = req.headers.get('origin')
-  if (origin && new URL(origin).host !== req.headers.get('host')) return err('forbidden', 403)
   const body = (await req.json().catch(() => null)) || {}
   const action = body.action as CaseAction, id = Number(body.id)
   if (!(CASE_ACTIONS as readonly string[]).includes(action) || !Number.isSafeInteger(id) || id <= 0) return err('درخواست نامعتبر است', 400)

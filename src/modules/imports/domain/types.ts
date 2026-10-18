@@ -70,6 +70,8 @@ export interface ImportSettings {
   policies: Record<string, FieldPolicy>
   variantPolicies: Record<string, FieldPolicy>
   existing: ExistingMode
+  /** Explicit safe re-import policy. Missing on historical saved jobs keeps their old behavior. */
+  protectEdits?: boolean
   variants: { mode: 'none' | 'nested' | 'flat'; source: string; groupBy: string }
   attributes: AttributeSource[]
   /** Source path of an object/list of name→value specifications ({"RAM": "8 GB"} or [{name, value}]). */

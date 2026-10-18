@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
 import { ForumError, cleanContent, cleanTitle } from '@/modules/forum/domain/forum'
@@ -416,7 +417,9 @@ async function mayMoveInto(viewer: Viewer, categoryId: number) {
  * again what a moderator had just restored.
  */
 async function settleFlags(tx: Tx, viewer: Viewer, where: Prisma.ForumFlagWhereInput, agreed: boolean) {
+  const flags = await tx.forumFlag.findMany({ where: { ...where, status: 'PENDING' }, select: { id: true } })
   await tx.forumFlag.updateMany({ where: { ...where, status: 'PENDING' }, data: { status: agreed ? 'AGREED' : 'DISAGREED', handledBy: viewer.userId, handledAt: new Date() } })
+  for (const flag of flags) await completeOwnerCase(tx, 'forum-flags', flag.id, viewer.userId!, agreed ? 'approve' : 'reject')
 }
 
 export async function moderateThread(viewer: Viewer, threadId: number, patch: { pinned?: unknown; locked?: unknown; status?: unknown; categoryId?: unknown }) {
@@ -481,6 +484,7 @@ export async function resolveFlags(viewer: Viewer, postId: number, action: 'agre
   if (!post || !moderatesAnything(viewer)) throw new ForumError(post ? 'دسترسی مدیریت تالار ندارید' : 'پیام پیدا نشد', post ? 403 : 404)
   requireModerator(viewer, post.thread.categoryId)
   const status = action === 'disagree' ? 'DISAGREED' : 'AGREED'
+  const cases = await db.forumFlag.findMany({ where: { postId, status: 'PENDING' }, select: { id: true } })
   await db.forumFlag.updateMany({ where: { postId, status: 'PENDING' }, data: { status, handledBy: viewer.userId, handledAt: new Date() } })
   if (action === 'delete') {
     if (post.postNumber === 1) await deleteThread(viewer, post.threadId)
@@ -494,5 +498,6 @@ export async function resolveFlags(viewer: Viewer, postId: number, action: 'agre
     })
     void refreshStats(post.userId).catch(() => undefined)
   }
+  await db.$transaction(async tx => { for (const flag of cases) await completeOwnerCase(tx, 'forum-flags', flag.id, viewer.userId!, action === 'disagree' ? 'reject' : 'approve') })
   return { postId, status }
 }

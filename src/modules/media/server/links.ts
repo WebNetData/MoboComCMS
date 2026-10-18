@@ -7,7 +7,9 @@ import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
 import {
   checkPageToken, downloadGuardEnabled, downloaderOf, getDownloadSettings, linkHref, logDownload, remainingDownloads, signOriginUrl, trackDownloadHref,
 } from '@/modules/downloads/server/guard'
-import { MAX_SUBTITLE_BYTES, decodeSubtitle, playbackKind, subtitleFormat, toWebVtt, trackLanguage, trackLinks, type PlaybackKind } from '@/modules/media/domain/media'
+import { MAX_SUBTITLE_BYTES, assToWebVtt, decodeSubtitle, playbackKind, playableAudioFile, subtitleFormat, toWebVtt, trackLanguage, trackLinks, type PlaybackKind } from '@/modules/media/domain/media'
+import { getCinemaSettings } from '@/modules/cinema/server/admin'
+import { subtitleBytes } from '@/modules/media/server/subtitle-files'
 import { maskedHref, type FileContext } from '@/modules/downloads/server/mask'
 import type { FileTags } from '@/modules/downloads/server/clean'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -189,10 +191,11 @@ export async function openTrack(request: Request, rawId: string) {
 // ------------------------------------------------------------------ online player
 
 /** A subtitle the player can load: served by this site as WebVTT, under the same rules as the file it belongs to. */
-export type PlayerSubtitle = { id: number; language: string; label: string; src: string }
+export type PlayerSubtitle = { id: number; language: string; label: string; src: string; format?: 'vtt' | 'srt' | 'ass'; styledSrc?: string }
+export type PlayerAudio = { id: number; language: string; label: string; src: string }
 
 export type WatchResult =
-  | { ok: true; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
+  | { ok: true; subtitlePreference: string | null; subtitles: PlayerSubtitle[]; audioTracks: PlayerAudio[]; id: number; src: string; playback: PlaybackKind; title: string; subtitle: string; poster: string; backPath: string; label: string; quality: string; downloadHref: string; resumeKey: string; progressEnabled: boolean; serverResume: number | null; nextEpisode: { href: string; label: string } | null }
   | { ok: false; reason: 'not-found' | 'removed' | 'login' | 'vip' | 'buy' | 'expired' | 'unplayable'; backPath: string }
 
 async function watchOwner(ownerType: string, ownerId: number) {
@@ -262,19 +265,28 @@ export async function watchSource(rawId: string, token: string | null, headers: 
   const src = playback === 'embed' ? toEmbedUrl(link.url) : await maskedHref(settings ? signOriginUrl(link.url, settings, headers) : link.url, { download: false, userId: viewer.userId, context: { title: owner.title, label: link.label, quality: link.quality } })
   // The subtitle files of the same film or episode that this viewer may open and the player can show.
   const subtitles: PlayerSubtitle[] = []
+  const audioTracks: PlayerAudio[] = []
   if (playback !== 'embed' && link.ownerType !== 'game') {
-    const rows = await db.mediaLink.findMany({ where: { ownerType: link.ownerType, ownerId: link.ownerId, kind: 'SUBTITLE', disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, language: true, label: true, url: true, access: true } })
+    const policy = await getCinemaSettings(true)
+    const rows = await db.mediaLink.findMany({ where: { ownerType: link.ownerType, ownerId: link.ownerId, kind: { in: ['SUBTITLE', 'AUDIO'] }, disabled: false }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, kind: true, language: true, label: true, url: true, access: true } })
     for (const row of trackLinks(rows).subtitles) {
-      if (!subtitleFormat(row.url)) continue
+      const format = subtitleFormat(row.url)
+      if (!format || format === 'ass' && !policy.enableAssSubtitles) continue
       if (await gate(viewer, [{ ownerType: 'link', ownerId: row.id }, ...owner.chain], row.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') continue
       const pageToken = new URL(await linkHref(row.id, viewer.userId), 'http://x').searchParams.get('t')
-      subtitles.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'زیرنویس', src: `/api/media/subtitle/${row.id}${pageToken ? `?t=${encodeURIComponent(pageToken)}` : ''}` })
+      const src = `/api/media/subtitle/${row.id}${pageToken ? `?t=${encodeURIComponent(pageToken)}` : ''}`
+      subtitles.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'زیرنویس', src, format, ...(format === 'ass' ? { styledSrc: src + (pageToken ? '&' : '?') + 'format=ass' } : {}) })
+    }
+    if (policy.enableSeparateAudio) for (const row of trackLinks(rows).audio) {
+      if (!playableAudioFile(row.url)) continue
+      if (await gate(viewer, [{ ownerType: 'link', ownerId: row.id }, ...owner.chain], row.access === 'MEMBERS' || owner.access === 'MEMBERS') !== 'ok') continue
+      audioTracks.push({ id: row.id, language: row.language, label: row.label || trackLanguage(row.language, true) || 'صدای جداگانه', src: await linkHref(row.id, viewer.userId) })
     }
   }
   // The member's own choice of subtitle, kept with the account; null for a visitor (the device remembers theirs).
   const subtitlePreference = viewer.userId ? (await getPlaybackPrefs(viewer.userId)).subtitle : null
   return {
-    ok: true, subtitlePreference, subtitles, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
+    ok: true, subtitlePreference, subtitles, audioTracks, id, src, playback, title: info?.title || '', subtitle: info?.subtitle || '', poster: info?.poster || '', backPath: owner.path,
     label: link.label, quality: link.quality,
     downloadHref: link.kind === 'DOWNLOAD' ? (settings?.enforceTokens && token ? `/api/media/link/${id}?t=${encodeURIComponent(token)}` : `/api/media/link/${id}`) : '',
     resumeKey: `watch:${link.ownerType}:${link.ownerId}`,
@@ -303,12 +315,15 @@ export async function openSubtitle(request: Request, rawId: string) {
   if (settings?.enforceTokens && checkPageToken(new URL(request.url).searchParams.get('t'), `l${id}`, viewer.userId) !== 'ok') return refuse('EXPIRED', 403)
   if (settings?.requireLogin && !viewer.userId) return refuse('LOGIN_REQUIRED', 401)
   let vtt = ''
+  const styled = format === 'ass' && new URL(request.url).searchParams.get('format') === 'ass'
+  if (format === 'ass' && !(await getCinemaSettings()).enableAssSubtitles) return refuse('NOT_FOUND', 404)
   try {
-    const { fetchRemoteBytes } = await import('@/modules/downloads/server/files')
-    vtt = toWebVtt(decodeSubtitle(await fetchRemoteBytes(settings ? signOriginUrl(link.url, settings, request.headers) : link.url, MAX_SUBTITLE_BYTES)), format)
+    const text = decodeSubtitle(await subtitleBytes(link.url, settings ? signOriginUrl(link.url, settings, request.headers) : link.url, MAX_SUBTITLE_BYTES))
+    const plain = format === 'ass' ? assToWebVtt(text) : ''
+    vtt = format === 'ass' ? plain ? styled ? text : plain : '' : toWebVtt(text, format)
   } catch { return refuse('UNAVAILABLE', 502) }
   if (!vtt) return refuse('UNAVAILABLE', 502)
-  return new NextResponse(vtt, { headers: { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'private, max-age=600', 'X-Content-Type-Options': 'nosniff' } })
+  return new NextResponse(vtt, { headers: { 'Content-Type': styled ? 'text/plain; charset=utf-8' : 'text/vtt; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } })
 }
 
 export async function saveCinemaWatchProgress(userId: number, linkId: number, positionSeconds: number, durationSeconds: number) {

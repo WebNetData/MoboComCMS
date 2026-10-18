@@ -12,21 +12,24 @@ type Pick = { id: number; title: string; cover: string; artist: string }
 export default function MusicSettingsPage() {
   const { data, error } = useJson<{ settings: MusicSettings; picker: { tracks: Pick[]; albums: Pick[] } }>('/api/admin/music/settings')
   const [form, setForm] = useState<MusicSettings | null>(null)
+  const [baseline, setBaseline] = useState<MusicSettings | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { if (data) setForm(data.settings) }, [data])
+  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings) } }, [data])
 
   if (!form) return <MusicShell title="صفحهٔ اصلی و تنظیمات">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</MusicShell>
-  const set = (patch: Partial<MusicSettings>) => { setMessage(null); setForm({ ...form, ...patch }) }
+  const set = (patch: Partial<MusicSettings>) => { setMessage(null); setForm(current => current ? { ...current, ...patch } : current) }
   const toItem = (row: Pick) => ({ id: row.id, title: row.title, image: row.cover, sub: row.artist })
 
   async function save() {
     if (!form) return
     setBusy(true)
-    const response = await send<{ settings: MusicSettings }>('/api/admin/music/settings', 'POST', form)
+    const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline?.[key as keyof MusicSettings])))
+    const response = await send<{ settings: MusicSettings }>('/api/admin/music/settings', 'POST', patch)
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings)
+    setBaseline(response.data.settings)
     setMessage({ tone: 'ok', text: 'تنظیمات ذخیره شد و صفحهٔ اصلی موزیک به‌روز است' })
   }
 
@@ -41,8 +44,8 @@ export default function MusicSettingsPage() {
         <section className="sa-card">
           <header className="sa-card-head"><h2>چارت و فهرست‌ها</h2></header>
           <label className="sa-field"><span>معیار چارت</span><select className="select" value={form.chartSource} onChange={(e) => set({ chartSource: e.target.value as ChartSource })}>{Object.entries(CHART_SOURCES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label className="sa-field"><span>تعداد آهنگ‌های چارت</span><input className="input num" type="number" min={5} max={30} value={form.chartSize} onChange={(e) => set({ chartSize: Number(e.target.value) })} /><small className="sa-sub">بین ۵ تا ۳۰</small></label>
-          <label className="sa-field"><span>تعداد «جدیدترین آهنگ‌ها»</span><input className="input num" type="number" min={6} max={30} value={form.latestSize} onChange={(e) => set({ latestSize: Number(e.target.value) })} /></label>
+          <label className="sa-field"><span>تعداد آهنگ‌های چارت</span><input className="input num" type="number" min={5} max={30} value={form.chartSize} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ chartSize: e.target.valueAsNumber }) }} /><small className="sa-sub">بین ۵ تا ۳۰</small></label>
+          <label className="sa-field"><span>تعداد «جدیدترین آهنگ‌ها»</span><input className="input num" type="number" min={6} max={30} value={form.latestSize} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ latestSize: e.target.valueAsNumber }) }} /></label>
         </section>
       </div>
       <div className="sa-stack">
@@ -57,6 +60,8 @@ export default function MusicSettingsPage() {
         <section className="sa-card">
           <header className="sa-card-head"><h2>نمایش و دسترسی</h2></header>
           <label className="sa-check"><input type="checkbox" checked={form.showLyrics} onChange={(e) => set({ showLyrics: e.target.checked })} />نمایش متن ترانه در صفحهٔ آهنگ</label>
+          <label className="sa-check"><input type="checkbox" checked={form.showArtistBiography} onChange={e => set({ showArtistBiography: e.target.checked })} />نمایش زندگی‌نامه در پروفایل خواننده</label>
+          <label className="sa-check"><input type="checkbox" checked={form.showArtistFollow} onChange={e => set({ showArtistFollow: e.target.checked })} />نمایش دنبال‌کردن در پروفایل خواننده</label>
           <label className="sa-check"><input type="checkbox" checked={form.showRelatedTracks} onChange={(e) => set({ showRelatedTracks: e.target.checked })} />پیشنهاد آهنگ‌های هم‌سبک در صفحهٔ آهنگ</label>
           <p className="sa-hint"><span data-vip="">کیفیت ۳۲۰ و دانلود فقط برای VIP، و </span>آدرس و سئوی بخش در <Link href="/admin/sections/music" className="sa-link">تنظیمات بخش و آدرس</Link> هستند.</p>
         </section>

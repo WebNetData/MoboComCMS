@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
+import SubtitleControls from '@/components/media/player/SubtitleControls'
+import SeparateAudioControls from '@/components/media/player/SeparateAudioControls'
+import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
 
 type Props = {
   src: string
@@ -14,16 +17,15 @@ type Props = {
   nextEpisode?: { href: string; label: string } | null
   downloadHref?: string
   /** Subtitle files of this film or episode, served by the site as WebVTT. */
-  subtitles?: { id: number; language: string; label: string; src: string }[]
+  subtitles?: PlayerSubtitle[]
+  audioTracks?: PlayerAudio[]
   /** The signed-in member's choice kept with the account ('' = never chose); null for a visitor. */
   subtitlePreference?: string | null
 }
 
-const SUBTITLE_KEY = 'vp:subtitle'
-/** The subtitle a viewer picked last on this device ('off' when they turned subtitles off); Persian when they never chose. */
-const preferredSubtitle = () => { try { return localStorage.getItem(SUBTITLE_KEY) || 'fa' } catch { return 'fa' } }
-
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
+const NO_SUBTITLES: PlayerSubtitle[] = []
+const NO_AUDIO: PlayerAudio[] = []
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const clock = (seconds: number) => {
   const s = Math.max(0, Math.floor(seconds))
@@ -39,8 +41,10 @@ const write = (key: string, value: number | null) => { try { if (value === null)
  * Remembers where you stopped; explains and offers the download when the
  * browser cannot decode the file (HEVC / AC3 / DTS in most MKV releases).
  */
-export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = [], subtitlePreference = null }: Props) {
+export default function VideoPlayer({ src, playback, poster, title, resumeKey, progressLinkId, serverResume, nextEpisode, downloadHref, subtitles = NO_SUBTITLES, audioTracks = NO_AUDIO, subtitlePreference = null }: Props) {
   const video = useRef<HTMLVideoElement>(null)
+  const frame = useRef<HTMLDivElement>(null), subtitleLayer = useRef<HTMLDivElement>(null)
+  const [externalAudio, setExternalAudio] = useState(false)
   const hls = useRef<Hls | null>(null)
   const [error, setError] = useState<'' | 'codec' | 'network'>('')
   const [levels, setLevels] = useState<{ index: number; height: number }[]>([])
@@ -51,28 +55,6 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   const [pip, setPip] = useState(false)
   const [nextCountdown, setNextCountdown] = useState<number | null>(null)
   useEffect(() => { setPip('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) }, [])
-  // Subtitles: the one in the viewer's language is switched on, and what they switch to is remembered.
-  useEffect(() => {
-    const element = video.current
-    if (!element || !subtitles.length) return
-    const tracks = element.textTracks
-    // The account's choice comes first; a member who never chose, and a visitor, get what this device remembers.
-    const wanted = subtitlePreference || preferredSubtitle()
-    const apply = () => { for (let i = 0; i < tracks.length; i++) tracks[i].mode = wanted !== 'off' && tracks[i].language === wanted ? 'showing' : 'disabled' }
-    apply()
-    let settled = false
-    const timer = window.setTimeout(() => { settled = true }, 1500)
-    const remember = () => {
-      if (!settled) return
-      let showing = 'off'
-      for (let i = 0; i < tracks.length; i++) if (tracks[i].mode === 'showing') showing = tracks[i].language || 'off'
-      try { localStorage.setItem(SUBTITLE_KEY, showing) } catch { /* private mode */ }
-      // A member's choice goes with the account, so the next device starts the same way.
-      if (subtitlePreference !== null) void fetch('/api/media/playback-prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subtitle: showing }), keepalive: true }).catch(() => undefined)
-    }
-    tracks.addEventListener('change', remember)
-    return () => { window.clearTimeout(timer); tracks.removeEventListener('change', remember) }
-  }, [subtitles, subtitlePreference])
   useEffect(() => {
     if (nextCountdown === null || !nextEpisode) return
     if (nextCountdown === 0) { window.location.assign(nextEpisode.href); return }
@@ -158,7 +140,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       if (event.key === ' ' || event.key === 'k') { event.preventDefault(); if (element.paused) void element.play(); else element.pause() }
       else if (event.key === 'ArrowRight') element.currentTime = Math.min(element.duration || Infinity, element.currentTime + 10)
       else if (event.key === 'ArrowLeft') element.currentTime = Math.max(0, element.currentTime - 10)
-      else if (event.key === 'f') { if (document.fullscreenElement) void document.exitFullscreen(); else void element.requestFullscreen?.() }
+      else if (event.key === 'f') { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen?.() }
       else if (event.key === 'm') element.muted = !element.muted
     }
     window.addEventListener('keydown', onKey)
@@ -170,11 +152,12 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
   const setRate = (value: number) => { setSpeed(value); if (video.current) video.current.playbackRate = value }
   const pickLevel = (value: number) => { setLevel(value); if (hls.current) hls.current.currentLevel = value }
 
-  return <div className="vp">
+  return <div className="vp" ref={frame}>
     <div className="vp-frame">
-      <video ref={video} controls playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
+      <video ref={video} controls={!externalAudio} playsInline preload="metadata" poster={poster || undefined} aria-label={title}>
         {subtitles.map((track) => <track key={track.id} kind="subtitles" src={track.src} srcLang={track.language || 'und'} label={track.label} />)}
       </video>
+      <div className="vp-ass-layer" ref={subtitleLayer} aria-hidden="true" />
       {resume > 0 && !error && <div className="vp-resume" role="status">
         <span>از {clock(resume)} ادامه می‌دهید؟</span>
         <button type="button" onClick={() => { if (video.current) { video.current.currentTime = resume; void video.current.play() } setResume(0) }}>ادامهٔ پخش</button>
@@ -197,8 +180,9 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       </div>}
     </div>
     <div className="vp-bar">
+      <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen?.() }}>تمام‌صفحه</button>
       <label>سرعت پخش
-        <select value={speed} onChange={(event) => setRate(Number(event.target.value))}>{SPEEDS.map((value) => <option key={value} value={value}>{value === 1 ? 'عادی' : `${fa(value)}×`}</option>)}</select>
+        <select aria-label="سرعت پخش" value={speed} onChange={(event) => setRate(Number(event.target.value))}>{SPEEDS.map((value) => <option key={value} value={value}>{value === 1 ? 'عادی' : `${fa(value)}×`}</option>)}</select>
       </label>
       {levels.length > 1 && <label>کیفیت
         <select value={level} onChange={(event) => pickLevel(Number(event.target.value))}>
@@ -209,5 +193,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
       {pip && <button type="button" onClick={() => { void video.current?.requestPictureInPicture?.().catch(() => undefined) }}>تصویر در تصویر</button>}
       <span className="vp-keys">میان‌بر: Space پخش/توقف · ←/→ ده ثانیه · F تمام‌صفحه</span>
     </div>
+    <SubtitleControls key={`${resumeKey}:subtitles`} video={video} layer={subtitleLayer} tracks={subtitles} preference={subtitlePreference} />
+    <SeparateAudioControls key={`${resumeKey}:audio`} video={video} tracks={audioTracks} onActive={setExternalAudio} />
   </div>
 }

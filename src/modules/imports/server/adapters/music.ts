@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { deleteMediaItem, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import type { Counters, FieldDef, Message, PreviewLine, SourceItem } from '@/modules/imports/domain/types'
 import { latinSlug, normalizeName, toText } from '@/modules/imports/domain/values'
@@ -218,6 +219,8 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
       changes.push({ kind: 'created', entity: 'musicArtist', id: row.id, stamp: (row.updatedAt as Date).toISOString() })
       counters.artistsCreated = (counters.artistsCreated || 0) + 1
     }
+    const canonical = await db.musicArtist.findUnique({ where: { id: artist.id }, select: { mergedIntoId: true, mergedInto: { select: { id: true, name: true, nameEn: true } } } })
+    if (canonical?.mergedInto) artist = canonical.mergedInto
     r.artists.set(artist.id, artist)
   }
 
@@ -267,10 +270,13 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
     if (!('status' in body)) body.status = o.defaultStatus
   }
   let id = existing?.id ?? null
+  let writtenAt: string | undefined
+  let contentFingerprint: string | undefined
   if (Object.keys(body).length) {
     const before = existing ? await db.musicTrack.findUnique({ where: { id: existing.id } }) as unknown as Record<string, unknown> : null
-    const { row } = await saveMediaItem('music-tracks', body, id)
+    const { row } = await saveMediaItem('music-tracks', body, id, null, { beforeWrite: id && ctx.settings.protectEdits ? tx => claimImportUpdate(tx, ctx, 'musicTrack', id!) : undefined, afterWrite: async (tx, savedId) => { contentFingerprint = (await importContentState('music', savedId, tx))?.fingerprint } })
     id = row.id as number
+    writtenAt = (row.updatedAt as Date).toISOString()
     if (before) {
       const keys = Object.keys(body).filter((k) => k in before && JSON.stringify(snapshot(before, [k])) !== JSON.stringify(snapshot(row, [k])))
       if (keys.length) changes.push({ kind: 'updated', entity: 'musicTrack', id: row.id, before: snapshot(before, keys), after: snapshot(row, keys) })
@@ -279,7 +285,7 @@ async function applyTrack(_item: SourceItem, planned: Plan, ctx: ImportContext, 
   }
   if (!id) throw new Error('ذخیره نشد')
   await saveIdentity(db, ctx, ENTITY, toText(data.values.externalId, 190) || planned.sourceKey, id)
-  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'musicTrack', entityId: id, changes, messages, counters }
+  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'musicTrack', entityId: id, writtenAt, contentFingerprint, changes, messages, counters }
 }
 
 async function rollback(changes: Change[]) {

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import ManageBar from '@/components/admin/ManageBar'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getArtist } from '@/modules/media/server/queries'
 import { getServerLocale } from '@/i18n/server'
@@ -13,6 +13,7 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import { ItemActionBar } from '@/components/engage/Engagement'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { plainText } from '@/shared/text/plain'
+import { getMusicSettings } from '@/modules/music/server/admin'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -30,7 +31,9 @@ export default async function ArtistPage({ params }: Props) {
   await requireModule('music')
   const [{ slug }, locale] = await Promise.all([params, getServerLocale()])
   const data = await getArtist(slug)
+  const presentation = await getMusicSettings(true)
   if (!data) notFound()
+  if (data.artist.slug !== slug) permanentRedirect(toPublicPath(`/music/artist/${encodeURIComponent(data.artist.slug)}`))
   const fa = locale === 'fa'
   const { artist } = data
   const name = fa ? artist.name : artist.nameEn || artist.name
@@ -47,7 +50,7 @@ export default async function ArtistPage({ params }: Props) {
             <h1>{name}</h1>
             <p className="muted">{tracks.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آهنگ' : 'songs'} · {data.albums.length.toLocaleString(fa ? 'fa-IR' : 'en-US')} {fa ? 'آلبوم' : 'albums'}</p>
             {tracks.length > 0 && <div className="mu-hero-actions"><PlayButton tracks={tracks} index={0} variant="big" label={fa ? 'پخش محبوب‌ترین‌ها' : 'Play top songs'} /></div>}
-            <ItemActionBar item={{ type: 'artist', id: artist.id }} title={name} image={artist.image} followLabel={fa ? 'آهنگ‌های تازه' : 'new tracks'} />
+            {presentation.showArtistFollow && <ItemActionBar item={{ type: 'artist', id: artist.id }} title={name} image={artist.image} followLabel={fa ? 'آهنگ‌های تازه' : 'new tracks'} />}
           </div>
         </div>
       </section>
@@ -55,7 +58,7 @@ export default async function ArtistPage({ params }: Props) {
         {!tracks.length && !data.albums.length && <EmptyState fa={fa} />}
         {tracks.length > 0 && <section className="mu-panel"><header className="md-shelf-head"><h2>{fa ? 'آهنگ‌های محبوب' : 'Popular'}</h2></header><TrackList tracks={tracks} /></section>}
         {data.albums.length > 0 && <Shelf tone="music" title={fa ? 'آلبوم‌ها' : 'Albums'}>{data.albums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</Shelf>}
-        {artist.bio && <section className="mu-panel md-prose"><h2>{fa ? 'بیوگرافی' : 'Biography'}</h2><div dangerouslySetInnerHTML={{ __html: withTextDirections(artist.bio) }} /></section>}
+        {presentation.showArtistBiography && artist.bio && <section className="mu-panel md-prose"><h2>{fa ? 'بیوگرافی' : 'Biography'}</h2><div dangerouslySetInnerHTML={{ __html: withTextDirections(artist.bio) }} /></section>}
       </div>
     </MediaShell>
   )

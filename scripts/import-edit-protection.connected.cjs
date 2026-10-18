@@ -1,0 +1,31 @@
+// Owned PostgreSQL fixtures exercise the same preview policy and in-transaction fence as the import engine.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const db=new PrismaClient(),prefix='iprotect'+Date.now()+process.pid,cache=new Map()
+function load(file){const full=path.resolve(file),mod={exports:{}};if(cache.has(full))return cache.get(full).exports;cache.set(full,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(name=>name==='@/platform/database/prisma'?{db}:name.startsWith('@/')?load('src/'+name.slice(2)+'.ts'):require(name),mod,mod.exports);return mod.exports}
+async function main(){try{
+ const {importContentState,protectImportPlan,claimImportUpdate}=load('src/modules/imports/server/edit-protection.ts')
+ const film=await db.cinemaTitle.create({data:{slug:prefix,title:prefix,kind:'SERIES'}}),season=await db.cinemaSeason.create({data:{titleId:film.id,number:1}}),episode=await db.cinemaEpisode.create({data:{seasonId:season.id,number:1,title:'original'}})
+ const user=await db.user.create({data:{email:prefix+'@example.invalid',name:prefix,passwordHash:'unused-fixture-hash'}})
+ const settings={adapter:'series',source:prefix,protectEdits:true},ctx=()=>({settings,cache:new Map()}),adapter={id:'series'},plan={action:'UPDATE',entityId:film.id,messages:[],counters:{},preview:{action:'UPDATE',lines:[{label:'title',state:'IMPORTED'}]}}
+ const state=await importContentState('series',film.id),job=await db.importJob.create({data:{adapter:'series',fileName:prefix+'.json',createdById:user.id,createdByEmail:user.email,settings:JSON.stringify(settings),status:'DONE'}})
+ assert.equal((await protectImportPlan(adapter,plan,ctx())).action,'SKIP','untracked local content is preserved')
+ const record=await db.importRecord.create({data:{jobId:job.id,index:0,action:'CREATE',status:'OK',entityType:'cinemaTitle',entityId:film.id,changes:JSON.stringify({contentFingerprint:state.fingerprint})}})
+ let context=ctx();assert.equal((await protectImportPlan(adapter,plan,context)).action,'UPDATE','unchanged same-source content can be refreshed')
+ const before=await db.cinemaTitle.findUnique({where:{id:film.id}})
+ await db.cinemaEpisode.update({where:{id:episode.id},data:{title:'staff correction'}})
+ assert.equal((await protectImportPlan(adapter,plan,ctx())).action,'SKIP','relationship edit protected even without a parent timestamp change')
+ await assert.rejects(db.$transaction(tx=>claimImportUpdate(tx,context,'cinemaTitle',film.id)),/هم‌زمان/,'relational edit between preview and save is refused')
+ assert.equal((await db.cinemaTitle.findUnique({where:{id:film.id}})).updatedAt.getTime(),before.updatedAt.getTime(),'failed fence rolled back its claim')
+ await db.cinemaEpisode.update({where:{id:episode.id},data:{title:'original'}})
+ context=ctx();await protectImportPlan(adapter,plan,context)
+ await db.cinemaTitle.update({where:{id:film.id},data:{summary:'manual text'}})
+ await assert.rejects(db.$transaction(tx=>claimImportUpdate(tx,context,'cinemaTitle',film.id)),/هم‌زمان/,'concurrent parent edit is protected')
+ assert.equal((await protectImportPlan(adapter,plan,{...ctx(),settings:{...settings,protectEdits:false}})).action,'UPDATE','explicit overwrite remains available')
+ assert.equal((await protectImportPlan(adapter,plan,{...ctx(),settings:{...settings,protectEdits:undefined}})).action,'UPDATE','old saved-job semantics remain available')
+ assert.equal((await protectImportPlan(adapter,plan,{...ctx(),settings:{...settings,source:prefix+'-other'}})).action,'SKIP','another source cannot establish the baseline')
+ await db.importRecord.update({where:{id:record.id},data:{status:'ROLLED_BACK'}})
+ assert.equal((await protectImportPlan(adapter,plan,ctx())).action,'SKIP','rolled-back attempts cannot authorize an overwrite')
+ assert.equal(await importContentState('not-an-importer',film.id),null)
+ console.log('PostgreSQL import edit protection: unknown/unchanged/manual/relationships/concurrent/rollback/source/explicit override/legacy cases passed')
+ }finally{const jobs=await db.importJob.findMany({where:{createdByEmail:prefix+'@example.invalid'},select:{id:true}});await db.importRecord.deleteMany({where:{jobId:{in:jobs.map(j=>j.id)}}});await db.importJob.deleteMany({where:{id:{in:jobs.map(j=>j.id)}}});await db.cinemaTitle.deleteMany({where:{slug:prefix}});await db.user.deleteMany({where:{email:prefix+'@example.invalid'}});await db.$disconnect()}}
+main().catch(error=>{console.error(error);process.exitCode=1})

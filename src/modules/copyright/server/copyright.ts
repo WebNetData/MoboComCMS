@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { ITEM_LABEL, parseItemKey, parseItemPath, type ItemRef } from '@/modules/content/domain/items'
 import { itemBySlug, type ItemCard } from '@/modules/content/server/registry'
@@ -121,11 +122,14 @@ export async function decideReport(id: number, input: { status: unknown; resolut
     }
   }
   const stamp = `[${new Date().toISOString().slice(0, 16).replace('T', ' ')} · admin #${adminId}] ${status}${log.length ? `: ${log.join('؛ ')}` : ''}`
-  await db.copyrightReport.update({ where: { id }, data: {
+  await db.$transaction(async tx => {
+  await tx.copyrightReport.update({ where: { id }, data: {
     status, handledBy: adminId, ...(resolution ? { resolution } : {}),
     actionTaken: [row.actionTaken, stamp].filter(Boolean).join('\n').slice(-5000),
     resolvedAt: status === 'REVIEWING' ? null : new Date(),
   } })
+  if (status !== 'REVIEWING') await completeOwnerCase(tx, 'copyright', id, adminId, status === 'ACCEPTED' ? 'approve' : 'reject')
+  })
   return { id, status, actions: log }
 }
 

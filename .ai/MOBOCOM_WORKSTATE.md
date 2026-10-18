@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation2026-10-18: PR196 is merged. Requested content-management items2–5 are implemented on `feat/content-management-completion-2026-10-18` in `.mobocom/autonomous-foundation`; [handoff](../docs/agent/handoffs/CONTENT_MANAGEMENT.md), [scenario](../docs/specs/content-management-completion/SPEC.md). Import protection, owner revisions/cases, profile aliases/merges, Cinema people notices, typed controls and player ASS/separate audio compose existing services. Local tests/browser/migration evidence and precise remaining limits are in the handoff. No hosted workflow, release build/deploy or automatic PR/merge. Preserve unrelated owner files. Older dated entries below are history, not the active branch.
+
 Goal: Continue the MoboCom 2.0 capability brief through incremental, migration-safe slices from current `main`.
 Active continuation (2026-10-17): Games latest-articles UI in `.mobocom/autonomous-foundation`, branch `fix/games-latest-articles-2026-10-17`, based on `5baa3fa3` from Cinema PR194 (still open when this slice began). Existing navigation/authoring/Cinema work is retained; keep the new slice separate and resolve PR194's merge state before publication. `docs/agent/handoffs/GAMES_EDITORIAL.md` records the scoped layout/keyboard changes,20 units/types/native PG and12 browser views/4 scoped axe0. Cinema continuation remains `docs/agent/handoffs/CONTENT_AUTHORING.md`. Preserve older root source and unrelated `.serena/` / `public/demo/` work.
 

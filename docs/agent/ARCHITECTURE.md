@@ -6,6 +6,10 @@ Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant
 
 Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community. Preserve URLs, SEO, data, permission keys and established workflows. Admin is also a first-class product. Software joins the target domains; CRM remains integrated, while VPN/reseller/marketplace stay off-focus and switchable.
 
+## Connected content management
+
+Continue [the content-management handoff](handoffs/CONTENT_MANAGEMENT.md) for import edit protection, relationship/catalogue revisions, owner-case completion, content-profile aliases/merges and Cinema follow/player controls. They compose existing owners: Imports keeps provenance in its records; ContentRevision snapshots restore through Site/Catalog/Media; Moderation records an owner decision without granting authority; CinemaPerson/MusicArtist aliases are not human identities. Favorites, inbox and bounded publication jobs remain shared services. Configurable display/feature behavior belongs in the existing typed Cinema/Music settings and forms; identity, money and schema invariants are never an unrestricted Admin table editor. Preserve old URLs/snapshots/jobs and the existing protected compositions.
+
 ## Forms, held work and platform safety
 
 Automation (`src/modules/automation`, permission `automation.manage`) is the one owner of rules that run by themselves; other modules announce events with `emitAutomation` and the engine changes their data only through their own owners (handoff: Automation section of `docs/agent/handoffs/FORMS_AND_OPERATIONS.md`).

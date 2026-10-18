@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { recordRevision } from '@/modules/content/server/revisions'
+import { mediaRevisionState, restoreMediaRelations } from '@/modules/media/server/revision-state'
 import { syncCredits } from '@/modules/cinema/server/people'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
@@ -7,6 +8,7 @@ import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
+import { completeTrashCase } from '@/modules/moderation/server/cases'
 import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { readJsonObject } from '@/platform/http/read-json'
@@ -27,6 +29,7 @@ import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { scheduleTrackRelease } from '@/modules/music/server/release-notifications'
+import { schedulePeoplePublication } from '@/modules/cinema/server/people-notifications'
 import { scheduleEpisodeAirings, type AiringEpisode } from '@/modules/cinema/server/episode-notifications'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 import { resolveStudioId } from '@/modules/studios/server/identity'
@@ -128,14 +131,15 @@ async function saveLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: u
 }
 
 /** Import appends only new URLs through the same link owner; existing moderation and counters stay intact. */
-export async function appendMediaLinks(ownerType: LinkOwner, ownerId: number, input: unknown) {
-  return db.$transaction(async tx => {
+export async function appendMediaLinks(ownerType: LinkOwner, ownerId: number, input: unknown, client?: Tx) {
+  const work = async (tx: Tx) => {
     const old=await tx.mediaLink.findMany({where:{ownerType,ownerId},orderBy:{id:'asc'}})
     const known=new Set(old.map(row=>row.url)), incoming=cleanLinks(input).filter(row=>!known.has(row.url))
     if(!incoming.length)return []
     await saveLinks(tx,ownerType,ownerId,[...old,...incoming])
     return tx.mediaLink.findMany({where:{ownerType,ownerId,id:{notIn:old.map(row=>row.id)}}})
-  })
+  }
+  return client ? work(client) : db.$transaction(work)
 }
 
 /**
@@ -575,7 +579,7 @@ export async function GET(req: NextRequest) {
   const asked = Number.isSafeInteger(one) && one > 0 ? { id: one } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
   let artistFilter:Record<string,unknown> = {}
   if(type==='music-artists')try{artistFilter=artistProfileFilter(req.nextUrl.searchParams.get('profileFilter')||'')}catch(error){return failure(error)}
-  const where = own ? { ...(asked || {}), ...own } : type==='music-artists'?{...(asked||{}),...artistFilter}:asked
+  const where = own ? { ...(asked || {}), ...own } : type==='music-artists'?{...(asked||{}),...artistFilter,...(one > 0 ? {} : { mergedIntoId: null })}:asked
   const total = pageInfo ? await resource.delegate(db).count({ where }) as number : 0
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const orderBy = Array.isArray(resource.orderBy) || 'id' in resource.orderBy ? resource.orderBy : [resource.orderBy, { id: 'desc' as const }]
@@ -584,9 +588,9 @@ export async function GET(req: NextRequest) {
   const rows = await resource.delegate(db).findMany({ ...(where ? { where } : {}), orderBy, include: {...resource.include,...related}, skip: slice?.skip ?? offset, ...(slice ? slice.take ? { take: slice.take } : {} : { take: 1000 }) })
   const expanded = resource.expand ? await resource.expand(rows) : rows
   const terms = resource.taxonomy ? await assignmentsFor(resource.taxonomy, expanded.map((row: { id: number }) => row.id)) : null
-  const result = type==='music-artists'?expanded.map((row:Record<string,unknown>)=>({...row,profileCanEdit:!caller.authorId||row.createdById===caller.authorId})):terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
+  const result = type==='music-artists'?expanded.map((row:Record<string,unknown>)=>({...row,profileCanEdit:!row.mergedIntoId&&(!caller.authorId||row.createdById===caller.authorId),profileCanMerge:!row.mergedIntoId&&!caller.authorId})):terms ? expanded.map((row: { id: number }) => ({ ...row, terms: terms.get(row.id) || { ids: [], primary: null } })) : expanded
   if (!pageInfo || !slice) return ok(result)
-  const overall = await resource.delegate(db).count(own ? { where: own } : undefined) as number
+  const overall = await resource.delegate(db).count(type === 'music-artists' ? { where: { mergedIntoId: null } } : own ? { where: own } : undefined) as number
   const vip = type !== 'music-artists' && type !== 'vip-plans' ? await resource.delegate(db).count({ where: { access: 'MEMBERS', ...(own || {}) } }) as number : null
   const trashed = trashable(type) ? await resource.delegate(db).count({ where: { status: TRASHED, ...(own || {}) } }) as number : 0
   return ok({ rows: result, total, overall, vip, trashed, mine: !!caller.authorId, page: slice.page, pages: slice.pages })
@@ -597,14 +601,17 @@ export async function GET(req: NextRequest) {
  * section categories). Shared with the bulk import engine; the caller recounts taxonomy.
  */
 /** `actor` is the staff member saving through the admin form; an import passes none and is recorded as such. */
-export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null, options: { audit?: (tx:Tx,row:Record<string,any>)=>Promise<unknown> } = {}): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
+export async function saveMediaItem(type: string, body: Input, id: number | null, actor: { id: number; email: string } | null = null, options: { audit?: (tx:Tx,row:Record<string,any>)=>Promise<unknown>; beforeWrite?: (tx: Tx) => Promise<void>; afterWrite?: (tx: Tx, id: number) => Promise<void> } = {}): Promise<{ row: Record<string, any>; existing: Record<string, any> | null }> {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
   const existing = id ? await resource.delegate(db).findUnique({ where: { id } }) : null
+  const revisionBefore = await mediaRevisionState(type, existing)
+  if (type === 'music-artists' && existing?.mergedIntoId) throw new ArtistProfileError('این پروفایل ادغام شده است؛ پروفایل اصلی را ویرایش کنید', 409)
   if (id && !existing) throw new Error('not found')
   const data = await resource.parse(body, existing)
   const expected=type==='music-artists'&&id?artistExpectedUpdate(body):null
   const row = await db.$transaction(async (tx) => {
+    await options.beforeWrite?.(tx)
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
     if (type === 'games' || type === 'software') {
       for (const role of ['developer', 'publisher'] as const) {
@@ -622,49 +629,63 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     if (type === 'music-tracks') await scheduleTrackRelease(tx, saved, existing)
     if (resource.afterSave) await resource.afterSave(tx, saved.id, body)
     if (resource.taxonomy && has(body, 'terms')) await assignTerms(tx, resource.taxonomy, saved.id, body.terms)
+    await options.afterWrite?.(tx, saved.id)
+    if (type === 'cinema-titles') await schedulePeoplePublication(tx, saved, existing as { id: number; status: string; publishedAt: Date } | null)
     if (options.audit) await options.audit(tx,saved)
+    await recordRevision({ entityType: type, entityId: saved.id, before: revisionBefore, after: (await mediaRevisionState(type, saved, tx))!, actor, source: actor ? 'edit' : 'import', client: tx, strict: true })
     return saved
-  }, { timeout: 30_000 })
+  }, { timeout: 30_000, ...(options.beforeWrite ? { isolationLevel: 'Serializable' as const } : {}) })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id: row.id }, existing, row)
-  await recordRevision({ entityType: type, entityId: row.id, before: existing, after: row, actor, source: actor ? 'edit' : 'import' })
   return { row, existing }
 }
 
 /** One item as it is stored, for readers outside this file that know its kind by name. */
-export const mediaItemRow = async (type: string, id: number): Promise<Record<string, unknown> | null> => (RESOURCES[type] ? RESOURCES[type].delegate(db).findUnique({ where: { id } }) : null)
+export const mediaItemRow = async (type: string, id: number): Promise<Record<string, unknown> | null> => (RESOURCES[type] ? mediaRevisionState(type, await RESOURCES[type].delegate(db).findUnique({ where: { id } })) : null)
 
 /** The permissions and module of a kind of item, for the history of its items. */
 export const mediaResource = (type: string) => (Object.hasOwn(RESOURCES, type) ? { perms: RESOURCES[type].perms, module: RESOURCES[type].module } : null)
 
 /**
  * Puts an item's own columns back to an earlier state. `values` is given the item as it is and returns what
- * to write. Categories, links and seasons are not part of a version and stay as they are. Everything that
+ * to write. Versioned relationship snapshots restore through their owner; legacy snapshots leave them alone. Everything that
  * follows a change of the item (search, feeds, the people of a film) follows this one too.
  */
 export async function restoreMediaItem(type: string, id: number, values: (current: Record<string, unknown>) => Record<string, unknown>) {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
-  const before = await resource.delegate(db).findUnique({ where: { id } })
+  const before = await mediaItemRow(type, id)
   if (!before) throw Object.assign(new Error('not found'), { status: 404 })
+  if (type === 'music-artists' && before.mergedIntoId) throw new ArtistProfileError('پروفایل ادغام شده است؛ تاریخچهٔ پروفایل اصلی را باز کنید', 409)
   const after = await db.$transaction(async (tx) => {
-    const saved = await resource.delegate(tx).update({ where: { id }, data: values(before) })
+    const data = values(before), relations = data.__relations
+    delete data.__relations
+    if (resource.taxonomy && typeof relations === 'string') {
+      const terms = JSON.parse(relations).terms
+      if (terms) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, terms))
+    }
+    const claimed = await resource.delegate(tx).updateMany({ where: { id, updatedAt: before.updatedAt }, data: { updatedAt: new Date() } })
+    if (!claimed.count) throw Object.assign(new Error('این مورد هم‌زمان تغییر کرده است'), { status: 409 })
+    const saved = await resource.delegate(tx).update({ where: { id }, data })
+    await restoreMediaRelations(tx, type, id, relations)
     if (type === 'cinema-titles') await syncCredits(tx, id)
-    return saved
-  })
+    return (await mediaRevisionState(type, saved, tx))!
+  }, { timeout: 30_000 })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, before, after)
   await recountFor(resource)
   return { before, after }
 }
 
 /** Deletes one item with its links and section categories (import rollback). */
-export async function deleteMediaItem(type: string, id: number) {
+export async function deleteMediaItem(type: string, id: number, decidedById?: number) {
   const resource = RESOURCES[type]
   if (!resource) throw new Error(`Unknown resource: ${type}`)
   const row = await db.$transaction(async (tx) => {
     if (type === 'games' || type === 'software') await tx.studioPublicationNotification.deleteMany({ where: { itemType: type === 'games' ? 'game' : 'software', itemId: id } })
     if (resource.onDelete) await resource.onDelete(tx, id)
     if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
-    return resource.delegate(tx).delete({ where: { id } })
+    const deleted = await resource.delegate(tx).delete({ where: { id } })
+    if (deleted.status === TRASHED && decidedById) await completeTrashCase(tx, type, id, decidedById, 'deleted')
+    return deleted
   })
   if (MEDIA_RESOURCE_TYPE[type]) contentChanged({ type: MEDIA_RESOURCE_TYPE[type], id }, row, null)
   return row as Record<string, any>
@@ -709,7 +730,11 @@ async function write(req: NextRequest, mode: 'create' | 'update') {
       if (trashable(type) && isTrashed(held as { status: string })) {
         // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
         if (caller.authorId || body.restore !== true) return err('این مورد در سطل زباله است و تا تصمیم مدیر قابل ویرایش نیست', 409)
-        const claimed = await resource.delegate(db).updateMany({ where: { id, status: TRASHED }, data: restoreData(held as { status: string; trashedStatus: string }) })
+        const claimed = await db.$transaction(async tx => {
+          const changed = await resource.delegate(tx).updateMany({ where: { id, status: TRASHED }, data: restoreData(held as { status: string; trashedStatus: string }) })
+          if (changed.count) await completeTrashCase(tx, type, id, admin.id, 'restored')
+          return changed
+        })
         if (!claimed.count) return err('این مورد دیگر در سطل زباله نیست', 409)
         const restored = await resource.delegate(db).findUnique({ where: { id } }) as Record<string, any>
         await recountFor(resource)
@@ -755,7 +780,9 @@ export async function DELETE(req: NextRequest) {
       if (type === 'games' || type === 'software') await tx.studioPublicationNotification.deleteMany({ where: { itemType: type === 'games' ? 'game' : 'software', itemId: id } })
       if (resource.onDelete) await resource.onDelete(tx, id)
       if (resource.taxonomy) await removeOwner(tx, resource.taxonomy, id)
-      return resource.delegate(tx).delete({ where: { id } })
+      const deleted = await resource.delegate(tx).delete({ where: { id } })
+      if (deleted.status === TRASHED) await completeTrashCase(tx, type, id, admin.id, 'deleted')
+      return deleted
     })
     await recountFor(resource)
     await auditAdmin({ req, actor: admin, action: `media.${type}.delete`, targetType: type, targetId: id, metadata: { label: resource.label(row) } })
@@ -828,6 +855,9 @@ export async function BULK(req: NextRequest) {
           if (type === 'music-tracks' && status === 'PUBLISHED') {
             for (const row of rows) if (row.status !== 'PUBLISHED') await scheduleTrackRelease(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
+          if (type === 'cinema-titles' && status === 'PUBLISHED') {
+            for (const row of rows) if (row.status !== 'PUBLISHED') await schedulePeoplePublication(tx, { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
+          }
           if (type === 'games' || type === 'software') {
             for (const row of rows) if (row.status !== status) await scheduleStudioPublication(tx, type === 'games' ? 'game' : 'software', { id: row.id, status, publishedAt: row.publishedAt }, { id: row.id, status: row.status, publishedAt: row.publishedAt })
           }
@@ -849,7 +879,7 @@ export async function BULK(req: NextRequest) {
         if (outcome === 'trashed') succeeded.push(id); else failed.push({ id, reason: outcome === 'missing' ? 'not found' : outcome === 'refused' ? 'only a manager deletes this' : 'already in the trash' })
         continue
       }
-      try { const row = await deleteMediaItem(type, id); succeeded.push(id); if (row.status === TRASHED) await tellDecision(type, row, admin.id, 'deleted') }
+      try { const row = await deleteMediaItem(type, id, admin.id); succeeded.push(id); if (row.status === TRASHED) await tellDecision(type, row, admin.id, 'deleted') }
       catch { failed.push({ id, reason: 'cannot delete (in use or missing)' }) }
     }
     if (succeeded.length) await recountMediaTaxonomy(type)

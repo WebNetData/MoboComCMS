@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import { plainText } from '@/shared/text/plain'
 import { CommunityError, REPORT_REASONS, hashtagsIn } from '@/modules/community/domain/community'
 import { ensureUserProfiles, profileCards } from '@/modules/identity/server/profile'
@@ -66,23 +67,31 @@ async function refreshCounts(postId: number) {
 
 /** Closes a report; `hide` also hides the reported post or comment (and closes other open reports on it). */
 export async function resolveReport(reportId: number, action: 'resolve' | 'dismiss', adminId: number, hide: boolean) {
-  const row = await db.communityReport.findUnique({ where: { id: reportId } })
-  if (!row || row.businessId) throw new CommunityError('گزارش پیدا نشد', 404)
   const status = action === 'resolve' ? 'RESOLVED' : 'DISMISSED'
-  if (hide && action === 'resolve') {
-    if (row.postId) {
-      // A post its author already deleted stays "deleted by author".
-      await db.communityPost.updateMany({ where: { id: row.postId, status: 'VISIBLE' }, data: { status: 'HIDDEN' } })
-      await db.userProfile.updateMany({ where: { pinnedPostId: row.postId }, data: { pinnedPostId: null } })
-      await refreshCounts(row.postId)
+  const refresh = await db.$transaction(async tx => {
+    const row = await tx.communityReport.findUnique({ where: { id: reportId } })
+    if (!row || row.businessId) throw new CommunityError('گزارش پیدا نشد', 404)
+    const affected = hide && action === 'resolve' ? { status: 'OPEN', businessId: null, ...(row.postId ? { postId: row.postId } : { commentId: row.commentId }) } : { id: reportId, status: 'OPEN' }
+    const reports = await tx.communityReport.findMany({ where: affected, select: { id: true } })
+    let postId = row.postId
+    if (reports.length && hide && action === 'resolve') {
+      if (row.postId) {
+        await tx.communityPost.updateMany({ where: { id: row.postId, status: 'VISIBLE' }, data: { status: 'HIDDEN' } })
+        await tx.userProfile.updateMany({ where: { pinnedPostId: row.postId }, data: { pinnedPostId: null } })
+      }
+      if (row.commentId) {
+        const comment = await tx.communityComment.findUnique({ where: { id: row.commentId }, select: { postId: true, status: true } })
+        if (comment) {
+          postId = comment.postId
+          await tx.communityComment.updateMany({ where: { id: row.commentId, status: 'VISIBLE' }, data: { status: 'HIDDEN' } })
+        }
+      }
     }
-    if (row.commentId) {
-      const comment = await db.communityComment.update({ where: { id: row.commentId }, data: { status: 'HIDDEN' } })
-      await refreshCounts(comment.postId)
-    }
-    await db.communityReport.updateMany({ where: { status: 'OPEN', ...(row.postId ? { postId: row.postId } : { commentId: row.commentId }) }, data: { status } })
-  } else await db.communityReport.update({ where: { id: reportId }, data: { status } })
-  void adminId
+    await tx.communityReport.updateMany({ where: affected, data: { status } })
+    for (const report of reports) await completeOwnerCase(tx, 'community-reports', report.id, adminId, action === 'resolve' ? 'approve' : 'reject')
+    return postId
+  })
+  if (refresh) await refreshCounts(refresh)
   return { status }
 }
 

@@ -13,21 +13,24 @@ type Picker = { id: number; title: string; poster: string; kind: string; year: n
 export default function CinemaSettingsPage() {
   const { data, error } = useJson<{ settings: CinemaSettings; picker: { titles: Picker[] } }>('/api/admin/cinema/settings')
   const [form, setForm] = useState<CinemaSettings | null>(null)
+  const [baseline, setBaseline] = useState<CinemaSettings | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { if (data) setForm(data.settings) }, [data])
+  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings) } }, [data])
 
   if (!form) return <CinemaShell title="صفحهٔ اصلی و تنظیمات">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</CinemaShell>
-  const set = (patch: Partial<CinemaSettings>) => { setMessage(null); setForm({ ...form, ...patch }) }
+  const set = (patch: Partial<CinemaSettings>) => { setMessage(null); setForm(current => current ? { ...current, ...patch } : current) }
   const items = (data?.picker.titles || []).map((title) => ({ id: title.id, title: title.title, image: title.poster, sub: `${title.kind === 'SERIES' ? 'سریال' : 'فیلم'}${title.year ? ` · ${fa(title.year)}` : ''}` }))
 
   async function save() {
     if (!form) return
     setBusy(true)
-    const response = await send<{ settings: CinemaSettings }>('/api/admin/cinema/settings', 'POST', form)
+    const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline?.[key as keyof CinemaSettings])))
+    const response = await send<{ settings: CinemaSettings }>('/api/admin/cinema/settings', 'POST', patch)
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings)
+    setBaseline(response.data.settings)
     setMessage({ tone: 'ok', text: 'تنظیمات ذخیره شد و صفحهٔ اصلی فیلم و سریال به‌روز است' })
   }
 
@@ -42,9 +45,9 @@ export default function CinemaSettingsPage() {
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>قفسه‌ها</h2></header>
-          <label className="sa-field"><span>تعداد عنوان در هر قفسه</span><input className="input num" type="number" min={6} max={24} value={form.shelfSize} onChange={(e) => set({ shelfSize: Number(e.target.value) })} /><small className="sa-sub">بین ۶ تا ۲۴</small></label>
-          <label className="sa-field"><span>تعداد قفسه‌های ژانر</span><input className="input num" type="number" min={0} max={6} value={form.genreShelfCount} onChange={(e) => set({ genreShelfCount: Number(e.target.value) })} /><small className="sa-sub">پرکاربردترین ژانرها، هر کدام یک قفسه (۰ = خاموش)</small></label>
-          <label className="sa-field"><span>حداقل امتیاز IMDb برای «برترین‌ها»</span><input className="input num" type="number" min={0} max={10} step={0.1} value={form.topRatedMin} onChange={(e) => set({ topRatedMin: Number(e.target.value) })} /><small className="sa-sub">۰ = همهٔ عنوان‌های دارای امتیاز</small></label>
+          <label className="sa-field"><span>تعداد عنوان در هر قفسه</span><input className="input num" type="number" min={6} max={24} value={form.shelfSize} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ shelfSize: e.target.valueAsNumber }) }} /><small className="sa-sub">بین ۶ تا ۲۴</small></label>
+          <label className="sa-field"><span>تعداد قفسه‌های ژانر</span><input className="input num" type="number" min={0} max={6} value={form.genreShelfCount} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ genreShelfCount: e.target.valueAsNumber }) }} /><small className="sa-sub">پرکاربردترین ژانرها، هر کدام یک قفسه (۰ = خاموش)</small></label>
+          <label className="sa-field"><span>حداقل امتیاز IMDb برای «برترین‌ها»</span><input className="input num" type="number" min={0} max={10} step={0.1} value={form.topRatedMin} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ topRatedMin: e.target.valueAsNumber }) }} /><small className="sa-sub">۰ = همهٔ عنوان‌های دارای امتیاز</small></label>
         </section>
       </div>
       <div className="sa-stack">
@@ -55,6 +58,10 @@ export default function CinemaSettingsPage() {
         <section className="sa-card">
           <header className="sa-card-head"><h2>نمایش</h2></header>
           <label className="sa-check"><input type="checkbox" checked={form.showImdb} onChange={(e) => set({ showImdb: e.target.checked })} />نمایش امتیاز IMDb در اسلایدر</label>
+          <label className="sa-check"><input type="checkbox" checked={form.showPersonBiography} onChange={e => set({ showPersonBiography: e.target.checked })} />نمایش زندگی‌نامهٔ عوامل در پروفایل عمومی</label>
+          <label className="sa-check"><input type="checkbox" checked={form.personFollowEnabled} onChange={e => set({ personFollowEnabled: e.target.checked })} />دنبال‌کردن عوامل و اعلان اثر تازه</label>
+          <label className="sa-check"><input type="checkbox" checked={form.enableAssSubtitles} onChange={e => set({ enableAssSubtitles: e.target.checked })} />زیرنویس ASS با استایل در پخش‌کننده</label>
+          <label className="sa-check"><input type="checkbox" checked={form.enableSeparateAudio} onChange={e => set({ enableSeparateAudio: e.target.checked })} />انتخاب صدای جداگانه در پخش‌کننده</label>
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>تنظیمات دیگر بخش</h2></header>

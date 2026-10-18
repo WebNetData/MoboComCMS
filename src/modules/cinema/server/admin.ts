@@ -1,5 +1,6 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
+import { parseSettingsInput } from '@/shared/section-layout'
 import { splitList } from '@/modules/media/domain/media'
 import { CINEMA_HEALTH, cinemaIssues, normalizeCinemaSettings, type CinemaHealth, type CinemaSettings } from '@/modules/cinema/domain/cinema'
 
@@ -9,14 +10,17 @@ const SETTINGS_KEY = 'cinema.portal.v1'
 const DAY = 86_400_000
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 
-export async function getCinemaSettings(): Promise<CinemaSettings> {
-  return normalizeCinemaSettings(await readJsonSetting(SETTINGS_KEY))
+export async function getCinemaSettings(fresh = false): Promise<CinemaSettings> {
+  return normalizeCinemaSettings(await readJsonSetting(SETTINGS_KEY, fresh ? db : undefined))
 }
 
 export async function saveCinemaSettings(input: unknown): Promise<CinemaSettings> {
-  const next = normalizeCinemaSettings(input)
-  await writeJsonSetting(SETTINGS_KEY, next)
-  return next
+  const patch = parseSettingsInput(input)
+  return updateJsonSetting(SETTINGS_KEY, async value => {
+    const next = normalizeCinemaSettings({ ...value, ...patch })
+    Object.assign(value, next)
+    return next
+  })
 }
 
 export async function cinemaDashboard(now = new Date()) {

@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import { plainText } from '@/shared/text/plain'
 import { db } from '@/platform/database/prisma'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
+export { mergeProfileFavorites } from '@/modules/reviews/server/profile-merges'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
 import { getModuleSettings, isModuleEnabled } from '@/extensions/server/modules'
@@ -165,6 +167,8 @@ export async function deleteReview(userId: number, ref: ItemRef) {
 
 export async function setFavorite(userId: number, ref: ItemRef, input: { on: boolean; notify?: boolean }) {
   await assertOn()
+  ref = await canonicalFavoriteRef(ref)
+  if (ref.type === 'person' && input.on && !(await (await import('@/modules/cinema/server/admin')).getCinemaSettings(true)).personFollowEnabled) throw new ReviewError('دنبال‌کردن عوامل سینما فعلاً غیرفعال است', 403)
   if (!FAVORITABLE.includes(ref.type)) throw new ReviewError('این مورد را نمی‌توان به علاقه‌مندی‌ها افزود')
   const where = { userId_itemType_itemId: { userId, itemType: ref.type, itemId: ref.id } }
   if (!input.on) await db.itemFavorite.deleteMany({ where: { userId, itemType: ref.type, itemId: ref.id } })
@@ -202,8 +206,15 @@ export async function memberItemReviews(userId: number, take: number) {
 
 /** Is this item one of the member's favourites? One row, for controls that sit away from the item's page (the music player). */
 export async function favoriteOf(userId: number, ref: ItemRef) {
+  ref = await canonicalFavoriteRef(ref)
   const favorite = await db.itemFavorite.findUnique({ where: { userId_itemType_itemId: { userId, itemType: ref.type, itemId: ref.id } }, select: { notify: true } })
   return favorite ? { notify: favorite.notify } : null
+}
+
+async function canonicalFavoriteRef(ref: ItemRef): Promise<ItemRef> {
+  if (ref.type === 'artist') { const row = await db.musicArtist.findUnique({ where: { id: ref.id }, select: { mergedIntoId: true } }); return { ...ref, id: row?.mergedIntoId || ref.id } }
+  if (ref.type === 'person') { const row = await db.cinemaPerson.findUnique({ where: { id: ref.id }, select: { mergedIntoId: true } }); return { ...ref, id: row?.mergedIntoId || ref.id } }
+  return ref
 }
 
 /** The member's favorites as cards, newest first (items that are gone are skipped). */
@@ -336,16 +347,19 @@ export async function reviewQueue(status: string, page = 1) {
   }
 }
 
-export async function moderateReview(id: number, action: 'approve' | 'reject' | 'delete') {
+export async function moderateReview(id: number, action: 'approve' | 'reject' | 'delete', staffId?: number) {
   const review = await db.itemReview.findUnique({ where: { id } })
   if (!review) throw new ReviewError('نظر پیدا نشد', 404)
   if (review.itemType === 'business') throw new ReviewError('تجربهٔ خرید را از مدیریت کسب‌وکارها بررسی کنید', 403)
-  if (action === 'delete') await db.itemReview.delete({ where: { id } })
-  else if (action === 'reject') await db.$transaction([
-    db.itemReview.update({ where: { id }, data: { status: 'REJECTED' } }),
-    db.itemReviewHelpful.deleteMany({ where: { reviewId: id } }),
-  ])
-  else await db.itemReview.update({ where: { id }, data: { status: 'APPROVED' } })
+  await db.$transaction(async tx => {
+    if (action === 'delete') await tx.itemReview.delete({ where: { id } })
+    else {
+      const changed = await tx.itemReview.updateMany({ where: { id, status: review.status, updatedAt: review.updatedAt }, data: { status: action === 'approve' ? 'APPROVED' : 'REJECTED' } })
+      if (!changed.count) throw new ReviewError('نظر هم‌زمان تغییر کرده است', 409)
+      if (action === 'reject') await tx.itemReviewHelpful.deleteMany({ where: { reviewId: id } })
+    }
+    if (staffId) await completeOwnerCase(tx, 'item-reviews', id, staffId, action === 'approve' ? 'approve' : 'reject')
+  })
   const ref = parseItemKey(`${review.itemType}:${review.itemId}`)
   if (ref) await refreshItemStat(ref)
   if (action === 'approve' && review.status !== 'APPROVED') {

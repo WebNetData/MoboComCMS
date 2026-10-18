@@ -70,6 +70,7 @@ test('detail hydration rechecks publication, keeps reason order and never expose
       },
     } } },
     '@/modules/software/server/current-version': {},
+    '@/modules/cinema/server/people': { canonicalPersonId: async id => id },
     '@/shared/content/sanitize': { cleanRichText: value => value },
     '@/modules/recommendations/server/contextual': { relatedTracks: async (_source, take, excluded) => {
       adapterCalls++; assert.equal(take, 8); assert.deepEqual(excluded, [5])
@@ -90,7 +91,7 @@ test('old Music settings clients preserve the current discovery flag and explici
   let stored = { showRelatedTracks: false }
   const service = load('src/modules/music/server/admin.ts', {
     '@/platform/database/prisma': { db: {} },
-    '@/modules/settings/server': { readJsonSetting: async () => stored, writeJsonSetting: async (_key, value) => { stored = value } },
+    '@/modules/settings/server': { readJsonSetting: async () => stored, updateJsonSetting: async (_key, work) => work(stored, {}) },
   })
   assert.equal((await service.getMusicSettings()).showRelatedTracks, false)
   assert.equal((await service.saveMusicSettings({ showLyrics: false })).showRelatedTracks, false)

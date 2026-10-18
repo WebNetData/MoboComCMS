@@ -1415,6 +1415,9 @@ model UserMembership {
 // ---------------------------------------------------------------- Music
 
 model MusicArtist {
+  mergedIntoId Int?
+  mergedInto MusicArtist? @relation("MusicArtistMerges", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  aliases MusicArtist[] @relation("MusicArtistMerges")
   id        Int          @id @default(autoincrement())
   slug      String       @unique
   name      String
@@ -1706,6 +1709,9 @@ model CinemaTitle {
 
 /// A person of films and series (director, cast), read out of the titles' own director line and cast list.
 model CinemaPerson {
+  mergedIntoId Int?
+  mergedInto CinemaPerson? @relation("CinemaPersonMerges", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  aliases CinemaPerson[] @relation("CinemaPersonMerges")
   id             Int            @id @default(autoincrement())
   name           String
   normalizedName String         @unique

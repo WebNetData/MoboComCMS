@@ -50,7 +50,7 @@ const musicSearch = (value: unknown) => String(value || '').trim().slice(0, 100)
 export async function browseMusicArtists(input: { q?: string; page?: number }) {
   const page = musicPage(input.page)
   const q = musicSearch(input.q)
-  const where = q ? { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }] } : undefined
+  const where = { mergedIntoId: null, ...(q ? { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }, { slug: { contains: q.toLowerCase() } }, { aliases: { some: { OR: [{ name: { contains: q } }, { nameEn: { contains: q } }] } } }] } : {}) }
   const [rows, total] = await Promise.all([
     db.musicArtist.findMany({ where, select: artistSelect, orderBy: [{ featured: 'desc' }, { name: 'asc' }, { id: 'asc' }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     db.musicArtist.count({ where }),
@@ -97,7 +97,7 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: Math.max(20, latestTake) }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: chartOrder, take: chartTake }),
     db.musicAlbum.findMany({ where: live(), include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
-    db.musicArtist.findMany({ orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
+    db.musicArtist.findMany({ where: { mergedIntoId: null }, orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
     db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),
@@ -192,7 +192,8 @@ export async function getAlbum(slug: string) {
 }
 
 export async function getArtist(slug: string) {
-  const row = await db.musicArtist.findUnique({ where: { slug } }).catch(() => null)
+  const matched = await db.musicArtist.findUnique({ where: { slug } }).catch(() => null)
+  const row = matched?.mergedIntoId ? await db.musicArtist.findUnique({ where: { id: matched.mergedIntoId } }) : matched
   if (!row) return null
   const [albums, tracks] = await Promise.all([
     db.musicAlbum.findMany({ where: { artistId: row.id, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' } }),
