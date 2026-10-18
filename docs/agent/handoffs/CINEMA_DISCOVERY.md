@@ -1,0 +1,33 @@
+# Cinema discovery and filmography — 2026-10-18
+
+## Continue here
+
+Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/cinema-discovery-2026-10-18`, stacked on Music profiles commit `2c71e7ef`. Owner merges/deploys. [Specification](../../specs/cinema-discovery/SPEC.md). Existing Cinema home/title pages, public addresses, data, permissions and the dark cinema stage remain protected.
+
+## Owners and implemented behavior
+
+- Existing `media/server/queries/cinema.ts::browseCinema` owns the catalogue. Additive actor/director filters select exact canonical `CinemaCredit` person IDs with CAST/DIRECTOR roles and combine with kind/genre/year/country/dubbed/query/IDs. Published-at/status checks remain; malformed person IDs match nothing. Stable ID tie-breaking prevents repeated/missing cards across pages; pages are integral, bounded and clamped to available results. Query failure is explicit through additive `unavailable`.
+- `cinema/domain/discovery.ts` owns person-ID/page parsing and supported browse URLs. Sort/removal changes reset the page; pagination retains filters. Existing query keys and URLs remain valid. Actor/director combinations are not new SEO landing pages: existing canonical/noindex rules remain.
+- Existing `cinema/server/people.ts` owns people, credits, public choices, totals and directory. Suggestions use a names-only projection, never a whole filmography: 12 rows maximum, at least two normalized name characters, original and curated-name matching, published credits in the selected role only. Selected choices use the same visibility rule.
+- Same-application autocomplete `GET /api/cinema/people?q=&role=CAST|DIRECTOR` is a thin route to `cinema/server/http/people-search.ts`: module-off404, public request limiter429, invalid role422, unavailable503 and `{options:[{id,name,image}]}`. It is anonymous public catalogue data, not an independently deployed/mobile API. No identity or authenticated private fields are returned. Existing API/event contracts are retained.
+- Responsive browse presentation lives under `components/media/cinema`; existing MediaShell, PosterCard, Pager, icons, fonts and semantic cinema tokens remain. Searchable keyboard/mouse person selection, visible query, all filters, sorting, removable chips, reset, pending/empty/error/retry states and invalid-selection feedback use normal GET navigation. Aborted/obsolete suggestion responses are ignored. This layout no longer inherits the wide homepage's `.md-body > *` column rules; no homepage CSS redesign.
+- Public person pages keep biography, portrait, manager edit link and Person JSON-LD. Roles are separate badges; shelves explain that counts are works recorded on MoboCom, not a person's complete worldwide career. Per-role published totals are not capped by the legacy 300-credit read. Latest 24 previews link to the complete actor/director-filtered catalogue. A person with two roles on one film counts as one distinct work in the directory.
+- Chromium hides the nonce content attribute while retaining the actual `.nonce` property. Installed hydration code warned on this expected difference. Only the immutable Person JSON-LD script has `suppressHydrationWarning`; request nonce, script contents and CSP remain. Browser verification compares the real nonce with the response policy and checks JSON-LD name. No global hydration suppression, scanner suppression or relaxed CSP.
+
+## Executed checks
+
+Ignored raw evidence/helpers: active/root `.mobocom/cinema-discovery-*`; the reusable registered check is committed as `scripts/cinema-discovery.connected.cjs`.
+
+- Linux UID1000/no-.env: 107 content-controls/Music/Media regression tests, full TypeScript, architecture, 1984-file source/import, security and audit checks passed.
+- Owned PostgreSQL with all121 migrations: `node scripts/run-pg-checks.cjs cinema-discovery cinema-people cinema-people-admin` passed. Fixtures are namespaced and cleaned. Actual catalogue/people owners verified CAST vs DIRECTOR, combined filters, original/curated name search, draft/future exclusions, invalid IDs, empty IDs, stable 24+3 pagination and clamping, distinct-work counts, role totals, names-only projection/bound and explicit DB outage. A 302-work person proves totals/catalogue continue beyond the legacy 300-credit preview.
+- Deliberately removing CAST-role and publication constraints in the disposable source snapshot each failed native assertions; restored source passed. Product runtime was not fault-mutated.
+- Actual localhost3000 Playwright passed anonymous public autocomplete, keyboard selection/Escape, invalid partial choice, combined persisted GET filters, pending feedback, chip removal/Back, sorting/pagination, full-work links and draft/future-only person privacy. An injected503 tested suggestion error/retry presentation; it was not represented as an actual provider outage.
+- Eight browse/profile 1440/390 light/dark captures passed scoped axe with zero violations and settled no-overflow/overlap checks. Baselines and final screenshots inspected. Cinema intentionally retains its dark stage in both site themes. Visual inspection found and fixed mobile action/checkbox compression.
+- Final actual browser checks passed mobile action spacing, clear-all, mouse director selection and an existing person42 profile; zero console errors after waiting for real header interaction. Person JSON-LD contents and the actual DOM nonce matched the response CSP. Screenshot capture preserves the caret to avoid introducing test-only DOM style mutations during hydration.
+- React Doctor0.9.17 affected-file review exits0. Reviewed complexity warnings remain around localized label branches and combobox keyboard/state handling; no error, accessibility-label, loading-reset or rule-suppression workaround is claimed.
+- Scoped existing Semgrep dynamic-code rule scanned13 runtime files with zero findings; its existing path-pattern deprecation warning remains visible.
+- Redacted Gitleaks over the staged feature diff found no leaks. Owned browser fixtures were deleted and private helper state removed; existing owner content/settings were preserved.
+
+## Boundaries
+
+No schema migration, stored-data recount/reset, production build, full-platform regression, hosted Actions or deployment was performed. IMDb/provider completeness and a person's global filmography are not certified. Existing people-directory ordering and bounded legacy credit-array contract remain; public profile shelves now use catalogue queries for completeness. Graphify refresh is unavailable in this checkout because its local adapter is absent; source/Serena and runtime evidence were used, with no graph freshness or token-saving claim.

@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Cinema discovery2026-10-18:** repaired wide browse layout, exact actor/director filters on existing credits, bounded public people suggestions and complete filtered filmographies. Counts mean distinct works available here; roles/counts are clearly labeled. Existing homepage/title design and data stay protected. [Continuation/evidence](handoffs/CINEMA_DISCOVERY.md).
+
 - **Music artist profiles2026-10-18:** `/admin/music/artists` extends canonical MusicArtist and existing Media API; Library/editor, history/bulk operations, author ownership, stable URLs/FKs, timestamp claims and transactional audit. Legacy artist links redirect; public Music composition remains. [Continuation and verified scope](handoffs/MUSIC_ARTIST_PROFILES.md).
 
 - **Cinema profile management2026-10-17:** `/admin/cinema/people`, canonical `person-admin.ts` behind Cinema's existing module/Identity guards, shared Media/ContentEditor and incremental migration20270107120000. Display-name edits preserve matching key/credits; manual image locks survive metadata refresh, including intentional blanks. Version claim/strict audit prevent stale or unaudited writes. Existing public IDs and published-credit privacy remain. [Scoped continuation/evidence](handoffs/CINEMA_PEOPLE_ADMIN.md).

@@ -5,6 +5,33 @@ const path = require('node:path')
 const ts = require('typescript')
 const { NextRequest } = require('next/server')
 
+test('Cinema filters retain exact people IDs and compose safe URLs across sorting and paging',()=>{
+  const {cinemaPersonId,cinemaBrowsePage,cinemaBrowseHref}=load('src/modules/cinema/domain/discovery.ts')
+  assert.equal(cinemaPersonId('42'),42);assert.equal(cinemaPersonId(''),null)
+  for(const value of ['bad','-1','1.5','999999999999',{},['42']])assert.equal(cinemaPersonId(value),-1)
+  assert.equal(cinemaBrowsePage(2.8),2);assert.equal(cinemaBrowsePage(Infinity),1);assert.equal(cinemaBrowsePage(999),500)
+  const filters={actor:'42',director:'7',kind:'MOVIE',genre:'درام',q:'Test',page:'2',dubbed:'1'}
+  let url=new URL(cinemaBrowseHref(filters,{sort:'imdb'}),'https://example.invalid');assert.equal(url.searchParams.has('page'),false);assert.equal(url.searchParams.get('actor'),'42');assert.equal(url.searchParams.get('genre'),'درام')
+  url=new URL(cinemaBrowseHref(filters,{page:'3'}),'https://example.invalid');assert.equal(url.searchParams.get('page'),'3');assert.equal(url.searchParams.get('director'),'7')
+  url=new URL(cinemaBrowseHref(filters,{actor:undefined}),'https://example.invalid');assert.equal(url.searchParams.has('actor'),false);assert.equal(url.searchParams.get('director'),'7')
+})
+
+test('Cinema public people suggestions enforce module, bounded role/name input and unavailable feedback',async()=>{
+  let enabled=true,limited=false,calls=0,fail=false
+  const {GET}=load('src/modules/cinema/server/http/people-search.ts',{
+    '@/extensions/server/modules':{moduleGuard:async()=>enabled?null:Response.json({error:'off'},{status:404})},
+    '@/platform/http/rate-limit':{clientIp:()=> 'fixture',rateLimitHit:()=>({ok:!limited})},
+    '@/modules/cinema/server/people':{publicPeopleChoices:async input=>{calls++;assert.ok(input.q.length<=60);assert.equal(input.role,'CAST');if(fail)throw Error('private failure');return Array.from({length:20},(_,i)=>({id:i+1,name:'Name '+i,image:'',bio:'private',credits:[]}))}},
+  })
+  const request=query=>new NextRequest('http://localhost:3000/api/cinema/people?'+query)
+  assert.deepEqual(await(await GET(request('q=a'))).json(),{options:[]});assert.equal(calls,0)
+  const result=await(await GET(request('q='+ 'x'.repeat(100)))).json();assert.equal(result.options.length,12);assert.deepEqual(Object.keys(result.options[0]).sort(),['id','image','name'])
+  assert.equal((await GET(request('q=test&role=INVALID'))).status,422)
+  fail=true;const failure=await GET(request('q=test'));assert.equal(failure.status,503);assert.doesNotMatch(await failure.text(),/private failure/)
+  limited=true;assert.equal((await GET(request('q=test'))).status,429);limited=false
+  enabled=false;assert.equal((await GET(request('q=test'))).status,404)
+})
+
 test('music artist profile patches preserve omitted fields and bound images, text and stale-form tokens',()=>{
   const {artistProfilePatch,artistExpectedUpdate,artistProfileFilter}=load('src/modules/music/domain/artist-profile.ts')
   assert.deepEqual(artistProfilePatch({name:'  Singer   Name ',nameEn:'Alias',bio:'<p><b>Bio</b></p><script>bad()</script>',image:''},true),{name:'Singer Name',nameEn:'Alias',bio:'<p><b>Bio</b></p>',image:''})

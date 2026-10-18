@@ -336,6 +336,10 @@ Photo follow-up: fill available actors/directors without paid keys through the s
 
 Manage singers at `/admin/music/artists` using the existing MusicArtist/Media owner. Preserve `music.manage` and own-artist `music.author`; authors read shared names but never delete shared artists or receive another author's draft work titles. Profile edits keep public slugs and historical album/track relations. Existing Library/editor/history/bulk remain authoritative. Unlike Cinema people, Music artists may already be public without published works. New form saves use timestamp claims and transactional audit; legacy partial writes remain compatible. [Continuation and exact evidence](handoffs/MUSIC_ARTIST_PROFILES.md).
 
+## 6V. Cinema discovery and the meaning of a work count (owner, 2026-10-18)
+
+Actor/director filtering uses canonical CinemaCredit person IDs and the selected role, combined with existing catalogue filters and public publication rules. Suggestions expose only public names/portraits. People-page counts describe works stored and published on MoboCom, not worldwide career completeness; two roles on one film count once in the directory. Bounded profile previews link to the complete paged catalogue. Keep the dark Cinema stage and isolate browse layout from homepage column rules. [Continuation and executed evidence](handoffs/CINEMA_DISCOVERY.md).
+
 ## 7. Engineering rules learnt here
 
 - **A limit that guards a secret is `rateLimitStrict`** (`src/platform/http/rate-limit.ts`): sign-in, 2-step codes, password reset and change, registration, redeem codes, discount-code checks, the installer and API keys. With Redis the hit is counted there in one atomic step (`Kv.hit`) and that count decides, so the limit holds over all app instances; when Redis does not answer, each instance refuses on what it counted itself, so an outage is never a fresh allowance. `rateLimitHit` (synchronous, eventually shared) stays for throttles that protect capacity, not a secret. A unit test fails when one of the guarded keys goes back to `rateLimitHit`; `npm run test:redis` checks the behaviour against a real Redis (skipped without `REDIS_URL`).

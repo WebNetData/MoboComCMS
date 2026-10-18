@@ -33,4 +33,6 @@ No production build, hosted browser workflow, full-platform regression run, prov
 
 ## Remaining boundaries
 
+Public discovery/profile presentation now continues in [Cinema discovery](CINEMA_DISCOVERY.md): actor/director filters, distinct-work directory counts, uncapped per-role totals and full-filmography links use the same canonical people/credits. Admin curation, matching, image locks and permissions above remain authoritative.
+
 Person deletion/merging, manual credit reassignment and person follow/notifications are outside this slice. External metadata/photos can still be incomplete or restricted; the profile editor supplies manual curation, not a source-completeness guarantee. This does not certify a production deployment or the whole platform.

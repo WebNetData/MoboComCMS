@@ -79,26 +79,46 @@ export async function creditProfiles(titleId:number) {
 
 /** A person with the published titles they are credited on, newest first, by role. Null when nothing of theirs is public. */
 export async function personPage(id: number, now = new Date()) {
-  if (!Number.isSafeInteger(id) || id <= 0) return null
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) return null
   const person = await db.cinemaPerson.findUnique({ where: { id }, select: { id: true, name: true, image: true, bio: true } })
   if (!person) return null
-  const credits = await db.cinemaCredit.findMany({ where: { personId: id, title: live(now) }, orderBy: [{ title: { publishedAt: 'desc' } }, { titleId: 'desc' }], take: 300, select: { role: true, character: true, titleId: true } })
+  const [credits,counts] = await Promise.all([
+    db.cinemaCredit.findMany({ where: { personId: id, title: live(now) }, orderBy: [{ title: { publishedAt: 'desc' } }, { titleId: 'desc' }], take: 300, select: { role: true, character: true, titleId: true } }),
+    db.cinemaCredit.groupBy({by:['role'],where:{personId:id,title:live(now)},_count:true}),
+  ])
   if (!credits.length) return null
   const idsOf = (role: CreditRole) => credits.filter((credit) => credit.role === role).map((credit) => credit.titleId)
-  return { ...person, directed: idsOf('DIRECTOR'), acted: idsOf('CAST'), characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
+  return { ...person, directed: idsOf('DIRECTOR'), acted: idsOf('CAST'), castCount:counts.find(row=>row.role==='CAST')?._count||0, directorCount:counts.find(row=>row.role==='DIRECTOR')?._count||0, characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
 }
 
 /** People with at least one published title, the most credited first; `q` narrows by name. */
-export async function peopleDirectory(input: { page?: unknown; q?: unknown }, now = new Date()) {
+export async function peopleDirectory(input: { page?: unknown; q?: unknown; role?:CreditRole }, now = new Date()) {
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
-  const where = { credits: { some: { title: live(now) } }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}] } : {}) }
+  const publicCredit={title:live(now),...(input.role?{role:input.role}:{})}
+  const where = { credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}] } : {}) }
   const [total, rows] = await Promise.all([
     db.cinemaPerson.count({ where }),
-    db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: { title: live(now) }, select: { role: true } } } }),
+    db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: publicCredit, select: { role: true,titleId:true } } } }),
   ])
   return {
     q, page, pages: Math.max(1, Math.ceil(total / PEOPLE_PAGE)), total,
-    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: row.credits.length, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
+    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: new Set(row.credits.map(credit=>credit.titleId)).size, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
   }
+}
+
+/** A public filter choice cannot reveal a person credited only on private/future titles. */
+export async function publicPersonChoice(id:number,role:CreditRole,now=new Date()) {
+  if(!Number.isSafeInteger(id)||id<=0||id>2147483647)return null
+  return db.cinemaPerson.findFirst({where:{id,credits:{some:{role,title:live(now)}}},select:{id:true,name:true,image:true}})
+}
+
+/** Autocomplete projects only public names, without loading each person's whole filmography. */
+export async function publicPeopleChoices(input:{q:string;role:CreditRole},now=new Date()) {
+  const q=normalizePersonName(input.q).slice(0,60)
+  if(q.length<2)return []
+  return db.cinemaPerson.findMany({
+    where:{credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]},
+    orderBy:[{name:'asc'},{id:'asc'}],take:12,select:{id:true,name:true,image:true},
+  })
 }
