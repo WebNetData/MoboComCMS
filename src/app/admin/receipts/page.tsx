@@ -43,7 +43,7 @@ export default function ReceiptsPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">PAYMENT RECEIPTS</span><h1>رسیدهای کارت به کارت</h1><p>مبلغ و نام صاحب کارت مبدأ را با پیامک یا صورت‌حساب بانکی خودتان تطبیق دهید و بعد تأیید کنید. با تأیید، فاکتور پرداخت‌شده ثبت می‌شود و تحویل سفارش شروع می‌شود. <Link href="/admin/bank-accounts">حساب‌های بانکی ←</Link></p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">رسیدهای پرداخت</span><h1>رسیدهای کارت به کارت</h1><p>مبلغ و نام صاحب کارت مبدأ را با پیامک یا صورت‌حساب بانکی خودتان تطبیق دهید و بعد تأیید کنید. با تأیید، فاکتور پرداخت‌شده ثبت می‌شود و تحویل سفارش شروع می‌شود. <Link href="/admin/bank-accounts">حساب‌های بانکی ←</Link></p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <nav className="md-chips seo-filter" aria-label="وضعیت">{TABS.map((tab) => <button key={tab.id} type="button" className={status === tab.id ? 'is-active' : ''} onClick={() => setStatus(tab.id)}>{tab.label}{tab.id !== 'ALL' && counts[tab.id] ? ` (${counts[tab.id].toLocaleString('fa-IR')})` : ''}</button>)}</nav>
     <div className="rc-list">{receipts.map((receipt) => (

@@ -349,11 +349,11 @@ export default function AdminGatewaysPage() {
 
             <div className="credential-row">
               <span className="muted text-xs">{t.apiKey}</span>
-              <code dir="ltr">{g.hasApiKey ? g.apiKeyMasked : t.notSet}</code>
+              {g.hasApiKey ? <code dir="ltr">{g.apiKeyMasked}</code> : <span className="muted">{t.notSet}</span>}
             </div>
             <div className="credential-row">
               <span className="muted text-xs">{t.secretKey}</span>
-              <code dir="ltr">{g.hasSecret ? g.secretMasked : t.notSet}</code>
+              {g.hasSecret ? <code dir="ltr">{g.secretMasked}</code> : <span className="muted">{t.notSet}</span>}
             </div>
             {g.currencies && <div className="muted text-xs mt-2 num" dir="ltr">{t.cryptoCurrencies}: {g.currencies}</div>}
 

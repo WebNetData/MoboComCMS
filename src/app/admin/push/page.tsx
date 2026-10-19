@@ -33,7 +33,7 @@ export default function AdminPushPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">WEB PUSH</span><h1>اعلان مرورگر</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">اعلان وب</span><h1>اعلان مرورگر</h1>
       <p>{data ? `${fa(data.total)} مرورگر مشترک (${fa(data.users)} کاربر واردشده، ${fa(data.guests)} مهمان).` : ''} اعلان‌ها رایگان‌اند و روی گوشی و دسکتاپ — حتی وقتی سایت باز نیست — نمایش داده می‌شوند. بازدیدکننده‌ها پس از چند بازدید پیشنهاد فعال‌سازی را می‌بینند.</p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <section className="xm-section">

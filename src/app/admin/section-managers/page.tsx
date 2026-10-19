@@ -69,6 +69,7 @@ export default function SectionManagersPage() {
         })}
       </section>
 
+      <div className="sm-adds">
       <form className="card mb-6 sm-add" onSubmit={async (event) => { event.preventDefault(); if (await save({ email }, picked, 'مدیر بخش اضافه شد.')) { setEmail(''); setPicked([]) } }}>
         <h2>افزودن مدیر</h2>
         <label className="label" htmlFor="sm-email">ایمیل حساب (باید پیش‌تر در سایت ثبت‌نام کرده باشد)</label>
@@ -89,6 +90,7 @@ export default function SectionManagersPage() {
         </fieldset>
         <button className="btn btn-primary" disabled={busy || !authorEmail.trim() || !authorPicked.length}>افزودن نویسنده</button>
       </form>
+      </div>
 
       <div className="table-wrap card">
         <table className="table">

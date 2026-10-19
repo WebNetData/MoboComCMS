@@ -41,7 +41,7 @@ export default function AdminDeliveryPage() {
   const number = (value: string) => Math.max(0, Math.round(Number(value.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))) || 0))
 
   return <div className="xm-page sh-admin" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">STORE · DELIVERY</span><h1>زمان‌بندی و هزینهٔ ارسال</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">فروشگاه · تحویل</span><h1>زمان‌بندی و هزینهٔ ارسال</h1>
       <p>مشتری هنگام خرید کالای فیزیکی، روز و بازهٔ ساعت ارسال را مثل دیجی‌کالا انتخاب می‌کند. ظرفیت هر بازه با سفارش‌های ثبت‌شده پر می‌شود؛ سفارش پرداخت‌نشده پس از دو ساعت ظرفیت را آزاد می‌کند. سفارش‌ها در <Link href="/admin/product-deliveries">تحویل سفارش‌ها</Link> به ترتیب روز ارسال دیده می‌شوند.</p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 

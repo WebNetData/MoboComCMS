@@ -120,7 +120,7 @@ function AdminForumPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">FORUM</span><h1>تالار گفتمان</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">تالار گفتمان</span><h1>تالار گفتمان</h1>
       <p>{fa(data.stats.topics)} موضوع · {fa(data.stats.posts)} پیام · {fa(data.stats.members)} عضو فعال. دسته‌ها، سطح دسترسی گروه‌ها، نشان‌ها، سطح اعتماد کاربران و صف گزارش‌ها را از اینجا مدیریت کنید.</p></div>
       <div className="fa-inline fa-wrap"><Link href="/admin/history?type=settings-forum&id=1" className="btn btn-ghost btn-sm">تاریخچهٔ تنظیمات</Link><Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link></div>
     </header>

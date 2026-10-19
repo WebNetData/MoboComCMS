@@ -101,7 +101,7 @@ export default function AdminSettingsPage() {
       </form>
 
       <div className="card max-w-xl mt-6">
-        <h3 className="font-bold mb-2">.env</h3>
+        <h3 className="font-bold mb-2">{locale === 'fa' ? 'کلیدهای فایل محیطی (.env)' : '.env'}</h3>
         <p className="muted leading-7 text-sm">
           {vpnOn ? t.envHint : locale === 'fa' ? 'کلیدهای Plisio در فایل .env مدیریت می‌شوند.' : 'Plisio keys live in the .env file.'}
           <br />

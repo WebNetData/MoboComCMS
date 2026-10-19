@@ -36,7 +36,7 @@ export default function AdminReviewsPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">REVIEWS</span><h1>امتیازها و نظرهای کاربران</h1><p>امتیاز بدون متن فوراً ثبت می‌شود؛ نظرهای متنی (اگر در تنظیمات ماژول فعال باشد) پیش از نمایش اینجا تأیید می‌شوند. نظر ردشده در میانگین امتیاز حساب نمی‌شود.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">نظرها و امتیازها</span><h1>امتیازها و نظرهای کاربران</h1><p>امتیاز بدون متن فوراً ثبت می‌شود؛ نظرهای متنی (اگر در تنظیمات ماژول فعال باشد) پیش از نمایش اینجا تأیید می‌شوند. نظر ردشده در میانگین امتیاز حساب نمی‌شود.</p></div></header>
     <nav className="tb-tabs" role="tablist" aria-label="وضعیت">
       {STATUSES.map((item) => <button key={item.key} type="button" role="tab" aria-selected={status === item.key} className={status === item.key ? 'is-active' : ''} onClick={() => { setStatus(item.key); setPage(1) }}>{item.label}{item.key === 'PENDING' && data ? <span>{data.pending.toLocaleString('fa-IR')}</span> : null}</button>)}
     </nav>

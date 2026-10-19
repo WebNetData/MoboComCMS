@@ -6,7 +6,7 @@ import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import GlobalRestrictions from '@/components/admin/GlobalRestrictions'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
 
 interface Detail {
   profileFields?: { completedAt: string | null; missing: string[]; rows: { label: string; value: string }[] } | null
@@ -268,7 +268,7 @@ export default function AdminCustomerPage() {
             <p className="muted text-sm mb-4">{t.chargeWalletHint}</p>
             <label className="label">Currency</label>
             <select className="select mb-3" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {currencyOptions.map((code) => <option key={code} value={code}>{code}</option>)}
+              {currencyOptions.map((code) => <option key={code} value={code}>{currencyLabel(code)}</option>)}
             </select>
             <label className="label">{t.amountLabel}</label>
             <input className="input num mb-3" dir="ltr" type="number" step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />

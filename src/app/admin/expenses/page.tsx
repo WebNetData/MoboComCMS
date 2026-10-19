@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
 
 interface Expense {
   id: number
@@ -85,8 +85,8 @@ export default function AdminExpensesPage() {
           <p className="muted">{t.expensesHint}</p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="select imp-w-24" value={currency} onChange={(e) => { setCurrency(e.target.value); setForm((f: any) => ({ ...f, currency: e.target.value })) }} aria-label={t.currency}>
-            {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
+          <select className="select admin-currency" value={currency} onChange={(e) => { setCurrency(e.target.value); setForm((f: any) => ({ ...f, currency: e.target.value })) }} aria-label={t.currency}>
+            {currencies.map((c) => <option key={c} value={c}>{currencyLabel(c, isFa ? 'fa-IR' : 'en-US')}</option>)}
           </select>
           <Link href="/admin/finance" className="btn btn-ghost">{t.financeAdmin}</Link>
         </div>
@@ -136,7 +136,7 @@ export default function AdminExpensesPage() {
         </div>
         <div>
           <label className="label">{t.currency}</label>
-          <input className="input" dir="ltr" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} required />
+          <select className="select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} required>{[...new Set([...currencies, form.currency, 'USD', 'EUR'].filter(Boolean))].map((c) => <option key={c} value={c}>{currencyLabel(c, isFa ? 'fa-IR' : 'en-US')}</option>)}</select>
         </div>
         <div>
           <label className="label">{t.spentAt}</label>

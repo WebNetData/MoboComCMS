@@ -42,7 +42,7 @@ export default function BankAccountsPage() {
   }
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">BANK ACCOUNTS</span><h1>حساب‌های بانکی (کارت به کارت)</h1><p>مشتری روی فاکتور یکی از این حساب‌ها را می‌بیند، مبلغ را واریز می‌کند و رسید را بارگذاری می‌کند. رسیدها در <Link href="/admin/receipts">رسیدهای پرداخت</Link> تأیید می‌شوند. درگاه «کارت به کارت / انتقال بانکی» باید در <Link href="/admin/gateways">درگاه‌ها</Link> فعال باشد.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">حساب‌های بانکی</span><h1>حساب‌های بانکی (کارت به کارت)</h1><p>مشتری روی فاکتور یکی از این حساب‌ها را می‌بیند، مبلغ را واریز می‌کند و رسید را بارگذاری می‌کند. رسیدها در <Link href="/admin/receipts">رسیدهای پرداخت</Link> تأیید می‌شوند. درگاه «کارت به کارت / انتقال بانکی» باید در <Link href="/admin/gateways">درگاه‌ها</Link> فعال باشد.</p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <form className="card seo-form" onSubmit={save}>
       <label className="studio-field"><span>شماره کارت</span><input className="input" dir="ltr" inputMode="numeric" value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: e.target.value })} placeholder="6037 9900 0000 0000" /></label>

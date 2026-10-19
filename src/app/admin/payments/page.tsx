@@ -25,6 +25,8 @@ interface Payment {
 }
 
 const STATUSES = ['', 'CONFIRMED', 'PENDING', 'FAILED', 'REFUNDED']
+/** Providers without a configured gateway row (the wallet, older records) still read by name. */
+const PROVIDER_FA: Record<string, string> = { WALLET: 'کیف پول', PLISIO: 'Plisio (رمزارز)', CARD_TRANSFER: 'کارت به کارت', FRENZYEX: 'درگاه ارزی ریالی', MELLAT: 'بانک ملت', MANUAL: 'ثبت دستی', SNAPPPAY: 'اسنپ‌پی' }
 
 export default function AdminPaymentsPage() {
   const { t, locale } = useI18n()
@@ -126,7 +128,7 @@ export default function AdminPaymentsPage() {
                 <tr key={p.id}>
                   <td className="num">{p.id}</td>
                   <td dir="ltr">{p.user}</td>
-                  <td>{p.gatewayName || p.provider}</td>
+                  <td>{p.gatewayName || PROVIDER_FA[p.provider] || p.provider}</td>
                   <td className="num mute-truncate" dir="ltr">{p.txnId ? p.txnId.slice(0, 14) + '…' : '—'}</td>
                   <td className="num">{p.cryptoCurrency || '—'} {p.cryptoAmount ? `· ${p.cryptoAmount}` : ''}</td>
                   <td className={`num font-semibold ${p.amount < 0 ? 'error-text' : ''}`}>{money(p.amount, p.currency)}</td>
