@@ -18,7 +18,7 @@ The release checklist, backup/restore tooling and monitoring already exist. The 
 
 Other recorded refinements: scheduled editorial collections and cover picker; member-list controls composed on item pages; recommendation-quality measurement and consented viewing-history signal. These are not a reason to rebuild the existing collections, lists, search, playback or recommendation services.
 
-All legitimate configuration joins the existing Admin Control Plane. Priority1–5 entries incorporate the selected authoring/operations and module-block/settings continuations; unrelated capability rows were not re-audited. [PR197](https://github.com/WebNetData/MoboComCMS/pull/197) is owner-merged at main741e7176. Its hosted jobs could not start because of GitHub billing/spending limits. The current local batch is separate and unpublished; no workflow rerun or new production certification is implied.
+All legitimate configuration joins the existing Admin Control Plane. Priority1–5 entries incorporate the selected authoring/operations and module-block/settings continuations; unrelated capability rows were not re-audited. [PR197](https://github.com/WebNetData/MoboComCMS/pull/197) is owner-merged at main741e7176. Its hosted jobs could not start because of GitHub billing/spending limits. The owner requested publication of the separate module-block/settings branch to main; no workflow rerun or new production certification is implied.
 
 ## Runtime observations to audit
 

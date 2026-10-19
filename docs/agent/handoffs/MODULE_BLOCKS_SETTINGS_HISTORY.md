@@ -2,7 +2,7 @@
 
 ## Resume here
 
-Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/module-blocks-settings-history-2026-10-19`, from fresh `origin/main` `741e7176ad8e2156d41aaa6e887377910016cd4b`. PR197 is owner-merged; this is the next local batch, not an addition to its closed branch. The owner selected items3–4: module blocks and more named settings forms. [Scenario](../../specs/module-blocks-settings-history/SPEC.md). Preserve unrelated older root work, `.serena/` and `public/demo/`. No automatic PR, push, merge or hosted workflow is part of this batch.
+Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/module-blocks-settings-history-2026-10-19`, from fresh `origin/main` `741e7176ad8e2156d41aaa6e887377910016cd4b`. PR197 is owner-merged; this is the next local batch, not an addition to its closed branch. The owner selected items3–4: module blocks and more named settings forms. [Scenario](../../specs/module-blocks-settings-history/SPEC.md). Preserve unrelated older root work, `.serena/` and `public/demo/`. Publication requested2026-10-19: the owner asked to publish this completed batch from the same remote branch as one PR targeting main; the owner merges. Preserve the implementation commit8006d51b. No force push, workflow change or manual dispatch/rerun.
 
 This continues [authoring/operations](AUTHORING_OPERATIONS.md); it supersedes only its module/browser rendering and five portal-settings coverage gaps. Existing Media LibraryPicker, ContentRevision, Identity, permissions, settings storage and public item registry remain authoritative.
 
@@ -43,7 +43,7 @@ Audit compatibility was checked against the previous five routes: existing `<sec
 
 - After the final compatibility correction, all five actual section-manager form/history and stale/permission flows were rerun successfully. The original editor-off state was exercised through the real extensions API: preview refused404 while stored public module output still rendered. Owned browser content/users/roles/revisions/audit and both private auth files were removed; all original raw settings were restored with exact-value claims and normalized/unknown-field checks. App restart clears temporary module/setting cache state.
 
-Redacted staged Gitleaks scan passed with exit0/zero findings. Diff whitespace checks passed. Cleanup verification found no owned browser content/accounts/roles/private fixture file; the restarted local app answered200. No hosted workflow was dispatched or rerun, and no push/PR/merge was performed.
+Redacted staged Gitleaks scan passed with exit0/zero findings. Diff whitespace checks passed. Cleanup verification found no owned browser content/accounts/roles/private fixture file; the restarted local app answered200. Implementation validation did not dispatch or rerun hosted workflows. Publication follows the owner's later PR request; the owner merges.
 
 ## Limits and next work
 
