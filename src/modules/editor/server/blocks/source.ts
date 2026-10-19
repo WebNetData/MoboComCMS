@@ -5,7 +5,7 @@ import type { BlockDefinition } from '@/modules/editor/domain/registry'
 
 /** This provider can only read its declared public owner; maintenance/storefront gates apply too. */
 export async function publicItemSource(definition: BlockDefinition, closed?: ReadonlySet<string>): Promise<ItemType | null> {
-  const type = definition.dataSource?.itemType
+  const type = definition.dataSource?.kind === 'public-items' ? definition.dataSource.itemType : undefined
   if (definition.dataSource?.kind !== 'public-items' || !isItemType(type) || definition.owner !== ITEM_MODULE[type]) return null
   if ((closed || await closedSectionPlugins()).has(definition.owner)) return null
   if (type === 'product' && !await isStoreEnabled()) return null

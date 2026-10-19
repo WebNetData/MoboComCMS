@@ -14,7 +14,7 @@ import { registryFromDescriptors, type BlockDescriptor } from '@/modules/editor/
 import type { DocumentIssue, MoboComDocument } from '@/modules/editor/domain/document'
 import { registerMoboComBlocks, toLiveBlocks } from './blocks'
 import { legacyToEngineBlocks } from './legacy'
-import { ModulePreviewContext } from './module-preview-context'
+import { EditorEntityContext, ModulePreviewContext } from './module-preview-context'
 import PatternLibrary from './PatternLibrary'
 
 export type EditorEntity = 'pages' | 'posts'
@@ -110,7 +110,7 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
   if (!page) return <div className="mc-editor-message" aria-busy="true">در حال بارگذاری ویرایشگر…</div>
 
   return (
-    <ModulePreviewContext.Provider value={`${endpoint}/preview`}><ShortcutProvider className="mc-editor" dir="rtl">
+    <EditorEntityContext.Provider value={entity}><ModulePreviewContext.Provider value={`${endpoint}/preview`}><ShortcutProvider className="mc-editor" dir="rtl">
       <SlotFillProvider>
         <BlockEditorProvider value={blocks} onInput={(next) => change(next, false)} onChange={(next) => change(next, true)} settings={{ allowedBlockTypes: registry.list().map(definition => engineName(definition.type)), hasFixedToolbar: true, isRTL: true, bodyPlaceholder: 'یک بلوک اضافه کنید', codeEditingEnabled: false, canLockBlocks: page.canManagePatterns, __experimentalBlockPatterns: [], __experimentalBlockPatternCategories: [] }}>
           <header className="mc-editor-bar">
@@ -145,6 +145,6 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
           <Popover.Slot />
         </BlockEditorProvider>
       </SlotFillProvider>
-    </ShortcutProvider></ModulePreviewContext.Provider>
+    </ShortcutProvider></ModulePreviewContext.Provider></EditorEntityContext.Provider>
   )
 }

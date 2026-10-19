@@ -128,9 +128,18 @@ PR/push/merge or deployment requested for this batch.
 
 ## Remaining scope
 
-Shared synchronized patterns, editing an existing pattern in place, role-specific
-template assignment, future custom module layouts and histories for other named
-forms require separate audited slices. Production-scale collection/list latency,
+2026-10-19 follow-up: **synced patterns and in-place edits** are implemented on the same Editor owner. `EditorPattern.kind`
+adds `synced` (migration `20270110140000_editor_synced_patterns` widens the kind CHECK). A core dynamic block
+`content.pattern { pattern, title }` (data source `pattern`, no plugin owner, so it keeps rendering with the editor
+plugin off) is inserted only from the library; public/preview rendering reads the pattern's current blocks, one level
+deep (references inside a synced pattern are refused on save and dropped on render), wrapped in a `display: contents`
+element. Saves accept only existing synced patterns of the same section, checked in the save transaction.
+`PATCH /api/admin/editor/patterns` renames/replaces blocks with an updatedAt claim and strict `editor.pattern.update`
+audit; synced edits schedule the page-cache purge. Deleting a synced pattern still referenced by a page, article or
+another pattern is refused (bounded scan). The editor shows a badge, live preview and a “detach” action that
+replaces the reference with an independent copy. Evidence: `editor-synced-patterns.connected.cjs` (registered) and a
+real browser create/insert/save/public render/update/detach run, cleaned afterwards. Pattern content history,
+role-specific template assignment and future custom module layouts remain separate slices. Production-scale collection/list latency,
 actual deployment scheduler/rollback and external-provider delivery remain
 operational acceptance. Local success does not certify the whole platform.
 

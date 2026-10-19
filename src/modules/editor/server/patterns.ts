@@ -7,9 +7,23 @@ import { JsonBodyError, readJsonObject } from '@/platform/http/read-json'
 import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
 import { hasPermission } from '@/modules/identity/rbac'
 import { checkDocument } from '@/modules/editor/domain/validate'
-import { moduleBlocks, MODULE_BLOCK_LIMIT } from '@/modules/editor/domain/module-blocks'
+import { moduleBlocks, MODULE_BLOCK_LIMIT, syncedPatternIds } from '@/modules/editor/domain/module-blocks'
+import type { Prisma } from '@prisma/client'
 import { activeEditorRegistry } from './blocks/registry'
 import { blockEditorEnabled, documentAuthorPermission, documentPermission, isDocumentEntity } from './documents'
+
+const KINDS = ['pattern', 'template', 'synced'] as const
+
+/** How many stored documents (pages, articles, other patterns) still point at this synced pattern. Bounded scan. */
+async function syncedPatternUses(tx: Prisma.TransactionClient, id: number): Promise<number> {
+  const marker = { contains: '"content.pattern"' }
+  const [pages, posts, patterns] = await Promise.all([
+    tx.page.findMany({ where: { contentDocument: marker }, select: { contentDocument: true }, take: 5000 }),
+    tx.post.findMany({ where: { contentDocument: marker }, select: { contentDocument: true }, take: 5000 }),
+    tx.editorPattern.findMany({ where: { contentDocument: marker, NOT: { id } }, select: { contentDocument: true }, take: 500 }),
+  ])
+  return [...pages, ...posts, ...patterns].filter(row => { try { return syncedPatternIds(JSON.parse(row.contentDocument)?.blocks).includes(id) } catch { return false } }).length
+}
 
 /** Patterns and full templates share the editor's canonical document and section permission. */
 export async function editorPatterns(req: NextRequest) {
@@ -30,10 +44,11 @@ export async function editorPatterns(req: NextRequest) {
   try {
     const body = await readJsonObject(req, 210_000)
     if (req.method === 'POST') {
-      const title = typeof body.title === 'string' ? body.title.trim() : '', kind = body.kind
-      if (!title || title.length > 100 || (kind !== 'pattern' && kind !== 'template')) return err('نام و نوع الگو معتبر نیست.', 422)
+      const title = typeof body.title === 'string' ? body.title.trim() : '', kind = KINDS.find(value => value === body.kind)
+      if (!title || title.length > 100 || !kind) return err('نام و نوع الگو معتبر نیست.', 422)
       const registry = await activeEditorRegistry(), checked = checkDocument(body.document, registry, { permissions: key => admin.roleId == null || hasPermission(admin.permissions ?? [], key) })
       if (!checked.ok || !checked.document.blocks.length || checked.unsupported.length || moduleBlocks(checked.document, registry).length > MODULE_BLOCK_LIMIT) return err('الگو باید شامل بلوک‌های معتبر و فعال باشد.', 422)
+      if (kind === 'synced' && syncedPatternIds(checked.document.blocks).length) return err('الگوی همگام نمی‌تواند الگوی همگام دیگری داشته باشد.', 422)
       const contentDocument = JSON.stringify(checked.document)
       if (Buffer.byteLength(contentDocument) > 200_000) return err('الگو بیش از حد بزرگ است.', 413)
       const created = await db.$transaction(async tx => {
@@ -45,11 +60,42 @@ export async function editorPatterns(req: NextRequest) {
       }, { isolationLevel: 'Serializable' })
       return ok({ id: created.id, updatedAt: created.updatedAt }, 201)
     }
-    if (req.method !== 'DELETE') return err('method not allowed', 405)
     const id = Number(body.id), updatedAt = typeof body.updatedAt === 'string' ? new Date(body.updatedAt) : null
     if (!Number.isSafeInteger(id) || id <= 0 || !updatedAt || !Number.isFinite(+updatedAt)) return err('نسخهٔ الگو الزامی است.', 400)
+    if (req.method === 'PATCH') {
+      // Edit in place: a new name and/or new blocks, claimed on the version the editor opened. Synced uses update live.
+      const title = body.title === undefined ? undefined : typeof body.title === 'string' ? body.title.trim() : ''
+      if (title !== undefined && (!title || title.length > 100)) return err('نام الگو معتبر نیست.', 422)
+      let contentDocument: string | undefined
+      const current = await db.editorPattern.findFirst({ where: { id, entity }, select: { kind: true } })
+      if (!current) return err('الگو پیدا نشد.', 404)
+      if (body.document !== undefined) {
+        const registry = await activeEditorRegistry(), checked = checkDocument(body.document, registry, { permissions: key => admin.roleId == null || hasPermission(admin.permissions ?? [], key) })
+        if (!checked.ok || !checked.document.blocks.length || checked.unsupported.length || moduleBlocks(checked.document, registry).length > MODULE_BLOCK_LIMIT) return err('الگو باید شامل بلوک‌های معتبر و فعال باشد.', 422)
+        if (current.kind === 'synced' && syncedPatternIds(checked.document.blocks).length) return err('الگوی همگام نمی‌تواند الگوی همگام دیگری داشته باشد.', 422)
+        contentDocument = JSON.stringify(checked.document)
+        if (Buffer.byteLength(contentDocument) > 200_000) return err('الگو بیش از حد بزرگ است.', 413)
+      }
+      if (title === undefined && contentDocument === undefined) return err('تغییری فرستاده نشد.', 422)
+      const updated = await db.$transaction(async tx => {
+        if (!await requirePerm(req, permission, tx)) throw new JsonBodyError('forbidden', 403)
+        const claimed = await tx.editorPattern.updateMany({ where: { id, entity, updatedAt }, data: { ...(title !== undefined ? { title } : {}), ...(contentDocument !== undefined ? { contentDocument } : {}), updatedAt: new Date(Math.max(Date.now(), updatedAt.getTime() + 1)) } })
+        if (claimed.count !== 1) throw new JsonBodyError('الگو تغییر کرده یا حذف شده است؛ دوباره بارگذاری کنید.', 409)
+        const row = (await tx.editorPattern.findUnique({ where: { id }, select: { id: true, kind: true, updatedAt: true } }))!
+        await auditAdminStrict({ req, actor: admin, action: 'editor.pattern.update', targetType: 'EditorPattern', targetId: id, metadata: { entity, kind: row.kind, title: title !== undefined, blocks: contentDocument !== undefined } }, tx)
+        return row
+      }, { isolationLevel: 'Serializable' })
+      if (updated.kind === 'synced') void import('@/modules/performance/server/pagecache').then(cache => cache.purgeSoon('editor-pattern')).catch(() => undefined)
+      return ok({ id: updated.id, updatedAt: updated.updatedAt })
+    }
+    if (req.method !== 'DELETE') return err('method not allowed', 405)
     await db.$transaction(async tx => {
       if (!await requirePerm(req, permission, tx)) throw new JsonBodyError('forbidden', 403)
+      const row = await tx.editorPattern.findFirst({ where: { id, entity }, select: { kind: true } })
+      if (row?.kind === 'synced') {
+        const uses = await syncedPatternUses(tx, id)
+        if (uses) throw new JsonBodyError(`این الگوی همگام در ${uses.toLocaleString('fa-IR')} صفحه، نوشته یا الگو استفاده شده است؛ ابتدا آن‌ها را جدا کنید.`, 409)
+      }
       const removed = await tx.editorPattern.deleteMany({ where: { id, entity, updatedAt } })
       if (removed.count !== 1) throw new JsonBodyError('الگو تغییر کرده یا حذف شده است؛ دوباره بارگذاری کنید.', 409)
       await auditAdminStrict({ req, actor: admin, action: 'editor.pattern.delete', targetType: 'EditorPattern', targetId: id, metadata: { entity } }, tx)
