@@ -9,7 +9,7 @@
 import { BLOCK_TYPE } from '@/modules/editor/domain/document'
 import type { FieldSchema } from '@/modules/editor/domain/fields'
 
-export type BlockCategory = 'layout' | 'content' | 'media' | 'store' | 'cinema' | 'music' | 'games' | 'software' | 'forum' | 'extension'
+export type BlockCategory = 'layout' | 'content' | 'media' | 'store' | 'journal' | 'cinema' | 'music' | 'games' | 'software' | 'forum' | 'extension'
 
 export interface BlockDefinition {
   /** `owner.name`: `layout.section`, `content.richText`, `store.productGrid`. */
@@ -33,16 +33,19 @@ export interface BlockDefinition {
   migrate?: Record<number, (props: Record<string, unknown>) => Record<string, unknown>>
   /** The module or extension that supplies the block; shown when the block is unknown because its owner is off. */
   owner?: string
+  /** Trusted owner contribution, answered by the existing public item registry at read time. */
+  dataSource?: { kind: 'public-items'; itemType: string }
 }
 
 export class BlockRegistry {
   private readonly blocks = new Map<string, BlockDefinition>()
+  constructor(private readonly options: { requireMigrations?: boolean } = {}) {}
 
   register(definition: BlockDefinition): this {
     if (!BLOCK_TYPE.test(definition.type)) throw new Error(`"${definition.type}" is not a block type (owner.name)`)
     if (!Number.isInteger(definition.version) || definition.version < 1) throw new Error(`block ${definition.type}: the version must be a whole number from 1`)
     if (this.blocks.has(definition.type)) throw new Error(`block ${definition.type} is registered twice`)
-    for (let from = 1; from < definition.version; from += 1) if (typeof definition.migrate?.[from] !== 'function') throw new Error(`block ${definition.type}: no migration from version ${from} to ${from + 1}`)
+    if (this.options.requireMigrations !== false) for (let from = 1; from < definition.version; from += 1) if (typeof definition.migrate?.[from] !== 'function') throw new Error(`block ${definition.type}: no migration from version ${from} to ${from + 1}`)
     this.blocks.set(definition.type, definition)
     return this
   }

@@ -1,5 +1,7 @@
 # Authoring and operations continuation — 2026-10-18
 
+Current2026-10-19: PR197 below is now owner-merged into main741e7176. Continue the next selected module-block/settings-history slice through [its focused handoff](MODULE_BLOCKS_SETTINGS_HISTORY.md). Publication/branch statements below record the earlier checkpoint; do not reopen that closed PR or rebuild the connected module registry and five section-settings histories.
+
 ## Resume here
 
 Authoritative checkout: `.mobocom/autonomous-foundation`, branch `feat/authoring-operations-continuation-2026-10-18`, continuing `61087ae9`. The earlier batch is [PR197](https://github.com/WebNetData/MoboComCMS/pull/197), targeting `main`; the owner merges. The implementation commits remain separate within the consolidated PR. Do not rebuild these capabilities from the older root checkout or stage its unrelated work, `.serena/` or `public/demo/`.

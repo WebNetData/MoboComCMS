@@ -14,6 +14,26 @@ import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionS
 type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
+  if (type === 'settings-journal') {
+    const { journalSettingsState, restoreJournalSettings } = await import('@/modules/journal/server/admin')
+    return { perms: ['cms.posts', 'settings.manage'], module: 'journal', current: () => journalSettingsState(), restore: restoreJournalSettings }
+  }
+  if (type === 'settings-cinema') {
+    const { cinemaSettingsState, restoreCinemaSettings } = await import('@/modules/cinema/server/admin')
+    return { perms: ['cinema.manage', 'settings.manage'], module: 'cinema', current: () => cinemaSettingsState(), restore: restoreCinemaSettings }
+  }
+  if (type === 'settings-music') {
+    const { musicSettingsState, restoreMusicSettings } = await import('@/modules/music/server/admin')
+    return { perms: ['music.manage', 'settings.manage'], module: 'music', current: () => musicSettingsState(), restore: restoreMusicSettings }
+  }
+  if (type === 'settings-games') {
+    const { gamesSettingsState, restoreGamesSettings } = await import('@/modules/games/server/portal')
+    return { perms: ['games.manage', 'settings.manage'], module: 'games', current: () => gamesSettingsState(), restore: restoreGamesSettings }
+  }
+  if (type === 'settings-software') {
+    const { softwareSettingsState, restoreSoftwareSettings } = await import('@/modules/software/server/admin')
+    return { perms: ['software.manage', 'settings.manage'], module: 'software', current: () => softwareSettingsState(), restore: restoreSoftwareSettings }
+  }
   if (type === 'settings-general') {
     const { generalSettingsState, restoreGeneralSettings } = await import('@/modules/settings/server')
     return { perms: ['settings.manage'], module: null, current: () => generalSettingsState(), restore: restoreGeneralSettings }

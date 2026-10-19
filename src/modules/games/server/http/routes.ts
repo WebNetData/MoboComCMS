@@ -1,3 +1,4 @@
+import { sectionSettingsRead, sectionSettingsWrite } from '@/modules/settings/server/http/section-history'
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
@@ -184,14 +185,14 @@ export async function POST_releases(req: NextRequest) {
 export async function GET_settings(req: NextRequest) {
   const g = await gamesAdmin(req)
   if ('response' in g) return g.response
-  return ok({ settings: await getGamesSettings() })
+  return sectionSettingsRead(async () => {
+    return { settings: await getGamesSettings(true) }
+  })
 }
 
 /** POST /api/admin/games/settings */
 export async function POST_settings(req: NextRequest) {
   const g = await adminGuard(req, 'games', ['games.manage', 'settings.manage'])
   if ('response' in g) return g.response
-  const settings = await saveGamesSettings(await body(req))
-  await auditAdmin({ req, actor: g.admin, action: 'games.settings.update', targetType: 'setting', targetId: 0, metadata: { hero: settings.heroIds.length, rails: settings.rails.filter((rail) => rail.enabled).length } })
-  return ok({ settings })
+  return sectionSettingsWrite(req, g.admin, saveGamesSettings)
 }

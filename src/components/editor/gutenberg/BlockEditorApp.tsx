@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BlockEditorKeyboardShortcuts, BlockEditorProvider, BlockInspector, BlockList, BlockToolbar, BlockTools, Inserter, ObserveTyping, WritingFlow, __experimentalListView as ListView, type EngineBlockObject } from '@wordpress/block-editor'
 import { Popover, SlotFillProvider } from '@wordpress/components'
 import { ShortcutProvider } from '@wordpress/keyboard-shortcuts'
@@ -8,16 +8,18 @@ import '@wordpress/components/build-style/style.css'
 import '@wordpress/block-editor/build-style/style.css'
 import './editor.css'
 import Link from '@/components/AppLink'
-import { fromEngineBlocks, toEngineBlocks } from '@/modules/editor/adapters/gutenberg/convert'
+import { engineName, fromEngineBlocks, toEngineBlocks } from '@/modules/editor/adapters/gutenberg/convert'
 import { createRegistry } from '@/modules/editor/domain/core-blocks'
+import { registryFromDescriptors, type BlockDescriptor } from '@/modules/editor/domain/descriptors'
 import type { DocumentIssue, MoboComDocument } from '@/modules/editor/domain/document'
 import { registerMoboComBlocks, toLiveBlocks } from './blocks'
 import { legacyToEngineBlocks } from './legacy'
+import { ModulePreviewContext } from './module-preview-context'
 
 export type EditorEntity = 'pages' | 'posts'
 const NOUN: Record<EditorEntity, { one: string; list: string; path: string; form: string }> = { pages: { one: 'صفحه', list: 'صفحه‌ها', path: '/p/', form: '/admin/pages' }, posts: { one: 'نوشته', list: 'نوشته‌های مجله', path: '/blog/', form: '/admin/posts' } }
 
-type Loaded = { id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean }
+type Loaded = { blockDefinitions?: BlockDescriptor[]; id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean }
 type SaveState = { kind: 'clean' } | { kind: 'dirty' } | { kind: 'saving' } | { kind: 'saved'; at: number } | { kind: 'error'; message: string; issues?: DocumentIssue[] } | { kind: 'conflict' }
 
 const AUTOSAVE_MS = 4000
@@ -25,7 +27,7 @@ const STATE_TEXT: Record<SaveState['kind'], string> = { clean: 'بدون تغی�
 
 export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntity; itemId: number }) {
   const noun = NOUN[entity], endpoint = `/api/admin/editor/${entity}/${itemId}`
-  const registry = useMemo(() => createRegistry(), [])
+  const [registry, setRegistry] = useState(() => createRegistry())
   const [page, setPage] = useState<Loaded | null>(null)
   const [failure, setFailure] = useState('')
   const [blocks, setBlocks] = useState<EngineBlockObject[]>([])
@@ -38,20 +40,22 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
   const [, redraw] = useState(0)
 
   useEffect(() => {
-    registerMoboComBlocks(registry)
+    setPage(null)
     let alive = true
     fetch(endpoint, { cache: 'no-store' }).then(async (response) => {
       const body = await response.json().catch(() => null)
       if (!alive) return
       if (!response.ok) return setFailure(body?.error || `خطا ${response.status}`)
-      const old = body.editorFormat === 'legacy' && String(body.legacyHtml || '').trim() ? legacyToEngineBlocks(body.legacyHtml, registry) : null
+      const loadedRegistry = Array.isArray(body.blockDefinitions) ? registryFromDescriptors(body.blockDefinitions) : createRegistry()
+      registerMoboComBlocks(loadedRegistry)
+      const old = body.editorFormat === 'legacy' && String(body.legacyHtml || '').trim() ? legacyToEngineBlocks(body.legacyHtml, loadedRegistry) : null
       if (old) setConverted({ dropped: old.dropped })
-      const live = toLiveBlocks(old ? old.blocks : toEngineBlocks(body.document, registry))
+      const live = toLiveBlocks(old ? old.blocks : toEngineBlocks(body.document, loadedRegistry))
       version.current = body.updatedAt; latest.current = live
-      setPage(body); setBlocks(live)
+      setRegistry(loadedRegistry); setPage(body); setBlocks(live)
     }).catch(() => alive && setFailure('ارتباط با سرور برقرار نشد'))
     return () => { alive = false }
-  }, [endpoint, registry])
+  }, [endpoint])
 
   const save = useCallback(async () => {
     // One save at a time; a change made while one is on its way is saved right after it, from the version that save returns.
@@ -105,9 +109,9 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
   if (!page) return <div className="mc-editor-message" aria-busy="true">در حال بارگذاری ویرایشگر…</div>
 
   return (
-    <ShortcutProvider className="mc-editor" dir="rtl">
+    <ModulePreviewContext.Provider value={`${endpoint}/preview`}><ShortcutProvider className="mc-editor" dir="rtl">
       <SlotFillProvider>
-        <BlockEditorProvider value={blocks} onInput={(next) => change(next, false)} onChange={(next) => change(next, true)} settings={{ hasFixedToolbar: true, isRTL: true, bodyPlaceholder: 'یک بلوک اضافه کنید', codeEditingEnabled: false, canLockBlocks: false, __experimentalBlockPatterns: [], __experimentalBlockPatternCategories: [] }}>
+        <BlockEditorProvider value={blocks} onInput={(next) => change(next, false)} onChange={(next) => change(next, true)} settings={{ allowedBlockTypes: registry.list().map(definition => engineName(definition.type)), hasFixedToolbar: true, isRTL: true, bodyPlaceholder: 'یک بلوک اضافه کنید', codeEditingEnabled: false, canLockBlocks: false, __experimentalBlockPatterns: [], __experimentalBlockPatternCategories: [] }}>
           <header className="mc-editor-bar">
             <Link href={noun.form} className="mc-editor-back">‹ {noun.list}</Link>
             <strong className="mc-editor-title">{page.title}</strong>
@@ -139,6 +143,6 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
           <Popover.Slot />
         </BlockEditorProvider>
       </SlotFillProvider>
-    </ShortcutProvider>
+    </ShortcutProvider></ModulePreviewContext.Provider>
   )
 }

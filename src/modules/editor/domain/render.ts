@@ -102,11 +102,12 @@ function imageHtml(asset: AssetValue | undefined): string {
   return asset.caption ? `<figure>${img}<figcaption>${escapeHtml(asset.caption)}</figcaption></figure>` : img
 }
 
-function blockHtml(block: MoboComBlock, registry: BlockRegistry): string {
+export type ModuleBlockHtml = (block: MoboComBlock) => string | undefined
+function blockHtml(block: MoboComBlock, registry: BlockRegistry, moduleHtml?: ModuleBlockHtml): string {
   const definition = registry.get(block.type)
   // An unsupported block leaves a mark where it stands and shows nothing: its data is kept, not guessed at.
   if (!definition || block.version !== definition.version) return `<!-- unsupported block ${escapeHtml(block.type).replace(/--/g, '')} -->`
-  const p = block.props, inner = () => (block.children || []).map((child) => blockHtml(child, registry)).join('')
+  const p = block.props, inner = () => (block.children || []).map((child) => blockHtml(child, registry, moduleHtml)).join('')
   const name = `mcb mcb-${block.type.replace('.', '-')}`
   switch (block.type) {
     case 'layout.section': return `<section class="${cls(name, token('mcb-width', p.width), token('mcb-space', p.space), token('mcb-tone', p.tone))}"${anchor(p.anchor)}>${inner()}</section>`
@@ -136,12 +137,12 @@ function blockHtml(block: MoboComBlock, registry: BlockRegistry): string {
     case 'content.callout': return `<aside class="${cls(name, token('mcb-tone', p.tone))}" role="note">${p.title ? `<strong>${escapeHtml(String(p.title))}</strong>` : ''}${richTextHtml(p.content)}</aside>`
     case 'content.faq': return `<div class="${name}">${(Array.isArray(p.items) ? p.items : []).map((item, index) => { const row = item as { question?: string; answer?: unknown }; return `<details${p.open === 'all' || (p.open === 'first' && index === 0) ? ' open' : ''}><summary>${escapeHtml(String(row.question || ''))}</summary>${richTextHtml(row.answer)}</details>` }).join('')}</div>`
     // A block registered by a module is rendered by that module's component on a page; here it leaves its place marked.
-    default: return `<div class="${name}" data-block="${escapeHtml(block.type)}"></div>`
+    default: return moduleHtml?.(block) ?? `<div class="${name}" data-block="${escapeHtml(block.type)}"></div>`
   }
 }
 
-export function documentHtml(document: MoboComDocument, registry: BlockRegistry): string {
-  return document.blocks.map((block) => blockHtml(block, registry)).join('\n')
+export function documentHtml(document: MoboComDocument, registry: BlockRegistry, moduleHtml?: ModuleBlockHtml): string {
+  return document.blocks.map((block) => blockHtml(block, registry, moduleHtml)).join('\n')
 }
 
 /** How many blocks of each type a document holds. */

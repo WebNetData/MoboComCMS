@@ -272,7 +272,7 @@ export function normalizeGamesSettings(input: unknown): GamesSettings {
   const rails: GamesSettings['rails'] = []
   for (const row of Array.isArray(raw.rails) ? raw.rails : []) {
     const key = String((row as Record<string, unknown>)?.key || '')
-    if (!(key in HOME_RAILS) || seen.has(key)) continue
+    if (!Object.hasOwn(HOME_RAILS, key) || seen.has(key)) continue
     seen.add(key)
     rails.push({ key: key as HomeRail, enabled: (row as Record<string, unknown>).enabled !== false })
   }

@@ -1,5 +1,7 @@
 'use client'
 
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
+
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { CINEMA_RAILS, type CinemaSettings } from '@/modules/cinema/domain/cinema'
@@ -11,12 +13,13 @@ type Picker = { id: number; title: string; poster: string; kind: string; year: n
 
 /** Film & series home layout (blocks, slider picks, shelf sizes) and display options. */
 export default function CinemaSettingsPage() {
-  const { data, error } = useJson<{ settings: CinemaSettings; picker: { titles: Picker[] } }>('/api/admin/cinema/settings')
+  const { data, error } = useJson<{ settingsRevision: string; settings: CinemaSettings; picker: { titles: Picker[] } }>('/api/admin/cinema/settings')
   const [form, setForm] = useState<CinemaSettings | null>(null)
+  const [revision, setRevision] = useState('')
   const [baseline, setBaseline] = useState<CinemaSettings | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings) } }, [data])
+  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings); setRevision(current => current || data.settingsRevision || '') } }, [data])
 
   if (!form) return <CinemaShell title="صفحهٔ اصلی و تنظیمات">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</CinemaShell>
   const set = (patch: Partial<CinemaSettings>) => { setMessage(null); setForm(current => current ? { ...current, ...patch } : current) }
@@ -26,16 +29,18 @@ export default function CinemaSettingsPage() {
     if (!form) return
     setBusy(true)
     const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline?.[key as keyof CinemaSettings])))
-    const response = await send<{ settings: CinemaSettings }>('/api/admin/cinema/settings', 'POST', patch)
+    const response = await send<{ settingsRevision: string; settings: CinemaSettings }>('/api/admin/cinema/settings', 'POST', patch, revision ? { 'if-match': revision } : {})
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings)
     setBaseline(response.data.settings)
+    setRevision(response.data.settingsRevision)
     setMessage({ tone: 'ok', text: 'تنظیمات ذخیره شد و صفحهٔ اصلی فیلم و سریال به‌روز است' })
   }
 
-  return <CinemaShell title="صفحهٔ اصلی و تنظیمات" actions={<><a href="/cinema" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
+  return <div className="cm-section-settings"><CinemaShell title="صفحهٔ اصلی و تنظیمات" actions={<><SectionSettingsHistoryLink section="cinema" /><a href="/cinema" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
+    <fieldset disabled={busy} className="sa-settings-fields" aria-label="تنظیمات بخش">
     <div className="sa-cols">
       <div className="sa-stack">
         <CinemaMetadataSettings />
@@ -73,5 +78,5 @@ export default function CinemaSettingsPage() {
         </section>
       </div>
     </div>
-  </CinemaShell>
+  </fieldset></CinemaShell></div>
 }

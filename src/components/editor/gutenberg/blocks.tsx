@@ -1,7 +1,7 @@
 'use client'
 
 import { Component, type ReactNode } from 'react'
-import { createBlock, getBlockType, registerBlockType, setCategories } from '@wordpress/blocks'
+import { createBlock, getBlockType, registerBlockType, unregisterBlockType, setCategories } from '@wordpress/blocks'
 import { InnerBlocks, InspectorControls, useBlockProps, useInnerBlocksProps, type EngineBlockObject } from '@wordpress/block-editor'
 import { PanelBody } from '@wordpress/components'
 import { UNSUPPORTED_BLOCK, engineName, newEngineAttributes, type EngineBlock } from '@/modules/editor/adapters/gutenberg/convert'
@@ -11,12 +11,14 @@ import { documentHtml } from '@/modules/editor/domain/render'
 import { textDirection, type RichTextDoc } from '@/modules/editor/domain/rich-text'
 import FieldControls from './FieldControls'
 import RichTextField from './RichTextField'
+import ModuleBlockPreview from './ModuleBlockPreview'
+import ModuleItemsControl from './ModuleItemsControl'
 
 // Every registered MoboCom block type becomes a Gutenberg block type with the same generic editing
 // component: its settings panel comes from its fields, and what it shows on the canvas is built by
 // the renderer the public page uses. A block type needs no editor code of its own.
 
-const CATEGORY_TITLES: Record<string, string> = { layout: 'چیدمان', content: 'محتوا', media: 'رسانه', store: 'فروشگاه', cinema: 'فیلم و سریال', music: 'موزیک', games: 'بازی', software: 'نرم‌افزار', forum: 'تالار', extension: 'افزونه‌ها' }
+const CATEGORY_TITLES: Record<string, string> = { layout: 'چیدمان', content: 'محتوا', media: 'رسانه', store: 'فروشگاه', journal: 'مجله', cinema: 'فیلم و سریال', music: 'موزیک', games: 'بازی', software: 'نرم‌افزار', forum: 'تالار', extension: 'افزونه‌ها' }
 
 const attributeType = (spec: FieldSpec) => (spec.kind === 'int' ? 'integer' : spec.kind === 'boolean' ? 'boolean' : spec.kind === 'list' ? 'array' : spec.kind === 'string' || spec.kind === 'enum' || spec.kind === 'url' ? 'string' : 'object')
 
@@ -43,6 +45,7 @@ function ContainerCanvas({ definition, className }: { definition: BlockDefinitio
 
 function LeafCanvas({ definition, attributes, setAttributes, registry, className, html }: { definition: BlockDefinition; attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void; registry: BlockRegistry; className: string; html: string }) {
   const blockProps = useBlockProps({ className: definition.type === 'content.richText' || definition.type === 'content.heading' ? className : 'mc-block-preview' })
+  if (definition.owner) return <div {...blockProps}><ModuleBlockPreview definition={definition} props={attributes} /></div>
   // The two blocks people write in are edited where they stand; every other block shows what the page will show.
   if (definition.type === 'content.richText') return <div {...blockProps}><RichTextField label={definition.label.fa} blockDirection={attributes.dir} value={(attributes.content as RichTextDoc) || (fieldDefault(definition.fields.content) as RichTextDoc)} onChange={(content) => setAttributes({ content })} /></div>
   if (definition.type === 'content.heading') {
@@ -60,7 +63,7 @@ function Edit({ definition, registry, attributes, setAttributes }: { definition:
   const hasPanel = Object.keys(definition.fields).some((name) => !onCanvas.includes(name))
   return (
     <BlockBoundary type={definition.type}>
-      {hasPanel ? <InspectorControls><PanelBody title={definition.label.fa} initialOpen><FieldControls schema={definition.fields} values={props} onChange={setAttributes} skip={onCanvas} /></PanelBody></InspectorControls> : null}
+      {hasPanel ? <InspectorControls><PanelBody title={definition.label.fa} initialOpen><FieldControls schema={definition.fields} values={props} onChange={setAttributes} skip={definition.dataSource?.kind === 'public-items' ? [...onCanvas, 'items'] : onCanvas} />{definition.dataSource?.kind === 'public-items' && props.source === 'selected' ? <ModuleItemsControl definition={definition} value={props.items} onChange={items => setAttributes({ items })} /> : null}</PanelBody></InspectorControls> : null}
       {definition.children ? <ContainerCanvas definition={definition} className={view.className} /> : <LeafCanvas definition={definition} attributes={props} setAttributes={setAttributes} registry={registry} className={view.className} html={view.html} />}
     </BlockBoundary>
   )
@@ -71,17 +74,13 @@ function UnsupportedEdit({ attributes }: { attributes: Record<string, unknown> }
   return <div {...useBlockProps({ className: 'mc-block-unsupported' })} role="note"><strong>بلوک پشتیبانی‌نشده: {String(stored?.type || 'ناشناخته')}</strong><span>ماژول یا افزونه‌ای که این بلوک را می‌سازد خاموش است، یا نسخهٔ آن تازه‌تر است. داده‌اش دست‌نخورده می‌ماند و با ذخیره حذف نمی‌شود.</span></div>
 }
 
-let registered = false
-
 /** Registers the MoboCom block types with the editing engine, once per page load. */
 export function registerMoboComBlocks(registry: BlockRegistry) {
-  if (registered) return
-  registered = true
   const used = [...new Set(registry.list().map((definition) => definition.category))]
   setCategories(used.map((slug) => ({ slug, title: CATEGORY_TITLES[slug] || slug, icon: null })))
   for (const definition of registry.list()) {
     const name = engineName(definition.type)
-    if (getBlockType(name)) continue
+    if (getBlockType(name)) unregisterBlockType(name)
     registerBlockType(name, {
       apiVersion: 3, title: definition.label.fa, description: definition.label.en, category: definition.category, icon: 'block-default',
       attributes: { mcId: { type: 'string' }, mcVersion: { type: 'integer', default: definition.version }, ...Object.fromEntries(Object.entries(definition.fields).map(([field, spec]) => [field, { type: attributeType(spec), default: fieldDefault(spec) }])) },

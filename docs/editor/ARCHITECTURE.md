@@ -1,8 +1,10 @@
 # The block editor
 
-Status: **Phase 1 is in the code, and the block editor is the site's main editor** for pages and magazine articles: a plugin (`src/plugins/block-editor`) that is on unless switched off on the extensions page, reached from the pages and articles forms, with an old body turned into blocks when it is opened. Phase 2 has not been started.
+Status2026-10-19: **the block editor is the site's canonical document editor** for pages and magazine articles. The existing plugin switch, explicit legacy conversion, tables and semantic formatting remain. Ten module-owned public catalogue blocks now share schemas with the browser and render live data. Broader Phase2 templates/patterns/locking remain separate work. [Current contracts, evidence and limits](../agent/handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md).
 
 ## What was found in the repository first
+
+This table is the initial historical audit, not the current dependency or Media capability inventory. Current owners are linked in the handoff above.
 
 | Question | Answer in this codebase |
 | --- | --- |
@@ -78,19 +80,7 @@ H1 is not allowed anywhere in a document: the page's own title is the H1.
 
 ## The registry (`domain/registry.ts`, `domain/core-blocks.ts`)
 
-```ts
-registry.register({
-  type: 'store.productGrid', version: 1, category: 'store', kind: 'dynamic',
-  label: { fa: 'شبکهٔ محصول', en: 'Product grid' }, icon: 'grid',
-  fields: {
-    source: { kind: 'enum', values: ['latest', 'category'], default: 'latest' },
-    categoryId: { kind: 'int', min: 0, max: 1e9, default: 0 },
-    limit: { kind: 'int', min: 1, max: 24, default: 8 },
-    columns: { kind: 'responsive', of: { kind: 'int', min: 1, max: 6, default: 4 } },
-  },
-  owner: 'store',
-})
-```
+Module schemas live with their owners in `src/modules/<owner>/domain/editor-blocks.ts`. Trusted composition is `server/blocks/contributions.ts`; shared public-item field defaults are in `domain/module-blocks.ts`. Read those maintained definitions instead of copying another schema here.
 
 - `kind: 'static'`: everything shown is in the props. `kind: 'dynamic'`: the props are a question (which products, how many); the answer is fetched when the page is rendered. A dynamic block never stores a copy of a product or a film.
 - `children`: which blocks it may hold. `parents`: where it may sit. A `layout.column` only sits in `layout.columns`.
@@ -99,7 +89,7 @@ registry.register({
 
 Core blocks: `layout.section`, `layout.container`, `layout.columns`, `layout.column`, `layout.stack`, `layout.spacer`, `layout.divider`, `content.richText`, `content.heading`, `content.image`, `content.gallery`, `content.embed`, `content.button`, `content.buttonGroup`, `content.quote`, `content.callout`, `content.faq`.
 
-`createRegistry(extra)` returns the core blocks plus those passed in. How modules and extensions hand in theirs is step 2.
+`createRegistry(extra)` returns the core blocks plus those passed in. Trusted module contributions now compose through `server/blocks/contributions.ts` and the same public `registerModuleBlocks` address. `activeEditorRegistry` filters effective owners per request; serializable descriptors share that schema with the browser after server migrations. See the current handoff before adding a contribution.
 
 ## Checking (`domain/validate.ts`)
 
@@ -113,7 +103,7 @@ A document whose own `version` is not known is refused whole.
 
 - `documentFacts`: plain text, headings, links, images, images without a description. Worked out from the field declarations, so a new block type needs no code here.
 - `headingProblems`: heading levels that skip a step.
-- `documentHtml`: semantic HTML with every value escaped and layout choices as class names from closed lists (`mcb-cols-desktop-3`). For feeds, e-mail and the stored plain copy. Pages will be rendered by React components of the theme (step 2), not by this.
+- `documentHtml`: semantic HTML with every value escaped and layout choices as class names from closed lists (`mcb-cols-desktop-3`). Generated storage/feed copies remain synchronous. Public pages/articles now use `publicBlocksHtml`, which supplies bounded current public module output to the same renderer; no copied catalogue data or engine markup is stored.
 
 ## Security
 
@@ -128,7 +118,7 @@ A document whose own `version` is not known is refused whole.
 
 ## Storage and pages (step 2)
 
-**Pages are the first kind of item written in blocks.** Posts, products and media items stay as they are.
+**Pages and magazine articles use canonical block documents.** Products and specialist media descriptions retain their existing editors.
 
 | Column of `Page` | Holds |
 | --- | --- |
@@ -214,19 +204,19 @@ The owner's decision (2026-10-07): the block editor is the editor of the site, n
 
 ## What is not built
 
-- **Blocks from modules in the editor's browser side.** The editing screen builds its registry from the core blocks; `registerModuleBlocks` is known to the server only. A module's block is validated and stored, and shows as unsupported in the editor until the screen is given the same list.
-- React components for blocks that modules register; one renderer shared by the canvas and the page exists for the core blocks only.
+- Broader templates, patterns, locking and reusable blocks remain outside the ten implemented public module integrations. The generic module preview/selection adapter and public renderer already exist; future specialized compositions need their own evidence.
 - **There is no English body field.** The site is written in one language and translated by Google Translate (owner, 2026-10-07): the pages and articles forms no longer show `contentEn`. The column and what it holds are kept; an item that has an English body still shows it to a visitor reading in English.
 - Products, games, software and other items: their descriptions are still written in the old editor.
-- Extensions registering blocks.
+- Uploaded executable block implementations are not supported. Trusted build-time extensions can use the existing validated registry/renderer contribution address.
 - Existing asset fields already compose shared LibraryPicker in FieldControls.tsx, in addition to upload/address entry. Do not recreate a gallery. Full browser coverage of every asset/list-field combination is not part of this slice.
 - Labels for the values of a choice (`container`, `narrow`, …) are shown as they are stored. Field names have Persian labels.
 - Tables and semantic text colour/highlight are implemented in the existing toolbar and renderer; valid legacy tables carry into the explicit first-save conversion. Unsupported inline images/foreign frames remain disclosed omissions.
 
-Phase 2 (patterns, templates, locking, reusable blocks, responsive previews, domain blocks) and Phase 3 start after this has been used.
+Broader Phase2 (patterns, templates, locking, reusable blocks, responsive editing previews) and Phase3 remain future scope. Domain blocks are partially delivered by the ten public integrations above.
 
 ## Known limits
 
 - A block asset stores the file's address, not a Library asset foreign key. The shared Library has its own IDs; the existing picker returns the address and descriptive metadata.
-- `documentHtml` knows the core blocks by name. A block from a module leaves a marked empty element there; its page rendering is the module's component.
-- Table bounds are100 rows/20 columns and forbid nesting. Module/browser registry and dynamic-renderer limitations above remain.
+- Synchronous `documentHtml`/`blocksHtml` retain module placeholders for compatibility/generated HTML. Actual public pages/articles and guarded preview use the asynchronous live rendering address. Plugin-off preserves public output; disabled owners hide their output and retain raw blocks.
+- Table bounds are100 rows/20 columns and forbid nesting. Module rendering is bounded to20 blocks,24 items per block and four concurrent tasks; it is not a production-load certification.
+- Full canonical document JSON is preserved in history; restores validate it and regenerate derived HTML. Already-truncated old snapshots are refused safely, not reconstructed.

@@ -10,5 +10,5 @@ export default function BlockEditorPage() {
   const params = useParams<{ entity: string; id: string }>()
   const id = Number(params.id)
   if ((params.entity !== 'pages' && params.entity !== 'posts') || !Number.isInteger(id) || id < 1) return <div className="mc-editor-message" role="alert">پیدا نشد.</div>
-  return <BlockEditorApp entity={params.entity} itemId={id} />
+  return <BlockEditorApp key={`${params.entity}:${id}`} entity={params.entity} itemId={id} />
 }

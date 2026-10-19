@@ -1,3 +1,4 @@
+import { sectionSettingsRead, sectionSettingsWrite } from '@/modules/settings/server/http/section-history'
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
@@ -68,15 +69,15 @@ export async function GET_dashboard(req: NextRequest) {
 export async function GET_settings(req: NextRequest) {
   const g = await softwareAdmin(req)
   if ('response' in g) return g.response
-  const [settings, picker] = await Promise.all([getSoftwareSettings(), (async () => ({ titles: await softwarePicker() }))()])
-  return ok({ settings, picker })
+  return sectionSettingsRead(async () => {
+    const [settings, titles] = await Promise.all([getSoftwareSettings(true), softwarePicker()])
+    return { settings, picker: { titles } }
+  })
 }
 
 /** POST /api/admin/software/settings */
 export async function POST_settings(req: NextRequest) {
   const g = await adminGuard(req, 'software', ['software.manage', 'settings.manage'])
   if ('response' in g) return g.response
-  const settings = await saveSoftwareSettings(await req.json().catch(() => ({})))
-  await auditAdmin({ req, actor: g.admin, action: 'software.settings.update', targetType: 'setting', targetId: 0, metadata: { rails: settings.rails.filter((rail) => rail.enabled).length } })
-  return ok({ settings })
+  return sectionSettingsWrite(req, g.admin, saveSoftwareSettings)
 }

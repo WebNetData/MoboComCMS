@@ -11,7 +11,10 @@ export async function restorePageRevision(id: number, snapshot: Snapshot, commit
   return db.$transaction(async tx => {
     const before = await tx.page.findUnique({ where: { id } })
     if (!before) throw new RevisionError('این صفحه پیدا نشد', 404)
-    const changed = await tx.page.updateMany({ where: { id, updatedAt: before.updatedAt }, data: restoreValues(snapshot, before) })
+    const data = restoreValues(snapshot, before)
+    const { restoredDocumentFields } = await import('@/modules/editor/server/documents')
+    Object.assign(data, restoredDocumentFields(before, data))
+    const changed = await tx.page.updateMany({ where: { id, updatedAt: before.updatedAt }, data })
     if (!changed.count) throw new RevisionError('صفحه هم‌زمان تغییر کرده است', 409)
     const after = await tx.page.findUniqueOrThrow({ where: { id } })
     await commit(tx, before, after)
@@ -31,6 +34,8 @@ export async function restorePostRevision(id: number, snapshot: Snapshot, commit
     const before = await postRevisionState(id, tx)
     if (!before) throw new RevisionError('این نوشته پیدا نشد', 404)
     const data = restoreValues(snapshot, before), raw = data.__relations
+    const { restoredDocumentFields } = await import('@/modules/editor/server/documents')
+    Object.assign(data, restoredDocumentFields(before, data))
     delete data.__relations
     if (raw !== undefined) {
       const relations = JSON.parse(String(raw)), ids = relations.categoryIds

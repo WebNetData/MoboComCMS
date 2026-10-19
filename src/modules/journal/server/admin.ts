@@ -1,23 +1,24 @@
 import { db } from '@/platform/database/prisma'
 import { plainText } from '@/shared/text/plain'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { JOURNAL_HEALTH, livePostWhere, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
 
 // Journal admin: Liona home settings, editorial dashboard and pickers.
 
 const SETTINGS_KEY = 'journal.home.v1'
+const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-journal', normalizeJournalSettings, settings => ({ rails: settings.rails.filter(rail => rail.enabled).length }))
+export const journalSettingsState = () => settingsHistory().current()
+export const restoreJournalSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const DASHBOARD_PAGE = 500
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 
-export async function getJournalSettings(): Promise<JournalSettings> {
-  return normalizeJournalSettings(await readJsonSetting(SETTINGS_KEY))
+export async function getJournalSettings(fresh = false): Promise<JournalSettings> {
+  return fresh ? settingsHistory().read() : normalizeJournalSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
-export async function saveJournalSettings(input: unknown): Promise<JournalSettings> {
-  const next = normalizeJournalSettings(input)
-  await writeJsonSetting(SETTINGS_KEY, next)
-  return next
+export async function saveJournalSettings(input: unknown, context?: SectionSettingsContext): Promise<JournalSettings> {
+  return settingsHistory().save(input, context)
 }
 
 export async function journalDashboard(now = new Date()) {

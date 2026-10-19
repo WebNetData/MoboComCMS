@@ -24,6 +24,38 @@ const v = load('src/modules/editor/domain/validate')
 const r = load('src/modules/editor/domain/render')
 
 const registry = core.createRegistry()
+test('module descriptors use the same owner schemas without sending executable migrations to the browser', () => {
+  const { blockDescriptors, registryFromDescriptors } = load('src/modules/editor/domain/descriptors')
+  const { publicItemsBlock } = load('src/modules/editor/domain/module-blocks')
+  const definition = publicItemsBlock('cinema.fixtureGrid', 'cinema', 'cinema', 'title', { fa: 'فیلم‌ها', en: 'Films' })
+  const server = core.createRegistry([definition]), descriptors = JSON.parse(JSON.stringify(blockDescriptors(server))), browser = registryFromDescriptors(descriptors)
+  assert.ok(!descriptors.some(item => Object.hasOwn(item, 'migrate')))
+  assert.deepEqual(fields.defaultProps(browser.get(definition.type).fields).columns, { desktop: 3, tablet: 2, mobile: 1 })
+  assert.equal(browser.get(definition.type).owner, 'cinema')
+  const old = { version: 1, blocks: [{ id: 'old_block', type: 'content.richText', version: 1, props: { content: { type: 'doc', content: [] } } }] }
+  assert.equal(v.checkDocument(old, server).document.blocks[0].version, 2, 'server owns real migrations')
+  assert.deepEqual(v.checkDocument(old, browser).document.blocks, old.blocks, 'browser never invents a migration for old pasted data')
+  assert.equal(v.checkDocument(old, browser).unsupported.length, 1)
+  assert.throws(() => new BlockRegistry().register({ ...server.get('content.richText'), migrate: undefined }), /migration/)
+})
+test('module traversal is bounded and never inspects children of unsupported blocks', () => {
+  const { publicItemsBlock, moduleBlocks, MODULE_BLOCK_LIMIT } = load('src/modules/editor/domain/module-blocks')
+  const definition = publicItemsBlock('music.fixtureGrid', 'music', 'music', 'track', { fa: 'آهنگ‌ها', en: 'Tracks' }), server = core.createRegistry([definition])
+  const list = Array.from({ length: 40 }, (_, index) => ({ id: 'module_' + index, type: definition.type, version: 1, props: fields.defaultProps(definition.fields) }))
+  const hidden = { id: 'unknown_parent', type: 'future.container', version: 1, props: {}, children: list }
+  assert.equal(moduleBlocks({ version: 1, blocks: [hidden] }, server).length, 0)
+  assert.equal(moduleBlocks({ version: 1, blocks: list }, server).length, MODULE_BLOCK_LIMIT + 1, 'one extra proves the save limit without traversing everything')
+  const nested = { version: 1, blocks: [{ id: 'container_a', type: 'layout.container', version: 1, props: { width: 'wide', align: 'start' }, children: [list[0]] }] }
+  const html = r.documentHtml(nested, server, item => item.id === list[0].id ? '<p>trusted render</p>' : undefined)
+  assert.match(html, /mcb-layout-container[\s\S]*<p>trusted render<\/p>/)
+})
+test('history preserves complete canonical JSON rather than storing an un-restorable truncated document', () => {
+  const { snapshotOf } = load('src/modules/content/domain/revisions')
+  const contentDocument = JSON.stringify({ version: 1, blocks: [{ id: 'large_block', type: 'future.large', version: 1, props: { text: 'x'.repeat(240000) } }] })
+  const result = snapshotOf({ contentDocument, miscellaneous: 'x'.repeat(240000), apiKey: 'private-fixture' })
+  assert.equal(result.contentDocument, contentDocument); assert.equal(JSON.parse(result.contentDocument).blocks.length, 1)
+  assert.equal(result.miscellaneous.length, 200000); assert.equal(result.apiKey, undefined)
+})
 const text = (value, marks) => ({ type: 'text', text: value, ...(marks ? { marks } : {}) })
 const para = (...content) => ({ type: 'paragraph', content })
 const richDoc = (...content) => ({ type: 'doc', content })

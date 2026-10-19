@@ -1,5 +1,7 @@
 'use client'
 
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
+
 import { useEffect, useState } from 'react'
 import { GamesShell, Notice, send, useJson } from '../shared'
 import { HOME_RAILS, type GamesSettings, type HomeRail } from '@/modules/games/domain/games'
@@ -8,13 +10,15 @@ type Game = { id: number; title: string; cover: string; status: string }
 
 /** Games home layout (hero picks, rail order and visibility) and portal options. */
 export default function GamesSettingsPage() {
-  const { data, error } = useJson<{ settings: GamesSettings }>('/api/admin/games/settings')
+  const { data, error } = useJson<{ settingsRevision: string; settings: GamesSettings }>('/api/admin/games/settings')
   const games = useJson<{ games: Game[] }>('/api/admin/games/list?status=published&sort=title&size=500')
   const [form, setForm] = useState<GamesSettings | null>(null)
+  const [baseline, setBaseline] = useState<GamesSettings | null>(null)
+  const [revision, setRevision] = useState('')
   const [pick, setPick] = useState('')
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { if (data) setForm(data.settings) }, [data])
+  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings); setRevision(current => current || data.settingsRevision || '') } }, [data])
 
   if (!form) return <GamesShell title="صفحهٔ اصلی و تنظیمات">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</GamesShell>
   const set = (patch: Partial<GamesSettings>) => { setMessage(null); setForm({ ...form, ...patch }) }
@@ -30,15 +34,19 @@ export default function GamesSettingsPage() {
   async function save() {
     if (!form) return
     setBusy(true)
-    const response = await send<{ settings: GamesSettings }>('/api/admin/games/settings', 'POST', form)
+    const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline?.[key as keyof GamesSettings])))
+    const response = await send<{ settingsRevision: string; settings: GamesSettings }>('/api/admin/games/settings', 'POST', patch, revision ? { 'if-match': revision } : {})
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings)
+    setBaseline(response.data.settings)
+    setRevision(response.data.settingsRevision)
     setMessage({ tone: 'ok', text: 'تنظیمات ذخیره شد و صفحهٔ اصلی بازی به‌روز است' })
   }
 
-  return <GamesShell title="صفحهٔ اصلی و تنظیمات" actions={<><a href="/games" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
+  return <div className="cm-section-settings"><GamesShell title="صفحهٔ اصلی و تنظیمات" actions={<><SectionSettingsHistoryLink section="games" /><a href="/games" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
+    <fieldset disabled={busy} className="sa-settings-fields" aria-label="تنظیمات بخش">
     <div className="sa-cols">
       <div className="sa-stack">
         <section className="sa-card">
@@ -66,5 +74,5 @@ export default function GamesSettingsPage() {
         </section>
       </div>
     </div>
-  </GamesShell>
+  </fieldset></GamesShell></div>
 }

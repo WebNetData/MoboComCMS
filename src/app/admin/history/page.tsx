@@ -11,12 +11,16 @@ type Detail = { version: number; source: string; by: string; at: string; diff: {
 const SOURCE: Record<string, string> = { baseline: 'وضعیت پیش از ثبت نسخه‌ها', edit: 'ویرایش', restore: 'بازگردانی', import: 'ورود گروهی' }
 const fa = (value: number) => value.toLocaleString('fa-IR')
 const FIELD_NAMES: Record<string, string> = { __relations: 'روابط محتوا', title: 'عنوان', name: 'نام', summary: 'خلاصه', description: 'توضیحات', content: 'متن', categoryId: 'دسته‌بندی', year: 'سال', image: 'عکس', cover: 'کاور', status: 'وضعیت', supportEmail: 'ایمیل پشتیبانی', supportTelegram: 'تلگرام پشتیبانی', siteUrl: 'نشانی سایت', usdRateToman: 'نرخ دلار', seoDescription: 'توضیحات جست‌وجو', ogImage: 'تصویر اشتراک‌گذاری', googleVerification: 'تأیید گوگل', subscriptionPrefix: 'پیشوند اشتراک', storeEnabled: 'فروشگاه', publicApiEnabled: 'API عمومی', personalRecommendationsEnabled: 'پیشنهادهای شخصی', imagesMinTrust: 'سطح درج تصویر', linksMinTrust: 'سطح درج پیوند', newUserMaxLinks: 'پیوندهای تازه‌وارد', newUserTopicsPerDay: 'موضوع روزانه', editWindowHours: 'مهلت ویرایش', flagHideWeight: 'وزن گزارش', maxTagsPerTopic: 'تعداد برچسب', membersCreateTags: 'ساخت برچسب', reactions: 'واکنش‌ها', reactionWeights: 'وزن واکنش‌ها', trust: 'سطح اعتماد', approveNewUserPosts: 'تأیید پیام‌های نخست', messagesEnabled: 'پیام خصوصی', messagesMinTrust: 'سطح پیام خصوصی', pollsMinTrust: 'سطح نظرسنجی', watchedWords: 'واژه‌های تحت نظر', clubsEnabled: 'کلوب‌ها', clubsMinTrust: 'سطح ایجاد کلوب', clubsMaxOwned: 'تعداد کلوب', levels: 'درجه‌های کاربری' }
-const fieldName = (field: string) => FIELD_NAMES[field] || field
+const SECTION_FIELD_NAMES: Record<string, string> = { rails: 'چیدمان بخش‌ها', heroIds: 'اسلایدر', editorIds: 'انتخاب سردبیر', blockCategoryIds: 'دسته‌های صفحهٔ اصلی', pageSize: 'تعداد مطالب', autoApproveComments: 'تأیید خودکار نظرها', shelfSize: 'اندازهٔ قفسه', genreShelfCount: 'قفسه‌های ژانر', topRatedMin: 'حداقل امتیاز برترین‌ها', showImdb: 'نمایش امتیاز IMDb', personFollowEnabled: 'دنبال‌کردن عوامل', showPersonBiography: 'زندگی‌نامهٔ عوامل', enableAssSubtitles: 'زیرنویس دارای استایل', enableSeparateAudio: 'صدای جداگانه', heroTrackIds: 'آهنگ‌های اسلایدر', featuredAlbumIds: 'آلبوم‌های ویژه', chartSize: 'اندازهٔ جدول', chartSource: 'منبع جدول', latestSize: 'تعداد تازه‌ترین‌ها', showLyrics: 'نمایش ترانه', showArtistBiography: 'زندگی‌نامهٔ هنرمند', showArtistFollow: 'دنبال‌کردن هنرمند', showRelatedTracks: 'آهنگ‌های مرتبط', libraryEnabled: 'کتابخانهٔ کاربران', showMemberScore: 'نمایش نمرهٔ کاربران', newsKeywords: 'کلیدواژه‌های قدیمی', categoryShelfCount: 'قفسه‌های دسته‌بندی', newsCount: 'تعداد خبرها', suggestionIds: 'انتخاب نرم‌افزارها', staleDays: 'مهلت تازگی' }
+const SETTINGS_FORMS: Record<string, { label: string; href: string }> = { 'settings-general': { label: 'عمومی', href: '/admin/settings' }, 'settings-forum': { label: 'تالار', href: '/admin/forum?tab=settings' }, ...Object.fromEntries([['journal', 'مجله'], ['cinema', 'فیلم و سریال'], ['music', 'موزیک'], ['games', 'بازی'], ['software', 'نرم‌افزار']].map(([section, label]) => [`settings-${section}`, { label, href: `/admin/${section}/settings` }])) }
+const fieldName = (field: string) => FIELD_NAMES[field] || SECTION_FIELD_NAMES[field] || field
+const valueText = (value: string) => value === 'true' ? 'فعال' : value === 'false' ? 'غیرفعال' : value || '—'
 const when = (iso: string) => new Intl.DateTimeFormat('fa-IR-u-ca-persian', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' }).format(new Date(iso))
 
 function History() {
   const params = useSearchParams()
   const type = params.get('type') || '', id = params.get('id') || ''
+  const settingsForm = Object.hasOwn(SETTINGS_FORMS, type) ? SETTINGS_FORMS[type] : null
   const base = `/api/admin/history?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`
   const [versions, setVersions] = useState<Version[] | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -38,7 +42,7 @@ function History() {
   }
 
   async function restore(version: number) {
-    if (!window.confirm(type.startsWith('settings-') ? `تنظیمات ثبت‌شده به نسخهٔ ${fa(version)} برگردد؟ این کار روی تنظیمات فعال سایت اعمال و خودش هم ثبت می‌شود. اطلاعات محرمانه و تنظیمات ناشناخته بازگردانی نمی‌شوند. تغییر وزن واکنش‌های تالار، بازشماری سابقهٔ واکنش‌ها را در صف قرار می‌دهد.` : `محتوا و روابط ثبت‌شدهٔ این مورد به نسخهٔ ${fa(version)} برگردد؟ خود این بازگردانی هم ثبت می‌شود. نسخه‌های قدیمیِ بدون روابط، روابط فعلی را حفظ می‌کنند. قیمت، موجودی و تاریخچهٔ مالی محصول برنمی‌گردد. لینک‌های حذف‌شده از نسخه غیرفعال می‌شوند و محدودیت‌های نظارتی حفظ می‌شوند.`)) return
+    if (!window.confirm(type.startsWith('settings-') ? `تنظیمات ثبت‌شده به نسخهٔ ${fa(version)} برگردد؟ این کار روی تنظیمات فعال سایت اعمال و خودش هم ثبت می‌شود. اطلاعات محرمانه و تنظیمات ناشناخته بازگردانی نمی‌شوند.${type === 'settings-forum' ? ' تغییر وزن واکنش‌های تالار، بازشماری سابقهٔ واکنش‌ها را در صف قرار می‌دهد.' : ''}` : `محتوا و روابط ثبت‌شدهٔ این مورد به نسخهٔ ${fa(version)} برگردد؟ خود این بازگردانی هم ثبت می‌شود. نسخه‌های قدیمیِ بدون روابط، روابط فعلی را حفظ می‌کنند. قیمت، موجودی و تاریخچهٔ مالی محصول برنمی‌گردد. لینک‌های حذف‌شده از نسخه غیرفعال می‌شوند و محدودیت‌های نظارتی حفظ می‌شوند.`)) return
     setBusy(true); setMessage(null)
     const response = await fetch('/api/admin/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, id: Number(id), version }) }).catch(() => null)
     const body = await response?.json().catch(() => null)
@@ -50,7 +54,7 @@ function History() {
 
   const newest = versions?.[0]?.version
   return <div className="sa cm-history" dir="rtl">
-    <header className="sa-head"><div><h1>تاریخچهٔ نسخه‌ها</h1><p className="sa-sub"><bdi dir="ltr">{type} #{id}</bdi> · پس از هر ذخیره، فیلدهای خودِ مورد به‌صورت یک نسخه نگه داشته می‌شود.</p></div><Link className="btn btn-ghost btn-sm" href={`/admin/audit?targetType=${encodeURIComponent(type)}&targetId=${encodeURIComponent(id)}`}>رخدادهای ممیزی این مورد</Link></header>
+    <header className="sa-head"><div><h1>{settingsForm ? `تاریخچهٔ تنظیمات ${settingsForm.label}` : 'تاریخچهٔ نسخه‌ها'}</h1><p className="sa-sub"><bdi dir="ltr">{type} #{id}</bdi> · پس از هر ذخیره، فیلدهای خودِ مورد به‌صورت یک نسخه نگه داشته می‌شود.</p></div><div className="sa-head-actions">{settingsForm && <Link className="btn btn-ghost btn-sm" href={settingsForm.href}>بازگشت به تنظیمات</Link>}<Link className="btn btn-ghost btn-sm" href={`/admin/audit?targetType=${encodeURIComponent(type)}&targetId=${encodeURIComponent(id)}`}>رخدادهای ممیزی این مورد</Link></div></header>
     {message && <p className={`sa-notice ${message.error ? 'is-error' : 'is-ok'}`} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
     <section className="sa-card" aria-label="نسخه‌ها">
       {!versions ? <p className="sa-sub">در حال دریافت…</p> : versions.length ? <ul className="sa-rows">{versions.map((row) => <li key={row.version} className="sa-code-row">
@@ -69,7 +73,7 @@ function History() {
       <header className="sa-card-head"><h2>نسخهٔ {fa(detail.version)} چه چیزی را عوض کرد</h2></header>
       {detail.diff.length ? <div className="sa-table-wrap"><table className="data sa-table" style={{ minWidth: 0 }}>
         <thead><tr><th>فیلد</th><th>قبل</th><th>بعد</th></tr></thead>
-        <tbody>{detail.diff.map((row) => <tr key={row.field}><td dir="ltr">{fieldName(row.field)}</td><td dir="auto">{row.before || '—'}</td><td dir="auto">{row.after || '—'}</td></tr>)}</tbody>
+        <tbody>{detail.diff.map((row) => <tr key={row.field}><td dir="auto">{fieldName(row.field)}</td><td dir="auto">{valueText(row.before)}</td><td dir="auto">{valueText(row.after)}</td></tr>)}</tbody>
       </table></div> : <p className="sa-sub">این نسخه نقطهٔ شروع است و نسخهٔ قبلی ندارد.</p>}
     </section>}
   </div>

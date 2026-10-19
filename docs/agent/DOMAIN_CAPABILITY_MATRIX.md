@@ -1,5 +1,7 @@
 # Domain capability maturity matrix
 
+Scoped update2026-10-19: ten public module blocks and five portal-settings history adapters are locally functional in the existing Editor/Content/Settings owners. [Exact scope and evidence](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md). This closes the named browser-registry/rendering gap and extends General/Forum history; it does not promote whole domain cells, arbitrary settings, templates or production maturity. The original matrix snapshot below remains historical evidence.
+
 Snapshot: 2026-10-10, branch `fix/editor-maintenance-safety`, current working tree over `main` `0e196a9`. This is the domain view of [CAPABILITY_LEDGER](CAPABILITY_LEDGER.md), not another implementation registry. The ledger keeps findings and executed checks; this matrix assesses the broader mandate. Only scoped structural inspection was performed for this snapshot. Historic ledger checks are not blanket re-verification.
 
 ## Status and evidence rules

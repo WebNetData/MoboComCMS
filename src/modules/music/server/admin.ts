@@ -1,26 +1,23 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { MUSIC_HEALTH, normalizeMusicSettings, trackIssues, type MusicHealth, type MusicSettings } from '@/modules/music/domain/music'
-import { parseSettingsInput } from '@/shared/section-layout'
 
 // Music admin: home layout settings, catalogue dashboard and pickers.
 
 const SETTINGS_KEY = 'music.portal.v1'
+const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-music', normalizeMusicSettings, settings => ({ rails: settings.rails.filter(rail => rail.enabled).length }))
+export const musicSettingsState = () => settingsHistory().current()
+export const restoreMusicSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const DASHBOARD_PAGE = 500
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 
 export async function getMusicSettings(fresh = false): Promise<MusicSettings> {
-  return normalizeMusicSettings(await readJsonSetting(SETTINGS_KEY, fresh ? db : undefined))
+  return fresh ? settingsHistory().read() : normalizeMusicSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
-export async function saveMusicSettings(input: unknown): Promise<MusicSettings> {
-  const raw = parseSettingsInput(input)
-  return updateJsonSetting(SETTINGS_KEY, async value => {
-    const next = normalizeMusicSettings({ ...value, ...raw })
-    Object.assign(value, next)
-    return next
-  })
+export async function saveMusicSettings(input: unknown, context?: SectionSettingsContext): Promise<MusicSettings> {
+  return settingsHistory().save(input, context)
 }
 
 export async function musicDashboard(now = new Date()) {

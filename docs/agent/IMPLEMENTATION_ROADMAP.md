@@ -1,5 +1,7 @@
 # Incremental platform roadmap
 
+Scoped delivery2026-10-19: the existing canonical editor now shares ten module-owned schemas with the browser, resolves public catalogue output at read time and offers guarded searchable manual selection/preview. Five more portal-settings forms compose existing atomic history. [Current continuation and exact evidence](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md). These named gaps are closed; broader compositions, other owner forms and production evidence remain bounded follow-ups. Do not restart those delivered capabilities from the historical queue below.
+
 Updated 2026-10-10 from the current working tree, not a new implementation branch. This is a queue of safe vertical slices, not a claim of benchmark parity. See the [matrix](DOMAIN_CAPABILITY_MATRIX.md) for inspected owners and [contracts](contracts/platform-evolution.md) for target semantics. Preserve existing incomplete work, data, permission keys, APIs, URLs and protected designs.
 
 Priority: P0 release safety / security, P1 platform foundation, P2 domain maturity, P3 advanced parity. Risk: H identity/money/migration/trusted execution, M scoped extension/UI workflow, L documentation. Each implementation slice starts with `mobocom-audit`, then `mobocom-spec` for substantial contracts, then `mobocom-develop`; load extensions/contracts/release only for their actual scope.

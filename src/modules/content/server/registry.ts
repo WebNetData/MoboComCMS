@@ -161,3 +161,9 @@ export async function searchItemCards(q: unknown, types: readonly ItemType[], ta
   const pages = await Promise.all(wanted.map((type) => load(type, { q: text }, limit)))
   return pages.flat().slice(0, limit)
 }
+
+/** A small live catalogue rail using exactly the canonical card publication and module guards. */
+export async function latestItemCards(type: ItemType, take = 6): Promise<ItemCard[]> {
+  if (!(await enabledItemTypes()).includes(type)) return []
+  return load(type, {}, Math.max(1, Math.min(24, Number(take) || 6)))
+}
