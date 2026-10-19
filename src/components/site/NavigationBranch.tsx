@@ -36,10 +36,14 @@ export default function NavigationBranch({ link, children, inline = false, onNav
       const gutter = 12, available = window.innerWidth - gutter * 2
       const width = Math.min(mega ? Math.min(1120, Math.max(320, surface.width)) : 340, available)
       const rtl = getComputedStyle(el).direction === 'rtl'
-      const desired = mega ? surface.left + (surface.width - width) / 2 : rtl ? rect.right - width : rect.left
-      const top = Math.min(rect.bottom + 10, window.innerHeight - 100)
+      // Both kinds open from their own tab: its outer edge lines up with the panel's (clamped to the window).
+      const desired = rtl ? rect.right - width : rect.left
+      const top = Math.min(rect.bottom + 8, window.innerHeight - 100)
       if (rect.bottom <= 0 || rect.top >= window.innerHeight) { setOpen(false); return }
-      setPosition({ left: Math.max(gutter, Math.min(desired, window.innerWidth - width - gutter)), top: Math.max(gutter, top), width, maxHeight: Math.max(80, Math.min(window.innerHeight * .74, window.innerHeight - Math.max(gutter, top) - gutter)) })
+      const left = Math.max(gutter, Math.min(desired, window.innerWidth - width - gutter))
+      // Where the tab's middle falls on the panel's top edge, for the mark that ties the two together.
+      const caret = Math.max(28, Math.min(width - 28, rect.left + rect.width / 2 - left))
+      setPosition({ left, top: Math.max(gutter, top), width, maxHeight: Math.max(80, Math.min(window.innerHeight * .74, window.innerHeight - Math.max(gutter, top) - gutter)), '--navigation-caret': `${caret}px` } as CSSProperties)
     }
     place()
     const scroll = (event: Event) => { if (!(event.target instanceof Node) || !panel.current?.contains(event.target)) setOpen(false) }
@@ -71,7 +75,7 @@ export default function NavigationBranch({ link, children, inline = false, onNav
       <NavigationItems links={link.children} mega={mega} onNavigate={navigate} />
     </nav>}
   </div>
-  return <div ref={root} data-navigation-branch="" data-menu-display={link.menuDisplay || 'dropdown'} className={`${styles.branch}${inline ? ` ${styles.inline}` : ''}`} onPointerEnter={event => { if (!inline && event.pointerType === 'mouse') { clear(); timer.current = setTimeout(() => setOpen(true), 110) } }} onPointerLeave={inline ? undefined : leave} onKeyDown={event => { if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); dismiss(true) } }} onBlur={event => { if (event.relatedTarget instanceof Node && !owns(event.relatedTarget)) dismiss() }} onClickCapture={event => { if (event.target instanceof Element && event.target.closest('a[href]')) navigate() }}>
+  return <div ref={root} data-navigation-branch="" data-open={open ? '' : undefined} data-menu-display={link.menuDisplay || 'dropdown'} className={`${styles.branch}${inline ? ` ${styles.inline}` : ''}`} onPointerEnter={event => { if (!inline && event.pointerType === 'mouse') { clear(); timer.current = setTimeout(() => setOpen(true), 110) } }} onPointerLeave={inline ? undefined : leave} onKeyDown={event => { if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); dismiss(true) } }} onBlur={event => { if (event.relatedTarget instanceof Node && !owns(event.relatedTarget)) dismiss() }} onClickCapture={event => { if (event.target instanceof Element && event.target.closest('a[href]')) navigate() }}>
     <div className={styles.heading}>{children}<button ref={trigger} type="button" className={styles.toggle} aria-expanded={open} aria-controls={id} aria-label={`زیرمنوی ${link.label}`} onClick={() => { clear(); setOpen(value => !value) }} onKeyDown={event => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); event.stopPropagation(); const edge = event.key === 'ArrowDown' ? 'first' : 'last'; if (open) focusEdge(edge); else { intent.current = edge; setOpen(true) } }
       if (!inline && open && event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); focusEdge('first') }

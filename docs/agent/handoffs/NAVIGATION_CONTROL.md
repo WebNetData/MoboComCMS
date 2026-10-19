@@ -55,3 +55,7 @@ Spec: `docs/specs/navigation-display-modes/SPEC.md`. Each header root chooses `m
 
   Admin picker screenshots: light/dark.
 - A build break caused in this slice (a regex whose backslashes a shell ate) was caught on the owner's screen and fixed. Check JSX edited through shell scripts with a parse before restarting the preview.
+- Follow-up (owner, 2026-10-19):
+  - In header rails the chevron sits inside its tab, at the far end, coloured like the tab; the open tab is tinted.
+  - Both dropdown and mega panels now open from their own tab, with their outer edges aligned and an 8 px gap. A bright mark on the panel's top edge sits under the tab (`--navigation-caret`). Mega panels are no longer centred on the whole rail.
+  - Measured in the browser: tab 1298–1418, panel ending at 1418, 8 px below. `pw-nav-modes.cjs` 17/17.
