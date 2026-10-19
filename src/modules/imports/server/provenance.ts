@@ -5,7 +5,7 @@ import { db } from '@/platform/database/prisma'
 // already records; nothing new is stored.
 
 /** The record name an import uses for each kind of item that has a history page. */
-export const IMPORTED_AS: Record<string, string> = { 'cinema-titles': 'cinemaTitle', games: 'gameTitle', software: 'softwareTitle', 'music-tracks': 'musicTrack', posts: 'post' }
+export const IMPORTED_AS: Record<string, string> = { 'cinema-titles': 'cinemaTitle', games: 'gameTitle', software: 'softwareTitle', 'music-tracks': 'musicTrack', posts: 'post', products: 'product' }
 
 type Change = { kind?: string; entity?: string; id?: number; before?: Record<string, unknown>; after?: Record<string, unknown>; stamp?: string }
 const same = (a: unknown, b: unknown) => (a instanceof Date ? a.toISOString() : typeof a === 'bigint' ? a.toString() : a) === (b instanceof Date ? b.toISOString() : typeof b === 'bigint' ? b.toString() : b)

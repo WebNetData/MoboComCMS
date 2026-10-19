@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { protectImportPlan } from '@/modules/imports/server/edit-protection'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
 import { auditSystem } from '@/platform/audit/server'
@@ -190,7 +191,7 @@ function failed(item: SourceItem, text: string): Plan {
 
 async function planOne(adapter: ImportAdapter, item: SourceItem, t: Typed, ctx: ImportContext): Promise<Plan> {
   try {
-    const plan = await adapter.plan(item, t.values, t.variantValues, ctx)
+    const plan = await protectImportPlan(adapter, await adapter.plan(item, t.values, t.variantValues, ctx), ctx)
     plan.messages.unshift(...t.messages)
     plan.preview.messages = plan.messages
     return plan
@@ -329,10 +330,11 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
           if (!current) { stop = true; cursor = item.index; break }
           ctx.actor = current
         }
-        const plan = await planOne(adapter, item, t[j], ctx)
+        let plan = await planOne(adapter, item, t[j], ctx)
         const writer = await continuingImportActor(job, 'RUNNING')
         if (!writer) { stop = true; cursor = item.index; break }
         ctx.actor = writer
+        plan = await protectImportPlan(adapter, plan, ctx)
         let result: ApplyResult
         if (plan.action === 'FAIL' || plan.action === 'SKIP') result = { action: plan.action, entityType: '', entityId: plan.entityId, changes: [], messages: plan.messages, counters: {} }
         else {
@@ -344,12 +346,13 @@ export async function runSlice(jobId: number, budgetMs = 30_000): Promise<{ done
             result = { action: 'FAIL', entityType: '', entityId: plan.entityId, changes: error instanceof ApplyFailure ? error.changes : [], counters: {}, messages: [...plan.messages, { level: 'error', text: error instanceof Error ? error.message.slice(0, 400) : 'خطای ناشناخته' }] }
           }
         }
+        const contentFingerprint = ['CREATE', 'UPDATE'].includes(result.action) && /^[a-f0-9]{64}$/.test(result.contentFingerprint || '') ? result.contentFingerprint : null
         await db.importRecord.upsert({
           where: { jobId_index: { jobId, index: item.index } },
           create: {
             jobId, index: item.index, sourceKey: plan.sourceKey.slice(0, 190), title: plan.title.slice(0, 190), action: result.action, status: recordStatus(result),
             entityType: result.entityType, entityId: result.entityId ?? null, messages: JSON.stringify(result.messages.slice(0, 40)),
-            changes: JSON.stringify({ changes: result.changes, counters: result.counters, rows: item.rows }, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)),
+            changes: JSON.stringify({ changes: result.changes, counters: result.counters, rows: item.rows, ...(contentFingerprint ? { contentFingerprint } : {}) }, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)),
           },
           update: {},
         })

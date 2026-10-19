@@ -76,8 +76,12 @@ async function load(type: ItemType, where: Where, take: number, includeScheduled
       return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.title, titleEn: r.titleEn, subtitle: r.artist.name, summary: r.album?.title || '', keywords: [r.titleEn, r.artist.name, r.artist.nameEn, r.genre, r.album?.title].join(' '), image: r.cover || r.album?.cover || '', access: r.access, publishedAt: r.publishedAt, updatedAt: r.updatedAt, popularity: r.plays + r.downloads }))
     }
     case 'artist': {
-      const rows = await client.musicArtist.findMany({ where: { ...base, ...matchName }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })
-      return rows.map((r) => card({ id: r.id, slug: r.slug, title: r.name, titleEn: r.nameEn, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }))
+      const rows = await client.musicArtist.findMany({ where: { ...base, ...(indexScan || text ? { mergedIntoId: null } : {}), ...matchName }, include: { mergedInto: true }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })
+      return rows.map((source) => { const r = source.mergedInto || source; return card({ id: source.id, slug: r.slug, title: r.name, titleEn: r.nameEn, subtitle: 'هنرمند', summary: plain(r.bio), keywords: r.nameEn, image: r.image, access: 'PUBLIC', publishedAt: r.createdAt, updatedAt: r.updatedAt, popularity: r.featured ? 50 : 0 }) })
+    }
+    case 'person': {
+      const rows = await client.cinemaPerson.findMany({ where: { ...base, ...(indexScan || text ? { mergedIntoId: null } : {}), OR: [{ credits: { some: { title: live() } } }, { mergedInto: { is: { credits: { some: { title: live() } } } } }], ...(text ? { name: { contains: text, ...insensitive } } : {}) }, include: { mergedInto: true }, take, orderBy: { id: 'asc' } })
+      return rows.map(source => { const row = source.mergedInto || source; return { ...card({ id: source.id, slug: String(row.id), title: row.name, subtitle: 'عوامل سینما', summary: plain(row.bio), keywords: row.normalizedName, image: row.image, access: 'PUBLIC', publishedAt: row.createdAt, updatedAt: row.createdAt, popularity: 0 }), url: `/cinema/people/${row.id}` } })
     }
     case 'business': {
       const rows = await client.businessProfile.findMany({ where: { ...base, status: 'PUBLISHED', OR: [{ kind: { not: 'SELLER' } }, { seller: { is: { status: 'ACTIVE' } } }], ...(text ? { AND: [{ OR: [{ name: { contains: text, ...insensitive } }, { domain: { contains: text, ...insensitive } }, { category: { contains: text, ...insensitive } }] }] } : {}) }, take, orderBy: indexScan ? { id: 'asc' } : { createdAt: 'desc' } })

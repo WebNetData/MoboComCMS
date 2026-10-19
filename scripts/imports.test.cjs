@@ -43,6 +43,12 @@ const { LIMITS } = load('src/modules/imports/domain/types.ts')
 const { safeJsonLd } = load('src/shared/seo/json-ld.ts')
 const enc = (text) => new TextEncoder().encode(text)
 
+test('re-import preservation is explicit, typed and keeps historical saved-job semantics', () => {
+  const normalize = raw => settingsMod.normalizeSettings(raw, 'magazine', [], [])
+  assert.equal(normalize({ protectEdits: true }).protectEdits, true)
+  for (const protectEdits of [undefined, false, 'true', 1, {}, null]) assert.equal(normalize({ protectEdits }).protectEdits, false)
+})
+
 // ------------------------------------------------------------------ a tiny ZIP writer for XLSX fixtures
 
 function crc32(buf) {

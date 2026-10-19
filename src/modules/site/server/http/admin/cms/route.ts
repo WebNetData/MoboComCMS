@@ -6,6 +6,7 @@ import { err, ok } from '@/platform/http/response'
 import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
 import { TRASHED, formStatus, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
+import { completeTrashCase, reopenTrashCase } from '@/modules/moderation/server/cases'
 import type { Permission } from '@/modules/identity/rbac'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { getPageLayout, validatePageLayout } from '@/modules/site/server/page-layout'
@@ -23,6 +24,8 @@ import { readOrderFields } from '@/modules/store/domain/order-inputs'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
+import { postRevisionState } from '@/modules/site/server/revision-state'
+import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/journal'
@@ -214,10 +217,10 @@ export async function POST(req: NextRequest) {
         }) as any,
         })
         if (itemLinks) await replacePostItemLinks(tx, created.id, itemLinks)
+        await recordRevision({ entityType: 'posts', entityId: created.id, before: null, after: (await postRevisionState(created.id, tx))!, actor: admin, client: tx, strict: true })
         return created
       })
       contentChanged({ type: 'post', id: row.id }, null, row)
-      await recordRevision({ entityType: 'posts', entityId: row.id, before: null, after: row, actor: admin })
       return ok(row)
     }
     if (type === 'postcats' || type === 'productcats') {
@@ -243,6 +246,7 @@ export async function POST(req: NextRequest) {
         if (input.variants) await saveVariants(tx, created.id, input.variants)
         if (relationships) await replaceProductRelationships(tx, created.id, relationships)
         await capturePublicProductPrices(tx, created.id, new Map())
+        await recordRevision({ entityType: 'products', entityId: created.id, before: null, after: (await productRevisionState(created.id, tx))!, actor: admin, client: tx, strict: true })
         return created
       })
       contentChanged({ type: 'product', id: row.id }, null, row)
@@ -283,7 +287,11 @@ export async function PATCH(req: NextRequest) {
     if (isTrashed(held)) {
       // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
       if (caller.authorId || b?.restore !== true) return err('این نوشته در سطل زباله است و تا تصمیم مدیر قابل ویرایش نیست', 409)
-      const claimed = await db.post.updateMany({ where: { id, status: TRASHED }, data: restoreData(held) })
+      const claimed = await db.$transaction(async tx => {
+        const changed = await tx.post.updateMany({ where: { id, status: TRASHED }, data: restoreData(held) })
+        if (changed.count) await completeTrashCase(tx, 'post', id, admin.id, 'restored')
+        return changed
+      })
       if (!claimed.count) return err('این نوشته دیگر در سطل زباله نیست', 409)
       const restored = await db.post.findUniqueOrThrow({ where: { id } })
       contentChanged({ type: 'post', id }, { ...restored, status: TRASHED }, restored)
@@ -344,6 +352,7 @@ export async function PATCH(req: NextRequest) {
     }
     if (type === 'products') {
       const current = await db.product.findUnique({ where: { id }, select: { price: true, currency: true, categoryId: true, specifications: true, faqs: true, gallery: true, kind: true, stock: true, active: true, approval: true, priceMinor: true, name: true, pricingMode: true, fxCurrency: true, fxAmountMinor: true, fxCompareAtMinor: true, fxMemberMinor: true, markupBps: true, markupFixedMinor: true, openAmount: true, openCurrencies: true, openMinMinor: true, openMaxMinor: true } })
+      const revisionBefore = await productRevisionState(id)
       if (!current) return err('not found', 404)
       const input = await productInput(b, current)
       const relationships = b?.relationships === undefined ? null : parseProductRelationships(b.relationships, id)
@@ -355,6 +364,7 @@ export async function PATCH(req: NextRequest) {
         if (relationships) await replaceProductRelationships(tx, id, relationships)
         if (bundles) await replaceProductBundles(tx, id, bundles)
         await capturePublicProductPrices(tx, id, pricesBefore)
+        await recordRevision({ entityType: 'products', entityId: id, before: revisionBefore, after: (await productRevisionState(id, tx))!, actor: admin, client: tx, strict: true })
         return row
       })
       contentChanged({ type: 'product', id }, current, saved)
@@ -363,7 +373,7 @@ export async function PATCH(req: NextRequest) {
     if (type === 'posts') {
       const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
-      const before = await db.post.findUnique({ where: { id } })
+      const before = await postRevisionState(id)
       const saved = await db.$transaction(async tx => {
         if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
           const ids = await validateCategorySelection(tx, b)
@@ -373,10 +383,10 @@ export async function PATCH(req: NextRequest) {
         if (itemLinks) await validatePostItemLinks(tx, itemLinks, id)
         const row = await tx.post.update({ where: { id }, data })
         if (itemLinks) await replacePostItemLinks(tx, id, itemLinks)
+        await recordRevision({ entityType: 'posts', entityId: id, before, after: (await postRevisionState(id, tx))!, actor: admin, client: tx, strict: true })
         return row
       })
       contentChanged({ type: 'post', id }, before, saved)
-      await recordRevision({ entityType: 'posts', entityId: id, before, after: saved, actor: admin })
       return ok(saved)
     }
     if (type === 'postcats') return ok(await db.$transaction(async tx => {
@@ -428,7 +438,11 @@ export async function DELETE(req: NextRequest) {
       return ok({ deleted: true })
     }
     if (type === 'productgroups' && await db.productCategory.count({ where: { attributeGroupId: id } })) return err('Group is assigned to a category', 409)
-    const gone = await model.delete({ where: { id } })
+    const gone = type === 'posts' ? await db.$transaction(async tx => {
+      const deleted = await tx.post.delete({ where: { id } })
+      if (deleted.status === TRASHED) await completeTrashCase(tx, 'post', id, admin.id, 'deleted')
+      return deleted
+    }) : await model.delete({ where: { id } })
     // A manager deleting an article that waited in the trash is the answer to its author's request.
     if (type === 'posts' && gone.status === TRASHED) await tellTrashDecision({ askedById: gone.trashedById, askedAt: gone.trashedAt, decidedById: admin.id, decision: 'deleted', kind: 'post', id, title: gone.title, href: '/admin/posts' })
     if (type === 'posts' || type === 'products') contentChanged({ type: type === 'posts' ? 'post' : 'product', id }, null, null)
@@ -450,7 +464,11 @@ async function trashOwnPost(id: number, authorId: number): Promise<'trashed' | '
   const row = await db.post.findFirst({ where: { id, authorId } })
   if (!row) return 'missing'
   if (isTrashed(row)) return 'already'
-  const claimed = await db.post.updateMany({ where: { id, authorId, status: row.status }, data: trashData(row, authorId) })
+  const claimed = await db.$transaction(async tx => {
+    const changed = await tx.post.updateMany({ where: { id, authorId, status: row.status }, data: trashData(row, authorId) })
+    if (changed.count) await reopenTrashCase(tx, 'post', id)
+    return changed
+  })
   if (!claimed.count) return 'already'
   contentChanged({ type: 'post', id }, row, { ...row, status: TRASHED })
   return 'trashed'
@@ -508,7 +526,11 @@ export async function BULK(req: NextRequest) {
           const outcome = await trashOwnPost(id, caller.authorId)
           if (outcome !== 'trashed') { failed.push({ id, reason: outcome === 'missing' ? 'not found' : 'already in the trash' }); continue }
         } else if (type === 'posts') {
-          const row = await db.post.delete({ where: { id } })
+          const row = await db.$transaction(async tx => {
+            const deleted = await tx.post.delete({ where: { id } })
+            if (deleted.status === TRASHED) await completeTrashCase(tx, 'post', id, admin.id, 'deleted')
+            return deleted
+          })
           contentChanged({ type: 'post', id }, row, null)
           if (row.status === TRASHED) await tellTrashDecision({ askedById: row.trashedById, askedAt: row.trashedAt, decidedById: admin.id, decision: 'deleted', kind: 'post', id, title: row.title, href: '/admin/posts' })
         } else {

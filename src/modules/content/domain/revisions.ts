@@ -4,7 +4,7 @@
 
 export const KEEP_REVISIONS = 50
 /** Columns that are not content: identity, clocks and counters the site moves by itself. */
-const SKIP = /^(id|createdAt|updatedAt|views|downloads|clicks|plays|sales|soldCount|likeCount|replyCount|postCount|threadCount|commentCount|ratingSum|ratingCount)$/
+const SKIP = /^(id|createdAt|updatedAt|createdById|ownerId|userId|sellerId|mergedIntoId|profileVersion|views|downloads|clicks|plays|sales|soldCount|likeCount|replyCount|postCount|threadCount|commentCount|ratingSum|ratingCount)$/
 const SECRET = /password|secret|token|authorization|cookie|api[_-]?key|private[_-]?key/i
 const MAX_TEXT = 200_000
 
@@ -19,7 +19,7 @@ export function snapshotOf(row: Record<string, unknown>): Snapshot {
     if (value === null) out[key] = null
     else if (value instanceof Date) out[key] = value.toISOString()
     else if (typeof value === 'bigint') out[key] = value.toString()
-    else if (typeof value === 'string') out[key] = value.length > MAX_TEXT ? value.slice(0, MAX_TEXT) : value
+    else if (typeof value === 'string') out[key] = key === '__relations' ? value : value.length > MAX_TEXT ? value.slice(0, MAX_TEXT) : value
     else if (typeof value === 'number' || typeof value === 'boolean') out[key] = value
     // relations and anything else that is not a column of the item are left out
   }
@@ -36,7 +36,19 @@ const brief = (value: Snapshot[string] | undefined) => { const text = value === 
 
 /** What changed between two versions, short enough to read in a list. */
 export function diffOf(before: Snapshot | null, after: Snapshot): { field: string; before: string; after: string }[] {
-  return changedFields(before, after).map((field) => ({ field, before: brief(before?.[field]), after: brief(after[field]) }))
+  return changedFields(before, after).map((field) => ({ field, before: field === '__relations' ? relationSummary(before?.[field]) : brief(before?.[field]), after: field === '__relations' ? relationSummary(after[field]) : brief(after[field]) }))
+}
+
+function relationSummary(raw: Snapshot[string] | undefined): string {
+  if (typeof raw !== 'string') return 'روابط در این نسخه ثبت نشده‌اند'
+  try {
+    const value = JSON.parse(raw), parts: string[] = [], count = (n: number) => n.toLocaleString('fa-IR')
+    if (value.links) parts.push(`${count(value.links.length)} لینک (${count(value.links.filter((link: { disabled?: boolean }) => link.disabled).length)} غیرفعال)`)
+    if (value.seasons) parts.push(value.seasons.map((season: { number: number; episodes: unknown[] }) => `فصل ${count(season.number)}: ${count(season.episodes.length)} قسمت`).join('، ') || 'بدون فصل')
+    if (value.terms || value.categoryIds) parts.push(`${count((value.terms?.ids || value.categoryIds).length)} دسته‌بندی`)
+    if (value.relationships) parts.push(`${count(value.relationships.length)} ارتباط با محصول دیگر`)
+    return parts.join(' · ') || 'بدون روابط'
+  } catch { return 'روابط این نسخه قابل خواندن نیست' }
 }
 
 /**

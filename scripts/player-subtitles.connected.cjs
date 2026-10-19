@@ -3,7 +3,7 @@
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'player-subtitles-check'
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `psub${Date.now()}`
-const state = { viewer: { userId: null, member: false }, guard: true, cinema: true, files: new Map(), fetched: [] }
+const state = { viewer: { userId: null, member: false }, guard: true, cinema: true, ass: false, separateAudio: false, files: new Map(), fetched: [] }
 const cache = new Map()
 function load(file) {
   const full = path.resolve(file.endsWith('.ts') || file.endsWith('.tsx') ? file : fs.existsSync(`${file}.ts`) ? `${file}.ts` : fs.existsSync(`${file}.tsx`) ? `${file}.tsx` : path.join(file, 'index.ts'))
@@ -12,6 +12,7 @@ function load(file) {
   const source = ts.transpileModule(fs.readFileSync(full, 'utf8'), { fileName: full, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText
   new Function('require', 'module', 'exports', source)(name => {
     if (name === '@/platform/database/prisma') return { db: prisma }
+    if (name === '@/modules/cinema/server/admin') return { getCinemaSettings: async () => ({ enableAssSubtitles: state.ass, enableSeparateAudio: state.separateAudio }) }
     if (name === '@/platform/observability/logger') return { logEvent: () => {} }
     if (name === '@/extensions/server/modules') return { isModuleEnabled: async id => id === 'download-guard' ? state.guard : id === 'cinema' ? state.cinema : true, getModuleSettings: async () => ({}), getModuleStates: async () => ({}) }
     if (name === 'react') return { ...require('react'), cache: fn => fn }
@@ -123,7 +124,22 @@ async function main() {
   assert.deepEqual(await answer(await get(fa.id, token(fa.id))), [502, 'UNAVAILABLE'], 'an error page is not served as a subtitle')
   state.files.set(u('fa.srt'), `1\n00:00:01,000 --> 00:00:02,000\n${'x'.repeat(2 * 1024 * 1024)}\n`)
   assert.deepEqual(await answer(await get(fa.id, token(fa.id))), [502, 'UNAVAILABLE'], 'larger than a subtitle is')
-  console.log('PostgreSQL player subtitles: offered by language to those who may open them, served as WebVTT under the link rules (token, VIP, takedown, module, publication), refused when the file is not a subtitle, and playback preferences kept with the account passed')
+  const styled = '[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n[Events]\nFormat: Layer, Start, End, Style, Text\nDialogue: 0,0:00:01.00,0:00:04.00,Default,{\\b1}سلام\\N<img src=x onerror=bad()>\n'
+  state.files.set(u('styled.ass'), styled); state.ass = true; state.separateAudio = true
+  const soundtrack = await link({ kind: 'AUDIO', language: 'fa', label: 'صدای دوبله', url: u('dub.mp3') }), privateAudio = await link({ kind: 'AUDIO', language: 'en', url: u('vip.mp3'), access: 'MEMBERS' })
+  page = await watch()
+  assert.equal(page.subtitles.find(row => row.id === ass.id).format, 'ass')
+  assert.ok(page.subtitles.find(row => row.id === ass.id).styledSrc.includes('format=ass'))
+  assert.deepEqual(page.audioTracks.map(row => row.id), [soundtrack.id], 'invalid-format and unauthorized audio stay out')
+  const styledGet = t => links.openSubtitle(new Request(`http://site.invalid/api/media/subtitle/${ass.id}?format=ass${t ? '&t='+encodeURIComponent(t) : ''}`), String(ass.id))
+  const raw = await styledGet(token(ass.id)); assert.equal(raw.status,200); assert.match(raw.headers.get('content-type'),/^text\/plain/); assert.equal(await raw.text(),styled); assert.match(raw.headers.get('cache-control'),/no-store/)
+  assert.equal((await styledGet(null)).status,403,'styled source still requires its own page token')
+  const plainAss = await (await get(ass.id, token(ass.id))).text(); assert.match(plainAss,/WEBVTT/); assert.match(plainAss,/&lt;img/); assert.doesNotMatch(plainAss,/<img/,'plain fallback escapes dialogue markup')
+  state.viewer = { userId: member.id, member: true }; assert.ok((await watch()).audioTracks.some(row => row.id === privateAudio.id)); state.viewer = { userId: null, member: false }
+  state.ass = false; state.separateAudio = false
+  assert.equal((await styledGet(token(ass.id))).status,404,'Admin ASS policy also controls raw serving')
+  assert.equal((await watch()).audioTracks.length,0,'Admin separate-audio policy controls player choices')
+  console.log('PostgreSQL player subtitles/audio: protected ASS source/plain fallback, policy switches, language and account preferences, audio format/VIP filtering, tokens/publication/takedown/module and bounded file behavior passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {

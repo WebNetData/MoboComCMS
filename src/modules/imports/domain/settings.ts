@@ -44,6 +44,7 @@ export function normalizeSettings(input: unknown, adapter: string, fields: Field
     policies: normalizePolicies(fields, raw.policies, mapping),
     variantPolicies: mode === 'none' ? {} : normalizePolicies(variantFields, raw.variantPolicies, variantMapping),
     existing,
+    protectEdits: raw.protectEdits === true,
     variants: { mode, source: mode === 'nested' ? path(variantsRaw.source) : '', groupBy: mode === 'flat' ? path(variantsRaw.groupBy) : '' },
     attributes,
     specsSource: path(raw.specsSource),

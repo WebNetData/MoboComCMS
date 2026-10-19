@@ -102,7 +102,7 @@ export async function POST_admin(req: NextRequest) {
   const id = Number(body.id)
   if (!Number.isSafeInteger(id) || id <= 0 || !['approve', 'reject', 'delete'].includes(body.action)) return err('invalid input')
   try {
-    const result = await moderateReview(id, body.action)
+    const result = await moderateReview(id, body.action, g.admin.id)
     await auditAdmin({ req, actor: g.admin, action: `reviews.${body.action}`, targetType: 'item-review', targetId: id })
     return ok(result)
   } catch (error) { return failure(error) }

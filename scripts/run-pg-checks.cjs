@@ -25,6 +25,14 @@ const CHECKS = [
   'current-account-consumers',
   'unified-avatar',
   'member-avatar-surfaces',
+  'import-edit-protection',
+  'profile-merges',
+  'content-management',
+  'content-restore-atomic',
+  'moderation-rounds',
+  'moderation-rounds-migration',
+  'settings-history',
+  'search-advanced-scale',
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',
@@ -95,7 +103,7 @@ for (const name of only.length ? only : CHECKS) {
   const started = Date.now()
   const run = spawnSync(process.execPath, [path.join(__dirname, `${name}.connected.cjs`)], { encoding: 'utf8', env: process.env })
   const seconds = ((Date.now() - started) / 1000).toFixed(1)
-  if (run.status === 0) console.log(`ok   ${name} (${seconds}s)`)
+  if (run.status === 0) { console.log(`ok   ${name} (${seconds}s)`); if (name === 'search-advanced-scale') console.log(run.stdout.trim()) }
   else {
     failed++
     console.log(`FAIL ${name} (${seconds}s)`)

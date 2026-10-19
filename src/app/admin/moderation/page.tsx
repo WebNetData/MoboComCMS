@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
+import '@/components/admin/authoring-controls.css'
 import { Notice, fa as faNumber, faDate, send, useJson } from '../store/shared'
 import { QUEUE_SOURCES, waitingTone, type QueueDecision, type QueueGroup, type QueueItem, type QueueSourceKey, BATCH_LIMIT, batchIds, batchOutcome } from '@/modules/moderation/domain/queue'
 
-type Case = { status: string; assignee: { id: number; name: string } | null; mine: boolean; note: string } | null
+type Case = { round: number; status: string; assignee: { id: number; name: string } | null; mine: boolean; note: string } | null
 type Item = QueueItem & { case: Case }
 type Group = Omit<QueueGroup, 'items'> & { items: Item[] }
-type Queue = { total: number; groups: Group[]; failed: QueueSourceKey[]; decided: { id: number; source: QueueSourceKey; itemId: number; decision: string; by: string; at: string; note: string }[]; mine: { source: QueueSourceKey; itemId: number; claimedAt: string }[] }
+type Queue = { total: number; groups: Group[]; failed: QueueSourceKey[]; decided: { id: number; round: number; source: QueueSourceKey; itemId: number; decision: string; by: string; at: string; note: string }[]; mine: { source: QueueSourceKey; itemId: number; claimedAt: string }[] }
 
 const TONE = { none: '', ok: 'is-ok', warn: 'is-warn', late: 'is-bad' } as const
 
@@ -39,7 +40,7 @@ export default function ModerationPage() {
   const when = (iso: string) => isFa ? faDate(iso, true) : new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Tehran' })
 
   /** The staff work around an item (taking it, letting go, a note, the record of a decision): never the decision itself. */
-  const caseAction = (group: Group, id: number, body: Record<string, unknown>) => send('/api/admin/moderation', 'POST', { source: group.key, id, ...body })
+  const caseAction = (group: Group, id: number, body: Record<string, unknown>) => send('/api/admin/moderation', 'POST', { source: group.key, id, round: group.items.find(item => item.id === id)?.case?.round || 1, ...body })
   async function work(group: Group, item: Item, body: Record<string, unknown>, done: string) {
     setBusy(`${group.key}:${item.id}`); setMessage(null)
     let result = await caseAction(group, item.id, body)
@@ -84,7 +85,7 @@ export default function ModerationPage() {
   }
   const toggle = (key: string, id: number) => setPicked((current) => { const list = current[key] || []; return { ...current, [key]: list.includes(id) ? list.filter((item) => item !== id) : [...list, id] } })
 
-  return <div className="sa" dir={isFa ? 'rtl' : 'ltr'}>
+  return <div className="sa cm-moderation" dir={isFa ? 'rtl' : 'ltr'}>
     <header className="sa-head">
       <h1>{L('صف بررسی', 'Moderation queue')}</h1>
       <div className="sa-head-actions">
@@ -148,8 +149,8 @@ export default function ModerationPage() {
         </section>
       })}
       {data.decided.length > 0 && <section className="sa-card" aria-label={L('تصمیم‌های اخیر', 'Recent decisions')}>
-        <header className="sa-card-head"><h2>{L('تصمیم‌های اخیر از همین صفحه', 'Recent decisions from this page')}</h2></header>
-        <ul className="sa-rows">{data.decided.map((row) => <li key={row.id}><span className="sa-grow"><b>{row.decision === 'approve' ? L('تأیید', 'Approved') : L('رد', 'Rejected')} · {failedLabel(row.source)} #{num(row.itemId)}</b><small>{row.by || '—'}{row.note ? ` · 📝 ${row.note}` : ''}</small></span><small className="sa-sub">{row.at ? <time dateTime={row.at}>{when(row.at)}</time> : ''}</small></li>)}</ul>
+        <header className="sa-card-head"><h2>{L('تصمیم‌های اخیر و دورهای بررسی', 'Recent decisions and review rounds')}</h2></header>
+        <ul className="sa-rows">{data.decided.map((row) => <li key={row.id}><span className="sa-grow"><b>{row.decision === 'approve' ? L('تأیید', 'Approved') : L('رد', 'Rejected')} · {failedLabel(row.source)} #{num(row.itemId)}</b><small>{L('دور بررسی', 'Review round')} {num(row.round)} · {row.by || '—'}{row.note ? ` · 📝 ${row.note}` : ''}</small></span><small className="sa-sub">{row.at ? <time dateTime={row.at}>{when(row.at)}</time> : ''}</small></li>)}</ul>
       </section>}
       {/* Sources with nothing waiting share one compact card. */}
       {data.groups.some((group) => group.count === 0) && <section className="sa-card" aria-label={L('بخش‌های بدون مورد', 'Sources with nothing waiting')}>

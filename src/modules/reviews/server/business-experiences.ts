@@ -3,6 +3,7 @@ import { normalizeBusinessExperience, BusinessError } from '@/modules/businesses
 import { normalizeScores } from '@/modules/reviews/domain/dimensions'
 import { normalizeReviewBody } from '@/modules/reviews/domain/reviews'
 import { reviewSeller, replyReview } from '@/modules/marketplace/server/marketplace'
+import { reopenOwnerCase } from '@/modules/moderation/server/cases'
 
 /** Shared review storage: seller histories remain in SellerReview; everything else in ItemReview. */
 export async function writeBusinessExperience(tx: Prisma.TransactionClient, userId: number, business: BusinessProfile, input: Record<string, unknown>, moderate: boolean) {
@@ -23,6 +24,7 @@ export async function writeBusinessExperience(tx: Prisma.TransactionClient, user
   const changed = !prior || prior.rating !== normalized.rating || prior.body !== normalized.body || prior.experiencedOn?.getTime() !== experiencedOn?.getTime() || scoresChanged
   const nextStatus = !changed && prior?.status === 'APPROVED' ? 'APPROVED' : status
   const review = await tx.itemReview.upsert({ where, create: { itemType: 'business', itemId: business.id, userId, rating: normalized.rating, body: normalized.body, experiencedOn, status: nextStatus, verified }, update: { rating: normalized.rating, body: normalized.body, experiencedOn, status: nextStatus, verified, ...(changed ? { businessReply: '', businessReplyBy: null, businessReplyAt: null } : {}) } })
+  if (nextStatus === 'PENDING' && prior?.status !== 'PENDING') await reopenOwnerCase(tx, 'business-experiences', review.id)
   if (prior && changed) await tx.itemReviewHelpful.deleteMany({ where: { reviewId: review.id } })
   if (scores) { await tx.itemReviewScore.deleteMany({ where: { reviewId: review.id } }); const data = Object.entries(scores).map(([key, score]) => ({ reviewId: review.id, key, score })); if (data.length) await tx.itemReviewScore.createMany({ data }) }
   await refreshBusinessRating(tx, business)

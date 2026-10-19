@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { getCookie } from '@/platform/browser/preferences'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import '@/components/admin/authoring-controls.css'
 
 export default function AdminSettingsPage() {
   const router = useRouter()
@@ -15,23 +16,35 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const baseline = useRef<Record<string, string>>({}), revision = useRef('')
 
   useEffect(() => {
-    fetch('/api/admin/settings').then((r) => (r.ok ? r.json() : {})).then(setS)
+    let alive = true
+    fetch('/api/admin/settings', { cache: 'no-store' }).then(async response => {
+      const body = await response.json()
+      if (!alive) return
+      if (!response.ok) throw Error(body?.error || 'دریافت تنظیمات ناموفق بود')
+      revision.current = response.headers.get('etag') || ''; baseline.current = body; setS(body)
+    }).catch(() => { if (alive) setError('دریافت تنظیمات ناموفق بود؛ صفحه را تازه کنید') }).finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
   }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setSaved(false)
     setError('')
+    setBusy(true)
     const res = await fetch('/api/admin/settings', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(s),
-    })
-    setSaved(res.ok)
-    if (res.ok) router.refresh()
-    if (!res.ok) setError((await res.json().catch(() => null))?.error || t.errGeneric)
+      headers: { 'Content-Type': 'application/json', ...(revision.current ? { 'if-match': revision.current } : {}) },
+      body: JSON.stringify(Object.fromEntries(Object.entries(s).filter(([key, value]) => baseline.current[key] !== value))),
+    }).catch(() => null)
+    const body = await res?.json().catch(() => null)
+    setBusy(false); setSaved(!!res?.ok)
+    if (res?.ok) { baseline.current = body; revision.current = res.headers.get('etag') || ''; setS(body); router.refresh() }
+    else setError(body?.error || t.errGeneric)
   }
 
   const fields: [string, string][] = [
@@ -46,10 +59,12 @@ export default function AdminSettingsPage() {
   ]
 
   return (
-    <div>
+    <div className="cm-settings">
       <h1 className="h2 mb-6">{t.settingsAdmin}</h1>
+      <Link className="btn btn-ghost btn-sm mb-4" href="/admin/history?type=settings-general&id=1">تاریخچه و بازگردانی تنظیمات</Link>
       <div className="studio-notice">مدیریت نام برند، رنگ‌ها، منوها و محتوای صفحه اصلی به <Link href="/admin/studio" style={{ textDecoration: 'underline' }}>استودیوی سایت</Link> منتقل شده است.</div>
       <form onSubmit={save} className="card max-w-xl">
+        <fieldset disabled={loading || busy || (!revision.current && !!error)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={loading || busy}>
         <div className="mb-6">
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.publicApiEnabled === 'true'} onChange={e => setS({ ...s, publicApiEnabled: e.target.checked ? 'true' : 'false' })}/><strong>{locale === 'fa' ? 'نمایش و فعال‌سازی API عمومی' : 'Show and enable public API'}</strong></label>
           <p className="muted text-sm mt-3">{locale === 'fa' ? 'در حالت خاموش، بخش API، مدیریت کلیدها و دسترسی API عمومی برای همه غیرفعال است.' : 'When off, the API section, key management and public API access are disabled for everyone.'}</p>
@@ -67,8 +82,9 @@ export default function AdminSettingsPage() {
         </div>
         {fields.map(([key, label]) => (
           <div key={key} className="mb-4">
-            <label className="label">{label}</label>
+            <label className="label" htmlFor={`setting-${key}`}>{label}</label>
             <input
+              id={`setting-${key}`}
               className="input"
               dir={key === 'siteUrl' || key === 'themeColor' || key === 'usdRateToman' ? 'ltr' : undefined}
               inputMode={key === 'usdRateToman' ? 'numeric' : undefined}
@@ -78,9 +94,10 @@ export default function AdminSettingsPage() {
             />
           </div>
         ))}
-        {saved && <p className="success-text mb-4">✅ {t.saved}</p>}
+        {saved && <p className="success-text mb-4" role="status">✅ {t.saved}</p>}
         {error && <p className="error-text mb-4" role="alert">{error}</p>}
-        <button className="btn btn-primary">{t.save}</button>
+        <button type="submit" className="btn btn-primary">{loading ? 'در حال بارگذاری…' : busy ? 'در حال ذخیره…' : t.save}</button>
+        </fieldset>
       </form>
 
       <div className="card max-w-xl mt-6">

@@ -23,7 +23,7 @@ type Trust = { daysVisited: number; topicsEntered: number; postCount: number; li
 type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactionWeights: Record<string, number>; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
   levels: UserLevel[]; approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
 type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
-type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
+type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; settingsRevision?: string; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
 type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'team' | 'groups' | 'levels' | 'badges' | 'users' | 'words' | 'settings'
 const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'team', 'groups', 'levels', 'badges', 'users', 'words', 'settings']
 
@@ -82,7 +82,9 @@ function AdminForumPage() {
 
   async function call(method: string, body?: Record<string, unknown>, success = 'ذخیره شد', url = '/api/admin/forum') {
     setBusy(true); setMessage(null)
-    const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).catch(() => null)
+    const settingsWrite = method === 'PATCH' && body?.section === 'settings'
+    const patch = settingsWrite && data && body?.settings && typeof body.settings === 'object' ? { ...body, settings: Object.fromEntries(Object.entries(body.settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(data.settings[key as keyof Settings]))) } : body
+    const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(settingsWrite && data?.settingsRevision ? { 'if-match': data.settingsRevision } : {}) }, body: patch ? JSON.stringify(patch) : undefined }).catch(() => null)
     const result = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setMessage({ text: result?.error || 'انجام نشد', error: true }); return false }
@@ -120,7 +122,7 @@ function AdminForumPage() {
   return <div className="xm-page" dir="rtl">
     <header className="tb-hero"><div><span className="tb-eyebrow">FORUM</span><h1>تالار گفتمان</h1>
       <p>{fa(data.stats.topics)} موضوع · {fa(data.stats.posts)} پیام · {fa(data.stats.members)} عضو فعال. دسته‌ها، سطح دسترسی گروه‌ها، نشان‌ها، سطح اعتماد کاربران و صف گزارش‌ها را از اینجا مدیریت کنید.</p></div>
-      <Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link>
+      <div className="fa-inline fa-wrap"><Link href="/admin/history?type=settings-forum&id=1" className="btn btn-ghost btn-sm">تاریخچهٔ تنظیمات</Link><Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link></div>
     </header>
     <nav className="tb-tabs" role="tablist" aria-label="بخش‌های تالار">
       {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setMessage(null); if (item.key === 'review') openReview() }}>{item.label}{item.count !== undefined && <span>{fa(item.count)}</span>}</button>)}

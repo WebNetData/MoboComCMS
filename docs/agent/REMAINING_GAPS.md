@@ -1,4 +1,4 @@
-# Remaining gaps — scoped snapshot, 2026-10-10
+# Remaining gaps — scoped snapshot, updated 2026-10-18
 
 This is a prioritised follow-up to the editor/maintenance review, not a certification of every domain or proof that an untested capability is absent. Existing production URLs, section permissions, canonical services and protected visuals stay in force. VPN/reseller/marketplace remain outside the chosen product focus.
 
@@ -10,15 +10,15 @@ The release checklist, backup/restore tooling and monitoring already exist. The 
 
 | Priority | Gap | Existing owner and evidence | Safe next slice |
 |---|---|---|---|
-| 1 | Module blocks are not editable in the browser registry; tables, colour/highlight toolbar and existing-media gallery picker are incomplete | `editor`: `BlockEditorApp.tsx` creates the core registry; `rich-text.ts` has no table nodes; `RichTextField.tsx` lacks colour controls; `docs/editor/ARCHITECTURE.md` | Share the declared block definitions with the existing editor adapter before adding registry-based domain blocks. Extend the format only with compatibility/version validation. |
-| 2 | Revision coverage is incomplete for products and item relationships (links/seasons/categories) | `content` composing canonical owners; capability ledger “Versions of edited items” | Extend the existing revision service and owner restore paths; do not create another history store. The narrower current snapshots are intentional, not a claim that all item state is versioned. |
-| 3 | Search has no rating/date ordering or filter by an individual review dimension | `search`, `reviews`: `search/domain/facets.ts`, `search/server/search.ts`; current results rank by relevance | Extend the current query/contract, permission and published-item filtering; measure the rating scan at realistic volume. |
-| 4 | Moderation case lifecycle is not completed by every decision made in an owner's screen | `moderation` cases plus forum/journal/reviews owners; ledger and `moderation/server/cases.ts` | Connect owner decisions to the existing case lifecycle with an idempotent event/contract; retain each owner's authorization. |
-| 5 | Cinema people lack follow/notification and admin editing of their picture/bio; player lacks ASS styling and separate-audio playback | `cinema`, shared `identity`/`notifications`/`media`; ledger “People of films and series”, “Separate subtitle and audio files” | Reuse canonical follow/notification/player services. Subtitle/audio file delivery already exists; the gap is in-player capability. |
+| 1 | Module block definitions are not shared with the browser registry; module rendering remains | `editor`: core registry in `BlockEditorApp.tsx`; tables/semantic color/highlight are now implemented and verified; `docs/editor/ARCHITECTURE.md` | Share validated definitions with the current adapter. FieldControls/FileUpload already use LibraryPicker; preserve this integration. Preserve unsupported blocks and plugin-off rendering. |
+| 2 | History coverage outside named content owners and General/Forum settings is not universal | Restore+revision+audit is now atomic for Site/Catalog/Media; typed General/Forum settings history is verified; [continuation](handoffs/AUTHORING_OPERATIONS.md) | Audit a named owner form before extending history. Never rewind money/stock/ownership or capture provider secrets. |
+| 3 | Production-size search latency/memory and live-result changes need deployment measurement | Date/rating ordering and approved-only dimension filters are implemented;1105-candidate local sample/next-page correctness verified | Measure actual deployment data/query distributions with existing bounded search, not another index/rating store. |
+| 4 | External moderation effects and delivery retain existing transaction boundaries | Immutable rounds, populated history migration, trusted requeue and stale-round checks are implemented; [continuation](handoffs/AUTHORING_OPERATIONS.md) | Assess a named copyright/notification delivery failure through the current owner/outbox. Do not infer runtime delivery from a case record. |
+| 5 | Universal codec/ASS fidelity, historical people notifications and production delivery are not certified | People curation, retained-alias merges, Cinema follow/notices, styled ASS and separate audio are implemented and locally verified; [scope](handoffs/CONTENT_MANAGEMENT.md) | Evaluate a named unsupported format/delivery requirement through current media/jobs/providers; do not rebuild the player/favorites or imply browser transcoding exists. |
 
 Other recorded refinements: scheduled editorial collections and cover picker; member-list controls composed on item pages; recommendation-quality measurement and consented viewing-history signal. These are not a reason to rebuild the existing collections, lists, search, playback or recommendation services.
 
-All legitimate configuration joins the existing Admin Control Plane. Priority 1–5 entries combine focused code inspection with the maintained capability ledger; unrelated capability rows were not re-audited in this batch.
+All legitimate configuration joins the existing Admin Control Plane. Priority1–5 entries incorporate the selected authoring/operations continuation; unrelated capability rows were not re-audited. [PR197](https://github.com/WebNetData/MoboComCMS/pull/197) publishes the prior batch; the owner merges. Its hosted jobs could not start because of GitHub billing/spending limits. No workflow rerun or new production certification is implied.
 
 ## Runtime observations to audit
 

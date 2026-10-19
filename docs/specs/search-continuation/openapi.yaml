@@ -1,13 +1,14 @@
 openapi: 3.0.3
 info:
   title: MoboCom public search contract
-  version: 1.1.0
+  version: 1.2.0
   description: Additive cursor navigation for the existing search endpoint. This is the search slice of the platform contract.
   contact:
     name: MoboComCMS
     url: https://github.com/WebNetData/MoboComCMS
 servers:
   - url: /
+security: []
 tags:
   - name: Search
     description: Public search over enabled modules and currently visible content.
@@ -39,6 +40,30 @@ paths:
           in: query
           description: Set to 1 for bounded autocomplete results.
           schema: { type: string, enum: ['1'] }
+        - name: access
+          in: query
+          description: Optional access facet; suggestions ignore it.
+          schema: { type: string, enum: [free, members] }
+        - name: rated
+          in: query
+          description: Minimum overall member rating; unrated results do not pass. Suggestions ignore it.
+          schema: { type: integer, enum: [3, 4] }
+        - name: since
+          in: query
+          description: Publication window relative to request time; suggestions ignore it.
+          schema: { type: string, enum: [week, month, year] }
+        - name: sort
+          in: query
+          description: Relevance remains the default. Rating puts unrated results last; ties use publication, popularity and stable index ID. Suggestions always use relevance. Changing sort resets a cursor.
+          schema: { type: string, enum: [relevance, newest, rating], default: relevance }
+        - name: dimension
+          in: query
+          description: Current review-dimension key; only supported item types with approved scores pass. Unknown keys are ignored. Suggestions ignore it. Bound into cursor scope.
+          schema: { type: string, maxLength: 40 }
+        - name: dimensionMin
+          in: query
+          description: Minimum approved average for the selected dimension. Ignored without dimension.
+          schema: { type: integer, enum: [3, 4], default: 4 }
         - name: types
           in: query
           description: Comma-separated known types for autocomplete only.
@@ -60,6 +85,16 @@ components:
       type: object
       required: [query, tokens, type, hits, total, page, pages, counts, totalPages, nextCursor, previousCursor, cursorReset]
       properties:
+        facets:
+          type: object
+          description: Normalized active choices. Optional new fields are omitted when inactive; old relevance cursors keep their original scope.
+          properties:
+            access: { type: string, enum: ['', free, members] }
+            rated: { type: integer, enum: [0, 3, 4] }
+            since: { type: string, enum: ['', week, month, year] }
+            sort: { type: string, enum: [newest, rating] }
+            dimension: { type: string }
+            dimensionMin: { type: integer, enum: [3, 4] }
         query: { type: string }
         tokens:
           type: array

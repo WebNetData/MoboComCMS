@@ -27,6 +27,8 @@ export type MusicSettings = {
   chartSource: ChartSource
   latestSize: number
   showLyrics: boolean
+  showArtistBiography: boolean
+  showArtistFollow: boolean
   showRelatedTracks: boolean
 }
 
@@ -38,6 +40,8 @@ export const DEFAULT_MUSIC_SETTINGS: MusicSettings = {
   chartSource: 'plays',
   latestSize: 12,
   showLyrics: true,
+  showArtistBiography: true,
+  showArtistFollow: true,
   showRelatedTracks: true,
 }
 
@@ -53,6 +57,8 @@ export function normalizeMusicSettings(input: unknown): MusicSettings {
     chartSource: Object.prototype.hasOwnProperty.call(CHART_SOURCES, source) ? source as ChartSource : d.chartSource,
     latestSize: clampInt(raw.latestSize, 6, 30, d.latestSize),
     showLyrics: raw.showLyrics !== false,
+    showArtistBiography: raw.showArtistBiography !== false,
+    showArtistFollow: raw.showArtistFollow !== false,
     showRelatedTracks: raw.showRelatedTracks !== false,
   }
 }

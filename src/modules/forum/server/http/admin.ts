@@ -3,6 +3,9 @@ import { MAX_CATEGORY_DEPTH } from '@/modules/forum/domain/tree'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { RevisionError } from '@/modules/content/server/revisions'
+import { JsonSettingMutationError } from '@/modules/settings/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import type { AuthedUser } from '@/modules/identity/server/access'
 import { accountChangeRefusal } from '@/modules/identity/server/staff-guard'
@@ -12,7 +15,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { ForumError, boardSlug } from '@/modules/forum/domain/forum'
 import { BADGE_METRICS, BADGE_RULES, BADGE_RULE_LABEL, validBadgeRule, CommunityError, DEFAULT_FORUM_SETTINGS, FLAG_REASONS, TRUST_NAMES, groupSlug, normalizeLevel } from '@/modules/forum/domain/community'
 import { markdownExcerpt } from '@/modules/forum/domain/markdown'
-import { getForumSettings, grantThresholdBadgeToAll, refreshStats, saveForumSettings, setBadge, viewerFor } from '@/modules/forum/server/community'
+import { getForumSettings, grantThresholdBadgeToAll, refreshStats, saveForumSettings, setBadge, viewerFor, forumSettingsRevision } from '@/modules/forum/server/community'
 import { resolveFlags } from '@/modules/forum/server/actions'
 import { groupAction } from '@/modules/forum/server/people'
 import { forumTeamIds, setDeputy, setForumModerator } from '@/modules/forum/server/team'
@@ -33,6 +36,8 @@ const color = (value: unknown, fallback = '#6366f1') => (/^#[0-9a-f]{6}$/i.test(
 const int = (value: unknown, min: number, max: number) => Math.max(min, Math.min(max, Math.round(Number(value) || 0)))
 
 function failure(error: unknown, fallbackStatus = 400) {
+  if (error instanceof RevisionError) return err(error.message, error.status)
+  if (error instanceof JsonSettingMutationError) return err('تنظیمات تالار نیاز به بررسی دارد؛ صفحه را تازه کنید', 409)
   if (error instanceof ForumError || error instanceof CommunityError || error instanceof RestrictionError) return err(error.message, error.status)
   const message = error instanceof Error ? error.message : ''
   if (/Unique constraint/i.test(message)) return err('این نشانی یا نام قبلاً استفاده شده است', 409)
@@ -70,7 +75,7 @@ export async function GET(req: NextRequest) {
     Promise.all([db.forumThread.count(), db.forumPost.count(), db.forumProfile.count({ where: { postCount: { gt: 0 } } }), db.forumFlag.count({ where: { status: 'PENDING' } }), db.forumPost.count({ where: { status: 'PENDING' } })]),
   ])
   return ok({
-    team, categories, groups, badges, flags, settings, defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, badgeRuleLabels: BADGE_RULE_LABEL, badgeMetrics: BADGE_METRICS, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
+    team, categories, groups, badges, flags, settings, settingsRevision: forumSettingsRevision(settings as unknown as Record<string, unknown>), defaults: DEFAULT_FORUM_SETTINGS, badgeRules: BADGE_RULES, badgeRuleLabels: BADGE_RULE_LABEL, badgeMetrics: BADGE_METRICS, trustNames: TRUST_NAMES, flagReasons: FLAG_REASONS,
     stats: { topics: stats[0], posts: stats[1], members: stats[2], pendingFlags: stats[3], pendingReview: stats[4] },
   })
 }
@@ -314,7 +319,10 @@ export async function PATCH(req: NextRequest) {
         result = await changeForumRestrictions({ req, actor: g.admin }, { userId: Number(body.userId), operation: body.action, effectKey: body.effectKey, id: Number(body.id) || undefined, days: Number(body.days), startsAt: body.startsAt, reason: typeof body.reason === 'string' ? body.reason : '' })
         return ok(result)
       }
-      case 'settings': result = await saveForumSettings(body.settings || {}); break
+      case 'settings': {
+        if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+        return ok(await saveForumSettings(body.settings || {}, { req, actor: g.admin }, req.headers.get('if-match')))
+      }
       default: return err('unknown section', 400)
     }
     await auditAdmin({ req, actor: g.admin, action: `forum.${body.section}.update`, targetType: 'forum', targetId: String(body.id || body.userId || ''), metadata: { section: body.section } })

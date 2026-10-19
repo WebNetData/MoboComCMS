@@ -18,6 +18,7 @@ import { forumRestrictionState } from '@/modules/forum/server/restrictions'
 // staff), profiles, counters, trust promotion, badges and notifications.
 
 const SETTINGS_KEY = 'forum.settings.v1'
+export { saveForumSettings, forumSettingsState, restoreForumSettings, forumSettingsRevision } from '@/modules/forum/server/settings'
 
 /** The settings as stored now (not the copy a request already holds): for work that compares or outlives a request. */
 async function readForumSettings(): Promise<ForumSettings> {
@@ -27,18 +28,6 @@ async function readForumSettings(): Promise<ForumSettings> {
 }
 
 export const getForumSettings = cache(readForumSettings)
-
-export async function saveForumSettings(input: Record<string, unknown>) {
-  const before = await readForumSettings()
-  const settings = normalizeForumSettings(input)
-  const value = JSON.stringify(settings)
-  await db.setting.upsert({ where: { key: SETTINGS_KEY }, create: { key: SETTINGS_KEY, value }, update: { value } })
-  // A changed weight applies to every reaction ever given, not only to the ones to come: everybody is recounted.
-  if (!sameReactionWeights(before, settings)) {
-    await db.backgroundJob.create({ data: { kind: 'forum.reputation-recount', payload: JSON.stringify({ cursor: 0 }), dedupeKey: `forum-reputation:${Date.now()}` } })
-  }
-  return settings
-}
 
 /**
  * Reputation of these members from the reactions themselves: every reaction others gave to their posts, by

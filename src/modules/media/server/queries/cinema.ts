@@ -8,6 +8,7 @@ import { allOrEmpty } from '@/modules/media/server/queries/music'
 import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
 import { cinemaBrowsePage, cinemaPersonId } from '@/modules/cinema/domain/discovery'
+import { canonicalPersonId } from '@/modules/cinema/server/people'
 
 export type TitleCard = {
   id: number; slug: string; kind: string; title: string; titleEn: string; originalTitle: string; poster: string; backdrop: string
@@ -68,7 +69,8 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
 export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string }) {
   const page = cinemaBrowsePage(input.page)
   const where: any = { ...live() }
-  const actor=cinemaPersonId(input.actor),director=cinemaPersonId(input.director)
+  const parsedActor=cinemaPersonId(input.actor),parsedDirector=cinemaPersonId(input.director)
+  const [actor,director] = await Promise.all([parsedActor === null || parsedActor <= 0 ? parsedActor : canonicalPersonId(parsedActor).then(id => id || parsedActor), parsedDirector === null || parsedDirector <= 0 ? parsedDirector : canonicalPersonId(parsedDirector).then(id => id || parsedDirector)])
   const credits=[actor!==null?{credits:{some:{personId:actor,role:'CAST'}}}:null,director!==null?{credits:{some:{personId:director,role:'DIRECTOR'}}}:null].filter(Boolean)
   if(credits.length)where.AND=credits
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }

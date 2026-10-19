@@ -5,6 +5,7 @@ import { businessId } from '../domain/profiles'
 import { getExtensionState } from '@/extensions/server/state'
 import { writeBusinessExperience, moderateBusinessExperience, replyToBusinessExperience } from '@/modules/reviews/server/reviews'
 import { auditAdminStrict } from '@/platform/audit/server'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import type { Prisma } from '@prisma/client'
 
 async function available(tx: Prisma.TransactionClient, id: number, published: boolean) {
@@ -31,6 +32,7 @@ export async function decideBusinessExperience(req: NextRequest, input: Record<s
   return businessTransaction(req, true, async (tx, actor) => {
     const business = await available(tx, id, false)
     await moderateBusinessExperience(tx, business, reviewId, action)
+    if (business.kind !== 'SELLER') await completeOwnerCase(tx, 'business-experiences', reviewId, actor.id, action)
     await auditAdminStrict({ req, actor, action: `businesses.review.${action}`, targetType: business.kind === 'SELLER' ? 'seller-review' : 'item-review', targetId: reviewId, metadata: { businessId: id } }, tx)
     return { ok: true }
   })

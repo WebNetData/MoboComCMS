@@ -36,7 +36,8 @@ export async function syncCredits(tx: Tx, titleId: number, directorImages?: unkn
   const keep: number[] = []
   for (const credit of credits) {
     const normalizedName = normalizePersonName(credit.name)
-    const person = await tx.cinemaPerson.upsert({ where: { normalizedName }, create: { name: credit.name, normalizedName, image: credit.image }, update: {} })
+    const matched = await tx.cinemaPerson.upsert({ where: { normalizedName }, create: { name: credit.name, normalizedName, image: credit.image }, update: {} })
+    const person = matched.mergedIntoId ? await tx.cinemaPerson.findUniqueOrThrow({ where: { id: matched.mergedIntoId } }) : matched
     // Keep an established local picture. Promote an external picture to its local copy with a claim.
     const localCopy=/^\/api\/media\/transfers\/[a-f0-9-]{36}$/.test(credit.image) || /^\/files\/download\/cinema\/images\/(actors|director)\/[^?#]+\.webp$/.test(credit.image)
     if (credit.image && !person.imageLocked && (!person.image || localCopy && /^https:\/\//.test(person.image))) await tx.cinemaPerson.updateMany({ where: { id: person.id, image: person.image, imageLocked:false, profileVersion:person.profileVersion }, data: { image: credit.image,profileVersion:{increment:1} } })
@@ -80,6 +81,8 @@ export async function creditProfiles(titleId:number) {
 /** A person with the published titles they are credited on, newest first, by role. Null when nothing of theirs is public. */
 export async function personPage(id: number, now = new Date()) {
   if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) return null
+  const canonical = await canonicalPersonId(id)
+  id = canonical || id
   const person = await db.cinemaPerson.findUnique({ where: { id }, select: { id: true, name: true, image: true, bio: true } })
   if (!person) return null
   const [credits,counts] = await Promise.all([
@@ -96,7 +99,7 @@ export async function peopleDirectory(input: { page?: unknown; q?: unknown; role
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
   const publicCredit={title:live(now),...(input.role?{role:input.role}:{})}
-  const where = { credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}] } : {}) }
+  const where = { mergedIntoId: null, credits: { some: publicCredit }, ...(q ? { OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}] } : {}) }
   const [total, rows] = await Promise.all([
     db.cinemaPerson.count({ where }),
     db.cinemaPerson.findMany({ where, orderBy: [{ credits: { _count: 'desc' } }, { id: 'asc' }], skip: (page - 1) * PEOPLE_PAGE, take: PEOPLE_PAGE, select: { id: true, name: true, image: true, credits: { where: publicCredit, select: { role: true,titleId:true } } } }),
@@ -110,7 +113,8 @@ export async function peopleDirectory(input: { page?: unknown; q?: unknown; role
 /** A public filter choice cannot reveal a person credited only on private/future titles. */
 export async function publicPersonChoice(id:number,role:CreditRole,now=new Date()) {
   if(!Number.isSafeInteger(id)||id<=0||id>2147483647)return null
-  return db.cinemaPerson.findFirst({where:{id,credits:{some:{role,title:live(now)}}},select:{id:true,name:true,image:true}})
+  const canonical = await canonicalPersonId(id)
+  return db.cinemaPerson.findFirst({where:{id:canonical || id,credits:{some:{role,title:live(now)}}},select:{id:true,name:true,image:true}})
 }
 
 /** Autocomplete projects only public names, without loading each person's whole filmography. */
@@ -118,7 +122,14 @@ export async function publicPeopleChoices(input:{q:string;role:CreditRole},now=n
   const q=normalizePersonName(input.q).slice(0,60)
   if(q.length<2)return []
   return db.cinemaPerson.findMany({
-    where:{credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]},
+    where:{mergedIntoId:null,credits:{some:{role:input.role,title:live(now)}},OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
     orderBy:[{name:'asc'},{id:'asc'}],take:12,select:{id:true,name:true,image:true},
   })
+}
+
+/** Aliases are retained matching keys and addresses, not a second public person. */
+export async function canonicalPersonId(id: number) {
+  if (!Number.isSafeInteger(id) || id <= 0) return null
+  const row = await db.cinemaPerson.findUnique({ where: { id }, select: { id: true, mergedIntoId: true } })
+  return row ? row.mergedIntoId || row.id : null
 }

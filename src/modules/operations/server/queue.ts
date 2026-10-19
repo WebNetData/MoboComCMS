@@ -17,6 +17,11 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'cinema.person-publication': { run: async (payload, job) => {
+    const result = await (await import('@/modules/cinema/server/people-notifications')).deliverPeoplePublication(payload)
+    if (!result.done) await job.continueWith('cinema.person-publication', { ...payload, cursor: result.cursor }, { dedupeKey: `cinema-person:${payload.personId}:title:${payload.titleId}:after:${result.cursor}` })
+    return result
+  } },
   'media.transfer': { run: async payload => (await import('@/modules/media/server/library')).runTransfer(payload) },
   'store.price-drop': {
     run: async (payload, job) => {

@@ -1,37 +1,42 @@
 import type { NextRequest } from 'next/server'
-import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdminStrict } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { bulkSameOrigin } from '@/modules/content/server/bulk'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { readJsonObject } from '@/platform/http/read-json'
 import { contentChanged } from '@/modules/content/server/events'
-import { restoreValues } from '@/modules/content/domain/revisions'
-import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionSnapshot } from '@/modules/content/server/revisions'
+import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
+import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionSnapshot, type RestoreCommit } from '@/modules/content/server/revisions'
 
 // The history of an item for staff, and putting an earlier version back. Who may read or restore the
 // history of an item is whoever may edit that item: the permission comes from the item's own owner.
 
-type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, values: (current: Record<string, unknown>) => Record<string, unknown>) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
-
-const cms = (model: 'post' | 'page', perm: string, itemType: 'post' | null): Owner => ({
-  perms: [perm], module: model === 'post' ? 'journal' : null,
-  current: (id) => (model === 'post' ? db.post.findUnique({ where: { id } }) : db.page.findUnique({ where: { id } })) as Promise<Record<string, unknown> | null>,
-  restore: async (id, values) => {
-    const delegate = (model === 'post' ? db.post : db.page) as unknown as { findUnique: (args: unknown) => Promise<Record<string, unknown> | null>; update: (args: unknown) => Promise<Record<string, unknown>> }
-    const before = await delegate.findUnique({ where: { id } })
-    if (!before) throw new RevisionError('این مورد پیدا نشد', 404)
-    const after = await delegate.update({ where: { id }, data: values(before) })
-    if (itemType) contentChanged({ type: itemType, id }, before, after)
-    return { before, after }
-  },
-})
+type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
-  if (type === 'posts') return cms('post', 'cms.posts', 'post')
-  if (type === 'pages') return cms('page', 'cms.pages', null)
+  if (type === 'settings-general') {
+    const { generalSettingsState, restoreGeneralSettings } = await import('@/modules/settings/server')
+    return { perms: ['settings.manage'], module: null, current: () => generalSettingsState(), restore: restoreGeneralSettings }
+  }
+  if (type === 'settings-forum') {
+    const { forumSettingsState, restoreForumSettings } = await import('@/modules/forum/server/community')
+    return { perms: ['forum.moderate'], module: 'forum', current: () => forumSettingsState(), restore: restoreForumSettings }
+  }
+  if (type === 'posts') {
+    const { postRevisionState, restorePostRevision } = await import('@/modules/site/server/revision-state')
+    return { perms: ['cms.posts'], module: 'journal', current: postRevisionState, restore: async (id, snapshot, commit) => { const result = await restorePostRevision(id, snapshot, commit); contentChanged({ type: 'post', id }, result.before, result.after); return result } }
+  }
+  if (type === 'products') {
+    const { productRevisionState, restoreProductRevision } = await import('@/modules/catalog/server/revision-state')
+    return { perms: ['cms.products'], module: 'store', current: productRevisionState, restore: async (id, snapshot, commit) => { const result = await restoreProductRevision(id, snapshot, commit); contentChanged({ type: 'product', id }, result.before, result.after); return result } }
+  }
+  if (type === 'pages') {
+    const { pageRevisionState, restorePageRevision } = await import('@/modules/site/server/revision-state')
+    return { perms: ['cms.pages'], module: null, current: pageRevisionState, restore: restorePageRevision }
+  }
   const media = await import('@/modules/media/server/admin')
   const resource = media.mediaResource(type)
-  return resource ? { perms: resource.perms, module: resource.module, current: (id) => media.mediaItemRow(type, id), restore: (id, values) => media.restoreMediaItem(type, id, values) } : null
+  return resource ? { perms: resource.perms, module: resource.module, current: (id) => media.mediaItemRow(type, id), restore: (id, snapshot, commit) => media.restoreMediaItem(type, id, current => restoreValues(snapshot, current), commit) } : null
 }
 
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
@@ -56,8 +61,9 @@ export async function GET_history(req: NextRequest) {
 
 /** POST /api/admin/history { type, id, version } — puts the item's own fields back as they were in that version. */
 export async function POST_history(req: NextRequest) {
-  if (!bulkSameOrigin(req)) return err('forbidden', 403)
-  const body = (await req.json().catch(() => null)) || {}
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+  let body: Record<string, unknown>
+  try { body = await readJsonObject(req, 8192) } catch { return err('درخواست معتبر نیست', 422) }
   const type = String(body.type || ''), id = idOf(body.id), version = idOf(body.version)
   const owner = await ownerOf(type)
   if (!owner || !id || !version) return err('درخواست معتبر نیست', 400)
@@ -65,12 +71,16 @@ export async function POST_history(req: NextRequest) {
   if ('response' in g) return g.response
   try {
     const snapshot = await revisionSnapshot(type, id, version)
-    const { before, after } = await owner.restore(id, (current) => restoreValues(snapshot, current))
-    const made = await recordRevision({ entityType: type, entityId: id, before, after, actor: g.admin, source: 'restore' })
-    await auditAdmin({ req, actor: g.admin, action: 'content.restore', targetType: type, targetId: id, metadata: { version, newVersion: made } })
+    let made: number | null = null
+    await owner.restore(id, snapshot, async (tx, before, after) => {
+      made = await recordRevision({ entityType: type, entityId: id, before, after, actor: g.admin, source: 'restore', client: tx, strict: true })
+      await auditAdminStrict({ req, actor: g.admin, action: 'content.restore', targetType: type, targetId: id, metadata: { version, newVersion: made } }, tx)
+    })
     return ok({ restored: version, version: made })
   } catch (error) {
     if (error instanceof RevisionError) return err(error.message, error.status)
+    if ((error as { code?: string }).code === 'P2034' || (error as { status?: number }).status === 409) return err('این مورد هم‌زمان تغییر کرده است؛ دوباره بررسی کنید', 409)
+    if ((error as { status?: number }).status === 404) return err('این مورد پیدا نشد', 404)
     // Another item took a unique value (an address) since that version: the restore is refused, nothing is changed.
     if ((error as { code?: string }).code === 'P2002') return err('این نسخه قابل بازگردانی نیست: نشانی یا مقدار یکتای آن حالا متعلق به مورد دیگری است', 409)
     console.error('[content.history]', error)

@@ -27,6 +27,10 @@ export type CinemaSettings = {
   /** Only titles at or above this IMDb score enter the top-rated shelf. */
   topRatedMin: number
   showImdb: boolean
+  personFollowEnabled: boolean
+  showPersonBiography: boolean
+  enableAssSubtitles: boolean
+  enableSeparateAudio: boolean
 }
 
 export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
@@ -36,6 +40,10 @@ export const DEFAULT_CINEMA_SETTINGS: CinemaSettings = {
   genreShelfCount: 3,
   topRatedMin: 0,
   showImdb: true,
+  personFollowEnabled: true,
+  showPersonBiography: true,
+  enableAssSubtitles: true,
+  enableSeparateAudio: true,
 }
 
 export function normalizeCinemaSettings(input: unknown): CinemaSettings {
@@ -49,6 +57,10 @@ export function normalizeCinemaSettings(input: unknown): CinemaSettings {
     genreShelfCount: clampInt(raw.genreShelfCount, 0, 6, d.genreShelfCount),
     topRatedMin: Number.isFinite(min) ? Math.min(10, Math.max(0, Math.round(min * 10) / 10)) : d.topRatedMin,
     showImdb: raw.showImdb !== false,
+    personFollowEnabled: raw.personFollowEnabled !== false,
+    showPersonBiography: raw.showPersonBiography !== false,
+    enableAssSubtitles: raw.enableAssSubtitles !== false,
+    enableSeparateAudio: raw.enableSeparateAudio !== false,
   }
 }
 

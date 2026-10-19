@@ -3,6 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
+import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'cms.products')) return err('forbidden', 403)
@@ -34,7 +35,13 @@ export async function PATCH(req: NextRequest) {
   if (kind === 'review') {
     const row = await db.productReview.findUnique({ where: { id } })
     if (!row) return err('not found', 404)
-    await db.productReview.update({ where: { id }, data: { status } })
+    const changed = await db.$transaction(async tx => {
+      const claimed = await tx.productReview.updateMany({ where: { id, status: row.status }, data: { status } })
+      if (claimed.count && status !== 'PENDING') await completeOwnerCase(tx, 'product-reviews', id, admin.id, status === 'APPROVED' ? 'approve' : 'reject')
+      if (claimed.count && status === 'PENDING' && row.status !== 'PENDING') await reopenOwnerCase(tx, 'product-reviews', id)
+      return claimed.count
+    })
+    if (!changed) return err('نظر هم‌زمان تغییر کرده است', 409)
     // Customer club: one bonus per approved review (idempotent by review id).
     if (status === 'APPROVED') await import('@/modules/store/server/marketing').then((m) => m.awardReviewBonus(row.userId, row.id)).catch(() => undefined)
   } else {
@@ -42,7 +49,13 @@ export async function PATCH(req: NextRequest) {
     if (!row) return err('not found', 404)
     const answer = String(body?.answer || '').trim()
     if (answer.length > 3000 || /[<>]/.test(answer)) return err('Invalid answer')
-    await db.productQuestion.update({ where: { id }, data: { status, answer } })
+    const changed = await db.$transaction(async tx => {
+      const claimed = await tx.productQuestion.updateMany({ where: { id, status: row.status, answer: row.answer }, data: { status, answer } })
+      if (claimed.count && status !== 'PENDING') await completeOwnerCase(tx, 'product-questions', id, admin.id, status === 'APPROVED' ? 'approve' : 'reject')
+      if (claimed.count && status === 'PENDING' && row.status !== 'PENDING') await reopenOwnerCase(tx, 'product-questions', id)
+      return claimed.count
+    })
+    if (!changed) return err('پرسش هم‌زمان تغییر کرده است', 409)
   }
   await auditAdmin({ req, actor: admin, action: 'product_feedback.moderate', targetType: kind === 'review' ? 'ProductReview' : 'ProductQuestion', targetId: id, metadata: { status } })
   return ok({ id, status })

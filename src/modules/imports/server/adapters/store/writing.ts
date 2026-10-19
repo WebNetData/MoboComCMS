@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { capturePublicProductPrices, prepareProductPriceCapture } from '@/modules/catalog/server/price-history'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
@@ -217,6 +218,7 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
   // Changes made inside the transaction are only kept if it commits.
   const mark = changes.length
   const result = await db.$transaction(async (tx) => {
+    if (existing) await claimImportUpdate(tx, ctx, 'product', existing.id)
     let productId: number
     const pricesBefore = existing ? await prepareProductPriceCapture(tx, existing.id) : new Map()
     if (!existing) {
@@ -296,9 +298,9 @@ async function applyProduct(_item: SourceItem, planned: Plan, ctx: ImportContext
       }
     }
     await capturePublicProductPrices(tx, productId, pricesBefore)
-    return productId
-  }, { timeout: 30_000 }).catch((error) => { changes.length = mark; throw error })
+    return { id: productId, writtenAt: (await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { updatedAt: true } })).updatedAt.toISOString(), contentFingerprint: (await importContentState('store', productId, tx))?.fingerprint }
+  }, { timeout: 30_000, ...(ctx.settings.protectEdits ? { isolationLevel: 'Serializable' as const } : {}) }).catch((error) => { changes.length = mark; throw error })
   const owners = (ctx.cache.get('variantSkus') as Map<string, number> | undefined) || new Map<string, number>()
-  for (const vp of data.variants) owners.set(vp.sku, result)
-  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'product', entityId: result, changes, messages, counters }
+  for (const vp of data.variants) owners.set(vp.sku, result.id)
+  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'product', entityId: result.id, writtenAt: result.writtenAt, contentFingerprint: result.contentFingerprint, changes, messages, counters }
 }

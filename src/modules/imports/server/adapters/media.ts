@@ -1,4 +1,6 @@
 import { db } from '@/platform/database/prisma'
+import type { Prisma } from '@prisma/client'
+import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { appendMediaLinks, deleteMediaItem, mediaLinksOf, recountMediaTaxonomy, saveMediaItem } from '@/modules/media/server/admin'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { cleanLinks, type LinkOwner } from '@/modules/media/domain/media'
@@ -220,11 +222,55 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
       const known = new Set(current.map((l) => l.url))
       body.links = [...current, ...incoming.filter((l) => !known.has(l.url))]
     }
+    // Resolve/copy remote assets before taking database locks. Every episode write then shares
+    // the title's content claim and revision transaction, including episode-only imports.
+    const episodes: { ep: EpisodePlan; row: Record<string, unknown>; links: ReturnType<typeof linksOf> | null }[] = []
+    if (spec.episodes && data.episodes.length && 'episodes' in ctx.allow({ episodes: true }, mode)) {
+      for (const ep of data.episodes) {
+        const allowedEp = ctx.allowVariant(ep.values, ep.existingId ? 'update' : 'create')
+        const row: Record<string, unknown> = {}, episodeContext = { ...ctx, organization: { ...ctx.organization!, season: ep.season } }
+        if ('title' in allowedEp) row.title = toText(allowedEp.title, 200)
+        if ('titleEn' in allowedEp) row.titleEn = toText(allowedEp.titleEn, 200)
+        if ('summary' in allowedEp) row.summary = cleanRichText(await localizeHtml(episodeContext, String(allowedEp.summary || '').slice(0, 10000), messages, counters, 'رسانهٔ خلاصه قسمت'))
+        if ('runtime' in allowedEp) row.runtime = toInt(allowedEp.runtime, 0, 1000) ?? 0
+        if ('airDate' in allowedEp) row.airDate = allowedEp.airDate as Date
+        if ('still' in allowedEp) { const [img] = await importImages(ctx, [String(allowedEp.still)], messages, counters, `تصویر فصل ${ep.season} قسمت ${ep.episode}`); if (img) row.still = img }
+        const links = 'links' in allowedEp ? linksOf(allowedEp.links) : null
+        if (links) for (const link of links) link.url = await importFileLink(episodeContext, link.url, messages)
+        episodes.push({ ep, row, links })
+      }
+    }
+    const writeEpisodes = async (tx: Prisma.TransactionClient, titleId: number) => {
+      for (const { ep, row, links } of episodes) {
+        let season = await tx.cinemaSeason.findUnique({ where: { titleId_number: { titleId, number: ep.season } } })
+        if (!season) {
+          season = await tx.cinemaSeason.create({ data: { titleId, number: ep.season } })
+          changes.push({ kind: 'created', entity: 'cinemaSeason', id: season.id })
+          counters.seasonsCreated = (counters.seasonsCreated || 0) + 1
+        }
+        const current = await tx.cinemaEpisode.findUnique({ where: { seasonId_number: { seasonId: season.id, number: ep.episode } } })
+        if (!current) {
+          const created = await tx.cinemaEpisode.create({ data: { seasonId: season.id, number: ep.episode, ...row } as never })
+          changes.push({ kind: 'created', entity: 'cinemaEpisode', id: created.id, stamp: JSON.stringify(snapshot(created as unknown as Record<string, unknown>, ['title', 'summary', 'still', 'runtime'])) })
+          counters.episodesCreated = (counters.episodesCreated || 0) + 1
+        } else if (Object.keys(row).length) {
+          const updated = await tx.cinemaEpisode.update({ where: { id: current.id }, data: row as never })
+          changes.push({ kind: 'updated', entity: 'cinemaEpisode', id: current.id, before: snapshot(current as unknown as Record<string, unknown>, Object.keys(row)), after: snapshot(updated as unknown as Record<string, unknown>, Object.keys(row)) })
+          counters.episodesUpdated = (counters.episodesUpdated || 0) + 1
+        }
+        const saved = await tx.cinemaEpisode.findUniqueOrThrow({ where: { seasonId_number: { seasonId: season.id, number: ep.episode } } })
+        if (links) for (const link of await appendMediaLinks('episode', saved.id, links, tx)) changes.push({ kind: 'created', entity: 'mediaLink', id: link.id, stamp: JSON.stringify(snapshot(link as unknown as Record<string, unknown>, ['url', 'label', 'quality', 'size', 'disabled', 'clicks'])) })
+        if (toText(ep.values.externalId, 190)) await saveIdentity(tx, ctx, `${entity}.episode`, toText(ep.values.externalId, 190), saved.id)
+      }
+    }
     let id = existing?.id ?? null
-    if (Object.keys(body).length) {
+    let writtenAt: string | undefined
+    let contentFingerprint: string | undefined
+    if (Object.keys(body).length || episodes.length || (id && ctx.settings.protectEdits)) {
       const before = existing ? await delegate(db, spec.model).findUnique({ where: { id: existing.id } }) : null
-      const { row } = await saveMediaItem(spec.resource, body, id)
+      const { row } = await saveMediaItem(spec.resource, body, id, null, { beforeWrite: id && ctx.settings.protectEdits ? tx => claimImportUpdate(tx, ctx, spec.model, id!) : undefined, afterWrite: async (tx, savedId) => { await writeEpisodes(tx, savedId); contentFingerprint = (await importContentState(spec.id, savedId, tx))?.fingerprint } })
       id = row.id as number
+      writtenAt = (row.updatedAt as Date).toISOString()
       if (before) {
         const keys = Object.keys(body).filter((k) => !['terms', 'links', 'seasons'].includes(k) && k in before && JSON.stringify(snapshot(before, [k])) !== JSON.stringify(snapshot(row, [k])))
         if (keys.length) changes.push({ kind: 'updated', entity: spec.model, id: row.id, before: snapshot(before, keys), after: snapshot(row, keys) })
@@ -234,45 +280,7 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     if (toText(data.values.externalId, 190)) await saveIdentity(db, ctx, entity, toText(data.values.externalId, 190), id)
     else if (planned.sourceKey) await saveIdentity(db, ctx, entity, planned.sourceKey, id)
 
-    // Series: season/episode upserts by number (never a second copy on re-import).
-    if (spec.episodes && data.episodes.length && 'episodes' in ctx.allow({ episodes: true }, mode)) {
-      for (const ep of data.episodes) {
-        const allowedEp = ctx.allowVariant(ep.values, ep.existingId ? 'update' : 'create')
-        let season = await db.cinemaSeason.findUnique({ where: { titleId_number: { titleId: id, number: ep.season } } })
-        if (!season) {
-          season = await db.cinemaSeason.create({ data: { titleId: id, number: ep.season } })
-          changes.push({ kind: 'created', entity: 'cinemaSeason', id: season.id })
-          counters.seasonsCreated = (counters.seasonsCreated || 0) + 1
-        }
-        const row: Record<string, unknown> = {}
-        if ('title' in allowedEp) row.title = toText(allowedEp.title, 200)
-        if ('titleEn' in allowedEp) row.titleEn = toText(allowedEp.titleEn, 200)
-        const episodeContext={...ctx,organization:{...ctx.organization!,season:ep.season}}
-        if ('summary' in allowedEp) row.summary = cleanRichText(await localizeHtml(episodeContext,String(allowedEp.summary||'').slice(0,10000),messages,counters,'رسانهٔ خلاصه قسمت'))
-        if ('runtime' in allowedEp) row.runtime = toInt(allowedEp.runtime, 0, 1000) ?? 0
-        if ('airDate' in allowedEp) row.airDate = allowedEp.airDate as Date
-        if ('still' in allowedEp) { const [img] = await importImages(ctx, [String(allowedEp.still)], messages, counters, `تصویر فصل ${ep.season} قسمت ${ep.episode}`); if (img) row.still = img }
-        const current = await db.cinemaEpisode.findUnique({ where: { seasonId_number: { seasonId: season.id, number: ep.episode } } })
-        if (!current) {
-          const created = await db.cinemaEpisode.create({ data: { seasonId: season.id, number: ep.episode, ...row } as never })
-          changes.push({ kind: 'created', entity: 'cinemaEpisode', id: created.id, stamp: JSON.stringify(snapshot(created as unknown as Record<string, unknown>, ['title', 'summary', 'still', 'runtime'])) })
-          counters.episodesCreated = (counters.episodesCreated || 0) + 1
-        } else if (Object.keys(row).length) {
-          const updated = await db.cinemaEpisode.update({ where: { id: current.id }, data: row as never })
-          changes.push({ kind: 'updated', entity: 'cinemaEpisode', id: current.id, before: snapshot(current as unknown as Record<string, unknown>, Object.keys(row)), after: snapshot(updated as unknown as Record<string, unknown>, Object.keys(row)) })
-          counters.episodesUpdated = (counters.episodesUpdated || 0) + 1
-        }
-        const savedEpisode=await db.cinemaEpisode.findUniqueOrThrow({where:{seasonId_number:{seasonId:season.id,number:ep.episode}}})
-        if('links' in allowedEp) {
-          const incoming=linksOf(allowedEp.links)
-          for(const link of incoming)link.url=await importFileLink(episodeContext,link.url,messages)
-          const created=await appendMediaLinks('episode',savedEpisode.id,incoming)
-          for(const link of created)changes.push({kind:'created',entity:'mediaLink',id:link.id,stamp:JSON.stringify(snapshot(link as unknown as Record<string,unknown>,['url','label','quality','size','disabled','clicks']))})
-        }
-        if (toText(ep.values.externalId, 190)) await saveIdentity(db, ctx, `${entity}.episode`, toText(ep.values.externalId, 190), savedEpisode.id)
-      }
-    }
-    return { action: existing ? 'UPDATE' : 'CREATE', entityType: spec.model, entityId: id, changes, messages, counters }
+    return { action: existing ? 'UPDATE' : 'CREATE', entityType: spec.model, entityId: id, writtenAt, contentFingerprint, changes, messages, counters }
   }
 
   async function rollback(changes: Change[]) {

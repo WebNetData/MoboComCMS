@@ -28,9 +28,32 @@ const text = (value, marks) => ({ type: 'text', text: value, ...(marks ? { marks
 const para = (...content) => ({ type: 'paragraph', content })
 const richDoc = (...content) => ({ type: 'doc', content })
 let n = 0
-const block = (type, props = {}, children) => ({ id: `blk_${String(++n).padStart(4, '0')}`, type, version: 1, props, ...(children ? { children } : {}) })
+const block = (type, props = {}, children) => ({ id: `blk_${String(++n).padStart(4, '0')}`, type, version: registry.get(type)?.version || 1, props, ...(children ? { children } : {}) })
 const document = (...blocks) => ({ version: 1, blocks })
 const codes = (check) => check.issues.filter((issue) => issue.level === 'error').map((issue) => issue.code)
+
+test('rich-text v2 preserves v1 text and tables keep bounded spans, safe marks, direction and searchable text', () => {
+  const cell = (value, attrs, header = false) => ({ type: header ? 'tableHeader' : 'tableCell', attrs, content: [para(text(value, [{ type: 'highlight' }, { type: 'textStyle', attrs: { color: 'accent' } }]))] })
+  const row = (...cells) => ({ type: 'tableRow', content: cells })
+  const table = (...rows) => ({ type: 'table', content: rows })
+  const value = richDoc(table(row(cell('عنوان', { colspan: 2 }, true)), row(cell('فارسی', { rowspan: 2 }), cell('English <script>')), row(cell('آخر'))))
+  const normalized = rich.normalizeRichText(value)
+  assert.deepEqual(normalized.issues, [])
+  const html = rich.richTextHtml(value)
+  assert.match(html, /<table><tbody><tr><th colspan="2">/)
+  assert.match(html, /<td rowspan="2"><p dir="rtl">/)
+  assert.match(html, /English &lt;script&gt;/)
+  assert.doesNotMatch(html, /<script>|style=/)
+  assert.match(rich.richTextFacts(value).text, /عنوان\nفارسی\nEnglish <script>\nآخر/)
+  const old = { ...block('content.richText', { content: richDoc(para(text('old unchanged'))) }), version: 1 }
+  const migrated = v.checkDocument(document(old), registry)
+  assert.equal(migrated.ok, true); assert.equal(migrated.document.blocks[0].version, 2)
+  assert.equal(migrated.document.blocks[0].props.content.content[0].content[0].text, 'old unchanged')
+  const oldRegistry = new BlockRegistry().register({ ...core.CORE_BLOCKS.find(block => block.type === 'content.richText'), version: 1, migrate: undefined })
+  assert.equal(v.checkDocument(document(block('content.richText', { content: value })), oldRegistry).unsupported.length, 1, 'an older registry preserves the newer block as unsupported')
+  for (const invalid of [table(), table(row(cell('a')), row(cell('b'), cell('c'))), table(row(cell('a', { colspan: 21 }))), table(row(cell('a', { rowspan: 2 }))), table(...Array.from({ length: 101 }, () => row(cell('a')))), table(row({ type: 'tableCell', content: [table(row(cell('nested')))] }))]) assert.ok(rich.normalizeRichText(richDoc(invalid)).issues.length, 'invalid grids are rejected')
+  assert.deepEqual(rich.normalizeRichText(richDoc(table(row(cell('a', { rowspan: 2 })), row()))).issues, [], 'a whole merged row can have no own cells')
+})
 
 test('a document is checked block by block: shape, ids, places, depth and size', () => {
   const good = document(block('layout.section', { width: 'wide' }, [block('layout.columns', { columns: { desktop: 3, tablet: 2, mobile: 1 } }, [block('layout.column', {}, [block('content.heading', { text: 'سلام', level: 2 })]), block('layout.column', {}, [block('content.richText', { content: richDoc(para(text('متن فارسی و English با هم'))) })])])]))

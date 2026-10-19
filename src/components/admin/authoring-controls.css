@@ -1,0 +1,8 @@
+/* Scoped authoring controls keep the configured accent hue and readable text in both themes. */
+.cm-settings .btn-primary, .cm-moderation .btn-primary {
+  color: var(--sds-color-white-1000, #fff);
+  background: color-mix(in srgb, var(--primary) 45%, var(--sds-color-black-1000, #000));
+}
+.cm-history .sa-link, .cm-moderation .sa-link { color: var(--sds-color-text-brand-default); }
+.cm-history .sa-sub, .cm-moderation .sa-sub, .cm-moderation .sa-tag { color: color-mix(in srgb, var(--text) 82%, var(--bg)); }
+.cm-moderation .sa-state.is-warn { color: var(--sds-color-text-warning-default); }

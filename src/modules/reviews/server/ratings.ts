@@ -8,6 +8,7 @@ import { ratingsFor } from '@/modules/reviews/server/reviews'
 // product reviews. This reads both; it stores nothing and moves nothing.
 
 export type ItemRating = { average: number | null; count: number }
+export { dimensionRatingsOfItems } from '@/modules/reviews/server/dimension-ratings'
 
 export async function ratingsOfItems(refs: ItemRef[]): Promise<Map<string, ItemRating>> {
   const out = new Map<string, ItemRating>()

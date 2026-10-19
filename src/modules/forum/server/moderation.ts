@@ -8,6 +8,7 @@ import { markdownExcerpt } from '@/modules/forum/domain/markdown'
 import { afterPost, recount } from '@/modules/forum/server/actions'
 import { notify, refreshStats } from '@/modules/forum/server/community'
 import { authorsFor, fallbackAuthor } from '@/modules/forum/server/forum'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 
 // Staff tools beyond hide/lock: the review queue for held posts, moving
 // posts between topics (split / merge), topic timers, slow mode, unlisting,
@@ -49,6 +50,7 @@ export async function reviewPost(viewer: Viewer, postId: number, decision: 'appr
       if (first) await tx.forumThread.delete({ where: { id: post.threadId } })
       else await tx.forumPost.delete({ where: { id: postId } })
       await recount(tx, post.threadId, post.thread.categoryId)
+      await completeOwnerCase(tx, 'forum-posts', postId, viewer.userId!, decision)
     })
     await notify(post.userId, 'FORUM_REJECTED', `forum:rejected:${postId}`, 'پیام شما در تالار تأیید نشد', note || `«${post.thread.title}»`, '/forum')
     return { id: postId, decision }
@@ -57,6 +59,7 @@ export async function reviewPost(viewer: Viewer, postId: number, decision: 'appr
     await tx.forumPost.update({ where: { id: postId }, data: { status: 'VISIBLE', reviewReason: '', createdAt: first ? post.createdAt : new Date() } })
     if (first) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: 'VISIBLE', lastPostAt: new Date() } })
     await recount(tx, post.threadId, post.thread.categoryId)
+    await completeOwnerCase(tx, 'forum-posts', postId, viewer.userId!, decision)
   })
   const { viewerFor } = await import('@/modules/forum/server/community')
   await afterPost(await viewerFor(post.userId), { threadId: post.threadId, title: post.thread.title, number: post.postNumber, content: post.content, categoryId: post.thread.categoryId, replyToUserId: null })

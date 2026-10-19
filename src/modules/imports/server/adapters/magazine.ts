@@ -1,4 +1,5 @@
 import { db } from '@/platform/database/prisma'
+import { claimImportUpdate, importContentState } from '@/modules/imports/server/edit-protection'
 import { contentChanged } from '@/modules/content/server/events'
 import { cleanRichText, richTextToPlain } from '@/shared/content/sanitize'
 import { normalizeAccess } from '@/modules/membership/domain/membership'
@@ -200,7 +201,9 @@ async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, c
   else if (!existing) row.authorId = ctx.actor.id
   if (row.authorId === undefined) delete row.authorId
   const categoryIds = 'categories' in allowed && data.paths.length ? await ensureCategories(ctx, data.paths, changes, counters) : null
+  let contentFingerprint: string | undefined
   const saved = await db.$transaction(async (tx) => {
+    if (existing) await claimImportUpdate(tx, ctx, 'post', existing.id)
     if (categoryIds) { row.categoryId = categoryIds[0] || null; row.categories = existing ? { deleteMany: {}, create: categoryIds.map((categoryId) => ({ categoryId })) } : { create: categoryIds.map((categoryId) => ({ categoryId })) } }
     if (!existing) {
       let slug = toText(allowed.slug, 120) || latinSlug(data.values.titleEn || data.values.title, 100) || slugify(data.values.title) || `post-${suffixOf(planned.sourceKey)}`
@@ -208,18 +211,20 @@ async function applyPost(_item: SourceItem, planned: Plan, ctx: ImportContext, c
       row.slug = slug
       const created = await tx.post.create({ data: row as never })
       changes.push({ kind: 'created', entity: 'post', id: created.id, stamp: created.updatedAt.toISOString() })
+      contentFingerprint = (await importContentState('magazine', created.id, tx))?.fingerprint
       return created
     }
     const before = await tx.post.findUnique({ where: { id: existing.id } })
     const updated = await tx.post.update({ where: { id: existing.id }, data: row as never })
     const keys = TRACKED.filter((k) => k in row)
     if (keys.length) changes.push({ kind: 'updated', entity: 'post', id: existing.id, before: snapshot(before as unknown as Record<string, unknown>, keys), after: snapshot(updated as unknown as Record<string, unknown>, keys) })
+    contentFingerprint = (await importContentState('magazine', updated.id, tx))?.fingerprint
     return updated
-  })
+  }, { ...(ctx.settings.protectEdits ? { isolationLevel: 'Serializable' as const } : {}) })
   if (toText(data.values.externalId, 190)) await saveIdentity(db, ctx, ENTITY, toText(data.values.externalId, 190), saved.id)
   else await saveIdentity(db, ctx, ENTITY, planned.sourceKey, saved.id)
   contentChanged({ type: 'post', id: saved.id }, existing, saved)
-  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'post', entityId: saved.id, changes, messages, counters }
+  return { action: existing ? 'UPDATE' : 'CREATE', entityType: 'post', entityId: saved.id, writtenAt: saved.updatedAt.toISOString(), contentFingerprint, changes, messages, counters }
 }
 
 async function rollback(changes: Change[]) {

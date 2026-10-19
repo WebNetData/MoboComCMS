@@ -19,7 +19,7 @@ const STATE_LABEL: Record<string, string> = { IMPORTED: 'وارد می‌شود'
 const OUTCOME: Record<Finding['outcome'], string> = { ignored: 'نادیده گرفته می‌شود', added: 'به گروه ویژگی اضافه می‌شود', mapped: 'نگاشت شد', rejected: 'رکورد رد می‌شود', 'needs-mapping': 'نیاز به نگاشت' }
 
 const emptySettings = (): Settings => ({
-  sheet: '', source: 'default', mapping: {}, variantMapping: {}, policies: {}, variantPolicies: {}, existing: 'skip',
+  sheet: '', source: 'default', mapping: {}, variantMapping: {}, policies: {}, variantPolicies: {}, existing: 'skip', protectEdits: true,
   variants: { mode: 'none', source: '', groupBy: '' }, attributes: [], specsSource: '', options: { copyAssets: false, mediaTransferMode: 'immediate' },
 })
 const defaultPolicy = (field: FieldDef, mapped: boolean): Policy => ({ create: mapped, update: mapped && field.updatable !== false && field.updateByDefault !== false })
@@ -402,6 +402,7 @@ function OptionsStep({ dest, settings, change, step, analysis, dry }: { dest: De
     {step === 8 && <fieldset className="imp-radios"><legend>رکوردهایی که از قبل وجود دارند</legend>
       {EXISTING.map((e) => <label key={e.value} className={settings.existing === e.value ? 'is-active' : ''}><input type="radio" name="existing" checked={settings.existing === e.value} onChange={() => change({ existing: e.value })} /><b>{e.label}</b><small>{e.hint}</small></label>)}
     </fieldset>}
+    {step === 8 && <label className="imp-check"><input type="checkbox" checked={settings.protectEdits === true} onChange={event => change({ protectEdits: event.target.checked })} />حفظ ویرایش‌های محلی<small className="sa-hint">اگر محتوا، دسته‌ها، لینک‌ها یا قسمت‌ها پس از آخرین ورود تغییر کرده باشند، کل آن مورد رد می‌شود. موارد قدیمی بدون سابقهٔ مقایسه هم حفظ می‌شوند. برای بازنویسی عمدی، این گزینه را بردارید و اجرای آزمایشی را دوباره بررسی کنید.</small></label>}
     {options.map((o) => <OptionField key={o.key} dest={dest} option={o} value={settings.options[o.key]} onChange={(v) => setOption(o.key, v)} analysis={analysis} settings={settings} />)}
     {step === 8 && dry && <p className="sa-hint">پس از تغییر این تنظیمات، اجرای آزمایشی را دوباره انجام دهید.</p>}
   </div>

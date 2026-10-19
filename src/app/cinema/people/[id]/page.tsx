@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import ManageBar from '@/components/admin/ManageBar'
 import PersonHeader from '@/components/media/cinema/PersonHeader'
@@ -15,6 +15,8 @@ import MediaShell from '@/components/media/MediaShell'
 import { cinemaNav } from '@/components/media/nav'
 import { PosterCard } from '@/components/media/MediaCards'
 import styles from '@/components/media/cinema/discovery.module.css'
+import { ItemActionBar } from '@/components/engage/Engagement'
+import { getCinemaSettings } from '@/modules/cinema/server/admin'
 
 export const dynamic='force-dynamic'
 type Props={params:Promise<{id:string}>}
@@ -28,6 +30,8 @@ export default async function CinemaPersonPage({params}:Props){
   const [locale,{id},requestHeaders]=await Promise.all([getServerLocale(),params,headers()]),fa=locale==='fa'
   const person=await personPage(Number(id))
   if(!person)notFound()
+  if (person.id !== Number(id)) permanentRedirect(`/cinema/people/${person.id}`)
+  const presentation = await getCinemaSettings(true)
   const [acted,directed]=await Promise.all([
     person.castCount?browseCinema({actor:String(person.id)}):null,
     person.directorCount?browseCinema({director:String(person.id)}):null,
@@ -39,7 +43,8 @@ export default async function CinemaPersonPage({params}:Props){
     <div className={`container cn-profile ${styles.page}`}>
       <nav className={styles.breadcrumb} aria-label={fa?'مسیر صفحه':'Breadcrumb'}><Link href="/cinema">{fa?'فیلم و سریال':'Cinema'}</Link><span aria-hidden="true">/</span><Link href="/cinema/people">{fa?'بازیگران و کارگردانان':'Actors & directors'}</Link><span aria-hidden="true">/</span><span aria-current="page" dir="auto">{person.name}</span></nav>
       <ManageBar title="مدیریت پروفایل" anyOf={['cinema.manage']} links={[{href:`/admin/cinema/people?edit=${person.id}`,label:'ویرایش عکس و زندگی‌نامه'}]}/>
-      <PersonHeader person={person} fa={fa}/>
+      <PersonHeader person={{ ...person, bio: presentation.showPersonBiography ? person.bio : '' }} fa={fa}/>
+      {presentation.personFollowEnabled && <ItemActionBar item={{ type: 'person', id: person.id }} title={person.name} image={person.image} followLabel={fa ? 'اعلان اثر تازه' : 'New works'} favoriteLabels={{ off: fa ? 'دنبال‌کردن' : 'Follow', on: fa ? 'دنبال می‌کنید' : 'Following' }} />}
       {acted&&<Filmography name={person.name} fa={fa} result={acted} role="CAST" href={cinemaBrowseHref({actor:String(person.id)})}/>}
       {directed&&<Filmography name={person.name} fa={fa} result={directed} role="DIRECTOR" href={cinemaBrowseHref({director:String(person.id)})}/>}
     </div>
