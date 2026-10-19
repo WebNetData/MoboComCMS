@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript')
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript-api')
 const mod={exports:{}};new Function('module','exports',ts.transpileModule(fs.readFileSync('src/modules/catalog/domain/product-bundles.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText)(mod,mod.exports)
 const parse=mod.exports.parseProductBundles, source=3
 const bundle=()=>({id:9,name:'  Starter kit  ',nameEn:' Starter kit ',active:true,components:[{productId:source,variantId:7,quantity:1},{productId:4,quantity:2}]})

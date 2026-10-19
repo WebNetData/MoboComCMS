@@ -1,6 +1,6 @@
 // Real PostgreSQL: a block hides the two members' comments from each other, and the profile posts read honors the profile gate.
 // COMMUNITY_BLOCK_BASELINE=<git ref> loads the community service from that ref to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cb${Date.now().toString(36)}`, baseline = process.env.COMMUNITY_BLOCK_BASELINE
 const mocks = {
  '@/platform/database/prisma': {db},

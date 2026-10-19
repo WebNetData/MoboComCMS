@@ -1,5 +1,5 @@
 // Local Docker-only namespaced fixtures; pass a preceding clean-source admin.ts as argv[2].
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), { encode } = require('next-auth/jwt')
 const db = new PrismaClient(), seed = `ms${Date.now().toString(36)}`, ids = { tracks: [], artists: [], albums: [], users: [] }
 function load(source, mocks) {

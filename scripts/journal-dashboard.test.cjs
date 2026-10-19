@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 function load(file, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', file)

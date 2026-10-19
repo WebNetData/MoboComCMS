@@ -1,6 +1,6 @@
 // Real PostgreSQL: an author's deletion is final, hiding a post closes its open reports, and a comment can only be reported from a post the member can open.
 // COMMUNITY_MODERATION_BASELINE=<git ref> loads the two community services from that ref to show the faults there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cm${Date.now().toString(36)}`, baseline = process.env.COMMUNITY_MODERATION_BASELINE
 const OLD = ['src/modules/community/server/community.ts', 'src/modules/community/server/admin.ts']
 const mocks = {

@@ -1,5 +1,5 @@
 // Reuse production TypeScript owners in native checks; only named external boundaries are doubled.
-const fs=require('node:fs'),path=require('node:path'),ts=require('typescript')
+const fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api')
 module.exports=function sourceLoader(mocks={}){
  const cache=new Map()
  function load(file){

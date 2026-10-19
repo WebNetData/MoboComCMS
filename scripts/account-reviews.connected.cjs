@@ -1,5 +1,5 @@
 // Real PostgreSQL "My reviews" account read; module switches and the public item registry are test doubles.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `account-reviews-${Date.now()}`, base = 800_000_000 + (Date.now() % 50_000_000)
 const state = {reviews: true, store: true, journal: true, hidden: new Set()}
 const mocks = {

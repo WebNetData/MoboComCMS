@@ -1,5 +1,5 @@
 // Local PostgreSQL check: creates and removes only its own namespaced fixtures.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), seed = `unread-${Date.now()}`, users = []
 const mod = { exports: {} }

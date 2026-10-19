@@ -1,5 +1,5 @@
 // Docker-local real PostgreSQL capture/queue/Inbox checks; every fixture job is deferred before commit.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), db = new PrismaClient(), seed = `pd${Date.now().toString(36)}`, future = new Date('2099-01-01')
 let product; const users = [], jobs = [], pointIds = []
 let store = true, notices = true, failDelivery = false

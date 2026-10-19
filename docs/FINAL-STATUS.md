@@ -52,7 +52,7 @@ serving requests. Details: `docs/POSTGRESQL-BACKUPS.md`.
 
 A follow-up hardening pass closed the findings of an independent code audit:
 
-- Global security headers from `src/middleware.ts` (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, production-only `HSTS`); `/miniapp` keeps a Telegram-compatible frame policy.
+- Global security headers from `src/proxy.ts` (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, production-only `HSTS`); `/miniapp` keeps a Telegram-compatible frame policy.
 - Same-site `Origin` enforcement for state-changing `/api/*` requests (webhook/telegram/internal/auth routes exempt because they authenticate with signatures or secrets).
 - Shared bounded rate limiter (`src/platform/http/rate-limit.ts`) with proxy-aware client IP: login 30/10min per IP and 8/10min per account+IP, registration 5/hour per IP, forms 5/min, public API 120/min per key, Happ subscription 20/min, manual sync 10/min.
 - Password policy raised to 8–128 characters (server + both client forms); profile name/phone/avatar inputs are length- and format-validated.

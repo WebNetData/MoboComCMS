@@ -2,7 +2,7 @@
 // transitions, stock, seller shares, club points, SMS and the multipart reader are test doubles.
 // RETURN_REFUND_BASELINE=<git ref> runs the returns service of that revision to show the faults there;
 // RETURN_REFUND_SKIP=cancel,pair leaves out the earlier sections so a later fault can be seen there too.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `return-refund-${Date.now()}`, baseline = process.env.RETURN_REFUND_BASELINE
 const skip = name => (process.env.RETURN_REFUND_SKIP || '').split(',').includes(name)
 const state = {gate: null, failWalletFor: 0, effects: []}

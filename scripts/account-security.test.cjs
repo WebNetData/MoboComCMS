@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const cache = new Map()
 function load(relative) {
@@ -157,7 +157,7 @@ test('sign-in wiring: 2-step code, unspent SMS codes, revocation and staff polic
   assert.match(service, /step <= user\.totpLastStep/, 'a code is accepted once')
   assert.match(service, /tokenHash\(token\)/, 'only the hash of a reset token is stored')
   assert.match(service, /usedAt: null \}, data: \{ usedAt/, 'reset links are single use')
-  const middleware = read('src/middleware.ts')
+  const middleware = read('src/proxy.ts')
   assert.match(middleware, /\/reset-password' \? 'no-referrer'/)
 })
 

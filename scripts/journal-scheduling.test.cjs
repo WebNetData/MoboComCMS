@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 test('journal archive starts at explicit page1, retains filters and never skips initial stories', () => {
   const { journalBrowseUrl, journalPagination } = load('src/modules/journal/domain/pagination.ts')

@@ -1,5 +1,5 @@
 // Local PostgreSQL purchase evidence; no payment/provider calls, owned fixtures removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), seed = `fbt-${Date.now()}`, users = [], products = [], orders = [], now = new Date()
 let settingsBefore, settingsRead = false, admin, browser
 async function publicChecks() {

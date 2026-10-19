@@ -1,5 +1,5 @@
 // Actual Identity/restriction/HTTP/audit owners and PostgreSQL. Only logging/config-secret boundaries are supplied.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt');
 const single=process.argv.includes('--single-connection');if(single){const url=new URL(process.env.DATABASE_URL);url.searchParams.set('connection_limit','1');url.searchParams.set('pool_timeout','2');process.env.DATABASE_URL=url.toString()}
 const db=new PrismaClient(),stamp=`global-admin-${Date.now()}`,users=[],roles=[],cache=new Map(),secret='owned-global-admin-fixture',authAt=Date.now();let policyBefore;
 function load(relative){const file=path.resolve(relative);if(cache.has(file))return cache.get(file).exports;const mod={exports:{}};cache.set(file,mod);const source=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;new Function('require','module','exports',source)(name=>{

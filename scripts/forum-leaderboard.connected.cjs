@@ -1,6 +1,6 @@
 // Real PostgreSQL posts and reactions, dated around a moment years ahead so that nothing else in the database
 // falls inside the board's window: what the board shows is then exactly these fixtures.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `lb${Date.now()}`
 const cache = new Map()
 function load(file) {

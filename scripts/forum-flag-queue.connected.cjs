@@ -1,6 +1,6 @@
 // Real PostgreSQL: a moderator's hide or show settles the flags waiting on a forum post or topic.
 // FORUM_FLAG_BASELINE=<git ref> loads the forum actions from that ref to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {execFileSync} = require('node:child_process'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `ffq${Date.now().toString(36)}`, baseline = process.env.FORUM_FLAG_BASELINE
 const mocks = {
  '@/platform/database/prisma': {db},

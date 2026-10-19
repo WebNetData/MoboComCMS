@@ -1,5 +1,5 @@
 // Real canonical people/credits and optimistic writes. Only this run's rows are removed.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),stamp='profilecheck'+Date.now()+process.pid,cache=new Map()
 function load(file){
  const p=path.resolve(file),full=fs.existsSync(p)&&fs.statSync(p).isFile()?p:['.ts','/index.ts'].map(ext=>p+ext).find(fs.existsSync)

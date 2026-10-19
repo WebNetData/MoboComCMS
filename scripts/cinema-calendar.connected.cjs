@@ -1,5 +1,5 @@
 // Real PostgreSQL series, seasons and episodes. The calendar query only sees this script's series.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `cal-${Date.now()}`
 const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
 const mine = where => ({ AND: [where || {}, { season: { title: { slug: { startsWith: seed } } } }] })

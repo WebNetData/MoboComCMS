@@ -1,6 +1,6 @@
 // Real PostgreSQL users, forum profiles and groups. The member directory and the list of groups are asked as
 // different viewers: what a group shows of its members must follow who may see the group at all.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `mg${Date.now()}`
 const cache = new Map()
 function load(file) {

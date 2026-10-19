@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingIncludes: { '/*': ['./scripts/backup-worker.cjs', './scripts/backup-core.cjs'] },
-  eslint: { ignoreDuringBuilds: true },
   // SFTP/FTP clients load native optional modules at runtime; never bundle them.
   serverExternalPackages: ['ssh2', 'ssh2-sftp-client', 'basic-ftp', 'cpu-features', 'ioredis', 'pdfkit'],
   // CDN: CDN_URL (e.g. https://cdn.example.com) serves /_next/static from a CDN pull zone.

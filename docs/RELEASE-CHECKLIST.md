@@ -75,7 +75,7 @@ Follow `docs/POSTGRESQL-CUTOVER.md` for the full rehearsal/import/rollback seque
 
 ## Hardening gates added in this revision
 
-- Global security headers (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, production `HSTS`) are served by `src/middleware.ts`; verify them with `curl -I https://<host>/`.
+- Global security headers (CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, production `HSTS`) are served by `src/proxy.ts`; verify them with `curl -I https://<host>/`.
 - Cross-site guard: state-changing `/api/*` calls must carry a same-site `Origin` (exempt: `/api/auth/*`, `/api/payment/*`, `/api/telegram/*`, `/api/internal/*`). Confirm a real browser flow (checkout, wallet top-up, admin save) still succeeds after a deploy.
 - Login/registration are throttled per IP (login 30/10min, per account+IP 8/10min, registration 5/hour). If the site is behind a proxy, make sure the proxy appends (not replaces) `x-forwarded-for`.
 - Passwords: minimum 8 characters. Re-check any custom client-side onboarding text.

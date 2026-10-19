@@ -1,5 +1,5 @@
 // Real PostgreSQL comparison rows for members' dimension scores; the public item registry and module switch are test doubles.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `compare-dimensions-${Date.now()}`, base = 600_000_000 + (Date.now() % 50_000_000)
 const state = {reviews: true}
 const card = ref => ({type: ref.type, id: ref.id, title: `${ref.type} ${ref.id}`, subtitle: '', url: `/x/${ref.id}`, image: '', access: 'PUBLIC'})

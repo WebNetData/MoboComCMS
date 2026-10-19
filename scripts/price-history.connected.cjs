@@ -1,5 +1,5 @@
 // Docker-local real PostgreSQL transaction/capture checks; only namespaced fixtures are mutated.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), { encode } = require('next-auth/jwt'), db = new PrismaClient(), seed = `ph${Date.now().toString(36)}`
 let product, admin
 function load(relative) {

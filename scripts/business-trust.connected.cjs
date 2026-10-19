@@ -1,5 +1,5 @@
 // Real PostgreSQL/current canonical guards, private files and expected-state decisions.
-const assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),ts=require('typescript')
+const assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),ts=require('typescript-api')
 const {PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
 const prisma=new PrismaClient(),repo=process.cwd(),stamp=`owned-business-trust-${Date.now()}`,cache=new Map(),snapshots=new Map(),users=[],roles=[],profiles=[],orders=[],sellers=[]
 let actor=null,auditFault=false,temp

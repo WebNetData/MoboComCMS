@@ -1,7 +1,7 @@
 // Real PostgreSQL gift cards and wallet; settings, the inbox and code encryption are test doubles.
 // GIFT_CARD_BASELINE=<git ref> runs the marketing service of that revision to show the faults there;
 // GIFT_CARD_SKIP=purchase,redeem leaves out the earlier sections so a later fault can be seen on that revision too.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `gift-integrity-${Date.now()}`, baseline = process.env.GIFT_CARD_BASELINE
 // `blind`: the "already bought?" lookup finds nothing, as for a second request that passed it before the first one stored its card.
 // `stale`: a card read by id returns this older snapshot, as for a moderator's page read just before the card was redeemed.

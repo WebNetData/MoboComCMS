@@ -1,5 +1,5 @@
 // Real GamesHome reads; own rows only, with a fixture scope added to GameTitle queries.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),stamp='games-editorial-'+Date.now()+'-'+process.pid,key='games.portal.v1',cache=new Map()
 let journalReads=0,journalEnabled=true,configured
 const scopedDb=new Proxy(db,{get(target,name){

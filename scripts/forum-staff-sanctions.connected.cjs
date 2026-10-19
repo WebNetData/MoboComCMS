@@ -1,5 +1,5 @@
 // Actual PATCH handler + canonical staff guard against PostgreSQL; only session/module boundaries and unrelated effects are injected.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server')
 const db = new PrismaClient(), seed = `forum-sanctions-${Date.now()}`
 let actor, enabled = true

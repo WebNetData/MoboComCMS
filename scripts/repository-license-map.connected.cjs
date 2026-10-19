@@ -1,5 +1,5 @@
 // Actual Identity/controller/storage/audit SQL; JWT decoding/catalog/unused code-apply doubled.
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
 if(!process.argv.some(x=>x.startsWith('--case='))){
  const cp=require('node:child_process');
  for(const op of['activate','deactivate','refresh'])for(const mode of['unrelated','replacement','removed','authority','module','site','config','corrupt','audit']){

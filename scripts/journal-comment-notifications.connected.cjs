@@ -1,5 +1,5 @@
 // Real PostgreSQL article comments and blocks; the inbox is a test double that records what would be sent.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `jcn${Date.now().toString(36)}`
 const sent = []
 let failInbox = false

@@ -1,5 +1,5 @@
 // Owned PostgreSQL fixtures, actual canonical Identity owner; no outgoing provider calls.
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),ts=require('typescript'),{PrismaClient}=require('@prisma/client');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client');
 const db=new PrismaClient(),cache=new Map(),ids=[],stamp='telegram-merge-'+Date.now();
 let failProfile=false;
 const ownerDb=new Proxy(db,{get(object,key){if(key==='$transaction')return work=>object.$transaction(tx=>work(new Proxy(tx,{get(client,model){if(model==='userProfile')return new Proxy(client[model],{get(delegate,method){if(method==='updateMany'&&failProfile)return()=>{throw Error('owned profile storage failure')};return typeof delegate[method]==='function'?delegate[method].bind(delegate):delegate[method]}});return typeof client[model]==='function'?client[model].bind(client):client[model]}})));return typeof object[key]==='function'?object[key].bind(object):object[key]}});

@@ -1,5 +1,5 @@
 // Current canonical identity, module state, profile invariants and strict audit on PostgreSQL.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server')
 const prisma = new PrismaClient(), cache = new Map(), stamp = `owned-business-authority-${Date.now()}`
 const snapshots = new Map(), authAt = Date.now() - 5000

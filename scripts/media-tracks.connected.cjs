@@ -1,6 +1,6 @@
 // Real PostgreSQL film and links, saved through the admin save path and read through the public read path
 // and the continue-watching list. Only this script's film and member are touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `trk${Date.now()}`
 const cache = new Map()
 function load(file) {

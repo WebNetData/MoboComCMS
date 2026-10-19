@@ -3,7 +3,7 @@ import fs from 'node:fs'
 const requiredFiles = [
   'src/platform/audit/server.ts',
   'src/platform/observability/logger.ts',
-  'src/middleware.ts',
+  'src/proxy.ts',
   'scripts/migrate-platform-audit.py',
   'src/modules/identity/server/http/admin/audit/route.ts',
 ]

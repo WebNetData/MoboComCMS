@@ -1,4 +1,4 @@
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
 const db=new PrismaClient(),cache=new Map(),keys=['extension.store.state.v1','storeEnabled','site.config.v1'];let race=false,release,gate=Promise.resolve();
 const old={enabled:true,settings:{'seo.title':'owned-old'}},next={enabled:false,settings:{'seo.title':'owned-new'}};
 async function set(state){await db.$transaction(keys.slice(0,2).map((key,i)=>db.setting.upsert({where:{key},create:{key,value:i?String(state.enabled):JSON.stringify(state)},update:{value:i?String(state.enabled):JSON.stringify(state)}})))}

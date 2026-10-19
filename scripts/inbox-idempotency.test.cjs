@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 // Database concurrency, rollback and queue dedupe live in the registered connected check.
 test('inbox replay preserves its owner and delivery distinguishes retryable provider failures', async () => {

@@ -1,6 +1,6 @@
 // Real PostgreSQL forum posts and feed posts. The stream is asked as different viewers; the fixtures are the
 // newest rows of the database, so they lead the stream whatever else it holds.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `stream-${Date.now()}`
 const cache = new Map()
 let community = true, reviewsOn = true

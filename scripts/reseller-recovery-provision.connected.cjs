@@ -1,7 +1,7 @@
 // Real PostgreSQL orders, invoices and fulfillment jobs: which job a paid order gets when it is queued after the fact.
 // Everything a job would then do (panels, stock, memberships, …) is a test double; no job is run here.
 // RESELLER_RECOVERY_BASELINE=<git ref> runs the fulfillment jobs of that revision to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `reseller-recovery-${Date.now()}`, baseline = process.env.RESELLER_RECOVERY_BASELINE
 const state = {users: []}
 // The recovery's scan of paid invoices is limited to this script's.

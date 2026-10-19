@@ -1,7 +1,7 @@
 // Real PostgreSQL films, people and credits through the cinema people service and the admin save path.
 // People are named with this script's own word, and the backfill cursor (one row for the whole site) is kept
 // in memory with the walk narrowed to this script's titles, so the local site's people and cursor are untouched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `cpeople${Date.now()}`
 const state = { settings: new Map() }
 const titles = new Proxy(prisma.cinemaTitle, { get: (target, key) => key === 'findMany' ? args => args?.orderBy?.id === 'asc' && args?.take ? target.findMany({ ...args, where: { AND: [args.where || {}, { slug: { startsWith: seed } }] } }) : target.findMany(args) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })

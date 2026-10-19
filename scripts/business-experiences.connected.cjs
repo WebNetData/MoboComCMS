@@ -1,6 +1,6 @@
 // Real PostgreSQL storage/eligibility/history checks. Auth/HTTP/browser are separate gates.
 const assert = require('node:assert/strict')
-const fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), stamp = `owned-business-${Date.now()}`, cache = new Map()
 const users = [], profiles = [], orders = [], sellers = []

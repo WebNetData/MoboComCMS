@@ -1,6 +1,6 @@
 // Real PostgreSQL forums, topics, posts and profiles. The board index is asked as three different viewers;
 // only this script's forums are looked at, whatever else the database holds.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `board-${Date.now()}`
 const cache = new Map()
 function load(file) {

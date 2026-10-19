@@ -1,7 +1,7 @@
 // Real PostgreSQL songs, a product, reviews and search documents, through the real search. Every document
 // carries a word only this script uses, so the search sees these fixtures only; the "index is fresh" mark is
 // answered from memory, so the site's own index and its mark are not touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `sfacet${Date.now()}`
 const state = { reviews: true, indexedAt: new Date().toISOString() }
 const db = new Proxy(prisma, { get: (target, key) => key === 'setting' ? { findUnique: async () => ({ key: 'search.indexedAt', value: state.indexedAt }), upsert: async () => {} } : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })

@@ -1,6 +1,6 @@
 // Real PostgreSQL customer-club ledger and wallet. The recovery only sees this script's members; settings and the inbox are test doubles.
 // LOYALTY_REVERSAL_BASELINE=<git ref> runs the marketing service of that revision for the refund-reversal part, to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `loyalty-redeem-${Date.now()}`, baseline = process.env.LOYALTY_REVERSAL_BASELINE
 const state = {ids: [], pointValueToman: 10, failWalletFor: 0, gate: null}
 // `gate`: a reader of one order's entries is held after its read until a second reader has read too (or 400 ms pass), the state two

@@ -1,7 +1,7 @@
 // Real PostgreSQL songs, albums and terms. Music is filed two ways: albums under categories (taxonomy "music")
 // and songs under a language or dialect (taxonomy "music-language"). The two share tables and must not see
 // each other's items, even when an album and a song carry the same id.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `ml${Date.now()}`
 const cache = new Map()
 function load(file) {

@@ -1,7 +1,7 @@
 // Real PostgreSQL orders, invoices and wallet for wallet-paid subscription renewals. The panel adapter, the fulfillment queue,
 // the inbox, extension events and follow-ups are test doubles. The sweep only sees this script's orders.
 // RENEWAL_BASELINE=<git ref> runs the subscription actions of that revision to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `renewal-resume-${Date.now()}`, baseline = process.env.RENEWAL_BASELINE
 const state = {stopAfter: '', jobs: [], users: []}
 class Stop extends Error {}

@@ -1,5 +1,5 @@
 // PostgreSQL ownership races with barriers before the existing transaction boundary.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `guest-owner-${Date.now()}`, users = [], carts = [], products = []
 function load(client) {
  const mod = {exports: {}}

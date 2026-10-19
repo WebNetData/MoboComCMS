@@ -1,4 +1,4 @@
-const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript')
+const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api')
 function route({replayed = false, failed = false, empty = false, staleClear = false} = {}) {
   let removed = 0, recovered = 0, executions = 0
   class StoreError extends Error { constructor() {super('empty'); this.code = 'CART_EMPTY'; this.status = 409} }

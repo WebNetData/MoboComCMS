@@ -1,6 +1,6 @@
 // Real PostgreSQL rows in every table the staff moderation overview reads. Each owner module's reader runs
 // against them; the fixtures are dated years ago so they are the oldest waiting items whatever else the database holds.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `modq-${Date.now()}`
 const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
 const real = {}

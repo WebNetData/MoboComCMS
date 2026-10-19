@@ -1,6 +1,6 @@
 // Real PostgreSQL members. The forum profile is asked as different viewers: standing by reputation, and the
 // social numbers and follow state that come from the one shared identity.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `mp${Date.now()}`
 const cache = new Map()
 let community = true

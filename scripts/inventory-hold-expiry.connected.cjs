@@ -1,5 +1,5 @@
 // Real PostgreSQL stock holds. The expiry job is global, so the run only lists this script's orders.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `inventory-hold-${Date.now()}`, orders = []
 const baseline = process.env.INVENTORY_HOLD_BASELINE
 const state = {afterList: null}

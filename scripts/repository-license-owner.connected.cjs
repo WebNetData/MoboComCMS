@@ -1,5 +1,5 @@
 // Real vendor/client owners and PostgreSQL; signing/settings/network are explicit boundary doubles.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),prisma=new PrismaClient();
 const stamp=`license-owner-${Date.now()}`,users=[],products=[],files=[],cache=new Map(),signed=[],disabled=[];
 let unavailable=false,responseStatus=200,responseCertificate,settings={};

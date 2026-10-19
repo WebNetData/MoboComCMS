@@ -1,6 +1,6 @@
 // Real PostgreSQL groups, forums and members. A member starts clubs and others join them; what each of them
 // may then see and do is asked of the same functions the forum pages use.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `ck${Date.now()}`.slice(0, 12)
 const cache = new Map()
 function load(file) {

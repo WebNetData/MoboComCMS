@@ -1,6 +1,6 @@
 // Run inside the app container: node --env-file=.env scripts/settings-lease.connected.cjs
 // Optional SQLITE_PRISMA_CLIENT points at an isolated generated SQLite client.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api')
 const {PrismaClient} = require(process.env.SQLITE_PRISMA_CLIENT || '@prisma/client')
 const db = new PrismaClient({log: [{emit: 'event', level: 'error'}]})
 const errors = []; db.$on('error', event => errors.push(event))

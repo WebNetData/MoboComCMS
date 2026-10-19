@@ -1,7 +1,7 @@
 // Real PostgreSQL: the rules the database itself holds on orders, invoices, payments, wallet rows, fulfilment jobs,
 // receipts and returns (migration 20261216120000_money_state_rules). Every write here goes straight to the tables,
 // the way a fault in code, a script or a hand at a console would. Fixtures are namespaced and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {NextRequest} = require('next/server'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {NextRequest} = require('next/server'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `money-rules-${Date.now()}`
 let count = 0
 

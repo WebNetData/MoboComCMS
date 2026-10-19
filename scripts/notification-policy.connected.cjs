@@ -1,7 +1,7 @@
 // Real PostgreSQL notices and queue jobs. The code under test only ever sees this script's members: every
 // read and delete of notices and jobs is narrowed to them, and the digest cursor (one row for the whole
 // site) is kept in memory, so the local database's own notices, jobs and cursor are not touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `notif-policy-${Date.now()}`
 const state = { policy: {}, mail: [], mailResult: true, settings: new Map(), users: [], jobKeys: [] }
 const mineJobs = () => ({ OR: [{ dedupeKey: { in: state.jobKeys } }, ...state.users.map(id => ({ dedupeKey: { startsWith: `notification-digest:${id}:` } }))] })

@@ -1,6 +1,6 @@
 // Real PostgreSQL background source-trace cleaning; settings and image copying are isolated.
 // Only draft posts of this script carry the marker word, so no other row needs work.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `scrub-recent-${Date.now()}`, word = `tracemark${Date.now()}`
 const baseline = process.env.SCRUB_RECENT_BASELINE
 let saved = null

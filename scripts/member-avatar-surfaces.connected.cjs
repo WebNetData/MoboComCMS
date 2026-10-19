@@ -1,5 +1,5 @@
 // Canonical pictures through real Journal, Businesses, Identity, Tickets and Invoice reads on owned PostgreSQL.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt')
 const db=new PrismaClient(),stamp='avatarsurface'+Date.now()+process.pid,secret='owned-avatar-surfaces-native',cache=new Map(),users=[],businessIds=[]
 let seller,ticket,invoice,post,recurring
 const mocks={

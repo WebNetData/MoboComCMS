@@ -1,5 +1,5 @@
 // Actual encrypted grants, media issuers and Identity on PostgreSQL; upstream/clean/settings are boundary doubles.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client');
 const prisma=new PrismaClient(),stamp=`mask-authority-${Date.now()}`,cache=new Map(),users=[],films=[],artists=[],fetched=[],cleaned=[];
 let unavailable=false,viewerId=null,cleanResult=false;
 const db=new Proxy(prisma,{get(target,key){if(key==='accessRestriction')return new Proxy(target[key],{get(model,method){if(method==='findMany')return args=>{if(unavailable)throw Error('fixture storage unavailable');return model.findMany(args)};return typeof model[method]==='function'?model[method].bind(model):model[method]}});return typeof target[key]==='function'?target[key].bind(target):target[key]}});

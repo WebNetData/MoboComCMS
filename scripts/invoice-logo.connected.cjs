@@ -1,5 +1,5 @@
 // Real PostgreSQL invoice projection + canonical site-config reader. No money rows or stored logo overrides are rewritten.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),cache=new Map(),memo=new Map(),stamp=`owned-invoice-logo-${Date.now()}`,snapshots=new Map(),users=[],orders=[]
 const mocks={
  '@/platform/database/prisma':{db},react:{cache:fn=>fn},

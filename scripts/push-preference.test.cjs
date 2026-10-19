@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 test('account push respects active status and the member preference', async () => {
   const source = fs.readFileSync(path.join(__dirname, '../src/modules/push/server/push.ts'), 'utf8')

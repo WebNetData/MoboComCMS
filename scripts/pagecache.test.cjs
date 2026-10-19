@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {
@@ -85,7 +85,7 @@ test('cached pages still count their visits: address → record', () => {
 })
 
 test('wiring: middleware, scheduler, admin write purge, plain bodies', () => {
-  const middleware = fs.readFileSync(path.resolve(root, 'src/middleware.ts'), 'utf8')
+  const middleware = fs.readFileSync(path.resolve(root, 'src/proxy.ts'), 'utf8')
   assert.match(middleware, /pageCacheHandle\(/)
   assert.match(middleware, /purgeSoon\('admin-change'\)/)
   assert.match(fs.readFileSync(path.resolve(root, 'src/modules/notifications/server/jobs-scheduler.ts'), 'utf8'), /name: 'pagecache'/)

@@ -104,7 +104,7 @@ Looked at (code review and local requests only; **no attack tool was run against
 | Codes by SMS | 60 s between codes, 5 per number and 15 per address an hour, 5 wrong tries burn a code, single use, hashed | — |
 | Password reset, 2-step, register, password change | Strict limits present | — |
 | Form spam | Honeypot, link heuristic, per-address and per-day limits, upload sniffing (PDF and images only), private storage | Quote and turns endpoints rate-limited |
-| Cross-site requests | Mutations must come from this origin (`mutationOrigin` in `src/middleware.ts`) | — |
+| Cross-site requests | Mutations must come from this origin (`mutationOrigin` in `src/proxy.ts`) | — |
 | Headers | CSP with a nonce, `nosniff`, frame options, HSTS in production | — |
 | Outgoing requests chosen by staff | Rate source checked against private addresses | Webhooks: https only, private ranges refused after DNS, no redirects, timeout |
 | Secrets at rest | Panel and delivery credentials encrypted (AES-256-GCM) | Buyer and sender secrets use the same cipher; reads audited |

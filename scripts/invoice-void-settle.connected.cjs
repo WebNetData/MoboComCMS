@@ -2,7 +2,7 @@
 // SMS and referral follow-ups are test doubles.
 // INVOICE_VOID_BASELINE=<git ref> runs the billing service of that revision, and closes invoices the way that revision's callers
 // did (release the credit, then mark void), to show the faults there. INVOICE_VOID_SKIP=claim leaves out the first section.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `inv-void-${Date.now()}`, baseline = process.env.INVOICE_VOID_BASELINE
 const skip = name => (process.env.INVOICE_VOID_SKIP || '').split(',').includes(name)
 const state = {hold: null, failWalletFor: 0, users: []}

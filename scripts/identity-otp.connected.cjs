@@ -1,5 +1,5 @@
 // Native PostgreSQL challenge claims and actual auth providers; only delivery/cache/external integrations are doubles.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),crypto=require('node:crypto')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),crypto=require('node:crypto')
 const {PrismaClient}=require('@prisma/client'),prisma=new PrismaClient(),cache=new Map(),stamp=`owned-entry-${Date.now()}`,users=[],snapshots=new Map(),sent=[]
 const secret='owned-otp-connected-fixture',mailKey='mail.smtp.v1',policyKey='security.policy.v1'
 let deliveryOk=true

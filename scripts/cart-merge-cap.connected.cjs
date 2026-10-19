@@ -1,5 +1,5 @@
 // Real PostgreSQL sign-in merge at the cart size limit; membership/shipping providers are isolated.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cart-merge-cap-${Date.now()}`, products = [], carts = []
 const baseline = process.env.CART_MERGE_BASELINE
 let user, legacyUser

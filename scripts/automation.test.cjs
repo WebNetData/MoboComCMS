@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 const read = (relative) => fs.readFileSync(path.resolve(root, relative), 'utf8')

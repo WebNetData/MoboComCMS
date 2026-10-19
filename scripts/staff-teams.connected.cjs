@@ -1,6 +1,6 @@
 // Real PostgreSQL accounts, roles and forums. Three things are asked of the same functions the pages call:
 // managers of the site's sections, who may change a staff account at all, and the forum's team of three ranks.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `st${Date.now()}`
 const cache = new Map()
 function load(file) {
