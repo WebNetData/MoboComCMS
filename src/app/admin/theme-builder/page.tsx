@@ -116,7 +116,7 @@ export default function ThemeBuilderPage() {
   return <div className="tb-page">
     <header className="tb-hero">
       <div>
-        <span className="tb-eyebrow">THEME BUILDER</span>
+        <span className="tb-eyebrow">قالب‌ساز</span>
         <h1>{L('Theme builder', 'سازندهٔ قالب سایت')}</h1>
         <p>{L('Design headers, footers, full pages, sections and single-post / product layouts — then decide where each one appears.', 'هدر، فوتر، صفحه‌های کامل، بخش‌ها و قالب پست و محصول را طراحی کنید و تعیین کنید هر کدام کجا نمایش داده شود.')}</p>
       </div>

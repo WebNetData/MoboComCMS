@@ -153,7 +153,7 @@ export default function PackageEditor() {
   const previewHref = pkg?.manifest.pages?.[0] ? `/ext/${pkg.id}/${pkg.manifest.pages[0].slug}` : '/'
 
   if (!id) return <div className="xm-page pe-page" dir={fa ? 'rtl' : 'ltr'}>
-    <header className="tb-hero"><div><span className="tb-eyebrow">EDITOR</span><h1>{L('Package editor', 'ویرایشگر افزونه و قالب')}</h1><p>{L('Pick an uploaded plugin or theme to edit its files.', 'یک افزونه یا قالب آپلودی را برای ویرایش فایل‌هایش انتخاب کنید.')}</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">ویرایشگر کد</span><h1>{L('Package editor', 'ویرایشگر افزونه و قالب')}</h1><p>{L('Pick an uploaded plugin or theme to edit its files.', 'یک افزونه یا قالب آپلودی را برای ویرایش فایل‌هایش انتخاب کنید.')}</p></div></header>
     <div className="xm-grid">{packages.map(row => <Link key={row.id} href={`/admin/extensions/editor?package=${row.id}`} className="xm-card"><div className="xm-card-head"><span className="xm-icon"><Icon name={row.manifest.kind === 'theme' ? 'palette' : 'code'} size={20}/></span><div className="xm-title"><h3>{fa ? row.manifest.name : row.manifest.nameEn || row.manifest.name}</h3><small dir="ltr">{row.id} · v{row.manifest.version}</small></div></div></Link>)}</div>
     {!packages.length && <div className="tb-empty">{L('Upload a package in Extensions first.', 'ابتدا از بخش افزونه‌ها یک بسته آپلود کنید.')} <Link href="/admin/extensions">{L('Go to Extensions', 'رفتن به افزونه‌ها')}</Link></div>}
   </div>

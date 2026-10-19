@@ -97,7 +97,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
   return <div className="xm-page" dir={fa ? 'rtl' : 'ltr'}>
     {!embedded && <header className="tb-hero">
       <div>
-        <span className="tb-eyebrow">MODULES & EXTENSIONS</span>
+        <span className="tb-eyebrow">ماژول‌ها و افزونه‌ها</span>
         <h1>{L('Modules & extensions', 'ماژول‌ها و افزونه‌ها')}</h1>
         <p>{L('Every major part of the site is a module you can switch on or off. Turning a module off hides its pages, menus and blocks — its data stays untouched.', 'هر بخش اصلی سایت یک ماژول است که می‌توانید روشن یا خاموش کنید. با خاموش‌کردن، صفحه‌ها، منوها و بلوک‌های آن پنهان می‌شوند و داده‌هایش دست‌نخورده می‌ماند.')}</p>
       </div>

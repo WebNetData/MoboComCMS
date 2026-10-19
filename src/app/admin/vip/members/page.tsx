@@ -52,7 +52,7 @@ function Members({ fa }: { fa: boolean }) {
 
   return (
     <div className="cms-workspace">
-      <div className="mb-6"><span className="content-eyebrow">VIP</span><h1 className="h2 mt-3">{fa ? 'اعضای اشتراک ویژه' : 'VIP members'}</h1></div>
+      <div className="mb-6"><span className="content-eyebrow">اشتراک ویژه</span><h1 className="h2 mt-3">{fa ? 'اعضای اشتراک ویژه' : 'VIP members'}</h1></div>
       <div className="cms-summary">
         <div><span>{fa ? 'اعضای فعال' : 'Active members'}</span><b>{(data?.stats.active ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
         <div><span>{fa ? 'پلن‌های فعال' : 'Active plans'}</span><b>{(data?.stats.plans ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>

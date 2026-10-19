@@ -27,6 +27,10 @@ type QueueItem = {
 type PaymentIssue = { id: string; provider: string; kind: string; orderId: number | null; invoiceId: number | null; attempts: number; reason: string; at: string }
 type Operations = { items: QueueItem[]; paymentIssues: PaymentIssue[]; scanned: number; limit: number; alerts: { enabled: boolean; chatId: string } }
 
+/** Delivery job states and the provisioning errors stored in English, read in Persian. */
+const STATUS_FA: Record<string, string> = { FAILED: 'ناموفق', MISSING: 'ثبت نشده', PENDING: 'در انتظار', PROCESSING: 'در حال اجرا', DONE: 'انجام شد', SUCCEEDED: 'انجام شد' }
+const ERROR_FA: Record<string, string> = { 'panel not configured for this plan': 'برای این پلن پنلی تنظیم نشده است.', 'panel not configured for this subscription': 'برای این اشتراک پنلی تنظیم نشده است.' }
+
 export default function AdminOperationsPage() {
   const { locale } = useI18n()
   const fa = locale === 'fa'
@@ -105,9 +109,9 @@ export default function AdminOperationsPage() {
         {data?.items.map((item) => <tr key={item.orderId}>
           <td><Link href={`/admin/orders`} className="font-semibold num">#{item.orderId}</Link><div className="muted text-xs num">{formatCurrency(item.amount, item.currency, fa ? 'fa-IR' : 'en-US')}</div></td>
           <td><span className="text-sm" dir="ltr">{item.user}</span><div className="muted text-xs">{item.item}</div></td>
-          <td><span className={`badge ${item.status === 'FAILED' || item.status === 'MISSING' ? 'badge-red' : 'badge-amber'}`}>{item.status}</span><div className="muted text-xs">{L('تلاش', 'Attempts')}: <span className="num">{item.attempts}</span></div></td>
+          <td><span className={`badge ${item.status === 'FAILED' || item.status === 'MISSING' ? 'badge-red' : 'badge-amber'}`}>{L(STATUS_FA[item.status] || item.status, item.status)}</span><div className="muted text-xs">{L('تلاش', 'Attempts')}: <span className="num">{item.attempts}</span></div></td>
           <td className="num text-xs">{when(item.lastAttemptAt)}</td>
-          <td className="text-xs" style={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{item.lastError || (item.status === 'MISSING' ? L('کار تحویل ثبت نشده است.', 'No fulfillment job was recorded.') : '—')}<div className="muted mt-1 num">{item.nextAttemptAt ? `${L('بعدی', 'Next')}: ${when(item.nextAttemptAt)}` : ''}</div></td>
+          <td className="text-xs" style={{ maxWidth: 300, overflowWrap: 'anywhere' }}>{(item.lastError && L(ERROR_FA[item.lastError] || item.lastError, item.lastError)) || (item.status === 'MISSING' ? L('کار تحویل ثبت نشده است.', 'No fulfillment job was recorded.') : '—')}<div className="muted mt-1 num">{item.nextAttemptAt ? `${L('بعدی', 'Next')}: ${when(item.nextAttemptAt)}` : ''}</div></td>
           <td>{item.status !== 'PROCESSING' && item.retryable && <button className="badge badge-green" disabled={busy !== null} onClick={() => retry(item)}>{busy === item.orderId ? L('در حال تلاش', 'Retrying') : L('تلاش مجدد', 'Retry')}</button>}{!item.retryable && <span className="muted text-xs">{L('بررسی دستی', 'Investigate')}</span>}</td>
         </tr>)}
         {data && data.items.length === 0 && <tr><td colSpan={6} className="muted text-center py-8">{L('سفارش پرداخت‌شدهٔ معطل ندارید.', 'No paid orders are waiting for fulfillment.')}</td></tr>}

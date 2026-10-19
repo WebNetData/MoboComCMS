@@ -56,7 +56,7 @@ export default function SmsPage() {
   const setEvent = (id: string, patch: Partial<EventSetting>) => setConfig({ ...config, events: { ...config.events, [id]: { ...config.events[id], ...patch } } })
 
   return <div className="xm-page ai-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">SMS · IPPANEL</span><h1>پنل پیامک</h1><p>ورود با کد پیامکی، اطلاع‌رسانی خودکار سفارش، پرداخت، رسید کارت به کارت و تیکت به مشتری و مدیران، و ارسال دستی پیامک.</p></div>
+    <header className="tb-hero"><div><span className="tb-eyebrow">پیامک · IPPanel</span><h1>پنل پیامک</h1><p>ورود با کد پیامکی، اطلاع‌رسانی خودکار سفارش، پرداخت، رسید کارت به کارت و تیکت به مشتری و مدیران، و ارسال دستی پیامک.</p></div>
       <div className="ai-status"><b>{config.ready ? 'متصل و فعال' : 'غیرفعال'}</b><small>ارسال ۳۰ روز: {(stats.SENT || 0).toLocaleString('fa-IR')} · ناموفق: {(stats.FAILED || 0).toLocaleString('fa-IR')}</small>{config.ready ? <span className="badge badge-green">فعال</span> : <span className="badge">خاموش</span>}</div>
     </header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

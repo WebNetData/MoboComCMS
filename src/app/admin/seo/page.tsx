@@ -51,7 +51,7 @@ export default function AdminSeoPage() {
   const codes = [...new Set(audit.issues.map((issue) => issue.code))]
 
   return <div className="xm-page seo-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">SEO</span><h1>مرکز سئو</h1><p>تنظیمات موتورهای جست‌وجو و دستیارهای هوش مصنوعی، ایندکس فوری با IndexNow و بررسی محتوای سایت.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">سئو</span><h1>مرکز سئو</h1><p>تنظیمات موتورهای جست‌وجو و دستیارهای هوش مصنوعی، ایندکس فوری با IndexNow و بررسی محتوای سایت.</p></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 
     <section className="seo-overview">

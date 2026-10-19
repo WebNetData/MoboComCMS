@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { formatCurrency, BASE_CURRENCY } from '@/shared/money/client'
+import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
 
 export default function AdminFinancePage() {
   const { t, locale } = useI18n()
@@ -63,8 +63,8 @@ export default function AdminFinancePage() {
               <option key={m} value={m}>{m} {t.months}</option>
             ))}
           </select>
-          <select className="select imp-w-24" value={activeCurrency} onChange={(e) => setCurrency(e.target.value)} aria-label={t.currency}>
-            {(data?.currencies || [activeCurrency]).map((c: string) => <option key={c} value={c}>{c}</option>)}
+          <select className="select admin-currency" value={activeCurrency} onChange={(e) => setCurrency(e.target.value)} aria-label={t.currency}>
+            {(data?.currencies || [activeCurrency]).map((c: string) => <option key={c} value={c}>{currencyLabel(c)}</option>)}
           </select>
           <Link href="/admin/invoices" className="btn btn-ghost">{t.invoicesAdmin}</Link>
           <Link href="/admin/gateways" className="btn btn-primary">{t.gatewaysAdmin}</Link>

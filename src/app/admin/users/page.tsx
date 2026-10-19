@@ -146,7 +146,7 @@ export default function AdminUsersPage() {
             </select>
             {newUser.role === 'ADMIN' && (
               <select className="select" value={newUser.roleId} onChange={(e) => setNewUser({ ...newUser, roleId: e.target.value })}>
-                <option value="">{t.stADMIN} (full)</option>
+                <option value="">{t.stADMIN} ({locale === 'fa' ? 'دسترسی کامل' : 'full'})</option>
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>{r.nameFa || r.name}</option>
                 ))}
@@ -162,7 +162,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: '1rem' }}>
+      <div className={`crm-layout${selected ? ' has-notes' : ''}`}>
         <div className="card overflow-x-auto">
           <table className="data">
             <thead>
@@ -192,7 +192,7 @@ export default function AdminUsersPage() {
                         value={u.roleId || ''}
                         onChange={(e) => patch(u.id, { roleId: e.target.value ? Number(e.target.value) : null })}
                       >
-                        <option value="">{t.stADMIN} (full)</option>
+                        <option value="">{t.stADMIN} ({locale === 'fa' ? 'دسترسی کامل' : 'full'})</option>
                         {roles.map((r) => (
                           <option key={r.id} value={r.id}>{r.nameFa || r.name}</option>
                         ))}
@@ -223,11 +223,10 @@ export default function AdminUsersPage() {
           </table>
         </div>
 
-        <div className="card self-start">
-          {!selected && <p className="muted text-center py-10">{t.noNotes}</p>}
+        <div className="card self-start crm-notes">
           {selected && (
             <>
-              <h3 className="font-bold mb-1">{selected.name || selected.email}</h3>
+              <div className="crm-notes-head"><h3 className="font-bold mb-1">{selected.name || selected.email}</h3><button type="button" className="crm-notes-close" aria-label={locale === 'fa' ? 'بستن یادداشت‌ها' : 'Close notes'} onClick={() => setSelected(null)}>×</button></div>
               <p className="muted mb-4">
                 <span className="num">{selected.orders}</span> {t.ordersShort}{vpnOn && <> · <span className="num">{selected.subs}</span> {t.subsShort}</>} · <span className="num">{selected.tickets}</span> {t.ticketsShort}
               </p>
