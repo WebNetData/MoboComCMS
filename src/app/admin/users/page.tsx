@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import Link from '@/components/AppLink'
 import StatusBadge from '@/components/StatusBadge'
 import { useI18n } from '@/i18n/LocaleProvider'
@@ -61,19 +61,25 @@ export default function AdminUsersPage() {
     load()
   }, [load])
 
+  const createUserRunning = useRef(false)
   async function createUser(e: React.FormEvent) {
     e.preventDefault()
-    const res = await fetch('/api/admin/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newUser),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok) return
-    if (data?.generatedPassword) setGenerated(data.generatedPassword)
-    setNewUser({ name: '', email: '', password: '', role: 'CUSTOMER', roleId: '' })
-    setShowNew(false)
-    load()
+    if (createUserRunning.current) return
+    createUserRunning.current = true
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) return
+      if (data?.generatedPassword) setGenerated(data.generatedPassword)
+      setNewUser({ name: '', email: '', password: '', role: 'CUSTOMER', roleId: '' })
+      setShowNew(false)
+      load()
+    
+    } finally { createUserRunning.current = false }
   }
 
   async function patch(id: number, payload: object) {
@@ -91,16 +97,22 @@ export default function AdminUsersPage() {
     if (res.ok) setNotes(await res.json())
   }
 
+  const addNoteRunning = useRef(false)
   async function addNote(e: React.FormEvent) {
     e.preventDefault()
-    if (!selected || !noteText.trim()) return
-    await fetch('/api/admin/crm-notes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: selected.id, body: noteText }),
-    })
-    setNoteText('')
-    openNotes(selected)
+    if (addNoteRunning.current) return
+    addNoteRunning.current = true
+    try {
+      if (!selected || !noteText.trim()) return
+      await fetch('/api/admin/crm-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selected.id, body: noteText }),
+      })
+      setNoteText('')
+      openNotes(selected)
+    
+    } finally { addNoteRunning.current = false }
   }
 
   function fmt(d: string) {
@@ -128,31 +140,31 @@ export default function AdminUsersPage() {
       {showNew && (
         <form onSubmit={createUser} className="card mb-6 grid-4 items-end">
           <div>
-            <label className="label">{t.nameLabel}</label>
-            <input className="input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+            <label className="label-field"><span className="label">{t.nameLabel}</span>
+            <input className="input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} /></label>
           </div>
           <div>
-            <label className="label">{t.emailLabel}</label>
-            <input className="input" dir="ltr" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required />
+            <label className="label-field"><span className="label">{t.emailLabel}</span>
+            <input className="input" dir="ltr" type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} required /></label>
           </div>
           <div>
-            <label className="label">{t.passAuto}</label>
-            <input className="input" dir="ltr" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+            <label className="label-field"><span className="label">{t.passAuto}</span>
+            <input className="input" dir="ltr" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></label>
           </div>
           <div className="flex gap-2">
-            <select className="select" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value, roleId: '' })}>
+            <select aria-label={t.role} className="select" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value, roleId: '' })}>
               <option value="CUSTOMER">{t.stCUSTOMER}</option>
               <option value="ADMIN">{t.stADMIN}</option>
             </select>
             {newUser.role === 'ADMIN' && (
-              <select className="select" value={newUser.roleId} onChange={(e) => setNewUser({ ...newUser, roleId: e.target.value })}>
+              <select aria-label="سطح دسترسی مدیر" className="select" value={newUser.roleId} onChange={(e) => setNewUser({ ...newUser, roleId: e.target.value })}>
                 <option value="">{t.stADMIN} ({locale === 'fa' ? 'دسترسی کامل' : 'full'})</option>
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>{r.nameFa || r.name}</option>
                 ))}
               </select>
             )}
-            <button className="btn btn-primary">{t.create}</button>
+            <button type="submit" className="btn btn-primary">{t.create}</button>
           </div>
         </form>
       )}
@@ -242,7 +254,7 @@ export default function AdminUsersPage() {
               </div>
               <form onSubmit={addNote}>
                 <textarea className="textarea mb-2" rows={3} placeholder={t.addNote} value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-                <button className="btn btn-primary w-full">{t.saveNote}</button>
+                <button type="submit" className="btn btn-primary w-full">{t.saveNote}</button>
               </form>
             </>
           )}

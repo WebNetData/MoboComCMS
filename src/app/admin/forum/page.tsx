@@ -146,7 +146,7 @@ function AdminForumPage() {
           <textarea className="textarea" rows={6} dir="auto" value={wordLists[key]} onChange={(e) => setWords({ ...wordLists, [key]: e.target.value })} />
           <small className="muted">{fa(wordLists[key].split('\n').filter((w) => w.trim()).length)} مورد (حداکثر ۲۰۰)</small>
         </label>)}
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ واژه‌ها</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setWords(null)}>بازگردانی</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ واژه‌ها</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setWords(null)}>بازگردانی</button></div>
       </form>
     </section>}
 
@@ -197,7 +197,7 @@ function AdminForumPage() {
             {data.groups.filter((g) => !category.permissions.some((row) => row.groupId === g.id)).map((g) => <option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}
           </select>
         </fieldset>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>{category.id ? 'ذخیرهٔ تغییرات' : 'افزودن دسته'}</button>{category.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCategory(EMPTY_CATEGORY)}>انصراف</button>}</div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{category.id ? 'ذخیرهٔ تغییرات' : 'افزودن دسته'}</button>{category.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCategory(EMPTY_CATEGORY)}>انصراف</button>}</div>
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>دسته</th><th>دسترسی</th><th>موضوع</th><th>پیام</th><th /></tr></thead><tbody>
         {ordered.map((c) => <tr key={c.id}>
@@ -231,12 +231,12 @@ function AdminForumPage() {
           <label className="studio-switch"><input type="checkbox" checked={group.mentionable} onChange={(e) => setGroup({ ...group, mentionable: e.target.checked })} />قابل نام‌بردن با @</label>
         </>}
         {group.automatic && <p className="muted fr-admin-wide">این گروه خودکار است؛ عضویت آن بر اساس نقش یا سطح اعتماد تعیین می‌شود و فقط ظاهرش قابل تغییر است.</p>}
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>{group.id ? 'ذخیرهٔ تغییرات' : 'افزودن گروه'}</button>{group.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setGroup(EMPTY_GROUP)}>انصراف</button>}</div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{group.id ? 'ذخیرهٔ تغییرات' : 'افزودن گروه'}</button>{group.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setGroup(EMPTY_GROUP)}>انصراف</button>}</div>
       </form>
       <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call('POST', { section: 'members', action: 'add', ...member }, 'کاربر به گروه اضافه شد')) setMember({ ...member, username: '' }) }}>
         <label className="studio-field"><span>گروه</span><select className="input" value={member.slug} onChange={(e) => setMember({ ...member, slug: e.target.value })} required><option value="">انتخاب…</option>{data.groups.filter((g) => !g.automatic).map((g) => <option key={g.id} value={g.slug}>{g.icon} {g.name}</option>)}</select></label>
         <label className="studio-field"><span>نام کاربری</span><input className="input" dir="ltr" value={member.username} onChange={(e) => setMember({ ...member, username: e.target.value })} placeholder="@username" required /></label>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>افزودن عضو</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !member.slug || !member.username} onClick={() => void call('POST', { section: 'members', action: 'remove', ...member }, 'کاربر از گروه حذف شد')}>حذف از گروه</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>افزودن عضو</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !member.slug || !member.username} onClick={() => void call('POST', { section: 'members', action: 'remove', ...member }, 'کاربر از گروه حذف شد')}>حذف از گروه</button></div>
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>گروه</th><th>نوع</th><th>اعضا</th><th /></tr></thead><tbody>
         {data.groups.map((g) => <tr key={g.id}>
@@ -263,13 +263,13 @@ function AdminForumPage() {
         <BadgeRulePicker rule={badge.rule} fixed={data.badgeRules} onChange={(rule) => setBadge({ ...badge, rule })} />
         <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={badge.description} onChange={(e) => setBadge({ ...badge, description: e.target.value })} maxLength={300} /></label>
         <label className="studio-switch"><input type="checkbox" checked={badge.enabled} onChange={(e) => setBadge({ ...badge, enabled: e.target.checked })} />فعال</label>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>{badge.id ? 'ذخیرهٔ تغییرات' : 'افزودن نشان'}</button>{badge.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBadge(EMPTY_BADGE)}>انصراف</button>}</div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{badge.id ? 'ذخیرهٔ تغییرات' : 'افزودن نشان'}</button>{badge.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBadge(EMPTY_BADGE)}>انصراف</button>}</div>
       </form>
       <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call('POST', { section: 'grant', ...grant, grant: true }, 'نشان اعطا شد')) setGrant({ ...grant, username: '', reason: '' }) }}>
         <label className="studio-field"><span>نشان</span><select className="input" value={grant.badgeId} onChange={(e) => setGrant({ ...grant, badgeId: Number(e.target.value) })} required><option value={0}>انتخاب…</option>{data.badges.map((b) => <option key={b.id} value={b.id}>{b.icon} {b.name}</option>)}</select></label>
         <label className="studio-field"><span>نام کاربری</span><input className="input" dir="ltr" value={grant.username} onChange={(e) => setGrant({ ...grant, username: e.target.value })} placeholder="@username" required /></label>
         <label className="studio-field fr-admin-wide"><span>دلیل (اختیاری)</span><input className="input" value={grant.reason} onChange={(e) => setGrant({ ...grant, reason: e.target.value })} maxLength={200} /></label>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy || !grant.badgeId}>اعطای نشان</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !grant.badgeId || !grant.username} onClick={() => void call('POST', { section: 'grant', ...grant, grant: false }, 'نشان پس گرفته شد')}>پس‌گرفتن</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy || !grant.badgeId}>اعطای نشان</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !grant.badgeId || !grant.username} onClick={() => void call('POST', { section: 'grant', ...grant, grant: false }, 'نشان پس گرفته شد')}>پس‌گرفتن</button></div>
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>نشان</th><th>درجه</th><th>قاعده</th><th>دریافت</th><th /></tr></thead><tbody>
         {data.badges.map((b) => <tr key={b.id} className={b.enabled ? '' : 'muted'}>
@@ -324,7 +324,7 @@ function AdminForumPage() {
           <div className="fa-inline fa-wrap">{TRUST_FIELDS.map((field) => <Num key={field.key} label={field.label} value={settings.trust[level][field.key]} max={100000} onChange={(v) => setSettings({ ...settings, trust: { ...settings.trust, [level]: { ...settings.trust[level], [field.key]: v } } })} />)}</div>
         </fieldset>)}
         <p className="muted fr-admin-wide">سطح ۴ (رهبر جامعه) فقط به‌صورت دستی از بخش کاربران اعطا می‌شود. سطح‌ها هرگز به‌طور خودکار کاهش نمی‌یابند.</p>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings(data.settings)}>بازگردانی</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings(data.settings)}>بازگردانی</button></div>
       </form>
     </section>}
   </div>

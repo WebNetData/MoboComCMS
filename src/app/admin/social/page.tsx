@@ -61,7 +61,7 @@ export default function AdminSocialPage() {
     {tab === 'log' && <section className="xm-section">
       <form className="card fa-inline fa-wrap" style={{ padding: '1rem' }} onSubmit={(e) => { e.preventDefault(); void call('POST', { action: 'announce', item: manual.trim() }, 'در صف انتشار قرار گرفت') }}>
         <label className="studio-field fa-grow"><span>انتشار دستی یک مورد (مثلاً <code dir="ltr">software:12</code>)</span><input className="input" dir="ltr" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="type:id" /></label>
-        <button className="btn btn-primary btn-sm" disabled={busy || !manual.trim()}>انتشار</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !manual.trim()}>انتشار</button>
         <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void call('POST', { action: 'run' }, 'صف پردازش شد')}>پردازش صف</button>
       </form>
       <div className="table-wrap card"><table className="table"><thead><tr><th>مورد</th><th>کانال</th><th>وضعیت</th><th>زمان</th><th /></tr></thead><tbody>
@@ -85,7 +85,7 @@ export default function AdminSocialPage() {
         <label className="studio-field"><span>متن دکمه</span><input className="input" value={tg.button} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, button: e.target.value } })} maxLength={40} /></label>
         <label className="studio-switch"><input type="checkbox" checked={tg.silent} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, silent: e.target.checked } })} />ارسال بی‌صدا</label>
         <label className="studio-field fr-admin-wide"><span>قالب پست (متغیرها: <code dir="ltr">{VARS}</code>)</span><textarea className="input" rows={7} value={tg.template} onChange={(e) => setSettings({ ...settings, telegram: { ...tg, template: e.target.value } })} /></label>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !tg.channel} onClick={() => void call('POST', { action: 'test-telegram' }, 'پیام آزمایشی به کانال فرستاده شد')}>ارسال پیام آزمایشی</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !tg.channel} onClick={() => void call('POST', { action: 'test-telegram' }, 'پیام آزمایشی به کانال فرستاده شد')}>ارسال پیام آزمایشی</button></div>
       </form>
     </section>}
 
@@ -98,7 +98,7 @@ export default function AdminSocialPage() {
         <label className="studio-field"><span>نسخهٔ Graph API</span><input className="input" dir="ltr" value={ig.graphVersion} onChange={(e) => setSettings({ ...settings, instagram: { ...ig, graphVersion: e.target.value } })} /></label>
         <label className="studio-field"><span>هشتگ‌ها</span><input className="input" value={ig.hashtags} onChange={(e) => setSettings({ ...settings, instagram: { ...ig, hashtags: e.target.value } })} /></label>
         <label className="studio-field fr-admin-wide"><span>قالب کپشن (متغیرها: <code dir="ltr">{VARS}</code>)</span><textarea className="input" rows={7} value={ig.template} onChange={(e) => setSettings({ ...settings, instagram: { ...ig, template: e.target.value } })} /></label>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button></div>
       </form>
     </section>}
 
@@ -114,7 +114,7 @@ export default function AdminSocialPage() {
           <label className="studio-field"><span>عنوان</span><input className="input" value={settings.push.title} onChange={(e) => setSettings({ ...settings, push: { ...settings.push, title: e.target.value } })} /></label>
           <label className="studio-field"><span>متن</span><input className="input" value={settings.push.body} onChange={(e) => setSettings({ ...settings, push: { ...settings.push, body: e.target.value } })} /></label>
         </fieldset>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیره</button></div>
       </form>
     </section>}
   </div>

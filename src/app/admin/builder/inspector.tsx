@@ -317,7 +317,7 @@ function CategoryPicker({ source, value, L, onChange }: { source: 'post' | 'prod
   const [rows, setRows] = useState<CategoryRow[] | null>(null)
   useEffect(() => { let alive = true; void loadCatalog().then((data) => { if (alive) setRows(data[source]) }); return () => { alive = false } }, [source])
   const known = !value || value.startsWith('@') || !rows || rows.some((row) => row.slug === value)
-  return <select className="select" value={value} onChange={(event) => onChange(event.target.value)}>
+  return <select aria-label={L('Item', 'انتخاب مورد')} className="select" value={value} onChange={(event) => onChange(event.target.value)}>
     <option value="">{source === 'post' ? L('Latest from all categories', 'آخرین‌ها از همه دسته‌ها') : L('All categories', 'همه دسته‌ها')}</option>
     <option value="@section">{source === 'post' ? L('This section / post category', 'همین بخش / دستهٔ همین پست') : L('This section / product category', 'همین بخش / دستهٔ همین محصول')}</option>
     {!known && <option value={value}>{value}</option>}
@@ -342,7 +342,7 @@ function TemplatePicker({ pageId, value, L, onChange }: { pageId: string; value:
     return () => { cancelled = true }
   }, [pageId, L])
   const known = !value || !options || [...options.bundled, ...options.mine].some((entry) => entry.id === value)
-  return <select className="select" value={value} onChange={(event) => onChange(event.target.value)}>
+  return <select aria-label={L('Pattern', 'انتخاب الگو')} className="select" value={value} onChange={(event) => onChange(event.target.value)}>
     <option value="">{options ? L('— choose a template —', '— انتخاب قالب —') : L('Loading…', 'در حال بارگذاری…')}</option>
     {!known && <option value={value}>{value} ({L('missing', 'حذف‌شده')})</option>}
     {options && options.mine.length > 0 && <optgroup label={L('My templates', 'قالب‌های من')}>{options.mine.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</optgroup>}
@@ -431,7 +431,7 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
         <label className="bld-field"><span>{L('Background color', 'رنگ پس‌زمینه')}</span>
           <div className="bld-color" dir="ltr">
             <input type="color" value={section.style.bg || '#ffffff'} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { bg: event.target.value }), sel, false)} />
-            <input className="input mono" dir="ltr" placeholder="#RRGGBB" value={section.style.bg} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { bg: event.target.value }), sel, false)} />
+            <input aria-label={L('Background colour', 'رنگ پس‌زمینه')} className="input mono" dir="ltr" placeholder="#RRGGBB" value={section.style.bg} onChange={(event) => onChange(patchSectionStyle(doc, section.id, { bg: event.target.value }), sel, false)} />
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(patchSectionStyle(doc, section.id, { bg: '' }), sel)}>{L('Clear', 'حذف')}</button>
           </div>
         </label>
@@ -463,8 +463,8 @@ export default function Inspector({ pageId, doc, sel, L, onBusy, onChange, onDup
           <div className="bld-cols">
             {section.columns.map((column) => <div className="bld-col-row" key={column.id}>
               <button type="button" className={`btn btn-sm ${sel.kind === 'section' && column.id ? '' : 'btn-ghost'}`} onClick={() => onChange(doc, { kind: 'column', sectionId: section.id, columnId: column.id }, false)}>{column.width}%</button>
-              <input type="range" min={5} max={100} step={5} value={column.width} onChange={(event) => onChange(patchColumn(doc, section.id, column.id, { width: Number(event.target.value) }), sel, false)} />
-              <button type="button" className="btn btn-ghost btn-sm" disabled={section.columns.length <= 1} onClick={() => { onChange(removeColumn(doc, section.id, column.id), { kind: 'section', sectionId: section.id }) }}>×</button>
+              <input aria-label={L('Column width', 'عرض ستون')} type="range" min={5} max={100} step={5} value={column.width} onChange={(event) => onChange(patchColumn(doc, section.id, column.id, { width: Number(event.target.value) }), sel, false)} />
+              <button aria-label={L('Remove column', 'حذف ستون')} type="button" className="btn btn-ghost btn-sm" disabled={section.columns.length <= 1} onClick={() => { onChange(removeColumn(doc, section.id, column.id), { kind: 'section', sectionId: section.id }) }}>×</button>
             </div>)}
             <div className="bld-col-row">
               <button type="button" className="btn btn-ghost btn-sm" disabled={section.columns.length >= 4} onClick={() => onChange(addColumn(doc, section.id), sel)}>＋ {L('Column', 'ستون')}</button>

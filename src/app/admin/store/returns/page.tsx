@@ -40,7 +40,7 @@ function SettingsCard({ initial }: { initial: Settings }) {
     <label className="sa-check"><input type="checkbox" checked={settings.requirePhotos} onChange={(e) => setSettings({ ...settings, requirePhotos: e.target.checked })} />برای کالای معیوب، اشتباه یا ناقص، عکس الزامی باشد</label>
     <label className="sa-field"><span>متن قوانین (روی فرم درخواست نمایش داده می‌شود)</span><textarea className="input" rows={4} maxLength={1200} value={settings.policy} onChange={(e) => setSettings({ ...settings, policy: e.target.value })} /></label>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
-    <div className="sa-head-actions"><button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+    <div className="sa-head-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
   </form>
 }
 

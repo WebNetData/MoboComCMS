@@ -62,7 +62,7 @@ export default function ReceiptsPage() {
             {receipt.status !== 'PENDING' && <div><dt>بررسی</dt><dd>{receipt.status === 'APPROVED' ? 'تأیید' : 'رد'}{receipt.reviewedAt ? ` · ${new Date(receipt.reviewedAt).toLocaleString('fa-IR')}` : ''}{receipt.adminNote ? ` · ${receipt.adminNote}` : ''}</dd></div>}
           </dl>
           {receipt.status === 'PENDING' && <div className="rc-actions">
-            <input className="input" placeholder="دلیل رد (به مشتری نمایش داده می‌شود)" value={notes[receipt.id] || ''} onChange={(e) => setNotes({ ...notes, [receipt.id]: e.target.value })} maxLength={300} />
+            <input aria-label="دلیل رد" className="input" placeholder="دلیل رد (به مشتری نمایش داده می‌شود)" value={notes[receipt.id] || ''} onChange={(e) => setNotes({ ...notes, [receipt.id]: e.target.value })} maxLength={300} />
             <button type="button" className="btn btn-primary" disabled={busy === receipt.id} onClick={() => void review(receipt, 'approve')}>✓ تأیید پرداخت</button>
             <button type="button" className="btn btn-ghost" disabled={busy === receipt.id} onClick={() => void review(receipt, 'reject')}>✕ رد رسید</button>
           </div>}

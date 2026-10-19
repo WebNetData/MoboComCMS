@@ -32,7 +32,7 @@ export default function TeamTab({ team, forums, busy, call }: { team: ForumTeam;
       <ul>{team.deputies.map((person) => <li key={person.id}>{who(person)}<button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { if (window.confirm(`«${person.name}» دیگر معاون تالار نباشد؟`)) void call('POST', { section: 'team', action: 'deputy-remove', username: person.username }, 'از معاونان برداشته شد') }}>برداشتن</button></li>)}{!team.deputies.length && <li className="muted">هنوز معاونی تعیین نشده است.</li>}</ul>
       <form className="fa-team-add" onSubmit={async (event) => { event.preventDefault(); if (await call('POST', { section: 'team', action: 'deputy-add', username: deputy }, 'معاون تالار اضافه شد')) setDeputy('') }}>
         <input className="input" dir="ltr" value={deputy} onChange={(event) => setDeputy(event.target.value)} placeholder="نام کاربری" aria-label="نام کاربری معاون تازه" required />
-        <button className="btn btn-primary btn-sm" disabled={busy || !deputy.trim()}>افزودن معاون</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !deputy.trim()}>افزودن معاون</button>
       </form>
     </div>
 
@@ -45,7 +45,7 @@ export default function TeamTab({ team, forums, busy, call }: { team: ForumTeam;
           <option value={0} disabled>بخش یا انجمن…</option>
           {forums.map((forum) => <option key={forum.id} value={forum.id}>{'— '.repeat(forum.depth)}{forum.title}</option>)}
         </select>
-        <button className="btn btn-primary btn-sm" disabled={busy || !moderator.username.trim() || !moderator.categoryId}>افزودن مدیر انجمن</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !moderator.username.trim() || !moderator.categoryId}>افزودن مدیر انجمن</button>
       </form>
     </div>
   </section>
