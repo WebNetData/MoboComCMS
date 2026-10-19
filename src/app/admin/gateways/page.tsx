@@ -202,62 +202,62 @@ export default function AdminGatewaysPage() {
       {showForm && (
         <form onSubmit={save} className="card mb-6 grid-3 items-end">
           <div>
-            <label className="label">{t.gatewayName}</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <label className="label-field"><span className="label">{t.gatewayName}</span>
+            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
           </div>
           <div>
-            <label className="label">{t.provider}</label>
+            <label className="label-field"><span className="label">{t.provider}</span>
             <select className="select" value={form.provider} onChange={(e) => { const provider = e.target.value; setForm({ ...form, provider, ...(provider === 'FRENZYEX' ? { name: form.name || 'درگاه پرداخت ارزی ریالی', fiat: 'TMN', currencies: '' } : provider === 'CARD_TRANSFER' ? { name: form.name || 'کارت به کارت / انتقال بانکی', fiat: 'IRR', currencies: '' } : provider === 'MELLAT' ? { name: form.name && form.name !== 'درگاه پرداخت ارزی ریالی' ? form.name : 'پرداخت آنلاین (بانک ملت)', fiat: 'IRR', currencies: '' } : INSTALLMENT.includes(provider) ? { name: !form.name || form.name === 'درگاه پرداخت ارزی ریالی' || Object.values(INSTALLMENT_NAME).includes(form.name) ? INSTALLMENT_NAME[provider] : form.name, fiat: 'IRR', currencies: '' } : {}) }) }}>
               {providers.map((p) => (
                 <option key={p.key} value={p.key}>{isFa ? p.labelFa : p.label}</option>
               ))}
-            </select>
+            </select></label>
           </div>
           <div>
-            <label className="label">{t.fiatCurrency}</label>
-            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider) ? 'IRR' : form.fiat} readOnly={form.provider === 'FRENZYEX' || form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider)} onChange={(e) => setForm({ ...form, fiat: e.target.value })} />
+            <label className="label-field"><span className="label">{t.fiatCurrency}</span>
+            <input className="input" dir="ltr" value={form.provider === 'FRENZYEX' ? 'TMN' : form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider) ? 'IRR' : form.fiat} readOnly={form.provider === 'FRENZYEX' || form.provider === 'MELLAT' || INSTALLMENT.includes(form.provider)} onChange={(e) => setForm({ ...form, fiat: e.target.value })} /></label>
           </div>
           {(form.provider === 'SNAPPPAY' || form.provider === 'DIGIPAY') && <>
             <div>
-              <label className="label">نام کاربری پذیرنده (Username)</label>
-              <input className="input" dir="ltr" autoComplete="off" value={form.accountUser} onChange={(e) => setForm({ ...form, accountUser: e.target.value })} />
+              <label className="label-field"><span className="label">نام کاربری پذیرنده (Username)</span>
+              <input className="input" dir="ltr" autoComplete="off" value={form.accountUser} onChange={(e) => setForm({ ...form, accountUser: e.target.value })} /></label>
             </div>
             <div>
-              <label className="label">رمز پذیرنده (Password)</label>
-              <input className="input" dir="ltr" type="password" autoComplete="new-password" value={form.password} placeholder={editId ? t.leaveEmptyNoChange : ''} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <label className="label-field"><span className="label">رمز پذیرنده (Password)</span>
+              <input className="input" dir="ltr" type="password" autoComplete="new-password" value={form.password} placeholder={editId ? t.leaveEmptyNoChange : ''} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
             </div>
           </>}
           {INSTALLMENT.includes(form.provider) && <>
             <div>
-              <label className="label">نشانی سرویس (خالی = پیش‌فرض؛ برای Sandbox تغییر دهید)</label>
-              <input className="input" dir="ltr" placeholder="https://…" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
+              <label className="label-field"><span className="label">نشانی سرویس (خالی = پیش‌فرض؛ برای Sandbox تغییر دهید)</span>
+              <input className="input" dir="ltr" placeholder="https://…" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} /></label>
             </div>
             <div>
-              <label className="label">تعداد اقساط نمایشی در صفحهٔ محصول</label>
-              <input className="input num" type="number" min={2} max={24} value={form.installments} onChange={(e) => setForm({ ...form, installments: Number(e.target.value) })} />
+              <label className="label-field"><span className="label">تعداد اقساط نمایشی در صفحهٔ محصول</span>
+              <input className="input num" type="number" min={2} max={24} value={form.installments} onChange={(e) => setForm({ ...form, installments: Number(e.target.value) })} /></label>
             </div>
           </>}
           {form.provider === 'MELLAT' && (
             <div>
-              <label className="label">نام کاربری پذیرنده (UserName)</label>
-              <input className="input" dir="ltr" autoComplete="off" value={form.accountUser} onChange={(e) => setForm({ ...form, accountUser: e.target.value })} />
+              <label className="label-field"><span className="label">نام کاربری پذیرنده (UserName)</span>
+              <input className="input" dir="ltr" autoComplete="off" value={form.accountUser} onChange={(e) => setForm({ ...form, accountUser: e.target.value })} /></label>
             </div>
           )}
           {selected?.needsApiKey && (
             <div>
-              <label className="label">{form.provider === 'MELLAT' ? 'شمارهٔ ترمینال (Terminal ID)' : form.provider === 'AZKI' ? 'شناسهٔ پذیرنده (Merchant ID)' : INSTALLMENT.includes(form.provider) ? 'Client ID' : t.apiKey}</label>
+              <label className="label-field"><span className="label">{form.provider === 'MELLAT' ? 'شمارهٔ ترمینال (Terminal ID)' : form.provider === 'AZKI' ? 'شناسهٔ پذیرنده (Merchant ID)' : INSTALLMENT.includes(form.provider) ? 'Client ID' : t.apiKey}</span>
               <input
                 className="input"
                 dir="ltr"
                 value={form.apiKey}
                 placeholder={editId ? t.leaveEmptyNoChange : ''}
                 onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-              />
+              /></label>
             </div>
           )}
           {selected?.needsSecret && (
             <div>
-              <label className="label">{form.provider === 'MELLAT' ? 'رمز عبور پذیرنده (Password)' : form.provider === 'AZKI' ? 'کلید API' : INSTALLMENT.includes(form.provider) ? 'Client Secret' : t.secretKey}</label>
+              <label className="label-field"><span className="label">{form.provider === 'MELLAT' ? 'رمز عبور پذیرنده (Password)' : form.provider === 'AZKI' ? 'کلید API' : INSTALLMENT.includes(form.provider) ? 'Client Secret' : t.secretKey}</span>
               <input
                 className="input"
                 dir="ltr"
@@ -265,53 +265,53 @@ export default function AdminGatewaysPage() {
                 value={form.secretKey}
                 placeholder={editId ? t.leaveEmptyNoChange : ''}
                 onChange={(e) => setForm({ ...form, secretKey: e.target.value })}
-              />
+              /></label>
             </div>
           )}
           {form.provider === 'PLISIO' && (
             <div>
-              <label className="label">{t.cryptoCurrencies}</label>
-              <input className="input" dir="ltr" placeholder="BTC,ETH,USDT_TRX" value={form.currencies} onChange={(e) => setForm({ ...form, currencies: e.target.value })} />
+              <label className="label-field"><span className="label">{t.cryptoCurrencies}</span>
+              <input className="input" dir="ltr" placeholder="BTC,ETH,USDT_TRX" value={form.currencies} onChange={(e) => setForm({ ...form, currencies: e.target.value })} /></label>
             </div>
           )}
           <div>
-            <label className="label">{t.feePercent}</label>
-            <input className="input num" type="number" step="0.01" value={form.feePercent} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
+            <label className="label-field"><span className="label">{t.feePercent}</span>
+            <input className="input num" type="number" step="0.01" value={form.feePercent} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} /></label>
           </div>
           <div>
-            <label className="label">{t.minAmount}</label>
-            <input className="input num" type="number" step="0.01" value={form.minAmount} onChange={(e) => setForm({ ...form, minAmount: e.target.value })} />
+            <label className="label-field"><span className="label">{t.minAmount}</span>
+            <input className="input num" type="number" step="0.01" value={form.minAmount} onChange={(e) => setForm({ ...form, minAmount: e.target.value })} /></label>
           </div>
           <div>
-            <label className="label">{t.sortOrder}</label>
-            <input className="input num" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
+            <label className="label-field"><span className="label">{t.sortOrder}</span>
+            <input className="input num" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} /></label>
           </div>
           <div className="grid-column-span-3">
-            <label className="label">{form.provider === 'MANUAL' ? t.paymentInstructions : t.instructionsOptional}</label>
+            <label className="label-field"><span className="label">{form.provider === 'MANUAL' ? t.paymentInstructions : t.instructionsOptional}</span>
             <textarea
               className="textarea"
               rows={form.provider === 'MANUAL' ? 4 : 2}
               dir={form.provider === 'MANUAL' ? 'ltr' : undefined}
               value={form.instructions}
               onChange={(e) => setForm({ ...form, instructions: e.target.value })}
-            />
+            /></label>
           </div>
           <div>
-            <label className="label">{t.active}</label>
+            <span className="label">{t.active}</span>
             <label className="flex items-center gap-2 panel-toggle">
               <input type="checkbox" checked={form.active !== false} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               <span className="text-sm">{t.active}</span>
             </label>
           </div>
           <div>
-            <label className="label">{t.defaultGateway}</label>
+            <span className="label">{t.defaultGateway}</span>
             <label className="flex items-center gap-2 panel-toggle">
               <input type="checkbox" checked={form.isDefault === true} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
               <span className="text-sm">{t.makeDefault}</span>
             </label>
           </div>
           <div className="flex gap-2">
-            <button className="btn btn-primary flex-1">{editId ? t.save : t.addGateway}</button>
+            <button type="submit" className="btn btn-primary flex-1">{editId ? t.save : t.addGateway}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY) }}>{t.cancel}</button>
           </div>
           {selected && <div className="grid-column-span-3 muted text-xs">{isFa ? selected.hintFa : selected.hint}</div>}

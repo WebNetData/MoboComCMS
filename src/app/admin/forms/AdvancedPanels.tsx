@@ -7,6 +7,8 @@ import {
 } from '@/modules/forms/domain/forms'
 import { MERGE_TAGS, staffEditable, type FieldStat } from '@/modules/forms/domain/advanced'
 import type { Row } from './shared'
+import TimeInput from '@/components/date/TimeInput'
+import Link from '@/components/AppLink'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const DAYS: [number, string][] = [[6, 'شنبه'], [0, 'یکشنبه'], [1, 'دوشنبه'], [2, 'سه‌شنبه'], [3, 'چهارشنبه'], [4, 'پنجشنبه'], [5, 'جمعه']]
@@ -26,8 +28,8 @@ export function AdvancedFieldProps({ field, patch, quiz }: { field: FormField; p
     {field.type === 'slot' && <fieldset className="fb-logic"><legend>زمان‌بندی نوبت</legend>
       <div className="fp-checks" role="group" aria-label="روزهای باز">{DAYS.map(([day, name]) => <label key={day} className="sa-check"><input type="checkbox" checked={rule.days.includes(day)} onChange={(e) => slot({ days: e.target.checked ? [...rule.days, day] : rule.days.filter((item) => item !== day) })} />{name}</label>)}</div>
       <div className="fb-two">
-        <label className="sa-field"><span>از ساعت</span><input className="input" type="time" value={rule.from} onChange={(e) => slot({ from: e.target.value })} /></label>
-        <label className="sa-field"><span>تا ساعت</span><input className="input" type="time" value={rule.to} onChange={(e) => slot({ to: e.target.value })} /></label>
+        <label className="sa-field"><span>از ساعت</span><TimeInput aria-label="از ساعت" value={rule.from} onChange={(value) => slot({ from: value })} /></label>
+        <label className="sa-field"><span>تا ساعت</span><TimeInput aria-label="تا ساعت" value={rule.to} onChange={(value) => slot({ to: value })} /></label>
         <label className="sa-field"><span>طول هر نوبت (دقیقه)</span><input className="input" type="number" min={5} max={480} value={rule.minutes} onChange={(e) => slot({ minutes: Number(e.target.value) })} /></label>
         <label className="sa-field"><span>ظرفیت هر نوبت (نفر)</span><input className="input" type="number" min={1} max={500} value={rule.capacity} onChange={(e) => slot({ capacity: Number(e.target.value) })} /></label>
         <label className="sa-field"><span>تا چند روز آینده</span><input className="input" type="number" min={1} max={365} value={rule.horizon} onChange={(e) => slot({ horizon: Number(e.target.value) })} /></label>
@@ -138,12 +140,12 @@ export function AdvancedSettings({ form, s, set }: { form: FormDefinition; s: Fo
       <p className="sa-hint">اگر کسی را انتخاب نکنید، هر کارمندِ دارای دسترسی «پاسخ‌ها و درخواست‌های فرم» این فرم را می‌بیند. با انتخاب، فقط همین افراد (و مدیران فرم‌ها) پاسخ‌ها را می‌بینند، خبردار می‌شوند و کار به آن‌ها سپرده می‌شود. فقط کسانی اینجا هستند که این دسترسی را دارند.</p>
       {gone.length > 0 && <div className="fa-gone" role="alert"><b>{fa(gone.length)} نفر از کارشناسان این فرم دیگر دسترسی ندارند</b> (نقششان عوض شده یا حسابشان غیرفعال است). تا آن‌ها را برندارید فرم ذخیره نمی‌شود. <button type="button" className="sa-link" onClick={() => set({ handlers: s.handlers.filter((id) => !gone.includes(id)) })}>برداشتن آن‌ها</button></div>}
       {staff === null ? <p className="sa-hint">در حال بارگذاری کارمندان…</p>
-        : !staff.length ? <p className="fa-gone">هیچ کارمندی دسترسی «پاسخ‌ها و درخواست‌های فرم» ندارد. در <a className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</a> یک نقش با این دسترسی بسازید و در بخش کاربران به کارمندها بدهید.</p>
+        : !staff.length ? <p className="fa-gone">هیچ کارمندی دسترسی «پاسخ‌ها و درخواست‌های فرم» ندارد. در <Link className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</Link> یک نقش با این دسترسی بسازید و در بخش کاربران به کارمندها بدهید.</p>
         : <div className="fa-people" role="group" aria-label="کارشناسان">{staff.map((member) => <label key={member.id} className={`fa-person${s.handlers.includes(member.id) ? ' is-on' : ''}`}>
             <input type="checkbox" checked={s.handlers.includes(member.id)} onChange={(e) => set({ handlers: e.target.checked ? [...s.handlers, member.id] : s.handlers.filter((id) => id !== member.id) })} />
             <span><b>{member.name}</b><small>{member.role}{member.manager ? ' · مدیر فرم‌ها (همهٔ فرم‌ها را می‌بیند)' : ''}</small></span>
           </label>)}</div>}
-      <p className="sa-hint">کارمند تازه؟ در <a className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</a> دسترسی «پاسخ‌ها و درخواست‌های فرم» را به نقشش بدهید تا اینجا دیده شود.</p>
+      <p className="sa-hint">کارمند تازه؟ در <Link className="sa-link" href="/admin/roles">نقش‌ها و دسترسی‌ها</Link> دسترسی «پاسخ‌ها و درخواست‌های فرم» را به نقشش بدهید تا اینجا دیده شود.</p>
     </section>
   </>
 }

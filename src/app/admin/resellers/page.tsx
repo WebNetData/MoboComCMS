@@ -71,9 +71,9 @@ export default function AdminResellersPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/admin/resellers')
-    if (res.ok) {
-      const d = await res.json()
+    const res = await fetch('/api/admin/resellers').catch(() => null)
+    if (res?.ok) {
+      const d = (await res.json().catch(() => null)) || {}
       setRows(d.resellers || [])
       setPlans(d.plans || [])
       setSummary(d.summary || { count: 0, active: 0, accounts: 0, trafficGrantedGB: 0 })
@@ -132,10 +132,10 @@ export default function AdminResellersPage() {
       method: editing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editing ? { id: editing.id, ...payload } : payload),
-    })
-    const d = await res.json().catch(() => null)
+    }).catch(() => null)
+    const d = await res?.json().catch(() => null)
     setBusy(false)
-    if (!res.ok) {
+    if (!res?.ok) {
       setMsg(d?.error || t.errGeneric)
       setMsgOk(false)
       return
@@ -170,7 +170,7 @@ export default function AdminResellersPage() {
 
   const numberField = (key: keyof typeof EMPTY, label: string, hint: string) => (
     <div>
-      <label className="label">{label}</label>
+      <label className="label-field"><span className="label">{label}</span>
       <input
         className="input num"
         type="number"
@@ -178,7 +178,7 @@ export default function AdminResellersPage() {
         dir="ltr"
         value={String(form[key] as number)}
         onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) })}
-      />
+      /></label>
       <p className="muted text-xs mt-1">{hint}</p>
     </div>
   )
@@ -220,23 +220,23 @@ export default function AdminResellersPage() {
             {!editing && (
               <>
                 <div>
-                  <label className="label">{t.email}</label>
-                  <input className="input" dir="ltr" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="agency@example.com" />
+                  <label className="label-field"><span className="label">{t.email}</span>
+                  <input className="input" dir="ltr" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="agency@example.com" /></label>
                   <p className="muted text-xs mt-1">{t.resellerEmailHint}</p>
                 </div>
                 <div>
-                  <label className="label">{t.name}</label>
-                  <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                  <label className="label-field"><span className="label">{t.name}</span>
+                  <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
                 </div>
               </>
             )}
             {editing && (
               <div>
-                <label className="label">{t.status}</label>
+                <label className="label-field"><span className="label">{t.status}</span>
                 <select className="select" value={form.active ? '1' : '0'} onChange={(e) => setForm({ ...form, active: e.target.value === '1' })}>
                   <option value="1">{t.active}</option>
                   <option value="0">{t.resellerInactive}</option>
-                </select>
+                </select></label>
               </div>
             )}
           </div>
@@ -244,15 +244,15 @@ export default function AdminResellersPage() {
           <h3 className="h4 mt-6 mb-2">{t.resellerPricing}</h3>
           <div className="grid-2">
             <div>
-              <label className="label">{t.resellerPriceMode}</label>
+              <label className="label-field"><span className="label">{t.resellerPriceMode}</span>
               <select className="select" value={form.priceMode} onChange={(e) => setForm({ ...form, priceMode: e.target.value })}>
                 <option value="DISCOUNT">{t.resellerPriceDiscount}</option>
                 <option value="CUSTOM">{t.resellerPriceCustom}</option>
-              </select>
+              </select></label>
             </div>
             <div>
-              <label className="label">{t.resellerDiscount} %</label>
-              <input className="input num" type="number" min={0} max={100} dir="ltr" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: Number(e.target.value) })} />
+              <label className="label-field"><span className="label">{t.resellerDiscount} %</span>
+              <input className="input num" type="number" min={0} max={100} dir="ltr" value={form.discountPercent} onChange={(e) => setForm({ ...form, discountPercent: Number(e.target.value) })} /></label>
             </div>
           </div>
 
@@ -308,8 +308,8 @@ export default function AdminResellersPage() {
           </div>
 
           <div className="mt-4">
-            <label className="label">{t.note}</label>
-            <input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+            <label className="label-field"><span className="label">{t.note}</span>
+            <input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
           </div>
 
           <div className="flex gap-2 mt-5">
@@ -375,7 +375,7 @@ export default function AdminResellersPage() {
                         <button className="btn btn-ghost btn-sm" onClick={() => startEdit(r)}>{t.edit}</button>
                         <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(r)}>{r.active ? t.disable : t.enable}</button>
                         <Link className="btn btn-ghost btn-sm" href={`/admin/users/${r.userId}`}>{t.customerCard}</Link>
-                        <button className="btn btn-ghost btn-sm" onClick={() => remove(r)}>🗑</button>
+                        <button aria-label="حذف نماینده" className="btn btn-ghost btn-sm" onClick={() => remove(r)}>🗑</button>
                       </div>
                     </td>
                   </tr>

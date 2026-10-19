@@ -44,7 +44,7 @@ export default function AdminPushPage() {
         <label className="studio-field fr-admin-wide"><span>متن</span><input className="input" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} maxLength={300} /></label>
         <label className="studio-field fr-admin-wide"><span>با کلیک باز شود (مسیر داخلی سایت)</span><input className="input" dir="ltr" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="/vip" /></label>
         <div className="pwa-preview fr-admin-wide" aria-hidden="true"><b>{form.title || 'عنوان اعلان'}</b><span>{form.body || 'متن اعلان'}</span></div>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy || form.title.trim().length < 3 || !data?.total}>ارسال اعلان</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy || form.title.trim().length < 3 || !data?.total}>ارسال اعلان</button></div>
       </form>
     </section>
     <section className="xm-section">

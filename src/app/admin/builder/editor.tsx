@@ -91,9 +91,9 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const response = await fetch(`/api/admin/page-builder?pageId=${encodeURIComponent(pageId)}`, { cache: 'no-store' })
-    const data = await response.json().catch(() => null)
-    if (response.ok) {
+    const response = await fetch(`/api/admin/page-builder?pageId=${encodeURIComponent(pageId)}`, { cache: 'no-store' }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok) {
       const stored: BuilderDoc = data.doc || emptyDoc()
       const draftDoc: BuilderDoc | null = data.draft?.doc || null
       const restored = !!draftDoc && JSON.stringify(draftDoc) !== JSON.stringify(stored)
@@ -164,9 +164,9 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
     const response = await fetch('/api/admin/page-builder', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pageId, doc }),
-    })
-    const data = await response.json().catch(() => null)
-    if (response.ok) { draftPushed.current = false; setSaved(JSON.stringify(doc)); setMessage(L('Saved.', 'ذخیره شد.')); refreshPreview() }
+    }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok) { draftPushed.current = false; setSaved(JSON.stringify(doc)); setMessage(L('Saved.', 'ذخیره شد.')); refreshPreview() }
     else setMessage(data?.error || L('Save failed.', 'ذخیره انجام نشد.'))
     setBusy(false)
   }, [doc, pageId, busy, uploading, L, refreshPreview])

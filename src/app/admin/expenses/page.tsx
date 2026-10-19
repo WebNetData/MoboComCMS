@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
@@ -52,24 +52,30 @@ export default function AdminExpensesPage() {
   const catLabel = (c: string) => (t as Record<string, string>)[`exp${c}`] || c
   const maxCat = Math.max(1, ...Object.values(byCategory))
 
+  const saveRunning = useRef(false)
   async function save(e: React.FormEvent) {
     e.preventDefault()
-    setMsg('')
-    const res = await fetch('/api/admin/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-    })
-    const data = await res.json().catch(() => null)
-    if (!res.ok) {
-      setMsgOk(false)
-      setMsg(data?.error || t.errGeneric)
-      return
-    }
-    setMsgOk(true)
-    setMsg(t.saved)
-    setForm({ ...EMPTY, currency })
-    load()
+    if (saveRunning.current) return
+    saveRunning.current = true
+    try {
+      setMsg('')
+      const res = await fetch('/api/admin/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, amount: Number(form.amount) }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setMsgOk(false)
+        setMsg(data?.error || t.errGeneric)
+        return
+      }
+      setMsgOk(true)
+      setMsg(t.saved)
+      setForm({ ...EMPTY, currency })
+      load()
+    
+    } finally { saveRunning.current = false }
   }
 
   async function remove(id: number) {
@@ -120,35 +126,35 @@ export default function AdminExpensesPage() {
 
       <form onSubmit={save} className="card mb-6 grid-3 items-end">
         <div>
-          <label className="label">{t.expenseTitle}</label>
-          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+          <label className="label-field"><span className="label">{t.expenseTitle}</span>
+          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{t.expenseCategory}</label>
+          <label className="label-field"><span className="label">{t.expenseCategory}</span>
           <select className="select" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {categories.map((c) => (
               <option key={c} value={c}>{catLabel(c)}</option>
             ))}
-          </select>
+          </select></label>
         </div>
         <div>
-          <label className="label">{t.amount}</label>
-          <input className="input num" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+          <label className="label-field"><span className="label">{t.amount}</span>
+          <input className="input num" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{t.currency}</label>
-          <select className="select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} required>{[...new Set([...currencies, form.currency, 'USD', 'EUR'].filter(Boolean))].map((c) => <option key={c} value={c}>{currencyLabel(c, isFa ? 'fa-IR' : 'en-US')}</option>)}</select>
+          <label className="label-field"><span className="label">{t.currency}</span>
+          <select className="select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} required>{[...new Set([...currencies, form.currency, 'USD', 'EUR'].filter(Boolean))].map((c) => <option key={c} value={c}>{currencyLabel(c, isFa ? 'fa-IR' : 'en-US')}</option>)}</select></label>
         </div>
         <div>
-          <label className="label">{t.spentAt}</label>
-          <JalaliDateInput className="input" value={form.spentAt} onChange={(value) => setForm({ ...form, spentAt: value })} />
+          <span className="label">{t.spentAt}</span>
+          <JalaliDateInput className="input" aria-label={t.spentAt} value={form.spentAt} onChange={(value) => setForm({ ...form, spentAt: value })} />
         </div>
         <div>
-          <label className="label">{t.notes}</label>
-          <input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          <label className="label-field"><span className="label">{t.notes}</span>
+          <input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-primary flex-1">{t.addExpense}</button>
+          <button type="submit" className="btn btn-primary flex-1">{t.addExpense}</button>
         </div>
       </form>
 
@@ -179,7 +185,7 @@ export default function AdminExpensesPage() {
                   <td className="num font-semibold">{money(e.amount)}</td>
                   <td className="num">{fmtDate(e.spentAt)}</td>
                   <td className="muted truncate">{e.note || '—'}</td>
-                  <td><button className="badge badge-red" onClick={() => remove(e.id)}>✕</button></td>
+                  <td><button aria-label="حذف هزینه" className="badge badge-red" onClick={() => remove(e.id)}>✕</button></td>
                 </tr>
               ))}
             </tbody>

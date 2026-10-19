@@ -1,6 +1,6 @@
 'use client'
 import Link from '@/components/AppLink'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 
 type Provider = { id: string; label: string; model: string; free: boolean; keyUrl: string; note: string }
 type Config = { provider: string; model: string; baseUrl: string; apiKey: string; hasKey: boolean; voice: string; botName: string; effectiveModel: string }
@@ -52,16 +52,22 @@ export default function AdminAiPage() {
   const setDraft = (key: string, value: string) => setDrafts((current) => ({ ...current, [key]: value }))
   const drop = (key: string) => setDrafts((current) => { const next = { ...current }; delete next[key]; return next })
 
+  const saveSettingsRunning = useRef(false)
   async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setBusy('settings'); setMessage(null)
-    const response = await fetch('/api/admin/ai', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(form)) }).catch(() => null)
-    const data = await response?.json().catch(() => null)
-    setBusy('')
-    if (!response?.ok) { setMessage({ text: data?.error || 'ذخیره نشد', error: true }); return }
-    setConfig(data.config)
-    setMessage({ text: 'تنظیمات دستیار ذخیره شد', error: false })
+    if (saveSettingsRunning.current) return
+    saveSettingsRunning.current = true
+    try {
+      const form = new FormData(event.currentTarget)
+      setBusy('settings'); setMessage(null)
+      const response = await fetch('/api/admin/ai', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(form)) }).catch(() => null)
+      const data = await response?.json().catch(() => null)
+      setBusy('')
+      if (!response?.ok) { setMessage({ text: data?.error || 'ذخیره نشد', error: true }); return }
+      setConfig(data.config)
+      setMessage({ text: 'تنظیمات دستیار ذخیره شد', error: false })
+    
+    } finally { saveSettingsRunning.current = false }
   }
 
   if (!config || !queues) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
@@ -86,7 +92,7 @@ export default function AdminAiPage() {
         <label className="studio-field"><span>کلمات کلیدی (اختیاری)</span><input className="input" value={post.keywords} onChange={(e) => setPost({ ...post, keywords: e.target.value })} placeholder="هدفون بی‌سیم، خرید هدفون"/></label>
         <label className="studio-field"><span>طول</span><select className="input" value={post.length} onChange={(e) => setPost({ ...post, length: e.target.value })}><option value="short">کوتاه (~۵۰۰ کلمه)</option><option value="medium">متوسط (~۱۰۰۰ کلمه)</option><option value="long">بلند (~۱۶۰۰ کلمه)</option></select></label>
         <label className="studio-field"><span>دسته‌بندی</span><select className="input" value={post.categoryId} onChange={(e) => setPost({ ...post, categoryId: e.target.value })}><option value="">بدون دسته</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-        <div className="seo-actions seo-wide"><button className="btn btn-primary" disabled={!!busy}>{busy === 'post' ? 'در حال نوشتن… (تا یک دقیقه)' : 'بنویس و پیش‌نویس کن'}</button></div>
+        <div className="seo-actions seo-wide"><button type="submit" className="btn btn-primary" disabled={!!busy}>{busy === 'post' ? 'در حال نوشتن… (تا یک دقیقه)' : 'بنویس و پیش‌نویس کن'}</button></div>
         <p className="muted seo-wide">مقاله با وضعیت «پیش‌نویس» در مجله ذخیره می‌شود. قبل از انتشار آن را بخوانید، تصویر شاخص بگذارید و اطلاعات را بررسی کنید.</p>
       </form>
       {created.length > 0 && <div className="ai-list">{created.map((item) => <article key={item.id} className="card"><b>{item.title}</b><p className="muted">{item.excerpt}</p><Link className="btn btn-ghost btn-sm" href="/admin/posts">بازبینی در نوشته‌ها ←</Link></article>)}</div>}
@@ -164,7 +170,7 @@ export default function AdminAiPage() {
         {config.provider === 'custom' && <label className="studio-field"><span>نشانی سرویس (OpenAI-compatible)</span><input className="input" name="baseUrl" dir="ltr" defaultValue={config.baseUrl} placeholder="http://localhost:11434/v1"/></label>}
         <label className="studio-field"><span>نام حساب پاسخ‌دهنده در تالار</span><input className="input" name="botName" defaultValue={config.botName} maxLength={60}/></label>
         <label className="studio-field seo-wide"><span>لحن و سبک نوشتن برند</span><textarea className="input" name="voice" rows={3} defaultValue={config.voice} maxLength={600}/></label>
-        <div className="seo-actions seo-wide"><button className="btn btn-primary" disabled={!!busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost" disabled={!!busy} onClick={async () => { const data = await run('test', {}, 'test'); if (data) setMessage({ text: `اتصال برقرار است (${data.model}): ${data.reply}`, error: false }) }}>{busy === 'test' ? 'در حال آزمایش…' : 'آزمایش اتصال'}</button></div>
+        <div className="seo-actions seo-wide"><button type="submit" className="btn btn-primary" disabled={!!busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost" disabled={!!busy} onClick={async () => { const data = await run('test', {}, 'test'); if (data) setMessage({ text: `اتصال برقرار است (${data.model}): ${data.reply}`, error: false }) }}>{busy === 'test' ? 'در حال آزمایش…' : 'آزمایش اتصال'}</button></div>
         <p className="muted seo-wide">کلید رمزنگاری‌شده ذخیره می‌شود و به مرورگر برنمی‌گردد. متن کاربران فقط به همین سرویس فرستاده می‌شود؛ اگر حریم خصوصی مهم است از مدل روی سرور خودتان استفاده کنید.</p>
       </form>
     </section>}

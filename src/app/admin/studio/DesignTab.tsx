@@ -92,7 +92,7 @@ export default function DesignTab({ config, themes, change, setUploading, export
 
       <section className="card studio-editor">
         <h2 className="mb-4">هویت بصری</h2>
-        <div className="studio-item"><h3 className="mb-4">لوگو (اختیاری)</h3><p className="studio-help mb-3">لوگوی افقی با نام، نسخهٔ حالت تاریک و حذف پس‌زمینه در <a href="/admin/branding" className="text-link">لوگو و هویت برند</a>.</p><CoverField value={config.logo || ''} title={config.brand} onChange={logo => change({ ...config, logo })} onBusy={setUploading} /></div>
+        <div className="studio-item"><h3 className="mb-4">لوگو (اختیاری)</h3><p className="studio-help mb-3">لوگوی افقی با نام، نسخهٔ حالت تاریک و حذف پس‌زمینه در <Link href="/admin/branding" className="text-link">لوگو و هویت برند</Link>.</p><CoverField value={config.logo || ''} title={config.brand} onChange={logo => change({ ...config, logo })} onBusy={setUploading} /></div>
         <label className="studio-field"><span>نام برند</span><input className="input" value={config.brand} onChange={e => change({ ...config, brand: e.target.value })} /></label>
         <TextEditor label="شعار برند" value={config.tagline} onChange={tagline => change({ ...config, tagline })} />
         <TextEditor label="متن پایین سایت" value={config.copyright} onChange={copyright => change({ ...config, copyright })} />

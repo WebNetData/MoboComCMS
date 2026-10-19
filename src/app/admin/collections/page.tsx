@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent, useRef } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
@@ -39,15 +39,21 @@ export default function AdminCollectionsPage() {
     } catch (cause) { setError((cause as Error).message) } finally { setBusy(null) }
   }
 
+  const createRunning = useRef(false)
   async function create(event: FormEvent) {
     event.preventDefault()
-    if (!title.trim()) return
-    setBusy(-1); setError('')
-    const response = await fetch('/api/admin/collections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }).catch(() => null)
-    const result = await response?.json().catch(() => null)
-    setBusy(null)
-    if (!response?.ok) { setError(result?.error || (fa ? 'ساخت مجموعه انجام نشد.' : 'Could not create the collection.')); return }
-    router.push(`/admin/collections/${result.id}`)
+    if (createRunning.current) return
+    createRunning.current = true
+    try {
+      if (!title.trim()) return
+      setBusy(-1); setError('')
+      const response = await fetch('/api/admin/collections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }).catch(() => null)
+      const result = await response?.json().catch(() => null)
+      setBusy(null)
+      if (!response?.ok) { setError(result?.error || (fa ? 'ساخت مجموعه انجام نشد.' : 'Could not create the collection.')); return }
+      router.push(`/admin/collections/${result.id}`)
+    
+    } finally { createRunning.current = false }
   }
 
   const own = listing?.items.filter((row) => row.staffAuthored) || []
@@ -59,7 +65,7 @@ export default function AdminCollectionsPage() {
       <header className="sa-card-head"><h2>{fa ? 'مجموعه‌های سایت' : 'The site\'s collections'}</h2></header>
       <form className="collections-admin-new" onSubmit={create}>
         <input className="input" value={title} maxLength={120} onChange={(event) => setTitle(event.target.value)} placeholder={fa ? 'عنوان مجموعهٔ تازه، مثلاً «بهترین فیلم‌های علمی‌تخیلی»' : 'Title of a new collection'} aria-label={fa ? 'عنوان مجموعهٔ تازه' : 'New collection title'} />
-        <button className="btn btn-primary btn-sm" disabled={busy !== null || !title.trim()}>{fa ? 'ساخت پیش‌نویس' : 'Create draft'}</button>
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy !== null || !title.trim()}>{fa ? 'ساخت پیش‌نویس' : 'Create draft'}</button>
       </form>
       {!listing ? <p className="muted">{fa ? 'در حال بارگذاری…' : 'Loading…'}</p> : own.length ? <ul className="sa-rows collections-admin-list">{own.map((row) => <li key={row.id}><Link href={`/admin/collections/${row.id}`}><span className="sa-grow"><b>{row.title}</b><small>{num(row._count.items)} {fa ? 'مورد' : 'items'} · ♥ {num(row._count.reactions)}</small></span></Link><span className="collections-admin-status">{row.visibility === 'EDITORIAL' ? (fa ? 'منتشرشده' : 'Published') : (fa ? 'پیش‌نویس' : 'Draft')}</span><Link className="btn btn-ghost btn-sm" href={`/admin/collections/${row.id}`}>{fa ? 'ویرایش' : 'Edit'}</Link></li>)}</ul> : <p className="muted">{fa ? 'هنوز مجموعه‌ای برای سایت نساخته‌اید.' : 'No collection written for the site yet.'}</p>}
     </section>

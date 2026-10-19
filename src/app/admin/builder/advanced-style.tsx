@@ -30,7 +30,7 @@ function Colour({ label, value, onChange, L }: { label: string; value: string | 
   return <label className="bld-field"><span>{label}</span>
     <div className="bld-color" dir="ltr">
       <input type="color" value={value || '#ffffff'} onChange={(event) => onChange(event.target.value)} />
-      <input className="input mono" dir="ltr" placeholder="#RRGGBB" value={value || ''} onChange={(event) => onChange(/^#[0-9a-fA-F]{6}$/.test(event.target.value) ? event.target.value : value)} />
+      <input aria-label={L('Colour code', 'کد رنگ')} className="input mono" dir="ltr" placeholder="#RRGGBB" value={value || ''} onChange={(event) => onChange(/^#[0-9a-fA-F]{6}$/.test(event.target.value) ? event.target.value : value)} />
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange(undefined)}>{L('Clear', 'حذف')}</button>
     </div>
   </label>

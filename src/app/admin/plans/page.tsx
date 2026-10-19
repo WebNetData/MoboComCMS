@@ -102,68 +102,68 @@ export default function AdminPlansPage() {
 
       <form onSubmit={save} className="card mb-6 grid-4 items-end">
         <div>
-          <label className="label">{locale === 'fa' ? 'نام فارسی پلن' : 'Persian plan name'}</label>
-          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'نام فارسی پلن' : 'Persian plan name'}</span>
+          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{locale === 'fa' ? 'نام انگلیسی پلن' : 'English plan name'}</label>
-          <input className="input" dir="ltr" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} required />
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'نام انگلیسی پلن' : 'English plan name'}</span>
+          <input className="input" dir="ltr" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{locale === 'fa' ? 'توضیح فارسی پلن' : 'Persian plan description'}</label>
-          <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'توضیح فارسی پلن' : 'Persian plan description'}</span>
+          <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{locale === 'fa' ? 'توضیح انگلیسی پلن' : 'English plan description'}</label>
-          <input className="input" dir="ltr" value={form.descriptionEn} onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })} />
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'توضیح انگلیسی پلن' : 'English plan description'}</span>
+          <input className="input" dir="ltr" value={form.descriptionEn} onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.trafficGB}</label>
-          <input className="input num" type="number" value={form.trafficGB} onChange={(e) => setForm({ ...form, trafficGB: e.target.value })} />
+          <label className="label-field"><span className="label">{t.trafficGB}</span>
+          <input className="input num" type="number" value={form.trafficGB} onChange={(e) => setForm({ ...form, trafficGB: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.durationDays}</label>
-          <input className="input num" type="number" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} />
+          <label className="label-field"><span className="label">{t.durationDays}</span>
+          <input className="input num" type="number" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.price} ({form.currency})</label>
-          <input className="input num" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <label className="label-field"><span className="label">{t.price} ({form.currency})</span>
+          <input className="input num" inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.currency}</label>
-          <input className="input" dir="ltr" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} required />
+          <label className="label-field"><span className="label">{t.currency}</span>
+          <input className="input" dir="ltr" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} required /></label>
         </div>
         <div>
-          <label className="label">{t.devicesLeft}</label>
-          <input className="input num" type="number" value={form.deviceLimit} onChange={(e) => setForm({ ...form, deviceLimit: e.target.value })} />
+          <label className="label-field"><span className="label">{t.devicesLeft}</span>
+          <input className="input num" type="number" value={form.deviceLimit} onChange={(e) => setForm({ ...form, deviceLimit: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.targetPanel}</label>
+          <label className="label-field"><span className="label">{t.targetPanel}</span>
           <select className="select" value={form.panelId} onChange={(e) => setForm({ ...form, panelId: e.target.value })}>
             <option value="">{t.selectPanel}</option>
             {panels.filter((p) => p.active).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
-          </select>
+          </select></label>
         </div>
         <div data-vip="">
-          <label className="label">{locale === 'fa' ? 'دسترسی' : 'Access'}</label>
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'دسترسی' : 'Access'}</span>
           <select className="select" value={form.access} onChange={(e) => setForm({ ...form, access: e.target.value })}>
             <option value="PUBLIC">{locale === 'fa' ? 'همه' : 'Everyone'}</option>
             <option value="MEMBERS">{locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only'}</option>
-          </select>
+          </select></label>
         </div>
         <div data-vip="">
-          <label className="label">{locale === 'fa' ? `قیمت اعضای VIP (${form.currency}) · اختیاری` : `VIP price (${form.currency}) · optional`}</label>
-          <input className="input num" inputMode="decimal" value={form.memberPrice} onChange={(e) => setForm({ ...form, memberPrice: e.target.value })} />
+          <label className="label-field"><span className="label">{locale === 'fa' ? `قیمت اعضای VIP (${form.currency}) · اختیاری` : `VIP price (${form.currency}) · optional`}</span>
+          <input className="input num" inputMode="decimal" value={form.memberPrice} onChange={(e) => setForm({ ...form, memberPrice: e.target.value })} /></label>
         </div>
         <div data-vip="">
-          <label className="label">{locale === 'fa' ? 'روز VIP هدیه با خرید' : 'VIP gift days'}</label>
-          <input className="input num" type="number" min={0} value={form.vipGiftDays} onChange={(e) => setForm({ ...form, vipGiftDays: e.target.value })} />
+          <label className="label-field"><span className="label">{locale === 'fa' ? 'روز VIP هدیه با خرید' : 'VIP gift days'}</span>
+          <input className="input num" type="number" min={0} value={form.vipGiftDays} onChange={(e) => setForm({ ...form, vipGiftDays: e.target.value })} /></label>
         </div>
         <div>
-          <label className="label">{t.sortOrder}</label>
-          <input className="input num" type="number" value={form.sort} onChange={(e) => setForm({ ...form, sort: e.target.value })} />
+          <label className="label-field"><span className="label">{t.sortOrder}</span>
+          <input className="input num" type="number" value={form.sort} onChange={(e) => setForm({ ...form, sort: e.target.value })} /></label>
         </div>
         <div className="flex gap-2 items-center">
           <label className="flex items-center gap-1 text-sm">
@@ -174,7 +174,7 @@ export default function AdminPlansPage() {
             <input type="checkbox" checked={form.active !== false} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             {t.active}
           </label>
-          <button className="btn btn-primary flex-1">{editId ? t.save : t.add}</button>
+          <button type="submit" className="btn btn-primary flex-1">{editId ? t.save : t.add}</button>
           {editId && <button type="button" className="btn btn-ghost" onClick={() => { setEditId(null); setForm(EMPTY) }}>{t.cancel}</button>}
         </div>
       </form>

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Notice, ServerShell, bytes, fa, faDate, useServerApi, useServerJson } from '../shared'
 import { Pager } from '../../store/shared'
+import Link from '@/components/AppLink'
 
 type Status = { dir: string; installed: boolean; writable: boolean; imap: boolean; hostname: string; dkim: boolean }
 type Registry = { domains: string[]; mailboxes: { address: string; quotaMb: number; disabled: boolean }[]; aliases: { address: string; targets: string[] }[] }
@@ -199,7 +200,7 @@ function Mail() {
     {tab === 'send' && <section className="sa-card sp-blocked">
       <h2>ارسال ایمیل سایت به صفحهٔ «ایمیل سایت» منتقل شد</h2>
       <p>حساب ارسال (مثلاً جیمیل)، ایمیل اطلاع‌رسانی به کاربران، ارسال آزمایشی و گزارش ارسال‌ها در مدیریت سایت است و به روشن بودن پنل سرور یا ایمیل‌سرور روی این سرور نیازی ندارد.</p>
-      <a className="btn btn-primary" href="/admin/email">رفتن به ایمیل سایت</a>
+      <Link className="btn btn-primary" href="/admin/email">رفتن به ایمیل سایت</Link>
     </section>}
     {tab !== 'send' && !data.status.installed && <Install status={data.status} />}
     {tab === 'boxes' && data.status.installed && data.registry && <Mailboxes registry={data.registry} reload={() => void reload()} />}

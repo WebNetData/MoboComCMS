@@ -80,7 +80,7 @@ export default function EditorialCollectionPage({ params }: { params: Promise<{ 
       <label className="sa-field"><span>توضیح (زیر عنوان نمایش داده می‌شود)</span><textarea className="input" rows={3} maxLength={2000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
       <label className="sa-field"><span>تصویر جلد (نشانی از همین سایت یا https)</span><input className="input" dir="ltr" value={form.cover} maxLength={1000} onChange={(event) => setForm({ ...form, cover: event.target.value })} placeholder="/api/media/covers/…" /></label>
       <div className="sa-head-actions"><LibraryPicker kind="image" onSelect={asset => setForm(current => ({ ...current, cover: asset.url }))} />{form.cover && <img src={form.cover} alt="پیش‌نمایش جلد مجموعه" width={120} height={72} style={{ objectFit: 'cover', borderRadius: 10 }} />}</div>
-      <div className="sa-head-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ مشخصات</button><button type="button" className="sa-link is-danger" disabled={busy} onClick={() => void remove()}>حذف مجموعه</button></div>
+      <div className="sa-head-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ مشخصات</button><button type="button" className="sa-link is-danger" disabled={busy} onClick={() => void remove()}>حذف مجموعه</button></div>
     </form>
 
     {!published && <section className="sa-card" aria-label="زمان‌بندی انتشار">
@@ -96,7 +96,7 @@ export default function EditorialCollectionPage({ params }: { params: Promise<{ 
       <header className="sa-card-head"><h2>افزودن مورد</h2></header>
       <form className="collections-admin-new" onSubmit={search}>
         <input className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام فیلم، بازی، آلبوم، مقاله، محصول…" aria-label="جست‌وجوی مورد" />
-        <button className="btn btn-ghost btn-sm" disabled={query.trim().length < 2}>جست‌وجو</button>
+        <button type="submit" className="btn btn-ghost btn-sm" disabled={query.trim().length < 2}>جست‌وجو</button>
       </form>
       {found && (found.length ? <ul className="sa-rows collections-admin-list">{found.map((row) => <li key={row.key}>{row.image ? <img src={row.image} alt="" className="collections-admin-thumb" loading="lazy" /> : <span className="collections-admin-thumb" />}<span className="sa-grow"><b>{row.title}</b><small>{TYPE[row.type] || row.type}{row.subtitle ? ` · ${row.subtitle}` : ''}</small></span>{held.has(row.key) ? <span className="collections-admin-status">در مجموعه هست</span> : <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void patch({ item: row.key, action: 'add' }, '')}>افزودن</button>}</li>)}</ul> : <p className="muted">موردِ منتشرشده‌ای با این نام پیدا نشد.</p>)}
     </section>

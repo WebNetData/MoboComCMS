@@ -83,10 +83,10 @@ export default function AdminPanelsPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, id: editId, ...overrides }),
-    })
-    const data = await res.json().catch(() => null)
+    }).catch(() => null)
+    const data = await res?.json().catch(() => null)
     setGroupsBusy(false)
-    if (!res.ok) {
+    if (!res?.ok) {
       setGroups([])
       setGroupMsg(data?.error || t.errGeneric)
       return
@@ -158,21 +158,21 @@ export default function AdminPanelsPage() {
 
       <form onSubmit={save} className="card mb-6 grid-3 items-end">
         <div>
-          <label className="label">{t.panelName}</label>
-          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <label className="label-field"><span className="label">{t.panelName}</span>
+          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{t.panelType}</label>
+          <label className="label-field"><span className="label">{t.panelType}</span>
           <select className="select" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
             {PANEL_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
+          </select></label>
         </div>
         <div>
-          <label className="label">{t.panelUrl}</label>
-          <input className="input" dir="ltr" placeholder="https://panel.example.com" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required />
+          <label className="label-field"><span className="label">{t.panelUrl}</span>
+          <input className="input" dir="ltr" placeholder="https://panel.example.com" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} required /></label>
         </div>
         <div>
-          <label className="label">{form.type === 'REMNAWAVE' ? t.remnaToken : t.pasarUser}</label>
+          <label className="label-field"><span className="label">{form.type === 'REMNAWAVE' ? t.remnaToken : t.pasarUser}</span>
           <input
             className="input"
             dir="ltr"
@@ -180,30 +180,30 @@ export default function AdminPanelsPage() {
             onChange={(e) => setForm({ ...form, token: e.target.value })}
             placeholder={editId ? t.leaveEmptyNoChange : ''}
             required={!editId}
-          />
+          /></label>
         </div>
         {form.type === 'PASARGUARD' && (
           <div>
-            <label className="label">{t.adminPass}</label>
-            <input className="input" dir="ltr" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <label className="label-field"><span className="label">{t.adminPass}</span>
+            <input className="input" dir="ltr" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
           </div>
         )}
         {form.type === 'PASARGUARD' && (
           <div>
-            <label className="label">{t.inbounds}</label>
+            <label className="label-field"><span className="label">{t.inbounds}</span>
             <input
               className="input"
               dir="ltr"
               placeholder="vless:VLESS-REALITY,vmess:VMess-WS"
               value={form.inbounds}
               onChange={(e) => setForm({ ...form, inbounds: e.target.value })}
-            />
+            /></label>
             <p className="muted text-xs mt-2">{t.inboundsPasarHint}</p>
           </div>
         )}
         <div style={{ gridColumn: '1 / -1' }}>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <label className="label">{isRemna ? t.internalSquads : t.inboundGroups}</label>
+            <span className="label">{isRemna ? t.internalSquads : t.inboundGroups}</span>
             <button
               type="button"
               className="btn btn-ghost imp-py-1-5"
@@ -246,7 +246,7 @@ export default function AdminPanelsPage() {
           {groupMsg && <p className="error-text text-xs mt-2">{groupMsg}</p>}
         </div>
         <div>
-          <label className="label">{t.active}</label>
+          <span className="label">{t.active}</span>
           <label className="flex items-center gap-2 panel-toggle">
             <input
               type="checkbox"
@@ -257,7 +257,7 @@ export default function AdminPanelsPage() {
           </label>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-primary flex-1">{editId ? t.save : t.addPanel}</button>
+          <button type="submit" className="btn btn-primary flex-1">{editId ? t.save : t.addPanel}</button>
           {editId && <button type="button" className="btn btn-ghost" onClick={() => { setEditId(null); setForm(EMPTY) }}>{t.cancel}</button>}
         </div>
       </form>

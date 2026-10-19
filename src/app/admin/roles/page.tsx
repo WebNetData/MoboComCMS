@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { ROLE_PRESET_LABELS } from '@/modules/identity/rbac'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
@@ -75,18 +75,24 @@ export default function AdminRolesPage() {
     load()
   }, [load])
 
+  const createRunning = useRef(false)
   async function create(e: React.FormEvent) {
     e.preventDefault()
-    setMsg('')
-    const res = await fetch('/api/admin/roles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    const d = await res.json().catch(() => null)
-    if (!res.ok) { setMsg(d?.error || t.errGeneric); return }
-    setForm({ name: '', nameFa: '', preset: '' })
-    load()
+    if (createRunning.current) return
+    createRunning.current = true
+    try {
+      setMsg('')
+      const res = await fetch('/api/admin/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok) { setMsg(d?.error || t.errGeneric); return }
+      setForm({ name: '', nameFa: '', preset: '' })
+      load()
+    
+    } finally { createRunning.current = false }
   }
 
   function startEdit(r: RoleRow) {
@@ -98,19 +104,25 @@ export default function AdminRolesPage() {
     setEditPerms((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]))
   }
 
+  const savePermsRunning = useRef(false)
   async function savePerms() {
-    if (!editing) return
-    setMsg('')
-    const res = await fetch('/api/admin/roles', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      // A system role keeps its permissions and slug; its titles can still be changed.
-      body: JSON.stringify(editing.isSystem ? { id: editing.id, nameFa: editing.nameFa, nameEn: editing.nameEn } : { id: editing.id, name: editing.name, permissions: editPerms, nameFa: editing.nameFa, nameEn: editing.nameEn }),
-    })
-    const d = await res.json().catch(() => null)
-    if (!res.ok) { setMsg(d?.error || t.errGeneric); return }
-    setEditing(null)
-    load()
+    if (savePermsRunning.current) return
+    savePermsRunning.current = true
+    try {
+      if (!editing) return
+      setMsg('')
+      const res = await fetch('/api/admin/roles', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        // A system role keeps its permissions and slug; its titles can still be changed.
+        body: JSON.stringify(editing.isSystem ? { id: editing.id, nameFa: editing.nameFa, nameEn: editing.nameEn } : { id: editing.id, name: editing.name, permissions: editPerms, nameFa: editing.nameFa, nameEn: editing.nameEn }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res.ok) { setMsg(d?.error || t.errGeneric); return }
+      setEditing(null)
+      load()
+    
+    } finally { savePermsRunning.current = false }
   }
 
   async function remove(id: number) {
@@ -146,7 +158,7 @@ export default function AdminRolesPage() {
             ))}
           </select>
         </div>
-        <button className="btn btn-primary">{t.add}</button>
+        <button type="submit" className="btn btn-primary">{t.add}</button>
       </form>
 
       <div className="grid-2">

@@ -34,10 +34,10 @@ function Members({ fa }: { fa: boolean }) {
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setBusy(true); setMsg(null)
-    const res = await fetch('/api/admin/membership/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(grant) })
-    const body = await res.json().catch(() => null)
+    const res = await fetch('/api/admin/membership/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(grant) }).catch(() => null)
+    const body = await res?.json().catch(() => null)
     setBusy(false)
-    if (!res.ok) { setMsg({ tone: 'err', text: body?.error || 'Error' }); return }
+    if (!res?.ok) { setMsg({ tone: 'err', text: body?.error || 'Error' }); return }
     setMsg({ tone: 'ok', text: fa ? `فعال شد تا ${date(body.endsAt)}` : `Active until ${date(body.endsAt)}` })
     setGrant({ user: '', days: grant.days, note: '' })
     load()
@@ -63,7 +63,7 @@ function Members({ fa }: { fa: boolean }) {
         <input className="input" dir="ltr" required placeholder={fa ? 'ایمیل، @تلگرام یا شناسه کاربر' : 'Email, @telegram or user id'} value={grant.user} onChange={(e) => setGrant({ ...grant, user: e.target.value })} />
         <input className="input" type="number" min={1} max={3650} required value={grant.days} onChange={(e) => setGrant({ ...grant, days: e.target.value })} aria-label={fa ? 'روز' : 'days'} />
         <input className="input" placeholder={fa ? 'یادداشت (اختیاری)' : 'Note (optional)'} value={grant.note} onChange={(e) => setGrant({ ...grant, note: e.target.value })} />
-        <button className="btn btn-primary" disabled={busy}>{fa ? 'افزودن روز' : 'Add days'}</button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>{fa ? 'افزودن روز' : 'Add days'}</button>
         {msg && <span className={msg.tone === 'err' ? 'error-text' : 'badge badge-green'}>{msg.text}</span>}
       </form>
       <div className="flex gap-2 mb-3">

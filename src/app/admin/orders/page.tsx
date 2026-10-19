@@ -54,7 +54,7 @@ export default function AdminOrdersPage() {
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="h2">{t.orders}</h1>
-        <select className="select imp-w-48" value={filter} onChange={(e) => { setFilter(e.target.value); load(e.target.value) }}>
+        <select aria-label="وضعیت سفارش‌ها" className="select imp-w-48" value={filter} onChange={(e) => { setFilter(e.target.value); load(e.target.value) }}>
           <option value="">{t.all}</option>
           <option value="PENDING">{t.stPENDING}</option>
           <option value="PAID">{t.stPAID}</option>

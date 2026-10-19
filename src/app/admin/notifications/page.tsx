@@ -75,7 +75,7 @@ export default function AdminNotificationsPage() {
         <label className="sa-field"><span>ساعت ارسال خلاصه (به وقت تهران)</span><input className="input num" type="number" min={0} max={23} value={policy.digest.hour} disabled={!policy.digest.enabled} onChange={(e) => setPolicy({ ...policy, digest: { ...policy.digest, hour: Number(e.target.value) } })} /></label>
       </div>
       <p className="sa-sub">خلاصه فقط اعلان‌هایی را می‌آورد که خودشان ایمیل جدا ندارند (مثل پاسخ و واکنش تالار) و فقط برای کاربری می‌رود که چیزی نخوانده دارد. هر کاربر می‌تواند آن را از تنظیمات اعلان خودش خاموش کند. ارسال ایمیل باید در «ایمیل» روشن باشد.</p>
-      <div className="sa-head-actions"><button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+      <div className="sa-head-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </form>
   </div>
 }

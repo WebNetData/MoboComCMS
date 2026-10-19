@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Notice, ServerShell, bytes, fa, useServerApi, useServerJson } from '../shared'
 import { Pager } from '../../store/shared'
+import Link from '@/components/AppLink'
 
 type Overview = { dialect: 'postgresql' | 'sqlite'; size: number; version: string; tables: { name: string; rows: number; bytes: number }[] }
 type Column = { name: string; type: string; nullable: boolean; pk: boolean }
@@ -69,7 +70,7 @@ function Database() {
           </div></header>
           {browse.data && <form className="sa-toolbar" onSubmit={(e) => { e.preventDefault(); setState({ ...state, page: 1, search }) }}>
             <label className="sa-inline"><span>ستون</span><select className="select" value={state.column} onChange={(e) => setState({ ...state, column: e.target.value })}><option value="">—</option>{browse.data.columns.map((column) => <option key={column.name} value={column.name}>{column.name}</option>)}</select></label>
-            <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="جست‌وجو در ستون انتخابی" disabled={!state.column} />
+            <input aria-label="جست‌وجوی جدول" className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="جست‌وجو در ستون انتخابی" disabled={!state.column} />
             <button type="submit" className="btn btn-ghost btn-sm" disabled={!state.column}>جست‌وجو</button>
           </form>}
           {browse.error && <Notice tone="error">{browse.error}</Notice>}
@@ -99,7 +100,7 @@ function Backups({ dialect }: { dialect?: 'postgresql' | 'sqlite' }) {
     <header className="sa-card-head"><h2>بکاپ پایگاه داده</h2></header>
     {dialect === 'sqlite'
       ? <><p className="sa-hint">پایگاه دادهٔ فعلی SQLite است؛ یک نسخهٔ کامل از فایل آن را دانلود کنید.</p><a className="btn btn-primary" href="/api/admin/server/db?download=sqlite">دانلود فایل پایگاه داده</a></>
-      : <><p className="sa-hint">بکاپ‌های PostgreSQL رمزگذاری‌شده، زمان‌بندی، نگهداری و آزمون بازیابی در بخش «ربات و بکاپ» مدیریت می‌شوند.</p><a className="btn btn-primary" href="/admin/telegram">مدیریت بکاپ‌ها</a></>}
+      : <><p className="sa-hint">بکاپ‌های PostgreSQL رمزگذاری‌شده، زمان‌بندی، نگهداری و آزمون بازیابی در بخش «ربات و بکاپ» مدیریت می‌شوند.</p><Link className="btn btn-primary" href="/admin/telegram">مدیریت بکاپ‌ها</Link></>}
   </section>
 }
 
