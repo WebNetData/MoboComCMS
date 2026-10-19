@@ -182,11 +182,12 @@ export default function AdminUsersPage() {
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="num">{u.id}</td>
-                  <td dir="ltr"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--primary)' }}>{u.email}</Link></td>
-                  <td><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--primary)' }}>{u.name || '—'}</Link></td>
+                  <td dir="ltr"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.email}</Link></td>
+                  <td><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.name || '—'}</Link></td>
                   <td>
                     {u.role === 'ADMIN' ? (
                       <select
+                        aria-label={`${locale === 'fa' ? 'نقش' : 'Role'} ${u.name || u.email}`}
                         className="select !min-h-0 !py-1"
                         style={{ minWidth: 120, fontSize: '0.8rem' }}
                         value={u.roleId || ''}

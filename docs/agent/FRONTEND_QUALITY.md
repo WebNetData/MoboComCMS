@@ -12,6 +12,11 @@ Supporting design/React/a11y skills follow [engineering skill routing](ENGINEERI
 4. Use existing Storybook coverage for new reusable component states where available. Code Connect is appropriate only for real maintained Figma/component mappings; never invent Figma IDs or claim a connection was published.
 5. Keep domain/business logic outside presentation. Scope module CSS; separate public, Admin, shared and editor tokens. Prefer existing supported components and dependency versions.
 
+Admin utility/presentation styles are rooted in `.admin-shell` and loaded by
+the Admin layout. An import boundary alone is insufficient: styles can remain
+after client navigation. Keep the public before/after-navigation regression in
+`e2e/tests/admin-presentation.spec.ts`; shared portals retain their own scoped styles.
+
 ## Shared MoboCom footer
 
 Owner requirement2026-10-15: the default/MoboCom footer uses the full viewport width, with responsive inner padding and columns. Preserve the edge-to-edge surface; do not turn it into a capped/inset card. Continue the existing footer and theme SDK composition, branding/navigation/TrustSeals settings and plugin slots. Implementation and verified scope: [Site footer handoff](handoffs/SITE_FOOTER.md).

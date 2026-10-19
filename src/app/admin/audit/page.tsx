@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
+import { useSearchParams } from '@/platform/routing/navigation'
 
 interface AuditRow {
   id: number
@@ -27,44 +28,46 @@ const verb = (action: string) => VERB[action.split('.').at(-1) || ''] || ''
 const when = (value: string) => new Date(value).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })
 const hasMetadata = (value: Record<string, unknown>) => !!value && Object.keys(value).length > 0
 
-export default function AdminAuditPage() {
+function AuditLog() {
+  const search = useSearchParams()
+  const loadId = useRef(0)
   const [rows, setRows] = useState<AuditRow[]>([])
   const [cursor, setCursor] = useState<number | null>(null)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [action, setAction] = useState('')
-  const fromUrl = (key: string) => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get(key) || ''
-  const [targetType, setTargetType] = useState(() => fromUrl('targetType'))
-  const [targetId, setTargetId] = useState(() => fromUrl('targetId'))
+  const [targetType, setTargetType] = useState(() => search.get('targetType') || '')
+  const [targetId, setTargetId] = useState(() => search.get('targetId') || '')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
 
-  async function load(next: number | null = null) {
+  async function load(next: number | null = null, filters = { action, targetType, targetId, from, to }) {
+    const requestId = ++loadId.current
     setLoading(true)
     const sp = new URLSearchParams({ take: '50' })
     if (next) sp.set('cursor', String(next))
-    if (action.trim()) sp.set('action', action.trim())
-    if (targetType.trim()) sp.set('targetType', targetType.trim())
-    if (targetId.trim()) sp.set('targetId', targetId.trim())
-    if (from) sp.set('from', from)
-    if (to) sp.set('to', to)
+    if (filters.action.trim()) sp.set('action', filters.action.trim())
+    if (filters.targetType.trim()) sp.set('targetType', filters.targetType.trim())
+    if (filters.targetId.trim()) sp.set('targetId', filters.targetId.trim())
+    if (filters.from) sp.set('from', filters.from)
+    if (filters.to) sp.set('to', filters.to)
     try {
       const res = await fetch(`/api/admin/audit?${sp.toString()}`, { cache: 'no-store' }).catch(() => null)
       const body = res?.ok ? await res.json().catch(() => null) : null
+      if (requestId !== loadId.current) return
       setFailed(!body)
       setRows(body?.items || [])
       setNextCursor(body?.nextCursor || null)
       setCursor(next)
     } finally {
-      setLoading(false)
+      if (requestId === loadId.current) setLoading(false)
     }
   }
 
-  useEffect(() => { void load(null) }, [])
+  useEffect(() => { void load(null); return () => { loadId.current++ } }, [])
   const filtered = !!(action || targetType || targetId || from || to)
-  const clear = () => { setAction(''); setTargetType(''); setTargetId(''); setFrom(''); setTo('') }
-  useEffect(() => { if (!filtered && !loading) void load(null) }, [filtered])
+  const clear = () => { setAction(''); setTargetType(''); setTargetId(''); setFrom(''); setTo(''); void load(null, { action: '', targetType: '', targetId: '', from: '', to: '' }) }
 
   return (
     <div className="sa audit-log" dir="rtl">
@@ -80,11 +83,11 @@ export default function AdminAuditPage() {
       </form>
 
       <section className="sa-card audit-list" aria-label="رخدادها" aria-busy={loading}>
-        {loading && !rows.length ? <div className="sa-skeleton" /> : failed ? <p className="sa-notice is-error">دریافت گزارش ممکن نشد؛ دوباره تلاش کنید.</p> : rows.length === 0 ? <p className="sa-empty">{filtered ? 'رخدادی با این فیلتر پیدا نشد.' : 'هنوز رخدادی ثبت نشده است.'}</p> : <ol className="audit-rows">
+        {loading && !rows.length ? <p role="status">در حال دریافت گزارش…</p> : failed ? <p className="sa-notice is-error" role="alert">دریافت گزارش ممکن نشد؛ دوباره تلاش کنید.</p> : rows.length === 0 ? <p className="sa-empty">{filtered ? 'رخدادی با این فیلتر پیدا نشد.' : 'هنوز رخدادی ثبت نشده است.'}</p> : <ol className="audit-rows">
           {rows.map((row) => <li key={row.id} className="audit-row">
             <div className="audit-main">
               <span className="audit-what">{verb(row.action) && <b>{verb(row.action)}</b>}<bdi dir="ltr" className="audit-code">{row.action}</bdi></span>
-              <span className="audit-target">{row.targetType ? <><bdi dir="ltr">{row.targetType}{row.targetId ? ` #${row.targetId}` : ''}</bdi>{row.targetId && /^\d+$/.test(row.targetId) && <Link className="sa-link" href={`/admin/history?type=${encodeURIComponent(row.targetType)}&id=${row.targetId}`}>نسخه‌ها</Link>}</> : '—'}</span>
+              <span className="audit-target">{row.targetType ? <><bdi dir="ltr">{row.targetType}{row.targetId ? ` #${row.targetId}` : ''}</bdi>{['posts', 'pages', 'products'].includes(row.targetType) && /^[1-9]\d*$/.test(row.targetId) && <Link className="sa-link" href={`/admin/history?type=${encodeURIComponent(row.targetType)}&id=${row.targetId}`}>نسخه‌ها</Link>}</> : '—'}</span>
             </div>
             <div className="audit-meta">
               <span><bdi dir="ltr">{row.actorEmail || `#${row.actorUserId}`}</bdi></span>
@@ -105,4 +108,8 @@ export default function AdminAuditPage() {
       </nav>}
     </div>
   )
+}
+
+export default function AdminAuditPage() {
+  return <Suspense fallback={<p role="status">در حال دریافت گزارش…</p>}><AuditLog /></Suspense>
 }

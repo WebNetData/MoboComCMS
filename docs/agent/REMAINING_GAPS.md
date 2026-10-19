@@ -1,5 +1,12 @@
 # Remaining gaps — scoped snapshot, updated 2026-10-19
 
+Admin integration follow-up: main64134402's framework pins and the owner's
+Admin batch are combined locally; CSS isolation, observed contrast/labels,
+Audit hydration/stale-response behavior and selected actual workflows are
+verified in [the continuation](handoffs/ADMIN_INTEGRATION.md). These named
+items are closed within that scope. Remaining Doctor warnings, untested Admin
+states and operational evidence below are not implied complete.
+
 This is a prioritised follow-up to the editor/maintenance review, not a certification of every domain or proof that an untested capability is absent. Existing production URLs, section permissions, canonical services and protected visuals stay in force. VPN/reseller/marketplace remain outside the chosen product focus.
 
 ## Before launch: verification and operational evidence

@@ -62,11 +62,12 @@ test('publication date accepts an absolute time or an explicit publish-now reset
 
 test('admin post create and edit preserve schedules and reject ambiguous dates', async () => {
   let created, updated
+  const revisions = []
   const scheduled = new Date(Date.now() + 86_400_000).toISOString()
   const db = {
     post: {
       create: async ({ data }) => { created = data; return { id: 7, ...data } },
-      findUnique: async () => ({ status: 'PUBLISHED', publishedAt: new Date(scheduled), title: 'Scheduled article' }),
+      findUnique: async () => ({ id: 7, status: 'PUBLISHED', publishedAt: new Date(scheduled), title: 'Scheduled article', categories: [] }),
       update: async ({ data }) => { updated = data; return { id: 7, status: 'PUBLISHED', publishedAt: new Date(scheduled), ...data } },
     },
     $transaction: async (fn) => fn(db),
@@ -80,6 +81,7 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
     '@/shared/content/cover': { validateCover: value => value },
     '@/modules/site/server/categories': { validateCategorySelection: async () => [] },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
+    '@/modules/content/server/revisions': { recordRevision: async input => { assert.equal(input.client, db); assert.equal(input.strict, true); revisions.push(input) } },
   }
   for (const name of ['@/modules/site/server/page-layout', '@/shared/money', '@/modules/site/domain/categories', '@/modules/catalog/server/product-config', '@/modules/catalog/server/product-input', '@/modules/fx/server/fx', '@/modules/content/server/bulk', '@/platform/audit/server', '@/modules/seo/server/indexnow']) mocks[name] = {}
   const route = load('src/modules/site/server/http/admin/cms/route.ts', mocks)
@@ -91,6 +93,7 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
   assert.equal((await route.PATCH(request('PATCH', { id: 7, publishedAt: '' }))).status, 200)
   assert.ok(updated.publishedAt instanceof Date && updated.publishedAt.getTime() <= Date.now())
   assert.equal((await route.POST(request('POST', { slug: 'bad-date', title: 'Bad date', publishedAt: '2026-10-03T13:30' }))).status, 400)
+  assert.equal(revisions.length, 3, 'all successful writes retain the strict transactional revision contract')
 })
 
 test('IndexNow receives only due articles and approved products', () => {
