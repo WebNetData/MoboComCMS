@@ -13,6 +13,8 @@ export interface MoboComBlock {
   type: string
   version: number
   props: Record<string, unknown>
+  /** Structural protection; text and field values remain editable. */
+  lock?: { move?: boolean; remove?: boolean }
   children?: MoboComBlock[]
 }
 

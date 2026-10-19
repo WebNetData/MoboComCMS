@@ -8,6 +8,7 @@ import MenuIconField from '@/components/admin/MenuIconField'
 import CategoryMenuControls from './CategoryMenuControls'
 import AutomaticLinkControls from './AutomaticLinkControls'
 import { identifyMenu } from '@/modules/site/config/menus'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type SectionState = { section: MegaSection; label: string; available: boolean; preview: SectionBar }
 type State = { config: MegaMenuConfig; revision: string; sections: SectionState[]; moduleEnabled: boolean }
@@ -81,6 +82,7 @@ export default function AdminMegaMenuPage() {
     <header className="tb-hero"><div><span className="tb-eyebrow">ناوبری · مگامنو</span><h1>منو و مگامنوی بخش‌ها</h1>
       <p>نمایش، ترتیب، عنوان و آیکن منوهای هر بخش را تنظیم کنید و منو و زیرمنوی دلخواه بسازید. <Link href="/admin/studio?tab=design">منوی اصلی هدر و فوتر</Link> در استودیوی سایت مدیریت می‌شود.</p></div></header>
     {!state.moduleEnabled && <div className="xm-notice is-error">ماژول «مگامنوی بخش‌ها» غیرفعال است؛ از بخش افزونه‌ها فعالش کنید.</div>}
+    <SectionSettingsHistoryLink section="navigation" />
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     <fieldset disabled={busy} aria-label="ویرایش منوهای بخش‌ها" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <label className="sh-check"><input type="checkbox" checked={config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />نمایش منوی اختصاصی بخش‌ها</label>

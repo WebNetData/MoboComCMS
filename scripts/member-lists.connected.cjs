@@ -83,10 +83,14 @@ async function main() {
 
   // ---- the address apps will use
   const get = query => lists.GET_lists({ nextUrl: new URL(`http://site.invalid/api/me/lists${query}`), headers: new Headers() })
-  const put = (body, headers = {}) => lists.PUT_lists({ headers: new Headers(headers), json: async () => body })
+  const put = (body, headers = {}) => lists.PUT_lists(new (require('next/server').NextRequest)('http://site.invalid/api/me/lists', { method: 'PUT', headers: { origin: 'http://site.invalid', host: 'site.invalid', 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) }))
   assert.deepEqual([(await get('')).status, (await put({ item: `track:${track.id}`, list: 'favorites', on: true })).status], [401, 401], 'a visitor has no lists')
   state.user = { id: member.id }
   const forSong = await (await get(`?item=track:${track.id}`)).json()
+  assert.equal((await get('')).headers.get('cache-control'), 'private, no-store')
+  assert.equal((await put({ item: `track:${track.id}`, list: 'favorites', on: true }, { origin: '' })).status, 403, 'a session alone never writes')
+  assert.equal((await put({ item: `track:${track.id}`, list: 'favorites', on: true }, { origin: 'not a URL' })).status, 403)
+  assert.equal((await put({ padding: 'x'.repeat(9000) })).status, 413, 'stream body is bounded')
   assert.deepEqual([forSong.version, forSong.item, forSong.holding, forSong.lists.map(list => list.key)], [1, `track:${track.id}`, [], ['favorites', `playlist:${playlist.id}`, `collection:${collection.id}`]], 'for a song: only the lists that can hold a song')
   assert.deepEqual([(await get('?item=nonsense')).status, (await put({ item: `track:${track.id}`, list: 'games:LOVED', on: true })).status, (await put({ item: `track:${track.id}`, list: 'favorites' })).status, (await put({ item: `track:${track.id}`, list: 'favorites', on: true }, { origin: 'https://elsewhere.invalid', host: 'site.invalid' })).status], [400, 400, 400, 403])
   const saved = await put({ item: `track:${track.id}`, list: 'favorites', on: true })

@@ -1,37 +1,65 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
-import { useI18n } from '@/i18n/LocaleProvider'
+import { useRouter, usePathname } from '@/platform/routing/navigation'
+import type { MemberList } from '@/modules/account/domain/lists'
+import { MEMBER_LISTS_CHANGED, memberListsChanged } from './member-list-events'
+import styles from './MemberLists.module.css'
 
-type Row = { id: number; title: string; _count: { items: number } }
 
 export default function AddToCollection({ item, loggedIn }: { item: string; loggedIn: boolean }) {
-  const { locale } = useI18n()
-  const fa = locale === 'fa'
-  const [open, setOpen] = useState(false)
-  const [rows, setRows] = useState<Row[] | null>(null)
-  const [busy, setBusy] = useState<number | null>(null)
-  const [message, setMessage] = useState('')
-
-  async function toggle() {
-    if (!loggedIn) { window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`); return }
-    if (open) { setOpen(false); return }
-    setOpen(true); setMessage('')
-    const response = await fetch('/api/collections').catch(() => null)
-    if (!response?.ok) { setMessage(fa ? 'فهرست مجموعه‌ها بارگذاری نشد.' : 'Could not load collections.'); return }
-    setRows(await response.json())
-  }
-
-  async function add(id: number) {
-    setBusy(id); setMessage('')
+  const [open, setOpen] = useState(false), [rows, setRows] = useState<MemberList[] | null>(null), [holding, setHolding] = useState<string[]>([])
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState(''), [failed, setFailed] = useState(false), [version, setVersion] = useState(0)
+  const dialog = useRef<HTMLDialogElement>(null), controller = useRef<AbortController | null>(null), command = useRef(false), title = useId(), router = useRouter(), pathname = usePathname()
+  useEffect(() => {
+    if (!open) return
+    const before = document.activeElement as HTMLElement | null, overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'; dialog.current?.showModal()
+    return () => { controller.current?.abort(); dialog.current?.close(); document.body.style.overflow = overflow; before?.focus() }
+  }, [open])
+  useEffect(() => {
+    if (!open) return
+    const request = new AbortController(); controller.current = request; setFailed(false); setRows(null)
+    fetch('/api/me/lists?item=' + encodeURIComponent(item), { cache: 'no-store', signal: request.signal }).then(async response => {
+      const body = await response.json()
+      if (request.signal.aborted) return
+      if (!response.ok) throw Error(body.error || 'فهرست‌ها بارگذاری نشدند.')
+      if (!Array.isArray(body.lists) || !Array.isArray(body.holding)) throw Error('پاسخ فهرست‌ها معتبر نیست.')
+      setRows(body.lists); setHolding(body.holding)
+    }).catch(error => { if (!request.signal.aborted) { setFailed(true); setMessage(error.message || 'ارتباط برقرار نشد.') } })
+    return () => request.abort()
+  }, [open, item, version])
+  useEffect(() => {
+    const refresh = (event: Event) => { if ((event as CustomEvent).detail?.item === item && open && !command.current) setVersion(value => value + 1) }
+    window.addEventListener(MEMBER_LISTS_CHANGED, refresh)
+    return () => window.removeEventListener(MEMBER_LISTS_CHANGED, refresh)
+  }, [item, open])
+  async function toggle(key: string) {
+    if (command.current) return
+    command.current = true
+    setBusy(true); setFailed(false); setMessage('')
     try {
-      const response = await fetch(`/api/collections/${id}/items`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item }) })
-      const result = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(result.error || 'Request failed')
-      setMessage(result.added ? (fa ? 'به مجموعه اضافه شد.' : 'Added to collection.') : (fa ? 'از قبل در مجموعه بود.' : 'Already in collection.'))
-    } catch (cause) { setMessage((cause as Error).message) } finally { setBusy(null) }
+      const response = await fetch('/api/me/lists', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ item, list: key, on: !holding.includes(key) }) })
+      const body = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(body?.holding)) throw Error(body?.error || 'تغییر ذخیره نشد؛ دوباره تلاش کنید.')
+      const next: string[] = body.holding
+      setRows(current => current?.map(row => ({ ...row, count: Math.max(0, row.count + Number(next.includes(row.key)) - Number(holding.includes(row.key))) })) || [])
+      setHolding(next); setMessage('تغییرات فهرست ذخیره شد.'); memberListsChanged(item); router.refresh()
+    } catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : 'ذخیره نشد.') }
+    finally { command.current = false; setBusy(false) }
   }
-
-  return <div className="collections-picker"><button type="button" className={`ea-btn${open ? ' is-open' : ''}`} aria-expanded={open} onClick={() => void toggle()}><svg className="ea-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2.5h5.5A2.5 2.5 0 0 1 20 10v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17V7.5ZM12 11v5M9.5 13.5h5" /></svg>{fa ? 'افزودن به مجموعه' : 'Add to collection'}</button>{open && <div className="collections-picker-menu"><strong>{fa ? 'مجموعهٔ مقصد' : 'Choose collection'}</strong>{rows ? rows.length ? rows.map((row) => <button type="button" key={row.id} disabled={busy !== null} onClick={() => void add(row.id)}>{row.title}<small>{row._count.items}</small></button>) : <p>{fa ? 'هنوز مجموعه‌ای ندارید.' : 'No collections yet.'}</p> : <p>{fa ? 'در حال بارگذاری…' : 'Loading…'}</p>}<Link href="/dashboard/collections">{fa ? 'ساخت مجموعهٔ تازه' : 'Create collection'}</Link>{message && <p role="status">{message}</p>}</div>}</div>
+  if (!loggedIn) return <Link className="ea-btn" href={`/login?next=${encodeURIComponent(pathname)}`}>فهرست‌های من</Link>
+  return <div className="collections-picker">
+    <button type="button" className={`ea-btn${open ? ' is-open' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => { setMessage(''); setOpen(true) }}><svg className="ea-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><path d="M4 5h16v15H4zM8 5v7l4-2 4 2V5" /></svg>فهرست‌های من</button>
+    {open && <dialog ref={dialog} className={styles.dialog} aria-labelledby={title} dir="rtl" onCancel={event => { event.preventDefault(); setOpen(false) }}>
+      <header className={styles.head}><div><h2 id={title}>ذخیره در فهرست‌های من</h2><p>مجموعه‌ها، علاقه‌مندی‌ها و فهرست‌های مرتبط شما؛ تغییرات همین‌جا ذخیره می‌شوند.</p></div><button type="button" className={styles.close} aria-label="بستن فهرست‌ها" onClick={() => setOpen(false)}>×</button></header>
+      <div className={styles.body} aria-busy={busy || (!rows && !failed)}>
+        {!rows && !failed && <p className={styles.notice} role="status">در حال بارگذاری فهرست‌ها…</p>}
+        {rows && (rows.length ? <ul className={styles.list}>{rows.map(row => <li key={row.key}><button type="button" className={styles.row} aria-pressed={holding.includes(row.key)} disabled={busy} onClick={() => void toggle(row.key)}><span className={styles.check} aria-hidden="true">{holding.includes(row.key) ? '✓' : '+'}</span><span className={styles.copy}><b>{row.title}</b><small>{row.count.toLocaleString('fa-IR')} مورد</small></span></button></li>)}</ul> : <p className={styles.notice}>هنوز فهرست سازگاری ندارید؛ یک مجموعهٔ شخصی بسازید.</p>)}
+        {message && <p className={styles.notice} role={failed ? 'alert' : 'status'}>{message}</p>}
+        {failed && !rows && <button type="button" className="ea-btn" onClick={() => setVersion(value => value + 1)}>تلاش دوباره</button>}
+      </div><footer className={styles.footer}><Link href="/dashboard/collections">ساخت و مدیریت مجموعه‌ها</Link><Link href="/dashboard/library">کتابخانهٔ من</Link></footer>
+    </dialog>}
+  </div>
 }

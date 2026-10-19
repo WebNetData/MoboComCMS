@@ -83,7 +83,7 @@ export function registerMoboComBlocks(registry: BlockRegistry) {
     if (getBlockType(name)) unregisterBlockType(name)
     registerBlockType(name, {
       apiVersion: 3, title: definition.label.fa, description: definition.label.en, category: definition.category, icon: 'block-default',
-      attributes: { mcId: { type: 'string' }, mcVersion: { type: 'integer', default: definition.version }, ...Object.fromEntries(Object.entries(definition.fields).map(([field, spec]) => [field, { type: attributeType(spec), default: fieldDefault(spec) }])) },
+      attributes: { mcId: { type: 'string' }, lock: { type: 'object' }, mcVersion: { type: 'integer', default: definition.version }, ...Object.fromEntries(Object.entries(definition.fields).map(([field, spec]) => [field, { type: attributeType(spec), default: fieldDefault(spec) }])) },
       // No HTML editing, no free class name, no reusable copy: a block is its data.
       supports: { html: false, className: false, customClassName: false, reusable: false, anchor: false, inserter: true },
       ...(definition.parents ? { parent: definition.parents.map(engineName) } : {}),

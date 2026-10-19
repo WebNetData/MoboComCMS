@@ -97,6 +97,8 @@ model User {
   cinemaWatchProgress CinemaWatchProgress[]
   recentViews UserRecentView[]
   ownedCollections UserCollection[] @relation("CollectionOwner")
+  scheduledCollections UserCollection[] @relation("EditorialPublisher")
+  editorPatterns EditorPattern[]
   collectionCollaborations UserCollectionCollaborator[]
   followedCollections UserCollectionFollow[]
   savedCollections UserCollectionSave[]
@@ -1584,6 +1586,11 @@ model UserCollection {
   visibility  String   @default("PRIVATE") // PRIVATE | UNLISTED | PUBLIC | EDITORIAL
   // Written by the site's staff in the admin panel: a draft while PRIVATE, published as EDITORIAL; any staff member with a content permission edits it.
   staffAuthored Boolean @default(false)
+  publishAt DateTime?
+  scheduledById Int?
+  scheduleAuthorizedAt DateTime?
+  scheduleError String @default("")
+  scheduledBy User? @relation("EditorialPublisher", fields: [scheduledById], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
   owner       User     @relation("CollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -4234,4 +4241,18 @@ model MediaTransfer {
   updatedAt DateTime @default(now()) @updatedAt
   @@index([status, runAt])
   @@index([actorId, createdAt])
+}
+
+// Canonical editor documents, scoped to the section that owns them. No engine serialization.
+model EditorPattern {
+  id Int @id @default(autoincrement())
+  entity String
+  kind String @default("pattern")
+  title String
+  contentDocument String
+  createdById Int?
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([entity, updatedAt])
 }

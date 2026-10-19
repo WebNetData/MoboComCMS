@@ -1,7 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
 import { EMAIL_EVENTS } from '@/modules/mail/domain/mail'
 import { DIGEST_LIST, digestDay, digestText, digestWindow, normalizeNotificationPolicy, retentionCutoffs, summarizeReceipts, type NotificationPolicy } from '@/modules/notifications/domain/policy'
 
@@ -11,16 +11,15 @@ import { DIGEST_LIST, digestDay, digestText, digestWindow, normalizeNotification
 const SETTINGS_KEY = 'notifications.policy.v1'
 const DIGEST_CURSOR = 'notifications.digest.cursor'
 export const DIGEST_KIND = 'INBOX_DIGEST'
+const policyHistory = createSectionSettingsHistory(SETTINGS_KEY, 'settings-notifications', normalizeNotificationPolicy)
+export const notificationSettingsState = policyHistory.current
+export const restoreNotificationSettings = policyHistory.restore
 
 export async function getNotificationPolicy(): Promise<NotificationPolicy> {
-  return normalizeNotificationPolicy(await readJsonSetting(SETTINGS_KEY).catch(() => undefined))
+  return policyHistory.read()
 }
 
-export async function saveNotificationPolicy(input: unknown) {
-  const policy = normalizeNotificationPolicy(input)
-  await writeJsonSetting(SETTINGS_KEY, policy)
-  return policy
-}
+export async function saveNotificationPolicy(input: unknown, context?: SectionSettingsContext) { return policyHistory.save(normalizeNotificationPolicy(input), context) }
 
 /**
  * Worker step: removes notices past their keeping time, a bounded batch a pass (oldest first), so a long

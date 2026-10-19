@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { MEMBER_LISTS_CHANGED, memberListsChanged } from '@/components/engage/member-list-events'
 
 // Keep a track without leaving what is playing: the heart (favourites) and "add to…" — the member's own
 // playlists and collections, with a new playlist made on the spot. It only calls what already exists:
@@ -47,6 +48,19 @@ export default function TrackActions({ trackId, title, heart = true, placement =
   }, [item, heart, favoritesOn])
 
   useEffect(() => {
+    const controller = new AbortController()
+    const refresh = (event: Event) => {
+      if ((event as CustomEvent).detail?.item !== item) return
+      fetch(`/api/me/lists?item=${item}`, { cache: 'no-store', signal: controller.signal }).then(r => r.ok ? r.json() : null).then(data => {
+        if (controller.signal.aborted || !Array.isArray(data?.holding)) return
+        setFavorite(data.holding.includes('favorites')); setDone(Object.fromEntries(data.holding.map((key: string) => [key, true])))
+      }).catch(() => null)
+    }
+    window.addEventListener(MEMBER_LISTS_CHANGED, refresh)
+    return () => { controller.abort(); window.removeEventListener(MEMBER_LISTS_CHANGED, refresh) }
+  }, [item])
+
+  useEffect(() => {
     if (!open) return
     const away = (event: MouseEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false) }
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); opener.current?.focus() } }
@@ -62,6 +76,7 @@ export default function TrackActions({ trackId, title, heart = true, placement =
     setBusy('')
     if (response?.status === 401) { setFavorite(!on); toLogin(); return }
     if (!response?.ok) { setFavorite(!on); setMessage(L('ذخیره نشد؛ دوباره تلاش کنید.', 'Not saved. Try again.')); setOpen(true) }
+    else memberListsChanged(item)
   }
 
   async function toggleMenu() {
@@ -95,6 +110,7 @@ export default function TrackActions({ trackId, title, heart = true, placement =
     setBusy('')
     if (!response?.ok) { setMessage(data?.error || L('اضافه نشد.', 'Not added.')); return }
     setDone((now) => ({ ...now, [key]: true }))
+    memberListsChanged(item)
     setMessage(data?.added === false ? L('از قبل در این فهرست بود.', 'Already in this list.') : L('اضافه شد.', 'Added.'))
   }
 

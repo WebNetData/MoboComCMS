@@ -20,7 +20,7 @@ export function snapshotOf(row: Record<string, unknown>): Snapshot {
     else if (value instanceof Date) out[key] = value.toISOString()
     else if (typeof value === 'bigint') out[key] = value.toString()
     // A truncated canonical document is invalid JSON and cannot restore the author's body.
-    else if (typeof value === 'string') out[key] = key === '__relations' || key === 'contentDocument' ? value : value.length > MAX_TEXT ? value.slice(0, MAX_TEXT) : value
+    else if (typeof value === 'string') out[key] = ['__relations', 'contentDocument', 'configurationDocument'].includes(key) ? value : value.length > MAX_TEXT ? value.slice(0, MAX_TEXT) : value
     else if (typeof value === 'number' || typeof value === 'boolean') out[key] = value
     // relations and anything else that is not a column of the item are left out
   }

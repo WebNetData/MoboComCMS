@@ -32,7 +32,7 @@ export function toEngineBlocks(document: MoboComDocument, registry: BlockRegistr
     const definition = registry.get(block.type)
     // Unknown, or of a version this code does not know: carried whole, never opened.
     if (!definition || block.version !== definition.version) return { name: UNSUPPORTED_BLOCK, attributes: { mcId: block.id, stored: jsonCopy(block) }, innerBlocks: [], isValid: true }
-    return { name: engineName(block.type), attributes: { ...(jsonCopy(block.props) as Record<string, unknown>), mcId: block.id, mcVersion: block.version }, innerBlocks: definition.children ? (block.children || []).map(convert) : [], isValid: true }
+    return { name: engineName(block.type), attributes: { ...(jsonCopy(block.props) as Record<string, unknown>), mcId: block.id, mcVersion: block.version, ...(block.lock ? { lock: jsonCopy(block.lock) } : {}) }, innerBlocks: definition.children ? (block.children || []).map(convert) : [], isValid: true }
   }
   return document.blocks.map(convert)
 }
@@ -67,8 +67,9 @@ export function fromEngineBlocks(blocks: readonly EngineBlock[], registry: Block
     const type = typeOfEngineName(block.name, registry)
     if (!type) return null
     const definition = registry.get(type)!
-    const { mcId, mcVersion: _version, ...props } = block.attributes || {}
+    const { mcId, mcVersion: _version, lock, ...props } = block.attributes || {}
     const out: MoboComBlock = { id: idFor(mcId), type, version: definition.version, props: jsonCopy(props) as Record<string, unknown> }
+    if (lock && typeof lock === 'object') out.lock = jsonCopy(lock) as MoboComBlock['lock']
     if (definition.children) out.children = (block.innerBlocks || []).map(convert).filter((child): child is MoboComBlock => child !== null)
     return out
   }

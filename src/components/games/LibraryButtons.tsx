@@ -1,7 +1,8 @@
 'use client'
 
 import Link from '@/components/AppLink'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { memberListsChanged } from '@/components/engage/member-list-events'
 
 // GameUp-style "played / playing / want to play" shelf buttons with live counts.
 
@@ -16,6 +17,7 @@ export default function LibraryButtons({ gameId, initial, counts: initialCounts,
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [hours, setHours] = useState(initial?.hours ? String(initial.hours) : '')
+  useEffect(() => { setMine(initial); setCounts(initialCounts); setHours(initial?.hours ? String(initial.hours) : '') }, [initial, initialCounts])
 
   async function save(status: Status | null, extra?: { hours: string }) {
     setBusy(true); setError('')
@@ -24,6 +26,7 @@ export default function LibraryButtons({ gameId, initial, counts: initialCounts,
     setBusy(false)
     if (!response?.ok) { setError(data?.error || 'ذخیره نشد؛ دوباره تلاش کنید'); return }
     setMine(data.mine); setCounts(data.counts)
+    memberListsChanged(`game:${gameId}`)
   }
 
   // Upcoming games can only be wanted (you cannot have played them yet).

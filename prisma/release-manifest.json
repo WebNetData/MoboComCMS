@@ -414,6 +414,8 @@
     "20270107120000_cinema_people_profiles",
     "20270108120000_people_profile_merges",
     "20270109120000_moderation_rounds",
-    "20270109121000_moderation_pending_rounds"
+    "20270109121000_moderation_pending_rounds",
+    "20270110120000_editorial_schedule",
+    "20270110130000_editor_patterns"
   ]
 }

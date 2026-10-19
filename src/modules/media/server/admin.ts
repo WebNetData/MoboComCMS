@@ -893,3 +893,5 @@ export async function BULK(req: NextRequest) {
   await auditAdmin({ req, actor: admin, action: `media.${type}.bulk.${action === 'delete' && caller.authorId ? 'trash' : action}`, targetType: type, metadata: { succeeded, failed } })
   return ok({ changed: succeeded.length, failed })
 }
+export const mediaSettingsState = async () => (await import('./library/history')).mediaSettingsState()
+export const restoreMediaSettings = async (...args: Parameters<typeof import('./library/history').restoreMediaSettings>) => (await import('./library/history')).restoreMediaSettings(...args)

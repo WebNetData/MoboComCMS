@@ -14,6 +14,26 @@ import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionS
 type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
+  if (type === 'settings-site') {
+    const { siteSettingsState, restoreSiteSettings } = await import('@/modules/site/server/revision-state')
+    return { perms: ['settings.manage'], module: null, current: siteSettingsState, restore: restoreSiteSettings }
+  }
+  if (type === 'settings-navigation') {
+    const { navigationSettingsState, restoreNavigationSettings } = await import('@/modules/navigation/server/megamenu')
+    return { perms: ['settings.manage'], module: 'mega-menu', current: navigationSettingsState, restore: restoreNavigationSettings }
+  }
+  if (type === 'settings-media') {
+    const { mediaSettingsState, restoreMediaSettings } = await import('@/modules/media/server/admin')
+    return { perms: ['settings.manage'], module: null, current: mediaSettingsState, restore: restoreMediaSettings }
+  }
+  if (type === 'settings-notifications') {
+    const { notificationSettingsState, restoreNotificationSettings } = await import('@/modules/notifications/server/policy')
+    return { perms: ['settings.manage'], module: null, current: notificationSettingsState, restore: restoreNotificationSettings }
+  }
+  if (type === 'settings-businesses') {
+    const { businessSettingsState, restoreBusinessSettings } = await import('@/modules/businesses/server/businesses')
+    return { perms: ['settings.manage'], module: null, current: businessSettingsState, restore: restoreBusinessSettings }
+  }
   if (type === 'settings-journal') {
     const { journalSettingsState, restoreJournalSettings } = await import('@/modules/journal/server/admin')
     return { perms: ['cms.posts', 'settings.manage'], module: 'journal', current: () => journalSettingsState(), restore: restoreJournalSettings }

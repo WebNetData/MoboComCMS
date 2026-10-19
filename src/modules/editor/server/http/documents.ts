@@ -31,7 +31,13 @@ export async function GET(req: NextRequest, context: Context) {
   if (!at) return err('not found', 404)
   const caller = await callerOf(req, at)
   if ('response' in caller) return caller.response
-  try { return ok({ ...await loadDocument(at.entity, at.id), enabled: await blockEditorEnabled() }) } catch (error) { return failure(error) }
+  try {
+    const actor = caller.admin
+    const canManagePatterns = actor.roleId == null || hasPermission(actor.permissions ?? [], documentPermission(at.entity))
+    const response = ok({ ...await loadDocument(at.entity, at.id), enabled: await blockEditorEnabled(), canManagePatterns })
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  } catch (error) { return failure(error) }
 }
 
 /** PUT /api/admin/editor/:entity/:id { document, updatedAt } — saves the document made from that version of the item. */

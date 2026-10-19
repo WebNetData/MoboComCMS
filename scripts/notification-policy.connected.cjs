@@ -9,7 +9,7 @@ const narrowed = (model, methods, scope) => new Proxy(model, { get: (target, key
 const db = new Proxy(prisma, { get: (target, key) =>
   key === 'userNotification' ? narrowed(target.userNotification, ['findMany', 'deleteMany', 'count', 'groupBy'], () => ({ userId: { in: state.users } }))
   : key === 'backgroundJob' ? narrowed(target.backgroundJob, ['findMany', 'count'], mineJobs)
-  : key === 'setting' ? { findUnique: async ({ where }) => state.settings.has(where.key) ? { key: where.key, value: state.settings.get(where.key) } : null, upsert: async ({ where, update }) => { state.settings.set(where.key, update.value) } }
+  : key === 'setting' ? { findUnique: async ({ where }) => where.key === 'notifications.policy.v1' ? { key: where.key, value: JSON.stringify(state.policy) } : state.settings.has(where.key) ? { key: where.key, value: state.settings.get(where.key) } : null, upsert: async ({ where, update }) => { state.settings.set(where.key, update.value) } }
   : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })
 const cache = new Map()
 function load(file) {
@@ -19,7 +19,7 @@ function load(file) {
   new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(full, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText)(name => {
     if (name === '@/platform/database/prisma') return { db }
     if (name === '@/platform/observability/logger') return { logEvent: () => {} }
-    if (name === '@/modules/settings/server') return { readJsonSetting: async () => state.policy, writeJsonSetting: async (_key, value) => { state.policy = value } }
+    if (name === '@/modules/settings/server') return { updateJsonSetting: async (_key, work) => work(state.policy, db) }
     if (name === '@/modules/mail/server/mailer') return { notifyUserEmail: async event => { state.mail.push(event); return state.mailResult } }
     if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`)
     return require(name)

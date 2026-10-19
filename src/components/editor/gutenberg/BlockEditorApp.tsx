@@ -15,11 +15,12 @@ import type { DocumentIssue, MoboComDocument } from '@/modules/editor/domain/doc
 import { registerMoboComBlocks, toLiveBlocks } from './blocks'
 import { legacyToEngineBlocks } from './legacy'
 import { ModulePreviewContext } from './module-preview-context'
+import PatternLibrary from './PatternLibrary'
 
 export type EditorEntity = 'pages' | 'posts'
 const NOUN: Record<EditorEntity, { one: string; list: string; path: string; form: string }> = { pages: { one: 'صفحه', list: 'صفحه‌ها', path: '/p/', form: '/admin/pages' }, posts: { one: 'نوشته', list: 'نوشته‌های مجله', path: '/blog/', form: '/admin/posts' } }
 
-type Loaded = { blockDefinitions?: BlockDescriptor[]; id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean }
+type Loaded = { blockDefinitions?: BlockDescriptor[]; id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean; canManagePatterns: boolean }
 type SaveState = { kind: 'clean' } | { kind: 'dirty' } | { kind: 'saving' } | { kind: 'saved'; at: number } | { kind: 'error'; message: string; issues?: DocumentIssue[] } | { kind: 'conflict' }
 
 const AUTOSAVE_MS = 4000
@@ -111,7 +112,7 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
   return (
     <ModulePreviewContext.Provider value={`${endpoint}/preview`}><ShortcutProvider className="mc-editor" dir="rtl">
       <SlotFillProvider>
-        <BlockEditorProvider value={blocks} onInput={(next) => change(next, false)} onChange={(next) => change(next, true)} settings={{ allowedBlockTypes: registry.list().map(definition => engineName(definition.type)), hasFixedToolbar: true, isRTL: true, bodyPlaceholder: 'یک بلوک اضافه کنید', codeEditingEnabled: false, canLockBlocks: false, __experimentalBlockPatterns: [], __experimentalBlockPatternCategories: [] }}>
+        <BlockEditorProvider value={blocks} onInput={(next) => change(next, false)} onChange={(next) => change(next, true)} settings={{ allowedBlockTypes: registry.list().map(definition => engineName(definition.type)), hasFixedToolbar: true, isRTL: true, bodyPlaceholder: 'یک بلوک اضافه کنید', codeEditingEnabled: false, canLockBlocks: page.canManagePatterns, __experimentalBlockPatterns: [], __experimentalBlockPatternCategories: [] }}>
           <header className="mc-editor-bar">
             <Link href={noun.form} className="mc-editor-back">‹ {noun.list}</Link>
             <strong className="mc-editor-title">{page.title}</strong>
@@ -123,6 +124,7 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
             <a className="mc-editor-tool" href={`${noun.path}${page.slug}`} target="_blank" rel="noreferrer">دیدن {noun.one}</a>
             <button type="button" className="mc-editor-save" onClick={() => void save()} disabled={!page.enabled || state.kind === 'saving' || state.kind === 'conflict'}>{converted?.dropped ? 'تأیید تبدیل و ذخیره' : 'ذخیره'}</button>
           </header>
+          {page.enabled && <PatternLibrary entity={entity} registry={registry} canManage={page.canManagePatterns} current={() => latest.current} apply={(inserted, replace) => change(replace ? inserted : [...latest.current, ...inserted], true)} />}
           {/* The tools of the selected block: move, duplicate, remove. Fixed here, so they never cover what is being written. */}
           <div className="mc-editor-blocktools" aria-label="ابزار بلوک انتخاب‌شده"><BlockToolbar hideDragHandle /></div>
           {!page.enabled ? <p className="mc-editor-notice" role="alert">افزونهٔ ویرایشگر بلوکی غیرفعال است؛ می‌توانید بچینید، ولی ذخیره نمی‌شود. از صفحهٔ افزونه‌ها فعالش کنید.</p> : null}

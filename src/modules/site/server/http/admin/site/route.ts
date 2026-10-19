@@ -9,6 +9,9 @@ import { createHash } from 'node:crypto'
 import { getSiteConfigFrom } from '@/modules/site/config/store'
 import { updateJsonSetting, JsonSettingMutationError } from '@/modules/settings/server'
 import { auditAdminStrict } from '@/platform/audit/server'
+import { recordRevision } from '@/modules/content/server/revisions'
+import { siteSettingsSnapshot } from '@/modules/site/config/history'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 const revision = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
@@ -16,6 +19,7 @@ export async function GET(req: NextRequest) {
   return ok({ config, revision: revision(config), themes: bundledThemes })
 }
 export async function PUT(req: NextRequest) {
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   if (!await requirePerm(req, 'settings.manage')) return err('دسترسی مجاز نیست', 403)
   const raw = await req.text()
   if (raw.length > 250000) return err('حجم تنظیمات بیش از حد مجاز است', 413)
@@ -35,6 +39,7 @@ export async function PUT(req: NextRequest) {
       if (req.headers.has('if-match') && req.headers.get('if-match') !== revision(current)) throw new JsonSettingMutationError('stale')
       Object.keys(stored).forEach(key => delete stored[key])
       Object.assign(stored, value)
+      await recordRevision({ entityType: 'settings-site', entityId: 1, before: siteSettingsSnapshot(current), after: siteSettingsSnapshot(value), actor, client: tx, strict: true })
       await auditAdminStrict({ req, actor, action: 'site.update', targetType: 'setting', targetId: SITE_KEY }, tx)
     })
     return ok({ saved: true, revision: revision(value) })

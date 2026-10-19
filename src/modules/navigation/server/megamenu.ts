@@ -175,14 +175,14 @@ const cache = new Map<MegaSection, { at: number; revision: string; bar: SectionB
 export function invalidateSectionBars() { cache.clear() }
 
 export const megaConfigRevision = (config: MegaMenuConfig) => createHash('sha256').update(JSON.stringify(config)).digest('hex')
-export async function saveMegaConfig(input: unknown, options: { revision?: string; beforeCommit?: (tx: Prisma.TransactionClient, config: MegaMenuConfig) => Promise<void> } = {}): Promise<MegaMenuConfig> {
+export async function saveMegaConfig(input: unknown, options: { revision?: string; beforeCommit?: (tx: Prisma.TransactionClient, config: MegaMenuConfig, previous: MegaMenuConfig) => Promise<void> } = {}): Promise<MegaMenuConfig> {
   const next = await updateJsonSetting(SETTINGS_KEY, async (stored, tx) => {
     const current = normalizeMegaConfig(stored)
     if (options.revision !== undefined && options.revision !== megaConfigRevision(current)) throw new MegaMenuError('تنظیمات توسط مدیر دیگری تغییر کرده؛ صفحه را تازه‌سازی کنید', 409)
     const next = normalizeMegaConfig(input, current)
     Object.keys(stored).forEach(key => delete stored[key])
     Object.assign(stored, next)
-    await options.beforeCommit?.(tx, next)
+    await options.beforeCommit?.(tx, next, current)
     return next
   })
   invalidateSectionBars()
@@ -247,3 +247,4 @@ export async function megaMenuAdminState() {
   })))
   return { config, revision: megaConfigRevision(config), sections, moduleEnabled: await isModuleEnabled('mega-menu') }
 }
+export { navigationSettingsState, restoreNavigationSettings } from './history'
