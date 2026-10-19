@@ -306,7 +306,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
         <main className="app-main"><ControlNavigationProvider value={{ groups: controls, loading: navState === 'loading', failed: navState === 'failed', retry: () => setNavVersion(v => v + 1) }}>{moduleOff(pathname) ? <div className="card module-off-card">
-          <span className="section-kicker">MODULE DISABLED</span>
+          <span className="section-kicker">{L('بخش خاموش', 'Module disabled')}</span>
           <h1 className="h2">{L('این بخش غیرفعال است', 'This section is turned off')}</h1>
           <p className="muted">{L('ماژول مربوط به این صفحه در «افزونه‌ها و ماژول‌ها» خاموش شده است. داده‌ها حذف نشده‌اند و با فعال‌سازی دوباره برمی‌گردند.', 'Its feature module is disabled in Extensions & modules. Nothing was deleted — turning it back on restores everything.')}</p>
           <Link className="btn btn-primary" href="/admin/extensions">{L('مدیریت ماژول‌ها', 'Manage modules')}</Link>

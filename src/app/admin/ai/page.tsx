@@ -70,7 +70,7 @@ export default function AdminAiPage() {
   const product = queues.products.find((item) => item.id === productId)
 
   return <div className="xm-page ai-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">AI ASSISTANT</span><h1>دستیار هوش مصنوعی</h1><p>مقاله، توضیحات محصول و پاسخ دیدگاه‌ها و تالار را با هوش مصنوعی بنویسید. همه‌چیز اول پیش‌نویس است؛ شما ویرایش و تأیید می‌کنید و بعد منتشر می‌شود.</p></div>
+    <header className="tb-hero"><div><span className="tb-eyebrow">دستیار هوش مصنوعی</span><h1>دستیار هوش مصنوعی</h1><p>مقاله، توضیحات محصول و پاسخ دیدگاه‌ها و تالار را با هوش مصنوعی بنویسید. همه‌چیز اول پیش‌نویس است؛ شما ویرایش و تأیید می‌کنید و بعد منتشر می‌شود.</p></div>
       <div className="ai-status"><b>{provider?.label}</b><small dir="ltr">{config.effectiveModel}</small>{provider?.free ? <span className="badge badge-green">رایگان</span> : <span className="badge">پولی</span>}</div>
     </header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

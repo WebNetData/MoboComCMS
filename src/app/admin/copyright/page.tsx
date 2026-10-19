@@ -50,7 +50,7 @@ export default function AdminCopyrightPage() {
   const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">COPYRIGHT</span><h1>گزارش‌های نقض حق نشر</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">حق نشر</span><h1>گزارش‌های نقض حق نشر</h1>
       <p>گزارش‌ها از فرم عمومی <Link href="/copyright" target="_blank">/copyright</Link> می‌آیند. پس از بررسی، صفحه را از دسترس خارج کنید یا فقط لینک‌های دانلود مشخص را غیرفعال کنید؛ پیام نتیجه با کد پیگیری به گزارش‌دهنده نشان داده می‌شود.</p></div></header>
     <nav className="tb-tabs" role="tablist" aria-label="وضعیت">{STATUSES.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => { setStatus(key); setDetail(null) }}>{label}{key === 'NEW' && list ? <span>{list.open.toLocaleString('fa-IR')}</span> : null}</button>)}</nav>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

@@ -123,7 +123,7 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      <div className="grid-3 mb-8">
+      <div className="grid-3 mb-8 ao-kpis">
         {cards.map(([label, value, icon, cls]) => (
           <div key={label} className={`card kpi ${cls}`}>
             <div className="kpi-icon"><Icon name={icon} size={21} /></div>
@@ -136,7 +136,7 @@ export default function AdminDashboard() {
       </div>
 
       <div
-        className="grid mb-6"
+        className="grid mb-6 ao-split"
         style={{ gridTemplateColumns: fin ? 'minmax(0,1.6fr) minmax(0,1fr)' : 'minmax(0,1fr)', gap: '1rem' }}
       >
         {fin && (

@@ -91,7 +91,7 @@ function TaxonomyManager() {
   }
 
   return <div className="xm-page sh-admin" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">TAXONOMY</span><h1>دسته‌بندی‌ها و زیردسته‌ها</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">دسته‌بندی‌ها</span><h1>دسته‌بندی‌ها و زیردسته‌ها</h1>
       <p>هر بخش درخت دسته‌بندی مستقل خودش را دارد (تا چهار سطح). مگامنو، صفحهٔ هر دسته، مسیر صفحه و فیلترها از همین درخت ساخته می‌شوند. محتوا را در ویرایشگر هر بخش به دسته‌ها وصل کنید.</p></div></header>
     <nav className="tb-tabs" role="tablist" aria-label="بخش">{TAXONOMIES.map((key) => <button key={key} type="button" role="tab" aria-selected={key === taxonomy} className={key === taxonomy ? 'is-active' : ''} onClick={() => router.replace(`/admin/taxonomy?tax=${key}`)}>{TAXONOMY_INFO[key].label}</button>)}</nav>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

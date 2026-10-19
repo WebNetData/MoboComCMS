@@ -16,23 +16,35 @@ interface RoleRow {
 }
 
 const PERM_LABELS: Record<string, string> = {
-  'dashboard.view': '📊 Dashboard',
-  'users.manage': '👥 Users/CRM',
-  'subs.manage': '🔗 Subscriptions',
-  'orders.manage': '🧾 Orders',
-  'plans.manage': '💠 Plans',
-  'panels.manage': '🛡 VPN panels',
-  'tickets.handle': '🎫 Tickets',
-  'tickets.departments.manage': '🎛 Ticket departments',
-  'settings.manage': '⚙️ Settings',
-  'cms.pages': '📄 Pages',
-  'forms.handle': '🗂 پاسخ‌ها و درخواست‌های فرم',
-  'automation.manage': '⚙️ اتوماسیون',
-  'cms.posts': '📝 مجله (نوشته‌ها و دیدگاه‌ها)',
-  'cms.products': '🛒 Products',
-  'roles.manage': '🔑 Roles',
-  'media.manage': 'کتابخانهٔ رسانه (مدیریت همهٔ فایل‌ها و پوشه‌ها)',
-  'imports.manage': '📥 Bulk import',
+  'dashboard.view': 'داشبورد',
+  'users.manage': 'کاربران و CRM',
+  'subs.manage': 'اشتراک‌ها',
+  'orders.manage': 'سفارش‌ها',
+  'plans.manage': 'پلن‌ها',
+  'panels.manage': 'پنل‌های VPN',
+  'tickets.handle': 'تیکت‌ها',
+  'tickets.departments.manage': 'دپارتمان‌های تیکت',
+  'settings.manage': 'تنظیمات',
+  'cms.pages': 'صفحه‌ها',
+  'forms.handle': 'پاسخ‌ها و درخواست‌های فرم',
+  'automation.manage': 'اتوماسیون',
+  'cms.posts': 'مجله (نوشته‌ها و دیدگاه‌ها)',
+  'cms.products': 'محصولات',
+  'roles.manage': 'نقش‌ها',
+  'media.manage': 'کتابخانهٔ رسانه',
+  'imports.manage': 'ورود گروهی',
+  'audit.view': 'گزارش فعالیت‌ها',
+  'cinema.manage': 'فیلم و سریال',
+  'extensions.code': 'کد افزونه و قالب',
+  'finance.manage': 'مدیریت مالی',
+  'forum.moderate': 'نظارت تالار',
+  'games.manage': 'بازی‌ها',
+  'gateways.manage': 'درگاه‌های پرداخت',
+  'invoices.manage': 'فاکتورها',
+  'music.manage': 'موزیک',
+  'resellers.manage': 'نمایندگان فروش',
+  'reviews.moderate': 'نظارت نظرها',
+  'software.manage': 'نرم‌افزار',
 }
 
 export default function AdminRolesPage() {
@@ -118,7 +130,7 @@ export default function AdminRolesPage() {
 
       <form onSubmit={create} className="card mb-6 grid-4 items-end">
         <div>
-          <label className="label">{t.slug} (latin)</label>
+          <label className="label">{t.slug} (حروف لاتین)</label>
           <input className="input" dir="ltr" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div>
@@ -153,7 +165,7 @@ export default function AdminRolesPage() {
             {editing?.id === r.id ? (
               <>
                 <div className="role-edit">
-                  <label><span className="label">{t.slug} (latin)</span><input className="input" dir="ltr" value={editing.name} disabled={r.isSystem || ['admin', 'reseller'].includes(r.name)} maxLength={40} onChange={(e) => setEditing({ ...editing, name: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} /></label>
+                  <label><span className="label">{t.slug} (حروف لاتین)</span><input className="input" dir="ltr" value={editing.name} disabled={r.isSystem || ['admin', 'reseller'].includes(r.name)} maxLength={40} onChange={(e) => setEditing({ ...editing, name: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} /></label>
                   <label><span className="label">{t.title}</span><input className="input" value={editing.nameFa || ''} maxLength={80} onChange={(e) => setEditing({ ...editing, nameFa: e.target.value })} /></label>
                   <label><span className="label">عنوان انگلیسی</span><input className="input" dir="ltr" value={editing.nameEn || ''} maxLength={80} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} /></label>
                 </div>

@@ -35,7 +35,7 @@ export default function AdminProductCatsPage() {
   const fields: FieldDef[] = [
     { key: 'slug', label: t.slug, required: true, dir: 'ltr' },
     { key: 'name', label: t.title, required: true },
-    { key: 'nameEn', label: t.englishTitle, dir: 'ltr' },
+    { key: 'nameEn', label: t.englishTitle, dir: 'ltr', hideInTable: true },
     { key: 'kind', label: fa ? 'بخش فروشگاه (زیردسته، بخشِ دستهٔ مادر را می‌گیرد)' : 'Half of the shop (a sub-category takes its parent\'s)', type: 'select', options: [{ value: 'PHYSICAL', label: label('PHYSICAL') }, { value: 'VIRTUAL', label: label('VIRTUAL') }, { value: '', label: label('') }] },
     { key: 'parentId', label: 'Parent / دستهٔ مادر', type: 'select', optionsFromRows: (list, editId) => [{ value: '', label: '—' }, ...list.filter(row => row.id !== editId).map(row => ({ value: String(row.id), label: `${row.name}${row.kind ? ` — ${label(row.kind as CategoryKind)}` : ''}` }))] },
     { key: 'attributeGroupId', label: 'Attribute group / گروه مشخصات', type: 'select', options: [{ value: '', label: '—' }, ...groups.map(group => ({ value: String(group.id), label: `${group.name}${group.appliesTo !== 'ANY' ? ` — ${label(group.appliesTo as CategoryKind)}` : ''}` }))] },

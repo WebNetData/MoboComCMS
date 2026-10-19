@@ -50,7 +50,7 @@ export default function AdminAnalyticsPage() {
   const s = data?.summary
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">ANALYTICS</span><h1>آمار سایت</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">آمار و تحلیل</span><h1>آمار سایت</h1>
       <p>آمار بدون کوکی و بدون سرویس خارجی: IP ذخیره نمی‌شود و بازدیدکننده‌ها فقط با یک شناسهٔ روزانهٔ رمزشده شمرده می‌شوند.</p></div>
       <div className="tb-tabs" role="tablist" aria-label="بازه">{[7, 30, 90].map((n) => <button key={n} type="button" role="tab" aria-selected={days === n} className={days === n ? 'is-active' : ''} onClick={() => setDays(n)}>{fa(n)} روز</button>)}</div>
     </header>

@@ -1507,3 +1507,25 @@ test('editorial display retains historical text/newlines and cleans formatted co
   assert.match(rich, /<strong>داستان<\/strong>/)
   assert.doesNotMatch(rich, /onerror|<script/)
 })
+
+test('admin pages label themselves in Persian, every permission has a Persian name, and shared admin pieces are styled', () => {
+  const root = path.resolve(__dirname, '..')
+  const read = (file) => fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n')
+  const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.tsx') ? [`${dir}/${e.name}`] : [])
+  // The small label above a page title is Persian (or bilingual through L()), not English capitals.
+  for (const file of walk('src/app/admin')) assert.doesNotMatch(read(file), /(eyebrow|kicker)[a-z-]*">[A-Z][A-Z0-9 ·&/-]{2,}</, file)
+  // Roles: each core permission reads by a Persian name, without emoji.
+  const permissions = [...read('src/modules/identity/rbac.ts').match(/export const PERMISSIONS = \[([\s\S]*?)\] as const/)[1].matchAll(/'([a-z.]+)'/g)].map((m) => m[1])
+  const roles = read('src/app/admin/roles/page.tsx'), labels = roles.match(/const PERM_LABELS: Record<string, string> = \{([\s\S]*?)\n\}/)[1]
+  for (const permission of permissions) assert.match(labels, new RegExp(`'${permission.replace(/\./g, '\.')}': '[^']*[\u0600-\u06FF]`), permission)
+  assert.doesNotMatch(labels, /\p{Extended_Pictographic}/u)
+  // The shared CRUD list shows an option's label, never its stored code, and formats numbers.
+  const crud = read('src/app/admin/cms/AdminCrud.tsx')
+  assert.match(crud, /const option = f\.options\?\.find\(/)
+  assert.match(crud, /if \(f\.type === 'number'[^\n]*toLocaleString\(fa \? 'fa-IR' : 'en-US'\)/)
+  // Pieces admin pages use that nothing else defined: plain tables, danger/secondary buttons, h3.
+  const tidy = read('src/app/admin-tidy.css')
+  for (const selector of ['table.table th', '.btn-danger', '.btn-secondary', '.h3', '.sh-weekdays', '.sh-table', '.crm-layout'])assert.ok(tidy.includes(selector), selector)
+  // The activity log is in Persian.
+  assert.doesNotMatch(read('src/app/admin/audit/page.tsx'), />(Audit log|Filter|Newest|Older|No audit events found\.)</)
+})

@@ -40,6 +40,9 @@ interface Props {
   headerActions?: React.ReactNode
 }
 
+/** Colour of a status in the list; anything unknown stays grey. */
+const STATUS_TONE: Record<string, string> = { PUBLISHED: 'badge-green', ACTIVE: 'badge-green', DRAFT: 'badge-gray', PENDING: 'badge-amber', TRASHED: 'badge-red', ARCHIVED: 'badge-gray' }
+
 function localDateTime(value: unknown): string {
   if (!value) return ''
   const date = new Date(String(value))
@@ -380,7 +383,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
         {loading ? (
           <p className="muted text-center py-6">{t.loading}</p>
         ) : (
-          <table className="data">
+          <table className="data crud-table">
             <thead>
               <tr>
                 {bulkEnabled && <th><input type="checkbox" aria-label={fa ? 'انتخاب همه موارد نمایش‌داده‌شده' : 'Select all visible items'} checked={allVisibleSelected} disabled={bulkBusy || !visibleIds.length} onChange={toggleAllVisible} /></th>}
@@ -406,8 +409,14 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                       if (scheduled && f.key === 'status') return <td key={f.key}><span className="badge badge-purple">{fa ? 'زمان‌بندی‌شده' : 'Scheduled'}</span></td>
                       if (f.optionsFromRows) return <td key={f.key}>{f.optionsFromRows(optionRows || rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
                       const v = row[f.key]
-                      if (typeof v === 'boolean') return <td key={f.key}>{v ? '✅' : '—'}</td>
+                      if (typeof v === 'boolean') return <td key={f.key}>{v ? <span className="crud-yes" role="img" aria-label={fa ? 'بله' : 'Yes'}>✓</span> : <span className="muted" aria-label={fa ? 'خیر' : 'No'}>—</span>}</td>
+                      const option = f.options?.find((item) => item.value === String(v ?? ''))
+                      if (f.key === 'status' && option) return <td key={f.key}><span className={`badge ${STATUS_TONE[String(v)] || 'badge-gray'}`}>{option.label}</span></td>
+                      if (option) return <td key={f.key}>{f.key === 'currency' ? option.label.replace(/\s*\([A-Z]{3}\)$/, '') : option.label}</td>
+                      if (f.key === 'stock' && Number(v) < 0) return <td key={f.key}>{fa ? 'نامحدود' : 'Unlimited'}</td>
+                      if (f.type === 'number' && v !== null && v !== '' && Number.isFinite(Number(v))) return <td key={f.key} className="num">{Number(v).toLocaleString(fa ? 'fa-IR' : 'en-US')}</td>
                       const str = String(v ?? '')
+                      if (f.dir === 'ltr' || f.key === 'slug') return <td key={f.key}>{str ? <bdi dir="ltr" className="crud-ltr" title={str}>{str}</bdi> : '—'}</td>
                       return <td key={f.key} className={str.length > 60 ? 'muted' : ''}>{str.length > 60 ? str.slice(0, 60) + '…' : str || '—'}</td>
                     })}
                     <td>
@@ -417,7 +426,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                           <button className="badge badge-purple" disabled={bulkBusy} onClick={() => restore(row.id)}>بازگردانی</button>
                           <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>حذف نهایی</button>
                         </>}
-                      </div> : <div className="flex gap-1">
+                      </div> : <div className="flex gap-1 crud-actions">
                         <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
                         {blockDriven && <Link className="badge badge-blue" href={`/admin/editor/${type}/${row.id}`}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</Link>}
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}

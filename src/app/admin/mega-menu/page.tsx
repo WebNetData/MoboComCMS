@@ -78,7 +78,7 @@ export default function AdminMegaMenuPage() {
   </label>
 
   return <div className="xm-page sh-admin" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">NAVIGATION · MEGA MENU</span><h1>منو و مگامنوی بخش‌ها</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">ناوبری · مگامنو</span><h1>منو و مگامنوی بخش‌ها</h1>
       <p>نمایش، ترتیب، عنوان و آیکن منوهای هر بخش را تنظیم کنید و منو و زیرمنوی دلخواه بسازید. <Link href="/admin/studio?tab=design">منوی اصلی هدر و فوتر</Link> در استودیوی سایت مدیریت می‌شود.</p></div></header>
     {!state.moduleEnabled && <div className="xm-notice is-error">ماژول «مگامنوی بخش‌ها» غیرفعال است؛ از بخش افزونه‌ها فعالش کنید.</div>}
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

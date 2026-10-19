@@ -12,8 +12,9 @@
 .select select { min-height: 46px; }
 .results { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .results p { margin: 0; color: var(--muted); font-size: 13px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); align-items: start; gap: 20px; }
-.group { padding: 20px; min-width: 0; }
+/* Columns, not rows: tall and short groups pack without empty holes. */
+.grid { columns: 300px; column-gap: 20px; }
+.group { padding: 20px; min-width: 0; margin: 0 0 20px; break-inside: avoid; }
 .group header { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
 .groupIcon { width: 44px; height: 44px; border-radius: 12px; }
 .group h2 { margin: 0; font-size: 16px; line-height: 1.7; }
@@ -21,7 +22,7 @@
 .count { margin-inline-start: auto; color: var(--muted); font-size: 12px; }
 .group ul { list-style: none; margin: 0; padding: 0; }
 .group li + li { border-top: 1px solid var(--border); }
-.group li a { display: flex; align-items: center; gap: 12px; padding: 13px 8px; min-height: 46px; border-radius: 8px; color: var(--text); font-size: 13px; line-height: 1.8; text-decoration: none; }
+.group li a { display: flex; align-items: center; gap: 12px; padding: 10px 8px; min-height: 42px; border-radius: 8px; color: var(--text); font-size: 13px; line-height: 1.8; text-decoration: none; }
 .group li a > svg { flex-shrink: 0; color: var(--muted); }
 .group li a:hover { background: var(--primary-soft); color: var(--primary); }
 .group li a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

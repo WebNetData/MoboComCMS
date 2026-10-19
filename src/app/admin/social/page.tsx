@@ -51,7 +51,7 @@ export default function AdminSocialPage() {
   const ig = settings.instagram
 
   return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">SOCIAL</span><h1>انتشار خودکار در شبکه‌های اجتماعی</h1>
+    <header className="tb-hero"><div><span className="tb-eyebrow">شبکه‌های اجتماعی</span><h1>انتشار خودکار در شبکه‌های اجتماعی</h1>
       <p>وقتی نرم‌افزار، بازی، فیلم، موزیک، مقاله یا محصولی برای اولین بار منتشر می‌شود، خودکار با تصویر و لینک در کانال تلگرام، صفحهٔ اینستاگرام و اعلان مرورگر اعلام می‌شود. {data.pending ? `${data.pending.toLocaleString('fa-IR')} مورد در صف.` : ''}</p></div></header>
     <nav className="tb-tabs" role="tablist" aria-label="بخش‌ها">
       {([['log', 'گزارش ارسال‌ها'], ['telegram', `تلگرام${tg.enabled ? ' ✓' : ''}`], ['instagram', `اینستاگرام${ig.enabled ? ' ✓' : ''}`], ['rules', 'قواعد و اعلان مرورگر']] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)}>{label}</button>)}
