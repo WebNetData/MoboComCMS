@@ -1,26 +1,23 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
-import { parseSettingsInput } from '@/shared/section-layout'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { splitList } from '@/modules/media/domain/media'
 import { CINEMA_HEALTH, cinemaIssues, normalizeCinemaSettings, type CinemaHealth, type CinemaSettings } from '@/modules/cinema/domain/cinema'
 
 // Film & series admin: home layout settings, dashboard and title picker.
 
 const SETTINGS_KEY = 'cinema.portal.v1'
+const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-cinema', normalizeCinemaSettings, settings => ({ rails: settings.rails.filter(rail => rail.enabled).length }))
+export const cinemaSettingsState = () => settingsHistory().current()
+export const restoreCinemaSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 
 export async function getCinemaSettings(fresh = false): Promise<CinemaSettings> {
-  return normalizeCinemaSettings(await readJsonSetting(SETTINGS_KEY, fresh ? db : undefined))
+  return fresh ? settingsHistory().read() : normalizeCinemaSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
-export async function saveCinemaSettings(input: unknown): Promise<CinemaSettings> {
-  const patch = parseSettingsInput(input)
-  return updateJsonSetting(SETTINGS_KEY, async value => {
-    const next = normalizeCinemaSettings({ ...value, ...patch })
-    Object.assign(value, next)
-    return next
-  })
+export async function saveCinemaSettings(input: unknown, context?: SectionSettingsContext): Promise<CinemaSettings> {
+  return settingsHistory().save(input, context)
 }
 
 export async function cinemaDashboard(now = new Date()) {

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import { dict } from '@/i18n/config'
@@ -15,7 +16,7 @@ import BuilderRenderer from '@/components/content/builder/BuilderRenderer'
 import { editableFor, isPreview, resolveBuilderDoc, type BuilderPreview } from '@/modules/site/server/builder-preview'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { safeJsonLd } from '@/shared/seo/json-ld'
-import { pageBlocksHtml } from '@/modules/editor/server/documents'
+import { publicBlocksHtml as pageBlocksHtml } from '@/modules/editor/server/documents'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 
 
@@ -39,7 +40,7 @@ export async function generateMetadata({ params: paramsPromise }: { params: Prom
 
 export default async function CustomPage({ params: paramsPromise, preview }: { params: Promise<{ slug: string }>; preview?: BuilderPreview }) {
   const params = await paramsPromise
-  const [locale, theme] = await Promise.all([getServerLocale(), getServerTheme()])
+  const [locale, theme, requestHeaders] = await Promise.all([getServerLocale(), getServerTheme(), headers()])
   const navPages = await db.page.findMany({ where: { status: 'PUBLISHED', showInNav: true }, orderBy: { sortOrder: 'asc' }, select: { slug: true, title: true, titleEn: true } }).catch(() => [])
   const t = dict(locale)
   const isFa = locale === 'fa'
@@ -52,7 +53,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
 
   const title = isFa ? page.title : page.titleEn || page.title
   // A page written in blocks is rendered from its document; the HTML built there has every value escaped and is not passed through the HTML cleaner.
-  const blocks = pageBlocksHtml(page)
+  const blocks = await pageBlocksHtml(page)
   const content = blocks === null ? cleanRichText(isFa ? page.content : page.contentEn || page.content) : ''
   const base = await siteBase()
   const crumbsLd = breadcrumbJsonLd(base, [
@@ -65,7 +66,8 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
   return (
     <>
       <ThemeHeader context={chromeContext} choice={builderDoc?.layout?.header} theme={theme} locale={locale} navPages={navPages} breadcrumbs={[{ label: isFa ? 'خانه' : 'Home', href: '/' }, { label: title }]} preview={preview} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
+      {/* Browsers hide the nonce attribute after parsing; its .nonce property still matches CSP. */}
+      <script nonce={requestHeaders.get('x-nonce') || undefined} suppressHydrationWarning type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
       <main>
         {layout.pageTitle === 'show' ? <TitleCover cover={layout.cover} eyebrow={<span>{isFa ? 'راهنما و اطلاعات' : 'Resources & information'}</span>} title={title} /> : <h1 className="sr-only">{title}</h1>}
         {builderDoc && <BuilderRenderer doc={builderDoc} locale={locale} preview={isPreview(preview)} editable={editableFor(preview, String(page.id))} />}

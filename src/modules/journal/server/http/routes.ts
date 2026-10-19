@@ -1,6 +1,6 @@
+import { sectionSettingsRead, sectionSettingsWrite } from '@/modules/settings/server/http/section-history'
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { journalDashboard, getJournalSettings, saveJournalSettings, journalPickers, searchJournalPicker } from '@/modules/journal/server/admin'
 import { searchPostLinkItems, searchPostLinkProducts, parsePostLinkRefs } from '@/modules/journal/server/item-links'
@@ -18,9 +18,11 @@ export async function GET_dashboard(req: NextRequest) {
 export async function GET_settings(req: NextRequest) {
   const g = await journalAdmin(req)
   if ('response' in g) return g.response
-  const settings = await getJournalSettings()
-  const picker = await journalPickers([...settings.heroIds, ...settings.editorIds])
-  return ok({ settings, picker })
+  return sectionSettingsRead(async () => {
+    const settings = await getJournalSettings(true)
+    const picker = await journalPickers([...settings.heroIds, ...settings.editorIds])
+    return { settings, picker }
+  })
 }
 
 /** GET /api/admin/journal/picker?q=... */
@@ -56,7 +58,5 @@ export async function GET_linkProducts(req: NextRequest) {
 export async function POST_settings(req: NextRequest) {
   const g = await adminGuard(req, 'journal', ['cms.posts', 'settings.manage'])
   if ('response' in g) return g.response
-  const settings = await saveJournalSettings(await req.json().catch(() => ({})))
-  await auditAdmin({ req, actor: g.admin, action: 'journal.settings.update', targetType: 'setting', targetId: 0, metadata: { rails: settings.rails.filter((rail) => rail.enabled).length } })
-  return ok({ settings })
+  return sectionSettingsWrite(req, g.admin, saveJournalSettings)
 }

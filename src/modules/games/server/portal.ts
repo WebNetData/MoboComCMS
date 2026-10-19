@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { ratingsFor } from '@/modules/reviews/server/reviews'
 import { getGamesHome, publicLinks, toGame, type GameCard } from '@/modules/media/server/queries'
@@ -9,16 +9,17 @@ import { libraryCounts, libraryEntry, mostWanted } from '@/modules/games/server/
 // Public read models of the GameUp-style games portal.
 
 const SETTINGS_KEY = 'games.portal.v1'
+const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-games', normalizeGamesSettings, settings => ({ hero: settings.heroIds.length, rails: settings.rails.filter(rail => rail.enabled).length }))
+export const gamesSettingsState = () => settingsHistory().current()
+export const restoreGamesSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const live = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } })
 
-export async function getGamesSettings(): Promise<GamesSettings> {
-  return normalizeGamesSettings(await readJsonSetting(SETTINGS_KEY))
+export async function getGamesSettings(fresh = false): Promise<GamesSettings> {
+  return fresh ? settingsHistory().read() : normalizeGamesSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
-export async function saveGamesSettings(input: unknown): Promise<GamesSettings> {
-  const next = normalizeGamesSettings(input)
-  await writeJsonSetting(SETTINGS_KEY, next)
-  return next
+export async function saveGamesSettings(input: unknown, context?: SectionSettingsContext): Promise<GamesSettings> {
+  return settingsHistory().save(input, context)
 }
 
 /** Member score for many games (reviews module, 5 stars → 10 points). */

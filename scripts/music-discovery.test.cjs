@@ -89,10 +89,16 @@ test('detail hydration rechecks publication, keeps reason order and never expose
 
 test('old Music settings clients preserve the current discovery flag and explicit toggles persist', async () => {
   let stored = { showRelatedTracks: false }
-  const service = load('src/modules/music/server/admin.ts', {
+  const settings = { readJsonSetting: async () => stored, updateJsonSetting: async (_key, work) => work(stored, {}) }
+  const mocks = {
     '@/platform/database/prisma': { db: {} },
-    '@/modules/settings/server': { readJsonSetting: async () => stored, updateJsonSetting: async (_key, work) => work(stored, {}) },
-  })
+    '@/modules/settings/server': settings,
+    '@/platform/audit/server': {},
+    '@/modules/content/server/revisions': { RevisionError: class extends Error {} },
+  }
+  // Exercise the real typed history adapter; only its database transaction boundary is a double here.
+  settings.createSectionSettingsHistory = load('src/modules/settings/server/section-history.ts', mocks).createSectionSettingsHistory
+  const service = load('src/modules/music/server/admin.ts', mocks)
   assert.equal((await service.getMusicSettings()).showRelatedTracks, false)
   assert.equal((await service.saveMusicSettings({ showLyrics: false })).showRelatedTracks, false)
   assert.equal((await service.saveMusicSettings({ showRelatedTracks: true })).showRelatedTracks, true)

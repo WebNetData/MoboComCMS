@@ -11,7 +11,7 @@ const mocks = {
  // What the rest of the site does when an article changes (search, notifications) is not this check's subject; that it is told is.
  '@/modules/content/server/events': {contentChanged: (ref, before, after) => { changes.push([ref.type, ref.id, before.editorFormat, after.editorFormat]) }},
  // The editor is a plugin; whether it is on is the extensions page's to say.
- '@/extensions/server/modules': {isModuleEnabled: async id => id === 'block-editor' && plugin.on},
+ '@/extensions/server/modules': {isModuleEnabled: async id => id === 'block-editor' ? plugin.on : true, getModuleStates: async () => ({store: true, journal: true, cinema: true, music: true, games: true, software: true, forum: true})},
 }
 const cache = new Map()
 const load = file => {
@@ -135,7 +135,7 @@ async function main() {
  // ---- the page form leaves the body of a blocks page alone, and the public page reads the document
  const form = fs.readFileSync('src/modules/site/server/http/admin/cms/route.ts', 'utf8'), publicPage = fs.readFileSync('src/modules/site/server/pages/p/[slug]/page.tsx', 'utf8').replace(/\r\n/g, '\n')
  assert.match(form, /b\?\.content !== undefined && \(await db\.page\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
- assert.match(publicPage, /const blocks = pageBlocksHtml\(page\)\n\s+const content = blocks === null \? cleanRichText\(/)
+ assert.match(publicPage, /const blocks = await pageBlocksHtml\(page\)\n\s+const content = blocks === null \? cleanRichText\(/)
 
  // ---- a magazine article is written the same way, under the magazine's own permission
  const article = await prisma.post.create({data: {slug: `${seed}-article`, title: 'article', content: '<p>متن قدیمی مقاله</p>', status: 'DRAFT'}})
@@ -159,7 +159,7 @@ async function main() {
  await raws({contentDocument: ''}, /Post_document_matches_format/)
  assert.match(form, /b\?\.content !== undefined && \(await db\.post\.findUnique\(\{ where: \{ id \}, select: \{ editorFormat: true \} \}\)\)\?\.editorFormat === 'blocks-v1'\) return err\(/)
  const articlePage = fs.readFileSync('src/modules/site/server/pages/blog/[slug]/page.tsx', 'utf8').replace(/\r\n/g, '\n')
- assert.match(articlePage, /const articleBlocks = !locked && \(isFa \|\| !post\.contentEn\) \? blocksHtml\(post\) : null/, 'a locked article never shows its document')
+ assert.match(articlePage, /const articleBlocks = !locked && \(isFa \|\| !post\.contentEn\) \? await blocksHtml\(post\) : null/, 'a locked article never shows its document')
 
  console.log('PostgreSQL documents: a plugin that is on by default, and switched off saves nothing; a save is checked, versioned and kept in the page history; a stale or racing save is refused; an invalid document is not stored; unknown blocks survive; block permissions hold; the database refuses a mismatched row; an article is written the same way under its own permission passed')
 }

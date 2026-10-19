@@ -1,5 +1,7 @@
 'use client'
 
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
+
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
 import { CHART_SOURCES, MUSIC_RAILS, type ChartSource, type MusicSettings } from '@/modules/music/domain/music'
@@ -10,12 +12,13 @@ type Pick = { id: number; title: string; cover: string; artist: string }
 
 /** Music home layout (blocks, hero queue, featured albums, chart) and display options. */
 export default function MusicSettingsPage() {
-  const { data, error } = useJson<{ settings: MusicSettings; picker: { tracks: Pick[]; albums: Pick[] } }>('/api/admin/music/settings')
+  const { data, error } = useJson<{ settingsRevision: string; settings: MusicSettings; picker: { tracks: Pick[]; albums: Pick[] } }>('/api/admin/music/settings')
   const [form, setForm] = useState<MusicSettings | null>(null)
+  const [revision, setRevision] = useState('')
   const [baseline, setBaseline] = useState<MusicSettings | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings) } }, [data])
+  useEffect(() => { if (data) { setForm(current => current ?? data.settings); setBaseline(current => current ?? data.settings); setRevision(current => current || data.settingsRevision || '') } }, [data])
 
   if (!form) return <MusicShell title="صفحهٔ اصلی و تنظیمات">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</MusicShell>
   const set = (patch: Partial<MusicSettings>) => { setMessage(null); setForm(current => current ? { ...current, ...patch } : current) }
@@ -25,16 +28,18 @@ export default function MusicSettingsPage() {
     if (!form) return
     setBusy(true)
     const patch = Object.fromEntries(Object.entries(form).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(baseline?.[key as keyof MusicSettings])))
-    const response = await send<{ settings: MusicSettings }>('/api/admin/music/settings', 'POST', patch)
+    const response = await send<{ settingsRevision: string; settings: MusicSettings }>('/api/admin/music/settings', 'POST', patch, revision ? { 'if-match': revision } : {})
     setBusy(false)
     if (!response.ok) { setMessage({ tone: 'error', text: response.error }); return }
     setForm(response.data.settings)
     setBaseline(response.data.settings)
+    setRevision(response.data.settingsRevision)
     setMessage({ tone: 'ok', text: 'تنظیمات ذخیره شد و صفحهٔ اصلی موزیک به‌روز است' })
   }
 
-  return <MusicShell title="صفحهٔ اصلی و تنظیمات" actions={<><a href="/music" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
+  return <div className="cm-section-settings"><MusicShell title="صفحهٔ اصلی و تنظیمات" actions={<><SectionSettingsHistoryLink section="music" /><a href="/music" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش</a><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
     {message && <Notice tone={message.tone}>{message.text}</Notice>}
+    <fieldset disabled={busy} className="sa-settings-fields" aria-label="تنظیمات بخش">
     <div className="sa-cols">
       <div className="sa-stack">
         <section className="sa-card">
@@ -67,5 +72,5 @@ export default function MusicSettingsPage() {
         </section>
       </div>
     </div>
-  </MusicShell>
+  </fieldset></MusicShell></div>
 }

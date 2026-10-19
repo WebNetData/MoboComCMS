@@ -25,7 +25,7 @@ import { getViewer } from '@/modules/membership/server/membership'
 import { teaserHtml } from '@/modules/membership/domain/membership'
 import { VipGate } from '@/components/media/MediaCards'
 import { isPaid, paywallView } from '@/modules/paywall/server/paywall'
-import { blocksHtml } from '@/modules/editor/server/documents'
+import { publicBlocksHtml as blocksHtml } from '@/modules/editor/server/documents'
 import BuyContent from '@/components/paywall/BuyContent'
 import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChrome'
 import { docHasSlotWidget, ensureContentSlot } from '@/modules/site/domain/builder'
@@ -215,7 +215,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   // An article written in blocks shows its document (every value escaped by the renderer). A locked article still shows the teaser cut
   // from its HTML copy, and a visitor reading in English gets the English body when the article has one.
-  const articleBlocks = !locked && (isFa || !post.contentEn) ? blocksHtml(post) : null
+  const articleBlocks = !locked && (isFa || !post.contentEn) ? await blocksHtml(post) : null
   const contentSlot = (
     <>
       <ReadingProgress />

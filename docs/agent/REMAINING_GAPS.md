@@ -1,4 +1,4 @@
-# Remaining gaps — scoped snapshot, updated 2026-10-18
+# Remaining gaps — scoped snapshot, updated 2026-10-19
 
 This is a prioritised follow-up to the editor/maintenance review, not a certification of every domain or proof that an untested capability is absent. Existing production URLs, section permissions, canonical services and protected visuals stay in force. VPN/reseller/marketplace remain outside the chosen product focus.
 
@@ -10,15 +10,15 @@ The release checklist, backup/restore tooling and monitoring already exist. The 
 
 | Priority | Gap | Existing owner and evidence | Safe next slice |
 |---|---|---|---|
-| 1 | Module block definitions are not shared with the browser registry; module rendering remains | `editor`: core registry in `BlockEditorApp.tsx`; tables/semantic color/highlight are now implemented and verified; `docs/editor/ARCHITECTURE.md` | Share validated definitions with the current adapter. FieldControls/FileUpload already use LibraryPicker; preserve this integration. Preserve unsupported blocks and plugin-off rendering. |
-| 2 | History coverage outside named content owners and General/Forum settings is not universal | Restore+revision+audit is now atomic for Site/Catalog/Media; typed General/Forum settings history is verified; [continuation](handoffs/AUTHORING_OPERATIONS.md) | Audit a named owner form before extending history. Never rewind money/stock/ownership or capture provider secrets. |
+| 1 | Broader templates/patterns/locking and future custom module layouts remain outside the ten verified public blocks | Browser descriptors, live bounded rendering, manual selection, unknown/module-off retention and plugin-off public rendering are now implemented; [continuation](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md) | Audit a named new composition requirement before extending the existing registry. Shared LibraryPicker already exists; do not rebuild it or store catalogue snapshots. |
+| 2 | History outside named content and seven settings owners is not universal | General/Forum plus Journal/Cinema/Music/Games/Software now have typed atomic history; complete block JSON restore is validated; [continuation](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md) | Audit the next named owner form and its sensitive/state fields. Never rewind money/stock/ownership or capture provider secrets. |
 | 3 | Production-size search latency/memory and live-result changes need deployment measurement | Date/rating ordering and approved-only dimension filters are implemented;1105-candidate local sample/next-page correctness verified | Measure actual deployment data/query distributions with existing bounded search, not another index/rating store. |
 | 4 | External moderation effects and delivery retain existing transaction boundaries | Immutable rounds, populated history migration, trusted requeue and stale-round checks are implemented; [continuation](handoffs/AUTHORING_OPERATIONS.md) | Assess a named copyright/notification delivery failure through the current owner/outbox. Do not infer runtime delivery from a case record. |
 | 5 | Universal codec/ASS fidelity, historical people notifications and production delivery are not certified | People curation, retained-alias merges, Cinema follow/notices, styled ASS and separate audio are implemented and locally verified; [scope](handoffs/CONTENT_MANAGEMENT.md) | Evaluate a named unsupported format/delivery requirement through current media/jobs/providers; do not rebuild the player/favorites or imply browser transcoding exists. |
 
 Other recorded refinements: scheduled editorial collections and cover picker; member-list controls composed on item pages; recommendation-quality measurement and consented viewing-history signal. These are not a reason to rebuild the existing collections, lists, search, playback or recommendation services.
 
-All legitimate configuration joins the existing Admin Control Plane. Priority1–5 entries incorporate the selected authoring/operations continuation; unrelated capability rows were not re-audited. [PR197](https://github.com/WebNetData/MoboComCMS/pull/197) publishes the prior batch; the owner merges. Its hosted jobs could not start because of GitHub billing/spending limits. No workflow rerun or new production certification is implied.
+All legitimate configuration joins the existing Admin Control Plane. Priority1–5 entries incorporate the selected authoring/operations and module-block/settings continuations; unrelated capability rows were not re-audited. [PR197](https://github.com/WebNetData/MoboComCMS/pull/197) is owner-merged at main741e7176. Its hosted jobs could not start because of GitHub billing/spending limits. The current local batch is separate and unpublished; no workflow rerun or new production certification is implied.
 
 ## Runtime observations to audit
 

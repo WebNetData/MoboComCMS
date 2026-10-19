@@ -1,0 +1,17 @@
+.mc-editor .mc-module-feedback { padding: 1rem; color: var(--text); background: var(--bg-soft); border: 1px dashed var(--border); border-radius: var(--radius, 12px); line-height: 1.9; }
+.mc-editor .mc-module-preview { min-width: 0; }
+.mc-editor .mc-module-picker { padding: 1rem 0; border: 0; min-width: 0; color: var(--text); }
+.mc-editor .mc-module-picker legend { font-weight: 700; }
+.mc-editor .mc-module-picker label { display: grid; gap: .5rem; font-size: .85rem; }
+.mc-editor .mc-module-picker input { min-width: 0; width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: .65rem; padding: .7rem; color: var(--text); background: var(--bg-soft); }
+.mc-editor .mc-module-picker button, .mc-editor .mc-module-feedback button { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: .5rem; padding: .5rem; cursor: pointer; }
+.mc-editor .mc-module-picker button:disabled { cursor: default; opacity: .5; }
+.mc-editor .mc-module-picker :is(input, button):focus-visible, .mc-editor .mc-module-feedback button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.mc-editor .mc-module-results, .mc-editor .mc-module-selected { padding: 0; margin-block: .7rem; list-style: none; }
+.mc-editor .mc-module-results { max-height: 15rem; overflow-y: auto; }
+.mc-editor .mc-module-results li + li { margin-block-start: .3rem; }
+.mc-editor .mc-module-results button { display: flex; width: 100%; gap: .7rem; justify-content: space-between; align-items: center; text-align: start; overflow-wrap: anywhere; }
+.mc-editor .mc-module-results button span { color: var(--sds-color-text-brand-default); font-size: .75rem; }
+.mc-editor .mc-module-selected li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding-block: .6rem; border-block-end: 1px solid var(--border); font-size: .85rem; overflow-wrap: anywhere; }
+.mc-editor .mc-module-selected li > div { display: flex; flex-shrink: 0; gap: .3rem; }
+.mc-editor .mc-module-help { font-size: .8rem; line-height: 1.9; color: color-mix(in srgb, var(--text) 82%, var(--bg)); }

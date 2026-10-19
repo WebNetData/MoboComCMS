@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { splitList } from '@/modules/media/domain/media'
 import { SOFTWARE_HEALTH, isStale, normalizeSoftwareSettings, softwareIssues, type SoftwareHealth, type SoftwareSettings } from '@/modules/software/domain/software'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
@@ -7,18 +7,19 @@ import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/softw
 // Software admin: portal settings, catalogue dashboard and picker.
 
 const SETTINGS_KEY = 'software.portal.v1'
+const settingsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-software', normalizeSoftwareSettings, settings => ({ rails: settings.rails.filter(rail => rail.enabled).length }))
+export const softwareSettingsState = () => settingsHistory().current()
+export const restoreSoftwareSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 const LICENSES: Record<string, string> = { FREE: 'رایگان', FREEMIUM: 'رایگان با امکانات پولی', TRIAL: 'آزمایشی', PAID: 'پولی', OPEN_SOURCE: 'متن‌باز' }
 
-export async function getSoftwareSettings(): Promise<SoftwareSettings> {
-  return normalizeSoftwareSettings(await readJsonSetting(SETTINGS_KEY))
+export async function getSoftwareSettings(fresh = false): Promise<SoftwareSettings> {
+  return fresh ? settingsHistory().read() : normalizeSoftwareSettings(await readJsonSetting(SETTINGS_KEY))
 }
 
-export async function saveSoftwareSettings(input: unknown): Promise<SoftwareSettings> {
-  const next = normalizeSoftwareSettings(input)
-  await writeJsonSetting(SETTINGS_KEY, next)
-  return next
+export async function saveSoftwareSettings(input: unknown, context?: SectionSettingsContext): Promise<SoftwareSettings> {
+  return settingsHistory().save(input, context)
 }
 
 export async function softwareDashboard(now = new Date()) {

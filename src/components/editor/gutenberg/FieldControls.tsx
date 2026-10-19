@@ -12,11 +12,13 @@ import RichTextField from './RichTextField'
 // The settings panel of a block is built from the fields its type declares: a new block type needs no panel of its own.
 
 const LABELS: Record<string, string> = {
+  source: 'انتخاب محتوا', limit: 'حداکثر تعداد نمایش', showSummary: 'نمایش خلاصه', id: 'شناسهٔ مورد',
   width: 'پهنا', space: 'فاصلهٔ بالا و پایین', tone: 'زمینه', anchor: 'لنگر (نشانی درون صفحه)', align: 'چینش', columns: 'تعداد ستون', gap: 'فاصلهٔ میان اجزا', span: 'پهنای ستون',
   direction: 'جهت چیدن', size: 'اندازه', line: 'نوع خط', content: 'متن', dir: 'جهت متن', text: 'متن', level: 'سطح تیتر', image: 'تصویر', link: 'پیوند', rounded: 'گوشهٔ گرد', images: 'تصویرها',
   embed: 'نشانی ویدئو', title: 'عنوان', ratio: 'نسبت تصویر', label: 'نوشته', href: 'نشانی', variant: 'ظاهر', newTab: 'باز شدن در زبانهٔ تازه', cite: 'گوینده', items: 'موردها', question: 'پرسش', answer: 'پاسخ', open: 'باز بودن',
 }
 const SCREEN: Record<string, string> = { desktop: 'رایانه', tablet: 'تبلت', mobile: 'موبایل' }
+const SOURCE_LABELS: Record<string, string> = { latest: 'تازه‌ترین‌ها', selected: 'انتخاب دستی' }
 export const labelOf = (name: string) => LABELS[name] || name
 
 function AssetControl({ spec, value, onChange, label }: { spec: Extract<FieldSpec, { kind: 'asset' }>; value: AssetValue; onChange: (next: AssetValue) => void; label: string }) {
@@ -74,7 +76,7 @@ function Field({ name, spec, value, onChange, compact }: { name: string; spec: F
   const label = labelOf(name)
   switch (spec.kind) {
     case 'string': return spec.max > 200 ? <TextareaControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} /> : <TextControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} />
-    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: option, value: option }))} onChange={(next: string) => onChange(next)} />
+    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: name === 'source' ? (SOURCE_LABELS[option] || option) : option, value: option }))} onChange={(next: string) => onChange(next)} />
     case 'int': return <RangeControl __nextHasNoMarginBottom label={label} value={typeof value === 'number' ? value : spec.default} min={spec.min} max={spec.max} step={1} onChange={(next?: number) => onChange(typeof next === 'number' ? Math.round(next) : spec.default)} />
     case 'boolean': return <ToggleControl __nextHasNoMarginBottom label={label} checked={value === true} onChange={onChange} />
     case 'url': return <TextControl __nextHasNoMarginBottom label={label} help="یک نشانی https، مسیری از همین سایت (‎/blog)، یا ‎#لنگر" value={String(value ?? '')} onChange={(next) => onChange(next.trim())} dir="ltr" />

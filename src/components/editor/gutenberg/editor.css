@@ -1,13 +1,13 @@
 /* The chrome of the block editor: the bar, the canvas, the settings panel. What a block looks like
    on the canvas comes from editor-blocks.css, the same styles the public page uses. */
-.mc-editor { display: flex; flex-direction: column; min-height: 80vh; background: var(--bg-soft); color: var(--text); --wp-admin-theme-color: var(--primary); }
+.mc-editor { display: flex; flex-direction: column; min-height: 80vh; background: var(--bg-soft); color: var(--text); --wp-admin-theme-color: var(--primary); --wp-components-color-foreground: var(--text); --wp-components-color-background: var(--card); }
 .mc-editor-bar { position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .75rem; background: var(--card); border-block-end: 1px solid var(--border, rgba(127, 127, 127, .3)); }
 .mc-editor-title { margin-inline-end: auto; font-size: 1rem; }
 .mc-editor-back { text-decoration: none; }
 .mc-editor-tool, .mc-editor-save { padding: .4rem .8rem; border-radius: 8px; border: 1px solid var(--border, rgba(127, 127, 127, .4)); background: transparent; color: inherit; cursor: pointer; font: inherit; text-decoration: none; }
 .mc-editor-tool:disabled, .mc-editor-save:disabled { opacity: .45; cursor: not-allowed; }
 .mc-editor-tool:focus-visible, .mc-editor-save:focus-visible, .mc-rich-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.mc-editor-save { background: var(--primary); border-color: transparent; color: var(--sds-color-text-brand-on-brand); font-weight: 600; }
+.mc-editor-save { background: color-mix(in srgb, var(--primary) 45%, var(--sds-color-black-1000, #000)); border-color: transparent; color: var(--sds-color-white-1000, #fff); font-weight: 600; }
 .mc-editor-state { font-size: .85rem; padding: .2rem .6rem; border-radius: 999px; background: rgba(127, 127, 127, .15); }
 .mc-editor-state.is-dirty { background: var(--sds-color-background-warning-tertiary); color: var(--sds-color-text-warning-default); } .mc-editor-state.is-saved { background: var(--sds-color-background-positive-tertiary); color: var(--sds-color-text-positive-default); }
 .mc-editor-state.is-error, .mc-editor-state.is-conflict { background: var(--sds-color-background-danger-tertiary); color: var(--sds-color-text-danger-default); }
@@ -71,3 +71,18 @@
 .mc-editor .block-editor-block-inspector__no-blocks, .mc-editor .block-editor-block-inspector__no-block-tools { background: var(--card); color: var(--text); border-color: var(--border); }
 .mc-editor .components-button, .mc-editor .components-base-control__label { color: inherit; }
 .mc-editor .components-text-control__input, .mc-editor .components-textarea-control__input, .mc-editor .components-select-control__input { background: var(--bg-soft); color: var(--text); border-color: var(--border); }
+.mc-editor .components-popover__content, .mc-editor .block-editor-inserter__menu, .mc-editor .block-editor-inserter__main-area { background: var(--card); color: var(--text); border-color: var(--border); }
+.mc-editor .components-search-control__input { background: var(--bg-soft); color: var(--text); border-color: var(--border); }
+.mc-editor .block-editor-block-types-list__item { color: var(--text); }
+.mc-editor .block-editor-block-types-list__item:hover { background: var(--bg-soft); color: var(--text); }
+.mc-editor .block-editor-inserter__panel-header, .mc-editor .block-editor-tabbed-sidebar__tablist-and-close-button { color: var(--muted); border-color: var(--border); }
+.mc-editor .block-editor-block-card, .mc-editor .block-editor-block-card__name, .mc-editor .block-editor-block-card__description, .mc-editor .components-panel__body-toggle, .mc-editor [data-wp-component="Text"], .mc-editor [data-wp-component="Truncate"], .mc-editor [data-wp-component="InputControl"] { color: var(--text); }
+.mc-editor .components-toolbar, .mc-editor .components-toolbar-group, .mc-editor .block-editor-block-toolbar { color: var(--text); background: var(--card); border-color: var(--border); }
+.mc-editor .components-input-control__input, .mc-editor .components-input-control__container { color: var(--text); background: var(--bg-soft); border-color: var(--border); }
+.mc-editor .components-toggle-control__label { color: var(--text); }
+.mc-editor .block-editor-tabbed-sidebar { color: var(--text); background: var(--card); }
+.mc-editor .block-editor-inserter__panel-title { color: color-mix(in srgb, var(--text) 82%, var(--card)); }
+.mc-editor .components-popover__header, .mc-editor .components-popover__header-title { color: var(--text); background: var(--card); border-color: var(--border); }
+.mc-editor .block-editor-inserter__search, .mc-editor .block-editor-tabbed-sidebar__close-button { color: var(--text); background: var(--card); }
+.mc-editor .components-button.block-editor-inserter__toggle, .mc-editor .components-button.block-editor-inserter__toggle.is-pressed:not(:disabled) { color: var(--text); background: var(--bg-soft); }
+.mc-editor .block-editor-block-types-list__item .block-editor-block-icon.has-colors { color: var(--text); }

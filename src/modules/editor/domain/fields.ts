@@ -22,7 +22,7 @@ export type FieldSpec =
   | { kind: 'asset'; accept: 'image' | 'video' | 'file' }
   | { kind: 'embed' }
   | { kind: 'richText' }
-  | { kind: 'responsive'; of: { kind: 'enum'; values: readonly string[]; default: string } | { kind: 'int'; min: number; max: number; default: number } }
+  | { kind: 'responsive'; of: { kind: 'enum'; values: readonly string[]; default: string } | { kind: 'int'; min: number; max: number; default: number }; default?: Partial<Record<Breakpoint, string | number>> }
   | { kind: 'list'; max: number; item: Record<string, FieldSpec> }
 
 export type FieldSchema = Record<string, FieldSpec>
@@ -68,7 +68,7 @@ export function fieldDefault(spec: FieldSpec): unknown {
     case 'asset': return emptyAsset()
     case 'embed': return { provider: '', url: '' }
     case 'richText': return emptyRichText()
-    case 'responsive': return { desktop: spec.of.default, tablet: spec.of.default, mobile: spec.of.default }
+    case 'responsive': return Object.fromEntries(BREAKPOINTS.map(point => [point, checkField(spec.of, spec.default?.[point], point, [])]))
     case 'list': return []
   }
 }
