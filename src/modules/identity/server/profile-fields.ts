@@ -1,5 +1,5 @@
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { ensureUserProfile, setUsername } from '@/modules/identity/server/profile'
 import { isPhonePlaceholderEmail } from '@/modules/sms/domain/sms'
 import { listAddresses, saveAddress } from '@/modules/shipping/server/shipping'
@@ -20,10 +20,12 @@ export async function getFieldsConfig(): Promise<FieldsConfig> {
   return normalizeFieldsConfig(await readJsonSetting(KEY))
 }
 
-export async function saveFieldsConfig(input: unknown) {
-  const config = normalizeFieldsConfig(input)
-  await writeJsonSetting(KEY, config)
-  return config
+const fieldsHistory = () => createSectionSettingsHistory(KEY, 'settings-profile-fields', normalizeFieldsConfig, config => ({ fields: config.fields.map((field) => `${field.key}${field.required ? '*' : ''}${field.enabled ? '' : ' (off)'}`), enforce: config.enforce }), { action: 'profile_fields.update', targetId: KEY })
+export const profileFieldsSettingsState = () => fieldsHistory().current()
+export const restoreProfileFieldsSettings = (...args: Parameters<ReturnType<typeof fieldsHistory>['restore']>) => fieldsHistory().restore(...args)
+
+export async function saveFieldsConfig(input: unknown, context?: SectionSettingsContext) {
+  return fieldsHistory().save(input, context)
 }
 
 const realEmail = (email: string) => !!email && !isPhonePlaceholderEmail(email) && !/@(bot\.mobocom\.local|telegram\.local)$/.test(email)

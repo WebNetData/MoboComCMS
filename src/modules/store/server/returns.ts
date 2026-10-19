@@ -9,7 +9,7 @@ import { rateLimitHit } from '@/platform/http/rate-limit'
 import { MultipartError, readMultipart } from '@/platform/http/multipart'
 import { sniffImage } from '@/shared/files/image-type'
 import { minorToNumber, normalizeCurrency, toMinor } from '@/shared/money'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { moveWallet } from '@/modules/wallet/server/wallet'
 import { restockConsumedInventory } from '@/modules/catalog/server/inventory'
@@ -46,9 +46,12 @@ export async function getReturnSettings(): Promise<ReturnSettings> {
   return normalizeReturnSettings(await readJsonSetting(SETTINGS_KEY).catch(() => undefined))
 }
 
-export async function saveReturnSettings(input: unknown) {
-  const settings = normalizeReturnSettings(input)
-  await writeJsonSetting(SETTINGS_KEY, settings)
+const returnsHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-returns', normalizeReturnSettings, settings => ({ ...settings }), { action: 'store.returns.settings', targetId: SETTINGS_KEY })
+export const returnSettingsState = () => returnsHistory().current()
+export const restoreReturnSettings = (...args: Parameters<ReturnType<typeof returnsHistory>['restore']>) => returnsHistory().restore(...args)
+
+export async function saveReturnSettings(input: unknown, context?: SectionSettingsContext) {
+  const settings = await returnsHistory().save(input, context)
   return settings
 }
 

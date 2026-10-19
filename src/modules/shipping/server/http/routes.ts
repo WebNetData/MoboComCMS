@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { ShippingError } from '@/modules/shipping/domain/shipping'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import {
   deleteAddress, deliverySchedule, getDeliverySettings, listAddresses, saveAddress, saveDeliverySettings, setDefaultAddress,
 } from '@/modules/shipping/server/shipping'
@@ -82,7 +83,7 @@ export async function GET_admin(req: NextRequest) {
   const g = await adminOnly(req)
   if ('response' in g) return g.response
   const [settings, schedule] = await Promise.all([getDeliverySettings(), deliverySchedule()])
-  return ok({ settings, days: schedule.days })
+  return ok({ settings, days: schedule.days, settingsRevision: sectionSettingsRevision(settings) })
 }
 
 /** POST /api/admin/delivery { enabled, leadDays, daysAhead, cutoffHour, closedWeekdays, holidays, slots, feeRial, freeOverRial } */
@@ -91,8 +92,6 @@ export async function POST_admin(req: NextRequest) {
   if ('response' in g) return g.response
   const body = (await req.json().catch(() => null)) || {}
   try {
-    const settings = await saveDeliverySettings(body)
-    await auditAdmin({ req, actor: g.admin, action: 'store.delivery.update', targetType: 'setting', targetId: 0, metadata: { slots: settings.slots.length, enabled: settings.enabled } })
-    return ok({ settings, days: (await deliverySchedule()).days })
+    return await sectionSettingsSaveWith(req, g.admin, (context) => saveDeliverySettings(body, context), async (settings) => ({ settings, days: (await deliverySchedule()).days }))
   } catch (error) { return failure(error) }
 }

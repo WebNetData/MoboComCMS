@@ -9,6 +9,8 @@ import {
   RETURN_TABS, adminReturn, adminReturns, createReturnRequest, customerReturnInfo, decideReturn, getReturnSettings, refundReturn,
   returnPhoto, saveReturnSettings, withdrawReturn,
 } from '@/modules/store/server/returns'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 
 const positiveId = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
 type IdContext = { params: Promise<{ id: string }> }
@@ -79,7 +81,7 @@ export async function GET_returns(req: NextRequest) {
   if ('response' in g) return g.response
   const params = req.nextUrl.searchParams
   const [list, settings] = await Promise.all([adminReturns({ tab: params.get('tab') || 'open', q: params.get('q') || '', page: Number(params.get('page')) || 1 }), getReturnSettings()])
-  return ok({ ...list, tabs: RETURN_TABS, settings })
+  return ok({ ...list, tabs: RETURN_TABS, settings, settingsRevision: sectionSettingsRevision(settings) })
 }
 
 /** PUT /api/admin/store/returns { settings } — return window, self-cancel stage, auto refund, policy text. */
@@ -87,9 +89,7 @@ export async function PUT_returns(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['settings.manage', 'orders.manage'])
   if ('response' in g) return g.response
   const body = await req.json().catch(() => null)
-  const settings = await saveReturnSettings(body?.settings)
-  await auditAdmin({ req, actor: g.admin, action: 'store.returns.settings', targetType: 'setting', targetId: 'store.returns.v1', metadata: settings })
-  return ok({ settings })
+  return sectionSettingsSaveWith(req, g.admin, (context) => saveReturnSettings(body?.settings ?? {}, context), (settings) => ({ settings }))
 }
 
 /** GET /api/admin/store/returns/:id */

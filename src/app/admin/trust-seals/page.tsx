@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { Notice } from '../store/shared'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Seal = { id: string; kind: 'enamad' | 'samandehi' | 'custom'; title: string; href: string; image: string; enabled: boolean }
 type Config = { enabled: boolean; title: string; seals: Seal[] }
@@ -16,6 +17,7 @@ const KIND_HELP: Record<Seal['kind'], string> = {
 /** Trust seals in the footer: paste the issuer's embed code; only its link and logo address are kept. */
 export default function TrustSealsPage() {
   const [config, setConfig] = useState<Config | null>(null)
+  const [revision, setRevision] = useState('')
   const [saved, setSaved] = useState('')
   const [labels, setLabels] = useState<Record<string, string>>({})
   const [code, setCode] = useState('')
@@ -25,7 +27,7 @@ export default function TrustSealsPage() {
   useEffect(() => {
     fetch('/api/admin/trust-seals', { cache: 'no-store' }).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
       if (!ok) { setNotice({ tone: 'error', text: data?.error || 'بارگذاری انجام نشد' }); return }
-      setConfig(data.config); setSaved(JSON.stringify(data.config)); setLabels(data.labels)
+      setConfig(data.config); setSaved(JSON.stringify(data.config)); setLabels(data.labels); setRevision(data.settingsRevision || '')
     }).catch(() => setNotice({ tone: 'error', text: 'ارتباط برقرار نشد' }))
   }, [])
 
@@ -57,19 +59,19 @@ export default function TrustSealsPage() {
   async function save() {
     if (!config) return
     setBusy(true); setNotice(null)
-    const response = await fetch('/api/admin/trust-seals', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config }) }).catch(() => null)
+    const response = await fetch('/api/admin/trust-seals', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify({ config }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'ذخیره انجام نشد' }); return }
     const dropped = config.seals.length - data.config.seals.length
-    setConfig(data.config); setSaved(JSON.stringify(data.config))
+    setConfig(data.config); setSaved(JSON.stringify(data.config)); setRevision(data.settingsRevision || '')
     setNotice(dropped > 0 ? { tone: 'error', text: `${dropped.toLocaleString('fa-IR')} نماد به‌خاطر نشانی تصویر نامعتبر (فقط https) ذخیره نشد.` } : { tone: 'ok', text: 'ذخیره شد و در فوتر سایت نمایش داده می‌شود.' })
   }
 
   return <div className="sa" dir="rtl">
     <header className="sa-head">
       <div><h1>نمادهای اعتماد</h1><p className="sa-hint">اینماد، ساماندهی و مجوزهای دیگر در پایین همهٔ صفحه‌ها. کد صادرکننده را جای‌گذاری کنید؛ فقط پیوند و تصویر آن نگه داشته می‌شود و هیچ اسکریپتی وارد سایت نمی‌شود.</p></div>
-      <div className="sa-head-actions"><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+      <div className="sa-head-actions"><SectionSettingsHistoryLink section="trust-seals" /><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 

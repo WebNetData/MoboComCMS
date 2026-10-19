@@ -9,6 +9,7 @@ import { normalizeTrustSeals, visibleSeals } from './trust-seals'
 import { hideDisabledModules } from './visibility'
 import { filterSiteMenus } from './menus'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
+import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
 export const SITE_KEY = 'site.config.v1'
 export const TRUST_SEALS_KEY = 'site.trust-seals.v1'
 
@@ -17,11 +18,12 @@ export async function getTrustSeals() {
   try { return normalizeTrustSeals(row ? JSON.parse(row.value) : {}) } catch { return normalizeTrustSeals({}) }
 }
 
-export async function saveTrustSeals(input: unknown) {
-  const config = normalizeTrustSeals(input)
-  const value = JSON.stringify(config)
-  await db.setting.upsert({ where: { key: TRUST_SEALS_KEY }, create: { key: TRUST_SEALS_KEY, value }, update: { value } })
-  return config
+const sealsHistory = () => createSectionSettingsHistory(TRUST_SEALS_KEY, 'settings-trust-seals', normalizeTrustSeals, config => ({ enabled: config.enabled, seals: config.seals.map((seal) => `${seal.kind}:${seal.enabled ? 'on' : 'off'}`) }), { action: 'trust_seals.update', targetId: TRUST_SEALS_KEY })
+export const trustSealsSettingsState = () => sealsHistory().current()
+export const restoreTrustSealsSettings = (...args: Parameters<ReturnType<typeof sealsHistory>['restore']>) => sealsHistory().restore(...args)
+
+export async function saveTrustSeals(input: unknown, context?: SectionSettingsContext) {
+  return sealsHistory().save(input, context)
 }
 /** Strict mutation reads never overwrite corrupt configuration with rendering defaults. */
 export async function getSiteConfigFrom(reader: Pick<Prisma.TransactionClient, 'setting'>, strict = false) {

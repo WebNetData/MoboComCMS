@@ -58,6 +58,30 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { generalSettingsState, restoreGeneralSettings } = await import('@/modules/settings/server')
     return { perms: ['settings.manage'], module: null, current: () => generalSettingsState(), restore: restoreGeneralSettings }
   }
+  if (type === 'settings-delivery') {
+    const { deliverySettingsState, restoreDeliverySettings } = await import('@/modules/shipping/server/shipping')
+    return { perms: ['orders.manage', 'settings.manage'], module: 'store', current: () => deliverySettingsState(), restore: restoreDeliverySettings }
+  }
+  if (type === 'settings-storefront') {
+    const { storefrontSettingsState, restoreStorefrontSettings } = await import('@/modules/store/server/catalog')
+    return { perms: ['settings.manage', 'cms.products'], module: 'store', current: () => storefrontSettingsState(), restore: restoreStorefrontSettings }
+  }
+  if (type === 'settings-returns') {
+    const { returnSettingsState, restoreReturnSettings } = await import('@/modules/store/server/returns')
+    return { perms: ['settings.manage', 'orders.manage'], module: 'store', current: () => returnSettingsState(), restore: restoreReturnSettings }
+  }
+  if (type === 'settings-watermark') {
+    const { watermarkSettingsState, restoreWatermarkSettings } = await import('@/modules/watermark/server/watermark')
+    return { perms: ['settings.manage'], module: null, current: () => watermarkSettingsState(), restore: restoreWatermarkSettings }
+  }
+  if (type === 'settings-profile-fields') {
+    const { profileFieldsSettingsState, restoreProfileFieldsSettings } = await import('@/modules/identity/server/profile-fields')
+    return { perms: ['users.manage', 'settings.manage'], module: null, current: () => profileFieldsSettingsState(), restore: restoreProfileFieldsSettings }
+  }
+  if (type === 'settings-trust-seals') {
+    const { trustSealsSettingsState, restoreTrustSealsSettings } = await import('@/modules/site/config/store')
+    return { perms: ['settings.manage'], module: null, current: () => trustSealsSettingsState(), restore: restoreTrustSealsSettings }
+  }
   if (type === 'settings-forum') {
     const { forumSettingsState, restoreForumSettings } = await import('@/modules/forum/server/community')
     return { perms: ['forum.moderate'], module: 'forum', current: () => forumSettingsState(), restore: restoreForumSettings }

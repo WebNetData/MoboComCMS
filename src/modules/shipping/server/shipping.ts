@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import {
   DEFAULT_DELIVERY, MAX_ADDRESSES, ShippingError, assertSlot, buildSchedule, formatAddress, normalizeDeliverySettings, tehranParts, validateAddress,
   type DeliverySettings, type ScheduleDay,
@@ -80,10 +80,13 @@ export async function getDeliverySettings(): Promise<DeliverySettings> {
   return stored ? normalizeDeliverySettings(stored, DEFAULT_DELIVERY) : structuredClone(DEFAULT_DELIVERY)
 }
 
-export async function saveDeliverySettings(input: Record<string, unknown>) {
-  const next = normalizeDeliverySettings(input, await getDeliverySettings())
-  await writeJsonSetting(SETTINGS_KEY, next)
-  return next
+const deliveryHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-delivery', raw => normalizeDeliverySettings((raw || {}) as Record<string, unknown>, DEFAULT_DELIVERY), settings => ({ slots: settings.slots.length, enabled: settings.enabled }), { action: 'store.delivery.update', targetId: 0 })
+export const deliverySettingsState = () => deliveryHistory().current()
+export const restoreDeliverySettings = (...args: Parameters<ReturnType<typeof deliveryHistory>['restore']>) => deliveryHistory().restore(...args)
+
+/** Saves the given fields over the current schedule; with an admin context it also records a version and its audit. */
+export async function saveDeliverySettings(input: Record<string, unknown>, context?: SectionSettingsContext) {
+  return deliveryHistory().save(input, context)
 }
 
 /** Live bookings per "date|slot" from today on (dead and long-abandoned orders excluded). */

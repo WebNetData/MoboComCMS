@@ -5,24 +5,26 @@ import { useEffect, useState } from 'react'
 import CoverField from '../../cms/CoverField'
 import type { StoreSettings } from '@/modules/store/domain/store'
 import { Notice, StoreShell, send, useJson } from '../shared'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 /** Storefront merchandising: landing slides, promo banners, offer title, badges and thresholds. */
 export default function StoreSettingsPage() {
-  const { data, error } = useJson<{ settings: StoreSettings }>('/api/admin/store/settings')
+  const { data, error } = useJson<{ settings: StoreSettings; settingsRevision?: string }>('/api/admin/store/settings')
+  const [revision, setRevision] = useState('')
   const [form, setForm] = useState<StoreSettings | null>(null)
   const [busy, setBusy] = useState(false)
   const [baselineBusy, setBaselineBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
-  useEffect(() => { if (data) setForm(data.settings) }, [data])
+  useEffect(() => { if (data) { setForm(data.settings); setRevision(data.settingsRevision || '') } }, [data])
   if (!form) return <StoreShell title="ویترین فروشگاه">{error ? <Notice tone="error">{error}</Notice> : <div className="sa-skeleton" aria-busy="true" />}</StoreShell>
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => (current ? { ...current, [key]: value } : current))
 
   async function save() {
     setBusy(true); setResult(null)
-    const response = await send<{ settings: StoreSettings }>('/api/admin/store/settings', 'POST', form)
+    const response = await send<{ settings: StoreSettings; settingsRevision?: string }>('/api/admin/store/settings', 'POST', form, revision ? { 'If-Match': revision } : {})
     setBusy(false)
     if (!response.ok) { setResult({ tone: 'error', text: response.error }); return }
-    setForm(response.data.settings); setResult({ tone: 'ok', text: 'تنظیمات ویترین ذخیره شد' })
+    setForm(response.data.settings); setRevision(response.data.settingsRevision || ''); setResult({ tone: 'ok', text: 'تنظیمات ویترین ذخیره شد' })
   }
   async function baseline() {
     setBaselineBusy(true); setResult(null)
@@ -31,7 +33,7 @@ export default function StoreSettingsPage() {
     setResult(response.ok ? { tone: 'ok', text: `ثبت قیمت‌های فعلی به صف اضافه شد؛ کار شمارهٔ ${response.data.jobId}` } : { tone: 'error', text: response.error })
   }
 
-  return <StoreShell title="ویترین فروشگاه" actions={<><Link href="/products" target="_blank" className="btn btn-ghost">پیش‌نمایش</Link><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
+  return <StoreShell title="ویترین فروشگاه" actions={<><SectionSettingsHistoryLink section="storefront" /><Link href="/products" target="_blank" className="btn btn-ghost">پیش‌نمایش</Link><button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></>}>
     {result && <Notice tone={result.tone}>{result.text}</Notice>}
     <div className="sa-stack">
       <section className="sa-card">

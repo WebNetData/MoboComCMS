@@ -166,3 +166,6 @@ html[data-design] .admin-shell .btn-primary, .admin-shell .btn-primary { backgro
 :where(.admin-shell) table.crud-table :is(th, td):last-child { position: sticky; inset-inline-end: 0; z-index: 1; background: var(--card); box-shadow: 10px 0 12px -12px rgb(0 0 0 / .25); }
 html[dir='rtl'] :where(.admin-shell) table.crud-table :is(th, td):last-child { box-shadow: -10px 0 12px -12px rgb(0 0 0 / .25); }
 html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-child, :where(.admin-shell) table.crud-table thead th:last-child { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
+
+/* Actions under a page's title (e.g. the settings History link). */
+:where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
