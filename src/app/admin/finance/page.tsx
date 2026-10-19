@@ -58,7 +58,7 @@ export default function AdminFinancePage() {
           <p className="muted">{t.financeHint}</p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="select imp-w-24" value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+          <select className="select imp-w-24" aria-label={locale === 'fa' ? 'بازهٔ گزارش (ماه)' : 'Report period (months)'} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
             {[3, 6, 12, 24].map((m) => (
               <option key={m} value={m}>{m} {t.months}</option>
             ))}
@@ -91,7 +91,7 @@ export default function AdminFinancePage() {
             <span className="flex items-center gap-2"><i className="dot dot-danger" /> {t.expenses}</span>
           </div>
         </div>
-        <div className="chart">
+        <div className="chart" tabIndex={0} role="region" aria-label={locale === 'fa' ? 'نمودار گزارش مالی' : 'Financial report chart'}>
           {data.byMonth.map((m: any) => (
             <div key={m.month} className="chart-col" title={`${m.month}: ${money(m.revenue)}`}>
               <div className="chart-bars">

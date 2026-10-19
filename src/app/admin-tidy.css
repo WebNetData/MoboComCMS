@@ -4,132 +4,145 @@
    ============================================================ */
 
 /* Page labels above a title read in Persian; spaced capitals break joined script. */
-html[dir='rtl'] :is(.tb-eyebrow, .ticket-eyebrow, .content-eyebrow, .section-kicker) { letter-spacing: 0; text-transform: none; }
+html[dir='rtl'] :where(.admin-shell) :is(.tb-eyebrow, .ticket-eyebrow, .content-eyebrow, .section-kicker) { letter-spacing: 0; text-transform: none; }
+
+/* Readable Admin accents keep the owner's hue; public brand tokens stay intact. */
+.admin-shell {
+  --admin-accent-text: var(--primary);
+  --admin-muted-text: color-mix(in srgb, var(--text) 75%, var(--card));
+  --admin-danger-text: color-mix(in srgb, var(--danger) 65%, var(--text));
+  --admin-action-surface: color-mix(in srgb, var(--primary) 55%, var(--sds-color-black-1000, #000));
+}
+html[data-theme='light'] .admin-shell { --admin-accent-text: color-mix(in srgb, var(--primary) 60%, var(--sds-color-black-1000, #000)); }
+.admin-shell .sa { --sa-accent: var(--admin-accent-text); --sa-muted: var(--admin-muted-text); }
+.admin-shell :is(.text-link, .studio-tabs .active, .studio-notice:not(.studio-error)) { color: var(--admin-accent-text); }
+.admin-shell :is(.badge-gray, .badge-primary, .badge-blue, .badge-purple) { color: var(--text); }
+html[data-design] .admin-shell .btn-primary, .admin-shell .btn-primary { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); }
 
 /* Activity log: filters in one row on wide screens, events as readable rows with details on demand. */
-.audit-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; }
-.audit-filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.audit-list { padding: 6px 16px; }
-.audit-rows { list-style: none; margin: 0; padding: 0; }
-.audit-row { display: grid; gap: 6px; padding: 14px 0; border-bottom: 1px solid var(--sa-line); min-width: 0; }
-.audit-row:last-child { border-bottom: 0; }
-.audit-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
-.audit-what { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.audit-what b { font-size: 13.5px; }
-.audit-code { padding: 2px 8px; border-radius: 7px; background: var(--sa-subtle); color: var(--sa-muted); font: 600 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-.audit-target { display: inline-flex; align-items: center; gap: 10px; color: var(--sa-muted); font-size: 12.5px; }
-.audit-meta { display: flex; gap: 6px 16px; flex-wrap: wrap; color: var(--sa-muted); font-size: 12px; }
-.audit-details summary { width: fit-content; color: var(--sa-accent); font-size: 12px; font-weight: 700; cursor: pointer; }
-.audit-details[open] summary { margin-bottom: 6px; }
-.audit-details pre { margin: 6px 0 0; max-height: 280px; overflow: auto; padding: 10px 12px; border-radius: 10px; background: var(--sa-subtle); font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
+:where(.admin-shell) .audit-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; }
+:where(.admin-shell) .audit-filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+:where(.admin-shell) .audit-list { padding: 6px 16px; }
+:where(.admin-shell) .audit-rows { list-style: none; margin: 0; padding: 0; }
+:where(.admin-shell) .audit-row { display: grid; gap: 6px; padding: 14px 0; border-bottom: 1px solid var(--sa-line); min-width: 0; }
+:where(.admin-shell) .audit-row:last-child { border-bottom: 0; }
+:where(.admin-shell) .audit-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
+:where(.admin-shell) .audit-what { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+:where(.admin-shell) .audit-what b { font-size: 13.5px; }
+:where(.admin-shell) .audit-code { padding: 2px 8px; border-radius: 7px; background: var(--sa-subtle); color: var(--sa-muted); font: 600 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+:where(.admin-shell) .audit-target { display: inline-flex; align-items: center; gap: 10px; color: var(--sa-muted); font-size: 12.5px; }
+:where(.admin-shell) .audit-meta { display: flex; gap: 6px 16px; flex-wrap: wrap; color: var(--sa-muted); font-size: 12px; }
+:where(.admin-shell) .audit-details summary { width: fit-content; color: var(--sa-accent); font-size: 12px; font-weight: 700; cursor: pointer; }
+:where(.admin-shell) .audit-details[open] summary { margin-bottom: 6px; }
+:where(.admin-shell) .audit-details pre { margin: 6px 0 0; max-height: 280px; overflow: auto; padding: 10px 12px; border-radius: 10px; background: var(--sa-subtle); font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
 
 /* ---------- base pieces that admin pages use but nothing defined ---------- */
 /* Plain `.table` reads like `.data`: quiet head, row lines, hover. */
-table.table { width: 100%; border-collapse: collapse; font-size: var(--sds-typography-scale-02); }
-table.table th { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; font-weight: 700; text-align: start; white-space: nowrap; background: color-mix(in srgb, var(--text) 4%, transparent); }
-table.table thead th:first-child { border-start-start-radius: 10px; border-end-start-radius: 10px; }
-table.table thead th:last-child { border-start-end-radius: 10px; border-end-end-radius: 10px; }
-table.table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-table.table tr:last-child td { border-bottom: 0; }
-table.table tbody tr { transition: background .12s; }
-table.table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 5%, transparent); }
-.table-wrap, .card:has(> table.table) { overflow-x: auto; }
-.h3 { margin: 0; font-size: 1.05rem; font-weight: 750; line-height: 1.5; }
-.btn-danger { background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
-.btn-danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
-.btn-secondary { background: var(--bg-soft); border-color: var(--border); color: var(--text); }
-.btn-secondary:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--primary); }
-.badge-primary, .badge-blue { background: var(--primary-soft); color: var(--primary); }
-.mb-5 { margin-bottom: var(--sds-size-space-500, 20px); }
-.pb-2 { padding-bottom: var(--sds-size-space-200); }
-.gap-6 { gap: var(--sds-size-space-600); }
-.text-xl { font-size: 1.25rem; }
-.text-end { text-align: end; }
-.self-center { align-self: center; }
-.text-red-400 { color: var(--danger); }
-.text-sky-400 { color: var(--primary); }
-.sa-filters { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
-.sa-filters > .input, .sa-filters > .select { flex: 1 1 200px; width: auto; }
+:where(.admin-shell) table.table { width: 100%; border-collapse: collapse; font-size: var(--sds-typography-scale-02); }
+:where(.admin-shell) table.table th { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; font-weight: 700; text-align: start; white-space: nowrap; background: color-mix(in srgb, var(--text) 4%, transparent); }
+:where(.admin-shell) table.table thead th:first-child { border-start-start-radius: 10px; border-end-start-radius: 10px; }
+:where(.admin-shell) table.table thead th:last-child { border-start-end-radius: 10px; border-end-end-radius: 10px; }
+:where(.admin-shell) table.table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+:where(.admin-shell) table.table tr:last-child td { border-bottom: 0; }
+:where(.admin-shell) table.table tbody tr { transition: background .12s; }
+:where(.admin-shell) table.table tbody tr:hover td { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+:where(.admin-shell) .table-wrap, :where(.admin-shell) .card:has(> table.table) { overflow-x: auto; }
+:where(.admin-shell) .h3 { margin: 0; font-size: 1.05rem; font-weight: 750; line-height: 1.5; }
+:where(.admin-shell) .btn-danger { background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--admin-danger-text); }
+:where(.admin-shell) .btn-danger:hover { background: color-mix(in srgb, var(--danger) 65%, var(--sds-color-black-1000, #000)); border-color: var(--danger); color: var(--sds-color-white-1000, #fff); }
+:where(.admin-shell) .btn-secondary { background: var(--bg-soft); border-color: var(--border); color: var(--text); }
+:where(.admin-shell) .btn-secondary:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); color: var(--primary); }
+:where(.admin-shell) .badge-primary, :where(.admin-shell) .badge-blue { background: var(--primary-soft); color: var(--primary); }
+:where(.admin-shell) .mb-5 { margin-bottom: var(--sds-size-space-500, 20px); }
+:where(.admin-shell) .pb-2 { padding-bottom: var(--sds-size-space-200); }
+:where(.admin-shell) .gap-6 { gap: var(--sds-size-space-600); }
+:where(.admin-shell) .text-xl { font-size: 1.25rem; }
+:where(.admin-shell) .text-end { text-align: end; }
+:where(.admin-shell) .self-center { align-self: center; }
+:where(.admin-shell) .text-red-400 { color: var(--danger); }
+:where(.admin-shell) .text-sky-400 { color: var(--primary); }
+:where(.admin-shell) .sa-filters { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+:where(.admin-shell) .sa-filters > .input, :where(.admin-shell) .sa-filters > .select { flex: 1 1 200px; width: auto; }
 
 /* ---------- admin forms built from the shipping (sh-) primitives ---------- */
 .admin-shell { --sh-accent: var(--primary); --sh-accent-soft: var(--primary-soft); --sh-on-accent: var(--on-primary); }
-.sh-admin { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.sh-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
-.sh-admin .sh-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; border-radius: 16px; }
-.sh-admin .sh-panel-head { margin-bottom: 0; }
-.sh-admin-fields { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: start; }
-.sh-weekdays { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
-.sh-weekdays legend { width: 100%; margin-bottom: 8px; padding: 0; font-size: 13px; font-weight: 600; }
-.sh-chip-check { position: relative; display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--sh-line); border-radius: 999px; background: var(--sh-surface); font-size: 13px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
-.sh-chip-check input { position: absolute; opacity: 0; pointer-events: none; }
-.sh-chip-check:hover { border-color: color-mix(in srgb, var(--sh-accent) 45%, var(--sh-line)); }
-.sh-chip-check:has(input:checked) { border-color: var(--sh-accent); background: var(--sh-accent-soft); color: var(--sh-accent); font-weight: 700; }
-.sh-chip-check:has(input:focus-visible) { outline: 2px solid var(--sh-accent); outline-offset: 2px; }
-.sh-table-wrap { overflow-x: auto; border: 1px solid var(--sh-line); border-radius: 12px; }
-.sh-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px; }
-.sh-table th { padding: 10px 12px; background: var(--sh-subtle); color: var(--sh-muted); font-size: 12px; font-weight: 700; text-align: start; white-space: nowrap; }
-.sh-table td { padding: 8px 12px; border-top: 1px solid var(--sh-line); vertical-align: middle; }
-.sh-table td .sh-muted { display: block; margin-top: 4px; font-size: 11.5px; }
-.sh-table tbody th { padding: 10px 12px; border-top: 1px solid var(--sh-line); background: none; color: var(--sh-text); font-size: 13px; }
-.sh-capacity td { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.sh-capacity td.is-full { color: var(--sh-danger); font-weight: 700; }
-.sh-date { max-width: 240px; }
-.sh-holidays { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.sh-holidays li { display: inline-flex; align-items: center; gap: 4px; padding-inline: 12px 4px; border: 1px solid var(--sh-line); border-radius: 999px; font-size: 13px; }
-.sh-holidays .sh-icon-btn { width: 28px; height: 28px; font-size: 18px; }
-.sh-sticky-save { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: flex-end; padding: 10px; border: 1px solid var(--sh-line); border-radius: 14px; background: color-mix(in srgb, var(--sh-surface) 88%, transparent); backdrop-filter: blur(10px); box-shadow: 0 12px 28px -16px rgb(0 0 0 / .35); }
+:where(.admin-shell) .sh-admin { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+:where(.admin-shell) .sh-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+:where(.admin-shell) .sh-admin .sh-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; border-radius: 16px; }
+:where(.admin-shell) .sh-admin .sh-panel-head { margin-bottom: 0; }
+:where(.admin-shell) .sh-admin-fields { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: start; }
+:where(.admin-shell) .sh-weekdays { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+:where(.admin-shell) .sh-weekdays legend { width: 100%; margin-bottom: 8px; padding: 0; font-size: 13px; font-weight: 600; }
+:where(.admin-shell) .sh-chip-check { position: relative; display: inline-flex; align-items: center; min-height: 38px; padding: 0 14px; border: 1px solid var(--sh-line); border-radius: 999px; background: var(--sh-surface); font-size: 13px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+:where(.admin-shell) .sh-chip-check input { position: absolute; opacity: 0; pointer-events: none; }
+:where(.admin-shell) .sh-chip-check:hover { border-color: color-mix(in srgb, var(--sh-accent) 45%, var(--sh-line)); }
+:where(.admin-shell) .sh-chip-check:has(input:checked) { border-color: var(--sh-accent); background: var(--sh-accent-soft); color: var(--sh-accent); font-weight: 700; }
+:where(.admin-shell) .sh-chip-check:has(input:focus-visible) { outline: 2px solid var(--sh-accent); outline-offset: 2px; }
+:where(.admin-shell) .sh-table-wrap { overflow-x: auto; border: 1px solid var(--sh-line); border-radius: 12px; }
+:where(.admin-shell) .sh-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px; }
+:where(.admin-shell) .sh-table th { padding: 10px 12px; background: var(--sh-subtle); color: var(--sh-muted); font-size: 12px; font-weight: 700; text-align: start; white-space: nowrap; }
+:where(.admin-shell) .sh-table td { padding: 8px 12px; border-top: 1px solid var(--sh-line); vertical-align: middle; }
+:where(.admin-shell) .sh-table td .sh-muted { display: block; margin-top: 4px; font-size: 11.5px; }
+:where(.admin-shell) .sh-table tbody th { padding: 10px 12px; border-top: 1px solid var(--sh-line); background: none; color: var(--sh-text); font-size: 13px; }
+:where(.admin-shell) .sh-capacity td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+:where(.admin-shell) .sh-capacity td.is-full { color: var(--sh-danger); font-weight: 700; }
+:where(.admin-shell) .sh-date { max-width: 240px; }
+:where(.admin-shell) .sh-holidays { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+:where(.admin-shell) .sh-holidays li { display: inline-flex; align-items: center; gap: 4px; padding-inline: 12px 4px; border: 1px solid var(--sh-line); border-radius: 999px; font-size: 13px; }
+:where(.admin-shell) .sh-holidays .sh-icon-btn { width: 28px; height: 28px; font-size: 18px; }
+:where(.admin-shell) .sh-sticky-save { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: flex-end; padding: 10px; border: 1px solid var(--sh-line); border-radius: 14px; background: color-mix(in srgb, var(--sh-surface) 88%, transparent); backdrop-filter: blur(10px); box-shadow: 0 12px 28px -16px rgb(0 0 0 / .35); }
 
 /* ---------- shared CRUD list (posts, pages, products, categories, places) ---------- */
-table.crud-table td { white-space: normal; overflow-wrap: break-word; max-width: 340px; }
-table.crud-table td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.crud-ltr { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; color: var(--muted); font-size: 12.5px; }
-.crud-yes { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); font-size: 13px; font-weight: 800; }
-.crud-actions { flex-wrap: wrap; min-width: 170px; }
+:where(.admin-shell) table.crud-table td { white-space: normal; overflow-wrap: break-word; max-width: 340px; }
+:where(.admin-shell) table.crud-table td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+:where(.admin-shell) .crud-ltr { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; color: var(--muted); font-size: 12.5px; }
+:where(.admin-shell) .crud-yes { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); font-size: 13px; font-weight: 800; }
+:where(.admin-shell) .crud-actions { flex-wrap: wrap; min-width: 170px; }
 
 /* ---------- general settings: switches as small cards, fields in two columns ---------- */
-.cm-settings > .card { max-width: none; }
-.cm-settings > form.card > fieldset { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 18px; }
-.cm-settings > form.card > fieldset > * { grid-column: 1 / -1; }
-.cm-settings > form.card > fieldset > .mb-6 { grid-column: span 2; display: grid; align-content: start; gap: 6px; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-soft); }
-.cm-settings > form.card > fieldset > .mb-6 p { margin: 0; line-height: 1.9; }
-.cm-settings > form.card > fieldset > .mb-4 { grid-column: span 3; }
-.cm-settings > form.card > fieldset > .btn { justify-self: start; min-width: 140px; }
+:where(.admin-shell) .cm-settings > .card { max-width: none; }
+:where(.admin-shell) .cm-settings > form.card > fieldset { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 18px; }
+:where(.admin-shell) .cm-settings > form.card > fieldset > * { grid-column: 1 / -1; }
+:where(.admin-shell) .cm-settings > form.card > fieldset > .mb-6 { grid-column: span 2; display: grid; align-content: start; gap: 6px; margin-bottom: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-soft); }
+:where(.admin-shell) .cm-settings > form.card > fieldset > .mb-6 p { margin: 0; line-height: 1.9; }
+:where(.admin-shell) .cm-settings > form.card > fieldset > .mb-4 { grid-column: span 3; }
+:where(.admin-shell) .cm-settings > form.card > fieldset > .btn { justify-self: start; min-width: 140px; }
 @media (max-width: 900px) {
-  .cm-settings > form.card > fieldset > .mb-6, .cm-settings > form.card > fieldset > .mb-4 { grid-column: 1 / -1; }
+  :where(.admin-shell) .cm-settings > form.card > fieldset > .mb-6, :where(.admin-shell) .cm-settings > form.card > fieldset > .mb-4 { grid-column: 1 / -1; }
 }
 
 /* ---------- section managers: both "add" forms side by side, sections as chips ---------- */
-.sm-adds { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: stretch; margin-bottom: 24px; }
-.sm-adds > .sm-add { max-width: none; margin: 0; align-content: start; }
-.sm-adds > .sm-add > .btn { margin-top: auto; }
-.sm-add .sm-ticks { gap: 8px; }
-.sm-add .sm-ticks label { position: relative; min-height: 36px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-soft); transition: background .15s, border-color .15s, color .15s; }
-.sm-add .sm-ticks label input { position: absolute; opacity: 0; pointer-events: none; }
-.sm-add .sm-ticks label:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
-.sm-add .sm-ticks label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
+:where(.admin-shell) .sm-adds { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: stretch; margin-bottom: 24px; }
+:where(.admin-shell) .sm-adds > .sm-add { max-width: none; margin: 0; align-content: start; }
+:where(.admin-shell) .sm-adds > .sm-add > .btn { margin-top: auto; }
+:where(.admin-shell) .sm-add .sm-ticks { gap: 8px; }
+:where(.admin-shell) .sm-add .sm-ticks label { position: relative; min-height: 36px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-soft); transition: background .15s, border-color .15s, color .15s; }
+:where(.admin-shell) .sm-add .sm-ticks label input { position: absolute; opacity: 0; pointer-events: none; }
+:where(.admin-shell) .sm-add .sm-ticks label:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+:where(.admin-shell) .sm-add .sm-ticks label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ---------- section maintenance cards: one even row of actions ---------- */
-.mnt-admin-actions { gap: 8px; }
-.mnt-admin-actions .btn { flex: 1 1 auto; min-height: 38px; padding: 0 14px; font-size: 13px; }
+:where(.admin-shell) .mnt-admin-actions { gap: 8px; }
+:where(.admin-shell) .mnt-admin-actions .btn { flex: 1 1 auto; min-height: 38px; padding: 0 14px; font-size: 13px; }
 
 /* The sticky save on admin forms uses the same readable deep accent as the settings pages, not near-black. */
 .admin-shell .xm-page .sh-sticky-save .sh-btn-primary { background: color-mix(in srgb, var(--primary) 45%, var(--sds-color-black-1000, #000)); color: #fff; }
 
 /* ---------- customers (CRM): the list is full width; notes open beside it for a chosen customer ---------- */
-.crm-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-.crm-layout.has-notes { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); }
-.crm-layout:not(.has-notes) > .crm-notes { display: none; }
-.crm-layout > .card:first-child td { vertical-align: middle; }
-.crm-notes { position: sticky; top: 84px; }
-.crm-notes-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.crm-notes-close { flex-shrink: 0; width: 32px; height: 32px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-.crm-notes-close:hover { background: var(--bg-soft); color: var(--text); }
-@media (max-width: 1100px) { .crm-layout.has-notes { grid-template-columns: minmax(0, 1fr); } .crm-notes { position: static; } }
+:where(.admin-shell) .crm-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+:where(.admin-shell) .crm-layout.has-notes { grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); }
+:where(.admin-shell) .crm-layout:not(.has-notes) > .crm-notes { display: none; }
+:where(.admin-shell) .crm-layout > .card:first-child td { vertical-align: middle; }
+:where(.admin-shell) .crm-notes { position: sticky; top: 84px; }
+:where(.admin-shell) .crm-notes-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+:where(.admin-shell) .crm-notes-close { flex-shrink: 0; width: 32px; height: 32px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+:where(.admin-shell) .crm-notes-close:hover { background: var(--bg-soft); color: var(--text); }
+@media (max-width: 1100px) { :where(.admin-shell) .crm-layout.has-notes { grid-template-columns: minmax(0, 1fr); } :where(.admin-shell) .crm-notes { position: static; } }
 
 /* ---------- media library: deep folder names stay on one line (full name on hover) ---------- */
-.mcl-folder-tree .mcl-folder-tree { padding-inline-start: 8px; margin-inline-start: 10px; }
-.mcl-folder-tree button:not(.btn) { overflow-wrap: normal; min-width: 0; }
-.mcl-folder-tree button:not(.btn) > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.admin-shell) .mcl-folder-tree .mcl-folder-tree { padding-inline-start: 8px; margin-inline-start: 10px; }
+:where(.admin-shell) .mcl-folder-tree button:not(.btn) { overflow-wrap: normal; min-width: 0; }
+:where(.admin-shell) .mcl-folder-tree button:not(.btn) > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- admin tables: text cells wrap at spaces so the last column (actions) stays in view; numbers stay whole ---------- */
 .admin-shell table.data td:not(.num) { white-space: normal; overflow-wrap: break-word; }
@@ -137,19 +150,19 @@ table.crud-table td.num { white-space: nowrap; font-variant-numeric: tabular-num
 
 /* ---------- admin home on phones: stats two per row (compact), chart and tickets one above the other ---------- */
 @media (max-width: 700px) {
-  .ao-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  html[data-design] .app-shell .ao-kpis .kpi { min-height: 0; padding: 14px; }
-  .ao-kpis .kpi .num, .ao-kpis .kpi b, .ao-kpis .kpi strong { font-size: 1.05rem; }
-  .ao-split { grid-template-columns: minmax(0, 1fr) !important; }
+  :where(.admin-shell) .ao-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  html[data-design] .app-shell:where(.admin-shell) .ao-kpis .kpi { min-height: 0; padding: 14px; }
+  :where(.admin-shell) .ao-kpis .kpi .num, :where(.admin-shell) .ao-kpis .kpi b, :where(.admin-shell) .ao-kpis .kpi strong { font-size: 1.05rem; }
+  :where(.admin-shell) .ao-split { grid-template-columns: minmax(0, 1fr) !important; }
 }
 
 /* ---------- money in admin stat cards: a long amount wraps under its number instead of ending in "…" ---------- */
 .admin-shell .kpi .num.truncate { overflow: visible; white-space: normal; text-overflow: clip; font-size: clamp(1.15rem, 1.5vw, 1.5rem); line-height: 1.5; }
-.admin-currency { width: auto; min-width: 150px; }
+:where(.admin-shell) .admin-currency { width: auto; min-width: 150px; }
 
 /* ---------- scrolling tables contain their screen-reader-only labels; otherwise an off-screen header label widens the page on phones ---------- */
 .admin-shell :is(.sa-table-wrap, .sh-table-wrap, .table-wrap, .overflow-x-auto, .sa-tabs) { position: relative; }
 /* With many columns the actions stay pinned at the row's end while the rest scrolls. */
-table.crud-table :is(th, td):last-child { position: sticky; inset-inline-end: 0; z-index: 1; background: var(--card); box-shadow: 10px 0 12px -12px rgb(0 0 0 / .25); }
-html[dir='rtl'] table.crud-table :is(th, td):last-child { box-shadow: -10px 0 12px -12px rgb(0 0 0 / .25); }
-html[data-design] .app-shell table.crud-table thead th:last-child, table.crud-table thead th:last-child { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
+:where(.admin-shell) table.crud-table :is(th, td):last-child { position: sticky; inset-inline-end: 0; z-index: 1; background: var(--card); box-shadow: 10px 0 12px -12px rgb(0 0 0 / .25); }
+html[dir='rtl'] :where(.admin-shell) table.crud-table :is(th, td):last-child { box-shadow: -10px 0 12px -12px rgb(0 0 0 / .25); }
+html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-child, :where(.admin-shell) table.crud-table thead th:last-child { background: color-mix(in srgb, var(--text) 4%, var(--card)); }

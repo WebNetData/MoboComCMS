@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Policy = { readDays: number; unreadDays: number; digest: { enabled: boolean; hour: number } }
 type Counts = { sent: number; notSent: number; waiting: number; failed: number }
@@ -16,12 +17,13 @@ export default function AdminNotificationsPage() {
   const [policy, setPolicy] = useState<Policy | null>(null)
   const [receipts, setReceipts] = useState<Receipts | null>(null)
   const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState('')
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/notifications', { cache: 'no-store' }).catch(() => null)
     const body = await response?.json().catch(() => null)
-    if (response?.ok) { setPolicy(body.policy); setReceipts(body.receipts) }
+    if (response?.ok) { setPolicy(body.policy); setReceipts(body.receipts); setRevision(body.revision) }
     else setMessage({ text: body?.error || 'دریافت اطلاعات ناموفق بود', error: true })
   }, [])
   useEffect(() => { void load() }, [load])
@@ -31,11 +33,11 @@ export default function AdminNotificationsPage() {
     if (!policy) return
     if ((policy.readDays > 0 || policy.unreadDays > 0) && !window.confirm('اعلان‌های قدیمی‌تر از این مهلت برای همیشه از صندوق کاربران پاک می‌شوند. ادامه می‌دهید؟')) return
     setBusy(true); setMessage(null)
-    const response = await fetch('/api/admin/notifications', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ policy }) }).catch(() => null)
+    const response = await fetch('/api/admin/notifications', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': revision }, body: JSON.stringify({ policy }) }).catch(() => null)
     const body = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setMessage({ text: body?.error || 'ذخیره انجام نشد', error: true }); return }
-    setPolicy(body.policy); setMessage({ text: 'ذخیره شد.', error: false })
+    setPolicy(body.policy); setRevision(body.revision); setMessage({ text: 'ذخیره شد.', error: false })
   }
 
   if (!policy || !receipts) return <div className="sa" dir="rtl">{message ? <p className="sa-notice is-error" role="alert">{message.text}</p> : <p className="sa-sub">در حال دریافت…</p>}</div>
@@ -44,6 +46,7 @@ export default function AdminNotificationsPage() {
   return <div className="sa" dir="rtl">
     <header className="sa-head"><div><h1>اعلان‌های کاربران</h1><p className="sa-sub">صندوق اعلان هر کاربر، خلاصهٔ روزانهٔ ایمیلی و وضعیت رسیدنِ نسخه‌های پیامک، ایمیل و مرورگر.</p></div></header>
     {message && <p className={`sa-notice ${message.error ? 'is-error' : 'is-ok'}`} role={message.error ? 'alert' : 'status'}>{message.text}</p>}
+    <SectionSettingsHistoryLink section="notifications" />
 
     <section className="sa-card">
       <header className="sa-card-head"><h2>رسید تحویل ({fa(receipts.days)} روز اخیر)</h2><span className="sa-sub">{fa(receipts.total)} نسخه</span></header>

@@ -1,4 +1,5 @@
 'use client'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
@@ -90,6 +91,7 @@ export default function ExtensionManager({ embedded = false }: { embedded?: bool
         {on && (m.adminNavigation || []).map(item => <Link className="btn btn-ghost btn-sm" href={item.href} key={item.href}>{fa ? item.label : item.labelEn || item.label} ↗</Link>)}
         {!!m.settings?.length && <button type="button" className="btn btn-ghost btn-sm" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : m.id)}>{expanded ? L('Hide settings', 'بستن تنظیمات') : L('Settings', 'تنظیمات')}</button>}
       </div>}
+      {m.id === 'businesses' && <SectionSettingsHistoryLink section="businesses" />}
       {expanded && !!m.settings?.length && <div className="xm-settings">{m.settings.map(def => <label className="studio-field" key={def.key}><span>{fa ? def.label : def.labelEn || def.label}</span>{def.type === 'boolean' ? <input type="checkbox" checked={Boolean(row.state.settings[def.key])} disabled={busy === m.id} onChange={e => void save(row, { settings: { [def.key]: e.target.checked } })}/> : def.type === 'select' ? <select className="input" value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => void save(row, { settings: { [def.key]: e.target.value } })}>{def.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : def.type === 'textarea' ? <textarea className="input" value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => edit(m.id, def.key, e.target.value)} onBlur={e => void save(row, { settings: { [def.key]: e.target.value } })}/> : <input className="input" type={def.type === 'secret' ? 'password' : def.type === 'number' ? 'number' : 'text'} value={String(row.state.settings[def.key] ?? '')} disabled={busy === m.id} onChange={e => edit(m.id, def.key, def.type === 'number' ? Number(e.target.value) : e.target.value)} onBlur={e => void save(row, { settings: { [def.key]: def.type === 'number' ? Number(e.target.value) : e.target.value } })}/>}{def.description && <small className="muted">{fa ? def.description : def.descriptionEn || def.description}</small>}</label>)}</div>}
     </article>
   }

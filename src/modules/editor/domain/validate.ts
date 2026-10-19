@@ -86,6 +86,11 @@ export function checkDocument(input: unknown, registry: BlockRegistry, options: 
         props = moved; migrated += 1
       }
       const checked: MoboComBlock = { id, type, version: definition.version, props: checkProps(definition.fields, props, `${path}.props`, issues) }
+       if (block.lock !== undefined) {
+         const lock = block.lock as Record<string, unknown>
+         if (!lock || typeof lock !== 'object' || Array.isArray(lock) || Object.keys(lock).some(key => !['move', 'remove'].includes(key) || typeof lock[key] !== 'boolean')) error(`${path}.lock`, 'block.lock', 'lock accepts only move/remove booleans')
+         else checked.lock = { ...(lock.move !== undefined ? { move: lock.move as boolean } : {}), ...(lock.remove !== undefined ? { remove: lock.remove as boolean } : {}) }
+       }
       const children = block.children
       if (definition.children) {
         const kids = Array.isArray(children) ? children : []

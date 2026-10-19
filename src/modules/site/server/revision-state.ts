@@ -51,3 +51,5 @@ export async function restorePostRevision(id: number, snapshot: Snapshot, commit
     return { before, after }
   }, { isolationLevel: 'Serializable', timeout: 30_000 })
 }
+export const siteSettingsState = async () => (await import('@/modules/site/config/history')).siteSettingsState()
+export const restoreSiteSettings = async (...args: Parameters<typeof import('@/modules/site/config/history').restoreSiteSettings>) => (await import('@/modules/site/config/history')).restoreSiteSettings(...args)

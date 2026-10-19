@@ -4,6 +4,8 @@ import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
 import { listExtensionAdminState, saveExtensionState } from '@/extensions/server/state'
 import { RouteAliasError, loadRouteAliases, saveRouteAliases } from '@/modules/site/server/routes'
+import { saveBusinessSettings } from '@/modules/businesses/server/businesses'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 
 // Section hub: every feature module that owns a public area — its address,
 // on/off state, declared settings and admin menu — managed in one place.
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/sections { id, enabled?, settings?, addresses?: { "/games": "game" } } */
 export async function POST(req: NextRequest) {
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('دسترسی مجاز نیست', 403)
   const body = await req.json().catch(() => null) as { id?: unknown; enabled?: unknown; settings?: unknown; addresses?: unknown } | null
@@ -49,7 +52,9 @@ export async function POST(req: NextRequest) {
       await saveRouteAliases(next)
     }
     if (typeof body?.enabled === 'boolean' || (body?.settings && typeof body.settings === 'object')) {
-      await saveExtensionState(id, { enabled: typeof body?.enabled === 'boolean' ? body.enabled : undefined, settings: body?.settings && typeof body.settings === 'object' ? body.settings as Record<string, unknown> : undefined })
+      const input = { enabled: typeof body?.enabled === 'boolean' ? body.enabled : undefined, settings: body?.settings && typeof body.settings === 'object' ? body.settings as Record<string, unknown> : undefined }
+      if (id === 'businesses') await saveBusinessSettings(req, admin, input)
+      else await saveExtensionState(id, input)
     }
   } catch (error) {
     if (error instanceof RouteAliasError) return err(error.message)

@@ -4,6 +4,10 @@
 const { spawnSync } = require('node:child_process'), path = require('node:path')
 
 const CHECKS = [
+  'editorial-schedule',
+  'editor-patterns',
+  'configuration-history',
+  'authoring-migrations',
   'media-library',
   'journal-pagination',
   'games-editorial',

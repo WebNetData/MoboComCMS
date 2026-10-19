@@ -6,6 +6,9 @@ import { JsonSettingMutationError } from '@/modules/settings/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { MEGA_SECTIONS, MegaMenuError, normalizeSectionConfig, type MegaSection } from '@/modules/navigation/domain/megamenu'
 import { buildSectionBar, megaMenuAdminState, saveMegaConfig } from '@/modules/navigation/server/megamenu'
+import { recordRevision } from '@/modules/content/server/revisions'
+import { configurationSnapshot } from '@/modules/settings/server/configuration-history'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 
 const guard = (req: NextRequest) => adminGuard(req, 'mega-menu', ['settings.manage'])
 
@@ -25,6 +28,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/mega-menu { enabled, sections: { software: {...} } } — or { preview: section, config } for an unsaved preview. */
 export async function POST(req: NextRequest) {
+  if (!req.headers.get('origin') || !originIsThisSite(req.headers.get('origin'), req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
   const g = await guard(req)
   if ('response' in g) return g.response
   const raw = await req.text()
@@ -38,9 +42,10 @@ export async function POST(req: NextRequest) {
       const section = body.preview as MegaSection
       return ok({ preview: await buildSectionBar(section, { ...normalizeSectionConfig(body.config), enabled: true }) })
     }
-    await saveMegaConfig(body, { revision: req.headers.get('if-match') ?? undefined, beforeCommit: async (tx, config) => {
+    await saveMegaConfig(body, { revision: req.headers.get('if-match') ?? undefined, beforeCommit: async (tx, config, previous) => {
       const actor = await requirePerm(req, 'settings.manage', tx)
       if (!actor) throw new MegaMenuError('دسترسی مجاز نیست', 403)
+      await recordRevision({ entityType: 'settings-navigation', entityId: 1, before: configurationSnapshot(previous), after: configurationSnapshot(config), actor, client: tx, strict: true })
       await auditAdminStrict({ req, actor, action: 'mega_menu.update', targetType: 'setting', targetId: 'site.megamenu.v1', metadata: { enabled: config.enabled } }, tx)
     } })
     return ok(await megaMenuAdminState())

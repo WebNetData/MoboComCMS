@@ -1529,3 +1529,13 @@ test('admin pages label themselves in Persian, every permission has a Persian na
   // The activity log is in Persian.
   assert.doesNotMatch(read('src/app/admin/audit/page.tsx'), />(Audit log|Filter|Newest|Older|No audit events found\.)</)
 })
+
+test('admin presentation cannot style public pages after a client-side route change', () => {
+  const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+  const css = require('postcss').parse(read('src/app/admin-tidy.css'))
+  css.walkRules(rule => {
+    for (const selector of rule.selectors) assert.match(selector, /\.admin-shell\b/, `Unscoped Admin selector: ${selector}`)
+  })
+  assert.doesNotMatch(read('src/app/layout.tsx'), /import\s+['"].*admin-tidy\.css['"]/)
+  assert.match(read('src/app/admin/layout.tsx'), /import\s+['"]\.\.\/admin-tidy\.css['"]/)
+})

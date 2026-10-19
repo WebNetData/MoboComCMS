@@ -5,6 +5,8 @@ function load(query) {
   new Function('require', 'module', 'exports', code)(name => {
     if (name === '@/platform/database/prisma') return {db: {$queryRaw: query}}
     if (name === '@/platform/cache/kv') return {}
+    // Re-exported settings owners are unrelated to the lease under test.
+    if (name === '@/modules/settings/server/general' || name === '@/modules/settings/server/section-history') return {}
     throw Error(`Unexpected dependency ${name}`)
   }, mod, mod.exports)
   return mod.exports.acquireLease

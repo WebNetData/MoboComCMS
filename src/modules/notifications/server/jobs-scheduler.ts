@@ -16,6 +16,10 @@ const state = globalThis as typeof globalThis & { jobsTimer?: ReturnType<typeof 
 
 const JOBS: Job[] = [
   {
+    name: 'editorial-collections', everyMs: 60_000,
+    run: async () => (await import('@/modules/content/server/collections')).publishDueEditorialCollections(),
+  },
+  {
     name: 'fulfillment', everyMs: 60_000,
     run: async () => (await import('@/modules/fulfillment/server/worker')).runFulfillmentWorker(20, 'scheduler'),
   },

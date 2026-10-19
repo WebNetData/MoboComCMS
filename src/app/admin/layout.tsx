@@ -1,5 +1,7 @@
 'use client'
 
+import '../admin-tidy.css'
+
 import { useEffect, useRef, useState } from 'react'
 import AdminWorkspace from '@/components/admin/Workspace'
 import { useSession, signOut } from 'next-auth/react'

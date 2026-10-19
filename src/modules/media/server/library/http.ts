@@ -11,6 +11,7 @@ import { libraryActor, currentLibraryUser, libraryTransaction } from './authorit
 import { libraryCommand, queryLibrary } from './commands'
 import { listTransfers, requestTransfer, transferCommand } from './transfers'
 import { mediaSettings, MEDIA_SETTINGS_KEY, normalizeMediaSettings } from './settings'
+import { recordRevision } from '@/modules/content/server/revisions'
 const failure = (error: unknown) => (error instanceof LibraryError || error instanceof JsonBodyError) ? err(error.message, error.status) : err('عملیات کتابخانه انجام نشد؛ دوباره تلاش کنید', 500)
 export async function GET(req: NextRequest) {
   try {
@@ -39,9 +40,11 @@ export async function POST(req: NextRequest) {
       if (!(user.roleId == null || hasPermission(user.permissions || [], 'settings.manage'))) throw new LibraryError('تنظیمات عمومی به مدیر تنظیمات اختصاص دارد', 403)
       const existing = await tx.setting.findUnique({ where: { key: MEDIA_SETTINGS_KEY } })
       if ((existing?.value || null) !== input.stamp) throw new LibraryError('تنظیمات هم‌زمان تغییر کرده؛ دوباره بارگیری کنید', 409)
-      const value = JSON.stringify(normalizeMediaSettings(input.value as Record<string, unknown> || {}))
+       const before = normalizeMediaSettings(JSON.parse(existing?.value || '{}')), after = normalizeMediaSettings(input.value as Record<string, unknown> || {})
+       const value = JSON.stringify({ ...JSON.parse(existing?.value || '{}'), ...after })
       if (existing) await tx.setting.updateMany({ where: { key: MEDIA_SETTINGS_KEY, value: existing.value }, data: { value } })
       else await tx.setting.create({ data: { key: MEDIA_SETTINGS_KEY, value } })
+       await recordRevision({ entityType: 'settings-media', entityId: 1, before, after, actor: user, client: tx, strict: true })
       await auditAdminStrict({ req, actor: user, action: 'media.settings.updated', targetType: 'setting', targetId: MEDIA_SETTINGS_KEY }, tx)
       return { saved: true }
     }))

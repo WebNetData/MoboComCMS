@@ -80,7 +80,7 @@ function validSetting(def: ExtensionSettingDefinition, value: unknown) {
   return typeof value === 'string' && value.length <= (def.type === 'textarea' ? 12000 : 2000)
 }
 
-export async function saveExtensionState(id: string, input: { enabled?: boolean; settings?: Record<string, unknown> }) {
+export async function saveExtensionState(id: string, input: { enabled?: boolean; settings?: Record<string, unknown> }, options: { beforeCommit?: (tx: Prisma.TransactionClient, before: ExtensionStoredState, after: ExtensionStoredState) => Promise<void> } = {}) {
   const manifest = extensionById.get(id)
   if (!manifest) throw new Error('افزونه در این build نصب نشده است')
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -108,6 +108,7 @@ export async function saveExtensionState(id: string, input: { enabled?: boolean;
           const value = next.enabled ? 'true' : 'false'
           await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
         }
+        await options.beforeCommit?.(tx, current, next)
         return next
       }, { isolationLevel: 'Serializable' })
     } catch (error) {

@@ -130,16 +130,16 @@ export default function AdminRolesPage() {
 
       <form onSubmit={create} className="card mb-6 grid-4 items-end">
         <div>
-          <label className="label">{t.slug} (حروف لاتین)</label>
-          <input className="input" dir="ltr" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <label className="label" htmlFor="new-role-slug">{t.slug} (حروف لاتین)</label>
+          <input id="new-role-slug" className="input" dir="ltr" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         </div>
         <div>
-          <label className="label">{t.title}</label>
-          <input className="input" value={form.nameFa} onChange={(e) => setForm({ ...form, nameFa: e.target.value })} />
+          <label className="label" htmlFor="new-role-title">{t.title}</label>
+          <input id="new-role-title" className="input" value={form.nameFa} onChange={(e) => setForm({ ...form, nameFa: e.target.value })} />
         </div>
         <div>
-          <label className="label">الگوی آماده</label>
-          <select className="select" value={form.preset} onChange={(e) => setForm({ ...form, preset: e.target.value })}>
+          <label className="label" htmlFor="new-role-preset">الگوی آماده</label>
+          <select id="new-role-preset" className="select" value={form.preset} onChange={(e) => setForm({ ...form, preset: e.target.value })}>
             <option value="">—</option>
             {Object.keys(presets).filter((p) => resellerOn || p !== 'reseller').map((p) => (
               <option key={p} value={p}>{ROLE_PRESET_LABELS[p] || p}</option>

@@ -1,4 +1,6 @@
 'use client'
+
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
@@ -46,7 +48,7 @@ export default function StudioPage() {
   const updateSection=(value:SiteSection)=>change({...config,sections:config.sections.map(s=>s.id===value.id?value:s)})
   const move=(index:number,delta:number)=>{const list=[...config.sections];const to=index+delta;if(to<0||to>=list.length)return;[list[index],list[to]]=[list[to],list[index]];change({...config,sections:list})}
   function addSection(kind: string){if(!config)return;const base=defaultSite.sections.find(s=>s.kind===kind) || {...defaultSite.sections[1],kind:'form' as const,title:local('با ما در ارتباط باش','Get in touch'),items:[],formSlug:''};const added={...structuredClone(base),id:`${kind}-${Date.now().toString(36)}`};change({...config,sections:[...config.sections,added]});setSelected(added.id)}
-  return <div dir="rtl"><div className="studio-header"><div><span className="section-kicker">استودیو</span><h1>استودیوی سایت</h1><p>محتوا، ظاهر و قابلیت‌های سایت؛ همه در اختیار تو.</p></div><div className="studio-actions"><Link href="/" target="_blank" className="btn btn-ghost">مشاهده سایت ↗</Link><button className="btn btn-primary" disabled={busy||uploading||!dirty} onClick={save}>{busy?'در حال ذخیره…':dirty?'انتشار تغییرات':'همه تغییرات ذخیره شده'}</button></div></div>
+  return <div dir="rtl"><div className="studio-header"><div><span className="section-kicker">استودیو</span><h1>استودیوی سایت</h1><p>محتوا، ظاهر و قابلیت‌های سایت؛ همه در اختیار تو.</p></div><div className="studio-actions"><SectionSettingsHistoryLink section="site" /><Link href="/" target="_blank" className="btn btn-ghost">مشاهده سایت ↗</Link><button className="btn btn-primary" disabled={busy||uploading||!dirty} onClick={save}>{busy?'در حال ذخیره…':dirty?'انتشار تغییرات':'همه تغییرات ذخیره شده'}</button></div></div>
     {notice&&<div role={failed?'alert':'status'} className={`studio-notice ${failed?'studio-error':''}`}>{notice}</div>}
     <fieldset disabled={busy} aria-label="ویرایش تنظیمات سایت" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
     <div className="studio-tabs" role="tablist">{[['content','محتوای صفحه'],['design','طراحی و رنگ‌ها'],['themes','قالب‌ها'],['copy','متن‌های عمومی'],['plugins','افزونه‌ها'],['preview','پیش‌نمایش']].map(([id,name])=><button role="tab" aria-selected={tab===id} className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}>{name}</button>)}</div>

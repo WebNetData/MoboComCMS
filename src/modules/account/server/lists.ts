@@ -3,7 +3,9 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
-import { parseItemKey, type ItemRef } from '@/modules/content/domain/items'
+import { FAVORITABLE, parseItemKey, type ItemRef } from '@/modules/content/domain/items'
+import { originIsThisSite } from '@/platform/http/origin-policy'
+import { JsonBodyError, readJsonObject } from '@/platform/http/read-json'
 import { GAME_SHELVES, listAccepts, listKey, parseListKey, type ListKey, type MemberList } from '@/modules/account/domain/lists'
 
 // One reading and one writing of everything a member keeps a list of. Each list stays with its owner
@@ -96,7 +98,9 @@ export async function GET_lists(req: NextRequest) {
   const ref = raw === null ? null : parseItemKey(raw)
   if (raw !== null && !ref) return err('invalid item', 400)
   const [lists, holding] = await Promise.all([memberLists(user.id), ref ? listsHolding(user.id, ref) : null])
-  return ok({ version: 1, lists: ref ? lists.filter((list) => list.accepts === 'any' || list.accepts === ref.type) : lists, ...(holding ? { item: `${ref!.type}:${ref!.id}`, holding } : {}) })
+  const response = ok({ version: 1, lists: ref ? lists.filter((list) => (list.accepts === 'any' || list.accepts === ref.type) && (list.kind !== 'favorites' || FAVORITABLE.includes(ref.type))) : lists, ...(holding ? { item: `${ref!.type}:${ref!.id}`, holding } : {}) })
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
 }
 
 /** PUT /api/me/lists { item: 'type:id', list: '<key>', on: boolean } */
@@ -104,8 +108,9 @@ export async function PUT_lists(req: NextRequest) {
   const user = await requireUser(req)
   if (!user) return err('unauthorized', 401)
   const origin = req.headers.get('origin')
-  if (origin && new URL(origin).host !== req.headers.get('host')) return err('forbidden', 403)
-  const body = (await req.json().catch(() => null)) || {}
+  if (!origin || !originIsThisSite(origin, req.headers.get('host') || req.nextUrl.host)) return err('forbidden', 403)
+  let body: Record<string, unknown>
+  try { body = await readJsonObject(req, 8192) } catch (error) { return error instanceof JsonBodyError ? err(error.message, error.status) : err('invalid request', 400) }
   const ref = parseItemKey(body.item), key = parseListKey(body.list)
   if (!ref || !key || typeof body.on !== 'boolean') return err('invalid request', 400)
   try {

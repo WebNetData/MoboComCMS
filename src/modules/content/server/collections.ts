@@ -1,4 +1,6 @@
 import { db } from '@/platform/database/prisma'
+import { clearEditorialSchedule } from './collections/editorial-schedule'
+export { scheduleEditorialCollection, publishDueEditorialCollections } from './collections/editorial-schedule'
 import { itemCard, itemCards } from '@/modules/content/server/registry'
 import { parseItemKey, type ItemRef } from '@/modules/content/domain/items'
 import type { Prisma } from '@prisma/client'
@@ -91,7 +93,7 @@ export async function getCollection(id: number, viewerId: number | null, shareTo
   if (!row || (row.visibility === 'PRIVATE' && !member) || (row.visibility === 'UNLISTED' && !member && (!shareToken || shareToken !== row.shareToken))) throw new CollectionError('Collection unavailable', 404)
   const refs = row.items.map((item) => parseItemKey(`${item.itemType}:${item.itemId}`)).filter((ref): ref is ItemRef => !!ref)
   const cards = await itemCards(refs)
-  return { id: row.id, staffAuthored: row.staffAuthored, ownerId: row.ownerId, ownerName: row.staffAuthored ? EDITORIAL_BYLINE : row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, followerCount: row._count.followers, reactionCount: row._count.reactions, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
+  return { id: row.id, staffAuthored: row.staffAuthored, ownerId: row.ownerId, ownerName: row.staffAuthored ? EDITORIAL_BYLINE : row.owner.name, title: row.title, description: row.description, cover: row.cover, shareToken: row.visibility === 'UNLISTED' ? row.shareToken : null, visibility: row.visibility, updatedAt: row.updatedAt, ...(staff && row.staffAuthored ? { publishAt: row.publishAt, scheduleError: row.scheduleError } : {}), followerCount: row._count.followers, reactionCount: row._count.reactions, canEdit: !!member, isOwner: viewerId === row.ownerId, members: viewerId === row.ownerId ? row.collaborators.map((entry) => ({ userId: entry.userId, name: entry.user.name, email: entry.user.email })) : [], items: row.items.flatMap((item) => { const card = cards.get(`${item.itemType}:${item.itemId}`); return card ? [{ id: item.id, position: item.position, card }] : [] }) }
 }
 
 export async function createCollection(userId: number, input: { title?: unknown; description?: unknown; cover?: unknown; visibility?: unknown }) {
@@ -288,7 +290,7 @@ export async function publishEditorialCollection(id: number, on: boolean) {
     if (!detail.staffAuthored) throw new CollectionError('Collection unavailable', 404)
     if (!detail.items.length) throw new CollectionError('Collection needs a published item')
   }
-  const result = await db.userCollection.updateMany({ where: { id, staffAuthored: true, visibility: on ? 'PRIVATE' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PRIVATE' } })
+  const result = await db.userCollection.updateMany({ where: { id, staffAuthored: true, visibility: on ? 'PRIVATE' : 'EDITORIAL' }, data: { visibility: on ? 'EDITORIAL' : 'PRIVATE', ...clearEditorialSchedule } })
   if (!result.count) throw new CollectionError('Collection unavailable', 404)
   return { published: on }
 }

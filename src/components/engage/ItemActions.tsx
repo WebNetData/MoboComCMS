@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { COMPARE_EVENT, readCompare, toggleCompare, type CompareEntry } from '@/components/engage/compare-store'
 import AddToCollection from '@/components/engage/AddToCollection'
+import { memberListsChanged } from './member-list-events'
 
 type Props = {
   item: string
@@ -30,6 +31,8 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
   const [error, setError] = useState('')
   const [compared, setCompared] = useState(false)
   const [compareNote, setCompareNote] = useState('')
+  // A list command refreshes the server props; retain the owner's notification preference.
+  useEffect(() => { setFavorite(initial); setCount(favorites) }, [initial, favorites])
 
   useEffect(() => {
     const sync = () => setCompared(readCompare().some((entry) => entry.key === item))
@@ -48,6 +51,7 @@ export default function ItemActions({ item, title, image = '', loggedIn, favorit
     if (!response?.ok) { setError(data?.error || 'انجام نشد'); return }
     setCount((value) => Math.max(0, value + (on && !favorite ? 1 : !on && favorite ? -1 : 0)))
     setFavorite(data.favorite)
+    memberListsChanged(item)
   }
 
   function compare() {

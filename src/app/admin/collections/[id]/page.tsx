@@ -3,9 +3,10 @@
 import { use, useCallback, useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
+import LibraryPicker from '@/components/media/LibraryPicker'
 
 type Item = { type: string; id: number; title: string; subtitle?: string; image?: string; url: string }
-type Detail = { id: number; title: string; description: string; cover: string; visibility: string; followerCount: number; reactionCount: number; items: { id: number; position: number; card: Item }[] }
+type Detail = { id: number; title: string; description: string; cover: string; visibility: string; updatedAt: string; publishAt: string | null; scheduleError: string; followerCount: number; reactionCount: number; items: { id: number; position: number; card: Item }[] }
 type Found = { key: string; type: string; title: string; subtitle: string; image: string }
 
 const TYPE: Record<string, string> = { post: 'مقاله', software: 'نرم‌افزار', game: 'بازی', studio: 'استودیو', title: 'فیلم و سریال', album: 'آلبوم', track: 'آهنگ', artist: 'هنرمند', product: 'محصول', thread: 'موضوع تالار' }
@@ -21,6 +22,7 @@ export default function EditorialCollectionPage({ params }: { params: Promise<{ 
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<Found[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [publishAt, setPublishAt] = useState('')
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
   const load = useCallback(async () => {
@@ -76,8 +78,18 @@ export default function EditorialCollectionPage({ params }: { params: Promise<{ 
       <label className="sa-field"><span>عنوان</span><input className="input" value={form.title} maxLength={120} required onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
       <label className="sa-field"><span>توضیح (زیر عنوان نمایش داده می‌شود)</span><textarea className="input" rows={3} maxLength={2000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
       <label className="sa-field"><span>تصویر جلد (نشانی از همین سایت یا https)</span><input className="input" dir="ltr" value={form.cover} maxLength={1000} onChange={(event) => setForm({ ...form, cover: event.target.value })} placeholder="/api/media/covers/…" /></label>
+      <div className="sa-head-actions"><LibraryPicker kind="image" onSelect={asset => setForm(current => ({ ...current, cover: asset.url }))} />{form.cover && <img src={form.cover} alt="پیش‌نمایش جلد مجموعه" width={120} height={72} style={{ objectFit: 'cover', borderRadius: 10 }} />}</div>
       <div className="sa-head-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ مشخصات</button><button type="button" className="sa-link is-danger" disabled={busy} onClick={() => void remove()}>حذف مجموعه</button></div>
     </form>
+
+    {!published && <section className="sa-card" aria-label="زمان‌بندی انتشار">
+      <header className="sa-card-head"><h2>انتشار زمان‌بندی‌شده</h2></header>
+      <p className="sa-sub">زمان با منطقهٔ زمانی دستگاه شما ثبت می‌شود. سرور هنگام انتشار، دسترسی ثبت‌کننده و قابل نمایش بودن محتوا را دوباره بررسی می‌کند.</p>
+      {detail.publishAt && <p role="status">زمان ثبت‌شده: <time dateTime={detail.publishAt}>{new Date(detail.publishAt).toLocaleString('fa-IR')}</time></p>}
+      {detail.scheduleError && <p className="error-text" role="alert">{detail.scheduleError}</p>}
+      <label className="sa-field"><span>تاریخ و ساعت انتشار</span><input className="input" type="datetime-local" value={publishAt} onChange={event => setPublishAt(event.target.value)} /></label>
+      <div className="sa-head-actions"><button type="button" className="btn btn-primary" disabled={busy || !publishAt || !Number.isFinite(new Date(publishAt).getTime())} onClick={() => void patch({ publishAt: new Date(publishAt).toISOString(), updatedAt: detail.updatedAt }, 'زمان‌بندی ثبت شد.')}>{detail.publishAt ? 'تغییر زمان‌بندی' : 'ثبت زمان‌بندی'}</button>{detail.publishAt && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void patch({ publishAt: null, updatedAt: detail.updatedAt }, 'زمان‌بندی لغو شد؛ مجموعه پیش‌نویس ماند.')}>لغو زمان‌بندی</button>}</div>
+    </section>}
 
     <section className="sa-card" aria-label="افزودن مورد">
       <header className="sa-card-head"><h2>افزودن مورد</h2></header>

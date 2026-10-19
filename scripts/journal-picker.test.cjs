@@ -77,7 +77,6 @@ test('Journal settings preload selected hero and editor posts beyond the recent 
   let selected = []
   const settings = { heroIds: [1, 2], editorIds: [3] }
   const routes = load('src/modules/journal/server/http/routes.ts', {
-    '@/platform/http/response': { ok: value => value },
     '@/platform/audit/server': { auditAdmin: async () => {} },
     '@/modules/journal/server/item-links': { searchPostLinkProducts: async () => ({ matches: [], selected: [] }) },
     '@/modules/identity/server/admin-guard': { adminGuard: async () => ({ admin: { id: 1 } }) },
@@ -86,6 +85,11 @@ test('Journal settings preload selected hero and editor posts beyond the recent 
       journalPickers: async ids => { selected = ids; return { posts: [], categories: [] } },
     },
   })
-  assert.deepEqual(await routes.GET_settings({ url: 'http://localhost:3000/api/admin/journal/settings' }), { settings, picker: { posts: [], categories: [] } })
+  const response = await routes.GET_settings({ url: 'http://localhost:3000/api/admin/journal/settings' })
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('cache-control'), 'private, no-store')
+  const body = await response.json()
+  assert.match(body.settingsRevision, /^[a-f0-9]{64}$/)
+  assert.deepEqual({ settings: body.settings, picker: body.picker }, { settings, picker: { posts: [], categories: [] } })
   assert.deepEqual(selected, [1, 2, 3])
 })

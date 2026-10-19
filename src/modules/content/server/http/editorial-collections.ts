@@ -6,14 +6,14 @@ import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { bulkSameOrigin } from '@/modules/content/server/bulk'
 import {
   CollectionError, addEditorialItem, adminCollections, collectionId, createEditorialCollection, deleteEditorialCollection, featureCollection, getCollection,
-  moveEditorialItem, publishEditorialCollection, removeEditorialItem, updateEditorialCollection,
+  moveEditorialItem, publishEditorialCollection, removeEditorialItem, updateEditorialCollection, scheduleEditorialCollection,
 } from '@/modules/content/server/collections'
 
 // Collections in the admin panel: selecting members' public lists, and writing the site's own. A collection
 // holds items of every section, so any content permission opens it, not one section's.
 const guard = (req: NextRequest) => adminGuard(req, null, CONTENT_EDIT_PERMISSIONS)
 type Context = { params: Promise<{ id: string }> }
-const failure = (error: unknown) => (error instanceof CollectionError ? err(error.message, error.status) : err('Unable to change the collection', 500))
+const failure = (error: unknown) => (error instanceof CollectionError ? err(error.message, error.status) : (error as { code?: string }).code === 'P2034' ? err('مجموعه هم‌زمان تغییر کرده است؛ دوباره بررسی کنید.', 409) : err('Unable to change the collection', 500))
 
 /** GET /api/admin/collections?page= · ?find=<text> (items to add: published ones, by the site search) */
 export async function GET_collections(req: NextRequest) {
@@ -61,6 +61,7 @@ export async function PATCH_collection(req: NextRequest, { params }: Context) {
     const body = (await req.json().catch(() => null)) || {}
     let result: Record<string, unknown>
     let action = 'update'
+    if (Object.hasOwn(body, 'publishAt')) return ok(await scheduleEditorialCollection(req, id, body.publishAt, body.updatedAt))
     if (typeof body.publish === 'boolean') { result = await publishEditorialCollection(id, body.publish); action = body.publish ? 'publish' : 'withdraw' }
     else if (body.item !== undefined) {
       action = `item.${String(body.action)}`
