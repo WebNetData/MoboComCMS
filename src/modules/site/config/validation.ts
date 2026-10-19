@@ -14,6 +14,9 @@ export function validateMenu(value: unknown): boolean {
   const visit = (items: unknown, depth: number): boolean => Array.isArray(items) && depth <= MENU_DEPTH && items.every(item => {
     if (++count > MENU_ITEMS || !link(item)) return false
     if (item.id !== undefined) { if (typeof item.id !== 'string' || !/^[\w-]{1,80}$/.test(item.id) || ids.has(item.id)) return false; ids.add(item.id) }
+    if (item.menuDisplay !== undefined && !['dropdown', 'mega'].includes(item.menuDisplay)) return false
+    if (item.menuColumns !== undefined && ![2, 3, 4].includes(item.menuColumns)) return false
+    if (item.description !== undefined && (!localized(item.description) || !Object.values(item.description).every(value => text(value, 180)))) return false
     return (item.enabled === undefined || typeof item.enabled === 'boolean') && (item.icon === undefined || (text(item.icon, 40) && !/[<>\u0000-\u001f]/.test(item.icon))) && (item.children === undefined || (Array.isArray(item.children) && (!item.children.length || visit(item.children, depth + 1))))
   })
   return visit(value, 1)

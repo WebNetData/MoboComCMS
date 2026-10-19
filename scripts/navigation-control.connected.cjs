@@ -51,9 +51,18 @@ async function main() {
     const site = load('src/modules/site/server/http/admin/site/route.ts'), mega = load('src/modules/navigation/server/http/routes.ts'), owner = load('src/modules/navigation/server/megamenu.ts'), settings = load('src/modules/settings/server.ts'), defaults = load('src/modules/site/config/defaults.ts').defaultSite
     await db.setting.upsert({ where: { key: keys[0] }, create: { key: keys[0], value: JSON.stringify(defaults) }, update: { value: JSON.stringify(defaults) } })
     const before = await (await site.GET(request('/api/admin/site'))).json()
-    const next = { ...before.config, navigation: [link('parent', '/blog', { icon: '', children: [link('child', '/blog?category=learn', { icon: 'book' })] })], footerAccount: [] }
+    const next = { ...before.config, navigation: [link('parent', '/blog', { icon: '', menuDisplay: 'mega', menuColumns: 4, description: { fa: 'بخش‌های مجله', en: 'Journal sections' }, children: [link('child', '/blog?category=learn', { icon: 'book', description: { fa: 'آموزش‌ها', en: 'Guides' } })] })], footerAccount: [] }
     let response = await site.PUT(request('/api/admin/site', 'PUT', next, before.revision)); assert.equal(response.status, 200)
     assert.deepEqual(JSON.parse((await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value).navigation, next.navigation)
+    const savedHeader = (await (await site.GET(request('/api/admin/site'))).json()).config.navigation
+    const publicHeader = load('src/modules/site/config/menus.ts').localizeMenu(savedHeader, 'fa')[0]
+    assert.equal(publicHeader.menuDisplay, 'mega'); assert.equal(publicHeader.menuColumns, 4); assert.equal(publicHeader.description, 'بخش‌های مجله'); assert.equal(publicHeader.children[0].description, 'آموزش‌ها')
+    const validStored = (await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value
+    for (const invalid of [{ menuDisplay: 'raw-html' }, { menuColumns: 9 }, { description: { fa: 'x'.repeat(181), en: '' } }]) {
+      assert.equal((await site.PUT(request('/api/admin/site', 'PUT', { ...next, navigation: [{ ...next.navigation[0], ...invalid }] }))).status, 400)
+      assert.equal((await db.setting.findUniqueOrThrow({ where: { key: keys[0] } })).value, validStored)
+    }
+    // Origin is enforced by the canonical middleware; actual HTTP/browser checks exercise it.
     assert.equal((await site.PUT(request('/api/admin/site', 'PUT', before.config, before.revision))).status, 409, 'stale Studio tab rejected')
     const fresh = await (await site.GET(request('/api/admin/site'))).json()
     const race = await Promise.all([site.PUT(request('/api/admin/site', 'PUT', { ...next, brand: 'first' }, fresh.revision)), site.PUT(request('/api/admin/site', 'PUT', { ...next, brand: 'second' }, fresh.revision))])
