@@ -1,6 +1,6 @@
 // Real PostgreSQL films and their versions through the admin save path, the version service and the restore.
 // Only this script's films and their versions are created and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `crev${Date.now()}`
 const cache = new Map()
 function load(file) {

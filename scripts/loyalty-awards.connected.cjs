@@ -1,6 +1,6 @@
 // Real PostgreSQL customer-club awards; settings and the inbox are isolated.
 // The run uses a clock far in the future, so orders that already exist in the database are out of its window.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `loyalty-awards-${Date.now()}`, now = new Date('2100-01-01T12:00:00Z'), placed = new Date('2100-01-01T09:00:00Z')
 const baseline = process.env.LOYALTY_AWARDS_BASELINE
 const state = {failAccountFor: 0}, inbox = []

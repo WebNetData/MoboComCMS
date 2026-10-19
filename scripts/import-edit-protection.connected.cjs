@@ -1,5 +1,5 @@
 // Owned PostgreSQL fixtures exercise the same preview policy and in-transaction fence as the import engine.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),prefix='iprotect'+Date.now()+process.pid,cache=new Map()
 function load(file){const full=path.resolve(file),mod={exports:{}};if(cache.has(full))return cache.get(full).exports;cache.set(full,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(name=>name==='@/platform/database/prisma'?{db}:name.startsWith('@/')?load('src/'+name.slice(2)+'.ts'):require(name),mod,mod.exports);return mod.exports}
 async function main(){try{

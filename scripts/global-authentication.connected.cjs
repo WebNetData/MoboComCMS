@@ -1,5 +1,5 @@
 // Real restriction rows, signed cookies and API keys; isolated fixtures only.
-const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
 const {encode}=require('next-auth/jwt'),prisma=new PrismaClient();
 const secret='owned-global-authentication-fixture',stamp=`global-auth-${Date.now()}`,users=[];

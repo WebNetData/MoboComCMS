@@ -1,4 +1,4 @@
-const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript')
+const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api')
 // JOB_STEPS_BASELINE=<git ref> loads that revision instead (to see the old behaviour fail these tests).
 const source = file => process.env.JOB_STEPS_BASELINE ? execFileSync('git', ['show', `${process.env.JOB_STEPS_BASELINE}:${file}`], {encoding: 'utf8'}) : fs.readFileSync(file, 'utf8')
 function load(file, steps, fail) {

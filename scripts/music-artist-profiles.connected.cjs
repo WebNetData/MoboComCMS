@@ -1,5 +1,5 @@
 // Existing Media admin on real PostgreSQL. Namespaced content/identity fixtures only.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
 const db=new PrismaClient(),stamp='artistprofile'+Date.now()+process.pid,cache=new Map(),users=[]
 let viewer=null,enabled=true,limited=false,strictCalls=0
 function load(file){

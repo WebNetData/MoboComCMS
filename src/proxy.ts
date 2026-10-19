@@ -45,7 +45,7 @@ const NOT_ALIASED = /^\/(api|admin|_next|dl|files)(\/|$)/
 const ADMIN_WRITE = /^\/api\/admin\//
 const ADMIN_WRITE_SKIP = /^\/api\/admin\/(optimization|performance|monitoring|chat|crm|crm-notes|audit|analytics|backups|incidents|extensions\/state)(\/|$)/
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const incoming = req.headers.get('x-request-id')?.trim() || ''
   const requestId = REQUEST_ID.test(incoming) ? incoming : crypto.randomUUID()
   const headers = new Headers(req.headers)
@@ -147,6 +147,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  runtime: 'nodejs',
   matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 }

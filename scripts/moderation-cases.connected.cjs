@@ -1,6 +1,6 @@
 // Real PostgreSQL cases and staff members through the case service, on two database connections where two
 // staff members act together. Sources are named with this script's own prefix, so no real case is read or changed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), second = new PrismaClient(), seed = `mcase${Date.now()}`
 function world(db) {
   const cache = new Map()

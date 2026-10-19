@@ -1,6 +1,6 @@
 // Real PostgreSQL referral rewards with the real wallet. The recovery step only sees this script's invoices.
 // REFERRAL_BASELINE=<git ref> runs the referral service of that revision to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `referral-recovery-${Date.now()}`, baseline = process.env.REFERRAL_BASELINE
 const state = {failWalletFor: 0}
 const own = args => ({...args, where: {...args.where, number: {startsWith: seed}}})

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const { generateKeyPairSync, sign, verify, randomBytes } = require('node:crypto')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {

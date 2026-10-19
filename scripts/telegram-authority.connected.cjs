@@ -1,5 +1,5 @@
 // Real PostgreSQL, Identity, restrictions, audits and webhook owners; no outgoing Telegram/provider calls.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript');
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api');
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server');
 const single = process.argv.includes('--single-connection');
 if (single) { const url = new URL(process.env.DATABASE_URL); url.searchParams.set('connection_limit', '1'); url.searchParams.set('pool_timeout', '2'); process.env.DATABASE_URL = url.toString(); }

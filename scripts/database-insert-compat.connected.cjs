@@ -1,5 +1,5 @@
 // Actual owner services on PostgreSQL or SQLite; isolated rows, no .env or pre-existing data.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),prisma=new PrismaClient(),seed=`insert-compat-${Date.now()}`;
 process.env.STORE_DELIVERY_KEY ||= 'ab'.repeat(32);
 let product; const users=[],cursor=new Map();

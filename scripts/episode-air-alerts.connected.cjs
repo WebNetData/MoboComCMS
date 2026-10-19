@@ -1,6 +1,6 @@
 // Real PostgreSQL series, episodes, follows and announcement rows. Only the inbox write is a test double;
 // the job only sees this script's series.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `air-${Date.now()}`
 const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
 const scoped = new Proxy(prisma.cinemaEpisodeAirNotification, { get: (target, key) => key === 'findMany' ? args => target.findMany({ ...args, where: { AND: [args.where || {}, { title: { slug: { startsWith: seed } } }] } }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })

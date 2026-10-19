@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const vm = require('node:vm')
-const ts = require('typescript')
+const ts = require('typescript-api')
 function load(file, mocks = {}, cache = new Map()) {
   const key = file.replace(/\\/g,'/')
   if (cache.has(key)) return cache.get(key).exports

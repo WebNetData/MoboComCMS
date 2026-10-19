@@ -1,5 +1,5 @@
 // Real PostgreSQL orders and VIP periods. The recovery only sees this script's orders; the inbox, the module switch and the session are test doubles.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `gift-vip-${Date.now()}`
 const state = {enabled: true, buyers: [], failFor: 0}
 const order = new Proxy(prisma.order, {get: (target, key) => key === 'findMany' ? args => target.findMany({...args, where: {...args.where, userId: {in: state.buyers}}}) : key === 'findUnique' ? async args => { if (args.where.id === state.failFor) throw new Error('order unavailable'); return target.findUnique(args) } : typeof target[key] === 'function' ? target[key].bind(target) : target[key]})

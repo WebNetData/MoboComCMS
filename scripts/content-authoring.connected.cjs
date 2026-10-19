@@ -1,5 +1,5 @@
 // Actual PostgreSQL persistence/read models. External effects are injected explicitly.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),stamp=`authoring-${Date.now()}`,cache=new Map(),ids={},transfers=[],jobs=[],blobs=[]
 assert.match(new URL(process.env.DATABASE_URL).pathname,/^\/mobocom_authoring_/,'this check owns only a disposable authoring database')
 function load(file){

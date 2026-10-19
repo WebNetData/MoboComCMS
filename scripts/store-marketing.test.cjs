@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 function load(relative) {
   const file = path.resolve(__dirname, '..', `${relative}.ts`)

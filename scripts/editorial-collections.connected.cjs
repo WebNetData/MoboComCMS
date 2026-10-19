@@ -1,6 +1,6 @@
 // Real PostgreSQL collections, members and songs through the collections service: the lists members keep,
 // and the collections staff write for the site. Only this script's rows are created and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `edcol${Date.now()}`
 const cache = new Map()
 function load(file) {

@@ -1,4 +1,4 @@
-const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), ts = require('typescript')
+const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), ts = require('typescript-api')
 
 test('Library subtitle bytes enforce real storage boundaries, limits and safe remote routing', async t => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'mobocom-subtitle-')), root = path.join(temp, 'library'), remote = []

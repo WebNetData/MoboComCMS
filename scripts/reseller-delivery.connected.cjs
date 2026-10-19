@@ -1,5 +1,5 @@
 // Real PostgreSQL delivery claims; Telegram/Happ adapters stubbed, no external sends.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), seed = `delivery-${Date.now()}`, owned = {}
 let sends = 0, fail = true

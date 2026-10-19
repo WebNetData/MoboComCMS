@@ -1,4 +1,4 @@
-const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
+const fs=require('fs'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
 const prisma=new PrismaClient(),stamp='queue-lease-'+Date.now(),ids=[];let calls=0,release,started,dedupeRace=false;let hold=Promise.resolve(),entered=Promise.resolve(),failOld=false;
 const jobs=new Proxy(prisma.backgroundJob,{get(target,key){if(key==='findUnique')return async args=>{const row=await target.findUnique(args);if(dedupeRace&&args.where.dedupeKey===stamp+'-dedupe'){dedupeRace=false;assert.equal(await mod.exports.retryJob(row.id),true)}return row};if(['findFirst','updateMany','deleteMany'].includes(key))return args=>target[key]({...args,where:{...args.where,id:args.where?.id??{in:ids}}});return typeof target[key]==='function'?target[key].bind(target):target[key]}});
 const db=new Proxy(prisma,{get(target,key){return key==='backgroundJob'?jobs:typeof target[key]==='function'?target[key].bind(target):target[key]}});

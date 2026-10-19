@@ -1,5 +1,5 @@
 // Real PostgreSQL job/content/history and canonical Identity. File/adapter/queue/audit boundaries are explicit fixture doubles.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),prisma=new PrismaClient();
 const stamp=`import-authority-${Date.now()}`,users=[],roles=[],jobs=[],audits=[],queued=[];
 let unavailable=false,planHook=null,applyHook=null,prepared=0,applied=0,rolledBack=0,policyBefore;

@@ -1,6 +1,6 @@
 // Real PostgreSQL posts and reactions. The forum's settings row and the job queue are kept in memory and the
 // recount is narrowed to this script's members, so the local site's settings, jobs and members are not touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `rep${Date.now()}`
 const state = { settings: null, jobs: [], users: [] }
 const profiles = new Proxy(prisma.forumProfile, { get: (target, key) => key === 'findMany' ? args => target.findMany({ ...args, where: { AND: [args.where || {}, { userId: { in: state.users } }] } }) : typeof target[key] === 'function' ? target[key].bind(target) : target[key] })

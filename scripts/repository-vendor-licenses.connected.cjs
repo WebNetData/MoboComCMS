@@ -1,4 +1,4 @@
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
 if(!process.argv.some(x=>x.startsWith('--case='))){
  const cp=require('node:child_process');
  for(const op of ['grant','status','extend','site'])for(const mode of ['success','authority','permission','module','policy','global','audit','settings','full']){const r=cp.spawnSync(process.execPath,[__filename,...process.argv.slice(2),'--case='+op,'--mode='+mode],{stdio:'inherit',env:process.env});if(r.status!==0)process.exit(r.status||1);}

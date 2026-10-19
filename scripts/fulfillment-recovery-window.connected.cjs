@@ -1,6 +1,6 @@
 // Real PostgreSQL invoices, jobs, deliveries and order events. The recoveries only see this script's rows; nothing a job would do is run.
 // FULFILLMENT_WINDOW_BASELINE=<git ref> runs the fulfillment jobs of that revision to show the fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `fulfil-window-${Date.now()}`, baseline = process.env.FULFILLMENT_WINDOW_BASELINE
 const state = {users: [], failSaleFor: 0}
 const scoped = (model, scope) => new Proxy(model, {get: (target, key) => key === 'findMany' ? args => target.findMany({...args, where: scope(args.where)}) : typeof target[key] === 'function' ? target[key].bind(target) : target[key]})

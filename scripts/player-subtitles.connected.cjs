@@ -1,7 +1,7 @@
 // Real PostgreSQL film and links through the real watch and subtitle code. The viewer, the download-protection
 // settings and the remote file are test doubles; nothing is fetched from the network.
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'player-subtitles-check'
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `psub${Date.now()}`
 const state = { viewer: { userId: null, member: false }, guard: true, cinema: true, ass: false, separateAudio: false, files: new Map(), fetched: [] }
 const cache = new Map()

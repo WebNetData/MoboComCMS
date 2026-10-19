@@ -1,5 +1,5 @@
 // Real PostgreSQL and existing write owners. Deterministic FX/settings; outbound notifications/events are stubbed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), db = new PrismaClient(), seed = `phw${Date.now().toString(36)}`
 const products = []; let user, seller
 const mocks = {

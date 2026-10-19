@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict'), fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), ts = require('typescript'), { PrismaClient } = require('@prisma/client'), fixtures = require('./fixtures/media-storage.cjs');
+const assert = require('node:assert/strict'), fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client'), fixtures = require('./fixtures/media-storage.cjs');
 assert.match(new URL(process.env.DATABASE_URL).pathname, /^\/mobocom_media_/);
 assert.ok(process.env.DOWNLOADS_ROOT?.startsWith('/tmp/'));
 process.env.NEXTAUTH_SECRET ||= 'owned-storage-fixture-not-production';

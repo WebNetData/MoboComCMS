@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 const { NextRequest } = require('next/server')
 
 test('Cinema filters retain exact people IDs and compose safe URLs across sorting and paging',()=>{
@@ -346,7 +346,7 @@ const INSTALLED = {
 }
 
 test('origin guard accepts the actual host despite Next localhost normalization and rejects foreign origins', async () => {
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
   const request = origin => new NextRequest('http://localhost:3002/api/subscriptions/1', { method: 'POST', headers: { host: '127.0.0.1:3002', origin, 'x-request-id': 'origin-test-123' } })
   assert.equal((await middleware(request('http://127.0.0.1:3002'))).status, 200)
   assert.equal((await middleware(request('https://attacker.invalid'))).status, 403)
@@ -354,7 +354,7 @@ test('origin guard accepts the actual host despite Next localhost normalization 
 })
 
 test('middleware publishes sections under their aliases and redirects old addresses', async () => {
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/game' }) } })
   const get = (url) => middleware(new NextRequest(url, { headers: { 'x-request-id': 'alias-test-123' } }))
   const old = await get('http://localhost:3002/games/x?y=1')
   assert.equal(old.status, 308)
@@ -1155,7 +1155,7 @@ test('a write must show where it was made: Origin, Sec-Fetch-Site, Referer, or n
   assert.equal(from({ hasCookies: false, origin: 'https://evil.example' }), 'foreign-origin', 'a named foreign site is refused with or without cookies')
   assert.equal(mutationOrigin({ origin: 'https://shop.example', secFetchSite: null, referer: null, hasCookies: true, hosts: [null, undefined] }), 'foreign-origin', 'no known host, nothing is ours')
 
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) } })
   const send = (path, headers, method = 'POST') => middleware(new NextRequest('http://localhost:3002' + path, { method, headers: { host: '127.0.0.1:3002', 'x-request-id': 'origin-test-456', ...headers } })).then((response) => response.status)
   const session = { cookie: 'next-auth.session-token=abc' }
   assert.equal(await send('/api/account/x', session), 403, 'a session cookie and no word on the source')
@@ -1197,7 +1197,7 @@ test('scripts run by nonce: one per response, on the request for Next and in the
   assert.match(policy('/miniapp/x'), /frame-ancestors 'self' https:\/\/web\.telegram\.org/)
   assert.match(policy('/login'), /challenges\.cloudflare\.com/)
 
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async () => null, purgeSoon: () => {} } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async () => null, purgeSoon: () => {} } })
   const get = (path, headers = {}) => middleware(new NextRequest('http://localhost:3002' + path, { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-12345', ...headers } }))
   const first = await get('/blog/x'), second = await get('/blog/x')
   const sent = csp.nonceOf(first.headers.get('content-security-policy'))
@@ -1231,7 +1231,7 @@ test('a stored page goes out with the nonce of the response that carries it', as
   // Through the middleware: a page from the cache carries the nonce of this response, and one passed on as rendered keeps its own.
   const body = (nonce) => '<script nonce="' + nonce + '">a()</script>'
   let answer
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async (input) => answer(input), purgeSoon: () => {} } })
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED, '@/modules/site/server/routes': { loadRouteAliases: async () => ({}) }, '@/modules/performance/server/pagecache': { pageCacheHandle: async (input) => answer(input), purgeSoon: () => {} } })
   const get = () => middleware(new NextRequest('http://localhost:3002/blog/x', { headers: { host: '127.0.0.1:3002', 'x-request-id': 'csp-test-67890' } }))
   answer = (input) => new Response(withNonce(Buffer.from(body(stored)), stored, input.nonce), { headers: { 'content-type': 'text/html' } })
   const cached = await get(), cachedNonce = csp.nonceOf(cached.headers.get('content-security-policy'))
@@ -1278,7 +1278,7 @@ test('a section in maintenance shows its notice to visitors and itself to the pe
 
   // ---- through the middleware
   let stored = state, token = null, tokenReads = 0
-  const { middleware } = load('src/middleware.ts', { ...INSTALLED,
+  const { proxy: middleware } = load('src/proxy.ts', { ...INSTALLED,
     '@/modules/site/server/routes': { loadRouteAliases: async () => ({ '/games': '/play' }) },
     '@/modules/performance/server/pagecache': { pageCacheHandle: async () => (token ? null : new Response('cached page', { headers: { 'content-type': 'text/html' } })), purgeSoon: () => {} }, // the page cache serves visitors only
     '@/modules/identity/server/access': { requireUser: async () => { tokenReads += 1; return token } },

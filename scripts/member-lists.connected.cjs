@@ -1,6 +1,6 @@
 // Real PostgreSQL member, game, songs, playlist, collection and favourites, read and changed through the one
 // reading and writing of a member's lists, which calls each list's own owner. Only this script's rows are touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `mlist${Date.now()}`
 const state = { off: new Set(), user: null }
 const cache = new Map()

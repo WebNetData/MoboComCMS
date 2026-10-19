@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {

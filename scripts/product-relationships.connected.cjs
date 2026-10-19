@@ -1,5 +1,5 @@
 // Local PostgreSQL transactions/constraints. Creates and removes only owned products.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), seed = `relation-${Date.now()}`, products = []
 let admin, settingsBefore, settingsRead = false, browser
 async function browserChecks(source, a, b, token) {

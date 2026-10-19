@@ -3,7 +3,7 @@
 // Its payments are stored under a provider name of their own, so a worker of another process using the same
 // database (a local app container, for instance) never selects them: such a worker once polled six of the
 // due test requests between two batches and made the order assertions fail.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `frenzy-reconcile-${Date.now()}`
 const baseline = process.env.FRENZY_RECONCILE_BASELINE
 const state = {throwFor: ''}, polled = []

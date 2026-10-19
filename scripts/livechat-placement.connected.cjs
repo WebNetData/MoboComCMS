@@ -1,5 +1,5 @@
 // Real PostgreSQL canonical Settings and livechat application functions; external services are boundaries only.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client'), db = new PrismaClient(), cache = new Map()
 const key = 'livechat.v1'
 let cachedReads = 0

@@ -1,5 +1,5 @@
 // Real PostgreSQL review dimensions, verified-experience badge, list order and filter; the public item registry and module switch are test doubles.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `review-dimensions-${Date.now()}`, base = 700_000_000 + (Date.now() % 50_000_000)
 const mocks = {
  '@/platform/database/prisma': {db},

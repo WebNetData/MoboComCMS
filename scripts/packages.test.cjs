@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 // Uploaded packages are admin-supplied but rendered for every visitor, so the
 // pure format/sanitizer/zip code is tested against hostile input directly.

@@ -1,6 +1,6 @@
 // Real PostgreSQL import jobs, records and external ids around two films, read through the provenance reader.
 // Only this script's jobs, records and films are created and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `iprov${Date.now()}`
 const mod = { exports: {} }
 new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync('src/modules/imports/server/provenance.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(name => name === '@/platform/database/prisma' ? { db: prisma } : require(name), mod, mod.exports)

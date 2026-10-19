@@ -1,6 +1,6 @@
 // Real PostgreSQL: a page, and a magazine article, written as a MoboCom document. The service is the real one; the site-wide switch is kept in
 // memory so the check never switches the plugin of the local site. Pages are namespaced and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `editor-doc-${Date.now()}`
 const plugin = {on: true}, changes = []
 const mocks = {

@@ -1,5 +1,5 @@
 // Real PostgreSQL + installed ZIP/RAR tools. Always use an isolated, empty-migrated test database.
-const assert = require('node:assert/strict'), fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), cp = require('node:child_process'), ts = require('typescript'), { PrismaClient } = require('@prisma/client');
+const assert = require('node:assert/strict'), fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path'), crypto = require('node:crypto'), cp = require('node:child_process'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client');
 assert.match(new URL(process.env.DATABASE_URL).pathname, /^\/mobocom_media_/, 'isolated media database required');
 assert.ok(process.env.DOWNLOADS_ROOT?.startsWith('/tmp/'), 'private Linux test storage required');
 process.env.SERVER_PANEL_ENABLED = 'true';

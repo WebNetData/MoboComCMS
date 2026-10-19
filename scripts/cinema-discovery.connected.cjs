@@ -1,5 +1,5 @@
 // Native PostgreSQL evidence for the existing Cinema catalogue and people owners.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server')
 const db=new PrismaClient(),stamp='cdiscovery'+Date.now()+process.pid,cache=new Map()
 let broken=false
 const guardedDb=new Proxy(db,{get(target,key){if(key==='cinemaTitle'&&broken)return new Proxy(target.cinemaTitle,{get(){return async()=>{throw Error('deliberate database outage')}}});return typeof target[key]==='function'?target[key].bind(target):target[key]}})

@@ -1,7 +1,7 @@
 // npm run test:redis — the strict rate limit against a real Redis (REDIS_URL).
 // Two copies of the limiter, each with its own Redis connection, stand for two app instances.
 // Skipped without REDIS_URL: `npm run check` and `npm run test:pg` must run without Redis.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), ts = require('typescript-api')
 
 if (!process.env.REDIS_URL) { console.log('rate-limit.redis: skipped (REDIS_URL is not set)'); process.exit(0) }
 process.env.REDIS_PREFIX = `qa-rl-${crypto.randomUUID().slice(0, 8)}:`

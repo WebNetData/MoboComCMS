@@ -1,5 +1,5 @@
 // Real Identity/Forum owners and PostgreSQL. External notifications/modules are isolated, never identity writes.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client'),{File}=require('node:buffer')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client'),{File}=require('node:buffer')
 const db=new PrismaClient(),stamp='avatar'+Date.now()+process.pid,cache=new Map(),files=[]
 function load(file){
  const base=path.resolve(file),full=fs.existsSync(base)&&fs.statSync(base).isFile()?base:['.ts','.tsx','/index.ts'].map(ext=>base+ext).find(fs.existsSync)

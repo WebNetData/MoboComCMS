@@ -1,5 +1,5 @@
 // Real PostgreSQL concurrency checks; only namespaced products/cart/user fixtures.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), seed = `cart-write-${Date.now()}`; let user, cart, product, other
 function load(file) {
  const mod = { exports: {} }, code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText

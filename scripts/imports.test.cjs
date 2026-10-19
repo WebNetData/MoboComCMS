@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
 const zlib = require('node:zlib')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 /* Bulk import: pure rules (parsers, mapping and field policy, values, store
    rules, SSRF checks, reports) and the remote image downloader against local

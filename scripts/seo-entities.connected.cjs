@@ -1,6 +1,6 @@
 // Real PostgreSQL forums, topics, studios, film people, collections and categories through the sitemap's
 // entity lists. The lists are read for the whole site; the assertions only look at this script's own rows.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `seoent${Date.now()}`
 const cache = new Map()
 function load(file) {

@@ -4,7 +4,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const root = path.resolve(__dirname, '..')
 function load(relative) {
@@ -117,7 +117,7 @@ test('runtime image contains the actual shared owners required by integrity repo
 
 test('wiring: the installer is gated, standalone and cannot brick a site', () => {
   for (const file of ['src/app/install/route.ts', 'src/app/api/install/route.ts', 'public/installer/installer.js', 'public/installer/installer.css', 'scripts/load-runtime-env.cjs', 'prisma/system-roles.json']) assert.ok(fs.existsSync(path.join(root, file)), file)
-  assert.match(read('src/middleware.ts'), /installGate\(req\)/)
+  assert.match(read('src/proxy.ts'), /installGate\(req\)/)
   const gate = read('src/modules/installer/server/gate.ts')
   assert.match(gate, /'unknown'/, 'a database outage never redirects to the installer')
   const state = read('src/modules/installer/server/state.ts')

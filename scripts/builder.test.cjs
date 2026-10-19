@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 function load(file, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', file)
@@ -285,7 +285,7 @@ test('builder media and VIP widgets validate their props', () => {
 })
 
 test('advanced style: only bounded values are stored, and the CSS written from them holds nothing a writer typed', () => {
-  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
   const compile = (file, deps = {}) => { const mod = { exports: {} }; new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)((name) => deps[name] || require(name), mod, mod.exports); return mod.exports }
   const style = compile('src/modules/site/domain/builder-style.ts')
   // Nothing set stores nothing; defaults are dropped so a document stays small.

@@ -1,7 +1,7 @@
 // Real PostgreSQL members, songs, reviews and favourites through the real suggestion engine and its built-in
 // providers; the public item registry is a test double. Checks the provider contract (one provider per kind
 // of item, replaceable, contained when it fails) and the signal from the member's own high ratings.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const real = new PrismaClient(), seed = `rec-prov-${Date.now()}`
 let reviewReads = 0
 const db = new Proxy(real, { get: (target, key) => key === 'itemReview' ? new Proxy(target.itemReview, { get: (model, method) => { if (method === 'findMany') reviewReads++; return model[method].bind(model) } }) : target[key] })

@@ -1,6 +1,6 @@
 // Real PostgreSQL game, series, updates, episodes, articles and forum topics through the public timeline of
 // an item. Only this script's rows are created and removed.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `itime${Date.now()}`
 const state = { off: new Set() }
 const cache = new Map()

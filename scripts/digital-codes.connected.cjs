@@ -1,7 +1,7 @@
 // Real PostgreSQL products, code pools, holds, orders and deliveries, through the real inventory and order code.
 // Two database clients are used where two buyers or two deliveries act at the same moment.
 process.env.STORE_DELIVERY_KEY = process.env.STORE_DELIVERY_KEY || 'ab'.repeat(32)
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), second = new PrismaClient(), seed = `codes-${Date.now()}`
 const inbox = []
 // The shop's return rules as the owner set them; changed by the sections below.

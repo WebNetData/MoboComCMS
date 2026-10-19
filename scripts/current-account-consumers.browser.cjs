@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),{encode}=require('next-auth/jwt'),{chromium}=require('@playwright/test');
 const {fixtureTLS}=require('./e2e-fixture-tls.cjs');
 const baseURL=process.env.E2E_BASE_URL;

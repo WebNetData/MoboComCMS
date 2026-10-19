@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),{PrismaClient}=require('@prisma/client');const db=new PrismaClient(),seed=`bundle-${Date.now()}`,products=[];let user,cart,order,admin,settingsBefore,settingsRead=false,browser
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client');const db=new PrismaClient(),seed=`bundle-${Date.now()}`,products=[];let user,cart,order,admin,settingsBefore,settingsRead=false,browser
 async function apiChecks(source,target,hidden,variant,definition,bundleId){
  const {encode}=require('next-auth/jwt'),base='http://localhost:3000',key='store.merchandising.v1'
  settingsBefore=await db.setting.findUnique({where:{key}});settingsRead=true

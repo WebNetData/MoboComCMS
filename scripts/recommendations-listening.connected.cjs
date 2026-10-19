@@ -1,5 +1,5 @@
 // Real PostgreSQL private suggestions from listening history, behind its own consent; the public item registry is a test double.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const real = new PrismaClient(), seed = `rec-listening-${Date.now()}`
 // Counts reads of the listening history so "not read without consent" is checked, not assumed.
 let historyReads = 0

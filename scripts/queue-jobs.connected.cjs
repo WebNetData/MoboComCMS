@@ -1,5 +1,5 @@
 // Real PostgreSQL background queue; the handler module is a test double and the run only sees this script's jobs.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `queue-jobs-${Date.now()}`
 const baseline = process.env.QUEUE_JOBS_BASELINE
 const state = {fail: false, runs: 0}

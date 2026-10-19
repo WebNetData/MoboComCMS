@@ -1,5 +1,5 @@
 // Actual SQL/Identity/audit/queue. Image/CDN effects are explicit fixture doubles.
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
 if(process.argv.includes('--single-connection')){const url=new URL(process.env.DATABASE_URL);url.searchParams.set('connection_limit','1');url.searchParams.set('pool_timeout','2');process.env.DATABASE_URL=url.toString()}
 const prisma=new PrismaClient(),stamp='queue-authority-'+Date.now(),ids=[],users=[],roles=[],auditIds=[];let calls=0,failAudit=false,failAfterAudit=false,unavailable=false,pageHook=null,policyBefore;
 const jobs=new Proxy(prisma.backgroundJob,{get(target,key){if(['findFirst','updateMany','deleteMany'].includes(key))return args=>target[key]({...args,where:{...args.where,id:args.where?.id??{in:ids}}});return typeof target[key]==='function'?target[key].bind(target):target[key]}});

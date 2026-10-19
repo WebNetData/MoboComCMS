@@ -1,5 +1,5 @@
 // Real PostgreSQL newsletter sending; SMTP and settings are isolated, and the run only sees this script's campaigns and subscribers.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `newsletter-send-${Date.now()}`
 const baseline = process.env.NEWSLETTER_SEND_BASELINE
 const state = {failRecipientWrites: 0, mailDelayMs: 0, throwFor: '', capFor: ''}, mails = []

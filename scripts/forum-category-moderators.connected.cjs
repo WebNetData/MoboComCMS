@@ -1,6 +1,6 @@
 // Real PostgreSQL forums, topics and assigned moderators. A member made moderator of one forum (or section) is
 // asked to act inside it, under it and outside it: the same functions the pages and the API call.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `fm${Date.now()}`
 const cache = new Map()
 function load(file) {

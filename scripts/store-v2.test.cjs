@@ -2,7 +2,7 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 // Minimal TS loader with "@/" path mapping (domain modules only import each other).
 const cache = new Map()
@@ -163,7 +163,7 @@ test('a product tells its whole path — home, the shop, its half, its categorie
 })
 
 test('a product category belongs to one half of the shop: a root decides, everything under it follows, and nothing of the other half may stay in it', () => {
-  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+  const fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
   const mod = { exports: {} }
   new Function('require', 'module', 'exports', ts.transpileModule(read('src/modules/catalog/domain/category-kind.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(require, mod, mod.exports)

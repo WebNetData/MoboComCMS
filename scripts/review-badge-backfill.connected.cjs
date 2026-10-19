@@ -1,6 +1,6 @@
 // Real PostgreSQL badge backfill for reviews nobody reopened. The run only sees this script's reviews and keeps its cursor
 // in memory, so the site's own cursor and other members' reviews are untouched; the item registry and module switch are test doubles.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `badge-backfill-${Date.now()}`, base = 500_000_000 + (Date.now() % 50_000_000)
 const state = {reviews: true, ids: [], cursor: null, breakFor: 0}
 const itemReview = new Proxy(prisma.itemReview, {get: (target, key) => key === 'findMany' ? args => target.findMany({...args, where: {...args.where, userId: {in: state.ids}}}) : typeof target[key] === 'function' ? target[key].bind(target) : target[key]})

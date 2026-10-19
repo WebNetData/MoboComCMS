@@ -1,5 +1,5 @@
 // Actual analytics owner + PostgreSQL/SQLite; unique fixture days, no .env or existing rows.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api');
 const clientModule=process.env.ANALYTICS_TEST_CLIENT||'@prisma/client';
 const {PrismaClient,Prisma}=require(clientModule);
 const nativeErrors=[],logs=[],prisma=new PrismaClient({log:[{emit:'event',level:'error'}]});

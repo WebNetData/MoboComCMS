@@ -1,5 +1,5 @@
 // Actual journal page/query owner against PostgreSQL; only namespaced fixtures are written.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),{PrismaClient}=require('@prisma/client')
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api'),{PrismaClient}=require('@prisma/client')
 const db=new PrismaClient(),stamp=`owned-journal-paging-${Date.now()}`,ids=[],categories=[]
 let pageSize=12
 const mocks={

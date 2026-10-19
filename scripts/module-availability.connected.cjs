@@ -1,5 +1,5 @@
 // Actual stored switches + real PostgreSQL read failure/guarded writes. No providers.
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
 const prisma=new PrismaClient(),stamp='module-availability-'+Date.now(),cache=new Map();let unavailable=false,user,before=[];
 const db=new Proxy(prisma,{get(target,key){if(key==='setting')return new Proxy(target[key],{get(model,method){if(method==='findMany')return args=>unavailable?prisma.$queryRawUnsafe('SELECT "__mobocom_fixture_missing_column__" FROM "Setting" LIMIT 1'):model.findMany(args);return typeof model[method]==='function'?model[method].bind(model):model[method]}});return typeof target[key]==='function'?target[key].bind(target):target[key]}});
 function load(relative){const file=path.resolve(relative);if(cache.has(file))return cache.get(file).exports;const mod={exports:{}};cache.set(file,mod);new Function('require','module','exports',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText)(name=>{

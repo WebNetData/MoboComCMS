@@ -1,5 +1,5 @@
 // Real PostgreSQL announcement queue; item lookup and the push channel are test doubles and the run only sees this script's rows.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), base = 900_000_000 + (Date.now() % 50_000_000)
 const baseline = process.env.SOCIAL_QUEUE_BASELINE
 const state = {throwFor: new Set(), missing: new Set()}, pushed = []

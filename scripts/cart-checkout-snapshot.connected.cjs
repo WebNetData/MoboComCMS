@@ -1,5 +1,5 @@
 // Real PostgreSQL snapshot cleanup; membership/shipping providers are isolated.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cart-snapshot-${Date.now()}`, products = []
 let user, cart
 function load(file, cache = new Map()) {

@@ -1,5 +1,5 @@
 // Real Setting-row claims through the actual maintenance service. Only this run's key is touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), key = `test-maintenance-${Date.now()}-${process.pid}`
 let reads = 0, release, barrier
 function gate() { reads = 0; barrier = new Promise(resolve => { release = resolve }) }

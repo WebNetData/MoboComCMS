@@ -1,4 +1,4 @@
-const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const { test } = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 function load(relative, mocks = {}, cache = new Map()) {
   const absolute = path.resolve(__dirname, '..', relative)
   if (cache.has(absolute)) return cache.get(absolute).exports

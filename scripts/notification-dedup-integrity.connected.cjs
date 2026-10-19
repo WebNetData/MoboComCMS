@@ -1,5 +1,5 @@
 // Canonical inbox owner on a real owned PostgreSQL/SQLite fixture; no external sends.
-const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('fs'),path=require('path'),ts=require('typescript-api');
 const clientModule=process.env.MOBOCOM_TEST_CLIENT||'@prisma/client';
 const {PrismaClient,Prisma}=require(clientModule),errors=[];
 const prisma=new PrismaClient({log:[{emit:'event',level:'error'}]});prisma.$on('error',e=>errors.push(e));

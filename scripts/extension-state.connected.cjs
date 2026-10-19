@@ -1,5 +1,5 @@
 // Actual PostgreSQL and canonical state owner; owned fixture settings restored in finally.
-const fs=require('fs'),path=require('path'),ts=require('typescript'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
+const fs=require('fs'),path=require('path'),ts=require('typescript-api'),assert=require('node:assert/strict'),{PrismaClient}=require('@prisma/client');
 const single=process.argv.includes('--single-connection');if(single){const u=new URL(process.env.DATABASE_URL);u.searchParams.set('connection_limit','1');u.searchParams.set('pool_timeout','2');process.env.DATABASE_URL=u.toString()}
 const dependencyManifests=['vpn','reseller','remnawave-control'].map(id=>JSON.parse(fs.readFileSync('src/plugins/'+id+'/manifest.json','utf8')));
 const db=new PrismaClient(),cache=new Map(),keys=['extension.store.state.v1','storeEnabled',...dependencyManifests.flatMap(m=>['extension.'+m.id+'.state.v1',...(m.stateSetting?[m.stateSetting]:[])])];let barrier=false,arrivals=0,release,fault=false;

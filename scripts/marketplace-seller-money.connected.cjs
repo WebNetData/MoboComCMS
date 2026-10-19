@@ -1,7 +1,7 @@
 // Real PostgreSQL seller ledger and payouts on two database connections, like two server processes. Settings, the inbox, the module
 // switch and the catalog helpers are test doubles. The sale recovery only sees this script's orders.
 // MARKETPLACE_BASELINE=<git ref> runs the marketplace service of that revision to show the payout fault there.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `mkt-money-${Date.now()}`, baseline = process.env.MARKETPLACE_BASELINE
 const state = {gate: null, enabled: true, buyers: [], failSaleFor: 0}
 // `gate`: a reader is held after its read until a second reader has read too (or 400 ms pass): the state of two requests in the same instant.

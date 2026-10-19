@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const ts = require('typescript')
+const ts = require('typescript-api')
 
 const cache = new Map()
 function load(relative) {

@@ -1,6 +1,6 @@
 // PostgreSQL contract checks. Authentication tokens and availability are injected;
 // identity/permission resolution, transactions, claims, audit and category reads are real.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api')
 process.env.NEXTAUTH_SECRET ||= 'owned-navigation-contract-fixture-secret'
 if (!/^\/mobocom_navigation_/.test(new URL(process.env.DATABASE_URL).pathname)) throw Error('Use a disposable mobocom_navigation_* database for this contract suite')
 const { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server'), db = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] })

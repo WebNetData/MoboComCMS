@@ -1,6 +1,6 @@
 // Real PostgreSQL abandoned-cart reminders; settings, inbox and cart pricing are isolated.
 // The run uses a clock far in the future, so carts that already exist in the database are out of its window.
-const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript'), {PrismaClient} = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), {execFileSync} = require('node:child_process'), ts = require('typescript-api'), {PrismaClient} = require('@prisma/client')
 const db = new PrismaClient(), seed = `cart-recovery-${Date.now()}`, now = new Date('2100-01-01T12:00:00Z')
 const baseline = process.env.CART_RECOVERY_BASELINE
 const settings = {enabled: true, steps: [{afterHours: 1, message: 'first'}, {afterHours: 24, message: 'second', couponCode: 'BACK10'}], minValueToman: 0, maxAgeDays: 7}

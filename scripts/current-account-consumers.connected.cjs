@@ -1,5 +1,5 @@
 // Actual HTTP/auth/form owners on PostgreSQL; money/files/providers are delegation spies.
-const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server'),{encode}=require('next-auth/jwt');
 const prisma=new PrismaClient(),secret='owned-current-account-consumers-fixture',stamp=`account-consumers-${Date.now()}`,users=[],forms=[];
 let unavailable=false;const calls=[];

@@ -1,5 +1,5 @@
 /* Actual canonical command/read policies and existing Admin route against PostgreSQL. */
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),ts=require('typescript-api');
 const {PrismaClient}=require('@prisma/client'),{NextRequest}=require('next/server');
 if(process.argv.includes('--single-connection')){const url=new URL(process.env.DATABASE_URL);url.searchParams.set('connection_limit','1');url.searchParams.set('pool_timeout','2');process.env.DATABASE_URL=url.toString()}
 const db=new PrismaClient(),seed=`restrictions-${Date.now()}`;let actor,enabled=true;

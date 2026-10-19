@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict')
 const path = require('node:path')
 const fs = require('node:fs')
-const ts = require('typescript')
+const ts = require('typescript-api')
 const { PrismaClient } = require('@prisma/client')
 const { encode } = require('next-auth/jwt')
 const { chromium } = require('playwright')

@@ -1,6 +1,6 @@
 // Real PostgreSQL staff members and their saved views through the saved-views service, plus the pure rules
 // of the workspace shortcuts. Only this script's members and their views are touched.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), { PrismaClient } = require('@prisma/client')
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient(), seed = `aview${Date.now()}`
 const state = { admin: null }
 const cache = new Map()
