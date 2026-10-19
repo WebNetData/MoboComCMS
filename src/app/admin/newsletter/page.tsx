@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
 import { Notice, Pager, fa, faDate } from '../store/shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -85,7 +86,7 @@ function Editor({ initial, sizes, onDone }: { initial: Draft; sizes: Record<stri
         <button type="button" className="btn btn-primary" disabled={!!busy} onClick={() => void schedule(true)}>{busy === 'send' ? 'در حال ثبت…' : 'ارسال اکنون'}</button>
       </div>
       <div className="nl-row">
-        <input className="input" type="datetime-local" dir="ltr" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="زمان ارسال" />
+        <JalaliDateInput withTime className="input" value={when} onChange={(value) => setWhen(value)} aria-label="زمان ارسال" />
         <button type="button" className="btn btn-ghost" disabled={!when || !!busy} onClick={() => void schedule(false)}>زمان‌بندی ارسال</button>
       </div>
       <div className="nl-row">

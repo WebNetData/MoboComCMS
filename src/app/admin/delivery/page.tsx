@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { WEEKDAY_FA, type DeliverySettings, type ScheduleDay } from '@/modules/shipping/domain/shipping'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 /** Saturday-first week, as Iranian calendars show it (JS weekday numbers). */
 const WEEK = [6, 0, 1, 2, 3, 4, 5]
@@ -86,7 +87,7 @@ export default function AdminDeliveryPage() {
     <section className="sh-panel">
       <header className="sh-panel-head"><h2>تعطیلات مناسبتی</h2></header>
       <div className="sh-actions">
-        <input className="sh-input sh-date" type="date" dir="ltr" aria-label="تاریخ تعطیل (میلادی)" value={holiday} onChange={(e) => setHoliday(e.target.value)} />
+        <JalaliDateInput className="sh-input sh-date" aria-label="تاریخ تعطیل" value={holiday} onChange={(value) => setHoliday(value)} />
         <button type="button" className="sh-btn sh-btn-ghost" disabled={!holiday || s.holidays.includes(holiday)} onClick={() => { patch({ holidays: [...s.holidays, holiday].sort() }); setHoliday('') }}>افزودن</button>
       </div>
       {s.holidays.length ? <ul className="sh-holidays">{s.holidays.map((day) => <li key={day}><span>{persianDate(day)}</span><button type="button" className="sh-icon-btn" aria-label={`حذف ${persianDate(day)}`} onClick={() => patch({ holidays: s.holidays.filter((d) => d !== day) })}>×</button></li>)}</ul> : <p className="sh-muted">روز تعطیلی ثبت نشده است.</p>}

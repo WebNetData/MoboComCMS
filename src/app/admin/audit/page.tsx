@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useSearchParams } from '@/platform/routing/navigation'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 interface AuditRow {
   id: number
@@ -77,8 +78,8 @@ function AuditLog() {
         <label className="sa-field"><span>عملیات</span><input className="input" dir="ltr" value={action} onChange={(e) => setAction(e.target.value)} placeholder="invoice.refund" /></label>
         <label className="sa-field"><span>نوع مورد</span><input className="input" dir="ltr" value={targetType} onChange={(e) => setTargetType(e.target.value)} placeholder="invoice" /></label>
         <label className="sa-field"><span>شناسهٔ مورد</span><input className="input" dir="ltr" value={targetId} onChange={(e) => setTargetId(e.target.value)} placeholder="42" /></label>
-        <label className="sa-field"><span>از روز</span><input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="sa-field"><span>تا روز</span><input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label className="sa-field"><span>از روز</span><JalaliDateInput className="input" value={from} onChange={(value) => setFrom(value)} /></label>
+        <label className="sa-field"><span>تا روز</span><JalaliDateInput className="input" value={to} onChange={(value) => setTo(value)} /></label>
         <div className="audit-filter-actions"><button className="btn btn-primary" type="submit" disabled={loading}>اعمال فیلتر</button>{filtered && <button className="btn btn-ghost" type="button" onClick={clear}>پاک کردن</button>}</div>
       </form>
 

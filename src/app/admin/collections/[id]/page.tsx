@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import LibraryPicker from '@/components/media/LibraryPicker'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Item = { type: string; id: number; title: string; subtitle?: string; image?: string; url: string }
 type Detail = { id: number; title: string; description: string; cover: string; visibility: string; updatedAt: string; publishAt: string | null; scheduleError: string; followerCount: number; reactionCount: number; items: { id: number; position: number; card: Item }[] }
@@ -87,7 +88,7 @@ export default function EditorialCollectionPage({ params }: { params: Promise<{ 
       <p className="sa-sub">زمان با منطقهٔ زمانی دستگاه شما ثبت می‌شود. سرور هنگام انتشار، دسترسی ثبت‌کننده و قابل نمایش بودن محتوا را دوباره بررسی می‌کند.</p>
       {detail.publishAt && <p role="status">زمان ثبت‌شده: <time dateTime={detail.publishAt}>{new Date(detail.publishAt).toLocaleString('fa-IR')}</time></p>}
       {detail.scheduleError && <p className="error-text" role="alert">{detail.scheduleError}</p>}
-      <label className="sa-field"><span>تاریخ و ساعت انتشار</span><input className="input" type="datetime-local" value={publishAt} onChange={event => setPublishAt(event.target.value)} /></label>
+      <label className="sa-field"><span>تاریخ و ساعت انتشار</span><JalaliDateInput withTime className="input" value={publishAt} onChange={(value) => setPublishAt(value)} /></label>
       <div className="sa-head-actions"><button type="button" className="btn btn-primary" disabled={busy || !publishAt || !Number.isFinite(new Date(publishAt).getTime())} onClick={() => void patch({ publishAt: new Date(publishAt).toISOString(), updatedAt: detail.updatedAt }, 'زمان‌بندی ثبت شد.')}>{detail.publishAt ? 'تغییر زمان‌بندی' : 'ثبت زمان‌بندی'}</button>{detail.publishAt && <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void patch({ publishAt: null, updatedAt: detail.updatedAt }, 'زمان‌بندی لغو شد؛ مجموعه پیش‌نویس ماند.')}>لغو زمان‌بندی</button>}</div>
     </section>}
 

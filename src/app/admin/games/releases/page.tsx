@@ -3,6 +3,7 @@
 import Link from '@/components/AppLink'
 import { useState } from 'react'
 import { GamesShell, Notice, RELEASE_LABEL, faDate, send, useJson } from '../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Row = { id: number; slug: string; title: string; cover: string; platforms: string[]; releaseDate: string; status: string; featured: boolean; perPlatform: boolean; release: { state: string; days: number | null } }
 type Plan = { upcoming: Row[]; recent: Row[]; tba: Row[] }
@@ -36,7 +37,7 @@ export default function GamesReleasesPage() {
           {row.cover ? <img src={row.cover} alt="" /> : <span className="sa-ph" />}
           <span className="sa-grow"><Link href={`/admin/games/${row.id}`} className="sa-link"><b>{row.title}</b></Link><small>{row.platforms.join(' · ')}{row.perPlatform ? ' · تاریخ جداگانه برای هر پلتفرم' : ''}{row.status !== 'PUBLISHED' ? ' · پیش‌نویس' : ''}</small></span>
           <span className={`sa-state ${row.release.state === 'upcoming' ? 'is-info' : ''}`}>{RELEASE_LABEL(row.release)}</span>
-          <label className="sa-inline"><span className="sr-only">تاریخ انتشار {row.title}</span><input className="input" type="date" defaultValue={row.releaseDate} onBlur={(e) => { if (e.target.value !== row.releaseDate) void change(row, e.target.value) }} aria-label={`تاریخ انتشار ${row.title}`} /></label>
+          <label className="sa-inline"><span className="sr-only">تاریخ انتشار {row.title}</span><JalaliDateInput className="input" defaultValue={row.releaseDate} onChange={(value) => { if (value !== row.releaseDate) void change(row, value) }} aria-label={`تاریخ انتشار ${row.title}`} /></label>
         </li>)}</ul>
       </section>)}
     <p className="sa-hint">تاریخ را تغییر دهید و از فیلد خارج شوید تا ذخیره شود. برای تاریخ جداگانهٔ هر پلتفرم، صفحهٔ ویرایش بازی را باز کنید.</p>

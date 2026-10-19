@@ -1539,3 +1539,32 @@ test('admin presentation cannot style public pages after a client-side route cha
   assert.doesNotMatch(read('src/app/layout.tsx'), /import\s+['"].*admin-tidy\.css['"]/)
   assert.match(read('src/app/admin/layout.tsx'), /import\s+['"]\.\.\/admin-tidy\.css['"]/)
 })
+
+test('Persian dates: the shared calendar converts every day both ways and date fields are picked on it', () => {
+  const j = load('src/shared/time/jalali.ts')
+  assert.deepEqual(j.toJalali(new Date('2026-10-21T00:00:00Z')), { jy: 1405, jm: 7, jd: 29 })
+  assert.equal(j.isoDay(j.fromJalali(1405, 1, 1)), '2026-03-21')
+  assert.equal(j.jalaliMonthLength(1403, 12), 30)
+  assert.equal(j.jalaliMonthLength(1404, 12), 29)
+  // Every day from 1398 to 1410 survives the round trip, so the picker's grid never skips or repeats a day.
+  for (let at = Date.UTC(2019, 2, 21); at < Date.UTC(2032, 2, 21); at += 86_400_000) {
+    const { jy, jm, jd } = j.toJalali(new Date(at))
+    assert.equal(j.fromJalali(jy, jm, jd).getTime(), at)
+  }
+  assert.throws(() => j.fromJalali(1404, 12, 30))
+  assert.equal(j.parseIsoDay('2026-02-30'), null)
+  assert.equal(j.parseIsoDay('1405-07-29'.replace('1405', 'x')), null)
+  assert.equal(j.jalaliDayLabel('2026-10-21'), '۲۹ مهر ۱۴۰۵')
+  assert.equal(j.jalaliDayLabel(''), '')
+  // A date-and-time field holds device time: a moment read back and saved again does not move.
+  const moment = new Date(2026, 9, 21, 9, 5)
+  assert.equal(j.localDateTime(moment), '2026-10-21T09:05')
+  assert.equal(new Date(j.localDateTime(moment.toISOString())).getTime(), moment.getTime())
+  assert.equal(j.localDateTime(null), '')
+  // No native browser date fields remain where people type dates (they show mm/dd/yyyy); public forms keep their own Persian picker.
+  const root = path.resolve(__dirname, '..')
+  const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.tsx') ? [`${dir}/${e.name}`] : [])
+  for (const file of [...walk('src/app'), ...walk('src/components')]) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /type=["'{](date|datetime-local)["'}]|type=\{[^}]*'(date|datetime-local)'/, file)
+  const games = fs.readFileSync(path.join(root, 'src/modules/games/domain/games.ts'), 'utf8')
+  assert.match(games, /from '@\/shared\/time\/jalali'/, 'one calendar implementation')
+})

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Link from '@/components/AppLink'
 import { useParams, useRouter } from '@/platform/routing/navigation'
 import { AdsShell, ImageField, Notice, StatusChip, Trend, fa, faDate, send, useJson, type Day } from '../../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Creative = { id: number; kind: string; title: string; imageUrl: string; imageMobileUrl: string; alt: string; linkUrl: string; html: string; text: string; cta: string; weight: number; active: boolean; impressions: number; clicks: number; ctr: number }
 type Detail = {
@@ -185,8 +186,8 @@ export default function CampaignEditor() {
       </fieldset>
 
       <div className="sa-cols">
-        <label className="sa-field"><span>شروع</span><input className="input" type="datetime-local" value={form.startsAt} onChange={(e) => set({ startsAt: e.target.value })} /></label>
-        <label className="sa-field"><span>پایان</span><input className="input" type="datetime-local" value={form.endsAt} onChange={(e) => set({ endsAt: e.target.value })} /></label>
+        <label className="sa-field"><span>شروع</span><JalaliDateInput withTime className="input" value={form.startsAt} onChange={(value) => set({ startsAt: value })} /></label>
+        <label className="sa-field"><span>پایان</span><JalaliDateInput withTime className="input" value={form.endsAt} onChange={(value) => set({ endsAt: value })} /></label>
         <label className="sa-field"><span>ساعات نمایش (به وقت تهران)</span><input className="input" dir="ltr" value={form.hours} onChange={(e) => set({ hours: e.target.value })} placeholder="9-23" /><small className="sa-sub">خالی = همهٔ ساعت‌ها. برای شب‌ها: 22-6</small></label>
       </div>
       <div className="sa-cols">

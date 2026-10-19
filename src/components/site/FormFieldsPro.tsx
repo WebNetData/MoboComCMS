@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { JALALI_MONTHS, fromJalali, jalaliMonthLength, toJalali } from '@/modules/games/domain/games'
+import { JALALI_MONTHS, fromJalali, jalaliMonthLength, toJalali } from '@/shared/time/jalali'
 import type { FormField } from '@/modules/forms/domain/forms'
 
 const fa = (n: number) => n.toLocaleString('fa-IR', { useGrouping: false })

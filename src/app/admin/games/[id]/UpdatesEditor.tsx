@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { LinksEditor, type LinkRow } from '../../cms/MediaCrud'
 import { Notice, faDate, send, useJson } from '../shared'
 import { UPDATE_KINDS } from '@/modules/games/domain/games'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Update = { id: number; kind: string; title: string; version: string; size: string; notes: string; releasedAt: string; links: (LinkRow & { id: number })[] }
 const blank = (): Update => ({ id: 0, kind: 'UPDATE', title: '', version: '', size: '', notes: '', releasedAt: new Date().toISOString().slice(0, 10), links: [] })
@@ -50,7 +51,7 @@ export default function UpdatesEditor({ gameId, onVersion }: { gameId: number; o
         <label className="sa-field"><span>عنوان *</span><input className="input" value={editing.title} onChange={(e) => set({ title: e.target.value })} placeholder="آپدیت 1.13 یا Shadow of the Erdtree" /></label>
         <label className="sa-field"><span>نسخه</span><input className="input" dir="ltr" value={editing.version} onChange={(e) => set({ version: e.target.value })} placeholder="1.13" /></label>
         <label className="sa-field"><span>حجم</span><input className="input" dir="ltr" value={editing.size} onChange={(e) => set({ size: e.target.value })} placeholder="1.2 GB" /></label>
-        <label className="sa-field"><span>تاریخ</span><input className="input" type="date" value={editing.releasedAt} onChange={(e) => set({ releasedAt: e.target.value })} /></label>
+        <label className="sa-field"><span>تاریخ</span><JalaliDateInput className="input" value={editing.releasedAt} onChange={(value) => set({ releasedAt: value })} /></label>
       </div>
       <label className="sa-field"><span>تغییرات (هر مورد در یک خط)</span><textarea className="input" rows={4} value={editing.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
       <div className="sa-field"><span>لینک‌های دانلود این مورد</span><LinksEditor value={editing.links} onChange={(links) => set({ links: links as Update['links'] })} fa compact section="games" /></div>

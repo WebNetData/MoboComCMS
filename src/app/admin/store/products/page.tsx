@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { Money, Notice, Pager, StoreShell, fa, send, useJson } from '../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Product = {
   id: number; slug: string; name: string; image: string; sku: string; kind: string; active: boolean; featured: boolean; category: string; brand: string; currency: string
@@ -74,7 +75,7 @@ function Products() {
       {action === 'category' && <select className="select" value={value} onChange={(event) => setValue(event.target.value)} aria-label="دسته"><option value="">بدون دسته</option>{data?.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>}
       {action === 'brand' && <select className="select" value={value} onChange={(event) => setValue(event.target.value)} aria-label="برند"><option value="">بدون برند</option>{data?.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>}
       {(action === 'price' || action === 'discount') && <><input className="input sa-narrow" type="number" value={value} onChange={(event) => setValue(event.target.value)} placeholder={action === 'price' ? 'مثلاً ۱۰ یا -۵' : 'مثلاً ۱۵'} aria-label="درصد" /><select className="select" value={round} onChange={(event) => setRound(event.target.value)} aria-label="گرد کردن"><option value="1">بدون گرد کردن</option><option value="100">گرد به ۱۰۰</option><option value="1000">گرد به ۱٬۰۰۰</option><option value="10000">گرد به ۱۰٬۰۰۰</option></select></>}
-      {action === 'discount' && <label className="sa-inline"><span>پایان</span><input className="input" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} /></label>}
+      {action === 'discount' && <label className="sa-inline"><span>پایان</span><JalaliDateInput withTime className="input" value={endsAt} onChange={(value) => setEndsAt(value)} /></label>}
       {action === 'stock' && <input className="input sa-narrow" type="number" min={-1} value={value} onChange={(event) => setValue(event.target.value)} placeholder="-۱ = نامحدود" aria-label="موجودی" />}
       <button type="button" className="btn btn-primary" disabled={!action} onClick={() => void apply()}>اعمال</button>
       <button type="button" className="btn btn-ghost" onClick={() => setSelected([])}>لغو انتخاب</button>

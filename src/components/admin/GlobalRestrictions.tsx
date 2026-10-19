@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useReducer, useRef, type FormEvent } from 'react'
 import styles from './GlobalRestrictions.module.css'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Row = { id: number; reason: string; startsAt: string; expiresAt: string | null; issuedAt: string; issuedByUserId: number | null; revokedAt: string | null; revocationReason: string; revokedByUserId: number | null }
 type State = { phase: 'loading' | 'ready' | 'saving' | 'forbidden' | 'error'; rows: Row[]; nextBefore: number | null; canIssue: boolean; loadedAt: number; revokeId: number | null; error: string; message: string }
@@ -70,7 +71,7 @@ export default function GlobalRestrictions({ userId }: { userId: number }) {
           <label className="grid gap-2 mb-3" htmlFor={`${prefix}-reason`}>دلیل محدودیت<textarea className="textarea" id={`${prefix}-reason`} name="reason" required maxLength={500} rows={3} autoComplete="off" /></label>
           <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,14rem),1fr))' }}>
             <label className="grid gap-2" htmlFor={`${prefix}-days`}>مدت<select className="select" id={`${prefix}-days`} name="days" defaultValue="7"><option value="1">یک روز</option><option value="7">هفت روز</option><option value="30">۳۰ روز</option><option value="90">۹۰ روز</option><option value="365">یک سال</option><option value="forever">بدون تاریخ پایان</option></select></label>
-            <label className="grid gap-2" htmlFor={`${prefix}-start`}>شروع اختیاری<input className="input" id={`${prefix}-start`} name="startsAt" type="datetime-local" autoComplete="off" aria-describedby={`${prefix}-start-help`} /><span id={`${prefix}-start-help`} className="muted text-xs">خالی باشد: شروع از اکنون؛ زمان بر اساس منطقهٔ دستگاه شماست.</span></label>
+            <label className="grid gap-2" htmlFor={`${prefix}-start`}>شروع اختیاری<JalaliDateInput withTime className="input" id={`${prefix}-start`} name="startsAt" aria-describedby={`${prefix}-start-help`} /><span id={`${prefix}-start-help`} className="muted text-xs">خالی باشد: شروع از اکنون؛ زمان بر اساس منطقهٔ دستگاه شماست.</span></label>
           </div>
           <label className="flex items-center gap-2 mb-3"><input type="checkbox" name="confirm" required />ثبت محدودیت برای این حساب را تأیید می‌کنم.</label>
           <button type="submit" className="btn" style={{ background: 'var(--text)', color: 'var(--bg)' }}>{state.phase === 'saving' ? 'در حال ثبت…' : 'ثبت محدودیت'}</button>

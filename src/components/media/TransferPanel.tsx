@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { libraryApi } from './api'
 import OrganizationFields from './OrganizationFields'
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 type Transfer = { id: string; name: string; host: string; status: string; runAt: string; attempts: number; error: string; url: string }
 const labels: Record<string, string> = { QUEUED: 'در صف', RUNNING: 'در حال انتقال', READY: 'آماده', FAILED: 'ناموفق', PAUSED: 'متوقف: بررسی دسترسی', CANCELLED: 'لغوشده' }
 export default function TransferPanel({ folderId, onChange }: { folderId: number | null; onChange: () => void }) {
@@ -27,7 +28,7 @@ export default function TransferPanel({ folderId, onChange }: { folderId: number
       <label>نوع انتقال<select className="select" value={kind} onChange={e => setKind(e.target.value)}><option value="image">تصویر (بهینه‌سازی WebP)</option><option value="file">فایل، ویدئو یا صوت (اصل فایل)</option></select></label>
       {folderId?<small>پوشهٔ انتخابی اولویت دارد؛ برای پوشه‌بندی خودکار به ریشهٔ کتابخانه بروید.</small>:<OrganizationFields value={organization} onChange={setOrganization} kind={kind==='image'?'image':'file'}/>}
       <label>زمان انتقال<select className="select" value={mode} onChange={e => setMode(e.target.value)}><option value="queued">در پس‌زمینه</option><option value="immediate">همین حالا</option><option value="scheduled">زمان‌بندی</option></select></label>
-      {mode === 'scheduled' && <label>تاریخ و ساعت<input type="datetime-local" className="input" required value={at} onChange={e => setAt(e.target.value)} /></label>}
+      {mode === 'scheduled' && <label>تاریخ و ساعت<JalaliDateInput withTime className="input" required value={at} onChange={(value) => setAt(value)} /></label>}
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال پردازش…' : '↓ انتقال به کتابخانه'}</button>
     </form>
     {error && <p role="alert" className="error-text">{error}</p>}

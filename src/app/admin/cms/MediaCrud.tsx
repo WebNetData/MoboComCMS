@@ -22,6 +22,7 @@ import { CinemaMetadataLookup } from '@/components/admin/CinemaMetadata'
 import { applyCinemaMetadata } from '@/modules/cinema/domain/metadata'
 import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -410,7 +411,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'image':
       return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /></div>
     case 'date': case 'datetime':
-      return <input className="input" aria-label={field.label} dir="ltr" type={field.type === 'date' ? 'date' : 'datetime-local'} value={value || ''} onChange={(e) => onChange(e.target.value)} />
+      return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':
       return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} priced={field.upload === 'cinema' || field.upload === 'software' || field.upload === 'games'} />
     case 'records':
@@ -588,7 +589,7 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
                       <div className="mx-grid">
                         <input className="input" dir="ltr" placeholder="English title" value={episode.titleEn || ''} onChange={(e) => setEpisode(si, ei, { titleEn: e.target.value })} />
                         <input className="input" type="number" placeholder={fa ? 'مدت (دقیقه)' : 'Runtime (min)'} value={episode.runtime ?? ''} onChange={(e) => setEpisode(si, ei, { runtime: e.target.value })} />
-                        <input className="input" type="date" dir="ltr" value={episode.airDate || ''} onChange={(e) => setEpisode(si, ei, { airDate: e.target.value })} />
+                        <JalaliDateInput className="input" value={episode.airDate || ''} onChange={(value) => setEpisode(si, ei, { airDate: value })} />
                         <input className="input" dir="ltr" placeholder={fa ? 'تصویر قسمت (URL)' : 'Still image URL'} value={episode.still || ''} onChange={(e) => setEpisode(si, ei, { still: e.target.value })} />
                         <CopyToServer url={episode.still||''} onCopied={still=>setEpisode(si,ei,{still})}/>
                       </div>

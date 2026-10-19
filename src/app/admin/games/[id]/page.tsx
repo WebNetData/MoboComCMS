@@ -14,6 +14,7 @@ import PublishReview, { previewValue, type ReviewRow } from '../../cms/PublishRe
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { GAME_MODES, HEALTH_CHECKS, LOCALIZATIONS, STORES, healthIssues } from '@/modules/games/domain/games'
 import { GAME_PLATFORMS } from '@/modules/media/domain/media'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -203,15 +204,15 @@ export default function GameEditorPage() {
 
         <section id="release" className="sa-card"><header className="sa-card-head"><h2>انتشار و نمایش</h2></header>
           <div className="sa-grid">
-            <label className="sa-field"><span>تاریخ انتشار بازی</span><input className="input" type="date" value={form.releaseDate} onChange={(e) => update('releaseDate', e.target.value)} /><small className="sa-sub">خالی = «اعلام نشده». بازی‌های آینده در تقویم انتشار و «به‌زودی» نمایش داده می‌شوند.</small></label>
-            <label className="sa-field"><span>زمان انتشار در سایت</span><input className="input" type="datetime-local" value={form.publishedAt} onChange={(e) => update('publishedAt', e.target.value)} /><small className="sa-sub">زمان آینده = انتشار زمان‌بندی‌شده</small></label>
+            <label className="sa-field"><span>تاریخ انتشار بازی</span><JalaliDateInput className="input" value={form.releaseDate} onChange={(value) => update('releaseDate', value)} /><small className="sa-sub">خالی = «اعلام نشده». بازی‌های آینده در تقویم انتشار و «به‌زودی» نمایش داده می‌شوند.</small></label>
+            <label className="sa-field"><span>زمان انتشار در سایت</span><JalaliDateInput withTime className="input" value={form.publishedAt} onChange={(value) => update('publishedAt', value)} /><small className="sa-sub">زمان آینده = انتشار زمان‌بندی‌شده</small></label>
             <label data-vip="" className="sa-field"><span>دسترسی دانلود</span><select className="select" value={form.access} onChange={(e) => update('access', e.target.value)}><option value="PUBLIC">عمومی</option><option value="MEMBERS">فقط اعضای VIP</option></select></label>
           </div>
           <div className="sa-row"><label className="sa-check"><input type="checkbox" checked={form.featured} onChange={(e) => update('featured', e.target.checked)} />ویژه (اسلایدر بالای صفحه)</label><label className="sa-check"><input type="checkbox" checked={form.editorsChoice} onChange={(e) => update('editorsChoice', e.target.checked)} />انتخاب سردبیر</label></div>
           <div className="sa-field"><span>تاریخ انتشار روی هر پلتفرم (اختیاری)</span>
             {(form.releases as { platform: string; date: string }[]).map((row, index) => <div key={index} className="ga-line">
               <select className="select" value={row.platform} onChange={(e) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, platform: e.target.value } : r)))} aria-label="پلتفرم"><option value="">پلتفرم…</option>{[...new Set([...platforms, ...GAME_PLATFORMS])].map((p) => <option key={p} value={p}>{p}</option>)}</select>
-              <input className="input" type="date" value={row.date} onChange={(e) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, date: e.target.value } : r)))} aria-label="تاریخ" />
+              <JalaliDateInput className="input" value={row.date} onChange={(value) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, date: value } : r)))} aria-label="تاریخ" />
               <button type="button" className="sa-link is-danger" onClick={() => update('releases', form.releases.filter((_: unknown, i: number) => i !== index))} aria-label="حذف">✕</button>
             </div>)}
             <button type="button" className="btn btn-ghost btn-sm ga-add" onClick={() => update('releases', [...form.releases, { platform: platforms.find((p) => !form.releases.some((r: { platform: string }) => r.platform === p)) || '', date: form.releaseDate || '' }])}>+ تاریخ پلتفرم</button>

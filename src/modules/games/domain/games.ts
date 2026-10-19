@@ -1,3 +1,5 @@
+import { JALALI_MONTHS, fromJalali as sharedFromJalali, jalaliMonthLength, toJalali } from '@/shared/time/jalali'
+
 /**
  * Games section rules (GameUp-style portal): library states, localization and
  * play modes, per-platform releases, store links, updates/DLC, the Persian
@@ -130,38 +132,11 @@ function tehranYmd(date: Date): [number, number, number] {
 
 // ------------------------------------------------------------------ Persian calendar
 
-export const JALALI_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'] as const
-
-const jalaliFormat = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric' })
-
-/** Jalali year / month / day of a UTC calendar day. */
-export function toJalali(date: Date): { jy: number; jm: number; jd: number } {
-  const parts = jalaliFormat.formatToParts(date)
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value)
-  return { jy: get('year'), jm: get('month'), jd: get('day') }
-}
+export { JALALI_MONTHS, jalaliMonthLength, toJalali }
 
 /** The UTC day on which the Jalali date jy/jm/jd falls. */
 export function fromJalali(jy: number, jm: number, jd = 1): Date {
-  // Estimate from 1 Farvardin ≈ 21 March, then walk by the day difference.
-  let at = Date.UTC(jy + 621, 2, 21) + ((jm - 1) * 30.6 + (jd - 1)) * 86_400_000
-  at = Math.floor(at / 86_400_000) * 86_400_000
-  for (let i = 0; i < 8; i++) {
-    const { jy: y, jm: m, jd: d } = toJalali(new Date(at))
-    if (y === jy && m === jm && d === jd) return new Date(at)
-    // Years count as 365 days, so a leap day can leave a zero gap: step one day.
-    const gap = (jy - y) * 365 + dayOfYear(jm, jd) - dayOfYear(m, d) || (jy * 400 + dayOfYear(jm, jd) > y * 400 + dayOfYear(m, d) ? 1 : -1)
-    at += gap * 86_400_000
-  }
-  throw new GameError('تاریخ شمسی نامعتبر است')
-}
-
-const dayOfYear = (jm: number, jd: number) => (jm <= 7 ? (jm - 1) * 31 : 186 + (jm - 7) * 30) + jd
-
-export function jalaliMonthLength(jy: number, jm: number): number {
-  if (jm <= 6) return 31
-  if (jm <= 11) return 30
-  return toJalali(new Date(fromJalali(jy, 12, 1).getTime() + 29 * 86_400_000)).jm === 12 ? 30 : 29
+  try { return sharedFromJalali(jy, jm, jd) } catch { throw new GameError('تاریخ شمسی نامعتبر است') }
 }
 
 export type CalendarMonth = { jy: number; jm: number; key: string; label: string; start: Date; end: Date; prev: string; next: string; days: number; firstWeekday: number }

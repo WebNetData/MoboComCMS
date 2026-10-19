@@ -7,6 +7,7 @@ import { CLOSE_REASON_LABEL, INTERVALS, currencyFa } from '@/modules/billing/dom
 import { CURRENCIES, CURRENCY_LABEL, STATUS_LABEL, jalali, localInput, money, send, type Person } from './desk'
 import { CustomerPicker, useGateways } from './shared'
 import { BASE_CURRENCY } from '@/shared/money/client'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 export type InvoiceRow = {
   id: number; number: string; user: Person | null; userId: number; orderId: number | null; planName: string; productName: string
@@ -133,8 +134,8 @@ function InvoicePanel({ row, onClose, onDone }: { row: InvoiceRow; onClose: () =
       {editable && <div className="ivd-grid-2">
         <label className="sa-field"><span>تخفیف ({row.currency})</span><input className="input num" inputMode="decimal" value={draft.discount} onChange={(e) => set({ discount: e.target.value })} /></label>
         <label className="sa-field"><span>مالیات ({row.currency})</span><input className="input num" inputMode="decimal" value={draft.tax} onChange={(e) => set({ tax: e.target.value })} /></label>
-        <label className="sa-field ivd-wide"><span>سررسید</span><input className="input" type="datetime-local" dir="ltr" value={draft.dueAt} onChange={(e) => set({ dueAt: e.target.value })} /><small>{draft.dueAt ? jalali(new Date(draft.dueAt), true) : 'بدون سررسید'}</small></label>
-        <label className="sa-field ivd-wide"><span>بسته شدن خودکار</span><input className="input" type="datetime-local" dir="ltr" value={draft.expiresAt} onChange={(e) => set({ expiresAt: e.target.value })} /><small>{draft.expiresAt ? jalali(new Date(draft.expiresAt), true) : 'بدون مهلت'}</small></label>
+        <label className="sa-field ivd-wide"><span>سررسید</span><JalaliDateInput withTime className="input" value={draft.dueAt} onChange={(value) => set({ dueAt: value })} /><small>{draft.dueAt ? jalali(new Date(draft.dueAt), true) : 'بدون سررسید'}</small></label>
+        <label className="sa-field ivd-wide"><span>بسته شدن خودکار</span><JalaliDateInput withTime className="input" value={draft.expiresAt} onChange={(value) => set({ expiresAt: value })} /><small>{draft.expiresAt ? jalali(new Date(draft.expiresAt), true) : 'بدون مهلت'}</small></label>
       </div>}
       <label className="sa-field"><span>یادداشت داخلی</span><textarea className="input" rows={2} value={draft.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
       <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>ذخیرهٔ تغییرات</button>
@@ -223,7 +224,7 @@ function CreateInvoice({ currency, onClose, onDone }: { currency: string; onClos
         <label className="sa-field"><span>بسته شدن خودکار پس از (ساعت)</span><input className="input num" type="number" min={0} step="0.5" value={form.expiresHours} onChange={(e) => set({ expiresHours: e.target.value })} placeholder="خالی: ندارد" /></label>
         <label className="sa-field"><span>وضعیت</span><select className="select" value={form.status} onChange={(e) => set({ status: e.target.value })}><option value="UNPAID">صادر شود (مشتری می‌بیند)</option><option value="DRAFT">پیش‌نویس</option></select></label>
       </div> : <div className="ivd-create-grid">
-        <label className="sa-field"><span>اولین فاکتور</span><input className="input" type="datetime-local" dir="ltr" value={form.startAt} onChange={(e) => set({ startAt: e.target.value })} /><small>{jalali(new Date(form.startAt), true)}</small></label>
+        <label className="sa-field"><span>اولین فاکتور</span><JalaliDateInput withTime className="input" value={form.startAt} onChange={(value) => set({ startAt: value })} /><small>{jalali(new Date(form.startAt), true)}</small></label>
         <label className="sa-field"><span>تعداد دفعات</span><input className="input num" type="number" min={0} max={1000} value={form.maxCount} onChange={(e) => set({ maxCount: e.target.value })} placeholder="خالی: تا وقتی متوقف کنید" /></label>
       </div>}
     </fieldset>

@@ -4,6 +4,7 @@ import { libraryApi } from './api'
 import { useAssetOrganization } from './OrganizationScope'
 import OrganizationFields from './OrganizationFields'
 import { organizationPath, type AssetOrganization } from '@/modules/downloads/domain/organization'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 /** Opt-in only. A delayed link stays stable while its target changes from remote to local. */
 export default function RemoteCopy({ url, onCopied, kind = 'image', section = 'posts' }: { url: string; onCopied: (url: string) => void; kind?: 'image' | 'file'; section?: string }) {
@@ -34,7 +35,7 @@ export default function RemoteCopy({ url, onCopied, kind = 'image', section = 'p
       {organize && <OrganizationFields value={organization} onChange={setCustom} kind={kind}/>}
       {organize&&destination&&<small dir="auto">مقصد: {destination} (اگر در تنظیمات کتابخانه فعال باشد)</small>}
       <label>زمان انتقال<select className="select" value={mode} onChange={e => setMode(e.target.value)} disabled={busy}><option value="immediate">همین حالا</option><option value="queued">در پس‌زمینه</option><option value="scheduled">زمان‌بندی</option></select></label>
-      {mode === 'scheduled' && <label>تاریخ و ساعت<input className="input" type="datetime-local" value={at} onChange={e => setAt(e.target.value)} disabled={busy} /></label>}
+      {mode === 'scheduled' && <label>تاریخ و ساعت<JalaliDateInput withTime className="input" value={at} onChange={(value) => setAt(value)} disabled={busy} /></label>}
       <small>با تأیید، فایل روی سرور سایت ذخیره می‌شود. در حالت پس‌زمینه، لینک سایت تا پایان انتقال به منبع اصلی هدایت می‌شود. برای اعمال لینک، فرم مطلب را ذخیره کنید.</small>
       <button type="button" className="btn btn-primary btn-sm" onClick={() => void copy()} disabled={busy}>{busy ? 'در حال انتقال…' : 'تأیید انتقال و جایگزینی لینک'}</button>
     </div>}
