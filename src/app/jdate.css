@@ -1,0 +1,54 @@
+/* ============================================================
+   Persian date field (components/date/JalaliDateInput): the field looks like
+   the input beside it; the calendar floats in the window (portaled).
+   Theme tokens only; light and dark follow the page.
+   ============================================================ */
+
+.jdate { display: block; position: relative; min-width: 0; }
+.jdate-toggle { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; text-align: start; cursor: pointer; font: inherit; }
+.jdate-toggle > svg { flex-shrink: 0; color: var(--muted); transition: color .15s ease; }
+.jdate-toggle:hover > svg, .jdate-toggle[aria-expanded='true'] > svg { color: var(--primary); }
+.jdate-toggle[aria-expanded='true'] { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.jdate-toggle:disabled { cursor: not-allowed; opacity: .6; }
+.jdate-value, .jdate-placeholder { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jdate-placeholder { color: var(--muted); }
+.jdate-toggle[aria-invalid='true'] { border-color: var(--danger); }
+
+.jdate-panel {
+  position: fixed; z-index: 120; display: grid; gap: 12px; padding: 14px; color: var(--text); font-size: 13.5px;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border)); border-radius: 18px;
+  background: radial-gradient(360px 120px at 90% -30px, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%), var(--card);
+  box-shadow: 0 28px 64px -28px color-mix(in srgb, #000 55%, transparent), 0 8px 20px -12px color-mix(in srgb, #000 30%, transparent);
+  animation: jdate-in .16s cubic-bezier(.2, .8, .2, 1);
+}
+.jdate-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jdate-title { display: flex; gap: 6px; min-width: 0; }
+.jdate-nav { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--text); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.jdate-nav:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.jdate-select { min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.jdate-select:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+
+.jdate-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.jdate-week { padding-block: 4px; color: var(--muted); font-size: 11.5px; font-weight: 700; text-align: center; }
+.jdate-day { aspect-ratio: 1; display: grid; place-items: center; padding: 0; border: 0; border-radius: 11px; background: none; color: inherit; font: inherit; font-size: 13.5px; cursor: pointer; transition: background .12s, color .12s; }
+.jdate-day:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); }
+.jdate-day.is-friday { color: color-mix(in srgb, var(--danger) 80%, var(--text)); }
+.jdate-day.is-today { box-shadow: inset 0 0 0 1.5px var(--primary); font-weight: 800; }
+.jdate-day.is-picked, .jdate-day.is-picked:hover:not(:disabled) { background: var(--primary); color: #fff; font-weight: 800; box-shadow: 0 8px 18px -10px var(--primary); }
+.jdate-day:disabled { opacity: .3; cursor: not-allowed; }
+
+.jdate-time { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--bg-soft); }
+.jdate-time > span:first-child { color: var(--muted); font-weight: 700; }
+.jdate-clock { display: inline-flex; align-items: center; gap: 6px; }
+.jdate-clock b { color: var(--muted); }
+.jdate-foot { display: flex; align-items: center; gap: 12px; padding-top: 2px; }
+.jdate-link { padding: 4px 2px; border: 0; background: none; color: var(--primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.jdate-link.is-muted { color: var(--muted); }
+.jdate-link:disabled { opacity: .45; cursor: not-allowed; }
+.jdate-done { margin-inline-start: auto; min-height: 34px; padding: 0 16px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--primary) 55%, var(--sds-color-black-1000, #000)); color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.jdate-panel :is(button, select):focus-visible, .jdate-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+@keyframes jdate-in { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .jdate-panel { animation: none; } .jdate-day, .jdate-nav, .jdate-toggle > svg { transition: none; } }
+/* The form value rides in this hidden field (so `required` and reset work); it never takes space or clicks. */
+.jdate .jdate-proxy { position: absolute !important; inset-block-end: 0; inset-inline-start: 0; width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; opacity: 0; pointer-events: none; }

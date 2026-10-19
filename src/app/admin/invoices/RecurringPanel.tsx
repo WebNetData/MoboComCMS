@@ -7,6 +7,7 @@ import { INTERVALS, intervalOf, normalizeInvoiceRules, type InvoiceRules } from 
 import { CURRENCIES, CURRENCY_LABEL, STATUS_LABEL, jalali, localInput, money, numberOf, send, type Person } from './desk'
 import { CustomerPicker, useGateways } from './shared'
 import { BASE_CURRENCY } from '@/shared/money/client'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Recurring = {
   id: number; userId: number; user: Person | null; title: string; detail: string; amount: number; currency: string; interval: string
@@ -105,8 +106,8 @@ function RecurringForm({ row, onClose, onSaved }: { row: Recurring | null; onClo
     </div>
     <fieldset className="ivd-repeat"><legend>هر چند وقت</legend><div className="ivd-repeat-options">{INTERVALS.map((item) => <label key={item.id} className={form.interval === item.id ? 'is-on' : ''}><input type="radio" name="interval" checked={form.interval === item.id} onChange={() => set({ interval: item.id })} /> {item.label}</label>)}</div></fieldset>
     <div className="ivd-create-grid">
-      <label className="sa-field"><span>فاکتور بعدی</span><input className="input" type="datetime-local" dir="ltr" value={form.nextAt} onChange={(e) => set({ nextAt: e.target.value })} /><small>{jalali(new Date(form.nextAt), true)}</small></label>
-      <label className="sa-field"><span>پایان تکرار (اختیاری)</span><input className="input" type="datetime-local" dir="ltr" value={form.endsAt} onChange={(e) => set({ endsAt: e.target.value })} /><small>{form.endsAt ? jalali(new Date(form.endsAt), true) : 'بدون پایان'}</small></label>
+      <label className="sa-field"><span>فاکتور بعدی</span><JalaliDateInput withTime className="input" value={form.nextAt} onChange={(value) => set({ nextAt: value })} /><small>{jalali(new Date(form.nextAt), true)}</small></label>
+      <label className="sa-field"><span>پایان تکرار (اختیاری)</span><JalaliDateInput withTime className="input" value={form.endsAt} onChange={(value) => set({ endsAt: value })} /><small>{form.endsAt ? jalali(new Date(form.endsAt), true) : 'بدون پایان'}</small></label>
       <label className="sa-field"><span>تعداد دفعات</span><input className="input num" type="number" min={0} max={1000} value={form.maxCount} onChange={(e) => set({ maxCount: e.target.value })} placeholder="خالی: نامحدود" /></label>
       <label className="sa-field"><span>مهلت پرداخت (روز)</span><input className="input num" type="number" min={0} max={365} value={form.dueDays} onChange={(e) => set({ dueDays: e.target.value })} /></label>
       <label className="sa-field"><span>درگاه</span><select className="select" value={form.gatewayId} onChange={(e) => set({ gatewayId: e.target.value })}><option value="">انتخاب مشتری</option>{gateways.filter((g) => !g.fiat || g.fiat === form.currency).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>

@@ -3,6 +3,7 @@
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Icon from '@/components/site/Icon'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 export type TransferAccount = { id: number; bankName: string; holderName: string; card: string; sheba: string; accountNumber: string; note: string }
 export type TransferReceipt = { id: number; status: string; trackingCode: string; payerBank: string; payerName?: string; createdAt: string; adminNote: string }
@@ -160,7 +161,7 @@ export default function CardTransferBox({ invoiceNumber, accounts, rial, toman, 
               <label className="ct-field"><span>شمارهٔ پیگیری / ارجاع</span><input className="input" name="trackingCode" dir="ltr" inputMode="numeric" maxLength={40} /></label>
               <label className="ct-field"><span>۴ رقم آخر کارت مبدأ</span><input className="input" name="payerCard" inputMode="numeric" dir="ltr" pattern="[0-9۰-۹]{4}|[0-9۰-۹]{16}" maxLength={16} placeholder="1234" /></label>
               <label className="ct-field"><span>بانک مبدأ</span><input className="input" name="payerBank" list="ct-banks" maxLength={60} placeholder="مثلاً ملت" /><datalist id="ct-banks">{banks.map((bank) => <option key={bank} value={bank} />)}</datalist></label>
-              <label className="ct-field"><span>تاریخ و ساعت واریز</span><input className="input" type="datetime-local" name="paidAtLocal" dir="ltr" /></label>
+              <label className="ct-field"><span>تاریخ و ساعت واریز</span><JalaliDateInput withTime className="input" name="paidAtLocal" /></label>
             </div>
           </details>
 

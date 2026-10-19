@@ -7,6 +7,7 @@
 .search label, .field { display: grid; gap: 8px; font-size: .85rem; }
 .search input, .field input, .field textarea, .field select, .filters select { width: 100%; min-height: 48px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); padding: 12px 14px; font: inherit; }
 .search button { align-self: end; min-height: 48px; }
+.field :global(.jdate-toggle) { width: 100%; min-height: 48px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); padding: 12px 14px; }
 .sectionHead { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 32px 0 20px; }
 .sectionHead h2 { margin: 0; font-size: 1.2rem; }
 .sectionHead p, .muted { color: var(--business-muted, var(--muted)); font-size: .85rem; line-height: 1.9; }

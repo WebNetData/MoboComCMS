@@ -6,6 +6,7 @@ import Link from '@/components/AppLink'
 import { LinksEditor, type LinkRow } from '../../cms/MediaCrud'
 import { Notice, faDate, send, useJson } from '../shared'
 import { SoftwareShell } from '../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -73,7 +74,7 @@ export default function ReleasesManager({ initialId }: { initialId: number }) {
           <label className="sa-field"><span>شمارهٔ نسخه *</span><input className="input" dir="ltr" value={editing.version} onChange={(event) => set({ version: event.target.value })} placeholder="2.4.1" /></label>
           <label className="sa-field"><span>کانال</span><select className="select" value={editing.channel} onChange={(event) => set({ channel: event.target.value })}><option value="STABLE">پایدار</option><option value="BETA">آزمایشی</option><option value="NIGHTLY">شبانه</option></select></label>
           <label className="sa-field"><span>وضعیت</span><select className="select" value={editing.status} onChange={(event) => set({ status: event.target.value })}><option value="DRAFT">پیش‌نویس</option><option value="PUBLISHED">منتشرشده</option></select></label>
-          <label className="sa-field"><span>تاریخ انتشار</span><input className="input" type="date" value={editing.releasedAt} onChange={(event) => set({ releasedAt: event.target.value })} /></label>
+          <label className="sa-field"><span>تاریخ انتشار</span><JalaliDateInput className="input" value={editing.releasedAt} onChange={(value) => set({ releasedAt: value })} /></label>
           <label className="sa-field"><span>حجم</span><input className="input" dir="ltr" value={editing.size} onChange={(event) => set({ size: event.target.value })} placeholder="85 MB" /></label>
           <label className="sa-field"><span>SHA-256 (اختیاری)</span><input className="input" dir="ltr" value={editing.checksum} onChange={(event) => set({ checksum: event.target.value })} /></label>
         </div>

@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { Money, Notice, Pager, StoreShell, STATE_TONE, fa, faDate, useJson } from '../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Row = {
   id: number; createdAt: string; customer: { id: number; name: string; email: string; phone: string }; state: { label: string; tone: string }
@@ -35,7 +36,7 @@ function Orders() {
     <nav className="sa-subtabs" aria-label="وضعیت سفارش">{TABS.map(([key, label]) => <button key={key} type="button" className={key === tab ? 'is-active' : ''} aria-pressed={key === tab} onClick={() => go({ tab: key })}>{label}{data?.counts[key] ? <span className="num">{fa(data.counts[key])}</span> : null}</button>)}</nav>
     <form className="sa-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); go({ q: search.trim() }) }}>
       <input className="input" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="شمارهٔ سفارش، نام، ایمیل، موبایل، کالا یا کد رهگیری" aria-label="جست‌وجوی سفارش" />
-      <label className="sa-inline"><span>روز ارسال</span><input className="input" type="date" value={date} onChange={(event) => go({ date: event.target.value })} /></label>
+      <label className="sa-inline"><span>روز ارسال</span><JalaliDateInput className="input" value={date} onChange={(value) => go({ date: value })} /></label>
       <button className="btn btn-primary" type="submit">جست‌وجو</button>
     </form>
     {error && <Notice tone="error">{error}</Notice>}

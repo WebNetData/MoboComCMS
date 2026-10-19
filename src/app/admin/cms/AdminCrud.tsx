@@ -10,6 +10,7 @@ import AiAutofill from './AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from './PublishReview'
 import BulkActions, { runBulkAction, type BulkAction } from './BulkActions'
 import AdminPagination from './AdminPagination'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 import type { AdminPageSize } from '@/modules/content/domain/admin-pagination'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
@@ -356,12 +357,14 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
+              ) : fl.type === 'datetime-local' ? (
+                <JalaliDateInput withTime id={`${formId}-${fl.key}`} value={form[fl.key] ?? ''} onChange={(value) => setForm({ ...form, [fl.key]: value })} required={fl.required} />
               ) : (
                 <input
                   id={`${formId}-${fl.key}`}
                   className="input"
                   dir={fl.dir}
-                  type={fl.type === 'number' ? 'number' : fl.type === 'datetime-local' ? 'datetime-local' : 'text'}
+                  type={fl.type === 'number' ? 'number' : 'text'}
                   step={fl.key === 'price' ? '0.01' : undefined}
                   value={form[fl.key] ?? ''}
                   onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })}

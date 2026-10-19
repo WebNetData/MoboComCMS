@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { fa, faDate } from '../shared'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 type Form = Record<string, any>
 type Preview = { rate: number; rateAt: string | null; conversion: string; markup: string; fixed: string; rounding: string; total: string; currency: string }
@@ -47,7 +48,7 @@ export default function FxPricing({ form, update }: { form: Form; update: (key: 
       <label className="sa-field"><span>واحد فروش</span><select className="select" value={sell} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان ایران (IRT)</option><option value="IRR">ریال ایران (IRR)</option></select></label>
       {field('fxCompareAt', `قیمت ارزی قبل از تخفیف (${code})`)}
       <span data-vip="" style={{ display: 'contents' }}>{field('fxMemberPrice', `قیمت ارزی اعضای VIP (${code})`)}</span>
-      <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز</span><input className="input" type="datetime-local" value={form.saleEndsAt} onChange={(event) => update('saleEndsAt', event.target.value)} /></label>
+      <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز</span><JalaliDateInput withTime className="input" value={form.saleEndsAt} onChange={(value) => update('saleEndsAt', value)} /></label>
       <label data-vip="" className="sa-field"><span>روز VIP هدیه با خرید</span><input className="input" type="number" min={0} value={form.vipGiftDays ?? 0} onChange={(event) => update('vipGiftDays', event.target.value)} /></label>
     </div>
     <div className="px-breakdown" aria-live="polite">

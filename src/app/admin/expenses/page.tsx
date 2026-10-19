@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { formatCurrency, BASE_CURRENCY, currencyLabel } from '@/shared/money/client'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 interface Expense {
   id: number
@@ -140,7 +141,7 @@ export default function AdminExpensesPage() {
         </div>
         <div>
           <label className="label">{t.spentAt}</label>
-          <input className="input" type="date" value={form.spentAt} onChange={(e) => setForm({ ...form, spentAt: e.target.value })} />
+          <JalaliDateInput className="input" value={form.spentAt} onChange={(value) => setForm({ ...form, spentAt: value })} />
         </div>
         <div>
           <label className="label">{t.notes}</label>

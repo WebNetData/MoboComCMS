@@ -5,6 +5,7 @@ import type { FormDefinition, FormSettings } from '@/modules/forms/domain/forms'
 import { dateTimeLocal, settingsOf } from './shared'
 import { PaymentStylePanels } from './ProPanels'
 import { AdvancedSettings } from './AdvancedPanels'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 /** Form details, access rules, schedule, notifications and spam rules. */
 export default function SettingsPanel({ form, onChange }: { form: FormDefinition; onChange: (form: FormDefinition) => void }) {
@@ -41,8 +42,8 @@ export default function SettingsPanel({ form, onChange }: { form: FormDefinition
       <label className="sa-check"><input type="checkbox" checked={s.requireLogin} onChange={(e) => set({ requireLogin: e.target.checked })} /> فقط کاربران واردشده بتوانند ارسال کنند</label>
       <label className="sa-check"><input type="checkbox" checked={s.oncePerUser} onChange={(e) => set({ oncePerUser: e.target.checked, ...(e.target.checked ? { requireLogin: true } : {}) })} /> هر کاربر فقط یک‌بار ارسال کند <small className="sa-hint">نیازمند ورود کاربر است.</small></label>
       <div className="ad-fields">
-        <label className="sa-field"><span>شروع پذیرش</span><input className="input" type="datetime-local" value={dateTimeLocal(s.opensAt)} onChange={(e) => set({ opensAt: e.target.value ? new Date(e.target.value).toISOString() : '' })} /></label>
-        <label className="sa-field"><span>پایان پذیرش</span><input className="input" type="datetime-local" value={dateTimeLocal(s.closesAt)} onChange={(e) => set({ closesAt: e.target.value ? new Date(e.target.value).toISOString() : '' })} /></label>
+        <label className="sa-field"><span>شروع پذیرش</span><JalaliDateInput withTime className="input" value={dateTimeLocal(s.opensAt)} onChange={(value) => set({ opensAt: value ? new Date(value).toISOString() : '' })} /></label>
+        <label className="sa-field"><span>پایان پذیرش</span><JalaliDateInput withTime className="input" value={dateTimeLocal(s.closesAt)} onChange={(value) => set({ closesAt: value ? new Date(value).toISOString() : '' })} /></label>
         <label className="sa-field"><span>سقف تعداد پاسخ (۰ = نامحدود)</span><input className="input" type="number" min={0} value={s.maxSubmissions} onChange={(e) => set({ maxSubmissions: Number(e.target.value) })} /></label>
         <label className="sa-field"><span>پیام وقتی بسته است</span><input className="input" value={s.closedMessage} maxLength={300} onChange={(e) => set({ closedMessage: e.target.value })} placeholder="مهلت این فرم تمام شده است." /></label>
       </div>

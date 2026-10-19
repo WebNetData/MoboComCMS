@@ -14,6 +14,7 @@ import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
 import OrderAsk from '../OrderAsk'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
+import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
 
@@ -179,7 +180,7 @@ export default function ProductEditorPage() {
             {field('price', 'قیمت فروش *', { type: 'number', min: 0, step: 'any', required: true })}
             {field('compareAtPrice', 'قیمت قبل از تخفیف (خط‌خورده)', { type: 'number', min: 0, step: 'any' })}
             <label className="sa-field"><span>واحد پول</span><select className="select" value={form.currency} onChange={(event) => update('currency', event.target.value)}><option value="IRT">تومان ایران (IRT)</option><option value="IRR">ریال ایران (IRR)</option><option value="USD">دلار</option></select></label>
-            <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز (شمارش معکوس)</span><input className="input" type="datetime-local" value={form.saleEndsAt} onChange={(event) => update('saleEndsAt', event.target.value)} /></label>
+            <label className="sa-field"><span>پایان پیشنهاد شگفت‌انگیز (شمارش معکوس)</span><JalaliDateInput withTime className="input" value={form.saleEndsAt} onChange={(value) => update('saleEndsAt', value)} /></label>
             <span data-vip="" style={{ display: 'contents' }}>{field('memberPrice', 'قیمت ویژهٔ اعضای VIP', { type: 'number', min: 0, step: 'any' })}</span>
             <span data-vip="" style={{ display: 'contents' }}>{field('vipGiftDays', 'روز VIP هدیه با خرید', { type: 'number', min: 0 })}</span>
           </div>
