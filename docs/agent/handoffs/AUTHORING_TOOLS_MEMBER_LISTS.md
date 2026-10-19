@@ -160,3 +160,26 @@ operational acceptance. Local success does not certify the whole platform.
   or comprehensive security certification. Raw redacted report remains local.
 - Both project Codex/Claude `mobocom-develop` routing edits passed the installed
   skill validator. Architecture/map/ledger/gaps/workstate reference this handoff.
+
+## PR203 conflict reconciliation — 2026-10-19
+
+After the owner merged Admin PR202, main advanced to976b4e16 and conflicted with
+the already integrated/refined copy in this branch. Main is now merged into the
+same PR203 branch. The five conflicts were content-controls, admin-tidy CSS,
+Audit, Roles and Studio. Preserve the reviewed scoped CSS, Audit request fencing/
+hydration/history links, connected Roles labels and Studio history control.
+The automatically restored root-layout Admin CSS import was removed; the Admin
+layout still owns it. No feature, migration, permission or public style is dropped.
+
+Product/test/schema/dependency files are identical to previously validated
+a44db218 after reconciliation; only continuation documentation changes. Six
+resolved/boundary files also matched the owned Linux snapshot. Executed again as
+UID1000 without .env:83 content-control tests and native content-management/
+configuration-history passed. All three maintained Admin Playwright cases passed
+with zero retries, including actual draft save/reload/error retention, same-page
+Admin→Home CSS isolation and late Audit-result/error recovery. Fixture-boundary
+automation warnings remain in the unit log; there was no browser page error.
+Owned actors/content/history/audits/private auth are cleaned afterward. Existing
+full check/build/themed evidence above remains the unchanged-source evidence;
+those broader suites were not claimed rerun for a Git ancestry reconciliation.
+One ordinary push updates PR203; no manual hosted workflow or auto-merge.
