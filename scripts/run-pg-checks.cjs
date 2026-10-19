@@ -34,6 +34,7 @@ const CHECKS = [
   'content-management',
   'content-restore-atomic',
   'moderation-rounds',
+  'copyright-decision',
   'moderation-rounds-migration',
   'settings-history',
   'section-settings-history',

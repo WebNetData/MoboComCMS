@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { visitorHash } from '@/platform/http/visitor'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdminStrict } from '@/platform/audit/server'
 import { moduleGuard } from '@/extensions/server/modules'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
 import { CopyrightError } from '@/modules/copyright/domain/copyright'
@@ -10,6 +10,7 @@ import { decideReport, reportDetail, reportList, reportStatus, submitReport } fr
 
 function failure(error: unknown) {
   if (error instanceof CopyrightError) return err(error.message, error.status)
+  if ((error as { code?: string })?.code === 'P2034') return err('گزارش هم‌زمان تغییر کرد؛ دوباره تلاش کنید', 409)
   console.error('[copyright]', error)
   return err('خطای داخلی؛ دوباره تلاش کنید', 500)
 }
@@ -50,8 +51,8 @@ export async function POST_admin(req: NextRequest) {
   const id = Number(body.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
   try {
-    const result = await decideReport(id, body, g.admin.id)
-    await auditAdmin({ req, actor: g.admin, action: `copyright.${String(result.status).toLowerCase()}`, targetType: 'copyright-report', targetId: id, metadata: { actions: result.actions } })
+    // Same audit action as before, now committed with the decision and its takedown.
+    const result = await decideReport(id, body, g.admin.id, (tx, decided) => auditAdminStrict({ req, actor: g.admin, action: `copyright.${String(decided.status).toLowerCase()}`, targetType: 'copyright-report', targetId: id, metadata: { actions: decided.actions } }, tx))
     return ok(result)
   } catch (error) { return failure(error) }
 }
