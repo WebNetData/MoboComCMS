@@ -11,6 +11,15 @@
 .toggle svg { transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
 .toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 .toggle:hover, .toggle[aria-expanded="true"] { opacity: 1; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+/* In a header rail the chevron sits inside its tab, at the tab's far end, and takes the tab's colour. */
+.branch:not(.inline) > .heading { position: relative; }
+.branch:not(.inline) > .heading > a { padding-inline-end: 36px; }
+.branch:not(.inline) > .heading > .toggle { position: absolute; z-index: 2; inset-block-start: 50%; inset-inline-end: 7px; translate: 0 -50%; width: 24px; height: 24px; border-radius: 8px; opacity: .65; color: inherit; }
+.branch:not(.inline) > .heading > .toggle:hover, .branch:not(.inline) > .heading > .toggle[aria-expanded="true"] { opacity: 1; color: inherit; background: color-mix(in srgb, currentColor 14%, transparent); }
+.branch:not(.inline) > .heading > a[aria-current="page"] ~ .toggle { color: #fff; }
+.branch:not(.inline) > .heading:hover > a:not([aria-current="page"]) ~ .toggle, .branch[data-open]:not(.inline) > .heading > a:not([aria-current="page"]) ~ .toggle { color: var(--primary); opacity: 1; }
+/* While its panel is open, the tab reads as the one in use. */
+.branch[data-open]:not(.inline) > .heading > a:not([aria-current="page"]) { color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, transparent); }
 .toggle:focus-visible, .close:focus-visible, .panel a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 .panel { color: var(--text); text-align: start; font-family: inherit; font-size: 14px; line-height: 1.7; }
@@ -30,6 +39,8 @@
   scrollbar-width: thin;
 }
 
+/* A bright mark on the top edge, right under the tab that opened the panel. */
+.floating::before { content: ''; position: absolute; z-index: 3; inset-block-start: 0; left: var(--navigation-caret, 50%); width: 64px; height: 3px; border-radius: 0 0 4px 4px; translate: -50% 0; background: linear-gradient(90deg, transparent, var(--primary), transparent); }
 /* Head: the section's icon, name and line, a "view all" link and a quiet close. */
 .panelHead { display: flex; gap: 12px; align-items: center; padding: 16px 18px 14px; border-block-end: 1px solid color-mix(in srgb, var(--border) 75%, transparent); }
 .headIcon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 13px; color: #fff; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #22d3ee)); box-shadow: 0 10px 22px -12px var(--primary); }
