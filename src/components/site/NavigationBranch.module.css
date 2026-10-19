@@ -1,1 +1,93 @@
-.branch{position:relative;min-width:0}.heading{display:flex;align-items:center;gap:2px}.heading>a{flex:1;min-width:0}.heading>button{display:grid;place-items:center;flex-shrink:0;width:32px;height:36px;background:transparent;color:inherit;border:1px solid transparent;border-radius:10px;cursor:pointer}.heading>button:hover{background:var(--surface-2,var(--card,var(--surface)))}.heading>button:focus-visible,.panel a:focus-visible{outline:2px solid var(--primary,var(--accent));outline-offset:2px}.panel{position:absolute;inset-inline-start:0;top:100%;z-index:80;width:max-content;min-width:230px;max-width:min(360px,calc(100vw - 32px));max-height:65vh;overflow:auto;padding:10px;background:var(--card,var(--surface));color:var(--text);border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 40px #0002}.panel[hidden]{display:none}.panel ul{list-style:none;margin:0;padding:0}.panel li{margin:0}.panel a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;white-space:normal;overflow-wrap:anywhere}.panel a:hover{background:var(--surface-2,var(--bg))}.inline>.panel{position:static;width:auto;min-width:0;max-height:none;margin-inline-start:12px;border:0;border-inline-start:1px solid var(--border);border-radius:0;box-shadow:none;padding:4px}.inline>.heading>button{margin-inline-start:auto}
+/* Header navigation: a link with its own disclosure button, opening a dropdown or a mega panel (desktop, portaled)
+   or an inline group (mobile drawer, overflow). Theme tokens only; light and dark follow the page. */
+
+.branch { position: relative; min-width: 0; }
+.heading { display: flex; align-items: center; gap: 2px; }
+.heading > a { flex: 1; min-width: 0; }
+
+/* The disclosure button beside a link: quiet until hovered or open. */
+.toggle, .close { display: grid; place-items: center; flex-shrink: 0; padding: 0; background: transparent; color: inherit; border: 1px solid transparent; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
+.toggle { width: 26px; height: 30px; border-radius: 9px; opacity: .75; }
+.toggle svg { transition: transform .22s cubic-bezier(.2, .8, .2, 1); }
+.toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.toggle:hover, .toggle[aria-expanded="true"] { opacity: 1; color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.toggle:focus-visible, .close:focus-visible, .panel a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.panel { color: var(--text); text-align: start; font-family: inherit; font-size: 14px; line-height: 1.7; }
+.panel[hidden] { display: none; }
+
+/* The floating surface: glass over the page, lit by the site's colour along the top. */
+.floating {
+  position: fixed; z-index: 80; overflow: auto; overscroll-behavior: contain; isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border)); border-radius: 22px;
+  background:
+    radial-gradient(520px 160px at 90% -40px, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(420px 140px at 0% 0%, color-mix(in srgb, #22d3ee 8%, transparent), transparent 70%),
+    color-mix(in srgb, var(--card) 94%, transparent);
+  backdrop-filter: blur(18px) saturate(1.35); -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  box-shadow: 0 32px 80px -32px color-mix(in srgb, #000 55%, transparent), 0 10px 24px -14px color-mix(in srgb, #000 30%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  transform-origin: top center; animation: reveal .2s cubic-bezier(.2, .8, .2, 1);
+  scrollbar-width: thin;
+}
+
+/* Head: the section's icon, name and line, a "view all" link and a quiet close. */
+.panelHead { display: flex; gap: 12px; align-items: center; padding: 16px 18px 14px; border-block-end: 1px solid color-mix(in srgb, var(--border) 75%, transparent); }
+.headIcon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 13px; color: #fff; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #22d3ee)); box-shadow: 0 10px 22px -12px var(--primary); }
+.headCopy { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.headCopy strong { font-size: 15px; font-weight: 800; line-height: 1.5; }
+.headCopy p { margin: 0; max-width: 65ch; color: color-mix(in srgb, var(--text) 66%, var(--card)); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.viewAll { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 7px 12px; border-radius: 99px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent); font-size: 12px; font-weight: 750; text-decoration: none; white-space: nowrap; transition: background-color .18s ease, transform .18s ease; }
+.viewAll:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+.viewAll:hover svg { transform: translateX(-2px); }
+.viewAll svg { transition: transform .18s ease; }
+.panel[dir="ltr"] .viewAll svg, .panel[dir="ltr"] .linkArrow { scale: -1 1; }
+.panel[dir="ltr"] .viewAll:hover svg { transform: translateX(2px); }
+/* In a narrow dropdown, "view all" takes its own row under the title. */
+.floating:not(.mega) .panelHead { flex-wrap: wrap; row-gap: 10px; }
+.floating:not(.mega) .close { order: 2; }
+.floating:not(.mega) .viewAll { order: 3; flex: 1 1 100%; justify-content: center; }
+.close { width: 32px; height: 32px; border-radius: 10px; color: color-mix(in srgb, var(--text) 60%, transparent); }
+.close:hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+
+/* Rows. */
+.links, .columns { list-style: none; margin: 0; padding: 8px; }
+.links > li, .columns > li { margin: 0; padding: 0; min-width: 0; }
+.itemLink { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 9px 10px; border: 1px solid transparent; border-radius: 14px; color: var(--text); text-decoration: none; white-space: normal; overflow-wrap: anywhere; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.itemLink:hover { color: var(--text); background: color-mix(in srgb, var(--primary) 8%, transparent); border-color: color-mix(in srgb, var(--primary) 16%, transparent); }
+.itemLink:hover .icon { color: #fff; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #22d3ee)); border-color: transparent; box-shadow: 0 8px 18px -10px var(--primary); }
+.icon { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--card)); border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border)); border-radius: 12px; transition: background-color .18s ease, color .18s ease, box-shadow .18s ease; }
+.copy { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.itemTitle { font-size: 13.5px; font-weight: 700; line-height: 1.6; }
+.copy small { font-size: 11.5px; line-height: 1.75; font-weight: 400; color: color-mix(in srgb, var(--text) 62%, var(--card)); }
+.linkArrow { flex-shrink: 0; opacity: 0; transform: translateX(4px); transition: opacity .18s ease, transform .18s ease; color: var(--primary); }
+.itemLink:hover .linkArrow, .itemLink:focus-visible .linkArrow { opacity: .9; transform: none; }
+
+/* Mega: columns of groups, each a soft card with its heading on top. */
+.mega .columns { display: grid; grid-template-columns: repeat(var(--navigation-columns, 3), minmax(0, 1fr)); gap: 12px; padding: 14px; }
+.column { align-self: stretch; display: grid; align-content: start; gap: 2px; padding: 8px; border-radius: 18px; background: color-mix(in srgb, var(--bg-soft, var(--card)) 70%, transparent); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.column > .groupLink { margin-block-end: 4px; padding: 8px 8px 12px; border-radius: 12px; border-block-end: 1px dashed color-mix(in srgb, var(--border) 90%, transparent); border-end-start-radius: 0; border-end-end-radius: 0; }
+.column > .groupLink:hover { border-block-end-color: color-mix(in srgb, var(--primary) 30%, var(--border)); }
+.groupLink .itemTitle { font-size: 14.5px; font-weight: 850; }
+.groupLink .icon { width: 42px; height: 42px; border-radius: 14px; color: #fff; background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #22d3ee)); border-color: transparent; box-shadow: 0 10px 20px -12px var(--primary); }
+.column > .links { padding: 0; }
+.mega .column .links .itemLink { min-height: 42px; padding: 7px 8px; gap: 10px; }
+.mega .column .links .icon { width: 30px; height: 30px; border-radius: 10px; }
+.mega .column .links .itemTitle { font-size: 13px; font-weight: 650; }
+.mega .linkArrow { display: none; }
+.mega .column .links .itemLink:hover { transform: translateX(-3px); }
+.panel[dir="ltr"].mega .column .links .itemLink:hover { transform: translateX(3px); }
+/* A link without children sitting in a mega panel stands as its own small card. */
+.column > .branch > .heading > .itemLink { min-height: 56px; }
+
+/* Inline groups (mobile drawer, overflow): a guided rail instead of a floating panel. */
+.inlinePanel { margin-block: 2px 6px; margin-inline-start: 18px; padding-inline-start: 10px; border-inline-start: 2px solid color-mix(in srgb, var(--primary) 30%, var(--border)); animation: reveal .18s ease-out; }
+.inlinePanel > .links { padding: 2px 0; }
+.inlinePanel .itemLink { min-height: 42px; padding: 7px 8px; }
+.inlinePanel .icon { width: 30px; height: 30px; border-radius: 10px; }
+.inline > .heading > .toggle { margin-inline-start: auto; width: 34px; height: 34px; opacity: 1; background: color-mix(in srgb, var(--text) 5%, transparent); }
+
+@keyframes reveal { from { opacity: 0; transform: translateY(-6px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (max-width: 1000px) { .mega .columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .mega .columns { grid-template-columns: minmax(0, 1fr); padding: 10px; } .panelHead { padding: 14px; } .viewAll { padding: 6px 10px; } .itemLink { padding: 8px; gap: 9px; } }
+@media (prefers-reduced-motion: reduce) { .floating, .inlinePanel { animation: none; } .toggle svg, .itemLink, .icon, .linkArrow, .viewAll, .viewAll svg { transition: none; } .mega .column .links .itemLink:hover { transform: none; } }
+@supports not (backdrop-filter: blur(1px)) { .floating { background: var(--card); } }

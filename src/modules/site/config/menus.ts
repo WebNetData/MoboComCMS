@@ -8,7 +8,7 @@ export const DEFAULT_FOOTER_ACCOUNT: SiteLink[] = [
   { href: '/dashboard/tickets', label: local('تیکت‌های پشتیبانی', 'Support tickets') },
   { href: '/dashboard/profile', label: local('تنظیمات حساب', 'Account settings') },
 ]
-export type PublicMenuLink = { id?: string; href: string; label: string; icon?: string; children?: PublicMenuLink[] }
+export type PublicMenuLink = { id?: string; href: string; label: string; icon?: string; children?: PublicMenuLink[]; menuDisplay?: 'dropdown' | 'mega'; menuColumns?: 2 | 3 | 4; description?: string }
 
 /** A hidden parent removes the whole branch; the saved tree stays intact. */
 export function filterMenu(links: SiteLink[], allowed: (link: SiteLink) => boolean): SiteLink[] {
@@ -16,7 +16,7 @@ export function filterMenu(links: SiteLink[], allowed: (link: SiteLink) => boole
 }
 
 export function localizeMenu(links: SiteLink[], locale: string): PublicMenuLink[] {
-  return links.filter(link => link.enabled !== false).map(link => ({ id: link.id, href: link.href, label: translate(link.label, locale), ...(link.icon !== undefined ? { icon: link.icon } : {}), ...(link.children ? { children: localizeMenu(link.children, locale) } : {}) }))
+  return links.filter(link => link.enabled !== false).map(link => ({ id: link.id, href: link.href, label: translate(link.label, locale), ...(link.icon !== undefined ? { icon: link.icon } : {}), ...(link.menuDisplay ? { menuDisplay: link.menuDisplay } : {}), ...(link.menuColumns ? { menuColumns: link.menuColumns } : {}), ...(link.description ? { description: translate(link.description, locale) } : {}), ...(link.children ? { children: localizeMenu(link.children, locale) } : {}) }))
 }
 
 export function flattenMenu(links: PublicMenuLink[]): PublicMenuLink[] {

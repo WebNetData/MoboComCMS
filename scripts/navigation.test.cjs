@@ -23,6 +23,26 @@ const menus = load('src/modules/site/config/menus')
 const { validateMenu, validateSite } = load('src/modules/site/config/validation')
 const { menuNodes } = load('src/modules/navigation/domain/presentation')
 
+test('header display choices and descriptions survive localization and visibility without rewriting legacy trees', () => {
+  const child = { id: 'learn', label: { fa: 'آموزش', en: 'Learn' }, href: '/blog', icon: '', description: { fa: 'مطالب آموزشی', en: 'Learning articles' } }
+  const links = [{ id: 'home', label: { fa: 'خانه', en: 'Home' }, href: '/', menuDisplay: 'mega', menuColumns: 4, description: { fa: 'بخش‌های سایت', en: 'Explore' }, children: [child, { ...child, id: 'hidden', enabled: false }] }]
+  assert.equal(validateMenu(links), true)
+  const before = JSON.stringify(links), projected = menus.localizeMenu(menus.filterMenu(links, () => true), 'fa')[0]
+  assert.equal(projected.menuDisplay, 'mega'); assert.equal(projected.menuColumns, 4); assert.equal(projected.description, 'بخش‌های سایت')
+  assert.equal(projected.children.length, 1); assert.equal(projected.children[0].description, 'مطالب آموزشی'); assert.equal(projected.children[0].icon, '')
+  assert.equal(menus.localizeMenu(links, 'en')[0].children[0].description, 'Learning articles')
+  assert.equal(JSON.stringify(links), before)
+  assert.deepEqual(menus.localizeMenu([{ label: child.label, href: '/' }], 'fa'), [{ id: undefined, label: 'آموزش', href: '/' }])
+})
+
+test('header display configuration rejects unknown modes, wrong column types and invalid or oversized captions', () => {
+  const link = { label: { fa: 'خانه', en: 'Home' }, href: '/' }
+  for (const menuDisplay of ['html', '', 1, {}, true]) assert.equal(validateMenu([{ ...link, menuDisplay }]), false)
+  for (const menuColumns of [0, 1, 5, '3', 3.5, null]) assert.equal(validateMenu([{ ...link, menuColumns }]), false)
+  for (const description of ['raw', {}, { fa: 'a', en: 1 }, { fa: 'a'.repeat(181), en: '' }]) assert.equal(validateMenu([{ ...link, description }]), false)
+  assert.equal(validateMenu([{ ...link, menuDisplay: 'dropdown', menuColumns: 3, description: { fa: '', en: '' } }]), true)
+})
+
 test('nested menus preserve old links, explicit icon removal and hidden ancestor semantics', () => {
   const links = [{ label: { fa: 'مجله', en: 'Magazine' }, href: '/blog', icon: '', children: [{ label: { fa: 'آموزش', en: 'Learn' }, href: '/blog?category=learn', icon: 'book' }] }]
   assert.equal(validateMenu(links), true)

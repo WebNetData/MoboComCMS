@@ -793,3 +793,6 @@ html[data-design="mobocom"] .mb-container { width: var(--mb-chrome); }
   html[data-design="mobocom"] .journal-crumb-pill > :nth-child(n+9) { animation-delay: .24s; }
 }
 @media (max-width: 620px) { html[data-design="mobocom"] .journal-crumb-pill { border-radius: 20px; } html[data-design="mobocom"] .journal-crumb-pill .current { max-width: 100%; } }
+
+/* Shared hierarchical header links keep the priority rail distribution. */
+.mb-nav-rail > [data-navigation-branch] { flex: 1 1 0; min-width: max-content; }

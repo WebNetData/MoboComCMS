@@ -39,3 +39,19 @@ Status: implemented with the bounded local evidence below. This is not a whole-p
 ## Delivery and continuation
 
 Owned browser actors/categories were removed and original settings restored by exact value claim; local session credential files were removed. Raw logs/screenshots are ignored under root `.mobocom/navigation-evidence`. Preserve unrelated `.serena/`, `public/demo/` and root owner work. No hosted Actions, push, PR, merge or deployment is claimed for this batch. Owner handles a requested PR's merge and deployment. Future work extends these owners and recorded tests; do not replace the existing category systems or protected public design.
+
+## Dropdown and mega presentation — 2026-10-19
+
+Spec: `docs/specs/navigation-display-modes/SPEC.md`. Each header root chooses `menuDisplay` (`dropdown`, the default for old rows, or `mega`) and `menuColumns` (2/3/4); any header link may carry a short `description`. Same `SiteLink` JSON, validated on save; no table or URL change.
+
+- Studio → Design → main navigation: two picture cards (dropdown / mega), a column count, and a description field per link (`MenuPresentationField.tsx`, `MenuTreeEditor.tsx`).
+- Public panel (`NavigationBranch.tsx` + `.module.css`): a glass surface lit by the site colour. The head has the root's icon, name, description, «مشاهدهٔ همه» (to the root's own address, when it is a site path) and a close button. A dropdown is a list with icons and descriptions, and its arrow appears on hover. A mega panel shows columns of group cards, each headed by its group link. Mobile and overflow menus open groups inline in the drawer. Portaled desktop panels stay inside the viewport and close on Escape, an outside click, scrolling or navigation. ArrowDown/Up enter the panel; focus returns to the trigger.
+- Executed 2026-10-19: unit `navigation`, `site`, `content-controls` 107/107. Browser `.mobocom/claude-tools/pw-nav-modes.cjs` 17/17 on localhost (PostgreSQL), with a sample tree saved through the Studio API and the original menu restored:
+  - both kinds open in light/dark at 1440;
+  - the mega panel stays inside the window;
+  - Escape closes and returns focus, ArrowDown focuses the first link, an outside click closes;
+  - the 390 drawer opens a group inline, with no sideways scroll;
+  - no page error.
+
+  Admin picker screenshots: light/dark.
+- A build break caused in this slice (a regex whose backslashes a shell ate) was caught on the owner's screen and fixed. Check JSX edited through shell scripts with a parse before restarting the preview.
