@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Notice } from '../store/shared'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Field = { key: string; label: string; type: string; builtin?: string; required: boolean; enabled: boolean; placeholder: string; help: string; options: string[] }
 type Config = { enforce: boolean; usernamePrefix: string; intro: string; fields: Field[] }
@@ -26,6 +27,7 @@ const slug = (label: string, taken: string[]) => {
 /** The registration-fields builder: which details members give, in which order, and which are required. */
 export default function ProfileFieldsPage() {
   const [config, setConfig] = useState<Config | null>(null)
+  const [revision, setRevision] = useState('')
   const [saved, setSaved] = useState('')
   const [types, setTypes] = useState<Record<string, string>>({})
   const [open, setOpen] = useState<string>('')
@@ -35,7 +37,7 @@ export default function ProfileFieldsPage() {
   useEffect(() => {
     fetch('/api/admin/profile-fields', { cache: 'no-store' }).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
       if (!ok) { setNotice({ tone: 'error', text: data?.error || 'بارگذاری انجام نشد' }); return }
-      setConfig(data.config); setSaved(JSON.stringify(data.config)); setTypes(data.types)
+      setConfig(data.config); setSaved(JSON.stringify(data.config)); setTypes(data.types); setRevision(data.settingsRevision || '')
     }).catch(() => setNotice({ tone: 'error', text: 'ارتباط برقرار نشد' }))
   }, [])
 
@@ -56,18 +58,18 @@ export default function ProfileFieldsPage() {
     const broken = config.fields.find((field) => !field.builtin && ['select', 'radio'].includes(field.type) && field.options.filter(Boolean).length < 2)
     if (broken) { setNotice({ tone: 'error', text: `«${broken.label}» دست‌کم دو گزینه لازم دارد.` }); setOpen(broken.key); return }
     setBusy(true); setNotice(null)
-    const response = await fetch('/api/admin/profile-fields', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config }) }).catch(() => null)
+    const response = await fetch('/api/admin/profile-fields', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify({ config }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'ذخیره انجام نشد' }); return }
-    setConfig(data.config); setSaved(JSON.stringify(data.config)); setNotice({ tone: 'ok', text: 'ذخیره شد؛ از همین حالا برای ثبت‌نام‌ها و ورودهای بعدی اعمال می‌شود.' })
+    setConfig(data.config); setSaved(JSON.stringify(data.config)); setRevision(data.settingsRevision || ''); setNotice({ tone: 'ok', text: 'ذخیره شد؛ از همین حالا برای ثبت‌نام‌ها و ورودهای بعدی اعمال می‌شود.' })
   }
 
   const enabled = config.fields.filter((field) => field.enabled)
   return <div className="sa" dir="rtl">
     <header className="sa-head">
       <div><h1>فیلدهای ثبت‌نام و تکمیل مشخصات</h1><p className="sa-hint">کاربر تازه (به‌ویژه با پیامک) پس از ورود به صفحهٔ «تکمیل مشخصات» می‌رود و تا فیلدهای ضروری را پر نکند وارد حساب نمی‌شود.</p></div>
-      <div className="sa-head-actions"><a href="/welcome" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش صفحه ↗</a><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+      <div className="sa-head-actions"><SectionSettingsHistoryLink section="profile-fields" /><a href="/welcome" target="_blank" rel="noreferrer" className="btn btn-ghost">پیش‌نمایش صفحه ↗</a><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 

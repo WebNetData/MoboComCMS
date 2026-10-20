@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { cache } from 'react'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
 import { richTextToPlain } from '@/shared/content/sanitize'
 import { minorToNumber } from '@/shared/money'
 import { unitPrice } from '@/modules/store/server/pricing'
@@ -22,9 +22,12 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   return stored ? normalizeStoreSettings(stored, DEFAULT_STORE_SETTINGS) : structuredClone(DEFAULT_STORE_SETTINGS)
 }
 
-export async function saveStoreSettings(input: unknown) {
-  const next = normalizeStoreSettings(input, await getStoreSettings())
-  await writeJsonSetting(SETTINGS_KEY, next)
+const storefrontHistory = () => createSectionSettingsHistory(SETTINGS_KEY, 'settings-storefront', raw => normalizeStoreSettings(raw || {}, DEFAULT_STORE_SETTINGS), settings => ({ slides: settings.slides.length, banners: settings.banners.length }), { action: 'store.settings.update', targetId: 0 })
+export const storefrontSettingsState = () => storefrontHistory().current()
+export const restoreStorefrontSettings = (...args: Parameters<ReturnType<typeof storefrontHistory>['restore']>) => storefrontHistory().restore(...args)
+
+export async function saveStoreSettings(input: unknown, context?: SectionSettingsContext) {
+  const next = await storefrontHistory().save(input, context)
   return next
 }
 

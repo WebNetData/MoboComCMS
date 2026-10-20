@@ -1,10 +1,11 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
 import { requirePerm, requireUser } from '@/modules/identity/server/access'
 import { CompletionError, completionStatus, getFieldsConfig, saveFieldsConfig, submitCompletion } from '@/modules/identity/server/profile-fields'
 import { FIELD_TYPES } from '@/modules/identity/domain/profile-fields'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { IRAN_CENTER, PROVINCE_CENTERS } from '@/modules/shipping/domain/shipping'
 
 /** GET /api/profile/completion — fields, current values and whether the member must finish first. */
@@ -36,16 +37,15 @@ async function adminAllowed(req: NextRequest) {
 /** GET/PUT /api/admin/profile-fields — the registration field builder. */
 export async function GET_fields(req: NextRequest) {
   if (!await adminAllowed(req)) return err('forbidden', 403)
-  return ok({ config: await getFieldsConfig(), types: FIELD_TYPES })
+  const config = await getFieldsConfig()
+  return ok({ config, types: FIELD_TYPES, settingsRevision: sectionSettingsRevision(config) })
 }
 
 export async function PUT_fields(req: NextRequest) {
   const admin = await adminAllowed(req)
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
-  const config = await saveFieldsConfig(body?.config)
-  await auditAdmin({ req, actor: admin, action: 'profile_fields.update', targetType: 'setting', targetId: 'profile.fields.v1', metadata: { fields: config.fields.map((field) => `${field.key}${field.required ? '*' : ''}${field.enabled ? '' : ' (off)'}`), enforce: config.enforce } })
-  return ok({ config })
+  return sectionSettingsSaveWith(req, admin, (context) => saveFieldsConfig(body?.config ?? {}, context), (config) => ({ config }))
 }
 
 // ------------------------------------------------------------------ geocoding

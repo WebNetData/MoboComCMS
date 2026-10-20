@@ -49,7 +49,7 @@ export default function ProductGroupsPage() {
         <label className="flex gap-2 items-center"><input type="checkbox" checked={field.variant || false} onChange={e => change(index, { variant: e.target.checked })} />{fa ? 'ویژگی گونهٔ قابل خرید (مانند رنگ یا نوع حساب)' : 'Purchasable variant option (such as color or account type)'}</label>
         <button type="button" className="btn btn-ghost" onClick={() => setFields(old => old.filter((_, i) => i !== index))}>{fa ? 'حذف فیلد' : 'Remove field'}</button>
       </div>)}
-      {error && <p className="error-text">{error}</p>}<div className="flex gap-2 mt-6"><button className="btn btn-primary">{id ? fa ? 'ذخیره' : 'Save' : fa ? 'ساخت گروه' : 'Create group'}</button>{id && <button type="button" className="btn btn-ghost" onClick={reset}>{fa ? 'انصراف' : 'Cancel'}</button>}</div>
+      {error && <p className="error-text">{error}</p>}<div className="flex gap-2 mt-6"><button type="submit" className="btn btn-primary">{id ? fa ? 'ذخیره' : 'Save' : fa ? 'ساخت گروه' : 'Create group'}</button>{id && <button type="button" className="btn btn-ghost" onClick={reset}>{fa ? 'انصراف' : 'Cancel'}</button>}</div>
     </form>
     <div className="store-admin-list mt-6">{rows.map(row => <div className="card" key={row.id}><strong>{fa ? row.name : row.nameEn || row.name}</strong><p className="muted text-sm">{(() => { try { return JSON.parse(row.fields).length } catch { return 0 } })()} {fa ? 'فیلد' : 'fields'}</p><div className="flex gap-2 mt-4"><button className="btn btn-ghost" onClick={() => edit(row)}>{fa ? 'ویرایش' : 'Edit'}</button><button className="btn btn-ghost" onClick={() => remove(row.id)}>{fa ? 'حذف' : 'Delete'}</button></div></div>)}</div>
   </div>

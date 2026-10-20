@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, useRef } from 'react'
 import { Notice } from '../store/shared'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Seal = { id: string; kind: 'enamad' | 'samandehi' | 'custom'; title: string; href: string; image: string; enabled: boolean }
 type Config = { enabled: boolean; title: string; seals: Seal[] }
@@ -16,16 +17,19 @@ const KIND_HELP: Record<Seal['kind'], string> = {
 /** Trust seals in the footer: paste the issuer's embed code; only its link and logo address are kept. */
 export default function TrustSealsPage() {
   const [config, setConfig] = useState<Config | null>(null)
+  const [revision, setRevision] = useState('')
   const [saved, setSaved] = useState('')
   const [labels, setLabels] = useState<Record<string, string>>({})
   const [code, setCode] = useState('')
   const [notice, setNotice] = useState<Tone>(null)
   const [busy, setBusy] = useState(false)
 
+  // Set before the early return below: hooks run in the same order on every render.
+  const addFromCodeRunning = useRef(false)
   useEffect(() => {
     fetch('/api/admin/trust-seals', { cache: 'no-store' }).then((r) => r.json().then((data) => ({ ok: r.ok, data }))).then(({ ok, data }) => {
       if (!ok) { setNotice({ tone: 'error', text: data?.error || 'بارگذاری انجام نشد' }); return }
-      setConfig(data.config); setSaved(JSON.stringify(data.config)); setLabels(data.labels)
+      setConfig(data.config); setSaved(JSON.stringify(data.config)); setLabels(data.labels); setRevision(data.settingsRevision || '')
     }).catch(() => setNotice({ tone: 'error', text: 'ارتباط برقرار نشد' }))
   }, [])
 
@@ -36,17 +40,22 @@ export default function TrustSealsPage() {
 
   async function addFromCode(e: FormEvent) {
     e.preventDefault()
-    if (!config) return
-    setNotice(null)
-    const response = await fetch('/api/admin/trust-seals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).catch(() => null)
-    const data = await response?.json().catch(() => null)
-    if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'کد خوانده نشد' }); return }
-    const taken = new Set(config.seals.map((seal) => seal.id))
-    let id = data.seal.kind, n = 2
-    while (taken.has(id)) id = `${data.seal.kind}-${n++}`
-    setConfig({ ...config, seals: [...config.seals, { id, enabled: true, ...data.seal }] })
-    setCode('')
-    setNotice({ tone: 'ok', text: `${data.seal.title} اضافه شد؛ برای انتشار «ذخیره» را بزنید.` })
+    if (addFromCodeRunning.current) return
+    addFromCodeRunning.current = true
+    try {
+      if (!config) return
+      setNotice(null)
+      const response = await fetch('/api/admin/trust-seals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).catch(() => null)
+      const data = await response?.json().catch(() => null)
+      if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'کد خوانده نشد' }); return }
+      const taken = new Set(config.seals.map((seal) => seal.id))
+      let id = data.seal.kind, n = 2
+      while (taken.has(id)) id = `${data.seal.kind}-${n++}`
+      setConfig({ ...config, seals: [...config.seals, { id, enabled: true, ...data.seal }] })
+      setCode('')
+      setNotice({ tone: 'ok', text: `${data.seal.title} اضافه شد؛ برای انتشار «ذخیره» را بزنید.` })
+    
+    } finally { addFromCodeRunning.current = false }
   }
 
   function addCustom() {
@@ -57,19 +66,19 @@ export default function TrustSealsPage() {
   async function save() {
     if (!config) return
     setBusy(true); setNotice(null)
-    const response = await fetch('/api/admin/trust-seals', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config }) }).catch(() => null)
+    const response = await fetch('/api/admin/trust-seals', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify({ config }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'ذخیره انجام نشد' }); return }
     const dropped = config.seals.length - data.config.seals.length
-    setConfig(data.config); setSaved(JSON.stringify(data.config))
+    setConfig(data.config); setSaved(JSON.stringify(data.config)); setRevision(data.settingsRevision || '')
     setNotice(dropped > 0 ? { tone: 'error', text: `${dropped.toLocaleString('fa-IR')} نماد به‌خاطر نشانی تصویر نامعتبر (فقط https) ذخیره نشد.` } : { tone: 'ok', text: 'ذخیره شد و در فوتر سایت نمایش داده می‌شود.' })
   }
 
   return <div className="sa" dir="rtl">
     <header className="sa-head">
       <div><h1>نمادهای اعتماد</h1><p className="sa-hint">اینماد، ساماندهی و مجوزهای دیگر در پایین همهٔ صفحه‌ها. کد صادرکننده را جای‌گذاری کنید؛ فقط پیوند و تصویر آن نگه داشته می‌شود و هیچ اسکریپتی وارد سایت نمی‌شود.</p></div>
-      <div className="sa-head-actions"><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+      <div className="sa-head-actions"><SectionSettingsHistoryLink section="trust-seals" /><button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
 
@@ -105,7 +114,7 @@ export default function TrustSealsPage() {
           <header className="sa-card-head"><h2>افزودن از کد صادرکننده</h2></header>
           <label className="sa-field"><span>کد HTML نماد</span><textarea className="input" dir="ltr" rows={6} value={code} onChange={(e) => setCode(e.target.value)} placeholder={'<a referrerpolicy=\'origin\' target=\'_blank\' href=\'https://trustseal.enamad.ir/?id=…&Code=…\'><img referrerpolicy=\'origin\' src=\'https://trustseal.enamad.ir/logo.aspx?id=…&Code=…\' …></a>'} required /></label>
           <ul className="ts-help">{(['enamad', 'samandehi', 'custom'] as const).map((kind) => <li key={kind}><b>{labels[kind]}:</b> {KIND_HELP[kind]}</li>)}</ul>
-          <div className="sa-head-actions"><button className="btn btn-primary" disabled={!code.trim()}>خواندن و افزودن</button></div>
+          <div className="sa-head-actions"><button type="submit" className="btn btn-primary" disabled={!code.trim()}>خواندن و افزودن</button></div>
         </form>
         <section className="sa-card sa-form">
           <header className="sa-card-head"><h2>نمایش</h2></header>

@@ -53,7 +53,7 @@ export default function BankAccountsPage() {
       <label className="studio-field"><span>ترتیب نمایش</span><input className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} /></label>
       <label className="studio-field seo-wide"><span>توضیح برای مشتری (اختیاری)</span><input className="input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} maxLength={300} placeholder="مثلاً: واریز پایا حداکثر تا پایان روز کاری بعد تأیید می‌شود" /></label>
       <label className="studio-switch seo-wide"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />فعال (روی فاکتورها نمایش داده شود)</label>
-      <div className="seo-actions seo-wide"><button className="btn btn-primary" disabled={busy}>{form.id ? 'ذخیرهٔ تغییرات' : 'افزودن حساب'}</button>{form.id > 0 && <button type="button" className="btn btn-ghost" onClick={() => setForm(EMPTY)}>انصراف</button>}</div>
+      <div className="seo-actions seo-wide"><button type="submit" className="btn btn-primary" disabled={busy}>{form.id ? 'ذخیرهٔ تغییرات' : 'افزودن حساب'}</button>{form.id > 0 && <button type="button" className="btn btn-ghost" onClick={() => setForm(EMPTY)}>انصراف</button>}</div>
     </form>
     <div className="table-wrap card"><table className="table"><thead><tr><th>بانک</th><th>صاحب حساب</th><th>کارت / شبا</th><th>رسید تأییدشده</th><th>وضعیت</th><th /></tr></thead><tbody>
       {accounts.map((account) => <tr key={account.id}>

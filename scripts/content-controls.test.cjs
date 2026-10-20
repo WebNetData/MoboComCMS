@@ -1561,10 +1561,10 @@ test('Persian dates: the shared calendar converts every day both ways and date f
   assert.equal(j.localDateTime(moment), '2026-10-21T09:05')
   assert.equal(new Date(j.localDateTime(moment.toISOString())).getTime(), moment.getTime())
   assert.equal(j.localDateTime(null), '')
-  // No native browser date fields remain where people type dates (they show mm/dd/yyyy); public forms keep their own Persian picker.
+  // No native browser date or time fields remain (they show mm/dd/yyyy and AM/PM); public forms keep their own Persian picker.
   const root = path.resolve(__dirname, '..')
   const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.tsx') ? [`${dir}/${e.name}`] : [])
-  for (const file of [...walk('src/app'), ...walk('src/components')]) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /type=["'{](date|datetime-local)["'}]|type=\{[^}]*'(date|datetime-local)'/, file)
+  for (const file of [...walk('src/app'), ...walk('src/components')]) assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /type=["'{](date|datetime-local|time)["'}]|type=\{[^}]*'(date|datetime-local|time)'/, file)
   const games = fs.readFileSync(path.join(root, 'src/modules/games/domain/games.ts'), 'utf8')
   assert.match(games, /from '@\/shared\/time\/jalali'/, 'one calendar implementation')
 })

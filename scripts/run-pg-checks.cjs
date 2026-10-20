@@ -38,6 +38,7 @@ const CHECKS = [
   'moderation-rounds-migration',
   'settings-history',
   'section-settings-history',
+  'owner-settings-history',
   'editor-module-blocks',
   'search-advanced-scale',
   'repository-license-owner',

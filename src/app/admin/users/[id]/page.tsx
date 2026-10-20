@@ -207,14 +207,14 @@ export default function AdminCustomerPage() {
               </div>
             </div>
 
-            <label className="label">{t.role}</label>
+            <span className="label">{t.role}</span>
             <div className="flex gap-2 mb-4">
-              <select className="select" value={u.role} onChange={(e) => call('role', { role: e.target.value })}>
+              <select aria-label={t.role} className="select" value={u.role} onChange={(e) => call('role', { role: e.target.value })}>
                 <option value="CUSTOMER">{t.stCUSTOMER}</option>
                 <option value="ADMIN">{t.stADMIN}</option>
               </select>
               {u.role === 'ADMIN' && (
-                <select className="select" value={u.roleId || ''} onChange={(e) => call('role', { role: 'ADMIN', roleId: Number(e.target.value) || null })}>
+                <select aria-label="سطح دسترسی مدیر" className="select" value={u.roleId || ''} onChange={(e) => call('role', { role: 'ADMIN', roleId: Number(e.target.value) || null })}>
                   <option value="">{t.stADMIN} (full)</option>
                   {roles.map((r) => <option key={r.id} value={r.id}>{r.nameFa || r.name}</option>)}
                 </select>
@@ -266,19 +266,19 @@ export default function AdminCustomerPage() {
           <div className="card self-start">
             <h2 className="h3 mb-1">{t.chargeWallet}</h2>
             <p className="muted text-sm mb-4">{t.chargeWalletHint}</p>
-            <label className="label">Currency</label>
+            <label className="label-field"><span className="label">Currency</span>
             <select className="select mb-3" value={currency} onChange={(e) => setCurrency(e.target.value)}>
               {currencyOptions.map((code) => <option key={code} value={code}>{currencyLabel(code)}</option>)}
-            </select>
-            <label className="label">{t.amountLabel}</label>
-            <input className="input num mb-3" dir="ltr" type="number" step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+            </select></label>
+            <label className="label-field"><span className="label">{t.amountLabel}</span>
+            <input className="input num mb-3" dir="ltr" type="number" step="0.01" value={amount} onChange={(e) => setAmount(Number(e.target.value))} /></label>
             <div className="flex gap-2 mb-3 flex-wrap">
               {[5, 10, 25, 50, 100].map((q) => (
                 <button key={q} className={`badge ${amount === q ? 'badge-primary' : 'badge-gray'}`} onClick={() => setAmount(q)}>{money(q, currency)}</button>
               ))}
             </div>
-            <label className="label">{t.description}</label>
-            <input className="input mb-4" value={amountNote} onChange={(e) => setAmountNote(e.target.value)} placeholder={t.chargeNotePlaceholder} />
+            <label className="label-field"><span className="label">{t.description}</span>
+            <input className="input mb-4" value={amountNote} onChange={(e) => setAmountNote(e.target.value)} placeholder={t.chargeNotePlaceholder} /></label>
             <div className="flex gap-2">
               <button className="btn btn-primary flex-1" disabled={busy === 'credit'} onClick={() => call('wallet', { amount: Math.abs(amount), currency, type: 'ADMIN_CREDIT', description: amountNote }, 'credit')}>
                 + {t.credit}
@@ -322,15 +322,15 @@ export default function AdminCustomerPage() {
             <p className="muted text-sm mb-4">{isFa ? 'سرویس مستقیماً روی پنل VPN ساخته می‌شود و از کیف پول کاربر مبلغی کسر نمی‌شود.' : 'The service is created directly on the VPN panel without charging the customer wallet.'}</p>
             {data.plans.length ? <div className="grid" style={{ gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr) auto', gap: '.75rem', alignItems: 'end' }}>
               <div>
-                <label className="label">{isFa ? 'پلن سرویس' : 'Service plan'}</label>
+                <label className="label-field"><span className="label">{isFa ? 'پلن سرویس' : 'Service plan'}</span>
                 <select className="select" value={newPlanId || ''} onChange={(e) => setNewPlanId(Number(e.target.value))}>
                   <option value="">{isFa ? 'انتخاب پلن…' : 'Select a plan…'}</option>
                   {data.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.trafficGB || '∞'} GB · {plan.days} {t.days} · {plan.panel}</option>)}
-                </select>
+                </select></label>
               </div>
               <div>
-                <label className="label">{isFa ? 'نام کاربری دلخواه (اختیاری)' : 'Custom username (optional)'}</label>
-                <input className="input num" dir="ltr" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} minLength={3} maxLength={32} placeholder="happ_customer" />
+                <label className="label-field"><span className="label">{isFa ? 'نام کاربری دلخواه (اختیاری)' : 'Custom username (optional)'}</span>
+                <input className="input num" dir="ltr" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} minLength={3} maxLength={32} placeholder="happ_customer" /></label>
               </div>
               <button className="btn btn-primary" disabled={!selectedPlan || busy === 'provision'} onClick={() => call('provision', { planId: newPlanId, username: newUsername.trim() }, 'provision')}>
                 {busy === 'provision' ? t.loading : isFa ? '+ ساخت سرویس' : '+ Create service'}
@@ -341,8 +341,8 @@ export default function AdminCustomerPage() {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="h3">{t.subscriptions}</h2>
             <div className="flex items-center gap-2">
-              <label className="muted text-sm">{t.extendDays}</label>
-              <input className="input imp-w-24 num" type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} />
+              <span className="muted text-sm">{t.extendDays}</span>
+              <input aria-label={t.extendDays} className="input imp-w-24 num" type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} />
             </div>
           </div>
           {data.subscriptions.length === 0 && <p className="muted">{t.noSubs}</p>}
@@ -471,8 +471,8 @@ export default function AdminCustomerPage() {
                 setNote('')
               }}
             >
-              <textarea className="textarea mb-3" rows={4} value={note} onChange={(e) => setNote(e.target.value)} />
-              <button className="btn btn-primary w-full" disabled={busy === 'note'}>{t.saveNote}</button>
+              <textarea aria-label="یادداشت تازه" className="textarea mb-3" rows={4} value={note} onChange={(e) => setNote(e.target.value)} />
+              <button type="submit" className="btn btn-primary w-full" disabled={busy === 'note'}>{t.saveNote}</button>
             </form>
 
             <h3 className="font-bold mt-6 mb-3">{t.tickets}</h3>
@@ -495,7 +495,7 @@ export default function AdminCustomerPage() {
                   <div className="text-sm">{n.body}</div>
                   <div className="flex items-center justify-between mt-2">
                     <span className="muted text-xs num">{fmtFull(n.createdAt)}</span>
-                    <button className="badge badge-red" disabled={busy === `note-${n.id}`}
+                    <button aria-label="حذف یادداشت" className="badge badge-red" disabled={busy === `note-${n.id}`}
                       onClick={() => call('noteDelete', { noteId: n.id }, `note-${n.id}`)}>✕</button>
                   </div>
                 </div>

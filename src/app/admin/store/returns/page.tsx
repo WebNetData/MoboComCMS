@@ -4,6 +4,7 @@ import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState, type FormEvent } from 'react'
 import { Money, Notice, Pager, RETURN_TONE, StoreShell, fa, faDate, useJson } from '../shared'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Row = {
   id: number; number: string; kind: 'CANCEL' | 'RETURN'; kindLabel: string; status: string; statusLabel: string; reasonLabel: string
@@ -11,23 +12,24 @@ type Row = {
   lines: { name: string; quantity: number; image: string }[]; customer: { name: string; email: string; phone: string }
 }
 type Settings = { enabled: boolean; windowDays: number; cancelBefore: 'PROCESSING' | 'PACKED' | 'SHIPPED'; autoRefundCancel: boolean; requirePhotos: boolean; codeReturnDays: number; policy: string }
-type List = { tab: string; page: number; pages: number; counts: Record<string, number>; tabs: { key: string; label: string }[]; rows: Row[]; settings: Settings }
+type List = { tab: string; page: number; pages: number; counts: Record<string, number>; tabs: { key: string; label: string }[]; rows: Row[]; settings: Settings; settingsRevision?: string }
 
-function SettingsCard({ initial }: { initial: Settings }) {
+function SettingsCard({ initial, initialRevision }: { initial: Settings; initialRevision: string }) {
   const [settings, setSettings] = useState(initial)
+  const [revision, setRevision] = useState(initialRevision)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   async function save(event: FormEvent) {
     event.preventDefault()
     setBusy(true); setNotice(null)
-    const response = await fetch('/api/admin/store/returns', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) }).catch(() => null)
+    const response = await fetch('/api/admin/store/returns', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify({ settings }) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setNotice({ tone: 'error', text: data?.error || 'ذخیره انجام نشد' }); return }
-    setSettings(data.settings); setNotice({ tone: 'ok', text: 'قوانین مرجوعی ذخیره شد.' })
+    setSettings(data.settings); setRevision(data.settingsRevision || ''); setNotice({ tone: 'ok', text: 'قوانین مرجوعی ذخیره شد.' })
   }
   return <form className="sa-card sa-form" onSubmit={save}>
-    <header className="sa-card-head"><h2>قوانین لغو و مرجوعی</h2></header>
+    <header className="sa-card-head"><h2>قوانین لغو و مرجوعی</h2><SectionSettingsHistoryLink section="returns" /></header>
     <label className="sa-check"><input type="checkbox" checked={settings.enabled} onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })} />مشتری بتواند از صفحهٔ سفارش درخواست لغو یا مرجوعی ثبت کند</label>
     <div className="sa-grid">
       <label className="sa-field"><span>مهلت مرجوعی پس از تحویل (روز)</span><input className="input num" type="number" min={0} max={365} value={settings.windowDays} onChange={(e) => setSettings({ ...settings, windowDays: Number(e.target.value) })} /></label>
@@ -40,7 +42,7 @@ function SettingsCard({ initial }: { initial: Settings }) {
     <label className="sa-check"><input type="checkbox" checked={settings.requirePhotos} onChange={(e) => setSettings({ ...settings, requirePhotos: e.target.checked })} />برای کالای معیوب، اشتباه یا ناقص، عکس الزامی باشد</label>
     <label className="sa-field"><span>متن قوانین (روی فرم درخواست نمایش داده می‌شود)</span><textarea className="input" rows={4} maxLength={1200} value={settings.policy} onChange={(e) => setSettings({ ...settings, policy: e.target.value })} /></label>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
-    <div className="sa-head-actions"><button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+    <div className="sa-head-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
   </form>
 }
 
@@ -86,7 +88,7 @@ function Returns() {
         </div>
         {data && <Pager page={data.page} pages={data.pages} onPage={(next) => go({ page: next })} />}
       </div>
-      {data && <SettingsCard initial={data.settings} />}
+      {data && <SettingsCard initial={data.settings} initialRevision={data.settingsRevision || ''} />}
     </div>
   </StoreShell>
 }

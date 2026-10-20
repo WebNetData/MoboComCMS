@@ -77,7 +77,7 @@ export default function SectionManagersPage() {
         <fieldset className="sm-ticks"><legend className="label">بخش‌ها</legend>
           {sections.map((section) => <label key={section.id}><input type="checkbox" checked={picked.includes(section.id)} onChange={() => setPicked(toggle(picked, section.id))} />{section.label}</label>)}
         </fieldset>
-        <button className="btn btn-primary" disabled={busy || !email.trim() || !picked.length}>افزودن</button>
+        <button type="submit" className="btn btn-primary" disabled={busy || !email.trim() || !picked.length}>افزودن</button>
       </form>
 
       <form className="card mb-6 sm-add" aria-label="افزودن نویسنده" onSubmit={async (event) => { event.preventDefault(); if (await save({ email: authorEmail }, authorPicked, 'نویسنده اضافه شد.', 'author')) { setAuthorEmail(''); setAuthorPicked([]) } }}>
@@ -88,7 +88,7 @@ export default function SectionManagersPage() {
         <fieldset className="sm-ticks"><legend className="label">نویسندهٔ کدام بخش‌ها</legend>
           {authorSections.map((section) => <label key={section.id}><input type="checkbox" checked={authorPicked.includes(section.id)} onChange={() => setAuthorPicked(toggle(authorPicked, section.id))} />{section.label}</label>)}
         </fieldset>
-        <button className="btn btn-primary" disabled={busy || !authorEmail.trim() || !authorPicked.length}>افزودن نویسنده</button>
+        <button type="submit" className="btn btn-primary" disabled={busy || !authorEmail.trim() || !authorPicked.length}>افزودن نویسنده</button>
       </form>
       </div>
 

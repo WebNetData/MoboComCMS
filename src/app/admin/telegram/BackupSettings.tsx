@@ -125,7 +125,7 @@ export default function BackupSettings() {
                 <input type="number" min={form.retentionDays} max={365} className="input mt-2" value={form.dailyRetentionDays} onChange={(e) => setForm({ ...form, dailyRetentionDays: Number(e.target.value) })} />
               </label>
             </div>
-            <button className="btn btn-primary mt-4">{L('Save backup settings', 'ذخیره تنظیمات بکاپ')}</button>
+            <button type="submit" className="btn btn-primary mt-4">{L('Save backup settings', 'ذخیره تنظیمات بکاپ')}</button>
           </fieldset>
         </form>
       )}

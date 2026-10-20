@@ -181,7 +181,7 @@ export default function ThemeBuilderPage() {
               <div className="tb-actions">
                 <Link className="btn btn-primary btn-sm" href={`/admin/builder/${meta.id}`}>{L('Edit design', 'ویرایش طرح')}</Link>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(meta)}>{meta.type === 'page' ? L('Placement', 'جایگاه') : L('Display rules', 'شرط نمایش')}</button>
-                {live && path && <a className="btn btn-ghost btn-sm" href={path} target="_blank" rel="noreferrer">↗</a>}
+                {live && path && <a aria-label={L('Open the live page', 'مشاهدهٔ صفحه')} className="btn btn-ghost btn-sm" href={path} target="_blank" rel="noreferrer">↗</a>}
                 <button type="button" className="btn btn-ghost btn-sm" aria-label={L('Duplicate', 'کپی')} title={L('Duplicate', 'کپی')} onClick={() => void duplicate(meta.id)}>⧉</button>
                 <button type="button" className="btn btn-ghost btn-sm tb-danger" aria-label={L('Delete', 'حذف')} title={L('Delete', 'حذف')} onClick={() => void remove(meta)}>✕</button>
               </div>
@@ -220,17 +220,17 @@ function CreateDialog({ L, presets, onClose, onCreated }: { L: L; presets: Recor
   const create = async () => {
     if (!type || !name.trim()) return
     setBusy(true); setError('')
-    const response = await fetch('/api/admin/theme-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, name, nameEn, preset }) })
-    const result = await response.json().catch(() => null)
+    const response = await fetch('/api/admin/theme-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, name, nameEn, preset }) }).catch(() => null)
+    const result = await response?.json().catch(() => null)
     setBusy(false)
-    if (response.ok && result?.template) onCreated(result.template)
+    if (response?.ok && result?.template) onCreated(result.template)
     else setError(result?.error || L('Could not create the template.', 'ساخت قالب ممکن نشد.'))
   }
 
-  return <div className="tb-modal" role="dialog" aria-modal="true" onClick={onClose}>
+  return <div className="tb-modal" role="dialog" aria-modal="true" aria-labelledby="tb-new-title" onClick={onClose}>
     <div className="tb-modal-box" onClick={(event) => event.stopPropagation()}>
       <header>
-        <h2>{type ? L(`New ${THEME_TYPE_LABELS[type].en.toLowerCase()} template`, `قالب ${THEME_TYPE_LABELS[type].fa} جدید`) : L('What do you want to build?', 'چه چیزی می‌خواهید بسازید؟')}</h2>
+        <h2 id="tb-new-title">{type ? L(`New ${THEME_TYPE_LABELS[type].en.toLowerCase()} template`, `قالب ${THEME_TYPE_LABELS[type].fa} جدید`) : L('What do you want to build?', 'چه چیزی می‌خواهید بسازید؟')}</h2>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={L('Close', 'بستن')}>✕</button>
       </header>
       {!type ? <div className="tb-type-grid">
@@ -291,27 +291,28 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
 
   const save = async () => {
     setSaving(true)
-    if (meta.type === 'page') await onSave({ placement })
-    else await onSave({ conditions: rules.map(fromDraft).filter(Boolean), priority, sticky })
-    setSaving(false)
+    try {
+      if (meta.type === 'page') await onSave({ placement })
+      else await onSave({ conditions: rules.map(fromDraft).filter(Boolean), priority, sticky })
+    } finally { setSaving(false) }
   }
 
   const valueField = (rule: RuleDraft, index: number) => {
     const set = (value: string) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, value } : entry)))
-    if (rule.kind === 'post-category') return <select className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
+    if (rule.kind === 'post-category') return <select aria-label={L('Category', 'دسته')} className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose a category', 'انتخاب دسته')}</option>
       {data.postCategories.map((c) => <option key={c.id} value={c.id}>{catLabel(fa, c)}</option>)}
     </select>
-    if (rule.kind === 'product-category') return <select className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
+    if (rule.kind === 'product-category') return <select aria-label={L('Category', 'دسته')} className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose a category', 'انتخاب دسته')}</option>
       {data.productCategories.map((c) => <option key={c.id} value={c.id}>{catLabel(fa, c)}</option>)}
     </select>
-    if (rule.kind === 'product-kind') return <select className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
+    if (rule.kind === 'product-kind') return <select aria-label={L('Product type', 'نوع محصول')} className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose', 'انتخاب')}</option>
       <option value="VIRTUAL">{L('Digital products', 'محصولات مجازی')}</option>
       <option value="PHYSICAL">{L('Physical products', 'محصولات فیزیکی')}</option>
     </select>
-    if (rule.kind === 'section') return <select className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
+    if (rule.kind === 'section') return <select aria-label={L('Section', 'بخش')} className="select" value={rule.value} onChange={(event) => set(event.target.value)}>
       <option value="">{L('Choose a section', 'انتخاب بخش')}</option>
       <optgroup label={L('Built-in modules', 'ماژول‌های داخلی')}>
         {[['software', L('Software', 'نرم‌افزار')], ['games', L('Games', 'بازی')], ['music', L('Music', 'موزیک')], ['cinema', L('Films & series', 'فیلم و سریال')], ['forum', L('Forum', 'تالار گفتمان')], ['vip', L('VIP membership', 'اشتراک ویژه')], ['search', L('Search', 'جست‌وجو')], ['compare', L('Compare', 'مقایسه')]].map(([slug, name]) => <option key={slug} value={slug} data-vip={slug === 'vip' ? '' : undefined}>/{slug} — {name}</option>)}
@@ -321,10 +322,10 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
     return null
   }
 
-  return <div className="tb-modal" role="dialog" aria-modal="true" onClick={onClose}>
+  return <div className="tb-modal" role="dialog" aria-modal="true" aria-labelledby="tb-rules-title" onClick={onClose}>
     <div className="tb-modal-box tb-rules-box" onClick={(event) => event.stopPropagation()}>
       <header>
-        <h2>{meta.type === 'page' ? L('Where is this page used?', 'این صفحه کجا استفاده شود؟') : L('Where should this template appear?', 'این قالب کجا نمایش داده شود؟')}</h2>
+        <h2 id="tb-rules-title">{meta.type === 'page' ? L('Where is this page used?', 'این صفحه کجا استفاده شود؟') : L('Where should this template appear?', 'این قالب کجا نمایش داده شود؟')}</h2>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label={L('Close', 'بستن')}>✕</button>
       </header>
 
@@ -365,11 +366,11 @@ function RulesDialog({ L, fa, meta, data, onClose, onSave }: { L: L; fa: boolean
       </div> : <>
         <div className="tb-rule-list">
           {rules.map((rule, index) => <div className={`tb-rule${rule.mode === 'exclude' ? ' is-exclude' : ''}`} key={index}>
-            <select className="select tb-rule-mode" value={rule.mode} onChange={(event) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, mode: event.target.value === 'exclude' ? 'exclude' : 'include' } : entry)))}>
+            <select aria-label={L('Show or hide', 'نمایش یا عدم نمایش')} className="select tb-rule-mode" value={rule.mode} onChange={(event) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, mode: event.target.value === 'exclude' ? 'exclude' : 'include' } : entry)))}>
               <option value="include">{L('Show on', 'نمایش در')}</option>
               <option value="exclude">{L('Hide on', 'به‌جز')}</option>
             </select>
-            <select className="select" value={rule.kind} onChange={(event) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, kind: event.target.value, value: '' } : entry)))}>
+            <select aria-label={L('Condition', 'شرط')} className="select" value={rule.kind} onChange={(event) => setRules((list) => list.map((entry, i) => (i === index ? { ...entry, kind: event.target.value, value: '' } : entry)))}>
               {kinds.map((kind) => <option key={kind} value={kind}>{labels[kind]}</option>)}
             </select>
             {valueField(rule, index)}

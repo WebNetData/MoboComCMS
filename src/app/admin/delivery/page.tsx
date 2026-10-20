@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { WEEKDAY_FA, type DeliverySettings, type ScheduleDay } from '@/modules/shipping/domain/shipping'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 /** Saturday-first week, as Iranian calendars show it (JS weekday numbers). */
 const WEEK = [6, 0, 1, 2, 3, 4, 5]
@@ -15,12 +16,13 @@ export default function AdminDeliveryPage() {
   const [days, setDays] = useState<ScheduleDay[]>([])
   const [holiday, setHoliday] = useState('')
   const [busy, setBusy] = useState(false)
+  const [revision, setRevision] = useState('')
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/delivery', { cache: 'no-store' }).then(async (response) => {
       const body = await response.json().catch(() => null)
-      if (response.ok) { setSettings(body.settings); setDays(body.days) } else setMessage({ text: body?.error || 'دریافت تنظیمات ناموفق بود', error: true })
+      if (response.ok) { setSettings(body.settings); setDays(body.days); setRevision(body.settingsRevision || '') } else setMessage({ text: body?.error || 'دریافت تنظیمات ناموفق بود', error: true })
     }).catch(() => setMessage({ text: 'ارتباط برقرار نشد', error: true }))
   }, [])
 
@@ -31,11 +33,11 @@ export default function AdminDeliveryPage() {
 
   async function save() {
     setBusy(true); setMessage(null)
-    const response = await fetch('/api/admin/delivery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }).catch(() => null)
+    const response = await fetch('/api/admin/delivery', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(revision ? { 'If-Match': revision } : {}) }, body: JSON.stringify(s) }).catch(() => null)
     const body = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setMessage({ text: body?.error || 'ذخیره نشد', error: true }); return }
-    setSettings(body.settings); setDays(body.days)
+    setSettings(body.settings); setDays(body.days); setRevision(body.settingsRevision || '')
     setMessage({ text: 'تنظیمات ارسال ذخیره شد', error: false })
   }
 
@@ -43,7 +45,7 @@ export default function AdminDeliveryPage() {
 
   return <div className="xm-page sh-admin" dir="rtl">
     <header className="tb-hero"><div><span className="tb-eyebrow">فروشگاه · تحویل</span><h1>زمان‌بندی و هزینهٔ ارسال</h1>
-      <p>مشتری هنگام خرید کالای فیزیکی، روز و بازهٔ ساعت ارسال را مثل دیجی‌کالا انتخاب می‌کند. ظرفیت هر بازه با سفارش‌های ثبت‌شده پر می‌شود؛ سفارش پرداخت‌نشده پس از دو ساعت ظرفیت را آزاد می‌کند. سفارش‌ها در <Link href="/admin/product-deliveries">تحویل سفارش‌ها</Link> به ترتیب روز ارسال دیده می‌شوند.</p></div></header>
+      <p>مشتری هنگام خرید کالای فیزیکی، روز و بازهٔ ساعت ارسال را مثل دیجی‌کالا انتخاب می‌کند. ظرفیت هر بازه با سفارش‌های ثبت‌شده پر می‌شود؛ سفارش پرداخت‌نشده پس از دو ساعت ظرفیت را آزاد می‌کند. سفارش‌ها در <Link href="/admin/product-deliveries">تحویل سفارش‌ها</Link> به ترتیب روز ارسال دیده می‌شوند.</p><div className="xm-head-actions"><SectionSettingsHistoryLink section="delivery" /></div></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 
     <div className="sh-admin-grid">

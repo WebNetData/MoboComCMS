@@ -199,7 +199,7 @@ function Subscribers() {
     <section className="sa-card sa-form">
       <header className="sa-card-head"><h2>افزودن گروهی</h2></header>
       <p className="sa-hint">هر خط یک ایمیل، یا «ایمیل,نام». فقط نشانی‌هایی را اضافه کنید که خودشان اجازهٔ دریافت خبرنامه داده‌اند؛ کسانی که قبلاً لغو کرده‌اند دوباره اضافه نمی‌شوند.</p>
-      <textarea className="input" dir="ltr" rows={8} value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={'ali@example.com,علی\nsara@example.com'} />
+      <textarea aria-label="فهرست ایمیل‌ها برای ورود" className="input" dir="ltr" rows={8} value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={'ali@example.com,علی\nsara@example.com'} />
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       <button type="button" className="btn btn-primary" disabled={!importText.trim()} onClick={() => void call<{ added: number; skipped: number }>({ op: 'import', text: importText }).then((result) => { setNotice(result.ok ? { tone: 'ok', text: `${fa(result.data.added)} نفر اضافه شد؛ ${fa(result.data.skipped)} مورد تکراری یا نامعتبر بود.` } : { tone: 'error', text: result.error }); if (result.ok) { setImportText(''); void reload() } })}>افزودن</button>
     </section>

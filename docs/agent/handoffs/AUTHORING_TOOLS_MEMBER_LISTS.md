@@ -58,6 +58,14 @@ Scenario: `docs/specs/authoring-tools-member-lists/SPEC.md`.
 | `settings-media` | Library settings tab | `settings.manage` | Intake/organization/size/timeout policy | Storage credentials, files and transfer execution |
 | `settings-notifications` | `/admin/notifications` | `settings.manage` | Retention and digest policy | Digest cursor, deliveries, jobs and deleted notices |
 | `settings-businesses` | Businesses card in `/admin/extensions` | `settings.manage` | Five declared moderation/intake booleans | Enabled state, ownership, claims/reviews/proofs and unknown settings |
+| `settings-delivery` | `/admin/delivery` | `orders.manage`/`settings.manage`, store module | Schedule rules, weekly/holiday closures, slots and fee thresholds | Bookings and orders |
+| `settings-storefront` | `/admin/store/settings` | `settings.manage`/`cms.products`, store module | Slides, banners, badges and storefront toggles | Price-history baseline job, products and stock |
+| `settings-returns` | Returns card in `/admin/store/returns` | `settings.manage`/`orders.manage`, store module | Window, cancel stage, auto refund, photos, code return days, policy text | Return requests, refunds and wallet moves |
+| `settings-watermark` | `/admin/watermark` | `settings.manage` | Look, placement, scope and per-image include/exclude lists | Original files; marked copies are remade after a change |
+| `settings-profile-fields` | `/admin/profile-fields` | `users.manage`/`settings.manage` | Field list, enforcement and username prefix | Members' answers and profiles |
+| `settings-trust-seals` | `/admin/trust-seals` | `settings.manage` | Shown flag and seal list (parsed issuer links/images) | Nothing else |
+
+2026-10-19 follow-up: the six rows above join through the same `createSectionSettingsHistory` adapter, created on use. An optional audit envelope keeps each route's previous action name and target (`store.delivery.update`, `store.settings.update`, `store.returns.settings`, `watermark.update`, `profile_fields.update`, `trust_seals.update`), now written strictly in the save transaction. Routes keep their body/answer shapes plus `settingsRevision`, check Origin and honour If-Match (stale → 409, input kept); the six forms send it and link to History. Evidence: `owner-settings-history.connected.cjs` (registered PostgreSQL run) and a real browser save/History/restore. SEO (legacy keys, IndexNow key), maintenance (operational state) and credential-bearing owners (SMS, mail, social, AI, push) remain outside.
 
 Business policy remains configurable while the module is off; restoring it never
 activates the module or reverses a moderation decision. Both extension-writing

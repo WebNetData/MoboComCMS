@@ -2,7 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { cached, invalidate } from '@/platform/cache/kv'
 import type { Prisma } from '@prisma/client'
 export { generalSettingsState, generalSettingsRevision, saveGeneralSettings, restoreGeneralSettings } from '@/modules/settings/server/general'
-export { createSectionSettingsHistory, sectionSettingsRevision, type SectionSettingsContext } from '@/modules/settings/server/section-history'
+export { createSectionSettingsHistory, sectionSettingsRevision, type SectionSettingsContext, type SectionAuditEnvelope } from '@/modules/settings/server/section-history'
 
 // Settings are read on nearly every request; they are cached briefly and
 // dropped on every write (lease rows change constantly and are never cached).

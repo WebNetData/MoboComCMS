@@ -155,7 +155,7 @@ function Explorer() {
     <form className="sp-pathbar" onSubmit={(e) => { e.preventDefault(); void load(address.trim() || '/') }}>
       <button type="button" className="btn btn-ghost btn-sm" disabled={!listing?.parent} onClick={() => listing?.parent && void load(listing.parent)} aria-label="پوشهٔ بالاتر">↑ بالا</button>
       <ol className="sp-crumbs" dir="ltr" aria-label="مسیر فعلی">
-        <li><button type="button" onClick={() => void load('/')}>/</button></li>
+        <li><button aria-label="ریشهٔ فایل‌ها" type="button" onClick={() => void load('/')}>/</button></li>
         {crumbs.map((part, index) => <li key={index}><button type="button" onClick={() => void load(`/${crumbs.slice(0, index + 1).join('/')}`)}>{part}</button></li>)}
       </ol>
       <input className="input sp-address" dir="ltr" value={address} onChange={(e) => setAddress(e.target.value)} aria-label="رفتن به مسیر" spellCheck={false} />
