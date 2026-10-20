@@ -23,7 +23,7 @@ docker exec mobocom-app sh -c 'cd /app && NODE_PATH=/app/node_modules node /tmp/
 - `--real=N`: adds nothing. It replays the N searches that were asked most often in the last 30 days, taken from the analytics counts. On a copy restored from a production backup, this shows the real query distribution against the real index.
 - `--container=NAME`: reports the container's memory before and after (needs the docker CLI where the tool runs).
 
-## Local results, 2026-10-20
+## Local results before the cap, 2026-10-20
 
 Setup: Windows 11 with Docker Desktop, the local preview app in development mode (`next dev --turbopack`), and PostgreSQL 17 in a container. Times are in milliseconds, measured at the client, and include Next.js. The text is synthetic. A production build adds less overhead per request, but most of the time goes to reading and ranking matches, which the build mode does not change.
 
@@ -40,16 +40,27 @@ Setup: Windows 11 with Docker Desktop, the local preview app in development mode
 
 ### What this shows
 
-- **Time grows with the number of matching documents, not with the size of the index.** A search reads every match in batches of 500 (`SearchDocument` in id order, `LIKE '%word%'`), checks each batch against the owners' public cards, and ranks all of them. That costs about 45 µs per match here. A word that appears in most documents therefore costs seconds once an index reaches about 100,000 documents.
+- **Time grew with the number of matching documents, not with the size of the index.** A search read every match in batches of 500 (`SearchDocument` in id order, `LIKE '%word%'`), checks each batch against the owners' public cards, and ranks all of them. That costs about 45 µs per match here. A word that appears in most documents therefore costs seconds once an index reaches about 100,000 documents.
 - **A rare word gets slower as the index grows.** No index serves `LIKE '%word%'`, so finding the first 500 matches is a full table scan: 7.6 ms on 20,000 rows and 37 ms on 100,000.
 - **Autocomplete stays fast.** It reads a fixed sample of 400 candidates.
 
-## Options, not yet decided
+## The owner's choice: a cap of 5,000 matches (2026-10-20)
 
-These are design choices for the owner. The measurement does not choose one.
+Of the three options (a cap, a `pg_trgm` trigram index, PostgreSQL full-text ranking) the owner chose the cap (`docs/agent/PLATFORM_DECISIONS.md` 6Y). `searchSite` now reads `SearchDocument` newest published first (keyset on `publishedAt`, `id`, index `SearchDocument_publishedAt_id_idx`) and stops once the list asked for has `MAX_SCANNED_MATCHES` = 5,000 matches. It ranks those and answers `capped: true`; the search page shows counts as "N+" with one line of explanation. Words with fewer matches are read to the end; autocomplete is unchanged. The index rows are created per type during a rebuild, so reading in id order would have favoured one content type; reading by date does not.
 
-1. Stop reading after a fixed number of matches (for example 5,000), rank only those, and show the total as "more than 5,000". This is the smallest change and keeps today's ranking.
-2. Add a PostgreSQL trigram index (`pg_trgm`, GIN) on `SearchDocument.text`. This speeds up finding rare words. It does not help with words that match most documents.
-3. Rank inside PostgreSQL with full-text search. This is a larger change, and Persian has no built-in dictionary.
+Same setup, 100,000 documents, median, after the cap and the index:
 
-Before choosing, run `--real` on a copy of the production data: the real query distribution decides how often common words are searched.
+| Question (matches) | before | after |
+|---|---|---|
+| one match | 62 | 41 |
+| 1% | 128 (1,000) | 145 (1,000) |
+| 10% | 519 (10,000) | 382 (5,000+) |
+| 50% | 2,347 (50,000) | 251 (5,000+) |
+| every document | 4,451 (100,000) | 243 (5,000+) |
+| every document, past page 50 (cursor) | 4,462 | 229 |
+| a common Persian word (70%) | 3,198 | 259 (5,000+) |
+| autocomplete | 47 | 41 |
+
+Without the new index each batch had to sort all matches by date (10%: 706 ms); with it the slowest question is about 0.4 s. Run-to-run variation is tens of milliseconds. The tool accepts capped answers and prints their totals as "N+".
+
+**Still owed:** run `--real` on a copy restored from a production backup. The real query distribution decides whether 5,000 is the right cap and whether rare words need the trigram index later.
