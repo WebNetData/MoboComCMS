@@ -70,7 +70,8 @@ async function measure(label, query, expect) {
   if (expect && !expect(first.body)) throw new Error(`${label}: unexpected answer ${JSON.stringify(first.body).slice(0, 300)}`)
   const samples = []
   for (let run = 0; run < RUNS; run++) samples.push((await ask(query)).ms)
-  return { label, total: first.body?.total ?? first.body?.results?.length ?? '', median: percentile(samples, 0.5), p95: percentile(samples, 0.95), max: Math.max(...samples), body: first.body }
+  // A capped search (owner, 2026-10-20) reports what it read, at most its cap: shown as N+.
+  return { label, total: `${first.body?.total ?? first.body?.results?.length ?? ''}${first.body?.capped ? '+' : ''}`, median: percentile(samples, 0.5), p95: percentile(samples, 0.95), max: Math.max(...samples), body: first.body }
 }
 
 async function plan(token) {
@@ -158,16 +159,16 @@ async function main() {
   const q = (token, extra = '') => `q=${encodeURIComponent(token)}${extra}`
   const results = []
   results.push(await measure('one match', q(marker('one')), (body) => body.total === 1))
-  results.push(await measure('1% match', q(marker('hund')), (body) => body.total === Math.floor(DOCS / 100)))
-  results.push(await measure('10% match', q(marker('tenth')), (body) => body.total === Math.floor(DOCS / 10)))
-  results.push(await measure('50% match', q(marker('half')), (body) => body.total === Math.floor(DOCS / 2)))
-  results.push(await measure('100% match', q(marker('all')), (body) => body.total === DOCS))
-  results.push(await measure('two words (5%)', q(`${marker('half')} ${marker('tenth')}`), (body) => body.total === Math.floor(DOCS / 10)))
-  results.push(await measure('100%, posts only', q(marker('all'), '&type=post'), (body) => body.total === DOCS))
+  results.push(await measure('1% match', q(marker('hund')), (body) => (body.capped ? body.total <= Math.floor(DOCS / 100) : body.total === Math.floor(DOCS / 100))))
+  results.push(await measure('10% match', q(marker('tenth')), (body) => (body.capped ? body.total <= Math.floor(DOCS / 10) : body.total === Math.floor(DOCS / 10))))
+  results.push(await measure('50% match', q(marker('half')), (body) => (body.capped ? body.total <= Math.floor(DOCS / 2) : body.total === Math.floor(DOCS / 2))))
+  results.push(await measure('100% match', q(marker('all')), (body) => (body.capped ? body.total <= DOCS : body.total === DOCS)))
+  results.push(await measure('two words (5%)', q(`${marker('half')} ${marker('tenth')}`), (body) => (body.capped ? body.total <= Math.floor(DOCS / 10) : body.total === Math.floor(DOCS / 10))))
+  results.push(await measure('100%, posts only', q(marker('all'), '&type=post'), (body) => (body.capped ? body.total <= DOCS : body.total === DOCS)))
   const fifty = await measure('100%, page 50', q(marker('all'), '&page=50'), (body) => body.hits?.length > 0)
   results.push(fifty)
   if (fifty.body.nextCursor) results.push(await measure('100%, past page 50 (cursor)', q(marker('all'), `&cursor=${encodeURIComponent(fifty.body.nextCursor)}`), (body) => body.page === 51))
-  results.push(await measure('100%, newest first', q(marker('all'), '&sort=newest'), (body) => body.total === DOCS))
+  results.push(await measure('100%, newest first', q(marker('all'), '&sort=newest'), (body) => (body.capped ? body.total <= DOCS : body.total === DOCS)))
   results.push(await measure('autocomplete', q(marker('all'), '&suggest=1'), (body) => Array.isArray(body.results)))
   results.push(await measure('common Persian word', q('راهنما'), (body) => typeof body.total === 'number'))
   const after = memory()
