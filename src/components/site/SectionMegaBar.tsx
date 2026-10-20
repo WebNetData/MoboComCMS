@@ -56,6 +56,8 @@ export function MegaPanel({ item, promo, onNavigate }: { item: SectionBarItem; p
 
 const MORE = '__more__'
 const MORE_WIDTH = 96
+/** At this width and below the bar is a swipeable strip: every entry stays in it instead of moving under «بیشتر». */
+const STRIP_QUERY = '(max-width: 860px)'
 
 /** Entries that did not fit in the bar: each category with its first sub-links, then the quick links. */
 function MorePanel({ items, quick, onNavigate }: { items: SectionBarItem[]; quick: MegaLink[]; onNavigate: () => void }) {
@@ -120,6 +122,12 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
     let space = el.clientWidth - home - gap
     const total = widths.current.reduce((sum, w) => sum + w + gap, 0)
     const cap = bar.maxItems > 0 ? Math.min(bar.maxItems, bar.items.length) : bar.items.length
+    // A phone scrolls the strip sideways: the Admin's category limit still applies, the screen width does not.
+    if (window.matchMedia(STRIP_QUERY).matches) {
+      const quick = cap === bar.items.length ? bar.quick.length : 0
+      setFit((current) => (current && current.items === cap && current.quick === quick ? current : { items: cap, quick }))
+      return
+    }
     const needMore = total > space || cap < bar.items.length
     if (needMore) space -= MORE_WIDTH
     let items = 0
@@ -146,6 +154,15 @@ export default function SectionMegaBar({ bar, searchValue, extra }: { bar: Secti
     observer.observe(el)
     return () => observer.disconnect()
   }, [layout])
+  // On a phone the current entry is brought into the strip's view, without moving the page.
+  useEffect(() => {
+    const el = nav.current
+    if (!el || !fit || !window.matchMedia(STRIP_QUERY).matches) return
+    const active = el.querySelector<HTMLElement>('.mm-bar-link.is-active')
+    if (!active) return
+    const start = active.offsetLeft - (el.clientWidth - active.offsetWidth) / 2
+    el.scrollTo({ left: start, behavior: 'instant' as ScrollBehavior })
+  }, [fit, pathname])
   const shownItems = fit ? bar.items.slice(0, fit.items) : bar.items
   const shownQuick = fit ? bar.quick.slice(0, fit.quick) : bar.quick
   const moreItems = fit ? bar.items.slice(fit.items) : []
