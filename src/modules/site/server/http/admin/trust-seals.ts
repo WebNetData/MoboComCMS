@@ -1,14 +1,16 @@
 import type { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
-import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { getTrustSeals, saveTrustSeals } from '@/modules/site/config/store'
 import { SEAL_LABELS, parseSealCode } from '@/modules/site/config/trust-seals'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 
 /** GET /api/admin/trust-seals */
 export async function GET_seals(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
-  return ok({ config: await getTrustSeals(), labels: SEAL_LABELS })
+  const config = await getTrustSeals()
+  return ok({ config, labels: SEAL_LABELS, settingsRevision: sectionSettingsRevision(config) })
 }
 
 /** PUT { config } saves the list; POST { code } reads an issuer's embed code without saving. */
@@ -16,9 +18,7 @@ export async function PUT_seals(req: NextRequest) {
   const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
-  const config = await saveTrustSeals(body?.config)
-  await auditAdmin({ req, actor: admin, action: 'trust_seals.update', targetType: 'setting', targetId: 'site.trust-seals.v1', metadata: { enabled: config.enabled, seals: config.seals.map((seal) => `${seal.kind}:${seal.enabled ? 'on' : 'off'}`) } })
-  return ok({ config })
+  return sectionSettingsSaveWith(req, admin, (context) => saveTrustSeals(body?.config ?? {}, context), (config) => ({ config }))
 }
 
 export async function POST_parse(req: NextRequest) {

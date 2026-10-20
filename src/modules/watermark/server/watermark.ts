@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { db } from '@/platform/database/prisma'
-import { readJsonSetting, writeJsonSetting } from '@/modules/settings/server'
+import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
+import type { RestoreCommit } from '@/modules/content/server/revisions'
+import type { Snapshot } from '@/modules/content/domain/revisions'
 import {
   DEFAULT_WATERMARK, appearanceKey, fileOfUrl, markSize, normalizeWatermark, placement, shouldWatermark,
   type Role, type Usage, type WatermarkSettings,
@@ -32,14 +34,28 @@ export async function getWatermark(): Promise<WatermarkSettings> {
   return value
 }
 
-export async function saveWatermark(input: Record<string, unknown>): Promise<WatermarkSettings> {
-  const previous = await getWatermark()
-  const next = normalizeWatermark(input, previous)
-  await writeJsonSetting(KEY, next)
+const watermarkHistory = () => createSectionSettingsHistory(KEY, 'settings-watermark', raw => normalizeWatermark((raw || {}) as Record<string, unknown>, DEFAULT_WATERMARK), settings => ({ enabled: settings.enabled, scope: settings.scope, position: settings.position }), { action: 'watermark.update', targetId: KEY })
+export const watermarkSettingsState = () => watermarkHistory().current()
+
+/** After a committed change: fresh settings in memory, and marked copies remade when the look changed or marking stopped. */
+async function watermarkChanged(previous: WatermarkSettings, next: WatermarkSettings) {
   state.settings = { value: next, at: Date.now() }
   state.marks.clear()
   if (appearanceKey(previous) !== appearanceKey(next) || !next.enabled) await clearWatermarkCache()
+}
+
+export async function saveWatermark(input: Record<string, unknown>, context?: SectionSettingsContext): Promise<WatermarkSettings> {
+  const previous = await watermarkHistory().read()
+  const next = await watermarkHistory().save(input, context)
+  await watermarkChanged(previous, next)
   return next
+}
+
+export async function restoreWatermarkSettings(id: number, snapshot: Snapshot, commit: RestoreCommit) {
+  const previous = await watermarkHistory().read()
+  const result = await watermarkHistory().restore(id, snapshot, commit)
+  await watermarkChanged(previous, await watermarkHistory().read())
+  return result
 }
 
 /** Removes the watermarked copies (they are made again on the next request). */

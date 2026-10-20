@@ -4,12 +4,14 @@ import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { FILE_NAME, SECTIONS } from '@/modules/watermark/domain/watermark'
 import { getWatermark, listImages, markImage, previewWatermark, saveWatermark, usageIndex, watermarkFontReady } from '@/modules/watermark/server/watermark'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 
 /** GET /api/admin/watermark — settings and what the page needs. */
 export async function GET(req: NextRequest) {
   if (!await requirePerm(req, 'settings.manage')) return err('forbidden', 403)
   const [settings, index, font] = await Promise.all([getWatermark(), usageIndex(), watermarkFontReady()])
-  return ok({ settings, sections: SECTIONS, indexed: index.size, font })
+  return ok({ settings, sections: SECTIONS, indexed: index.size, font, settingsRevision: sectionSettingsRevision(settings) })
 }
 
 /** PATCH /api/admin/watermark { ...settings } */
@@ -17,9 +19,7 @@ export async function PATCH(req: NextRequest) {
   const admin = await requirePerm(req, 'settings.manage')
   if (!admin) return err('forbidden', 403)
   const body = (await req.json().catch(() => null)) || {}
-  const saved = await saveWatermark(body)
-  await auditAdmin({ req, actor: admin, action: 'watermark.update', targetType: 'setting', targetId: 'media.watermark.v1', metadata: { enabled: saved.enabled, scope: saved.scope, position: saved.position } })
-  return ok({ settings: saved })
+  return sectionSettingsSaveWith(req, admin, (context) => saveWatermark(body, context), (settings) => ({ settings }))
 }
 
 /** POST /api/admin/watermark { action: preview | images | mark | reindex, … } */
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
       if (!FILE_NAME.test(file) || !['include', 'exclude', 'default'].includes(body.choice)) return err('درخواست نامعتبر است')
       await markImage(file, body.choice)
       await auditAdmin({ req, actor: admin, action: 'watermark.image', targetType: 'image', targetId: file, metadata: { choice: body.choice } })
-      return ok({ settings: await getWatermark() })
+      const settings = await getWatermark()
+      return ok({ settings, settingsRevision: sectionSettingsRevision(settings) })
     }
     return err('عملیات نامعتبر است')
   } catch (error) {

@@ -7,6 +7,8 @@ import { recordRevision, RevisionError, type RestoreCommit } from '@/modules/con
 import type { Snapshot } from '@/modules/content/domain/revisions'
 
 export type SectionSettingsContext = Pick<AdminAuditInput, 'req' | 'actor'> & { expected?: string | null }
+/** An owner that already audited its saves keeps that action name and target when it joins history. */
+export type SectionAuditEnvelope = { action?: string; targetId?: string | number }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 export const sectionSettingsRevision = (value: object) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 const snapshot = (value: object): Snapshot => Object.fromEntries(Object.entries(value).map(([key, item]) => [key, item !== null && typeof item === 'object' ? JSON.stringify(item) : item]))
@@ -25,7 +27,7 @@ function keepFuture(previous: unknown, next: unknown): unknown {
 }
 
 /** A history adapter for an existing typed owner, not a registry of settings or permissions. */
-export function createSectionSettingsHistory<T extends object>(key: string, entityType: string, normalize: (input: unknown) => T, auditMetadata: (settings: T) => Record<string, unknown> = () => ({})) {
+export function createSectionSettingsHistory<T extends object>(key: string, entityType: string, normalize: (input: unknown) => T, auditMetadata: (settings: T) => Record<string, unknown> = () => ({}), envelope: SectionAuditEnvelope = {}) {
   const shape = normalize({}) as Record<string, unknown>
   const parse = (raw: string | undefined): Record<string, unknown> => {
     if (raw === undefined) return {}
@@ -51,7 +53,7 @@ export function createSectionSettingsHistory<T extends object>(key: string, enti
   async function save(input: unknown, context?: SectionSettingsContext) {
     return change(input, context ? async (tx, before, after, settings) => {
       await recordRevision({ entityType, entityId: 1, before, after, actor: context.actor, client: tx, strict: true })
-      await auditAdminStrict({ req: context.req, actor: context.actor, action: `${entityType.replace(/^settings-/, '')}.settings.update`, targetType: 'setting', targetId: 0, metadata: auditMetadata(settings) }, tx)
+      await auditAdminStrict({ req: context.req, actor: context.actor, action: envelope.action || `${entityType.replace(/^settings-/, '')}.settings.update`, targetType: 'setting', targetId: envelope.targetId ?? 0, metadata: auditMetadata(settings) }, tx)
     } : undefined, context?.expected)
   }
   async function restore(id: number, state: Snapshot, commit: RestoreCommit) {

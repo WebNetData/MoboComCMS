@@ -169,3 +169,6 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
 
 /* A label that wraps its field (the visible text stays .label) keeps the stacked look of label-above-field. */
 :where(.admin-shell) .label-field { display: block; }
+
+/* Actions under a page's title (e.g. the settings History link). */
+:where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

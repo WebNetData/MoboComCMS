@@ -11,6 +11,8 @@ import { StoreError } from '@/modules/store/domain/store'
 import { addProductBundle } from '@/modules/store/server/bundles'
 import { CART_COOKIE, addToCart, cartCheckoutLines, cartView, clearCart, removePurchasedLines, updateCartLine, type CartOwner } from '@/modules/store/server/cart'
 import { getStoreSettings, saveStoreSettings } from '@/modules/store/server/catalog'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { markCartRecovered } from '@/modules/store/server/marketing'
 import { addOrderNote, adminOrder, adminOrders, eraseOrderInputs, revealOrderInputs, transitionOrder } from '@/modules/store/server/orders'
 import { db } from '@/platform/database/prisma'
@@ -364,7 +366,8 @@ export async function GET_customers(req: NextRequest) {
 export async function GET_storeSettings(req: NextRequest) {
   const g = await adminGuard(req, 'store', ['settings.manage', 'cms.products'])
   if ('response' in g) return g.response
-  return ok({ settings: await getStoreSettings() })
+  const settings = await getStoreSettings()
+  return ok({ settings, settingsRevision: sectionSettingsRevision(settings) })
 }
 
 export async function POST_storeSettings(req: NextRequest) {
@@ -376,7 +379,5 @@ export async function POST_storeSettings(req: NextRequest) {
     await auditAdmin({ req, actor: g.admin, action: 'store.price-history.baseline', targetType: 'job', targetId: job.id })
     return ok({ jobId: job.id })
   }
-  const settings = await saveStoreSettings(body)
-  await auditAdmin({ req, actor: g.admin, action: 'store.settings.update', targetType: 'setting', targetId: 0, metadata: { slides: settings.slides.length, banners: settings.banners.length } })
-  return ok({ settings })
+  return sectionSettingsSaveWith(req, g.admin, (context) => saveStoreSettings(body, context), (settings) => ({ settings }))
 }

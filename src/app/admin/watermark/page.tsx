@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './watermark.css'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Position = 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right' | 'tile'
 type Settings = {
@@ -28,6 +29,7 @@ export default function WatermarkPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
+  const revision = useRef('')
   const [preview, setPreview] = useState('')
   const [previewFile, setPreviewFile] = useState('')
   const [images, setImages] = useState<{ rows: Row[]; total: number; page: number; pages: number } | null>(null)
@@ -35,9 +37,12 @@ export default function WatermarkPage() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const call = useCallback(async (method: string, body?: unknown) => {
-    const response = await fetch('/api/admin/watermark', { method, cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined }).catch(() => null)
+    const headers: Record<string, string> = body ? { 'Content-Type': 'application/json' } : {}
+    if (method === 'PATCH' && revision.current) headers['If-Match'] = revision.current
+    const response = await fetch('/api/admin/watermark', { method, cache: 'no-store', headers, body: body ? JSON.stringify(body) : undefined }).catch(() => null)
     const result = await response?.json().catch(() => null)
     if (!response?.ok) throw new Error(result?.error || 'انجام نشد')
+    if (typeof result?.settingsRevision === 'string') revision.current = result.settingsRevision
     return result
   }, [])
 
@@ -93,7 +98,7 @@ export default function WatermarkPage() {
   const sectionLabel = (id: string) => data.sections.find((section) => section.id === id)?.label || id
 
   return <div className="xm-page wm-page" dir="rtl">
-    <header className="xm-head"><div><h1>واترمارک تصاویر</h1><p className="muted">نشان شما هنگام نمایش روی عکس‌ها درج می‌شود و فایل اصلی دست نمی‌خورد؛ با خاموش کردن، همهٔ عکس‌ها بی‌واترمارک نمایش داده می‌شوند.</p></div></header>
+    <header className="xm-head"><div><h1>واترمارک تصاویر</h1><p className="muted">نشان شما هنگام نمایش روی عکس‌ها درج می‌شود و فایل اصلی دست نمی‌خورد؛ با خاموش کردن، همهٔ عکس‌ها بی‌واترمارک نمایش داده می‌شوند.</p><div className="xm-head-actions"><SectionSettingsHistoryLink section="watermark" /></div></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role={message.error ? 'alert' : 'status'}>{message.text}</div>}
 
     <div className="wm-layout">
