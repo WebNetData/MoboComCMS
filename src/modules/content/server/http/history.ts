@@ -86,6 +86,12 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { seoSettingsState, restoreSeoSettings } = await import('@/modules/seo/server/config')
     return { perms: ['settings.manage'], module: null, current: () => seoSettingsState(), restore: restoreSeoSettings }
   }
+  if (type === 'patterns-pages' || type === 'patterns-posts') {
+    const entity = type === 'patterns-pages' ? 'pages' : 'posts'
+    const [{ patternHistoryOwner }, { documentPermission }] = await Promise.all([import('@/modules/editor/server/patterns'), import('@/modules/editor/server/documents')])
+    const owner = patternHistoryOwner(entity)
+    return { perms: [documentPermission(entity)], module: 'block-editor', current: owner.current, restore: owner.restore }
+  }
   if (type === 'settings-forum') {
     const { forumSettingsState, restoreForumSettings } = await import('@/modules/forum/server/community')
     return { perms: ['forum.moderate'], module: 'forum', current: () => forumSettingsState(), restore: restoreForumSettings }

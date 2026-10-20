@@ -147,8 +147,8 @@ element. Saves accept only existing synced patterns of the same section, checked
 audit; synced edits schedule the page-cache purge. Deleting a synced pattern still referenced by a page, article or
 another pattern is refused (bounded scan). The editor shows a badge, live preview and a “detach” action that
 replaces the reference with an independent copy. Evidence: `editor-synced-patterns.connected.cjs` (registered) and a
-real browser create/insert/save/public render/update/detach run, cleaned afterwards. Pattern content history,
-role-specific template assignment and future custom module layouts remain separate slices. Production-scale collection/list latency,
+real browser create/insert/save/public render/update/detach run, cleaned afterwards.
+2026-10-20: **pattern versions** — create/edit record strict ContentRevision rows (`patterns-pages`/`patterns-posts`, same section permission, editor plugin on); History restores name and blocks with validation and a claim (synced restores purge the page cache); deleting a pattern removes its versions; the library links each pattern to its History. Role-specific template assignment and future custom module layouts remain separate slices. Production-scale collection/list latency,
 actual deployment scheduler/rollback and external-provider delivery remain
 operational acceptance. Local success does not certify the whole platform.
 

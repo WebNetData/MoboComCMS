@@ -9,10 +9,42 @@ import { hasPermission } from '@/modules/identity/rbac'
 import { checkDocument } from '@/modules/editor/domain/validate'
 import { moduleBlocks, MODULE_BLOCK_LIMIT, syncedPatternIds } from '@/modules/editor/domain/module-blocks'
 import type { Prisma } from '@prisma/client'
+import { recordRevision, RevisionError, type RestoreCommit } from '@/modules/content/server/revisions'
+import { restoreValues, type Snapshot } from '@/modules/content/domain/revisions'
 import { activeEditorRegistry } from './blocks/registry'
 import { blockEditorEnabled, documentAuthorPermission, documentPermission, isDocumentEntity } from './documents'
 
 const KINDS = ['pattern', 'template', 'synced'] as const
+/** History type of a section's patterns: their versions live with the other content revisions. */
+export const patternHistoryType = (entity: string) => `patterns-${entity}`
+const revisionActor = (admin: { id: number; email: string }) => ({ id: admin.id, email: admin.email })
+const purgePublished = () => void import('@/modules/performance/server/pagecache').then(cache => cache.purgeSoon('editor-pattern')).catch(() => undefined)
+
+/** The History page's owner for one section's patterns: the current row, and putting an earlier version back. */
+export function patternHistoryOwner(entity: 'pages' | 'posts') {
+  return {
+    current: (id: number) => db.editorPattern.findFirst({ where: { id, entity } }),
+    async restore(id: number, snapshot: Snapshot, commit: RestoreCommit) {
+      const result = await db.$transaction(async tx => {
+        const before = await tx.editorPattern.findFirst({ where: { id, entity } })
+        if (!before) throw new RevisionError('الگو پیدا نشد', 404)
+        // Name and blocks come back; the section and the kind of a pattern never change by a restore.
+        const values = restoreValues(snapshot, before)
+        const title = typeof values.title === 'string' && values.title.trim() ? values.title.trim().slice(0, 100) : before.title
+        const contentDocument = typeof values.contentDocument === 'string' ? values.contentDocument : before.contentDocument
+        let blocks: unknown
+        try { blocks = JSON.parse(contentDocument)?.blocks } catch { blocks = null }
+        if (!Array.isArray(blocks) || !blocks.length || Buffer.byteLength(contentDocument) > 200_000) throw new RevisionError('نسخهٔ الگو معتبر نیست؛ چیزی تغییر نکرد', 422)
+        if (before.kind === 'synced' && syncedPatternIds(blocks).length) throw new RevisionError('الگوی همگام نمی‌تواند الگوی همگام دیگری داشته باشد.', 422)
+        const after = await tx.editorPattern.update({ where: { id }, data: { title, contentDocument, updatedAt: new Date(Math.max(Date.now(), before.updatedAt.getTime() + 1)) } })
+        await commit(tx, before, after)
+        return { before, after }
+      }, { isolationLevel: 'Serializable' })
+      if (result.after.kind === 'synced') purgePublished()
+      return result
+    },
+  }
+}
 
 /** How many stored documents (pages, articles, other patterns) still point at this synced pattern. Bounded scan. */
 async function syncedPatternUses(tx: Prisma.TransactionClient, id: number): Promise<number> {
@@ -55,6 +87,7 @@ export async function editorPatterns(req: NextRequest) {
         if (!await requirePerm(req, permission, tx)) throw new JsonBodyError('forbidden', 403)
         if (await tx.editorPattern.count({ where: { entity } }) >= 100) throw new JsonBodyError('حداکثر ۱۰۰ الگو برای هر بخش؛ ابتدا الگوهای اضافی را حذف کنید.', 422)
         const row = await tx.editorPattern.create({ data: { entity, kind, title, contentDocument, createdById: admin.id } })
+        await recordRevision({ entityType: patternHistoryType(entity), entityId: row.id, before: null, after: row, actor: revisionActor(admin), client: tx, strict: true })
         await auditAdminStrict({ req, actor: admin, action: 'editor.pattern.create', targetType: 'EditorPattern', targetId: row.id, metadata: { entity, kind } }, tx)
         return row
       }, { isolationLevel: 'Serializable' })
@@ -79,13 +112,15 @@ export async function editorPatterns(req: NextRequest) {
       if (title === undefined && contentDocument === undefined) return err('تغییری فرستاده نشد.', 422)
       const updated = await db.$transaction(async tx => {
         if (!await requirePerm(req, permission, tx)) throw new JsonBodyError('forbidden', 403)
+        const prior = await tx.editorPattern.findFirst({ where: { id, entity } })
         const claimed = await tx.editorPattern.updateMany({ where: { id, entity, updatedAt }, data: { ...(title !== undefined ? { title } : {}), ...(contentDocument !== undefined ? { contentDocument } : {}), updatedAt: new Date(Math.max(Date.now(), updatedAt.getTime() + 1)) } })
         if (claimed.count !== 1) throw new JsonBodyError('الگو تغییر کرده یا حذف شده است؛ دوباره بارگذاری کنید.', 409)
-        const row = (await tx.editorPattern.findUnique({ where: { id }, select: { id: true, kind: true, updatedAt: true } }))!
+        const row = (await tx.editorPattern.findUnique({ where: { id } }))!
+        await recordRevision({ entityType: patternHistoryType(entity), entityId: id, before: prior, after: row, actor: revisionActor(admin), client: tx, strict: true })
         await auditAdminStrict({ req, actor: admin, action: 'editor.pattern.update', targetType: 'EditorPattern', targetId: id, metadata: { entity, kind: row.kind, title: title !== undefined, blocks: contentDocument !== undefined } }, tx)
         return row
       }, { isolationLevel: 'Serializable' })
-      if (updated.kind === 'synced') void import('@/modules/performance/server/pagecache').then(cache => cache.purgeSoon('editor-pattern')).catch(() => undefined)
+      if (updated.kind === 'synced') purgePublished()
       return ok({ id: updated.id, updatedAt: updated.updatedAt })
     }
     if (req.method !== 'DELETE') return err('method not allowed', 405)
@@ -98,6 +133,7 @@ export async function editorPatterns(req: NextRequest) {
       }
       const removed = await tx.editorPattern.deleteMany({ where: { id, entity, updatedAt } })
       if (removed.count !== 1) throw new JsonBodyError('الگو تغییر کرده یا حذف شده است؛ دوباره بارگذاری کنید.', 409)
+      await tx.contentRevision.deleteMany({ where: { entityType: patternHistoryType(entity), entityId: id } })
       await auditAdminStrict({ req, actor: admin, action: 'editor.pattern.delete', targetType: 'EditorPattern', targetId: id, metadata: { entity } }, tx)
     }, { isolationLevel: 'Serializable' })
     return ok({ deleted: true })

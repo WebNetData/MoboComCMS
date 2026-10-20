@@ -64,6 +64,8 @@ async function main() { try {
   const users = await db.user.findMany({ where: { email: { startsWith: stamp } }, select: { id: true } }), ids = users.map(row => row.id)
   const posts = await db.post.findMany({ where: { slug: stamp }, select: { id: true } })
   await db.contentRevision.deleteMany({ where: { entityType: 'posts', entityId: { in: posts.map(row => row.id) } } })
+  const owned = await db.editorPattern.findMany({ where: { createdById: { in: ids } }, select: { id: true } })
+  await db.contentRevision.deleteMany({ where: { entityType: { in: ['patterns-posts', 'patterns-pages'] }, entityId: { in: owned.map(row => row.id) } } })
   await db.editorPattern.deleteMany({ where: { createdById: { in: ids } } }); await db.auditLog.deleteMany({ where: { actorUserId: { in: ids } } })
   await db.post.deleteMany({ where: { slug: stamp } }); await db.user.deleteMany({ where: { id: { in: ids } } }); await db.$disconnect()
 } }

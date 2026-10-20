@@ -64,6 +64,7 @@ export default function PatternLibrary({ entity, registry, canManage, current, a
         <div><strong>{row.title}</strong><small>{KIND_LABEL[row.kind] || row.kind} · {row.document.blocks.length.toLocaleString('fa-IR')} بلوک اصلی</small></div>
         <button type="button" className="mc-editor-tool" disabled={busy} onClick={() => insert(row)}>درج {row.title}</button>
         {canManage && <button type="button" className="mc-editor-tool" disabled={busy || (row.kind !== 'template' && !selected)} title={row.kind === 'template' ? 'چیدمان فعلی این نوشته جای محتوای الگو می‌نشیند' : 'بلوک انتخاب‌شده جای محتوای الگو می‌نشیند'} onClick={() => { if (window.confirm(row.kind === 'synced' ? `محتوای «${row.title}» با بلوک انتخاب‌شده جایگزین شود؟ همهٔ صفحه‌هایی که این الگوی همگام را دارند همان لحظه تغییر می‌کنند.` : `محتوای «${row.title}» جایگزین شود؟`)) void command('PATCH', { id: row.id, updatedAt: row.updatedAt, document: source(row.kind) }, `«${row.title}» به‌روزرسانی شد.`) }}>به‌روزرسانی {row.title}</button>}
+        {canManage && <a className="mc-editor-tool" href={`/admin/history?type=patterns-${entity}&id=${row.id}`} target="_blank" rel="noopener" aria-label={`تاریخچهٔ نسخه‌های ${row.title} (در زبانهٔ تازه)`}>تاریخچه</a>}
         {canManage && <button type="button" className="mc-editor-tool" disabled={busy} aria-label={`حذف الگوی ${row.title}`} onClick={() => void command('DELETE', { id: row.id, updatedAt: row.updatedAt }, 'الگو حذف شد.')}>حذف</button>}
       </li>)}</ul>}
       {rows?.length === 0 && <p>هنوز الگویی در این بخش ذخیره نشده است.</p>}
