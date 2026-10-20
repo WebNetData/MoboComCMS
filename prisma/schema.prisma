@@ -2597,6 +2597,8 @@ model SearchDocument {
 
   @@unique([itemType, itemId])
   @@index([itemType, publishedAt])
+  /// The search reads matches newest published first and stops at its cap.
+  @@index([publishedAt, id])
 }
 
 // ---------------------------------------------------------------- social publishing

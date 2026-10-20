@@ -72,21 +72,28 @@ test('a broken index page fails before the existing index is replaced', async ()
   assert.equal(transactions, 0)
 })
 
+/** The index as searchSite reads it: newest published first, continuing after the (publishedAt, id) of the last row. */
+function readIndex(rows, { where, orderBy, take }) {
+  if (!Array.isArray(orderBy)) return [...rows].sort((a, b) => b.boost - a.boost).slice(0, take)
+  assert.deepEqual(orderBy, [{ publishedAt: 'desc' }, { id: 'desc' }])
+  const key = where.AND?.[1]?.OR, after = key && { publishedAt: key[0].publishedAt.lt, id: key[1].id.lt }
+  return [...rows].sort((a, b) => b.publishedAt - a.publishedAt || b.id - a.id)
+    .filter(row => !after || row.publishedAt < after.publishedAt || (row.publishedAt.getTime() === after.publishedAt.getTime() && row.id < after.id))
+    .slice(0, take)
+}
+
 test('public search ranks beyond the old candidate bound and counts visible matches', async () => {
   const rows = Array.from({ length: 521 }, (_, index) => ({
     id: index + 1, itemType: 'post', itemId: index + 1,
-    title: index === 520 ? 'Needle' : `Guide ${index + 1}`,
-    text: 'needle', boost: index === 520 ? 0 : 1000,
+    // The exact title is the last row read (oldest): it still outranks 500 popular text matches read before it.
+    title: index === 0 ? 'Needle' : `Guide ${index + 1}`,
+    text: 'needle', boost: index === 0 ? 0 : 1000,
     publishedAt: new Date('2025-01-01T00:00:00Z'),
   }))
-  const cursors = []
+  let reads = 0
   const db = {
     setting: { findUnique: async () => ({ value: new Date().toISOString() }) },
-    searchDocument: { findMany: async ({ where, orderBy, take }) => {
-      cursors.push(where.id?.gt ?? 0)
-      const ordered = orderBy.id === 'asc' ? rows : [...rows].sort((a, b) => b.boost - a.boost)
-      return ordered.filter(row => row.id > (where.id?.gt ?? 0)).slice(0, take)
-    } },
+    searchDocument: { findMany: async (args) => { reads++; return readIndex(rows, args) } },
   }
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
@@ -101,8 +108,9 @@ test('public search ranks beyond the old candidate bound and counts visible matc
   assert.equal(first.total, 520, 'one hidden source card is excluded from the exact count')
   assert.equal(first.counts.post, 520)
   assert.equal(first.pages, 26)
-  assert.equal(first.hits[0].id, 521, 'an exact title match outranks 500 popular text matches')
-  assert.deepEqual(cursors, [0, 500])
+  assert.equal(first.hits[0].id, 1, 'an exact title match outranks 500 popular text matches')
+  assert.equal(reads, 2, 'two 500-row batches')
+  assert.equal(first.capped, false)
   const last = await search.searchSite({ q: 'needle', page: 26, log: false })
   assert.equal(last.hits.length, 20)
   assert.equal(last.total, 520)
@@ -142,7 +150,7 @@ test('public search reports all matches while retaining the existing 50-page win
   }))
   const db = {
     setting: { findUnique: async () => ({ value: new Date().toISOString() }) },
-    searchDocument: { findMany: async ({ where, take }) => rows.filter(row => row.id > where.id.gt).slice(0, take) },
+    searchDocument: { findMany: async (args) => readIndex(rows, args) },
   }
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db },
@@ -171,7 +179,7 @@ test('cursor navigation crosses page 50, reverses ties and preserves visibility 
   const search = load('src/modules/search/server/search.ts', {
     '@/platform/database/prisma': { db: {
       setting: { findUnique: async () => ({ value: epoch }) },
-      searchDocument: { findMany: async ({ where, take }) => rows.filter(row => row.id > where.id.gt).slice(0, take) },
+      searchDocument: { findMany: async (args) => readIndex(rows, args) },
     } },
     '@/extensions/server/modules': { isModuleEnabled: async () => true },
     '@/modules/site/server/maintenance': { closedSectionPlugins: async () => new Set(globalThis.__closedSections || []) }, '@/modules/content/server/registry': {

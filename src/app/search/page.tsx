@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
 import { requireModule } from '@/extensions/server/modules'
-import { searchSite } from '@/modules/search/server/search'
+import { MAX_SCANNED_MATCHES, searchSite } from '@/modules/search/server/search'
 import { NO_FACETS, facetParams, hasFacets, type SearchFacets } from '@/modules/search/domain/facets'
 import { ITEM_LABEL, type ItemType } from '@/modules/content/domain/items'
 import { normalizePersian } from '@/shared/text/persian'
@@ -49,6 +49,8 @@ export default async function SearchPage({ searchParams }: Props) {
     ? (data.nextCursor ? cursorHref(data.nextCursor) : null)
     : data.page < data.pages ? href(data.type, data.page + 1) : data.nextCursor ? cursorHref(data.nextCursor) : null
   const totalAll = Object.values(data.counts).reduce((sum, count) => sum + (count || 0), 0)
+  // A search stops reading at its cap: the counts are then a lower bound.
+  const more = data.capped ? '+' : ''
   const types = (Object.keys(data.counts) as ItemType[]).sort((a, b) => (data.counts[b] || 0) - (data.counts[a] || 0))
 
   return (
@@ -67,8 +69,8 @@ export default async function SearchPage({ searchParams }: Props) {
 
         {totalAll > 0 && (
           <nav className="sr-tabs" aria-label="نوع نتیجه">
-            <Link href={href('all')} className={data.type === 'all' ? 'is-active' : ''} aria-current={data.type === 'all' ? 'page' : undefined}>همه <span>{num(totalAll)}</span></Link>
-            {types.map((type) => <Link key={type} href={href(type)} className={data.type === type ? 'is-active' : ''} aria-current={data.type === type ? 'page' : undefined}>{ITEM_LABEL[type].icon} {ITEM_LABEL[type].many} <span>{num(data.counts[type] || 0)}</span></Link>)}
+            <Link href={href('all')} className={data.type === 'all' ? 'is-active' : ''} aria-current={data.type === 'all' ? 'page' : undefined}>همه <span>{num(totalAll)}{more}</span></Link>
+            {types.map((type) => <Link key={type} href={href(type)} className={data.type === type ? 'is-active' : ''} aria-current={data.type === type ? 'page' : undefined}>{ITEM_LABEL[type].icon} {ITEM_LABEL[type].many} <span>{num(data.counts[type] || 0)}{more}</span></Link>)}
           </nav>
         )}
 
@@ -85,6 +87,7 @@ export default async function SearchPage({ searchParams }: Props) {
           </nav>
         )}
 
+        {data.capped && <p className="muted" role="status">بیش از {num(MAX_SCANNED_MATCHES)} نتیجه پیدا شد و تازه‌ترین‌های آن‌ها نشان داده می‌شوند. برای نتیجهٔ دقیق‌تر، واژهٔ دیگری اضافه کنید یا نوع نتیجه را انتخاب کنید.</p>}
         {data.cursorReset && <p className="muted" role="status">نتایج جست‌وجو به‌روز شده‌اند یا لینک صفحه معتبر نیست؛ نتایج از صفحهٔ اول نمایش داده شدند.</p>}
         {data.hits.length > 0 ? (
           <ol className="sr-list">
@@ -117,7 +120,7 @@ export default async function SearchPage({ searchParams }: Props) {
         {data.totalPages > 1 && (
           <nav className="sr-pager" aria-label="صفحه‌بندی">
             {previousHref && <Link href={previousHref} prefetch={false} rel="prev">→ قبلی</Link>}
-            <span>صفحهٔ {num(data.page)} از {num(data.totalPages)}</span>
+            <span>صفحهٔ {num(data.page)} از {num(data.totalPages)}{more}</span>
             {nextHref && <Link href={nextHref} prefetch={false} rel="next">بعدی ←</Link>}
           </nav>
         )}
