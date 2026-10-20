@@ -33,8 +33,8 @@ export interface BlockDefinition {
   migrate?: Record<number, (props: Record<string, unknown>) => Record<string, unknown>>
   /** The module or extension that supplies the block; shown when the block is unknown because its owner is off. */
   owner?: string
-  /** Trusted owner contribution, answered by the existing public item registry at read time. */
-  dataSource?: { kind: 'public-items'; itemType: string }
+  /** Answered at read time: a trusted owner's public items, or a synced pattern's current blocks. */
+  dataSource?: { kind: 'public-items'; itemType: string } | { kind: 'pattern' }
 }
 
 export class BlockRegistry {

@@ -1,10 +1,14 @@
 'use client'
 
-import { Component, type ReactNode } from 'react'
+import { Component, useContext, useState, type ReactNode } from 'react'
+import { useDispatch } from '@wordpress/data'
+import { instantiatePattern } from '@/modules/editor/domain/structure'
+import type { MoboComDocument } from '@/modules/editor/domain/document'
+import { EditorEntityContext } from './module-preview-context'
 import { createBlock, getBlockType, registerBlockType, unregisterBlockType, setCategories } from '@wordpress/blocks'
 import { InnerBlocks, InspectorControls, useBlockProps, useInnerBlocksProps, type EngineBlockObject } from '@wordpress/block-editor'
 import { PanelBody } from '@wordpress/components'
-import { UNSUPPORTED_BLOCK, engineName, newEngineAttributes, type EngineBlock } from '@/modules/editor/adapters/gutenberg/convert'
+import { UNSUPPORTED_BLOCK, engineName, newEngineAttributes, toEngineBlocks, type EngineBlock } from '@/modules/editor/adapters/gutenberg/convert'
 import { fieldDefault, type FieldSpec } from '@/modules/editor/domain/fields'
 import type { BlockDefinition, BlockRegistry } from '@/modules/editor/domain/registry'
 import { documentHtml } from '@/modules/editor/domain/render'
@@ -45,6 +49,7 @@ function ContainerCanvas({ definition, className }: { definition: BlockDefinitio
 
 function LeafCanvas({ definition, attributes, setAttributes, registry, className, html }: { definition: BlockDefinition; attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void; registry: BlockRegistry; className: string; html: string }) {
   const blockProps = useBlockProps({ className: definition.type === 'content.richText' || definition.type === 'content.heading' ? className : 'mc-block-preview' })
+  if (definition.dataSource?.kind === 'pattern') return <div {...blockProps}><div className="mc-synced-head"><span className="mc-synced-badge">الگوی همگام</span><strong>{String(attributes.title || '')}</strong></div><ModuleBlockPreview definition={definition} props={attributes} /></div>
   if (definition.owner) return <div {...blockProps}><ModuleBlockPreview definition={definition} props={attributes} /></div>
   // The two blocks people write in are edited where they stand; every other block shows what the page will show.
   if (definition.type === 'content.richText') return <div {...blockProps}><RichTextField label={definition.label.fa} blockDirection={attributes.dir} value={(attributes.content as RichTextDoc) || (fieldDefault(definition.fields.content) as RichTextDoc)} onChange={(content) => setAttributes({ content })} /></div>
@@ -56,9 +61,32 @@ function LeafCanvas({ definition, attributes, setAttributes, registry, className
   return <div {...blockProps}>{html ? <div className="mc-block-preview-body" dangerouslySetInnerHTML={{ __html: html }} /> : <div className="mc-block-empty">{definition.label.fa}: از پنل تنظیمات پر کنید</div>}</div>
 }
 
-function Edit({ definition, registry, attributes, setAttributes }: { definition: BlockDefinition; registry: BlockRegistry; attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void }) {
+/** A synced pattern's own panel: what it is, and turning this one place into an independent, editable copy. */
+function SyncedPatternPanel({ clientId, patternId, registry }: { clientId: string; patternId: number; registry: BlockRegistry }) {
+  const entity = useContext(EditorEntityContext)
+  const { replaceBlocks } = useDispatch('core/block-editor') as unknown as { replaceBlocks(clientIds: string, blocks: EngineBlockObject[]): void }
+  const [busy, setBusy] = useState(false), [message, setMessage] = useState('')
+  async function detach() {
+    setBusy(true); setMessage('')
+    try {
+      const response = await fetch(`/api/admin/editor/patterns?entity=${entity}`, { cache: 'no-store' }), data = await response.json().catch(() => null)
+      const row = Array.isArray(data?.patterns) ? (data.patterns as { id: number; kind: string; document: MoboComDocument }[]).find(item => item.id === patternId && item.kind === 'synced') : null
+      if (!response.ok || !row) throw Error(data?.error || 'این الگو دیگر در کتابخانه نیست.')
+      replaceBlocks(clientId, toLiveBlocks(toEngineBlocks(instantiatePattern(row.document), registry)))
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'جدا کردن انجام نشد.') }
+    finally { setBusy(false) }
+  }
+  return <InspectorControls><PanelBody title="الگوی همگام" initialOpen>
+    <p className="mc-synced-help">محتوای این بلوک از الگوی همگام خوانده می‌شود و فقط با به‌روزرسانی همان الگو در کتابخانه عوض می‌شود. برای ویرایش فقط در همین‌جا، آن را جدا کنید.</p>
+    <button type="button" className="mc-editor-tool" disabled={busy || !entity} onClick={() => void detach()}>{busy ? 'در حال جدا کردن…' : 'جدا کردن و ویرایش در همین‌جا'}</button>
+    {message && <p role="status">{message}</p>}
+  </PanelBody></InspectorControls>
+}
+
+function Edit({ definition, registry, attributes, setAttributes, clientId }: { definition: BlockDefinition; registry: BlockRegistry; attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void; clientId: string }) {
   const { mcId: _id, mcVersion: _version, ...props } = attributes
   const view = rendered(definition, props, registry)
+  if (definition.dataSource?.kind === 'pattern') return <BlockBoundary type={definition.type}><SyncedPatternPanel clientId={clientId} patternId={Number(props.pattern)} registry={registry} /><LeafCanvas definition={definition} attributes={props} setAttributes={setAttributes} registry={registry} className={view.className} html={view.html} /></BlockBoundary>
   const onCanvas = definition.type === 'content.richText' ? ['content'] : definition.type === 'content.heading' ? ['text'] : []
   const hasPanel = Object.keys(definition.fields).some((name) => !onCanvas.includes(name))
   return (
@@ -85,9 +113,9 @@ export function registerMoboComBlocks(registry: BlockRegistry) {
       apiVersion: 3, title: definition.label.fa, description: definition.label.en, category: definition.category, icon: 'block-default',
       attributes: { mcId: { type: 'string' }, lock: { type: 'object' }, mcVersion: { type: 'integer', default: definition.version }, ...Object.fromEntries(Object.entries(definition.fields).map(([field, spec]) => [field, { type: attributeType(spec), default: fieldDefault(spec) }])) },
       // No HTML editing, no free class name, no reusable copy: a block is its data.
-      supports: { html: false, className: false, customClassName: false, reusable: false, anchor: false, inserter: true },
+      supports: { html: false, className: false, customClassName: false, reusable: false, anchor: false, inserter: definition.dataSource?.kind !== 'pattern' },
       ...(definition.parents ? { parent: definition.parents.map(engineName) } : {}),
-      edit: ({ attributes, setAttributes }: { attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void }) => <Edit definition={definition} registry={registry} attributes={attributes} setAttributes={setAttributes} />,
+      edit: ({ attributes, setAttributes, clientId }: { attributes: Record<string, unknown>; setAttributes: (patch: Record<string, unknown>) => void; clientId: string }) => <Edit definition={definition} registry={registry} attributes={attributes} setAttributes={setAttributes} clientId={clientId} />,
       // Nothing the engine serializes is stored: the document is built from the block list by the adapter.
       save: () => null,
     })

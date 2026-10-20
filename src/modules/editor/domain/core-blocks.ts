@@ -53,6 +53,10 @@ export const CORE_BLOCKS: BlockDefinition[] = [
     fields: { content: { kind: 'richText' }, cite: { kind: 'string', max: 200, role: 'text' } } },
   { type: 'content.callout', version: 1, category: 'content', kind: 'static', icon: 'callout', label: { fa: 'نکته', en: 'Callout' },
     fields: { tone: { kind: 'enum', values: ['info', 'success', 'warning', 'danger'], default: 'info' }, title: { kind: 'string', max: 200, role: 'text' }, content: { kind: 'richText' } } },
+  // A synced pattern: the block keeps only which pattern (and its name for the editor); the blocks shown are the
+  // pattern's current ones, read when the page is rendered. Inserted from the pattern library, never typed in.
+  { type: 'content.pattern', version: 1, category: 'layout', kind: 'dynamic', icon: 'stack', label: { fa: 'الگوی همگام', en: 'Synced pattern' }, dataSource: { kind: 'pattern' },
+    fields: { pattern: { kind: 'int', min: 1, max: 2147483647, default: 1 }, title: { kind: 'string', max: 100, role: 'text' } } },
   { type: 'content.faq', version: 1, category: 'content', kind: 'static', icon: 'faq', label: { fa: 'پرسش‌های پرتکرار', en: 'FAQ' },
     fields: { items: { kind: 'list', max: 60, item: { question: { kind: 'string', max: 300, role: 'text' }, answer: { kind: 'richText' } } }, open: { kind: 'enum', values: ['none', 'first', 'all'], default: 'none' } } },
 ]

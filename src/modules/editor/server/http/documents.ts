@@ -78,7 +78,7 @@ export async function POST_preview(req: NextRequest, context: Context) {
     }
     const checked = checkDocument({ version: DOCUMENT_VERSION, blocks: [body.block] }, registry, { permissions })
     const definition = registry.get(checked.document.blocks[0]?.type || '')
-    if (!checked.ok || !definition?.owner || checked.unsupported.length) return err('بلوک یا تنظیمات پیش‌نمایش معتبر نیست؛ ویرایشگر را تازه کنید', 422)
+    if (!checked.ok || !(definition?.owner || definition?.dataSource?.kind === 'pattern') || checked.unsupported.length) return err('بلوک یا تنظیمات پیش‌نمایش معتبر نیست؛ ویرایشگر را تازه کنید', 422)
     const { publicDocumentHtml } = await import('@/modules/editor/server/blocks/render')
     const response = ok({ html: await publicDocumentHtml(checked.document, registry, true) })
     response.headers.set('Cache-Control', 'private, no-store')

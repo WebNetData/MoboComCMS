@@ -13,7 +13,7 @@ import { recordRevision, type RestoreCommit } from '@/modules/content/server/rev
 import { contentChanged } from '@/modules/content/server/events'
 import { DOCUMENT_VERSION, walkBlocks, type DocumentIssue, type MoboComDocument } from '@/modules/editor/domain/document'
 import { blockDescriptors, type BlockDescriptor } from '@/modules/editor/domain/descriptors'
-import { moduleBlocks, MODULE_BLOCK_LIMIT } from '@/modules/editor/domain/module-blocks'
+import { moduleBlocks, MODULE_BLOCK_LIMIT, syncedPatternIds } from '@/modules/editor/domain/module-blocks'
 import { editorRegistry, activeEditorRegistry } from '@/modules/editor/server/blocks/registry'
 export { restoredDocumentFields } from '@/modules/editor/server/restore'
 import { documentFacts, documentHtml } from '@/modules/editor/domain/render'
@@ -133,6 +133,9 @@ export async function saveDocument(input: { entity: DocumentEntity; id: number; 
     const before = await store.find(input.id, tx)
     if (!before) throw new EditorError('not found', 404, 'NOT_FOUND')
     if (before.status === TRASHED) throw new EditorError('this item is in the trash and cannot be edited until a manager decides', 409, 'IN_TRASH')
+    // A synced pattern block points at a synced pattern of this same section, read in this transaction.
+    const patternIds = syncedPatternIds(checked.document.blocks)
+    if (patternIds.length && await tx.editorPattern.count({ where: { id: { in: patternIds }, entity: input.entity, kind: 'synced' } }) !== patternIds.length) throw new EditorError('الگوی همگام انتخاب‌شده در این بخش پیدا نشد؛ آن را دوباره از کتابخانهٔ الگوها درج کنید', 422, 'PATTERN_MISSING')
     if (!may(input.actor)(store.permission)) {
       const approved = new Set<string>()
       for (const pattern of await tx.editorPattern.findMany({ where: { entity: input.entity }, select: { contentDocument: true }, take: 100 })) {

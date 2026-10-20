@@ -100,3 +100,5 @@
    paragraph by withTextDirections (any Persian letter → right to left). This is only the fallback for HTML that
    did not pass through it: the browser's own guess, from the first letter. A direction on the element wins. */
 .prose:not(.mcb-document) :where(p, h2, h3, h4, h5, h6, li, blockquote):not([dir]) { unicode-bidi: plaintext; text-align: start; }
+/* A synced pattern's wrapper takes no box of its own: its blocks lay out as if written in place. */
+.mcb-content-pattern { display: contents; }
