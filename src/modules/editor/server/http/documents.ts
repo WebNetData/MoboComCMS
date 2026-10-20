@@ -8,6 +8,7 @@ import { hasPermission } from '@/modules/identity/rbac'
 import { DOCUMENT_VERSION } from '@/modules/editor/domain/document'
 import { checkDocument } from '@/modules/editor/domain/validate'
 import { activeEditorRegistry } from '@/modules/editor/server/blocks/registry'
+import { startingTemplate } from '@/modules/editor/server/role-templates'
 import { EditorError, blockEditorEnabled, documentAuthorPermission, documentPermission, documentWrittenBy, isDocumentEntity, loadDocument, saveDocument } from '@/modules/editor/server/documents'
 
 type Context = { params: Promise<{ entity: string; id: string }> }
@@ -34,7 +35,10 @@ export async function GET(req: NextRequest, context: Context) {
   try {
     const actor = caller.admin
     const canManagePatterns = actor.roleId == null || hasPermission(actor.permissions ?? [], documentPermission(at.entity))
-    const response = ok({ ...await loadDocument(at.entity, at.id), enabled: await blockEditorEnabled(), canManagePatterns })
+    const loaded = await loadDocument(at.entity, at.id)
+    // Only an item that has never had a body: one written the old way, or already saved in blocks, opens as it is.
+    const fresh = loaded.editorFormat !== 'blocks-v1' && !loaded.legacyHtml.trim()
+    const response = ok({ ...loaded, enabled: await blockEditorEnabled(), canManagePatterns, startTemplate: fresh ? await startingTemplate(at.entity, actor.roleId) : null })
     response.headers.set('Cache-Control', 'private, no-store')
     return response
   } catch (error) { return failure(error) }

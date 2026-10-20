@@ -417,6 +417,7 @@
     "20270109121000_moderation_pending_rounds",
     "20270110120000_editorial_schedule",
     "20270110130000_editor_patterns",
-    "20270110140000_editor_synced_patterns"
+    "20270110140000_editor_synced_patterns",
+    "20270111120000_editor_role_templates"
   ]
 }

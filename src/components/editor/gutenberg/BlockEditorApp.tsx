@@ -20,7 +20,7 @@ import PatternLibrary from './PatternLibrary'
 export type EditorEntity = 'pages' | 'posts'
 const NOUN: Record<EditorEntity, { one: string; list: string; path: string; form: string }> = { pages: { one: 'صفحه', list: 'صفحه‌ها', path: '/p/', form: '/admin/pages' }, posts: { one: 'نوشته', list: 'نوشته‌های مجله', path: '/blog/', form: '/admin/posts' } }
 
-type Loaded = { blockDefinitions?: BlockDescriptor[]; id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean; canManagePatterns: boolean }
+type Loaded = { blockDefinitions?: BlockDescriptor[]; id: number; slug: string; title: string; status: string; editorFormat: string; updatedAt: string; document: MoboComDocument; unsupported: Array<{ type: string }>; legacyHtml: string; enabled: boolean; canManagePatterns: boolean; startTemplate?: { id: number; title: string; document: MoboComDocument } | null }
 type SaveState = { kind: 'clean' } | { kind: 'dirty' } | { kind: 'saving' } | { kind: 'saved'; at: number } | { kind: 'error'; message: string; issues?: DocumentIssue[] } | { kind: 'conflict' }
 
 const AUTOSAVE_MS = 4000
@@ -36,6 +36,8 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
   const [outline, setOutline] = useState(false)
   // An item written the old way opens with its body turned into blocks; how many pieces had no place in a document.
   const [converted, setConverted] = useState<{ dropped: number } | null>(null)
+  // A new item that opened from the writer's role default template (nothing is stored until they save).
+  const [started, setStarted] = useState<string | null>(null)
   const version = useRef(''), latest = useRef<EngineBlockObject[]>([]), saving = useRef(false), again = useRef(false)
   const history = useRef<{ past: EngineBlockObject[][]; future: EngineBlockObject[][] }>({ past: [], future: [] })
   const [, redraw] = useState(0)
@@ -51,7 +53,9 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
       registerMoboComBlocks(loadedRegistry)
       const old = body.editorFormat === 'legacy' && String(body.legacyHtml || '').trim() ? legacyToEngineBlocks(body.legacyHtml, loadedRegistry) : null
       if (old) setConverted({ dropped: old.dropped })
-      const live = toLiveBlocks(old ? old.blocks : toEngineBlocks(body.document, loadedRegistry))
+      const template = !old && body.startTemplate?.document?.blocks?.length ? body.startTemplate : null
+      if (template) setStarted(template.title)
+      const live = toLiveBlocks(old ? old.blocks : toEngineBlocks(template ? template.document : body.document, loadedRegistry))
       version.current = body.updatedAt; latest.current = live
       setRegistry(loadedRegistry); setPage(body); setBlocks(live)
     }).catch(() => alive && setFailure('ارتباط با سرور برقرار نشد'))
@@ -128,6 +132,7 @@ export default function BlockEditorApp({ entity, itemId }: { entity: EditorEntit
           {/* The tools of the selected block: move, duplicate, remove. Fixed here, so they never cover what is being written. */}
           <div className="mc-editor-blocktools" aria-label="ابزار بلوک انتخاب‌شده"><BlockToolbar hideDragHandle /></div>
           {!page.enabled ? <p className="mc-editor-notice" role="alert">افزونهٔ ویرایشگر بلوکی غیرفعال است؛ می‌توانید بچینید، ولی ذخیره نمی‌شود. از صفحهٔ افزونه‌ها فعالش کنید.</p> : null}
+          {started ? <p className="mc-editor-notice" role="status">این {noun.one} از قالب «{started}»، قالب پیش‌فرض نقش شما، شروع شده است. تا ذخیره نکنید چیزی ثبت نمی‌شود. <button type="button" className="mc-editor-tool" onClick={() => { setStarted(null); change([], true) }}>شروع از صفحهٔ خالی</button></p> : null}
           {converted ? <p className="mc-editor-notice">این {noun.one} با ویرایشگر قدیمی نوشته شده بود و متنش اینجا به بلوک تبدیل شده است. تا ذخیره نکنید چیزی عوض نمی‌شود؛ پس از ذخیره، متن قدیمی در تاریخچه می‌ماند و قابل بازگردانی است.{converted.dropped ? ` ${converted.dropped.toLocaleString('fa-IR')} مورد (مثل تصویرِ میان متن یا قابِ سایت دیگر) در بلوک‌ها جایی نداشت و نیامده است؛ پیش از ذخیره نگاه کنید.` : ''}</p> : null}
           {page.unsupported.length ? <p className="mc-editor-notice">{page.unsupported.length.toLocaleString('fa-IR')} بلوک پشتیبانی نمی‌شود ({[...new Set(page.unsupported.map((item) => item.type))].join('، ')}). دست‌نخورده می‌مانند.</p> : null}
           {state.kind === 'conflict' ? <p className="mc-editor-notice is-error" role="alert">این {noun.one} پس از باز شدن این ویرایشگر در جای دیگری ذخیره شده است. برای اینکه کار دیگری را از بین نبرید، ذخیره متوقف شد. کار خود را جایی نگه دارید و دوباره باز کنید.</p> : null}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
+import RoleTemplatesPanel from '@/components/editor/RoleTemplatesPanel'
 
 type PageRow = { id: number; slug: string; title: string; status: string; editorFormat?: string }
 type Kind = 'pages' | 'posts'
@@ -49,6 +50,7 @@ export default function BlockEditorHome() {
           </tbody>
         </table>
       )}
+      {enabled ? <RoleTemplatesPanel key={kind} entity={kind} /> : null}
     </div>
   )
 }
