@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { plainText } from '@/shared/text/plain'
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 import { rateLimitHit } from '@/platform/http/rate-limit'
@@ -79,58 +80,60 @@ export async function reportDetail(id: number) {
   return { report: { ...row, visitor: undefined, infringingUrls: row.infringingUrls.split('\n').filter(Boolean) }, targets }
 }
 
-/** Unpublishes an item (kept in the database so the decision can be reversed). */
-async function unpublish(ref: ItemRef): Promise<string> {
-  const data = { status: 'DRAFT' }
+/** Unpublishes an item inside the decision (kept in the database so the decision can be reversed); how many rows changed. */
+async function unpublish(tx: Prisma.TransactionClient, ref: ItemRef): Promise<number | null> {
+  const where = { id: ref.id }, data = { status: 'DRAFT' }
   switch (ref.type) {
-    case 'software': await db.softwareTitle.update({ where: { id: ref.id }, data }); break
-    case 'game': await db.gameTitle.update({ where: { id: ref.id }, data }); break
-    case 'title': await db.cinemaTitle.update({ where: { id: ref.id }, data }); break
-    case 'album': await db.musicAlbum.update({ where: { id: ref.id }, data }); break
-    case 'track': await db.musicTrack.update({ where: { id: ref.id }, data }); break
-    case 'post': await db.post.update({ where: { id: ref.id }, data }); break
-    case 'product': await db.product.update({ where: { id: ref.id }, data: { active: false } }); break
-    case 'thread': await db.forumThread.update({ where: { id: ref.id }, data: { status: 'HIDDEN' } }); break
-    default: return ''
+    case 'software': return (await tx.softwareTitle.updateMany({ where, data })).count
+    case 'game': return (await tx.gameTitle.updateMany({ where, data })).count
+    case 'title': return (await tx.cinemaTitle.updateMany({ where, data })).count
+    case 'album': return (await tx.musicAlbum.updateMany({ where, data })).count
+    case 'track': return (await tx.musicTrack.updateMany({ where, data })).count
+    case 'post': return (await tx.post.updateMany({ where, data })).count
+    case 'product': return (await tx.product.updateMany({ where, data: { active: false } })).count
+    case 'thread': return (await tx.forumThread.updateMany({ where, data: { status: 'HIDDEN' } })).count
+    default: return null
   }
-  contentChanged(ref, null, null)
-  return `${ITEM_LABEL[ref.type].one} #${ref.id} از دسترس خارج شد`
 }
 
 /**
  * Decides a report. ACCEPTED can unpublish whole items and/or disable single
  * download links; every action is appended to the internal log.
  */
-export async function decideReport(id: number, input: { status: unknown; resolution: unknown; unpublish?: unknown; disableLinks?: unknown }, adminId: number) {
-  const row = await db.copyrightReport.findUnique({ where: { id } })
-  if (!row) throw new CopyrightError('گزارش پیدا نشد', 404)
+export async function decideReport(id: number, input: { status: unknown; resolution: unknown; unpublish?: unknown; disableLinks?: unknown }, adminId: number, audit?: (tx: Prisma.TransactionClient, result: { status: string; actions: string[] }) => Promise<unknown>) {
   const status = (['REVIEWING', 'ACCEPTED', 'REJECTED'] as const).find((value) => value === input.status)
   if (!status) throw new CopyrightError('وضعیت نامعتبر است')
   const resolution = String(input.resolution ?? '').replace(/[<>]/g, ' ').trim().slice(0, 2000)
   if (status !== 'REVIEWING' && resolution.length < 5) throw new CopyrightError('پیامی برای گزارش‌دهنده بنویسید (نتیجهٔ بررسی)')
-  const log: string[] = []
-  if (status === 'ACCEPTED') {
-    for (const raw of Array.isArray(input.unpublish) ? input.unpublish.slice(0, 20) : []) {
-      const ref = parseItemKey(raw)
-      const done = ref ? await unpublish(ref).catch(() => '') : ''
-      if (done) log.push(done)
+  const refs = status === 'ACCEPTED' ? (Array.isArray(input.unpublish) ? input.unpublish.slice(0, 20) : []).map(parseItemKey).filter((ref): ref is ItemRef => !!ref) : []
+  const linkIds = status === 'ACCEPTED' ? (Array.isArray(input.disableLinks) ? input.disableLinks : []).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 200) : []
+  // The takedown, the decision, its moderation case and its audit commit together: a failure leaves everything as it was.
+  const { log, removed } = await db.$transaction(async tx => {
+    const row = await tx.copyrightReport.findUnique({ where: { id } })
+    if (!row) throw new CopyrightError('گزارش پیدا نشد', 404)
+    const log: string[] = [], removed: ItemRef[] = []
+    for (const ref of refs) {
+      const count = await unpublish(tx, ref)
+      if (count === null) continue
+      if (count) { removed.push(ref); log.push(`${ITEM_LABEL[ref.type].one} #${ref.id} از دسترس خارج شد`) }
+      else log.push(`${ITEM_LABEL[ref.type].one} #${ref.id} پیدا نشد`)
     }
-    const linkIds = (Array.isArray(input.disableLinks) ? input.disableLinks : []).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 200)
     if (linkIds.length) {
-      const { count } = await db.mediaLink.updateMany({ where: { id: { in: linkIds } }, data: { disabled: true } })
+      const { count } = await tx.mediaLink.updateMany({ where: { id: { in: linkIds } }, data: { disabled: true } })
       log.push(`${count.toLocaleString('fa-IR')} لینک دانلود غیرفعال شد`)
     }
-  }
-  const stamp = `[${new Date().toISOString().slice(0, 16).replace('T', ' ')} · admin #${adminId}] ${status}${log.length ? `: ${log.join('؛ ')}` : ''}`
-  await db.$transaction(async tx => {
-  await tx.copyrightReport.update({ where: { id }, data: {
-    status, handledBy: adminId, ...(resolution ? { resolution } : {}),
-    actionTaken: [row.actionTaken, stamp].filter(Boolean).join('\n').slice(-5000),
-    resolvedAt: status === 'REVIEWING' ? null : new Date(),
-  } })
-  if (status !== 'REVIEWING') await completeOwnerCase(tx, 'copyright', id, adminId, status === 'ACCEPTED' ? 'approve' : 'reject')
-  if (status === 'REVIEWING' && row.status !== 'REVIEWING' && row.status !== 'NEW') await reopenOwnerCase(tx, 'copyright', id)
-  })
+    const stamp = `[${new Date().toISOString().slice(0, 16).replace('T', ' ')} · admin #${adminId}] ${status}${log.length ? `: ${log.join('؛ ')}` : ''}`
+    await tx.copyrightReport.update({ where: { id }, data: {
+      status, handledBy: adminId, ...(resolution ? { resolution } : {}),
+      actionTaken: [row.actionTaken, stamp].filter(Boolean).join('\n').slice(-5000),
+      resolvedAt: status === 'REVIEWING' ? null : new Date(),
+    } })
+    if (status !== 'REVIEWING') await completeOwnerCase(tx, 'copyright', id, adminId, status === 'ACCEPTED' ? 'approve' : 'reject')
+    if (status === 'REVIEWING' && row.status !== 'REVIEWING' && row.status !== 'NEW') await reopenOwnerCase(tx, 'copyright', id)
+    await audit?.(tx, { status, actions: log })
+    return { log, removed }
+  }, { isolationLevel: 'Serializable' })
+  for (const ref of removed) contentChanged(ref, null, null)
   return { id, status, actions: log }
 }
 
