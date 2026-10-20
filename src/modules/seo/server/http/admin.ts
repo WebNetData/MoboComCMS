@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { auditAdmin } from '@/platform/audit/server'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
 import { requirePerm } from '@/modules/identity/server/access'
 import sitemap from '@/modules/site/server/pages/sitemap'
 import { getSeoConfig, saveSeoConfig } from '@/modules/seo/server/config'
@@ -12,7 +14,7 @@ const guard = (req: NextRequest) => requirePerm(req, 'settings.manage')
 export async function GET(req: NextRequest) {
   if (!await guard(req)) return err('forbidden', 403)
   const [config, audit] = await Promise.all([getSeoConfig(), runSeoAudit()])
-  return ok({ config, audit })
+  return ok({ config, audit, settingsRevision: sectionSettingsRevision(config) })
 }
 
 export async function PUT(req: NextRequest) {
@@ -20,9 +22,7 @@ export async function PUT(req: NextRequest) {
   if (!admin) return err('forbidden', 403)
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return err('invalid body')
-  const config = await saveSeoConfig(body)
-  await auditAdmin({ req, actor: admin, action: 'seo.config.update', targetType: 'setting', targetId: 'seo.config.v1' })
-  return ok({ config })
+  return sectionSettingsSaveWith(req, admin, (context) => saveSeoConfig(body, context), (config) => ({ config }))
 }
 
 /** POST { action: 'submit-all' } sends every sitemap URL to IndexNow; { action: 'submit', urls } a list. */

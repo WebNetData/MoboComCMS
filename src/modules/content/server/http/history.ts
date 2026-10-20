@@ -82,6 +82,10 @@ async function ownerOf(type: string): Promise<Owner | null> {
     const { trustSealsSettingsState, restoreTrustSealsSettings } = await import('@/modules/site/config/store')
     return { perms: ['settings.manage'], module: null, current: () => trustSealsSettingsState(), restore: restoreTrustSealsSettings }
   }
+  if (type === 'settings-seo') {
+    const { seoSettingsState, restoreSeoSettings } = await import('@/modules/seo/server/config')
+    return { perms: ['settings.manage'], module: null, current: () => seoSettingsState(), restore: restoreSeoSettings }
+  }
   if (type === 'settings-forum') {
     const { forumSettingsState, restoreForumSettings } = await import('@/modules/forum/server/community')
     return { perms: ['forum.moderate'], module: 'forum', current: () => forumSettingsState(), restore: restoreForumSettings }
