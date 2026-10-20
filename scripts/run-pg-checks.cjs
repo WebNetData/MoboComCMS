@@ -43,6 +43,7 @@ const CHECKS = [
   'owner-settings-history',
   'editor-module-blocks',
   'search-advanced-scale',
+  'search-scan-cap',
   'repository-license-owner',
   'masked-file-authority',
   'global-restriction-admin',

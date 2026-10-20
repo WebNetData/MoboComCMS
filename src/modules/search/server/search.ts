@@ -30,6 +30,12 @@ const INDEX_PAGE_SIZE = 500
 export const PAGE_SIZE = 20
 const MAX_PAGE = 50
 const MAX_TOP_HITS = PAGE_SIZE * MAX_PAGE
+/**
+ * A search stops reading after this many matches of the list asked for (owner, 2026-10-20). The index is read newest
+ * published first, so a very common word ranks its most recent matches, and the answer says it stopped (`capped`).
+ * Every match costs a card check and ranking; reading them all took seconds on a 100,000-document index.
+ */
+export const MAX_SCANNED_MATCHES = 5000
 
 const toDocument = (item: ItemCard) => ({
   itemType: item.type, itemId: item.id, title: item.title.slice(0, 300), subtitle: item.subtitle.slice(0, 300),
@@ -116,7 +122,7 @@ export async function reindexItem(ref: ItemRef) {
 }
 
 export type SearchHit = { type: ItemType; id: number; title: string; subtitle: string; url: string; image: string; access: string; score: number; snippet: string; rating: ItemRating | null }
-export type SearchResult = { facets: SearchFacets; query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
+export type SearchResult = { facets: SearchFacets; query: string; tokens: string[]; type: ItemType | 'all'; hits: SearchHit[]; total: number; page: number; pages: number; capped: boolean; counts: Partial<Record<ItemType, number>>; totalPages: number; nextCursor: string | null; previousCursor: string | null; cursorReset: boolean }
 type RankedCandidate = { row: { id: number; itemType: string; itemId: number; title: string; text: string; boost: number; publishedAt: Date }; card: ItemCard; score: number; orderScore: number; orderPublishedAt: number }
 
 const boundary = (candidate: RankedCandidate) => ({ score: candidate.orderScore, publishedAt: candidate.orderPublishedAt, boost: candidate.row.boost, id: candidate.row.id })
@@ -140,7 +146,7 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const page = Math.max(1, Math.min(MAX_PAGE, Math.floor(Number(input.page) || 1)))
   // Autocomplete is never narrowed: it answers what is typed.
   const facets = input.suggestion ? NO_FACETS : normalizeFacets(input.facets)
-  const empty: SearchResult = { facets, query, tokens, type, hits: [], total: 0, page: 1, pages: 0, counts: {}, totalPages: 0, nextCursor: null, previousCursor: null, cursorReset: false }
+  const empty: SearchResult = { facets, query, tokens, type, hits: [], total: 0, page: 1, pages: 0, capped: false, counts: {}, totalPages: 0, nextCursor: null, previousCursor: null, cursorReset: false }
   if (!tokens.length || !await isModuleEnabled('search')) return empty
   const epoch = await ensureFreshIndex()
   // A page cursor belongs to the facets it was made under: with other facets it is another list.
@@ -162,12 +168,17 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
   const top = new RankedWindow<RankedCandidate>(cursor ? PAGE_SIZE : MAX_TOP_HITS, cursor?.direction === 'before' ? (a, b) => -byRank(a, b) : byRank)
   let eligible = 0
   let matchedTotal = 0
-  let afterId = 0
-  while (true) {
+  let capped = false
+  // Newest published first: when a search stops at MAX_SCANNED_MATCHES, what it has read is the most recent part.
+  let after: { publishedAt: Date; id: number } | null = null
+  scan: while (true) {
     // Autocomplete retains a small popularity sample to stay responsive on each keystroke.
     const rows = input.suggestion
       ? await db.searchDocument.findMany({ where, orderBy: { boost: 'desc' }, take: SUGGESTION_CANDIDATES })
-      : await db.searchDocument.findMany({ where: { ...where, id: { gt: afterId } }, orderBy: { id: 'asc' }, take: INDEX_PAGE_SIZE })
+      : await db.searchDocument.findMany({
+        where: after ? { AND: [where, { OR: [{ publishedAt: { lt: after.publishedAt } }, { publishedAt: after.publishedAt, id: { lt: after.id } }] }] } : where,
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: INDEX_PAGE_SIZE,
+      })
     if (!rows.length) break
     // Recheck current source visibility because SearchDocument can lag a publication change.
     const publicCards = await itemCards(rows.map((row) => ({ type: row.itemType as ItemType, id: row.itemId })))
@@ -178,6 +189,8 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
       facets.dimension ? dimensionRatingsOfItems(refs, facets.dimension) : null,
     ])
     for (const row of rows) {
+      // Checked before each further row (also one a cursor skips): the list asked for has its MAX_SCANNED_MATCHES.
+      if (!input.suggestion && (type === 'all' ? matchedTotal : counts[type] || 0) >= MAX_SCANNED_MATCHES) { capped = true; break scan }
       const card = publicCards.get(`${row.itemType}:${row.itemId}`)
       if (!card) continue
       // The source decides who may open an item; the index can lag behind a change of it.
@@ -198,7 +211,8 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
       top.add(candidate)
     }
     if (input.suggestion || rows.length < INDEX_PAGE_SIZE) break
-    afterId = rows[rows.length - 1].id
+    const last: { publishedAt: Date; id: number } = rows[rows.length - 1]
+    after = { publishedAt: last.publishedAt, id: last.id }
   }
   const total = type === 'all' ? matchedTotal : (counts[type] || 0)
   // The API has always accepted at most 50 pages; report the reachable window.
@@ -227,7 +241,7 @@ export async function searchSite(input: { q: unknown; type?: unknown; page?: unk
     }
   })
   if (input.log !== false && current === 1 && !cursor) void recordSearch(phrase, matchedTotal)
-  return { facets, query, tokens, type, hits, total, page: current, pages, counts, totalPages, nextCursor, previousCursor, cursorReset }
+  return { facets, query, tokens, type, hits, total, page: current, pages, capped, counts, totalPages, nextCursor, previousCursor, cursorReset }
 }
 
 /** Autocomplete: the best few hits across all types. */
