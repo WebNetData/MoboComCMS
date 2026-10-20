@@ -148,7 +148,7 @@ export default function WatermarkPage() {
         <label className="studio-field"><span>روی عکس‌های کوچک‌تر از این عرض درج نشود (پیکسل)</span><input className="input" type="number" min={0} max={4000} value={settings.minWidth} onChange={(e) => set({ minWidth: Number(e.target.value) })} /><small className="muted">برای اینکه تصاویر کوچک کارت‌ها و فهرست‌ها شلوغ نشوند؛ ۰ یعنی همهٔ اندازه‌ها.</small></label>
         <p className="muted fr-admin-wide">عکس‌هایی که «همیشه» یا «هرگز» زده‌اید در هر حالتی همان‌طور می‌مانند: {fa(settings.include.length)} همیشه، {fa(settings.exclude.length)} هرگز. عکس‌هایی که در محتوای بخش‌ها استفاده نشده‌اند (مثل آواتار کاربران و لوگوی سایت) فقط با «همیشه» واترمارک می‌خورند و خود لوگوی واترمارک هیچ‌وقت.</p>
 
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ تنظیمات'}</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیرهٔ تنظیمات'}</button></div>
       </form>
 
       <aside className="card wm-preview" aria-label="پیش‌نمایش">

@@ -32,9 +32,9 @@ export default function TemplatesPanel({ open, pageId, currentDoc, L, postTempla
 
   async function load() {
     setLoading(true); setError('')
-    const response = await fetch(`/api/admin/builder/templates?pageId=${encodeURIComponent(pageId)}`, { cache: 'no-store' })
-    const data = await response.json().catch(() => null)
-    if (response.ok) { setBundled(data.bundled || []); setPostBundled(data.postBundled || []); setMine(data.mine || []) }
+    const response = await fetch(`/api/admin/builder/templates?pageId=${encodeURIComponent(pageId)}`, { cache: 'no-store' }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok) { setBundled(data.bundled || []); setPostBundled(data.postBundled || []); setMine(data.mine || []) }
     else setError(data?.error || L('Could not load templates.', 'بارگذاری قالب‌ها ممکن نشد.'))
     setLoading(false)
   }
@@ -47,28 +47,28 @@ export default function TemplatesPanel({ open, pageId, currentDoc, L, postTempla
     const response = await fetch('/api/admin/builder/templates', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pageId, name, nameEn, kind: isPost ? kind : 'page', doc: currentDoc }),
-    })
-    const data = await response.json().catch(() => null)
-    if (response.ok) { setName(''); setNameEn(''); setKind('page'); await load() }
+    }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok) { setName(''); setNameEn(''); setKind('page'); await load() }
     else setError(data?.error || L('Could not save the template.', 'ذخیره قالب ممکن نشد.'))
     setBusy(false)
   }
 
   async function remove(id: string) {
     setBusy(true); setError('')
-    const response = await fetch(`/api/admin/builder/templates?pageId=${encodeURIComponent(pageId)}&id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-    if (response.ok) await load()
-    else { const data = await response.json().catch(() => null); setError(data?.error || L('Could not delete.', 'حذف ممکن نشد.')) }
+    const response = await fetch(`/api/admin/builder/templates?pageId=${encodeURIComponent(pageId)}&id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => null)
+    if (response?.ok) await load()
+    else { const data = await response?.json().catch(() => null); setError(data?.error || L('Could not delete.', 'حذف ممکن نشد.')) }
     setBusy(false)
   }
 
   const insert = (doc: BuilderDoc) => { onInsert(cloneSections(doc.sections)); onClose() }
 
-  return <div className="bld-modal" role="dialog" aria-modal="true" onClick={onClose}>
+  return <div className="bld-modal" role="dialog" aria-modal="true" aria-labelledby="bld-templates-title" onClick={onClose}>
     <div className="bld-modal-box" onClick={(event) => event.stopPropagation()}>
       <header>
-        <h2>{L('Templates', 'قالب‌ها')}</h2>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        <h2 id="bld-templates-title">{L('Templates', 'قالب‌ها')}</h2>
+        <button aria-label={L('Close', 'بستن')} type="button" className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
       </header>
       {error && <p role="status" className="bld-warning">{error}</p>}
 

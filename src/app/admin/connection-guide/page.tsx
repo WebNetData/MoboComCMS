@@ -41,7 +41,7 @@ export default function GuideEditor() {
         <label className="label">{fa ? 'لینک دانلود HTTPS (خالی برای پنهان کردن دکمه)' : 'HTTPS download URL (leave blank to hide button)'}<input className="input mt-2 mb-4" type="url" dir="ltr" maxLength={2048} value={config.platforms[platform].downloadUrl} onChange={event => update({ downloadUrl: event.target.value })} /></label>
         {fields.map(([field, label]) => <section className="mb-4" key={field}><h2 className="font-bold mb-3">{label}</h2><div className="grid-2">{(['fa', 'en'] as const).map(language => <label className="label" key={language}>{language === 'fa' ? 'فارسی' : 'English'}<textarea required rows={field === 'troubleshoot' ? 7 : 4} maxLength={4000} className="input mt-2" dir={language === 'fa' ? 'rtl' : 'ltr'} value={config.platforms[platform][field][language]} onChange={event => update({ [field]: { ...config.platforms[platform][field], [language]: event.target.value } })} /></label>)}</div></section>)}
       </fieldset>
-      <button className="btn btn-primary" disabled={busy}>{busy ? (fa ? 'در حال ذخیره…' : 'Saving…') : (fa ? 'ذخیره راهنما برای تمام دستگاه‌ها' : 'Save guide for all devices')}</button>
+      <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? (fa ? 'در حال ذخیره…' : 'Saving…') : (fa ? 'ذخیره راهنما برای تمام دستگاه‌ها' : 'Save guide for all devices')}</button>
     </form>}{message && <p role="status" className="mt-4">{message}</p>}
   </div>
 }

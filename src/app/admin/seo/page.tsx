@@ -92,7 +92,7 @@ export default function AdminSeoPage() {
         <label className="studio-switch seo-wide"><input type="checkbox" checked={config.allowAiCrawlers} onChange={(e) => set('allowAiCrawlers', e.target.checked)}/>اجازه به ChatGPT، Claude، Perplexity، Gemini و دیگر دستیارها برای خواندن صفحه‌های عمومی</label>
         {config.indexNow.key && <small className="muted seo-wide" dir="ltr">IndexNow key: {config.indexNow.key}</small>}
       </div>
-      <div className="seo-actions"><button className="btn btn-primary" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void call('POST', { action: 'submit-all' }, 'همهٔ صفحه‌های نقشهٔ سایت به IndexNow ارسال شد')}>ارسال همهٔ صفحه‌ها به IndexNow</button></div>
+      <div className="seo-actions"><button type="submit" className="btn btn-primary" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void call('POST', { action: 'submit-all' }, 'همهٔ صفحه‌های نقشهٔ سایت به IndexNow ارسال شد')}>ارسال همهٔ صفحه‌ها به IndexNow</button></div>
     </form>
 
     {audit.log.length > 0 && <section className="xm-section"><h2>آخرین ارسال‌های IndexNow</h2><div className="card"><table className="table"><thead><tr><th>زمان</th><th>تعداد</th><th>نتیجه</th></tr></thead><tbody>{audit.log.map((entry, index) => <tr key={index}><td>{new Date(entry.at).toLocaleString('fa-IR')}</td><td>{entry.count.toLocaleString('fa-IR')}</td><td>{entry.status >= 200 && entry.status < 300 ? <span className="badge badge-green">موفق ({entry.status})</span> : <span className="badge badge-red" title={entry.error}>{entry.status || 'خطا'}</span>}</td></tr>)}</tbody></table></div></section>}

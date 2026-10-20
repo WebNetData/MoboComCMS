@@ -206,10 +206,10 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       if (field.type === 'datetime' && body[field.key]) body[field.key] = new Date(String(body[field.key])).toISOString()
       if (field.type === 'select' && field.source && body[field.key] === '') body[field.key] = null
     }
-    const res = await fetch(`${API}?type=${type}`, { method: editId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editId ? { ...body, id: editId } : body) })
-    const data = await res.json().catch(() => null)
+    const res = await fetch(`${API}?type=${type}`, { method: editId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editId ? { ...body, id: editId } : body) }).catch(() => null)
+    const data = await res?.json().catch(() => null)
     setBusy(false)
-    if (!res.ok) { setMsg({ tone: 'err', text: data?.error || (fa ? 'ذخیره ناموفق بود' : 'Save failed') }); return }
+    if (!res?.ok) { setMsg({ tone: 'err', text: data?.error || (fa ? 'ذخیره ناموفق بود' : 'Save failed') }); return }
     setForm(null); setEditId(null)
     setMsg({ tone: 'ok', text: fa ? 'ذخیره شد' : 'Saved' })
     load()
@@ -336,7 +336,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
           </div>
           {paywall && <PaidAccessPanel ownerType={paywall.ownerType} ownerId={editId} noun={paywall.noun} />}
           <div className="flex gap-2 mt-4">
-            <button className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
             <button type="button" className="btn btn-ghost" onClick={() => { setForm(null); setEditId(null) }}>{fa ? 'انصراف' : 'Cancel'}</button>
           </div>
           <PublishReview open={review} title={String(form[titleKey] || form.title || form.name || '')} rows={reviewRows} busy={busy} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
@@ -500,8 +500,8 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
         <div key={index} className="mx-link-row">
           <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
           <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
-          <input className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
-          <input className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+          <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
+          <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
           {section === 'software' && <div className="mx-software-link-meta">
             <label><span>{fa ? 'سیستم‌عامل فایل' : 'File OS'}</span><input className="input" list="software-platform-options" value={row.platform || ''} onChange={(e) => update(index, { platform: e.target.value })} placeholder="Windows" /></label>
             <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
@@ -515,7 +515,7 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
             {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
             {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
           </span>}
-          <input className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+          <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
           <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
           {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
           <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
@@ -541,8 +541,8 @@ function RecordsEditor({ value, keys, onChange, fa }: { value: Record<string, st
         <div key={index} className="mx-record-row">
           {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}><input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
           <div className="mx-row-tools">
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
-            <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))}>✕</button>
+            <button aria-label="جابه‌جایی به بالا" type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
+            <button aria-label="حذف" type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))}>✕</button>
           </div>
         </div>
       ))}
@@ -569,7 +569,7 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
             <input className="input" placeholder={fa ? 'نام فصل (اختیاری)' : 'Season name (optional)'} value={season.name || ''} onChange={(e) => setSeason(si, { name: e.target.value })} />
             <input className="input" dir="ltr" placeholder={fa ? 'پوستر فصل (URL)' : 'Season poster URL'} value={season.poster || ''} onChange={(e) => setSeason(si, { poster: e.target.value })} />
             <CopyToServer url={season.poster||''} onCopied={poster=>setSeason(si,{poster})}/>
-            <button type="button" className="badge badge-red" onClick={() => confirm(fa ? 'این فصل و قسمت‌هایش حذف شود؟' : 'Remove this season and its episodes?') && onChange(value.filter((_, i) => i !== si))}>✕</button>
+            <button aria-label="حذف فصل" type="button" className="badge badge-red" onClick={() => confirm(fa ? 'این فصل و قسمت‌هایش حذف شود؟' : 'Remove this season and its episodes?') && onChange(value.filter((_, i) => i !== si))}>✕</button>
           </header>
           <div className="mx-episodes">
             {season.episodes.map((episode, ei) => {
@@ -581,13 +581,13 @@ function SeasonsEditor({ value, onChange, fa }: { value: Season[]; onChange: (va
                     <input className="input" placeholder={fa ? 'عنوان قسمت' : 'Episode title'} value={episode.title || ''} onChange={(e) => setEpisode(si, ei, { title: e.target.value })} />
                     <select className="select" value={episode.access || 'PUBLIC'} onChange={(e) => setEpisode(si, ei, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
                     <span className="muted text-sm">{(episode.links || []).length} {fa ? 'لینک' : 'links'}</span>
-                    <button type="button" className="badge badge-purple" onClick={() => setOpen(open === key ? '' : key)}>{open === key ? '▲' : '▼'}</button>
-                    <button type="button" className="badge badge-red" onClick={() => setSeason(si, { episodes: season.episodes.filter((_, i) => i !== ei) })}>✕</button>
+                    <button aria-label="باز و بسته کردن قسمت" type="button" className="badge badge-purple" onClick={() => setOpen(open === key ? '' : key)}>{open === key ? '▲' : '▼'}</button>
+                    <button aria-label="حذف قسمت" type="button" className="badge badge-red" onClick={() => setSeason(si, { episodes: season.episodes.filter((_, i) => i !== ei) })}>✕</button>
                   </div>
                   {open === key && (
                     <div className="mx-episode-body">
                       <div className="mx-grid">
-                        <input className="input" dir="ltr" placeholder="English title" value={episode.titleEn || ''} onChange={(e) => setEpisode(si, ei, { titleEn: e.target.value })} />
+                        <input aria-label="عنوان انگلیسی قسمت" className="input" dir="ltr" placeholder="English title" value={episode.titleEn || ''} onChange={(e) => setEpisode(si, ei, { titleEn: e.target.value })} />
                         <input className="input" type="number" placeholder={fa ? 'مدت (دقیقه)' : 'Runtime (min)'} value={episode.runtime ?? ''} onChange={(e) => setEpisode(si, ei, { runtime: e.target.value })} />
                         <JalaliDateInput className="input" value={episode.airDate || ''} onChange={(value) => setEpisode(si, ei, { airDate: value })} />
                         <input className="input" dir="ltr" placeholder={fa ? 'تصویر قسمت (URL)' : 'Still image URL'} value={episode.still || ''} onChange={(e) => setEpisode(si, ei, { still: e.target.value })} />
@@ -630,8 +630,8 @@ export function RequirementsEditor({ value, onChange, fa }: { value: { min: Reco
       {REQ_KEYS.map((k) => (
         <div key={k.key} className="mx-req-row">
           <span>{fa ? k.fa : k.en}</span>
-          <input className="input" dir="ltr" value={value.min?.[k.key] || ''} onChange={(e) => set('min', k.key, e.target.value)} />
-          <input className="input" dir="ltr" value={value.rec?.[k.key] || ''} onChange={(e) => set('rec', k.key, e.target.value)} />
+          <input aria-label={`حداقل ${k.fa}`} className="input" dir="ltr" value={value.min?.[k.key] || ''} onChange={(e) => set('min', k.key, e.target.value)} />
+          <input aria-label={`پیشنهادی ${k.fa}`} className="input" dir="ltr" value={value.rec?.[k.key] || ''} onChange={(e) => set('rec', k.key, e.target.value)} />
         </div>
       ))}
     </div>
@@ -647,9 +647,9 @@ function PickList({ value, options, onChange, fa }: { value: string[]; options: 
       <ol className="mx-pick-list">
         {chosen.map((o, index) => (
           <li key={o.value}><span>{index + 1}. {o.label}</span><span className="mx-row-tools">
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))}>↓</button>
-            <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((v) => v !== o.value))}>✕</button>
+            <button aria-label="جابه‌جایی به بالا" type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
+            <button aria-label="جابه‌جایی به پایین" type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))}>↓</button>
+            <button aria-label="حذف" type="button" className="badge badge-red" onClick={() => onChange(value.filter((v) => v !== o.value))}>✕</button>
           </span></li>
         ))}
         {!chosen.length && <li className="muted">{fa ? 'هنوز آهنگی انتخاب نشده' : 'No tracks yet'}</li>}

@@ -38,8 +38,9 @@ export default function AdminPaymentsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/admin/payments?status=${status}&q=${encodeURIComponent(q)}`)
-    if (res.ok) setRows(await res.json())
+    const res = await fetch(`/api/admin/payments?status=${status}&q=${encodeURIComponent(q)}`).catch(() => null)
+    const body = res?.ok ? await res.json().catch(() => null) : null
+    if (Array.isArray(body)) setRows(body)
     setLoading(false)
   }, [status, q])
 

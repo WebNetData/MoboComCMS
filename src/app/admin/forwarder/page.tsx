@@ -98,7 +98,7 @@ export default function ForwarderAdminPage() {
             <label className="sa-field"><span>ثانیه‌شمار (خالی = پیش‌فرض)</span><input className="input num" dir="ltr" inputMode="numeric" value={form.countdown} onChange={(e) => setForm({ ...form, countdown: e.target.value.replace(/\D/g, '') })} /></label>
           </div>
           <label className="sa-field"><span>عنوان (در صفحهٔ انتقال نمایش داده می‌شود)</span><input className="input" maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-          <button className="btn btn-primary" disabled={busy}>ساخت لینک و کپی</button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>ساخت لینک و کپی</button>
         </form>
 
         <section className="sa-card">

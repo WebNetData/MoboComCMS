@@ -202,7 +202,7 @@ export default function AdminDownloadsPage() {
           {host.method === 'nginx' && <pre className="fa-excerpt" dir="ltr">{`location /files/ {\n  secure_link $arg_${host.tokenParam},$arg_${host.expiresParam};\n  secure_link_md5 "${host.expression.replace('{expires}', '$secure_link_expires').replace('{uri}', '$uri').replace('{ip}', '$remote_addr').replace('{secret}', 'YOUR_SECRET')}";\n  if ($secure_link = "")  { return 403; }\n  if ($secure_link = "0") { return 410; }\n}`}</pre>}
         </fieldset>)}
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings({ ...settings, hosts: [...settings.hosts, { ...EMPTY_HOST }] })}>+ افزودن سرور دانلود</button>
-        <div className="fr-admin-actions"><button className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button></div>
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button></div>
       </form>
 
       <div className="card fr-admin-form">

@@ -5,6 +5,7 @@ import Link from '@/components/AppLink'
 import { Notice, fa, faDate } from '../store/shared'
 import { RatingChip, RatingMeter } from '@/components/engage/RatingMeter'
 import { CHAT_PLACES, type ChatSettings } from '@/modules/livechat/domain/livechat'
+import TimeInput from '@/components/date/TimeInput'
 
 type Row = { id: number; status: string; name: string; user: number | null; contact: string; assignedTo: number | null; unread: number; last: { sender: string; body: string } | null; lastMessageAt: string; rating: number | null; pageUrl: string }
 type List = { counts: Record<string, number>; rows: Row[] }
@@ -178,8 +179,8 @@ function SettingsForm() {
     <label className="sa-check"><input type="checkbox" checked={form.hours.enabled} onChange={(e) => set({ hours: { ...form.hours, enabled: e.target.checked } })} /> ساعات کاری اپراتورها محدود است</label>
     {form.hours.enabled && <div className="sa-cols">
       <div className="sa-field"><span>روزهای کاری</span><div className="crm-filters">{[6, 0, 1, 2, 3, 4, 5].map((day) => <button key={day} type="button" className={form.hours.days.includes(day) ? 'is-active' : ''} aria-pressed={form.hours.days.includes(day)} onClick={() => set({ hours: { ...form.hours, days: form.hours.days.includes(day) ? form.hours.days.filter((d) => d !== day) : [...form.hours.days, day] } })}>{DAYS[day]}</button>)}</div></div>
-      <label className="sa-field"><span>از ساعت</span><input className="input" type="time" value={form.hours.from} onChange={(e) => set({ hours: { ...form.hours, from: e.target.value } })} /></label>
-      <label className="sa-field"><span>تا ساعت</span><input className="input" type="time" value={form.hours.to} onChange={(e) => set({ hours: { ...form.hours, to: e.target.value } })} /></label>
+      <label className="sa-field"><span>از ساعت</span><TimeInput aria-label="از ساعت" value={form.hours.from} onChange={(value) => set({ hours: { ...form.hours, from: value } })} /></label>
+      <label className="sa-field"><span>تا ساعت</span><TimeInput aria-label="تا ساعت" value={form.hours.to} onChange={(value) => set({ hours: { ...form.hours, to: value } })} /></label>
     </div>}
     <label className="sa-field"><span>پیام خارج از ساعت کاری</span><input className="input" value={form.offlineMessage} onChange={(e) => set({ offlineMessage: e.target.value })} /></label>
     <label className="sa-check"><input type="checkbox" checked={form.askContact} onChange={(e) => set({ askContact: e.target.checked })} /> از مهمان‌ها هنگام انتقال به اپراتور موبایل یا ایمیل خواسته شود</label>
@@ -209,16 +210,21 @@ export default function ChatConsole() {
     let failures = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     const source = new EventSource('/api/admin/chat/stream')
-    source.onopen = () => { failures = 0; setLive(true) }
-    source.addEventListener('activity', (event) => {
-      const data = JSON.parse((event as MessageEvent).data)
-      setPulse((current) => ({ id: data.conversationId, n: current.n + 1 }))
+    // A conversation id from a stream event, or null for anything malformed.
+    const conversationOf = (event: Event) => { try { const id = Number(JSON.parse((event as MessageEvent).data)?.conversationId); return Number.isFinite(id) ? id : null } catch { return null } }
+    const activity = (event: Event) => {
+      const id = conversationOf(event)
+      if (id === null) return
+      setPulse((current) => ({ id, n: current.n + 1 }))
       clearTimeout(timer)
       timer = setTimeout(() => void loadListRef.current(), 250)
-    })
-    source.addEventListener('typing', (event) => setTyping({ id: JSON.parse((event as MessageEvent).data).conversationId, at: Date.now() }))
+    }
+    const typingEvent = (event: Event) => { const id = conversationOf(event); if (id !== null) setTyping({ id, at: Date.now() }) }
+    source.onopen = () => { failures = 0; setLive(true) }
+    source.addEventListener('activity', activity)
+    source.addEventListener('typing', typingEvent)
     source.onerror = () => { setLive(false); if (++failures >= 3) source.close() }
-    return () => { source.close(); clearTimeout(timer); setLive(false) }
+    return () => { source.removeEventListener('activity', activity); source.removeEventListener('typing', typingEvent); source.close(); clearTimeout(timer); setLive(false) }
   }, [])
   useEffect(() => {
     void loadList()

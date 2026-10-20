@@ -59,8 +59,8 @@ export default function AdminSubscriptionsPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="h2">{t.subscriptions}</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="muted">{t.extendDays}</label>
-          <input className="input imp-w-24" type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} />
+          <span className="muted">{t.extendDays}</span>
+          <input aria-label={t.extendDays} className="input imp-w-24" type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} />
           <span className="muted">{t.days}</span>
           <button className="btn btn-ghost" onClick={() => load()}>↻ {t.refreshList}</button>
         </div>

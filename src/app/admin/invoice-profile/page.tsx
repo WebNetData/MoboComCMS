@@ -37,7 +37,7 @@ export default function InvoiceProfilePage() {
   return <form className="sa" dir="rtl" onSubmit={save}>
     <header className="sa-head">
       <div><h1>صورتحساب رسمی</h1><p className="sa-hint">مشخصات فروشنده، مالیات بر ارزش افزوده و واحد مبلغ در «صورتحساب فروش کالا و خدمات». هر فاکتور از صفحهٔ خودش با دکمهٔ «صورتحساب رسمی» قابل چاپ و ذخیرهٔ PDF است.</p></div>
-      <div className="sa-head-actions"><button className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
+      <div className="sa-head-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : 'ذخیره'}</button></div>
     </header>
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     <div className="sa-cols">

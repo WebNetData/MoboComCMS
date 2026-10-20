@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, useRef } from 'react'
 import Link from '@/components/AppLink'
 import { Notice, fa } from '../store/shared'
 
@@ -34,15 +34,21 @@ export default function SecurityAdminPage() {
     setPolicy(data.policy); setSaved(JSON.stringify(data.policy)); setNotice({ tone: 'ok', text: 'ذخیره شد.' })
   }
 
+  const resetUserRunning = useRef(false)
   async function resetUser(e: FormEvent) {
     e.preventDefault()
-    if (!window.confirm(`ورود دو مرحله‌ای «${who}» خاموش شود؟ فقط وقتی انجام دهید که هویت کاربر را مطمئن شده‌اید.`)) return
-    setResetNotice(null)
-    const response = await fetch('/api/admin/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reset-2fa', user: who }) }).catch(() => null)
-    const data = await response?.json().catch(() => null)
-    if (!response?.ok) { setResetNotice({ tone: 'error', text: data?.error || 'انجام نشد' }); return }
-    setResetNotice({ tone: 'ok', text: 'ورود دو مرحله‌ای کاربر خاموش شد؛ او می‌تواند دوباره آن را راه‌اندازی کند.' }); setWho('')
-    void load()
+    if (resetUserRunning.current) return
+    resetUserRunning.current = true
+    try {
+      if (!window.confirm(`ورود دو مرحله‌ای «${who}» خاموش شود؟ فقط وقتی انجام دهید که هویت کاربر را مطمئن شده‌اید.`)) return
+      setResetNotice(null)
+      const response = await fetch('/api/admin/security', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reset-2fa', user: who }) }).catch(() => null)
+      const data = await response?.json().catch(() => null)
+      if (!response?.ok) { setResetNotice({ tone: 'error', text: data?.error || 'انجام نشد' }); return }
+      setResetNotice({ tone: 'ok', text: 'ورود دو مرحله‌ای کاربر خاموش شد؛ او می‌تواند دوباره آن را راه‌اندازی کند.' }); setWho('')
+      void load()
+    
+    } finally { resetUserRunning.current = false }
   }
 
   if (!policy) return <div className="sa" dir="rtl">{notice ? <Notice tone="error">{notice.text}</Notice> : <div className="sa-skeleton" />}</div>
@@ -88,7 +94,7 @@ export default function SecurityAdminPage() {
         <p className="sa-hint">اگر کاربری هم گوشی و هم کدهای پشتیبان را از دست داده، پس از احراز هویت (مثلاً از طریق تیکت) ورود دو مرحله‌ای‌اش را خاموش کنید. این کار در گزارش فعالیت مدیران ثبت می‌شود.</p>
         <label className="sa-field"><span>شناسه، ایمیل یا موبایل کاربر</span><input className="input" dir="ltr" value={who} onChange={(e) => setWho(e.target.value)} required /></label>
         {resetNotice && <Notice tone={resetNotice.tone}>{resetNotice.text}</Notice>}
-        <div className="sa-head-actions"><button className="btn btn-ghost" disabled={!who.trim()}>خاموش کردن ورود دو مرحله‌ای کاربر</button></div>
+        <div className="sa-head-actions"><button type="submit" className="btn btn-ghost" disabled={!who.trim()}>خاموش کردن ورود دو مرحله‌ای کاربر</button></div>
       </form>
     </div>
   </div>

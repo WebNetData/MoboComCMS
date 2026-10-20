@@ -167,5 +167,8 @@ html[data-design] .admin-shell .btn-primary, .admin-shell .btn-primary { backgro
 html[dir='rtl'] :where(.admin-shell) table.crud-table :is(th, td):last-child { box-shadow: -10px 0 12px -12px rgb(0 0 0 / .25); }
 html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-child, :where(.admin-shell) table.crud-table thead th:last-child { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
 
+/* A label that wraps its field (the visible text stays .label) keeps the stacked look of label-above-field. */
+:where(.admin-shell) .label-field { display: block; }
+
 /* Actions under a page's title (e.g. the settings History link). */
 :where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

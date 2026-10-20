@@ -124,7 +124,7 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
           </div>
           {expanded && <form className="xm-settings" onSubmit={event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); void patch(row, { settings: data }, L('Settings saved.', 'تنظیمات ذخیره شد.')) }}>
             {m.settings!.map(setting => <label className="studio-field" key={setting.key}><span>{fa ? setting.label : setting.labelEn || setting.label}</span>{setting.type === 'textarea' ? <textarea className="input" name={setting.key} defaultValue={row.settings[setting.key] ?? ''}/> : <input className="input" name={setting.key} defaultValue={row.settings[setting.key] ?? ''}/>}</label>)}
-            <button className="btn btn-primary btn-sm" disabled={busy === row.id}>{L('Save settings', 'ذخیرهٔ تنظیمات')}</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={busy === row.id}>{L('Save settings', 'ذخیرهٔ تنظیمات')}</button>
           </form>}
         </article>
       })}</div>}

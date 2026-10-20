@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { SectionShell, type SectionTab } from '../cms/SectionAdmin'
 import { Notice, fa } from '../store/shared'
+import Link from '@/components/AppLink'
 
 export { Notice, fa, faDate } from '../store/shared'
 
@@ -149,7 +150,7 @@ export function ServerShell({ title, actions, children }: { title?: string; acti
       : !session ? <div className="sa-skeleton" aria-busy="true" />
         : !session.unlocked ? <UnlockForm session={session} onDone={refresh} />
           : <PanelContext.Provider value={{ session, relock, refresh }}>
-            {!session.ipRestricted && <Notice tone="error">محدودیت IP تنظیم نشده است؛ هر کسی با این حساب از هر جایی می‌تواند وارد پنل سرور شود. <a href="/admin/server/security" className="text-link">راهنمای تنظیم</a></Notice>}
+            {!session.ipRestricted && <Notice tone="error">محدودیت IP تنظیم نشده است؛ هر کسی با این حساب از هر جایی می‌تواند وارد پنل سرور شود. <Link href="/admin/server/security" className="text-link">راهنمای تنظیم</Link></Notice>}
             {children}
           </PanelContext.Provider>}
   </SectionShell>

@@ -61,10 +61,10 @@ export default function FormsAdmin() {
   async function save() {
     if (!form) return
     setBusy(true)
-    const r = await fetch('/api/admin/forms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-    const data = await r.json().catch(() => null)
+    const r = await fetch('/api/admin/forms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }).catch(() => null)
+    const data = await r?.json().catch(() => null)
     setBusy(false)
-    if (!r.ok) { say('error', data?.error || 'ذخیره ناموفق'); return }
+    if (!r?.ok) { say('error', data?.error || 'ذخیره ناموفق'); return }
     setForm(data); setDirty(false); await load()
     say('ok', data.published ? 'فرم ذخیره و منتشر شد.' : 'پیش‌نویس فرم ذخیره شد.')
   }

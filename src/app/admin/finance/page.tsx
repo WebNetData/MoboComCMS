@@ -18,8 +18,9 @@ export default function AdminFinancePage() {
     setLoading(true)
     const qs = new URLSearchParams({ months: String(months) })
     if (currency) qs.set('currency', currency)
-    const res = await fetch(`/api/admin/finance?${qs}`)
-    if (res.ok) setData(await res.json())
+    const res = await fetch(`/api/admin/finance?${qs}`).catch(() => null)
+    const body = res?.ok ? await res.json().catch(() => null) : null
+    if (body) setData(body)
     setLoading(false)
   }, [months, currency])
 
