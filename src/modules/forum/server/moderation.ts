@@ -38,6 +38,8 @@ export async function reviewQueue(viewer: Viewer) {
 
 export const pendingReviewCount = () => db.forumPost.count({ where: { status: 'PENDING' } })
 
+const decidedMeanwhile = () => new ForumError('ناظر دیگری هم‌زمان دربارهٔ این پیام تصمیم گرفت؛ صفحه را تازه کنید', 409)
+
 /** Approve (publish, notify, count) or reject (delete) a held post. */
 export async function reviewPost(viewer: Viewer, postId: number, decision: 'approve' | 'reject', note = '') {
   if (!moderatesAnything(viewer)) throw denied()
@@ -47,8 +49,10 @@ export async function reviewPost(viewer: Viewer, postId: number, decision: 'appr
   const first = post.postNumber === 1
   if (decision === 'reject') {
     await db.$transaction(async (tx) => {
-      if (first) await tx.forumThread.delete({ where: { id: post.threadId } })
-      else await tx.forumPost.delete({ where: { id: postId } })
+      const claimed = first
+        ? await tx.forumThread.deleteMany({ where: { id: post.threadId, posts: { some: { id: postId, status: 'PENDING' } } } })
+        : await tx.forumPost.deleteMany({ where: { id: postId, status: 'PENDING' } })
+      if (!claimed.count) throw decidedMeanwhile()
       await recount(tx, post.threadId, post.thread.categoryId)
       await completeOwnerCase(tx, 'forum-posts', postId, viewer.userId!, decision)
     })
@@ -56,7 +60,8 @@ export async function reviewPost(viewer: Viewer, postId: number, decision: 'appr
     return { id: postId, decision }
   }
   await db.$transaction(async (tx) => {
-    await tx.forumPost.update({ where: { id: postId }, data: { status: 'VISIBLE', reviewReason: '', createdAt: first ? post.createdAt : new Date() } })
+    const claimed = await tx.forumPost.updateMany({ where: { id: postId, status: 'PENDING' }, data: { status: 'VISIBLE', reviewReason: '', createdAt: first ? post.createdAt : new Date() } })
+    if (!claimed.count) throw decidedMeanwhile()
     if (first) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: 'VISIBLE', lastPostAt: new Date() } })
     await recount(tx, post.threadId, post.thread.categoryId)
     await completeOwnerCase(tx, 'forum-posts', postId, viewer.userId!, decision)

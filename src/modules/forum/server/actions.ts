@@ -446,16 +446,24 @@ export async function moderateThread(viewer: Viewer, threadId: number, patch: { 
   return { id: threadId, ...data }
 }
 
+const threadForDelete = (threadId: number) => db.forumThread.findUnique({ where: { id: threadId }, select: { id: true, categoryId: true, title: true, userId: true, tags: { select: { tagId: true } } } })
+type ThreadForDelete = NonNullable<Awaited<ReturnType<typeof threadForDelete>>>
+const threadAuthors = (threadId: number) => db.forumPost.findMany({ where: { threadId }, distinct: ['userId'], select: { userId: true } })
+
+/** Removing a topic decides every flag still waiting in it: the flagged posts are gone with it. */
+async function removeThread(tx: Tx, viewer: Viewer, thread: ThreadForDelete) {
+  await settleFlags(tx, viewer, { post: { threadId: thread.id } }, true)
+  if (thread.tags.length) await tx.forumTag.updateMany({ where: { id: { in: thread.tags.map((row) => row.tagId) } }, data: { topicCount: { decrement: 1 } } })
+  await tx.forumThread.delete({ where: { id: thread.id } })
+  await recount(tx, thread.id, thread.categoryId)
+}
+
 export async function deleteThread(viewer: Viewer, threadId: number) {
-  const thread = await db.forumThread.findUnique({ where: { id: threadId }, select: { id: true, categoryId: true, title: true, userId: true, tags: { select: { tagId: true } } } })
+  const thread = await threadForDelete(threadId)
   if (!thread || !moderatesAnything(viewer)) throw new ForumError(thread ? 'دسترسی مدیریت تالار ندارید' : 'موضوع پیدا نشد', thread ? 403 : 404)
   requireModerator(viewer, thread.categoryId)
-  const authors = await db.forumPost.findMany({ where: { threadId }, distinct: ['userId'], select: { userId: true } })
-  await db.$transaction(async (tx) => {
-    if (thread.tags.length) await tx.forumTag.updateMany({ where: { id: { in: thread.tags.map((row) => row.tagId) } }, data: { topicCount: { decrement: 1 } } })
-    await tx.forumThread.delete({ where: { id: threadId } })
-    await recount(tx, threadId, thread.categoryId)
-  })
+  const authors = await threadAuthors(threadId)
+  await db.$transaction((tx) => removeThread(tx, viewer, thread))
   void Promise.all(authors.map((row) => refreshStats(row.userId))).catch(() => undefined)
   contentChanged({ type: 'thread', id: threadId }, null, null)
   return thread
@@ -467,8 +475,10 @@ export async function moderatePost(viewer: Viewer, postId: number, action: 'hide
   requireModerator(viewer, post.thread.categoryId)
   if (post.postNumber === 1 && action !== 'show') throw new ForumError('پیام اول موضوع را با پنهان یا حذف‌کردن خود موضوع مدیریت کنید', 409)
   await db.$transaction(async (tx) => {
-    if (action === 'delete') await tx.forumPost.delete({ where: { id: postId } })
-    else {
+    if (action === 'delete') {
+      await settleFlags(tx, viewer, { postId }, true)
+      await tx.forumPost.delete({ where: { id: postId } })
+    } else {
       await tx.forumPost.update({ where: { id: postId }, data: { status: action === 'hide' ? 'HIDDEN' : 'VISIBLE' } })
       await settleFlags(tx, viewer, { postId }, action === 'hide')
     }
@@ -483,21 +493,24 @@ export async function resolveFlags(viewer: Viewer, postId: number, action: 'agre
   const post = await db.forumPost.findUnique({ where: { id: postId }, include: { thread: { select: { id: true, categoryId: true } } } })
   if (!post || !moderatesAnything(viewer)) throw new ForumError(post ? 'دسترسی مدیریت تالار ندارید' : 'پیام پیدا نشد', post ? 403 : 404)
   requireModerator(viewer, post.thread.categoryId)
-  const status = action === 'disagree' ? 'DISAGREED' : 'AGREED'
-  const cases = await db.forumFlag.findMany({ where: { postId, status: 'PENDING' }, select: { id: true } })
-  await db.forumFlag.updateMany({ where: { postId, status: 'PENDING' }, data: { status, handledBy: viewer.userId, handledAt: new Date() } })
-  if (action === 'delete') {
-    if (post.postNumber === 1) await deleteThread(viewer, post.threadId)
-    else await moderatePost(viewer, postId, 'delete')
-  } else {
-    const visible = action === 'disagree'
-    await db.$transaction(async (tx) => {
-      if (post.postNumber === 1) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: visible ? 'VISIBLE' : 'HIDDEN' } })
-      else await tx.forumPost.update({ where: { id: postId }, data: { status: visible ? 'VISIBLE' : 'HIDDEN' } })
-      await recount(tx, post.threadId, post.thread.categoryId)
-    })
-    void refreshStats(post.userId).catch(() => undefined)
-  }
-  await db.$transaction(async tx => { for (const flag of cases) await completeOwnerCase(tx, 'forum-flags', flag.id, viewer.userId!, action === 'disagree' ? 'reject' : 'approve') })
+  const agreed = action !== 'disagree', status = agreed ? 'AGREED' : 'DISAGREED'
+  const topic = post.postNumber === 1
+  const thread = action === 'delete' && topic ? await threadForDelete(post.threadId) : null
+  const authors = thread ? await threadAuthors(post.threadId) : [{ userId: post.userId }]
+  // The flags, what happens to the post or topic, and the overview's cases are one decision: all of it commits or none.
+  await db.$transaction(async (tx) => {
+    const pending = await tx.forumFlag.findMany({ where: { postId, status: 'PENDING' }, select: { id: true } })
+    // Claimed row by row: a second moderator deciding at the same moment finds nothing left and changes nothing.
+    const claimed = await tx.forumFlag.updateMany({ where: { id: { in: pending.map((row) => row.id) }, status: 'PENDING' }, data: { status, handledBy: viewer.userId, handledAt: new Date() } })
+    if (!pending.length || claimed.count !== pending.length) throw new ForumError('گزارش‌های این پیام پیش‌تر رسیدگی شده است؛ صفحه را تازه کنید', 409)
+    for (const flag of pending) await completeOwnerCase(tx, 'forum-flags', flag.id, viewer.userId!, agreed ? 'approve' : 'reject')
+    if (thread) await removeThread(tx, viewer, thread)
+    else if (action === 'delete') await tx.forumPost.delete({ where: { id: postId } })
+    else if (topic) await tx.forumThread.update({ where: { id: post.threadId }, data: { status: agreed ? 'HIDDEN' : 'VISIBLE' } })
+    else await tx.forumPost.update({ where: { id: postId }, data: { status: agreed ? 'HIDDEN' : 'VISIBLE' } })
+    if (!thread) await recount(tx, post.threadId, post.thread.categoryId)
+  })
+  void Promise.all(authors.map((row) => refreshStats(row.userId))).catch(() => undefined)
+  if (topic) contentChanged({ type: 'thread', id: post.threadId }, null, null)
   return { postId, status }
 }
