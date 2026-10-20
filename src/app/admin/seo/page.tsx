@@ -1,5 +1,6 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Config = {
   titleTemplate: string; homeTitle: string; description: string; keywords: string[]; brandLatin: string; ogImage: string; logo: string
@@ -26,17 +27,18 @@ export default function AdminSeoPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
   const [filter, setFilter] = useState('')
+  const revision = useRef('')
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/seo', { cache: 'no-store' })
     const data = await response.json().catch(() => null)
     if (!response.ok) { setMessage({ text: data?.error || 'دریافت اطلاعات ناموفق بود', error: true }); return }
-    setConfig(data.config); setAudit(data.audit)
+    setConfig(data.config); setAudit(data.audit); revision.current = data.settingsRevision || ''
   }, [])
   useEffect(() => { void load() }, [load])
 
   async function call(method: string, body: unknown, success: string) {
     setBusy(true); setMessage(null)
-    const response = await fetch('/api/admin/seo', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+    const response = await fetch('/api/admin/seo', { method, headers: { 'Content-Type': 'application/json', ...(method === 'PUT' && revision.current ? { 'If-Match': revision.current } : {}) }, body: JSON.stringify(body) }).catch(() => null)
     const data = await response?.json().catch(() => null)
     setBusy(false)
     if (!response?.ok) { setMessage({ text: data?.error || 'انجام نشد', error: true }); return null }
@@ -51,7 +53,7 @@ export default function AdminSeoPage() {
   const codes = [...new Set(audit.issues.map((issue) => issue.code))]
 
   return <div className="xm-page seo-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">سئو</span><h1>مرکز سئو</h1><p>تنظیمات موتورهای جست‌وجو و دستیارهای هوش مصنوعی، ایندکس فوری با IndexNow و بررسی محتوای سایت.</p></div></header>
+    <header className="tb-hero"><div><span className="tb-eyebrow">سئو</span><h1>مرکز سئو</h1><p>تنظیمات موتورهای جست‌وجو و دستیارهای هوش مصنوعی، ایندکس فوری با IndexNow و بررسی محتوای سایت.</p><div className="xm-head-actions"><SectionSettingsHistoryLink section="seo" /></div></div></header>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 
     <section className="seo-overview">

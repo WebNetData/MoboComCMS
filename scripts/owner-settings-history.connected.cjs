@@ -1,4 +1,4 @@
-// Six more settings owners in the existing section history: delivery, storefront, returns policy, watermark,
+// Seven more settings owners in the existing section history: delivery, storefront, returns policy, watermark, SEO,
 // registration fields and trust seals. All setting/revision keys map to stamped rows; no site configuration is replaced.
 const assert = require('node:assert/strict'), { PrismaClient } = require('@prisma/client'), { NextRequest } = require('next/server')
 const prisma = new PrismaClient(), stamp = 'ownerhistory' + Date.now() + process.pid + ':'
@@ -35,6 +35,7 @@ const owners = [
   ['watermark', 'src/modules/watermark/server/watermark.ts', 'getWatermark', 'saveWatermark', 'watermarkSettingsState', 'media.watermark.v1', 'settings.manage', null, 'opacity', 40, 'shadow', 'watermark.update', 'media.watermark.v1'],
   ['profile-fields', 'src/modules/identity/server/profile-fields.ts', 'getFieldsConfig', 'saveFieldsConfig', 'profileFieldsSettingsState', 'profile.fields.v1', 'users.manage', null, 'usernamePrefix', 'stampuser', 'enforce', 'profile_fields.update', 'profile.fields.v1'],
   ['trust-seals', 'src/modules/site/config/store.ts', 'getTrustSeals', 'saveTrustSeals', 'trustSealsSettingsState', 'site.trust-seals.v1', 'settings.manage', null, 'enabled', null, null, 'trust_seals.update', 'site.trust-seals.v1'],
+  ['seo', 'src/modules/seo/server/config.ts', 'getSeoConfig', 'saveSeoConfig', 'seoSettingsState', 'seo.config.v1', 'settings.manage', null, 'homeTitle', 'stamp home', 'allowAiCrawlers', 'seo.config.update', 'seo.config.v1'],
 ]
 async function main() { try {
   actor = await prisma.user.create({ data: { email: stamp.replace(':', '') + '@example.invalid', passwordHash: 'unused' } })
@@ -87,6 +88,20 @@ async function main() { try {
     assert.equal((await db.setting.findUnique({ where: { key } })).value, '{corrupt', name)
     await db.setting.delete({ where: { key } })
   }
+  // SEO on a site that still has only the older single settings: they are written into its key before the first version.
+  permissions = ['settings.manage']
+  const seo = load('src/modules/seo/server/config.ts')
+  await db.contentRevision.deleteMany({ where: { entityType: 'settings-seo' } })
+  await db.setting.create({ data: { key: 'seoDescription', value: 'legacy description kept' } })
+  await seo.saveSeoConfig({ homeTitle: 'after legacy' }, { req: req('/api/admin/seo'), actor })
+  const seoStored = JSON.parse((await db.setting.findUnique({ where: { key: 'seo.config.v1' } })).value)
+  assert.equal(seoStored.description, 'legacy description kept'); assert.equal(seoStored.homeTitle, 'after legacy')
+  assert.match(seoStored.indexNow.key, /^[a-f0-9]{32}$/, 'an IndexNow key is made once')
+  const keyBefore = seoStored.indexNow.key
+  await seo.saveSeoConfig({ homeTitle: 'again', indexNow: { enabled: true, key: '' } }, { req: req('/api/admin/seo'), actor })
+  assert.equal(JSON.parse((await db.setting.findUnique({ where: { key: 'seo.config.v1' } })).value).indexNow.key, keyBefore, 'a blank key from the form keeps the existing one')
+  const seoBaseline = await db.contentRevision.findFirst({ where: { entityType: 'settings-seo', entityId: 1, source: 'baseline' }, orderBy: { version: 'desc' } })
+  assert.match(seoBaseline.snapshot, /legacy description kept/, 'the first version is what the site showed')
   // One route end to end: Origin, If-Match, answer shape and the 409 that keeps the form's input.
   permissions = ['settings.manage']
   const seals = load('src/modules/site/server/http/admin/trust-seals.ts')
@@ -98,7 +113,7 @@ async function main() { try {
   assert.equal(response.status, 200, JSON.stringify(data)); assert.equal(data.config.enabled, config.enabled); assert.equal(data.settingsRevision, sectionSettingsRevision(data.config))
   response = await seals.PUT_seals(req('/api/admin/trust-seals', { config: { ...config, enabled: !config.enabled } }, { 'if-match': revision }, 'PUT'))
   assert.equal(response.status, 409); assert.equal((await load('src/modules/site/config/store.ts').getTrustSeals()).enabled, config.enabled)
-  console.log('Six owner settings: owner/API/history transactions, audit envelopes, stale refusal, rollback, restore, corruption and guards passed.')
+  console.log('Seven owner settings (SEO with its one-time legacy seed): owner/API/history transactions, audit envelopes, stale refusal, rollback, restore, corruption and guards passed.')
 } finally {
   await prisma.contentRevision.deleteMany({ where: { entityType: { startsWith: stamp } } })
   await prisma.setting.deleteMany({ where: { key: { startsWith: stamp } } })
