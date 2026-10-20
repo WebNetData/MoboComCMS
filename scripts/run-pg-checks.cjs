@@ -7,6 +7,7 @@ const CHECKS = [
   'editorial-schedule',
   'editor-patterns',
   'editor-synced-patterns',
+  'editor-role-templates',
   'configuration-history',
   'authoring-migrations',
   'media-library',

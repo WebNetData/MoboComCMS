@@ -133,6 +133,7 @@ model Role {
   permissions String   @default("") // comma separated keys
   isSystem    Boolean  @default(false)
   users       User[]
+  editorTemplates EditorRoleTemplate[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 }
@@ -4254,5 +4255,21 @@ model EditorPattern {
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  roleDefaults EditorRoleTemplate[]
   @@index([entity, updatedAt])
+}
+
+/// The template a role's new pages or articles start from in the block editor (owner decision 2026-10-20).
+/// One per role and section; removing the role or the template removes the default with it.
+model EditorRoleTemplate {
+  id Int @id @default(autoincrement())
+  entity String
+  roleId Int
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  patternId Int
+  pattern EditorPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  updatedById Int?
+  updatedAt DateTime @updatedAt
+  @@unique([entity, roleId])
+  @@index([patternId])
 }
