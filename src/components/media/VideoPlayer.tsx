@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import SubtitleControls from '@/components/media/player/SubtitleControls'
 import SeparateAudioControls from '@/components/media/player/SeparateAudioControls'
+import SilentAudioNotice from '@/components/media/player/SilentAudioNotice'
 import type { PlayerAudio, PlayerSubtitle } from '@/modules/media/server/links'
 
 type Props = {
@@ -179,6 +180,7 @@ export default function VideoPlayer({ src, playback, poster, title, resumeKey, p
         </div>
       </div>}
     </div>
+    <SilentAudioNotice video={video} source={`${src}#${attempt}`} playback={playback} separatePlaying={externalAudio} failed={!!error} hasSeparateAudio={audioTracks.length > 0} downloadHref={downloadHref} />
     <div className="vp-bar">
       <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void frame.current?.requestFullscreen?.() }}>تمام‌صفحه</button>
       <label>سرعت پخش

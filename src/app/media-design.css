@@ -935,6 +935,11 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .vp-resume { position: absolute; inset-inline: 16px; inset-block-start: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .72); color: #fff; font-size: 13px; backdrop-filter: blur(6px); }
 .vp-resume button, .vp-error button, .vp-error a { padding: 7px 14px; border: 0; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
 .vp-resume button.is-ghost { background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / .4); }
+/* Under the picture, not over it: the film keeps playing and a phone's short frame cannot clip the text. */
+.vp-silent { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-block-start: 10px; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .82); color: #fff; font-size: 13px; line-height: 1.9; }
+.vp-silent p { flex: 1 1 260px; margin: 0; }
+.vp-silent a, .vp-silent button { padding: 7px 14px; border: 1px solid rgb(255 255 255 / .4); border-radius: 9px; background: transparent; color: #fff; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.vp-silent a { background: #fff; color: #111; border-color: #fff; }
 .vp-next { position: absolute; inset-inline: 16px; inset-block-end: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; background: rgb(0 0 0 / .82); color: #fff; font-size: 13px; backdrop-filter: blur(6px); }
 .vp-next a, .vp-next button { padding: 7px 14px; border: 0; border-radius: 9px; background: #fff; color: #111; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; }
 .vp-next button.is-ghost { background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / .4); }
