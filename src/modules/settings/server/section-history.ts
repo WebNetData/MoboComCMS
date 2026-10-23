@@ -37,11 +37,13 @@ export function createSectionSettingsHistory<T extends object>(key: string, enti
   async function read(tx: Prisma.TransactionClient = db): Promise<T> { return normalize(parse((await tx.setting.findUnique({ where: { key } }))?.value)) }
   async function current() { return snapshot(await read()) }
   async function change(input: unknown, commit?: (tx: Prisma.TransactionClient, before: Snapshot, after: Snapshot, settings: T) => Promise<void>, expected?: string | null) {
-    const value = typeof input === 'string' ? parse(input) : input
-    if (!object(value)) throw new RevisionError('تنظیمات معتبر نیست', 422)
-    const patch = Object.fromEntries(Object.keys(shape).filter(field => Object.hasOwn(value, field)).map(field => [field, value[field]]))
     return updateJsonSetting(key, async (stored, tx) => {
       const before = normalize(stored)
+      // A trusted owner may compose a nested edit from the fresh transactional state.
+      const proposed = typeof input === 'function' ? (input as (current: T) => unknown)(before) : input
+      const value = typeof proposed === 'string' ? parse(proposed) : proposed
+      if (!object(value)) throw new RevisionError('تنظیمات معتبر نیست', 422)
+      const patch = Object.fromEntries(Object.keys(shape).filter(field => Object.hasOwn(value, field)).map(field => [field, value[field]]))
       if (expected && expected !== sectionSettingsRevision(before)) throw new RevisionError('تنظیمات هم‌زمان تغییر کرده است؛ صفحه را تازه کنید. تغییرات شما در فرم مانده است', 409)
       const after = normalize({ ...before, ...patch }) as T & Record<string, unknown>
       for (const field of Object.keys(patch)) stored[field] = keepFuture(stored[field], after[field])

@@ -83,3 +83,13 @@ For library, uploads, editor asset selection, URL localization or import media c
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
 <!-- mobocom-engineering-skills:end -->
+
+## Reliability and current-checkout continuation
+
+Continue `docs/agent/handoffs/RELIABILITY_MEDIA_ADMIN.md` for durable Journal
+intents, Library AAC, the21 named settings histories, local search replay and
+Graphify/MCP tooling. Reuse Operations/Inbox/Media/ContentRevision; current worker
+authority and original files survive retries. AAC stays explicit/default-off.
+History UI addresses are not authorization. Refresh this checkout's source graph
+after a coherent batch; never silently import old scanner baselines or infer
+production/token savings from local/static evidence. Keep client mirrors aligned.

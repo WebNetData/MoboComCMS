@@ -627,9 +627,11 @@ test('journal comments require sign-in, moderation and an approved parent for re
   const route = load('src/modules/site/server/http/public/blog/[slug]/comments/route.ts', {
     '@/modules/identity/server/access': { requireUser: async () => user },
     '@/modules/journal/server/admin': { getJournalSettings: async () => ({ autoApproveComments }) },
+    '@/modules/journal/server/comment-notification-intents': { queueCommentNotification: async () => {} },
     '@/platform/database/prisma': { db: {
       post: { findUnique: async () => ({ id: 5, status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60_000) }) },
       postComment: { findFirst: async () => null, create: async ({ data }) => { saved = data; return { id: 11, status: 'PENDING' } } },
+      $transaction: async work => work({ postComment: { create: async ({ data }) => { saved = data; return { id: 11, status: data.status } } } }),
     } },
   })
   const context = { params: Promise.resolve({ slug: 'example' }) }

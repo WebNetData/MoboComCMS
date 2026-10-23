@@ -23,6 +23,9 @@ const BASE = arg('base', 'http://localhost:3000').replace(/\/$/, '')
 const CONTAINER = arg('container', '')
 const KEEP = flag('keep')
 const REAL = Math.max(0, Math.min(100, Math.floor(Number(arg('real', 0)) || 0)))
+const CATALOGUE = Math.max(0, Math.min(100, Math.floor(Number(arg('catalogue', 0)) || 0)))
+const REPORT = arg('report', '')
+const measured = []
 // The public search answers 60 requests a minute per address; staying under it keeps every sample a real answer.
 const GAP_MS = 1_100
 
@@ -54,8 +57,8 @@ async function ask(query) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const started = performance.now()
     const response = await fetch(`${BASE}/api/search?${query}`, { signal: AbortSignal.timeout(120_000) })
-    const ms = performance.now() - started
     const body = await response.json().catch(() => null)
+    const ms = performance.now() - started
     await sleep(GAP_MS)
     if (response.status === 429) { await sleep(60_000); continue }
     if (response.status !== 200) throw new Error(`${query}: HTTP ${response.status} ${JSON.stringify(body).slice(0, 200)}`)
@@ -71,12 +74,14 @@ async function measure(label, query, expect) {
   const samples = []
   for (let run = 0; run < RUNS; run++) samples.push((await ask(query)).ms)
   // A capped search (owner, 2026-10-20) reports what it read, at most its cap: shown as N+.
-  return { label, total: `${first.body?.total ?? first.body?.results?.length ?? ''}${first.body?.capped ? '+' : ''}`, median: percentile(samples, 0.5), p95: percentile(samples, 0.95), max: Math.max(...samples), body: first.body }
+  const result = { label, total: `${first.body?.total ?? first.body?.results?.length ?? ''}${first.body?.capped ? '+' : ''}`, median: percentile(samples, 0.5), p95: percentile(samples, 0.95), max: Math.max(...samples), body: first.body }
+  measured.push({ label, total: result.total, samples, medianMs: result.median, p95Ms: result.p95, maxMs: result.max })
+  return result
 }
 
 async function plan(token) {
-  // The search reads the index in id order, 500 at a time, with LIKE '%token%' on the normalized text.
-  const rows = await db.$queryRawUnsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM "SearchDocument" WHERE "text" LIKE $1 ORDER BY id ASC LIMIT 500`, `%${token}%`)
+  // Match the current owner's newest-first scan, including its date/id index.
+  const rows = await db.$queryRawUnsafe(`EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT id FROM "SearchDocument" WHERE "text" LIKE $1 ORDER BY "publishedAt" DESC, id DESC LIMIT 500`, `%${token}%`)
   const root = rows[0]['QUERY PLAN'][0]
   const nodes = []
   const walk = (node) => { nodes.push(node['Node Type'] + (node['Index Name'] ? ` (${node['Index Name']})` : '')); for (const child of node.Plans || []) walk(child) }
@@ -150,6 +155,18 @@ async function real() {
 
 async function main() {
   if (REAL) return real()
+  if (CATALOGUE) {
+    const kinds = await db.searchDocument.groupBy({ by: ['itemType'] })
+    const rows = []
+    for (const kind of kinds) rows.push(...await db.searchDocument.findMany({ where: { itemType: kind.itemType }, orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }], take: Math.ceil(CATALOGUE / kinds.length), select: { title: true, itemType: true } }))
+    const queries = [...new Map(rows.map(row => { const query = row.title.trim().split(/\s+/).slice(0, 3).join(' '); return [query, { query, type: row.itemType }] })).values()].filter(row => row.query.length >= 2).slice(0, CATALOGUE)
+    console.log(`Catalogue-derived sample: ${queries.length} queries from ${await db.searchDocument.count()} actual indexed documents; not visitor traffic`)
+    for (let i = 0; i < queries.length; i++) {
+      const row = queries[i], result = await measure(`${row.type} sample ${i + 1}`, `q=${encodeURIComponent(row.query)}`)
+      console.log(`${result.label}: ${result.total} matches, median ${result.median.toFixed(1)} ms, p95 ${result.p95.toFixed(1)} ms`)
+    }
+    return
+  }
   const existing = await db.searchDocument.count()
   console.log(`Local synthetic measurement — ${DOCS} added documents on top of ${existing} existing; ${RUNS} runs per question; ${BASE}`)
   const before = memory()
@@ -182,5 +199,9 @@ async function main() {
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1 }).finally(async () => {
-  try { await cleanup() } finally { await db.$disconnect() }
+  try {
+    try {
+      if (REPORT) require('node:fs').writeFileSync(REPORT, JSON.stringify({ recordedAt: new Date().toISOString(), mode: REAL ? 'recorded-local-queries' : CATALOGUE ? 'catalogue-derived-queries' : 'synthetic', runs: RUNS, indexedDocuments: await db.searchDocument.count(), measurements: measured, successful: !process.exitCode }, null, 2))
+    } finally { await cleanup() }
+  } finally { await db.$disconnect() }
 })

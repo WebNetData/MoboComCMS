@@ -8,6 +8,7 @@ import FolderTree from './FolderTree'
 import TransferPanel from './TransferPanel'
 import LibrarySettings from './LibrarySettings'
 import ConnectedLibrary from './ConnectedLibrary'
+import CompatibleAudio from './CompatibleAudio'
 import './library.css'
 
 type Listing = { items: LibraryAsset[]; folders: LibraryFolder[]; total: number; page: number; pages: number; manage: boolean; configure?: boolean; serverTools?: boolean }
@@ -79,7 +80,7 @@ export default function LibraryView({ onSelect, kind, renderSelection }: { onSel
         {!loading && !data.items.length && <div className="mcl-empty"><span aria-hidden="true">▧</span><h3>{q ? 'فایلی با این جست‌وجو پیدا نشد' : 'این‌جا هنوز فایلی ندارید'}</h3><p>فایل را این‌جا رها کنید، بارگذاری کنید یا از لینک دریافت کنید.</p></div>}
         <nav className="mcl-pagination" aria-label="صفحه‌بندی کتابخانه"><button type="button" className="btn btn-ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>صفحهٔ قبل</button><span>{page.toLocaleString('fa-IR')} از {data.pages.toLocaleString('fa-IR')}</span><button type="button" className="btn btn-ghost" disabled={page >= data.pages || loading} onClick={() => setPage(page + 1)}>صفحهٔ بعد</button></nav>
       </section>
-      {chosen.length === 1 && <aside className="mcl-inspector" aria-label="جزئیات فایل">{onSelect && !trash && <button className="btn btn-primary mcl-select" type="button" onClick={() => onSelect(chosen[0])}>استفاده از این فایل ←</button>}{data.serverTools && chosen[0].kind === 'archive' && chosen[0].url.startsWith('/files/') && <button type="button" className="btn btn-ghost" onClick={() => { setArchivePath(decodeURIComponent(chosen[0].url.slice(6))); setTab('connected') }}>ویرایش آرشیو و رمز</button>}{renderSelection ? renderSelection(chosen[0]) : <AssetDetails key={`${chosen[0].id}:${chosen[0].revision}`} asset={chosen[0]} folders={data.folders} onSave={patch} />}</aside>}
+      {chosen.length === 1 && <aside className="mcl-inspector" aria-label="جزئیات فایل">{onSelect && !trash && <button className="btn btn-primary mcl-select" type="button" onClick={() => onSelect(chosen[0])}>استفاده از این فایل ←</button>}{data.serverTools && chosen[0].kind === 'archive' && chosen[0].url.startsWith('/files/') && <button type="button" className="btn btn-ghost" onClick={() => { setArchivePath(decodeURIComponent(chosen[0].url.slice(6))); setTab('connected') }}>ویرایش آرشیو و رمز</button>}{renderSelection ? renderSelection(chosen[0]) : <AssetDetails key={`${chosen[0].id}:${chosen[0].revision}`} asset={chosen[0]} folders={data.folders} onSave={patch} />}{data.manage && !trash && chosen[0].kind === 'video' && <CompatibleAudio key={chosen[0].id} assetId={chosen[0].id} />}</aside>}
     </div>}
   </div>
 }

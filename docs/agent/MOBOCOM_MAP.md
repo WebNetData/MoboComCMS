@@ -1,5 +1,7 @@
 # MOBOCOM_MAP.md
 
+- **Current2026-10-23:** continue `feat/reliability-media-admin-2026-10-23` from main68056743 in the authoritative checkout (locally `.mobocom/autonomous-foundation`). Journal intents → existing Operations/Inbox; AAC derivatives → Media Library;21 configuration history owners → Settings/ContentRevision/current directory. Graphify/pinned MCP tools and client mirrors are present here. [Contracts, actual evidence and limits](handoffs/RELIABILITY_MEDIA_ADMIN.md). Older branch instructions below are historical, not checkout commands.
+
 - **Admin integration2026-10-19:** continue `.mobocom/autonomous-foundation`, `fix/admin-main-integration-2026-10-19`, from main64134402 with retained owner Admin cherry-pick4c138753. Admin layout owns scoped `admin-tidy.css`; shared CRUD/settings/Identity owners are unchanged. Audit owns current request generations and routing defaults. [Actual tests, browser matrix, framework pins and limits](handoffs/ADMIN_INTEGRATION.md). No PR/push/merge or hosted workflow is part of this request; older branch checkpoints below are historical.
 
 - **Module blocks/settings2026-10-19:** authoritative `.mobocom/autonomous-foundation`, branch `feat/module-blocks-settings-history-2026-10-19` from owner-merged PR197/main741e7176. Existing Editor `server/blocks` composes module-owned schemas, descriptors, guarded preview/choices and current public ItemCards; existing Settings `server/section-history.ts` composes five portal owners with ContentRevision. Site restore validates complete canonical documents. [Exact contracts, executed evidence and remaining limits](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md). The owner requested publication of this batch from the same remote branch to main; the owner merges. Preserve older root work and do not reopen the merged PR or dispatch workflows. Older branch entries below are historical checkpoints.
@@ -69,7 +71,7 @@ Keep this file concise. Record only durable architecture facts that prevent repe
   - `npm run test:site` — unit suites `scripts/*.test.cjs` (run on Linux: some shell out to `sh`).
   - `npm run test:pg` — connected PostgreSQL checks `scripts/*.connected.cjs`, listed in `scripts/run-pg-checks.cjs` (46 at this revision).
   - `npm run integrity:report` — read-only findings on live data (`docs/INTEGRITY-REPORT.md`).
-  - `npm run test:e2e` — Playwright specs in `e2e/tests`; GitHub workflow "Browser tests" runs on pull requests.
+  - `npm run test:e2e` — Playwright specs in `e2e/tests`; hosted browser workflow is manual only. Do not repeat it after local validation.
   - `npm run check` — the full gate; `npm run build:postgres` — production build; `npm run deploy:migrate` — apply migrations.
   - Launch priority/checkpoint: [LAUNCH_READINESS](LAUNCH_READINESS.md). Runner includes canonical diagnostic CJS dependencies; artifact import and owned PostgreSQL CLI proved, actual final-image startup remains pending.
 - **Local run:** `docker compose -f docker-compose.local.yml up -d` (app 3000, PostgreSQL 127.0.0.1:5435); `scripts/local-dev-start.sh` copies the tree into the container, so restart the app container after each change.
@@ -89,7 +91,7 @@ Keep this file concise. Record only durable architecture facts that prevent repe
 | vpn, reseller, marketplace | `src/modules/{providers,reseller,marketplace}`, plugins `vpn`, `reseller`, `marketplace` | — | — | Set aside by the owner; switchable off without data loss. |
 
 ## Protected UI
-Preserve and enhance; do not redesign. The forum is **not** on this list.
+Preserve and enhance; do not redesign. Community/Forum, Software and Store are also protected by the current mandate in AGENTS.md.
 - Homepage: `src/app/page.tsx` and the active theme's homepage blocks.
 - Magazine: `/blog`, `/blog/<slug>` (`src/modules/site/server/pages/blog`), `src/app/journal-design.css`, `journal-liona.css`.
 - Music: `/music/*`, `src/app/media-design.css`, the global player.

@@ -1,5 +1,13 @@
 # MoboCom Reference Architecture — mandate adoption 2026-10-10
 
+2026-10-23 continuation: Journal publication intents use Operations/Inbox;
+Media owns opt-in compatible AAC derivatives behind its existing Library address;
+Livechat/Maintenance extend the same Settings/ContentRevision adapter. The UI
+directory names21 configuration history owners without a second permission
+resolver. Current Graphify/tooling and exact validation/limits are in the
+[reliability continuation](handoffs/RELIABILITY_MEDIA_ADMIN.md). Preserve the
+original module owners and protected public presentation.
+
 This is the canonical architecture, extended from v4 against the current repository. It defines invariants and target contracts, not an instruction to rename directories or a claim that all capabilities are implemented.
 
 Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant sections here → [focused evolution contracts](contracts/platform-evolution.md). Consult the [domain matrix](DOMAIN_CAPABILITY_MATRIX.md) and [roadmap](IMPLEMENTATION_ROADMAP.md) for actual evidence and next slices. Frontend work follows [SDS + React Doctor + browser quality](FRONTEND_QUALITY.md). [Adoption ADR](adr/2026-10-10-platform-mandate.md) records reconciliation; the exact owner attachment is archived once under `requirements/`. Do not load the whole mandate for routine tasks.

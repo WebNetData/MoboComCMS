@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 type Section = { id: string; label: string; paths: string[]; enabled: boolean; title: string; message: string }
-type View = { sections: Section[]; defaults: { title: string; message: string }; limits: { title: number; message: number } }
+type View = { sections: Section[]; defaults: { title: string; message: string }; limits: { title: number; message: number }; settingsRevision: string }
 
 /** Maintenance mode, one section at a time: the switch, and the words visitors read while it is on. */
 export default function SectionMaintenancePage() {
@@ -22,17 +23,21 @@ export default function SectionMaintenancePage() {
 
   const send = async (section: Section, change: Record<string, unknown>, done: string) => {
     setBusy(section.id); setNote(null)
-    const response = await fetch('/api/admin/maintenance', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ section: section.id, ...change }) }).catch(() => null)
+    const response = await fetch('/api/admin/maintenance', { method: 'PUT', headers: { 'content-type': 'application/json', ...(view?.settingsRevision ? { 'if-match': view.settingsRevision } : {}) }, body: JSON.stringify({ section: section.id, ...change }) }).catch(() => null)
     const body = await response?.json().catch(() => null)
     setBusy('')
     if (!response?.ok) return setNote({ id: section.id, text: body?.error || 'ذخیره نشد.', error: true })
-    accept(body); setNote({ id: section.id, text: done, error: false })
+    setView(body)
+    const updated = body.sections.find((s: Section) => s.id === section.id)
+    if (updated) setDrafts(previous => ({ ...previous, [section.id]: { title: updated.title, message: updated.message } }))
+    setNote({ id: section.id, text: done, error: false })
   }
 
   if (!view) return <div className="card" dir="rtl" aria-busy={!note}>{note?.text || 'در حال بارگذاری…'}</div>
   return (
     <div dir="rtl" className="mnt-admin">
       <h1 className="h2">حالت تعمیر بخش‌ها</h1>
+      <SectionSettingsHistoryLink section="maintenance" />
       <p className="muted">هر بخش را جداگانه به حالت تعمیر ببرید. تا وقتی روشن است، بازدیدکنندگان به‌جای آن بخش اعلان به‌روزرسانی را با متن شما می‌بینند؛ شما و مدیران همان بخش آن را مثل همیشه می‌بینید و می‌توانید پرش کنید. بخش مدیریت همیشه باز است.</p>
       <div className="mnt-admin-grid">
         {view.sections.map((section) => {

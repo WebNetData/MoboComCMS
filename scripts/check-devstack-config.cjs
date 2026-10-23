@@ -1,0 +1,11 @@
+/* Offline current-checkout validation. Historical scanner baselines are not imported or renewed. */
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'),json=p=>JSON.parse(read(p)),sha=p=>crypto.createHash('sha256').update(read(p)).digest('hex');
+const manifest=json('tools/devstack/manifest.json'),pkg=json('tools/devstack/package.json'),lock=json('tools/devstack/package-lock.json');
+for(const[name,meta]of Object.entries(manifest.packages)){assert.equal(pkg.dependencies[name],meta.specifier||meta.version,name+' declaration');assert.equal(lock.packages['node_modules/'+name].version,meta.version,name+' version');assert.equal(lock.packages['node_modules/'+name].integrity,meta.integrity,name+' integrity')}
+const graphify=json('tools/devstack/graphify-provenance.json');assert.equal(graphify.package,'graphifyy');assert.equal(graphify.version,'0.9.84');assert(/^[0-9a-f]{40}$/.test(graphify.commit));assert.equal(sha('.agents/skills/graphify/SKILL.md'),graphify.localEntrypointSha256);
+for(const entry of [{file:'SKILL.md'},...graphify.references]){const p='.agents/skills/graphify/'+entry.file;if(entry.sha256)assert.equal(sha(p),entry.sha256,p);assert.equal(read(p),read('.claude/skills/graphify/'+entry.file),'Graphify client mirror')}
+for(const name of ['mobocom-audit','mobocom-develop','mobocom-contracts','mobocom-extensions','mobocom-release','mobocom-spec'])assert.equal(read(`.agents/skills/${name}/SKILL.md`),read(`.claude/skills/${name}/SKILL.md`),name+' client mirror');
+assert(read('.graphifyignore').includes('!/src/'));assert(json('tools/devstack/registry-benchmark.json').conditions.E);
+for(const f of ['scripts/graphify-local.cjs','scripts/graphify-validation.cjs','scripts/graphify-benchmark.cjs','tools/devstack/graphify-run.py','tools/devstack/graphify-offline/sitecustomize.py'])assert(fs.existsSync(path.join(root,f)),f);
+console.log('Current checkout: pinned MCP lock, Graphify provenance/privacy files and Codex/Claude MoboCom/Graphify mirrors passed. No installed-tool, scanner-baseline or runtime certification implied.');

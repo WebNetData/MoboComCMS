@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "reviewed": "2026-10-10",
+  "environment": {
+    "os": "Windows x64",
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "systemPython": "3.10.6",
+    "semgrepPython": "3.13",
+    "uv": "0.12.17",
+    "git": "2.54.0.windows.1",
+    "docker": "29.8.1",
+    "codexCLI": "0.154.0",
+    "codexVSCode": "0.162.0-alpha.17.2",
+    "claudeVSCode": "2.1.292"
+  },
+  "tools": [
+    {
+      "name": "trs",
+      "version": "0.8.5",
+      "installation": "existing global",
+      "purpose": "verbose terminal output",
+      "verification": "trs --version"
+    },
+    {
+      "name": "Probe",
+      "version": "0.6.0",
+      "installation": "existing global",
+      "purpose": "conceptual code discovery",
+      "verification": "probe --version"
+    },
+    {
+      "name": "Serena",
+      "version": "1.7.0",
+      "installation": "existing uv tool + project MCP",
+      "purpose": "symbol/reference/edit",
+      "verification": "Live project/LSP, symbols/references/semantic fixture edit + isolated execution; memory write/read; Codex/Claude connected"
+    },
+    {
+      "name": "Context7",
+      "version": "4.3.0",
+      "installation": "isolated npm lock + project MCP",
+      "purpose": "version-scoped external docs",
+      "verification": "initialize; resolve-library-id; query-docs"
+    },
+    {
+      "name": "Playwright MCP",
+      "version": "0.0.83",
+      "installation": "isolated npm lock + project MCP",
+      "purpose": "exploratory browser/accessibility snapshot",
+      "verification": "local /music navigate, snapshot, close"
+    },
+    {
+      "name": "Playwright Test",
+      "version": "1.63.0",
+      "installation": "existing project dependency",
+      "purpose": "repeatable regression",
+      "verification": "prior connected browser batches"
+    },
+    {
+      "name": "dependency-cruiser",
+      "version": "18.5.0",
+      "installation": "existing project dependency",
+      "purpose": "dependency graph and cycles",
+      "verification": "1891 modules, 7082 dependencies; 5 reviewed baseline entries"
+    },
+    {
+      "name": "ast-grep",
+      "version": "0.45.3",
+      "installation": "existing npm global",
+      "purpose": "structural review/codemod",
+      "verification": "2 positive/negative rule suites; src scan"
+    },
+    {
+      "name": "Knip",
+      "version": "6.40.0",
+      "installation": "existing project lock",
+      "purpose": "unused-code candidates",
+      "verification": "322 files with findings; advisory baseline"
+    },
+    {
+      "name": "Semgrep",
+      "version": "1.180.0",
+      "installation": "uv tool Python 3.13",
+      "purpose": "local security rules",
+      "verification": "positive/negative fixture; src scan zero findings/errors"
+    },
+    {
+      "name": "Gitleaks",
+      "version": "8.30.1",
+      "installation": "official Windows binary; SHA256 verified",
+      "purpose": "redacted local secret scanning",
+      "verification": "positive/negative fixture; history with 12 exact false positives reviewed"
+    },
+    {
+      "name": "React Doctor",
+      "version": "0.9.17",
+      "installation": "existing project dependency",
+      "purpose": "React/Next diagnostics",
+      "verification": "prior affected AdminCrud review; current tool help check"
+    },
+    {
+      "name": "GitHub Spec Kit",
+      "version": "1.0.13",
+      "installation": "existing uv tool",
+      "purpose": "optional major-feature helper",
+      "verification": "specify check; no project initialization"
+    },
+    {
+      "name": "Opengrep",
+      "version": "1.30.0",
+      "installation": "existing binary",
+      "purpose": "alternative local SAST engine",
+      "verification": "version only; do not run both engines routinely"
+    },
+    {
+      "name": "Graphify",
+      "version": "0.9.84",
+      "installation": "uv tool / Python 3.13; project Codex+Claude skills",
+      "purpose": "offline architecture/relationships/impact candidates",
+      "verification": "local code-only extraction, Registry query/path/affected; incremental/privacy and benchmark checks",
+      "provenance": "tools/devstack/graphify-provenance.json"
+    }
+  ],
+  "packages": {
+    "@upstash/context7-mcp": {
+      "version": "4.3.0",
+      "integrity": "sha512-fuDt5nWjE5JkAPLjU0m+m0LlJphxyegAvAmcwHoA5jrzAhKo/rVV0RFA8TOwODGdDVdt/nPxNslkxeDIDp/rPA=="
+    },
+    "@playwright/mcp": {
+      "version": "0.0.83",
+      "integrity": "sha512-oNcl+Ae2/IAjhfPeP46BfIkSakfmprY+aOtkv5MjrQ4lPav4/yNtPhL0iq8SlIM90oApWgBDUxaNKvktazUKOg=="
+    },
+    "@modelcontextprotocol/sdk": {
+      "version": "1.32.1",
+      "integrity": "sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw=="
+    },
+    "typescript-api": {
+      "version": "5.9.3",
+      "specifier": "npm:typescript@5.9.3",
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "purpose": "Same JavaScript TypeScript API as existing Registry source tests; isolated tooling only"
+    }
+  },
+  "gitleaks": {
+    "version": "v8.30.1",
+    "asset": {
+      "name": "gitleaks_8.30.1_windows_x64.zip",
+      "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip",
+      "digest": "sha256:d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
+    }
+  },
+  "sources": {
+    "vercel-labs/agent-skills": {
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "reviewed": "2026-10-10"
+    },
+    "github/spec-kit": {
+      "commit": "7666b7463ffc8b3dce49f75be017f163a46792fa",
+      "reviewed": "2026-10-10"
+    },
+    "openai/skills": {
+      "commit": "49f948faa9258a0c61caceaf225e179651397431",
+      "reviewed": "2026-10-10"
+    },
+    "anthropics/skills": {
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "reviewed": "2026-10-10"
+    },
+    "github/awesome-copilot": {
+      "commit": "82701c24b99488536ca399ff4789a458b7a05db7",
+      "reviewed": "2026-10-10"
+    },
+    "obra/superpowers": {
+      "commit": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+      "reviewed": "2026-10-10"
+    },
+    "Graphify-Labs/graphify": {
+      "commit": "1d1e03b4c88abf94a3f450c838e3c744ae514ef9",
+      "reviewed": "2026-10-10"
+    }
+  },
+  "limitations": [
+    "CLI/SDK checks do not prove a currently open Claude conversation refreshed its MCP inventory.",
+    "Remote docs remain subject to service/network/rate limits; no private source is submitted.",
+    "Knip candidates and reviewed dependency baselines are not a clean-code certification.",
+    "No token count is available; efficiency measurements are opt-in machine-local proxies."
+  ]
+}

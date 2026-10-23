@@ -6,7 +6,7 @@ const db=wrap(prisma),load=require('./connected-source-loader.cjs')({
  '@/platform/cache/kv':{cached:async(_key,_ttl,work)=>work(),invalidate:async()=>{}},
  '@/extensions/server/modules':{isModuleEnabled:async()=>true,getModuleStates:async()=>({}),getModuleSettings:async()=>({})},
  '@/modules/identity/server/access':{requirePerm:async()=>actor},
- '@/modules/journal/server/comment-notifications':{notifyCommentPublished:async()=>{}},
+ '@/modules/journal/server/comment-notification-intents':{queueCommentNotification:async()=>{}},
  '@/modules/store/server/marketing':{awardReviewBonus:async()=>{}},
  '@/modules/catalog/server/storefront':{isStoreEnabled:async()=>true},
  '@/modules/content/server/events':{contentChanged:()=>{},MEDIA_RESOURCE_TYPE:{}},react:{...require('react'),cache:fn=>fn},

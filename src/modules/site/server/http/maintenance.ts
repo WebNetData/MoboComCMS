@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
-import { auditAdmin } from '@/platform/audit/server'
+import { sectionSettingsRevision } from '@/modules/settings/server/section-history'
+import { sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { DEFAULT_MESSAGE, DEFAULT_TITLE, MAINTENANCE_LIMITS, MAINTENANCE_SECTIONS, isMaintenanceSection } from '@/modules/site/domain/maintenance'
 import { loadMaintenance, maintenanceBases, saveSectionMaintenance } from '@/modules/site/server/maintenance'
 
 const view = async (fresh: boolean) => {
   const state = await loadMaintenance(fresh), bases = maintenanceBases()
-  return { sections: MAINTENANCE_SECTIONS.map((section) => ({ id: section.id, label: section.label, paths: bases[section.id], ...state[section.id] })), defaults: { title: DEFAULT_TITLE, message: DEFAULT_MESSAGE }, limits: MAINTENANCE_LIMITS }
+  return { sections: MAINTENANCE_SECTIONS.map((section) => ({ id: section.id, label: section.label, paths: bases[section.id], ...state[section.id] })), defaults: { title: DEFAULT_TITLE, message: DEFAULT_MESSAGE }, limits: MAINTENANCE_LIMITS, settingsRevision: sectionSettingsRevision(state) }
 }
 
 /** GET /api/admin/maintenance — every section with its state and words (site settings). */
@@ -30,7 +31,5 @@ export async function PUT(req: NextRequest) {
     change[field] = body[field]
   }
   if (!Object.keys(change).length) return err('nothing to change')
-  const state = await saveSectionMaintenance(body.section, change)
-  await auditAdmin({ req, actor: admin, action: 'maintenance.section', targetType: 'setting', targetId: `maintenance:${body.section}`, metadata: { section: body.section, enabled: state[body.section as keyof typeof state].enabled, fields: Object.keys(change) } })
-  return ok(await view(false))
+  return sectionSettingsSaveWith(req, admin, context => saveSectionMaintenance(body.section, change, context), () => view(false))
 }

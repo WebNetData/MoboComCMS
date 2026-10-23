@@ -1,0 +1,36 @@
+# Local code graph: only the canonical source tree, in addition to .gitignore.
+/*
+!/src/
+
+# Credentials/configuration and non-code never belong to this corpus.
+**/.env*
+**/*secret*
+**/*credential*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.sqlite*
+**/*.db
+**/*.json
+**/*.yaml
+**/*.yml
+**/*.toml
+**/*.md
+**/*.txt
+**/*.csv
+**/*.xml
+**/*.log
+**/*.map
+**/*.tsbuildinfo
+**/*.bak
+**/*.tmp
+**/*.min.js
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/coverage/
+**/__generated__/
+# Keep src/extensions/generated and src/themes/generated: canonical registries.
+**/generated/prisma/

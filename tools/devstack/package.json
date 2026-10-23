@@ -1,0 +1,12 @@
+{
+  "name": "mobocom-agent-devstack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated pinned agent MCP tools; not a production dependency",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@playwright/mcp": "0.0.83",
+    "@upstash/context7-mcp": "4.3.0",
+    "typescript-api": "npm:typescript@5.9.3"
+  }
+}

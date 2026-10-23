@@ -3,21 +3,23 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), ts = requ
 const db = new PrismaClient(), key = `test-maintenance-${Date.now()}-${process.pid}`
 let reads = 0, release, barrier
 function gate() { reads = 0; barrier = new Promise(resolve => { release = resolve }) }
-const setting = {
+function model(client) { return {
   findUnique: async () => {
-    const row = await db.setting.findUnique({ where: { key } })
+    const row = await client.setting.findUnique({ where: { key } })
     if (++reads <= 2) { if (reads === 2) release(); await barrier }
     return row
   },
-  create: ({ data }) => db.setting.create({ data: { ...data, key } }),
-  updateMany: ({ where, data }) => db.setting.updateMany({ where: { ...where, key }, data }),
-}
+  create: ({ data }) => client.setting.create({ data: { ...data, key } }),
+  updateMany: ({ where, data }) => client.setting.updateMany({ where: { ...where, key }, data }),
+} }
+const setting = model(db)
+const database = { setting, $transaction: (callback, options) => db.$transaction(tx => callback({ ...tx, setting: model(tx) }), options) }
 const cache = new Map()
 function load(file) {
   if (cache.has(file)) return cache.get(file).exports
   const mod = { exports: {} }; cache.set(file, mod)
   new Function('require', 'module', 'exports', ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(name => {
-    if (name === '@/platform/database/prisma') return { db: { setting } }
+    if (name === '@/platform/database/prisma') return { db: database }
     if (name === '@/extensions/generated/catalog') return { extensionCatalog: [] }
     if (name.startsWith('@/')) { const base = 'src/' + name.slice(2); return load(fs.existsSync(base + '.ts') ? base + '.ts' : base + '/index.ts') }
     return require(name)
@@ -49,9 +51,9 @@ async function main() {
   assert.equal((await service.loadMaintenance()).music.message, state.music.message)
   await assert.rejects(() => service.saveSectionMaintenance('unknown', {}), /unknown section/)
   await db.setting.update({ where: { key }, data: { value: 'not json' } })
-  await assert.rejects(() => service.saveSectionMaintenance('store', { enabled: true }), SyntaxError)
+  await assert.rejects(() => service.saveSectionMaintenance('store', { enabled: true }), /تنظیمات|JSON/)
   assert.equal((await db.setting.findUniqueOrThrow({ where: { key } })).value, 'not json', 'bad stored data is never silently reset')
-  setting.findUnique = async () => { throw new Error('database unavailable') }
+  database.$transaction = async () => { throw new Error('database unavailable') }
   await assert.rejects(() => service.saveSectionMaintenance('store', { enabled: true }), /database unavailable/)
   console.log('PostgreSQL maintenance: concurrent creation, different sections and same-section field claims preserve each change; invalid stored JSON and database failure cannot write a fallback state')
 }

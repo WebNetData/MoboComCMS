@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "package": "graphifyy",
+  "version": "0.9.84",
+  "source": "https://github.com/Graphify-Labs/graphify",
+  "commit": "1d1e03b4c88abf94a3f450c838e3c744ae514ef9",
+  "installation": "uv tool install --python 3.13 graphifyy==0.9.84",
+  "registration": "graphify install --project --platform agents; reviewed MoboCom entrypoint; identical Claude mirror",
+  "upstreamEntrypointSha256": "cfe63c6f38afa9267303dcdbd5dfd9f0e288ed4e023266cfc7722cb02e0223ed",
+  "localEntrypointSha256": "57ea0e9788681a9724656ebaab2d254f76a8558cdb1e1427186d53595de25bfb",
+  "references": [
+    {
+      "file": "references/add-watch.md",
+      "sha256": "1e77351815547334c7e030f018dba513b303d397bf73d11fac47df03ace3b3f4"
+    },
+    {
+      "file": "references/exports.md",
+      "sha256": "ee47fae477f106d8aed38798c58493b5a7f060a0d9d2581ce6132302827bc14b"
+    },
+    {
+      "file": "references/extraction-spec.md",
+      "sha256": "f72a6d2dfa67446f06f27a8f0053af1adc8d53b02e393c8472045f6740c6183e"
+    },
+    {
+      "file": "references/github-and-merge.md",
+      "sha256": "e5ebd90c7686f50363ff7a535556bc2f596d4c47ec1e6c8b95e11e36a0dfea2b"
+    },
+    {
+      "file": "references/hooks.md",
+      "sha256": "7910939007ada7966681da02467302f6f1f7c392f42edecd35994aa639e4dee0"
+    },
+    {
+      "file": "references/query.md",
+      "sha256": "e563ddcb1e155aa230f107e5ef9380bc1249c5cd8241128de7ed8a7bd9c20cf5"
+    },
+    {
+      "file": "references/transcribe.md",
+      "sha256": "676a1e39aa6d43cdfcc416ec56616e36f7bad74066a82bd33a9485515b9a865c"
+    },
+    {
+      "file": "references/update.md",
+      "sha256": "fc28570b2dacbc397728c9f10dbc5532c028c1f1a3df67ea0242fccdb61b4af9"
+    }
+  ],
+  "reviewed": "2026-10-10",
+  "pythonVersion": "3.13.15",
+  "packageSourceComparisons": [
+    {
+      "file": "__main__.py",
+      "installedSha256Lf": "07cceebd7910a2fde28a48373f34b1ef5b96a069512a42f1922218a4675aefea",
+      "sourceSha256Lf": "07cceebd7910a2fde28a48373f34b1ef5b96a069512a42f1922218a4675aefea",
+      "match": true
+    },
+    {
+      "file": "cli.py",
+      "installedSha256Lf": "8fe4fae555c233e7139fef66bb5f6e544cabb9eb3aa94ab0579200ecdc92e96b",
+      "sourceSha256Lf": "8fe4fae555c233e7139fef66bb5f6e544cabb9eb3aa94ab0579200ecdc92e96b",
+      "match": true
+    },
+    {
+      "file": "detect.py",
+      "installedSha256Lf": "eaeeab1ca173a6427bc85a2254c0bced4ce4ca0b32164623fc2bae2ce7e6354b",
+      "sourceSha256Lf": "eaeeab1ca173a6427bc85a2254c0bced4ce4ca0b32164623fc2bae2ce7e6354b",
+      "match": true
+    },
+    {
+      "file": "extract.py",
+      "installedSha256Lf": "00f2fdc12a3e61d3094c5df0924c49f08e9088914b4e7f718ebad65e0ce8b129",
+      "sourceSha256Lf": "00f2fdc12a3e61d3094c5df0924c49f08e9088914b4e7f718ebad65e0ce8b129",
+      "match": true
+    },
+    {
+      "file": "build.py",
+      "installedSha256Lf": "a57d9c216c57258028f23662f81451aaf9d01d67c61bb31bf640117b44dfb97d",
+      "sourceSha256Lf": "a57d9c216c57258028f23662f81451aaf9d01d67c61bb31bf640117b44dfb97d",
+      "match": true
+    },
+    {
+      "file": "install.py",
+      "installedSha256Lf": "b155b4d893659f14e74181cb1af003623527ddd7741ae4f194c227495cfd6230",
+      "sourceSha256Lf": "b155b4d893659f14e74181cb1af003623527ddd7741ae4f194c227495cfd6230",
+      "match": true
+    }
+  ],
+  "resolvedDistributions": {
+    "RapidFuzz": "3.14.6",
+    "graphifyy": "0.9.84",
+    "networkx": "3.7",
+    "numpy": "2.5.3",
+    "tree-sitter": "0.25.2",
+    "tree-sitter-bash": "0.25.1",
+    "tree-sitter-c": "0.24.2",
+    "tree-sitter-c-sharp": "0.23.5",
+    "tree-sitter-cpp": "0.23.4",
+    "tree-sitter-elixir": "0.3.5",
+    "tree-sitter-fortran": "0.6.0",
+    "tree-sitter-go": "0.25.0",
+    "tree-sitter-groovy": "0.1.2",
+    "tree-sitter-java": "0.23.5",
+    "tree-sitter-javascript": "0.25.0",
+    "tree-sitter-json": "0.24.8",
+    "tree-sitter-julia": "0.23.1",
+    "tree-sitter-kotlin": "1.1.0",
+    "tree-sitter-lua": "0.5.0",
+    "tree-sitter-objc": "3.0.2",
+    "tree-sitter-php": "0.24.1",
+    "tree-sitter-powershell": "0.26.4",
+    "tree-sitter-python": "0.25.0",
+    "tree-sitter-ruby": "0.23.1",
+    "tree-sitter-rust": "0.24.2",
+    "tree-sitter-scala": "0.26.2",
+    "tree-sitter-swift": "0.7.4",
+    "tree-sitter-typescript": "0.23.2",
+    "tree-sitter-verilog": "1.0.3",
+    "tree-sitter-zig": "1.1.2"
+  },
+  "toolEnvironmentBytes": 141620220
+}
