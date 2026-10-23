@@ -17,12 +17,18 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'journal.comment-published': { run: async payload => {
+    const id = Number(payload.commentId)
+    if (!Number.isSafeInteger(id) || id <= 0 || !['moderator', 'auto'].includes(String(payload.by))) throw new Error('Invalid comment notification intent')
+    return (await import('@/modules/journal/server/comment-notifications')).notifyCommentPublished(id, payload.by as 'moderator' | 'auto')
+  } },
   'cinema.person-publication': { run: async (payload, job) => {
     const result = await (await import('@/modules/cinema/server/people-notifications')).deliverPeoplePublication(payload)
     if (!result.done) await job.continueWith('cinema.person-publication', { ...payload, cursor: result.cursor }, { dedupeKey: `cinema-person:${payload.personId}:title:${payload.titleId}:after:${result.cursor}` })
     return result
   } },
   'media.transfer': { run: async payload => (await import('@/modules/media/server/library')).runTransfer(payload) },
+  'media.compatible-audio': { run: async (payload, job) => (await import('@/modules/media/server/library')).runCompatibleAudio(payload, job.id, job.attempts) },
   'store.price-drop': {
     run: async (payload, job) => {
       const { deliverProductPriceDrop } = await import('@/modules/catalog/server/price-drop-notifications')

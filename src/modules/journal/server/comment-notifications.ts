@@ -1,5 +1,4 @@
 import { db } from '@/platform/database/prisma'
-import { logEvent } from '@/platform/observability/logger'
 import { isLivePost } from '@/modules/journal/domain/journal'
 import { blockedIds } from '@/modules/identity/server/profile'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
@@ -9,11 +8,10 @@ const excerpt = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 160)
 /**
  * Tells the people an article comment concerns that it is now public: its author when a
  * moderator approved it, and the author of the comment it answers. Called after the status
- * became APPROVED; a failure here never undoes the approval, and the dedupe keys make a
- * repeated approval harmless.
+ * became APPROVED. Operations retries a durable intent if this function throws;
+ * existing Inbox dedupe makes partial delivery and repeated execution harmless.
  */
 export async function notifyCommentPublished(commentId: number, by: 'moderator' | 'auto') {
-  try {
     const comment = await db.postComment.findUnique({
       where: { id: commentId },
       select: { id: true, userId: true, body: true, status: true, post: { select: { slug: true, title: true, titleEn: true, status: true, publishedAt: true } }, parent: { select: { userId: true, status: true } } },
@@ -42,8 +40,4 @@ export async function notifyCommentPublished(commentId: number, by: 'moderator' 
       parent = true
     }
     return { author, parent }
-  } catch (error) {
-    logEvent('warn', 'journal.comment_notify_failed', { commentId, error })
-    return { author: false, parent: false }
-  }
 }

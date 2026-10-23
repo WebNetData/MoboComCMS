@@ -5,7 +5,7 @@ import { requireUser } from '@/modules/identity/server/access'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { getJournalSettings } from '@/modules/journal/server/admin'
 import { isLivePost } from '@/modules/journal/domain/journal'
-import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
+import { queueCommentNotification } from '@/modules/journal/server/comment-notification-intents'
 import { pictureOf } from '@/modules/identity/domain/picture'
 
 const who = (user: { name: string | null; telegramPhoto: string | null; userProfile: { avatar: string } | null }) => ({ name: user.name || 'Member', avatar: pictureOf(user) })
@@ -60,7 +60,10 @@ export async function POST(req: NextRequest, { params }: Context) {
   }
   if (!rateLimitHit(`post-comment:${user.id}`, 3, 60_000).ok) return err('Please wait before commenting again / کمی بعد دوباره تلاش کنید', 429)
   const { autoApproveComments } = await getJournalSettings()
-  const comment = await db.postComment.create({ data: { postId: post.id, userId: user.id, parentId, body: text, status: autoApproveComments ? 'APPROVED' : 'PENDING' } })
-  if (comment.status === 'APPROVED') await notifyCommentPublished(comment.id, 'auto')
+  const comment = await db.$transaction(async tx => {
+    const created = await tx.postComment.create({ data: { postId: post.id, userId: user.id, parentId, body: text, status: autoApproveComments ? 'APPROVED' : 'PENDING' } })
+    if (created.status === 'APPROVED') await queueCommentNotification(tx, created.id, 'auto')
+    return created
+  })
   return ok({ id: comment.id, status: comment.status }, 201)
 }

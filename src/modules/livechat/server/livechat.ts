@@ -2,7 +2,8 @@ import { randomBytes } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
 import { logEvent } from '@/platform/observability/logger'
-import { getSettings, readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
+import { getSettings } from '@/modules/settings/server'
+import { createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server/section-history'
 import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { publish } from '@/platform/realtime/bus'
 import { isModuleEnabled } from '@/extensions/server/modules'
@@ -20,20 +21,19 @@ import {
  */
 
 const KEY = 'livechat.v1'
+const chatHistory = createSectionSettingsHistory(KEY, 'settings-livechat', normalizeChatSettings, settings => ({ botEnabled: settings.botEnabled, hours: settings.hours.enabled }), { action: 'livechat.settings', targetId: 'livechat' })
+export const chatSettingsState = chatHistory.current
+export const restoreChatSettings = chatHistory.restore
 const BOT_TIMEOUT_MS = 25_000
 
 export async function getChatSettings(): Promise<ChatSettings> {
   // Placement must reflect the saved selection on the next navigation, across route caches.
-  return normalizeChatSettings(await readJsonSetting(KEY, db))
+  return chatHistory.read()
 }
 
-export async function saveChatSettings(input: unknown) {
+export async function saveChatSettings(input: unknown, context?: SectionSettingsContext) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ChatError('تنظیمات گفت‌وگو معتبر نیست')
-  return updateJsonSetting(KEY, async stored => {
-    const next = normalizeChatSettings({ ...stored, ...input })
-    Object.assign(stored, next)
-    return next
-  })
+  return chatHistory.save(input, context)
 }
 
 export const chatEnabled = () => isModuleEnabled('livechat')

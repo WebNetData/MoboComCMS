@@ -95,9 +95,10 @@ const CHECKS = [
   'episode-air-alerts', 'cinema-people', 'cinema-people-admin', 'music-artist-profiles', 'cinema-discovery',
 ]
 
-// These invoke optional archive binaries / protocol servers and a queue-wide worker.
-// Run explicitly against an owned mobocom_media_* database, never the site's database.
-const OPTIONAL_CHECKS = ['media-archive', 'media-storage', 'content-authoring']
+// These invoke optional tools/protocol servers, queue workers or canonical-setting fixtures.
+// Media checks require owned mobocom_media_*; reliability checks require mobocom_reliability_*.
+// Run explicitly on those isolated databases, never the site's database.
+const OPTIONAL_CHECKS = ['media-archive', 'media-storage', 'content-authoring', 'journal-notification-intents', 'compatible-audio', 'admin-policy-history']
 const REGISTERED = [...CHECKS, ...OPTIONAL_CHECKS]
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Example: node --env-file=.env scripts/run-pg-checks.cjs')

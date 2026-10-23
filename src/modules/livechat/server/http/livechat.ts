@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { sectionSettingsAnswer, sectionSettingsSaveWith } from '@/modules/settings/server/http/section-history'
 import { NextResponse } from 'next/server'
 import { err, ok } from '@/platform/http/response'
 import { clientIp, rateLimitHit } from '@/platform/http/rate-limit'
@@ -118,7 +119,7 @@ export async function GET_agent(req: NextRequest) {
   try {
     if (q.get('id')) return ok(await agentConversation(idOf(q.get('id')), Number(q.get('since')) || 0))
     if (q.get('view') === 'stats') return ok(await chatStats())
-    if (q.get('view') === 'settings') return ok({ settings: await getChatSettings() })
+    if (q.get('view') === 'settings') return sectionSettingsAnswer(await getChatSettings())
     return ok(await agentList({ status: q.get('status') || '', q: q.get('q') || '', agentId: guard.admin.id }))
   } catch (error) { return failure(error) }
 }
@@ -154,11 +155,9 @@ export async function GET_agentStream(req: NextRequest) {
 export async function PUT_agent(req: NextRequest) {
   const guard = await adminGuard(req, 'livechat', ['settings.manage', 'support.chat'])
   if ('response' in guard) return guard.response
-  let settings
-  try { settings = await saveChatSettings((await body(req)).settings) }
-  catch (error) { return failure(error) }
-  await auditAdmin({ req, actor: guard.admin, action: 'livechat.settings', targetType: 'settings', targetId: 'livechat', metadata: { botEnabled: settings.botEnabled, hours: settings.hours.enabled } })
-  return ok({ settings })
+  let input
+  try { input = (await body(req)).settings } catch (error) { return failure(error) }
+  return sectionSettingsSaveWith(req, guard.admin, context => saveChatSettings(input, context), settings => ({ settings }))
 }
 
 // ------------------------------------------------------------------ CRM

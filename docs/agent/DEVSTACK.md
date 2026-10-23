@@ -26,9 +26,23 @@ Audit the current slice → select its existing owner → inspect the smallest r
 
 External guidance cannot bypass section guards, canonical ownership, server authorization, nonce requirements or migration safety. In particular: Vercel's barrel-import advice does not authorize imports of private module parts; hydration examples need MoboCom's CSP nonce; cache suggestions cannot share private data across users; framework examples must fit the installed React/Next version. Do not add SWR/LRU/component libraries just because a reference recommends them.
 
-## Installation inventory
+## Current checkout and installation evidence
 
-Exact versions, install methods, tested scope and upstream commits live in [manifest.json](../../tools/devstack/manifest.json). External skill file hashes are in [skill-provenance.json](../../tools/devstack/skill-provenance.json).
+Continue the active checkout recorded at the top of `.ai/MOBOCOM_WORKSTATE.md`;
+the older root working tree contains separate owner work. Resolve `git worktree
+list` and `git status` before editing. Do not copy its product source into this
+checkout or query its graph as evidence for this source tree.
+
+2026-10-23: the pinned Graphify source-only adapter, privacy guard, project skills
+and Registry harness are now present here. The isolated MCP package/lock and
+portable launcher are also present. `node scripts/check-devstack-config.cjs`
+checks this checkout's pins and client mirrors offline. Supporting skill payloads
+use `python scripts/sync-engineering-skills.py`; its current lock is authoritative.
+Earlier installation/scanner numbers below belong to the original root audit;
+they are historical evidence, not a claim that absent scanner configs or global
+client bindings were recreated here. No scanner baseline was imported or renewed.
+
+Historical tool pins and current isolated MCP package integrity are in [manifest.json](../../tools/devstack/manifest.json). Current supporting skill hashes are in [external-skills.lock.json](../../tools/devstack/external-skills.lock.json).
 
 | Tool | Installed/verified state | Configuration |
 | --- | --- | --- |
@@ -66,6 +80,13 @@ Codex VS Code's actual app-server reported Serena 24 tools, Context7 2 and Playw
 
 ## Skills and sources
 
+The current16-skill selection and hashes are defined by ENGINEERING_SKILLS.md
+and external-skills.lock.json. The original2026-10-10 review table below is
+historical: its webapp-testing deferral was superseded by the adapted installation;
+Node Playwright remains the browser owner. Activate Serena on the resolved current
+checkout before symbol work. Project-file synchronization does not silently
+replace global client registrations.
+
 The two reviewed Vercel skills are installed at the pinned upstream commit into `.agents/skills`, mirrored into `.claude/skills` and the existing Codex skill directory. Upstream content is preserved; MoboCom's local workflow provides the project-specific constraints. `mobocom-*` skills link here progressively and are synchronized with the existing sync script.
 
 | Source reviewed | Decision |
@@ -81,27 +102,16 @@ Source commit IDs are in the manifest. A review of a named candidate is not a ce
 
 ## Rules, baselines and checks
 
-- Existing architecture/security/money/permissions/DB/browser gates remain authoritative. Static matching cannot prove authorization, idempotency, concurrency safety or database behavior.
-- dependency-cruiser includes type imports. Two cycles contain a type-only edge; three integrations reach nested server parts. These five entries were inspected and recorded, not silently repaired or proclaimed absent. New graph warnings/errors fail the scoped router. Baselines may shrink as fixes land; additions require a written finding and review, never automatic renewal to make a check green.
-- Root `knip.json` scopes the canonical source and script tree, Next routes, scripts/tests, plugin/theme/extension entrypoints and the tooling workspace. Generated clients and duplicate scratch trees are excluded. Initial findings: 41 files, 545 exports, 142 types, 23 unlisted uses and 16 dependencies. These include intentionally installed CLI tools and direct uses of transitive Playwright; resolve ownership before acting. No automatic `--fix` or file deletion.
-- AST rules flag direct child-process imports in delivery/presentation; Semgrep flags dynamic code execution for security review. Their fixtures cover allowed and disallowed examples. MoboCom-specific staff, money, Origin and nonce checks continue in their existing owners/tests, rather than weaker static substitutes.
-- Gitleaks found 12 historical matches: Setting key, empty example assignments/replacement placeholders and RFC TOTP/Base32 vectors. Only those exact commit/file/rule/line fingerprints are excluded; no broad path/value suppression. A new secret still fails the scanner and synthetic positive fixture. Real leakage requires rotation/remediation, not history rewriting in a tooling task.
+Existing architecture/security/money/permission/PostgreSQL/browser gates remain authoritative. Graph or static matches do not prove runtime authorization. Use the current scripts:
 
 ```powershell
 trs raw -- node scripts/check-devstack-config.cjs
-trs raw -- node scripts/devstack-check.cjs fixtures
-trs raw -- node scripts/devstack-check.cjs architecture
-trs raw -- node scripts/devstack-check.cjs structural
-trs raw -- node scripts/devstack-check.cjs deadcode
-trs raw -- node scripts/devstack-check.cjs security
-trs raw -- node scripts/devstack-check.cjs secrets
-trs raw -- node scripts/devstack-check.cjs context7
-trs raw -- node scripts/devstack-check.cjs browser
+trs raw -- python scripts/sync-engineering-skills.py
+trs raw -- node scripts/check-architecture.mjs
+trs raw -- node scripts/graphify-local.cjs status
 ```
 
-The router reports **native exit code** and interpreted status; only Knip findings are advisory. Malformed output, a missing executable or scanner error fails. Detailed reports stay in machine-local `.mobocom/devstack-reports`; terminal output is a compact summary. The MCP browser check is exploratory tooling evidence, not product regression certification. The fixtures use temporary files and clean them up.
-
-VS Code workspace tasks expose focused checks without changing global settings, trust, extension policies or keyboard preferences. No new IDE extensions or generic server profile were needed. Existing checks CI gains only the offline configuration/provenance validation through its existing engineering-docs step: no added workflow, workflow dispatch, push or Actions run in this task. Run relevant local checks per slice and consolidate PRs in view of the owner's Actions quota.
+The older root audit recorded dependency-cruiser, Knip, Semgrep, AST and redacted secret-scanner findings. Its scanner configs/baselines and VS Code tasks are not part of this checkout. Do not claim that the former devstack-check commands or CI integration are active here. Audit a named tool before bringing its configuration forward; do not import old baselines to conceal current findings. The scoped offline check above validates pins and mirrors only. No new CI job, workflow dispatch, global MCP replacement or automatic source watcher is installed.
 
 ## Efficiency and privacy
 
@@ -144,16 +154,15 @@ This run verified isolated canaries for Git ignore, credential/config/document e
 
 [Scenario configuration](../../tools/devstack/registry-benchmark.json), [runner](../../scripts/graphify-benchmark.cjs), and [measured snapshot](../../tools/devstack/graphify-benchmark-results.json). No existing Registry A–D harness was found in the current checkout, skills or local engineering artifacts. E is added alongside named Serena-only/CodeGraphContext baselines without inventing historical measurements or condition IDs.
 
-| Metric | Verified observation, 2026-10-10 |
+| Metric | Verified observation, current checkout2026-10-23 |
 | --- | --- |
-| Corpus | 1,730 source files; current graph 11,827 nodes / 43,080 edges |
-| Cold native index | 35.447 seconds; 882,094,080 bytes sampled peak process-tree working set (~841 MiB), two workers |
-| Native unchanged incremental | 6.246 seconds; adapter subsequent unchanged refresh skips extraction |
-| Storage | graph 19,308,198 bytes; graph + cache ~19,945,213 bytes (~19 MiB); isolated Python tool environment 141,620,220 bytes (~135 MiB), excluding uv cache/interpreter |
-| Registry discovery/path/impact/server discovery | 4/4 nominated static traces verified against source; one native Graphify query operation per scenario; 0.784–1.048 seconds in the retained run |
-| Retrieval relevance | All nominated files retrieved (recall 1.0); broad client/server query nominated-file precision 3/36 and 4/32, respectively; related files outside the nominated set are not necessarily irrelevant |
+| Corpus |2,059 graph source files;13,759 nodes /51,882 edges |
+| Source refresh | Latest measured changed batch27.880seconds,1,028,677,632 bytes sampled process-tree working set; two AST workers; unchanged adapter refresh skips extraction |
+| Storage | Graph23,232,756bytes; graph+cache23,994,052bytes; no new Python-tool installation |
+| Registry discovery/path/impact/server discovery |4/4 nominated static traces verified against current source; one native query per scenario;0.786–1.317seconds |
+| Retrieval relevance | Nominated-file recall1.0; broad client/server nominated precision3/39 and4/38. Extra related files are not automatically irrelevant |
 | Functional owner tests | Actual `node --test --test-reporter=tap scripts/packages.test.cjs`: 11 passed, zero failed/skipped |
-| Serena-only | Same four targeted scenarios verified using live MCP; 3/1/1/2 calls. Known paths, warm LSP and queued parallel timings prevent a controlled speed comparison; large module-reference reply fell back to references without snippets |
+| Serena-only | Earlier root evidence is not a newly controlled comparison; not remeasured in this batch |
 | CodeGraphContext | Not installed/configured; no executed comparison |
 | Agent total/cached/uncached/output tokens | **Unavailable**, null in results; zero Graphify semantic tokens is not zero Codex/Claude usage |
 | Feature development completion time | **Not measured**; this is read-only retrieval/trace validation, not a completed feature-change experiment |
@@ -168,4 +177,4 @@ To update: review upstream, pin version/constraints/provenance together, then re
 - Disable one MCP through the client's server setting/removal; keep other registrations and data. Removing Context7/Playwright registrations does not affect the app or Serena.
 - Remove the two new external skill folders only after checking their recorded provenance against any local edits. Keep MoboCom skills. Restore machine-specific configs from the dated backup after reviewing later user edits; do not overwrite the whole live file blindly.
 - Uninstall Semgrep with `uv tool uninstall semgrep` only if this installation is still the one being removed. Remove the verified Gitleaks executable only if its current digest matches this installed version. The isolated npm workspace can be removed after agent registrations are disabled; never remove root dependencies or databases as tooling cleanup.
-- Machine backups are under `.mobocom/devstack-2026-10-10`; `.git/info/exclude` keeps that private local directory out of Git without editing the owner's `.gitignore`. Root package files, product code, database rows and protected visuals were unchanged by this batch.
+- Historical 2026-10-10 tooling backups are under `.mobocom/devstack-2026-10-10` in the older root; its private exclusion and unchanged-product statement describe that tooling batch only. The current reliability/media/Admin product changes and validation are recorded in [the continuation](handoffs/RELIABILITY_MEDIA_ADMIN.md).

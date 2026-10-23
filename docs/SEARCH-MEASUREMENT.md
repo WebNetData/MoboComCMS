@@ -4,6 +4,8 @@
 
 ## Safety
 
+2026-10-23 follow-up: measurements include the complete JSON body. `--report=/absolute/local/file.json` saves numeric samples locally; its parent directory must exist. Report-write failure still runs cleanup. `--catalogue=N` uses a bounded selection of actual indexed titles when recorded queries are unavailable; label it title-derived, never real visitor traffic.
+
 - Run it only against a **local or staging copy** of the database. It refuses to start without `--scratch-database`, and it refuses any `--base` address that is not local.
 - The synthetic mode briefly adds published posts, and any visitor of that site could see them. It removes them afterwards (unless `--keep`) and restores the search index stamp.
 - Both modes subtract the analytics search counts that their own requests added.
@@ -64,3 +66,16 @@ Same setup, 100,000 documents, median, after the cap and the index:
 Without the new index each batch had to sort all matches by date (10%: 706 ms); with it the slowest question is about 0.4 s. Run-to-run variation is tens of milliseconds. The tool accepts capped answers and prints their totals as "N+".
 
 **Still owed:** run `--real` on a copy restored from a production backup. The real query distribution decides whether 5,000 is the right cap and whether rare words need the trigram index later.
+
+## Current local data replay — 2026-10-23
+
+A separate pg_dump/restore copy of the existing local database was served with
+all schedulers disabled.20 recorded local queries,245 indexed documents and
+three timed requests per query after warm-up produced request median18.32ms,
+p95 25.61ms, maximum33.94ms; per-query medians12.04–24.87ms. Two title-derived
+queries also ran. The measuring process removed its added analytics counts;
+the isolated server/database were removed afterwards. Owner data was not used
+as a synthetic seeding target. No cap/index/ranking change was justified by this
+small sample. This is a development-mode/local-data result, not production
+traffic, concurrency/load certification or an SLO. Deployment-size replay
+remains an operational follow-up using the same tool.

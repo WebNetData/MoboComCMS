@@ -3,7 +3,7 @@ import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requirePerm } from '@/modules/identity/server/access'
 import { auditAdmin } from '@/platform/audit/server'
-import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
+import { queueCommentNotification } from '@/modules/journal/server/comment-notification-intents'
 import { completeOwnerCase, reopenOwnerCase } from '@/modules/moderation/server/cases'
 
 export async function GET(req: NextRequest) {
@@ -40,10 +40,10 @@ export async function PATCH(req: NextRequest) {
     const claimed = await tx.postComment.updateMany({ where: { id, status: existing.status }, data: { status } })
     if (claimed.count && status !== 'PENDING') await completeOwnerCase(tx, 'article-comments', id, admin.id, status === 'APPROVED' ? 'approve' : 'reject')
     if (claimed.count && status === 'PENDING' && existing.status !== 'PENDING') await reopenOwnerCase(tx, 'article-comments', id)
+    if (claimed.count && status === 'APPROVED' && existing.status !== 'APPROVED') await queueCommentNotification(tx, id, 'moderator')
     return claimed.count
   })
   if (!changed) return err('دیدگاه هم‌زمان تغییر کرده است', 409)
-  if (status === 'APPROVED' && existing.status !== 'APPROVED') await notifyCommentPublished(id, 'moderator')
   await auditAdmin({ req, actor: admin, action: 'post_comment.moderate', targetType: 'PostComment', targetId: id, metadata: { status, postId: existing.postId } })
   return ok({ id, status })
 }

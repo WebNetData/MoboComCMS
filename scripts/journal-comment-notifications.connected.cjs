@@ -71,10 +71,10 @@ async function main() {
  await db.userBlock.deleteMany({where: {blockerId: blocker.id}}); await db.userBlock.create({data: {blockerId: replier.id, blockedId: blocker.id}})
  assert.deepEqual(await notifyCommentPublished(unwanted.id, 'auto'), {author: false, parent: false}); assert.deepEqual(take(), [])
 
- // --- a failing inbox is reported as nothing sent, never as an error to the caller
+ // --- failure reaches Operations, which retains/retries the durable publication intent
  failInbox = true
- assert.deepEqual(await notifyCommentPublished(top.id, 'moderator'), {author: false, parent: false})
- console.log('PostgreSQL article comment notices: author on moderator approval, answered author on reply, not for own reply, unpublished or blocked, inbox-safe link, inbox failure contained passed')
+ await assert.rejects(notifyCommentPublished(top.id, 'moderator'), /inbox down/)
+ console.log('PostgreSQL article comment notices: publication/block rules, safe links and retryable failure passed')
 }
 main().catch(error => {console.error(error); process.exitCode = 1}).finally(async () => {
  try {

@@ -172,3 +172,4 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
 
 /* Actions under a page's title (e.g. the settings History link). */
 :where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.admin-shell .livechat-settings .crm-filters button.is-active{background:color-mix(in srgb,var(--primary) 12%,var(--card));color:var(--text);border-color:var(--primary)}

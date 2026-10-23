@@ -12,7 +12,8 @@ import {
   type AiConfig,
 } from '@/modules/ai/domain/ai'
 import { AiError, generate, getAiConfig } from '@/modules/ai/server/client'
-import { notifyCommentPublished } from '@/modules/journal/server/comment-notifications'
+import { queueCommentNotification } from '@/modules/journal/server/comment-notification-intents'
+import { completeOwnerCase } from '@/modules/moderation/server/cases'
 import { autofillPrompt, cleanSchema, parseAutofill } from '@/modules/ai/domain/autofill'
 
 // Everything the assistant writes is a suggestion: posts are saved as drafts,
@@ -181,12 +182,16 @@ export async function publishCommentReply(adminId: number, commentId: number, re
   }
   if (comment.status === 'DELETED') throw new AiError('این دیدگاه را نویسنده‌اش حذف کرده است', 409)
   const created = await db.$transaction(async (tx) => {
-    if (comment.status !== 'APPROVED') await tx.postComment.update({ where: { id: comment.id }, data: { status: 'APPROVED' } })
-    return tx.postComment.create({ data: { postId: comment.postId, userId: adminId, parentId: comment.id, body, status: 'APPROVED' }, select: { id: true } })
+    const claimed = await tx.postComment.updateMany({ where: { id: comment.id, status: comment.status }, data: { status: 'APPROVED' } })
+    if (!claimed.count) throw new AiError('دیدگاه هم‌زمان تغییر کرده است', 409)
+    if (comment.status !== 'APPROVED') {
+      await completeOwnerCase(tx, 'article-comments', comment.id, adminId, 'approve')
+      await queueCommentNotification(tx, comment.id, 'moderator')
+    }
+    const answer = await tx.postComment.create({ data: { postId: comment.postId, userId: adminId, parentId: comment.id, body, status: 'APPROVED' }, select: { id: true } })
+    await queueCommentNotification(tx, answer.id, 'auto')
+    return answer
   })
-  // The same notices as an approval and a reply made by hand.
-  if (comment.status !== 'APPROVED') await notifyCommentPublished(comment.id, 'moderator')
-  await notifyCommentPublished(created.id, 'auto')
   return created
 }
 

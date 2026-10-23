@@ -1,4 +1,5 @@
 'use client'
+import SectionSettingsHistoryLink from '@/components/admin/SectionSettingsHistoryLink'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import Link from '@/components/AppLink'
@@ -136,6 +137,7 @@ function Conversation({ id, onChanged, live, pulse, typingAt }: { id: number; on
 
 function SettingsForm() {
   const [form, setForm] = useState<Settings | null>(null)
+  const [revision, setRevision] = useState(''), [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   useEffect(() => {
     const controller = new AbortController()
@@ -144,7 +146,7 @@ function SettingsForm() {
         const response = await fetch('/api/admin/chat?view=settings', { cache: 'no-store', signal: controller.signal })
         if (!response.ok) throw Error('بارگذاری تنظیمات انجام نشد؛ صفحه را دوباره باز کنید.')
         const data = await response.json()
-        if (!controller.signal.aborted) setForm(data.settings)
+        if (!controller.signal.aborted) { setForm(data.settings); setRevision(data.settingsRevision) }
       } catch (error) {
         if (!controller.signal.aborted) setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'بارگذاری تنظیمات انجام نشد.' })
       }
@@ -154,7 +156,18 @@ function SettingsForm() {
   }, [])
   if (!form) return notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : <div className="sa-skeleton" />
   const set = (patch: Partial<Settings>) => setForm({ ...form, ...patch })
-  return <form className="sa-card sa-form" onSubmit={async (event) => { event.preventDefault(); const result = await post({ settings: form }, 'PUT'); setNotice(result.ok ? { tone: 'ok', text: 'تنظیمات ذخیره شد' } : { tone: 'error', text: result.error }) }}>
+  async function save() {
+    setSaving(true)
+    try {
+      const r = await fetch('/api/admin/chat', { method: 'PUT', headers: { 'content-type': 'application/json', ...(revision ? { 'if-match': revision } : {}) }, body: JSON.stringify({ settings: form }) })
+      const data = await r.json()
+      if (!r.ok) throw Error(data.error || 'ذخیره نشد')
+      setForm(data.settings); setRevision(data.settingsRevision); setNotice({ tone: 'ok', text: 'تنظیمات ذخیره شد' })
+    } catch (error) { setNotice({ tone: 'error', text: error instanceof Error ? error.message : 'ذخیره نشد؛ تغییرات شما در فرم مانده است' }) }
+    finally { setSaving(false) }
+  }
+  return <form className="sa-card sa-form livechat-settings" onSubmit={event => { event.preventDefault(); void save() }}>
+    <SectionSettingsHistoryLink section="livechat" />
     {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
     <fieldset className="sa-card" aria-describedby="chat-places-help">
       <legend>محل نمایش پشتیبانی آنلاین</legend>
@@ -184,7 +197,7 @@ function SettingsForm() {
     </div>}
     <label className="sa-field"><span>پیام خارج از ساعت کاری</span><input className="input" value={form.offlineMessage} onChange={(e) => set({ offlineMessage: e.target.value })} /></label>
     <label className="sa-check"><input type="checkbox" checked={form.askContact} onChange={(e) => set({ askContact: e.target.checked })} /> از مهمان‌ها هنگام انتقال به اپراتور موبایل یا ایمیل خواسته شود</label>
-    <button type="submit" className="btn btn-primary">ذخیره</button>
+    <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'در حال ذخیره…' : 'ذخیره'}</button>
   </form>
 }
 

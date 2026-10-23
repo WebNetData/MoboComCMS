@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "scope": "Read-only Module/Plugin Registry discovery and static trace correctness; not a completed feature-development benchmark",
+  "conditions": {
+    "serena-only": { "tools": ["Serena"], "status": "available" },
+    "codegraphcontext": { "tools": ["CodeGraphContext"], "status": "not installed/configured in audited checkout" },
+    "E": { "tools": ["current MoboCom stack", "Graphify"], "status": "available" }
+  },
+  "cases": [
+    {
+      "id": "client-registry-discovery",
+      "graphify": ["query", "PluginOutlet clientPlugins extensionCatalog"],
+      "expectedSources": ["src/plugins/registry.tsx", "src/extensions/generated/client-registry.ts", "src/extensions/generated/catalog.ts"]
+    },
+    {
+      "id": "client-hook-trace",
+      "graphify": ["path", "PluginOutlet()", "useExtensions()"],
+      "expectedText": "PluginOutlet() --calls [EXTRACTED]--> useExtensions()"
+    },
+    {
+      "id": "module-change-impact",
+      "graphify": ["affected", "isModuleEnabled()"],
+      "expectedTextParts": ["requireModule() [calls]", "moduleGuard() [calls]"]
+    },
+    {
+      "id": "server-registry-discovery",
+      "graphify": ["query", "serverPlugins"],
+      "expectedSources": ["src/extensions/generated/server-registry.ts", "src/extensions/server/runtime.ts", "src/extensions/server/api.ts", "src/extensions/server/state.ts"]
+    }
+  ],
+  "usage": {
+    "source": "Export actual per-task client usage into the optional benchmark --usage file; absence is null, never zero or an estimate",
+    "requiredFields": ["condition", "taskId", "verifiedSuccess", "totalTokens", "cachedInputTokens", "uncachedInputTokens", "outputTokens", "toolCalls", "completionMs"]
+  }
+}

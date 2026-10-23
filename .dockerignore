@@ -3,6 +3,9 @@
 .next
 .next-dev
 node_modules
+**/node_modules
+.mobocom
+.serena
 .env
 .env.*
 !.env.example

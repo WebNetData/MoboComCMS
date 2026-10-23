@@ -14,6 +14,14 @@ import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionS
 type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
+  if (type === 'settings-livechat') {
+    const { chatSettingsState, restoreChatSettings } = await import('@/modules/livechat/server/livechat')
+    return { perms: ['settings.manage', 'support.chat'], module: 'livechat', current: () => chatSettingsState(), restore: restoreChatSettings }
+  }
+  if (type === 'settings-maintenance') {
+    const { maintenanceSettingsState, restoreMaintenanceSettings } = await import('@/modules/site/server/maintenance')
+    return { perms: ['settings.manage'], module: null, current: () => maintenanceSettingsState(), restore: restoreMaintenanceSettings }
+  }
   if (type === 'settings-site') {
     const { siteSettingsState, restoreSiteSettings } = await import('@/modules/site/server/revision-state')
     return { perms: ['settings.manage'], module: null, current: siteSettingsState, restore: restoreSiteSettings }

@@ -12,10 +12,12 @@ import { libraryCommand, queryLibrary } from './commands'
 import { listTransfers, requestTransfer, transferCommand } from './transfers'
 import { mediaSettings, MEDIA_SETTINGS_KEY, normalizeMediaSettings } from './settings'
 import { recordRevision } from '@/modules/content/server/revisions'
+import { compatibleAudioJobs, inspectCompatibleAudio, requestCompatibleAudio } from './compatible-audio'
 const failure = (error: unknown) => (error instanceof LibraryError || error instanceof JsonBodyError) ? err(error.message, error.status) : err('عملیات کتابخانه انجام نشد؛ دوباره تلاش کنید', 500)
 export async function GET(req: NextRequest) {
   try {
     const actor = await libraryActor(req)
+    if (req.nextUrl.searchParams.get('view') === 'audio') return ok({ items: await compatibleAudioJobs(actor) })
     if (req.nextUrl.searchParams.get('view') === 'transfers') return ok({ items: await listTransfers(actor) })
     if (req.nextUrl.searchParams.get('view') === 'settings') {
       if (!(await currentLibraryUser(actor)).configureLibrary) return err('forbidden', 403)
@@ -30,8 +32,11 @@ export async function POST(req: NextRequest) {
     const actor = await libraryActor(req)
     await currentLibraryUser(actor)
     const input = await readJsonObject(req)
-    const limit = await rateLimitStrict(`media-library:${actor.id}`, input.action === 'transfer.create' ? 30 : 120, 60000)
+    const audio = String(input.action).startsWith('audio.')
+    const limit = await rateLimitStrict(`${audio ? 'media-audio' : 'media-library'}:${actor.id}`, audio ? 12 : input.action === 'transfer.create' ? 30 : 120, 60000)
     if (!limit.ok) return err('کمی صبر کنید و دوباره تلاش کنید', 429, { retryAfter: limit.retryAfter })
+    if (input.action === 'audio.inspect') return ok(await inspectCompatibleAudio(actor, String(input.assetId)))
+    if (input.action === 'audio.create') return ok(await requestCompatibleAudio(actor, input, req))
     if (input.action === 'transfer.create') return ok(await requestTransfer(actor, input, req))
     if (String(input.action).startsWith('transfer.')) return ok(await transferCommand(actor, input, req))
     if (input.action === 'settings.save') return ok(await libraryTransaction(async tx => {
@@ -40,7 +45,8 @@ export async function POST(req: NextRequest) {
       if (!(user.roleId == null || hasPermission(user.permissions || [], 'settings.manage'))) throw new LibraryError('تنظیمات عمومی به مدیر تنظیمات اختصاص دارد', 403)
       const existing = await tx.setting.findUnique({ where: { key: MEDIA_SETTINGS_KEY } })
       if ((existing?.value || null) !== input.stamp) throw new LibraryError('تنظیمات هم‌زمان تغییر کرده؛ دوباره بارگیری کنید', 409)
-       const before = normalizeMediaSettings(JSON.parse(existing?.value || '{}')), after = normalizeMediaSettings(input.value as Record<string, unknown> || {})
+        if (!input.value || typeof input.value !== 'object' || Array.isArray(input.value)) throw new LibraryError('تنظیمات کتابخانه معتبر نیست', 422)
+        const before = normalizeMediaSettings(JSON.parse(existing?.value || '{}')), after = normalizeMediaSettings({ ...JSON.parse(existing?.value || '{}'), ...input.value as Record<string, unknown> })
        const value = JSON.stringify({ ...JSON.parse(existing?.value || '{}'), ...after })
       if (existing) await tx.setting.updateMany({ where: { key: MEDIA_SETTINGS_KEY, value: existing.value }, data: { value } })
       else await tx.setting.create({ data: { key: MEDIA_SETTINGS_KEY, value } })

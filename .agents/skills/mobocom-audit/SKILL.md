@@ -52,3 +52,12 @@ When this workflow touches forms, form payments, appointments, staff queues, tic
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
 <!-- mobocom-engineering-skills:end -->
+
+## Reliability and current-checkout continuation
+
+For Journal publication notices, compatible AAC, named Admin policy histories,
+local search measurement or Graphify checkout drift, read
+`docs/agent/handoffs/RELIABILITY_MEDIA_ADMIN.md` first. Resolve the actual worktree;
+do not query an older root graph as this checkout's source. Separate measured
+local data from production traffic, and21 named history owners from arbitrary
+Admin/financial/secret rollback. Existing module owners and guards remain.

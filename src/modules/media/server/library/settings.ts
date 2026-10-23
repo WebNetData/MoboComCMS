@@ -1,9 +1,9 @@
 import { db } from '@/platform/database/prisma'
 import { LibraryError } from '@/modules/media/domain/library'
 export const MEDIA_SETTINGS_KEY = 'media.library.v1'
-export type MediaSettings = { enabled: boolean; organize: boolean; maxFileMB: number; timeoutSeconds: number }
+export type MediaSettings = { enabled: boolean; organize: boolean; maxFileMB: number; timeoutSeconds: number; compatibleAudio: boolean; audioTimeoutSeconds: number }
 export function normalizeMediaSettings(raw: Record<string, unknown>): MediaSettings {
-  return { enabled: raw.enabled !== false, organize: raw.organize !== false, maxFileMB: Math.min(4096, Math.max(1, Number(raw.maxFileMB) || 512)), timeoutSeconds: Math.min(480, Math.max(10, Number(raw.timeoutSeconds) || 120)) }
+  return { enabled: raw.enabled !== false, organize: raw.organize !== false, maxFileMB: Math.min(4096, Math.max(1, Number(raw.maxFileMB) || 512)), timeoutSeconds: Math.min(480, Math.max(10, Number(raw.timeoutSeconds) || 120)), compatibleAudio: raw.compatibleAudio === true, audioTimeoutSeconds: Math.min(420, Math.max(30, Number(raw.audioTimeoutSeconds) || 300)) }
 }
 export async function mediaSettings() {
   const row = await db.setting.findUnique({ where: { key: MEDIA_SETTINGS_KEY } })

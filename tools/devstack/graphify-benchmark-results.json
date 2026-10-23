@@ -1,0 +1,127 @@
+{
+  "date": "2026-10-23",
+  "scope": "Read-only Module/Plugin Registry discovery and static trace correctness; not a completed feature-development benchmark",
+  "condition": "E",
+  "graph": {
+    "nodes": 13759,
+    "edges": 51882,
+    "sourceFiles": 2059,
+    "graphBytes": 23232756,
+    "externalImportNodes": 0,
+    "semanticTokens": 0
+  },
+  "initialIndex": {
+    "exitCode": 0,
+    "durationMs": 27880,
+    "sampledPeakProcessTreeWorkingSetBytes": 1028677632,
+    "memorySamples": 107,
+    "memorySampleIntervalMs": 250,
+    "args": [
+      "extract",
+      "<project-root>",
+      "--code-only",
+      "--no-cluster",
+      "--no-dedup",
+      "--max-workers",
+      "2",
+      "--out",
+      "<local-graph-output>"
+    ],
+    "log": "<local-refresh-log>"
+  },
+  "corpus": {
+    "hash": "7ab42f44501c89b76562b7619a6ca250aa24bda73b47560f0d212eae70943ee5",
+    "fileCount": 2063,
+    "gitHead": "68056743ed4fbd66253ca711f354958f68b5fd47",
+    "workingTree": "dirty; content hash identifies the selected source",
+    "gitHeadNote": "Baseline HEAD before the uncommitted source batch; selected contents are identified by hash."
+  },
+  "graphAndCacheStorageBytes": 23994052,
+  "samples": [
+    {
+      "taskId": "client-registry-discovery",
+      "verifiedSuccess": true,
+      "toolCalls": 1,
+      "durationMs": 1314,
+      "sampledPeakProcessTreeWorkingSetBytes": 170549248,
+      "retrievedUniqueFiles": 39,
+      "expectedFileRecall": 1,
+      "nominatedFilePrecision": 0.07692307692307693,
+      "outputCharacters": 5062,
+      "totalTokens": null,
+      "cachedInputTokens": null,
+      "uncachedInputTokens": null,
+      "outputTokens": null
+    },
+    {
+      "taskId": "client-hook-trace",
+      "verifiedSuccess": true,
+      "toolCalls": 1,
+      "durationMs": 1317,
+      "sampledPeakProcessTreeWorkingSetBytes": 143859712,
+      "retrievedUniqueFiles": 0,
+      "expectedFileRecall": null,
+      "nominatedFilePrecision": null,
+      "outputCharacters": 82,
+      "totalTokens": null,
+      "cachedInputTokens": null,
+      "uncachedInputTokens": null,
+      "outputTokens": null
+    },
+    {
+      "taskId": "module-change-impact",
+      "verifiedSuccess": true,
+      "toolCalls": 1,
+      "durationMs": 786,
+      "sampledPeakProcessTreeWorkingSetBytes": 128983040,
+      "retrievedUniqueFiles": 0,
+      "expectedFileRecall": null,
+      "nominatedFilePrecision": null,
+      "outputCharacters": 51489,
+      "totalTokens": null,
+      "cachedInputTokens": null,
+      "uncachedInputTokens": null,
+      "outputTokens": null
+    },
+    {
+      "taskId": "server-registry-discovery",
+      "verifiedSuccess": true,
+      "toolCalls": 1,
+      "durationMs": 1051,
+      "sampledPeakProcessTreeWorkingSetBytes": 168259584,
+      "retrievedUniqueFiles": 38,
+      "expectedFileRecall": 1,
+      "nominatedFilePrecision": 0.10526315789473684,
+      "outputCharacters": 5019,
+      "totalTokens": null,
+      "cachedInputTokens": null,
+      "uncachedInputTokens": null,
+      "outputTokens": null
+    }
+  ],
+  "tracePassRate": 1,
+  "functionalTests": {
+    "command": "node --test scripts/packages.test.cjs",
+    "exitCode": 0,
+    "passed": 11,
+    "failed": 0,
+    "passRate": 1,
+    "durationMs": 936
+  },
+  "comparison": {
+    "serenaOnly": {
+      "status": "not measured"
+    },
+    "codeGraphContext": {
+      "status": "not installed/configured; no run"
+    },
+    "actualClientUsage": []
+  },
+  "limitations": [
+    "Retrieval CLI calls and wall-clock times are not completed feature-development tasks or full agent tool-call totals.",
+    "No model token usage exposed for this run: all token fields null; Graphify semantic extraction tokens zero.",
+    "File precision uses nominated Registry owner files, not a judgment that every additional related file is irrelevant.",
+    "Memory is sampled Windows process-tree working set at 250ms, not an exact allocation peak.",
+    "No prior Registry A-D benchmark found in this checkout; E is additive alongside named baselines, no historical condition IDs fabricated."
+  ]
+}
