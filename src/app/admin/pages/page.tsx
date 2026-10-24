@@ -11,13 +11,19 @@ export default function AdminPagesPage() {
   const fa = locale === 'fa'
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  const S = {
+    body: fa ? 'محتوای صفحه' : 'Page content',
+    cover: fa ? 'تصویر شاخص' : 'Featured image',
+    publish: fa ? 'انتشار و منو' : 'Publishing & menu',
+    look: fa ? 'نمایش صفحه' : 'Page display',
+  }
   const fields: FieldDef[] = [
-    { key: 'slug', label: t.slug, required: true, dir: 'ltr' },
-    { key: 'title', label: t.title, required: true },
-    { key: 'cover', label: t.cover, type: 'image', hideInTable: true },
-    { key: 'content', label: t.content, type: 'richtext', hideInTable: true },
+    { section: S.body, key: 'slug', label: t.slug, required: true, dir: 'ltr' },
+    { section: S.body, key: 'title', label: t.title, required: true },
+    { section: S.cover, key: 'cover', label: t.cover, type: 'image', hideInTable: true },
+    { section: S.body, key: 'content', label: t.content, type: 'richtext', hideInTable: true },
     {
-      key: 'status',
+      section: S.publish, key: 'status',
       label: t.status,
       type: 'select',
       options: [
@@ -25,12 +31,12 @@ export default function AdminPagesPage() {
         { value: 'DRAFT', label: t.draft },
       ],
     },
-    { key: 'showInNav', label: t.showInNav, type: 'checkbox' },
-    { key: 'sortOrder', label: t.sortOrder, type: 'number', hideInTable: true },
-    { key: 'pageLayout', label: 'چیدمان صفحه', type: 'select', options: [{ value: 'full', label: 'تمام‌عرض' }, { value: 'reading', label: 'متمرکز برای مطالعه' }, { value: 'sidebar', label: 'همراه ستون کناری' }] },
-    { key: 'pageTitle', label: 'عنوان صفحه', type: 'select', hideInTable: true, options: [{ value: 'show', label: 'نمایش عنوان' }, { value: 'hide', label: 'بدون عنوان' }] },
-    { key: 'pageFrame', label: 'کادر محتوا', type: 'select', hideInTable: true, options: [{ value: 'plain', label: 'بدون کادر' }, { value: 'card', label: 'داخل کارت' }] },
-    { key: 'formSlug', label: 'شناسه فرم برای نمایش پایین محتوا (اختیاری؛ از مدیریت فرم‌ها)', dir: 'ltr', hideInTable: true },
+    { section: S.publish, key: 'showInNav', label: t.showInNav, type: 'checkbox' },
+    { section: S.publish, key: 'sortOrder', label: t.sortOrder, type: 'number', hideInTable: true },
+    { section: S.look, key: 'pageLayout', label: 'چیدمان صفحه', type: 'select', options: [{ value: 'full', label: 'تمام‌عرض' }, { value: 'reading', label: 'متمرکز برای مطالعه' }, { value: 'sidebar', label: 'همراه ستون کناری' }] },
+    { section: S.look, key: 'pageTitle', label: 'عنوان صفحه', type: 'select', hideInTable: true, options: [{ value: 'show', label: 'نمایش عنوان' }, { value: 'hide', label: 'بدون عنوان' }] },
+    { section: S.look, key: 'pageFrame', label: 'کادر محتوا', type: 'select', hideInTable: true, options: [{ value: 'plain', label: 'بدون کادر' }, { value: 'card', label: 'داخل کارت' }] },
+    { section: S.look, key: 'formSlug', label: 'شناسه فرم برای نمایش پایین محتوا (اختیاری؛ از مدیریت فرم‌ها)', dir: 'ltr', hideInTable: true },
   ]
 
   // Blank page: create an empty full-width page and jump straight into the builder.

@@ -5,7 +5,7 @@ import RemoteCopy from '@/components/media/RemoteCopy'
 import { useState } from 'react'
 import { useI18n } from '@/i18n/LocaleProvider'
 
-type Mode = 'cover' | 'section' | 'logo' | 'poster' | 'media'
+type Mode = 'cover' | 'section' | 'logo' | 'poster' | 'square' | 'media'
 type Words = { hint: [string, string]; upload: [string, string]; remove: [string, string]; alt: [string, string]; save: [string, string]; empty?: [string, string] }
 const FORMATS: [string, string] = ['JPG، PNG یا WebP تا ۱۵ مگابایت؛ خودکار فشرده و به WebP تبدیل می‌شود.', 'JPG, PNG or WebP up to 15 MB, compressed to WebP automatically.']
 /** What the field says in each place it is used: [Persian, English]. */
@@ -14,6 +14,7 @@ const WORDS: Record<Mode, Words> = {
   section: { hint: ['تصویر بخش را بارگذاری کنید (حداکثر ۱۵ مگابایت؛ خودکار فشرده می‌شود).', 'Upload a section image (up to 5 MB).'], upload: ['بارگذاری تصویر بخش', 'Upload section image'], remove: ['حذف تصویر بخش', 'Remove section image'], alt: ['پیش‌نمایش تصویر شاخص', 'Featured image preview'], save: ['برای ثبت تصویر، تغییرات صفحه را ذخیره کنید.', 'Save the page to apply this image.'] },
   logo: { hint: ['تصویر مربع JPG، PNG یا WebP تا ۱۵ مگابایت بارگذاری کنید.', 'Upload a square JPG, PNG or WebP image up to 15 MB.'], upload: ['بارگذاری نشان', 'Upload logo'], remove: ['حذف نشان', 'Remove logo'], alt: ['پیش‌نمایش نشان', 'Logo preview'], save: ['برای ثبت نشان، پروفایل را ذخیره کنید.', 'Save the profile to apply the logo.'] },
   poster: { hint: ['تصویر عمودی با نسبت ۲ به ۳ (مثلاً ۸۰۰ × ۱۲۰۰ پیکسل)؛ ' + FORMATS[0], 'A portrait 2:3 image (e.g. 800 × 1200 px); ' + FORMATS[1]], upload: ['بارگذاری پوستر', 'Upload poster'], remove: ['حذف پوستر', 'Remove poster'], alt: ['پیش‌نمایش پوستر', 'Poster preview'], save: ['پوستر با ذخیرهٔ فرم ثبت می‌شود.', 'The poster is kept when the form is saved.'], empty: ['پوستری انتخاب نشده', 'No poster yet'] },
+  square: { hint: ['تصویر مربعی (مثلاً ۵۱۲ × ۵۱۲ پیکسل)؛ ' + FORMATS[0], 'A square image (e.g. 512 × 512 px); ' + FORMATS[1]], upload: ['بارگذاری تصویر', 'Upload image'], remove: ['حذف تصویر', 'Remove image'], alt: ['پیش‌نمایش تصویر', 'Image preview'], save: ['تصویر با ذخیرهٔ فرم ثبت می‌شود.', 'The image is kept when the form is saved.'], empty: ['تصویری انتخاب نشده', 'No image yet'] },
   media: { hint: FORMATS, upload: ['بارگذاری تصویر', 'Upload image'], remove: ['حذف تصویر', 'Remove image'], alt: ['پیش‌نمایش تصویر', 'Image preview'], save: ['تصویر با ذخیرهٔ فرم ثبت می‌شود.', 'The image is kept when the form is saved.'], empty: ['تصویری انتخاب نشده', 'No image yet'] },
 }
 

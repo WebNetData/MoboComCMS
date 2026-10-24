@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from '@/components/AppLink'
 import MediaCrud, { type MediaField } from '../../cms/MediaCrud'
-import { commonFields } from '../../cms/media-fields'
+import { commonFields, inSection } from '../../cms/media-fields'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { MusicShell } from '../shared'
 
@@ -14,6 +14,8 @@ export default function AdminMusicPage({initialTab}:{initialTab:Tab}) {
   const fa = locale === 'fa'
   const [tab, setTab] = useState<Tab>(initialTab)
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
+  const L = (persian: string, english: string) => (fa ? persian : english)
+  const publish = L('انتشار و دسترسی', 'Publishing & access')
   const artist: MediaField = { key: 'artistId', label: fa ? 'هنرمند' : 'Artist', type: 'select', required: true, source: { type: 'music-artists', label: (row) => row.name + (row.nameEn ? ` — ${row.nameEn}` : ''), empty: fa ? '— انتخاب هنرمند —' : '— choose artist —' }, table: (row) => row.artist?.name || '—' }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -27,48 +29,66 @@ export default function AdminMusicPage({initialTab}:{initialTab:Tab}) {
       type: 'music-tracks', title: fa ? 'آهنگ‌ها' : 'Tracks',
       publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/track/${row.slug}` : null),
       fields: [
-        { key: 'title', label: fa ? 'نام آهنگ' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        artist,
-        { key: 'albumId', label: fa ? 'آلبوم (اختیاری)' : 'Album (optional)', type: 'select', source: { type: 'music-albums', label: (row) => `${row.title} — ${row.artist?.name || ''}`, empty: fa ? '— تک‌آهنگ —' : '— single —' }, table: (row) => row.album?.title || (fa ? 'تک‌آهنگ' : 'Single') },
-        { key: 'trackNo', label: fa ? 'شماره در آلبوم' : 'Track #', type: 'number' },
-        { key: 'genre', label: fa ? 'سبک (با ویرگول)' : 'Genre (comma separated)', placeholder: fa ? 'پاپ، سنتی' : 'Pop, Rock', table: true },
-        { key: 'terms', label: fa ? 'زبان و گویش' : 'Language / dialect', type: 'terms', taxonomy: 'music-language' },
-        { key: 'audioUrl', label: fa ? 'فایل صوتی ۱۲۸ (لینک)' : 'Audio 128 kbps URL', dir: 'ltr', wide: true, placeholder: 'https://dl.example.com/track-128.mp3', upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac', hint: fa ? 'این لینک هرگز در صفحه نمایش داده نمی‌شود؛ پخش از مسیر امن سایت انجام می‌شود.' : 'Never shown on the page — playback goes through a protected site endpoint.' },
-        { key: 'audioHqUrl', label: fa ? 'فایل صوتی ۳۲۰ (کیفیت بالا)' : 'Audio 320 kbps (HQ) URL', dir: 'ltr', wide: true, upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac' },
-        { key: 'duration', label: fa ? 'مدت (ثانیه)' : 'Duration (seconds)', type: 'number' },
-        { key: 'cover', label: fa ? 'کاور (خالی = کاور آلبوم)' : 'Cover (empty = album cover)', type: 'image' },
-        { key: 'lyrics', label: fa ? 'متن ترانه' : 'Lyrics', type: 'richtext', wide: true, upload: 'music' },
-        access, status, featured, publishedAt, slug,
+        ...inSection(L('اطلاعات آهنگ', 'Song details'), [
+          { key: 'title', label: fa ? 'نام آهنگ' : 'Title', required: true, table: true },
+          { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
+          artist,
+          { key: 'albumId', label: fa ? 'آلبوم (اختیاری)' : 'Album (optional)', type: 'select', source: { type: 'music-albums', label: (row) => `${row.title} — ${row.artist?.name || ''}`, empty: fa ? '— تک‌آهنگ —' : '— single —' }, table: (row) => row.album?.title || (fa ? 'تک‌آهنگ' : 'Single') },
+          { key: 'trackNo', label: fa ? 'شماره در آلبوم' : 'Track #', type: 'number' },
+          { key: 'duration', label: fa ? 'مدت (ثانیه)' : 'Duration (seconds)', type: 'number' },
+          { key: 'genre', label: fa ? 'سبک (با ویرگول)' : 'Genre (comma separated)', placeholder: fa ? 'پاپ، سنتی' : 'Pop, Rock', table: true },
+          { key: 'terms', label: fa ? 'زبان و گویش' : 'Language / dialect', type: 'terms', taxonomy: 'music-language' },
+        ]),
+        ...inSection(L('فایل‌های صوتی', 'Audio files'), [
+          { key: 'audioUrl', label: fa ? 'فایل صوتی ۱۲۸ (لینک)' : 'Audio 128 kbps URL', dir: 'ltr', wide: true, placeholder: 'https://dl.example.com/track-128.mp3', upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac', hint: fa ? 'این لینک هرگز در صفحه نمایش داده نمی‌شود؛ پخش از مسیر امن سایت انجام می‌شود.' : 'Never shown on the page — playback goes through a protected site endpoint.' },
+          { key: 'audioHqUrl', label: fa ? 'فایل صوتی ۳۲۰ (کیفیت بالا)' : 'Audio 320 kbps (HQ) URL', dir: 'ltr', wide: true, upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac' },
+        ]),
+        ...inSection(L('کاور و متن ترانه', 'Cover & lyrics'), [
+          { key: 'cover', label: fa ? 'کاور (خالی = کاور آلبوم)' : 'Cover (empty = album cover)', type: 'image', frame: 'square' },
+          { key: 'lyrics', label: fa ? 'متن ترانه' : 'Lyrics', type: 'richtext', wide: true, upload: 'music' },
+        ]),
+        ...inSection(publish, [access, status, featured, publishedAt, slug]),
       ],
     },
     albums: {
       type: 'music-albums', title: fa ? 'آلبوم‌ها' : 'Albums',
       publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/album/${row.slug}` : null),
       fields: [
-        { key: 'title', label: fa ? 'نام آلبوم' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        artist,
-        { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
-        { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },
-        { key: 'trackTerms', label: fa ? 'زبان و گویش همهٔ آهنگ‌های این آلبوم (اگر انتخاب کنید روی همهٔ آهنگ‌هایش ثبت می‌شود)' : 'Language of every song in this album (applied to all its songs when chosen)', type: 'terms', taxonomy: 'music-language' },
-        { key: 'genre', label: fa ? 'سبک' : 'Genre' },
-        { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
-        { key: 'description', label: fa ? 'توضیحات' : 'Description', type: 'richtext', wide: true, upload: 'music' },
-        access, status, featured, publishedAt, slug,
+        ...inSection(L('اطلاعات آلبوم', 'Album details'), [
+          { key: 'title', label: fa ? 'نام آلبوم' : 'Title', required: true, table: true },
+          { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
+          artist,
+          { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
+          { key: 'genre', label: fa ? 'سبک' : 'Genre' },
+        ]),
+        ...inSection(L('دسته‌بندی و زبان', 'Categories & language'), [
+          { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },
+          { key: 'trackTerms', label: fa ? 'زبان و گویش همهٔ آهنگ‌های این آلبوم (اگر انتخاب کنید روی همهٔ آهنگ‌هایش ثبت می‌شود)' : 'Language of every song in this album (applied to all its songs when chosen)', type: 'terms', taxonomy: 'music-language' },
+        ]),
+        ...inSection(L('کاور و توضیحات', 'Cover & description'), [
+          { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', frame: 'square', table: true },
+          { key: 'description', label: fa ? 'توضیحات' : 'Description', type: 'richtext', wide: true, upload: 'music' },
+        ]),
+        ...inSection(publish, [access, status, featured, publishedAt, slug]),
       ],
     },
     playlists: {
       type: 'music-playlists', title: fa ? 'پلی‌لیست‌ها' : 'Playlists',
       publicPath: (row) => (row.status === 'PUBLISHED' ? `/music/playlist/${row.slug}` : null),
       fields: [
-        { key: 'title', label: fa ? 'نام پلی‌لیست' : 'Title', required: true, table: true },
-        { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
-        { key: 'description', label: fa ? 'توضیحات پلی‌لیست' : 'Playlist description', type: 'richtext', wide: true, upload: 'music' },
-        { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', table: true },
-        { key: 'trackIds', label: fa ? 'آهنگ‌ها (به ترتیب)' : 'Tracks (in order)', type: 'picklist', source: { type: 'music-tracks', label: (row) => `${row.title} — ${row.artist?.name || ''}` } },
-        { key: 'sortOrder', label: fa ? 'ترتیب' : 'Order', type: 'number' },
-        access, status, featured, slug,
+        ...inSection(L('اطلاعات پلی‌لیست', 'Playlist details'), [
+          { key: 'title', label: fa ? 'نام پلی‌لیست' : 'Title', required: true, table: true },
+          { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
+          { key: 'sortOrder', label: fa ? 'ترتیب' : 'Order', type: 'number' },
+        ]),
+        ...inSection(L('آهنگ‌ها', 'Tracks'), [
+          { key: 'trackIds', label: fa ? 'آهنگ‌ها (به ترتیب)' : 'Tracks (in order)', type: 'picklist', source: { type: 'music-tracks', label: (row) => `${row.title} — ${row.artist?.name || ''}` } },
+        ]),
+        ...inSection(L('کاور و توضیحات', 'Cover & description'), [
+          { key: 'cover', label: fa ? 'کاور' : 'Cover', type: 'image', frame: 'square', table: true },
+          { key: 'description', label: fa ? 'توضیحات پلی‌لیست' : 'Playlist description', type: 'richtext', wide: true, upload: 'music' },
+        ]),
+        ...inSection(publish, [access, status, featured, slug]),
       ],
     },
   }

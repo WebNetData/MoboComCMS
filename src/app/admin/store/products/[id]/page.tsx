@@ -208,7 +208,7 @@ export default function ProductEditorPage() {
 
         <section id="sa-media" className="sa-card">
           <header className="sa-card-head"><h2>تصاویر</h2></header>
-          <div className="sa-field"><span>تصویر اصلی</span><CoverField value={form.image || ''} title={form.name} onChange={(value) => update('image', value)} onBusy={setUploading} /></div>
+          <div className="sa-field"><span>تصویر اصلی</span><CoverField mode="square" value={form.image || ''} title={form.name} onChange={(value) => update('image', value)} onBusy={setUploading} /></div>
         </section>
 
         <section id="sa-attributes" className="sa-card sa-extras">

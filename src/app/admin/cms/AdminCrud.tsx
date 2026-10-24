@@ -29,6 +29,8 @@ export interface FieldDef {
   hideInTable?: boolean
   required?: boolean
   dir?: 'ltr' | 'rtl'
+  /** Fields with the same section are shown together under that heading, in the order the section first appears. */
+  section?: string
 }
 
 interface Props {
@@ -39,6 +41,14 @@ interface Props {
   editorExtraKeys?: string[]
   renderEditorExtra?: (form: Record<string, any>, setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>, editId: number | null) => React.ReactNode
   headerActions?: React.ReactNode
+}
+
+/** The form's sections in the order they first appear; one untitled group when no field names a section. */
+function formSections(fields: FieldDef[]) {
+  if (!fields.some((field) => field.section)) return [{ title: '', fields }]
+  const groups = new Map<string, FieldDef[]>()
+  for (const field of fields) groups.set(field.section || '', [...(groups.get(field.section || '') || []), field])
+  return [...groups].map(([title, grouped]) => ({ title, fields: grouped }))
 }
 
 /** Colour of a status in the list; anything unknown stays grey. */
@@ -305,6 +315,55 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const names: Record<string, string> = { pages: fa ? 'صفحه‌های سایت' : 'Pages', posts: fa ? 'نوشته‌ها' : 'Articles', products: fa ? 'محصولات فروشگاه' : 'Products', postcats: fa ? 'دسته‌بندی نوشته‌ها' : 'Article categories', productcats: fa ? 'دسته‌بندی محصولات' : 'Product categories' }
   const publicPath = type === 'pages' ? '/p/' : type === 'posts' ? '/blog/' : type === 'products' ? '/products/' : ''
 
+  const sections = formSections(fields)
+  const sectioned = sections.some((section) => section.title)
+  const fieldBox = (fl: FieldDef) => (
+    <div key={fl.key} className={`mx-field ${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
+      {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
+      {blockDriven && fl.key === 'content' && !legacyBody ? (
+        <div className="cms-block-body">
+          {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
+          {editId && editFormat === 'legacy' ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود. ' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save. '}<button type="button" className="link" onClick={() => setLegacyBody(true)}>{fa ? 'ادامه با ویرایشگر قدیمی' : 'Keep using the old editor'}</button></p> : null}
+        </div>
+      ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
+        <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
+      ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
+        <RichEditor
+          value={form[fl.key] || ''}
+          onChange={(html) => setForm({ ...form, [fl.key]: html })}
+          placeholder={fl.label}
+          dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
+        />
+      ) : fl.type === 'textarea' ? (
+        <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
+      ) : fl.type === 'checkbox' ? (
+        <label className="flex items-center gap-2 text-sm mx-check" style={{ minHeight: '2.75rem' }}>
+          <input type="checkbox" checked={form[fl.key] === true} onChange={(e) => setForm({ ...form, [fl.key]: e.target.checked })} />
+          {fl.label}
+        </label>
+      ) : fl.type === 'select' ? (
+        <select id={`${formId}-${fl.key}`} aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
+          {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)?.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      ) : fl.type === 'datetime-local' ? (
+        <JalaliDateInput withTime id={`${formId}-${fl.key}`} value={form[fl.key] ?? ''} onChange={(value) => setForm({ ...form, [fl.key]: value })} required={fl.required} />
+      ) : (
+        <input
+          id={`${formId}-${fl.key}`}
+          className="input"
+          dir={fl.dir}
+          type={fl.type === 'number' ? 'number' : 'text'}
+          step={fl.key === 'price' ? '0.01' : undefined}
+          value={form[fl.key] ?? ''}
+          onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })}
+          required={fl.required}
+        />
+      )}
+    </div>
+  )
+
   return (
     <div className="cms-workspace">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -317,64 +376,21 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
           </button>
         </div>
       </div>
-      <div className="cms-summary"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
+      <div className="cms-summary mx-toolbar"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
 
       <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
 
       {bulkEnabled && <><BulkActions count={selected.size} canPublish fa={fa} busy={bulkBusy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />{bulkMsg && <p className={bulkMsg.tone === 'err' ? 'error-text cms-bulk-message' : 'cms-bulk-message'} role="status">{bulkMsg.text}</p>}</>}
 
       {showForm && (
-        <form onSubmit={save} className="card mb-6 grid-3 items-end">
-          {editId && (type === 'posts' || type === 'pages' || type === 'products') && <div className="grid-column-span-3"><a className="text-sm" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a></div>}
+        <form onSubmit={save} className={sectioned ? 'card mb-6 mx-form cms-sectioned-form' : 'card mb-6 grid-3 items-end'}>
+          {editId && (type === 'posts' || type === 'pages' || type === 'products') && <div className="grid-column-span-3"><a className="mx-form-history" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a></div>}
           {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
-          {fields.map((fl) => (
-            <div key={fl.key} className={`${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
-              {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
-              {blockDriven && fl.key === 'content' && !legacyBody ? (
-                <div className="cms-block-body">
-                  {editId ? <a className="btn btn-primary" href={`/admin/editor/${type}/${editId}`}>{fa ? 'نوشتن متن در ویرایشگر بلوکی' : 'Write the body in the block editor'}</a> : <p className="muted text-sm">{fa ? 'پس از ذخیره، برای نوشتن متن به ویرایشگر بلوکی می‌روید.' : 'After saving you go to the block editor to write the body.'}</p>}
-                  {editId && editFormat === 'legacy' ? <p className="muted text-sm">{fa ? 'این مورد هنوز با ویرایشگر قدیمی نوشته شده است؛ ویرایشگر بلوکی متن فعلی را به بلوک تبدیل می‌کند و تا ذخیره نکنید چیزی عوض نمی‌شود. ' : 'This item is still written in the old editor; the block editor turns its body into blocks and changes nothing until you save. '}<button type="button" className="link" onClick={() => setLegacyBody(true)}>{fa ? 'ادامه با ویرایشگر قدیمی' : 'Keep using the old editor'}</button></p> : null}
-                </div>
-              ) : blocksLocked && fl.key === 'content' && editId && editFormat === 'blocks-v1' ? (
-                <p className="muted text-sm cms-block-body">{fa ? 'متن این مورد با ویرایشگر بلوکی نوشته شده است و سر جایش است. برای ویرایش آن، افزونهٔ «ویرایشگر بلوکی» را از صفحهٔ افزونه‌ها فعال کنید.' : 'The body of this item is written in blocks and is kept. To edit it, turn the Block editor plugin on.'}</p>
-              ) : fl.type === 'multiselect' ? <CategoryPicker label={fl.label} options={fl.options || []} value={form[fl.key] || []} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} /> : fl.type === 'image' ? <CoverField value={form[fl.key] || ''} title={form[fa ? 'title' : 'titleEn'] || form.title || ''} onChange={value => setForm(current => ({ ...current, [fl.key]: value }))} onBusy={setUploading} /> : fl.type === 'richtext' ? (
-                <RichEditor
-                  value={form[fl.key] || ''}
-                  onChange={(html) => setForm({ ...form, [fl.key]: html })}
-                  placeholder={fl.label}
-                  dir={fl.dir || (/En$/.test(fl.key) ? 'ltr' : 'rtl')}
-                />
-              ) : fl.type === 'textarea' ? (
-                <textarea id={`${formId}-${fl.key}`} className="textarea" rows={fl.key === 'content' || fl.key === 'contentEn' ? 6 : 3} dir={fl.dir} value={form[fl.key] || ''} onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })} required={fl.required} />
-              ) : fl.type === 'checkbox' ? (
-                <label className="flex items-center gap-2 text-sm" style={{ minHeight: '2.75rem' }}>
-                  <input type="checkbox" checked={form[fl.key] === true} onChange={(e) => setForm({ ...form, [fl.key]: e.target.checked })} />
-                  {fl.label}
-                </label>
-              ) : fl.type === 'select' ? (
-                <select id={`${formId}-${fl.key}`} aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
-                  {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)?.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              ) : fl.type === 'datetime-local' ? (
-                <JalaliDateInput withTime id={`${formId}-${fl.key}`} value={form[fl.key] ?? ''} onChange={(value) => setForm({ ...form, [fl.key]: value })} required={fl.required} />
-              ) : (
-                <input
-                  id={`${formId}-${fl.key}`}
-                  className="input"
-                  dir={fl.dir}
-                  type={fl.type === 'number' ? 'number' : 'text'}
-                  step={fl.key === 'price' ? '0.01' : undefined}
-                  value={form[fl.key] ?? ''}
-                  onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })}
-                  required={fl.required}
-                />
-              )}
-            </div>
-          ))}
-          {renderEditorExtra?.(form, setForm, editId)}
-          <div className="flex gap-2">
+          {sections.map((section) => section.title
+            ? <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{section.fields.map(fieldBox)}</div></fieldset>
+            : section.fields.map(fieldBox))}
+          {renderEditorExtra && (sectioned ? <div className="grid-3 items-end cms-form-extra">{renderEditorExtra(form, setForm, editId)}</div> : renderEditorExtra(form, setForm, editId))}
+          <div className="flex gap-2 cms-form-actions">
             <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
             <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
           </div>

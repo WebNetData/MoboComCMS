@@ -232,8 +232,8 @@ export default function GameEditorPage() {
 
         <section id="media" className="sa-card"><header className="sa-card-head"><h2>تصاویر و تریلر</h2></header>
           <div className="sa-stack">
-            <div className="sa-field"><span>کاور (عمودی)</span><CoverField value={form.cover} title={form.title} onChange={(v) => update('cover', v)} onBusy={setUploading} /></div>
-            <div className="sa-field"><span>تصویر پس‌زمینه (افقی)</span><CoverField value={form.backdrop} title={form.title} onChange={(v) => update('backdrop', v)} onBusy={setUploading} /></div>
+            <div className="sa-field"><span>کاور (عمودی)</span><CoverField value={form.cover} title={form.title} onChange={(v) => update('cover', v)} onBusy={setUploading} mode="poster" /></div>
+            <div className="sa-field"><span>تصویر پس‌زمینه (افقی)</span><CoverField value={form.backdrop} title={form.title} onChange={(v) => update('backdrop', v)} onBusy={setUploading} mode="media" /></div>
           </div>
           {field('trailerUrl', 'تریلر (یوتیوب، آپارات، ویمئو یا فایل ویدیو)', { dir: 'ltr', placeholder: 'https://www.aparat.com/v/…' })}
           <div className="sa-field"><span>اسکرین‌شات‌ها</span>

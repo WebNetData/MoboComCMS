@@ -1,5 +1,8 @@
 import type { MediaField } from './MediaCrud'
 
+/** The same fields, shown together under one section heading of the form. */
+export const inSection = (section: string, fields: MediaField[]): MediaField[] => fields.map((field) => ({ ...field, section }))
+
 /** Shared admin field sets for the media library. */
 export function commonFields(fa: boolean) {
   const access: MediaField = { key: 'access', label: fa ? 'دسترسی' : 'Access', type: 'select', options: [{ value: 'PUBLIC', label: fa ? 'عمومی' : 'Public' }, { value: 'MEMBERS', label: fa ? 'فقط اعضای VIP' : 'VIP members only' }], table: true }
