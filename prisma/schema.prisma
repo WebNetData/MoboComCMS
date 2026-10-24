@@ -1685,6 +1685,8 @@ model CinemaTitle {
   languages     String         @default("")
   genres        String         @default("")
   director      String         @default("")
+  // Producers, separated like the director line; read into PRODUCER credits.
+  producer      String         @default("")
   cast          String         @default("[]")
   summary       String         @default("")
   summaryEn     String         @default("")
@@ -1715,7 +1717,7 @@ model CinemaTitle {
   @@index([createdById])
 }
 
-/// A person of films and series (director, cast), read out of the titles' own director line and cast list.
+/// A person of films and series (director, producer, cast), read out of the titles' own director and producer lines and cast list.
 model CinemaPerson {
   mergedIntoId Int?
   mergedInto CinemaPerson? @relation("CinemaPersonMerges", fields: [mergedIntoId], references: [id], onDelete: Restrict)
@@ -1736,7 +1738,7 @@ model CinemaCredit {
   id        Int          @id @default(autoincrement())
   titleId   Int
   personId  Int
-  role      String // DIRECTOR | CAST
+  role      String // DIRECTOR | PRODUCER | CAST
   character String       @default("")
   sortOrder Int          @default(0)
   title     CinemaTitle  @relation(fields: [titleId], references: [id], onDelete: Cascade)

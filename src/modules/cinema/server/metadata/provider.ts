@@ -45,7 +45,9 @@ async function lookupTmdbMetadata(id: string, preferredKind: unknown, credential
   const crew=Array.isArray(detail.credits?.crew)?detail.credits.crew:[]
   const directors=crew.filter((p:Data)=>p.job==='Director').slice(0,8)
   const creators=kind==='tv' && !directors.length ? (detail.created_by || []).slice(0,8) : directors
+  const producers=crew.filter((p:Data)=>p.job==='Producer').slice(0,6)
   const fields:Data={imdbId:id,kind:kind==='tv'?'SERIES':'MOVIE',title:text(detail.title||detail.name||english.title||english.name,200),titleEn:text(detail.original_title||detail.original_name,200),originalTitle:text(detail.original_title||detail.original_name,200),genres:names(detail.genres),countries:names(detail.production_countries),languages:names(detail.spoken_languages,'english_name'),director:names(creators),directorImages:creators.map((p:Data)=>({name:text(p.name,120),image:image(p.profile_path,'w185')})),cast:(detail.credits?.cast||[]).slice(0,40).map((p:Data)=>({name:text(p.name,120),role:text(p.character,120),image:image(p.profile_path,'w185')})),summary:text(detail.overview||english.overview,6000),poster:image(detail.poster_path),backdrop:image(detail.backdrop_path,'w1280')}
+  if (producers.length) fields.producer=text(producers.map((p:Data)=>p.name).filter(Boolean).join('، '),300)
   if (year>=1880 && year<=2100) fields.year=year
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) fields.releaseDate=date
   const runtime=kind==='movie'?Number(detail.runtime):Number(detail.episode_run_time?.[0])

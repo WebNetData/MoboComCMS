@@ -32,9 +32,10 @@ export default async function CinemaPersonPage({params}:Props){
   if(!person)notFound()
   if (person.id !== Number(id)) permanentRedirect(`/cinema/people/${person.id}`)
   const presentation = await getCinemaSettings(true)
-  const [acted,directed]=await Promise.all([
+  const [acted,directed,produced]=await Promise.all([
     person.castCount?browseCinema({actor:String(person.id)}):null,
     person.directorCount?browseCinema({director:String(person.id)}):null,
+    person.producerCount?browseCinema({producer:String(person.id)}):null,
   ])
   const jsonLd={'@context':'https://schema.org','@type':'Person',name:person.name,...(person.image?{image:person.image}:{})}
   return <MediaShell section="cinema" active="people" nav={cinemaNav(fa)} search={{action:'/cinema/browse',placeholder:fa?'جست‌وجوی فیلم و سریال':'Search films and series'}}>
@@ -47,11 +48,12 @@ export default async function CinemaPersonPage({params}:Props){
       {presentation.personFollowEnabled && <ItemActionBar item={{ type: 'person', id: person.id }} title={person.name} image={person.image} followLabel={fa ? 'اعلان اثر تازه' : 'New works'} favoriteLabels={{ off: fa ? 'دنبال‌کردن' : 'Follow', on: fa ? 'دنبال می‌کنید' : 'Following' }} />}
       {acted&&<Filmography name={person.name} fa={fa} result={acted} role="CAST" href={cinemaBrowseHref({actor:String(person.id)})}/>}
       {directed&&<Filmography name={person.name} fa={fa} result={directed} role="DIRECTOR" href={cinemaBrowseHref({director:String(person.id)})}/>}
+      {produced&&<Filmography name={person.name} fa={fa} result={produced} role="PRODUCER" href={cinemaBrowseHref({producer:String(person.id)})}/>}
     </div>
   </MediaShell>
 }
-function Filmography({name,fa,result,role,href}:{name:string;fa:boolean;result:Awaited<ReturnType<typeof browseCinema>>;role:'CAST'|'DIRECTOR';href:string}){
-  const title=role==='CAST'?(fa?'آثار با حضور '+name:'Featuring '+name):(fa?'آثار به کارگردانی '+name:'Directed by '+name)
+function Filmography({name,fa,result,role,href}:{name:string;fa:boolean;result:Awaited<ReturnType<typeof browseCinema>>;role:'CAST'|'DIRECTOR'|'PRODUCER';href:string}){
+  const title=role==='CAST'?(fa?'آثار با حضور '+name:'Featuring '+name):role==='PRODUCER'?(fa?'آثار به تهیه‌کنندگی '+name:'Produced by '+name):(fa?'آثار به کارگردانی '+name:'Directed by '+name)
   const num=(n:number)=>n.toLocaleString(fa?'fa-IR':'en-US')
   return <section className={styles.shelf} aria-label={title}>
     <header className={styles.shelfHead}><div><h2>{title}</h2><p>{result.unavailable?(fa?'دریافت آثار ممکن نشد':'Works could not be loaded'):(fa?`${num(result.total)} اثر ثبت‌شده در موبوکام`:`${num(result.total)} works on MoboCom`)}{result.total>result.titles.length&&(fa?`؛ نمایش ${num(result.titles.length)} اثر تازه‌تر`:`; showing the latest ${num(result.titles.length)}`)}</p></div><Link className={styles.more} href={href}>{fa?'مشاهده و جست‌وجوی همهٔ آثار':'Browse all works'}<Icon name="arrow" size={16}/></Link></header>

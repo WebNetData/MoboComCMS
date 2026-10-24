@@ -75,6 +75,7 @@ export default async function TitlePage({ params }: Props) {
   const personHref = (name: string) => { const id = people.get(normalizePersonName(name))?.id; return id ? `/cinema/people/${id}` : null }
   const facts: [string, string][] = [
     [fa ? 'کارگردان' : 'Director', ti.director],
+    [fa ? 'تهیه‌کننده' : 'Producer', ti.producer],
     [fa ? 'کشور' : 'Country', ti.countries.join('، ')],
     [fa ? 'زبان' : 'Language', ti.languages.join('، ')],
     [fa ? 'رده سنی' : 'Rating', ti.ageRating],
@@ -113,7 +114,7 @@ export default async function TitlePage({ params }: Props) {
               <Trailer embed={trailer.embed} src={trailer.src} fa={fa} />
             </div>
             <ItemActionBar item={ref} title={name} image={ti.poster} followLabel={ti.kind === 'SERIES' ? 'قسمت جدید' : 'لینک‌های جدید'} />
-            {facts.length > 0 && <dl className="cn-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v === ti.director ? creditsOf({ director: v, cast: [] }).map((credit, i) => { const href = personHref(credit.name); return <span key={credit.name}>{i > 0 && (fa ? '، ' : ', ')}{href ? <Link href={href}>{credit.name}</Link> : credit.name}</span> }) : v}</dd></div>)}</dl>}
+            {facts.length > 0 && <dl className="cn-facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v === ti.director || v === ti.producer ? creditsOf({ director: v, cast: [] }).map((credit, i) => { const href = personHref(credit.name); return <span key={credit.name}>{i > 0 && (fa ? '، ' : ', ')}{href ? <Link href={href}>{credit.name}</Link> : credit.name}</span> }) : v}</dd></div>)}</dl>}
           </div>
         </div>
       </section>

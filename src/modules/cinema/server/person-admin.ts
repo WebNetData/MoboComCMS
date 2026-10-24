@@ -9,12 +9,30 @@ export async function adminPeople(params: URLSearchParams) {
   let pagination: ReturnType<typeof adminPageParams>
   try { pagination=adminPageParams(params) } catch { throw new PersonProfileError('جست‌وجو یا صفحه‌بندی معتبر نیست') }
   const {size,page,query}=pagination,role=params.get('role') || ''
-  if (role && !['CAST','DIRECTOR','uncredited'].includes(role)) throw new PersonProfileError('نوع عوامل معتبر نیست')
+  if (role && !['CAST','DIRECTOR','PRODUCER','uncredited'].includes(role)) throw new PersonProfileError('نوع عوامل معتبر نیست')
   const q=normalizePersonName(query)
   const where: Prisma.CinemaPersonWhereInput={mergedIntoId:null,...(q?{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]}:{}),...(role==='uncredited'?{credits:{none:{}}}:role?{credits:{some:{role}}}:{})}
   const total=await db.cinemaPerson.count({where}),slice=adminPageSlice(total,page,size)
   const rows=await db.cinemaPerson.findMany({where,skip:slice.skip,take:slice.take,orderBy:{id:'desc'},select:{id:true,name:true,image:true,imageLocked:true,credits:{select:{role:true}},_count:{select:{credits:{where:{title:{status:'PUBLISHED',publishedAt:{lte:new Date()}}}}}}}})
   return {people:rows.map(({credits,_count,...person})=>({...person,roles:[...new Set(credits.map(c=>c.role))],creditCount:credits.length,publicCredits:_count.credits})),total,page:slice.page,pages:slice.pages,limit:size}
+}
+/**
+ * The title form's people picker: canonical profiles whose name (or a merged alias) contains the query, the most
+ * credited first, at most 12, with the roles they already have. Names only; nothing private about a person. An author
+ * (authorId) sees people of published titles and of the titles they created, not names only on others' drafts.
+ */
+export async function suggestPeople(params: URLSearchParams, authorId: number | null = null) {
+  const q=normalizePersonName(params.get('q')||'').slice(0,60)
+  if(q.length<2)return {people:[]}
+  const rows=await db.cinemaPerson.findMany({
+    where:{mergedIntoId:null,AND:[
+      {OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}},{aliases:{some:{OR:[{normalizedName:{contains:q}},{displayNameKey:{contains:q}}]}}}]},
+      ...(authorId?[{credits:{some:{title:{OR:[{status:'PUBLISHED'},{createdById:authorId}]}}}}]:[]),
+    ]},
+    orderBy:[{credits:{_count:'desc'}},{id:'asc'}],take:12,
+    select:{id:true,name:true,image:true,credits:{select:{role:true},take:60}},
+  })
+  return {people:rows.map(({credits,...person})=>({...person,roles:[...new Set(credits.map(credit=>credit.role))]}))}
 }
 export async function adminPerson(id: number) {
   const person=await db.cinemaPerson.findUnique({where:{id},select:{...profile,credits:{orderBy:{id:'asc'},take:101,select:{id:true,role:true,character:true,title:{select:{id:true,title:true,slug:true,status:true,publishedAt:true,kind:true}}}}}})

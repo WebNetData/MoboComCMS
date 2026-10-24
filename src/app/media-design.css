@@ -629,6 +629,46 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .mx-field { display: grid; gap: 4px; min-width: 0; }
 .mx-field.is-wide { grid-column: 1 / -1; }
 .mx-hint { font-size: .78rem; }
+/* A long media form in titled sections: each group of fields on its own card, the title inside the card. */
+.mx-section { min-width: 0; margin: 0 0 16px; padding: 18px 20px 20px; border: 1px solid var(--border); border-radius: 18px; background: color-mix(in srgb, var(--bg-soft) 55%, var(--card)); }
+.mx-section-title { float: inline-start; width: 100%; display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 0 0 12px; border-bottom: 1px solid var(--border); font-size: .98rem; font-weight: 800; color: var(--text); }
+.mx-section-title::before { content: ''; width: 4px; height: 18px; border-radius: 4px; background: linear-gradient(var(--primary), color-mix(in srgb, var(--primary) 35%, transparent)); }
+.mx-section-title + * { clear: both; }
+.mx-section .mx-grid { gap: 16px 18px; }
+.mx-section .mx-field > .label { display: flex; align-items: center; gap: 6px; min-height: 22px; margin: 0; font-size: .82rem; font-weight: 700; color: color-mix(in srgb, var(--text) 80%, var(--muted)); }
+.mx-section .mx-field .input, .mx-section .mx-field .select { min-height: 44px; border-radius: 12px; }
+.mx-section .mx-check { align-self: end; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); font-weight: 700; }
+/* People of a film or series, picked from the site's people (PeoplePicker). */
+.mx-people { display: grid; gap: 10px; }
+.mx-people-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mx-people-chips li { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding-block: 4px; padding-inline: 5px 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); background: color-mix(in srgb, var(--primary) 8%, var(--card)); font-size: .88rem; font-weight: 700; }
+.mx-people-chips button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font: inherit; font-size: 1.15rem; line-height: 1; cursor: pointer; }
+.mx-people-chips button:hover, .mx-people-chips button:focus-visible { background: color-mix(in srgb, #ef4444 16%, transparent); color: #ef4444; }
+.mx-people-avatar { flex: none; display: grid; place-items: center; width: 30px; height: 30px; overflow: hidden; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-soft); color: var(--primary); font-size: .8rem; font-weight: 800; }
+.mx-people-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.mx-cast { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mx-cast li { display: grid; grid-template-columns: 24px 40px minmax(120px, 1fr) minmax(150px, 1.2fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); }
+.mx-cast .mx-people-avatar { width: 40px; height: 40px; }
+.mx-cast-no { text-align: center; color: var(--muted); font-size: .8rem; font-weight: 800; }
+.mx-cast-name { min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
+.mx-cast .input { min-height: 40px; }
+.mx-people-search { position: relative; }
+.mx-people-menu { position: absolute; z-index: 30; inset-inline: 0; top: calc(100% + 6px); overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); }
+.mx-people-menu ul { max-height: 320px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; }
+.mx-people-menu li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+.mx-people-menu li.is-active { background: color-mix(in srgb, var(--primary) 13%, transparent); }
+.mx-people-menu .mx-people-avatar { width: 36px; height: 36px; }
+.mx-people-option { display: grid; gap: 2px; min-width: 0; }
+.mx-people-option b { font-size: .9rem; overflow-wrap: anywhere; }
+.mx-people-option small { color: var(--muted); font-size: .74rem; }
+.mx-people-new b { color: var(--primary); }
+.mx-people-note { margin: 0; padding: 8px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: .75rem; }
+@media (max-width: 640px) {
+  .mx-section { padding: 14px; }
+  .mx-cast li { grid-template-columns: 24px 40px minmax(0, 1fr); }
+  .mx-cast li .input { grid-column: 2 / -1; }
+  .mx-cast li .mx-row-tools { grid-column: 1 / -1; justify-content: flex-end; }
+}
 .mx-check { min-height: 2.75rem; }
 .mx-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
 .mx-links, .mx-records, .mx-seasons { display: grid; gap: 8px; }

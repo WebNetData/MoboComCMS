@@ -77,7 +77,33 @@ async function main() {
   assert.deepEqual([(await credits(old)).map(c => c[0]), (await credits(one)).length, (await people.personPage(star)).acted.length, await prisma.cinemaPerson.count({ where: { normalizedName: { startsWith: seed } } })], [['Veteran', 'Star'], 2, 4, 5], 'the same people are found again, not made twice')
   await people.backfillCredits(3)
   assert.equal(await prisma.cinemaCredit.count({ where: { titleId: old.id } }), 2, 'repeating it changes nothing')
-  console.log('PostgreSQL cinema people: credits read from a title\'s own fields, one person across spellings and roles, pages and directory of published titles only, edits followed, and older titles backfilled once passed')
+  // ---- producers: a line like the director's, read into PRODUCER credits
+  assert.deepEqual(rules.creditsOf({ director: 'D1', producer: 'P1، P2 و P3', cast: [] }).map(c => [c.name, c.role]), [['D1', 'DIRECTOR'], ['P1', 'PRODUCER'], ['P2', 'PRODUCER'], ['P3', 'PRODUCER']])
+  const { row: three } = await save({ title: N('three'), slug: `${seed}-three`, kind: 'MOVIE', director: N('Second'), producer: `${N('Prod')}، ${N('Second')}`, cast: [{ name: N('Star') }] })
+  const prod = await personId('Prod')
+  assert.deepEqual(await credits(three), [['Second', 'DIRECTOR', ''], ['Prod', 'PRODUCER', ''], ['Second', 'PRODUCER', ''], ['Star', 'CAST', '']], 'a director may also produce: one person, two credits')
+  const produced = await people.personPage(prod)
+  assert.deepEqual([produced.produced, produced.producerCount, produced.directed, (await people.personPage(await personId('Second'))).produced], [[three.id], 1, [], [three.id]])
+  assert.deepEqual((await people.peopleDirectory({ q: N('Prod') })).people.map(p => [p.producer, p.director, p.cast]), [[true, false, false]])
+  assert.deepEqual((await people.publicPersonChoice(prod, 'PRODUCER'))?.id, prod)
+  assert.equal(await people.publicPersonChoice(prod, 'DIRECTOR'), null, 'the producer filter is the producer credit, not any credit')
+  // A save of the producer line alone keeps the credits in step.
+  await save({ producer: N('Prod') }, three.id)
+  assert.deepEqual((await credits(three)).filter(c => c[1] === 'PRODUCER').map(c => c[0]), ['Prod'])
+  const browse = load('src/modules/media/server/queries/cinema.ts')
+  const found = await browse.browseCinema({ producer: String(prod), q: seed })
+  assert.deepEqual(found.titles.map(t => t.id), [three.id], 'browse by producer')
+  assert.equal((await browse.browseCinema({ producer: String(prod), director: String(prod), q: seed })).titles.length, 0, 'filters are and-ed by role')
+
+  // ---- the title form's people suggestions
+  const admin = load('src/modules/cinema/server/person-admin.ts')
+  const suggest = (q, authorId = null) => admin.suggestPeople(new URLSearchParams({ q }), authorId).then(r => r.people.map(p => [p.name.replace(`${seed} `, ''), p.roles.sort().join('+')]))
+  assert.deepEqual(await suggest(N('Prod')), [['Prod', 'PRODUCER']])
+  assert.deepEqual(await suggest('x'), [], 'two characters at least')
+  const { row: secret } = await save({ title: N('secret'), slug: `${seed}-secret`, kind: 'MOVIE', status: 'DRAFT', producer: N('Secretive') })
+  await prisma.cinemaTitle.update({ where: { id: secret.id }, data: { createdById: 2147480000 } })
+  assert.deepEqual([await suggest(N('Secretive')), await suggest(N('Secretive'), 2147480001), await suggest(N('Secretive'), 2147480000)], [[['Secretive', 'PRODUCER']], [], [['Secretive', 'PRODUCER']]], 'a manager sees everyone; an author sees people of published titles and of their own drafts only')
+  console.log('PostgreSQL cinema people: credits read from a title\'s own fields, one person across spellings and roles, pages and directory of published titles only, edits followed, older titles backfilled once, producers credited and filtered, and author-scoped people suggestions passed')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try { await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } }); await prisma.cinemaPerson.deleteMany({ where: { normalizedName: { startsWith: seed } } }) }

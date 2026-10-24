@@ -23,6 +23,7 @@ import { applyCinemaMetadata } from '@/modules/cinema/domain/metadata'
 import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import PeoplePicker from './PeoplePicker'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -41,7 +42,13 @@ export type MediaField = {
   key: string
   label: string
   /** `richtext`: formatted text written in the site's editor and stored as sanitised HTML (the server cleans it on save). */
-  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms'
+  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms' | 'people'
+  /** For `people`: a director/producer line (`line`) or the cast list with characters and order (`cast`). */
+  people?: 'line' | 'cast'
+  /** Fields with the same section are shown together under that heading, in the order the section first appears. */
+  section?: string
+  /** Shown only when this says so for the form being edited (e.g. series-only fields); a hidden field keeps its value. */
+  when?: (form: Record<string, any>) => boolean
   /** For `terms`: the section taxonomy (software, games, music, cinema). */
   taxonomy?: string
   options?: Opt[]
@@ -77,6 +84,7 @@ function emptyValue(field: MediaField): unknown {
   switch (field.type) {
     case 'checkbox': return false
     case 'links': case 'records': case 'seasons': case 'picklist': return []
+    case 'people': return field.people === 'cast' ? [] : ''
     case 'requirements': return { min: {}, rec: {} }
     case 'terms': return { ids: [], primary: null }
     case 'select': return field.options?.[0]?.value ?? ''
@@ -90,6 +98,18 @@ function toFormValue(field: MediaField, value: unknown): unknown {
   if (field.type === 'date') return String(value).slice(0, 10)
   if (field.type === 'select' || field.type === 'number') return String(value)
   return value
+}
+
+/**
+ * What the form shows now and how: a field that does not apply to this item (e.g. a series field on a film) stays
+ * out; fields with a section are grouped under it, in the order each section first appears.
+ */
+function formLayout(fields: MediaField[], form: Record<string, any> | null) {
+  const shownFields = form ? fields.filter((field) => !field.when || field.when(form)) : fields
+  if (!shownFields.some((field) => field.section)) return { shownFields, sections: [{ title: '', fields: shownFields }] }
+  const groups = new Map<string, MediaField[]>()
+  for (const field of shownFields) groups.set(field.section || '', [...(groups.get(field.section || '') || []), field])
+  return { shownFields, sections: [...groups].map(([title, grouped]) => ({ title, fields: grouped })) }
 }
 
 export default function MediaCrud({ type, title, subtitle, fields: allFields, publicPath, titleKey = 'title', paywall }: Props) {
@@ -244,6 +264,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       case 'date': return [{ ...base, type: 'date' }]
       case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
       case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
+      // People are suggested as names (a line) or as name + character rows (the cast), as before the picker.
+      case 'people': return field.people === 'cast' ? [{ ...base, type: 'records', recordKeys: [{ key: 'name', label: fa ? 'نام' : 'Name' }, { key: 'role', label: fa ? 'نقش' : 'Character' }] }] : [{ ...base, type: 'text' }]
       default: return []
     }
   }).filter((field) => field.type !== 'records' || (field.recordKeys?.length ?? 0) > 0), [fields, sources]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,7 +282,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
     })
     setAiKeys((current) => { const next = new Set(current); for (const key of Object.keys(values)) if (!filled.includes(key)) next.delete(key); for (const key of filled) next.add(key); return next })
   }
-  const reviewRows: ReviewRow[] = form ? fields.map((field) => {
+  const { shownFields, sections } = formLayout(fields, form)
+  const reviewRows: ReviewRow[] = form ? shownFields.map((field) => {
     const value = previewValue(form[field.key], optionsOf(field))
     return { key: field.key, label: field.label, value, state: !value && field.required ? 'missing' : aiKeys.has(field.key) ? 'ai' : value ? 'ok' : 'empty' }
   }) : []
@@ -325,15 +348,14 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
           <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => current ? applyCinemaMetadata(current,values,replace,!editId) : current);setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
-          <div className="mx-grid">
-            {fields.map((field) => (
-              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}${aiKeys.has(field.key) ? ' is-ai' : ''}`}>
-                {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}{aiKeys.has(field.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>}
-                <OrganizationScope value={assetOrganization?{...assetOrganization,video:field.key==='trailerUrl'}:undefined}><FieldInput field={field} value={form[field.key]} onChange={(value, projected) => { if(projected)setForm(current => current?({ ...current, ...projected, [field.key]: value }):current);else set(field.key,value) }} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} /></OrganizationScope>
-                {field.hint && <small className="muted mx-hint">{field.hint}</small>}
-              </div>
-            ))}
-          </div>
+          {sections.map((section) => {
+            const body = section.fields.map((field) => <FieldBox key={field.key} field={field} value={form[field.key]} ai={aiKeys.has(field.key)} organization={assetOrganization}
+              options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''}
+              onChange={(value, projected) => { if (projected) setForm((current) => (current ? { ...current, ...projected, [field.key]: value } : current)); else set(field.key, value) }} />)
+            return section.title
+              ? <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{body}</div></fieldset>
+              : <div key="fields" className="mx-grid">{body}</div>
+          })}
           {paywall && <PaidAccessPanel ownerType={paywall.ownerType} ownerId={editId} noun={paywall.noun} />}
           <div className="flex gap-2 mt-4">
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
@@ -398,6 +420,18 @@ function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
   return str.length > 50 ? `${str.slice(0, 50)}…` : str || '—'
 }
 
+/** Fields that take the whole width of the form grid. */
+const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms', 'people'])
+
+/** One field of the form: its label (with the AI-suggestion mark), its input and its hint. */
+function FieldBox({ field, value, ai, organization, options, fa, onBusy, titleHint, onChange }: { field: MediaField; value: any; ai: boolean; organization?: AssetOrganization; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string; onChange: (value: unknown, projected?: Record<string, string>) => void }) {
+  return <div className={`mx-field${field.wide || WIDE_TYPES.has(field.type || '') ? ' is-wide' : ''}${ai ? ' is-ai' : ''}`}>
+    {field.type !== 'checkbox' && <span className="label">{field.label}{field.required ? ' *' : ''}{ai && <span className="ai-badge">پیشنهاد AI</span>}</span>}
+    <OrganizationScope value={organization ? { ...organization, video: field.key === 'trailerUrl' } : undefined}><FieldInput field={field} value={value} onChange={onChange} options={options} fa={fa} onBusy={onBusy} titleHint={titleHint} /></OrganizationScope>
+    {field.hint && <small className="muted mx-hint">{field.hint}</small>}
+  </div>
+}
+
 function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: { field: MediaField; value: any; onChange: (value: unknown, projected?: Record<string, string>) => void; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string }) {
   switch (field.type) {
     case 'checkbox':
@@ -422,6 +456,8 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
       return <RequirementsEditor value={value && typeof value === 'object' ? value : { min: {}, rec: {} }} onChange={onChange} fa={fa} />
     case 'terms':
       return <TermPicker taxonomy={field.taxonomy || ''} value={value && typeof value === 'object' && Array.isArray(value.ids) ? value : { ids: [], primary: null }} onChange={onChange} />
+    case 'people':
+      return <PeoplePicker mode={field.people || 'line'} value={value} onChange={(next) => onChange(next)} label={field.label} fa={fa} />
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
     default:
