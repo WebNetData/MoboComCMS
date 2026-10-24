@@ -365,7 +365,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
         </form>
       )}
 
-      <div className="cms-summary">
+      <div className="cms-summary mx-toolbar">
         <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
         {vip !== null && <div data-vip=""><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
         {trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}
@@ -411,11 +411,11 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
 }
 
 function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
-  if (typeof value === 'boolean') return value ? '✅' : '—'
+  if (typeof value === 'boolean') return value ? <span className="mx-yes">{fa ? 'دارد' : 'Yes'}</span> : <span className="mx-no">—</span>
   if (field.key === 'access') return value === 'MEMBERS' ? <span className="badge vip-badge-sm">VIP</span> : <span className="muted">{fa ? 'عمومی' : 'Public'}</span>
   if (field.key === 'status') return value === 'DRAFT' ? <span className="badge badge-gray">{fa ? 'پیش‌نویس' : 'Draft'}</span> : <span className="badge badge-green">{fa ? 'منتشر' : 'Live'}</span>
-  if (field.type === 'select') return field.options?.find((o) => o.value === String(value))?.label || String(value ?? '—')
-  if (field.type === 'image') return value ? <img src={String(value)} alt="" className="mx-thumb" /> : '—'
+  if (field.type === 'select') { const label = field.options?.find((o) => o.value === String(value))?.label; return label ? <span className="mx-tag">{label}</span> : String(value ?? '—') }
+  if (field.type === 'image') return value ? <img src={String(value)} alt="" className={`mx-thumb${field.key === 'poster' ? ' is-poster' : ''}`} /> : <span className={`mx-thumb is-empty${field.key === 'poster' ? ' is-poster' : ''}`} aria-hidden="true" />
   const str = String(value ?? '')
   return str.length > 50 ? `${str.slice(0, 50)}…` : str || '—'
 }
@@ -443,7 +443,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.key === 'poster' ? 'poster' : 'cover'} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.key === 'poster' ? 'poster' : 'media'} /></div>
     case 'date': case 'datetime':
       return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':
@@ -569,7 +569,8 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
           </div>
         </div>
       ))}
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'لینک' : 'Link'}</button>
+      {!value.length && <p className="mx-links-empty">{fa ? 'هنوز لینکی اضافه نشده. برای هر کیفیت یا نسخه یک لینک دانلود یا پخش بسازید.' : 'No links yet. Add one download or stream link per quality or version.'}</p>}
+      <button type="button" className="mx-links-add" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'افزودن لینک' : 'Add link'}</button>
       {priced && !compact && <p className="muted text-sm mx-links-hint">{fa ? 'قیمت جدا: لینکی که قیمت دارد جداگانه فروخته می‌شود (مثلاً نسخهٔ 4K گران‌تر)؛ خرید کل مورد آن را باز نمی‌کند. خالی بگذارید تا تابع قیمت یا دسترسی خود مورد باشد. ماژول «فروش محتوا» باید روشن باشد.' : 'Own price: a priced link is sold separately; buying the item does not open it.'}</p>}
       {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش آنلاین در سایت برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و لینک‌های یوتیوب/آپارات کار می‌کند. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Online playback works for MP4 (H.264/AAC), WebM, HLS (.m3u8) and YouTube/Aparat links. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
     </div>
