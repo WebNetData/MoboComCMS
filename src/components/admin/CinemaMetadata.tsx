@@ -6,7 +6,9 @@ import Link from '@/components/AppLink'
 /** Results may fill empty fields automatically; replacing edited content is always an explicit action. */
 export function CinemaMetadataLookup({value,kind,onApply}:{value:unknown;kind:unknown;onApply:(fields:Record<string,unknown>,replace:boolean)=>void}) {
   const [config,setConfig]=useState<CinemaMetadataConfig|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[replace,setReplace]=useState(false)
-  const current=useRef(''),applied=useRef(''),apply=useRef(onApply)
+  // The identifier the form opened with counts as already applied: opening a title does not fetch it again.
+  const [openedWith]=useState(()=>imdbIdentifier(value))
+  const current=useRef(''),applied=useRef(openedWith),apply=useRef(onApply)
   const mounted=useRef(true)
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
   const id=imdbIdentifier(value)
@@ -20,7 +22,18 @@ export function CinemaMetadataLookup({value,kind,onApply}:{value:unknown;kind:un
   }
   useEffect(()=>{if(!id||!config?.enabled||!ready||applied.current===id)return;const timer=setTimeout(()=>void lookup(false),800);return()=>clearTimeout(timer)},[id,config?.enabled,ready]) // eslint-disable-line react-hooks/exhaustive-deps
   if(!config)return null
-  return <section className="sa-card" aria-label="اطلاعات خودکار IMDb"><header className="sa-card-head"><h2>تکمیل خودکار با شناسه IMDb</h2><small>{config.provider==='imdb'?(config.cinemetaFallback?'IMDb + Cinemeta · بدون کلید API':'مستقیم · بدون کلید API'):'TMDb'}</small></header><p className="muted text-sm">شناسه یا لینک IMDb را در فیلد زیر وارد کنید؛ فیلدهای خالی خودکار پر می‌شوند. اطلاعات را قبل از انتشار بازبینی کنید.</p>{!ready?<Link href="/admin/cinema/settings">اتصال سرویس در تنظیمات فیلم و سریال</Link>:<><label className="sa-check"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)}/>جایگزینی اطلاعات واردشده با نتیجهٔ سرویس</label><button type="button" className="btn btn-ghost" disabled={!id||busy||!config.enabled} onClick={()=>void lookup(replace)}>{busy?'دریافت…':'دریافت دوبارهٔ اطلاعات'}</button></>}<p className="muted text-sm" role="status">{message}</p>{config.copyImages&&<p className="sa-sub">تصاویر موجود در نتیجه، در صف کتابخانه قرار می‌گیرند؛ بعد از تکمیل انتقال از سرور سایت خوانده می‌شوند.</p>}<Link href="/admin/cinema/settings">تنظیمات دریافت اطلاعات و عکس‌ها</Link>{config.provider==='tmdb'&&<small>This product uses the TMDB API but is not endorsed or certified by TMDB.</small>}</section>
+  const source=config.provider==='imdb'?(config.cinemetaFallback?'IMDb + Cinemeta':'IMDb'):'TMDb'
+  return <section className="sa-card mx-imdb" aria-label="اطلاعات خودکار IMDb">
+    <div className="mx-imdb-head"><span className="mx-imdb-mark" aria-hidden="true">IMDb</span><div><h2>تکمیل خودکار با شناسهٔ IMDb</h2><p>شناسه یا لینک IMDb را در «امتیاز و مشخصات» وارد کنید؛ فیلدهای خالی خودکار پر می‌شوند. پیش از انتشار بازبینی کنید.</p></div><small className="mx-imdb-source">{source}</small></div>
+    {!ready?<Link href="/admin/cinema/settings">اتصال سرویس در تنظیمات فیلم و سریال</Link>:<div className="mx-imdb-actions">
+      <button type="button" className="btn btn-ghost btn-sm" disabled={!id||busy||!config.enabled} onClick={()=>void lookup(replace)}>{busy?'در حال دریافت…':id?'دریافت دوبارهٔ اطلاعات':'اول شناسهٔ IMDb را وارد کنید'}</button>
+      <label className="sa-check"><input type="checkbox" checked={replace} onChange={e=>setReplace(e.target.checked)}/>جایگزینی اطلاعات واردشده با نتیجهٔ سرویس</label>
+      <Link className="mx-imdb-settings" href="/admin/cinema/settings">تنظیمات دریافت اطلاعات و عکس‌ها</Link>
+    </div>}
+    <p className="mx-imdb-status" role="status">{message}</p>
+    {config.copyImages&&message&&<p className="sa-sub">تصاویر نتیجه در صف کتابخانه قرار می‌گیرند و بعد از تکمیل انتقال از سرور سایت خوانده می‌شوند.</p>}
+    {config.provider==='tmdb'&&<small className="mx-imdb-note">This product uses the TMDB API but is not endorsed or certified by TMDB.</small>}
+  </section>
 }
 
 export function CinemaMetadataSettings() {

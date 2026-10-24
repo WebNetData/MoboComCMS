@@ -345,7 +345,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
 
       {form && (
         <form onSubmit={save} className="card mb-6 mx-form">
-          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
+          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="mx-form-history" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => current ? applyCinemaMetadata(current,values,replace,!editId) : current);setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
           {sections.map((section) => {
@@ -443,7 +443,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.key === 'poster' ? 'poster' : 'cover'} /></div>
     case 'date': case 'datetime':
       return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':
@@ -534,32 +534,38 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
     <div className={`mx-links${compact ? ' is-compact' : ''}`}>
       {value.map((row, index) => (
         <div key={index} className="mx-link-row">
-          <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
-          <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
-          <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
-          <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+          <div className="mx-link-main">
+            <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
+            <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
+            <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
+            <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+            {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
+            <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
+            <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
+          </div>
           {section === 'software' && <div className="mx-software-link-meta">
             <label><span>{fa ? 'سیستم‌عامل فایل' : 'File OS'}</span><input className="input" list="software-platform-options" value={row.platform || ''} onChange={(e) => update(index, { platform: e.target.value })} placeholder="Windows" /></label>
             <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
             <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
           </div>}
-          {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
-          <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
-          <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
-          {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
-            <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
-            {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
-            {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
-          </span>}
-          <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
-          <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
-          {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
-          <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
-          {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
-          <div className="mx-row-tools">
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))} aria-label="up">↑</button>
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))} aria-label="down">↓</button>
-            <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))} aria-label="remove">✕</button>
+          <div className="mx-link-file">
+            <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+            <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
+          </div>
+          <div className="mx-link-foot">
+            {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
+              <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
+              {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
+              {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+            </span>}
+            {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
+            <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
+            {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+            <div className="mx-row-tools">
+              <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))} aria-label="up">↑</button>
+              <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))} aria-label="down">↓</button>
+              <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))} aria-label="remove">✕</button>
+            </div>
           </div>
         </div>
       ))}
