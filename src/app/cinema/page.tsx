@@ -17,6 +17,7 @@ import type { CinemaRail } from '@/modules/cinema/domain/cinema'
 import { Fragment, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { continueWatching } from '@/modules/cinema/server/progress'
+import { formatLabel } from '@/modules/cinema/domain/formats'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +45,7 @@ export default async function CinemaHomePage() {
     genres: ti.genres.slice(0, 3),
     badges: [ti.quality, ti.dubbed ? (fa ? 'دوبله فارسی' : 'Persian dub') : '', ti.subtitle ? (fa ? 'زیرنویس' : 'Subtitles') : ''].filter(Boolean),
     vip: ti.access === 'MEMBERS',
-    kindLabel: ti.kind === 'SERIES' ? (fa ? 'سریال' : 'Series') : (fa ? 'فیلم سینمایی' : 'Movie'),
+    kindLabel: ti.format ? formatLabel(ti, fa) : ti.kind === 'SERIES' ? (fa ? 'سریال' : 'Series') : (fa ? 'فیلم سینمایی' : 'Movie'),
   }))
   const shelf = (title: string, items: TitleCard[], href?: string, eyebrow?: string, ranked = false) => items.length > 0 && (
     <Shelf tone="cinema" title={title} eyebrow={eyebrow} href={href} more={fa ? 'مشاهده همه ←' : 'See all →'}>

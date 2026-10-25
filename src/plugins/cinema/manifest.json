@@ -61,6 +61,13 @@
         "permissions": ["cinema.manage"]
       },
       {
+        "href": "/admin/cinema/formats",
+        "label": "انواع فیلم و سریال",
+        "labelEn": "Title types",
+        "icon": "grid",
+        "permissions": ["cinema.manage"]
+      },
+      {
         "href": "/admin/taxonomy?tax=cinema",
         "label": "دسته‌بندی فیلم و سریال",
         "labelEn": "Categories",

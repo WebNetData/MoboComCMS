@@ -15,6 +15,8 @@ export type TitleCard = {
   year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean
   access: string; runtime: number; summary: string; summaryEn: string; ageRating: string; seasonsCount: number
   recommendationReason?: string
+  /** The managed format (film, series, anime…); null only for a title saved before formats existed. */
+  format: { slug: string; name: string; nameEn: string; icon: string } | null
 }
 
 export type PublicLink = { id: number; label: string; kind: string; quality: string; size: string; platform: string; architecture: string; checksum: string; audio: string; subtitle: boolean; access: string }
@@ -24,10 +26,11 @@ export function toTitle(row: any): TitleCard {
     id: row.id, slug: row.slug, kind: row.kind, title: row.title, titleEn: row.titleEn, originalTitle: row.originalTitle, poster: row.poster, backdrop: row.backdrop || row.poster,
     year: row.year, imdbRating: row.imdbRating, genres: splitList(row.genres, 6), quality: row.quality, dubbed: row.dubbed, subtitle: row.subtitle,
     access: row.access, runtime: row.runtime, summary: plainText(row.summary), summaryEn: plainText(row.summaryEn), ageRating: row.ageRating, seasonsCount: row._count?.seasons ?? 0,
+    format: row.format ? { slug: row.format.slug, name: row.format.name, nameEn: row.format.nameEn, icon: row.format.icon } : null,
   }
 }
 
-export const titleInclude = { _count: { select: { seasons: true } } } as const
+export const titleInclude = { _count: { select: { seasons: true } }, format: { select: { slug: true, name: true, nameEn: true, icon: true } } } as const
 
 export async function publicLinks(ownerType: string, ids: number[]): Promise<Map<number, PublicLink[]>> {
   const map = new Map<number, PublicLink[]>()
@@ -66,7 +69,7 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
   }
 }
 
-export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string; producer?: string }) {
+export async function browseCinema(input: { format?: string; kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string; producer?: string }) {
   const page = cinemaBrowsePage(input.page)
   const where: any = { ...live() }
   // Each person filter matches that person's canonical profile (a merged alias leads to the person it joined).
@@ -76,6 +79,7 @@ export async function browseCinema(input: { kind?: string; genre?: string; year?
   if(credits.length)where.AND=credits
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
+  if (input.format && /^[a-z0-9-]{1,40}$/.test(input.format)) where.format = { slug: input.format }
   if (input.genre) where.genres = { contains: String(input.genre).slice(0, 60) }
   if (input.country) where.countries = { contains: String(input.country).slice(0, 60) }
   if (input.dubbed === '1') where.dubbed = true

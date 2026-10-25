@@ -420,6 +420,7 @@
     "20270110140000_editor_synced_patterns",
     "20270111120000_editor_role_templates",
     "20270112120000_search_document_recency",
-    "20270113120000_cinema_producers"
+    "20270113120000_cinema_producers",
+    "20270114120000_cinema_formats"
   ]
 }

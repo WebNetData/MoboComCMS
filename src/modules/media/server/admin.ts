@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
 import { mediaRevisionState, restoreMediaRelations } from '@/modules/media/server/revision-state'
 import { syncCredits } from '@/modules/cinema/server/people'
+import { resolveTitleFormat } from '@/modules/cinema/server/formats'
 import { MEDIA_RESOURCE_TYPE, contentChanged } from '@/modules/content/server/events'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
@@ -614,6 +615,8 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const row = await db.$transaction(async (tx) => {
     await options.beforeWrite?.(tx)
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
+    // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
+    if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))
     if (type === 'games' || type === 'software') {
       for (const role of ['developer', 'publisher'] as const) {
         if (data[role] !== undefined) data[`${role}StudioId`] = await resolveStudioId(tx, data[role])

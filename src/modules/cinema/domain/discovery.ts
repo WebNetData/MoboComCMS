@@ -1,5 +1,5 @@
-export type CinemaSearch = { kind?:string; genre?:string; year?:string; country?:string; dubbed?:string; sort?:string; q?:string; page?:string; actor?:string; director?:string; producer?:string }
-const KEYS:(keyof CinemaSearch)[]=['q','kind','genre','year','country','actor','director','producer','dubbed','sort','page']
+export type CinemaSearch = { format?:string; kind?:string; genre?:string; year?:string; country?:string; dubbed?:string; sort?:string; q?:string; page?:string; actor?:string; director?:string; producer?:string }
+const KEYS:(keyof CinemaSearch)[]=['q','format','kind','genre','year','country','actor','director','producer','dubbed','sort','page']
 
 /** Missing means no filter; malformed IDs deliberately match no public credit. */
 export function cinemaPersonId(value:unknown):number|null {
