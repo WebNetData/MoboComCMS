@@ -237,3 +237,18 @@
 .fa-perm-cell{display:flex;flex-wrap:wrap;gap:.3rem}
 .fa-search{margin-bottom:.8rem;max-width:420px}
 .tb-builtin-sections{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}.tb-builtin-sections small{flex-basis:100%;color:var(--muted,#9bb2cc)}
+/* Extensions admin: search, state and category filters (with counts), modules grouped by category. */
+.xm-toolbar{display:grid;gap:.7rem;padding:.9rem;border:1px solid var(--border,#29445f);border-radius:18px;background:var(--card,#0d1d2e)}
+.xm-search{position:relative;display:flex;align-items:center}
+.xm-search svg{position:absolute;inset-inline-start:.9rem;color:var(--muted,#9bb2cc);pointer-events:none}
+.xm-search .input{width:100%;min-height:44px;border-radius:999px;padding-inline-start:2.4rem}
+.xm-filter{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:thin}
+.xm-filter.is-wrap{flex-wrap:wrap;overflow:visible}
+.xm-filter button{display:inline-flex;align-items:center;gap:.45rem;flex:none;min-height:36px;padding:0 .9rem;border:1px solid var(--border,#29445f);border-radius:999px;background:transparent;color:var(--muted,#9bb2cc);font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.xm-filter button span{min-inline-size:1.4rem;padding:.05rem .45rem;border-radius:999px;background:var(--bg-soft,#152b43);font-size:.7rem;text-align:center}
+.xm-filter button.is-active{border-color:var(--primary,#38bdf8);color:var(--primary,#38bdf8);background:color-mix(in srgb,var(--primary,#38bdf8) 10%,transparent)}
+.xm-section>h2 small{font-size:.78rem;font-weight:600;margin-inline-start:.4rem}
+.xm-group{display:grid;gap:.7rem}
+.xm-group+.xm-group{margin-top:.6rem}
+.xm-group>h3{display:flex;align-items:center;gap:.5rem;margin:0;font-size:.9rem;color:var(--muted,#9bb2cc)}
+.xm-group>h3 span{padding:.05rem .5rem;border-radius:999px;background:var(--bg-soft,#152b43);font-size:.7rem}

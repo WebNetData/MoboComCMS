@@ -92,7 +92,7 @@ export default function PackageManager({ fa, onChanged }: { fa: boolean; onChang
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
     {code && <div className="pm-code">
       <span className={`xm-chip${code.ready ? '' : ' is-warn'}`}>{L('Code packages', 'بسته‌های کددار')}: {code.mode === 'git' ? `Git · ${code.detail}` : code.mode === 'local' ? L('local source', 'سورس محلی') : L('off', 'غیرفعال')}</span>
-      {!code.ready && <small className="muted">{code.detail}</small>}
+      {!code.ready && <small className="muted">{code.mode === 'off' ? L('Installing code packages is off on this server. To turn it on, set PACKAGE_APPLY_MODE to git or local (see docs/packages).', 'نصب بستهٔ کددار روی این سرور خاموش است. برای روشن‌کردن، PACKAGE_APPLY_MODE را روی git یا local تنظیم کنید (راهنما: docs/packages).') : code.detail}</small>}
       {code.owner && code.ready && builtins.length > 0 && <label className="pm-builtin"><span>{L('Edit code of a built-in theme/plugin', 'ویرایش کد قالب/افزونهٔ داخلی')}</span><select className="input" value="" disabled={busy === 'source'} onChange={event => void editBuiltin(event.target.value)}><option value="">{L('Choose…', 'انتخاب…')}</option>{builtins.map(item => <option key={item.id} value={item.id}>{item.kind === 'theme' ? L('Theme', 'قالب') : L('Plugin', 'افزونه')} · {item.name}</option>)}</select></label>}
     </div>}
     {!rows.length ? <div className="tb-empty">{L('No packages uploaded yet. Sample packages live in docs/packages/examples.', 'هنوز بسته‌ای آپلود نشده است. نمونه‌ها در docs/packages/examples هستند.')}</div>
