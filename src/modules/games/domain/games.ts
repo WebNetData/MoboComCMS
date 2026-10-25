@@ -46,6 +46,13 @@ export function normalizeCodes(value: unknown, allowed: Record<string, string>):
   return Object.keys(allowed).filter((code) => wanted.has(code)).join(', ')
 }
 
+/** "single, coop ,fa-voice" → "SINGLE, COOP, FA_VOICE": well-formed codes, unchecked; the save checks them against the owner's list. */
+export function cleanCodes(value: unknown): string {
+  const input = Array.isArray(value) ? value.map(String) : String(value || '').split(/[,،|\s]+/)
+  const codes = input.map((code) => code.trim().toUpperCase().replace(/-+/g, '_')).filter((code) => /^[A-Z0-9_]{1,40}$/.test(code))
+  return [...new Set(codes)].slice(0, 20).join(', ')
+}
+
 export function codesOf(value: string | null | undefined): string[] {
   return String(value || '').split(',').map((code) => code.trim()).filter(Boolean)
 }

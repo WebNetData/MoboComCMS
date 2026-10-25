@@ -21,7 +21,8 @@ import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
-import { GAME_MODES, LOCALIZATIONS, cleanReleases, cleanStoreLinks, normalizeCodes } from '@/modules/games/domain/games'
+import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
+import { knownCodes } from '@/modules/vocabulary/server/vocabulary'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
@@ -397,8 +398,8 @@ const RESOURCES: Record<string, Resource> = {
       publishedAt: when(b, 'publishedAt', (v) => date(v) || new Date()),
       franchiseId: when(b, 'franchiseId', (v) => int(v, 1, 2_000_000_000)),
       engine: when(b, 'engine', (v) => text(v, 80)),
-      modes: when(b, 'modes', (v) => normalizeCodes(v, GAME_MODES)),
-      localization: when(b, 'localization', (v) => normalizeCodes(v, LOCALIZATIONS)),
+      modes: when(b, 'modes', cleanCodes),
+      localization: when(b, 'localization', cleanCodes),
       releases: when(b, 'releases', (v) => JSON.stringify(cleanReleases(v))),
       playMain: when(b, 'playMain', (v) => int(v, 0, 20000, 0) ?? 0),
       playExtra: when(b, 'playExtra', (v) => int(v, 0, 20000, 0) ?? 0),
@@ -615,6 +616,11 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const row = await db.$transaction(async (tx) => {
     await options.beforeWrite?.(tx)
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
+    // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
+    // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
+    const before = existing as Record<string, string> | null
+    if (type === 'games') for (const [key, list] of [['modes', 'MODE'], ['localization', 'LOCALIZATION']] as const) if (typeof data[key] === 'string') data[key] = (await knownCodes(tx, 'games', list, codesOf(data[key] as string), codesOf(before?.[key]))).join(', ')
+    if (type === 'software' && typeof data.license === 'string') data.license = (await knownCodes(tx, 'software', 'LICENSE', [data.license], before?.license ? [before.license] : []))[0] ?? before?.license ?? 'FREE'
     // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
     if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))
     if (type === 'games' || type === 'software') {

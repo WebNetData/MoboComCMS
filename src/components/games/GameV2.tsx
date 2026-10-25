@@ -45,12 +45,13 @@ export function ReleasePill({ date }: { date: Date | string | null }) {
   return <span className="gv-pill"><Icon name="calendar" size={13} />منتشر شده · {longDay(date)}</span>
 }
 
-export function Badges({ editorsChoice, localization, modes }: { editorsChoice: boolean; localization: string[]; modes?: string[] }) {
+/** `labels`: the owner's names for mode and localisation codes; the old fixed names when absent. */
+export function Badges({ editorsChoice, localization, modes, labels }: { editorsChoice: boolean; localization: string[]; modes?: string[]; labels?: Record<string, Record<string, string>> }) {
   if (!editorsChoice && !localization.length && !modes?.length) return null
   return <div className="gv-badges">
     {editorsChoice && <span className="gv-badge is-editor"><Icon name="trophy" size={13} />انتخاب سردبیر</span>}
-    {localization.map((code) => <span key={code} className="gv-badge is-fa">{LOCALIZATIONS[code as keyof typeof LOCALIZATIONS] || code}</span>)}
-    {modes?.map((code) => <span key={code} className="gv-badge">{GAME_MODES[code as keyof typeof GAME_MODES] || code}</span>)}
+    {localization.map((code) => <span key={code} className="gv-badge is-fa">{labels?.LOCALIZATION?.[code] || LOCALIZATIONS[code as keyof typeof LOCALIZATIONS] || code}</span>)}
+    {modes?.map((code) => <span key={code} className="gv-badge">{labels?.MODE?.[code] || GAME_MODES[code as keyof typeof GAME_MODES] || code}</span>)}
   </div>
 }
 

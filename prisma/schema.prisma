@@ -1844,6 +1844,27 @@ model UserRecentView {
 
 // ---------------------------------------------------------------- Games
 
+/// The owner's managed lists of every section (games: platforms, stores, play modes, localisations; software:
+/// licences; …). Each section declares its lists in code; `code` is what an item stores and never changes, while
+/// the name shown, icon, order and whether it is offered are the owner's.
+model Vocabulary {
+  id        Int      @id @default(autoincrement())
+  section   String   // games | software | …
+  list      String   // PLATFORM, STORE, MODE, LOCALIZATION, LICENSE, …
+  code      String
+  name      String
+  nameEn    String   @default("")
+  icon      String   @default("")
+  sortOrder Int      @default(0)
+  // An inactive entry is not offered in forms nor public filters; items that have it keep it.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([section, list, code])
+  @@index([section, list, active, sortOrder])
+}
+
 model GameTitle {
   id           Int       @id @default(autoincrement())
   slug         String    @unique

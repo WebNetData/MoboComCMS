@@ -82,6 +82,13 @@
         ]
       },
       {
+        "href": "/admin/games/vocabulary",
+        "label": "پلتفرم‌ها، فروشگاه‌ها و فهرست‌ها",
+        "labelEn": "Platforms, stores and lists",
+        "icon": "grid",
+        "permissions": ["games.manage"]
+      },
+      {
         "href": "/admin/taxonomy?tax=games",
         "label": "دسته‌بندی بازی‌ها",
         "labelEn": "Game categories",

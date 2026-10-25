@@ -333,6 +333,8 @@ test('an author permission is taken only by the content owners, through the scop
     'src/modules/editor/server/documents.ts', 'src/modules/editor/server/http/documents.ts', 'src/modules/identity/domain/sections.ts', 'src/modules/media/server/admin.ts', 'src/modules/site/server/http/admin/cms/route.ts',
     // Games have an admin of their own: its routes take the author through the same guard, and its shell only decides which tabs to show.
     'src/modules/games/server/http/routes.ts', 'src/app/admin/games/shared.tsx',
+    // The sections' managed lists (game platforms, software licences…): nobody's own items; a section author only reads them, through the scope guard.
+    'src/modules/vocabulary/domain/registry.ts',
     // Authors may open their existing shared media library; this shell only exposes its menu.
     'src/app/admin/layout.tsx',
     // The title form's people suggestions: through the scope guard, an author sees people of published titles and their own.

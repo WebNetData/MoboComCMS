@@ -210,8 +210,10 @@ export const SOFTWARE_PLATFORMS = ['Windows', 'macOS', 'Linux', 'Android', 'iOS'
 export const SOFTWARE_LICENSES = ['FREE', 'FREEMIUM', 'TRIAL', 'PAID', 'OPEN_SOURCE'] as const
 export type SoftwareLicense = typeof SOFTWARE_LICENSES[number]
 
-export function normalizeLicense(value: unknown): SoftwareLicense {
-  return (SOFTWARE_LICENSES as readonly string[]).includes(String(value)) ? value as SoftwareLicense : 'FREE'
+/** A well-formed licence code (any of the owner's list, checked on save); anything else is the free licence. */
+export function normalizeLicense(value: unknown): string {
+  const code = String(value ?? '').trim().toUpperCase()
+  return /^[A-Z0-9_]{1,40}$/.test(code) ? code : 'FREE'
 }
 
 export function licenseLabel(value: string, fa: boolean): string {

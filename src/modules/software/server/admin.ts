@@ -3,6 +3,7 @@ import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsCont
 import { splitList } from '@/modules/media/domain/media'
 import { SOFTWARE_HEALTH, isStale, normalizeSoftwareSettings, softwareIssues, type SoftwareHealth, type SoftwareSettings } from '@/modules/software/domain/software'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
+import { listLabels } from '@/modules/vocabulary/server/vocabulary'
 
 // Software admin: portal settings, catalogue dashboard and picker.
 
@@ -12,7 +13,6 @@ export const softwareSettingsState = () => settingsHistory().current()
 export const restoreSoftwareSettings = (...args: Parameters<ReturnType<typeof settingsHistory>['restore']>) => settingsHistory().restore(...args)
 const DAY = 86_400_000
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
-const LICENSES: Record<string, string> = { FREE: 'رایگان', FREEMIUM: 'رایگان با امکانات پولی', TRIAL: 'آزمایشی', PAID: 'پولی', OPEN_SOURCE: 'متن‌باز' }
 
 export async function getSoftwareSettings(fresh = false): Promise<SoftwareSettings> {
   return fresh ? settingsHistory().read() : normalizeSoftwareSettings(await readJsonSetting(SETTINGS_KEY))
@@ -24,12 +24,13 @@ export async function saveSoftwareSettings(input: unknown, context?: SectionSett
 
 export async function softwareDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
-  const [settings, rawTitles, links, reports, downloads] = await Promise.all([
+  const [settings, rawTitles, links, reports, downloads, licenses] = await Promise.all([
     getSoftwareSettings(),
     db.softwareTitle.findMany({ select: { id: true, slug: true, title: true, icon: true, version: true, summary: true, content: true, screenshots: true, platforms: true, size: true, license: true, status: true, publishedAt: true, releasedAt: true, updatedAt: true, views: true, downloads: true, access: true, featured: true } }),
     db.mediaLink.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] } }, select: { ownerType: true, ownerId: true, clicks: true, disabled: true } }),
     db.linkReport.count({ where: { status: 'OPEN', link: { ownerType: { in: ['software', 'softwarerelease'] } } } }).catch(() => 0),
     db.downloadLog.findMany({ where: { ownerType: { in: ['software', 'softwarerelease'] }, createdAt: { gte: since } }, select: { createdAt: true } }).catch(() => []),
+    listLabels('software').then((lists) => lists.LICENSE ?? {}),
   ])
   const versions = await currentSoftwareVersions(rawTitles.map((title) => title.id), now)
   const titles = rawTitles.map((title) => projectSoftwareVersion(title, versions))
@@ -66,7 +67,7 @@ export async function softwareDashboard(now = new Date()) {
       .map((title) => ({ ...card(title), since: (title.releasedAt || title.updatedAt).toISOString(), days: Math.floor((now.getTime() - (title.releasedAt || title.updatedAt).getTime()) / DAY) })),
     topDownloaded: [...live].sort((a, b) => b.downloads - a.downloads).slice(0, 8).map(card),
     platforms: share(live.flatMap((title) => splitList(title.platforms, 8))).slice(0, 8),
-    licenses: share(live.map((title) => LICENSES[title.license] || title.license)),
+    licenses: share(live.map((title) => licenses[title.license] || title.license)),
   }
 }
 

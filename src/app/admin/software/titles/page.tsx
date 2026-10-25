@@ -4,12 +4,15 @@ import MediaCrud, { type MediaField } from '../../cms/MediaCrud'
 import { commonFields, inSection } from '../../cms/media-fields'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { SoftwareShell } from '../shared'
+import { useSectionLists } from '../../cms/useSectionLists'
 
 export default function AdminSoftwarePage() {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const L = (persian: string, english: string) => (fa ? persian : english)
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
+  // The owner's licence types (انواع مجوز); an inactive one is listed for the titles that have it.
+  const licenses = (useSectionLists('software', true).LICENSE || []).map((entry) => ({ value: entry.code, label: `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}${entry.active ? '' : L(' (غیرفعال)', ' (inactive)')}` }))
   const fields: MediaField[] = [
     ...inSection(L('اطلاعات اصلی', 'Basics'), [
       { key: 'title', label: L('نام نرم‌افزار', 'Name'), required: true, table: true },
@@ -17,10 +20,7 @@ export default function AdminSoftwarePage() {
       { key: 'version', label: L('نسخه', 'Version'), dir: 'ltr', placeholder: '2.4.1', table: true },
       { key: 'developer', label: L('سازنده', 'Developer') },
       { key: 'publisher', label: L('ناشر', 'Publisher') },
-      { key: 'license', label: L('مجوز', 'License'), type: 'select', options: [
-        { value: 'FREE', label: L('رایگان', 'Free') }, { value: 'FREEMIUM', label: L('رایگان با امکانات پولی', 'Freemium') },
-        { value: 'TRIAL', label: L('آزمایشی', 'Trial') }, { value: 'PAID', label: L('پولی', 'Paid') }, { value: 'OPEN_SOURCE', label: L('متن‌باز', 'Open source') },
-      ] },
+      { key: 'license', label: L('مجوز', 'License'), type: 'select', options: licenses, hint: L('انواع مجوز را در زبانهٔ «انواع مجوز» مدیریت کنید.', 'Manage licence types under Licence types.') },
       { key: 'platforms', label: L('پلتفرم‌ها (با ویرگول)', 'Platforms (comma separated)'), placeholder: 'Windows, macOS, Android', dir: 'ltr', table: true },
       { key: 'size', label: L('حجم', 'Size'), placeholder: '85 MB', dir: 'ltr' },
       { key: 'releasedAt', label: L('تاریخ انتشار نسخه', 'Version release date'), type: 'date' },
