@@ -277,7 +277,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <section className="journal-bio" aria-labelledby="journal-bio-title">
         <div className={`journal-bio-art${authorProfile?.cover ? ' has-cover' : ''}`} style={authorProfile?.cover ? { backgroundImage: `url("${encodeURI(sized(authorProfile.cover, 640))}")` } : undefined} aria-hidden="true">
           <span className="journal-bio-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>
-            {authorPhoto ? <img src={sized(authorPhoto, 96)} alt="" decoding="async" /> : initial}
+            {authorPhoto ? <img src={sized(authorPhoto, 96)} alt="" decoding="async" loading="lazy" /> : initial}
           </span>
         </div>
         <div className="journal-bio-body">

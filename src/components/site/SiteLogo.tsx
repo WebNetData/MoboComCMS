@@ -12,15 +12,16 @@ export const hasWordmark = (site: Pick<SiteConfig, 'wordmark'>) => Boolean(site.
  * The site's wide logo at a height, the dark version on dark pages (both are in the page; CSS shows the right one, so
  * there is no flash when the theme is read). `height` defaults to the owner's header setting; panels pass a smaller one.
  */
-export function Wordmark({ height, className = '' }: { height?: number; className?: string }) {
+/** `lazy`: drawn far below the first screen (the footer), so loaded only when it nears view. */
+export function Wordmark({ height, className = '', lazy = false }: { height?: number; className?: string; lazy?: boolean }) {
   const site = useSite()
   if (!site.wordmark) return null
   const size = height ?? site.wordmarkHeight ?? 40
   // A wide logo is a few times as wide as it is tall: ask for a copy that covers that (2x for sharp screens), not the upload.
   const wide = size * 4
   return <span className={`site-wordmark${site.wordmarkDark ? ' has-dark' : ''} ${className}`} style={{ ['--wm-h' as string]: `${size}px` }}>
-    <img className="wm-light" src={sized(site.wordmark, wide)} srcSet={srcSet(site.wordmark, wide)} alt={site.brand} height={size} decoding="async" />
-    {site.wordmarkDark && <img className="wm-dark" src={sized(site.wordmarkDark, wide)} srcSet={srcSet(site.wordmarkDark, wide)} alt="" aria-hidden="true" height={size} decoding="async" />}
+    <img className="wm-light" src={sized(site.wordmark, wide)} srcSet={srcSet(site.wordmark, wide)} alt={site.brand} height={size} decoding="async" loading={lazy ? 'lazy' : undefined} />
+    {site.wordmarkDark && <img className="wm-dark" src={sized(site.wordmarkDark, wide)} srcSet={srcSet(site.wordmarkDark, wide)} alt="" aria-hidden="true" height={size} decoding="async" loading={lazy ? 'lazy' : undefined} />}
   </span>
 }
 

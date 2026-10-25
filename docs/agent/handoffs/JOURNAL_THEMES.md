@@ -23,7 +23,8 @@ An audit after the admin batch covered 8 public magazine pages × light/dark × 
   - `npm run check` is 701/6 (one new test; the six known environment-only update-script failures);
   - React Doctor reports the same 24 warnings as main;
   - pictures inspected at 2x density.
-- **Open:** demo SVG covers and the static fallback image are not site uploads, so they are not resized; lazy loading below the first screen was not changed.
+- **Lazy loading:** pictures below the first screen now load as they near view. That covers the footer logo in the default footer and the MoboCom and Orbital themes (`Wordmark lazy`), the article's author box, and the MoboCom home's member and post-author pictures; the audit found 0 left on the 32 variants and the site home.
+- **Open:** demo SVG covers and the static fallback image are not site uploads, so they are not resized.
 
 ## Editorial review — 2026-10-25
 

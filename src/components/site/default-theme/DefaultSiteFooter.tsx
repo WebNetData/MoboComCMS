@@ -38,7 +38,7 @@ export default function DefaultSiteFooter({ navPages }: ThemeFooterProps) {
         <div className={styles.grid}>
           <div className={styles.identity}>
             <Link href="/" className={styles.brand} aria-label={site.brand} translate="no">
-              {site.wordmark ? <Wordmark height={48} className={styles.wordmark} /> : <><span className={styles.mark} aria-hidden="true">{site.logo ? <img src={site.logo} alt="" width={44} height={44} loading="lazy" decoding="async" /> : site.brand.trim().slice(0, 1)}</span><strong>{site.brand}</strong></>}
+              {site.wordmark ? <Wordmark height={48} className={styles.wordmark} lazy /> : <><span className={styles.mark} aria-hidden="true">{site.logo ? <img src={site.logo} alt="" width={44} height={44} loading="lazy" decoding="async" /> : site.brand.trim().slice(0, 1)}</span><strong>{site.brand}</strong></>}
             </Link>
             <p className={styles.tagline}>{translate(site.tagline, locale)}</p>
             {searchEnabled && <form action={toPublicPath('/search')} method="get" role="search" aria-label={L('جست‌وجو از پایین صفحه', 'Search from the footer')} className={styles.search}><label htmlFor={searchId}>{L('دنبال چه می‌گردید؟', 'What are you looking for?')}</label><div className={styles.searchControl}><input id={searchId} name="q" type="search" required minLength={2} maxLength={100} autoComplete="off" placeholder={L('نام آهنگ، بازی یا مطلب…', 'Music, games or articles…')} /><button type="submit" aria-label={L('جست‌وجو در سایت', 'Search the site')}><Icon name="search" size={19} /></button></div></form>}
