@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from '@/components/AppLink'
+import Icon from '@/components/site/Icon'
 import { useRouter } from '@/platform/routing/navigation'
 import { useI18n } from '@/i18n/LocaleProvider'
 import {
@@ -54,6 +55,8 @@ export default function ThemeBuilderPage() {
   const [data, setData] = useState<Payload | null>(null)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all' | ThemeTemplateType>('all')
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState<'' | 'published' | 'draft'>('')
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<ThemeTemplateMeta | null>(null)
   const [busy, setBusy] = useState('')
@@ -100,7 +103,10 @@ export default function ThemeBuilderPage() {
   }
 
   const templates = data?.templates || []
-  const shown = filter === 'all' ? templates : templates.filter((entry) => entry.type === filter)
+  const words = query.trim().toLowerCase().split(/s+/).filter(Boolean)
+  const found = templates.filter((entry) => words.every((word) => [entry.name, entry.nameEn || '', entry.placement.slug].join(' ').toLowerCase().includes(word)) && (!status || entry.status === status))
+  const shown = filter === 'all' ? found : found.filter((entry) => entry.type === filter)
+  const count = (value: number) => value.toLocaleString(fa ? 'fa-IR' : 'en-US')
   const published = (type: ThemeTemplateType) => templates.filter((entry) => entry.type === type && entry.status === 'published')
   const placed = (kind: Placement['kind']) => templates.find((entry) => entry.type === 'page' && entry.status === 'published' && entry.placement.kind === kind)
 
@@ -133,12 +139,19 @@ export default function ThemeBuilderPage() {
       </div>)}
     </section>
 
+    {templates.length > 0 && <search className="xm-toolbar tb-find">
+      <label className="xm-search"><span className="sr-only">{L('Find a template', 'جست‌وجوی قالب')}</span><Icon name="search" size={16} /><input className="input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={L('Find by name or address…', 'جست‌وجو با نام یا نشانی…')} /></label>
+      <div className="xm-filter" role="group" aria-label={L('Status', 'وضعیت')}>
+        {([['', L('All', 'همه')], ['published', L('Published', 'منتشرشده')], ['draft', L('Draft', 'پیش‌نویس')]] as ['' | 'published' | 'draft', string][]).map(([value, label]) => <button key={value || 'all'} type="button" className={status === value ? 'is-active' : ''} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}<span>{count(templates.filter((entry) => !value || entry.status === value).length)}</span></button>)}
+      </div>
+    </search>}
+
     <nav className="tb-tabs" role="tablist">
       {(['all', ...THEME_TEMPLATE_TYPES] as const).map((type) => {
-        const count = type === 'all' ? templates.length : templates.filter((entry) => entry.type === type).length
+        const total = type === 'all' ? found.length : found.filter((entry) => entry.type === type).length
         return <button key={type} type="button" role="tab" aria-selected={filter === type} className={filter === type ? 'is-active' : ''} onClick={() => setFilter(type)}>
           {type === 'all' ? L('All', 'همه') : L(THEME_TYPE_LABELS[type].en, THEME_TYPE_LABELS[type].fa)}
-          <span>{count}</span>
+          <span>{count(total)}</span>
         </button>
       })}
     </nav>
