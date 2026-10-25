@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { sniffImage } from '@/shared/files/image-type'
+import { IMAGE_WIDTHS } from '@/shared/media/image'
 import { readJsonSetting } from '@/modules/settings/server'
 import { nextUsername, normalizeFieldsConfig } from '@/modules/identity/domain/profile-fields'
 import {
@@ -182,9 +183,20 @@ export async function saveProfileMedia(userId: number, file: File | null) {
   return { url: `/api/profile/media/${name}` }
 }
 
-export async function readProfileMedia(name: string) {
+export async function readProfileMedia(name: string, width = 0) {
   if (!/^[0-9a-f-]{36}\.(png|jpg|webp)$/.test(name)) return null
   try {
+    // A resized copy at an allowed width, made once and kept beside the originals (as site covers are).
+    if ((IMAGE_WIDTHS as readonly number[]).includes(width)) {
+      const cached = join(MEDIA_DIR(), '.cache', `${name.replace(/\.\w+$/, '')}-${width}.webp`)
+      const hit = await readFile(cached).catch(() => null)
+      if (hit) return { bytes: hit, type: 'image/webp' }
+      const sharp = (await import('sharp')).default
+      const bytes = await sharp(await readFile(join(MEDIA_DIR(), name)), { animated: true }).resize({ width, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer()
+      await mkdir(join(MEDIA_DIR(), '.cache'), { recursive: true })
+      await writeFile(cached, bytes).catch(() => undefined)
+      return { bytes, type: 'image/webp' }
+    }
     const bytes = await readFile(join(MEDIA_DIR(), name))
     return { bytes, type: name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : 'image/jpeg' }
   } catch { return null }

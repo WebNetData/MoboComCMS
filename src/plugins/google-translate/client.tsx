@@ -103,7 +103,8 @@ function GoogleTranslate({ settings }: PluginProps) {
       <button type="button" className="mc-translate-yes" onClick={() => choose(suggestion)}>Translate</button>
       <button type="button" onClick={dismiss} aria-label="No thanks">×</button>
     </div>}
-    <button type="button" className="mc-translate-button" aria-expanded={open} aria-haspopup="listbox" onClick={() => setOpen(value => !value)}>
+    {/* On a phone the label is hidden; the button keeps its name for screen readers. */}
+    <button type="button" className="mc-translate-button" aria-label={active ? NAMES[active] || active : 'Language'} aria-expanded={open} aria-haspopup="listbox" onClick={() => setOpen(value => !value)}>
       <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
       <span>{active ? NAMES[active] || active : 'Language'}</span>
     </button>

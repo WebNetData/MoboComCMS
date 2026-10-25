@@ -1,11 +1,13 @@
 /**
- * Resized copies of site images: images stored by the site
- * (/api/media/covers/<id>.webp|png|jpg) can be requested at a width, and are
- * served as cached WebP. Other addresses are returned unchanged.
+ * Resized copies of site images: images stored by the site (covers
+ * /api/media/covers/<id>.webp|png|jpg and profile pictures /api/profile/media/<id>.…)
+ * can be requested at a width, and are served as cached WebP. Other addresses are
+ * returned unchanged.
  */
 
 export const IMAGE_WIDTHS = [160, 320, 480, 640, 960, 1280] as const
 const OWN = /^\/api\/media\/covers\/[0-9a-f-]{36}\.(webp|png|jpg)$/
+const PROFILE = /^\/api\/profile\/media\/[0-9a-f-]{36}\.(webp|png|jpg)$/
 
 /** The nearest allowed width at or above the requested one. */
 export const snapWidth = (width: number) => IMAGE_WIDTHS.find((w) => w >= width) ?? IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1]
@@ -13,13 +15,16 @@ export const snapWidth = (width: number) => IMAGE_WIDTHS.find((w) => w >= width)
 /** Optional media CDN (NEXT_PUBLIC_MEDIA_CDN, e.g. https://media.example.com) in front of /api/media/covers. */
 const CDN = (process.env.NEXT_PUBLIC_MEDIA_CDN || '').replace(/\/+$/, '')
 
+/** The address of a resizable site image (the media CDN fronts covers only), or null for any other address. */
+const base = (value: string) => (OWN.test(value) ? `${CDN}${value}` : PROFILE.test(value) ? value : null)
+
 export function sized(src: string | null | undefined, width: number): string {
-  const value = String(src || '')
-  return OWN.test(value) ? `${CDN}${value}?w=${snapWidth(width)}` : value
+  const value = String(src || ''), own = base(value)
+  return own ? `${own}?w=${snapWidth(width)}` : value
 }
 
 /** srcset for 1× and 2× screens (empty when the image is not a site image). */
 export function srcSet(src: string | null | undefined, width: number): string | undefined {
-  const value = String(src || '')
-  return OWN.test(value) ? `${CDN}${value}?w=${snapWidth(width)} 1x, ${CDN}${value}?w=${snapWidth(width * 2)} 2x` : undefined
+  const own = base(String(src || ''))
+  return own ? `${own}?w=${snapWidth(width)} 1x, ${own}?w=${snapWidth(width * 2)} 2x` : undefined
 }

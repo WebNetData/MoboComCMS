@@ -14,7 +14,7 @@ const tx = (value: LocalText, locale: string) => value[locale] || value[locale.s
 function Brand({ footer = false }: { footer?: boolean }) {
   const site = useThemeSite()
   const { locale } = useThemeI18n()
-  if (site.wordmark) return <Link href="/" className="mb-brand has-wordmark" aria-label={site.brand}><ThemeWordmark height={footer ? Math.min(site.wordmarkHeight || 40, 40) : undefined} /></Link>
+  if (site.wordmark) return <Link href="/" className="mb-brand has-wordmark" aria-label={site.brand}><ThemeWordmark height={footer ? Math.min(site.wordmarkHeight || 40, 40) : undefined} lazy={footer} /></Link>
   return <Link href="/" className="mb-brand" aria-label={site.brand}>
     {site.logo ? <img src={site.logo} alt="" className="mb-logo"/> : <span className="mb-mark" aria-hidden="true">{site.brand.trim().slice(0, 1)}</span>}
     <span className="mb-brand-copy"><strong>{site.brand}</strong>{!footer && <small>{tx(site.tagline, locale)}</small>}</span>

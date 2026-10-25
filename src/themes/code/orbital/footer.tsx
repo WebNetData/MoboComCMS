@@ -19,7 +19,7 @@ export default function OrbitalFooter({ navPages }: ThemeFooterProps) {
     <footer className="site-footer orbital-footer">
       <div className="container orbital-footer-shell">
         <div className="orbital-footer-top">
-          <Link href="/" className="orbital-footer-brand" aria-label={site.brand}>{site.wordmark ? <ThemeWordmark height={36} /> : site.logo ? <img className="orbital-custom-logo" src={site.logo} alt=""/> : <span className="orbital-brand-mark orbital-h-logo" aria-hidden="true"><i /><i /><b /></span>}<div><strong dir="ltr">{site.brand.endsWith('VPN') ? <>{site.brand.slice(0, -3)}<span>VPN</span></> : site.brand}</strong><p>{tx(site.tagline, locale)}</p></div></Link>
+          <Link href="/" className="orbital-footer-brand" aria-label={site.brand}>{site.wordmark ? <ThemeWordmark height={36} lazy /> : site.logo ? <img className="orbital-custom-logo" src={site.logo} alt=""/> : <span className="orbital-brand-mark orbital-h-logo" aria-hidden="true"><i /><i /><b /></span>}<div><strong dir="ltr">{site.brand.endsWith('VPN') ? <>{site.brand.slice(0, -3)}<span>VPN</span></> : site.brand}</strong><p>{tx(site.tagline, locale)}</p></div></Link>
           <p className="orbital-footer-promise"><Glyph name="globe" size={18} />{L('از هر کجا، به دنیای خودت وصل شو.', 'Your world, wherever you are.')}</p>
         </div>
         <div className="orbital-footer-grid">

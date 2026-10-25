@@ -129,6 +129,32 @@ export function parseAdminPostFilters(params: URLSearchParams): AdminPostFilters
   return filters
 }
 
+// ------------------------------------------------------------------ listing SEO
+
+export type JournalListingMeta = { title: string; description: string; canonical: string; index: boolean }
+/**
+ * Title, description, canonical and indexing of a magazine listing. A category (and each of its pages) and each
+ * archive page is a page of its own; a search, and a category that does not exist, are not indexed. Null for the
+ * magazine home, whose title and description are the section's SEO settings.
+ */
+export function journalListingMeta(input: { base: string; categoryAsked?: string; category?: { slug: string; name: string } | null; page?: string; query?: string }): JournalListingMeta | null {
+  const parsed = Number(input.page)
+  const page = Number.isSafeInteger(parsed) && parsed > 0 ? parsed : input.page !== undefined ? 1 : 0
+  const pageLabel = page > 1 ? ` — صفحهٔ ${page.toLocaleString('fa-IR')}` : ''
+  if (input.query?.trim()) return { title: 'جست‌وجو در مجله', description: 'جست‌وجو در نوشته‌های مجله', canonical: input.base, index: false }
+  if (input.categoryAsked) {
+    if (!input.category) return { title: 'مجله', description: 'تازه‌ترین مقاله‌ها، اخبار، آموزش‌ها و نقدها', canonical: input.base, index: false }
+    return {
+      title: `${input.category.name}${pageLabel} — مجله`,
+      description: `نوشته‌های مجله در دستهٔ «${input.category.name}»${page > 1 ? `، صفحهٔ ${page.toLocaleString('fa-IR')}` : ''}: آموزش‌ها، خبرها و نقدهای تازه.`,
+      canonical: `${input.base}?category=${encodeURIComponent(input.category.slug)}${page > 1 ? `&page=${page}` : ''}`,
+      index: true,
+    }
+  }
+  if (page) return { title: page > 1 ? `مجله${pageLabel}` : 'آرشیو مجله', description: `همهٔ نوشته‌های مجله${page > 1 ? `، صفحهٔ ${page.toLocaleString('fa-IR')}` : ''}، از تازه‌ترین.`, canonical: `${input.base}?page=${page}`, index: true }
+  return null
+}
+
 /** API clients send an absolute ISO time; an explicit blank means publish now. */
 export function publicationDateInput(value: unknown, now = new Date()): Date {
   if (value === '' || value === null) return now
