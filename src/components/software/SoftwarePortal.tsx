@@ -1,5 +1,6 @@
 import Link from '@/components/AppLink'
 import type { ReactNode } from 'react'
+import { sized, srcSet } from '@/shared/media/image'
 import { licenseLabel } from '@/modules/media/domain/media'
 import type { SoftwareCard, SoftwareTree } from '@/modules/media/server/queries'
 import { VipBadge } from '@/components/media/MediaCards'
@@ -133,10 +134,10 @@ export function NewsBox({ items }: { items: NewsItem[] }) {
   return <section className="sp-news">
     <SectionTitle icon="sparkle" title="تازه‌های دنیای فناوری" action={{ href: '/blog', label: 'مشاهدهٔ همه' }} />
     <Link href={`/blog/${lead.slug}`} className="sp-news-lead">
-      <img src={lead.cover} alt="" loading="lazy" />
+      <img src={sized(lead.cover, 480)} srcSet={srcSet(lead.cover, 480)} alt="" loading="lazy" />
       <span><small>{lead.category?.name || 'خبر فناوری'}</small><b>{lead.title}</b>{lead.excerpt && <em>{lead.excerpt}</em>}</span>
     </Link>
-    {rest.length > 0 && <div className="sp-news-grid">{rest.map((post) => <Link key={post.slug} href={`/blog/${post.slug}`} className="sp-news-item"><img src={post.cover} alt="" loading="lazy" /><b>{post.title}</b></Link>)}</div>}
+    {rest.length > 0 && <div className="sp-news-grid">{rest.map((post) => <Link key={post.slug} href={`/blog/${post.slug}`} className="sp-news-item"><img src={sized(post.cover, 160)} alt="" loading="lazy" /><b>{post.title}</b></Link>)}</div>}
   </section>
 }
 

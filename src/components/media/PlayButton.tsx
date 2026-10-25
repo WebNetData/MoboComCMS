@@ -1,6 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
+import { sized } from '@/shared/media/image'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { usePlayer } from './MusicPlayer'
 import type { PlayerTrack } from './player-types'
@@ -17,7 +18,7 @@ export function PlayButton({ tracks, index = 0, variant = 'round', label }: { tr
   const playing = active && player.playing
   const text = playing ? (fa ? 'توقف' : 'Pause') : (fa ? 'پخش' : 'Play')
   return (
-    <button type="button" className={`mu-pb mu-pb-${variant}${active ? ' is-active' : ''}${playing ? ' is-playing' : ''}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); player.play(tracks, index) }} aria-label={`${text} ${track.title}`}>
+    <button type="button" className={`mu-pb mu-pb-${variant}${active ? ' is-active' : ''}${playing ? ' is-playing' : ''}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); player.play(tracks, index) }} aria-label={variant === 'big' ? `${label || text} — ${track.title}` : `${text} ${track.title}`}>
       <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
       {variant === 'big' && <b>{label || text}</b>}
     </button>
@@ -40,7 +41,7 @@ export function TrackList({ tracks, numbered = true, showCover = true, chart = f
           <li key={track.id} className={active ? 'is-active' : ''}>
             {numbered && <span className="mu-tl-no">{active && player?.playing ? <i className="mu-eq" aria-hidden="true"><b /><b /><b /></i> : (i + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
             <PlayButton tracks={tracks} index={i} />
-            {showCover && (track.cover ? <img className="mu-tl-cover" src={track.cover} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♪</span>)}
+            {showCover && (track.cover ? <img className="mu-tl-cover" src={sized(track.cover, 120)} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♪</span>)}
             <span className="mu-tl-meta">
               <Link href={`/music/track/${track.slug}`}><b>{track.title}</b></Link>
               <Link href={`/music/artist/${track.artistSlug}`} className="muted">{track.artist}</Link>

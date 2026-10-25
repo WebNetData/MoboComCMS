@@ -264,3 +264,12 @@ export function cleanPath(value: unknown): string {
   const path = String(value ?? '/').split(/[?#]/)[0].slice(0, 200)
   return /^\/[A-Za-z0-9/_%.\-~]*$/.test(path) ? (path.length > 1 ? path.replace(/\/+$/, '') : path) : '/'
 }
+
+/** The placements one page asks for together (`ps=a,b,c`): valid keys only, each once, at most 16; null when the list is unusable. */
+export const MAX_PLACEMENTS_PER_REQUEST = 16
+export function parsePlacementList(value: string | null): string[] | null {
+  if (!value) return null
+  const keys = [...new Set(value.split(',').map((key) => key.trim()).filter(Boolean))]
+  if (!keys.length || keys.length > MAX_PLACEMENTS_PER_REQUEST || !keys.every((key) => /^[a-z0-9][a-z0-9-]{1,40}$/.test(key))) return null
+  return keys
+}

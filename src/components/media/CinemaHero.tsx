@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { sized } from '@/shared/media/image'
 import Link from '@/components/AppLink'
 
 export type HeroSlide = { slug: string; title: string; subtitle: string; summary: string; backdrop: string; poster: string; imdb: string; year: string; genres: string[]; badges: string[]; vip: boolean; kindLabel: string }
@@ -44,7 +45,7 @@ export default function CinemaHero({ slides, fa }: { slides: HeroSlide[]; fa: bo
           <div className="cn-hero-thumbs" role="tablist">
             {slides.map((s, i) => (
               <button key={s.slug} type="button" role="tab" aria-selected={i === active} className={i === active ? 'is-active' : ''} onClick={() => setActive(i)} aria-label={s.title}>
-                {s.poster ? <img src={s.poster} alt="" /> : <span>{i + 1}</span>}
+                {s.poster ? <img src={sized(s.poster, 160)} alt="" /> : <span>{i + 1}</span>}
               </button>
             ))}
           </div>

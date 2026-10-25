@@ -8,7 +8,7 @@ import { requireUser } from '@/modules/identity/server/access'
 import { isMember } from '@/modules/membership/server/membership'
 import { walletBalance } from '@/modules/wallet/server/wallet'
 import { receiveImage } from '@/modules/site/server/http/admin/media/route'
-import { AdsError } from '@/modules/ads/domain/ads'
+import { AdsError, parsePlacementList } from '@/modules/ads/domain/ads'
 import { getAdsConfig, recordClick, recordImpression, serveAd } from '@/modules/ads/server/serving'
 import { advertiserAction, advertiserPortal, buyPackage, publicPackages } from '@/modules/ads/server/manage'
 
@@ -24,12 +24,24 @@ const failure = (error: unknown) => {
 const userIdOf = async (req: NextRequest) => (await requireUser(req))?.id ?? null
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
-/** GET /api/promo/serve?p=<placement>&path=<page>&lang=fa → the promotion to show (or null). */
+/**
+ * GET /api/promo/serve?p=<placement>&path=<page>&lang=fa → the promotion to show (or null).
+ * GET /api/promo/serve?ps=<a,b,c>&path=…&lang=… → { ads: { a: …, b: … } }: every slot of a page in one request.
+ */
 export async function GET_serve(req: NextRequest) {
-  const off = await moduleGuard('ads')
-  if (off) return NextResponse.json({ ad: null, fallback: '', reserve: null }, { headers: NO_STORE })
-  if (!rateLimitHit(`promo:serve:${clientIp(req.headers)}`, 240, 60_000).ok) return NextResponse.json({ ad: null, fallback: '', reserve: null }, { status: 429, headers: NO_STORE })
   const q = req.nextUrl.searchParams
+  const many = q.has('ps') ? parsePlacementList(q.get('ps')) : undefined
+  if (many === null) return err('invalid placements', 400)
+  const none = { ad: null, fallback: '', reserve: null }
+  const off = await moduleGuard('ads')
+  if (off) return NextResponse.json(many ? { ads: Object.fromEntries(many.map((key) => [key, none])) } : none, { headers: NO_STORE })
+  if (!rateLimitHit(`promo:serve:${clientIp(req.headers)}`, 240, 60_000).ok) return NextResponse.json(many ? { ads: {} } : none, { status: 429, headers: NO_STORE })
+  if (many) {
+    const userId = await userIdOf(req)
+    const input = { path: q.get('path') || '/', language: q.get('lang') || 'fa', userAgent: req.headers.get('user-agent') || '', userId, vip: () => (userId ? isMember(userId) : Promise.resolve(false)) }
+    const served = await Promise.all(many.map((placement) => serveAd({ ...input, placement })))
+    return NextResponse.json({ ads: Object.fromEntries(many.map((key, index) => [key, served[index]])) }, { headers: NO_STORE })
+  }
   const placement = String(q.get('p') || '')
   if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(placement)) return err('invalid placement', 400)
   const userId = await userIdOf(req)
