@@ -7,9 +7,9 @@ import { TextEditor, LinkEditor } from './fields'
 import MenuTreeEditor from '@/components/admin/MenuTreeEditor'
 import { identifyMenu, DEFAULT_FOOTER_ACCOUNT } from '@/modules/site/config/menus'
 
-const COLOR_LABELS: Record<string, string> = { background: 'پس‌زمینه', surface: 'کارت‌ها', accent: 'رنگ اصلی', text: 'متن', muted: 'متن فرعی', border: 'خطوط' }
-const COLOR_KEYS = ['background', 'surface', 'accent', 'text', 'muted', 'border'] as const
-const LIGHT_FALLBACK: ThemeColors = { background: '#f6f8f3', surface: '#ffffff', accent: '#346522', text: '#18211b', muted: '#5f6e63', border: '#d9e1d5' }
+export const COLOR_LABELS: Record<string, string> = { background: 'پس‌زمینه', surface: 'کارت‌ها', accent: 'رنگ اصلی', text: 'متن', muted: 'متن فرعی', border: 'خطوط' }
+export const COLOR_KEYS = ['background', 'surface', 'accent', 'text', 'muted', 'border'] as const
+export const LIGHT_FALLBACK: ThemeColors = { background: '#f6f8f3', surface: '#ffffff', accent: '#346522', text: '#18211b', muted: '#5f6e63', border: '#d9e1d5' }
 const FONT_STACKS = [
   "'HappVazirmatn',Tahoma,sans-serif",
   "'HappInter',Arial,sans-serif",
