@@ -29,6 +29,9 @@ export default function AdminFinancePage() {
   }, [load])
 
   const fmtDate = (d: string) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US')
+  // Counts in the reader's digits; a finance bucket (YYYY-MM, Gregorian) named by its month.
+  const num = (value: number | undefined) => (value ?? 0).toLocaleString(isFa ? 'fa-IR' : 'en-US')
+  const monthName = (bucket: string) => new Intl.DateTimeFormat(isFa ? 'fa-IR-u-ca-gregory' : 'en-US', { month: 'short', timeZone: 'UTC' }).format(new Date(`${bucket}-15T00:00:00Z`))
   const activeCurrency = data?.currency || currency || BASE_CURRENCY
   const money = (n: number) => formatCurrency(n || 0, activeCurrency, isFa ? 'fa-IR' : 'en-US')
 
@@ -48,7 +51,7 @@ export default function AdminFinancePage() {
     [t.refunds, money(s.refunded), '↩️'],
     [t.gatewayFees, money(s.fees), '🏦'],
     [t.avgOrderValue, money(s.avgOrder), '🎯'],
-    [t.paymentsCount, String(s.payments), '💳'],
+    [t.paymentsCount, num(s.payments), '💳'],
   ]
 
   return (
@@ -61,7 +64,7 @@ export default function AdminFinancePage() {
         <div className="flex items-center gap-2">
           <select className="select imp-w-24" aria-label={locale === 'fa' ? 'بازهٔ گزارش (ماه)' : 'Report period (months)'} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
             {[3, 6, 12, 24].map((m) => (
-              <option key={m} value={m}>{m} {t.months}</option>
+              <option key={m} value={m}>{num(m)} {t.months}</option>
             ))}
           </select>
           <select className="select admin-currency" value={activeCurrency} onChange={(e) => setCurrency(e.target.value)} aria-label={t.currency}>
@@ -99,7 +102,7 @@ export default function AdminFinancePage() {
                 <div className="chart-bar bar-primary" style={{ height: `${Math.max(2, (m.revenue / maxRevenue) * 100)}%` }} />
                 <div className="chart-bar bar-danger" style={{ height: `${Math.max(1, (m.expenses / maxRevenue) * 100)}%` }} />
               </div>
-              <div className="chart-label num">{m.month.slice(5)}</div>
+              <div className="chart-label">{monthName(m.month)}</div>
             </div>
           ))}
         </div>
@@ -113,8 +116,8 @@ export default function AdminFinancePage() {
             {data.byGateway.map((g: any) => (
               <div key={g.name}>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="font-semibold">{g.name} <span className="badge badge-gray">{g.provider}</span></span>
-                  <span className="num">{money(g.amount)} · <span className="muted">{g.count}×</span></span>
+                  <span className="font-semibold">{g.name}{g.provider && g.provider !== g.name && <small className="muted" dir="ltr"> {g.provider}</small>}</span>
+                  <span className="num">{money(g.amount)} · <span className="muted">{num(g.count)} {isFa ? 'پرداخت' : 'payments'}</span></span>
                 </div>
                 <div className="meter"><div className="meter-fill" style={{ width: `${(g.amount / maxGateway) * 100}%` }} /></div>
               </div>
@@ -153,7 +156,7 @@ export default function AdminFinancePage() {
               {data.topCustomers.map((c: any) => (
                 <tr key={c.email}>
                   <td dir="ltr">{c.email}</td>
-                  <td className="num">{c.count}</td>
+                  <td className="num">{num(c.count)}</td>
                   <td className="num font-semibold">{money(c.amount)}</td>
                 </tr>
               ))}
