@@ -1,0 +1,31 @@
+{
+  "source": "MoboCom-Codex-Claude-Architecture-Kit.zip",
+  "adoptedOn": "2026-10-25",
+  "archiveSha256": "242724c828e8afc7cd69eb7b04f12d78af9e841ff1148a8afa4564a2601148e2",
+  "baseCommit": "3c1a221f42dde5ba470a8681948df9a3b866cb66",
+  "authority": "Owner-requested engineering guidance integration; not a product implementation, whole-site audit, PR or deployment request.",
+  "sourceMembersSha256": {
+    "README-FA.md": "c609e73551000847e1d5e856a06c2a0e3c952ee4f8b20985995f04504ce139dd",
+    "CLAUDE.md": "08a129d8182b383e7a34e55bf2886426b9e653536622f786c29635a24faf3406",
+    "AGENTS.md": "dc8a09a2ea82972cf7ca039c12b0df7a06c13ef99d62a3de015886ef155c5c4e",
+    "patches/CLAUDE.append.md": "fc75d34fb469764dd65e4cea6ad68145815507e89badbc50a272673414765f35",
+    "patches/AGENTS.append.md": "4b4b9bfc781c25aa9d753cb0332ddbc1c9b0b832cbf74c4e6d1754a8bbdbbf2d",
+    "prompts/CODEX_START.md": "8dd405411ad9894cc413d96240244e49a82f347c27700962cf12784c6ac2c6a7",
+    "prompts/CLAUDE_START.md": "d92c8ca00b0a114eb101cc23b1004568afe719c7eef02240d7dfb6334f604712",
+    "docs/agent/WHOLE_SITE_EXECUTION_PROMPT.md": "c387dad1f4db097d3e4379476b65f8efaaa9d815bc06dc384802f14c84bf5bf9",
+    "docs/agent/WHOLE_SITE_QUALITY_STANDARD.md": "0db4402e92d2c0cc9ddc4d3da7d84831540175e6e8515d4d7fe5aeb5cfcbf63b"
+  },
+  "integration": [
+    "Append managed routing to existing AGENTS/CLAUDE; do not replace them with snapshot copies.",
+    "Project-scoped Codex/Claude six-skill routing mirrors; older-root entrypoints point to the authoritative checkout.",
+    "Shared standard and brief add scope/authorization continuity, existing evidence vocabulary, Actions quota and document-only validation notes.",
+    "Two optional starter prompts kept under docs/agent/prompts; no automatic execution.",
+    "No application, schema, dependencies, workflow, secrets or global client configuration changed."
+  ],
+  "installedDocumentsSha256AtAdoption": {
+    "docs/agent/WHOLE_SITE_QUALITY_STANDARD.md": "0685920b728fea87dcd1dde33913d6a9eb02651862c6b4be12093199d72c74e0",
+    "docs/agent/WHOLE_SITE_EXECUTION_PROMPT.md": "fd262f2a8e31e52b67f6dcd94e64aafadd7ad0341926cc95a57f1213b2e2c12c",
+    "docs/agent/prompts/CODEX_WHOLE_SITE_START.md": "7bb85bf23b3ceefb3e7b111d5ba513bbd9e3e0cf0b8daab797d725bdd8fd8cf3",
+    "docs/agent/prompts/CLAUDE_WHOLE_SITE_START.md": "78c0138a323ffb90197c9c270a527a84db582fdb2fad7464a576166bec474be9"
+  }
+}

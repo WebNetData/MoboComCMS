@@ -53,3 +53,10 @@ When this workflow touches forms, form payments, appointments, staff queues, tic
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
 <!-- mobocom-engineering-skills:end -->
+
+<!-- mobocom-whole-site-quality-skill:start -->
+## Whole-site quality routing
+
+Read task-relevant sections of `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` under the current architecture/owner decisions. Use sections10/12 for scoped executed evidence and rollback; do not dispatch hosted workflows automatically or reinterpret a documentation change as deployment authorization.
+The shared execution brief is for an explicit whole-site task; this routing does not start one.
+<!-- mobocom-whole-site-quality-skill:end -->

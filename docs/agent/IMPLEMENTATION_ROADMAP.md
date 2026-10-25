@@ -1,5 +1,11 @@
 # Incremental platform roadmap
 
+2026-10-25: [whole-site quality](WHOLE_SITE_QUALITY_STANDARD.md) is the acceptance
+filter for these existing slices, including IA/Admin/forms, data/relationships,
+extensions and actual evidence. Installation is recorded in the
+[integration handoff](handoffs/ARCHITECTURE_KIT.md); it does not reopen completed
+features, reorder the owner's priorities or authorize a whole-site rewrite.
+
 Scoped delivery2026-10-19: the existing canonical editor now shares ten module-owned schemas with the browser, resolves public catalogue output at read time and offers guarded searchable manual selection/preview. Five more portal-settings forms compose existing atomic history. [Current continuation and exact evidence](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md). These named gaps are closed; broader compositions, other owner forms and production evidence remain bounded follow-ups. Do not restart those delivered capabilities from the historical queue below.
 
 Updated 2026-10-10 from the current working tree, not a new implementation branch. This is a queue of safe vertical slices, not a claim of benchmark parity. See the [matrix](DOMAIN_CAPABILITY_MATRIX.md) for inspected owners and [contracts](contracts/platform-evolution.md) for target semantics. Preserve existing incomplete work, data, permission keys, APIs, URLs and protected designs.
@@ -38,7 +44,7 @@ Production readiness comes from verified essentials early, not waiting for every
 
 ## PR #146 delivery checkpoint
 
-[Release-safety PR](https://github.com/WebNetData/MoboComCMS/pull/146) merged with required Checks and Browser tests green. Full registered browser coverage is now locally/CI verified within its seven fixture-dependent skips; six affected editor cases and scoped light/dark axe also passed locally. Next: [buyer/payment/return evidence](../specs/buyer-return-release-evidence/SPEC.md), then HTTPS/PostgreSQL operational rehearsal, then independently revocable restrictions. The remaining roadmap and existing owners stay in force. No ProductionVerified promotion.
+[Release-safety PR](https://github.com/WebNetData/MoboComCMS/pull/146) merged with required Checks and Browser tests green. Full registered browser coverage is now locally/CI verified within its seven fixture-dependent skips; six affected editor cases and scoped light/dark axe also passed locally. The subsequent [buyer/payment/return evidence](audits/2026-10-10-buyer-return-runtime.md) is recorded in its existing audit; HTTPS/PostgreSQL operational rehearsal and independently revocable restrictions follow in the historical sequence. The remaining roadmap and existing owners stay in force. No ProductionVerified promotion.
 
 
 CI browser follow-up: PR #146 passed the configured gate with 53 direct passes, 2 flaky cases that passed on retry, and 7 fixture-dependent skips. The flaky cases were `/music does not crash` and the magazine-only section-manager save. Local full suite passed 55 cases without retries. Reproduce and stabilize the CI-resource behavior without weakening assertions or adding retries; then continue the real buyer/return scenario. No additional workflow was dispatched.

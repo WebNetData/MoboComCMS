@@ -61,3 +61,10 @@ local search measurement or Graphify checkout drift, read
 do not query an older root graph as this checkout's source. Separate measured
 local data from production traffic, and21 named history owners from arbitrary
 Admin/financial/secret rollback. Existing module owners and guards remain.
+
+<!-- mobocom-whole-site-quality-skill:start -->
+## Whole-site quality routing
+
+Read task-relevant sections of `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` under the current architecture/owner decisions. For a whole-site audit use sections5/11A/13: record scoped observations in the existing matrix/ledger; unassessed is not missing and source presence is not runtime verification.
+The shared execution brief is for an explicit whole-site task; this routing does not start one.
+<!-- mobocom-whole-site-quality-skill:end -->

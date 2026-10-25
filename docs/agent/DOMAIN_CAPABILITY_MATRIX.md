@@ -6,6 +6,12 @@ Snapshot: 2026-10-10, branch `fix/editor-maintenance-safety`, current working tr
 
 ## Status and evidence rules
 
+The [whole-site quality standard](WHOLE_SITE_QUALITY_STANDARD.md) is adopted as
+criteria, not implemented capability. Its Present/Partial/Missing/Unverified
+observations belong to the existing scoped evidence fields; retain this matrix's
+maturity vocabulary and audit finding labels. Unassessed remains U. No domain
+cell was promoted by the 2026-10-25 documentation/skill integration.
+
 Maturity vocabulary: **Missing → Planned → Foundation → PartiallyImplemented → Functional → ProductionVerified → Advanced → ReferenceClassEquivalent**. Progress is evidence-based, not automatic; Advanced does not bypass production verification. Missing needs a search of the relevant canonical owner, Planned needs an accepted contract, Foundation means inspected models/contract/consumer exists, PartiallyImplemented means an inspected subset exists with a documented larger target. Functional needs the actual end-to-end acceptance checks. ProductionVerified needs a named deployed version/environment and operational evidence. ReferenceClassEquivalent also requires a benchmark checklist and owner acceptance.
 
 Table shorthand: **F** = Foundation, **PI** = PartiallyImplemented, **P** = Planned target with no implementation found in the inspected owner, **U** = unassessed (not evidence of absence). No cell in this broad snapshot is promoted to Functional or ProductionVerified. See the existing editor/maintenance ledger and audit for their narrower executed tests. Status describes the full dimension for that domain, not every individual feature inside it.
