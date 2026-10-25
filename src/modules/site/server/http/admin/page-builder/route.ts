@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest) {
   if (await introducesScripts(pageId, doc) && !await requirePerm(req, SCRIPT_PERMISSION)) {
     return err('Advanced code (JavaScript) requires the site settings permission', 403)
   }
-  await saveBuilderDoc(pageId, doc)
+  await saveBuilderDoc(pageId, doc, { id: admin.id, email: admin.email })
   await clearBuilderDraft(pageId)
   await auditAdmin({
     req,
