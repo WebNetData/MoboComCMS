@@ -24,17 +24,18 @@ export async function generateMetadata({searchParams}:{searchParams:Promise<Cine
 export default async function CinemaBrowsePage({searchParams}:{searchParams:Promise<CinemaSearch>}){
   await requireModule('cinema')
   const [params,locale]=await Promise.all([searchParams,getServerLocale()]),fa=locale==='fa'
-  const [result,actor,director]=await Promise.all([
+  const [result,actor,director,producer]=await Promise.all([
     browseCinema({...params,page:Number(params.page)}),
     params.actor?publicPersonChoice(cinemaPersonId(params.actor)||-1,'CAST'):null,
     params.director?publicPersonChoice(cinemaPersonId(params.director)||-1,'DIRECTOR'):null,
+    params.producer?publicPersonChoice(cinemaPersonId(params.producer)||-1,'PRODUCER'):null,
   ])
   const active=params.dubbed==='1'?'dubbed':params.sort==='imdb'?'imdb':params.kind==='MOVIE'?'movies':params.kind==='SERIES'?'series':undefined
   return <MediaShell section="cinema" active={active} nav={cinemaNav(fa)} search={{action:'/cinema/browse',placeholder:fa?'جست‌وجوی فیلم و سریال…':'Search films and series…',value:params.q}}>
     <div className={`container cn-discovery ${styles.page}`}>
       <header className={styles.heading}><div><h1>{fa?'فیلم و سریال، به انتخاب شما':'Find your next film or series'}</h1><p>{fa?'نام اثر، بازیگر یا کارگردان را پیدا کنید و نتیجه‌ها را به سلیقهٔ خود محدود کنید.':'Find a title, actor or director and refine the catalogue.'}</p></div><Link className={styles.directoryLink} href="/cinema/people"><Icon name="film" size={18}/>{fa?'بازیگران و کارگردانان':'Actors & directors'}</Link></header>
-      <BrowseFilters params={params} fa={fa} actor={actor} director={director} genres={result.genres} years={result.years} countries={result.countries}/>
-      <ActiveFilters params={params} fa={fa} actor={actor} director={director}/>
+      <BrowseFilters params={params} fa={fa} actor={actor} director={director} producer={producer} genres={result.genres} years={result.years} countries={result.countries}/>
+      <ActiveFilters params={params} fa={fa} actor={actor} director={director} producer={producer}/>
       <BrowseResults result={result} params={params} fa={fa}/>
     </div>
   </MediaShell>

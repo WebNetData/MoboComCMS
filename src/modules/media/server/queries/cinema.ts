@@ -66,12 +66,13 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
   }
 }
 
-export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string }) {
+export async function browseCinema(input: { kind?: string; genre?: string; year?: string; country?: string; dubbed?: string; sort?: string; q?: string; page?: number; ids?: number[]; actor?: string; director?: string; producer?: string }) {
   const page = cinemaBrowsePage(input.page)
   const where: any = { ...live() }
-  const parsedActor=cinemaPersonId(input.actor),parsedDirector=cinemaPersonId(input.director)
-  const [actor,director] = await Promise.all([parsedActor === null || parsedActor <= 0 ? parsedActor : canonicalPersonId(parsedActor).then(id => id || parsedActor), parsedDirector === null || parsedDirector <= 0 ? parsedDirector : canonicalPersonId(parsedDirector).then(id => id || parsedDirector)])
-  const credits=[actor!==null?{credits:{some:{personId:actor,role:'CAST'}}}:null,director!==null?{credits:{some:{personId:director,role:'DIRECTOR'}}}:null].filter(Boolean)
+  // Each person filter matches that person's canonical profile (a merged alias leads to the person it joined).
+  const canonical = (raw: string | undefined) => { const id = cinemaPersonId(raw); return id === null || id <= 0 ? Promise.resolve(id) : canonicalPersonId(id).then(found => found || id) }
+  const [actor,director,producer] = await Promise.all([canonical(input.actor), canonical(input.director), canonical(input.producer)])
+  const credits=[actor!==null?{credits:{some:{personId:actor,role:'CAST'}}}:null,director!==null?{credits:{some:{personId:director,role:'DIRECTOR'}}}:null,producer!==null?{credits:{some:{personId:producer,role:'PRODUCER'}}}:null].filter(Boolean)
   if(credits.length)where.AND=credits
   if (input.ids) where.id = { in: input.ids.slice(0, 5000) }
   if (input.kind === 'MOVIE' || input.kind === 'SERIES') where.kind = input.kind
@@ -81,7 +82,7 @@ export async function browseCinema(input: { kind?: string; genre?: string; year?
   const year = Number(input.year)
   if (Number.isSafeInteger(year) && year > 1880) where.year = year
   const q = String(input.q || '').trim().slice(0, 80)
-  if (q) where.OR = [{ title: { contains: q,mode:'insensitive' } }, { titleEn: { contains: q,mode:'insensitive' } }, { originalTitle: { contains: q,mode:'insensitive' } }, { director: { contains: q,mode:'insensitive' } }]
+  if (q) where.OR = [{ title: { contains: q,mode:'insensitive' } }, { titleEn: { contains: q,mode:'insensitive' } }, { originalTitle: { contains: q,mode:'insensitive' } }, { director: { contains: q,mode:'insensitive' } }, { producer: { contains: q,mode:'insensitive' } }]
   const orderBy = input.sort === 'imdb' ? [{ imdbRating: 'desc' as const }] : input.sort === 'year' ? [{ year: 'desc' as const }] : input.sort === 'popular' ? [{ views: 'desc' as const }] : [{ publishedAt: 'desc' as const }]
   let unavailable=false
   const stableOrder=[...orderBy,{id:'desc' as const}]
@@ -114,7 +115,7 @@ export async function getTitle(slug: string) {
   const similarById = new Map(similarRows.map((item) => [item.id, item]))
   return {
     title: {
-      ...toTitle(row), summaryHtml: renderEditorialText(row.summary), summaryEnHtml: renderEditorialText(row.summaryEn), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director,
+      ...toTitle(row), summaryHtml: renderEditorialText(row.summary), summaryEnHtml: renderEditorialText(row.summaryEn), endYear: row.endYear, imdbId: row.imdbId, countries: splitList(row.countries), languages: splitList(row.languages), director: row.director, producer: row.producer,
       cast: parseJsonList<{ name: string; role?: string; image?: string }>(row.cast), trailerUrl: row.trailerUrl, seriesStatus: row.seriesStatus, views: row.views, publishedAt: row.publishedAt,
     },
     links: titleLinks.get(row.id) || [],

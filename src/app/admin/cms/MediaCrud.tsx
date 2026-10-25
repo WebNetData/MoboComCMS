@@ -23,6 +23,7 @@ import { applyCinemaMetadata } from '@/modules/cinema/domain/metadata'
 import { OrganizationScope, useAssetOrganization } from '@/components/media/OrganizationScope'
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
+import PeoplePicker from './PeoplePicker'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -41,7 +42,13 @@ export type MediaField = {
   key: string
   label: string
   /** `richtext`: formatted text written in the site's editor and stored as sanitised HTML (the server cleans it on save). */
-  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms'
+  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms' | 'people'
+  /** For `people`: a director/producer line (`line`) or the cast list with characters and order (`cast`). */
+  people?: 'line' | 'cast'
+  /** Fields with the same section are shown together under that heading, in the order the section first appears. */
+  section?: string
+  /** Shown only when this says so for the form being edited (e.g. series-only fields); a hidden field keeps its value. */
+  when?: (form: Record<string, any>) => boolean
   /** For `terms`: the section taxonomy (software, games, music, cinema). */
   taxonomy?: string
   options?: Opt[]
@@ -77,6 +84,7 @@ function emptyValue(field: MediaField): unknown {
   switch (field.type) {
     case 'checkbox': return false
     case 'links': case 'records': case 'seasons': case 'picklist': return []
+    case 'people': return field.people === 'cast' ? [] : ''
     case 'requirements': return { min: {}, rec: {} }
     case 'terms': return { ids: [], primary: null }
     case 'select': return field.options?.[0]?.value ?? ''
@@ -90,6 +98,18 @@ function toFormValue(field: MediaField, value: unknown): unknown {
   if (field.type === 'date') return String(value).slice(0, 10)
   if (field.type === 'select' || field.type === 'number') return String(value)
   return value
+}
+
+/**
+ * What the form shows now and how: a field that does not apply to this item (e.g. a series field on a film) stays
+ * out; fields with a section are grouped under it, in the order each section first appears.
+ */
+function formLayout(fields: MediaField[], form: Record<string, any> | null) {
+  const shownFields = form ? fields.filter((field) => !field.when || field.when(form)) : fields
+  if (!shownFields.some((field) => field.section)) return { shownFields, sections: [{ title: '', fields: shownFields }] }
+  const groups = new Map<string, MediaField[]>()
+  for (const field of shownFields) groups.set(field.section || '', [...(groups.get(field.section || '') || []), field])
+  return { shownFields, sections: [...groups].map(([title, grouped]) => ({ title, fields: grouped })) }
 }
 
 export default function MediaCrud({ type, title, subtitle, fields: allFields, publicPath, titleKey = 'title', paywall }: Props) {
@@ -244,6 +264,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       case 'date': return [{ ...base, type: 'date' }]
       case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
       case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
+      // People are suggested as names (a line) or as name + character rows (the cast), as before the picker.
+      case 'people': return field.people === 'cast' ? [{ ...base, type: 'records', recordKeys: [{ key: 'name', label: fa ? 'نام' : 'Name' }, { key: 'role', label: fa ? 'نقش' : 'Character' }] }] : [{ ...base, type: 'text' }]
       default: return []
     }
   }).filter((field) => field.type !== 'records' || (field.recordKeys?.length ?? 0) > 0), [fields, sources]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,7 +282,8 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
     })
     setAiKeys((current) => { const next = new Set(current); for (const key of Object.keys(values)) if (!filled.includes(key)) next.delete(key); for (const key of filled) next.add(key); return next })
   }
-  const reviewRows: ReviewRow[] = form ? fields.map((field) => {
+  const { shownFields, sections } = formLayout(fields, form)
+  const reviewRows: ReviewRow[] = form ? shownFields.map((field) => {
     const value = previewValue(form[field.key], optionsOf(field))
     return { key: field.key, label: field.label, value, state: !value && field.required ? 'missing' : aiKeys.has(field.key) ? 'ai' : value ? 'ok' : 'empty' }
   }) : []
@@ -322,18 +345,17 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
 
       {form && (
         <form onSubmit={save} className="card mb-6 mx-form">
-          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="text-sm" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
+          <div className="mx-form-head"><strong>{editId ? (fa ? `ویرایش #${editId}` : `Edit #${editId}`) : (fa ? 'مورد جدید' : 'New entry')}</strong>{editId && <a className="mx-form-history" href={`/admin/history?type=${encodeURIComponent(type)}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a>}</div>
           <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />
           {type === 'cinema-titles' && !mine && <CinemaMetadataLookup key={editId ?? 'new'} value={form.imdbId} kind={form.kind} onApply={(values, replace) => { setForm(current => current ? applyCinemaMetadata(current,values,replace,!editId) : current);setAiKeys(current=>new Set([...current,...Object.keys(values)])) }} />}
-          <div className="mx-grid">
-            {fields.map((field) => (
-              <div key={field.key} className={`mx-field${field.wide || ['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms'].includes(field.type || '') ? ' is-wide' : ''}${aiKeys.has(field.key) ? ' is-ai' : ''}`}>
-                {field.type !== 'checkbox' && <label className="label">{field.label}{field.required ? ' *' : ''}{aiKeys.has(field.key) && <span className="ai-badge">پیشنهاد AI</span>}</label>}
-                <OrganizationScope value={assetOrganization?{...assetOrganization,video:field.key==='trailerUrl'}:undefined}><FieldInput field={field} value={form[field.key]} onChange={(value, projected) => { if(projected)setForm(current => current?({ ...current, ...projected, [field.key]: value }):current);else set(field.key,value) }} options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''} /></OrganizationScope>
-                {field.hint && <small className="muted mx-hint">{field.hint}</small>}
-              </div>
-            ))}
-          </div>
+          {sections.map((section) => {
+            const body = section.fields.map((field) => <FieldBox key={field.key} field={field} value={form[field.key]} ai={aiKeys.has(field.key)} organization={assetOrganization}
+              options={field.source ? [{ value: '', label: field.source.empty || '—' }, ...(sources[field.source.type] || [])] : field.options} fa={fa} onBusy={setBusy} titleHint={form.title || form.name || ''}
+              onChange={(value, projected) => { if (projected) setForm((current) => (current ? { ...current, ...projected, [field.key]: value } : current)); else set(field.key, value) }} />)
+            return section.title
+              ? <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{body}</div></fieldset>
+              : <div key="fields" className="mx-grid">{body}</div>
+          })}
           {paywall && <PaidAccessPanel ownerType={paywall.ownerType} ownerId={editId} noun={paywall.noun} />}
           <div className="flex gap-2 mt-4">
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? '…' : needsReview() ? (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? (fa ? 'ذخیره تغییرات' : 'Save changes') : (fa ? 'ایجاد' : 'Create')}</button>
@@ -343,7 +365,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
         </form>
       )}
 
-      <div className="cms-summary">
+      <div className="cms-summary mx-toolbar">
         <div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>
         {vip !== null && <div data-vip=""><span>{fa ? 'ویژه اعضای VIP' : 'VIP only'}</span><b>{vip.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}
         {trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}
@@ -389,13 +411,25 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
 }
 
 function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
-  if (typeof value === 'boolean') return value ? '✅' : '—'
+  if (typeof value === 'boolean') return value ? <span className="mx-yes">{fa ? 'دارد' : 'Yes'}</span> : <span className="mx-no">—</span>
   if (field.key === 'access') return value === 'MEMBERS' ? <span className="badge vip-badge-sm">VIP</span> : <span className="muted">{fa ? 'عمومی' : 'Public'}</span>
   if (field.key === 'status') return value === 'DRAFT' ? <span className="badge badge-gray">{fa ? 'پیش‌نویس' : 'Draft'}</span> : <span className="badge badge-green">{fa ? 'منتشر' : 'Live'}</span>
-  if (field.type === 'select') return field.options?.find((o) => o.value === String(value))?.label || String(value ?? '—')
-  if (field.type === 'image') return value ? <img src={String(value)} alt="" className="mx-thumb" /> : '—'
+  if (field.type === 'select') { const label = field.options?.find((o) => o.value === String(value))?.label; return label ? <span className="mx-tag">{label}</span> : String(value ?? '—') }
+  if (field.type === 'image') return value ? <img src={String(value)} alt="" className={`mx-thumb${field.key === 'poster' ? ' is-poster' : ''}`} /> : <span className={`mx-thumb is-empty${field.key === 'poster' ? ' is-poster' : ''}`} aria-hidden="true" />
   const str = String(value ?? '')
   return str.length > 50 ? `${str.slice(0, 50)}…` : str || '—'
+}
+
+/** Fields that take the whole width of the form grid. */
+const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms', 'people'])
+
+/** One field of the form: its label (with the AI-suggestion mark), its input and its hint. */
+function FieldBox({ field, value, ai, organization, options, fa, onBusy, titleHint, onChange }: { field: MediaField; value: any; ai: boolean; organization?: AssetOrganization; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string; onChange: (value: unknown, projected?: Record<string, string>) => void }) {
+  return <div className={`mx-field${field.wide || WIDE_TYPES.has(field.type || '') ? ' is-wide' : ''}${ai ? ' is-ai' : ''}`}>
+    {field.type !== 'checkbox' && <span className="label">{field.label}{field.required ? ' *' : ''}{ai && <span className="ai-badge">پیشنهاد AI</span>}</span>}
+    <OrganizationScope value={organization ? { ...organization, video: field.key === 'trailerUrl' } : undefined}><FieldInput field={field} value={value} onChange={onChange} options={options} fa={fa} onBusy={onBusy} titleHint={titleHint} /></OrganizationScope>
+    {field.hint && <small className="muted mx-hint">{field.hint}</small>}
+  </div>
 }
 
 function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: { field: MediaField; value: any; onChange: (value: unknown, projected?: Record<string, string>) => void; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string }) {
@@ -409,7 +443,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.key === 'poster' ? 'poster' : 'media'} /></div>
     case 'date': case 'datetime':
       return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':
@@ -422,6 +456,8 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
       return <RequirementsEditor value={value && typeof value === 'object' ? value : { min: {}, rec: {} }} onChange={onChange} fa={fa} />
     case 'terms':
       return <TermPicker taxonomy={field.taxonomy || ''} value={value && typeof value === 'object' && Array.isArray(value.ids) ? value : { ids: [], primary: null }} onChange={onChange} />
+    case 'people':
+      return <PeoplePicker mode={field.people || 'line'} value={value} onChange={(next) => onChange(next)} label={field.label} fa={fa} />
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
     default:
@@ -498,36 +534,43 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
     <div className={`mx-links${compact ? ' is-compact' : ''}`}>
       {value.map((row, index) => (
         <div key={index} className="mx-link-row">
-          <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
-          <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
-          <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
-          <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+          <div className="mx-link-main">
+            <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
+            <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
+            <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
+            <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
+            {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
+            <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
+            <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
+          </div>
           {section === 'software' && <div className="mx-software-link-meta">
             <label><span>{fa ? 'سیستم‌عامل فایل' : 'File OS'}</span><input className="input" list="software-platform-options" value={row.platform || ''} onChange={(e) => update(index, { platform: e.target.value })} placeholder="Windows" /></label>
             <label><span>{fa ? 'معماری پردازنده' : 'CPU architecture'}</span><input className="input" list="software-architecture-options" dir="ltr" value={row.architecture || ''} onChange={(e) => update(index, { architecture: e.target.value })} placeholder="x64" /></label>
             <label><span>SHA-256</span><input className="input" dir="ltr" value={row.checksum || ''} onChange={(e) => update(index, { checksum: e.target.value })} placeholder="64 hex characters" /></label>
           </div>}
-          {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
-          <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
-          <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
-          {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
-            <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
-            {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
-            {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
-          </span>}
-          <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
-          <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
-          {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
-          <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
-          {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
-          <div className="mx-row-tools">
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))} aria-label="up">↑</button>
-            <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))} aria-label="down">↓</button>
-            <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))} aria-label="remove">✕</button>
+          <div className="mx-link-file">
+            <input aria-label="نشانی فایل" className="input mx-link-url" dir="ltr" placeholder="https://dl.example.com/file.mkv" value={row.url} onChange={(e) => update(index, { url: e.target.value })} />
+            <FileUpload compact section={section} onUploaded={(file) => update(index, { url: file.url, size: row.size || humanSize(file.size), label: row.label || file.name.replace(/\.[^.]+$/, '') })} label={fa ? 'بارگذاری' : 'Upload'} />
+          </div>
+          <div className="mx-link-foot">
+            {priced && <span className={`mx-link-price${row.price ? ' is-on' : ''}`} title={fa ? 'قیمت جدا برای همین لینک (مثلاً نسخهٔ 4K)؛ خالی = تابع قیمت/دسترسی خود مورد' : 'Own price for this link; empty = follows the item'}>
+              <input className="input" dir="ltr" inputMode="numeric" placeholder={fa ? 'قیمت جدا (تومان)' : 'Own price (Toman)'} value={row.price ?? ''} onChange={(e) => update(index, { price: e.target.value.replace(/[^\d۰-۹]/g, '') })} aria-label={fa ? 'قیمت جدای لینک' : 'Link price'} />
+              {row.price ? <select className="select" value={row.priceVip || 'FREE'} onChange={(e) => update(index, { priceVip: e.target.value })} aria-label="VIP"><option value="FREE">{fa ? 'VIP رایگان' : 'VIP free'}</option><option value="NONE">{fa ? 'VIP هم می‌خرد' : 'VIP pays'}</option></select> : null}
+              {!!row.sales && <span className="muted text-sm">🛒 {row.sales.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+            </span>}
+            {row.url && <PlaybackBadge url={row.url} kind={row.kind} fa={fa} />}
+            <label className={`mx-mini-check${row.disabled ? ' is-danger' : ''}`} title={fa ? 'لینک غیرفعال در سایت نمایش داده نمی‌شود (لینک خراب یا حذف به‌خاطر حق نشر)' : 'Disabled links are hidden on the site'}><input type="checkbox" checked={!!row.disabled} onChange={(e) => update(index, { disabled: e.target.checked })} />{fa ? 'غیرفعال' : 'Disabled'}</label>
+            {!!row.clicks && <span className="muted text-sm" title={fa ? 'تعداد کلیک' : 'Clicks'}>⤓ {row.clicks.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}
+            <div className="mx-row-tools">
+              <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))} aria-label="up">↑</button>
+              <button type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, 1))} aria-label="down">↓</button>
+              <button type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))} aria-label="remove">✕</button>
+            </div>
           </div>
         </div>
       ))}
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'لینک' : 'Link'}</button>
+      {!value.length && <p className="mx-links-empty">{fa ? 'هنوز لینکی اضافه نشده. برای هر کیفیت یا نسخه یک لینک دانلود یا پخش بسازید.' : 'No links yet. Add one download or stream link per quality or version.'}</p>}
+      <button type="button" className="mx-links-add" onClick={() => onChange([...value, { ...blankLink(), ...(priced ? { price: '' } : {}) }])}>+ {fa ? 'افزودن لینک' : 'Add link'}</button>
       {priced && !compact && <p className="muted text-sm mx-links-hint">{fa ? 'قیمت جدا: لینکی که قیمت دارد جداگانه فروخته می‌شود (مثلاً نسخهٔ 4K گران‌تر)؛ خرید کل مورد آن را باز نمی‌کند. خالی بگذارید تا تابع قیمت یا دسترسی خود مورد باشد. ماژول «فروش محتوا» باید روشن باشد.' : 'Own price: a priced link is sold separately; buying the item does not open it.'}</p>}
       {!compact && <p className="muted text-sm mx-links-hint">{fa ? 'پخش آنلاین در سایت برای MP4 (H.264/AAC)، WebM و HLS (.m3u8) و لینک‌های یوتیوب/آپارات کار می‌کند. MKV فقط وقتی پخش می‌شود که کدک ویدیو H.264 و صدا AAC باشد (نه x265/HEVC یا AC3/DTS). لینک باید https باشد.' : 'Online playback works for MP4 (H.264/AAC), WebM, HLS (.m3u8) and YouTube/Aparat links. MKV plays only with H.264 + AAC. Links must be https.'}</p>}
     </div>

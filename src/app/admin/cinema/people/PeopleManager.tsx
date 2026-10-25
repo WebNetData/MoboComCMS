@@ -21,7 +21,7 @@ export default function PeopleManager({ initialId }: { initialId: number | null 
     <section className="sa-card" aria-label="فهرست عوامل">
       <form className={styles.filters} onSubmit={e=>{e.preventDefault();setSearch(query.trim());setPage(1)}}>
         <div><label htmlFor="people-search">جست‌وجوی نام</label><div className={styles.search}><input id="people-search" className="input" value={query} onChange={e=>setQuery(e.target.value)} maxLength={150} placeholder="نام بازیگر یا کارگردان…"/><button className="btn btn-ghost" type="submit">جست‌وجو</button></div></div>
-        <div><label htmlFor="people-role">نوع فعالیت</label><select id="people-role" className="select" value={role} onChange={e=>{setRole(e.target.value);setPage(1)}}><option value="">همهٔ عوامل</option><option value="CAST">بازیگران</option><option value="DIRECTOR">کارگردان‌ها</option><option value="uncredited">بدون اثر مرتبط</option></select></div>
+        <div><label htmlFor="people-role">نوع فعالیت</label><select id="people-role" className="select" value={role} onChange={e=>{setRole(e.target.value);setPage(1)}}><option value="">همهٔ عوامل</option><option value="CAST">بازیگران</option><option value="DIRECTOR">کارگردان‌ها</option><option value="PRODUCER">تهیه‌کننده‌ها</option><option value="uncredited">بدون اثر مرتبط</option></select></div>
       </form>
       <PeopleList key={url+':'+revision} url={url} size={size} selected={selected} onEdit={setSelected} onPage={setPage} onSize={value=>{setSize(value);setPage(1)}} />
     </section>
@@ -36,7 +36,7 @@ function PeopleList({url,size,selected,onEdit,onPage,onSize}:{url:string;size:Ad
     <div className={styles.count} role="status">{fa(data.total)} پروفایل · عکس‌ها و مشخصات مشترک در همهٔ آثار</div>
     {!data.people.length?<div className={styles.empty}><h3>پروفایلی پیدا نشد</h3><p>نام یا فیلتر را تغییر دهید، یا یک پروفایل جدید بسازید.</p></div>:<div className={styles.grid}>{data.people.map(person=><article className={styles.card} key={person.id}>
       <div className={styles.portrait}><Portrait image={person.image} name={person.name}/></div>
-      <div className={styles.info}><h3 dir="auto">{person.name}</h3><p>{person.roles.map(role=>role==='DIRECTOR'?'کارگردان':'بازیگر').join(' · ')||'بدون اثر مرتبط'}</p><small>{fa(person.creditCount)} همکاری{person.imageLocked?' · عکس دستی محفوظ':''}</small></div>
+      <div className={styles.info}><h3 dir="auto">{person.name}</h3><p>{person.roles.map(role=>role==='DIRECTOR'?'کارگردان':role==='PRODUCER'?'تهیه‌کننده':'بازیگر').join(' · ')||'بدون اثر مرتبط'}</p><small>{fa(person.creditCount)} همکاری{person.imageLocked?' · عکس دستی محفوظ':''}</small></div>
       <div className={styles.actions}><button type="button" className="btn btn-ghost btn-sm" disabled={selected!==null} aria-label={`ویرایش ${person.name}`} aria-pressed={selected===person.id} onClick={()=>onEdit(person.id)}>ویرایش</button>{person.publicCredits>0&&<Link href={'/cinema/people/'+person.id} className="btn btn-ghost btn-sm" aria-label={`پروفایل ${person.name}`}>پروفایل ↗</Link>}</div>
     </article>)}</div>}
     <AdminPagination fa page={data.page} pages={data.pages} size={size} total={data.total} shown={data.people.length} busy={loading} onPage={onPage} onSize={onSize}/>

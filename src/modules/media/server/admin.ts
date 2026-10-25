@@ -291,6 +291,7 @@ const RESOURCES: Record<string, Resource> = {
       languages: when(b, 'languages', (v) => joinList(v, 10)),
       genres: when(b, 'genres', (v) => joinList(v, 10)),
       director: when(b, 'director', (v) => text(v, 200)),
+      producer: when(b, 'producer', (v) => text(v, 300)),
       cast: when(b, 'cast', (v) => JSON.stringify(cleanRecords(v, ['name', 'role', 'image'], 40, 300))),
       summary: when(b, 'summary', (v) => html(v, 20000)),
       summaryEn: when(b, 'summaryEn', (v) => text(v, 6000)),
@@ -306,8 +307,8 @@ const RESOURCES: Record<string, Resource> = {
     }),
     afterSave: async (tx, id, b) => {
       if (has(b, 'links')) await saveLinks(tx, 'title', id, b.links)
-      // The people of the title follow its director line and cast list.
-      if (has(b, 'director') || has(b, 'cast')) await syncCredits(tx, id, b.directorImages)
+      // The people of the title follow its director and producer lines and its cast list.
+      if (has(b, 'director') || has(b, 'producer') || has(b, 'cast')) await syncCredits(tx, id, b.directorImages)
       if (!has(b, 'seasons')) return
       const seasons = Array.isArray(b.seasons) ? b.seasons.slice(0, 60) : []
       // Replace the season/episode tree; episode links are rebuilt with it.

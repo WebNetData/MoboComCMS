@@ -5,13 +5,13 @@ import Icon from '@/components/site/Icon'
 import styles from './discovery.module.css'
 
 export type PersonChoice={id:number;name:string;image:string}
-export default function PersonFilter({role,initial,value,fa}:{role:'CAST'|'DIRECTOR';initial:PersonChoice|null;value?:string;fa:boolean}) {
+export default function PersonFilter({role,initial,value,fa}:{role:'CAST'|'DIRECTOR'|'PRODUCER';initial:PersonChoice|null;value?:string;fa:boolean}) {
   const id=useId(),input=useRef<HTMLInputElement>(null)
   const [choice,setChoice]=useState(initial),[query,setQuery]=useState(initial?.name||''),[open,setOpen]=useState(false),[active,setActive]=useState(-1),[retry,setRetry]=useState(0)
   const [cleared,setCleared]=useState(false)
   const key=open&&query.trim().length>=2?role+':'+query.trim()+':'+retry:''
   const {options,status}=usePeopleOptions(key,role,query)
-  const label=role==='CAST'?(fa?'بازیگر':'Actor'):(fa?'کارگردان':'Director')
+  const label=role==='CAST'?(fa?'بازیگر':'Actor'):role==='PRODUCER'?(fa?'تهیه‌کننده':'Producer'):(fa?'کارگردان':'Director')
   const invalid=!!value&&!initial&&!cleared&&!choice&&!query
   function choose(person:PersonChoice|null){setCleared(true);setChoice(person);setQuery(person?.name||'');setOpen(false);setActive(-1);input.current?.setCustomValidity('');input.current?.focus()}
   function keyboard(event:KeyboardEvent<HTMLInputElement>){
@@ -24,7 +24,7 @@ export default function PersonFilter({role,initial,value,fa}:{role:'CAST'|'DIREC
   const show=open&&query.trim().length>=2
   return <div className={styles.personFilter} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setOpen(false)}}>
     <label htmlFor={id}>{label}</label>
-    <input type="hidden" name={role==='CAST'?'actor':'director'} value={choice?.id||(invalid?value:'')}/>
+    <input type="hidden" name={role==='CAST'?'actor':role==='PRODUCER'?'producer':'director'} value={choice?.id||(invalid?value:'')}/>
     <div className={styles.personInput}>
       <input ref={input} id={id} type="text" role="combobox" aria-autocomplete="list" aria-expanded={show} aria-controls={id+'-list'} aria-activedescendant={show&&active>=0&&options[active]?id+'-'+options[active].id:undefined} aria-describedby={id+'-hint'} autoComplete="off" dir="auto" maxLength={60} value={query} placeholder={fa?'نام را بنویسید و انتخاب کنید…':'Type a name and select…'} onFocus={()=>setOpen(true)} onKeyDown={keyboard} onChange={event=>{setCleared(true);setQuery(event.target.value);setChoice(null);setActive(-1);setOpen(true);event.target.setCustomValidity(event.target.value.trim()?(fa?'یک نام را از پیشنهادها انتخاب کنید':'Select a name from the suggestions'):'')}}/>
       {(query||invalid)&&<button type="button" aria-label={fa?'پاک کردن '+label:'Clear '+label} onClick={()=>choose(null)}>×</button>}

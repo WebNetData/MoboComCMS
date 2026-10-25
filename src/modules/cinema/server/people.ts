@@ -25,7 +25,7 @@ export async function storedPersonPictures(names:string[]):Promise<Map<string,st
  * (their address keeps working and they return with their next film). Safe to repeat.
  */
 export async function syncCredits(tx: Tx, titleId: number, directorImages?: unknown) {
-  const title = await tx.cinemaTitle.findUnique({ where: { id: titleId }, select: { director: true, cast: true } })
+  const title = await tx.cinemaTitle.findUnique({ where: { id: titleId }, select: { director: true, producer: true, cast: true } })
   if (!title) return 0
   const credits = creditsOf(title)
   if (Array.isArray(directorImages)) for (const credit of credits) {
@@ -91,7 +91,7 @@ export async function personPage(id: number, now = new Date()) {
   ])
   if (!credits.length) return null
   const idsOf = (role: CreditRole) => credits.filter((credit) => credit.role === role).map((credit) => credit.titleId)
-  return { ...person, directed: idsOf('DIRECTOR'), acted: idsOf('CAST'), castCount:counts.find(row=>row.role==='CAST')?._count||0, directorCount:counts.find(row=>row.role==='DIRECTOR')?._count||0, characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
+  return { ...person, directed: idsOf('DIRECTOR'), produced: idsOf('PRODUCER'), acted: idsOf('CAST'), castCount:counts.find(row=>row.role==='CAST')?._count||0, directorCount:counts.find(row=>row.role==='DIRECTOR')?._count||0, producerCount:counts.find(row=>row.role==='PRODUCER')?._count||0, characters: new Map(credits.filter((credit) => credit.role === 'CAST' && credit.character).map((credit) => [credit.titleId, credit.character])) }
 }
 
 /** People with at least one published title, the most credited first; `q` narrows by name. */
@@ -106,7 +106,7 @@ export async function peopleDirectory(input: { page?: unknown; q?: unknown; role
   ])
   return {
     q, page, pages: Math.max(1, Math.ceil(total / PEOPLE_PAGE)), total,
-    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: new Set(row.credits.map(credit=>credit.titleId)).size, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
+    people: rows.map((row) => ({ id: row.id, name: row.name, image: row.image, titles: new Set(row.credits.map(credit=>credit.titleId)).size, director: row.credits.some((credit) => credit.role === 'DIRECTOR'), producer: row.credits.some((credit) => credit.role === 'PRODUCER'), cast: row.credits.some((credit) => credit.role === 'CAST') })),
   }
 }
 
