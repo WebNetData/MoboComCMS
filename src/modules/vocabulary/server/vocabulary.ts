@@ -5,6 +5,7 @@ import { labelsOf, parseVocabularyInput, seedEntries, VocabularyError, type Voca
 import { definitionOf, listsOf, type VocabularySection } from '@/modules/vocabulary/domain/registry'
 import { gameUsage } from '@/modules/games/server/vocabulary'
 import { softwareUsage } from '@/modules/software/server/vocabulary'
+import { linkUsage } from '@/modules/media/server/vocabulary'
 
 type Tx = Prisma.TransactionClient
 type Audit = (tx: Tx, id: number, action: 'created' | 'updated' | 'deleted', metadata: Record<string, unknown>) => Promise<unknown>
@@ -13,7 +14,7 @@ const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }
 const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
-const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage }
+const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage }
 
 function bySection(section: VocabularySection, rows: VocabularyEntry[]): SectionLists {
   const lists: SectionLists = Object.fromEntries(listsOf(section).map((definition) => [definition.list, [] as VocabularyEntry[]]))
@@ -31,6 +32,11 @@ export async function adminLists(section: VocabularySection) {
 /** Active entries of a section's lists in the owner's order (the old fixed values if the table is unreachable). */
 export const activeLists = cache(async (section: VocabularySection): Promise<SectionLists> => {
   try { return bySection(section, await db.vocabulary.findMany({ where: { section, active: true }, orderBy: ORDER, select: SELECT })) } catch { return seeded(section) }
+})
+
+/** Every entry of a section's lists, active or not, in the owner's order: for showing what items already have. */
+export const allLists = cache(async (section: VocabularySection): Promise<SectionLists> => {
+  try { return bySection(section, await db.vocabulary.findMany({ where: { section }, orderBy: ORDER, select: SELECT })) } catch { return seeded(section) }
 })
 
 /** code → name of every entry, active or not, so an item keeps showing what it has. */
@@ -72,6 +78,16 @@ export async function deleteEntry(section: VocabularySection, id: number, audit:
     await audit(tx, id, 'deleted', { section, list: row.list, code: row.code })
     return { id }
   }, { isolationLevel: 'Serializable' })
+}
+
+/**
+ * The audio of each link as a code of the shared AUDIO list (active or not, so a link keeps a dub the owner later
+ * deactivated); an unknown code becomes "no audio side". Every writer of links passes its cleaned links through this.
+ */
+export async function knownLinkAudio<T extends { audio: string }>(tx: Pick<Tx, 'vocabulary'>, links: T[]): Promise<T[]> {
+  if (!links.some((link) => link.audio)) return links
+  const codes = new Set((await tx.vocabulary.findMany({ where: { section: 'media', list: 'AUDIO' }, select: { code: true } })).map((row) => row.code))
+  return links.map((link) => (link.audio && !codes.has(link.audio) ? { ...link, audio: '' } : link))
 }
 
 /**

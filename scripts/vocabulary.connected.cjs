@@ -24,6 +24,7 @@ function load(file) {
   return mod.exports
 }
 const vocab = load('src/modules/vocabulary/server/vocabulary.ts'), rules = load('src/modules/vocabulary/domain/vocabulary.ts'), registry = load('src/modules/vocabulary/domain/registry.ts')
+const mediaRules = load('src/modules/media/domain/media.ts'), prefs = load('src/modules/media/domain/playback-prefs.ts')
 const media = load('src/modules/media/server/admin.ts'), games = load('src/modules/media/server/queries/games.ts'), software = load('src/modules/media/server/queries/software.ts')
 const audits = []
 const audit = async (tx, id, action) => { audits.push(action); assert.ok(tx.vocabulary && tx.auditLog, 'the audit is written in the same transaction') }
@@ -95,6 +96,28 @@ async function main() {
   await vocab.deleteEntry('games', spare.id, audit)
   assert.equal(await prisma.vocabulary.count({ where: { id: spare.id } }), 0)
 
+  // ---- the links of every section: audio sides are codes of the shared list; a quality list holds names
+  await prisma.$executeRawUnsafe(`INSERT INTO "Vocabulary" (section, list, code, name) VALUES ('media', 'QUALITY', '${seed} HDR', 'x')`)
+  await assert.rejects(prisma.$executeRawUnsafe(`INSERT INTO "Vocabulary" (section, list, code, name) VALUES ('media', 'AUDIO', '${seed} dub', 'x')`), /check/i, 'an audio side is a code')
+  const studio = await vocab.createEntry('media', { list: 'AUDIO', code: `DUBBED_${CODE}`, name: 'دوبلهٔ استودیو', icon: '🎬' }, audit)
+  const saveTitle = (body, id = null) => media.saveMediaItem('cinema-titles', body, id)
+  const linksOf = (id) => prisma.mediaLink.findMany({ where: { ownerType: 'title', ownerId: id }, orderBy: { id: 'asc' }, select: { url: true, audio: true } })
+  const { row: film } = await saveTitle({ title: `${seed} film`, slug: `${seed}-film`, links: [
+    { url: 'https://example.invalid/a.mkv', audio: `DUBBED_${CODE}` }, { url: 'https://example.invalid/b.mkv', audio: 'NOT_A_SIDE' }, { url: 'https://example.invalid/c.mkv', audio: 'ORIGINAL' }, { url: 'https://example.invalid/d.mkv', audio: 'lower case' },
+  ] })
+  assert.deepEqual((await linksOf(film.id)).map((link) => link.audio), [`DUBBED_${CODE}`, '', 'ORIGINAL', ''], 'unknown audio sides are dropped')
+  await vocab.updateEntry('media', studio.id, { active: false }, audit)
+  await saveTitle({ links: [{ url: 'https://example.invalid/a.mkv', audio: `DUBBED_${CODE}` }] }, film.id)
+  assert.deepEqual((await linksOf(film.id)).map((link) => link.audio), [`DUBBED_${CODE}`], 'a link keeps a side the owner later deactivated')
+  assert.equal(await uses('media', 'AUDIO', studio.id), 1)
+  await refused(vocab.deleteEntry('media', studio.id, audit), /را دارند/, 409)
+  // a member's preference puts every dub (or the original) first, the rest in the list's order, links without a side last
+  const sides = ['DUBBED', `DUBBED_${CODE}`, 'ORIGINAL']
+  assert.deepEqual(prefs.audioOrder({ audio: '' }, sides), ['DUBBED', `DUBBED_${CODE}`, 'ORIGINAL', ''])
+  assert.deepEqual(prefs.audioOrder({ audio: 'ORIGINAL' }, sides), ['ORIGINAL', 'DUBBED', `DUBBED_${CODE}`, ''])
+  assert.deepEqual(prefs.audioOrder({ audio: 'ORIGINAL' }), ['ORIGINAL', 'DUBBED', ''], 'the old order without a list')
+  assert.deepEqual(mediaRules.groupLinks([{ audio: '', quality: 'a' }, { audio: 'SOMETHING_NEW', quality: 'b' }, { audio: 'ORIGINAL', quality: 'c' }], ['ORIGINAL', '']).map((group) => group.audio), ['ORIGINAL', 'SOMETHING_NEW', ''], 'an unnamed side comes before links without one')
+
   // ---- the public side: whole-code filters for games, the owner's licence names on software cards and filters
   await prisma.gameTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
   await prisma.softwareTitle.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
@@ -105,13 +128,16 @@ async function main() {
   assert.deepEqual(await by({ mode: 'online"); --' }), [`${seed}-one`, `${seed}-two`], 'a malformed code is ignored, not trusted')
   const listed = await software.browseSoftware({ license: `${CODE}_SUB`, q: seed })
   assert.deepEqual(listed.items.map((item) => [item.slug, item.licenseName]), [[`${seed}-app`, 'اشتراکی']], 'a card carries the owner\'s licence name')
-  assert.deepEqual(audits, ['created', 'created', 'created', 'created', 'created', 'created', 'updated', 'updated', 'updated', 'created', 'deleted'], 'every change is audited; refused ones are not')
+  assert.deepEqual(audits, ['created', 'created', 'created', 'created', 'created', 'created', 'updated', 'updated', 'updated', 'created', 'deleted', 'created', 'updated'], 'every change is audited; refused ones are not')
   console.log('PostgreSQL managed lists: each section\'s declared lists seeded from the fixed values, the shape the database checks, fixed codes with the owner\'s names, entries scoped to their section, items keep only known codes (an inactive one stays where it was; an unknown licence keeps the old one), entries in use are not deleted, public filters match whole codes and cards show the owner\'s names.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
   try {
+    const films = await prisma.cinemaTitle.findMany({ where: { slug: { startsWith: seed } }, select: { id: true } })
+    await prisma.mediaLink.deleteMany({ where: { ownerType: 'title', ownerId: { in: films.map((row) => row.id) } } })
+    await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.gameTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.softwareTitle.deleteMany({ where: { slug: { startsWith: seed } } })
-    await prisma.vocabulary.deleteMany({ where: { OR: [{ code: { startsWith: seed } }, { code: { startsWith: CODE } }] } })
+    await prisma.vocabulary.deleteMany({ where: { OR: [{ code: { startsWith: seed } }, { code: { startsWith: CODE } }, { code: `DUBBED_${CODE}` }] } })
   } finally { await prisma.$disconnect() }
 })

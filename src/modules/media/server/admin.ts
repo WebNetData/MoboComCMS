@@ -22,7 +22,7 @@ import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/share
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
-import { knownCodes } from '@/modules/vocabulary/server/vocabulary'
+import { knownCodes, knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
@@ -110,7 +110,7 @@ const when = <T>(body: Input, key: string, fn: (value: unknown) => T): T | undef
  * disabled flag set by link or copyright moderation.
  */
 async function saveLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: unknown) {
-  const links = cleanLinks(input)
+  const links = await knownLinkAudio(tx, cleanLinks(input))
   const prices = linkPriceInputs(input, ownerType)
   const existing = await tx.mediaLink.findMany({ where: { ownerType, ownerId }, orderBy: { id: 'asc' } })
   const unused = [...existing]

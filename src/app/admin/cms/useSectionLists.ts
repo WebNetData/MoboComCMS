@@ -6,6 +6,12 @@ import { listsOf, type VocabularySection } from '@/modules/vocabulary/domain/reg
 
 export type ActiveLists = Record<string, VocabularyEntry[]>
 
+const requests = new Map<string, Promise<ActiveLists | null>>()
+const load = (section: string) => {
+  if (!requests.has(section)) requests.set(section, fetch(`/api/admin/vocabulary?section=${section}`, { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((data) => data?.lists ?? null).catch(() => null))
+  return requests.get(section)!
+}
+
 /**
  * A section's managed lists for an item form: active entries in the owner's order (with `all`, inactive ones too, so a
  * select can show what an item already has), the old fixed values until they arrive.
@@ -14,9 +20,9 @@ export function useSectionLists(section: VocabularySection, all = false): Active
   const [lists, setLists] = useState<ActiveLists>(() => Object.fromEntries(listsOf(section).map((definition) => [definition.list, seedEntries(definition)])))
   useEffect(() => {
     let alive = true
-    fetch(`/api/admin/vocabulary?section=${section}`, { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((data) => {
-      if (alive && data?.lists) setLists(Object.fromEntries(Object.entries(data.lists as ActiveLists).map(([list, entries]) => [list, entries.filter((entry) => all || entry.active)])))
-    }).catch(() => {})
+    void load(section).then((loaded) => {
+      if (alive && loaded) setLists(Object.fromEntries(Object.entries(loaded).map(([list, entries]) => [list, entries.filter((entry) => all || entry.active)])))
+    })
     return () => { alive = false }
   }, [section, all])
   return lists

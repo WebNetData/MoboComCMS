@@ -4,6 +4,7 @@ import { cleanLinks, type LinkOwner } from '@/modules/media/domain/media'
 import { assignTerms } from '@/modules/taxonomy/server/taxonomy'
 import type { Taxonomy } from '@/modules/taxonomy/domain/taxonomy'
 import { scheduleEpisodeAirings } from '@/modules/cinema/server/episode-notifications'
+import { knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
 
 type Tx = Prisma.TransactionClient
 const owners: Record<string, LinkOwner> = { 'cinema-titles': 'title', games: 'game', software: 'software' }
@@ -33,7 +34,7 @@ export async function mediaRevisionState(type: string, row: Record<string, unkno
 async function restoreLinks(tx: Tx, ownerType: LinkOwner, ownerId: number, input: unknown) {
   if (!Array.isArray(input)) throw Error('Invalid revision links')
   const current = await tx.mediaLink.findMany({ where: { ownerType, ownerId } }), keep: number[] = []
-  for (const link of cleanLinks(input)) {
+  for (const link of await knownLinkAudio(tx, cleanLinks(input))) {
     const found = current.find(row => row.url === link.url && !keep.includes(row.id))
     if (found) { await tx.mediaLink.update({ where: { id: found.id }, data: { ...link, disabled: found.disabled || link.disabled } }); keep.push(found.id) }
     else keep.push((await tx.mediaLink.create({ data: { ...link, ownerType, ownerId } })).id)

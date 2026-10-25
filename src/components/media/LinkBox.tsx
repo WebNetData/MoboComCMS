@@ -7,6 +7,7 @@ import { DownloadNotice, ReportLinkButton } from '@/components/media/DownloadExt
 import { linkPaywalls } from '@/modules/paywall/server/paywall'
 import { getPlaybackPrefs } from '@/modules/media/server/playback-prefs'
 import { audioOrder } from '@/modules/media/domain/playback-prefs'
+import { allLists } from '@/modules/vocabulary/server/vocabulary'
 import BuyLinkButton from '@/components/paywall/BuyLinkButton'
 import CopyText from '@/components/software/CopyText'
 
@@ -22,7 +23,10 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
   if (!links.length) return <p className="muted md-nolinks">{fa ? 'لینکی برای این مورد ثبت نشده است.' : 'No links yet.'}</p>
   const viewer = await getViewer()
   // A member who prefers the original audio (or the dub) sees those releases first; nothing is hidden.
-  const order = audioOrder(await getPlaybackPrefs(viewer.userId))
+  // The owner's audio list (dub, original, dubbing studios…) names the release groups and, with the member's preference, orders them.
+  const [prefs, audioList] = await Promise.all([getPlaybackPrefs(viewer.userId), allLists('media').then((lists) => lists.AUDIO || [])])
+  const order = audioOrder(prefs, audioList.map((entry) => entry.code))
+  const audioEntry = new Map(audioList.map((entry) => [entry.code, entry]))
   const [hrefs, playable, ownPrices] = await Promise.all([
     Promise.all(links.map(async (link) => [link.id, await linkHref(link.id, viewer.userId)] as const)).then((rows) => new Map(rows)),
     playableLinks(links.map((link) => link.id)),
@@ -31,7 +35,7 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
   ])
   // The in-site player reuses the download token (same link, same viewer).
   const watchHref = (id: number) => { const token = new URL(hrefs.get(id) || '/', 'http://x').searchParams.get('t'); return `/watch/${id}${token ? `?t=${encodeURIComponent(token)}` : ''}` }
-  const audioName = (audio: string) => (audio === 'DUBBED' ? (fa ? '🎙 دوبله فارسی' : '🎙 Persian dub') : audio === 'ORIGINAL' ? (fa ? '🌐 زبان اصلی' : '🌐 Original audio') : (fa ? 'لینک‌ها' : 'Links'))
+  const audioName = (audio: string) => { const entry = audioEntry.get(audio); return entry ? `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}` : audio || (fa ? 'لینک‌ها' : 'Links') }
   const tracks = trackLinks(links)
   const groups = [
     ...groupLinks(links, order).map((group) => ({ key: group.audio || 'all', head: audioName(group.audio), track: false, items: group.items })),
@@ -62,7 +66,7 @@ export default async function LinkBox({ links, fa, member, loggedIn, parentLocke
                       {isTrack(link.kind) && link.language && link.quality && <span dir="ltr">{link.quality}</span>}
                       {link.size && <span dir="ltr">{link.size}</span>}
                       {(link.platform || link.architecture) && <span dir="ltr">{[link.platform, link.architecture].filter(Boolean).join(' · ')}</span>}
-                      {compact && link.audio === 'DUBBED' && <span>{fa ? 'دوبله' : 'Dubbed'}</span>}
+                      {compact && link.audio.startsWith('DUBBED') && <span>{fa ? audioEntry.get(link.audio)?.name || 'دوبله' : 'Dubbed'}</span>}
                       {link.subtitle && <span>{fa ? 'زیرنویس فارسی' : 'Persian subs'}</span>}
                       {vipLocked && <span className="vip-chip is-small">♛ VIP</span>}
                       {own && (own.open ? <span className="md-own is-open">{own.reason === 'purchased' ? '✓ خریداری‌شده' : '♛ رایگان برای شما'}</span> : <span className="md-own">فروش جداگانه</span>)}

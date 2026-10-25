@@ -5,6 +5,7 @@ import { validateCover } from '@/shared/content/cover'
 import { cleanReleaseTargets } from '@/modules/software/domain/releases'
 import { scheduleSoftwareRelease } from '@/modules/software/server/release-notifications'
 import { contentChanged } from '@/modules/content/server/events'
+import { knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0]
 const idOf = (value: unknown) => { const id = Number(value); return Number.isSafeInteger(id) && id > 0 ? id : 0 }
@@ -27,7 +28,7 @@ export async function softwareReleases(softwareId: number, page = 1, size: strin
 }
 
 async function reconcileLinks(tx: Tx, releaseId: number, input: unknown) {
-  const links = cleanLinks(input, 20)
+  const links = await knownLinkAudio(tx, cleanLinks(input, 20))
   const existing = await tx.mediaLink.findMany({ where: { ownerType: 'softwarerelease', ownerId: releaseId } })
   const unused = [...existing]
   for (const link of links) {

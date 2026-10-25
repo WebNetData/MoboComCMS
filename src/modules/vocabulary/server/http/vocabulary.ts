@@ -1,7 +1,5 @@
 import type { NextRequest } from 'next/server'
 import { adminGuard } from '@/modules/identity/server/admin-guard'
-import { requireContentScope } from '@/modules/identity/server/access'
-import { moduleGuard } from '@/extensions/server/modules'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { ok, err } from '@/platform/http/response'
 import { originIsThisSite } from '@/platform/http/origin-policy'
@@ -15,14 +13,13 @@ const failure = (error: unknown) => error instanceof VocabularyError ? err(error
 
 /**
  * GET /api/admin/vocabulary?section=games — a section's managed lists with how many items use each entry. Whoever
- * may edit the section's items reads it (its author through the scope guard) to fill the item form.
+ * may edit the section's items reads it (its authors too) to fill the item form; the lists are nobody's own items.
  */
 export async function GET(req: NextRequest) {
   const section = req.nextUrl.searchParams.get('section')
   if (!isVocabularySection(section)) return err('بخش معتبر نیست', 404)
-  const { module, manage, author } = VOCABULARY_SECTIONS[section]
-  const off = await moduleGuard(module); if (off) return off
-  if (!await requireContentScope(req, manage, author)) return err('forbidden', 403)
+  const { module, read } = VOCABULARY_SECTIONS[section]
+  const guard = await adminGuard(req, module, read); if ('response' in guard) return guard.response
   const response = ok({ lists: await adminLists(section) }); response.headers.set('Cache-Control', 'private, no-store')
   return response
 }
@@ -33,7 +30,7 @@ async function write(req: NextRequest, mode: 'create' | 'update' | 'delete') {
   const section = req.nextUrl.searchParams.get('section')
   if (!isVocabularySection(section)) return err('بخش معتبر نیست', 404)
   const { module, manage } = VOCABULARY_SECTIONS[section]
-  const guard = await adminGuard(req, module, [manage]); if ('response' in guard) return guard.response
+  const guard = await adminGuard(req, module, manage); if ('response' in guard) return guard.response
   if (!(await rateLimitStrict(`vocabulary:${guard.admin.id}`, 90)).ok) return err('تعداد درخواست زیاد است؛ کمی صبر کنید', 429)
   const audit = (tx: Parameters<typeof auditAdminStrict>[1], id: number, action: string, metadata: Record<string, unknown>) =>
     auditAdminStrict({ req, actor: guard.admin, action: `vocabulary.${action}`, targetType: 'vocabulary', targetId: id, metadata }, tx)

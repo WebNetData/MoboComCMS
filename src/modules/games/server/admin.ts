@@ -7,6 +7,7 @@ import { GameError, HEALTH_CHECKS, LIBRARY_STATUSES, healthIssues, normalizeUpda
 import { scheduleGameUpdateRelease } from '@/modules/games/server/release-notifications'
 import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
+import { knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
 
 // Games admin: dashboard, catalogue list with health checks and bulk actions,
 // franchises, updates/DLC with their download links, release planning.
@@ -290,7 +291,7 @@ export async function gameUpdates(gameId: number, scope: GameScope = MANAGER) {
 }
 
 async function reconcileLinks(tx: Tx, ownerId: number, input: unknown) {
-  const links = cleanLinks(input, 20)
+  const links = await knownLinkAudio(tx, cleanLinks(input, 20))
   const existing = await tx.mediaLink.findMany({ where: { ownerType: 'gameupdate', ownerId } })
   const unused = [...existing]
   for (const link of links) {

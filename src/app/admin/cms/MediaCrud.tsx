@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
 import CoverField from './CoverField'
@@ -24,6 +24,7 @@ import { OrganizationScope, useAssetOrganization } from '@/components/media/Orga
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import PeoplePicker from './PeoplePicker'
+import { optionsOf, useSectionLists } from './useSectionLists'
 
 // Loaded only when a form with a formatted field is opened.
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -531,17 +532,21 @@ function PlaybackBadge({ url, kind, fa }: { url: string; kind: string; fa: boole
 const humanSize = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`)
 
 export function LinksEditor({ value, onChange, fa, compact, section = 'general', priced = false }: { value: LinkRow[]; onChange: (value: LinkRow[]) => void; fa: boolean; compact?: boolean; section?: string; priced?: boolean }) {
+  // The shared link lists: audio sides (dub, original, studios…) and suggested qualities, managed by the owner.
+  const linkLists = useSectionLists('media')
+  const qualityList = `mx-q-${useId().replace(/:/g, '')}`
   const update = (index: number, patch: Partial<LinkRow>) => onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   return (
     <div className={`mx-links${compact ? ' is-compact' : ''}`}>
+      <datalist id={qualityList}>{(linkLists.QUALITY || []).map((entry) => <option key={entry.code} value={entry.code} />)}</datalist>
       {value.map((row, index) => (
         <div key={index} className="mx-link-row">
           <div className="mx-link-main">
             <input className="input" placeholder={fa ? 'برچسب (مثلاً نسخه بلوری)' : 'Label (e.g. BluRay)'} value={row.label} onChange={(e) => update(index, { label: e.target.value })} />
             <select className="select" value={row.kind} onChange={(e) => update(index, { kind: e.target.value })} aria-label="kind"><option value="DOWNLOAD">{fa ? 'دانلود' : 'Download'}</option><option value="STREAM">{fa ? 'پخش آنلاین' : 'Stream'}</option>{section === 'cinema' && <><option value="SUBTITLE">{fa ? 'فایل زیرنویس' : 'Subtitle file'}</option><option value="AUDIO">{fa ? 'فایل صوت جدا' : 'Separate audio'}</option></>}</select>
-            <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
+            <input aria-label="کیفیت" className="input" dir="ltr" placeholder="1080p" list={qualityList} value={row.quality} onChange={(e) => update(index, { quality: e.target.value })} />
             <input aria-label="حجم فایل" className="input" dir="ltr" placeholder="2.1 GB" value={row.size} onChange={(e) => update(index, { size: e.target.value })} />
-            {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option><option value="DUBBED">{fa ? 'دوبله فارسی' : 'Dubbed'}</option><option value="ORIGINAL">{fa ? 'زبان اصلی' : 'Original'}</option></select>
+            {row.kind === 'SUBTITLE' || row.kind === 'AUDIO' ? <select className="select" value={row.language || ''} onChange={(e) => update(index, { language: e.target.value })} aria-label="language"><option value="">{fa ? 'زبان: —' : 'Language: —'}</option>{Object.entries(TRACK_LANGUAGES).map(([code, name]) => <option key={code} value={code}>{fa ? name.fa : name.en}</option>)}</select> : <><select className="select" value={row.audio} onChange={(e) => update(index, { audio: e.target.value })} aria-label="audio"><option value="">{fa ? 'صدا: —' : 'Audio: —'}</option>{Object.entries(optionsOf(linkLists.AUDIO, row.audio ? [row.audio] : [])).map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select>
             <label className="mx-mini-check"><input type="checkbox" checked={row.subtitle} onChange={(e) => update(index, { subtitle: e.target.checked })} />{fa ? 'زیرنویس' : 'Subs'}</label></>}
             <select className="select" value={row.access} onChange={(e) => update(index, { access: e.target.value })} aria-label="access" data-vip=""><option value="PUBLIC">{fa ? 'عمومی' : 'Public'}</option><option value="MEMBERS">VIP</option></select>
           </div>

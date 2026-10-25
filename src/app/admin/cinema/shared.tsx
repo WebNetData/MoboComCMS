@@ -10,6 +10,7 @@ const TABS: SectionTab[] = [
   { href: '/admin/cinema/titles', label: 'فیلم‌ها و سریال‌ها' },
   { href: '/admin/cinema/people', label: 'بازیگران و کارگردان‌ها' },
   { href: '/admin/cinema/formats', label: 'انواع' },
+  { href: '/admin/cinema/link-lists', label: 'صدا و کیفیت لینک‌ها' },
   { href: '/admin/cinema/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]
 

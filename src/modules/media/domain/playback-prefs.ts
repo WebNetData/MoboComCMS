@@ -29,5 +29,12 @@ export function mergePlaybackPrefs(current: PlaybackPrefs, patch: unknown): Play
   return normalizePlaybackPrefs({ audio: 'audio' in value ? value.audio : current.audio, subtitle: 'subtitle' in value ? value.subtitle : current.subtitle })
 }
 
-/** The order the release groups are shown in: the member's side first when they have one, otherwise the site's usual order. */
-export const audioOrder = (prefs: PlaybackPrefs): string[] => (prefs.audio === 'ORIGINAL' ? ['ORIGINAL', 'DUBBED', ''] : ['DUBBED', 'ORIGINAL', ''])
+/**
+ * The order the release groups are shown in: the member's side first when they have one (dubs by default), then the
+ * other audio of the site's list in its order, then links with no audio side. `codes`: the owner's audio list, in
+ * order; a code starting with DUBBED is a dub and with ORIGINAL the original audio.
+ */
+export function audioOrder(prefs: PlaybackPrefs, codes: readonly string[] = ['DUBBED', 'ORIGINAL']): string[] {
+  const side = prefs.audio || 'DUBBED'
+  return [...codes.filter((code) => code.startsWith(side)), ...codes.filter((code) => !code.startsWith(side)), '']
+}

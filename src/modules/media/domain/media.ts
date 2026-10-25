@@ -105,7 +105,8 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
       architecture: String(r.architecture || '').trim().slice(0, 40),
       checksum,
       // A track is not a release of the video: it has a language, not a dub/original side or a "has subtitles" mark.
-      audio: track ? '' : r.audio === 'DUBBED' ? 'DUBBED' : r.audio === 'ORIGINAL' ? 'ORIGINAL' : '',
+      // A well-formed code of the shared audio list (dub, original, a dubbing studio…); the save keeps known ones only.
+      audio: track ? '' : /^[A-Z0-9_]{1,40}$/.test(String(r.audio ?? '')) ? String(r.audio) : '',
       subtitle: !track && (r.subtitle === true || r.subtitle === 'true'),
       language: track && String(r.language || '') in TRACK_LANGUAGES ? String(r.language) : '',
       url: url.slice(0, 2000),
@@ -121,7 +122,9 @@ export function cleanLinks(input: unknown, max = 60): LinkInput[] {
 export function groupLinks<T extends { audio: string; quality: string; kind?: string }>(links: T[], order: readonly string[] = ['DUBBED', 'ORIGINAL', '']): { audio: string; items: T[] }[] {
   const groups = new Map<string, T[]>()
   for (const link of links) if (!isTrack(link.kind || '')) groups.set(link.audio, [...(groups.get(link.audio) || []), link])
-  return [...groups.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map(([audio, items]) => ({ audio, items }))
+  // An audio side the order does not name comes after the named ones, before links with no audio side.
+  const rank = (audio: string) => { const at = order.indexOf(audio); return at >= 0 ? at : order.includes('') ? order.indexOf('') - 0.5 : order.length }
+  return [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0])).map(([audio, items]) => ({ audio, items }))
 }
 
 /** The separate tracks of an item, each kind in the order of the language list (unfiled ones last), keeping the editor's order within a language. */
