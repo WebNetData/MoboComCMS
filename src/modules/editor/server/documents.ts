@@ -11,6 +11,7 @@ import { isModuleEnabled } from '@/extensions/server/modules'
 import { hasPermission } from '@/modules/identity/rbac'
 import { recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
 import { contentChanged } from '@/modules/content/server/events'
+import { reviewingAuthorPosts } from '@/modules/journal/server/review'
 import { DOCUMENT_VERSION, walkBlocks, type DocumentIssue, type MoboComDocument } from '@/modules/editor/domain/document'
 import { blockDescriptors, type BlockDescriptor } from '@/modules/editor/domain/descriptors'
 import { moduleBlocks, MODULE_BLOCK_LIMIT, syncedPatternIds } from '@/modules/editor/domain/module-blocks'
@@ -56,6 +57,8 @@ interface Store {
   authorPermission?: string
   /** Whether this staff member created the item. */
   writtenBy?(id: number, userId: number): Promise<boolean>
+  /** Why an author may not change this row now (a published article while the magazine asks for review), or null. */
+  authorLocked?(row: Row): Promise<string | null>
   find(id: number, tx?: Prisma.TransactionClient): Promise<Row | null>
   /** Writes the document only when the row is still at `expected`; the number of rows written. */
   claim(id: number, expected: Date, data: { editorFormat: string; contentDocument: string; content: string; updatedAt: Date }, tx?: Prisma.TransactionClient): Promise<number>
@@ -73,6 +76,7 @@ const STORES: Record<DocumentEntity, Store> = {
     permission: 'cms.posts',
     authorPermission: 'journal.author',
     writtenBy: (id, userId) => db.post.count({ where: { id, authorId: userId } }).then((count) => count > 0),
+    authorLocked: async (row) => (row.status === 'PUBLISHED' && await reviewingAuthorPosts() ? 'این نوشته منتشر شده است؛ ویرایش آن با سردبیر است' : null),
     find: (id, tx = db) => tx.post.findUnique({ where: { id } }),
     claim: (id, expected, data, tx = db) => tx.post.updateMany({ where: { id, updatedAt: expected }, data }).then((result) => result.count),
     changed: (before, after) => contentChanged({ type: 'post', id: after.id }, before, after),
@@ -133,6 +137,7 @@ export async function saveDocument(input: { entity: DocumentEntity; id: number; 
     const before = await store.find(input.id, tx)
     if (!before) throw new EditorError('not found', 404, 'NOT_FOUND')
     if (before.status === TRASHED) throw new EditorError('this item is in the trash and cannot be edited until a manager decides', 409, 'IN_TRASH')
+    if (store.authorLocked && !may(input.actor)(store.permission)) { const locked = await store.authorLocked(before); if (locked) throw new EditorError(locked, 403, 'REVIEW_LOCKED') }
     // A synced pattern block points at a synced pattern of this same section, read in this transaction.
     const patternIds = syncedPatternIds(checked.document.blocks)
     if (patternIds.length && await tx.editorPattern.count({ where: { id: { in: patternIds }, entity: input.entity, kind: 'synced' } }) !== patternIds.length) throw new EditorError('الگوی همگام انتخاب‌شده در این بخش پیدا نشد؛ آن را دوباره از کتابخانهٔ الگوها درج کنید', 422, 'PATTERN_MISSING')

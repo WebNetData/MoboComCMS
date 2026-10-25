@@ -29,6 +29,8 @@ export type JournalSettings = {
   pageSize: number
   /** Publish member comments without review. */
   autoApproveComments: boolean
+  /** A magazine author's article goes live only after the section's manager approves it. */
+  reviewAuthorPosts: boolean
 }
 
 export const DEFAULT_JOURNAL_SETTINGS: JournalSettings = {
@@ -38,6 +40,7 @@ export const DEFAULT_JOURNAL_SETTINGS: JournalSettings = {
   blockCategoryIds: [],
   pageSize: 24,
   autoApproveComments: false,
+  reviewAuthorPosts: false,
 }
 
 export function normalizeJournalSettings(input: unknown): JournalSettings {
@@ -49,6 +52,7 @@ export function normalizeJournalSettings(input: unknown): JournalSettings {
     blockCategoryIds: normalizeIds(raw.blockCategoryIds, 3),
     pageSize: clampInt(raw.pageSize, 12, 48, DEFAULT_JOURNAL_SETTINGS.pageSize),
     autoApproveComments: raw.autoApproveComments === true,
+    reviewAuthorPosts: raw.reviewAuthorPosts === true,
   }
 }
 
@@ -64,12 +68,41 @@ export type JournalHealth = keyof typeof JOURNAL_HEALTH
 export const livePostWhere = (now = new Date()) => ({ status: 'PUBLISHED' as const, publishedAt: { lte: now } })
 export const isLivePost = (post: { status: string; publishedAt: Date }, now = new Date()) => post.status === 'PUBLISHED' && post.publishedAt <= now
 
+// ------------------------------------------------------------------ editorial review
+
+/** Written, waiting for the section's manager; never public (public readers ask for PUBLISHED). */
+export const PENDING_REVIEW = 'PENDING'
+/** The statuses a form may send for an article; the trash is entered and left only through its own actions. */
+export const POST_FORM_STATUSES = ['DRAFT', PENDING_REVIEW, 'PUBLISHED'] as const
+export type PostFormStatus = typeof POST_FORM_STATUSES[number]
+export class PostReviewError extends Error { constructor(message: string, readonly status = 403) { super(message) } }
+/** A status from a form: one of the three, or absent (the stored one stays; a new article defaults to published). */
+export function postFormStatus(value: unknown): PostFormStatus | undefined {
+  if (value === undefined) return undefined
+  if (!(POST_FORM_STATUSES as readonly unknown[]).includes(value)) throw new PostReviewError('این وضعیت برای نوشته معتبر نیست', 400)
+  return value as PostFormStatus
+}
+/**
+ * What an author may not do while review is on: put an article on the site (a new article without a status is a
+ * published one), or change an article that is already published, live or scheduled. Null when allowed.
+ */
+export function authorReviewRefusal(input: { reviewing: boolean; current?: { status: string } | null; asked: PostFormStatus | undefined; creating: boolean }): string | null {
+  if (!input.reviewing) return null
+  if (input.current?.status === 'PUBLISHED') return 'این نوشته منتشر شده است؛ ویرایش آن با سردبیر است'
+  const effective = input.asked ?? (input.creating ? 'PUBLISHED' : input.current?.status)
+  return effective === 'PUBLISHED' ? 'انتشار نوشته با سردبیر است؛ آن را برای بازبینی بفرستید' : null
+}
+/** An approved article keeps a future publication time (its schedule); an earlier one becomes now. */
+export const approvalPublishedAt = (publishedAt: Date, now = new Date()) => (publishedAt.getTime() > now.getTime() ? publishedAt : now)
+export const REVIEW_NOTE_LIMIT = 1000
+
 /** Where an article stands in the admin list: live, published for later, a draft, or waiting in the trash. */
-export const ADMIN_POST_STATES = ['live', 'scheduled', 'draft', 'trashed'] as const
+export const ADMIN_POST_STATES = ['live', 'scheduled', 'pending', 'draft', 'trashed'] as const
 export type AdminPostState = typeof ADMIN_POST_STATES[number]
 export function adminPostStateWhere(state: AdminPostState, now = new Date()) {
   if (state === 'live') return livePostWhere(now)
   if (state === 'scheduled') return { status: 'PUBLISHED' as const, publishedAt: { gt: now } }
+  if (state === 'pending') return { status: PENDING_REVIEW }
   return { status: state === 'draft' ? 'DRAFT' as const : 'TRASHED' as const }
 }
 /** The posts list's narrowing asked in the address; an unknown value is refused rather than silently ignored. */

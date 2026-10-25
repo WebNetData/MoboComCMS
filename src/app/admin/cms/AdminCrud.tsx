@@ -25,6 +25,8 @@ export interface FieldDef {
   label: string
   type?: 'text' | 'textarea' | 'number' | 'datetime-local' | 'checkbox' | 'select' | 'multiselect' | 'richtext' | 'image'
   options?: { value: string; label: string }[]
+  /** The choices the form offers when they are fewer than the list names (an author's statuses). */
+  formOptions?: { value: string; label: string }[]
   optionsFromRows?: (rows: any[], editId: number | null) => { value: string; label: string }[]
   hideInTable?: boolean
   required?: boolean
@@ -51,6 +53,12 @@ interface Props {
   thumbnailKey?: string
   /** Form sections shown in a side column with the save button, in this order; the rest is the writing column. */
   aside?: string[]
+  /** What the list answered about the caller (e.g. `mine`, `reviewing`); give a stable function. */
+  onListMeta?: (meta: Record<string, unknown>) => void
+  /** Why a row cannot be edited by this caller now, shown instead of its edit actions; null when it can. */
+  rowLocked?: (row: any) => string | null
+  /** Shown in the side column under the save button (a decision panel). */
+  renderAsideExtra?: (form: Record<string, any>, editId: number | null) => React.ReactNode
 }
 
 /** The form's sections in the order they first appear; one untitled group when no field names a section. */
@@ -72,7 +80,7 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside, onListMeta, rowLocked, renderAsideExtra }: Props) {
   const vipOn = useModuleEnabled('membership')
   const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
@@ -152,6 +160,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       setOverall(data.overall)
       setPublished(data.published)
       setMine(data.mine === true)
+      onListMeta?.(data)
       setTrashed(Number(data.trashed) || 0)
       setCounts(data.counts || {})
       setPages(data.pages)
@@ -159,7 +168,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       setMsg('')
     } else setMsg(data?.error || t.errGeneric)
     setLoading(false)
-  }, [type, page, pageSize, search, filterValues, t.errGeneric])
+  }, [type, page, pageSize, search, filterValues, onListMeta, t.errGeneric])
 
   useEffect(() => {
     load()
@@ -177,7 +186,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
 
   function emptyForm() {
     const f: Record<string, any> = {}
-    for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? fl.options?.[0]?.value || '' : ''
+    for (const fl of fields) f[fl.key] = fl.type === 'multiselect' ? [] : fl.type === 'checkbox' ? false : fl.type === 'select' ? (fl.formOptions || fl.options)?.[0]?.value || '' : ''
     for (const key of editorExtraKeys) f[key] = key === 'variants' || key === 'faqs' || key === 'gallery' || key === 'itemLinks' || key === 'relationships' || key === 'bundles' ? [] : {}
     setForm(f)
     initialDateValues.current = {}
@@ -386,7 +395,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
         </label>
       ) : fl.type === 'select' ? (
         <select id={`${formId}-${fl.key}`} aria-label={fl.label} className="select" value={String(form[fl.key] ?? '')} onChange={(e) => setForm(type === 'products' && fl.key === 'categoryId' ? { ...form, categoryId: e.target.value, specifications: {}, variants: [] } : { ...form, [fl.key]: e.target.value })}>
-          {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.options)?.map((o) => (
+          {(fl.optionsFromRows?.(optionRows || rows, editId) || fl.formOptions || fl.options)?.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
@@ -429,7 +438,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
         <form onSubmit={save} className={sectioned ? `card mb-6 mx-form cms-sectioned-form${sideColumn ? ' has-aside' : ''}` : 'card mb-6 grid-3 items-end'}>
           {sideColumn ? <>
             <div className="cms-form-main">
-              {aiFields.length > 0 && <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />}
+              {aiFields.length > 0 && !mine && <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />}
               {mainSections.map(sectionBox)}
               {renderEditorExtra && <div className="grid-3 items-end cms-form-extra">{renderEditorExtra(form, setForm, editId)}</div>}
             </div>
@@ -438,11 +447,12 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                 {formActions}
                 {historyLink}
               </div>
+              {renderAsideExtra?.(form, editId)}
               {sideSections.map(sectionBox)}
             </aside>
           </> : <>
           {historyLink && <div className="grid-column-span-3">{historyLink}</div>}
-          {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
+          {aiFields.length > 0 && !mine && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
           {sections.map((section) => section.title ? sectionBox(section) : section.fields.map(fieldBox))}
           {renderEditorExtra && (sectioned ? <div className="grid-3 items-end cms-form-extra">{renderEditorExtra(form, setForm, editId)}</div> : renderEditorExtra(form, setForm, editId))}
           {formActions}
@@ -501,11 +511,13 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                           <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>حذف نهایی</button>
                         </>}
                       </div> : <div className="flex gap-1 crud-actions">
+                        {rowLocked?.(row) ? <span className="muted text-sm crud-locked">{rowLocked(row)}</span> : <>
                         <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
                         {blockDriven && <Link className="badge badge-blue" href={`/admin/editor/${type}/${row.id}`}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</Link>}
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
-                        {type === 'posts' && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
+                        {type === 'posts' && !mine && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
+                        </>}
                         {publicPath && !scheduled && (row.status === 'PUBLISHED' || (row.active === true && (type !== 'products' || row.approval === 'APPROVED'))) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
                         <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{mine ? 'درخواست حذف' : t.delete}</button>
                       </div>}

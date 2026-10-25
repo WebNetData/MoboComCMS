@@ -2,7 +2,7 @@
 // module: this file only says which sources exist, who may see each one, where it is decided and,
 // for a plain yes or no, which request of the owning admin API carries that decision.
 
-export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-games' | 'trash-software'
+export type QueueSourceKey = 'forum-posts' | 'forum-flags' | 'article-comments' | 'item-reviews' | 'business-experiences' | 'product-reviews' | 'product-questions' | 'community-reports' | 'copyright' | 'review-posts' | 'trash-posts' | 'trash-cinema' | 'trash-music-tracks' | 'trash-music-albums' | 'trash-games' | 'trash-software'
 
 export interface QueueSource {
   key: QueueSourceKey
@@ -55,6 +55,8 @@ export const QUEUE_SOURCES: readonly QueueSource[] = [
   { key: 'copyright', module: 'copyright', permissions: ['copyright.manage', 'settings.manage'], label: 'گزارش‌های حق نشر', labelEn: 'Copyright reports', href: '/admin/copyright' },
   // What a section author asked to delete waits in the trash for that section's manager, who deletes it for good or
   // puts it back on the section's own list. Each kind of item has ids of its own, so each is its own source.
+  // An author's article waiting for the magazine manager while review is on; approved or returned (with a note) on its form.
+  { key: 'review-posts', module: 'journal', permissions: ['cms.posts'], label: 'بازبینی نوشته‌های مجله', labelEn: 'Articles waiting for review', href: '/admin/posts?state=pending' },
   { key: 'trash-posts', module: 'journal', permissions: ['cms.posts'], label: 'سطل زباله: نوشته‌های مجله', labelEn: 'Trash: articles', href: '/admin/posts' },
   { key: 'trash-cinema', module: 'cinema', permissions: ['cinema.manage'], label: 'سطل زباله: فیلم و سریال', labelEn: 'Trash: film and series', href: '/admin/cinema/titles' },
   { key: 'trash-music-tracks', module: 'music', permissions: ['music.manage'], label: 'سطل زباله: آهنگ‌ها', labelEn: 'Trash: tracks', href: '/admin/music/library' },

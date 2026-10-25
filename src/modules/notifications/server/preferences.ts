@@ -11,6 +11,7 @@ const INBOX_ONLY: KindLabel[] = [
   { kind: 'FOLLOWED_UPDATE', labelEn: 'Followed content update', labelFa: 'محتوای دنبال‌شده' },
   { kind: 'REVIEW_APPROVED', labelEn: 'Review approved', labelFa: 'انتشار نظر' },
   { kind: 'TRASH_DECISION', labelEn: 'Decisions on my delete requests', labelFa: 'تصمیم دربارهٔ درخواست حذف من' },
+  { kind: 'POST_REVIEW', labelEn: 'Decisions on my articles sent for review', labelFa: 'نتیجهٔ بازبینی نوشته‌های من' },
   { kind: 'COMMENT_APPROVED', labelEn: 'Article comment approved', labelFa: 'انتشار دیدگاه مقاله' },
   { kind: 'COMMENT_REPLY', labelEn: 'Replies to my article comments', labelFa: 'پاسخ به دیدگاه مقاله' },
   { kind: 'FORUM_REPLY', labelEn: 'Forum replies', labelFa: 'پاسخ در تالار' },

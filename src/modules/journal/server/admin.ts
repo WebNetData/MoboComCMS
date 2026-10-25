@@ -42,13 +42,14 @@ export async function saveJournalSettings(input: unknown, context?: SectionSetti
 
 export async function journalDashboard(now = new Date()) {
   const since = new Date(now.getTime() - 30 * DAY)
-  const [categories, pending, pendingRecent, drafts, scheduled, scheduledPosts] = await Promise.all([
+  const [categories, pending, pendingRecent, drafts, scheduled, scheduledPosts, reviewWaiting] = await Promise.all([
     db.postCategory.findMany({ select: { id: true, name: true } }),
     db.postComment.count({ where: { status: 'PENDING' } }),
     db.postComment.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, body: true, createdAt: true, user: { select: { name: true } }, post: { select: { title: true } } } }),
-    db.post.count({ where: { status: { not: 'PUBLISHED' } } }),
+    db.post.count({ where: { status: 'DRAFT' } }),
     db.post.count({ where: { status: 'PUBLISHED', publishedAt: { gt: now } } }),
     db.post.findMany({ where: { status: 'PUBLISHED', publishedAt: { gt: now } }, orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }], take: 6, select: { id: true, title: true, cover: true, publishedAt: true } }),
+    db.post.count({ where: { status: 'PENDING' } }),
   ])
   const health = Object.fromEntries(Object.keys(JOURNAL_HEALTH).map((key) => [key, 0])) as Record<JournalHealth, number>
   const worst: { id: number; title: string; cover: string; issues: JournalHealth[] }[] = []
@@ -112,7 +113,7 @@ export async function journalDashboard(now = new Date()) {
   }
   return {
     kpis: {
-      published, drafts, scheduled, views, posts30,
+      published, drafts, scheduled, views, posts30, reviewWaiting,
       pendingComments: pending, comments30, vip, featured, categories: categories.length,
     },
     series: days.map((day) => ({ day, comments: commentDays.get(day)!, posts: postDays.get(day)! })),
