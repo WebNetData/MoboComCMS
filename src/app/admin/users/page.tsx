@@ -176,7 +176,7 @@ export default function AdminUsersPage() {
 
       <div className={`crm-layout${selected ? ' has-notes' : ''}`}>
         <div className="card overflow-x-auto">
-          <table className="data">
+          <table className="data crm-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -193,10 +193,10 @@ export default function AdminUsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
-                  <td className="num">{u.id}</td>
-                  <td dir="ltr"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.email}</Link></td>
-                  <td><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.name || '—'}</Link></td>
-                  <td>
+                  <td className="num crm-id">{u.id}</td>
+                  <td dir="ltr" className="crm-email"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.email}</Link></td>
+                  <td className="crm-name"><Link href={`/admin/users/${u.id}`} className="font-semibold" style={{ color: 'var(--admin-accent-text)' }}>{u.name || '—'}</Link></td>
+                  <td data-label={t.role}>
                     {u.role === 'ADMIN' ? (
                       <select
                         aria-label={`${locale === 'fa' ? 'نقش' : 'Role'} ${u.name || u.email}`}
@@ -214,12 +214,12 @@ export default function AdminUsersPage() {
                       <StatusBadge value={u.role} />
                     )}
                   </td>
-                  <td><StatusBadge value={u.status} /></td>
-                  <td className="num">{u.walletBalances?.length ? u.walletBalances.map((b) => formatCurrency(b.balance, b.currency, locale === 'fa' ? 'fa-IR' : 'en-US')).join(' · ') : '—'}</td>
-                  <td className="num">{u.orders}</td>
-                  {vpnOn && <td className="num">{u.subs}</td>}
-                  <td>
-                    <div className="flex gap-1 flex-wrap">
+                  <td data-label={t.status}><StatusBadge value={u.status} /></td>
+                  <td className="num" data-label={t.walletBalance}>{u.walletBalances?.length ? u.walletBalances.map((b) => formatCurrency(b.balance, b.currency, locale === 'fa' ? 'fa-IR' : 'en-US')).join(' · ') : '—'}</td>
+                  <td className="num" data-label={t.ordersShort}>{u.orders}</td>
+                  {vpnOn && <td className="num" data-label={t.subsShort}>{u.subs}</td>}
+                  <td className="crm-actions">
+                    <div className="flex gap-1">
                       <Link href={`/admin/users/${u.id}`} className="badge badge-primary">{t.manageCustomer}</Link>
                       <button
                         className="badge badge-gray"
