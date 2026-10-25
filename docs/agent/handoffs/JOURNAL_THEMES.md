@@ -1,5 +1,27 @@
 # Magazine light edition — 2026-10-15
 
+## Editorial review — 2026-10-25
+
+Spec and owners: [docs/specs/journal-review/SPEC.md](../../specs/journal-review/SPEC.md).
+- **Domain** (`journal/domain/journal.ts`): the setting `reviewAuthorPosts`, `PENDING_REVIEW`, the three form statuses, `authorReviewRefusal` and `approvalPublishedAt`.
+- **Owner** (`journal/server/review.ts`): the decision with compare-and-set, version, audit and notice; the queue reader.
+- **Route** (`site/server/http/admin/cms/route.ts`): create, save, batch and decision.
+- **Block-editor lock** (`editor/server/documents.ts`, `authorLocked`).
+- **Shared places a decision waits:** the dashboard count (drafts now count only drafts, matching their link), the staff overview source `review-posts`, and the Inbox kind `POST_REVIEW`.
+- **UI:**
+  - the settings checkbox;
+  - the author form offers draft or review only;
+  - a published article is locked for the author with its reason;
+  - the manager's decision panel sits under the save button (`PostReviewPanel`, via `AdminCrud.renderAsideExtra`);
+  - AI autofill, the writing assistant and paid access are hidden from authors, as the section-author decision already said.
+- **Evidence:**
+  - native PG `journal-review` (registered) passes, and four deliberate faults each fail it: the publish refusal removed, the live-edit refusal removed, the approval time rule removed, the decision without its `PENDING` condition;
+  - `npm run check` is 700/6, the same as main; two units were updated (the moderation-queue sources, and the dashboard mock now counts drafts as drafts);
+  - TypeScript passes with 0 errors;
+  - React Doctor reports 22 warnings on the changed TSX against 26 on the base, with no errors;
+  - browser `.mobocom/claude-tools/pw-journal-review.cjs` passes 13/13 on two consecutive runs: settings, author form and lock, dashboard, overview, pending filter, return with a note, approval with the time rule, notices; fixtures removed and the setting restored;
+  - `pw-journal-admin` 17/17 and `pw-journal-polish` 17/17 still pass.
+
 ## Magazine admin: writing form, phone list, category tree — 2026-10-25
 
 - **Post form:** WordPress-like layout. The writing column holds the title (first, full width), the address, the excerpt, the body, related content and the writing assistant. A side column holds publishing (with the save button and version history at its top), categories and the cover, and it stays in view while writing (shared `AdminCrud`: new optional `aside` and `FieldDef.wide`). Below 1180px it is one column.

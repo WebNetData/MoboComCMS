@@ -96,6 +96,11 @@ export default function JournalSettingsPage() {
           <label className="sa-field"><span>تعداد مطلب در هر صفحه (دسته، جست‌وجو و آرشیو)</span><input className="input num" type="number" min={12} max={48} value={form.pageSize} onChange={(e) => { if (e.target.value !== '' && Number.isFinite(e.target.valueAsNumber)) set({ pageSize: e.target.valueAsNumber }) }} /></label>
           <label className="sa-check"><input type="checkbox" checked={form.autoApproveComments} onChange={(e) => set({ autoApproveComments: e.target.checked })} />انتشار خودکار دیدگاه اعضا (بدون بررسی)</label>
         </section>
+        <section className="sa-card">
+          <header className="sa-card-head"><h2>بازبینی سردبیری</h2></header>
+          <label className="sa-check"><input type="checkbox" checked={form.reviewAuthorPosts} onChange={(e) => set({ reviewAuthorPosts: e.target.checked })} />نوشته‌های نویسندگان پیش از انتشار بازبینی شوند</label>
+          <p className="sa-hint">وقتی روشن است، نویسندهٔ مجله فقط پیش‌نویس می‌سازد یا نوشته را برای بازبینی می‌فرستد و نوشتهٔ منتشرشده را تغییر نمی‌دهد. مدیر مجله نوشته را تأیید و منتشر می‌کند یا با یادداشت به نویسنده برمی‌گرداند. نوشته‌های در انتظار در <Link href="/admin/posts?state=pending" className="sa-link">فهرست نوشته‌ها</Link> و صف بررسی دیده می‌شوند.</p>
+        </section>
       </div>
       <div className="sa-stack">
         <section className="sa-card">

@@ -4,7 +4,7 @@ import { normalizeAccess } from '@/modules/membership/domain/membership'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
 import { requireContentScope, requirePerm } from '@/modules/identity/server/access'
-import { TRASHED, formStatus, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
+import { TRASHED, isTrashed, restoreData, trashData } from '@/modules/content/domain/trash'
 import { tellTrashDecision } from '@/modules/content/server/trash-notice'
 import { completeTrashCase, reopenTrashCase } from '@/modules/moderation/server/cases'
 import type { Permission } from '@/modules/identity/rbac'
@@ -28,7 +28,8 @@ import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
-import { livePostWhere, parseAdminPostFilters, publicationDateInput } from '@/modules/journal/domain/journal'
+import { PENDING_REVIEW, PostReviewError, approvalPublishedAt, authorReviewRefusal, livePostWhere, parseAdminPostFilters, postFormStatus, publicationDateInput, type PostFormStatus } from '@/modules/journal/domain/journal'
+import { decidePostReview, reviewingAuthorPosts, tellReviewDecision } from '@/modules/journal/server/review'
 import { adminPostFilterWhere, adminPostStateCounts } from '@/modules/journal/server/admin'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
   if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), orderFields: readOrderFields(row.orderFields), openMin: row.openMinMinor > 0n ? (Number(row.openMinMinor) / 100).toString() : '', openMax: row.openMaxMinor > 0n ? (Number(row.openMaxMinor) / 100).toString() : '', openMinMinor: undefined, openMaxMinor: undefined, fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
   const published = type === 'posts' ? await model.count({ where: { ...livePostWhere(), ...(own || {}) } }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
-  return ok({ rows: result, total, overall: await model.count(own ? { where: own } : undefined), published, page: slice.page, pages: slice.pages, ...(type === 'posts' ? { trashed: await model.count({ where: { status: TRASHED, ...(own || {}) } }), mine: !!own, counts: { state: await adminPostStateCounts(own) } } : {}) })
+  return ok({ rows: result, total, overall: await model.count(own ? { where: own } : undefined), published, page: slice.page, pages: slice.pages, ...(type === 'posts' ? { trashed: await model.count({ where: { status: TRASHED, ...(own || {}) } }), mine: !!own, reviewing: await reviewingAuthorPosts(), counts: { state: await adminPostStateCounts(own) } } : {}) })
 }
 
 async function productCategoryParent(parentId: unknown, currentId?: number) {
@@ -209,13 +210,16 @@ export async function POST(req: NextRequest) {
       return ok(row)
     }
     if (type === 'posts') {
+      const status = postFormStatus(b?.status)
+      // While review is on, an author's new article is a draft or waits for the manager; it never goes live here.
+      if (caller.authorId) { const refusal = authorReviewRefusal({ reviewing: await reviewingAuthorPosts(), asked: status, creating: true }); if (refusal) return err(refusal, 403) }
       const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       const row = await db.$transaction(async tx => {
         const ids = await validateCategorySelection(tx, b || {})
         if (itemLinks) await validatePostItemLinks(tx, itemLinks)
         const created = await tx.post.create({
         data: sanitizeContent({
-          ...pick({ ...b, status: formStatus(b?.status) }, postFields(caller.authorId)),
+          ...pick({ ...b, status }, postFields(caller.authorId)),
           ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
           access: normalizeAccess(b?.access),
           authorId: admin.id,
@@ -271,7 +275,7 @@ export async function POST(req: NextRequest) {
     }
     return err('unknown type', 404)
   } catch (e: any) {
-    if (e instanceof CategoryKindError) return err(e.message, e.status)
+    if (e instanceof CategoryKindError || e instanceof PostReviewError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'create failed', 400)
   }
 }
@@ -287,9 +291,11 @@ export async function PATCH(req: NextRequest) {
   const id = Number(b?.id)
   if (!id) return err('invalid id')
   const model = MODELS[type]()
+  // A manager's save that moves a waiting article to published or back to draft is a review decision too.
+  let reviewed: { decision: 'approve' | 'return'; authorId: number | null; title: string; publishedAt: Date } | null = null
 
   if (type === 'posts') {
-    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, trashedStatus: true, trashedAt: true, trashedById: true } })
+    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, publishedAt: true, trashedStatus: true, trashedAt: true, trashedById: true } })
     if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)
     if (isTrashed(held)) {
       // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
@@ -307,7 +313,15 @@ export async function PATCH(req: NextRequest) {
       return ok(restored)
     }
     if (b?.restore === true) return err('این نوشته در سطل زباله نیست', 409)
-    try { formStatus(b?.status) } catch (error) { return err(error instanceof Error ? error.message : 'invalid status', 400) }
+    // The manager's decision on an article waiting for review (docs/specs/journal-review).
+    if (b?.review !== undefined) {
+      if (caller.authorId) return err('تصمیم بازبینی با سردبیر است', 403)
+      try { return ok(await decidePostReview({ req, actor: admin, id, decision: b.review, note: b.note })) } catch (error) { if (error instanceof PostReviewError) return err(error.message, error.status); throw error }
+    }
+    let asked: PostFormStatus | undefined
+    try { asked = postFormStatus(b?.status) } catch (error) { return err(error instanceof Error ? error.message : 'invalid status', 400) }
+    if (caller.authorId) { const refusal = authorReviewRefusal({ reviewing: await reviewingAuthorPosts(), current: held, asked, creating: false }); if (refusal) return err(refusal, 403) }
+    else if (held.status === PENDING_REVIEW && (asked === 'PUBLISHED' || asked === 'DRAFT')) reviewed = { decision: asked === 'PUBLISHED' ? 'approve' : 'return', authorId: held.authorId, title: held.title, publishedAt: held.publishedAt }
   }
 
   if (type === 'posts' && b?.cover !== undefined) {
@@ -380,6 +394,8 @@ export async function PATCH(req: NextRequest) {
     if (type === 'posts') {
       const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
       if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
+      // Approved now: a past publication time (when it was written) becomes now; a future one stays its schedule.
+      if (reviewed?.decision === 'approve') data.publishedAt = approvalPublishedAt((data.publishedAt as Date | undefined) ?? reviewed.publishedAt)
       const before = await postRevisionState(id)
       const saved = await db.$transaction(async tx => {
         if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
@@ -394,6 +410,7 @@ export async function PATCH(req: NextRequest) {
         return row
       })
       contentChanged({ type: 'post', id }, before, saved)
+      if (reviewed) await tellReviewDecision({ authorId: reviewed.authorId, decidedById: admin.id, postId: id, title: reviewed.title, decision: reviewed.decision, at: new Date() })
       return ok(saved)
     }
     if (type === 'postcats') return ok(await db.$transaction(async tx => {
@@ -501,13 +518,23 @@ export async function BULK(req: NextRequest) {
     const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
     if (type === 'posts') {
       // Someone else's article is not there for an author; an article in the trash changes only by a manager's decision.
-      const found = await db.post.findMany({ where: { id: { in: ids }, ...own }, select: { id: true, slug: true, title: true, status: true, publishedAt: true } })
-      const rows = found.filter((row) => !isTrashed(row))
+      const found = await db.post.findMany({ where: { id: { in: ids }, ...own }, select: { id: true, slug: true, title: true, status: true, publishedAt: true, authorId: true } })
+      // While review is on, an author's batch neither publishes nor takes a published article off the site.
+      const reviewing = caller.authorId ? await reviewingAuthorPosts() : false
+      const held = (row: (typeof found)[number]) => (reviewing ? authorReviewRefusal({ reviewing, current: row, asked: status, creating: false }) : null)
+      const rows = found.filter((row) => !isTrashed(row) && !held(row))
       const known = new Set(found.map((row) => row.id))
       for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
-      for (const row of found) if (isTrashed(row)) failed.push({ id: row.id, reason: 'in the trash' })
+      for (const row of found) if (isTrashed(row)) failed.push({ id: row.id, reason: 'in the trash' }); else if (held(row)) failed.push({ id: row.id, reason: held(row)! })
       if (rows.length) {
-        await db.post.updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
+        const now = new Date()
+        const waiting = caller.authorId ? [] : rows.filter((row) => row.status === PENDING_REVIEW)
+        await db.$transaction(async (tx) => {
+          await tx.post.updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
+          // A waiting article published by the batch is approved now: its past publication time becomes now.
+          if (status === 'PUBLISHED' && waiting.length) await tx.post.updateMany({ where: { id: { in: waiting.map((row) => row.id) }, publishedAt: { lt: now } }, data: { publishedAt: now } })
+        })
+        for (const row of waiting) await tellReviewDecision({ authorId: row.authorId, decidedById: admin.id, postId: row.id, title: row.title, decision: status === 'PUBLISHED' ? 'approve' : 'return', at: now })
         for (const row of rows) {
           succeeded.push(row.id)
           contentChanged({ type: 'post', id: row.id }, row, { ...row, status })
