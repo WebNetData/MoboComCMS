@@ -48,7 +48,7 @@ const PERM_LABELS: Record<string, string> = {
 }
 
 export default function AdminRolesPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [roles, setRoles] = useState<RoleRow[]>([])
   const [allPerms, setAllPerms] = useState<string[]>([])
   const [presets, setPresets] = useState<Record<string, string[]>>({})
@@ -171,7 +171,7 @@ export default function AdminRolesPage() {
                 </h3>
                 <div className="muted text-xs" dir="ltr">{r.name}</div>
               </div>
-              <span className="badge badge-purple num">{r._count?.users ?? 0} {t.users}</span>
+              <span className="badge badge-purple num">{(r._count?.users ?? 0).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')} {locale === 'fa' ? 'کاربر' : t.users}</span>
             </div>
 
             {editing?.id === r.id ? (
