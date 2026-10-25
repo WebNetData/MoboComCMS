@@ -180,6 +180,7 @@ export default function ThemeBuilderPage() {
               <small>{L('Updated', 'ویرایش')} {fmtDate(meta.updatedAt, fa)}</small>
               <div className="tb-actions">
                 <Link className="btn btn-primary btn-sm" href={`/admin/builder/${meta.id}`}>{L('Edit design', 'ویرایش طرح')}</Link>
+                <Link className="btn btn-ghost btn-sm" href={`/admin/history?type=${encodeURIComponent(`builder:${meta.id}`)}&id=1`}>{L('History', 'تاریخچه')}</Link>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(meta)}>{meta.type === 'page' ? L('Placement', 'جایگاه') : L('Display rules', 'شرط نمایش')}</button>
                 {live && path && <a aria-label={L('Open the live page', 'مشاهدهٔ صفحه')} className="btn btn-ghost btn-sm" href={path} target="_blank" rel="noreferrer">↗</a>}
                 <button type="button" className="btn btn-ghost btn-sm" aria-label={L('Duplicate', 'کپی')} title={L('Duplicate', 'کپی')} onClick={() => void duplicate(meta.id)}>⧉</button>

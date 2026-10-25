@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const admin = await requirePerm(req, TYPE_PERMISSION(source.type))
     if (!admin) return err('forbidden', 403)
     try {
-      const meta = await duplicateThemeTemplate(source.id)
+      const meta = await duplicateThemeTemplate(source.id, { id: admin.id, email: admin.email })
       await auditAdmin({ req, actor: admin, action: 'theme.template.duplicate', targetType: 'Setting', targetId: meta.id, metadata: { from: source.id } })
       return ok({ template: meta })
     } catch (e) {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   const preset = presetId ? presetsFor(type).find((entry) => entry.id === presetId) : null
   if (presetId && !preset) return err('Preset not found', 404)
   try {
-    const meta = await createThemeTemplate({ type, name: String(body?.name || ''), nameEn: String(body?.nameEn || ''), doc: preset?.doc || null })
+    const meta = await createThemeTemplate({ type, name: String(body?.name || ''), nameEn: String(body?.nameEn || ''), doc: preset?.doc || null }, { id: admin.id, email: admin.email })
     await auditAdmin({ req, actor: admin, action: 'theme.template.create', targetType: 'Setting', targetId: meta.id, metadata: { type, preset: presetId || 'blank' } })
     return ok({ template: meta })
   } catch (e) {

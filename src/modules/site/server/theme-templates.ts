@@ -28,7 +28,8 @@ export async function getThemeTemplate(id: string): Promise<ThemeTemplateMeta | 
   return (await listThemeTemplates()).find((entry) => entry.id === id) || null
 }
 
-export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown }): Promise<ThemeTemplateMeta> {
+/** `actor`: the staff member creating it, named on the design's first version. */
+export async function createThemeTemplate(input: { type: ThemeTemplateType; name: string; nameEn?: string; doc?: BuilderDoc | null; conditions?: unknown; placement?: unknown }, actor: { id: number; email: string } | null = null): Promise<ThemeTemplateMeta> {
   const list = await listThemeTemplates()
   if (list.length >= MAX_TEMPLATES) throw new Error('Template limit reached')
   const meta = validateTemplateMeta({
@@ -40,7 +41,7 @@ export async function createThemeTemplate(input: { type: ThemeTemplateType; name
     placement: input.placement,
   })
   const doc = input.doc ? parseBuilderDoc(input.doc) : emptyDoc()
-  await saveBuilderDoc(meta.id, doc)
+  await saveBuilderDoc(meta.id, doc, actor)
   await writeIndex([...list, meta])
   return meta
 }
@@ -63,7 +64,7 @@ export async function updateThemeTemplate(id: string, patch: Record<string, unkn
   return meta
 }
 
-export async function duplicateThemeTemplate(id: string): Promise<ThemeTemplateMeta> {
+export async function duplicateThemeTemplate(id: string, actor: { id: number; email: string } | null = null): Promise<ThemeTemplateMeta> {
   const source = await getThemeTemplate(id)
   if (!source) throw new Error('Template not found')
   const doc = await getBuilderDoc(id)
@@ -74,7 +75,7 @@ export async function duplicateThemeTemplate(id: string): Promise<ThemeTemplateM
     doc,
     conditions: source.conditions,
     placement: source.type === 'page' ? { ...source.placement, kind: 'none' } : undefined,
-  })
+  }, actor)
 }
 
 export async function deleteThemeTemplate(id: string): Promise<boolean> {

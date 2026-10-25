@@ -506,6 +506,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
         <button type="button" className="btn btn-ghost" onClick={redo} disabled={!future.length} title="Ctrl+Shift+Z">{L('Redo', 'دوباره')}</button>
         <button type="button" className="btn btn-ghost" onClick={() => setShowTemplates(true)}>{L('Templates', 'قالب‌ها')}</button>
         {meta?.path && <Link className="btn btn-ghost" href={meta.path} target="_blank">{L('Open page ↗', 'نمایش صفحه ↗')}</Link>}
+        <Link className="btn btn-ghost" href={`/admin/history?type=${encodeURIComponent(`builder:${pageId}`)}&id=1`} title={L('Every saved version of this design; an earlier one can be put back', 'هر نسخهٔ ذخیره‌شدهٔ این طرح؛ می‌توانید نسخهٔ قبلی را برگردانید')}>{L('History', 'تاریخچه')}</Link>
         <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={busy || uploading || !dirty}>
           {busy ? L('Saving…', 'در حال ذخیره…') : uploading ? L('Uploading…', 'در حال بارگذاری…') : dirty ? L('Save', 'ذخیره') : L('Saved ✓', 'ذخیره شد ✓')}
         </button>

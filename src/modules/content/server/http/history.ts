@@ -11,9 +11,13 @@ import { RevisionError, listRevisions, recordRevision, revisionDetail, revisionS
 // The history of an item for staff, and putting an earlier version back. Who may read or restore the
 // history of an item is whoever may edit that item: the permission comes from the item's own owner.
 
-type Owner = { perms: readonly string[]; module: string | null; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
+/** `extraPerms`: what putting back a particular version also needs (a builder version that adds script code). */
+type Owner = { perms: readonly string[]; module: string | null; extraPerms?: (snapshot: Snapshot) => Promise<string[]>; current: (id: number) => Promise<Record<string, unknown> | null>; restore: (id: number, snapshot: Snapshot, commit: RestoreCommit) => Promise<{ before: Record<string, unknown>; after: Record<string, unknown> }> }
 
 async function ownerOf(type: string): Promise<Owner | null> {
+  const { pageIdOfHistoryType, builderHistoryOwner } = await import('@/modules/site/server/builder')
+  const builderPage = pageIdOfHistoryType(type)
+  if (builderPage) return builderHistoryOwner(builderPage)
   if (type === 'settings-livechat') {
     const { chatSettingsState, restoreChatSettings } = await import('@/modules/livechat/server/livechat')
     return { perms: ['settings.manage', 'support.chat'], module: 'livechat', current: () => chatSettingsState(), restore: restoreChatSettings }
@@ -153,6 +157,8 @@ export async function POST_history(req: NextRequest) {
   if ('response' in g) return g.response
   try {
     const snapshot = await revisionSnapshot(type, id, version)
+    const extra = await owner.extraPerms?.(snapshot)
+    if (extra?.length) { const allowed = await adminGuard(req, owner.module, extra); if ('response' in allowed) return allowed.response }
     let made: number | null = null
     await owner.restore(id, snapshot, async (tx, before, after) => {
       made = await recordRevision({ entityType: type, entityId: id, before, after, actor: g.admin, source: 'restore', client: tx, strict: true })

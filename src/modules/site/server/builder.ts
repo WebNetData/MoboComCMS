@@ -1,4 +1,7 @@
+import type { Prisma } from '@prisma/client'
 import { db } from '@/platform/database/prisma'
+import { RevisionError, recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
+import type { Snapshot } from '@/modules/content/domain/revisions'
 import { parseBuilderDoc, type BuilderDoc } from '@/modules/site/domain/builder'
 import { POST_TEMPLATES } from '@/modules/site/domain/builder-templates'
 import type { Permission } from '@/modules/identity/rbac'
@@ -102,10 +105,62 @@ export async function clearBuilderDraft(pageId: string): Promise<void> {
   await db.setting.delete({ where: { key: draftKey(pageId) } }).catch(() => undefined)
 }
 
-export async function saveBuilderDoc(pageId: string, doc: BuilderDoc): Promise<void> {
+// ------------------------------------------------------------------ history
+
+type Actor = { id: number; email: string } | null
+/** The history of one builder document: shared revision rows keyed by this type and the single id 1. */
+export const builderHistoryType = (pageId: string) => `builder:${pageId}`
+export const pageIdOfHistoryType = (type: string) => { const match = /^builder:([a-zA-Z0-9-]{1,40})$/.exec(type); return match ? match[1] : null }
+
+/** A version: the whole document (kept untruncated) and a few facts a reader compares at a glance. */
+export function builderSnapshot(doc: BuilderDoc | null): Snapshot | null {
+  if (!doc) return null
+  const widgets = doc.sections.reduce((sum, section) => sum + section.columns.reduce((count, column) => count + column.widgets.length, 0), 0)
+  return { configurationDocument: JSON.stringify(doc), mode: doc.mode, sections: doc.sections.length, widgets, advancedCode: docUsesScripts(doc) }
+}
+
+/** Saves the live document and keeps it as the next version in the same transaction (a save that changes nothing adds none). */
+export async function saveBuilderDoc(pageId: string, doc: BuilderDoc, actor: Actor = null, client?: Prisma.TransactionClient): Promise<void> {
   const key = builderKey(pageId)
   const value = JSON.stringify(doc)
-  await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+  const work = async (tx: Prisma.TransactionClient) => {
+    const previous = await tx.setting.findUnique({ where: { key }, select: { value: true } })
+    await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
+    await recordRevision({ entityType: builderHistoryType(pageId), entityId: 1, before: previous ? builderSnapshot(parseMeaningful(previous.value)) : null, after: builderSnapshot(doc)!, actor, client: tx, strict: true })
+  }
+  if (client) await work(client)
+  else await db.$transaction(work)
+}
+
+/**
+ * Who may read and put back a builder document's versions: whoever may edit it. Putting back a version that
+ * adds advanced (script-running) code also needs the script permission, as saving it would.
+ */
+export function builderHistoryOwner(pageId: string) {
+  const versionDoc = (snapshot: Snapshot) => {
+    try { return sanitizeBuilderDoc(parseBuilderDoc(JSON.parse(String(snapshot.configurationDocument)))) } catch { throw new RevisionError('این نسخه قابل خواندن نیست', 422) }
+  }
+  return {
+    perms: [permFor(pageId)] as readonly string[],
+    module: 'page-builder',
+    current: async (id: number) => (id === 1 ? builderSnapshot(await getBuilderDoc(pageId)) ?? {} : null),
+    extraPerms: async (snapshot: Snapshot): Promise<string[]> => (await introducesScripts(pageId, versionDoc(snapshot)) ? [SCRIPT_PERMISSION] : []),
+    restore: async (id: number, snapshot: Snapshot, commit: RestoreCommit) => {
+      if (id !== 1) throw new RevisionError('این طرح پیدا نشد', 404)
+      const doc = versionDoc(snapshot)
+      const key = builderKey(pageId)
+      return db.$transaction(async (tx) => {
+        const previous = await tx.setting.findUnique({ where: { key }, select: { value: true } })
+        const before = builderSnapshot(previous ? parseMeaningful(previous.value) : null) ?? {}
+        await tx.setting.upsert({ where: { key }, create: { key, value: JSON.stringify(doc) }, update: { value: JSON.stringify(doc) } })
+        // An unsaved editor draft of the replaced state would preview the wrong thing: it goes too.
+        await tx.setting.deleteMany({ where: { key: draftKey(pageId) } })
+        const after = builderSnapshot(doc)!
+        await commit(tx, before, after)
+        return { before, after }
+      })
+    },
+  }
 }
 
 /** Render-time safety net: rich text / custom code are cleaned before persistence. */
