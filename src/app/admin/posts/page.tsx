@@ -16,20 +16,26 @@ export default function AdminPostsPage() {
     fetch('/api/admin/cms?type=postcats').then((r) => (r.ok ? r.json() : [])).then(setCats)
   }, [])
 
+  const S = {
+    body: locale === 'fa' ? 'متن نوشته' : 'Article',
+    cover: locale === 'fa' ? 'تصویر شاخص' : 'Featured image',
+    cats: locale === 'fa' ? 'دسته‌بندی' : 'Categories',
+    publish: locale === 'fa' ? 'انتشار و دسترسی' : 'Publishing & access',
+  }
   const fields: FieldDef[] = [
-    { key: 'slug', label: t.slug, required: true, dir: 'ltr' },
-    { key: 'title', label: t.title, required: true },
-    { key: 'excerpt', label: t.excerpt, type: 'textarea', hideInTable: true },
-    { key: 'content', label: t.content, type: 'richtext', hideInTable: true },
-    { key: 'cover', label: t.cover, type: 'image', hideInTable: true },
+    { section: S.body, key: 'slug', label: t.slug, required: true, dir: 'ltr' },
+    { section: S.body, key: 'title', label: t.title, required: true },
+    { section: S.body, key: 'excerpt', label: t.excerpt, type: 'textarea', hideInTable: true },
+    { section: S.body, key: 'content', label: t.content, type: 'richtext', hideInTable: true },
+    { section: S.cover, key: 'cover', label: t.cover, type: 'image', hideInTable: true },
     {
-      key: 'categoryIds',
+      section: S.cats, key: 'categoryIds',
       label: locale === 'fa' ? 'دسته‌بندی‌ها' : 'Categories',
       type: 'multiselect',
       options: categoryOptions(cats, locale),
     },
     {
-      key: 'status',
+      section: S.publish, key: 'status',
       label: t.status,
       type: 'select',
       options: [
@@ -37,9 +43,9 @@ export default function AdminPostsPage() {
         { value: 'DRAFT', label: t.draft },
       ],
     },
-    { key: 'publishedAt', label: locale === 'fa' ? 'زمان انتشار (خالی = اکنون، به وقت دستگاه شما)' : 'Publication time (blank = now, your local time)', type: 'datetime-local', hideInTable: true },
-    { key: 'featured', label: t.special, type: 'checkbox' },
-    { key: 'access', label: locale === 'fa' ? 'دسترسی' : 'Access', type: 'select', options: [{ value: 'PUBLIC', label: locale === 'fa' ? 'همه' : 'Everyone' }, { value: 'MEMBERS', label: locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only' }] },
+    { section: S.publish, key: 'publishedAt', label: locale === 'fa' ? 'زمان انتشار (خالی = اکنون، به وقت دستگاه شما)' : 'Publication time (blank = now, your local time)', type: 'datetime-local', hideInTable: true },
+    { section: S.publish, key: 'featured', label: t.special, type: 'checkbox' },
+    { section: S.publish, key: 'access', label: locale === 'fa' ? 'دسترسی' : 'Access', type: 'select', options: [{ value: 'PUBLIC', label: locale === 'fa' ? 'همه' : 'Everyone' }, { value: 'MEMBERS', label: locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only' }] },
   ]
 
   return (

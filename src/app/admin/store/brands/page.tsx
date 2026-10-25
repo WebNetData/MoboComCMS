@@ -49,7 +49,7 @@ export default function BrandsPage() {
           <label className="sa-field"><span>نام برند *</span><input className="input" required value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
           <label className="sa-field"><span>نام انگلیسی</span><input className="input" dir="ltr" value={form.nameEn} onChange={(event) => update('nameEn', event.target.value)} /></label>
           <label className="sa-field"><span>نامک (لاتین) *</span><input className="input" dir="ltr" required pattern="[a-z0-9][a-z0-9-]*" value={form.slug} onChange={(event) => update('slug', event.target.value.toLowerCase())} placeholder="samsung" /></label>
-          <div className="sa-field"><span>لوگو</span><CoverField value={form.logo} title={form.name} onChange={(value) => update('logo', value)} onBusy={setBusy} /></div>
+          <div className="sa-field"><span>لوگو</span><CoverField mode="square" value={form.logo} title={form.name} onChange={(value) => update('logo', value)} onBusy={setBusy} /></div>
           <label className="sa-field"><span>توضیح</span><textarea className="input" rows={3} value={form.description} onChange={(event) => update('description', event.target.value)} /></label>
           <label className="sa-check"><input type="checkbox" checked={form.featured} onChange={(event) => update('featured', event.target.checked)} />در صفحهٔ اصلی فروشگاه جلوتر نمایش داده شود</label>
           <label className="sa-field"><span>ترتیب</span><input className="input" type="number" value={form.sortOrder} onChange={(event) => update('sortOrder', Number(event.target.value))} /></label>

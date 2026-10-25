@@ -41,7 +41,7 @@ export default function GamesFranchisesPage() {
         <label className="sa-field"><span>نامک (slug) *</span><input className="input" dir="ltr" value={form.slug} onChange={(e) => set({ slug: e.target.value })} placeholder="god-of-war" /></label>
       </div>
       <label className="sa-field"><span>معرفی</span><textarea className="input" rows={3} value={form.description} onChange={(e) => set({ description: e.target.value })} /></label>
-      <div className="sa-field"><span>تصویر بنر (خالی = تصویر تازه‌ترین بازی)</span><CoverField value={form.image} title={form.title} onChange={(image) => set({ image })} onBusy={setUploading} /></div>
+      <div className="sa-field"><span>تصویر بنر (خالی = تصویر تازه‌ترین بازی)</span><CoverField mode="media" value={form.image} title={form.title} onChange={(image) => set({ image })} onBusy={setUploading} /></div>
       <div className="sa-row"><button type="button" className="btn btn-primary" disabled={uploading} onClick={() => void save()}>ذخیره</button><button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>انصراف</button></div>
     </section>}
     {!data ? <div className="sa-skeleton" aria-busy="true" /> : data.franchises.length === 0 ? <div className="sa-card sa-empty">هنوز مجموعه‌ای ساخته نشده است. مجموعه‌ها بازی‌های یک سری را کنار هم نشان می‌دهند.</div>

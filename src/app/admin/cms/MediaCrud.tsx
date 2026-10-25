@@ -45,6 +45,8 @@ export type MediaField = {
   type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms' | 'people'
   /** For `people`: a director/producer line (`line`) or the cast list with characters and order (`cast`). */
   people?: 'line' | 'cast'
+  /** For `image`: the frame the picture is shown in — a portrait poster, a square icon or cover; landscape otherwise. */
+  frame?: 'poster' | 'square'
   /** Fields with the same section are shown together under that heading, in the order the section first appears. */
   section?: string
   /** Shown only when this says so for the form being edited (e.g. series-only fields); a hidden field keeps its value. */
@@ -415,7 +417,7 @@ function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
   if (field.key === 'access') return value === 'MEMBERS' ? <span className="badge vip-badge-sm">VIP</span> : <span className="muted">{fa ? 'عمومی' : 'Public'}</span>
   if (field.key === 'status') return value === 'DRAFT' ? <span className="badge badge-gray">{fa ? 'پیش‌نویس' : 'Draft'}</span> : <span className="badge badge-green">{fa ? 'منتشر' : 'Live'}</span>
   if (field.type === 'select') { const label = field.options?.find((o) => o.value === String(value))?.label; return label ? <span className="mx-tag">{label}</span> : String(value ?? '—') }
-  if (field.type === 'image') return value ? <img src={String(value)} alt="" className={`mx-thumb${field.key === 'poster' ? ' is-poster' : ''}`} /> : <span className={`mx-thumb is-empty${field.key === 'poster' ? ' is-poster' : ''}`} aria-hidden="true" />
+  if (field.type === 'image') return value ? <img src={String(value)} alt="" className={`mx-thumb${field.frame === 'poster' || field.key === 'poster' ? ' is-poster' : ''}`} /> : <span className={`mx-thumb is-empty${field.frame === 'poster' || field.key === 'poster' ? ' is-poster' : ''}`} aria-hidden="true" />
   const str = String(value ?? '')
   return str.length > 50 ? `${str.slice(0, 50)}…` : str || '—'
 }
@@ -443,7 +445,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'select':
       return <select className="select" aria-label={field.label} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>{(options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
     case 'image':
-      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.key === 'poster' ? 'poster' : 'media'} /></div>
+      return <div className="mx-image"><CoverField value={value || ''} title={titleHint} onChange={onChange} onBusy={onBusy} mode={field.frame ?? (field.key === 'poster' ? 'poster' : 'media')} /></div>
     case 'date': case 'datetime':
       return <JalaliDateInput withTime={field.type === 'datetime'} aria-label={field.label} value={value || ''} onChange={onChange} />
     case 'links':
