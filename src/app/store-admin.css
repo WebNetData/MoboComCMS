@@ -41,6 +41,7 @@
 .sa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .sa-grow { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .sa-grow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.sa-grow > a { display: block; min-width: 0; overflow: hidden; }
 .sa-grow small, .sa-sub { display: block; color: var(--sa-muted); font-size: 12px; }
 .sa-notice { margin: 0; padding: 10px 14px; border-radius: 10px; font-size: 13px; background: var(--sa-accent-soft); }
 .sa-notice.is-error { background: color-mix(in srgb, var(--sa-danger) 10%, transparent); color: var(--sa-danger); }

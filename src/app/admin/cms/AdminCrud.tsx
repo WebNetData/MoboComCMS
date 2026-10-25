@@ -29,6 +29,8 @@ export interface FieldDef {
   hideInTable?: boolean
   required?: boolean
   dir?: 'ltr' | 'rtl'
+  /** Spans the whole row of its section (an article's title). */
+  wide?: boolean
   /** Fields with the same section are shown together under that heading, in the order the section first appears. */
   section?: string
 }
@@ -47,6 +49,8 @@ interface Props {
   filters?: ListFilter[]
   /** A picture shown beside the title in the list (an article's cover). */
   thumbnailKey?: string
+  /** Form sections shown in a side column with the save button, in this order; the rest is the writing column. */
+  aside?: string[]
 }
 
 /** The form's sections in the order they first appear; one untitled group when no field names a section. */
@@ -68,7 +72,7 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside }: Props) {
   const vipOn = useModuleEnabled('membership')
   const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
@@ -307,6 +311,8 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   }
 
   const tableFields = fields.filter((f) => !f.hideInTable)
+  // The column a phone card leads with: the item's title (a product's is its name).
+  const leadKey = tableFields.some((f) => f.key === titleKey) ? titleKey : tableFields.find((f) => f.key === 'name')?.key
   const visibleRows = rows
   const bulkEnabled = type === 'posts' || type === 'pages'
   const visibleIds = visibleRows.map((row) => Number(row.id))
@@ -343,8 +349,19 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
 
   const sections = formSections(fields)
   const sectioned = sections.some((section) => section.title)
+  const sideColumn = sectioned && !!aside?.length
+  const asideTitles = new Set(aside || [])
+  const sectionByTitle = new Map(sections.map((section) => [section.title, section]))
+  const mainSections = sections.filter((section) => !asideTitles.has(section.title))
+  const sideSections = (aside || []).flatMap((title) => sectionByTitle.get(title) ?? [])
+  const sectionBox = (section: { title: string; fields: FieldDef[] }) => <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{section.fields.map(fieldBox)}</div></fieldset>
+  const historyLink = editId && (type === 'posts' || type === 'pages' || type === 'products') ? <a className="mx-form-history" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a> : null
+  const formActions = <div className="flex gap-2 cms-form-actions">
+    <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
+    <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
+  </div>
   const fieldBox = (fl: FieldDef) => (
-    <div key={fl.key} className={`mx-field ${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
+    <div key={fl.key} className={`mx-field ${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${fl.wide ? ' is-wide' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
       {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
       {blockDriven && fl.key === 'content' && !legacyBody ? (
         <div className="cms-block-body">
@@ -409,17 +426,27 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       {bulkEnabled && <><BulkActions count={selected.size} canPublish fa={fa} busy={bulkBusy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />{bulkMsg && <p className={bulkMsg.tone === 'err' ? 'error-text cms-bulk-message' : 'cms-bulk-message'} role="status">{bulkMsg.text}</p>}</>}
 
       {showForm && (
-        <form onSubmit={save} className={sectioned ? 'card mb-6 mx-form cms-sectioned-form' : 'card mb-6 grid-3 items-end'}>
-          {editId && (type === 'posts' || type === 'pages' || type === 'products') && <div className="grid-column-span-3"><a className="mx-form-history" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a></div>}
+        <form onSubmit={save} className={sectioned ? `card mb-6 mx-form cms-sectioned-form${sideColumn ? ' has-aside' : ''}` : 'card mb-6 grid-3 items-end'}>
+          {sideColumn ? <>
+            <div className="cms-form-main">
+              {aiFields.length > 0 && <AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} />}
+              {mainSections.map(sectionBox)}
+              {renderEditorExtra && <div className="grid-3 items-end cms-form-extra">{renderEditorExtra(form, setForm, editId)}</div>}
+            </div>
+            <aside className="cms-form-aside" aria-label={fa ? 'انتشار و ویژگی‌ها' : 'Publishing and details'}>
+              <div className="cms-form-aside-actions">
+                {formActions}
+                {historyLink}
+              </div>
+              {sideSections.map(sectionBox)}
+            </aside>
+          </> : <>
+          {historyLink && <div className="grid-column-span-3">{historyLink}</div>}
           {aiFields.length > 0 && <div className="grid-column-span-3"><AiAutofill section={type} fields={aiFields} form={form} onApply={applyAi} /></div>}
-          {sections.map((section) => section.title
-            ? <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{section.fields.map(fieldBox)}</div></fieldset>
-            : section.fields.map(fieldBox))}
+          {sections.map((section) => section.title ? sectionBox(section) : section.fields.map(fieldBox))}
           {renderEditorExtra && (sectioned ? <div className="grid-3 items-end cms-form-extra">{renderEditorExtra(form, setForm, editId)}</div> : renderEditorExtra(form, setForm, editId))}
-          <div className="flex gap-2 cms-form-actions">
-            <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
-            <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
-          </div>
+          {formActions}
+          </>}
           <PublishReview open={review} title={String(form[titleKey] || form.title || '')} rows={reviewRows} busy={saving} scheduled={Boolean(scheduledPost)} onCancel={() => setReview(false)} onConfirm={() => void persist()} />
         </form>
       )}
@@ -445,27 +472,28 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                 const scheduled = type === 'posts' && row.status === 'PUBLISHED' && new Date(row.publishedAt).getTime() > Date.now()
                 return (
                   <tr key={row.id} className={selected.has(row.id) ? 'is-selected' : ''}>
-                    {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.title || `#${row.id}`}`} checked={selected.has(row.id)} disabled={bulkBusy} onChange={() => toggleSelected(row.id)} /></td>}
-                    <td className="num">{fa ? Number(row.id).toLocaleString('fa-IR', { useGrouping: false }) : row.id}</td>
+                    {bulkEnabled && <td className="crud-check"><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.title || `#${row.id}`}`} checked={selected.has(row.id)} disabled={bulkBusy} onChange={() => toggleSelected(row.id)} /></td>}
+                    <td className="num crud-id">{fa ? Number(row.id).toLocaleString('fa-IR', { useGrouping: false }) : row.id}</td>
                     {tableFields.map((f) => {
+                      const cell = { 'data-label': f.label, 'data-title': f.key === leadKey ? '' : undefined }
                       if (extra[f.key] !== undefined) {
-                        return <td key={f.key}>{extra[f.key]}</td>
+                        return <td key={f.key} {...cell}>{extra[f.key]}</td>
                       }
-                      if (scheduled && f.key === 'status') return <td key={f.key}><span className="badge badge-purple">{fa ? 'زمان‌بندی‌شده' : 'Scheduled'}</span></td>
-                      if (f.optionsFromRows) return <td key={f.key}>{f.optionsFromRows(optionRows || rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
+                      if (scheduled && f.key === 'status') return <td key={f.key} {...cell}><span className="badge badge-purple">{fa ? 'زمان‌بندی‌شده' : 'Scheduled'}</span></td>
+                      if (f.optionsFromRows) return <td key={f.key} {...cell}>{f.optionsFromRows(optionRows || rows, null).find(option => option.value === String(row[f.key] ?? ''))?.label || '—'}</td>
                       const v = row[f.key]
-                      if (typeof v === 'boolean') return <td key={f.key}>{v ? <span className="crud-yes" role="img" aria-label={fa ? 'بله' : 'Yes'}>✓</span> : <span className="muted" aria-label={fa ? 'خیر' : 'No'}>—</span>}</td>
+                      if (typeof v === 'boolean') return <td key={f.key} {...cell}>{v ? <span className="crud-yes" role="img" aria-label={fa ? 'بله' : 'Yes'}>✓</span> : <span className="muted" aria-label={fa ? 'خیر' : 'No'}>—</span>}</td>
                       const option = f.options?.find((item) => item.value === String(v ?? ''))
-                      if (f.key === 'status' && option) return <td key={f.key}><span className={`badge ${STATUS_TONE[String(v)] || 'badge-gray'}`}>{option.label}</span></td>
-                      if (option) return <td key={f.key}>{f.key === 'currency' ? option.label.replace(/\s*\([A-Z]{3}\)$/, '') : option.label}</td>
-                      if (f.key === 'stock' && Number(v) < 0) return <td key={f.key}>{fa ? 'نامحدود' : 'Unlimited'}</td>
-                      if (f.type === 'number' && v !== null && v !== '' && Number.isFinite(Number(v))) return <td key={f.key} className="num">{Number(v).toLocaleString(fa ? 'fa-IR' : 'en-US')}</td>
+                      if (f.key === 'status' && option) return <td key={f.key} {...cell}><span className={`badge ${STATUS_TONE[String(v)] || 'badge-gray'}`}>{option.label}</span></td>
+                      if (option) return <td key={f.key} {...cell}>{f.key === 'currency' ? option.label.replace(/\s*\([A-Z]{3}\)$/, '') : option.label}</td>
+                      if (f.key === 'stock' && Number(v) < 0) return <td key={f.key} {...cell}>{fa ? 'نامحدود' : 'Unlimited'}</td>
+                      if (f.type === 'number' && v !== null && v !== '' && Number.isFinite(Number(v))) return <td key={f.key} {...cell} className="num">{Number(v).toLocaleString(fa ? 'fa-IR' : 'en-US')}</td>
                       const str = String(v ?? '')
-                      if (f.dir === 'ltr' || f.key === 'slug') return <td key={f.key}>{str ? <bdi dir="ltr" className="crud-ltr" title={str}>{str}</bdi> : '—'}</td>
-                      if (thumbnailKey && f.key === titleKey) return <td key={f.key}><span className="crud-title">{row[thumbnailKey] ? <img src={String(row[thumbnailKey])} alt="" loading="lazy" /> : <span className="crud-thumb-empty" aria-hidden="true" />}<span>{str.length > 80 ? str.slice(0, 80) + '…' : str || '—'}</span></span></td>
-                      return <td key={f.key} className={str.length > 60 ? 'muted' : ''}>{str.length > 60 ? str.slice(0, 60) + '…' : str || '—'}</td>
+                      if (f.dir === 'ltr' || f.key === 'slug') return <td key={f.key} {...cell}>{str ? <bdi dir="ltr" className="crud-ltr" title={str}>{str}</bdi> : '—'}</td>
+                      if (thumbnailKey && f.key === titleKey) return <td key={f.key} {...cell}><span className="crud-title">{row[thumbnailKey] ? <img src={String(row[thumbnailKey])} alt="" loading="lazy" /> : <span className="crud-thumb-empty" aria-hidden="true" />}<span>{str.length > 80 ? str.slice(0, 80) + '…' : str || '—'}</span></span></td>
+                      return <td key={f.key} {...cell} className={str.length > 60 ? 'muted' : ''}>{str.length > 60 ? str.slice(0, 60) + '…' : str || '—'}</td>
                     })}
-                    <td>
+                    <td className="crud-row-actions">
                       {row.status === 'TRASHED' ? <div className="flex gap-1" data-testid="trash-row">
                         <span className="badge badge-gray">در سطل زباله</span>
                         {mine ? <span className="muted text-sm">منتظر تصمیم مدیر بخش</span> : <>

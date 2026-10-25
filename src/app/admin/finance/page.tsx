@@ -61,7 +61,7 @@ export default function AdminFinancePage() {
           <h1 className="h2">{t.financeAdmin}</h1>
           <p className="muted">{t.financeHint}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select className="select imp-w-24" aria-label={locale === 'fa' ? 'بازهٔ گزارش (ماه)' : 'Report period (months)'} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
             {[3, 6, 12, 24].map((m) => (
               <option key={m} value={m}>{num(m)} {t.months}</option>

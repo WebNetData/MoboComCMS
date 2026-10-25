@@ -1,5 +1,18 @@
 # Magazine light edition — 2026-10-15
 
+## Magazine admin: writing form, phone list, category tree — 2026-10-25
+
+- **Post form:** WordPress-like layout. The writing column holds the title (first, full width), the address, the excerpt, the body, related content and the writing assistant. A side column holds publishing (with the save button and version history at its top), categories and the cover, and it stays in view while writing (shared `AdminCrud`: new optional `aside` and `FieldDef.wide`). Below 1180px it is one column.
+- **Phone list:** under 700px every `AdminCrud` list (posts, pages, products) is a stack of cards. Each cell names its column, the title (a product's name) leads, and the selection box and actions keep their place. Desktop keeps the table.
+- **Category tree:** the meta line reads the address (LTR), then a count in the reader's digits or «بدون زیرشاخه»; it no longer jumbles direction.
+- The sticky column needed the panels' main area to stop being a scroll box (see PLATFORM_DECISIONS, layout).
+- Evidence:
+  - browser `.mobocom/claude-tools/pw-journal-polish.cjs` passes 17/17 on two consecutive runs: form order, side sections, side column beside the writing column and the save button in view mid-form, phone cards for posts, pages and products, desktop tables unchanged, category meta, read-only;
+  - `pw-journal-admin.cjs` still passes 17/17;
+  - a sweep of 31 admin pages at 390 and 1440 px found no content cut off;
+  - TypeScript passes with 0 errors, and `npm run check` is 700/6, the same as main;
+  - React Doctor warnings are equal to the base branch.
+
 ## Magazine admin: one workspace, a narrowable posts list — 2026-10-25
 
 - The posts, categories and comments pages now sit in the same magazine tabs as the dashboard and settings (`JournalShell` from `src/app/admin/journal/shared.tsx`, the CinemaShell/MediaCrud pattern).
