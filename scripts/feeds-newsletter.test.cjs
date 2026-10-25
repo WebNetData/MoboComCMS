@@ -72,4 +72,9 @@ test('images: only site images get resized addresses', () => {
   assert.equal(img.sized('https://x.com/a.jpg', 300), 'https://x.com/a.jpg')
   assert.equal(img.srcSet(own, 320), `${own}?w=320 1x, ${own}?w=640 2x`)
   assert.equal(img.srcSet('', 320), undefined)
+  // Profile pictures resize the same way (served by their own route, never through the covers CDN).
+  const face = '/api/profile/media/a8928ebb-0d46-41c4-8b2a-9f38ba286fbf.png'
+  assert.equal(img.sized(face, 40), `${face}?w=160`)
+  assert.equal(img.srcSet(face, 160), `${face}?w=160 1x, ${face}?w=320 2x`)
+  assert.equal(img.sized('/api/profile/media/../x.png', 40), '/api/profile/media/../x.png')
 })

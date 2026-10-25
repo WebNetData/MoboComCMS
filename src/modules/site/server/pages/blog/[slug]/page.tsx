@@ -38,6 +38,7 @@ import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
+import { sized, srcSet } from '@/shared/media/image'
 
 const FALLBACK = '/images/journal-editorial-fallback.webp'
 
@@ -184,7 +185,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <div className="journal-post-meta">
         <span className="journal-post-author-chip">
           <span className="journal-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>
-            {authorPhoto ? <img src={authorPhoto} alt="" /> : initial}
+            {authorPhoto ? <img src={sized(authorPhoto, 96)} alt="" decoding="async" /> : initial}
           </span>
           <span className="journal-avatar-copy">
             <small>{isFa ? 'نوشتهٔ' : 'Written by'}</small>
@@ -209,7 +210,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
 
   const coverSlot = (
     <figure className="journal-post-figure">
-      <img src={coverImage} alt="" loading="lazy" decoding="async" />
+      <img src={sized(coverImage, 960)} srcSet={srcSet(coverImage, 960)} alt="" loading="lazy" decoding="async" />
     </figure>
   )
 
@@ -264,7 +265,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
           <div className="journal-related-grid journal-linked-grid">
             {linkedItems.map((item) => (
               <Link key={`${item.type}:${item.id}`} href={item.url} className="ln-card ln-card-plain">
-                {item.image && <span className="ln-card-art"><img src={item.image} alt="" loading="lazy" decoding="async" /></span>}
+                {item.image && <span className="ln-card-art"><img src={sized(item.image, 400)} srcSet={srcSet(item.image, 400)} alt="" loading="lazy" decoding="async" /></span>}
                 <span className="ln-card-body">
                   <strong className="ln-card-title">{isFa ? item.title : item.titleEn || item.title}</strong>
                 </span>
@@ -274,9 +275,9 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
         </section>
       )}
       <section className="journal-bio" aria-labelledby="journal-bio-title">
-        <div className={`journal-bio-art${authorProfile?.cover ? ' has-cover' : ''}`} style={authorProfile?.cover ? { backgroundImage: `url("${encodeURI(authorProfile.cover)}")` } : undefined} aria-hidden="true">
+        <div className={`journal-bio-art${authorProfile?.cover ? ' has-cover' : ''}`} style={authorProfile?.cover ? { backgroundImage: `url("${encodeURI(sized(authorProfile.cover, 640))}")` } : undefined} aria-hidden="true">
           <span className="journal-bio-avatar" style={post.author?.avatarColor ? { background: post.author.avatarColor } : undefined}>
-            {authorPhoto ? <img src={authorPhoto} alt="" /> : initial}
+            {authorPhoto ? <img src={sized(authorPhoto, 96)} alt="" decoding="async" /> : initial}
           </span>
         </div>
         <div className="journal-bio-body">
@@ -322,7 +323,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
             <Link href={`/blog/${older.slug}`} className="journal-pager-item is-older">
               <span className="journal-pager-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{isFa ? 'نوشتهٔ قبلی' : 'Previous'}</span>
               <span className="journal-pager-art">
-                <img src={older.cover || FALLBACK} alt="" loading="lazy" decoding="async" />
+                <img src={sized(older.cover || FALLBACK, 400)} alt="" loading="lazy" decoding="async" />
               </span>
               <strong>{isFa ? older.title : older.titleEn || older.title}</strong>
             </Link>
@@ -333,7 +334,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
             <Link href={`/blog/${newer.slug}`} className="journal-pager-item is-newer">
               <span className="journal-pager-label">{isFa ? 'نوشتهٔ بعدی' : 'Next'}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></span>
               <span className="journal-pager-art">
-                <img src={newer.cover || FALLBACK} alt="" loading="lazy" decoding="async" />
+                <img src={sized(newer.cover || FALLBACK, 400)} alt="" loading="lazy" decoding="async" />
               </span>
               <strong>{isFa ? newer.title : newer.titleEn || newer.title}</strong>
             </Link>
@@ -368,7 +369,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
             {related.map((item) => (
               <Link key={item.id} href={`/blog/${item.slug}`} className="ln-card ln-card-plain">
                 <span className="ln-card-art">
-                  <img src={item.cover || FALLBACK} alt="" loading="lazy" decoding="async" />
+                  <img src={sized(item.cover || FALLBACK, 400)} srcSet={srcSet(item.cover, 400)} alt="" loading="lazy" decoding="async" />
                 </span>
                 <span className="ln-card-body">
                   <span className="ln-badge">

@@ -57,9 +57,9 @@ export async function POST_media(req: NextRequest) {
 }
 
 /** GET /api/profile/media/:name */
-export async function GET_media(_req: NextRequest, ctx: Ctx) {
+export async function GET_media(req: NextRequest, ctx: Ctx) {
   const { name } = await ctx.params
-  const media = await readProfileMedia(name)
+  const media = await readProfileMedia(name, Number(req.nextUrl.searchParams.get('w')) || 0)
   if (!media) return new NextResponse('Not found', { status: 404 })
   return new NextResponse(new Uint8Array(media.bytes), { headers: { 'content-type': media.type, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } })
 }

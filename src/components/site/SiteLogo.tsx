@@ -3,6 +3,7 @@
 import BrandMark from '@/components/BrandMark'
 import { useSite } from '@/components/site/SiteProvider'
 import type { SiteConfig } from '@/modules/site/config/types'
+import { sized, srcSet } from '@/shared/media/image'
 
 /** Whether the site has a wide logo (with its name in it): then the name is not written beside it. */
 export const hasWordmark = (site: Pick<SiteConfig, 'wordmark'>) => Boolean(site.wordmark)
@@ -15,9 +16,11 @@ export function Wordmark({ height, className = '' }: { height?: number; classNam
   const site = useSite()
   if (!site.wordmark) return null
   const size = height ?? site.wordmarkHeight ?? 40
+  // A wide logo is a few times as wide as it is tall: ask for a copy that covers that (2x for sharp screens), not the upload.
+  const wide = size * 4
   return <span className={`site-wordmark${site.wordmarkDark ? ' has-dark' : ''} ${className}`} style={{ ['--wm-h' as string]: `${size}px` }}>
-    <img className="wm-light" src={site.wordmark} alt={site.brand} height={size} decoding="async" />
-    {site.wordmarkDark && <img className="wm-dark" src={site.wordmarkDark} alt="" aria-hidden="true" height={size} decoding="async" />}
+    <img className="wm-light" src={sized(site.wordmark, wide)} srcSet={srcSet(site.wordmark, wide)} alt={site.brand} height={size} decoding="async" />
+    {site.wordmarkDark && <img className="wm-dark" src={sized(site.wordmarkDark, wide)} srcSet={srcSet(site.wordmarkDark, wide)} alt="" aria-hidden="true" height={size} decoding="async" />}
   </span>
 }
 

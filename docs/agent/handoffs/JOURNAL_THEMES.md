@@ -1,5 +1,30 @@
 # Magazine light edition — 2026-10-15
 
+## Public magazine audit: listing SEO, picture sizes, translate control — 2026-10-25
+
+An audit after the admin batch covered 8 public magazine pages × light/dark × 1440/390 (home, archive, category, search, empty search, two articles, page 2). It measured status, timings, overflow, page and console errors, SEO tags, JSON-LD, pictures and WCAG 2.1 AA (axe). Raw report and helper: `.mobocom/claude-tools/audit-journal-public.cjs`, `shots/journal-public/report*.json`.
+- **Listing SEO (was REGRESSED):**
+  - category pages, archive pages and page 2 all carried the generic «مجله» title and description, and declared `/blog` as canonical, contradicting the sitemap, which lists `/blog?category=<slug>`;
+  - now `journalListingMeta` (pure, `journal/domain/journal.ts`) with `journal/server/seo.ts` gives a category its own title, description and canonical (`?category=<slug>[&page=n]`), and an archive page its own canonical with «صفحهٔ n» in the title;
+  - a search, or a category that does not exist, is `noindex, follow`;
+  - the home keeps the section SEO settings;
+  - unit test in `journal-scheduling.test.cjs`.
+- **Picture sizes (WEAK_PERF):**
+  - before: a 1.6 MB profile PNG drawn at 20 px, covers 1550 px wide in 229 px boxes, and the 1550 px site logo preloaded on every page;
+  - profile pictures now resize like covers (`/api/profile/media/<id>?w=`, a cached WebP; `readProfileMedia`);
+  - the shared `sized`/`srcSet` helpers know them, without the covers-only media CDN;
+  - the magazine cards, rows, overlays and avatars, the article's pictures, the site logo (`SiteLogo`) and the MoboCom theme home (through the theme SDK: `themeImage`, `themeImageSet`) ask for drawn sizes;
+  - full-width backgrounds (the magazine hero, the archive band, the article hero) keep the original for sharpness;
+  - first-visit image bytes: /blog 3.2 MB → 220 KB, an article 712 KB → 109 KB, the site home 1.9 MB → 290 KB.
+- **Translate plugin (a11y):** the phone language button had no accessible name, and «Translate» was white on light blue (contrast 2.08 in dark, 3.16 in light); it now has an `aria-label` and dark text.
+- **Final run:** all 32 page variants return 200 with no overflow, no page or console errors and no broken images, and axe reports 0 violations (before: two on every page).
+- **Checks:**
+  - TypeScript passes with 0 errors;
+  - `npm run check` is 701/6 (one new test; the six known environment-only update-script failures);
+  - React Doctor reports the same 24 warnings as main;
+  - pictures inspected at 2x density.
+- **Open:** demo SVG covers and the static fallback image are not site uploads, so they are not resized; lazy loading below the first screen was not changed.
+
 ## Editorial review — 2026-10-25
 
 Spec and owners: [docs/specs/journal-review/SPEC.md](../../specs/journal-review/SPEC.md).

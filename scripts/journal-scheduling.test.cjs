@@ -221,3 +221,21 @@ test('search indexes scheduled posts but excludes them from candidates until due
   await search.searchSite({ q: 'Scheduled', log: false })
   assert.ok(candidates.publishedAt.lte <= future)
 })
+
+test('a magazine category and an archive page are pages of their own; a search and an unknown category are not indexed', () => {
+  const { journalListingMeta } = load('src/modules/journal/domain/journal.ts')
+  const base = '/blog', guides = { slug: 'guides', name: 'آموزش' }
+  assert.equal(journalListingMeta({ base }), null, 'the home keeps the section SEO')
+  const category = journalListingMeta({ base, categoryAsked: 'guides', category: guides })
+  assert.deepEqual([category.canonical, category.index], ['/blog?category=guides', true], 'the address the sitemap lists')
+  assert.match(category.title, /^آموزش — مجله$/); assert.match(category.description, /«آموزش»/)
+  const second = journalListingMeta({ base, categoryAsked: 'guides', category: guides, page: '2' })
+  assert.deepEqual([second.canonical, second.title], ['/blog?category=guides&page=2', 'آموزش — صفحهٔ ۲ — مجله'])
+  assert.deepEqual(journalListingMeta({ base, categoryAsked: 'شبکه', category: { slug: 'شبکه', name: 'شبکه' } }).canonical, '/blog?category=%D8%B4%D8%A8%DA%A9%D9%87')
+  assert.deepEqual([journalListingMeta({ base, page: '1' }).canonical, journalListingMeta({ base, page: '1' }).title], ['/blog?page=1', 'آرشیو مجله'])
+  assert.deepEqual([journalListingMeta({ base, page: '3' }).canonical, journalListingMeta({ base, page: '3' }).title], ['/blog?page=3', 'مجله — صفحهٔ ۳'])
+  assert.equal(journalListingMeta({ base, page: 'abc' }).canonical, '/blog?page=1', 'a broken page number is the first archive page')
+  assert.equal(journalListingMeta({ base, categoryAsked: 'missing', category: null }).index, false)
+  const search = journalListingMeta({ base, query: 'سرور', categoryAsked: 'guides', category: guides })
+  assert.deepEqual([search.index, search.canonical], [false, '/blog'], 'a search is never indexed, even inside a category')
+})

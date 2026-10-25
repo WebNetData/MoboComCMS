@@ -1,5 +1,5 @@
 import Link from '@/platform/routing/Link'
-import { ThemePlanCards, ThemePublicForm, themeFormatAmount, type ThemeHomeProps } from '@/themes/sdk/server'
+import { ThemePlanCards, ThemePublicForm, themeFormatAmount, themeImage, themeImageSet, type ThemeHomeProps } from '@/themes/sdk/server'
 import type { ThemeServerModule } from '@/themes/types'
 import { ThemeLiveSearch } from '@/themes/sdk/client'
 import Icon from './icons'
@@ -71,7 +71,7 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
             {game && <Link href={game.href} className="mbx-tile is-wide" style={{ backgroundImage: `url("${encodeURI(game.image || game.cover)}")` }}><span className="mbx-tile-shade" aria-hidden="true"/><em><Icon name="game" size={14}/>{L('بازی', 'Game')}</em>{game.score != null && <span className="mbx-score">{game.score.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}<b>{game.title}</b><small>{game.meta}</small></Link>}
             {film && <Link href={film.href} className="mbx-tile is-tall" style={{ backgroundImage: `url("${encodeURI(film.cover || film.image || '')}")` }}><span className="mbx-tile-shade" aria-hidden="true"/><em><Icon name="film" size={14}/>{L('فیلم و سریال', 'Film')}</em><b>{film.title}</b><small>{film.meta}</small></Link>}
             {album && <Link href={album.href} className="mbx-tile" style={{ backgroundImage: `url("${encodeURI(album.cover)}")` }}><span className="mbx-tile-shade" aria-hidden="true"/><em><Icon name="music" size={14}/>{L('موزیک', 'Music')}</em><b>{album.title}</b></Link>}
-            {product && <Link href={`/products/${product.slug}`} className="mbx-tile is-product"><span className="mbx-product-art">{product.image ? <img src={product.image} alt="" loading="lazy"/> : <Icon name="bag" size={32}/>}</span><em><Icon name="bag" size={14}/>{L('فروشگاه', 'Shop')}</em><b>{fa ? product.name : product.nameEn || product.name}</b><span className="mbx-price"><bdi>{money(product.price, product.currency)}</bdi></span></Link>}
+            {product && <Link href={`/products/${product.slug}`} className="mbx-tile is-product"><span className="mbx-product-art">{product.image ? <img src={themeImage(product.image, 480)} srcSet={themeImageSet(product.image, 480)} alt="" loading="lazy"/> : <Icon name="bag" size={32}/>}</span><em><Icon name="bag" size={14}/>{L('فروشگاه', 'Shop')}</em><b>{fa ? product.name : product.nameEn || product.name}</b><span className="mbx-price"><bdi>{money(product.price, product.currency)}</bdi></span></Link>}
           </div>
         </div>
         {section.items.length > 0 && <ul className="mb-container mbx-values">{section.items.map((item, index) => <li key={index}><span className="mb-icon"><Icon name={item.icon} size={20}/></span><span><strong>{T(item.title)}</strong><small>{T(item.text)}</small></span></li>)}</ul>}
@@ -107,7 +107,7 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
       if (!data.products.length || !live('/products')) return null
       return <section className="mb-container mb-section" id={section.id}>{heading({ href: '/products', label: L('ورود به فروشگاه', 'Visit the shop') })}
         <div className="mbx-products">{data.products.slice(0, 8).map(product => { const off = product.listPrice && product.listPrice > product.price ? Math.round((1 - product.price / product.listPrice) * 100) : 0; return <Link key={product.id} href={`/products/${product.slug}`} className="mbx-product">
-          <span className="mbx-product-img">{product.image ? <img src={product.image} alt="" loading="lazy"/> : <span className="mbx-product-ph"><Icon name="bag" size={30}/></span>}{off > 0 && <em className="mbx-off">{off.toLocaleString(fa ? 'fa-IR' : 'en-US')}٪</em>}</span>
+          <span className="mbx-product-img">{product.image ? <img src={themeImage(product.image, 400)} srcSet={themeImageSet(product.image, 400)} alt="" loading="lazy"/> : <span className="mbx-product-ph"><Icon name="bag" size={30}/></span>}{off > 0 && <em className="mbx-off">{off.toLocaleString(fa ? 'fa-IR' : 'en-US')}٪</em>}</span>
           {product.category && <small className="mbx-product-cat">{fa ? product.category.name : product.category.nameEn || product.category.name}</small>}
           <b>{fa ? product.name : product.nameEn || product.name}</b>
           <span className="mbx-product-foot"><span className="mbx-product-price">{off > 0 && <s><bdi>{money(product.listPrice!, product.currency)}</bdi></s>}<bdi>{money(product.price, product.currency)}</bdi></span><span className="mbx-product-go" aria-hidden="true"><Icon name="arrow" size={16}/></span></span>
@@ -144,14 +144,14 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
           </Link>}
           <div className={`mbx-community-grid${community ? '' : ' is-solo'}${community && !community.posts.length ? ' is-empty' : ''}`}>
             {community && community.posts.length > 0 && <div className="mbx-feed" style={feedRows(community.posts.slice(0, 4).length)}>{community.posts.slice(0, 4).map(post => <Link key={post.id} href={`/feed/p/${post.id}`} className="mbx-post">
-              <span className="mbx-post-head">{post.author.avatar ? <img src={post.author.avatar} alt="" className="mbx-ava"/> : <span className="mbx-ava" style={{ background: post.author.avatarColor }}>{post.author.name.slice(0, 1)}</span>}<span><b>{post.author.name}{post.author.verified && <span className="mbx-check" aria-label={L('تأییدشده', 'Verified')}>✔</span>}</b><small dir="ltr">@{post.author.username}</small></span></span>
+              <span className="mbx-post-head">{post.author.avatar ? <img src={themeImage(post.author.avatar, 80)} alt="" className="mbx-ava"/> : <span className="mbx-ava" style={{ background: post.author.avatarColor }}>{post.author.name.slice(0, 1)}</span>}<span><b>{post.author.name}{post.author.verified && <span className="mbx-check" aria-label={L('تأییدشده', 'Verified')}>✔</span>}</b><small dir="ltr">@{post.author.username}</small></span></span>
               <p dir="auto">{post.text}</p>
-              {post.image && <img src={post.image} alt="" className="mbx-post-img" loading="lazy"/>}
+              {post.image && <img src={themeImage(post.image, 640)} srcSet={themeImageSet(post.image, 640)} alt="" className="mbx-post-img" loading="lazy"/>}
               <span className="mbx-post-meta"><span><Icon name="heart" size={14}/>{post.likes.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span><span><Icon name="comment" size={14}/>{post.comments.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span></span>
             </Link>)}</div>}
             <aside className="mbx-side">
               {topics.length > 0 && <div className="mbx-topics"><header><Icon name="flame" size={18}/><b>{L('داغ در تالار گفتمان', 'Hot on the forum')}</b></header><ol>{topics.map((topic, index) => <li key={topic.href}><Link href={topic.href}><span className="mbx-rank">{(index + 1).toLocaleString(fa ? 'fa-IR' : 'en-US')}</span><span><b>{topic.title}</b>{topic.meta && <small>{topic.meta}</small>}</span></Link></li>)}</ol></div>}
-              {community && community.members.length > 0 && <div className="mbx-members"><header><Icon name="users" size={18}/><b>{L('اعضای فعال', 'Active members')}</b><small>{community.total.toLocaleString(fa ? 'fa-IR' : 'en-US')} {L('عضو', 'members')}</small></header><div className="mbx-faces">{community.members.map(member => <Link key={member.username} href={`/u/${member.username}`} title={member.name}>{member.avatar ? <img src={member.avatar} alt={member.name}/> : <span style={{ background: member.avatarColor }}>{member.name.slice(0, 1)}</span>}</Link>)}</div><Link href="/people" className="mb-btn mb-btn-ghost mbx-join">{L('پیدا کردن دوستان', 'Find people')}</Link></div>}
+              {community && community.members.length > 0 && <div className="mbx-members"><header><Icon name="users" size={18}/><b>{L('اعضای فعال', 'Active members')}</b><small>{community.total.toLocaleString(fa ? 'fa-IR' : 'en-US')} {L('عضو', 'members')}</small></header><div className="mbx-faces">{community.members.map(member => <Link key={member.username} href={`/u/${member.username}`} title={member.name}>{member.avatar ? <img src={themeImage(member.avatar, 80)} alt={member.name}/> : <span style={{ background: member.avatarColor }}>{member.name.slice(0, 1)}</span>}</Link>)}</div><Link href="/people" className="mb-btn mb-btn-ghost mbx-join">{L('پیدا کردن دوستان', 'Find people')}</Link></div>}
             </aside>
           </div>
         </section>}
