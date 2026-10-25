@@ -612,3 +612,23 @@ tr.is-off { opacity: .6; }
 .ad-size-check li em { font-style: normal; font-size: 12.5px; line-height: 1.9; }
 .ad-size-check li.is-ok { background: color-mix(in srgb, #16a34a 10%, transparent); }
 .ad-size-check li.is-warn { background: color-mix(in srgb, #d97706 12%, transparent); }
+
+/* A list price struck through above the price, with its currency. */
+.sa-was { display: block; color: var(--sa-muted); font-size: 11px; }
+.sa-was .sa-money b { font-size: inherit; font-weight: 600; }
+
+/* Store lists as cards on phones (`sa-cards`): the row's first cells on top, the main cell (customer, product) as
+   the title, labelled facts in two columns, the foot (state, actions) last — nothing hidden off screen. */
+@media (max-width: 720px) {
+  .sa-table-wrap:has(> .sa-cards) { overflow: visible; padding: 0; border: 0; background: transparent; }
+  .sa-cards { min-width: 0; }
+  .sa-cards, .sa-cards tbody { display: block; }
+  .sa-cards thead { display: none; }
+  .sa-cards tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 10px; padding: 14px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--sa-surface); }
+  .sa-cards tbody td { display: grid; align-content: start; gap: 3px; padding: 0 !important; border: 0 !important; min-width: 0; }
+  .sa-cards tbody td[data-label]::before { content: attr(data-label); color: var(--sa-muted); font-size: 11px; }
+  .sa-cards tbody td > * { justify-self: start; }
+  .sa-cards td.sa-card-main, .sa-cards td.sa-card-foot, .sa-cards td.sa-empty { grid-column: 1 / -1; }
+  .sa-cards td.sa-card-foot { padding-top: 10px !important; border-top: 1px dashed var(--sa-line) !important; }
+  .sa-cards .sa-product-cell { min-width: 0; }
+}

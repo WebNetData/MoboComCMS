@@ -81,17 +81,17 @@ function Products() {
       <button type="button" className="btn btn-ghost" onClick={() => setSelected([])}>لغو انتخاب</button>
     </div>}
     <div className="sa-card sa-table-wrap" aria-busy={loading}>
-      <table className="data sa-table">
+      <table className="data sa-table sa-cards">
         <thead><tr><th><input type="checkbox" aria-label="انتخاب همه" checked={all} onChange={() => setSelected(all ? [] : data?.products.map((p) => p.id) || [])} /></th><th>محصول</th><th>قیمت</th><th>موجودی</th><th>دسته / برند</th><th>فروش</th><th>وضعیت</th></tr></thead>
         <tbody>
           {data?.products.map((product) => <tr key={product.id} className={selected.includes(product.id) ? 'is-selected' : ''}>
             <td><input type="checkbox" aria-label={`انتخاب ${product.name}`} checked={selected.includes(product.id)} onChange={() => setSelected((list) => list.includes(product.id) ? list.filter((id) => id !== product.id) : [...list, product.id])} /></td>
-            <td><div className="sa-product-cell">{product.image ? <img src={product.image} alt="" /> : <span className="sa-ph" />}<span><Link href={`/admin/store/products/${product.id}`} className="sa-link"><b>{product.name}</b></Link><small className="sa-sub">{product.sku && <span dir="ltr">{product.sku} · </span>}{product.kind === 'PHYSICAL' ? 'فیزیکی' : 'دیجیتال'}{product.variants.length > 0 && ` · ${fa(product.variants.length)} تنوع`}{product.access === 'MEMBERS' && <span data-vip=""> · VIP</span>}</small></span></div></td>
-            <td>{product.listPrice > 0 && <s className="sa-sub num">{Math.round(product.listPrice).toLocaleString('fa-IR')}</s>}<Money value={product.price} currency={product.currency} /></td>
-            <td>{stockLabel(product)}</td>
-            <td><small>{product.category || '—'}</small><small className="sa-sub">{product.brand}</small></td>
-            <td className="num"><small>{fa(product.soldCount)} فروش</small><small className="sa-sub">{fa(product.views)} بازدید</small></td>
-            <td><span className={`sa-state ${product.active ? 'is-ok' : ''}`}>{product.active ? 'فعال' : 'غیرفعال'}</span>{product.featured && <span className="sa-tag">ویژه</span>}<div className="sa-row-actions"><Link href={`/admin/store/products/${product.id}`} className="sa-link">ویرایش</Link><a href={`/products/${product.slug}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a></div></td>
+            <td className="sa-card-main"><div className="sa-product-cell">{product.image ? <img src={product.image} alt="" /> : <span className="sa-ph" />}<span><Link href={`/admin/store/products/${product.id}`} className="sa-link"><b>{product.name}</b></Link><small className="sa-sub">{product.kind === 'PHYSICAL' ? 'فیزیکی' : 'دیجیتال'}{product.sku && <> · <bdi dir="ltr">{product.sku}</bdi></>}{product.variants.length > 0 && ` · ${fa(product.variants.length)} تنوع`}{product.access === 'MEMBERS' && <span data-vip=""> · VIP</span>}</small></span></div></td>
+            <td data-label="قیمت">{product.listPrice > 0 && <s className="sa-was"><Money value={product.listPrice} currency={product.currency} /></s>}<Money value={product.price} currency={product.currency} /></td>
+            <td data-label="موجودی">{stockLabel(product)}</td>
+            <td data-label="دسته / برند"><small>{product.category || '—'}</small><small className="sa-sub">{product.brand}</small></td>
+            <td className="num" data-label="فروش"><small>{fa(product.soldCount)} فروش</small><small className="sa-sub">{fa(product.views)} بازدید</small></td>
+            <td className="sa-card-foot"><span className={`sa-state ${product.active ? 'is-ok' : ''}`}>{product.active ? 'فعال' : 'غیرفعال'}</span>{product.featured && <span className="sa-tag">ویژه</span>}<div className="sa-row-actions"><Link href={`/admin/store/products/${product.id}`} className="sa-link">ویرایش</Link><a href={`/products/${product.slug}`} target="_blank" rel="noreferrer" className="sa-link">مشاهده</a></div></td>
           </tr>)}
           {data && !data.products.length && <tr><td colSpan={7} className="sa-empty">محصولی پیدا نشد.</td></tr>}
         </tbody>

@@ -8,6 +8,7 @@ import { FULFILMENT_LABEL, StoreError, canMoveTo, isFulfilmentStatus, type Fulfi
 import { minorToNumber } from '@/shared/money'
 import { maskAnswers } from '@/modules/store/domain/order-inputs'
 import { openAnswers } from '@/modules/store/server/order-inputs'
+import { jalaliDayLabel } from '@/shared/time/jalali'
 
 // Store orders are orders with a product (Order.productId is the first line).
 // Payment state lives on Order/Invoice; the physical/digital fulfilment state
@@ -277,7 +278,7 @@ export async function adminOrders(input: { tab?: string; q?: string; page?: numb
       const lines = orderLines(order)
       return {
         id: order.id, createdAt: order.createdAt, customer: { id: order.user.id, name: order.user.name, email: order.user.email, phone: order.user.phone },
-        state: orderState(order), fulfilment: order.productDelivery?.status || '', schedule: order.productDelivery?.scheduledDate ? `${order.productDelivery.scheduledDate} ${order.productDelivery.scheduledSlot}` : '',
+        state: orderState(order), fulfilment: order.productDelivery?.status || '', schedule: order.productDelivery?.scheduledDate ? [jalaliDayLabel(order.productDelivery.scheduledDate), order.productDelivery.scheduledSlot].filter(Boolean).join(' · ') : '',
         trackingCode: order.productDelivery?.trackingCode || '', invoiceNumber: order.invoice?.number || '',
         total: minorToNumber(order.totalMinor, order.currency), currency: order.currency,
         items: lines.reduce((sum, line) => sum + line.quantity, 0), physical: lines.some((line) => line.kind === 'PHYSICAL'),

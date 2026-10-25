@@ -41,16 +41,16 @@ function Orders() {
     </form>
     {error && <Notice tone="error">{error}</Notice>}
     <div className="sa-card sa-table-wrap" aria-busy={loading}>
-      <table className="data sa-table">
+      <table className="data sa-table sa-cards">
         <thead><tr><th>سفارش</th><th>مشتری</th><th>کالاها</th><th>وضعیت</th><th>ارسال</th><th>مبلغ</th></tr></thead>
         <tbody>
           {data?.orders.map((order) => <tr key={order.id} onClick={() => router.push(`/admin/store/orders/${order.id}`)} className="is-link">
             <td><Link href={`/admin/store/orders/${order.id}`} className="sa-link num" onClick={(event) => event.stopPropagation()}>#{fa(order.id)}</Link><small className="sa-sub">{faDate(order.createdAt, true)}</small></td>
-            <td><b>{order.customer.name || '—'}</b><small className="sa-sub" dir="ltr">{order.customer.phone || order.customer.email}</small></td>
-            <td><span className="sa-thumbs">{order.preview.map((item, index) => item.image ? <img key={index} src={item.image} alt={item.name} title={item.name} /> : <span key={index} className="sa-ph" title={item.name} />)}</span><small className="sa-sub num">{fa(order.items)} کالا</small></td>
-            <td><span className={`sa-state ${STATE_TONE[order.state.tone] || ''}`}>{order.state.label}</span></td>
-            <td>{order.physical ? <>{order.schedule ? <small>{order.schedule}</small> : <small className="sa-sub">—</small>}{order.trackingCode && <small className="sa-sub" dir="ltr">{order.trackingCode}</small>}</> : <small className="sa-sub">دیجیتال</small>}</td>
-            <td><Money value={order.total} currency={order.currency} /></td>
+            <td className="sa-card-main"><b>{order.customer.name || '—'}</b><small className="sa-sub" dir="ltr">{order.customer.phone || order.customer.email}</small></td>
+            <td data-label="کالاها"><span className="sa-thumbs">{order.preview.map((item, index) => item.image ? <img key={index} src={item.image} alt={item.name} title={item.name} /> : <span key={index} className="sa-ph" title={item.name} />)}</span><small className="sa-sub num">{fa(order.items)} کالا</small></td>
+            <td data-label="وضعیت"><span className={`sa-state ${STATE_TONE[order.state.tone] || ''}`}>{order.state.label}</span></td>
+            <td data-label="ارسال">{order.physical ? <>{order.schedule ? <small>{order.schedule}</small> : <small className="sa-sub">—</small>}{order.trackingCode && <small className="sa-sub" dir="ltr">{order.trackingCode}</small>}</> : <small className="sa-sub">دیجیتال</small>}</td>
+            <td data-label="مبلغ"><Money value={order.total} currency={order.currency} /></td>
           </tr>)}
           {data && !data.orders.length && <tr><td colSpan={6} className="sa-empty">سفارشی با این شرایط پیدا نشد.</td></tr>}
         </tbody>
