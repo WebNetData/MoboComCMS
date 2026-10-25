@@ -173,3 +173,27 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
 /* Actions under a page's title (e.g. the settings History link). */
 :where(.admin-shell) .xm-head-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .admin-shell .livechat-settings .crm-filters button.is-active{background:color-mix(in srgb,var(--primary) 12%,var(--card));color:var(--text);border-color:var(--primary)}
+
+/* Customers list: the actions on one line; on a phone each customer is a card (email and name on top, labelled facts,
+   then the actions) instead of a table that hides most of its columns. */
+@media (min-width: 1400px) { .admin-shell .crm-table .crm-actions > div { flex-wrap: nowrap; white-space: nowrap; } }
+@media (max-width: 720px) {
+  .admin-shell .crm-layout > .card.overflow-x-auto { padding: 0; background: transparent; border: 0; box-shadow: none; overflow: visible; }
+  .admin-shell .crm-table, .admin-shell .crm-table tbody { display: block; }
+  .admin-shell .crm-table thead { display: none; }
+  .admin-shell .crm-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-bottom: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+  .admin-shell .crm-table tbody td { display: grid; gap: 2px; padding: 0 !important; border: 0 !important; min-width: 0; }
+  .admin-shell .crm-table tbody td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: .72rem; }
+  .admin-shell .crm-table tbody td > * { justify-self: start; }
+  .admin-shell .crm-table .crm-id { display: none; }
+  .admin-shell .crm-table .crm-email, .admin-shell .crm-table .crm-name, .admin-shell .crm-table .crm-actions { grid-column: 1 / -1; }
+  .admin-shell .crm-table .crm-email { order: -1; overflow-wrap: anywhere; }
+  .admin-shell .crm-table .crm-name { order: -2; font-size: 1rem; }
+  .admin-shell .crm-table .crm-actions { padding-top: 8px !important; border-top: 1px dashed var(--border) !important; }
+  .admin-shell .crm-table .crm-actions > div { flex-wrap: wrap; }
+  .admin-shell .crm-table select { width: 100%; }
+}
+
+/* Forum admin tabs: one line that scrolls, like the other sections' tabs (the theme builder's wrap stays its own). */
+.admin-shell .forum-admin-tabs { flex-wrap: nowrap; inline-size: 100%; overflow-x: auto; scrollbar-width: thin; }
+.admin-shell .forum-admin-tabs button { flex: none; white-space: nowrap; }

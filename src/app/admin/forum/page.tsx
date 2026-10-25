@@ -124,7 +124,7 @@ function AdminForumPage() {
       <p>{fa(data.stats.topics)} موضوع · {fa(data.stats.posts)} پیام · {fa(data.stats.members)} عضو فعال. دسته‌ها، سطح دسترسی گروه‌ها، نشان‌ها، سطح اعتماد کاربران و صف گزارش‌ها را از اینجا مدیریت کنید.</p></div>
       <div className="fa-inline fa-wrap"><Link href="/admin/history?type=settings-forum&id=1" className="btn btn-ghost btn-sm">تاریخچهٔ تنظیمات</Link><Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link></div>
     </header>
-    <nav className="tb-tabs" role="tablist" aria-label="بخش‌های تالار">
+    <nav className="tb-tabs forum-admin-tabs" role="tablist" aria-label="بخش‌های تالار">
       {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setMessage(null); if (item.key === 'review') openReview() }}>{item.label}{item.count !== undefined && <span>{fa(item.count)}</span>}</button>)}
     </nav>
     {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}

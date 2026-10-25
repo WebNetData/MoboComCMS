@@ -34,6 +34,10 @@ export default function AdminDashboard() {
 
   const money = (n: number, currency = fin?.currency || BASE_CURRENCY) => formatCurrency(n, currency, isFa ? 'fa-IR' : 'en-US')
   const fmtDate = (d: string) => new Date(d).toLocaleDateString(isFa ? 'fa-IR' : 'en-US')
+  // Counts in the reader's digits, like the rest of the admin.
+  const num = (value: number | undefined) => (value ?? 0).toLocaleString(isFa ? 'fa-IR' : 'en-US')
+  // A finance bucket (YYYY-MM, Gregorian) named by its month, in the reader's language.
+  const monthName = (bucket: string) => new Intl.DateTimeFormat(isFa ? 'fa-IR-u-ca-gregory' : 'en-US', { month: 'short', timeZone: 'UTC' }).format(new Date(`${bucket}-15T00:00:00Z`))
 
   if (failed) {
     return (
@@ -51,20 +55,20 @@ export default function AdminDashboard() {
   const s = data.stats
   const unpaid = fin ? fin.summary.unpaidAmount : 0
   const attention = [
-    { label: isFa ? 'سفارش‌های معلق' : 'Pending orders', count: s.pendingOrders, value: String(s.pendingOrders), href: '/admin/orders?status=PENDING' },
-    { label: isFa ? 'تیکت‌های باز' : 'Open tickets', count: s.openTickets, value: String(s.openTickets), href: '/admin/tickets' },
-    ...(vpnOn ? [{ label: isFa ? 'اشتراک رو به انقضا (۷ روز)' : 'Expiring subscriptions (7 days)', count: s.expiringSoon || 0, value: String(s.expiringSoon || 0), href: '/admin/subscriptions' }] : []),
+    { label: isFa ? 'سفارش‌های معلق' : 'Pending orders', count: s.pendingOrders, value: num(s.pendingOrders), href: '/admin/orders?status=PENDING' },
+    { label: isFa ? 'تیکت‌های باز' : 'Open tickets', count: s.openTickets, value: num(s.openTickets), href: '/admin/tickets' },
+    ...(vpnOn ? [{ label: isFa ? 'اشتراک رو به انقضا (۷ روز)' : 'Expiring subscriptions (7 days)', count: s.expiringSoon || 0, value: num(s.expiringSoon || 0), href: '/admin/subscriptions' }] : []),
     ...(fin ? [{ label: isFa ? 'مبلغ پرداخت‌نشده' : 'Unpaid amount', count: unpaid, value: money(unpaid, fin.currency), href: '/admin/invoices' }] : []),
   ].filter(item => item.count > 0)
 
   const cards: [string, string, string, string][] = [
     [t.revenue, fin ? money(fin.summary.gross, fin.currency) : '—', 'wallet', 'kpi-green'],
     [t.unpaidAmount, fin ? money(fin.summary.unpaidAmount, fin.currency) : '—', 'receipt', unpaid ? 'kpi-amber' : ''],
-    [t.pendingOrders, String(s.pendingOrders), 'clock', s.pendingOrders ? 'kpi-amber' : ''],
-    [t.openTickets, String(s.openTickets), 'ticket', s.openTickets ? 'kpi-red' : ''],
-    [t.customersCount, String(s.users), 'users', ''],
+    [t.pendingOrders, num(s.pendingOrders), 'clock', s.pendingOrders ? 'kpi-amber' : ''],
+    [t.openTickets, num(s.openTickets), 'ticket', s.openTickets ? 'kpi-red' : ''],
+    [t.customersCount, num(s.users), 'users', ''],
     // VPN subscriptions only matter while the VPN module is on; otherwise show total orders.
-    vpnOn ? [t.activeSubs, String(s.activeSubs), 'link', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', String(s.orders ?? 0), 'bag', ''],
+    vpnOn ? [t.activeSubs, num(s.activeSubs), 'link', ''] : [locale === 'fa' ? 'کل سفارش‌ها' : 'All orders', num(s.orders ?? 0), 'bag', ''],
   ]
 
   // Everyday destinations. A link the signed-in person may not open answers with the page's own refusal.
@@ -101,7 +105,7 @@ export default function AdminDashboard() {
           <h2 className="font-bold">{isFa ? 'نیازمند توجه' : 'Needs attention'}</h2>
           <span className="muted text-xs">
             {attention.length
-              ? (isFa ? `${attention.length} مورد برای بررسی` : `${attention.length} item${attention.length > 1 ? 's' : ''} to review`)
+              ? (isFa ? `${num(attention.length)} مورد برای بررسی` : `${attention.length} item${attention.length > 1 ? 's' : ''} to review`)
               : (isFa ? 'در حال بررسی' : 'All clear')}
           </span>
         </div>
@@ -155,7 +159,7 @@ export default function AdminDashboard() {
                     <div className="chart-bar bar-primary" style={{ height: `${Math.max(2, (m.revenue / maxMonth) * 100)}%` }} />
                     <div className="chart-bar bar-danger" style={{ height: `${Math.max(1, (m.expenses / maxMonth) * 100)}%` }} />
                   </div>
-                  <div className="chart-label num">{m.month.slice(5)}</div>
+                  <div className="chart-label">{monthName(m.month)}</div>
                 </div>
               ))}
             </div>
@@ -174,7 +178,7 @@ export default function AdminDashboard() {
               </div>
               <div className="mini-stat">
                 <div className="muted text-xs">{t.paymentsCount}</div>
-                <div className="mini-stat-value num">{fin.summary.payments}</div>
+                <div className="mini-stat-value num">{num(fin.summary.payments)}</div>
               </div>
             </div>
           </div>
