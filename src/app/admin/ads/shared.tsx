@@ -62,12 +62,14 @@ export function Trend({ title, data, field, unit }: { title: string; data: Day[]
     {table
       ? <div className="ad-chart-table"><table className="data sa-table"><thead><tr><th>روز</th><th>{unit}</th></tr></thead><tbody>{data.map((row) => <tr key={row.day}><td>{dayLabel(row.day)}</td><td className="num">{num(row[field])}</td></tr>)}</tbody></table></div>
       : <div className="ad-chart-plot">
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`} onPointerMove={pick} onPointerLeave={() => setHover(null)} preserveAspectRatio="none">
+        {/* Anchors are laid out left to right (an RTL page flips start/end and pushed the edge labels out of the chart);
+            each Persian label keeps its own right-to-left order inside an isolate. */}
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`} onPointerMove={pick} onPointerLeave={() => setHover(null)} preserveAspectRatio="none" direction="ltr">
           <title id={`${id}-t`}>{`${title}: مجموع ${num(total)} ${unit} در ${num(data.length)} روز`}</title>
           {ticks.map((tick) => <g key={tick.value}><line x1={PL} x2={W - PR} y1={tick.y} y2={tick.y} className="ad-grid" /><text x={W - PR} y={tick.y - 3} textAnchor="end" className="ad-tick">{short(tick.value)}</text></g>)}
           <path d={area} className="ad-area" />
           <path d={line} className="ad-line" fill="none" />
-          {[0, data.length - 1].map((i) => <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : 'end'} className="ad-tick">{dayLabel(data[i].day)}</text>)}
+          {[0, data.length - 1].map((i) => <text key={i} x={x(i)} y={H - 6} textAnchor={i === 0 ? 'start' : 'end'} className="ad-tick">{`⁧${dayLabel(data[i].day)}⁩`}</text>)}
           {active && <g><line x1={x(active.i)} x2={x(active.i)} y1={PT} y2={H - PB} className="ad-cursor" /><circle cx={x(active.i)} cy={y(values[active.i])} r={4} className="ad-dot" /></g>}
         </svg>
         {active && <div className="ad-tip" style={{ insetInlineStart: `${(x(active.i) / W) * 100}%` }} role="status"><b className="num">{num(active.row[field])}</b> {unit}<small>{dayLabel(active.row.day)}</small></div>}

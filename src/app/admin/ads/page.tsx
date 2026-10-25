@@ -56,14 +56,14 @@ export default function AdsOverviewPage() {
     <div className="ad-grid2">
       <section className="sa-card sa-table-wrap">
         <header className="sa-card-head"><h2>پربازده‌ترین کمپین‌ها</h2><Link href="/admin/ads/campaigns" className="sa-link">همهٔ کمپین‌ها</Link></header>
-        <table className="data sa-table"><thead><tr><th>کمپین</th><th>نمایش</th><th>کلیک</th><th>نرخ کلیک</th></tr></thead><tbody>
+        <table className="data sa-table is-compact"><thead><tr><th>کمپین</th><th>نمایش</th><th>کلیک</th><th>نرخ کلیک</th></tr></thead><tbody>
           {data.topCampaigns.map((row) => <tr key={row.id}><td><Link href={`/admin/ads/campaigns/${row.id}`} className="sa-link">{row.name}</Link> <StatusChip status={row.status} /></td><td className="num">{fa(row.impressions)}</td><td className="num">{fa(row.clicks)}</td><td className="num">{row.ctr.toLocaleString('fa-IR')}٪</td></tr>)}
           {!data.topCampaigns.length && <tr><td colSpan={4} className="sa-empty">هنوز نمایشی ثبت نشده است. یک کمپین بسازید و فعال کنید.</td></tr>}
         </tbody></table>
       </section>
       <section className="sa-card sa-table-wrap">
         <header className="sa-card-head"><h2>عملکرد جایگاه‌ها</h2><Link href="/admin/ads/placements" className="sa-link">مدیریت</Link></header>
-        <table className="data sa-table"><thead><tr><th>جایگاه</th><th>نمایش</th><th>نرخ کلیک</th><th>پر شدن</th></tr></thead><tbody>
+        <table className="data sa-table is-compact"><thead><tr><th>جایگاه</th><th>نمایش</th><th>نرخ کلیک</th><th>پر شدن</th></tr></thead><tbody>
           {data.placements.map((row) => <tr key={row.key}><td>{names.get(row.key) || row.key}<div className="ad-bar" aria-hidden="true"><i style={{ width: `${Math.round((row.impressions / maxImp) * 100)}%` }} /></div></td><td className="num">{fa(row.impressions)}</td><td className="num">{row.ctr.toLocaleString('fa-IR')}٪</td><td className="num" title="درصد درخواست‌هایی که تبلیغی برایشان پیدا شد">{row.fillRate === null ? '—' : `${fa(row.fillRate)}٪`}</td></tr>)}
           {!data.placements.length && <tr><td colSpan={4} className="sa-empty">آماری نیست.</td></tr>}
         </tbody></table>

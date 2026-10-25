@@ -123,6 +123,10 @@
 .sa-inline .select, .sa-inline .input { min-width: 130px; }
 .sa-table-wrap { overflow-x: auto; padding: 0; }
 .sa-table { width: 100%; min-width: 760px; }
+/* A short table in a half-width card fits its card instead of scrolling its last columns out of sight. */
+.sa-table.is-compact { min-width: 0; }
+/* A table card's own heading keeps the card's padding (the wrap itself has none, so the table runs edge to edge). */
+.sa-table-wrap > .sa-card-head { padding: 14px 16px 0; }
 .sa-table td { vertical-align: middle; }
 .sa-table tr.is-link { cursor: pointer; }
 .sa-table tr.is-link:hover td, .sa-table tr.is-selected td { background: var(--sa-subtle); }
