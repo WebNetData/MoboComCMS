@@ -26,8 +26,8 @@ export default function AdminPostsPage() {
     publish: locale === 'fa' ? 'انتشار و دسترسی' : 'Publishing & access',
   }
   const fields: FieldDef[] = [
-    { section: S.body, key: 'slug', label: t.slug, required: true, dir: 'ltr' },
-    { section: S.body, key: 'title', label: t.title, required: true },
+    { section: S.body, key: 'title', label: t.title, required: true, wide: true },
+    { section: S.body, key: 'slug', label: t.slug, required: true, dir: 'ltr', wide: true },
     { section: S.body, key: 'excerpt', label: t.excerpt, type: 'textarea', hideInTable: true },
     { section: S.body, key: 'content', label: t.content, type: 'richtext', hideInTable: true },
     { section: S.cover, key: 'cover', label: t.cover, type: 'image', hideInTable: true },
@@ -66,6 +66,7 @@ export default function AdminPostsPage() {
       fields={fields}
       filters={filters}
       thumbnailKey="cover"
+      aside={[S.publish, S.cats, S.cover]}
       editorExtraKeys={['itemLinks']}
       renderEditorExtra={(form, setForm, editId) => <><PostItemLinks form={form} setForm={setForm} /><AiWritingAssistant form={form} setForm={setForm} /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}
       extraRows={(row) => ({
