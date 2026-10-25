@@ -33,6 +33,9 @@ export interface FieldDef {
   section?: string
 }
 
+/** A narrowing offered above the list: its value is sent as ?<key>= and kept in the page address. */
+export type ListFilter = { key: string; label: string; options: { value: string; label: string }[] }
+
 interface Props {
   type: string
   fields: FieldDef[]
@@ -41,6 +44,9 @@ interface Props {
   editorExtraKeys?: string[]
   renderEditorExtra?: (form: Record<string, any>, setForm: React.Dispatch<React.SetStateAction<Record<string, any>>>, editId: number | null) => React.ReactNode
   headerActions?: React.ReactNode
+  filters?: ListFilter[]
+  /** A picture shown beside the title in the list (an article's cover). */
+  thumbnailKey?: string
 }
 
 /** The form's sections in the order they first appear; one untitled group when no field names a section. */
@@ -62,7 +68,7 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey }: Props) {
   const vipOn = useModuleEnabled('membership')
   const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
@@ -81,6 +87,23 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const [trashed, setTrashed] = useState(0)
   const [optionRows, setOptionRows] = useState<any[] | null>(null)
   const loadId = useRef(0)
+  // Filter values start from the address (?state=draft); the list waits for them so it does not load twice.
+  const filterKeys = (filters || []).map((filter) => filter.key).join(',')
+  const [filterValues, setFilterValues] = useState<Record<string, string> | null>(filterKeys ? null : {})
+  const [counts, setCounts] = useState<Record<string, Record<string, number>>>({})
+  useEffect(() => {
+    if (!filterKeys) return
+    const params = new URLSearchParams(window.location.search)
+    setFilterValues(Object.fromEntries(filterKeys.split(',').map((key) => [key, params.get(key) || ''])))
+  }, [filterKeys])
+  function setFilter(key: string, value: string) {
+    setPage(1)
+    setFilterValues((current) => ({ ...(current || {}), [key]: value }))
+    const url = new URL(window.location.href)
+    if (value) url.searchParams.set(key, value); else url.searchParams.delete(key)
+    window.history.replaceState(window.history.state, '', url)
+  }
+  const filtered = Object.values(filterValues || {}).some(Boolean)
   const initialDateValues = useRef<Record<string, string>>({})
   const [rows, setRows] = useState<any[]>([])
   const [form, setForm] = useState<Record<string, any>>({})
@@ -111,9 +134,11 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const [bulkMsg, setBulkMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
 
   const load = useCallback(async () => {
+    if (!filterValues) return
     const requestId = ++loadId.current
     setLoading(true)
     const params = new URLSearchParams({ type, paged: '1', page: String(page), limit: String(pageSize), q: search })
+    for (const [key, value] of Object.entries(filterValues)) if (value) params.set(key, value)
     const res = await fetch(`/api/admin/cms?${params}`).catch(() => null)
     const data = await res?.json().catch(() => null)
     if (requestId !== loadId.current) return
@@ -124,12 +149,13 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       setPublished(data.published)
       setMine(data.mine === true)
       setTrashed(Number(data.trashed) || 0)
+      setCounts(data.counts || {})
       setPages(data.pages)
       if (data.page !== page) setPage(data.page)
       setMsg('')
     } else setMsg(data?.error || t.errGeneric)
     setLoading(false)
-  }, [type, page, pageSize, search, t.errGeneric])
+  }, [type, page, pageSize, search, filterValues, t.errGeneric])
 
   useEffect(() => {
     load()
@@ -376,7 +402,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
           </button>
         </div>
       </div>
-      <div className="cms-summary mx-toolbar"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label></div>
+      <div className="cms-summary mx-toolbar"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label>{filters?.map((filter) => <label key={filter.key} className="cms-filter"><span>{filter.label}</span><select className="input" value={filterValues?.[filter.key] || ''} onChange={(e) => setFilter(filter.key, e.target.value)}><option value="">{fa ? `${filter.label}: همه` : `${filter.label}: all`}</option>{filter.options.map((option) => <option key={option.value} value={option.value}>{option.label}{counts[filter.key]?.[option.value] !== undefined ? ` (${counts[filter.key][option.value].toLocaleString(fa ? 'fa-IR' : 'en-US')})` : ''}</option>)}</select></label>)}{filtered && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { for (const filter of filters || []) setFilter(filter.key, '') }}>{fa ? 'پاک‌کردن فیلترها' : 'Clear filters'}</button>}</div>
 
       <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
 
@@ -420,7 +446,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                 return (
                   <tr key={row.id} className={selected.has(row.id) ? 'is-selected' : ''}>
                     {bulkEnabled && <td><input type="checkbox" aria-label={`${fa ? 'انتخاب' : 'Select'} ${row[titleKey] || row.title || `#${row.id}`}`} checked={selected.has(row.id)} disabled={bulkBusy} onChange={() => toggleSelected(row.id)} /></td>}
-                    <td className="num">{row.id}</td>
+                    <td className="num">{fa ? Number(row.id).toLocaleString('fa-IR', { useGrouping: false }) : row.id}</td>
                     {tableFields.map((f) => {
                       if (extra[f.key] !== undefined) {
                         return <td key={f.key}>{extra[f.key]}</td>
@@ -436,6 +462,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                       if (f.type === 'number' && v !== null && v !== '' && Number.isFinite(Number(v))) return <td key={f.key} className="num">{Number(v).toLocaleString(fa ? 'fa-IR' : 'en-US')}</td>
                       const str = String(v ?? '')
                       if (f.dir === 'ltr' || f.key === 'slug') return <td key={f.key}>{str ? <bdi dir="ltr" className="crud-ltr" title={str}>{str}</bdi> : '—'}</td>
+                      if (thumbnailKey && f.key === titleKey) return <td key={f.key}><span className="crud-title">{row[thumbnailKey] ? <img src={String(row[thumbnailKey])} alt="" loading="lazy" /> : <span className="crud-thumb-empty" aria-hidden="true" />}<span>{str.length > 80 ? str.slice(0, 80) + '…' : str || '—'}</span></span></td>
                       return <td key={f.key} className={str.length > 60 ? 'muted' : ''}>{str.length > 60 ? str.slice(0, 60) + '…' : str || '—'}</td>
                     })}
                     <td>

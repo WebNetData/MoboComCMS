@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
+import { JournalShell } from '../journal/shared'
 
 type Comment = { id: number; body: string; status: string; createdAt: string; parentId: number | null; post: { slug: string; title: string; titleEn: string }; user: { name: string; email: string } }
 
@@ -45,10 +46,10 @@ export default function AdminCommentsPage() {
     finally { setBusy(null) }
   }
 
-  return <section className="admin-comments"><header><span className="ticket-eyebrow">مجله</span><h1>{L('Comment moderation', 'مدیریت دیدگاه‌ها')}</h1><p>{L('Review reader comments before they appear under articles.', 'دیدگاه‌های خوانندگان را پیش از نمایش زیر نوشته‌ها بررسی کنید.')}</p></header>
+  return <JournalShell><section className="admin-comments"><header><span className="ticket-eyebrow">مجله</span><h1>{L('Comment moderation', 'مدیریت دیدگاه‌ها')}</h1><p>{L('Review reader comments before they appear under articles.', 'دیدگاه‌های خوانندگان را پیش از نمایش زیر نوشته‌ها بررسی کنید.')}</p></header>
     <div className="admin-comments-filters" role="group" aria-label={L('Filter comments', 'فیلتر دیدگاه‌ها')}>{[['PENDING', L('Pending', 'در انتظار')], ['APPROVED', L('Approved', 'تأییدشده')], ['REJECTED', L('Rejected', 'ردشده')], ['ALL', L('All', 'همه')]].map(([value, label]) => <button type="button" key={value} className={status === value ? 'is-active' : ''} onClick={() => { setStatus(value); setPage(1) }}>{label}</button>)}</div>
     {error && <p className="ticket-alert" role="alert">{error}</p>}
     {loading ? <p className="muted">{L('Loading…', 'در حال دریافت…')}</p> : comments.length === 0 ? <p className="muted">{L('No comments in this view.', 'دیدگاهی در این بخش نیست.')}</p> : <div className="admin-comments-list">{comments.map(comment => <article key={comment.id} className="admin-comment"><div className="admin-comment-top"><div><strong>{comment.user.name || comment.user.email}</strong><span>{new Date(comment.createdAt).toLocaleString(fa ? 'fa-IR' : 'en-US')}</span></div><span className="badge badge-gray">{comment.status}</span></div><Link href={`/blog/${comment.post.slug}`} target="_blank">{fa ? comment.post.title : comment.post.titleEn || comment.post.title} ↗</Link>{comment.parentId && <small>{L('Reply to', 'پاسخ به')} #{comment.parentId}</small>}<p>{comment.body}</p><div className="admin-comment-actions"><button type="button" disabled={busy === comment.id || comment.status === 'APPROVED'} onClick={() => void moderate(comment.id, 'APPROVED')}>{L('Approve', 'تأیید')}</button><button type="button" disabled={busy === comment.id || comment.status === 'REJECTED'} onClick={() => void moderate(comment.id, 'REJECTED')}>{L('Reject', 'رد')}</button>{comment.status !== 'PENDING' && <button type="button" disabled={busy === comment.id} onClick={() => void moderate(comment.id, 'PENDING')}>{L('Return to review', 'بازگشت به بررسی')}</button>}</div></article>)}</div>}
     {pages > 1 && <div className="post-comment-pagination"><button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>{L('Previous', 'قبلی')}</button><span>{page} / {pages} · {total}</span><button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>{L('Next', 'بعدی')}</button></div>}
-  </section>
+  </section></JournalShell>
 }
