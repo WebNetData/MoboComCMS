@@ -14,6 +14,7 @@ Each section declares its lists in its own domain:
 
 - **games** (`games/domain/vocabulary.ts`): platforms, official stores, play modes, Persian localisations. Managed at `/admin/games/vocabulary`.
 - **software** (`software/domain/vocabulary.ts`): licence types. Managed at `/admin/software/licenses`.
+- **media**, shared by the download and stream links of every section (`media/domain/vocabulary.ts`): the audio of a release, and suggested qualities. Managed at `/admin/cinema/link-lists` by `settings.manage` or `cinema.manage`; every section's managers and authors may read it.
 
 `vocabulary/domain/registry.ts` names, for each section, its module, manager permission, author permission (read only) and lists. Each section counts its own uses: `games/server/vocabulary.ts` and `software/server/vocabulary.ts`. A new list is a definition with seeds plus a seed row migration; a new section adds a registry entry and a usage counter.
 
@@ -39,6 +40,16 @@ Each section declares its lists in its own domain:
   - game pages, software cards, the software page, the dashboard share and compare show the owner's names, including for inactive entries;
   - the game mode and localisation filters accept any well-formed code and match it as a whole item. Before, they used a fixed regex and `contains`.
 - **Fallback:** without the table, the old fixed values are shown.
+
+## Links (section `media`)
+
+- A link's audio is a code of the AUDIO list, seeded with the dub and the original audio.
+  - Every writer of links (titles, episodes, games, game updates, software, software releases, revision restore) passes them through `knownLinkAudio`.
+  - A known code is kept, even if inactive. An unknown code becomes no audio side.
+- A member's preference (dub first or original first) moves every code starting with `DUBBED` (or `ORIGINAL`) to the front. The other sides follow in the list's order, and links with no side come last.
+- The site names and orders the release groups from the list (emoji and name). A side the order does not name comes before links without one.
+- A quality stays free text, because games and software use it for PC, EXE and so on. The QUALITY list is a name list that feeds the suggestions of the link form.
+- Migration `20270117120000_link_vocabulary` allows name codes for the quality list and seeds both lists.
 
 ## Access
 
@@ -66,13 +77,18 @@ No item table changes.
   - deleting an entry in use is refused and an unused one is deleted;
   - the whole-code public filters, and licence names on software cards;
   - exactly one audit per change.
-- **Six deliberate breaks, each failing the script:**
+- The script also covers the links: unknown and inactive audio sides on a saved film, the audio order with and without a list, and grouping an unnamed side.
+- **Deliberate breaks, each failing the script:**
   - allowing inactive codes;
   - ignoring per-platform release dates in usage;
   - `contains` matching;
   - dropping the in-use guard;
   - dropping section scoping;
-  - accepting an unknown licence.
+  - accepting an unknown licence;
+  - keeping unknown link audio;
+  - the old fixed audio order;
+  - grouping an unnamed side first;
+  - a link writer that skips the check.
 - **Browser test** (`.mobocom/claude-tools/pw-managed-lists.cjs`):
   - games: the tabs; adding a mode shows it in the game editor and the public filter;
   - software: the seeded licences, no tabs for a single list; adding a licence shows it in the software form and the public chips; cards show names;

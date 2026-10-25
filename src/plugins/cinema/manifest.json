@@ -68,6 +68,13 @@
         "permissions": ["cinema.manage"]
       },
       {
+        "href": "/admin/cinema/link-lists",
+        "label": "صدا و کیفیت لینک‌ها",
+        "labelEn": "Link audio and qualities",
+        "icon": "grid",
+        "permissions": ["cinema.manage", "settings.manage"]
+      },
+      {
         "href": "/admin/taxonomy?tax=cinema",
         "label": "دسته‌بندی فیلم و سریال",
         "labelEn": "Categories",
