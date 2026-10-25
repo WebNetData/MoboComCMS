@@ -5,8 +5,8 @@ import { CinemaShell, Notice, fa, send, useJson } from '../shared'
 import { STRUCTURE_LABEL, type CinemaFormat, type FormatStructure } from '@/modules/cinema/domain/formats'
 
 type Row = CinemaFormat & { titles: number }
-type Draft = { id: number | null; slug: string; name: string; nameEn: string; plural: string; icon: string; structure: FormatStructure; sortOrder: string; active: boolean }
-const EMPTY: Draft = { id: null, slug: '', name: '', nameEn: '', plural: '', icon: '', structure: 'MOVIE', sortOrder: '0', active: true }
+type Draft = { id: number | null; slug: string; name: string; nameEn: string; plural: string; icon: string; structure: FormatStructure; sortOrder: string; active: boolean; homeShelf: boolean }
+const EMPTY: Draft = { id: null, slug: '', name: '', nameEn: '', plural: '', icon: '', structure: 'MOVIE', sortOrder: '0', active: true, homeShelf: false }
 const API = '/api/admin/cinema/formats'
 const draftOf = (row: Row): Draft => ({ ...row, sortOrder: String(row.sortOrder) })
 
@@ -67,6 +67,7 @@ export default function CinemaFormatsAdmin() {
         </label>)}
       </fieldset>
       <label className="sa-check"><input type="checkbox" checked={draft.active} onChange={(e) => set('active', e.target.checked)} />فعال: در فرم عنوان و فیلتر سایت پیشنهاد شود</label>
+      <label className="sa-check"><input type="checkbox" checked={draft.homeShelf} onChange={(e) => set('homeShelf', e.target.checked)} />قفسهٔ جدا در صفحهٔ اصلی فیلم و سریال (در ردیف «قفسهٔ انواع»؛ جایش را در «صفحهٔ اصلی و تنظیمات» تعیین کنید)</label>
       <div className="cf-actions"><button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'در حال ذخیره…' : draft.id ? 'ذخیرهٔ تغییرات' : 'افزودن نوع'}</button><button type="button" className="btn btn-ghost" onClick={() => setDraft(null)}>انصراف</button></div>
     </form>}
 
@@ -75,7 +76,7 @@ export default function CinemaFormatsAdmin() {
         <span className="cf-icon" aria-hidden="true">{row.icon || (row.structure === 'SERIES' ? '📺' : '🎬')}</span>
         <div className="cf-main">
           <strong>{row.name}{row.nameEn && <small dir="ltr">{row.nameEn}</small>}</strong>
-          <span className="cf-meta"><span className={`cf-badge is-${row.structure.toLowerCase()}`}>{STRUCTURE_LABEL[row.structure].fa}</span><span>{fa(row.titles)} عنوان</span><code dir="ltr">?format={row.slug}</code>{!row.active && <span className="cf-badge is-off">غیرفعال</span>}</span>
+          <span className="cf-meta"><span className={`cf-badge is-${row.structure.toLowerCase()}`}>{STRUCTURE_LABEL[row.structure].fa}</span><span>{fa(row.titles)} عنوان</span><code dir="ltr">?format={row.slug}</code>{row.homeShelf && <span className="cf-badge">قفسه در صفحهٔ اصلی</span>}{!row.active && <span className="cf-badge is-off">غیرفعال</span>}</span>
         </div>
         <div className="cf-tools">
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { setDraft(draftOf(row)); setMessage(null) }}>ویرایش</button>

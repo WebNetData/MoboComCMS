@@ -424,6 +424,7 @@
     "20270114120000_cinema_formats",
     "20270115120000_game_vocabulary",
     "20270116120000_section_vocabulary",
-    "20270117120000_link_vocabulary"
+    "20270117120000_link_vocabulary",
+    "20270118120000_cinema_format_shelves"
   ]
 }

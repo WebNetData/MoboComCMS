@@ -84,6 +84,15 @@ async function main() {
   assert.deepEqual(found.titles.map((title) => [title.id, title.format?.slug]), [[one.id, `${seed}-anime`]])
   assert.equal(rules.formatLabel(found.titles[0], true), 'انیمه')
   assert.equal((await browse.browseCinema({ format: 'Robert"); DROP', q: seed })).titles.length, 3, 'an invalid format is ignored, not trusted')
+  // ---- a format the owner gives a home shelf shows its newest titles on the cinema home; inactive or unticked, none
+  const home = async () => (await browse.getCinemaHome({ shelfSize: 6 })).formatShelves.filter((row) => row.slug.startsWith(seed)).map((row) => [row.slug, row.titles.map((title) => title.slug)])
+  assert.deepEqual(await home(), [], 'no shelf until the owner ticks it')
+  await formats.updateFormat(anime.id, { homeShelf: true }, audit)
+  assert.deepEqual(await home(), [[`${seed}-anime`, [`${seed}-one`]]])
+  await formats.updateFormat(anime.id, { active: false }, audit)
+  assert.deepEqual(await home(), [], 'an inactive format has no shelf')
+  await formats.updateFormat(anime.id, { active: true, homeShelf: false }, audit)
+  assert.deepEqual(await home(), [])
   console.log('PostgreSQL cinema formats: managed kinds with a structure the database checks, the format sets a title\'s kind, a kind alone takes a fitting default, inactive formats are kept but not offered, a format in use keeps its structure and cannot be deleted, browse filters by format.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {

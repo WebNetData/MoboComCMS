@@ -8,6 +8,7 @@ export const CINEMA_RAILS = {
   genres: 'ژانرها (چیپ‌ها)',
   movies: 'جدیدترین فیلم‌ها',
   series: 'سریال‌های تازه',
+  formatShelves: 'قفسهٔ انواع (انیمه، مستند… هر نوعی که قفسه دارد)',
   topRated: 'برترین‌ها از نگاه IMDb',
   dubbed: 'دوبله فارسی',
   members: 'ویژهٔ اعضای VIP',

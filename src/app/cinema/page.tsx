@@ -63,6 +63,7 @@ export default async function CinemaHomePage() {
     topRated: () => shelf(fa ? 'برترین‌ها از نگاه IMDb' : 'Top rated on IMDb', data.topRated, '/cinema/browse?sort=imdb', fa ? 'رتبه‌بندی' : 'Ranking', true),
     dubbed: () => shelf(fa ? 'دوبله فارسی' : 'Persian dub', data.dubbed, '/cinema/browse?dubbed=1'),
     members: () => data.members.length > 0 && <section className="cn-vip-shelf">{shelf(fa ? 'ویژه اعضای VIP' : 'VIP exclusives', data.members, undefined, '♛ VIP')}</section>,
+    formatShelves: () => data.formatShelves.map((row) => row.titles.length > 0 && <div key={row.slug}>{shelf(fa ? row.plural || row.name : row.nameEn || row.name, row.titles, `/cinema/browse?format=${row.slug}`, row.icon || undefined)}</div>),
     genreShelves: () => data.genreShelves.map((row) => row.titles.length > 0 && <div key={row.genre}>{shelf(row.genre, row.titles, `/cinema/browse?genre=${encodeURIComponent(row.genre)}`)}</div>),
     vipStrip: () => !viewer.member && <VipStrip fa={fa} kind="cinema" />,
   }
