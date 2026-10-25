@@ -1735,6 +1735,8 @@ model CinemaFormat {
   sortOrder Int           @default(0)
   // An inactive format is not offered for new titles nor in the public filter; titles that have it keep it.
   active    Boolean       @default(true)
+  // Its own shelf on the cinema home, in the "format shelves" rail (film and series have rails of their own).
+  homeShelf Boolean       @default(false)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @default(now()) @updatedAt
   titles    CinemaTitle[]

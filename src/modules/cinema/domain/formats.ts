@@ -20,6 +20,8 @@ export type CinemaFormat = {
   icon: string
   sortOrder: number
   active: boolean
+  /** Its own shelf on the cinema home. */
+  homeShelf: boolean
 }
 
 export class CinemaFormatError extends Error {
@@ -60,6 +62,7 @@ export function parseFormatInput(input: Record<string, unknown>, creating: boole
     data.sortOrder = order
   }
   if (input.active !== undefined) data.active = input.active === true
+  if (input.homeShelf !== undefined) data.homeShelf = input.homeShelf === true
   if (creating || input.structure !== undefined) {
     if (!FORMAT_STRUCTURES.includes(input.structure as FormatStructure)) throw new CinemaFormatError('ساختار را انتخاب کنید: یک اثر یا فصل و قسمت')
     data.structure = input.structure as FormatStructure

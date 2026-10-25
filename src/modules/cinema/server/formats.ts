@@ -15,7 +15,7 @@ export async function adminFormats() {
 
 /** Active formats in the owner's order, for the title form, the public filter and labels. */
 export async function activeFormats(): Promise<CinemaFormat[]> {
-  const rows = await db.cinemaFormat.findMany({ where: { active: true }, orderBy: ORDER, select: { id: true, slug: true, name: true, nameEn: true, plural: true, structure: true, icon: true, sortOrder: true, active: true } })
+  const rows = await db.cinemaFormat.findMany({ where: { active: true }, orderBy: ORDER, select: { id: true, slug: true, name: true, nameEn: true, plural: true, structure: true, icon: true, sortOrder: true, active: true, homeShelf: true } })
   return rows.map(shape)
 }
 

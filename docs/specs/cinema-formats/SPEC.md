@@ -34,6 +34,13 @@ The owner manages the kinds of title instead of a fixed film/series choice (owne
   - the active-filter chip and the browse title use the format's name and plural;
   - cards, the home hero and the title page breadcrumb name the format, and the breadcrumb links to `?format=`.
 
+## Home shelves (2026-10-25)
+
+- A format can have its own shelf on the cinema home: the "home shelf" checkbox on the types page sets `CinemaFormat.homeShelf` (additive migration `20270118120000_cinema_format_shelves`; off for every format until the owner ticks it).
+- Ticked active formats appear in the new `formatShelves` rail ("قفسهٔ انواع"). The owner places or hides the rail with the other rails in the home settings. Each shelf shows the format's newest live titles under its plural name and links to `?format=`.
+- An inactive format has no shelf. Film and series keep their own rails.
+- `cinema-formats.connected.cjs` checks: no shelf until ticked, a ticked shelf has its title, no shelf when inactive, no shelf when unticked. A deliberate break (ignoring the tick) fails it. The browser test `pw-format-shelf.cjs` ticks the series format, sees its shelf on the home and unticks it.
+
 ## Acceptance
 
 - **`scripts/cinema-formats.connected.cjs`** (real PostgreSQL, registered in `run-pg-checks`) checks:

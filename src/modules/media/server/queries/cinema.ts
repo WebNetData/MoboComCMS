@@ -41,6 +41,12 @@ export async function publicLinks(ownerType: string, ids: number[]): Promise<Map
 }
 
 /** Cinema home read model; layout options come from the cinema section settings. */
+/** One shelf per active format the owner gave a home shelf, newest titles first, in the formats' order. */
+async function formatShelves(take: number) {
+  const formats = await db.cinemaFormat.findMany({ where: { active: true, homeShelf: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, slug: true, name: true, nameEn: true, plural: true, icon: true } }).catch(() => [])
+  return Promise.all(formats.map(async ({ id, ...format }) => ({ ...format, titles: (await db.cinemaTitle.findMany({ where: { ...live(), formatId: id }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }).catch(() => [])).map(toTitle) })))
+}
+
 export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: number; topRatedMin?: number; heroIds?: number[] } = {}) {
   const take = Math.min(24, Math.max(6, opts.shelfSize || 16))
   const shelves = Math.min(6, Math.max(0, opts.genreShelves ?? 3))
@@ -56,16 +62,16 @@ export async function getCinemaHome(opts: { shelfSize?: number; genreShelves?: n
     heroIds.length ? db.cinemaTitle.findMany({ where: { ...live(), id: { in: heroIds } }, include: titleInclude }) : Promise.resolve([]),
   ])
   const genres = countList(genreRows.map((row: { genres: string }) => row.genres)).slice(0, 16)
-  const genreShelves = await Promise.all(genres.slice(0, shelves).map(async (genre) => ({
+  const [genreShelves, formats] = await Promise.all([Promise.all(genres.slice(0, shelves).map(async (genre) => ({
     genre,
     titles: (await db.cinemaTitle.findMany({ where: { ...live(), genres: { contains: genre } }, include: titleInclude, orderBy: { publishedAt: 'desc' }, take }).catch(() => [])).map(toTitle),
-  })))
+  }))), formatShelves(take)])
   const byId = new Map(picked.map((row: any) => [row.id, row]))
   const chosen = heroIds.map((id) => byId.get(id)).filter(Boolean)
   const hero = chosen.length ? chosen : featured.length ? featured : [...movies, ...series].sort((a: any, b: any) => +b.publishedAt - +a.publishedAt).slice(0, 5)
   return {
     hero: hero.map(toTitle), movies: movies.map(toTitle), series: series.map(toTitle), topRated: topRated.map(toTitle),
-    members: members.map(toTitle), dubbed: dubbed.map(toTitle), genres, genreShelves,
+    members: members.map(toTitle), dubbed: dubbed.map(toTitle), genres, genreShelves, formatShelves: formats,
   }
 }
 
