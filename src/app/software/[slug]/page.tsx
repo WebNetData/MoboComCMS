@@ -66,7 +66,7 @@ export default async function SoftwarePage({ params }: Props) {
   const specs: [string, React.ReactNode][] = ([
     ['سازنده', s.developer ? <Link href={s.developerStudioId ? `/studios/${s.developerStudioId}` : `/software/browse?developer=${encodeURIComponent(s.developer)}`}>{s.developer}</Link> : ''],
     ['ناشر', s.publisher ? <Link href={s.publisherStudioId ? `/studios/${s.publisherStudioId}` : `/software/browse?publisher=${encodeURIComponent(s.publisher)}`}>{s.publisher}</Link> : ''],
-    ['هزینهٔ دانلود', licenseLabel(s.license, true)],
+    ['هزینهٔ دانلود', s.licenseName],
     ['نسخه', s.version ? <bdi dir="ltr">{s.version}</bdi> : ''],
     ['سیستم‌عامل', s.platforms.length ? <bdi dir="ltr">{s.platforms.join(', ')}</bdi> : ''],
     ['حجم فایل', s.size ? <bdi dir="ltr">{s.size}</bdi> : ''],

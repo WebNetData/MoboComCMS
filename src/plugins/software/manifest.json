@@ -54,6 +54,13 @@
         ]
       },
       {
+        "href": "/admin/software/licenses",
+        "label": "انواع مجوز",
+        "labelEn": "Licence types",
+        "icon": "grid",
+        "permissions": ["software.manage"]
+      },
+      {
         "href": "/admin/taxonomy?tax=software",
         "label": "دسته‌بندی نرم‌افزار",
         "labelEn": "Categories",

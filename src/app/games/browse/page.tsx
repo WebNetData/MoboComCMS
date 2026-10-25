@@ -10,7 +10,7 @@ import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import Pager from '@/components/media/Pager'
 import { BrowseFilters, CoverGrid } from '@/components/games/GamePortal'
-import { activeVocabulary } from '@/modules/games/server/vocabulary'
+import { activeLists } from '@/modules/vocabulary/server/vocabulary'
 
 export const dynamic = 'force-dynamic'
 type Search = { platform?: string; genre?: string; term?: string; developer?: string; publisher?: string; developerStudioId?: string; publisherStudioId?: string; sort?: string; q?: string; page?: string; lang?: string; mode?: string; year?: string; pick?: string }
@@ -37,7 +37,7 @@ export default async function GamesBrowsePage({ searchParams }: { searchParams: 
     browseGames({ platform: params.platform, genre: params.genre, developer: params.developer, publisher: params.publisher, developerStudioId: Number(params.developerStudioId) || undefined, publisherStudioId: Number(params.publisherStudioId) || undefined, sort: params.sort, q: params.q, lang: params.lang, mode: params.mode, year: params.year, pick: params.pick, page: Number(params.page) || 1, ...(ids ? { ids } : {}) }),
     gameFacets(),
     gameGenres(),
-    activeVocabulary(),
+    activeLists('games'),
   ])
   const years = Array.from({ length: 12 }, (_, i) => new Date().getUTCFullYear() + 1 - i)
   const select = (name: keyof Search, label: string, options: [string, string][]) => <label className="gx-select"><span>{label}:</span><select name={name} defaultValue={params[name] || ''}><option value="">همه</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
@@ -52,8 +52,8 @@ export default async function GamesBrowsePage({ searchParams }: { searchParams: 
       <div className="container gx-browse">
         <BrowseFilters action="/games/browse" values={params} facets={{ genres: genres.options, platforms: facets.platforms, developers: facets.developers, publishers: facets.publishers }}>
           <div className="gx-selects">
-            {select('lang', 'فارسی‌سازی', vocabulary.LOCALIZATION.map((entry) => [entry.code, entry.name]))}
-            {select('mode', 'حالت بازی', vocabulary.MODE.map((entry) => [entry.code, entry.name]))}
+            {select('lang', 'فارسی‌سازی', (vocabulary.LOCALIZATION || []).map((entry) => [entry.code, entry.name]))}
+            {select('mode', 'حالت بازی', (vocabulary.MODE || []).map((entry) => [entry.code, entry.name]))}
             {select('year', 'سال انتشار', years.map((y) => [String(y), y.toLocaleString('fa-IR', { useGrouping: false })]))}
             {select('pick', 'فهرست', [['editors', 'انتخاب سردبیر'], ['upcoming', 'در راه']])}
           </div>

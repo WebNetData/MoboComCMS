@@ -422,6 +422,7 @@
     "20270112120000_search_document_recency",
     "20270113120000_cinema_producers",
     "20270114120000_cinema_formats",
-    "20270115120000_game_vocabulary"
+    "20270115120000_game_vocabulary",
+    "20270116120000_section_vocabulary"
   ]
 }

@@ -5,6 +5,7 @@ import { itemCards } from '@/modules/content/server/registry'
 import { dimensionSummariesFor, ratingsFor } from '@/modules/reviews/server/reviews'
 import { dimensionsFor } from '@/modules/reviews/domain/dimensions'
 import { formatRuntime, licenseLabel, parseJsonObject, splitList, type Requirements } from '@/modules/media/domain/media'
+import { listLabels } from '@/modules/vocabulary/server/vocabulary'
 import { attributeFieldsForCategory, parseJson } from '@/modules/catalog/server/product-config'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
 import { isModuleEnabled } from '@/extensions/server/modules'
@@ -75,8 +76,9 @@ export async function compareItems(refs: ItemRef[]): Promise<Comparison | null> 
   if (type === 'software') {
     const map = new Map((await db.softwareTitle.findMany({ where: { id: { in: ids } } })).map((r) => [r.id, r]))
     const s = ids.map((id) => map.get(id))
+    const licenses = (await listLabels('software')).LICENSE ?? {}
     rows.push(
-      row('نسخه', s.map((r) => r?.version)), row('سازنده', s.map((r) => r?.developer)), row('مجوز', s.map((r) => (r ? licenseLabel(r.license, true) : ''))),
+      row('نسخه', s.map((r) => r?.version)), row('سازنده', s.map((r) => r?.developer)), row('مجوز', s.map((r) => (r ? licenses[r.license] || licenseLabel(r.license, true) : ''))),
       row('سیستم‌عامل', s.map((r) => splitList(r?.platforms).join('، '))), row('دسته', s.map((r) => r?.category)), row('حجم', s.map((r) => r?.size)),
       row('انتشار نسخه', s.map((r) => date(r?.releasedAt))), row('آخرین به‌روزرسانی', s.map((r) => date(r?.updatedAt))),
       numeric('دانلود', s.map((r) => r?.downloads ?? null), 'high'), numeric('بازدید', s.map((r) => r?.views ?? null), 'high'),

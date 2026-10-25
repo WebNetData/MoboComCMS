@@ -5,7 +5,7 @@ import { requireModule } from '@/extensions/server/modules'
 import { softwareFeed } from '@/modules/media/server/queries'
 import { softwarePortalChrome } from '@/modules/media/server/software-portal'
 import { primaryTerms, resolveTermPath } from '@/modules/taxonomy/server/taxonomy'
-import { SOFTWARE_LICENSES, licenseLabel } from '@/modules/media/domain/media'
+import { activeLists } from '@/modules/vocabulary/server/vocabulary'
 import MediaShell from '@/components/media/MediaShell'
 import { EmptyState } from '@/components/media/MediaCards'
 import { FolderTiles, Pager, SoftwareLayout, SoftwarePost, SoftwareSidebar, SoftwareStatsStrip } from '@/components/software/SoftwarePortal'
@@ -35,7 +35,7 @@ export default async function SoftwareCategoryPage({ params, searchParams }: Pro
   const found = await resolveTermPath('software', slug)
   if (!found) notFound()
   const page = Math.max(1, Number(query.page) || 1)
-  const [feed, chrome] = await Promise.all([softwareFeed({ ids: found.ownerIds, page, sort: query.sort, license: query.license }), softwarePortalChrome()])
+  const [feed, chrome, licenses] = await Promise.all([softwareFeed({ ids: found.ownerIds, page, sort: query.sort, license: query.license }), softwarePortalChrome(), activeLists('software').then((lists) => lists.LICENSE || [])])
   const terms = await primaryTerms('software', feed.items.map((item) => item.id))
   const href = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams(Object.entries({ sort: query.sort, license: query.license, ...patch }).filter((entry): entry is [string, string] => !!entry[1]))
@@ -57,7 +57,7 @@ export default async function SoftwareCategoryPage({ params, searchParams }: Pro
         {found.term.description && <p className="sp-list-desc">{found.term.description}</p>}
         <div className="sp-filters">
           <nav className="md-chips" aria-label="مرتب‌سازی">{sorts.map(([value, label]) => <Link key={value} href={href({ sort: value || undefined, page: undefined })} className={(query.sort || '') === value ? 'is-active' : ''}>{label}</Link>)}</nav>
-          <nav className="md-chips" aria-label="مجوز"><Link href={href({ license: undefined })} className={!query.license ? 'is-active' : ''}>همه مجوزها</Link>{SOFTWARE_LICENSES.map((l) => <Link key={l} href={href({ license: l })} className={query.license === l ? 'is-active' : ''}>{licenseLabel(l, true)}</Link>)}</nav>
+          <nav className="md-chips" aria-label="مجوز"><Link href={href({ license: undefined })} className={!query.license ? 'is-active' : ''}>همه مجوزها</Link>{licenses.map(({ code: l, name }) => <Link key={l} href={href({ license: l })} className={query.license === l ? 'is-active' : ''}>{name}</Link>)}</nav>
         </div>
         {pager}
         {feed.items.length ? feed.items.map((item) => <SoftwarePost key={item.id} item={item} fa term={terms.get(item.id)} />) : <EmptyState fa title="هنوز نرم‌افزاری در این دسته نیست" text="دسته‌های دیگر یا جست‌وجو را امتحان کنید." />}

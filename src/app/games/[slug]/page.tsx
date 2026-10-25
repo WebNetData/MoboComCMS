@@ -6,7 +6,7 @@ import { requireModule } from '@/extensions/server/modules'
 import { getGame } from '@/modules/media/server/queries'
 import { gamePageExtras } from '@/modules/games/server/portal'
 import { releaseState } from '@/modules/games/domain/games'
-import { vocabularyLabels } from '@/modules/games/server/vocabulary'
+import { listLabels } from '@/modules/vocabulary/server/vocabulary'
 import { getViewer } from '@/modules/membership/server/membership'
 import { REQUIREMENT_KEYS, trailerSource } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -62,7 +62,7 @@ export default async function GamePage({ params }: Props) {
   const hasReq = REQUIREMENT_KEYS.some((k) => req.min?.[k] || req.rec?.[k])
   const upcoming = releaseState(g.releaseDate).state === 'upcoming'
   const ref = { type: 'game' as const, id: g.id }
-  const [rating, terms, labels] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id]), vocabularyLabels()])
+  const [rating, terms, labels] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id]), listLabels('games')])
   const term = terms.get(g.id)
   const facts = ([
     ['سازنده', g.developer && <Link href={g.developerStudioId ? `/studios/${g.developerStudioId}` : `/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
@@ -71,8 +71,8 @@ export default async function GamePage({ params }: Props) {
     ['سبک', g.genres.join('، ')],
     ['مجموعه', extras.franchise && <Link href={`/games/franchise/${extras.franchise.slug}`}>{extras.franchise.title}</Link>],
     ['موتور بازی', g.engine && <bdi dir="ltr">{g.engine}</bdi>],
-    ['حالت‌ها', g.modes.map((code) => labels.MODE[code] || code).join('، ')],
-    ['فارسی‌سازی', g.localization.map((code) => labels.LOCALIZATION[code] || code).join('، ')],
+    ['حالت‌ها', g.modes.map((code) => labels.MODE?.[code] || code).join('، ')],
+    ['فارسی‌سازی', g.localization.map((code) => labels.LOCALIZATION?.[code] || code).join('، ')],
     ['رده سنی', g.ageRating],
     ['حجم', g.gameSize && <bdi dir="ltr">{g.gameSize}</bdi>],
     ['آخرین نسخه', g.version && <bdi dir="ltr">{g.version}</bdi>],

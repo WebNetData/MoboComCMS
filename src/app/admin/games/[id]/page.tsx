@@ -13,7 +13,7 @@ import AiAutofill from '../../cms/AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from '../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import { HEALTH_CHECKS, healthIssues } from '@/modules/games/domain/games'
-import { defaultVocabulary, type Vocabulary, type VocabularyEntry } from '@/modules/games/domain/vocabulary'
+import { optionsOf, useSectionLists, type ActiveLists } from '../../cms/useSectionLists'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -62,25 +62,8 @@ const localInput = (value: string | null | undefined) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-/** The owner's lists (active entries) for the form; the old fixed values until they arrive. */
-function useVocabulary() {
-  const [vocabulary, setVocabulary] = useState<Vocabulary>(defaultVocabulary)
-  useEffect(() => {
-    let alive = true
-    fetch('/api/admin/games/vocabulary', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((data) => {
-      if (alive && data?.lists) setVocabulary(Object.fromEntries(Object.entries(data.lists as Vocabulary).map(([list, entries]) => [list, entries.filter((entry) => entry.active)])) as Vocabulary)
-    }).catch(() => {})
-    return () => { alive = false }
-  }, [])
-  return vocabulary
-}
-/** An entry list as code → name, with the codes a game already has kept (shown by their code if no longer listed). */
-const optionsOf = (entries: VocabularyEntry[], kept: string[] = []): Record<string, string> => {
-  const listed = new Set(entries.map((entry) => entry.code))
-  return { ...Object.fromEntries(entries.map((entry) => [entry.code, `${entry.icon ? entry.icon + ' ' : ''}${entry.name}`])), ...Object.fromEntries(kept.filter((code) => !listed.has(code)).map((code) => [code, code])) }
-}
 /** The assistant is told the allowed platform names and mode codes of the owner's lists. */
-const aiFieldsOf = (vocabulary: Vocabulary): AutofillField[] => AI_FIELDS.map((field) => field.key === 'platforms' ? { ...field, hint: `فقط از این نام‌ها: ${vocabulary.PLATFORM.map((entry) => entry.code).join(', ')}` }
+const aiFieldsOf = (vocabulary: ActiveLists): AutofillField[] => AI_FIELDS.map((field) => field.key === 'platforms' ? { ...field, hint: `فقط از این نام‌ها: ${vocabulary.PLATFORM.map((entry) => entry.code).join(', ')}` }
   : field.key === 'modes' ? { ...field, hint: `کدهای مجاز: ${vocabulary.MODE.map((entry) => `${entry.code}=${entry.name}`).join('، ')}` } : field)
 
 function Codes({ value, options, onChange, label }: { value: string; options: Record<string, string>; onChange: (value: string) => void; label: string }) {
@@ -111,7 +94,7 @@ export default function GameEditorPage() {
   const [aiValues, setAiValues] = useState<Form>({})
   const [review, setReview] = useState<null | { publish: boolean }>(null)
   const [originalStatus, setOriginalStatus] = useState(isNew ? '' : 'loading')
-  const vocabulary = useVocabulary()
+  const vocabulary = useSectionLists('games')
 
   useEffect(() => {
     fetch('/api/admin/games/franchises', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { franchises: [] })).then((body) => setFranchises(body.franchises || [])).catch(() => {})

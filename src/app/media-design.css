@@ -1425,3 +1425,7 @@ html[dir="ltr"] .mu-queue ol button:hover { transform: translateX(3px); }
 .cf-tabs button span { min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--bg-soft); color: var(--muted); font-size: .72rem; text-align: center; }
 .cf-tabs button.is-active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
 .cf-where { margin: 0 0 14px; color: var(--muted); font-size: .8rem; }
+.cf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cf-head .cf-intro { margin: 0 0 14px; }
+.cf-head .btn { flex: none; }
+@media (max-width: 640px) { .cf-head { flex-direction: column; } }

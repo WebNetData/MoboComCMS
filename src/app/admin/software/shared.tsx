@@ -9,6 +9,7 @@ const TABS: SectionTab[] = [
   { href: '/admin/software', label: 'داشبورد', exact: true },
   { href: '/admin/software/titles', label: 'نرم‌افزارها' },
   { href: '/admin/software/releases', label: 'نسخه‌ها' },
+  { href: '/admin/software/licenses', label: 'انواع مجوز' },
   { href: '/admin/studios', label: 'سازندگان و ناشران' },
   { href: '/admin/software/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]

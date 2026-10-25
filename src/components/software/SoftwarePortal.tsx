@@ -79,7 +79,7 @@ export function SoftwarePost({ item, fa, term }: { item: SoftwareCard; fa: boole
   const href = `/software/${item.slug}`
   const specs: [string, ReactNode][] = [
     ['نسخه', item.version ? <bdi dir="ltr">{item.version}</bdi> : '—'],
-    ['هزینهٔ دانلود', <span key="p" className={`sp-price ${licenceClass(item.license)}`}>{licenseLabel(item.license, fa)}</span>],
+    ['هزینهٔ دانلود', <span key="p" className={`sp-price ${licenceClass(item.license)}`}>{fa ? item.licenseName : licenseLabel(item.license, fa)}</span>],
     ['حجم فایل', item.size ? <bdi dir="ltr">{item.size}</bdi> : '—'],
     ['آخرین به‌روزرسانی', day(item.updatedAt, fa)],
     ['سیستم‌عامل', item.platforms.length ? <bdi dir="ltr">{item.platforms.join(', ')}</bdi> : '—'],

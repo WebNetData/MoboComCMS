@@ -21,8 +21,8 @@ import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
-import { cleanCodes, cleanReleases, cleanStoreLinks } from '@/modules/games/domain/games'
-import { knownGameCodes } from '@/modules/games/server/vocabulary'
+import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
+import { knownCodes } from '@/modules/vocabulary/server/vocabulary'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
@@ -616,8 +616,11 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
   const row = await db.$transaction(async (tx) => {
     await options.beforeWrite?.(tx)
     if (resource.taxonomy && has(body, 'terms')) Object.assign(data, await projectedTermFields(tx, resource.taxonomy, id, body.terms))
-    // A game's modes and localisations are codes of the owner's lists (an inactive one stays on a game that had it).
-    if (type === 'games') for (const [key, list] of [['modes', 'MODE'], ['localization', 'LOCALIZATION']] as const) if (typeof data[key] === 'string') data[key] = await knownGameCodes(tx, list, data[key] as string, (existing as Record<string, string> | null)?.[key])
+    // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
+    // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
+    const before = existing as Record<string, string> | null
+    if (type === 'games') for (const [key, list] of [['modes', 'MODE'], ['localization', 'LOCALIZATION']] as const) if (typeof data[key] === 'string') data[key] = (await knownCodes(tx, 'games', list, codesOf(data[key] as string), codesOf(before?.[key]))).join(', ')
+    if (type === 'software' && typeof data.license === 'string') data.license = (await knownCodes(tx, 'software', 'LICENSE', [data.license], before?.license ? [before.license] : []))[0] ?? before?.license ?? 'FREE'
     // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
     if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))
     if (type === 'games' || type === 'software') {
