@@ -64,6 +64,38 @@ export type JournalHealth = keyof typeof JOURNAL_HEALTH
 export const livePostWhere = (now = new Date()) => ({ status: 'PUBLISHED' as const, publishedAt: { lte: now } })
 export const isLivePost = (post: { status: string; publishedAt: Date }, now = new Date()) => post.status === 'PUBLISHED' && post.publishedAt <= now
 
+/** Where an article stands in the admin list: live, published for later, a draft, or waiting in the trash. */
+export const ADMIN_POST_STATES = ['live', 'scheduled', 'draft', 'trashed'] as const
+export type AdminPostState = typeof ADMIN_POST_STATES[number]
+export function adminPostStateWhere(state: AdminPostState, now = new Date()) {
+  if (state === 'live') return livePostWhere(now)
+  if (state === 'scheduled') return { status: 'PUBLISHED' as const, publishedAt: { gt: now } }
+  return { status: state === 'draft' ? 'DRAFT' as const : 'TRASHED' as const }
+}
+/** The posts list's narrowing asked in the address; an unknown value is refused rather than silently ignored. */
+export type AdminPostFilters = { state?: AdminPostState; category?: number; featured?: boolean; access?: 'PUBLIC' | 'MEMBERS' }
+export function parseAdminPostFilters(params: URLSearchParams): AdminPostFilters {
+  const filters: AdminPostFilters = {}
+  const state = params.get('state'), category = params.get('category'), featured = params.get('featured'), access = params.get('access')
+  if (state) {
+    if (!(ADMIN_POST_STATES as readonly string[]).includes(state)) throw new Error('unknown post state')
+    filters.state = state as AdminPostState
+  }
+  if (category) {
+    if (!/^[1-9]\d{0,9}$/.test(category)) throw new Error('invalid category')
+    filters.category = Number(category)
+  }
+  if (featured) {
+    if (featured !== '1' && featured !== '0') throw new Error('invalid featured filter')
+    filters.featured = featured === '1'
+  }
+  if (access) {
+    if (access !== 'PUBLIC' && access !== 'MEMBERS') throw new Error('invalid access filter')
+    filters.access = access
+  }
+  return filters
+}
+
 /** API clients send an absolute ISO time; an explicit blank means publish now. */
 export function publicationDateInput(value: unknown, now = new Date()): Date {
   if (value === '' || value === null) return now

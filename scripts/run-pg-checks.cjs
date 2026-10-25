@@ -24,6 +24,7 @@ const CHECKS = [
   'fulfillment-recovery-window', 'seo-entities', 'content-revisions',
   'money-state-rules', 'editor-page-documents', 'section-maintenance', 'invoice-void-settle', 'import-provenance', 'admin-saved-views', 'item-timeline',
   'return-refund-integrity',
+  'journal-admin-filters',
   'gift-card-integrity',
   'digital-codes',
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',

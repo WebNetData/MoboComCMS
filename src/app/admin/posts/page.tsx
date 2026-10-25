@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import AdminCrud, { type FieldDef } from '../cms/AdminCrud'
+import AdminCrud, { type FieldDef, type ListFilter } from '../cms/AdminCrud'
+import { JournalShell } from '../journal/shared'
+import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
 import { categoryOptions, postCategories } from '@/modules/site/domain/categories'
 import { useI18n } from '@/i18n/LocaleProvider'
 import AiWritingAssistant from './AiWritingAssistant'
@@ -11,6 +13,7 @@ import PostItemLinks from './PostItemLinks'
 export default function AdminPostsPage() {
   const { t, locale } = useI18n()
   const [cats, setCats] = useState<any[]>([])
+  const vipOn = useModuleEnabled('membership')
 
   useEffect(() => {
     fetch('/api/admin/cms?type=postcats').then((r) => (r.ok ? r.json() : [])).then(setCats)
@@ -48,10 +51,21 @@ export default function AdminPostsPage() {
     { section: S.publish, key: 'access', label: locale === 'fa' ? 'دسترسی' : 'Access', type: 'select', options: [{ value: 'PUBLIC', label: locale === 'fa' ? 'همه' : 'Everyone' }, { value: 'MEMBERS', label: locale === 'fa' ? 'فقط اعضای ویژه (VIP)' : 'VIP members only' }] },
   ]
 
+  const L = (persian: string, english: string) => (locale === 'fa' ? persian : english)
+  const filters: ListFilter[] = [
+    { key: 'state', label: L('وضعیت', 'State'), options: [{ value: 'live', label: L('منتشرشده', 'Live') }, { value: 'scheduled', label: L('زمان‌بندی‌شده', 'Scheduled') }, { value: 'draft', label: L('پیش‌نویس', 'Draft') }, { value: 'trashed', label: L('سطل زباله', 'Trash') }] },
+    { key: 'category', label: L('دسته', 'Category'), options: categoryOptions(cats, locale) },
+    { key: 'featured', label: L('ویژه', 'Featured'), options: [{ value: '1', label: L('فقط ویژه‌ها', 'Featured only') }, { value: '0', label: L('غیرویژه', 'Not featured') }] },
+    ...(vipOn ? [{ key: 'access', label: L('دسترسی', 'Access'), options: [{ value: 'PUBLIC', label: L('عمومی', 'Public') }, { value: 'MEMBERS', label: L('فقط VIP', 'VIP only') }] }] : []),
+  ]
+
   return (
+    <JournalShell>
     <AdminCrud
       type="posts"
       fields={fields}
+      filters={filters}
+      thumbnailKey="cover"
       editorExtraKeys={['itemLinks']}
       renderEditorExtra={(form, setForm, editId) => <><PostItemLinks form={form} setForm={setForm} /><AiWritingAssistant form={form} setForm={setForm} /><PaidAccessPanel ownerType="post" ownerId={editId} noun="این مقاله" /></>}
       extraRows={(row) => ({
@@ -59,5 +73,6 @@ export default function AdminPostsPage() {
         author: row.author?.name || row.author?.email || '—',
       })}
     />
+    </JournalShell>
   )
 }

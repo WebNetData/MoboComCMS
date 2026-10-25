@@ -32,9 +32,9 @@ export default function JournalDashboardPage() {
       </div>
       <div className="sa-queue">
         <Link href="/admin/comments" className={`sa-queue-item${k.pendingComments ? ' is-hot' : ''}`}><b className="num">{fa(k.pendingComments)}</b><span>دیدگاه در انتظار</span></Link>
-        <Link href="/admin/posts" className="sa-queue-item"><b className="num">{fa(k.drafts)}</b><span>پیش‌نویس</span></Link>
-        <Link href="/admin/posts" className="sa-queue-item"><b className="num">{fa(k.scheduled)}</b><span>زمان‌بندی‌شده</span></Link>
-        <Link href="/admin/journal/settings" className="sa-queue-item"><b className="num">{fa(k.featured)}</b><span>مطلب ویژه</span></Link>
+        <Link href="/admin/posts?state=draft" className="sa-queue-item"><b className="num">{fa(k.drafts)}</b><span>پیش‌نویس</span></Link>
+        <Link href="/admin/posts?state=scheduled" className="sa-queue-item"><b className="num">{fa(k.scheduled)}</b><span>زمان‌بندی‌شده</span></Link>
+        <Link href="/admin/posts?featured=1" className="sa-queue-item"><b className="num">{fa(k.featured)}</b><span>مطلب ویژه</span></Link>
       </div>
       <div className="sa-cols">
         <div className="sa-stack">
@@ -47,7 +47,7 @@ export default function JournalDashboardPage() {
             <header className="sa-card-head"><h2>کیفیت مطالب</h2><small>مطالبی که چیزی کم دارند</small></header>
             {data.health.length ? <>
               <div className="ga-health">{data.health.map((row) => <span key={row.key} className="ga-health-chip">{row.label}<b className="num">{fa(row.count)}</b></span>)}</div>
-              <ul className="sa-rows">{data.worst.map((row) => <li key={row.id}><Link href="/admin/posts">{row.cover ? <img src={row.cover} alt="" className="ga-thumb" /> : <span className="sa-ph" />}<span className="sa-grow"><b>{row.title}</b><small>{row.issues.map((issue) => data.health.find((h) => h.key === issue)?.label || issue).join('، ')}</small></span><span className="sa-link">ویرایش</span></Link></li>)}</ul>
+              <ul className="sa-rows">{data.worst.map((row) => <li key={row.id}><Link href={`/admin/posts?edit=${row.id}`}>{row.cover ? <img src={row.cover} alt="" className="ga-thumb" /> : <span className="sa-ph" />}<span className="sa-grow"><b>{row.title}</b><small>{row.issues.map((issue) => data.health.find((h) => h.key === issue)?.label || issue).join('، ')}</small></span><span className="sa-link">ویرایش</span></Link></li>)}</ul>
             </> : <p className="sa-hint">همهٔ مطالب کامل هستند.</p>}
           </section>
         </div>

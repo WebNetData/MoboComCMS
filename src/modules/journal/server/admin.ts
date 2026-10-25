@@ -1,7 +1,10 @@
 import { db } from '@/platform/database/prisma'
 import { plainText } from '@/shared/text/plain'
 import { readJsonSetting, createSectionSettingsHistory, type SectionSettingsContext } from '@/modules/settings/server'
-import { JOURNAL_HEALTH, livePostWhere, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
+import type { Prisma } from '@prisma/client'
+import { categoryDescendants } from '@/modules/site/domain/categories'
+import { categoryMembership } from '@/modules/site/server/categories'
+import { ADMIN_POST_STATES, adminPostStateWhere, type AdminPostFilters, JOURNAL_HEALTH, livePostWhere, normalizeJournalSettings, postIssues, type JournalHealth, type JournalSettings } from '@/modules/journal/domain/journal'
 
 // Journal admin: Liona home settings, editorial dashboard and pickers.
 
@@ -12,6 +15,22 @@ export const restoreJournalSettings = (...args: Parameters<ReturnType<typeof set
 const DAY = 86_400_000
 const DASHBOARD_PAGE = 500
 const tehranDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+
+/** The list's narrowing as query conditions: a category also matches its sub-categories and secondary placements. */
+export async function adminPostFilterWhere(filters: AdminPostFilters, now = new Date()): Promise<Prisma.PostWhereInput[]> {
+  const where: Prisma.PostWhereInput[] = []
+  if (filters.state) where.push(adminPostStateWhere(filters.state, now))
+  if (filters.category) where.push(categoryMembership(categoryDescendants(await db.postCategory.findMany({ select: { id: true, parentId: true, name: true } }), filters.category)))
+  if (filters.featured !== undefined) where.push({ featured: filters.featured })
+  if (filters.access) where.push({ access: filters.access })
+  return where
+}
+
+/** How many of the caller's articles stand in each state, for the list's state filter. */
+export async function adminPostStateCounts(own: Prisma.PostWhereInput | null, now = new Date()) {
+  const counts = await Promise.all(ADMIN_POST_STATES.map((state) => db.post.count({ where: { ...adminPostStateWhere(state, now), ...(own || {}) } })))
+  return Object.fromEntries(ADMIN_POST_STATES.map((state, index) => [state, counts[index]]))
+}
 
 export async function getJournalSettings(fresh = false): Promise<JournalSettings> {
   return fresh ? settingsHistory().read() : normalizeJournalSettings(await readJsonSetting(SETTINGS_KEY))

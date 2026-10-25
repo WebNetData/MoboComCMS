@@ -1,5 +1,18 @@
 # Magazine light edition — 2026-10-15
 
+## Magazine admin: one workspace, a narrowable posts list — 2026-10-25
+
+- The posts, categories and comments pages now sit in the same magazine tabs as the dashboard and settings (`JournalShell` from `src/app/admin/journal/shared.tsx`, the CinemaShell/MediaCrud pattern).
+- The posts list (shared `AdminCrud`, new optional `filters` and `thumbnailKey` props) narrows by state (live, scheduled, draft, trash, with counts), category (its sub-categories and secondary placements included), featured, and VIP access while the membership module is on. The filters are kept in the address. Covers sit beside titles, and ids read in the reader's digits.
+- Server: `parseAdminPostFilters` and `adminPostStateWhere` (pure, `journal/domain/journal.ts`) and `adminPostFilterWhere` / `adminPostStateCounts` (`journal/server/admin.ts`) are applied by the existing cms list route inside the author's own scope and together with search and paging. Unknown values get 400. There are no new routes, permissions, settings or schema changes.
+- The dashboard's draft, scheduled and featured queues open the matching narrowed list, and a quality row opens that article's form (`?edit=<id>`).
+- Evidence:
+  - native PG `journal-admin-filters` (registered) passes, and four deliberate faults each fail it: a scheduled post leaking into live, a category without its sub-categories, an unknown state ignored, filters not applied;
+  - `npm run check` 700/6, the same as main (the 6 failures are the known env-only update-script tests);
+  - TypeScript passes with 0 errors;
+  - React Doctor shows warnings identical to main;
+  - browser `.mobocom/claude-tools/pw-journal-admin.cjs` passes 17/17 on two consecutive runs (desktop and 390px, read-only).
+
 ## Cover visibility and archive pagination — 2026-10-16
 
 Continue `.mobocom/autonomous-foundation`, branch `fix/journal-cover-pagination-2026-10-16`. It is stacked on the locally completed business presentation commit `8856859e`; preserve that batch and unrelated root/untracked `.serena`/`public/demo` work. Both slices continue the existing owners.

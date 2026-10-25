@@ -28,7 +28,8 @@ import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
-import { livePostWhere, publicationDateInput } from '@/modules/journal/domain/journal'
+import { livePostWhere, parseAdminPostFilters, publicationDateInput } from '@/modules/journal/domain/journal'
+import { adminPostFilterWhere, adminPostStateCounts } from '@/modules/journal/server/admin'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
@@ -122,7 +123,13 @@ export async function GET(req: NextRequest) {
     locations: ['country', 'countryFa', 'city'],
   }
   const asked = onlyId ? { id: onlyId } : pageInfo?.query ? { OR: searchFields[type].map((field) => ({ [field]: { contains: pageInfo.query, mode: 'insensitive' } })) } : undefined
-  const where = own ? { ...(asked || {}), ...own } : asked
+  // The posts list may also be narrowed by state, category, featured and access (?state=draft from the dashboard).
+  let narrowed: any[] = []
+  if (type === 'posts' && !onlyId) {
+    try { narrowed = await adminPostFilterWhere(parseAdminPostFilters(req.nextUrl.searchParams)) } catch (error) { return err(error instanceof Error ? error.message : 'invalid filter', 400) }
+  }
+  const scoped = own ? { ...(asked || {}), ...own } : asked
+  const where = narrowed.length ? { AND: [...(scoped ? [scoped] : []), ...narrowed] } : scoped
   const total = pageInfo ? await model.count({ where }) : 0
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
@@ -132,7 +139,7 @@ export async function GET(req: NextRequest) {
   if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), orderFields: readOrderFields(row.orderFields), openMin: row.openMinMinor > 0n ? (Number(row.openMinMinor) / 100).toString() : '', openMax: row.openMaxMinor > 0n ? (Number(row.openMaxMinor) / 100).toString() : '', openMinMinor: undefined, openMaxMinor: undefined, fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
   const published = type === 'posts' ? await model.count({ where: { ...livePostWhere(), ...(own || {}) } }) : type === 'pages' ? await model.count({ where: { status: 'PUBLISHED' } }) : type === 'products' ? await model.count({ where: publicProductWhere }) : null
-  return ok({ rows: result, total, overall: await model.count(own ? { where: own } : undefined), published, page: slice.page, pages: slice.pages, ...(type === 'posts' ? { trashed: await model.count({ where: { status: TRASHED, ...(own || {}) } }), mine: !!own } : {}) })
+  return ok({ rows: result, total, overall: await model.count(own ? { where: own } : undefined), published, page: slice.page, pages: slice.pages, ...(type === 'posts' ? { trashed: await model.count({ where: { status: TRASHED, ...(own || {}) } }), mine: !!own, counts: { state: await adminPostStateCounts(own) } } : {}) })
 }
 
 async function productCategoryParent(parentId: unknown, currentId?: number) {
