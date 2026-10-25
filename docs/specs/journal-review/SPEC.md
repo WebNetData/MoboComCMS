@@ -17,7 +17,7 @@ existing cms content route (`src/modules/site/server/http/admin/cms/route.ts`). 
 - the Inbox notices.
 
 The feature deliberately does not do:
-- pending edits of a live article (a writer cannot change a published article while review is on);
+- pending edits of a live article: added as slice 2 below (2026-10-26);
 - multi-step or multi-reviewer approval;
 - review for other sections.
 
@@ -117,3 +117,42 @@ Browser (real admin):
 - the manager sees the pending queue, approves from the form and returns with a note;
 - the author sees the notice;
 - the setting is restored afterwards.
+
+## Slice 2: edit proposals of published articles (2026-10-26)
+
+**Outcome.** While review is on, an author's save of their own published article no longer gets refused. It is kept as that article's proposal and the site keeps the live version. The manager sees it beside the live values and applies it, or sets it aside with a note.
+
+**Data.** `PostEditProposal` (migration `20270119120000_post_edit_proposals`, both schemas, manifest unreleased):
+- one row per article (`postId` unique, cascades with the article);
+- `changes` holds a JSON object of only the proposed fields;
+- `baseUpdatedAt` records when the live article was last saved as the proposal was made.
+
+Rollback leaves an unused table.
+
+**Rules** (`journal/domain/journal.ts`: `PROPOSAL_TEXT_FIELDS`, `proposalChanges`, `readProposalChanges`; owner `journal/server/review.ts`):
+- A proposal carries title, excerpt, body, cover and categories (and their English fields), and only those that differ from the live article. Status, publication time, address, featuring, access and item links are never proposed.
+- A save that changes nothing gets 400.
+- A newer proposal replaces the open one.
+- The body of an article written in blocks is not proposed through the form, and the block editor still refuses the author with a message that points to the form.
+- **Apply**, in one transaction: delete the proposal by compare-and-set (`id` + `updatedAt`), write the fields, rewrite the categories (only ones that still exist; otherwise 400 and the proposal stays), record a version and an audit row `cms.posts.proposal.apply`, then send the author an Inbox notice `POST_REVIEW`.
+- **Reject:** delete the proposal by compare-and-set, write the audit row `cms.posts.proposal.reject` and send a notice with the note.
+- A decision carries the `proposalAt` it read. If the author has since replaced the proposal, or it is already decided, the decision gets 409.
+- The form marks a proposal "stale" when the live article changed after it was made; applying replaces only the proposed fields.
+- With review off, an author edits their published article directly, as before.
+
+**API.**
+- `PATCH /api/admin/cms?type=posts`:
+  - an author's ordinary save of a published article (review on) answers `{ proposed, fields, notice }`;
+  - the manager sends `{ id, proposalDecision: "apply" | "reject", proposalAt, note? }`; an author sending it gets 403.
+- List and single reads carry `proposal: { changes, at, stale } | null`.
+- The state filter gains `proposed`, with a count.
+- The dashboard gains `kpis.proposals`.
+- The staff overview gains the source `proposal-posts`.
+
+**Acceptance.** Native PG `journal-proposals` (registered) passes, and four deliberate faults each fail it:
+- the proposal path removed;
+- unchanged fields proposed;
+- a decision that keeps the proposal;
+- a replaced proposal decided.
+
+Browser `pw-journal-proposals` passes 13/13: the author form hides status, time and address and says «ارسال پیشنهاد ویرایش»; the save is a proposal and the live article stays; the dashboard, staff overview and filter list it; the diff panel shows both versions; apply changes the live article and the author is told.

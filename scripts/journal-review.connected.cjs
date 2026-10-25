@@ -52,7 +52,9 @@ async function main() {
   }
   assert.equal(await count(), before, 'a refused create writes nothing')
   r = await call('PATCH', { id: freeId, title: 'changed' })
-  assert.equal(r.status, 403, 'a published article is the editor\'s to change')
+  // A published article is the editor's to change: the author's save becomes a proposal (see journal-proposals) and the article stays.
+  assert.deepEqual([r.status, r.body?.proposed], [200, true], 'a save of a published article is a proposal')
+  await prisma.postEditProposal.deleteMany({ where: { postId: freeId } })
   r = await call('BULK', { ids: [freeId], action: 'draft' })
   assert.deepEqual(r.body?.failed?.map((f) => f.id), [freeId], 'a batch does not take a published article off the site')
   const live = await post(freeId)

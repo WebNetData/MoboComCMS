@@ -29,7 +29,7 @@ import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { PENDING_REVIEW, PostReviewError, approvalPublishedAt, authorReviewRefusal, livePostWhere, parseAdminPostFilters, postFormStatus, publicationDateInput, type PostFormStatus } from '@/modules/journal/domain/journal'
-import { decidePostReview, reviewingAuthorPosts, tellReviewDecision } from '@/modules/journal/server/review'
+import { decidePostProposal, decidePostReview, proposalView, proposePostEdit, reviewingAuthorPosts, tellReviewDecision } from '@/modules/journal/server/review'
 import { adminPostFilterWhere, adminPostStateCounts } from '@/modules/journal/server/admin'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
   }
 
   const model = MODELS[type]()
-  const include = type === 'posts' ? { category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
+  const include = type === 'posts' ? { editProposal: true, category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
   let result: any[] = rows
-  if (type === 'posts') result = rows.map((row: any) => ({ ...row, categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
+  if (type === 'posts') result = rows.map((row: any) => ({ ...row, editProposal: undefined, proposal: proposalView(row), categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
   if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), orderFields: readOrderFields(row.orderFields), openMin: row.openMinMinor > 0n ? (Number(row.openMinMinor) / 100).toString() : '', openMax: row.openMaxMinor > 0n ? (Number(row.openMaxMinor) / 100).toString() : '', openMinMinor: undefined, openMaxMinor: undefined, fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
@@ -320,7 +320,19 @@ export async function PATCH(req: NextRequest) {
     }
     let asked: PostFormStatus | undefined
     try { asked = postFormStatus(b?.status) } catch (error) { return err(error instanceof Error ? error.message : 'invalid status', 400) }
-    if (caller.authorId) { const refusal = authorReviewRefusal({ reviewing: await reviewingAuthorPosts(), current: held, asked, creating: false }); if (refusal) return err(refusal, 403) }
+    // The manager's decision on an author's proposed edit of a published article.
+    if (b?.proposalDecision !== undefined) {
+      if (caller.authorId) return err('تصمیم دربارهٔ پیشنهاد با سردبیر است', 403)
+      try { return ok(await decidePostProposal({ req, actor: admin, id, decision: b.proposalDecision, expected: b.proposalAt, note: b.note })) } catch (error) { return err(error instanceof Error ? error.message : 'invalid proposal', error instanceof PostReviewError ? error.status : 400) }
+    }
+    if (caller.authorId) {
+      const reviewing = await reviewingAuthorPosts()
+      // While review is on a published article changes only through the editor: the author's save is a proposal.
+      if (reviewing && held.status === 'PUBLISHED') {
+        try { return ok(await proposePostEdit({ req, actor: admin, id, body: b || {}, sanitize: sanitizeContent })) } catch (error) { return err(error instanceof Error ? error.message : 'invalid proposal', error instanceof PostReviewError ? error.status : 400) }
+      }
+      const refusal = authorReviewRefusal({ reviewing, current: held, asked, creating: false }); if (refusal) return err(refusal, 403)
+    }
     else if (held.status === PENDING_REVIEW && (asked === 'PUBLISHED' || asked === 'DRAFT')) reviewed = { decision: asked === 'PUBLISHED' ? 'approve' : 'return', authorId: held.authorId, title: held.title, publishedAt: held.publishedAt }
   }
 

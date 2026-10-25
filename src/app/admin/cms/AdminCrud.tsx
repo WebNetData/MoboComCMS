@@ -33,6 +33,8 @@ export interface FieldDef {
   dir?: 'ltr' | 'rtl'
   /** Spans the whole row of its section (an article's title). */
   wide?: boolean
+  /** Shown only while this holds for the form (hidden fields keep their value and are still sent). */
+  showWhen?: (form: Record<string, any>) => boolean
   /** Fields with the same section are shown together under that heading, in the order the section first appears. */
   section?: string
 }
@@ -55,10 +57,10 @@ interface Props {
   aside?: string[]
   /** What the list answered about the caller (e.g. `mine`, `reviewing`); give a stable function. */
   onListMeta?: (meta: Record<string, unknown>) => void
-  /** Why a row cannot be edited by this caller now, shown instead of its edit actions; null when it can. */
-  rowLocked?: (row: any) => string | null
   /** Shown in the side column under the save button (a decision panel). */
   renderAsideExtra?: (form: Record<string, any>, editId: number | null) => React.ReactNode
+  /** What the save button says for this form when it is not a plain save (null: the usual words). */
+  submitLabel?: (form: Record<string, any>, editId: number | null) => string | null
 }
 
 /** The form's sections in the order they first appear; one untitled group when no field names a section. */
@@ -80,7 +82,7 @@ function localDateTime(value: unknown): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside, onListMeta, rowLocked, renderAsideExtra }: Props) {
+export default function AdminCrud({ type, fields: allFields, titleKey = 'title', extraRows, editorExtraKeys = [], renderEditorExtra, headerActions, filters, thumbnailKey, aside, onListMeta, renderAsideExtra, submitLabel }: Props) {
   const vipOn = useModuleEnabled('membership')
   const fields = useMemo(() => (vipOn ? allFields : allFields.filter((field) => !VIP_FIELD_KEYS.includes(field.key))), [allFields, vipOn])
   const formId = useId()
@@ -132,6 +134,8 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const [editFormat, setEditFormat] = useState('legacy')
   const [legacyBody, setLegacyBody] = useState(false)
   const [msg, setMsg] = useState('')
+  // What a save answered for the reader (an edit kept as a proposal), shown above the list until the next save.
+  const [notice, setNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -293,6 +297,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
     }
     // A new page or article goes straight to the block editor for its body.
     if (blockDriven && !editId && data?.id) { window.location.assign(`/admin/editor/${type}/${data.id}`); return }
+    setNotice(typeof data?.notice === 'string' ? data.notice : '')
     setEditId(null)
     setShowForm(false)
     emptyForm()
@@ -366,10 +371,10 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
   const sectionBox = (section: { title: string; fields: FieldDef[] }) => <fieldset key={section.title} className="mx-section"><legend className="mx-section-title">{section.title}</legend><div className="mx-grid">{section.fields.map(fieldBox)}</div></fieldset>
   const historyLink = editId && (type === 'posts' || type === 'pages' || type === 'products') ? <a className="mx-form-history" href={`/admin/history?type=${type}&id=${editId}`} target="_blank" rel="noreferrer">{fa ? 'تاریخچهٔ نسخه‌ها' : 'Version history'}</a> : null
   const formActions = <div className="flex gap-2 cms-form-actions">
-    <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add}</button>
+    <button type="submit" className="btn btn-primary flex-1" disabled={uploading || saving}>{submitLabel?.(form, editId) || (needsReview ? scheduledPost ? (fa ? 'بازبینی و زمان‌بندی' : 'Review & schedule') : (fa ? 'بازبینی و انتشار' : 'Review & publish') : editId ? t.save : t.add)}</button>
     <button type="button" className="btn btn-ghost" disabled={uploading} onClick={() => { setEditId(null); emptyForm(); setShowForm(false) }}>{t.cancel}</button>
   </div>
-  const fieldBox = (fl: FieldDef) => (
+  const fieldBox = (fl: FieldDef) => fl.showWhen && !fl.showWhen(form) ? null : (
     <div key={fl.key} className={`mx-field ${fl.type === 'multiselect' || fl.type === 'textarea' || fl.type === 'richtext' || fl.type === 'image' ? 'grid-column-span-3' : ''}${fl.wide ? ' is-wide' : ''}${isAi(fl.key) ? ' is-ai' : ''}`}>
       {!['checkbox', 'multiselect', 'image', 'richtext'].includes(fl.type || '') ? <label className="label" htmlFor={`${formId}-${fl.key}`}>{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</label> : <span className="label">{fl.label}{isAi(fl.key) && <span className="ai-badge">پیشنهاد AI</span>}</span>}
       {blockDriven && fl.key === 'content' && !legacyBody ? (
@@ -430,6 +435,7 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
       </div>
       <div className="cms-summary mx-toolbar"><div><span>{fa ? 'همه موارد' : 'Total'}</span><b>{overall.toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>{publicPath && <div><span>{fa ? 'منتشرشده / فعال' : 'Published / active'}</span><b>{(published ?? 0).toLocaleString(fa ? 'fa-IR' : 'en-US')}</b></div>}{trashed > 0 && <div><span>{mine ? 'در سطل زباله، منتظر مدیر' : 'در سطل زباله، منتظر تصمیم شما'}</span><b>{trashed.toLocaleString('fa-IR')}</b></div>}<label className="cms-search"><span>{fa ? 'جست‌وجو در فهرست' : 'Search entries'}</span><input className="input" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={fa ? 'عنوان یا نشانی…' : 'Title or slug…'} /></label>{filters?.map((filter) => <label key={filter.key} className="cms-filter"><span>{filter.label}</span><select className="input" value={filterValues?.[filter.key] || ''} onChange={(e) => setFilter(filter.key, e.target.value)}><option value="">{fa ? `${filter.label}: همه` : `${filter.label}: all`}</option>{filter.options.map((option) => <option key={option.value} value={option.value}>{option.label}{counts[filter.key]?.[option.value] !== undefined ? ` (${counts[filter.key][option.value].toLocaleString(fa ? 'fa-IR' : 'en-US')})` : ''}</option>)}</select></label>)}{filtered && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { for (const filter of filters || []) setFilter(filter.key, '') }}>{fa ? 'پاک‌کردن فیلترها' : 'Clear filters'}</button>}</div>
 
+      {notice && <p className="cms-notice" role="status">{notice}</p>}
       <AdminPagination fa={fa} page={page} pages={pages} size={pageSize} total={total} shown={rows.length} busy={loading || bulkBusy} onPage={setPage} onSize={(size) => { setPage(1); setPageSize(size) }} />
 
       {bulkEnabled && <><BulkActions count={selected.size} canPublish fa={fa} busy={bulkBusy} progress={bulkProgress} onApply={applyBulk} onClear={() => setSelected(new Set())} />{bulkMsg && <p className={bulkMsg.tone === 'err' ? 'error-text cms-bulk-message' : 'cms-bulk-message'} role="status">{bulkMsg.text}</p>}</>}
@@ -511,13 +517,11 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
                           <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>حذف نهایی</button>
                         </>}
                       </div> : <div className="flex gap-1 crud-actions">
-                        {rowLocked?.(row) ? <span className="muted text-sm crud-locked">{rowLocked(row)}</span> : <>
                         <button className="badge badge-purple" disabled={uploading || bulkBusy} onClick={() => edit(row)}>{t.edit}</button>
                         {blockDriven && <Link className="badge badge-blue" href={`/admin/editor/${type}/${row.id}`}>{fa ? 'ویرایشگر بلوکی' : 'Block editor'}</Link>}
                         {type === 'pages' && <Link className="badge badge-purple" href={`/admin/builder/${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'posts' && !mine && <Link className="badge badge-purple" href={`/admin/builder/post-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
                         {type === 'products' && <Link className="badge badge-purple" href={`/admin/builder/product-${row.id}`}>{fa ? 'صفحه‌ساز' : 'Visual builder'}</Link>}
-                        </>}
                         {publicPath && !scheduled && (row.status === 'PUBLISHED' || (row.active === true && (type !== 'products' || row.approval === 'APPROVED'))) && <Link className="badge badge-gray" href={`${publicPath}${row.slug}`} target="_blank" rel="noopener noreferrer">{fa ? 'مشاهده ↗' : 'View ↗'}</Link>}
                         <button className="badge badge-red" disabled={bulkBusy} onClick={() => remove(row.id)}>{mine ? 'درخواست حذف' : t.delete}</button>
                       </div>}
