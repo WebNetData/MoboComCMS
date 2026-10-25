@@ -337,6 +337,8 @@ test('an author permission is taken only by the content owners, through the scop
     'src/app/admin/layout.tsx',
     // The title form's people suggestions: through the scope guard, an author sees people of published titles and their own.
     'src/modules/cinema/server/http/people.ts',
+    // The title form's list of formats (film, series, anime…): not anyone's own items; an author only reads it, through the scope guard.
+    'src/modules/cinema/server/http/formats.ts',
     'src/plugins/cinema/manifest.json', 'src/plugins/games/manifest.json', 'src/plugins/journal/manifest.json', 'src/plugins/music/manifest.json', 'src/plugins/software/manifest.json',
   ].sort(), 'a new place accepts an author permission: it must hold the author to their own items, then be listed here')
   const authorMenus = read('src/app/admin/layout.tsx').split(/\r?\n/).filter(line => names.some(name => line.includes(name)))

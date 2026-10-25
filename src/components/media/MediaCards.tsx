@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { scoreBand } from '@/modules/media/domain/media'
 import Slider from '@/components/site/Slider'
 import { sized, srcSet } from '@/shared/media/image'
+import { formatLabel } from '@/modules/cinema/domain/formats'
 
 /** Presentational building blocks shared by the music, cinema and games sections. */
 
@@ -48,7 +49,7 @@ export function EmptyState({ fa, title, text }: Fa & { title?: string; text?: st
 
 // ------------------------------------------------------------------ cinema
 
-type TitleLike = { slug: string; kind: string; title: string; titleEn: string; poster: string; year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean; access: string; seasonsCount: number; recommendationReason?: string }
+type TitleLike = { slug: string; kind: string; format?: { name: string; nameEn: string } | null; title: string; titleEn: string; poster: string; year: number | null; imdbRating: number | null; genres: string[]; quality: string; dubbed: boolean; subtitle: boolean; access: string; seasonsCount: number; recommendationReason?: string }
 
 export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: number }) {
   const name = fa ? item.title : item.titleEn || item.title
@@ -67,7 +68,7 @@ export function PosterCard({ item, fa, rank }: Fa & { item: TitleLike; rank?: nu
       </span>
       <span className="cn-poster-title">{name}</span>
       <span className="cn-poster-meta">
-        {item.kind === 'SERIES' ? (fa ? 'سریال' : 'Series') : (fa ? 'فیلم' : 'Movie')}
+        {formatLabel(item, fa)}
         {item.year ? ` · ${yr(item.year, fa)}` : ''}
         {item.kind === 'SERIES' && item.seasonsCount ? ` · ${n(item.seasonsCount, fa)} ${fa ? 'فصل' : item.seasonsCount > 1 ? 'seasons' : 'season'}` : ''}
       </span>

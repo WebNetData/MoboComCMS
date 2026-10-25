@@ -1667,7 +1667,10 @@ model UserCollectionReaction {
 model CinemaTitle {
   id            Int            @id @default(autoincrement())
   slug          String         @unique
-  kind          String         @default("MOVIE") // MOVIE | SERIES
+  kind          String         @default("MOVIE") // MOVIE | SERIES — follows the format's structure
+  // The managed kind of title (film, series, anime…); a format in use cannot be deleted.
+  formatId      Int?
+  format        CinemaFormat?  @relation(fields: [formatId], references: [id], onDelete: Restrict)
   title         String
   titleEn       String         @default("")
   originalTitle String         @default("")
@@ -1714,7 +1717,27 @@ model CinemaTitle {
 
   @@index([kind, status, publishedAt])
   @@index([kind, status, releaseDate])
+  @@index([formatId, status, publishedAt])
   @@index([createdById])
+}
+
+/// A kind of film or series the owner manages (film, series, anime, documentary…). `structure` says whether a title of
+/// this kind is one work (MOVIE: links on the title) or has seasons and episodes (SERIES); the title's `kind` follows it.
+model CinemaFormat {
+  id        Int           @id @default(autoincrement())
+  slug      String        @unique
+  name      String
+  nameEn    String        @default("")
+  // The plural for shelves, menus and the browse heading ("انیمه‌ها").
+  plural    String        @default("")
+  structure String        @default("MOVIE") // MOVIE | SERIES
+  icon      String        @default("")
+  sortOrder Int           @default(0)
+  // An inactive format is not offered for new titles nor in the public filter; titles that have it keep it.
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @default(now()) @updatedAt
+  titles    CinemaTitle[]
 }
 
 /// A person of films and series (director, producer, cast), read out of the titles' own director and producer lines and cast list.

@@ -1,18 +1,45 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import MediaCrud, { type MediaField } from '../../cms/MediaCrud'
 import { commonFields } from '../../cms/media-fields'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { CinemaShell } from '../shared'
+import { structureOf, type CinemaFormat } from '@/modules/cinema/domain/formats'
 
-// A film's own fields and a series' own fields: each is shown only for its kind and keeps its value either way.
-const isSeries = (form: Record<string, unknown>) => form.kind === 'SERIES'
-const isFilm = (form: Record<string, unknown>) => form.kind !== 'SERIES'
+type Format = CinemaFormat & { titles: number }
+
+/** The managed formats (film, series, anime…) for the type list; an author reads them too. */
+function useFormats() {
+  const [formats, setFormats] = useState<Format[]>([])
+  useEffect(() => {
+    let alive = true
+    fetch('/api/admin/cinema/formats', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((data) => { if (alive && data?.formats) setFormats(data.formats) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return formats
+}
 
 export default function AdminCinemaPage() {
   const { locale } = useI18n()
   const fa = locale === 'fa'
   const L = (persian: string, english: string) => (fa ? persian : english)
+  const formats = useFormats()
+  const byId = new Map(formats.map((format) => [String(format.id), format]))
+  const nameOf = (format: Format) => `${format.icon ? `${format.icon} ` : ''}${fa ? format.name : format.nameEn || format.name}`
+  // A film's own fields and a series' own fields follow the chosen format's structure (or the kind, before one is
+  // chosen); a hidden field keeps its value either way.
+  const structure = (form: Record<string, unknown>) => byId.get(String(form.formatId ?? ''))?.structure ?? structureOf(form.kind)
+  const isSeries = (form: Record<string, unknown>) => structure(form) === 'SERIES'
+  const isFilm = (form: Record<string, unknown>) => structure(form) !== 'SERIES'
+  const formatOptions = [
+    { value: '', label: L('خودکار: فیلم یا سریال (طبق اطلاعات IMDb)', 'Automatic: film or series (from IMDb data)') },
+    ...formats.map((format) => ({ value: String(format.id), label: `${nameOf(format)}${format.active ? '' : L(' (غیرفعال)', ' (inactive)')}` })),
+  ]
+  const formatCell = (row: Record<string, unknown>) => {
+    const format = byId.get(String(row.formatId ?? ''))
+    return <span className="mx-tag">{format ? nameOf(format) : row.kind === 'SERIES' ? L('سریال', 'Series') : L('فیلم سینمایی', 'Movie')}</span>
+  }
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
   const S = {
     main: L('اطلاعات اصلی', 'Basics'),
@@ -26,7 +53,7 @@ export default function AdminCinemaPage() {
     publish: L('انتشار و دسترسی', 'Publishing & access'),
   }
   const fields: MediaField[] = [
-    { section: S.main, key: 'kind', label: L('نوع', 'Type'), type: 'select', options: [{ value: 'MOVIE', label: L('فیلم سینمایی', 'Movie') }, { value: 'SERIES', label: L('سریال', 'Series') }], table: true },
+    { section: S.main, key: 'formatId', label: L('نوع', 'Type'), type: 'select', options: formatOptions, table: formatCell, hint: L('انواع تازه (انیمه، مستند…) را در زبانهٔ «انواع» بسازید.', 'Create new types (anime, documentary…) under Types.') },
     { section: S.main, key: 'title', label: L('عنوان فارسی', 'Title'), required: true, table: true },
     { section: S.main, key: 'titleEn', label: L('عنوان انگلیسی', 'English title'), dir: 'ltr' },
     { section: S.main, key: 'originalTitle', label: L('نام اصلی', 'Original title'), dir: 'ltr' },

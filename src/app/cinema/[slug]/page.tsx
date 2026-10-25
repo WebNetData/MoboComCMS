@@ -22,6 +22,7 @@ import Trailer from '@/components/media/Trailer'
 import { toPublicPath } from '@/platform/routing/aliases'
 import Slider from '@/components/site/Slider'
 import { safeJsonLd } from '@/shared/seo/json-ld'
+import { formatLabel } from '@/modules/cinema/domain/formats'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -95,7 +96,7 @@ export default async function TitlePage({ params }: Props) {
         <div className="container cn-detail-inner">
           <div className="cn-detail-poster">{ti.poster ? <img src={ti.poster} alt={name} /> : <span className="cn-noart">🎬</span>}{ti.access === 'MEMBERS' && <VipBadge fa={fa} />}</div>
           <div className="cn-detail-info">
-            <nav className="cn-crumbs"><Link href="/cinema">{fa ? 'فیلم و سریال' : 'Cinema'}</Link> / <Link href={`/cinema/browse?kind=${ti.kind}`}>{ti.kind === 'SERIES' ? (fa ? 'سریال' : 'Series') : (fa ? 'فیلم' : 'Movies')}</Link></nav>
+            <nav className="cn-crumbs"><Link href="/cinema">{fa ? 'فیلم و سریال' : 'Cinema'}</Link> / <Link href={ti.format ? `/cinema/browse?format=${ti.format.slug}` : `/cinema/browse?kind=${ti.kind}`}>{formatLabel(ti, fa)}</Link></nav>
             <h1>{name}</h1>
             {ti.originalTitle && ti.originalTitle !== name && <p className="cn-hero-sub" dir="ltr">{ti.originalTitle}{ti.year ? ` (${ti.year}${ti.endYear ? `–${ti.endYear}` : ''})` : ''}</p>}
             <div className="cn-meta">
