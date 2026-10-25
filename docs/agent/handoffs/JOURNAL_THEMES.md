@@ -1,5 +1,24 @@
 # Magazine light edition — 2026-10-15
 
+## Edit proposals of published articles — 2026-10-26
+
+Spec slice 2: [docs/specs/journal-review/SPEC.md](../../specs/journal-review/SPEC.md).
+- **Data:** table `PostEditProposal`, migration `20270119120000_post_edit_proposals`.
+- **Logic:** the pure rules sit in the journal domain; the owner in `journal/server/review.ts` handles `proposePostEdit`, `decidePostProposal`, `proposalView` and `waitingProposals`; the cms route wires them in.
+- **Admin UI:**
+  - `PostProposalPanel` shows the manager a diff and apply/reject;
+  - `PostProposalNotice` tells the author what a save does;
+  - `AdminCrud` gains `FieldDef.showWhen`, `submitLabel` and a save `notice`;
+  - the unused `rowLocked` was removed.
+- **Where proposals show:** the dashboard item «پیشنهاد ویرایش», the filter `state=proposed` and the staff-overview source `proposal-posts`.
+- **Evidence:**
+  - native PG `journal-proposals` passes, and four deliberate faults each fail it;
+  - `journal-review` still passes (its live-edit expectation is now a proposal);
+  - `npm run check` is 701/6 (schema parity and the migration list pass); the moderation-queue and dashboard units were updated;
+  - TypeScript passes with 0 errors;
+  - React Doctor reports no warnings beyond the base branch;
+  - browser: `pw-journal-proposals` 13/13, `pw-journal-review` 13/13, `pw-journal-admin` 17/17 and `pw-journal-polish` 17/17, fixtures removed and the setting restored.
+
 ## Public magazine audit: listing SEO, picture sizes, translate control — 2026-10-25
 
 An audit after the admin batch covered 8 public magazine pages × light/dark × 1440/390 (home, archive, category, search, empty search, two articles, page 2). It measured status, timings, overflow, page and console errors, SEO tags, JSON-LD, pictures and WCAG 2.1 AA (axe). Raw report and helper: `.mobocom/claude-tools/audit-journal-public.cjs`, `shots/journal-public/report*.json`.

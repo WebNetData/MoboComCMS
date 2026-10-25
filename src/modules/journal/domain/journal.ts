@@ -96,13 +96,43 @@ export function authorReviewRefusal(input: { reviewing: boolean; current?: { sta
 export const approvalPublishedAt = (publishedAt: Date, now = new Date()) => (publishedAt.getTime() > now.getTime() ? publishedAt : now)
 export const REVIEW_NOTE_LIMIT = 1000
 
+/** What an author may propose for a published article: its words, picture and categories; never status, time or address. */
+export const PROPOSAL_TEXT_FIELDS = ['title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover'] as const
+export type ProposalTextField = typeof PROPOSAL_TEXT_FIELDS[number]
+export type PostProposalChanges = Partial<Record<ProposalTextField, string>> & { categoryIds?: number[] }
+const sameIds = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((id, index) => id === b[index])
+/**
+ * The proposal an author's save makes: each proposable field the save carries that differs from the live article
+ * (categories in their chosen order, the first being the main one). Empty when the save changes nothing.
+ */
+export function proposalChanges(current: Partial<Record<ProposalTextField, string | null>> & { categoryIds: readonly number[] }, asked: Partial<Record<ProposalTextField, unknown>> & { categoryIds?: readonly number[] }): PostProposalChanges {
+  const changes: PostProposalChanges = {}
+  for (const field of PROPOSAL_TEXT_FIELDS) {
+    const value = asked[field]
+    if (typeof value === 'string' && value !== (current[field] ?? '')) changes[field] = value
+  }
+  if (asked.categoryIds && !sameIds(asked.categoryIds, current.categoryIds)) changes.categoryIds = [...asked.categoryIds]
+  return changes
+}
+/** A stored proposal read back; anything not proposable is dropped. */
+export function readProposalChanges(json: string): PostProposalChanges {
+  let raw: unknown
+  try { raw = JSON.parse(json) } catch { return {} }
+  if (!raw || typeof raw !== 'object') return {}
+  const value = raw as Record<string, unknown>, changes: PostProposalChanges = {}
+  for (const field of PROPOSAL_TEXT_FIELDS) if (typeof value[field] === 'string') changes[field] = value[field] as string
+  if (Array.isArray(value.categoryIds) && value.categoryIds.every((id) => Number.isSafeInteger(id) && (id as number) > 0)) changes.categoryIds = value.categoryIds as number[]
+  return changes
+}
+
 /** Where an article stands in the admin list: live, published for later, a draft, or waiting in the trash. */
-export const ADMIN_POST_STATES = ['live', 'scheduled', 'pending', 'draft', 'trashed'] as const
+export const ADMIN_POST_STATES = ['live', 'scheduled', 'pending', 'proposed', 'draft', 'trashed'] as const
 export type AdminPostState = typeof ADMIN_POST_STATES[number]
 export function adminPostStateWhere(state: AdminPostState, now = new Date()) {
   if (state === 'live') return livePostWhere(now)
   if (state === 'scheduled') return { status: 'PUBLISHED' as const, publishedAt: { gt: now } }
   if (state === 'pending') return { status: PENDING_REVIEW }
+  if (state === 'proposed') return { editProposal: { isNot: null } }
   return { status: state === 'draft' ? 'DRAFT' as const : 'TRASHED' as const }
 }
 /** The posts list's narrowing asked in the address; an unknown value is refused rather than silently ignored. */

@@ -1,7 +1,7 @@
 import { orderGroups, visibleSources, type QueueGroup, type QueueSourceKey } from '@/modules/moderation/domain/queue'
 import { waitingForModeration as forumWaiting } from '@/modules/forum/server/moderation'
 import { waitingForModeration as journalWaiting, waitingInTrash as postsInTrash } from '@/modules/journal/server/admin'
-import { waitingForReview as postsInReview } from '@/modules/journal/server/review'
+import { waitingForReview as postsInReview, waitingProposals as postProposals } from '@/modules/journal/server/review'
 import { waitingInTrash as mediaInTrash } from '@/modules/media/server/admin'
 import { waitingForModeration as reviewsWaiting } from '@/modules/reviews/server/reviews'
 import { waitingForModeration as businessesWaiting } from '@/modules/businesses/server/businesses'
@@ -29,15 +29,16 @@ export async function moderationQueue(states: Readonly<Record<string, boolean | 
     read('businesses', () => businessesWaiting(TAKE)),
   ])
   // Delete requests of section authors, each read from the owner of that kind of item.
-  const [trashPosts, trashCinema, trashTracks, trashAlbums, trashSoftware, trashGames, reviewPosts] = await Promise.all([
+  const [trashPosts, trashCinema, trashTracks, trashAlbums, trashSoftware, trashGames, reviewPosts, proposalPosts] = await Promise.all([
     read('journal', () => postsInTrash(TAKE)), read('cinema', () => mediaInTrash('cinema-titles', TAKE)), read('music', () => mediaInTrash('music-tracks', TAKE)),
     read('music', () => mediaInTrash('music-albums', TAKE)), read('software', () => mediaInTrash('software', TAKE)),
     read('games', () => mediaInTrash('games', TAKE)), read('journal', () => postsInReview(TAKE)),
+    read('journal', () => postProposals(TAKE)),
   ])
   const bySource: Record<QueueSourceKey, Waiting | null | undefined> = {
     'forum-posts': forum?.posts, 'forum-flags': forum?.flags, 'article-comments': journal, 'item-reviews': reviews, 'business-experiences': businesses,
     'product-reviews': store?.reviews, 'product-questions': store?.questions, 'community-reports': community, copyright,
-    'review-posts': reviewPosts, 'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-games': trashGames, 'trash-software': trashSoftware,
+    'review-posts': reviewPosts, 'proposal-posts': proposalPosts, 'trash-posts': trashPosts, 'trash-cinema': trashCinema, 'trash-music-tracks': trashTracks, 'trash-music-albums': trashAlbums, 'trash-games': trashGames, 'trash-software': trashSoftware,
   }
   const failed: QueueSourceKey[] = []
   const groups: QueueGroup[] = []

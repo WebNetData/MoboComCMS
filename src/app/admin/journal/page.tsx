@@ -5,7 +5,7 @@ import { DailyBars } from '../cms/SectionAdmin'
 import { JournalShell, Notice, fa, faDate, useJson } from './shared'
 
 type Dashboard = {
-  kpis: { published: number; drafts: number; scheduled: number; reviewWaiting: number; views: number; posts30: number; pendingComments: number; comments30: number; vip: number; featured: number; categories: number }
+  kpis: { published: number; drafts: number; scheduled: number; reviewWaiting: number; proposals: number; views: number; posts30: number; pendingComments: number; comments30: number; vip: number; featured: number; categories: number }
   series: { day: string; comments: number; posts: number }[]
   health: { key: string; label: string; count: number }[]
   worst: { id: number; title: string; cover: string; issues: string[] }[]
@@ -33,6 +33,7 @@ export default function JournalDashboardPage() {
       <div className="sa-queue">
         <Link href="/admin/comments" className={`sa-queue-item${k.pendingComments ? ' is-hot' : ''}`}><b className="num">{fa(k.pendingComments)}</b><span>دیدگاه در انتظار</span></Link>
         <Link href="/admin/posts?state=pending" className={`sa-queue-item${k.reviewWaiting ? ' is-hot' : ''}`}><b className="num">{fa(k.reviewWaiting)}</b><span>در انتظار بازبینی</span></Link>
+        {k.proposals > 0 && <Link href="/admin/posts?state=proposed" className="sa-queue-item is-hot"><b className="num">{fa(k.proposals)}</b><span>پیشنهاد ویرایش</span></Link>}
         <Link href="/admin/posts?state=draft" className="sa-queue-item"><b className="num">{fa(k.drafts)}</b><span>پیش‌نویس</span></Link>
         <Link href="/admin/posts?state=scheduled" className="sa-queue-item"><b className="num">{fa(k.scheduled)}</b><span>زمان‌بندی‌شده</span></Link>
         <Link href="/admin/posts?featured=1" className="sa-queue-item"><b className="num">{fa(k.featured)}</b><span>مطلب ویژه</span></Link>

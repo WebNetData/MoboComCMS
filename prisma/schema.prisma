@@ -667,6 +667,7 @@ model Post {
   author      User?         @relation(fields: [authorId], references: [id])
   category    PostCategory? @relation(fields: [categoryId], references: [id])
   categories  PostCategoryAssignment[]
+  editProposal PostEditProposal?
   comments    PostComment[]
   itemLinks   PostItemLink[]
   // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.
@@ -4322,4 +4323,19 @@ model EditorRoleTemplate {
   updatedAt DateTime @updatedAt
   @@unique([entity, roleId])
   @@index([patternId])
+}
+
+/// An author's proposed change to their published article while the magazine reviews authors (docs/specs/journal-review).
+/// One per article: a newer proposal replaces the open one; applying or rejecting it removes it (the decision is kept in
+/// the article's versions, the audit log and the author's notice).
+model PostEditProposal {
+  id            Int      @id @default(autoincrement())
+  postId        Int      @unique
+  post          Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  /// JSON of the proposed fields only (title, excerpt, body, cover, categories…), never status, time or address.
+  changes       String
+  /// When the article was last saved as the proposal was made: later edits of the live article are shown as such.
+  baseUpdatedAt DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
 }

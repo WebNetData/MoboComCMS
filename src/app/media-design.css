@@ -765,7 +765,19 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .post-review-panel textarea { min-height: 78px; resize: vertical; }
 .post-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .post-review-actions .btn { flex: 1 1 auto; }
-.crud-locked { align-self: center; white-space: normal; }
+/* What a save answered (an edit kept as a proposal). */
+.cms-notice { margin: 0 0 12px; padding: 10px 14px; border: 1px solid color-mix(in srgb, #34d399 45%, var(--border)); border-radius: 12px; background: color-mix(in srgb, #34d399 9%, var(--card)); font-size: .86rem; }
+/* An author's proposed edit beside the live article. */
+.post-proposal-panel { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); background: color-mix(in srgb, var(--primary) 6%, var(--card)); }
+.post-proposal-stale { margin: 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #f0b73f 14%, transparent); font-size: .8rem; }
+.post-proposal-diff { display: grid; gap: 10px; margin: 0; }
+.post-proposal-diff dt { font-size: .78rem; font-weight: 700; }
+.post-proposal-diff dd { display: grid; gap: 6px; margin: 4px 0 0; }
+.post-proposal-diff dd > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; font-size: .8rem; line-height: 1.8; overflow-wrap: anywhere; }
+.post-proposal-diff dd small { color: var(--muted); font-size: .7rem; }
+.post-proposal-diff .is-live { background: var(--bg-soft); }
+.post-proposal-diff .is-proposed { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.post-proposal-diff img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; }
 @media (max-width: 1180px) {
   .cms-sectioned-form.has-aside { grid-template-columns: minmax(0, 1fr); }
   .cms-form-aside { position: static; max-height: none; overflow: visible; }

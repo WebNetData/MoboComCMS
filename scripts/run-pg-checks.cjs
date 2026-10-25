@@ -26,6 +26,7 @@ const CHECKS = [
   'return-refund-integrity',
   'journal-admin-filters',
   'journal-review',
+  'journal-proposals',
   'gift-card-integrity',
   'digital-codes',
   'database-insert-compat', 'analytics-integrity', 'notification-dedup-integrity', 'seed-role-preservation',

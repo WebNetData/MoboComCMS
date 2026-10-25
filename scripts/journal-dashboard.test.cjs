@@ -51,6 +51,7 @@ test('Journal dashboard scans live posts and recent comments in bounded pages', 
       },
     },
     postCategory: { findMany: async () => [{ id: 1, name: 'News', parentId: null }] },
+    postEditProposal: { count: async () => 0 },
     postComment: {
       count: async () => 1,
       findMany: async ({ where, take }) => {
@@ -69,7 +70,7 @@ test('Journal dashboard scans live posts and recent comments in bounded pages', 
   const data = await journalDashboard(now)
   assert.deepEqual(postCursors, [0, 500])
   assert.deepEqual(commentCursors, [0, 500])
-  assert.deepEqual(data.kpis, { published: 501, drafts: 1, scheduled: 1, views: 125751, posts30: 501, reviewWaiting: 1, pendingComments: 1, comments30: 501, vip: 0, featured: 0, categories: 1 })
+  assert.deepEqual(data.kpis, { published: 501, drafts: 1, scheduled: 1, views: 125751, posts30: 501, reviewWaiting: 1, proposals: 0, pendingComments: 1, comments30: 501, vip: 0, featured: 0, categories: 1 })
   assert.equal(data.series.reduce((sum, day) => sum + day.posts, 0), 501)
   assert.equal(data.series.reduce((sum, day) => sum + day.comments, 0), 501)
   assert.equal(data.topViewed[0].id, 501)

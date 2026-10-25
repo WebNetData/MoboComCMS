@@ -76,7 +76,7 @@ const STORES: Record<DocumentEntity, Store> = {
     permission: 'cms.posts',
     authorPermission: 'journal.author',
     writtenBy: (id, userId) => db.post.count({ where: { id, authorId: userId } }).then((count) => count > 0),
-    authorLocked: async (row) => (row.status === 'PUBLISHED' && await reviewingAuthorPosts() ? 'این نوشته منتشر شده است؛ ویرایش آن با سردبیر است' : null),
+    authorLocked: async (row) => (row.status === 'PUBLISHED' && await reviewingAuthorPosts() ? 'این نوشته منتشر شده است؛ متن بلوکی آن را سردبیر تغییر می‌دهد. عنوان، خلاصه، تصویر و دسته را از فرم نوشته پیشنهاد دهید.' : null),
     find: (id, tx = db) => tx.post.findUnique({ where: { id } }),
     claim: (id, expected, data, tx = db) => tx.post.updateMany({ where: { id, updatedAt: expected }, data }).then((result) => result.count),
     changed: (before, after) => contentChanged({ type: 'post', id: after.id }, before, after),
