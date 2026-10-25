@@ -12,8 +12,8 @@ import UpdatesEditor from './UpdatesEditor'
 import AiAutofill from '../../cms/AiAutofill'
 import PublishReview, { previewValue, type ReviewRow } from '../../cms/PublishReview'
 import type { AutofillField } from '@/modules/ai/domain/autofill'
-import { GAME_MODES, HEALTH_CHECKS, LOCALIZATIONS, STORES, healthIssues } from '@/modules/games/domain/games'
-import { GAME_PLATFORMS } from '@/modules/media/domain/media'
+import { HEALTH_CHECKS, healthIssues } from '@/modules/games/domain/games'
+import { defaultVocabulary, type Vocabulary, type VocabularyEntry } from '@/modules/games/domain/vocabulary'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 
 const RichEditor = dynamic(() => import('@/components/editor/ContentEditor'), { ssr: false, loading: () => <div className="cms-editor-loading" aria-busy="true">…</div> })
@@ -36,8 +36,8 @@ const AI_FIELDS: AutofillField[] = [
   { key: 'engine', label: 'موتور بازی', type: 'text', dir: 'ltr' },
   { key: 'ageRating', label: 'رده سنی (مثلاً PEGI 16)', type: 'text' },
   { key: 'genres', label: 'سبک‌ها، با ویرگول', type: 'text' },
-  { key: 'platforms', label: 'پلتفرم‌ها، با ویرگول', type: 'text', hint: `فقط از این نام‌ها: ${GAME_PLATFORMS.join(', ')}` },
-  { key: 'modes', label: 'حالت‌های بازی، کدها با ویرگول', type: 'text', hint: `کدهای مجاز: ${Object.entries(GAME_MODES).map(([code, text]) => `${code}=${text}`).join('، ')}` },
+  { key: 'platforms', label: 'پلتفرم‌ها، با ویرگول', type: 'text' },
+  { key: 'modes', label: 'حالت‌های بازی، کدها با ویرگول', type: 'text' },
   { key: 'releaseDate', label: 'تاریخ انتشار جهانی', type: 'date' },
   { key: 'summary', label: 'خلاصهٔ معرفی (۲ تا ۴ جمله)', type: 'textarea' },
   { key: 'verdict', label: 'حکم نهایی نقد در یک جمله', type: 'text' },
@@ -61,6 +61,27 @@ const localInput = (value: string | null | undefined) => {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+/** The owner's lists (active entries) for the form; the old fixed values until they arrive. */
+function useVocabulary() {
+  const [vocabulary, setVocabulary] = useState<Vocabulary>(defaultVocabulary)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/admin/games/vocabulary', { cache: 'no-store' }).then((response) => (response.ok ? response.json() : null)).then((data) => {
+      if (alive && data?.lists) setVocabulary(Object.fromEntries(Object.entries(data.lists as Vocabulary).map(([list, entries]) => [list, entries.filter((entry) => entry.active)])) as Vocabulary)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return vocabulary
+}
+/** An entry list as code → name, with the codes a game already has kept (shown by their code if no longer listed). */
+const optionsOf = (entries: VocabularyEntry[], kept: string[] = []): Record<string, string> => {
+  const listed = new Set(entries.map((entry) => entry.code))
+  return { ...Object.fromEntries(entries.map((entry) => [entry.code, `${entry.icon ? entry.icon + ' ' : ''}${entry.name}`])), ...Object.fromEntries(kept.filter((code) => !listed.has(code)).map((code) => [code, code])) }
+}
+/** The assistant is told the allowed platform names and mode codes of the owner's lists. */
+const aiFieldsOf = (vocabulary: Vocabulary): AutofillField[] => AI_FIELDS.map((field) => field.key === 'platforms' ? { ...field, hint: `فقط از این نام‌ها: ${vocabulary.PLATFORM.map((entry) => entry.code).join(', ')}` }
+  : field.key === 'modes' ? { ...field, hint: `کدهای مجاز: ${vocabulary.MODE.map((entry) => `${entry.code}=${entry.name}`).join('، ')}` } : field)
 
 function Codes({ value, options, onChange, label }: { value: string; options: Record<string, string>; onChange: (value: string) => void; label: string }) {
   const on = list(value)
@@ -90,6 +111,7 @@ export default function GameEditorPage() {
   const [aiValues, setAiValues] = useState<Form>({})
   const [review, setReview] = useState<null | { publish: boolean }>(null)
   const [originalStatus, setOriginalStatus] = useState(isNew ? '' : 'loading')
+  const vocabulary = useVocabulary()
 
   useEffect(() => {
     fetch('/api/admin/games/franchises', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { franchises: [] })).then((body) => setFranchises(body.franchises || [])).catch(() => {})
@@ -176,7 +198,7 @@ export default function GameEditorPage() {
     {form.status === 'TRASHED' && <Notice tone="error">این بازی در سطل زباله است و تا تصمیم مدیر بخش بازی (حذف نهایی یا بازگردانی) قابل ویرایش نیست.</Notice>}
     {error && <Notice tone="error">{error}</Notice>}
     {saved && <Notice tone="ok">{saved}</Notice>}
-    <AiAutofill section="games" fields={AI_FIELDS} form={form} onApply={applyAi} />
+    <AiAutofill section="games" fields={aiFieldsOf(vocabulary)} form={form} onApply={applyAi} />
     <PublishReview open={!!review} title={form.title} rows={reviewRows} busy={busy} onCancel={() => setReview(null)} onConfirm={() => void confirmPublish()} />
     <nav className="sa-jump" aria-label="بخش‌های فرم">{SECTIONS.filter(([key]) => key !== 'updates' || !isNew).map(([key, label]) => <a key={key} href={`#${key}`}>{label}</a>)}</nav>
     <div className="sa-editor">
@@ -195,10 +217,10 @@ export default function GameEditorPage() {
           </div>
           <label className="sa-field"><span>خلاصهٔ معرفی</span><textarea className="input" rows={3} value={form.summary} onChange={(e) => update('summary', e.target.value)} maxLength={3000} /></label>
           <fieldset className="ga-codes"><legend>پلتفرم‌ها</legend>
-            {[...new Set([...GAME_PLATFORMS, ...platforms])].map((p) => <label key={p} className={`ga-chip${platforms.includes(p) ? ' is-on' : ''}`}><input type="checkbox" checked={platforms.includes(p)} onChange={() => update('platforms', (platforms.includes(p) ? platforms.filter((x) => x !== p) : [...platforms, p]).join(', '))} /><bdi dir="ltr">{p}</bdi></label>)}
+            {Object.entries(optionsOf(vocabulary.PLATFORM, platforms)).map(([p, name]) => <label key={p} className={`ga-chip${platforms.includes(p) ? ' is-on' : ''}`}><input type="checkbox" checked={platforms.includes(p)} onChange={() => update('platforms', (platforms.includes(p) ? platforms.filter((x) => x !== p) : [...platforms, p]).join(', '))} /><bdi dir="auto">{name}</bdi></label>)}
           </fieldset>
-          <Codes label="حالت‌های بازی" value={form.modes} options={GAME_MODES} onChange={(v) => update('modes', v)} />
-          <Codes label="فارسی‌سازی" value={form.localization} options={LOCALIZATIONS} onChange={(v) => update('localization', v)} />
+          <Codes label="حالت‌های بازی" value={form.modes} options={optionsOf(vocabulary.MODE, list(form.modes))} onChange={(v) => update('modes', v)} />
+          <Codes label="فارسی‌سازی" value={form.localization} options={optionsOf(vocabulary.LOCALIZATION, list(form.localization))} onChange={(v) => update('localization', v)} />
           <div className="sa-field"><span>دسته‌بندی و زیردسته</span><TermPicker taxonomy="games" value={form.terms} onChange={(v) => update('terms', v)} /></div>
         </section>
 
@@ -211,7 +233,7 @@ export default function GameEditorPage() {
           <div className="sa-row"><label className="sa-check"><input type="checkbox" checked={form.featured} onChange={(e) => update('featured', e.target.checked)} />ویژه (اسلایدر بالای صفحه)</label><label className="sa-check"><input type="checkbox" checked={form.editorsChoice} onChange={(e) => update('editorsChoice', e.target.checked)} />انتخاب سردبیر</label></div>
           <div className="sa-field"><span>تاریخ انتشار روی هر پلتفرم (اختیاری)</span>
             {(form.releases as { platform: string; date: string }[]).map((row, index) => <div key={index} className="ga-line">
-              <select className="select" value={row.platform} onChange={(e) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, platform: e.target.value } : r)))} aria-label="پلتفرم"><option value="">پلتفرم…</option>{[...new Set([...platforms, ...GAME_PLATFORMS])].map((p) => <option key={p} value={p}>{p}</option>)}</select>
+              <select className="select" value={row.platform} onChange={(e) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, platform: e.target.value } : r)))} aria-label="پلتفرم"><option value="">پلتفرم…</option>{Object.entries(optionsOf(vocabulary.PLATFORM, [...platforms, row.platform].filter(Boolean))).map(([p, name]) => <option key={p} value={p}>{name}</option>)}</select>
               <JalaliDateInput className="input" value={row.date} onChange={(value) => update('releases', form.releases.map((r: typeof row, i: number) => (i === index ? { ...r, date: value } : r)))} aria-label="تاریخ" />
               <button type="button" className="sa-link is-danger" onClick={() => update('releases', form.releases.filter((_: unknown, i: number) => i !== index))} aria-label="حذف">✕</button>
             </div>)}
@@ -257,7 +279,7 @@ export default function GameEditorPage() {
           </div></div>
           <div className="sa-field"><span>خرید از فروشگاه‌های رسمی</span>
             {(form.storeLinks as { store: string; url: string }[]).map((row, index) => <div key={index} className="ga-line">
-              <select className="select" value={row.store} onChange={(e) => update('storeLinks', form.storeLinks.map((r: typeof row, i: number) => (i === index ? { ...r, store: e.target.value } : r)))} aria-label="فروشگاه"><option value="">فروشگاه…</option>{STORES.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+              <select className="select" value={row.store} onChange={(e) => update('storeLinks', form.storeLinks.map((r: typeof row, i: number) => (i === index ? { ...r, store: e.target.value } : r)))} aria-label="فروشگاه"><option value="">فروشگاه…</option>{Object.entries(optionsOf(vocabulary.STORE, row.store ? [row.store] : [])).map(([s, name]) => <option key={s} value={s}>{name}</option>)}</select>
               <input className="input" dir="ltr" value={row.url} onChange={(e) => update('storeLinks', form.storeLinks.map((r: typeof row, i: number) => (i === index ? { ...r, url: e.target.value } : r)))} placeholder="https://store.steampowered.com/app/…" aria-label="نشانی" />
               <button type="button" className="sa-link is-danger" onClick={() => update('storeLinks', form.storeLinks.filter((_: unknown, i: number) => i !== index))} aria-label="حذف">✕</button>
             </div>)}

@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation'
 import { requireModule } from '@/extensions/server/modules'
 import { getGame } from '@/modules/media/server/queries'
 import { gamePageExtras } from '@/modules/games/server/portal'
-import { releaseState, LOCALIZATIONS, GAME_MODES } from '@/modules/games/domain/games'
+import { releaseState } from '@/modules/games/domain/games'
+import { vocabularyLabels } from '@/modules/games/server/vocabulary'
 import { getViewer } from '@/modules/membership/server/membership'
 import { REQUIREMENT_KEYS, trailerSource } from '@/modules/media/domain/media'
 import { toEmbedUrl } from '@/modules/site/domain/builder'
@@ -61,7 +62,7 @@ export default async function GamePage({ params }: Props) {
   const hasReq = REQUIREMENT_KEYS.some((k) => req.min?.[k] || req.rec?.[k])
   const upcoming = releaseState(g.releaseDate).state === 'upcoming'
   const ref = { type: 'game' as const, id: g.id }
-  const [rating, terms] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id])])
+  const [rating, terms, labels] = await Promise.all([aggregateRating(ref), primaryTerms('games', [g.id]), vocabularyLabels()])
   const term = terms.get(g.id)
   const facts = ([
     ['سازنده', g.developer && <Link href={g.developerStudioId ? `/studios/${g.developerStudioId}` : `/games/browse?developer=${encodeURIComponent(g.developer)}`}>{g.developer}</Link>],
@@ -70,8 +71,8 @@ export default async function GamePage({ params }: Props) {
     ['سبک', g.genres.join('، ')],
     ['مجموعه', extras.franchise && <Link href={`/games/franchise/${extras.franchise.slug}`}>{extras.franchise.title}</Link>],
     ['موتور بازی', g.engine && <bdi dir="ltr">{g.engine}</bdi>],
-    ['حالت‌ها', g.modes.map((code) => GAME_MODES[code as keyof typeof GAME_MODES] || code).join('، ')],
-    ['فارسی‌سازی', g.localization.map((code) => LOCALIZATIONS[code as keyof typeof LOCALIZATIONS] || code).join('، ')],
+    ['حالت‌ها', g.modes.map((code) => labels.MODE[code] || code).join('، ')],
+    ['فارسی‌سازی', g.localization.map((code) => labels.LOCALIZATION[code] || code).join('، ')],
     ['رده سنی', g.ageRating],
     ['حجم', g.gameSize && <bdi dir="ltr">{g.gameSize}</bdi>],
     ['آخرین نسخه', g.version && <bdi dir="ltr">{g.version}</bdi>],
@@ -111,7 +112,7 @@ export default async function GamePage({ params }: Props) {
               <ReleasePill date={g.releaseDate} />
               <div className="gm-platforms is-large">{g.platforms.map((p) => <Link key={p} href={`/games/browse?platform=${encodeURIComponent(p)}`}>{p}</Link>)}</div>
             </div>
-            <Badges editorsChoice={g.editorsChoice} localization={g.localization} />
+            <Badges editorsChoice={g.editorsChoice} localization={g.localization} labels={labels} />
             <div className="cn-hero-actions">
               {!upcoming && <a href="#download" className="btn gm-btn-primary"><Icon name="download" size={18} />{locked ? (paywall ? `خرید · ${paywall.price}` : 'دانلود ویژهٔ VIP') : 'دانلود بازی'}</a>}
               {g.content && <a href="#review" className="btn gm-btn-ghost"><Icon name="star" size={18} />نقد و بررسی</a>}

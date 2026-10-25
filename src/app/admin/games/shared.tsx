@@ -14,6 +14,7 @@ const TABS = [
   { href: '/admin/games/titles', label: 'بازی‌ها' },
   { href: '/admin/games/releases', label: 'تقویم انتشار' },
   { href: '/admin/games/franchises', label: 'مجموعه‌ها' },
+  { href: '/admin/games/vocabulary', label: 'پلتفرم‌ها و فهرست‌ها' },
   { href: '/admin/studios', label: 'سازندگان و ناشران' },
   { href: '/admin/games/settings', label: 'صفحهٔ اصلی و تنظیمات' },
 ]

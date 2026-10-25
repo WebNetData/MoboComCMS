@@ -1419,3 +1419,9 @@ html[dir="ltr"] .mu-queue ol button:hover { transform: translateX(3px); }
 .cf-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .cf-tools .is-danger { color: #ef4444; }
 @media (max-width: 640px) { .cf-list li { flex-wrap: wrap; } .cf-tools { width: 100%; } }
+/* Tabs between the lists of one managed-lists page (games platforms, stores, modes, localisations). */
+.cf-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.cf-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text); font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; }
+.cf-tabs button span { min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--bg-soft); color: var(--muted); font-size: .72rem; text-align: center; }
+.cf-tabs button.is-active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
+.cf-where { margin: 0 0 14px; color: var(--muted); font-size: .8rem; }

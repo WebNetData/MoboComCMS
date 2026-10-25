@@ -1844,6 +1844,26 @@ model UserRecentView {
 
 // ---------------------------------------------------------------- Games
 
+/// The owner's lists for games: platforms, official stores, play modes and Persian localisations. `code` is what a
+/// game stores (a platform or store name, a mode or localisation code) and never changes; the name shown, its icon,
+/// order and whether it is offered are the owner's.
+model GameVocabulary {
+  id        Int      @id @default(autoincrement())
+  list      String   // PLATFORM | STORE | MODE | LOCALIZATION
+  code      String
+  name      String
+  nameEn    String   @default("")
+  icon      String   @default("")
+  sortOrder Int      @default(0)
+  // An inactive entry is not offered in the game form nor the public filters; games that have it keep it.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([list, code])
+  @@index([list, active, sortOrder])
+}
+
 model GameTitle {
   id           Int       @id @default(autoincrement())
   slug         String    @unique

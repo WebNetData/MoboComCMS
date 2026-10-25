@@ -50,8 +50,10 @@ export async function getGamesHome() {
 export async function browseGames(input: { platform?: string; genre?: string; developer?: string; publisher?: string; developerStudioId?: number; publisherStudioId?: number; sort?: string; q?: string; page?: number; ids?: number[]; lang?: string; mode?: string; year?: string; pick?: string }) {
   const page = Math.max(1, Math.min(500, Number(input.page) || 1))
   const where: any = { ...live() }
-  if (input.lang && /^FA_(SUB|DUB|UI)$/.test(input.lang)) where.localization = { contains: input.lang }
-  if (input.mode && /^(SINGLE|MULTI|COOP|ONLINE)$/.test(input.mode)) where.modes = { contains: input.mode }
+  // Any well-formed code of the owner's lists, matched as a whole item of the game's comma list.
+  const hasCode = (code: string) => ({ OR: [{ equals: code }, { startsWith: `${code},` }, { endsWith: `, ${code}` }, { contains: `, ${code},` }] })
+  const filters = [['localization', input.lang], ['modes', input.mode]].filter(([, code]) => code && /^[A-Z0-9_]{1,40}$/.test(code)).map(([field, code]) => ({ OR: hasCode(code!).OR.map((match) => ({ [field!]: match })) }))
+  if (filters.length) where.AND = [...(where.AND || []), ...filters]
   if (input.pick === 'editors') where.editorsChoice = true
   if (input.pick === 'upcoming') where.releaseDate = { gt: new Date() }
   if (/^\d{4}$/.test(String(input.year || ''))) where.releaseDate = { gte: new Date(Date.UTC(Number(input.year), 0, 1)), lt: new Date(Date.UTC(Number(input.year) + 1, 0, 1)) }
