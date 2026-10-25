@@ -21,3 +21,13 @@ For the form builder, automation rules, staff queues, work that somebody holds (
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
 <!-- mobocom-engineering-skills:end -->
+
+<!-- mobocom-whole-site-quality:claude:start -->
+## Whole-site design and architecture workflow (Claude Code)
+
+For tasks involving site-wide architecture, Admin organization, extensibility, themes or plugins, follow the shared quality contract at `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` and the scoped start brief `docs/agent/WHOLE_SITE_EXECUTION_PROMPT.md`. Existing `AGENTS.md` remains the shared root source of repository invariants; do not duplicate or override it here.
+
+Before proposing work, inspect the live branch/worktree, relevant owners, approved UI baselines and current handoffs; distinguish evidence from planned contracts. First deliver read-only inventory, gaps, target IA/architecture and a small-slice roadmap. Apply only an authorized slice, validate with project checks and real browser evidence for UI, and report unrun checks. Preserve protected design, data, URL, permission and module lifecycle contracts. Reuse existing theme, extension, settings and vocabulary owners; no unrestricted server code edits from Admin.
+
+Scope and already-granted authorization come from the current user request. Read the adoption note before running a whole-site brief; use existing status documents and do not reopen approval for an authorized slice.
+<!-- mobocom-whole-site-quality:claude:end -->

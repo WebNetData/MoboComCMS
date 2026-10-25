@@ -10,6 +10,18 @@ original module owners and protected public presentation.
 
 This is the canonical architecture, extended from v4 against the current repository. It defines invariants and target contracts, not an instruction to rename directories or a claim that all capabilities are implemented.
 
+## Whole-site quality contract — adopted 2026-10-25
+
+[Whole-site quality](WHOLE_SITE_QUALITY_STANDARD.md) extends this architecture with
+the affected feature's owner, typed relationships, Admin/public information
+hierarchy, configuration, trust boundaries and executed acceptance evidence.
+Use existing owners, SDS/MoboCom tokens and domain-specific forms. Its optional
+[execution brief](WHOLE_SITE_EXECUTION_PROMPT.md) starts a broad audit only when
+requested; normal authorized slices continue through existing workflows.
+Existing decisions, public designs, data and permissions remain authoritative.
+[Integration and continuation](handoffs/ARCHITECTURE_KIT.md) record scope and
+validation; adopting requirements does not upgrade product maturity.
+
 Read root instructions → [owner decisions](PLATFORM_DECISIONS.md) → relevant sections here → [focused evolution contracts](contracts/platform-evolution.md). Consult the [domain matrix](DOMAIN_CAPABILITY_MATRIX.md) and [roadmap](IMPLEMENTATION_ROADMAP.md) for actual evidence and next slices. Frontend work follows [SDS + React Doctor + browser quality](FRONTEND_QUALITY.md). [Adoption ADR](adr/2026-10-10-platform-mandate.md) records reconciliation; the exact owner attachment is archived once under `requirements/`. Do not load the whole mandate for routine tasks.
 
 Protected public visuals: Homepage, Magazine, Music, Cinema (Movies/TV Series), Games, Software, Store and Community. Preserve URLs, SEO, data, permission keys and established workflows. Admin is also a first-class product. Software joins the target domains; CRM remains integrated, while VPN/reseller/marketplace stay off-focus and switchable.

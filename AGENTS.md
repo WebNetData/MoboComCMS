@@ -70,3 +70,15 @@ For the form builder, automation rules, staff queues, work that somebody holds (
 
 For supporting UI/design, React, accessibility, browser testing, documentation or MCP authoring, first read `docs/agent/ENGINEERING_SKILLS.md` in the active MoboCom checkout and load only its relevant task skill. Existing module owners, SDS/MoboCom tokens, protected visuals and actual local validation remain authoritative; generic upstream stack/aesthetic preferences are not architecture decisions.
 <!-- mobocom-engineering-skills:end -->
+
+<!-- mobocom-whole-site-quality:start -->
+## Whole-site architecture and administration quality (Codex + Claude)
+
+- `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` is the cross-site quality contract for architecture, data, backend, APIs, public/admin UX, themes, plugins, security, operations and long-term extensibility. Read task-relevant sections before architecture, Admin, content, theme/plugin or cross-cutting changes; it does not override `docs/agent/PLATFORM_DECISIONS.md` or `docs/agent/ARCHITECTURE.md`.
+- Audit the real checkout, its owner boundaries and active handoffs before proposing new layers. Preserve protected public visuals, existing routes, data, identity, permissions and module-off behavior. No second shared system or unrestricted Admin code execution.
+- For each affected feature, define its owner, typed schema/relationships, page and form information hierarchy, permissions, editor/extension points, failure states, accessibility/RTL/responsive behavior and evidence-backed acceptance tests. Extend existing Admin builders, vocabularies and extension/theme registries, not parallel implementations.
+- Whole-site work starts with read-only inventory + evidence matrix + target blueprint + phased vertical-slice roadmap; never interpret a broad architecture mandate as authorization to rewrite the full repository, deploy, purge data or change protected designs.
+- For current whole-site architecture work, follow `docs/agent/WHOLE_SITE_EXECUTION_PROMPT.md`. After each slice, report actual files, executed checks, browser proof when UI changed, gaps and rollback, never claim unrun tests passed.
+
+Scope and already-granted authorization come from the current user request. Read the adoption note before running a whole-site brief; use existing status documents and do not reopen approval for an authorized slice.
+<!-- mobocom-whole-site-quality:end -->

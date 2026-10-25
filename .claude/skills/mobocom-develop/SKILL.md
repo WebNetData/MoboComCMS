@@ -93,3 +93,10 @@ authority and original files survive retries. AAC stays explicit/default-off.
 History UI addresses are not authorization. Refresh this checkout's source graph
 after a coherent batch; never silently import old scanner baselines or infer
 production/token savings from local/static evidence. Keep client mirrors aligned.
+
+<!-- mobocom-whole-site-quality-skill:start -->
+## Whole-site quality routing
+
+Read task-relevant sections of `docs/agent/WHOLE_SITE_QUALITY_STANDARD.md` under the current architecture/owner decisions. For the affected slice use sections5/6/10/12: reuse owner services and typed Admin controls; continue already-authorized implementation after audit without another approval loop.
+The shared execution brief is for an explicit whole-site task; this routing does not start one.
+<!-- mobocom-whole-site-quality-skill:end -->

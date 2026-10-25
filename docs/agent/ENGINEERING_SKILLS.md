@@ -4,6 +4,7 @@ These are project-scoped supporting skills for Codex (`.agents/skills`) and Clau
 
 ## Binding integration rules
 
+- [Whole-site quality](WHOLE_SITE_QUALITY_STANDARD.md) supplies task-relevant IA, typed data, Admin and extension acceptance criteria. The six existing MoboCom workflows route both clients to it; its optional whole-site brief is not an automatic task. Keep evidence in the existing matrix/ledger/spec/handoff and preserve current authorization for an already-requested slice.
 - The owner's request, current repository evidence and MoboCom decisions determine scope. Existing owners, URLs, permissions, data and approved visuals remain authoritative. For frontend work, use [frontend quality](FRONTEND_QUALITY.md): SDS/MoboCom semantic tokens, existing primitives, React Doctor and actual browser/a11y evidence.
 - Generic recommendations to remove purple/gradients, change fonts, adopt Tailwind defaults, replace primitives, install motion/UI libraries or redesign a whole page do not override MoboCom's approved design. Apply a relevant technique to a verified problem; a style preference is not a defect.
 - Existing `ARCHITECTURE.md`, this document and `FRONTEND_QUALITY.md` remain the canonical instructions. Do not create a competing design system/`DESIGN.md`/`MASTER.md` merely because a skill suggests one. New design artifacts or component canvases are scoped deliverables only when required by the actual task; previews remain local/private and reuse existing Storybook/primitives.
