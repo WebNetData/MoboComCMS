@@ -49,7 +49,6 @@ export default function AdminPaymentsPage() {
   }, [load])
 
   const money = (n: number, currency: string) => formatCurrency(n, currency, isFa ? 'fa-IR' : 'en-US')
-  const fmtDate = (d: string) => new Date(d).toLocaleString(isFa ? 'fa-IR' : 'en-US')
 
   const confirmed = rows.filter((r) => r.status === 'CONFIRMED')
   const grouped = confirmed.reduce((map, row) => {
@@ -86,7 +85,7 @@ export default function AdminPaymentsPage() {
         </div>
         <div className="card kpi">
           <div className="kpi-icon">🧾</div>
-          <div><div className="muted text-xs">{t.paymentsCount}</div><div className="num text-2xl font-extrabold">{rows.length}</div></div>
+          <div><div className="muted text-xs">{t.paymentsCount}</div><div className="num text-2xl font-extrabold">{rows.length.toLocaleString(isFa ? 'fa-IR' : 'en-US')}</div></div>
         </div>
       </div>
 
@@ -115,10 +114,8 @@ export default function AdminPaymentsPage() {
                 <th>#</th>
                 <th>{t.customer}</th>
                 <th>{t.gateway}</th>
-                <th>{t.txId}</th>
-                <th>{t.crypto}</th>
+                <th>{t.txId} / {t.crypto}</th>
                 <th>{t.amount}</th>
-                <th>{t.gatewayFees}</th>
                 <th>{t.status}</th>
                 <th>{t.invoice}</th>
                 <th>{t.date}</th>
@@ -130,15 +127,14 @@ export default function AdminPaymentsPage() {
                   <td className="num">{p.id}</td>
                   <td dir="ltr">{p.user}</td>
                   <td>{p.gatewayName || PROVIDER_FA[p.provider] || p.provider}</td>
-                  <td className="num mute-truncate" dir="ltr">{p.txnId ? p.txnId.slice(0, 14) + '…' : '—'}</td>
-                  <td className="num">{p.cryptoCurrency || '—'} {p.cryptoAmount ? `· ${p.cryptoAmount}` : ''}</td>
-                  <td className={`num font-semibold ${p.amount < 0 ? 'error-text' : ''}`}>{money(p.amount, p.currency)}</td>
-                  <td className="num muted">{money(p.fee, p.currency)}</td>
+                  {/* The transaction and, for a crypto payment, its coin under it; the gateway's fee under the amount. */}
+                  <td className="num"><span className="mute-truncate" dir="ltr" title={p.txnId || undefined}>{p.txnId ? p.txnId.slice(0, 14) + '…' : '—'}</span>{p.cryptoCurrency && <small className="muted block" dir="ltr">{p.cryptoCurrency}{p.cryptoAmount ? ` · ${p.cryptoAmount}` : ''}</small>}</td>
+                  <td className="num"><span className={`font-semibold ${p.amount < 0 ? 'error-text' : ''}`}>{money(p.amount, p.currency)}</span>{p.fee ? <small className="muted block">{t.gatewayFees}: {money(p.fee, p.currency)}</small> : null}</td>
                   <td><StatusBadge value={p.status === 'CONFIRMED' ? 'PAID' : p.status} /></td>
                   <td className="num">
                     {p.invoiceNumber ? <Link href={`/invoice/${p.invoiceNumber}`} className="badge badge-gray" dir="ltr">{p.invoiceNumber}</Link> : '—'}
                   </td>
-                  <td className="num">{fmtDate(p.createdAt)}</td>
+                  <td className="num">{new Date(p.createdAt).toLocaleDateString(isFa ? 'fa-IR' : 'en-US')}<small className="muted block">{new Date(p.createdAt).toLocaleTimeString(isFa ? 'fa-IR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</small></td>
                 </tr>
               ))}
             </tbody>
