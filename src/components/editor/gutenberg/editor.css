@@ -98,3 +98,81 @@
 .mc-patterns-replace { display: flex; align-items: start; gap: .5rem; line-height: 1.8; }
 .mc-patterns :is(button,input,select):focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .mc-editor .block-editor-block-types-list__item .block-editor-block-icon.has-colors { color: var(--text); }
+
+/* Writing workspace: the existing MoboCom/SDS surfaces, shared by pages/posts.
+   Scope every rule: engine CSS can remain loaded after leaving this route. */
+.mc-editor { border: 1px solid var(--border); border-radius: 20px; min-inline-size: 0; font-weight: 400; }
+.mc-editor-top { position: sticky; inset-block-start: 0; z-index: 30; border-radius: 20px 20px 0 0; background: var(--card); box-shadow: 0 8px 20px -18px rgb(0 0 0 / .4); }
+.mc-editor .mc-editor-bar { position: static; display: flex; justify-content: space-between; gap: 20px; padding: 20px 24px; border: 0; border-radius: 20px 20px 0 0; }
+.mc-editor-heading { flex: 1 1 22rem; min-inline-size: 0; display: grid; gap: 8px; }
+.mc-editor .mc-editor-heading h1 { margin: 0; font-size: clamp(17px, 1.5vw, 22px); line-height: 1.9; font-weight: 750; overflow-wrap: anywhere; }
+.mc-editor-heading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.mc-editor .mc-editor-back { justify-self: start; font-size: 12px; color: var(--text); text-decoration: none; }
+.mc-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.mc-editor :is(.mc-editor-tool, .mc-editor-save) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-block-size: 40px; padding: 8px 14px; border-radius: 10px; font-size: 12px; line-height: 1.7; white-space: nowrap; }
+.mc-editor .mc-editor-tool { background: var(--card); border-color: var(--border); }
+.mc-editor .mc-editor-tool:hover:not(:disabled), .mc-editor .mc-editor-tool[aria-expanded=true] { color: var(--text); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 8%, var(--card)); }
+.mc-editor .mc-editor-save { padding-inline: 20px; box-shadow: 0 4px 12px -8px var(--primary); }
+.mc-editor .mc-editor-state { display: inline-flex; align-items: center; gap: 6px; max-inline-size: 28rem; line-height: 1.8; font-size: 11px; white-space: normal; }
+.mc-editor-state::before { content: ''; inline-size: 6px; block-size: 6px; flex: none; border-radius: 50%; background: currentColor; }
+.mc-editor-worktools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 24px; border-block: 1px solid var(--border); }
+.mc-editor-insert { display: flex; align-items: center; gap: 4px; padding-inline-end: 12px; border-inline-end: 1px solid var(--border); font-size: 12px; font-weight: 600; }
+.mc-editor .mc-editor-insert .components-button { border-radius: 10px; background: var(--primary-soft); min-inline-size: 36px; min-block-size: 36px; }
+.mc-editor-history { display: flex; gap: 2px; padding-inline-end: 8px; border-inline-end: 1px solid var(--border); }
+.mc-editor .mc-editor-history button { font-size: 20px; padding: 4px; min-inline-size: 36px; border-color: transparent; }
+.mc-editor-save-hint { margin-inline-start: auto; color: var(--muted); font-size: 11px; }
+.mc-editor .mc-editor-blocktools { position: static; min-block-size: 0; padding: 4px 20px; background: transparent; }
+.mc-editor .mc-editor-blocktools:has(.block-editor-block-toolbar:empty) { display: none; }
+.mc-editor .mc-editor-body { padding: 24px; gap: 20px; }
+.mc-editor .mc-editor-canvas { padding: clamp(18px, 3vw, 44px); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px -20px rgb(0 0 0 / .35); }
+.mc-editor-sheet-label { margin-block-end: 28px; padding-block-end: 12px; border-block-end: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.mc-editor .mc-editor-document { font-size: 15px; line-height: 2.15; }
+.mc-editor .mc-editor-document .block-editor-block-list__block { margin-block: 20px; }
+.mc-editor .mc-editor-document .is-selected { outline: 1px solid color-mix(in srgb, var(--primary) 65%, transparent) !important; outline-offset: 6px; border-radius: 4px; }
+.mc-editor :is(.mc-editor-inspector, .mc-editor-outline) { flex-basis: 272px; max-inline-size: 272px; border-radius: 14px; inset-block-start: 20px; box-shadow: none; }
+.mc-editor :is(.mc-editor-inspector, .mc-editor-outline) > h2 { margin: 0; padding: 16px; font-size: 13px; border-block-end: 1px solid var(--border); }
+.mc-editor .mc-editor-outline { flex-basis: 210px; padding: 0; }
+.mc-editor .mc-editor-outline > div { padding: 8px; }
+.mc-editor .mc-fields { padding: 4px; gap: 16px; }
+.mc-editor .mc-fields :is(input, select, textarea) { border-radius: 8px; min-block-size: 38px; font-size: 12px; }
+.mc-editor .components-panel__body { padding: 16px; }
+.mc-editor .components-panel__body-title { margin: -16px -16px 12px; }
+.mc-editor .components-panel__body-toggle { font: inherit; font-size: 13px; }
+.mc-editor .mc-rich-toolbar { gap: 3px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); }
+.mc-editor .mc-rich-button { inline-size: 30px; min-block-size: 32px; padding: 4px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text); font-size: 12px; }
+.mc-editor .mc-rich-button:hover { border-color: var(--border); background: var(--card); }
+.mc-editor .mc-rich-button[aria-pressed=true] { background: color-mix(in srgb, var(--primary) 14%, var(--card)); color: var(--text); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.mc-editor .mc-rich-extra { padding: 8px 0; gap: 10px; border-block-end: 1px solid var(--border); }
+.mc-editor .mc-rich-extra button { white-space: nowrap; flex-shrink: 0; }
+.mc-editor .mc-rich-input { padding-block: 12px; min-block-size: 100px; }
+.mc-editor .mc-rich-input p { margin-block: 0 12px; font-weight: 400; }
+.mc-editor .mc-editor-notice { margin: 16px 24px 0; padding: 12px 16px; font-size: 12px; line-height: 2; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+.mc-editor .mc-editor-notice.is-error { border-color: var(--sds-color-border-danger-secondary); background: var(--sds-color-background-danger-tertiary); }
+.mc-editor .mc-patterns { border: 0; padding: 12px 24px 0; background: transparent; }
+.mc-editor .mc-patterns-panel { max-block-size: 50dvh; overflow: auto; overscroll-behavior: contain; }
+.mc-proposal-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 24px; }
+.mc-proposal-columns > section { min-inline-size: 0; padding: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+.mc-proposal-columns h2 { margin-block: 0 20px; padding-block-end: 16px; border-block-end: 1px solid var(--border); font-size: 15px; }
+@media (max-width: 1100px) {
+  .mc-editor :is(.mc-editor-inspector, .mc-editor-outline) { flex: none; max-inline-size: none; inline-size: 100%; max-block-size: 45dvh; }
+}
+@media (max-width: 640px) {
+  .mc-editor { border-radius: 14px; }
+  .mc-editor-top { position: static; border-radius: 14px 14px 0 0; }
+  .mc-editor .mc-editor-bar { padding: 16px; gap: 14px; border-radius: 14px 14px 0 0; }
+  .mc-editor-actions { inline-size: 100%; }
+  .mc-editor-actions .mc-editor-state { flex: 1 1 100%; }
+  .mc-editor-actions .mc-editor-save { flex: 1; }
+  .mc-editor-worktools { padding: 10px 12px; gap: 6px; }
+  .mc-editor-insert { padding-inline-end: 6px; }
+  .mc-editor .mc-editor-worktools .mc-editor-tool { padding-inline: 8px; font-size: 11px; }
+  .mc-editor-save-hint { display: none; }
+  .mc-editor .mc-editor-body { padding: 12px; gap: 12px; }
+  .mc-editor .mc-editor-canvas { padding: 18px 14px; inline-size: 100%; }
+  .mc-editor .mc-editor-notice { margin: 12px 12px 0; }
+  .mc-editor .mc-patterns { padding: 12px 12px 0; }
+  .mc-editor :is(.mc-editor-inspector, .mc-editor-outline) { order: -1; }
+  .mc-editor .mc-rich-toolbar { max-inline-size: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .mc-editor .mc-rich-button { flex-shrink: 0; }
+  .mc-proposal-columns { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+}

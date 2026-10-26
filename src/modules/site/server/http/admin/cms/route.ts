@@ -22,14 +22,17 @@ import { capturePublicProductPrices, prepareProductPriceCapture } from '@/module
 import { fxFormFields } from '@/modules/fx/server/fx'
 import { readOrderFields } from '@/modules/store/domain/order-inputs'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
-import { auditAdmin } from '@/platform/audit/server'
+import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
 import { publicPathFor, queueIndexNow } from '@/modules/seo/server/indexnow'
 import { adminPageParams, adminPageSlice } from '@/modules/content/domain/admin-pagination'
 import { PENDING_REVIEW, PostReviewError, approvalPublishedAt, authorReviewRefusal, livePostWhere, parseAdminPostFilters, postFormStatus, publicationDateInput, type PostFormStatus } from '@/modules/journal/domain/journal'
-import { decidePostProposal, decidePostReview, proposalView, proposePostEdit, reviewingAuthorPosts, tellReviewDecision } from '@/modules/journal/server/review'
+import { decidePostProposal, decidePostReview, proposalView, proposePostEdit, reviewingAuthorPosts } from '@/modules/journal/server/review'
+import { claimPostWrite, type PostWriteState } from '@/modules/journal/server/review-state'
+import { changePostStates } from '@/modules/journal/server/review-bulk'
+import { queueReviewDecision } from '@/modules/journal/server/review-notifications'
 import { adminPostFilterWhere, adminPostStateCounts } from '@/modules/journal/server/admin'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
@@ -293,10 +296,12 @@ export async function PATCH(req: NextRequest) {
   const model = MODELS[type]()
   // A manager's save that moves a waiting article to published or back to draft is a review decision too.
   let reviewed: { decision: 'approve' | 'return'; authorId: number | null; title: string; publishedAt: Date } | null = null
+  let postWriteState: PostWriteState | null = null
 
   if (type === 'posts') {
-    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, publishedAt: true, trashedStatus: true, trashedAt: true, trashedById: true } })
+    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, updatedAt: true, publishedAt: true, trashedStatus: true, trashedAt: true, trashedById: true } })
     if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)
+    postWriteState = held
     if (isTrashed(held)) {
       // In the trash nothing is edited. Its author waits for the decision; a manager puts it back (or deletes it).
       if (caller.authorId || b?.restore !== true) return err('این نوشته در سطل زباله است و تا تصمیم مدیر قابل ویرایش نیست', 409)
@@ -408,8 +413,9 @@ export async function PATCH(req: NextRequest) {
       if (b?.publishedAt !== undefined) data.publishedAt = publicationDateInput(b.publishedAt)
       // Approved now: a past publication time (when it was written) becomes now; a future one stays its schedule.
       if (reviewed?.decision === 'approve') data.publishedAt = approvalPublishedAt((data.publishedAt as Date | undefined) ?? reviewed.publishedAt)
-      const before = await postRevisionState(id)
-      const saved = await db.$transaction(async tx => {
+      const result = await db.$transaction(async tx => {
+        if (!postWriteState || !await claimPostWrite(tx, postWriteState)) throw new PostReviewError('نوشته هم‌زمان تغییر کرده است؛ صفحه را تازه کنید', 409)
+        const before = await postRevisionState(id, tx)
         if (b?.categoryIds !== undefined || b?.categoryId !== undefined) {
           const ids = await validateCategorySelection(tx, b)
           data.categoryId = ids[0] || null
@@ -419,11 +425,14 @@ export async function PATCH(req: NextRequest) {
         const row = await tx.post.update({ where: { id }, data })
         if (itemLinks) await replacePostItemLinks(tx, id, itemLinks)
         await recordRevision({ entityType: 'posts', entityId: id, before, after: (await postRevisionState(id, tx))!, actor: admin, client: tx, strict: true })
-        return row
+        if (reviewed) {
+          await queueReviewDecision(tx, { authorId: reviewed.authorId, decidedById: admin.id, postId: id, title: row.title, decision: reviewed.decision })
+          await auditAdminStrict({ req, actor: admin, action: `cms.posts.review.${reviewed.decision}`, targetType: 'posts', targetId: id }, tx)
+        }
+        return { before, saved: row }
       })
-      contentChanged({ type: 'post', id }, before, saved)
-      if (reviewed) await tellReviewDecision({ authorId: reviewed.authorId, decidedById: admin.id, postId: id, title: reviewed.title, decision: reviewed.decision, at: new Date() })
-      return ok(saved)
+      contentChanged({ type: 'post', id }, result.before, result.saved)
+      return ok(result.saved)
     }
     if (type === 'postcats') return ok(await db.$transaction(async tx => {
       if (b?.parentId !== undefined) data.parentId = await validateCategoryParent(tx, b.parentId, id)
@@ -444,6 +453,7 @@ export async function PATCH(req: NextRequest) {
     return ok(row)
   } catch (e: any) {
     if (e instanceof CategoryKindError) return err(e.message, e.status)
+    if (e instanceof PostReviewError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'update failed', 400)
   }
 }
@@ -530,7 +540,7 @@ export async function BULK(req: NextRequest) {
     const status = action === 'publish' ? 'PUBLISHED' : 'DRAFT'
     if (type === 'posts') {
       // Someone else's article is not there for an author; an article in the trash changes only by a manager's decision.
-      const found = await db.post.findMany({ where: { id: { in: ids }, ...own }, select: { id: true, slug: true, title: true, status: true, publishedAt: true, authorId: true } })
+      const found = await db.post.findMany({ where: { id: { in: ids }, ...own }, select: { id: true, slug: true, title: true, status: true, updatedAt: true, publishedAt: true, authorId: true } })
       // While review is on, an author's batch neither publishes nor takes a published article off the site.
       const reviewing = caller.authorId ? await reviewingAuthorPosts() : false
       const held = (row: (typeof found)[number]) => (reviewing ? authorReviewRefusal({ reviewing, current: row, asked: status, creating: false }) : null)
@@ -539,18 +549,12 @@ export async function BULK(req: NextRequest) {
       for (const id of ids) if (!known.has(id)) failed.push({ id, reason: 'not found' })
       for (const row of found) if (isTrashed(row)) failed.push({ id: row.id, reason: 'in the trash' }); else if (held(row)) failed.push({ id: row.id, reason: held(row)! })
       if (rows.length) {
-        const now = new Date()
-        const waiting = caller.authorId ? [] : rows.filter((row) => row.status === PENDING_REVIEW)
-        await db.$transaction(async (tx) => {
-          await tx.post.updateMany({ where: { id: { in: rows.map((row) => row.id) }, status: { not: TRASHED } }, data: { status } })
-          // A waiting article published by the batch is approved now: its past publication time becomes now.
-          if (status === 'PUBLISHED' && waiting.length) await tx.post.updateMany({ where: { id: { in: waiting.map((row) => row.id) }, publishedAt: { lt: now } }, data: { publishedAt: now } })
-        })
-        for (const row of waiting) await tellReviewDecision({ authorId: row.authorId, decidedById: admin.id, postId: row.id, title: row.title, decision: status === 'PUBLISHED' ? 'approve' : 'return', at: now })
-        for (const row of rows) {
+        const result = await changePostStates({ rows, status, actor: admin, req })
+        failed.push(...result.failed)
+        for (const { before: row, after } of result.changed) {
           succeeded.push(row.id)
-          contentChanged({ type: 'post', id: row.id }, row, { ...row, status })
-          if (action === 'publish') { const path = publicPathFor(type, { ...row, status }); if (path) paths.push(path) }
+          contentChanged({ type: 'post', id: row.id }, row, after)
+          if (action === 'publish') { const path = publicPathFor(type, after); if (path) paths.push(path) }
         }
       }
     } else {

@@ -450,16 +450,14 @@
 @media (max-width: 900px) { .cr-admin { grid-template-columns: 1fr; } }
 
 /* ---------------- PWA & push ---------------- */
-.pwa-chip { position: fixed; inset-block-end: 16px; inset-inline-start: 16px; z-index: 70; display: flex; align-items: center; gap: 10px; max-width: min(460px, calc(100vw - 32px)); padding: 10px 12px; border: 1px solid var(--en-line); border-radius: 16px; background: var(--en-card); color: var(--en-text); font-size: 14px; line-height: 1.7; box-shadow: 0 20px 50px -20px rgba(15, 23, 42, .45); animation: pwa-in .25s ease-out; }
+.pwa-chip { --pwa-safe-bottom: env(safe-area-inset-bottom, 0px); position: fixed; inset-block-end: var(--pwa-bottom, calc(16px + var(--pwa-safe-bottom))); inset-inline-start: max(16px, env(safe-area-inset-left), env(safe-area-inset-right)); z-index: 70; display: flex; align-items: center; gap: 10px; max-width: min(460px, calc(100vw - 32px)); padding: 10px 12px; border: 1px solid var(--en-line); border-radius: 16px; background: var(--en-card); color: var(--en-text); font-size: 14px; line-height: 1.7; box-shadow: 0 20px 50px -20px rgba(15, 23, 42, .45); animation: pwa-in .25s ease-out; }
+.pwa-chip:not([data-placement=ready]) { visibility: hidden; pointer-events: none; }
 .pwa-chip > span:first-child { font-size: 20px; }
 .pwa-chip > span:nth-child(2) { flex: 1; }
 .pwa-x { border: 0; background: none; color: var(--en-muted); cursor: pointer; font-size: 14px; padding: 4px; }
 @keyframes pwa-in { from { opacity: 0; transform: translateY(10px); } }
 @media (prefers-reduced-motion: reduce) { .pwa-chip { animation: none; } }
-@media (max-width: 560px) { .pwa-chip { inset-inline: 12px; max-width: none; } }
-/* Keep the install/push chip above the compare tray when both are shown. */
-body:has(.cmp-tray) .pwa-chip { inset-block-end: 92px; }
-@media (max-width: 640px) { body:has(.cmp-tray) .pwa-chip { inset-block-end: 150px; } }
+@media (max-width: 560px) { .pwa-chip { inset-inline: max(12px, env(safe-area-inset-left), env(safe-area-inset-right)); max-width: none; } }
 .pwa-offline { min-height: 70vh; display: grid; place-content: center; justify-items: center; gap: 12px; text-align: center; padding: 24px; }
 .pwa-offline > span { font-size: 56px; }
 .pwa-offline h1 { margin: 0; }

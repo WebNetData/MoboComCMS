@@ -99,7 +99,7 @@ export const REVIEW_NOTE_LIMIT = 1000
 /** What an author may propose for a published article: its words, picture and categories; never status, time or address. */
 export const PROPOSAL_TEXT_FIELDS = ['title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover'] as const
 export type ProposalTextField = typeof PROPOSAL_TEXT_FIELDS[number]
-export type PostProposalChanges = Partial<Record<ProposalTextField, string>> & { categoryIds?: number[] }
+export type PostProposalChanges = Partial<Record<ProposalTextField, string>> & { categoryIds?: number[]; contentDocument?: string }
 const sameIds = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((id, index) => id === b[index])
 /**
  * The proposal an author's save makes: each proposable field the save carries that differs from the live article
@@ -121,6 +121,11 @@ export function readProposalChanges(json: string): PostProposalChanges {
   if (!raw || typeof raw !== 'object') return {}
   const value = raw as Record<string, unknown>, changes: PostProposalChanges = {}
   for (const field of PROPOSAL_TEXT_FIELDS) if (typeof value[field] === 'string') changes[field] = value[field] as string
+  // Editor validates this canonical JSON again before accepting or applying it.
+  if (Object.hasOwn(value, 'contentDocument')) {
+    if (typeof value.contentDocument !== 'string') throw new PostReviewError('متن بلوکی پیشنهاد معتبر نیست', 422)
+    changes.contentDocument = value.contentDocument
+  }
   if (Array.isArray(value.categoryIds) && value.categoryIds.every((id) => Number.isSafeInteger(id) && (id as number) > 0)) changes.categoryIds = value.categoryIds as number[]
   return changes
 }

@@ -1,5 +1,13 @@
 # The block editor
 
+Current 2026-10-26: published Journal authors can explicitly propose the canonical
+body through the existing PostEditProposal while review is enabled. Exact live
+base/proposal tokens, shared Editor validation and guarded manager comparison/
+apply preserve the live document until approval. The shared block workspace and
+Classic/Admin fallback controls use the existing MoboCom/SDS visual system.
+[Implementation, executed checks and rollback](../agent/handoffs/JOURNAL_BLOCK_PROPOSALS.md).
+The older observations and phase checkpoints below are historical.
+
 Status2026-10-19: **the block editor is the site's canonical document editor** for pages and magazine articles. The existing plugin switch, explicit legacy conversion, tables and semantic formatting remain. Ten module-owned public catalogue blocks now share schemas with the browser and render live data. Broader Phase2 templates/patterns/locking remain separate work. [Current contracts, evidence and limits](../agent/handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md).
 
 ## What was found in the repository first

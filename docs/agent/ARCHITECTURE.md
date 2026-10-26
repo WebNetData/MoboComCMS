@@ -1,5 +1,13 @@
 # MoboCom Reference Architecture — mandate adoption 2026-10-10
 
+2026-10-26: canonical Journal body proposals extend PostEditProposal, not a new
+draft system. Editor exposes shared validation/rendering; Journal retains exact
+live/proposal claims, metadata merge and the existing decision/history/outbox.
+Public/cached article view increments share Journal's atomic metric writer and
+preserve the editable clock, so visits cannot invalidate a pending body proposal.
+The same scoped workspace styles pages/articles and the existing Classic/Admin
+fallback. [Contracts, current evidence and rollback](handoffs/JOURNAL_BLOCK_PROPOSALS.md).
+
 2026-10-23 continuation: Journal publication intents use Operations/Inbox;
 Media owns opt-in compatible AAC derivatives behind its existing Library address;
 Livechat/Maintenance extend the same Settings/ContentRevision adapter. The UI

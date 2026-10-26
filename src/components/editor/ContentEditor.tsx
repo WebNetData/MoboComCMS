@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useExtensions } from '@/extensions/client/ExtensionProvider'
 import { CLASSIC_EDITOR_PLUGIN, type ClassicToolbar } from '@/modules/editor/domain/classic'
+import './editor-chrome.css'
 
 // The one door every staff form uses for formatted text. While the Classic editor plugin is on it is the classic
 // editor (Visual and Text tabs); switched off, forms fall back to the lighter editor they had before. Either way

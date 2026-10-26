@@ -1,8 +1,9 @@
 'use client'
 
 import { usePathname } from '@/platform/routing/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useModuleEnabled } from '@/extensions/client/ExtensionProvider'
+import { usePromptPlacement } from './usePromptPlacement'
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
@@ -47,6 +48,8 @@ export default function PwaClient() {
   const [showPush, setShowPush] = useState(false)
   const [pushState, setPushState] = useState('')
   const isPrivate = PRIVATE.test(pathname)
+  const promptRef = useRef<HTMLDivElement>(null)
+  usePromptPlacement(promptRef, isPrivate ? null : showPush ? 'push' : installEvent ? 'install' : null)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production' && !read('mobocom.sw.dev')) return
@@ -88,7 +91,7 @@ export default function PwaClient() {
   return (
     <>
       {installEvent && !showPush && (
-        <div className="pwa-chip" role="dialog" aria-label="نصب اپلیکیشن">
+        <div ref={promptRef} className="pwa-chip" role="dialog" aria-label="نصب اپلیکیشن">
           <span aria-hidden="true">📲</span>
           <span>موبوکام را مثل اپ روی گوشی نصب کنید</span>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => void install()}>نصب</button>
@@ -96,7 +99,7 @@ export default function PwaClient() {
         </div>
       )}
       {showPush && (
-        <div className="pwa-chip is-push" role="dialog" aria-label="اعلان‌ها">
+        <div ref={promptRef} className="pwa-chip is-push" role="dialog" aria-label="اعلان‌ها">
           <span aria-hidden="true">🔔</span>
           <span>{pushState || 'از نسخه‌های جدید، تخفیف‌ها و وضعیت سفارش‌ها باخبر شوید؟'}</span>
           {!pushState && <button type="button" className="btn btn-primary btn-sm" onClick={async () => {

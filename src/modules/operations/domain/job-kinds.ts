@@ -1,6 +1,7 @@
 /** One canonical set of queue kinds and labels; enqueueing never imports execution handlers. */
 export const JOB_LABEL: Record<string, string> = {
   'journal.comment-published': 'اعلان انتشار و پاسخ دیدگاه مجله',
+  'journal.editorial-decision': 'اعلان تصمیم سردبیر مجله',
   'media.transfer': 'انتقال فایل به کتابخانه',
   'media.compatible-audio': 'ساخت صدای سازگار AAC',
   'cinema.person-publication': 'اعلان اثر تازهٔ عوامل سینما',

@@ -76,7 +76,7 @@ function Field({ name, spec, value, onChange, compact }: { name: string; spec: F
   const label = labelOf(name)
   switch (spec.kind) {
     case 'string': return spec.max > 200 ? <TextareaControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} /> : <TextControl __nextHasNoMarginBottom label={label} value={String(value ?? '')} onChange={onChange} />
-    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: name === 'source' ? (SOURCE_LABELS[option] || option) : option, value: option }))} onChange={(next: string) => onChange(next)} />
+    case 'enum': return <SelectControl __nextHasNoMarginBottom label={label} value={String(value ?? spec.default)} options={spec.values.map((option) => ({ label: name === 'source' ? (SOURCE_LABELS[option] || option) : ({ auto: 'خودکار', rtl: 'راست به چپ', ltr: 'چپ به راست', start: 'شروع', end: 'پایان', center: 'وسط', left: 'چپ', right: 'راست', none: 'بدون' } as Record<string, string>)[option] || option, value: option }))} onChange={(next: string) => onChange(next)} />
     case 'int': return <RangeControl __nextHasNoMarginBottom label={label} value={typeof value === 'number' ? value : spec.default} min={spec.min} max={spec.max} step={1} onChange={(next?: number) => onChange(typeof next === 'number' ? Math.round(next) : spec.default)} />
     case 'boolean': return <ToggleControl __nextHasNoMarginBottom label={label} checked={value === true} onChange={onChange} />
     case 'url': return <TextControl __nextHasNoMarginBottom label={label} help="یک نشانی https، مسیری از همین سایت (‎/blog)، یا ‎#لنگر" value={String(value ?? '')} onChange={(next) => onChange(next.trim())} dir="ltr" />

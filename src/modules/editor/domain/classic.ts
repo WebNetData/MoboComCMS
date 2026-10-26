@@ -7,8 +7,8 @@ export type ClassicToolbar = 'full' | 'basic'
 
 /** Tools of the open-source TinyMCE only. `full` is for staff-written content, `basic` for short descriptions. */
 export const CLASSIC_TOOLBARS: Record<ClassicToolbar, string> = {
-  full: 'blocks fontfamily fontsize lineheight | bold italic underline strikethrough | forecolor backcolor | alignright aligncenter alignleft alignjustify | bullist numlist outdent indent | blockquote link image table codesample emoticons charmap | rtl ltr | removeformat | searchreplace fullscreen | undo redo',
-  basic: 'bold italic underline strikethrough | bullist numlist | blockquote link emoticons | rtl ltr | removeformat | undo redo',
+  full: 'bold italic underline | blocks | undo redo | bullist numlist | link image | fontfamily fontsize lineheight | strikethrough forecolor backcolor | alignright aligncenter alignleft alignjustify | outdent indent | blockquote table codesample emoticons charmap | rtl ltr | removeformat searchreplace fullscreen',
+  basic: 'bold italic underline | bullist numlist | link | strikethrough blockquote emoticons | rtl ltr | removeformat undo redo',
 }
 
 export interface Quicktag { id: string; label: string; fa: string; en: string }

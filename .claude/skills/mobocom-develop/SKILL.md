@@ -94,6 +94,8 @@ History UI addresses are not authorization. Refresh this checkout's source graph
 after a coherent batch; never silently import old scanner baselines or infer
 production/token savings from local/static evidence. Keep client mirrors aligned.
 
+For editorial review/proposals, use `docs/agent/handoffs/JOURNAL_REVIEW_RELIABILITY.md`: preserve exact transactional Post claims and same-transaction decision intents; retries use existing Operations/Inbox identity and dedupe.
+
 <!-- mobocom-whole-site-quality-skill:start -->
 ## Whole-site quality routing
 
