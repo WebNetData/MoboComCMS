@@ -39,6 +39,8 @@
 .md-vip { --md-accent: var(--vip-gold); }
 .md-page img { display: block; max-width: 100%; }
 .md-page a { color: inherit; text-decoration: none; }
+/* A link drawn as the main button keeps the button's readable ink (the inherit above is for plain links). */
+.md-page a.btn-primary { color: var(--on-primary); }
 .md-body { padding-block: 28px 0; display: grid; gap: 40px; }
 .md-body > * { min-width: 0; }
 

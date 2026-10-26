@@ -2,8 +2,8 @@
    Colours come from the --site-* contract (see studio.css), so Site Studio edits,
    the light/dark switch and the Telegram mini app all share one palette. */
 html[data-design="clean"] {
-  --on-primary: #fff;
-  --sds-theme-accent-on: #fff;
+  --on-primary: var(--site-on-accent, #fff);
+  --sds-theme-accent-on: var(--site-on-accent, #fff);
   --cl-radius: var(--site-radius, 18px);
   --cl-radius-sm: calc(var(--cl-radius) * .6);
   --cl-shadow: 0 1px 2px #0000000d, 0 12px 32px -12px #0000001f;
