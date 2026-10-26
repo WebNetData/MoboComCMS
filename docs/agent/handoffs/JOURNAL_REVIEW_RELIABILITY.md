@@ -1,5 +1,10 @@
 # Journal review reliability — 2026-10-26
 
+Current continuation: [canonical body proposals and editor workspace](JOURNAL_BLOCK_PROPOSALS.md)
+extend these same claims/intents and the existing Editor/PostEditProposal owners.
+Both Codex/Claude workflows already route here; follow that handoff for the new
+body contract, actual tests and plugin/rollback constraints instead of rebuilding it.
+
 Owner request: fix both findings in the [progress review](../audits/2026-10-26-progress-review.md).
 Continue `fix/journal-review-reliability-2026-10-26`, based on owner's `aef68618`
 and its existing public-quality commits. Locally use `.mobocom/autonomous-foundation`;

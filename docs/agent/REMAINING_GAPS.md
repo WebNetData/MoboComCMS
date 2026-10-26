@@ -22,8 +22,10 @@ The owner's six primary-button CSS edits remain separate. The 36-view public
 audit passed; its reproduced push/support overlap is now resolved through the
 [existing PWA placement owner](handoffs/PWA_PROMPT_PLACEMENT.md), with four
 maintained browser cases and actual types/gates/PG-read evidence.
-[Current bounded queue](audits/2026-10-26-remaining-work.md): canonical block-body
-proposals, public Library image derivatives and deployment-data/operational verification. No new
+[Canonical block-body proposals and editor workspace](handoffs/JOURNAL_BLOCK_PROPOSALS.md)
+are now implemented through the existing owners, with actual local tests.
+[Current bounded queue](audits/2026-10-26-remaining-work.md): public Library image
+derivatives and deployment-data/operational verification. No new
 backend defect was established in this follow-up. Do not reopen the fixed race
 or build another notice queue. The broader historical targets below require a
 named requirement/audit before implementation; they are not a full-site rewrite queue.

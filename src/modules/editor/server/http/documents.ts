@@ -9,10 +9,12 @@ import { DOCUMENT_VERSION } from '@/modules/editor/domain/document'
 import { checkDocument } from '@/modules/editor/domain/validate'
 import { activeEditorRegistry } from '@/modules/editor/server/blocks/registry'
 import { startingTemplate } from '@/modules/editor/server/role-templates'
+import { postDocumentProposal, proposePostDocument } from '@/modules/journal/server/review'
+import { PostReviewError } from '@/modules/journal/domain/journal'
 import { EditorError, blockEditorEnabled, documentAuthorPermission, documentPermission, documentWrittenBy, isDocumentEntity, loadDocument, saveDocument } from '@/modules/editor/server/documents'
 
 type Context = { params: Promise<{ entity: string; id: string }> }
-const failure = (error: unknown) => error instanceof EditorError ? err(error.message, error.status, { code: error.code, ...error.details }) : error instanceof JsonBodyError ? err(error.message, error.status) : (error as { code?: string }).code === 'P2034' ? err('محتوا هم‌زمان تغییر کرده است؛ دوباره بررسی کنید', 409, { code: 'CHANGED' }) : err('the document could not be saved', 500)
+const failure = (error: unknown) => error instanceof EditorError ? err(error.message, error.status, { code: error.code, ...error.details }) : error instanceof JsonBodyError || error instanceof PostReviewError ? err(error.message, error.status) : (error as { code?: string }).code === 'P2034' ? err('محتوا هم‌زمان تغییر کرده است؛ دوباره بررسی کنید', 409, { code: 'CHANGED' }) : err('the document could not be saved', 500)
 const target = async (context: Context) => { const { entity, id } = await context.params; const n = Number(id); return isDocumentEntity(entity) && Number.isInteger(n) && n > 0 ? { entity, id: n } : null }
 
 /**
@@ -36,9 +38,12 @@ export async function GET(req: NextRequest, context: Context) {
     const actor = caller.admin
     const canManagePatterns = actor.roleId == null || hasPermission(actor.permissions ?? [], documentPermission(at.entity))
     const loaded = await loadDocument(at.entity, at.id)
+    const preview = req.nextUrl.searchParams.get('proposal') === '1'
+    if (preview && (!canManagePatterns || at.entity !== 'posts')) return err('forbidden', 403)
+    const proposal = at.entity === 'posts' && (preview || !canManagePatterns) ? await postDocumentProposal(at.id, { ...actor, roleId: actor.roleId ?? null }, preview) : null
     // Only an item that has never had a body: one written the old way, or already saved in blocks, opens as it is.
     const fresh = loaded.editorFormat !== 'blocks-v1' && !loaded.legacyHtml.trim()
-    const response = ok({ ...loaded, enabled: await blockEditorEnabled(), canManagePatterns, startTemplate: fresh ? await startingTemplate(at.entity, actor.roleId) : null })
+    const response = ok({ ...loaded, editingMode: 'live', ...proposal, enabled: await blockEditorEnabled(), canManagePatterns, startTemplate: fresh && !proposal ? await startingTemplate(at.entity, actor.roleId) : null })
     response.headers.set('Cache-Control', 'private, no-store')
     return response
   } catch (error) { return failure(error) }
@@ -54,6 +59,10 @@ export async function PUT(req: NextRequest, context: Context) {
   const admin = caller.admin
   try {
     const body = await readJsonObject(req, 2_100_000)
+    if (body.intent === 'proposal') {
+      if (at.entity !== 'posts') return err('invalid proposal target', 400)
+      return ok(await proposePostDocument({ req, id: at.id, actor: { ...admin, roleId: admin.roleId ?? null }, document: body.document, expectedUpdatedAt: body.updatedAt, expectedProposalAt: body.proposalAt }))
+    }
     const saved = await saveDocument({ ...at, document: body.document, expectedUpdatedAt: body.updatedAt, actor: { id: admin.id, email: admin.email, roleId: admin.roleId ?? null, permissions: admin.permissions ?? null }, commit: async tx => { await auditAdminStrict({ req, actor: admin, action: 'document.save', targetType: at.entity === 'pages' ? 'page' : 'post', targetId: at.id }, tx) } })
     return ok(saved)
   } catch (error) { return failure(error) }

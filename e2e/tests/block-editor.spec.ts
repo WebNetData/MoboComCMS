@@ -23,7 +23,7 @@ function tools(page: Page) {
     await page.locator('.block-editor-block-types-list__item', { hasText: name }).first().click()
   }
   return {
-    insertTop: async (name: string) => { await page.locator('.mc-editor-bar .block-editor-inserter__toggle').first().click(); await pick(name) },
+    insertTop: async (name: string) => { await page.locator('.mc-editor-worktools .block-editor-inserter__toggle').first().click(); await pick(name) },
     insertInto: async (selector: string, name: string) => { await page.locator(`${selector} .block-editor-button-block-appender`).last().click(); await pick(name) },
     save: async () => { await page.locator('.mc-editor-save').click(); await expect(page.locator('.mc-editor-state')).toHaveClass(/is-saved/, { timeout: 60_000 }) },
   }

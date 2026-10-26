@@ -8,22 +8,19 @@ import { db } from '@/platform/database/prisma'
 import type { Prisma } from '@prisma/client'
 import { logEvent } from '@/platform/observability/logger'
 import { isModuleEnabled } from '@/extensions/server/modules'
-import { hasPermission } from '@/modules/identity/rbac'
 import { recordRevision, type RestoreCommit } from '@/modules/content/server/revisions'
 import { contentChanged } from '@/modules/content/server/events'
-import { reviewingAuthorPosts } from '@/modules/journal/server/review'
+import { reviewingAuthorPosts } from '@/modules/journal/server/review-policy'
 import { DOCUMENT_VERSION, walkBlocks, type DocumentIssue, type MoboComDocument } from '@/modules/editor/domain/document'
 import { blockDescriptors, type BlockDescriptor } from '@/modules/editor/domain/descriptors'
-import { moduleBlocks, MODULE_BLOCK_LIMIT, syncedPatternIds } from '@/modules/editor/domain/module-blocks'
 import { editorRegistry, activeEditorRegistry } from '@/modules/editor/server/blocks/registry'
 export { restoredDocumentFields } from '@/modules/editor/server/restore'
 import { documentFacts, documentHtml } from '@/modules/editor/domain/render'
 import { checkDocument, readDocument, type UnsupportedBlock } from '@/modules/editor/domain/validate'
-import { lockSignature, structureViolation } from '@/modules/editor/domain/structure'
-
-export class EditorError extends Error {
-  constructor(message: string, readonly status = 400, readonly code = 'EDITOR_INVALID', readonly details: Record<string, unknown> = {}) { super(message) }
-}
+import { editorMay as may, prepareDocument, validateDocumentRelations } from '@/modules/editor/server/document-validation'
+import { EditorError } from '@/modules/editor/server/errors'
+export { EditorError } from '@/modules/editor/server/errors'
+export { prepareDocument, validateDocumentRelations } from '@/modules/editor/server/document-validation'
 
 // ------------------------------------------------------------------ the registry in use
 
@@ -90,9 +87,6 @@ export const documentWrittenBy = async (entity: DocumentEntity, id: number, user
 
 export interface EditorActor { id: number; email: string; roleId: number | null; permissions: string[] | null }
 
-/** Staff without a role have full access (the platform rule); otherwise the role's permissions decide. */
-const may = (actor: EditorActor) => (permission: string) => (actor.permissions === null || actor.permissions.length === 0 ? actor.roleId == null : hasPermission(actor.permissions, permission))
-
 const stamp = (date: Date) => date.toISOString()
 
 export interface LoadedDocument {
@@ -128,29 +122,15 @@ export async function saveDocument(input: { entity: DocumentEntity; id: number; 
   if (!await blockEditorEnabled()) throw new EditorError('the block editor is switched off', 404, 'EDITOR_OFF')
   const expected = typeof input.expectedUpdatedAt === 'string' ? new Date(input.expectedUpdatedAt) : null
   if (!expected || Number.isNaN(expected.getTime())) throw new EditorError('the save does not say which version of the item it was made from', 400, 'VERSION_REQUIRED')
-  const registry = await activeEditorRegistry()
-  const checked = checkDocument(input.document, registry, { permissions: may(input.actor) })
-  if (!checked.ok) throw new EditorError('the document has errors and was not saved', 422, 'DOCUMENT_INVALID', { issues: checked.issues.filter((issue) => issue.level === 'error').slice(0, 50) })
-  if (moduleBlocks(checked.document, registry).length > MODULE_BLOCK_LIMIT) throw new EditorError('حداکثر ۲۰ بلوک ماژول در هر نوشته مجاز است', 422, 'BLOCK_LIMIT')
-  const html = documentHtml(checked.document, registry)
+  const { checked, registry, html } = await prepareDocument(input.document, input.actor)
   const { before, after } = await db.$transaction(async tx => {
     const before = await store.find(input.id, tx)
     if (!before) throw new EditorError('not found', 404, 'NOT_FOUND')
     if (before.status === TRASHED) throw new EditorError('this item is in the trash and cannot be edited until a manager decides', 409, 'IN_TRASH')
+    if (input.entity === 'posts' && !may(input.actor)(store.permission) && before.authorId !== input.actor.id) throw new EditorError('not found', 404, 'NOT_FOUND')
     if (store.authorLocked && !may(input.actor)(store.permission)) { const locked = await store.authorLocked(before); if (locked) throw new EditorError(locked, 403, 'REVIEW_LOCKED') }
-    // A synced pattern block points at a synced pattern of this same section, read in this transaction.
-    const patternIds = syncedPatternIds(checked.document.blocks)
-    if (patternIds.length && await tx.editorPattern.count({ where: { id: { in: patternIds }, entity: input.entity, kind: 'synced' } }) !== patternIds.length) throw new EditorError('الگوی همگام انتخاب‌شده در این بخش پیدا نشد؛ آن را دوباره از کتابخانهٔ الگوها درج کنید', 422, 'PATTERN_MISSING')
-    if (!may(input.actor)(store.permission)) {
-      const approved = new Set<string>()
-      for (const pattern of await tx.editorPattern.findMany({ where: { entity: input.entity }, select: { contentDocument: true }, take: 100 })) {
-        const stored = readDocument(pattern.contentDocument, registry)
-        if (stored.ok) walkBlocks(stored.document.blocks, block => { if (block.lock) approved.add(lockSignature(block)) })
-      }
-      const violation = structureViolation(readDocument(before.contentDocument, registry).document, checked.document, approved)
-      if (violation) throw new EditorError(violation, 403, 'STRUCTURE_LOCKED')
-    }
-    // Claimed on the version it was opened at: updatedAt moves with every write of the row.
+    await validateDocumentRelations(tx, input.entity, before, checked.document, input.actor, registry)
+    // Claimed on the version it was opened at: updatedAt moves with content writes.
     const claimed = await store.claim(input.id, expected, { editorFormat: 'blocks-v1', contentDocument: JSON.stringify(checked.document), content: html, updatedAt: new Date(Math.max(Date.now(), before.updatedAt.getTime() + 1)) }, tx)
     if (claimed !== 1) {
       const now = await store.find(input.id, tx)

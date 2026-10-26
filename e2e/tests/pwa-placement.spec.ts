@@ -21,7 +21,7 @@ async function audit(page: Page) {
 
 async function clearOfWidgets(page: Page) {
   await expect.poll(() => page.locator('.pwa-chip').evaluate(chip => {
-    if (getComputedStyle(chip).visibility !== 'visible' || chip.inert) return false
+    if (getComputedStyle(chip).visibility !== 'visible' || chip instanceof HTMLElement && chip.inert) return false
     const a = chip.getBoundingClientRect()
     if (a.top < 15 || a.bottom > innerHeight || a.left < 0 || a.right > innerWidth) return false
     const nodes = document.querySelectorAll('.lc-root, .lc-panel, .mc-translate, .support-dock, .cmp-tray, .mu-player, .mu-queue')
@@ -69,7 +69,7 @@ for (const theme of ['light', 'dark'] as const) for (const width of [1440, 390])
       if (width === 390) {
         await expect(page.locator('.pwa-chip')).toHaveAttribute('data-placement', 'deferred')
         await expect(prompt).toBeHidden()
-        expect(await page.locator('.pwa-chip').evaluate(el => el.inert)).toBe(true)
+        expect(await page.locator('.pwa-chip').evaluate(el => el instanceof HTMLElement && el.inert)).toBe(true)
       } else await clearOfWidgets(page)
       await page.screenshot({ path: info.outputPath('chat-open.png'), animations: 'disabled' })
       await chat.getByRole('button', { name: 'بستن گفت‌وگو', exact: true }).click()

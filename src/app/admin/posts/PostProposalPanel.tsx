@@ -8,6 +8,7 @@ export type Proposal = { changes: Record<string, unknown>; at: string; stale: bo
 const LABELS: Record<string, [string, string]> = {
   title: ['عنوان', 'Title'], titleEn: ['عنوان انگلیسی', 'English title'], excerpt: ['خلاصه', 'Excerpt'], excerptEn: ['خلاصهٔ انگلیسی', 'English excerpt'],
   content: ['متن', 'Body'], contentEn: ['متن انگلیسی', 'English body'], cover: ['تصویر شاخص', 'Featured image'], categoryIds: ['دسته‌ها', 'Categories'],
+  contentDocument: ['متن بلوکی', 'Block body'],
 }
 const plain = (html: unknown) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 const clip = (text: string, size = 220) => (text.length > size ? `${text.slice(0, size)}…` : text || '—')
@@ -24,9 +25,11 @@ export function PostProposalPanel({ id, proposal, live, categoryName }: { id: nu
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const hasBody = typeof proposal.changes.contentDocument === 'string'
   const shown = (field: string, value: unknown) => {
     if (field === 'categoryIds') return (Array.isArray(value) ? value : []).map((item) => categoryName(String(item))).join('، ') || '—'
     if (field === 'cover') return value ? <img src={String(value)} alt="" loading="lazy" /> : '—'
+    if (field === 'contentDocument') return L('متن کامل را در پیش‌نمایش مقایسه کنید.', 'Compare the full body in preview.')
     return clip(field.startsWith('content') ? plain(value) : String(value ?? ''))
   }
 
@@ -46,7 +49,8 @@ export function PostProposalPanel({ id, proposal, live, categoryName }: { id: nu
   return <section className="post-review-panel post-proposal-panel" aria-labelledby={`${noteId}-title`}>
     <h3 id={`${noteId}-title`}>{L('پیشنهاد ویرایش نویسنده', 'Author\'s proposed edit')}</h3>
     <p className="muted text-sm">{L('نویسنده برای این نوشتهٔ منتشرشده تغییراتی پیشنهاد کرده است. تا اعمال نشود، سایت همین نسخه را نشان می‌دهد.', 'The author proposed changes to this published article. The site shows the live version until they are applied.')}</p>
-    {proposal.stale && <p className="post-proposal-stale" role="note">{L('نوشته بعد از این پیشنهاد تغییر کرده است؛ اعمال، فقط همین فیلدها را جایگزین می‌کند.', 'The article changed after this proposal; applying replaces these fields only.')}</p>}
+    {proposal.stale && <p className="post-proposal-stale" role="note">{hasBody ? L('نسخهٔ منتشرشده تغییر کرده است؛ اعمال متن متوقف است. پیشنهاد را برای بازنویسی به نویسنده برگردانید.', 'The live version changed; body application is blocked. Return the proposal for a fresh edit.') : L('نوشته بعد از این پیشنهاد تغییر کرده است؛ اعمال، فقط همین فیلدها را جایگزین می‌کند.', 'The article changed after this proposal; applying replaces these fields only.')}</p>}
+    {hasBody && <a className="btn btn-ghost" href={`/admin/editor/posts/${id}?proposal=1`} target="_blank" rel="noopener noreferrer">مقایسهٔ کامل متن فعلی و پیشنهادی</a>}
     <dl className="post-proposal-diff">
       {Object.entries(proposal.changes).map(([field, value]) => <div key={field}>
         <dt>{L(...(LABELS[field] || [field, field]))}</dt>
@@ -57,7 +61,7 @@ export function PostProposalPanel({ id, proposal, live, categoryName }: { id: nu
     <textarea id={noteId} className="input" rows={3} maxLength={1000} value={note} onChange={(event) => setNote(event.target.value)} />
     {error && <p className="error-text" role="alert">{error}</p>}
     <div className="post-review-actions">
-      <button type="button" className="btn btn-primary" disabled={!!busy} onClick={() => void decide('apply')}>{busy === 'apply' ? L('در حال اعمال…', 'Applying…') : L('اعمال پیشنهاد', 'Apply')}</button>
+      <button type="button" className="btn btn-primary" disabled={!!busy || hasBody && proposal.stale} onClick={() => void decide('apply')}>{busy === 'apply' ? L('در حال اعمال…', 'Applying…') : L('اعمال پیشنهاد', 'Apply')}</button>
       <button type="button" className="btn btn-ghost" disabled={!!busy} onClick={() => void decide('reject')}>{busy === 'reject' ? L('در حال ثبت…', 'Saving…') : L('رد پیشنهاد', 'Set aside')}</button>
     </div>
   </section>
@@ -72,6 +76,6 @@ export function PostProposalNotice({ proposal }: { proposal?: Proposal | null })
   return <section className="post-review-panel" role="note">
     <h3>{L('نوشتهٔ منتشرشده', 'Published article')}</h3>
     <p className="muted text-sm">{L('تغییرات شما به‌صورت پیشنهاد برای سردبیر فرستاده می‌شود و تا تأیید او، نسخهٔ روی سایت عوض نمی‌شود. وضعیت، زمان انتشار و نشانی را سردبیر تعیین می‌کند.', 'Your changes go to the editor as a proposal; the live version stays until they are applied. Status, publication time and address are the editor\'s.')}</p>
-    {waiting && <p className="text-sm">{L('یک پیشنهاد شما در انتظار تصمیم سردبیر است؛ ذخیرهٔ تازه جایگزینش می‌کند.', 'A proposal of yours is waiting for the editor; a new save replaces it.')}</p>}
+    {waiting && <p className="text-sm">{L('پیشنهاد شما در انتظار تصمیم سردبیر است؛ تغییرات متن و مشخصات در همین پیشنهاد کنار هم بررسی می‌شوند.', 'Your proposal is awaiting review; body and metadata changes are reviewed together.')}</p>}
   </section>
 }

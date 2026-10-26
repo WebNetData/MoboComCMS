@@ -5,6 +5,10 @@ Follow-up: item 1 is **resolved locally** on
 [implementation, actual checks and next slice](../handoffs/PWA_PROMPT_PLACEMENT.md).
 The observations below describe the pre-fix audit, not current open defects.
 
+Item 2 is also resolved locally in the subsequent
+[canonical body/editor implementation](../handoffs/JOURNAL_BLOCK_PROPOSALS.md).
+Items 3–4 are the remaining bounded follow-ups.
+
 Source: `fix/journal-review-reliability-2026-10-26`, commit `c05311aa`, plus
 the owner's six pending CSS files. The two prior Journal defects are fixed;
 continue their [recorded implementation](../handoffs/JOURNAL_REVIEW_RELIABILITY.md).
@@ -37,7 +41,7 @@ now records zero overlap rather than the original reproduction values above.
 | Order | Status / next work | Current evidence | Acceptance / reuse |
 | --- | --- | --- | --- |
 | 1 | RESOLVED locally: coordinate push/install invitations with online support | Original four probes found the same-corner collision; the existing PWA owner now measures visible widget rectangles and yields space | [Implementation and bounded verification](../handoffs/PWA_PROMPT_PLACEMENT.md). Four maintained browser cases passed; tray/player tests are layout fixtures, other themes/real mobile OS remain unassessed. |
-| 2 | PARTIAL: propose the canonical block body of a published article | `src/modules/editor/server/documents.ts:79` locks an author's published block body while review is on; `journal/server/review.ts:68` deliberately omits generated HTML from proposals. Metadata and legacy-body proposals already exist | Extend the existing PostEditProposal/Editor owner with a versioned canonical document proposal, guarded preview/apply/restore and stale-version refusal. Never accept generated HTML as a replacement or create another review workflow. |
+| 2 | RESOLVED locally: propose the canonical block body of a published article | Existing PostEditProposal and Editor now share canonical validation, exact base/proposal tokens, metadata/body preservation and manager-only full comparison | [Source, native/browser evidence and limits](../handoffs/JOURNAL_BLOCK_PROPOSALS.md). Apply/history/intents remain with existing owners; no generated HTML source or second workflow. |
 | 3 | PARTIAL: responsive derivatives for public Library images served under `/files/` | `src/shared/media/image.ts` sizes only owned cover/profile API addresses; other addresses remain unchanged. The prior public-quality handoff records the Cinema limitation; no fresh byte benchmark in this pass | Reuse existing Media/Downloads image ownership, cache and authorization. Preserve originals/URLs; bounded allowed sizes, private-file exclusion, actual image/network measurements. Do not promise universal video/file optimization. |
 | 4 | UNVERIFIED on deployment data: search/load and operational release checks | Current search evidence is245 local documents/20 recorded local queries, not production traffic. No named destination/provider execution was supplied to this pass | Keep existing search cap/index and release/backup/Monitoring owners. Measure an isolated deployment-sized copy; verify the destination's configured payment/message providers and restore/rollback without claiming local tests certify that server. |
 

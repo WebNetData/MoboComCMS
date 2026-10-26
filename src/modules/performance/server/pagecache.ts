@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { db } from '@/platform/database/prisma'
+import { incrementPostViews } from '@/modules/journal/server/views'
 import { logEvent } from '@/platform/observability/logger'
 import { nonceOf } from '@/platform/http/csp'
 import { publish, subscribe } from '@/platform/realtime/bus'
@@ -159,7 +160,7 @@ export function purgeSoon(reason = 'admin-change') {
 // ------------------------------------------------------------------ views
 
 const VIEW_DELEGATE = {
-  post: () => db.post, product: () => db.product, software: () => db.softwareTitle, game: () => db.gameTitle, title: () => db.cinemaTitle, album: () => db.musicAlbum,
+  product: () => db.product, software: () => db.softwareTitle, game: () => db.gameTitle, title: () => db.cinemaTitle, album: () => db.musicAlbum,
 } as const
 
 /** A page served from the cache is still a visit: counted here, written in batches. */
@@ -180,6 +181,7 @@ export async function flushViews() {
   s.views.clear()
   for (const [key, count] of batch) {
     const [model, ...rest] = key.split(':')
+    if (model === 'post') { await incrementPostViews({ slug: rest.join(':') }, count).catch(() => undefined); continue }
     const delegate = VIEW_DELEGATE[model as keyof typeof VIEW_DELEGATE]?.() as { updateMany: (args: unknown) => Promise<unknown> } | undefined
     if (delegate) await delegate.updateMany({ where: { slug: rest.join(':') }, data: { views: { increment: count } } }).catch(() => undefined)
   }

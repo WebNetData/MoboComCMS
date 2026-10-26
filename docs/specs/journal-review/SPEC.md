@@ -136,7 +136,7 @@ Rollback leaves an unused table.
 - A proposal carries title, excerpt, body, cover and categories (and their English fields), and only those that differ from the live article. Status, publication time, address, featuring, access and item links are never proposed.
 - A save that changes nothing gets 400.
 - A newer proposal replaces the open one.
-- The body of an article written in blocks is not proposed through the form, and the block editor still refuses the author with a message that points to the form.
+- The metadata form never proposes generated HTML for a canonical body. Slice 3 adds explicit document proposals through Editor; a normal author document save still cannot mutate the live article while review is on.
 - **Apply**, in one transaction: delete the proposal by compare-and-set (`id` + `updatedAt`), write the fields, rewrite the categories (only ones that still exist; otherwise 400 and the proposal stays), record a version and an audit row `cms.posts.proposal.apply`, then send the author an Inbox notice `POST_REVIEW`.
 - **Reject:** delete the proposal by compare-and-set, write the audit row `cms.posts.proposal.reject` and send a notice with the note.
 - A decision carries the `proposalAt` it read. If the author has since replaced the proposal, or it is already decided, the decision gets 409.
@@ -159,6 +159,51 @@ Rollback leaves an unused table.
 - a replaced proposal decided.
 
 Browser `pw-journal-proposals` passes 13/13: the author form hides status, time and address and says «ارسال پیشنهاد ویرایش»; the save is a proposal and the live article stays; the dashboard, staff overview and filter list it; the diff panel shows both versions; apply changes the live article and the author is told.
+
+## Slice 3 — canonical body proposals and editor workspace (2026-10-26)
+
+Owner-requested implementation: published Journal authors propose the canonical
+block body through Editor + the existing PostEditProposal; managers preview and
+apply/reject through the current queue. Existing Journal policy, section-specific
+AuthZ, transactional Post/proposal claims, history and durable Inbox intents stay.
+
+- Store an optional `contentDocument` canonical JSON string in proposal `changes`;
+  no new table/migration or parallel draft store. Never trust generated HTML.
+- The guarded editor GET indicates live/proposal mode, exact live base and
+  proposal token. It reopens an existing body proposal. Proposal submissions are
+  explicit (no autosubmission); a normal author PUT still cannot alter live body
+  while review is on. Current author ownership is rechecked under the Post claim.
+- Submission validates schema, bounds, synced-pattern references and structural
+  locks through Editor. Body/metadata submissions preserve each other's fields
+  on the same live base. Stale base or replaced-proposal token gets 409 and keeps
+  both server proposal and browser work. A stale body is never silently rebased;
+  a manager can reject it before a fresh proposal starts.
+- Visits are metrics, not edits: public and cached Post counters must preserve
+  the editable timestamp while atomically retaining concurrent increments.
+- Apply revalidates canonical content/relations/locks, regenerates HTML, and
+  atomically writes body, metadata, revision, decision intent and audit. A changed
+  live base prevents body apply. Reject preserves live content. History restores
+  through the existing canonical Editor adapter. Legacy metadata-only behavior
+  and plugin-off public rendering remain compatible; body submit/apply require
+  the editor plugin on. Unknown blocks remain preserved by the canonical reader.
+- Full read-only current/proposed body preview is manager-only through the
+  existing editor GET with `?proposal=1`; no unvalidated HTML or permission bypass.
+- Workspace: clear title/status/actions, grouped insertion/history/sidebar tools,
+  calm writing sheet, bounded settings/outline panels and consistent rich-text
+  controls. Use current MoboCom/SDS semantic tokens and font; no public redesign.
+  Keyboard focus, RTL, mixed text, light/dark, 1440/390 and errors retain usability.
+- Existing Classic forms retain every tool in grouped native sliding overflow;
+  Visual/Text and the lightweight Admin fallback receive scoped chrome. The
+  owner's original block/Classic states remain unchanged after validation.
+- Acceptance: registered native `journal-block-proposals` on fresh migrated PG:
+  ownership/permission/origin, live preservation, metadata/body merge, two writer
+  tokens, manager/base race, invalid/corrupt/locked documents, plugin/policy off,
+  transactional rollback, apply/reject/history and durable intent. Deliberate
+  guard faults must fail. Actual author/manager browser flows and themed workspace
+  screenshots/axe, React Doctor, types and relevant gates. Record only run checks.
+- Rollback: revert source; older readers ignore the optional proposal field.
+  Do not apply pending body proposals with an older binary that ignores it;
+  resolve/reject them before rollback. Existing live data/URLs/permissions stay.
 
 ## Reliability follow-up — 2026-10-26
 

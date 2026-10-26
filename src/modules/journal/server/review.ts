@@ -8,7 +8,14 @@ import { postRevisionState } from '@/modules/site/server/revision-state'
 import { PENDING_REVIEW, PROPOSAL_TEXT_FIELDS, PostReviewError, REVIEW_NOTE_LIMIT, approvalPublishedAt, proposalChanges, readProposalChanges, type PostProposalChanges } from '@/modules/journal/domain/journal'
 import { validateCategorySelection } from '@/modules/site/server/categories'
 import { postCategories } from '@/modules/site/domain/categories'
-import { getJournalSettings } from '@/modules/journal/server/admin'
+export { reviewingAuthorPosts } from './review-policy'
+// Metadata-only commands do not load the editor registry/rendering graph.
+export async function proposePostDocument(input: Parameters<typeof import('./body-proposals').proposePostDocument>[0]) {
+  return (await import('./body-proposals')).proposePostDocument(input)
+}
+export async function postDocumentProposal(...args: Parameters<typeof import('./body-proposals').postDocumentProposal>) {
+  return (await import('./body-proposals')).postDocumentProposal(...args)
+}
 import { TRASHED } from '@/modules/content/domain/trash'
 import { claimPostWrite } from './review-state'
 import { queueReviewDecision } from './review-notifications'
@@ -17,11 +24,6 @@ import { queueReviewDecision } from './review-notifications'
 // manager approves it; the manager may instead return it with a note. Spec: docs/specs/journal-review/SPEC.md.
 
 type Actor = { id: number; email: string }
-
-/** Whether authors' articles wait for the manager (read fresh: a writer is refused on the current setting). */
-export async function reviewingAuthorPosts() {
-  return (await getJournalSettings(true)).reviewAuthorPosts
-}
 
 /**
  * The manager's decision on an article waiting for review. Written only while it is still waiting (a second decision
@@ -59,7 +61,7 @@ type Sanitize = (data: Record<string, unknown>) => Record<string, unknown>
  */
 export async function proposePostEdit(input: { req: NextRequest; actor: Actor; id: number; body: Record<string, unknown>; sanitize: Sanitize }) {
   return db.$transaction(async (tx) => {
-    const post = await tx.post.findUnique({ where: { id: input.id }, include: { category: true, categories: { include: { category: true } } } })
+    const post = await tx.post.findUnique({ where: { id: input.id }, include: { editProposal: true, category: true, categories: { include: { category: true } } } })
     if (!post || post.status !== 'PUBLISHED') throw new PostReviewError('این نوشته منتشرشده نیست', 409)
     if (post.authorId !== input.actor.id) throw new PostReviewError('این نوشته پیدا نشد', 404)
     if (!await claimPostWrite(tx, post)) throw new PostReviewError('این نوشته هم‌زمان تغییر کرده است؛ صفحه را تازه کنید', 409)
@@ -70,8 +72,16 @@ export async function proposePostEdit(input: { req: NextRequest; actor: Actor; i
     const categoryIds = input.body.categoryIds !== undefined || input.body.categoryId !== undefined ? await validateCategorySelection(tx, input.body) : undefined
     const changes = proposalChanges({ ...post, categoryIds: postCategories(post).map((category: { id: number }) => category.id) }, { ...clean, categoryIds })
     if (!Object.keys(changes).length) throw new PostReviewError('تغییری برای پیشنهاد نیست', 400)
+    const existing = await tx.postEditProposal.findUnique({ where: { postId: input.id } })
+    const previous = existing ? readProposalChanges(existing.changes) : {}
+    if (previous.contentDocument !== undefined) {
+      if (existing!.baseUpdatedAt.getTime() !== post.updatedAt.getTime()) throw new PostReviewError('متن پیشنهاد بر پایهٔ نسخهٔ قدیمی است؛ سردبیر ابتدا باید پیشنهاد را بررسی و رد کند', 409)
+      changes.contentDocument = previous.contentDocument
+      delete changes.content; delete changes.contentEn
+    }
     const value = JSON.stringify(changes)
-    await tx.postEditProposal.upsert({ where: { postId: input.id }, create: { postId: input.id, changes: value, baseUpdatedAt: post.updatedAt }, update: { changes: value, baseUpdatedAt: post.updatedAt } })
+    const at = new Date(Math.max(Date.now(), (existing?.updatedAt.getTime() ?? 0) + 1))
+    await tx.postEditProposal.upsert({ where: { postId: input.id }, create: { postId: input.id, changes: value, baseUpdatedAt: post.updatedAt, updatedAt: at }, update: { changes: value, baseUpdatedAt: post.updatedAt, updatedAt: at } })
     await auditAdminStrict({ req: input.req, actor: input.actor, action: 'cms.posts.proposal.submit', targetType: 'posts', targetId: input.id, metadata: { fields: Object.keys(changes) } }, tx)
     return { proposed: true, fields: Object.keys(changes), notice: 'پیشنهاد ویرایش ثبت شد؛ پس از تأیید سردبیر روی سایت می‌آید.' }
   })
@@ -80,7 +90,9 @@ export async function proposePostEdit(input: { req: NextRequest; actor: Actor; i
 /** The open proposal as the form shows it: the proposed fields, and whether the live article changed since. */
 export function proposalView(row: { updatedAt: Date; editProposal?: { changes: string; createdAt: Date; updatedAt: Date; baseUpdatedAt: Date } | null }) {
   const proposal = row.editProposal
-  return proposal ? { changes: readProposalChanges(proposal.changes), at: proposal.updatedAt.toISOString(), stale: row.updatedAt.getTime() > proposal.baseUpdatedAt.getTime() } : null
+  if (!proposal) return null
+  const changes = readProposalChanges(proposal.changes)
+  return { changes, at: proposal.updatedAt.toISOString(), stale: changes.contentDocument !== undefined ? row.updatedAt.getTime() !== proposal.baseUpdatedAt.getTime() : row.updatedAt.getTime() > proposal.baseUpdatedAt.getTime() }
 }
 
 /**
@@ -94,7 +106,7 @@ export async function decidePostProposal(input: { req: NextRequest; actor: Actor
   if (note.length > REVIEW_NOTE_LIMIT) throw new PostReviewError(`یادداشت حداکثر ${REVIEW_NOTE_LIMIT.toLocaleString('fa-IR')} نویسه است`, 400)
   const apply = input.decision === 'apply'
   const result = await db.$transaction(async (tx) => {
-    const post = await tx.post.findUnique({ where: { id: input.id }, select: { id: true, title: true, authorId: true, status: true, updatedAt: true, editProposal: true } })
+    const post = await tx.post.findUnique({ where: { id: input.id }, include: { editProposal: true } })
     if (!post) throw new PostReviewError('این نوشته پیدا نشد', 404)
     if (post.status === TRASHED || !await claimPostWrite(tx, post)) throw new PostReviewError('این نوشته هم‌زمان تغییر کرده است؛ صفحه را تازه کنید', 409)
     const before = await postRevisionState(input.id, tx)
@@ -102,13 +114,15 @@ export async function decidePostProposal(input: { req: NextRequest; actor: Actor
     if (!proposal) throw new PostReviewError('پیشنهادی برای این نوشته در انتظار نیست', 409)
     // The decision is about the proposal the manager read: a newer one from the author is decided on its own.
     if (typeof input.expected === 'string' && input.expected !== proposal.updatedAt.toISOString()) throw new PostReviewError('نویسنده پیشنهاد تازه‌تری فرستاده است؛ صفحه را تازه کنید', 409)
+    if (readProposalChanges(proposal.changes).contentDocument !== undefined && typeof input.expected !== 'string') throw new PostReviewError('نسخهٔ پیشنهاد متن باید مشخص باشد', 400)
     const claimed = await tx.postEditProposal.deleteMany({ where: { id: proposal.id, updatedAt: proposal.updatedAt } })
     if (claimed.count !== 1) throw new PostReviewError('پیشنهادی برای این نوشته در انتظار نیست', 409)
     let saved = null
     if (apply) {
       const changes: PostProposalChanges = readProposalChanges(proposal.changes)
       const data: Record<string, unknown> = {}
-      for (const field of PROPOSAL_TEXT_FIELDS) if (changes[field] !== undefined) data[field] = changes[field]
+      if (changes.contentDocument !== undefined) Object.assign(data, await (await import('./body-proposals')).proposedBodyFields(tx, post, proposal, input.actor))
+      for (const field of PROPOSAL_TEXT_FIELDS) if (changes[field] !== undefined && !(changes.contentDocument !== undefined && (field === 'content' || field === 'contentEn'))) data[field] = changes[field]
       if (changes.categoryIds) {
         const ids = await validateCategorySelection(tx, { categoryIds: changes.categoryIds.map(String) })
         data.categoryId = ids[0] || null
