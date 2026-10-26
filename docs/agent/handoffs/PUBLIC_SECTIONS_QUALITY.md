@@ -68,3 +68,20 @@ The helper is `.mobocom/claude-tools/audit-public.cjs <label> <route…>`. It ru
 - **Main buttons:** they still carry white ink on the light accent (2.1:1 dark, 3.3:1 light). `--on-accent` is ready; switching `--on-primary` to it changes every main button's look, so it waits for the owner's decision.
 - **Images that can't be resized:** cinema pictures under `/files/download/…` and the demo SVGs are not site uploads; the cinema home is about 1.1 MB because of them.
 - The home canonical is set by the root layout; the audit's «no canonical» for `/` is its own false positive, from stripping the origin.
+
+## Forum and community — 2026-10-26
+
+The audit covered 15 pages (board, forum, two topics, activity, leaderboard, clubs, badges, members, profile, search, people, feed, the community profile and categories), light/dark × 1440/390.
+
+- **Avatars:** every forum and community avatar (`fx-avatar` in `forum/shared`, `Messages`, `TopicView` and `Composer`; `cm-avatar` in `CommunityIcons`) is now asked at twice its drawn size. A 1.6 MB PNG had been drawn at 20–76 px on most pages. Image bytes over the 15 pages: **13.3 MB → 266 KB**.
+- **Text on the forum accent:**
+  - `--fx-on-accent` (from the derived `--on-accent`) covers the active strips and filters, periods, unread, pager, notification counts, follow and quality toggles;
+  - accent text on the page uses `--accent-ink`;
+  - accent text on tinted chips uses a deeper mix (the side groups, the community side menu and the staff badge).
+- **Board index:** a section heading had its link inside `<summary>`. The heading is now a row with its link, and folding is its own `summary.bi-fold-toggle` at the row's end, named «انجمن‌های …». `pw-board-fold` passes 5/5 (open, fold, Enter, name, link).
+- **Activity avatars** are named by hidden text, and a group flair is `role="img"` with its name.
+- **Result:** axe 63 → 34. The **28 left are all main buttons** (`.btn`/`.btn-primary`, white on the light accent), which wait for the owner's decision on `--on-primary`. Outside the main buttons there are 0 violations, and 0 page errors.
+- **Checks:**
+  - TypeScript passes with 0 errors;
+  - `npm run check` passes, with only the six known environment-only failures;
+  - React Doctor reports 45 warnings, the same as main.

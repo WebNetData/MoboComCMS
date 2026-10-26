@@ -29,20 +29,23 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
 
     <div className="fb-layout">
       <div className="fb-sections">
-        {/* A section folds away with its heading; the browser keeps that, no script. */}
-        {board.sections.map((section) => <details key={section.id} open className="bi-section" style={section.color ? { ['--cat' as string]: section.color } : undefined}>
-          <summary className="bi-section-head">
+        {/* A section folds away with its own control at the heading's end; the browser keeps that, no script. */}
+        {board.sections.map((section) => <section key={section.id} className="bi-section" style={section.color ? { ['--cat' as string]: section.color } : undefined}>
+          <div className="bi-section-head">
             <span className="bi-section-sign" aria-hidden="true">{section.icon || '▦'}</span>
             <span className="bi-section-title">
               <h2>{section.slug ? <Link href={`/forum/c/${section.slug}`}>{section.title}</Link> : section.title}{section.vip && <small className="bi-tag is-vip">VIP</small>}</h2>
               {section.description && <small>{section.description}</small>}
             </span>
             <span className="bi-section-count">{num(section.forums.length)} انجمن<i aria-hidden="true">·</i>{compact(section.topics)} موضوع<i aria-hidden="true">·</i>{compact(section.posts)} پیام</span>
-            <span className="bi-fold" aria-hidden="true" />
-          </summary>
-          <ForumRowsHead />
-          <ul className="bi-forums">{section.forums.map((forum) => <ForumRow key={forum.id} forum={forum} />)}</ul>
-        </details>)}
+            <span className="bi-fold-slot" aria-hidden="true" />
+          </div>
+          <details open className="bi-section-body">
+            <summary className="bi-fold-toggle" aria-label={`انجمن‌های ${section.title}`}><span className="bi-fold" aria-hidden="true" /></summary>
+            <ForumRowsHead />
+            <ul className="bi-forums">{section.forums.map((forum) => <ForumRow key={forum.id} forum={forum} />)}</ul>
+          </details>
+        </section>)}
         {!board.sections.length && <div className="fx-empty"><p>هنوز انجمنی ساخته نشده است.</p></div>}
       </div>
 

@@ -22,7 +22,7 @@
 .cm-ico { flex: none; }
 .cm-muted { color: var(--cm-muted); }
 .cm-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.cm-link { color: var(--cm-accent) !important; font-size: 13px; font-weight: 700; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.cm-link { color: var(--accent-ink, var(--cm-accent)) !important; font-size: 13px; font-weight: 700; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
 .cm-link:hover { text-decoration: underline !important; }
 
 /* avatars, names, badges */
@@ -318,3 +318,6 @@
   .pp-upload.is-avatar { inset-inline-start: 14px; }
   .pp-upload.is-avatar .pp-upload-box { width: 88px; height: 88px; }
 }
+
+/* Accent text on the community's accent-tinted chips: a deeper ink than the page's, so it reads at 4.5:1 there too. */
+.cm-side-nav a.is-active, .cm-staff { color: color-mix(in srgb, var(--accent-ink, var(--cm-accent)) 82%, var(--cm-text, var(--text))) !important; }

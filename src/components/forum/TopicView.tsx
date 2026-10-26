@@ -1,6 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
+import { sized } from '@/shared/media/image'
 import { CLUBS_SECTION, categoryTree } from '@/modules/forum/domain/tree'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -54,7 +55,7 @@ function ago(date: string) {
 }
 
 function Avatar({ author, size = 44 }: { author: Pick<Author, 'name' | 'avatar' | 'avatarColor'>; size?: number }) {
-  if (author.avatar) return <img className="fx-avatar" src={author.avatar} alt="" width={size} height={size} style={{ width: size, height: size }} loading="lazy" />
+  if (author.avatar) return <img className="fx-avatar" src={sized(author.avatar, size * 2)} alt="" width={size} height={size} style={{ width: size, height: size }} loading="lazy" />
   return <span className="fx-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.42), background: author.avatarColor }} aria-hidden="true">{author.name.trim().slice(0, 1)}</span>
 }
 

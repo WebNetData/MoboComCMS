@@ -1,5 +1,6 @@
 import Link from '@/components/AppLink'
 import type { AuthorView } from '@/modules/forum/server/forum'
+import { sized } from '@/shared/media/image'
 
 // Small building blocks shared by forum pages (server-safe, no hooks).
 
@@ -20,7 +21,7 @@ type AvatarAuthor = Pick<AuthorView, 'name' | 'avatarColor'> & Partial<Pick<Auth
 
 export function Avatar({ author, size = 40, className = '' }: { author: AvatarAuthor; size?: number; className?: string }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.42) }
-  if (author.avatar) return <img className={`fx-avatar ${className}`} src={author.avatar} alt="" width={size} height={size} style={style} loading="lazy" />
+  if (author.avatar) return <img className={`fx-avatar ${className}`} src={sized(author.avatar, size * 2)} alt="" width={size} height={size} style={style} loading="lazy" />
   return <span className={`fx-avatar ${className}`} style={{ ...style, background: author.avatarColor || 'var(--md-accent)' }} aria-hidden="true">{(author.name || author.username || '?').trim().slice(0, 1)}</span>
 }
 
@@ -30,7 +31,7 @@ export function UserName({ author, showHandle = false }: { author: AuthorView; s
     <span className="fx-user">
       <Link href={`/forum/u/${author.username}`} className="fx-user-name">{author.name}</Link>
       {author.staff && <span className="fx-staff" title="تیم موبوکام" aria-label="تیم موبوکام">🛡</span>}
-      {author.flair && <span className="fx-flair" style={{ background: author.flair.color }} title={author.flair.name} aria-label={author.flair.name}>{author.flair.icon}</span>}
+      {author.flair && <span className="fx-flair" style={{ background: author.flair.color }} title={author.flair.name} role="img" aria-label={author.flair.name}>{author.flair.icon}</span>}
       {showHandle && <bdi className="fx-handle" dir="ltr">@{author.username}</bdi>}
     </span>
   )
