@@ -653,6 +653,10 @@ model Post {
   // How this article is written: "legacy" (HTML in content) or "blocks-v1" (a MoboCom document in contentDocument;
   // content then holds HTML generated from it for search, feeds and readers that only know HTML).
   editorFormat    String        @default("legacy")
+  // A code of the owner's POST_FORMAT list (article, news, review, video…); its family decides the post's own facts,
+  // kept in formatData (validated JSON: review score/pros/cons/verdict, video address, news source, interview guest).
+  format          String        @default("ARTICLE")
+  formatData      String        @default("{}")
   contentDocument String        @default("")
   cover       String        @default("")
   status      String        @default("PUBLISHED") // DRAFT | PUBLISHED
@@ -676,6 +680,7 @@ model Post {
   trashedById   Int?
 
   @@index([status, publishedAt])
+  @@index([format])
 }
 
 model PostItemLink {

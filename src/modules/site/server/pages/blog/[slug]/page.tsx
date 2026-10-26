@@ -36,6 +36,9 @@ import { isLivePost, livePostWhere } from '@/modules/journal/domain/journal'
 import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
+import { PostFormatClose, PostFormatLead } from '@/components/journal/PostFormat'
+import { factsFor } from '@/modules/journal/domain/formats'
+import { allLists } from '@/modules/vocabulary/server/vocabulary'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
 import { sized, srcSet } from '@/shared/media/image'
@@ -217,6 +220,10 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   // An article written in blocks shows its document (every value escaped by the renderer). A locked article still shows the teaser cut
   // from its HTML copy, and a visitor reading in English gets the English body when the article has one.
   const articleBlocks = !locked && (isFa || !post.contentEn) ? await blocksHtml(post) : null
+  // The post's format (the owner's list) decides which of its facts the page shows: a video or a guest above the
+  // body, a review summary or a news source below it.
+  const formatEntry = (await allLists('journal').catch(() => ({ POST_FORMAT: [] as { code: string; family: string }[] }))).POST_FORMAT?.find((entry) => entry.code === post.format)
+  const facts = factsFor(formatEntry?.family || 'ARTICLE', post.formatData)
   const contentSlot = (
     <>
       <ReadingProgress />
@@ -224,11 +231,13 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <ArticleRail title={title} fa={isFa} />
       <div className="jp-main">
       <ArticleToc />
+      <PostFormatLead facts={facts} title={title} fa={isFa} />
       <article
         id="article-body"
         className={`prose journal-prose${locked ? ' vip-teaser' : ''}${articleBlocks !== null ? ' mcb-document' : ''}`}
         dangerouslySetInnerHTML={{ __html: articleBodyWithExcerpt(articleBlocks ?? withTextDirections(cleanRichText(locked ? teaserHtml(content) : content)), isFa ? post.excerpt : post.excerptEn || post.excerpt, isFa) }}
       />
+      <PostFormatClose facts={facts} fa={isFa} />
       {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}#buy`} noun="مقاله" />}
       {!paywall && locked && <VipGate fa={isFa} loggedIn={!!viewer?.userId} next={`/blog/${post.slug}`} title={isFa ? 'ادامه این مطلب مخصوص اعضای ویژه است' : 'The rest of this article is for VIP members'} />}
 

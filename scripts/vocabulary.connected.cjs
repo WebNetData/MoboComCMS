@@ -190,6 +190,22 @@ async function main() {
   assert.deepEqual(profile.credited.map((group) => [group.role, group.tracks.map((track) => track.slug)]), [['LYRICIST', [`${seed}-song`]]], 'an artist page lists the songs they are credited on')
   assert.equal((await musicQueries.getAlbum(`${seed}-album`)).album.albumTypeName, 'ریمیکس', 'an album page names its release type')
 
+  // ---- magazine formats: each of a family; a post keeps a known format (or the one it had); facts merge into the stored ones
+  const journalFormats = load('src/modules/journal/server/formats.ts')
+  assert.equal((await vocab.allLists('journal')).POST_FORMAT.find((entry) => entry.code === 'GUIDE')?.family, 'ARTICLE', 'a guide is an article-family format')
+  const productReview = await vocab.createEntry('journal', { list: 'POST_FORMAT', code: `${CODE}_PRODUCT`, name: 'بررسی محصول', family: 'REVIEW' }, audit)
+  await refused(vocab.createEntry('journal', { list: 'POST_FORMAT', code: `${CODE}_BAD`, family: 'PODCAST' }, audit), /نوع/, 422)
+  const fresh2 = await journalFormats.postFormatInput(prisma, { format: `${CODE}_product`, fmtScore: '7', fmtPros: ['a', 'b'] }, null)
+  assert.deepEqual([fresh2.format, JSON.parse(fresh2.formatData)], [`${CODE}_PRODUCT`, { score: 7, pros: ['a', 'b'] }])
+  assert.equal((await journalFormats.postFormatInput(prisma, { title: 'x' }, null)).format, 'ARTICLE', 'a new post without a format is an article')
+  assert.equal((await journalFormats.postFormatInput(prisma, { format: 'NOT_A_FORMAT' }, { format: 'NEWS', formatData: '{}' })).format, 'NEWS', 'an unknown format keeps the one the post had')
+  assert.deepEqual(await journalFormats.postFormatInput(prisma, { title: 'x' }, { format: 'NEWS', formatData: '{"sourceName":"ایسنا"}' }), {}, 'a save without format fields leaves them alone')
+  assert.deepEqual(JSON.parse((await journalFormats.postFormatInput(prisma, { fmtSourceUrl: 'https://isna.ir/x' }, { format: 'NEWS', formatData: '{"sourceName":"ایسنا"}' })).formatData), { sourceName: 'ایسنا', sourceUrl: 'https://isna.ir/x' }, 'facts merge into the stored ones')
+  const post = await prisma.post.create({ data: { slug: `${seed}-post`, title: 'x', content: '', format: `${CODE}_PRODUCT` } })
+  assert.equal(await uses('journal', 'POST_FORMAT', productReview.id), 1)
+  await refused(vocab.deleteEntry('journal', productReview.id, audit), /را دارند/, 409)
+  await assert.rejects(prisma.$executeRawUnsafe(`UPDATE "Post" SET format = 'lower' WHERE id = ${post.id}`), /check/i, 'a post format is a code')
+
   console.log('PostgreSQL managed lists: each section\'s declared lists seeded from the fixed values, the shape the database checks, fixed codes with the owner\'s names, entries scoped to their section, items keep only known codes (an inactive one stays where it was; an unknown licence keeps the old one), entries in use are not deleted, public filters match whole codes and cards show the owner\'s names.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
@@ -199,6 +215,7 @@ main().catch(error => { console.error(error); process.exitCode = 1 }).finally(as
     await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.gameTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.softwareTitle.deleteMany({ where: { slug: { startsWith: seed } } })
+    await prisma.post.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.musicTrack.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.musicAlbum.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.musicArtist.updateMany({ where: { slug: { startsWith: seed } }, data: { mergedIntoId: null } })

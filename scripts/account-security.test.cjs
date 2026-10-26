@@ -214,6 +214,8 @@ test('the magazine permission is named only where the magazine is guarded', () =
     'src/modules/mail/server/http/newsletter.ts', 'src/modules/moderation/domain/queue.ts', 'src/modules/paywall/server/http/paywall.ts', 'src/modules/site/server/builder.ts',
     'src/modules/site/server/http/admin/builder/post-template/route.ts', 'src/modules/site/server/http/admin/cms/route.ts', 'src/modules/site/server/http/admin/comments/route.ts',
     'src/modules/site/server/http/builder/post-template.ts', 'src/modules/site/server/http/theme/templates.ts', 'src/modules/site/server/pages/blog/[slug]/page.tsx', 'src/plugins/journal/manifest.json',
+    // The magazine's managed list (post formats): managed with the magazine's own permission.
+    'src/modules/vocabulary/domain/registry.ts',
   ].sort(), 'a new place accepts cms.posts: make sure it is the magazine, then list it here')
   // No section's own guard takes it: not as a second choice, not in a menu.
   for (const file of ['src/modules/music/server/http/routes.ts', 'src/modules/cinema/server/http/routes.ts', 'src/modules/games/server/http/routes.ts', 'src/modules/software/server/http/routes.ts', 'src/modules/media/server/admin.ts', 'src/modules/taxonomy/server/http/routes.ts', 'src/modules/reviews/server/http/routes.ts', 'src/modules/forum/server/community.ts', 'src/modules/forum/server/http/admin.ts', 'src/app/api/admin/studios/route.ts'])
