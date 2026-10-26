@@ -14,7 +14,10 @@ html[dir='rtl'] :where(.admin-shell) :is(.tb-eyebrow, .ticket-eyebrow, .content-
   --admin-action-surface: color-mix(in srgb, var(--primary) 55%, var(--sds-color-black-1000, #000));
 }
 html[data-theme='light'] .admin-shell { --admin-accent-text: color-mix(in srgb, var(--primary) 60%, var(--sds-color-black-1000, #000)); }
-.admin-shell .sa { --sa-accent: var(--admin-accent-text); --sa-muted: var(--admin-muted-text); }
+.admin-shell .sa { --sa-accent: var(--admin-accent-text); --sa-on-accent: var(--site-on-accent, var(--sds-theme-accent-on)); --sa-muted: var(--admin-muted-text); }
+/* What sits on that accent (active counts, pills) takes the ink derived for the theme's accent; light pages deepen
+   the accent, so it takes white there, like the main buttons. */
+html[data-theme='light'] .admin-shell .sa { --sa-on-accent: var(--sds-color-white-1000, #fff); }
 .admin-shell :is(.text-link, .studio-tabs .active, .studio-notice:not(.studio-error)) { color: var(--admin-accent-text); }
 .admin-shell :is(.badge-gray, .badge-primary, .badge-blue, .badge-purple) { color: var(--text); }
 html[data-design] .admin-shell .btn-primary, .admin-shell .btn-primary { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); }
@@ -194,9 +197,43 @@ html[data-design] .app-shell:where(.admin-shell) table.crud-table thead th:last-
   .admin-shell .crm-table select { width: 100%; }
 }
 
-/* Forum admin tabs: one line that scrolls, like the other sections' tabs (the theme builder's wrap stays its own). */
-.admin-shell .forum-admin-tabs { flex-wrap: nowrap; inline-size: 100%; overflow-x: auto; scrollbar-width: thin; }
-.admin-shell .forum-admin-tabs button { flex: none; white-space: nowrap; }
+/* Forum admin in the shared section frame (sa-*): tab counts, the structure tree, forms that open on demand,
+   members with a detail row, and settings in titled groups. */
+.admin-shell .fa-admin .sa-tabs a { display: inline-flex; align-items: center; gap: 6px; }
+.admin-shell .fa-tab-count { min-inline-size: 20px; padding: 0 6px; border-radius: 99px; background: color-mix(in srgb, currentColor 14%, transparent); font-size: 11px; text-align: center; }
+.admin-shell .fa-tab-count.is-alert { background: var(--sa-accent); color: var(--sa-on-accent); }
+.admin-shell .fa-admin .sa-head h1 + .sa-sub { margin: 4px 0 0; }
+.admin-shell .fa-admin .sa-card-head small { display: block; margin-top: 2px; line-height: 1.8; }
+.admin-shell .fa-admin .sa-subtabs, .admin-shell .fa-admin .sa-toolbar { margin-bottom: 12px; }
+.admin-shell .fa-node { display: flex; align-items: center; gap: 10px; min-width: 0; padding-inline-start: 10px; border-inline-start: 3px solid var(--fa-node, var(--sa-line)); }
+.admin-shell .fa-node-icon { flex: none; inline-size: 1.6em; font-size: 1.1rem; text-align: center; }
+.admin-shell .fa-node .sa-sub { overflow-wrap: anywhere; }
+.admin-shell .fa-tree tr.is-depth-0 td { background: var(--sa-subtle); }
+.admin-shell .fa-tree tr.is-depth-0 .fa-node b { font-size: 15px; }
+.admin-shell .fa-tree tr.is-depth-1 .fa-node { margin-inline-start: 22px; }
+.admin-shell .fa-tree tr.is-depth-2 .fa-node { margin-inline-start: 44px; }
+.admin-shell .fa-mods { font-size: 12px; overflow-wrap: anywhere; }
+.admin-shell .fa-panel { margin: 0 0 14px; border: 1px solid var(--sa-line); border-radius: 14px; background: var(--sa-surface); box-shadow: 0 6px 20px -14px rgb(0 0 0 / .5); }
+.admin-shell .fa-panel-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.admin-shell .fa-panel-head h3 { margin: 0; font-size: 15px; }
+.admin-shell .fa-panel-head h3 small { font-size: 12px; font-weight: 500; margin-inline-start: 6px; }
+.admin-shell .fa-users tr.fa-user-detail > td { background: var(--sa-subtle); }
+.admin-shell .fa-user-panel { display: grid; gap: 12px; padding: 4px 0; }
+.admin-shell .fa-settings { display: grid; gap: 14px; }
+.admin-shell .fa-settings-group { margin: 0; }
+.admin-shell .fa-settings-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+.admin-shell .fa-reaction { display: flex; align-items: center; gap: 8px; }
+.admin-shell .fa-reaction .input { inline-size: 76px; }
+.admin-shell .fa-settings > .sa-sub { margin: 0; }
+/* The dashboard's period switch takes the admin surface (the forum's own card colour is not defined here). */
+.admin-shell .fa-admin .fd-range { background: var(--sa-subtle); }
+.admin-shell .fa-admin .fd-range button.is-active { background: var(--sa-surface); color: var(--sa-text); }
+@media (max-width: 720px) {
+  .admin-shell .fa-tree tr.is-depth-1 .fa-node { margin-inline-start: 12px; }
+  .admin-shell .fa-tree tr.is-depth-2 .fa-node { margin-inline-start: 24px; }
+  .admin-shell .fa-tree tr.is-depth-0 { background: var(--sa-subtle); }
+  .admin-shell .fa-users tr.fa-user-detail { margin-top: -6px; background: var(--sa-subtle); }
+}
 
 /* Site Studio themes: each card previews the design in its own colours, radius and mode. */
 .admin-shell .tm-tab { display: grid; gap: 18px; }

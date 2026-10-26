@@ -96,6 +96,14 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - Rank is shown beside posts, on the profile, in the member list and on `/forum/staff` (`forumRanks`, `forumTeam` — the public page names no forum the viewer may not see).
 - Where: `src/modules/forum/server/team.ts`, `actions.ts`, `moderation.ts`, `community.ts` (`viewerFor`).
 
+**The forum admin (2026-10-26, owner: "every section principled, tidy and specialised")**
+- It sits in the shared section frame (`sa-tabs`, `sa-head`, `sa-card`, `sa-table sa-cards`), like the magazine, cinema and store. Each tab is an address (`/admin/forum?tab=…`), so the admin menu, the staff queue and the back button land on it. The community pages use `SectionShell` itself.
+- Structure is one tree (section → forum → subforum, sections highlighted); a row adds the next level inside itself. Club forums are listed apart (they belong to their club and are not deleted here). Groups are split into the team's, the automatic ones and clubs; members are added from a group's row. Badges are granted from their row.
+- Forms open on demand (a new item, or the row being edited) and close after saving; nothing stands open above a list.
+- Members are a list to scan (level, activity, sanction) with filters by what needs attention (`GET /api/admin/forum?section=users&filter=restricted|locked|noted`, with counts); a member's controls open under their row.
+- Admin pills on the accent take the ink derived for the accent in dark, and white in light, where the admin deepens the accent for text (`admin-tidy.css`). Light pages deepen the kit's warning amber (`--sa-warn`).
+- Handoff: `handoffs/FORUM_ADMIN.md`.
+
 **Pages**
 `/forum` board index (`server/board.ts`, `ForumRow`), `/forum/c/<slug>` forum page and all topic lists (`TopicListPage`, `TopicList`), `/forum/t/<id>` (`TopicView`), `/forum/activity` (`server/stream.ts`), `/forum/users`, `/forum/g`, `/forum/u/<username>` (`server/people.ts`), `/forum/leaderboard` (`server/leaderboard.ts`), `/forum/staff`, `/forum/clubs` (`server/clubs.ts`). Styles are appended blocks in `src/app/forum.css`, one prefix per area (`fb-` hero and widgets, `bi-` board rows, `fc-` forum page, `tl-` topic list, `tp-` topic heading, `fs-` stream, `fm-` members, `fg-` groups, `fp-` profile, `fl-` leaderboard, `ft-` team, `fk-` clubs).
 

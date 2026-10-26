@@ -1,66 +1,41 @@
 'use client'
-import { Suspense, useCallback, useEffect, useState } from 'react'
-import TeamTab, { type ForumTeam } from './TeamTab'
-import { MAX_CATEGORY_DEPTH, categoryFamily, categoryTree } from '@/modules/forum/domain/tree'
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
+import TeamTab from './TeamTab'
+import { categoryTree } from '@/modules/forum/domain/tree'
 import { useSearchParams } from '@/platform/routing/navigation'
 import Link from '@/components/AppLink'
 import ForumDashboard from './ForumDashboard'
-import Restrictions from './Restrictions'
-import LevelsTab, { BadgeRulePicker } from './LevelsTab'
-import { BADGE_METRICS, BADGE_RULE_LABEL, parseThresholdRule, type UserLevel } from '@/modules/forum/domain/community'
-
-/** A badge's rule in words: by hand, a fixed rule, or the number it is given at. */
-const ruleLabel = (rule: string) => { const parsed = parseThresholdRule(rule); return parsed ? `${BADGE_METRICS[parsed.metric]} ≥ ${parsed.value.toLocaleString('fa-IR')}` : rule ? BADGE_RULE_LABEL[rule] || rule : 'دستی' }
+import LevelsTab from './LevelsTab'
+import CategoriesTab from './CategoriesTab'
+import GroupsTab from './GroupsTab'
+import BadgesTab from './BadgesTab'
+import UsersTab from './UsersTab'
+import { date, fa, type Data, type Settings, type Trust } from './shared'
 import { ReviewQueue } from '@/components/forum/Messages'
 
-type Level = 'SEE' | 'REPLY' | 'CREATE'
-type Category = { id: number; parentId: number | null; slug: string; title: string; description: string; icon: string; color: string; access: string; locked: boolean; sortOrder: number; threadCount: number; postCount: number; permissions: { groupId: number; level: Level }[]; moderators: string[] }
-type Group = { id: number; slug: string; name: string; description: string; icon: string; color: string; title: string; automatic: string | null; visibility: string; joinMode: string; moderator: boolean; mentionable: boolean; memberCount: number }
-type Badge = { id: number; slug: string; name: string; description: string; icon: string; tier: string; rule: string; enabled: boolean; grantCount: number }
-type Author = { id: number; name: string; username: string }
-type Flag = { post: { id: number; number: number; excerpt: string; status: string; createdAt: string; thread: { id: number; title: string } }; author: Author; weight: number; flags: { reason: string; note: string; weight: number; createdAt: string; by: Author }[] }
-type Trust = { daysVisited: number; topicsEntered: number; postCount: number; likesGiven: number; likesReceived: number }
-type Settings = { imagesMinTrust: number; linksMinTrust: number; newUserMaxLinks: number; newUserTopicsPerDay: number; editWindowHours: number; flagHideWeight: number; maxTagsPerTopic: number; membersCreateTags: boolean; reactionWeights: Record<string, number>; clubsEnabled: boolean; clubsMinTrust: number; clubsMaxOwned: number; reactions: string[]; trust: Record<'1' | '2' | '3', Trust>
-  levels: UserLevel[]; approveNewUserPosts: number; messagesEnabled: boolean; messagesMinTrust: number; pollsMinTrust: number; watchedWords: { block: string[]; approve: string[]; censor: string[] } }
-type Member = { userId: number; username: string; email: string; name: string; trustLevel: number; trustLocked: boolean; title: string; postCount: number; likesReceived: number; lastSeenAt: string | null; silencedUntil: string | null; suspendedUntil: string | null; moderationNote: string; groups: string[] }
-type Data = { team: ForumTeam; categories: Category[]; groups: Group[]; badges: Badge[]; flags: Flag[]; settings: Settings; settingsRevision?: string; badgeRules: string[]; trustNames: string[]; flagReasons: { id: string; label: string }[]; stats: { topics: number; posts: number; members: number; pendingFlags: number; pendingReview: number } }
 type Tab = 'dashboard' | 'review' | 'flags' | 'categories' | 'team' | 'groups' | 'levels' | 'badges' | 'users' | 'words' | 'settings'
 const TABS_ALL: Tab[] = ['dashboard', 'review', 'flags', 'categories', 'team', 'groups', 'levels', 'badges', 'users', 'words', 'settings']
 
-const EMPTY_CATEGORY = { id: 0, parentId: 0, slug: '', title: '', description: '', icon: '💬', color: '#6366f1', access: 'PUBLIC', locked: false, sortOrder: 0, permissions: [] as { groupId: number; level: Level }[], moderators: '' }
-const EMPTY_GROUP = { id: 0, slug: '', name: '', description: '', icon: '👥', color: '#0ea5e9', title: '', visibility: 'PUBLIC', joinMode: 'CLOSED', moderator: false, mentionable: false, automatic: null as string | null }
-const EMPTY_BADGE = { id: 0, slug: '', name: '', description: '', icon: '🏅', tier: 'BRONZE', rule: '', enabled: true }
-const LEVEL_LABEL: Record<Level, string> = { SEE: 'فقط دیدن', REPLY: 'دیدن و پاسخ', CREATE: 'دسترسی کامل' }
-const TIER_LABEL: Record<string, string> = { BRONZE: '🥉 برنزی', SILVER: '🥈 نقره‌ای', GOLD: '🥇 طلایی' }
 const REACTIONS: Record<string, string> = { heart: '❤️', '+1': '👍', laughing: '😆', open_mouth: '😮', cry: '😢', clap: '👏', fire: '🔥', tada: '🎉', thinking: '🤔', eyes: '👀' }
 const TRUST_FIELDS: { key: keyof Trust; label: string }[] = [{ key: 'daysVisited', label: 'روزهای بازدید' }, { key: 'topicsEntered', label: 'موضوع‌های خوانده‌شده' }, { key: 'postCount', label: 'پیام' }, { key: 'likesGiven', label: 'پسند داده' }, { key: 'likesReceived', label: 'پسند گرفته' }]
-const fa = (n: number) => n.toLocaleString('fa-IR')
-const date = (value: string | null) => (value ? new Date(value).toLocaleDateString('fa-IR') : '')
 
-/** Forum administration: flag queue, categories + group permissions, groups, badges, members and settings. */
+/**
+ * Forum administration in the shared section-admin frame: each tab is an address (`?tab=`), so the admin menu,
+ * the staff queue and the back button land on it. Moderation (review, flags), structure (categories, team),
+ * people (groups, levels, badges, members) and rules (watched words, settings).
+ */
 function AdminForumPage() {
   const [data, setData] = useState<Data | null>(null)
-  const [tab, setTab] = useState<Tab>('dashboard')
   const search = useSearchParams()
-  // Deep links from the forum menu in the admin sidebar (?tab=review …).
-  useEffect(() => {
-    const wanted = search.get('tab') as Tab | null
-    if (wanted === 'review') fetch('/api/admin/forum?section=review', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { items: [] })).then((body) => setReview(body.items || [])).catch(() => setReview([]))
-    if (wanted && TABS_ALL.includes(wanted)) setTab(wanted)
-    else if (!wanted) setTab('dashboard')
-  }, [search])
+  const wanted = search.get('tab') as Tab | null
+  const tab: Tab = wanted && TABS_ALL.includes(wanted) ? wanted : 'dashboard'
   const [review, setReview] = useState<unknown[] | null>(null)
   const [words, setWords] = useState<{ block: string; approve: string; censor: string } | null>(null)
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
+  // A notice belongs to the tab it was given on; switching tabs leaves it behind.
+  const [message, setMessage] = useState<{ text: string; error: boolean; tab?: Tab } | null>(null)
   const [busy, setBusy] = useState(false)
-  const [category, setCategory] = useState(EMPTY_CATEGORY)
-  const [group, setGroup] = useState(EMPTY_GROUP)
-  const [badge, setBadge] = useState(EMPTY_BADGE)
-  const [grant, setGrant] = useState({ username: '', badgeId: 0, reason: '' })
-  const [member, setMember] = useState({ slug: '', username: '' })
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [query, setQuery] = useState('')
-  const [members, setMembers] = useState<Member[]>([])
+  const [revision, setRevision] = useState(0)
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/forum', { cache: 'no-store' }).catch(() => null)
@@ -68,17 +43,11 @@ function AdminForumPage() {
     if (response?.ok && body) { setData(body); setSettings(body.settings) }
     else setMessage({ text: body?.error || 'دریافت اطلاعات ناموفق بود', error: true })
   }, [])
-  const loadMembers = useCallback(async (q: string) => {
-    const response = await fetch(`/api/admin/forum?section=users&q=${encodeURIComponent(q)}`, { cache: 'no-store' }).catch(() => null)
-    const body = await response?.json().catch(() => null)
-    if (response?.ok) setMembers(body?.users || [])
-  }, [])
   useEffect(() => { void load() }, [load])
   useEffect(() => {
-    if (tab !== 'users') return
-    const timer = setTimeout(() => void loadMembers(query), 250)
-    return () => clearTimeout(timer)
-  }, [tab, query, loadMembers])
+    if (tab !== 'review') return
+    fetch('/api/admin/forum?section=review', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { items: [] })).then((body) => setReview(body.items || [])).catch(() => setReview([]))
+  }, [tab])
 
   async function call(method: string, body?: Record<string, unknown>, success = 'ذخیره شد', url = '/api/admin/forum') {
     setBusy(true); setMessage(null)
@@ -87,71 +56,47 @@ function AdminForumPage() {
     const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(settingsWrite && data?.settingsRevision ? { 'if-match': data.settingsRevision } : {}) }, body: patch ? JSON.stringify(patch) : undefined }).catch(() => null)
     const result = await response?.json().catch(() => null)
     setBusy(false)
-    if (!response?.ok) { setMessage({ text: result?.error || 'انجام نشد', error: true }); return false }
-    setMessage({ text: success, error: false })
+    if (!response?.ok) { setMessage({ text: result?.error || 'انجام نشد', error: true, tab }); return false }
+    setMessage({ text: success, error: false, tab })
     await load()
-    if (tab === 'users') await loadMembers(query)
+    setRevision((n) => n + 1)
     return true
   }
-  const remove = (section: string, id: number, label: string) => { if (window.confirm(`«${label}» حذف شود؟`)) void call('DELETE', undefined, 'حذف شد', `/api/admin/forum?section=${section}&id=${id}`) }
+  const remove = (section: string, id: number, label: string, warning?: string) => { if (window.confirm(`«${label}» حذف شود؟${warning ? `\n${warning}` : ''}`)) void call('DELETE', undefined, 'حذف شد', `/api/admin/forum?section=${section}&id=${id}`) }
 
-  if (!data || !settings) return <div className="xm-page" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}</div> : <div className="tb-empty">در حال بارگذاری…</div>}</div>
+  if (!data || !settings) return <div className="sa fa-admin" dir="rtl">{message ? <div className="xm-notice is-error" role="alert">{message.text}</div> : <div className="sa-empty">در حال بارگذاری…</div>}</div>
 
   const tree = categoryTree(data.categories)
-  const depthOf = new Map(tree.map((row) => [row.category.id, row.depth]))
-  const ordered = tree.map((row) => row.category)
-  // A parent may be a section or a forum, never a subforum, and never the category itself or something under it.
-  const under = category.id ? categoryFamily(data.categories, category.id) : []
-  const parents = tree.filter((row) => row.depth < MAX_CATEGORY_DEPTH - 1 && !under.includes(row.category.id))
-  const groupName = (id: number) => data.groups.find((g) => g.id === id)
-  const tabs: { key: Tab; label: string; count?: number }[] = [
-    { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview },
-    { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags }, { key: 'categories', label: 'دسته‌ها', count: data.categories.length }, { key: 'team', label: 'تیم تالار', count: data.team.deputies.length + data.team.moderators.length }, { key: 'groups', label: 'گروه‌ها', count: data.groups.length },
-    { key: 'levels', label: 'درجه‌های کاربری', count: settings.levels?.length || 0 }, { key: 'badges', label: 'نشان‌ها', count: data.badges.length }, { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
+  const tabs: { key: Tab; label: string; count?: number; alert?: boolean }[] = [
+    { key: 'dashboard', label: 'داشبورد' }, { key: 'review', label: 'صف بررسی', count: data.stats.pendingReview, alert: true },
+    { key: 'flags', label: 'گزارش‌ها', count: data.stats.pendingFlags, alert: true }, { key: 'categories', label: 'دسته‌ها', count: data.categories.filter((c) => !c.club).length }, { key: 'team', label: 'تیم تالار', count: data.team.deputies.length + data.team.moderators.length },
+    { key: 'groups', label: 'گروه‌ها', count: data.groups.length }, { key: 'levels', label: 'درجه‌های کاربری', count: settings.levels?.length || 0 }, { key: 'badges', label: 'نشان‌ها', count: data.badges.length },
+    { key: 'users', label: 'کاربران' }, { key: 'words', label: 'واژه‌های تحت نظر' }, { key: 'settings', label: 'تنظیمات' },
   ]
   const wordLists = words || { block: settings.watchedWords.block.join('\n'), approve: settings.watchedWords.approve.join('\n'), censor: settings.watchedWords.censor.join('\n') }
-  const openReview = () => {
-    fetch('/api/admin/forum?section=review', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { items: [] })).then((body) => setReview(body.items || [])).catch(() => setReview([]))
-  }
+  const set = (patch: Partial<Settings>) => setSettings({ ...settings, ...patch })
+  const reactionsOn = new Set(settings.reactions)
+  const reasonLabel = new Map(data.flagReasons.map((reason) => [reason.id, reason.label]))
 
-  function setPermission(groupId: number, level: Level | '') {
-    const rest = category.permissions.filter((row) => row.groupId !== groupId)
-    setCategory({ ...category, permissions: level ? [...rest, { groupId, level }] : rest })
-  }
-
-  return <div className="xm-page" dir="rtl">
-    <header className="tb-hero"><div><span className="tb-eyebrow">تالار گفتمان</span><h1>تالار گفتمان</h1>
-      <p>{fa(data.stats.topics)} موضوع · {fa(data.stats.posts)} پیام · {fa(data.stats.members)} عضو فعال. دسته‌ها، سطح دسترسی گروه‌ها، نشان‌ها، سطح اعتماد کاربران و صف گزارش‌ها را از اینجا مدیریت کنید.</p></div>
-      <div className="fa-inline fa-wrap"><Link href="/admin/history?type=settings-forum&id=1" className="btn btn-ghost btn-sm">تاریخچهٔ تنظیمات</Link><Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link></div>
-    </header>
-    <nav className="tb-tabs forum-admin-tabs" role="tablist" aria-label="بخش‌های تالار">
-      {tabs.map((item) => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'is-active' : ''} onClick={() => { setTab(item.key); setMessage(null); if (item.key === 'review') openReview() }}>{item.label}{item.count !== undefined && <span>{fa(item.count)}</span>}</button>)}
+  return <div className="sa fa-admin" dir="rtl">
+    <nav className="sa-tabs" aria-label="بخش‌های مدیریت تالار">
+      {tabs.map((item) => <Link key={item.key} href={item.key === 'dashboard' ? '/admin/forum' : `/admin/forum?tab=${item.key}`} className={tab === item.key ? 'is-active' : ''} aria-current={tab === item.key ? 'page' : undefined}>
+        {item.label}{item.count !== undefined && <span className={`fa-tab-count${item.alert && item.count > 0 ? ' is-alert' : ''}`}>{fa(item.count)}</span>}
+      </Link>)}
     </nav>
-    {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
+    <header className="sa-head">
+      <div><h1>تالار گفتمان</h1><p className="sa-sub">{fa(data.stats.topics)} موضوع · {fa(data.stats.posts)} پیام · {fa(data.stats.members)} عضو فعال</p></div>
+      <div className="sa-head-actions"><Link href="/admin/history?type=settings-forum&id=1" className="btn btn-ghost btn-sm">تاریخچهٔ تنظیمات</Link><Link href="/forum" className="btn btn-ghost btn-sm" target="_blank">مشاهدهٔ تالار ↗</Link></div>
+    </header>
+    {message && (!message.tab || message.tab === tab) && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
 
     {tab === 'dashboard' && <ForumDashboard />}
 
-    {tab === 'review' && <section className="xm-section">
-      <h2>صف بررسی پیش از انتشار</h2>
-      <p className="muted">پیام‌های کاربران تازه‌وارد (طبق تنظیمات) و پیام‌های دارای «واژه‌های نیازمند تأیید» اینجا منتظر می‌مانند. تأیید، پیام را منتشر و به دنبال‌کنندگان اعلان می‌دهد.</p>
-      {review === null ? <div className="tb-empty">در حال بارگذاری…</div> : <ReviewQueue items={review as never} />}
-    </section>}
+    {tab === 'review' && <Card title="صف بررسی پیش از انتشار" hint="پیام‌های کاربران تازه‌وارد (طبق تنظیمات) و پیام‌های دارای «واژه‌های نیازمند تأیید» اینجا منتظر می‌مانند. تأیید، پیام را منتشر و به دنبال‌کنندگان اعلان می‌دهد.">
+      {review === null ? <div className="sa-empty">در حال بارگذاری…</div> : <ReviewQueue items={review as never} />}
+    </Card>}
 
-    {tab === 'words' && <section className="xm-section">
-      <h2>واژه‌های تحت نظر</h2>
-      <p className="muted">هر واژه یا عبارت در یک خط. تطبیق بر اساس کل واژه است (مثلاً «کار» با «کارت» یکی نیست) و * یعنی هر ادامه‌ای (مثلاً <code>قمار*</code>). برای ناظران اعمال نمی‌شود.</p>
-      <form className="card fr-admin-form" onSubmit={(event) => { event.preventDefault(); const split = (v: string) => v.split('\n').map((w) => w.trim()).filter(Boolean); void call('PATCH', { section: 'settings', settings: { ...settings, watchedWords: { block: split(wordLists.block), approve: split(wordLists.approve), censor: split(wordLists.censor) } } }, 'واژه‌ها ذخیره شد').then((ok) => { if (ok) setWords(null) }) }}>
-        {([['block', '⛔ مسدود', 'پیام شامل این واژه‌ها ارسال نمی‌شود و نویسنده باید متن را اصلاح کند.'], ['approve', '⚖ نیازمند تأیید', 'پیام ارسال می‌شود ولی تا تأیید ناظر در صف بررسی می‌ماند.'], ['censor', '■ سانسور', 'پیام منتشر می‌شود ولی این واژه‌ها هنگام نمایش با ■ پوشانده می‌شوند.']] as const).map(([key, label, hint]) => <label key={key} className="fr-admin-wide fd-words">
-          <span><b>{label}</b><small className="muted">{hint}</small></span>
-          <textarea className="textarea" rows={6} dir="auto" value={wordLists[key]} onChange={(e) => setWords({ ...wordLists, [key]: e.target.value })} />
-          <small className="muted">{fa(wordLists[key].split('\n').filter((w) => w.trim()).length)} مورد (حداکثر ۲۰۰)</small>
-        </label>)}
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ واژه‌ها</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setWords(null)}>بازگردانی</button></div>
-      </form>
-    </section>}
-
-    {tab === 'flags' && <section className="xm-section">
-      <h2>صف بررسی گزارش‌ها</h2>
+    {tab === 'flags' && <Card title="صف بررسی گزارش‌ها" hint="پیام‌های گزارش‌شده با مجموع وزن گزارش‌ها؛ قدیمی‌ترین بالا.">
       <div className="fa-list">
         {data.flags.map((entry) => <article key={entry.post.id} className="card fa-flag">
           <header>
@@ -159,209 +104,91 @@ function AdminForumPage() {
             <span className="badge">وزن {fa(entry.weight)}</span>
           </header>
           <p className="fa-excerpt" dir="auto">{entry.post.excerpt}</p>
-          <ul className="fa-reasons">{entry.flags.map((flag, index) => <li key={index}><b>{data.flagReasons.find((r) => r.id === flag.reason)?.label || flag.reason}</b> — <bdi>@{flag.by.username}</bdi> · {date(flag.createdAt)}{flag.note && <> · «{flag.note}»</>}</li>)}</ul>
+          <ul className="fa-reasons">{entry.flags.map((flag) => <li key={`${flag.by.id}-${flag.createdAt}`}><b>{reasonLabel.get(flag.reason) || flag.reason}</b> — <bdi>@{flag.by.username}</bdi> · {date(flag.createdAt)}{flag.note && <> · «{flag.note}»</>}</li>)}</ul>
           <div className="fa-inline fa-wrap">
             <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void call('POST', { section: 'flags', postId: entry.post.id, action: 'agree' }, 'گزارش تأیید و پیام پنهان شد')}>تأیید و پنهان‌کردن</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void call('POST', { section: 'flags', postId: entry.post.id, action: 'disagree' }, 'گزارش رد شد و پیام نمایش داده می‌شود')}>رد گزارش</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { if (window.confirm('پیام حذف شود؟')) void call('POST', { section: 'flags', postId: entry.post.id, action: 'delete' }, 'پیام حذف شد') }}>حذف پیام</button>
           </div>
         </article>)}
-        {!data.flags.length && <div className="tb-empty">گزارشی در انتظار بررسی نیست ✓</div>}
+        {!data.flags.length && <div className="sa-empty">گزارشی در انتظار بررسی نیست ✓</div>}
       </div>
-    </section>}
+    </Card>}
 
-    {tab === 'categories' && <section className="xm-section">
-      <h2>{category.id ? `ویرایش «${category.title}»` : 'دستهٔ تازه'}</h2>
-      <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(category.id ? 'PATCH' : 'POST', { section: 'categories', ...category }, category.id ? 'دسته به‌روز شد' : 'دسته ساخته شد')) setCategory(EMPTY_CATEGORY) }}>
-        <label className="studio-field"><span>عنوان</span><input className="input" value={category.title} onChange={(e) => setCategory({ ...category, title: e.target.value })} required maxLength={120} /></label>
-        <label className="studio-field"><span>نشانی (انگلیسی)</span><input className="input" dir="ltr" value={category.slug} onChange={(e) => setCategory({ ...category, slug: e.target.value })} placeholder="general" maxLength={60} /></label>
-        <label className="studio-field"><span>دستهٔ والد</span><select className="input" value={category.parentId || 0} onChange={(e) => setCategory({ ...category, parentId: Number(e.target.value) })}><option value={0}>— بخش (سطح اول) —</option>{parents.map(({ category: c, depth }) => <option key={c.id} value={c.id}>{'— '.repeat(depth)}{c.title}</option>)}</select></label>
-        <label className="studio-field"><span>آیکون و رنگ</span><div className="fa-inline"><input className="input" value={category.icon} onChange={(e) => setCategory({ ...category, icon: e.target.value })} maxLength={8} aria-label="آیکون" /><input type="color" value={category.color} onChange={(e) => setCategory({ ...category, color: e.target.value })} aria-label="رنگ" /></div></label>
-        <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={category.description} onChange={(e) => setCategory({ ...category, description: e.target.value })} maxLength={400} /></label>
-        <label className="studio-field"><span>ترتیب</span><input className="input" type="number" value={category.sortOrder} onChange={(e) => setCategory({ ...category, sortOrder: Number(e.target.value) })} /></label>
-        <label className="studio-field fr-admin-wide"><span>مدیران این {category.parentId ? 'انجمن' : 'بخش'}</span><input className="input" dir="ltr" value={category.moderators} onChange={(e) => setCategory({ ...category, moderators: e.target.value })} placeholder="sara, kian" aria-describedby="fa-mods-help" /><small id="fa-mods-help" className="muted">نام کاربری اعضا را با ویرگول جدا کنید. مدیر در همین‌جا و هر چه زیر آن است می‌تواند موضوع و پیام را پنهان، حذف، قفل، سنجاق و منتقل کند و صف بررسی را ببیند؛ بیرون از آن عضو عادی است و به پنل مدیریت راه ندارد.</small></label>
-        <fieldset className="fa-perms fr-admin-wide">
-          <legend>دسترسی گروه‌ها</legend>
-          <small className="muted">اگر هیچ گروهی تنظیم نشود، دسترسی ساده اعمال می‌شود: {category.access === 'MEMBERS' ? <span data-vip="">فقط VIP</span> : 'همه'}{category.locked ? '، ساخت موضوع فقط برای تیم' : ''}. با افزودن ردیف، فقط گروه‌های فهرست‌شده به این دسته دسترسی دارند (تیم مدیریت همیشه دسترسی کامل دارد).</small>
-          {!category.permissions.length && <div className="fa-inline fa-wrap">
-            <label className="studio-field"><span>دسترسی ساده</span><select className="input" value={category.access} onChange={(e) => setCategory({ ...category, access: e.target.value })}><option value="PUBLIC">همه</option><option data-vip="" value="MEMBERS">فقط اعضای VIP</option></select></label>
-            <label className="studio-switch"><input type="checkbox" checked={category.locked} onChange={(e) => setCategory({ ...category, locked: e.target.checked })} />فقط تیم موضوع بسازد (اطلاعیه‌ها)</label>
-          </div>}
-          {category.permissions.map((row) => <div key={row.groupId} className="fa-inline">
-            <span className="fa-grow">{groupName(row.groupId)?.icon} {groupName(row.groupId)?.name || `#${row.groupId}`}</span>
-            <select className="input" value={row.level} onChange={(e) => setPermission(row.groupId, e.target.value as Level)} aria-label="سطح دسترسی">{(Object.keys(LEVEL_LABEL) as Level[]).map((level) => <option key={level} value={level}>{LEVEL_LABEL[level]}</option>)}</select>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPermission(row.groupId, '')} aria-label="حذف ردیف">✕</button>
+    {tab === 'categories' && <CategoriesTab categories={data.categories} groups={data.groups} busy={busy} call={call} remove={remove} />}
+
+    {tab === 'team' && <TeamTab team={data.team} forums={tree.filter((row) => !row.category.club).map((row) => ({ id: row.category.id, title: row.category.title, depth: row.depth }))} busy={busy} call={call} />}
+
+    {tab === 'groups' && <GroupsTab groups={data.groups} busy={busy} call={call} remove={remove} />}
+
+    {tab === 'levels' && <LevelsTab levels={settings.levels || []} busy={busy} onChange={(levels) => set({ levels })} onSave={() => void call('PATCH', { section: 'settings', settings }, 'درجه‌ها ذخیره شد')} />}
+
+    {tab === 'badges' && <BadgesTab badges={data.badges} rules={data.badgeRules} busy={busy} call={call} remove={remove} />}
+
+    {tab === 'users' && <UsersTab trustNames={data.trustNames} busy={busy} call={call} revision={revision} />}
+
+    {tab === 'words' && <Card title="واژه‌های تحت نظر" hint={<>هر واژه یا عبارت در یک خط. تطبیق بر اساس کل واژه است (مثلاً «کار» با «کارت» یکی نیست) و * یعنی هر ادامه‌ای (مثلاً <code>قمار*</code>). برای ناظران اعمال نمی‌شود.</>}>
+      <form className="fr-admin-form fa-panel" onSubmit={(event) => { event.preventDefault(); const split = (v: string) => v.split('\n').map((w) => w.trim()).filter(Boolean); void call('PATCH', { section: 'settings', settings: { ...settings, watchedWords: { block: split(wordLists.block), approve: split(wordLists.approve), censor: split(wordLists.censor) } } }, 'واژه‌ها ذخیره شد').then((ok) => { if (ok) setWords(null) }) }}>
+        {([['block', '⛔ مسدود', 'پیام شامل این واژه‌ها ارسال نمی‌شود و نویسنده باید متن را اصلاح کند.'], ['approve', '⚖ نیازمند تأیید', 'پیام ارسال می‌شود ولی تا تأیید ناظر در صف بررسی می‌ماند.'], ['censor', '■ سانسور', 'پیام منتشر می‌شود ولی این واژه‌ها هنگام نمایش با ■ پوشانده می‌شوند.']] as const).map(([key, label, hint]) => <label key={key} className="fr-admin-wide fd-words">
+          <span><b>{label}</b><small className="muted">{hint}</small></span>
+          <textarea className="textarea" rows={6} dir="auto" value={wordLists[key]} onChange={(e) => setWords({ ...wordLists, [key]: e.target.value })} />
+          <small className="muted">{fa(wordLists[key].split('\n').filter((w) => w.trim()).length)} مورد (حداکثر ۲۰۰)</small>
+        </label>)}
+        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ واژه‌ها</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setWords(null)}>بازگردانی</button></div>
+      </form>
+    </Card>}
+
+    {tab === 'settings' && <Card title="تنظیمات تالار" hint="قواعد ارسال، کلوب‌ها، پیام خصوصی، واکنش‌ها و ارتقای خودکار سطح اعتماد. هر ذخیره در «تاریخچهٔ تنظیمات» ثبت می‌شود.">
+      <form className="fa-settings" onSubmit={(event) => { event.preventDefault(); void call('PATCH', { section: 'settings', settings }, 'تنظیمات ذخیره شد') }}>
+        <Group title="ارسال و تازه‌واردها">
+          <Num label="سطح لازم برای درج تصویر" value={settings.imagesMinTrust} max={4} onChange={(v) => set({ imagesMinTrust: v })} />
+          <Num label="سطح لازم برای پیوند نامحدود" value={settings.linksMinTrust} max={4} onChange={(v) => set({ linksMinTrust: v })} />
+          <Num label="حداکثر پیوند کاربر تازه‌وارد" value={settings.newUserMaxLinks} max={50} onChange={(v) => set({ newUserMaxLinks: v })} />
+          <Num label="موضوع روزانهٔ تازه‌واردها" value={settings.newUserTopicsPerDay} max={100} onChange={(v) => set({ newUserTopicsPerDay: v })} />
+          <Num label="پیام‌های نخست تازه‌واردها که نیاز به تأیید دارند (۰ = خاموش)" value={settings.approveNewUserPosts} max={20} onChange={(v) => set({ approveNewUserPosts: v })} />
+          <Num label="مهلت ویرایش (ساعت)" value={settings.editWindowHours} max={8760} onChange={(v) => set({ editWindowHours: v })} />
+          <Num label="سطح لازم برای ساخت نظرسنجی" value={settings.pollsMinTrust} max={4} onChange={(v) => set({ pollsMinTrust: v })} />
+        </Group>
+        <Group title="گزارش‌ها و برچسب‌ها">
+          <Num label="وزن گزارش برای پنهان‌سازی خودکار" value={settings.flagHideWeight} min={1} max={100} onChange={(v) => set({ flagHideWeight: v })} />
+          <Num label="حداکثر برچسب هر موضوع" value={settings.maxTagsPerTopic} max={10} onChange={(v) => set({ maxTagsPerTopic: v })} />
+          <label className="studio-switch"><input type="checkbox" checked={settings.membersCreateTags} onChange={(e) => set({ membersCreateTags: e.target.checked })} />کاربران (سطح ۲ به بالا) برچسب تازه بسازند</label>
+        </Group>
+        <Group title="کلوب‌ها">
+          <label className="studio-switch"><input type="checkbox" checked={settings.clubsEnabled} onChange={(e) => set({ clubsEnabled: e.target.checked })} />اعضا بتوانند کلوب بسازند</label>
+          <Num label="حداقل سطح اعتماد برای ساخت کلوب" value={settings.clubsMinTrust} max={4} onChange={(v) => set({ clubsMinTrust: v })} />
+          <Num label="حداکثر کلوب برای هر بنیان‌گذار" value={settings.clubsMaxOwned} min={1} max={20} onChange={(v) => set({ clubsMaxOwned: v })} />
+        </Group>
+        <Group title="پیام خصوصی">
+          <label className="studio-switch"><input type="checkbox" checked={settings.messagesEnabled} onChange={(e) => set({ messagesEnabled: e.target.checked })} />پیام خصوصی بین اعضا فعال باشد</label>
+          <Num label="سطح لازم برای شروع پیام خصوصی" value={settings.messagesMinTrust} max={4} onChange={(v) => set({ messagesMinTrust: v })} />
+        </Group>
+        <Group title="واکنش‌ها" hint="هر واکنش به نویسندهٔ پیام همین‌قدر اعتبار می‌دهد (صفر یعنی هیچ). با تغییر وزن، اعتبار همهٔ اعضا از روی همهٔ واکنش‌های ثبت‌شده، از اول تا امروز، دوباره حساب می‌شود.">
+          {Object.entries(REACTIONS).map(([key, emoji]) => <div key={key} className="fa-reaction">
+            <label className="studio-switch"><input type="checkbox" checked={reactionsOn.has(key)} onChange={(e) => set({ reactions: e.target.checked ? [...settings.reactions, key] : settings.reactions.filter((r) => r !== key) })} aria-label={`واکنش ${key} مجاز باشد`} /><span aria-hidden="true">{emoji}</span></label>
+            <input className="input num" type="number" min={0} max={10} aria-label={`وزن ${key}`} value={settings.reactionWeights?.[key] ?? 1} onChange={(e) => set({ reactionWeights: { ...settings.reactionWeights, [key]: Math.max(0, Math.min(10, Math.trunc(Number(e.target.value)) || 0)) } })} />
           </div>)}
-          <select className="input" value="" onChange={(e) => { if (e.target.value) setPermission(Number(e.target.value), 'CREATE') }} aria-label="افزودن گروه">
-            <option value="">+ افزودن گروه…</option>
-            {data.groups.filter((g) => !category.permissions.some((row) => row.groupId === g.id)).map((g) => <option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}
-          </select>
-        </fieldset>
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{category.id ? 'ذخیرهٔ تغییرات' : 'افزودن دسته'}</button>{category.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCategory(EMPTY_CATEGORY)}>انصراف</button>}</div>
+        </Group>
+        {(['1', '2', '3'] as const).map((level) => <Group key={level} title={`ارتقا به سطح ${fa(Number(level))} — ${data.trustNames[Number(level)]}`}>
+          {TRUST_FIELDS.map((field) => <Num key={field.key} label={field.label} value={settings.trust[level][field.key]} max={100000} onChange={(v) => set({ trust: { ...settings.trust, [level]: { ...settings.trust[level], [field.key]: v } } })} />)}
+        </Group>)}
+        <p className="sa-sub">سطح ۴ (رهبر جامعه) فقط به‌صورت دستی از بخش کاربران اعطا می‌شود. سطح‌ها هرگز به‌طور خودکار کاهش نمی‌یابند.</p>
+        <div className="fr-admin-actions fa-settings-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings(data.settings)}>بازگردانی</button></div>
       </form>
-      <div className="table-wrap card"><table className="table"><thead><tr><th>دسته</th><th>دسترسی</th><th>موضوع</th><th>پیام</th><th /></tr></thead><tbody>
-        {ordered.map((c) => <tr key={c.id}>
-          <td><div className="fa-cat" style={{ borderColor: c.color, marginInlineStart: (depthOf.get(c.id) || 0) * 18 }}><b>{c.icon} {c.title}</b><small className="muted" dir="ltr">/forum/c/{c.slug}</small></div></td>
-          <td><div className="fa-perm-cell">{c.permissions.length ? c.permissions.map((row) => <span key={row.groupId} className="badge">{groupName(row.groupId)?.name}: {LEVEL_LABEL[row.level]}</span>) : <span className="badge">{c.access === 'MEMBERS' ? <span data-vip="">♛ VIP</span> : 'همه'}{c.locked ? ' · اطلاعیه' : ''}</span>}</div></td>
-          <td>{fa(c.threadCount)}</td><td>{fa(c.postCount)}</td>
-          <td className="fr-admin-row-actions">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setCategory({ id: c.id, parentId: c.parentId || 0, slug: c.slug, title: c.title, description: c.description, icon: c.icon, color: c.color, access: c.access, locked: c.locked, sortOrder: c.sortOrder, permissions: c.permissions.map((row) => ({ groupId: row.groupId, level: row.level })), moderators: c.moderators.join('، ') }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
-            <Link className="btn btn-ghost btn-sm" href={`/forum/c/${c.slug}`} target="_blank">مشاهده ↗</Link>
-            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('categories', c.id, c.title)}>حذف</button>
-          </td>
-        </tr>)}
-        {!ordered.length && <tr><td colSpan={5} className="muted">هنوز دسته‌ای ساخته نشده است.</td></tr>}
-      </tbody></table></div>
-    </section>}
-
-    {tab === 'team' && <TeamTab team={data.team} forums={tree.map((row) => ({ id: row.category.id, title: row.category.title, depth: row.depth }))} busy={busy} call={call} />}
-
-    {tab === 'groups' && <section className="xm-section">
-      <h2>{group.id ? `ویرایش گروه «${group.name}»` : 'گروه تازه'}</h2>
-      <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(group.id ? 'PATCH' : 'POST', { section: 'groups', ...group }, group.id ? 'گروه به‌روز شد' : 'گروه ساخته شد')) setGroup(EMPTY_GROUP) }}>
-        <label className="studio-field"><span>نام</span><input className="input" value={group.name} onChange={(e) => setGroup({ ...group, name: e.target.value })} required maxLength={60} /></label>
-        <label className="studio-field"><span>نشانی (انگلیسی)</span><input className="input" dir="ltr" value={group.slug} onChange={(e) => setGroup({ ...group, slug: e.target.value })} disabled={!!group.automatic} maxLength={40} /></label>
-        <label className="studio-field"><span>آیکون و رنگ</span><div className="fa-inline"><input className="input" value={group.icon} onChange={(e) => setGroup({ ...group, icon: e.target.value })} maxLength={8} aria-label="آیکون" /><input type="color" value={group.color} onChange={(e) => setGroup({ ...group, color: e.target.value })} aria-label="رنگ" /></div></label>
-        <label className="studio-field"><span>عنوان اعضا</span><input className="input" value={group.title} onChange={(e) => setGroup({ ...group, title: e.target.value })} placeholder="مثلاً: متخصص شبکه" maxLength={40} /></label>
-        <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={group.description} onChange={(e) => setGroup({ ...group, description: e.target.value })} maxLength={1000} /></label>
-        {!group.automatic && <>
-          <label className="studio-field"><span>نمایش</span><select className="input" value={group.visibility} onChange={(e) => setGroup({ ...group, visibility: e.target.value })}><option value="PUBLIC">عمومی</option><option value="MEMBERS">فقط اعضای گروه</option><option value="STAFF">فقط تیم</option></select></label>
-          <label className="studio-field"><span>عضویت</span><select className="input" value={group.joinMode} onChange={(e) => setGroup({ ...group, joinMode: e.target.value })}><option value="OPEN">آزاد</option><option value="REQUEST">با درخواست</option><option value="CLOSED">فقط با دعوت مدیر</option></select></label>
-          <label className="studio-switch"><input type="checkbox" checked={group.moderator} onChange={(e) => setGroup({ ...group, moderator: e.target.checked })} />اعضا ناظر تالار هستند</label>
-          <label className="studio-switch"><input type="checkbox" checked={group.mentionable} onChange={(e) => setGroup({ ...group, mentionable: e.target.checked })} />قابل نام‌بردن با @</label>
-        </>}
-        {group.automatic && <p className="muted fr-admin-wide">این گروه خودکار است؛ عضویت آن بر اساس نقش یا سطح اعتماد تعیین می‌شود و فقط ظاهرش قابل تغییر است.</p>}
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{group.id ? 'ذخیرهٔ تغییرات' : 'افزودن گروه'}</button>{group.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setGroup(EMPTY_GROUP)}>انصراف</button>}</div>
-      </form>
-      <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call('POST', { section: 'members', action: 'add', ...member }, 'کاربر به گروه اضافه شد')) setMember({ ...member, username: '' }) }}>
-        <label className="studio-field"><span>گروه</span><select className="input" value={member.slug} onChange={(e) => setMember({ ...member, slug: e.target.value })} required><option value="">انتخاب…</option>{data.groups.filter((g) => !g.automatic).map((g) => <option key={g.id} value={g.slug}>{g.icon} {g.name}</option>)}</select></label>
-        <label className="studio-field"><span>نام کاربری</span><input className="input" dir="ltr" value={member.username} onChange={(e) => setMember({ ...member, username: e.target.value })} placeholder="@username" required /></label>
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>افزودن عضو</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !member.slug || !member.username} onClick={() => void call('POST', { section: 'members', action: 'remove', ...member }, 'کاربر از گروه حذف شد')}>حذف از گروه</button></div>
-      </form>
-      <div className="table-wrap card"><table className="table"><thead><tr><th>گروه</th><th>نوع</th><th>اعضا</th><th /></tr></thead><tbody>
-        {data.groups.map((g) => <tr key={g.id}>
-          <td><div className="fa-cat" style={{ borderColor: g.color }}><b>{g.icon} {g.name}</b><small className="muted" dir="ltr">@{g.slug}</small></div></td>
-          <td>{g.automatic ? 'خودکار' : `${g.joinMode === 'OPEN' ? 'آزاد' : g.joinMode === 'REQUEST' ? 'با درخواست' : 'بسته'}${g.moderator ? ' · ناظر' : ''}`}</td>
-          <td>{fa(g.memberCount)}</td>
-          <td className="fr-admin-row-actions">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setGroup({ id: g.id, slug: g.slug, name: g.name, description: g.description, icon: g.icon, color: g.color, title: g.title, visibility: g.visibility, joinMode: g.joinMode, moderator: g.moderator, mentionable: g.mentionable, automatic: g.automatic }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
-            <Link className="btn btn-ghost btn-sm" href={`/forum/g/${g.slug}`} target="_blank">اعضا ↗</Link>
-            {!g.automatic && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('groups', g.id, g.name)}>حذف</button>}
-          </td>
-        </tr>)}
-      </tbody></table></div>
-    </section>}
-
-    {tab === 'levels' && <LevelsTab levels={settings.levels || []} busy={busy} onChange={(levels) => setSettings({ ...settings, levels })} onSave={() => void call('PATCH', { section: 'settings', settings }, 'درجه‌ها ذخیره شد')} />}
-
-    {tab === 'badges' && <section className="xm-section">
-      <h2>{badge.id ? `ویرایش نشان «${badge.name}»` : 'نشان تازه'}</h2>
-      <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call(badge.id ? 'PATCH' : 'POST', { section: 'badges', ...badge }, badge.id ? 'نشان به‌روز شد' : 'نشان ساخته شد')) setBadge(EMPTY_BADGE) }}>
-        <label className="studio-field"><span>نام</span><input className="input" value={badge.name} onChange={(e) => setBadge({ ...badge, name: e.target.value })} required maxLength={60} /></label>
-        <label className="studio-field"><span>آیکون</span><input className="input" value={badge.icon} onChange={(e) => setBadge({ ...badge, icon: e.target.value })} maxLength={8} /></label>
-        <label className="studio-field"><span>درجه</span><select className="input" value={badge.tier} onChange={(e) => setBadge({ ...badge, tier: e.target.value })}>{Object.entries(TIER_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <BadgeRulePicker rule={badge.rule} fixed={data.badgeRules} onChange={(rule) => setBadge({ ...badge, rule })} />
-        <label className="studio-field fr-admin-wide"><span>توضیح</span><input className="input" value={badge.description} onChange={(e) => setBadge({ ...badge, description: e.target.value })} maxLength={300} /></label>
-        <label className="studio-switch"><input type="checkbox" checked={badge.enabled} onChange={(e) => setBadge({ ...badge, enabled: e.target.checked })} />فعال</label>
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{badge.id ? 'ذخیرهٔ تغییرات' : 'افزودن نشان'}</button>{badge.id > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBadge(EMPTY_BADGE)}>انصراف</button>}</div>
-      </form>
-      <form className="card fr-admin-form" onSubmit={async (event) => { event.preventDefault(); if (await call('POST', { section: 'grant', ...grant, grant: true }, 'نشان اعطا شد')) setGrant({ ...grant, username: '', reason: '' }) }}>
-        <label className="studio-field"><span>نشان</span><select className="input" value={grant.badgeId} onChange={(e) => setGrant({ ...grant, badgeId: Number(e.target.value) })} required><option value={0}>انتخاب…</option>{data.badges.map((b) => <option key={b.id} value={b.id}>{b.icon} {b.name}</option>)}</select></label>
-        <label className="studio-field"><span>نام کاربری</span><input className="input" dir="ltr" value={grant.username} onChange={(e) => setGrant({ ...grant, username: e.target.value })} placeholder="@username" required /></label>
-        <label className="studio-field fr-admin-wide"><span>دلیل (اختیاری)</span><input className="input" value={grant.reason} onChange={(e) => setGrant({ ...grant, reason: e.target.value })} maxLength={200} /></label>
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy || !grant.badgeId}>اعطای نشان</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy || !grant.badgeId || !grant.username} onClick={() => void call('POST', { section: 'grant', ...grant, grant: false }, 'نشان پس گرفته شد')}>پس‌گرفتن</button></div>
-      </form>
-      <div className="table-wrap card"><table className="table"><thead><tr><th>نشان</th><th>درجه</th><th>قاعده</th><th>دریافت</th><th /></tr></thead><tbody>
-        {data.badges.map((b) => <tr key={b.id} className={b.enabled ? '' : 'muted'}>
-          <td><b>{b.icon} {b.name}</b><br /><small className="muted">{b.description}</small></td>
-          <td>{TIER_LABEL[b.tier] || b.tier}</td><td>{ruleLabel(b.rule)}</td><td>{fa(b.grantCount)}</td>
-          <td className="fr-admin-row-actions">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setBadge({ id: b.id, slug: b.slug, name: b.name, description: b.description, icon: b.icon, tier: b.tier, rule: b.rule, enabled: b.enabled }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>ویرایش</button>
-            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => remove('badges', b.id, b.name)}>حذف</button>
-          </td>
-        </tr>)}
-      </tbody></table></div>
-    </section>}
-
-    {tab === 'users' && <section className="xm-section">
-      <h2>کاربران تالار</h2>
-      <input className="input fa-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جست‌وجوی نام، ایمیل یا @نام‌کاربری" aria-label="جست‌وجوی کاربر" />
-      <div className="fa-list">
-        {members.map((user) => <UserModeration key={user.userId} user={user} trustNames={data.trustNames} busy={busy} onRestrictionsChanged={() => void loadMembers(query)} onSave={(patch, success) => void call('PATCH', { section: 'users', userId: user.userId, ...patch }, success)} />)}
-        {!members.length && <div className="tb-empty">کاربری پیدا نشد.</div>}
-      </div>
-    </section>}
-
-    {tab === 'settings' && <section className="xm-section">
-      <h2>تنظیمات جامعه</h2>
-      <form className="card fr-admin-form" onSubmit={(event) => { event.preventDefault(); void call('PATCH', { section: 'settings', settings }, 'تنظیمات ذخیره شد') }}>
-        <Num label="سطح لازم برای درج تصویر" value={settings.imagesMinTrust} max={4} onChange={(v) => setSettings({ ...settings, imagesMinTrust: v })} />
-        <Num label="سطح لازم برای پیوند نامحدود" value={settings.linksMinTrust} max={4} onChange={(v) => setSettings({ ...settings, linksMinTrust: v })} />
-        <Num label="حداکثر پیوند کاربر تازه‌وارد" value={settings.newUserMaxLinks} max={50} onChange={(v) => setSettings({ ...settings, newUserMaxLinks: v })} />
-        <Num label="موضوع روزانهٔ تازه‌واردها" value={settings.newUserTopicsPerDay} max={100} onChange={(v) => setSettings({ ...settings, newUserTopicsPerDay: v })} />
-        <Num label="مهلت ویرایش (ساعت)" value={settings.editWindowHours} max={8760} onChange={(v) => setSettings({ ...settings, editWindowHours: v })} />
-        <Num label="وزن گزارش برای پنهان‌سازی خودکار" value={settings.flagHideWeight} min={1} max={100} onChange={(v) => setSettings({ ...settings, flagHideWeight: v })} />
-        <Num label="حداکثر برچسب هر موضوع" value={settings.maxTagsPerTopic} max={10} onChange={(v) => setSettings({ ...settings, maxTagsPerTopic: v })} />
-        <label className="studio-switch"><input type="checkbox" checked={settings.membersCreateTags} onChange={(e) => setSettings({ ...settings, membersCreateTags: e.target.checked })} />کاربران (سطح ۲ به بالا) برچسب تازه بسازند</label>
-        <Num label="پیام‌های نخست تازه‌واردها که نیاز به تأیید دارند (۰ = خاموش)" value={settings.approveNewUserPosts} max={20} onChange={(v) => setSettings({ ...settings, approveNewUserPosts: v })} />
-        <label className="studio-switch"><input type="checkbox" checked={settings.clubsEnabled} onChange={(e) => setSettings({ ...settings, clubsEnabled: e.target.checked })} />اعضا بتوانند کلوب بسازند</label>
-        <Num label="حداقل سطح اعتماد برای ساخت کلوب" value={settings.clubsMinTrust} max={4} onChange={(v) => setSettings({ ...settings, clubsMinTrust: v })} />
-        <Num label="حداکثر کلوب برای هر بنیان‌گذار" value={settings.clubsMaxOwned} min={1} max={20} onChange={(v) => setSettings({ ...settings, clubsMaxOwned: v })} />
-        <label className="studio-switch"><input type="checkbox" checked={settings.messagesEnabled} onChange={(e) => setSettings({ ...settings, messagesEnabled: e.target.checked })} />پیام خصوصی بین اعضا فعال باشد</label>
-        <Num label="سطح لازم برای شروع پیام خصوصی" value={settings.messagesMinTrust} max={4} onChange={(v) => setSettings({ ...settings, messagesMinTrust: v })} />
-        <Num label="سطح لازم برای ساخت نظرسنجی" value={settings.pollsMinTrust} max={4} onChange={(v) => setSettings({ ...settings, pollsMinTrust: v })} />
-        <fieldset className="fa-perms fr-admin-wide">
-          <legend>واکنش‌های مجاز</legend>
-          <div className="fa-inline fa-wrap">{Object.entries(REACTIONS).map(([key, emoji]) => <label key={key} className="studio-switch"><input type="checkbox" checked={settings.reactions.includes(key)} onChange={(e) => setSettings({ ...settings, reactions: e.target.checked ? [...settings.reactions, key] : settings.reactions.filter((r) => r !== key) })} />{emoji}</label>)}</div>
-        </fieldset>
-        <fieldset className="fa-perms fr-admin-wide">
-          <legend>وزن هر واکنش در اعتبار</legend>
-          <div className="fa-inline fa-wrap">{Object.entries(REACTIONS).map(([key, emoji]) => <label key={key} className="fa-weight"><span aria-hidden="true">{emoji}</span><input className="input num" type="number" min={0} max={10} aria-label={`وزن ${key}`} value={settings.reactionWeights?.[key] ?? 1} onChange={(e) => setSettings({ ...settings, reactionWeights: { ...settings.reactionWeights, [key]: Math.max(0, Math.min(10, Math.trunc(Number(e.target.value)) || 0)) } })} /></label>)}</div>
-          <small className="muted">هر واکنش به نویسندهٔ پیام همین‌قدر اعتبار می‌دهد (صفر یعنی هیچ). با تغییر وزن، اعتبار همهٔ اعضا از روی همهٔ واکنش‌های ثبت‌شده، از اول تا امروز، دوباره حساب می‌شود.</small>
-        </fieldset>
-        {(['1', '2', '3'] as const).map((level) => <fieldset key={level} className="fa-perms fr-admin-wide">
-          <legend>ارتقا به سطح {fa(Number(level))} — {data.trustNames[Number(level)]}</legend>
-          <div className="fa-inline fa-wrap">{TRUST_FIELDS.map((field) => <Num key={field.key} label={field.label} value={settings.trust[level][field.key]} max={100000} onChange={(v) => setSettings({ ...settings, trust: { ...settings.trust, [level]: { ...settings.trust[level], [field.key]: v } } })} />)}</div>
-        </fieldset>)}
-        <p className="muted fr-admin-wide">سطح ۴ (رهبر جامعه) فقط به‌صورت دستی از بخش کاربران اعطا می‌شود. سطح‌ها هرگز به‌طور خودکار کاهش نمی‌یابند.</p>
-        <div className="fr-admin-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={busy}>ذخیرهٔ تنظیمات</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSettings(data.settings)}>بازگردانی</button></div>
-      </form>
-    </section>}
+    </Card>}
   </div>
+}
+
+function Card({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
+  return <section className="sa-card"><div className="sa-card-head"><div><h2>{title}</h2>{hint && <small>{hint}</small>}</div></div>{children}</section>
+}
+
+function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return <fieldset className="fa-perms fa-settings-group"><legend>{title}</legend><div className="fa-settings-fields">{children}</div>{hint && <small className="muted">{hint}</small>}</fieldset>
 }
 
 function Num({ label, value, onChange, min = 0, max }: { label: string; value: number; onChange: (value: number) => void; min?: number; max: number }) {
   return <label className="studio-field"><span>{label}</span><input className="input" type="number" min={min} max={max} value={value} onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || 0)))} /></label>
-}
-
-function UserModeration({ user, trustNames, busy, onSave, onRestrictionsChanged }: { user: Member; trustNames: string[]; busy: boolean; onSave: (patch: Record<string, unknown>, success: string) => void; onRestrictionsChanged: () => void }) {
-  const [title, setTitle] = useState(user.title)
-  const [note, setNote] = useState(user.moderationNote)
-  const now = Date.now()
-  const silenced = user.silencedUntil && new Date(user.silencedUntil).getTime() > now
-  const suspended = user.suspendedUntil && new Date(user.suspendedUntil).getTime() > now
-  const ask = (field: 'silenceDays' | 'suspendDays', label: string) => {
-    const days = window.prompt(`${label} برای چند روز؟ (۰ = لغو)`, '7')
-    if (days !== null) onSave({ [field]: Number(days) || 0 }, Number(days) ? `${label} اعمال شد` : `${label} لغو شد`)
-  }
-  return <article className="card fa-user">
-    <header>
-      <div><Link href={`/forum/u/${user.username}`} target="_blank"><b>{user.name || user.email}</b></Link> <bdi className="muted" dir="ltr">@{user.username}</bdi>
-        <br /><small className="muted">{user.email} · {user.postCount.toLocaleString('fa-IR')} پیام · {user.likesReceived.toLocaleString('fa-IR')} پسند{user.lastSeenAt ? ` · آخرین بازدید ${date(user.lastSeenAt)}` : ''}{user.groups.length ? ` · ${user.groups.join('، ')}` : ''}</small></div>
-      <div className="fa-perm-cell">{silenced && <span className="badge">🔇 ساکت تا {date(user.silencedUntil)}</span>}{suspended && <span className="badge">⛔ معلق تا {date(user.suspendedUntil)}</span>}</div>
-    </header>
-    <div className="fa-inline fa-wrap">
-      <label className="studio-field"><span>سطح اعتماد{user.trustLocked ? ' (قفل)' : ''}</span><select className="input" value={user.trustLevel} disabled={busy} onChange={(e) => onSave({ trustLevel: Number(e.target.value), trustLocked: true }, 'سطح اعتماد تغییر کرد')}>{trustNames.map((name, level) => <option key={level} value={level}>{level.toLocaleString('fa-IR')} — {name}</option>)}</select></label>
-      {user.trustLocked && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onSave({ trustLocked: false }, 'سطح اعتماد دوباره خودکار شد')}>بازکردن قفل سطح</button>}
-      <label className="studio-field"><span>عنوان</span><div className="fa-inline"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} /><button type="button" className="btn btn-ghost btn-sm" disabled={busy || title === user.title} onClick={() => onSave({ title }, 'عنوان ذخیره شد')}>ذخیره</button></div></label>
-      <label className="studio-field fa-grow"><span>یادداشت مدیریتی (خصوصی)</span><div className="fa-inline"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} /><button type="button" className="btn btn-ghost btn-sm" disabled={busy || note === user.moderationNote} onClick={() => onSave({ moderationNote: note }, 'یادداشت ذخیره شد')}>ذخیره</button></div></label>
-    </div>
-    <div className="fa-inline fa-wrap">
-      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('silenceDays', 'ساکت‌کردن')}>🔇 {silenced ? 'تغییر سکوت' : 'ساکت‌کردن'}</button>
-      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('suspendDays', 'تعلیق')}>⛔ {suspended ? 'تغییر تعلیق' : 'تعلیق'}</button>
-    </div>
-    <Restrictions userId={user.userId} disabled={busy} onChanged={onRestrictionsChanged} />
-  </article>
 }
 
 export default function ForumAdminPage() {
