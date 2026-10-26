@@ -6,6 +6,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { auditAdminStrict } from '@/platform/audit/server'
 import { BusinessError } from '../domain/businesses'
 import { businessId, normalizeBusinessProfile } from '../domain/profiles'
+import { listedCategory } from './vocabulary'
 import { refreshBusinessRating } from '@/modules/reviews/server/reviews'
 
 export async function businessTransaction<T>(req: NextRequest, admin: boolean, work: (tx: Prisma.TransactionClient, actor: NonNullable<Awaited<ReturnType<typeof requireUser>>>) => Promise<T>) {
@@ -30,6 +31,8 @@ export async function saveBusinessProfile(req: NextRequest, input: Record<string
   return businessTransaction(req, true, async (tx, actor) => {
     const previous = id ? await tx.businessProfile.findUnique({ where: { id } }) : null
     if (id && !previous) throw new BusinessError('کسب‌وکار پیدا نشد', 404)
+    // The category is a name of the owner's list (or the one the business already had).
+    data.category = await listedCategory(tx, data.category, previous?.category)
     if (previous && (previous.slug !== data.slug || previous.kind !== data.kind || previous.sellerId !== data.sellerId || previous.domain !== data.domain)) throw new BusinessError('هویت کسب‌وکار پس از ثبت قابل جابه‌جایی نیست', 409)
     if (data.sellerId && !await tx.seller.findFirst({ where: { id: data.sellerId, status: 'ACTIVE' } })) throw new BusinessError('فروشندهٔ فعال پیدا نشد', 400)
     if (data.representativeId && !await tx.user.findFirst({ where: { id: data.representativeId, status: 'ACTIVE' } })) throw new BusinessError('حساب نمایندهٔ فعال پیدا نشد', 400)

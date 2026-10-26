@@ -19,6 +19,9 @@ html[data-theme='light'] .admin-shell { --admin-accent-text: color-mix(in srgb, 
    the accent, so it takes white there, like the main buttons. */
 html[data-theme='light'] .admin-shell .sa { --sa-on-accent: var(--sds-color-white-1000, #fff); }
 .admin-shell :is(.text-link, .studio-tabs .active, .studio-notice:not(.studio-error)) { color: var(--admin-accent-text); }
+/* The managed lists page (every section's lists): the active list tab and the delete action read in light mode too. */
+.admin-shell .cf-tabs button.is-active { color: var(--admin-accent-text); }
+.admin-shell .cf-tools .is-danger { color: var(--admin-danger-text); }
 /* Form actions drawn in the accent (upload a picture, add a link) take the same readable accent text. */
 .admin-shell :is(.cms-cover-buttons .cms-cover-pick, .cms-cover-pick, .mx-links-add, .ai-assist-toggle) { color: var(--admin-accent-text); }
 .admin-shell :is(.badge-gray, .badge-primary, .badge-blue, .badge-purple) { color: var(--text); }

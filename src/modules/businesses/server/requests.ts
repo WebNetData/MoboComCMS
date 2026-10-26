@@ -5,6 +5,7 @@ import { businessTransaction } from './commands'
 import { BusinessError } from '../domain/businesses'
 import { businessId, normalizeBusinessProfile } from '../domain/profiles'
 import { normalizeBusinessRequest } from '../domain/requests'
+import { listedCategory } from './vocabulary'
 import { getExtensionState } from '@/extensions/server/state'
 
 export async function businessRequestPolicy() {
@@ -19,6 +20,8 @@ export async function requestBusiness(req: NextRequest, input: Record<string, un
     const { settings } = await getExtensionState('businesses', [], tx, true)
     const key = data.kind === 'CLAIM' ? 'allow-claims' : 'allow-suggestions'
     if (settings[key] !== undefined && settings[key] !== true) throw new BusinessError('ثبت این نوع درخواست در حال حاضر فعال نیست', 403)
+    // A suggested business's category is one the owner lists; anything else leaves it for the manager to set.
+    if (data.kind === 'SUGGESTION') data.category = await listedCategory(tx, data.category)
     if (await tx.businessRequest.count({ where: { requesterId: actor.id, status: 'PENDING' } }) >= 5) throw new BusinessError('ابتدا منتظر بررسی درخواست‌های قبلی بمانید', 409)
     if (data.kind === 'CLAIM') {
       const business = await tx.businessProfile.findFirst({ where: { id: data.businessId!, status: 'PUBLISHED', kind: 'EXTERNAL' } })

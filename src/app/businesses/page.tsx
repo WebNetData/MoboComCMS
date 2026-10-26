@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
-import { businessDirectory, businessRequestPolicy } from '@/modules/businesses/server/businesses'
+import { businessCategoryNames, businessDirectory, businessRequestPolicy } from '@/modules/businesses/server/businesses'
 import { BusinessDirectoryHero, BusinessDirectoryCard } from '@/components/businesses/BusinessDirectoryView'
 import { businessKinds } from '@/components/businesses/labels'
 import Icon from '@/components/site/Icon'
@@ -28,7 +28,7 @@ export default async function BusinessDirectoryPage({ searchParams }: { searchPa
     <div className={styles.grid}>{data.businesses.map(business => <BusinessDirectoryCard key={business.id} business={business} />)}{!data.businesses.length && <div className={styles.empty}><span className={styles.emptyIcon}><Icon name="search" size={30} /></span><h2>{filtered ? 'کسب‌وکاری با این فیلترها پیدا نشد' : 'تجربه‌ها از همین‌جا شروع می‌شوند'}</h2><p className={styles.muted}>{filtered ? 'نام یا دامنهٔ دیگری را امتحان کنید یا فیلترها را بردارید.' : 'کسب‌وکارهای منتشرشده توسط مدیریت در این بخش نمایش داده می‌شوند.'}</p>{filtered && <Link href="/businesses#business-results" className="btn btn-ghost">دیدن همهٔ کسب‌وکارها</Link>}</div>}</div>
     {data.pages > 1 && <nav aria-label="صفحه‌بندی کسب‌وکارها" className={styles.pager}>{data.page > 1 && <Link href={query(data.page - 1)}>صفحهٔ قبل</Link>}<span>{data.page.toLocaleString('fa-IR')} از {data.pages.toLocaleString('fa-IR')}</span>{data.page < data.pages && <Link href={query(data.page + 1)}>صفحهٔ بعد</Link>}</nav>}
     </section>
-    {policy.suggestions && <BusinessRequestForm loggedIn={!!viewer.userId} />}
+    {policy.suggestions && <BusinessRequestForm loggedIn={!!viewer.userId} categories={await businessCategoryNames()} />}
     <section className={styles.faq} aria-labelledby="business-faq"><div><span className={styles.eyebrow}>راهنمای تجربهٔ خرید</span><h2 id="business-faq">شفاف، از اولین تجربه</h2><p className={styles.muted}>پیش از نوشتن یا خواندن تجربه‌ها، این نکته‌ها را بدانید.</p></div><div><details><summary>آیا هر تجربه به معنی خرید تأییدشده است؟</summary><p>خیر. نشان خرید فقط زمانی نمایش داده می‌شود که سابقهٔ خرید واجد شرایط در موبوکام وجود داشته باشد. تجربهٔ سایت بیرونی به‌تنهایی نشان خرید نمی‌گیرد. نشان جداگانهٔ «مدرک خرید بررسی‌شده» فقط پس از تطبیق تصویر خصوصی با تجربه توسط مدیر مستقل نمایش داده می‌شود و تضمین کیفیت کسب‌وکار نیست.</p></details><details><summary>آیا کسب‌وکار می‌تواند نظر منفی را حذف کند؟</summary><p>خیر. نماینده فقط به تجربه‌های منتشرشده پاسخ می‌دهد. ثبت نظر مثبت یا منفی، به‌تنهایی دلیل تأیید یا رد نیست.</p></details><details><summary>پس از ویرایش تجربه چه اتفاقی می‌افتد؟</summary><p>تغییر واقعی در متن، امتیاز یا جزئیات تجربه ممکن است نیاز به بررسی دوباره داشته باشد. امتیاز عمومی از نظرهای منتشرشده محاسبه می‌شود.</p></details></div></section>
   </main>
 }
