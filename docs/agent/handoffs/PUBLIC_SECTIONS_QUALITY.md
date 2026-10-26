@@ -65,7 +65,7 @@ The helper is `.mobocom/claude-tools/audit-public.cjs <label> <route…>`. It ru
 ## Open
 
 - **`nested-interactive` (12, all software): resolved 2026-10-26.** The trees (`TermTree` and the platform tree in `SoftwarePortal`) now give each branch a row link (`.sp-branch-head`) and its own disclosure: count plus chevron, named «N نرم‌افزار، زیرشاخه‌های …», placed where it was. axe reports 0 on the software pages, and `pw-software-tree` passes 4/4 (mouse, Enter, name, link).
-- **Main buttons:** they still carry white ink on the light accent (2.1:1 dark, 3.3:1 light). `--on-accent` is ready; switching `--on-primary` to it changes every main button's look, so it waits for the owner's decision.
+- **Main buttons: resolved 2026-10-26 (owner's choice «متن خوانا»).** `--on-primary` and `--sds-theme-accent-on` now take the derived `--on-accent` in `studio.css` and in the MoboCom and Clean themes, with `src/themes/generated.css` regenerated. Links drawn as main buttons keep that ink in the media pages and the forum (`a.btn-primary`).
 - **Images that can't be resized:** cinema pictures under `/files/download/…` and the demo SVGs are not site uploads; the cinema home is about 1.1 MB because of them.
 - The home canonical is set by the root layout; the audit's «no canonical» for `/` is its own false positive, from stripping the origin.
 
@@ -85,3 +85,11 @@ The audit covered 15 pages (board, forum, two topics, activity, leaderboard, clu
   - TypeScript passes with 0 errors;
   - `npm run check` passes, with only the six known environment-only failures;
   - React Doctor reports 45 warnings, the same as main.
+
+## Main buttons — 2026-10-26
+
+This follows the owner's choice of readable ink.
+
+- **Result:** the whole public audit (37 pages × light/dark × 1440/390 = 148 variants, on the latest main including the owner's #242 and the review-reliability work) shows **0 axe violations**, 0 page or console errors, 0 non-200 and 0 overflow.
+- **Browser checks:** pw-journal-review, pw-journal-proposals, pw-journal-admin, pw-themes, pw-journal-polish, pw-board-fold and pw-software-tree all pass.
+- **Editorial decisions:** they now reach the author as durable `journal.editorial-decision` intents (owner's c05311aa). The two review browser checks accept the decision as queued or delivered, and remove their queued intents in cleanup.

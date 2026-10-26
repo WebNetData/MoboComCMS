@@ -2,8 +2,8 @@
    contract (studio.css), so Site Studio edits and the light/dark switch apply;
    section tones only tint icons and tiles. Prefix: mb- */
 html[data-design="mobocom"] {
-  --on-primary: #fff;
-  --sds-theme-accent-on: #fff;
+  --on-primary: var(--site-on-accent, #fff);
+  --sds-theme-accent-on: var(--site-on-accent, #fff);
   --mb-radius: var(--site-radius, 18px);
   --mb-radius-sm: calc(var(--mb-radius) * .62);
   --mb-shadow: 0 1px 2px #14122b0d, 0 14px 34px -16px #14122b26;
