@@ -8,6 +8,7 @@ import { softwareUsage } from '@/modules/software/server/vocabulary'
 import { linkUsage } from '@/modules/media/server/vocabulary'
 import { musicUsage } from '@/modules/music/server/vocabulary'
 import { journalUsage } from '@/modules/journal/server/vocabulary'
+import { cinemaUsage } from '@/modules/cinema/server/vocabulary'
 
 type Tx = Prisma.TransactionClient
 type Audit = (tx: Tx, id: number, action: 'created' | 'updated' | 'deleted', metadata: Record<string, unknown>) => Promise<unknown>
@@ -16,7 +17,7 @@ const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }
 const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, family: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
-const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage, music: musicUsage, journal: journalUsage }
+const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit' | 'post' | 'cinemaTitle'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage, music: musicUsage, journal: journalUsage, cinema: cinemaUsage }
 
 function bySection(section: VocabularySection, rows: VocabularyEntry[]): SectionLists {
   const lists: SectionLists = Object.fromEntries(listsOf(section).map((definition) => [definition.list, [] as VocabularyEntry[]]))
@@ -92,6 +93,18 @@ export async function knownLinkAudio<T extends { audio: string }>(tx: Pick<Tx, '
   if (!links.some((link) => link.audio)) return links
   const codes = new Set((await tx.vocabulary.findMany({ where: { section: 'media', list: 'AUDIO' }, select: { code: true } })).map((row) => row.code))
   return links.map((link) => (link.audio && !codes.has(link.audio) ? { ...link, audio: '' } : link))
+}
+
+/**
+ * Names an item is saved with, for name lists that also take what imports bring in English: a wanted name matches an
+ * entry by its code or its English name (case-insensitive), and is saved as the code ("Drama" → "درام"). Otherwise as
+ * knownCodes: inactive entries only where the item already had them, unknown names dropped, in the list's order.
+ */
+export async function knownNames(tx: Pick<Tx, 'vocabulary'>, section: VocabularySection, list: string, wanted: string[], had: string[]) {
+  const key = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase()
+  const want = new Set(wanted.map(key)), kept = new Set(had)
+  const rows = await tx.vocabulary.findMany({ where: { section, list }, orderBy: ORDER, select: { code: true, nameEn: true, active: true } })
+  return [...new Set(rows.filter((row) => (want.has(key(row.code)) || (row.nameEn && want.has(key(row.nameEn)))) && (row.active || kept.has(row.code))).map((row) => row.code))]
 }
 
 /**

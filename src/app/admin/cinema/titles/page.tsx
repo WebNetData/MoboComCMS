@@ -6,6 +6,7 @@ import { commonFields } from '../../cms/media-fields'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { CinemaShell } from '../shared'
 import { structureOf, type CinemaFormat } from '@/modules/cinema/domain/formats'
+import { useSectionLists } from '../../cms/useSectionLists'
 
 type Format = CinemaFormat & { titles: number }
 
@@ -41,6 +42,9 @@ export default function AdminCinemaPage() {
     return <span className="mx-tag">{format ? nameOf(format) : row.kind === 'SERIES' ? L('سریال', 'Series') : L('فیلم سینمایی', 'Movie')}</span>
   }
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
+  // The owner's lists of genres, countries and languages (inactive ones listed for the titles that have them).
+  const lists = useSectionLists('cinema', true)
+  const listOptions = (list: string) => (lists[list] || []).map((entry) => ({ value: entry.code, label: `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}${entry.active ? '' : L(' (غیرفعال)', ' (inactive)')}` }))
   const S = {
     main: L('اطلاعات اصلی', 'Basics'),
     facts: L('امتیاز و مشخصات', 'Rating & details'),
@@ -69,9 +73,9 @@ export default function AdminCinemaPage() {
     { section: S.facts, key: 'dubbed', label: L('دوبلهٔ فارسی دارد', 'Persian dub available'), type: 'checkbox', table: true },
     { section: S.facts, key: 'subtitle', label: L('زیرنویس فارسی دارد', 'Persian subtitles'), type: 'checkbox' },
     { section: S.terms, key: 'terms', label: L('دسته‌بندی و زیردسته', 'Categories'), type: 'terms', taxonomy: 'cinema' },
-    { section: S.terms, key: 'genres', label: L('ژانرها', 'Genres'), placeholder: L('درام، جنایی', 'Drama, Crime'), hint: L('با ویرگول جدا کنید.', 'Comma separated.') },
-    { section: S.terms, key: 'countries', label: L('کشور سازنده', 'Countries') },
-    { section: S.terms, key: 'languages', label: L('زبان', 'Languages') },
+    { section: S.terms, key: 'genres', label: L('ژانرها', 'Genres'), type: 'chips', options: listOptions('GENRE'), hint: L('ژانرها، کشورها و زبان‌ها را در زبانهٔ «فهرست‌ها» مدیریت کنید؛ نام انگلیسی هر مورد، ورود از IMDb را به همان مورد می‌برد.', 'Manage genres, countries and languages under Lists; each entry\'s English name maps IMDb imports to it.') },
+    { section: S.terms, key: 'countries', label: L('کشور سازنده', 'Countries'), type: 'chips', options: listOptions('COUNTRY') },
+    { section: S.terms, key: 'languages', label: L('زبان', 'Languages'), type: 'chips', options: listOptions('LANGUAGE') },
     { section: S.people, key: 'director', label: L('کارگردان', 'Director'), type: 'people', people: 'line' },
     { section: S.people, key: 'producer', label: L('تهیه‌کننده', 'Producer'), type: 'people', people: 'line' },
     { section: S.people, key: 'cast', label: L('بازیگران', 'Cast'), type: 'people', people: 'cast', hint: L('افراد را از فهرست انتخاب کنید تا صفحهٔ هر نفر و جست‌وجو بر اساس بازیگر، کارگردان و تهیه‌کننده این اثر را پیدا کند. عکس هر نفر را در «بازیگران و کارگردان‌ها» مدیریت کنید.', 'Pick people from the list so their pages and the actor, director and producer filters find this title. Photos are managed under People.') },
