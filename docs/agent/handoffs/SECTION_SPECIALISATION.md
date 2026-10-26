@@ -16,7 +16,7 @@ This handoff records where each section stands against those principles and cont
 | Games | Platforms, stores, modes, localisation (lists). Developer and publisher: **this slice** | Release per platform | Lists (`GAME_LISTS`) | Engine and genres are free text. |
 | Software | Licence. Platforms, app stores, developer and publisher: **this slice** | Desktop or mobile, by platform family: **this slice** | Licence, platform, app store | — |
 | Music | Artist and album. Credits from the artists: **slice 2** | Release type per album: **slice 2** | Genre, release type, credit role: **slice 2** | — |
-| Magazine | Categories, items linked to a post | — | — | No post format (news, review, interview, video, guide), so no format-specific fields. |
+| Magazine | Categories, items linked to a post | By the format's family: **slice 3** | Post formats: **slice 3** | — |
 | Store | Brand, category | Physical or virtual, attribute groups by category | Attribute groups, kinds | Mature. |
 
 ## This slice: software specialised (branch `feat/software-specialised-2026-10-26`)
@@ -100,7 +100,43 @@ This handoff records where each section stands against those principles and cont
   - Browser test `pw-music-specialised` passes 18/18. It covers the form, save, the song page, the credited artist page, the album type, the lists page, phone width, and axe 0.
   - Fixed on the way: the upload field's address input now has its label (every upload field of the shared form).
 
+## Slice 3: magazine post formats (branch `feat/magazine-formats-2026-10-26`, stacked on slice 2)
+
+- **Post formats.** They are a managed list (`JOURNAL_LISTS`, a «قالب‌ها» tab in the magazine admin): article, news, review, video, interview and guide, plus the owner's own.
+- **Families.** Each format has a family, like a software platform; a «product review» format is just another review-family format. The family decides the post's facts, kept as validated JSON in `Post.formatData` (`journal/domain/formats.ts`):
+  - a review's score (0–10, Persian digits accepted), verdict, pros and cons;
+  - a video's address;
+  - a news item's source and its address;
+  - an interview's guest and their role.
+
+  The form edits the facts as flat `fmt*` fields. Only the chosen family's fields show, and a hidden fact keeps its value.
+- **Saving.** `postFormatInput` normalises the save once, for both the direct save and an author's proposal:
+  - the format must be in the list (or already on the post; a new post: article);
+  - the facts merge into those stored.
+- **Proposals.** `format` and `formatData` are proposal fields: while review is on, an author's format change waits as a proposal. The panel names the facts in words, and applying it writes them.
+- **History.** Revisions snapshot the new columns like the rest of the post.
+- **Article page.** A video plays above the body (YouTube or Aparat embedded, a file in a player), and an interview's guest card sits above it too. A review summary (score, verdict, pros and cons) and a news source sit below the body.
+- **Migration** `20270122120000_post_formats` is additive: every existing post is an article. It adds a format code check and an index, and seeds the six formats.
+- **Shared admin form** (`AdminCrud`):
+  - fields can carry a hint and a placeholder;
+  - a score takes one decimal;
+  - the AI assistant's toggle takes the readable accent.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 706/6.
+  - Unit tests cover facts, digits, merging, leniency and proposal fields.
+  - The PostgreSQL test `vocabulary.connected.cjs` covers families, a known or kept format, merging, usage, delete refusal and the DB check. One deliberate break (an unchecked format) failed it.
+  - The magazine's PostgreSQL tests pass: proposals, block proposals, review, filters, item links, pagination and comments. The dashboard test expected KPIs from before the review counts and was updated. Three others need a dedicated database or a running server here and were not run.
+  - Browser test `pw-journal-formats` passes 19/19:
+    - fields by family, save and the public review;
+    - video switching, with the review facts kept;
+    - the formats page;
+    - an author's proposal, read in words and applied, then the news source shown;
+    - phone, light;
+    - axe 0.
+
+    Existing magazine browser tests pass: admin 17/17 (tab count updated), review 13/13, proposals 13/13, polish 17/17.
+
 ## Next slices (in order)
 
-1. **Magazine.** A post format becomes a managed list with format-specific fields: a review's score, pros and cons; a video's address; a news item's source; an interview's guest.
-2. **Games.** The engine and genres become managed lists.
+1. **Games.** The engine and genres become managed lists.

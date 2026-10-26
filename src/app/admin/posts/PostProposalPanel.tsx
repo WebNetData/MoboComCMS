@@ -1,6 +1,7 @@
 'use client'
 
 import { useId, useState } from 'react'
+import { describeFormatData } from '@/modules/journal/domain/formats'
 import { useI18n } from '@/i18n/LocaleProvider'
 
 export type Proposal = { changes: Record<string, unknown>; at: string; stale: boolean }
@@ -8,6 +9,7 @@ export type Proposal = { changes: Record<string, unknown>; at: string; stale: bo
 const LABELS: Record<string, [string, string]> = {
   title: ['عنوان', 'Title'], titleEn: ['عنوان انگلیسی', 'English title'], excerpt: ['خلاصه', 'Excerpt'], excerptEn: ['خلاصهٔ انگلیسی', 'English excerpt'],
   content: ['متن', 'Body'], contentEn: ['متن انگلیسی', 'English body'], cover: ['تصویر شاخص', 'Featured image'], categoryIds: ['دسته‌ها', 'Categories'],
+  format: ['قالب', 'Format'], formatData: ['جزئیات قالب', 'Format details'],
   contentDocument: ['متن بلوکی', 'Block body'],
 }
 const plain = (html: unknown) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -29,6 +31,7 @@ export function PostProposalPanel({ id, proposal, live, categoryName }: { id: nu
   const shown = (field: string, value: unknown) => {
     if (field === 'categoryIds') return (Array.isArray(value) ? value : []).map((item) => categoryName(String(item))).join('، ') || '—'
     if (field === 'cover') return value ? <img src={String(value)} alt="" loading="lazy" /> : '—'
+    if (field === 'formatData') return clip(describeFormatData(value))
     if (field === 'contentDocument') return L('متن کامل را در پیش‌نمایش مقایسه کنید.', 'Compare the full body in preview.')
     return clip(field.startsWith('content') ? plain(value) : String(value ?? ''))
   }

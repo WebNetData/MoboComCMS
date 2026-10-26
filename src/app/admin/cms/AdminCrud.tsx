@@ -37,6 +37,9 @@ export interface FieldDef {
   showWhen?: (form: Record<string, any>) => boolean
   /** Fields with the same section are shown together under that heading, in the order the section first appears. */
   section?: string
+  /** A short note under the field (what it is for, where its choices are managed). */
+  hint?: string
+  placeholder?: string
 }
 
 /** A narrowing offered above the list: its value is sent as ?<key>= and kept in the page address. */
@@ -412,12 +415,14 @@ export default function AdminCrud({ type, fields: allFields, titleKey = 'title',
           className="input"
           dir={fl.dir}
           type={fl.type === 'number' ? 'number' : 'text'}
-          step={fl.key === 'price' ? '0.01' : undefined}
+          step={fl.key === 'price' ? '0.01' : fl.key === 'fmtScore' ? '0.1' : undefined}
           value={form[fl.key] ?? ''}
           onChange={(e) => setForm({ ...form, [fl.key]: e.target.value })}
           required={fl.required}
+          placeholder={fl.placeholder}
         />
       )}
+      {fl.hint && <small className="muted mx-hint">{fl.hint}</small>}
     </div>
   )
 

@@ -36,6 +36,8 @@ import { queueReviewDecision } from '@/modules/journal/server/review-notificatio
 import { adminPostFilterWhere, adminPostStateCounts } from '@/modules/journal/server/admin'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
 import { parsePostItemLinks, replacePostItemLinks, validatePostItemLinks } from '@/modules/journal/server/item-links'
+import { postFormatInput } from '@/modules/journal/server/formats'
+import { PostFormatError, formatFormValues } from '@/modules/journal/domain/formats'
 import { parseProductRelationships } from '@/modules/catalog/domain/product-relationships'
 import { parseProductBundles } from '@/modules/catalog/domain/product-bundles'
 import { replaceProductBundles } from '@/modules/catalog/server/product-bundles'
@@ -138,7 +140,7 @@ export async function GET(req: NextRequest) {
   const slice = pageInfo ? adminPageSlice(total, pageInfo.page, pageInfo.size) : null
   const rows = await model.findMany({ orderBy, include, ...(where ? { where } : {}), ...(slice ? { skip: slice.skip, ...(slice.take ? { take: slice.take } : {}) } : {}) })
   let result: any[] = rows
-  if (type === 'posts') result = rows.map((row: any) => ({ ...row, editProposal: undefined, proposal: proposalView(row), categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
+  if (type === 'posts') result = rows.map((row: any) => ({ ...row, ...formatFormValues(row.formatData), editProposal: undefined, proposal: proposalView(row), categoryIds: postCategories(row).map(category => String(category.id)), itemLinks: row.itemLinks.map((link: any) => ({ type: link.itemType, id: link.itemId })) }))
   if (type === 'pages') result = await Promise.all(rows.map(async (row: any) => ({ ...row, ...await getPageLayout(row.id) })))
   if (type === 'products') result = rows.map((row: any) => ({ ...row, outgoingRelationships: undefined, relationships: row.outgoingRelationships, bundles: row.bundles.map((bundle: any) => ({ id: bundle.id, name: bundle.name, nameEn: bundle.nameEn, active: bundle.active, components: bundle.components.map((component: any) => ({ productId: component.productId, variantId: component.variantKey || null, quantity: component.quantity })) })), ...fxFormFields(row), orderFields: readOrderFields(row.orderFields), openMin: row.openMinMinor > 0n ? (Number(row.openMinMinor) / 100).toString() : '', openMax: row.openMaxMinor > 0n ? (Number(row.openMaxMinor) / 100).toString() : '', openMinMinor: undefined, openMaxMinor: undefined, fxAmountMinor: undefined, fxCompareAtMinor: undefined, fxMemberMinor: undefined, markupFixedMinor: undefined, memberPrice: row.memberPriceMinor ? legacyNumber(row.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: row.compareAtMinor ? legacyNumber(row.compareAtMinor, row.currency) : '', compareAtMinor: undefined, variants: row.variants.map((v: any) => ({ ...v, priceMinor: undefined, fxAmount: v.fxAmountMinor > 0n ? minorToDecimal(v.fxAmountMinor, row.fxCurrency || 'USD') : '', fxAmountMinor: undefined, memberPrice: v.memberPriceMinor ? legacyNumber(v.memberPriceMinor, row.currency) : '', memberPriceMinor: undefined, compareAtPrice: v.compareAtMinor ? legacyNumber(v.compareAtMinor, row.currency) : '', compareAtMinor: undefined, attributes: parseJson(v.attributes, {}) })) }))
   if (!pageInfo || !slice) return ok(result)
@@ -217,12 +219,15 @@ export async function POST(req: NextRequest) {
       // While review is on, an author's new article is a draft or waits for the manager; it never goes live here.
       if (caller.authorId) { const refusal = authorReviewRefusal({ reviewing: await reviewingAuthorPosts(), asked: status, creating: true }); if (refusal) return err(refusal, 403) }
       const itemLinks = b?.itemLinks === undefined ? null : parsePostItemLinks(b.itemLinks)
+      let formatInput: Awaited<ReturnType<typeof postFormatInput>>
+      try { formatInput = await postFormatInput(db, b || {}, null) } catch (error) { if (error instanceof PostFormatError) return err(error.message, error.status); throw error }
       const row = await db.$transaction(async tx => {
         const ids = await validateCategorySelection(tx, b || {})
         if (itemLinks) await validatePostItemLinks(tx, itemLinks)
         const created = await tx.post.create({
         data: sanitizeContent({
           ...pick({ ...b, status }, postFields(caller.authorId)),
+          ...formatInput,
           ...(b?.publishedAt !== undefined ? { publishedAt: publicationDateInput(b.publishedAt) } : {}),
           access: normalizeAccess(b?.access),
           authorId: admin.id,
@@ -299,7 +304,7 @@ export async function PATCH(req: NextRequest) {
   let postWriteState: PostWriteState | null = null
 
   if (type === 'posts') {
-    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, updatedAt: true, publishedAt: true, trashedStatus: true, trashedAt: true, trashedById: true } })
+    const held = await db.post.findUnique({ where: { id }, select: { id: true, title: true, authorId: true, status: true, updatedAt: true, publishedAt: true, trashedStatus: true, trashedAt: true, trashedById: true, format: true, formatData: true } })
     if (!held || (caller.authorId && held.authorId !== caller.authorId)) return err('not found', 404)
     postWriteState = held
     if (isTrashed(held)) {
@@ -322,6 +327,10 @@ export async function PATCH(req: NextRequest) {
     if (b?.review !== undefined) {
       if (caller.authorId) return err('تصمیم بازبینی با سردبیر است', 403)
       try { return ok(await decidePostReview({ req, actor: admin, id, decision: b.review, note: b.note })) } catch (error) { if (error instanceof PostReviewError) return err(error.message, error.status); throw error }
+    }
+    // The post's format and its facts, normalised once: the direct save and an author's proposal both take them.
+    if (b && typeof b === 'object') {
+      try { Object.assign(b, await postFormatInput(db, b, { format: held.format, formatData: held.formatData })) } catch (error) { if (error instanceof PostFormatError) return err(error.message, error.status); throw error }
     }
     let asked: PostFormStatus | undefined
     try { asked = postFormStatus(b?.status) } catch (error) { return err(error instanceof Error ? error.message : 'invalid status', 400) }
@@ -354,6 +363,8 @@ export async function PATCH(req: NextRequest) {
   if (type === 'posts') {
     if (b?.content !== undefined && (await db.post.findUnique({ where: { id }, select: { editorFormat: true } }))?.editorFormat === 'blocks-v1') return err('this article is written in blocks; its body is edited in the block editor', 409)
     Object.assign(data, sanitizeContent(pick(b, postFields(caller.authorId))))
+    if (typeof b?.format === 'string') data.format = b.format
+    if (typeof b?.formatData === 'string') data.formatData = b.formatData
     if (b?.access !== undefined) data.access = normalizeAccess(b.access)
   }
   if (type === 'postcats' || type === 'productcats') Object.assign(data, pick(b, ['slug', 'name', 'nameEn']))

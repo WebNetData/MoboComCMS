@@ -1773,6 +1773,26 @@
 /* ---- the text and, beside it, the rail of actions */
 .jp-read { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: clamp(18px, 3vw, 44px); align-items: start; margin-block-start: 26px; }
 .jp-main { min-width: 0; }
+/* What a post's format adds (PostFormat): a video or the guest above the body, the review summary or source below. */
+.jp-format-video { margin: 0 0 22px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000; }
+.jp-format-video iframe, .jp-format-video video { display: block; width: 100%; height: 100%; border: 0; }
+.jp-format-guest { display: grid; gap: 2px; margin: 0 0 22px; padding: 14px 18px; border-inline-start: 4px solid var(--ln-accent, var(--primary)); border-radius: 12px; background: var(--ln-soft, var(--primary-soft)); }
+.jp-format-guest strong { font-size: 1.1rem; }
+.jp-format-guest > span { color: var(--muted); font-size: .9rem; }
+.jp-format-guest .jp-format-kicker { color: var(--accent-ink, var(--ln-accent)); font-size: .78rem; font-weight: 800; }
+.jp-format-line { margin: 18px 0 0; color: var(--muted); font-size: .92rem; }
+.jp-format-line a { color: var(--accent-ink, var(--ln-accent)); font-weight: 700; }
+.jp-format-review { display: grid; gap: 14px; margin: 26px 0 0; padding: 20px; border: 1px solid var(--ln-line, var(--border)); border-radius: 18px; background: var(--card); }
+.jp-format-review header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.jp-format-review h2 { margin: 0; font-size: 1.1rem; }
+.jp-review-score { display: inline-flex; align-items: baseline; gap: 2px; margin: 0; padding: 8px 14px; border-radius: 14px; background: var(--ln-accent, var(--primary)); color: var(--on-accent, var(--on-primary, #fff)); }
+.jp-review-score b { font-size: 1.6rem; line-height: 1; }
+.jp-review-verdict { margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.9; }
+.jp-review-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.jp-review-lists h3 { margin: 0 0 6px; font-size: .92rem; }
+.jp-review-lists ul { margin: 0; padding-inline-start: 1.2rem; line-height: 1.9; }
+.jp-review-lists ul.is-pros li::marker { content: '+  '; color: #15803d; font-weight: 800; }
+.jp-review-lists ul.is-cons li::marker { content: '−  '; color: #b91c1c; font-weight: 800; }
 .jp-main .journal-prose p { max-width: none; }
 .jp-rail { position: sticky; inset-block-start: 96px; display: grid; justify-items: center; gap: 8px; padding: 10px 6px; border: 1px solid var(--ln-line); border-radius: 999px; background: color-mix(in srgb, var(--card) 80%, transparent); backdrop-filter: blur(10px); }
 /* MoboCom's section bar sits beneath the header; clear its lower veil as well. */

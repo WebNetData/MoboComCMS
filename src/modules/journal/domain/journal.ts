@@ -97,7 +97,8 @@ export const approvalPublishedAt = (publishedAt: Date, now = new Date()) => (pub
 export const REVIEW_NOTE_LIMIT = 1000
 
 /** What an author may propose for a published article: its words, picture and categories; never status, time or address. */
-export const PROPOSAL_TEXT_FIELDS = ['title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover'] as const
+// The format and its facts (formatData, normalised JSON) are proposed like the text: an author's change waits too.
+export const PROPOSAL_TEXT_FIELDS = ['title', 'titleEn', 'excerpt', 'excerptEn', 'content', 'contentEn', 'cover', 'format', 'formatData'] as const
 export type ProposalTextField = typeof PROPOSAL_TEXT_FIELDS[number]
 export type PostProposalChanges = Partial<Record<ProposalTextField, string>> & { categoryIds?: number[]; contentDocument?: string }
 const sameIds = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((id, index) => id === b[index])

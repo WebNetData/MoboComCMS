@@ -45,7 +45,9 @@ async function main() {
     db.postCategory.count(),
     db.post.aggregate({ where: liveWhere, _sum: { views: true } }),
   ])
-  assert.deepEqual(actual.kpis, { published, drafts, scheduled, views: views._sum.views || 0, posts30: recentPosts, pendingComments, comments30, vip, featured, categories })
+  // Waiting decisions (review on, proposed edits) are counted too since the editorial review slices.
+  const [reviewWaiting, proposals] = await Promise.all([db.post.count({ where: { status: 'PENDING' } }), db.postEditProposal.count()])
+  assert.deepEqual(actual.kpis, { published, drafts, scheduled, views: views._sum.views || 0, posts30: recentPosts, pendingComments, comments30, vip, featured, categories, reviewWaiting, proposals })
   assert.equal(actual.series.length, 30)
   assert.ok(actual.worst.length <= 8)
   assert.ok(actual.topViewed.length <= 8)
