@@ -703,6 +703,15 @@ a.vip-benefit:hover { border-color: rgba(245, 196, 81, .6); transform: translate
 .cms-cover-buttons .cms-cover-pick { font-size: .85rem; background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 40%, transparent); color: var(--primary); }
 .cms-cover-side .cms-cover-url { display: grid; gap: 6px; margin: 0; font-size: .8rem; }
 @media (max-width: 640px) { .cms-cover-field.is-framed, .cms-cover-field.is-framed.is-poster, .cms-cover-field.is-framed.is-square { grid-template-columns: minmax(0, 1fr); } .is-framed .cms-cover-frame { width: min(100%, 260px); justify-self: center; } .is-framed.is-poster .cms-cover-frame, .is-framed.is-square .cms-cover-frame { width: 140px; } .cms-cover-field.is-poster { grid-template-columns: minmax(0, 1fr); } .cms-cover-field.is-poster .cms-cover-preview { grid-column: 1; grid-row: auto; justify-self: center; } }
+/* Several values from an owner's list (ChipPicker): toggles in the list's order; a value no longer listed is dashed. */
+.mx-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mx-chip { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: .88rem; cursor: pointer; }
+.mx-chip:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.mx-chip.is-on { border-color: color-mix(in srgb, var(--primary) 60%, var(--border)); background: color-mix(in srgb, var(--primary) 14%, var(--card)); font-weight: 700; }
+.mx-chip.is-on::before { content: '✓ '; color: var(--accent-ink, var(--primary)); }
+.mx-chip.is-other { border-style: dashed; }
+/* A studio picked from the shared studios (StudioPicker): one chip at most. */
+.mx-studio .mx-people-chips li { font-weight: 700; }
 /* People of a film or series, picked from the site's people (PeoplePicker). */
 .mx-people { display: grid; gap: 10px; }
 .mx-people-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }

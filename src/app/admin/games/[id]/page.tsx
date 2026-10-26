@@ -6,6 +6,7 @@ import Link from '@/components/AppLink'
 import { useParams, useRouter } from '@/platform/routing/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import CoverField from '../../cms/CoverField'
+import StudioPicker from '../../cms/StudioPicker'
 import { LinksEditor, RequirementsEditor, TermPicker, type LinkRow } from '../../cms/MediaCrud'
 import { GamesShell, Notice, fa, send } from '../shared'
 import UpdatesEditor from './UpdatesEditor'
@@ -191,8 +192,9 @@ export default function GameEditorPage() {
             {field('title', 'نام فارسی *', { required: true })}
             {field('titleEn', 'نام انگلیسی', { dir: 'ltr' })}
             {field('slug', 'نامک (slug)', { dir: 'ltr', placeholder: 'از نام انگلیسی ساخته می‌شود' })}
-            {field('developer', 'سازنده')}
-            {field('publisher', 'ناشر')}
+            {/* Developer and publisher are picked from the shared studios, so the studio's page lists the game. */}
+            <div className="sa-field"><span>سازنده</span><StudioPicker value={form.developer ?? ''} onChange={(value) => update('developer', value)} label="سازنده" /></div>
+            <div className="sa-field"><span>ناشر</span><StudioPicker value={form.publisher ?? ''} onChange={(value) => update('publisher', value)} label="ناشر" /></div>
             <label className="sa-field"><span>مجموعه (سری)</span><select className="select" value={form.franchiseId} onChange={(e) => update('franchiseId', e.target.value)}><option value="">بدون مجموعه</option>{franchises.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select></label>
             {field('engine', 'موتور بازی', { dir: 'ltr', placeholder: 'Unreal Engine 5' })}
             {field('ageRating', 'رده سنی', { placeholder: 'PEGI 16' })}

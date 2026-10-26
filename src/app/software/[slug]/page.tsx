@@ -69,6 +69,8 @@ export default async function SoftwarePage({ params }: Props) {
     ['هزینهٔ دانلود', s.licenseName],
     ['نسخه', s.version ? <bdi dir="ltr">{s.version}</bdi> : ''],
     ['سیستم‌عامل', s.platforms.length ? <bdi dir="ltr">{s.platforms.join(', ')}</bdi> : ''],
+    ['حداقل سیستم‌عامل', s.minOs ? <bdi dir="ltr">{s.minOs}</bdi> : ''],
+    ['شناسهٔ بسته', s.packageId ? <bdi dir="ltr" className="sp-package">{s.packageId}</bdi> : ''],
     ['حجم فایل', s.size ? <bdi dir="ltr">{s.size}</bdi> : ''],
     ['تاریخ انتشار نسخه', s.releasedAt ? date(s.releasedAt) : ''],
     ['آخرین به‌روزرسانی', date(s.updatedAt)],
@@ -76,7 +78,7 @@ export default async function SoftwarePage({ params }: Props) {
   ] as [string, React.ReactNode][]).filter(([, value]) => value)
   const jsonLd = {
     '@context': 'https://schema.org', '@type': 'SoftwareApplication', name,
-    ...(s.version ? { softwareVersion: s.version } : {}), operatingSystem: s.platforms.join(', '),
+    ...(s.version ? { softwareVersion: s.version } : {}), operatingSystem: s.platforms.join(', '), ...(s.appStores.length ? { sameAs: s.appStores.map((link) => link.url) } : {}),
     ...(term ? { applicationCategory: term.name } : s.category ? { applicationCategory: s.category } : {}), ...(s.icon ? { image: s.icon } : {}), ...(s.summary ? { description: s.summary.slice(0, 300) } : {}),
     ...(s.developer ? { author: { '@type': 'Organization', name: s.developer } } : {}),
     ...(s.license === 'PAID' ? {} : { offers: { '@type': 'Offer', price: 0, priceCurrency: 'IRR' } }),
@@ -153,6 +155,10 @@ export default async function SoftwarePage({ params }: Props) {
             {s.features && <><h2>ویژگی‌های کلیدی <bdi>{name}</bdi></h2><div dangerouslySetInnerHTML={{ __html: s.features }} /></>}
           </div>
           {s.screenshots.length > 1 && <section className="sp-detail-shots" aria-label="تصاویر محیط برنامه"><h2>تصاویر محیط برنامه</h2><Gallery images={s.screenshots} fa /></section>}
+          {s.appStores.length > 0 && <section className="sp-stores" aria-label="دریافت از فروشگاه‌ها">
+            <h2>دریافت <bdi>{name}</bdi> از فروشگاه‌ها</h2>
+            <div>{s.appStores.map((link) => <a key={link.store} href={link.url} className="sp-store" target="_blank" rel="noopener noreferrer nofollow"><Icon name="download" size={16} />{link.name}</a>)}</div>
+          </section>}
           <div className="sp-pass-row">
             {s.archivePassword && <span className="sp-pass"><Icon name="key" size={16} />رمز فایل: <CopyText value={s.archivePassword} label="رمز فایل" /></span>}
             {s.website && <a href={s.website} className="sp-site" target="_blank" rel="noopener noreferrer nofollow"><Icon name="globe" size={16} />سایت سازنده</a>}

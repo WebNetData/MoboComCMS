@@ -11,7 +11,7 @@ type Tx = Prisma.TransactionClient
 type Audit = (tx: Tx, id: number, action: 'created' | 'updated' | 'deleted', metadata: Record<string, unknown>) => Promise<unknown>
 export type SectionLists = Record<string, VocabularyEntry[]>
 const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }, { id: 'asc' }]
-const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, sortOrder: true, active: true } as const
+const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, family: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
 const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage }
@@ -58,9 +58,11 @@ export async function createEntry(section: VocabularySection, input: Record<stri
 
 /** A change to an entry of this section only: another section's entry is not found here. */
 export async function updateEntry(section: VocabularySection, id: number, input: Record<string, unknown>, audit: Audit) {
-  const data = parseVocabularyInput(null, input, false)
   return db.$transaction(async (tx) => {
-    if (!await tx.vocabulary.findFirst({ where: { id, section }, select: { id: true } })) throw new VocabularyError('این مورد پیدا نشد', 404)
+    const current = await tx.vocabulary.findFirst({ where: { id, section }, select: { list: true } })
+    if (!current) throw new VocabularyError('این مورد پیدا نشد', 404)
+    // The entry's own list decides which families it may take.
+    const data = parseVocabularyInput(definitionOf(section, current.list), input, false)
     const row = await tx.vocabulary.update({ where: { id }, data, select: SELECT })
     await audit(tx, id, 'updated', { section, fields: Object.keys(data) })
     return row

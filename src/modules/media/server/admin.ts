@@ -35,6 +35,7 @@ import { schedulePeoplePublication } from '@/modules/cinema/server/people-notifi
 import { scheduleEpisodeAirings, type AiringEpisode } from '@/modules/cinema/server/episode-notifications'
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 import { resolveStudioId } from '@/modules/studios/server/identity'
+import { cleanAppStores, cleanMinOs, cleanPackageId } from '@/modules/software/domain/app'
 import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
 
 /**
@@ -455,6 +456,9 @@ const RESOURCES: Record<string, Resource> = {
       features: when(b, 'features', (v) => html(v, 20000)),
       installGuide: when(b, 'installGuide', (v) => html(v, 20000)),
       archivePassword: when(b, 'archivePassword', (v) => text(v, 60)),
+      packageId: when(b, 'packageId', cleanPackageId),
+      minOs: when(b, 'minOs', cleanMinOs),
+      appStores: when(b, 'appStores', (v) => JSON.stringify(cleanAppStores(v))),
       access: when(b, 'access', normalizeAccess),
       status: when(b, 'status', status),
       featured: when(b, 'featured', bool),
@@ -470,7 +474,7 @@ const RESOURCES: Record<string, Resource> = {
       const links = await linksFor('software', rows.map((row) => row.id))
       const versions = await currentSoftwareVersions(rows.map((row) => row.id))
       const json = (value: string, fallback: unknown) => { try { return JSON.parse(value) } catch { return fallback } }
-      return rows.map((source) => { const row = projectSoftwareVersion(source, versions); return { ...row, releasedAt: row.releasedAt ? new Date(row.releasedAt).toISOString().slice(0, 10) : '', screenshots: json(row.screenshots, []), links: links.get(row.id) || [] } })
+      return rows.map((source) => { const row = projectSoftwareVersion(source, versions); return { ...row, releasedAt: row.releasedAt ? new Date(row.releasedAt).toISOString().slice(0, 10) : '', screenshots: json(row.screenshots, []), appStores: json(row.appStores, []), links: links.get(row.id) || [] } })
     },
   },
   'vip-plans': {
@@ -620,6 +624,12 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
     const before = existing as Record<string, string> | null
     if (type === 'games') for (const [key, list] of [['modes', 'MODE'], ['localization', 'LOCALIZATION']] as const) if (typeof data[key] === 'string') data[key] = (await knownCodes(tx, 'games', list, codesOf(data[key] as string), codesOf(before?.[key]))).join(', ')
+    // A mobile app's stores: those the APP_STORE list knows (or the title already had).
+    if (type === 'software' && typeof data.appStores === 'string') {
+      const links = cleanAppStores(data.appStores), had = cleanAppStores(before?.appStores ?? '[]').map((link) => link.store)
+      const known = new Set(await knownCodes(tx, 'software', 'APP_STORE', links.map((link) => link.store), had))
+      data.appStores = JSON.stringify(links.filter((link) => known.has(link.store)))
+    }
     if (type === 'software' && typeof data.license === 'string') data.license = (await knownCodes(tx, 'software', 'LICENSE', [data.license], before?.license ? [before.license] : []))[0] ?? before?.license ?? 'FREE'
     // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
     if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))

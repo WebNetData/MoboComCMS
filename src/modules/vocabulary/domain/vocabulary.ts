@@ -17,18 +17,20 @@ export type ListDefinition = {
   example: string
   /** `name`: the code is a display name stored as it is (PS5, Steam); `code`: an upper-case code (FA_DUB). */
   codeRule: 'name' | 'code'
-  /** The values the code had fixed before the list was the owner's, in order: [code, name, English name]. */
-  seeds: [string, string, string][]
+  /** The values the code had fixed before the list was the owner's, in order: [code, name, English name, family]. */
+  seeds: ([string, string, string] | [string, string, string, string])[]
+  /** The kinds an entry may be, when they decide something (a software platform's family sets which fields apply). */
+  families?: [string, string][]
 }
 
-export type VocabularyEntry = { id: number; section: string; list: string; code: string; name: string; nameEn: string; icon: string; sortOrder: number; active: boolean }
+export type VocabularyEntry = { id: number; section: string; list: string; code: string; name: string; nameEn: string; icon: string; family: string; sortOrder: number; active: boolean }
 
 export class VocabularyError extends Error {
   constructor(message: string, readonly status = 422) { super(message) }
 }
 
 /** The seeds as entries: what a site without the table (or an unreachable database) shows. */
-export const seedEntries = (definition: ListDefinition): VocabularyEntry[] => definition.seeds.map(([code, name, nameEn], sortOrder) => ({ id: 0, section: definition.section, list: definition.list, code, name, nameEn, icon: '', sortOrder, active: true }))
+export const seedEntries = (definition: ListDefinition): VocabularyEntry[] => definition.seeds.map(([code, name, nameEn, family = ''], sortOrder) => ({ id: 0, section: definition.section, list: definition.list, code, name, nameEn, icon: '', family, sortOrder, active: true }))
 
 const clean = (value: unknown, max: number) => String(value ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 
@@ -54,6 +56,11 @@ export function parseVocabularyInput(definition: ListDefinition | null, input: R
   }
   if (input.nameEn !== undefined) data.nameEn = clean(input.nameEn, 60)
   if (input.icon !== undefined) data.icon = clean(input.icon, 8)
+  if (input.family !== undefined) {
+    const family = clean(input.family, 20)
+    if (family && !definition?.families?.some(([code]) => code === family)) throw new VocabularyError('این نوع برای این فهرست تعریف نشده است')
+    data.family = family
+  }
   if (input.sortOrder !== undefined) {
     const order = Number(input.sortOrder)
     if (!Number.isSafeInteger(order) || order < -9999 || order > 9999) throw new VocabularyError('ترتیب باید عددی بین ۹۹۹۹- و ۹۹۹۹ باشد')

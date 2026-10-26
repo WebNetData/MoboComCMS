@@ -231,3 +231,21 @@ test('HTML media discovery includes playable files and posters, deduplicates and
  assert.ok(replaced.includes('https://cdn.example/page'));assert.ok(replaced.includes('https://cdn.example/p.jpg'))
  assert.equal(findAssets('<img src="https://mobocom.example/p.jpg"><img src="https://cdn.mobocom.example/p.jpg">','mobocom.example').length,0)
 })
+
+test('a mobile app keeps a dotted package id, its oldest system and one http(s) page per app store', () => {
+  const app = load('src/modules/software/domain/app')
+  assert.equal(app.cleanPackageId(' com.example.app '), 'com.example.app')
+  assert.equal(app.cleanPackageId(''), '')
+  for (const bad of ['example', 'com..x', '1com.x', 'com.example app', 'com.x<script>']) assert.throws(() => app.cleanPackageId(bad), app.AppFieldError, bad)
+  assert.equal(app.cleanMinOs('  Android\n 8.0  '), 'Android 8.0')
+  assert.deepEqual(app.cleanAppStores([{ store: 'Myket', url: 'https://myket.ir/app/x' }, { store: 'Myket', url: 'https://myket.ir/other' }, { store: '', url: 'https://x.invalid' }, { store: 'Cafe Bazaar', url: '' }]), [{ store: 'Myket', url: 'https://myket.ir/app/x' }], 'one page per store; rows without both are dropped')
+  assert.deepEqual(app.cleanAppStores('[{"store":"App Store","url":"https://apps.apple.com/app/id1"}]'), [{ store: 'App Store', url: 'https://apps.apple.com/app/id1' }], 'the stored JSON reads back')
+  assert.deepEqual(app.cleanAppStores('not json'), [])
+  for (const url of ['javascript:alert(1)', '/relative/page', 'https://x.invalid/a b']) assert.throws(() => app.cleanAppStores([{ store: 'Myket', url }]), app.AppFieldError, url)
+  assert.equal(app.cleanAppStores(Array.from({ length: 12 }, (_, index) => ({ store: `S${index}`, url: `https://x.invalid/${index}` }))).length, 8, 'at most eight stores')
+  const lists = load('src/modules/software/domain/vocabulary')
+  const entries = [{ code: 'Windows', family: 'DESKTOP' }, { code: 'Android', family: 'MOBILE' }, { code: 'Other', family: '' }]
+  assert.deepEqual([...lists.platformFamilies('windows، Android | Other, Nope', entries)].sort(), ['DESKTOP', 'MOBILE'])
+  assert.deepEqual([...lists.platformFamilies(['Other'], entries)], [], 'a platform without a family decides nothing')
+  assert.ok(lists.SOFTWARE_LISTS.find((list) => list.list === 'PLATFORM').seeds.every(([, , , family]) => ['DESKTOP', 'MOBILE'].includes(family)), 'every seeded platform has a family')
+})

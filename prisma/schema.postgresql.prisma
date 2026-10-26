@@ -1858,6 +1858,8 @@ model Vocabulary {
   name      String
   nameEn    String   @default("")
   icon      String   @default("")
+  // The kind of thing an entry is, for lists that declare families (a software platform: DESKTOP | MOBILE | WEB).
+  family    String   @default("")
   sortOrder Int      @default(0)
   // An inactive entry is not offered in forms nor public filters; items that have it keep it.
   active    Boolean  @default(true)
@@ -2020,6 +2022,11 @@ model SoftwareTitle {
   changelog    String    @default("")
   installGuide String    @default("")
   archivePassword String @default("")
+  // A mobile app: its package or bundle id, the oldest system it runs on, and its pages on app stores
+  // (validated JSON [{store, url}], the store a code of the APP_STORE list).
+  packageId    String    @default("")
+  minOs        String    @default("")
+  appStores    String    @default("[]")
   features     String    @default("")
   access       String    @default("PUBLIC")
   status       String    @default("PUBLISHED")
