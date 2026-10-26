@@ -155,6 +155,41 @@ async function main() {
   assert.deepEqual([page.software.packageId, page.software.minOs, page.software.appStores], ['com.example.app', 'Android 8.0', [{ store: `${seed} Shop`, url: 'https://example.invalid/app2', name: 'فروشگاه آزمون' }]], 'the page reads the app\'s facts with the store\'s name')
   const softwareRules = load('src/modules/software/domain/vocabulary.ts')
   assert.deepEqual([...softwareRules.platformFamilies(`android, ${seed} Phone OS, Unknown`, (await vocab.allLists('software')).PLATFORM)].sort(), ['MOBILE'], 'families follow the list, case-insensitively; unknown names add none')
+  // ---- music is specialised: genres by the list, a release type per album, songs credit artists in listed roles
+  const musicQueries = load('src/modules/media/server/queries/music.ts'), merge = load('src/modules/music/server/artist-merge.ts')
+  const artist = (n) => prisma.musicArtist.create({ data: { slug: `${seed}-artist-${n}`, name: `هنرمند ${n} ${seed}` } })
+  const [singer, composer, poet, twin] = [await artist(1), await artist(2), await artist(3), await artist(4)]
+  const jazz = await vocab.createEntry('music', { list: 'GENRE', code: `جز ${seed}` }, audit)
+  const remix = await vocab.createEntry('music', { list: 'ALBUM_TYPE', code: `${CODE}_REMIX`, name: 'ریمیکس' }, audit)
+  const guitar = await vocab.createEntry('music', { list: 'CREDIT_ROLE', code: `${CODE}_GUITAR`, name: 'گیتار' }, audit)
+  const saveAlbum = (body, id = null) => media.saveMediaItem('music-albums', body, id), saveTrack = (body, id = null) => media.saveMediaItem('music-tracks', body, id)
+  const { row: record } = await saveAlbum({ title: `${seed} album`, slug: `${seed}-album`, artistId: singer.id, albumType: `${CODE}_REMIX`, genre: `پاپ, جز ${seed}, نامعلوم` })
+  assert.deepEqual([record.albumType, record.genre], [`${CODE}_REMIX`, `پاپ, جز ${seed}`], 'a known release type; unknown genres are dropped')
+  assert.equal((await saveAlbum({ title: `${seed} other`, slug: `${seed}-album-2`, artistId: singer.id, albumType: 'NOT_A_TYPE' })).row.albumType, 'ALBUM', 'a new album with an unknown type is an album')
+  const { row: song } = await saveTrack({ title: `${seed} song`, slug: `${seed}-song`, artistId: singer.id, albumId: record.id, genre: `جز ${seed}`,
+    credits: [{ role: 'COMPOSER', artistId: String(composer.id) }, { role: 'LYRICIST', artistId: poet.id }, { role: `${CODE}_GUITAR`, artistId: composer.id }, { role: 'NOT_A_ROLE', artistId: poet.id }, { role: 'COMPOSER', artistId: composer.id }, { role: 'FEATURED', artistId: 999999999 }] })
+  const creditsOf = async (trackId) => (await prisma.musicCredit.findMany({ where: { trackId }, orderBy: { sortOrder: 'asc' }, select: { role: true, artistId: true } })).map((credit) => `${credit.role}:${credit.artistId}`)
+  assert.deepEqual(await creditsOf(song.id), [`COMPOSER:${composer.id}`, `LYRICIST:${poet.id}`, `${CODE}_GUITAR:${composer.id}`], 'listed roles and existing artists only, in order, without repeats')
+  await vocab.updateEntry('music', guitar.id, { active: false }, audit)
+  await saveTrack({ credits: [{ role: `${CODE}_GUITAR`, artistId: composer.id }, { role: 'FEATURED', artistId: twin.id }] }, song.id)
+  assert.deepEqual(await creditsOf(song.id), [`${CODE}_GUITAR:${composer.id}`, `FEATURED:${twin.id}`], 'a song keeps a role the owner later deactivated; the credits are replaced as a whole')
+  await saveTrack({ credits: [{ role: 'COMPOSER', artistId: twin.id }, { role: 'FEATURED', artistId: twin.id }, { role: 'LYRICIST', artistId: poet.id }] }, song.id)
+  assert.deepEqual([await uses('music', 'GENRE', jazz.id), await uses('music', 'ALBUM_TYPE', remix.id), await uses('music', 'CREDIT_ROLE', guitar.id)], [2, 1, 0], 'genres, release types and roles are counted')
+  await refused(vocab.deleteEntry('music', jazz.id, audit), /را دارند/, 409)
+  // merging an artist moves their credits; one the target already has on the same song is not repeated
+  await prisma.musicCredit.create({ data: { trackId: song.id, artistId: composer.id, role: 'COMPOSER', sortOrder: 9 } })
+  const [source, target] = await Promise.all([prisma.musicArtist.findUnique({ where: { id: twin.id } }), prisma.musicArtist.findUnique({ where: { id: composer.id } })])
+  await merge.mergeMusicArtists({ sourceId: twin.id, targetId: composer.id, sourceVersion: source.updatedAt.toISOString(), targetVersion: target.updatedAt.toISOString() }, async () => {})
+  assert.deepEqual((await creditsOf(song.id)).sort(), [`COMPOSER:${composer.id}`, `FEATURED:${composer.id}`, `LYRICIST:${poet.id}`].sort(), 'credits follow the merge without a repeat')
+  // the public pages read them
+  await prisma.musicTrack.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  await prisma.musicAlbum.updateMany({ where: { slug: { startsWith: seed } }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  const songPage = await musicQueries.getTrack(`${seed}-song`)
+  assert.deepEqual(songPage.credits.map((group) => [group.role, group.name, group.artists.map((a) => a.id)]), [['FEATURED', 'با همراهی', [composer.id]], ['COMPOSER', 'آهنگساز', [composer.id]], ['LYRICIST', 'ترانه‌سرا', [poet.id]]], 'grouped by role in the list order, with the owner names')
+  const profile = await musicQueries.getArtist(poet.slug)
+  assert.deepEqual(profile.credited.map((group) => [group.role, group.tracks.map((track) => track.slug)]), [['LYRICIST', [`${seed}-song`]]], 'an artist page lists the songs they are credited on')
+  assert.equal((await musicQueries.getAlbum(`${seed}-album`)).album.albumTypeName, 'ریمیکس', 'an album page names its release type')
+
   console.log('PostgreSQL managed lists: each section\'s declared lists seeded from the fixed values, the shape the database checks, fixed codes with the owner\'s names, entries scoped to their section, items keep only known codes (an inactive one stays where it was; an unknown licence keeps the old one), entries in use are not deleted, public filters match whole codes and cards show the owner\'s names.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {
@@ -164,6 +199,10 @@ main().catch(error => { console.error(error); process.exitCode = 1 }).finally(as
     await prisma.cinemaTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.gameTitle.deleteMany({ where: { slug: { startsWith: seed } } })
     await prisma.softwareTitle.deleteMany({ where: { slug: { startsWith: seed } } })
-    await prisma.vocabulary.deleteMany({ where: { OR: [{ code: { startsWith: seed } }, { code: { startsWith: CODE } }, { code: `DUBBED_${CODE}` }] } })
+    await prisma.musicTrack.deleteMany({ where: { slug: { startsWith: seed } } })
+    await prisma.musicAlbum.deleteMany({ where: { slug: { startsWith: seed } } })
+    await prisma.musicArtist.updateMany({ where: { slug: { startsWith: seed } }, data: { mergedIntoId: null } })
+    await prisma.musicArtist.deleteMany({ where: { slug: { startsWith: seed } } })
+    await prisma.vocabulary.deleteMany({ where: { OR: [{ code: { contains: seed } }, { code: { startsWith: CODE } }, { code: `DUBBED_${CODE}` }] } })
   } finally { await prisma.$disconnect() }
 })

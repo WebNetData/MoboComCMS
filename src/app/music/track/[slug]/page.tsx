@@ -59,6 +59,9 @@ export default async function TrackPage({ params }: Props) {
   const lockTag = paywall ? '' : ' (VIP)'
   const name = fa ? track.title : track.titleEn || track.title
   const artistName = fa ? track.artist.name : track.artist.nameEn || track.artist.name
+  // Featured artists sit beside the main one; the other credits (composer, lyricist…) get their own panel.
+  const featured = data.credits.find((group) => group.role === 'FEATURED')
+  const makers = data.credits.filter((group) => group.role !== 'FEATURED')
   const jsonLd = { '@context': 'https://schema.org', '@type': 'MusicRecording', name, byArtist: { '@type': 'MusicGroup', name: artistName }, ...(track.duration ? { duration: `PT${Math.floor(track.duration / 60)}M${track.duration % 60}S` } : {}), ...(track.album ? { inAlbum: { '@type': 'MusicAlbum', name: track.album.title } } : {}), ...(track.cover ? { image: track.cover } : {}) }
 
   return (
@@ -73,6 +76,7 @@ export default async function TrackPage({ params }: Props) {
             <span className="md-eyebrow">{track.album ? (fa ? 'از آلبوم' : 'From the album') : (fa ? 'تک‌آهنگ' : 'Single')}{track.album && <> · <Link href={`/music/album/${track.album.slug}`}>{fa ? track.album.title : track.album.titleEn || track.album.title}</Link></>}</span>
             <h1>{name}</h1>
             <Link href={`/music/artist/${track.artist.slug}`} className="mu-detail-artist">{track.artist.image && <img src={track.artist.image} alt="" />}{artistName}</Link>
+            {featured && <p className="mu-featuring">{featured.name} {featured.artists.map((artist, index) => <span key={artist.id}>{index > 0 && '، '}<Link href={`/music/artist/${artist.slug}`}>{fa ? artist.name : artist.nameEn || artist.name}</Link></span>)}</p>}
             <div className="mu-hero-tags">
               {track.genre && <Link href={`/music/browse?genre=${encodeURIComponent(track.genre.split(',')[0].trim())}`}>{track.genre}</Link>}
               {language && <Link href={language.path}>{fa ? 'زبان' : 'Language'}: {language.name}</Link>}
@@ -100,6 +104,10 @@ export default async function TrackPage({ params }: Props) {
         {paywall && !paywall.open && <BuyContent view={paywall} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}#buy`} noun={paywall.key.startsWith('album:') ? 'آلبوم' : 'آهنگ'} />}
         {paywall?.open && paywall.reason === 'purchased' && <span className="pw-owned">✓ {fa ? 'این مورد را خریده‌اید' : 'You own this'}</span>}
         {!paywall && locked && <VipGate fa={fa} loggedIn={!!viewer.userId} next={`/music/track/${track.slug}`} title={fa ? 'این آهنگ مخصوص اعضای VIP است' : 'This track is for VIP members'} />}
+        {makers.length > 0 && <section className="mu-panel mu-credits-panel" aria-labelledby="mu-credits-title">
+          <header className="md-shelf-head"><h2 id="mu-credits-title">{fa ? 'عوامل آهنگ' : 'Credits'}</h2></header>
+          <dl className="mu-credits">{makers.map((group) => <div key={group.role}><dt>{group.name}</dt><dd>{group.artists.map((artist, index) => <span key={artist.id}>{index > 0 && '، '}<Link href={`/music/artist/${artist.slug}`}>{fa ? artist.name : artist.nameEn || artist.name}</Link></span>)}</dd></div>)}</dl>
+        </section>}
         <div className="mu-columns">
           {layout.showLyrics && <section className="mu-panel">
             <header className="md-shelf-head"><h2>{fa ? 'متن آهنگ' : 'Lyrics'}</h2></header>

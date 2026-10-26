@@ -1434,6 +1434,7 @@ model MusicArtist {
   updatedAt DateTime     @default(now()) @updatedAt
   albums    MusicAlbum[]
   tracks    MusicTrack[]
+  credits   MusicCredit[]
   // The staff member who created the item; a section author manages only the items they created.
   createdById Int?
   @@index([createdById])
@@ -1448,6 +1449,8 @@ model MusicAlbum {
   cover       String       @default("")
   year        Int?
   genre       String       @default("")
+  // A code of the owner's ALBUM_TYPE list (ALBUM, EP, SINGLE, …).
+  albumType   String       @default("ALBUM")
   description String       @default("")
   access      String       @default("PUBLIC") // PUBLIC | MEMBERS
   status      String       @default("PUBLISHED")
@@ -1468,6 +1471,21 @@ model MusicAlbum {
   @@index([artistId])
   @@index([status, publishedAt])
   @@index([createdById])
+}
+
+/// Who else made a song, beside its main artist: an artist profile in a role of the owner's CREDIT_ROLE list
+/// (featured artist, composer, lyricist, arranger, …), in the order the song lists them.
+model MusicCredit {
+  id        Int         @id @default(autoincrement())
+  trackId   Int
+  artistId  Int
+  role      String
+  sortOrder Int         @default(0)
+  track     MusicTrack  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  artist    MusicArtist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, artistId, role])
+  @@index([artistId, role])
 }
 
 model MusicTrack {
@@ -1497,6 +1515,7 @@ model MusicTrack {
   userPlaylistItems UserMusicPlaylistTrack[]
   releaseNotification MusicTrackReleaseNotification?
   listenHistory MusicListenHistory[]
+  credits     MusicCredit[]
   // The staff member who created the item; a section author manages only the items they created.
   createdById Int?
   // A delete asked by an author: status is TRASHED, the status it had is kept here until a manager decides.

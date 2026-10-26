@@ -19,7 +19,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { validateCover } from '@/shared/content/cover'
 import { cleanRichText } from '@/shared/content/sanitize'
 import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/shared/money'
-import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, type LinkOwner } from '@/modules/media/domain/media'
+import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, splitList, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
 import { knownCodes, knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
@@ -36,6 +36,7 @@ import { scheduleEpisodeAirings, type AiringEpisode } from '@/modules/cinema/ser
 import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/software/server/current-version'
 import { resolveStudioId } from '@/modules/studios/server/identity'
 import { cleanAppStores, cleanMinOs, cleanPackageId } from '@/modules/software/domain/app'
+import { saveMusicCredits } from '@/modules/music/server/credits'
 import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
 
 /**
@@ -218,6 +219,7 @@ const RESOURCES: Record<string, Resource> = {
         cover: when(b, 'cover', validateCover),
         year: when(b, 'year', (v) => int(v, 1900, 2100)),
         genre: when(b, 'genre', (v) => joinList(v, 6)),
+        albumType: when(b, 'albumType', (v) => text(v, 40).toUpperCase()),
         description: when(b, 'description', (v) => html(v, 20000)),
         access: when(b, 'access', normalizeAccess),
         status: when(b, 'status', status),
@@ -230,6 +232,12 @@ const RESOURCES: Record<string, Resource> = {
     taxonomy: 'music-language', module: 'music', perms: ['music.manage'],
     delegate: (t) => t.musicTrack, orderBy: { publishedAt: 'desc' }, include: { artist: { select: { name: true } }, album: { select: { title: true } } },
     label: (row) => row.title,
+    // Who else made the song: replaced as a whole when the form sends it (see saveMusicCredits).
+    afterSave: async (tx, id, b) => { if (has(b, 'credits')) await saveMusicCredits(tx, id, b.credits) },
+    expand: async (rows) => {
+      const credits = rows.length ? await db.musicCredit.findMany({ where: { trackId: { in: rows.map((row) => row.id) } }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { trackId: true, role: true, artistId: true } }) : []
+      return rows.map((row) => ({ ...row, credits: credits.filter((credit) => credit.trackId === row.id).map((credit) => ({ role: credit.role, artistId: String(credit.artistId) })) }))
+    },
     parse: (b, existing) => {
       const artistId = when(b, 'artistId', (v) => int(v, 1, 2 ** 31 - 1))
       if (!existing && !artistId) throw new Error('هنرمند را انتخاب کنید / Choose an artist')
@@ -630,6 +638,10 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
       const known = new Set(await knownCodes(tx, 'software', 'APP_STORE', links.map((link) => link.store), had))
       data.appStores = JSON.stringify(links.filter((link) => known.has(link.store)))
     }
+    // A song's or album's genres: names the GENRE list knows (or the item already had); an album's release type: a
+    // known code, else the one it had (a new album: ALBUM).
+    if ((type === 'music-tracks' || type === 'music-albums') && typeof data.genre === 'string') data.genre = (await knownCodes(tx, 'music', 'GENRE', splitList(data.genre as string, 6), splitList(before?.genre ?? '', 6))).join(', ')
+    if (type === 'music-albums' && typeof data.albumType === 'string') data.albumType = (await knownCodes(tx, 'music', 'ALBUM_TYPE', [data.albumType], before?.albumType ? [before.albumType] : []))[0] ?? before?.albumType ?? 'ALBUM'
     if (type === 'software' && typeof data.license === 'string') data.license = (await knownCodes(tx, 'software', 'LICENSE', [data.license], before?.license ? [before.license] : []))[0] ?? before?.license ?? 'FREE'
     // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
     if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))

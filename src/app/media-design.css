@@ -265,6 +265,14 @@
 .mu-detail-info h1 { font-size: clamp(1.8rem, 4.5vw, 3.2rem); }
 .mu-detail-info .md-eyebrow a { text-decoration: underline; }
 .mu-detail-artist { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+/* Who else made a song: featured artists under the main one, the rest (composer, lyricist…) as a list of roles. */
+.mu-featuring { margin: 6px 0 0; font-size: .92rem; opacity: .9; }
+.mu-featuring a { font-weight: 700; }
+.mu-credits { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 20px; margin: 0; }
+.mu-credits > div { display: grid; gap: 3px; }
+.mu-credits dt { font-size: .8rem; color: var(--md-muted, var(--muted)); }
+.mu-credits dd { margin: 0; font-weight: 700; }
+.mu-credits-panel { margin-bottom: 18px; }
 .mu-detail-artist img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
 .mu-detail-desc { opacity: .8; max-width: 60ch; line-height: 1.9; }
 @media (max-width: 700px) { .mu-detail-inner { grid-template-columns: 1fr; justify-items: center; text-align: center; } .mu-detail-info { justify-items: center; } }
