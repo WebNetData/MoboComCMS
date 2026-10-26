@@ -1,4 +1,4 @@
-# Remaining gaps — scoped snapshot, updated 2026-10-23
+# Remaining gaps — scoped snapshot, updated 2026-10-26
 
 Admin integration follow-up: main64134402's framework pins and the owner's
 Admin batch are combined locally; CSS isolation, observed contrast/labels,
@@ -18,8 +18,15 @@ The release checklist, backup/restore tooling and monitoring already exist. The 
 Current2026-10-26: both reproduced Journal findings are resolved through exact
 transactional Post claims and existing Operations/Inbox decision intents.
 [Implementation, regression/fault evidence and rollout](handoffs/JOURNAL_REVIEW_RELIABILITY.md).
-The owner's six primary-button CSS edits remain separate and need their own
-browser acceptance. Do not reopen the fixed race or build another notice queue.
+The owner's six primary-button CSS edits remain separate. The 36-view public
+audit passed; its reproduced push/support overlap is now resolved through the
+[existing PWA placement owner](handoffs/PWA_PROMPT_PLACEMENT.md), with four
+maintained browser cases and actual types/gates/PG-read evidence.
+[Current bounded queue](audits/2026-10-26-remaining-work.md): canonical block-body
+proposals, public Library image derivatives and deployment-data/operational verification. No new
+backend defect was established in this follow-up. Do not reopen the fixed race
+or build another notice queue. The broader historical targets below require a
+named requirement/audit before implementation; they are not a full-site rewrite queue.
 
 | Priority | Gap | Existing owner and evidence | Safe next slice |
 |---|---|---|---|
@@ -41,7 +48,7 @@ The combined HTTPS suite retained repeated analytics visitor and notification de
 
 Update 2026-10-10: the [real buyer/return journey](audits/2026-10-10-buyer-return-runtime.md), magazine-only editor and [independent forum restriction slice](audits/2026-10-10-scoped-restrictions.md) passed on compiled HTTPS/PostgreSQL, with wallet/code/refund invariants and inspected light/dark/mobile views. Final combined browser: 57 passed, seven fixture skips, zero retries; eleven related PostgreSQL cases passed. Initial failed attempts and TLS/hostname/throttle/contrast/pool corrections remain documented. The existing browser workflow uses this runner; [PR #147](https://github.com/WebNetData/MoboComCMS/pull/147) is owner-merged and all hosted gates ultimately passed (browser57/seven skips/zero retries), with no manual dispatch. The [refunded-order explanation](audits/2026-10-10-refunded-order-status.md) is fixed. Real configured providers and named staging/deploy/rollback remain P0. Broader global/resource/capability restrictions still need the existing Identity/AuthZ owners and assessed session/token/background consumers. Do not infer a new checkout/returns or identity system is needed.
 
-The [buyer/payment/return release scenario](../specs/buyer-return-release-evidence/SPEC.md) now has a separate actual internal-wallet order/delivery/refund browser flow. The earlier checkout-response stub remains a client retry test and is not counted as payment evidence. Next prove the named HTTPS/PostgreSQL production configuration and real providers; extend the bounded forum restriction foundation through the same Identity/AuthZ owners. Existing services are reused and broader unassessed capabilities remain unassessed.
+The [buyer/payment/return release evidence](audits/2026-10-10-buyer-return-runtime.md) records a separate actual internal-wallet order/delivery/refund browser flow. The earlier checkout-response stub remains a client retry test and is not counted as payment evidence. Next prove the named HTTPS/PostgreSQL production configuration and real providers; extend the bounded forum restriction foundation through the same Identity/AuthZ owners. Existing services are reused and broader unassessed capabilities remain unassessed.
 
 Delivery checkpoint: [PR #146](https://github.com/WebNetData/MoboComCMS/pull/146) merged after required checks passed; production limits above remain.
 
