@@ -1,12 +1,11 @@
 'use client'
 
-import Link from '@/components/AppLink'
-import { usePathname } from '@/platform/routing/navigation'
 import type { ReactNode } from 'react'
+import { SectionShell, type SectionTab } from '../cms/SectionAdmin'
 
 export { Notice, Pager, fa, faDate, faDay, send, useJson } from '../store/shared'
 
-const TABS = [
+const TABS: SectionTab[] = [
   { href: '/admin/community', label: 'داشبورد', exact: true },
   { href: '/admin/community/reports', label: 'گزارش‌ها' },
   { href: '/admin/community/posts', label: 'پست‌ها' },
@@ -22,10 +21,5 @@ export function Who({ person }: { person: Person | null }) {
 }
 
 export function CommunityShell({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
-  const pathname = usePathname()
-  return <div className="sa" dir="rtl">
-    <nav className="sa-tabs" aria-label="مدیریت جامعه">{TABS.map((tab) => { const on = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href); return <Link key={tab.href} href={tab.href} className={on ? 'is-active' : ''} aria-current={on ? 'page' : undefined}>{tab.label}</Link> })}</nav>
-    <header className="sa-head"><h1>{title}</h1>{actions && <div className="sa-head-actions">{actions}</div>}</header>
-    {children}
-  </div>
+  return <SectionShell tabs={TABS} label="مدیریت جامعه" title={title} actions={actions}>{children}</SectionShell>
 }

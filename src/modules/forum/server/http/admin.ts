@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     if (!Number.isSafeInteger(userId) || userId < 1 || (before !== undefined && (!Number.isSafeInteger(before) || before < 1))) return err('ورودی نامعتبر است', 400)
     try { return ok(await forumRestrictionHistory({ req, actor: g.admin }, userId, before)) } catch (error) { return failure(error) }
   }
-  if (req.nextUrl.searchParams.get('section') === 'users') return ok(await users(req.nextUrl.searchParams.get('q') || ''))
+  if (req.nextUrl.searchParams.get('section') === 'users') return ok(await users(req.nextUrl.searchParams.get('q') || '', req.nextUrl.searchParams.get('filter')))
   if (req.nextUrl.searchParams.get('section') === 'reports') {
     const { forumReports } = await import('@/modules/forum/server/reports')
     return ok(await forumReports(Math.max(7, Math.min(90, Number(req.nextUrl.searchParams.get('days')) || 30))))
@@ -101,13 +101,29 @@ async function flagQueue(): Promise<QueueEntry[]> {
   return [...byPost.values()]
 }
 
-async function users(q: string) {
+/** The member lists the users tab filters by: under a silence or suspension now, a level set by hand, a staff note. */
+const USER_FILTERS = ['restricted', 'locked', 'noted'] as const
+type UserFilter = typeof USER_FILTERS[number]
+function userFilterWhere(filter: UserFilter, now: Date) {
+  if (filter === 'restricted') return { OR: [{ silencedUntil: { gt: now } }, { suspendedUntil: { gt: now } }] }
+  if (filter === 'locked') return { trustLocked: true }
+  return { moderationNote: { not: '' } }
+}
+
+async function users(q: string, filterParam: string | null) {
   const term = text(q, 60).toLowerCase().replace(/^@/, '')
-  const where = term ? { OR: [{ username: { contains: term } }, { user: { email: { contains: term } } }, { user: { name: { contains: term } } }] } : {}
-  const rows = await db.forumProfile.findMany({ where, orderBy: term ? { postCount: 'desc' } : { lastSeenAt: 'desc' }, take: 40, include: { user: { select: { email: true, name: true } } } })
+  const filter = USER_FILTERS.find((key) => key === filterParam)
+  const now = new Date()
+  const match = term ? { OR: [{ username: { contains: term } }, { user: { email: { contains: term } } }, { user: { name: { contains: term } } }] } : {}
+  const where = filter ? { AND: [match, userFilterWhere(filter, now)] } : match
+  const [rows, ...counts] = await Promise.all([
+    db.forumProfile.findMany({ where, orderBy: term ? { postCount: 'desc' } : { lastSeenAt: 'desc' }, take: 40, include: { user: { select: { email: true, name: true } } } }),
+    ...USER_FILTERS.map((key) => db.forumProfile.count({ where: userFilterWhere(key, now) })),
+  ])
   const authors = await authorsFor(rows.map((row) => row.userId))
   const groups = await db.forumGroupMember.findMany({ where: { userId: { in: rows.map((row) => row.userId) }, status: 'ACTIVE' }, select: { userId: true, group: { select: { name: true, icon: true } } } })
   return {
+    counts: Object.fromEntries(USER_FILTERS.map((key, index) => [key, counts[index]])) as Record<UserFilter, number>,
     users: rows.map((row) => ({
       userId: row.userId, username: row.username, email: row.user.email, name: row.user.name, author: authors.get(row.userId) || fallbackAuthor(row.userId),
       trustLevel: row.trustLevel, trustLocked: row.trustLocked, title: row.title, postCount: row.postCount, likesReceived: row.likesReceived, lastSeenAt: row.lastSeenAt,
@@ -133,7 +149,7 @@ async function teamForAdmin() {
 
 /** Categories as the admin table shows them: with the usernames of the moderators assigned to each. */
 async function categoriesWithModerators() {
-  const rows = await db.forumCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: { permissions: { select: { groupId: true, level: true } }, moderators: { select: { userId: true }, orderBy: { createdAt: 'asc' } } } })
+  const rows = await db.forumCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: { permissions: { select: { groupId: true, level: true } }, moderators: { select: { userId: true }, orderBy: { createdAt: 'asc' } }, club: { select: { id: true, slug: true, name: true, memberCount: true } } } })
   const profiles = await db.forumProfile.findMany({ where: { userId: { in: rows.flatMap((row) => row.moderators.map((item) => item.userId)) } }, select: { userId: true, username: true } })
   const names = new Map(profiles.map((row) => [row.userId, row.username]))
   return rows.map((row) => ({ ...row, moderators: row.moderators.map((item) => names.get(item.userId)).filter((name): name is string => !!name) }))

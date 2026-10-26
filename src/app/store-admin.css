@@ -19,6 +19,8 @@
   --sa-deal: #ef4056;
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; color: var(--sa-text); min-width: 0;
 }
+/* On light pages the warning amber is deepened so its text and pills read (#c77700 is 3:1 on its own tint). */
+html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 /* Wide tables inside an admin shell scroll in place instead of widening the page. */
 .sa > * { min-width: 0; }
 .sa-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 4px; border-radius: 12px; background: var(--sa-subtle); border: 1px solid var(--sa-line); }
