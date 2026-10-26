@@ -129,6 +129,32 @@ async function main() {
   const listed = await software.browseSoftware({ license: `${CODE}_SUB`, q: seed })
   assert.deepEqual(listed.items.map((item) => [item.slug, item.licenseName]), [[`${seed}-app`, 'اشتراکی']], 'a card carries the owner\'s licence name')
   assert.deepEqual(audits, ['created', 'created', 'created', 'created', 'created', 'created', 'updated', 'updated', 'updated', 'created', 'deleted', 'created', 'updated'], 'every change is audited; refused ones are not')
+
+  // ---- software is specialised: platforms have a family, app stores are a list, a mobile app keeps its own facts
+  const phone = await vocab.createEntry('software', { list: 'PLATFORM', code: `${seed} Phone OS`, family: 'MOBILE' }, audit)
+  assert.equal(phone.family, 'MOBILE')
+  await refused(vocab.createEntry('software', { list: 'PLATFORM', code: `${seed} Bad`, family: 'TOASTER' }, audit), /نوع/, 422)
+  await refused(vocab.updateEntry('software', licence.id, { family: 'MOBILE' }, audit), /نوع/, 422, 'a list without families takes none')
+  assert.equal((await vocab.updateEntry('software', phone.id, { family: 'WEB' }, audit)).family, 'WEB', 'the family follows the entry\'s own list')
+  await vocab.updateEntry('software', phone.id, { family: 'MOBILE' }, audit)
+  assert.equal((await vocab.allLists('software')).PLATFORM.find((entry) => entry.code === 'Android')?.family, 'MOBILE', 'seeded platforms carry their family')
+  await assert.rejects(prisma.$executeRawUnsafe(`INSERT INTO "Vocabulary" (section, list, code, name, family) VALUES ('software', 'APP_STORE', '${seed} x', 'x', 'lower')`), /check/i, 'a family is an upper-case word')
+  const shop = await vocab.createEntry('software', { list: 'APP_STORE', code: `${seed} Shop`, name: 'فروشگاه آزمون' }, audit)
+  const { row: mobile } = await saveSoftware({ title: `${seed} mobile`, slug: `${seed}-mobile`, platforms: `Android, ${seed} Phone OS`, packageId: 'com.example.app', minOs: 'Android 8.0',
+    appStores: [{ store: `${seed} Shop`, url: 'https://example.invalid/app' }, { store: 'Not A Store', url: 'https://example.invalid/x' }, { store: 'Myket', url: '' }] })
+  assert.deepEqual([mobile.packageId, mobile.minOs, JSON.parse(mobile.appStores)], ['com.example.app', 'Android 8.0', [{ store: `${seed} Shop`, url: 'https://example.invalid/app' }]], 'only listed stores with an address are kept')
+  await assert.rejects(saveSoftware({ packageId: 'not a package' }, mobile.id), /شناسهٔ بسته/)
+  await assert.rejects(saveSoftware({ appStores: [{ store: `${seed} Shop`, url: 'javascript:alert(1)' }] }, mobile.id), /معتبر نیست/)
+  await vocab.updateEntry('software', shop.id, { active: false }, audit)
+  assert.equal(JSON.parse((await saveSoftware({ appStores: [{ store: `${seed} Shop`, url: 'https://example.invalid/app2' }] }, mobile.id)).row.appStores)[0]?.url, 'https://example.invalid/app2', 'a title keeps a store the owner later deactivated')
+  assert.equal(JSON.parse((await saveSoftware({ appStores: [{ store: `${seed} Shop`, url: 'https://example.invalid/app3' }] }, fresh.id)).row.appStores).length, 0, 'an inactive store is not given to another title')
+  assert.deepEqual([await uses('software', 'PLATFORM', phone.id), await uses('software', 'APP_STORE', shop.id)], [1, 1], 'platform and store uses are counted')
+  await refused(vocab.deleteEntry('software', shop.id, audit), /را دارند/, 409)
+  await prisma.softwareTitle.updateMany({ where: { slug: `${seed}-mobile` }, data: { status: 'PUBLISHED', publishedAt: new Date(Date.now() - 60000) } })
+  const page = await software.getSoftware(`${seed}-mobile`)
+  assert.deepEqual([page.software.packageId, page.software.minOs, page.software.appStores], ['com.example.app', 'Android 8.0', [{ store: `${seed} Shop`, url: 'https://example.invalid/app2', name: 'فروشگاه آزمون' }]], 'the page reads the app\'s facts with the store\'s name')
+  const softwareRules = load('src/modules/software/domain/vocabulary.ts')
+  assert.deepEqual([...softwareRules.platformFamilies(`android, ${seed} Phone OS, Unknown`, (await vocab.allLists('software')).PLATFORM)].sort(), ['MOBILE'], 'families follow the list, case-insensitively; unknown names add none')
   console.log('PostgreSQL managed lists: each section\'s declared lists seeded from the fixed values, the shape the database checks, fixed codes with the owner\'s names, entries scoped to their section, items keep only known codes (an inactive one stays where it was; an unknown licence keeps the old one), entries in use are not deleted, public filters match whole codes and cards show the owner\'s names.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 }).finally(async () => {

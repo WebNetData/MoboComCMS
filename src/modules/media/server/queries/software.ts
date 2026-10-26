@@ -1,6 +1,7 @@
 import { db } from '@/platform/database/prisma'
 import { licenseLabel, parseJsonList, splitList } from '@/modules/media/domain/media'
 import { listLabels } from '@/modules/vocabulary/server/vocabulary'
+import { cleanAppStores } from '@/modules/software/domain/app'
 import { plainText } from '@/shared/text/plain'
 import { currentSoftwareVersions, projectSoftwareVersion, type VersionProjection } from '@/modules/software/server/current-version'
 import { relatedSoftware } from '@/modules/recommendations/server/contextual'
@@ -207,7 +208,11 @@ export async function getSoftware(slug: string) {
     db.softwareRelease.findMany({ where: { softwareId: row.id, status: 'PUBLISHED', releasedAt: { lte: now } }, include: { targets: { orderBy: { id: 'asc' } } }, orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }], take: 30 }).catch(() => []),
   ])
   const related = recommendations.length ? await db.softwareTitle.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } } }) : []
-  const [versions, licenses] = await Promise.all([currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now), licenseNames()])
+  const [versions, labels] = await Promise.all([currentSoftwareVersions([row.id, ...related.map((item) => item.id)], now), listLabels('software')])
+  const licenses = labels.LICENSE ?? {}, storeNames = labels.APP_STORE ?? {}
+  // A stored link that no longer validates is left out rather than breaking the page.
+  let stores: { store: string; url: string }[] = []
+  try { stores = cleanAppStores(row.appStores) } catch { stores = [] }
   const relatedById = new Map(related.map((item) => [item.id, item]))
   const projected = projectSoftwareVersion(row, versions)
   const releaseLinks = await publicLinks('softwarerelease', releases.map((release) => release.id))
@@ -217,6 +222,7 @@ export async function getSoftware(slug: string) {
       changelog: projected.changelog, views: row.views,
       releasedAt: projected.releasedAt, updatedAt: projected.updatedAt,
       features: row.features || '', installGuide: row.installGuide || '', archivePassword: row.archivePassword || '',
+      packageId: row.packageId || '', minOs: row.minOs || '', appStores: stores.map((link) => ({ ...link, name: storeNames[link.store] || link.store })),
       screenshots: parseJsonList<{ src: string }>(row.screenshots).map((shot) => shot.src).filter(Boolean),
     },
     links: links.get(row.id) || [],

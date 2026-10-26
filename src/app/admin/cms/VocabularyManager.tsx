@@ -6,8 +6,8 @@ import type { VocabularyEntry } from '@/modules/vocabulary/domain/vocabulary'
 import { listsOf, type VocabularySection } from '@/modules/vocabulary/domain/registry'
 
 type Row = VocabularyEntry & { uses: number }
-type Draft = { id: number | null; code: string; name: string; nameEn: string; icon: string; sortOrder: string; active: boolean }
-const EMPTY: Draft = { id: null, code: '', name: '', nameEn: '', icon: '', sortOrder: '0', active: true }
+type Draft = { id: number | null; code: string; name: string; nameEn: string; icon: string; family: string; sortOrder: string; active: boolean }
+const EMPTY: Draft = { id: null, code: '', name: '', nameEn: '', icon: '', family: '', sortOrder: '0', active: true }
 
 /**
  * A section's managed lists (game platforms and stores, software licences, …): a tab per list, each entry with how
@@ -58,6 +58,7 @@ export default function VocabularyManager({ section, noun }: { section: Vocabula
         <label className="sa-field"><span>کد {draft.id ? '(ثابت)' : ''}</span><input className="input" dir="ltr" required={!draft.id} disabled={!!draft.id} maxLength={40} value={draft.code} onChange={(e) => set('code', e.target.value)} placeholder={meta.example} /><small>{meta.codeHint}</small></label>
         <label className="sa-field"><span>نام نمایشی</span><input className="input" maxLength={60} value={draft.name} onChange={(e) => set('name', e.target.value)} placeholder={meta.codeRule === 'name' ? 'خالی = همان کد' : ''} /></label>
         <label className="sa-field"><span>نام انگلیسی</span><input className="input" dir="ltr" maxLength={60} value={draft.nameEn} onChange={(e) => set('nameEn', e.target.value)} /></label>
+        {meta.families && <label className="sa-field"><span>نوع {meta.one}</span><select className="select" value={draft.family} onChange={(e) => set('family', e.target.value)}><option value="">— بدون نوع —</option>{meta.families.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select><small>فیلدهای مخصوص هر نوع را در فرم {noun} باز می‌کند.</small></label>}
         <label className="sa-field"><span>نماد (ایموجی، اختیاری)</span><input className="input" maxLength={8} value={draft.icon} onChange={(e) => set('icon', e.target.value)} /></label>
         <label className="sa-field"><span>ترتیب</span><input className="input" type="number" min={-9999} max={9999} value={draft.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} /></label>
       </div>
@@ -70,10 +71,10 @@ export default function VocabularyManager({ section, noun }: { section: Vocabula
         <span className="cf-icon" aria-hidden="true">{row.icon || meta.icon}</span>
         <div className="cf-main">
           <strong>{row.name}{row.nameEn && row.nameEn !== row.name && <small dir="ltr">{row.nameEn}</small>}</strong>
-          <span className="cf-meta"><code dir="ltr">{row.code}</code><span>{fa(row.uses)} {noun}</span>{!row.active && <span className="cf-badge is-off">غیرفعال</span>}</span>
+          <span className="cf-meta"><code dir="ltr">{row.code}</code>{meta.families && <span className="cf-badge">{meta.families.find(([code]) => code === row.family)?.[1] || 'بدون نوع'}</span>}<span>{fa(row.uses)} {noun}</span>{!row.active && <span className="cf-badge is-off">غیرفعال</span>}</span>
         </div>
         <div className="cf-tools">
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { setDraft({ id: row.id, code: row.code, name: row.name, nameEn: row.nameEn, icon: row.icon, sortOrder: String(row.sortOrder), active: row.active }); setMessage(null) }}>ویرایش</button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { setDraft({ id: row.id, code: row.code, name: row.name, nameEn: row.nameEn, icon: row.icon, family: row.family || '', sortOrder: String(row.sortOrder), active: row.active }); setMessage(null) }}>ویرایش</button>
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void run(() => send(api, 'PATCH', { id: row.id, active: !row.active }), row.active ? `«${row.name}» غیرفعال شد.` : `«${row.name}» فعال شد.`)}>{row.active ? 'غیرفعال کن' : 'فعال کن'}</button>
           <button type="button" className="btn btn-ghost btn-sm is-danger" disabled={busy || row.uses > 0} title={row.uses ? 'موردی که استفاده شده حذف نمی‌شود؛ غیرفعالش کنید' : undefined} onClick={() => remove(row)}>حذف</button>
         </div>

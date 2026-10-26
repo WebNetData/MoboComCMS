@@ -24,6 +24,7 @@ import { OrganizationScope, useAssetOrganization } from '@/components/media/Orga
 import type { AssetOrganization } from '@/modules/downloads/domain/organization'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import PeoplePicker from './PeoplePicker'
+import StudioPicker from './StudioPicker'
 import { optionsOf, useSectionLists } from './useSectionLists'
 
 // Loaded only when a form with a formatted field is opened.
@@ -43,7 +44,7 @@ export type MediaField = {
   key: string
   label: string
   /** `richtext`: formatted text written in the site's editor and stored as sanitised HTML (the server cleans it on save). */
-  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms' | 'people'
+  type?: 'text' | 'textarea' | 'richtext' | 'number' | 'checkbox' | 'select' | 'image' | 'date' | 'datetime' | 'links' | 'records' | 'seasons' | 'requirements' | 'picklist' | 'terms' | 'people' | 'studio' | 'chips'
   /** For `people`: a director/producer line (`line`) or the cast list with characters and order (`cast`). */
   people?: 'line' | 'cast'
   /** For `image`: the frame the picture is shown in — a portrait poster, a square icon or cover; landscape otherwise. */
@@ -57,7 +58,8 @@ export type MediaField = {
   options?: Opt[]
   /** Options loaded from another media resource (e.g. artists for albums). */
   source?: { type: string; label: (row: any) => string; empty?: string }
-  recordKeys?: { key: string; label: string; dir?: 'ltr' | 'rtl'; wide?: boolean }[]
+  /** A record's own fields; one with `options` is chosen from them (an app store from the owner's list). */
+  recordKeys?: { key: string; label: string; dir?: 'ltr' | 'rtl'; wide?: boolean; options?: Opt[] }[]
   wide?: boolean
   dir?: 'ltr' | 'rtl'
   required?: boolean
@@ -267,6 +269,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       case 'date': return [{ ...base, type: 'date' }]
       case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
       case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
+      case 'studio': return [{ ...base, type: 'text' }]
       // People are suggested as names (a line) or as name + character rows (the cast), as before the picker.
       case 'people': return field.people === 'cast' ? [{ ...base, type: 'records', recordKeys: [{ key: 'name', label: fa ? 'نام' : 'Name' }, { key: 'role', label: fa ? 'نقش' : 'Character' }] }] : [{ ...base, type: 'text' }]
       default: return []
@@ -424,7 +427,7 @@ function cell(field: MediaField, value: unknown, fa: boolean): ReactNode {
 }
 
 /** Fields that take the whole width of the form grid. */
-const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms', 'people'])
+const WIDE_TYPES = new Set(['textarea', 'image', 'links', 'records', 'seasons', 'requirements', 'picklist', 'terms', 'people', 'chips'])
 
 /** One field of the form: its label (with the AI-suggestion mark), its input and its hint. */
 function FieldBox({ field, value, ai, organization, options, fa, onBusy, titleHint, onChange }: { field: MediaField; value: any; ai: boolean; organization?: AssetOrganization; options?: Opt[]; fa: boolean; onBusy: (busy: boolean) => void; titleHint: string; onChange: (value: unknown, projected?: Record<string, string>) => void }) {
@@ -463,6 +466,10 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
       return <PeoplePicker mode={field.people || 'line'} value={value} onChange={(next) => onChange(next)} label={field.label} fa={fa} />
     case 'picklist':
       return <PickList value={Array.isArray(value) ? value.map(String) : []} options={options || []} onChange={onChange} fa={fa} />
+    case 'studio':
+      return <StudioPicker value={String(value ?? '')} onChange={(next) => onChange(next)} label={field.label} fa={fa} />
+    case 'chips':
+      return <ChipPicker value={value} options={options || []} onChange={onChange} label={field.label} fa={fa} />
     default:
       if (field.key === 'trailerUrl') return <div className="mx-upload-field"><input className="input" aria-label={field.label} dir="ltr" value={value??''} onChange={e=>onChange(e.target.value)} placeholder={field.placeholder}/><CopyToServer kind="file" section="cinema" url={/\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))?String(value):''} onCopied={onChange}/></div>
       if (field.upload) return <div className="mx-upload-field"><input className="input" dir={field.dir || 'ltr'} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} /><FileUpload section={field.upload} accept={field.accept} onUploaded={(file) => onChange(file.url)} label={fa ? 'بارگذاری از رایانه' : 'Upload'} /><CopyToServer kind="file" section={field.upload} url={String(value || '')} onCopied={onChange} /></div>
@@ -495,7 +502,7 @@ export function TermPicker({ taxonomy, value, onChange }: { taxonomy: string; va
   const shown = filter.trim() ? options.filter((o) => o.name.includes(filter.trim())) : options
   return <div className="tx-picker">
     <div className="tx-picker-head"><input className="input" type="search" placeholder="جست‌وجوی دسته…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="جست‌وجوی دسته" />{manage}</div>
-    <ul role="group" aria-label="دسته‌ها">
+    <ul aria-label="دسته‌ها">
       {shown.map((o) => <li key={o.id} style={{ paddingInlineStart: `${(filter ? 0 : o.depth - 1) * 18}px` }}>
         <label><input type="checkbox" checked={value.ids.includes(o.id)} onChange={() => toggle(o.id)} />{o.name}</label>
         {value.ids.includes(o.id) && <button type="button" className={`tx-primary${value.primary === o.id ? ' is-on' : ''}`} aria-pressed={value.primary === o.id} onClick={() => change({ ...value, primary: o.id })}>{value.primary === o.id ? '★ دستهٔ اصلی' : '☆ اصلی شود'}</button>}
@@ -589,7 +596,7 @@ function RecordsEditor({ value, keys, onChange, fa }: { value: Record<string, st
     <div className="mx-records">
       {value.map((row, index) => (
         <div key={index} className="mx-record-row">
-          {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}><input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
+          {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}>{k.options ? <select className="select" aria-label={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))}><option value="">{k.label}…</option>{k.options.some((o) => o.value === row[k.key]) || !row[k.key] ? null : <option value={row[k.key]}>{row[k.key]}</option>}{k.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : <input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />}{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
           <div className="mx-row-tools">
             <button aria-label="جابه‌جایی به بالا" type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
             <button aria-label="حذف" type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))}>✕</button>
@@ -686,6 +693,23 @@ export function RequirementsEditor({ value, onChange, fa }: { value: { min: Reco
       ))}
     </div>
   )
+}
+
+/**
+ * Several values from an owner's list (a software title's platforms): each entry is a toggle, in the list's order. A
+ * value the item has that the list no longer offers stays chosen until removed. Stored as a comma list.
+ */
+function ChipPicker({ value, options, onChange, label, fa }: { value: unknown; options: Opt[]; onChange: (value: string) => void; label: string; fa: boolean }) {
+  const chosen = (Array.isArray(value) ? value.map(String) : String(value ?? '').split(/[,،|]/)).map((part) => part.trim()).filter(Boolean)
+  const has = (code: string) => chosen.some((item) => item.toLowerCase() === code.toLowerCase())
+  const toggle = (code: string) => onChange((has(code) ? chosen.filter((item) => item.toLowerCase() !== code.toLowerCase()) : [...chosen, code]).join(', '))
+  const offered = options.filter((option) => option.value)
+  const others = chosen.filter((item) => !offered.some((option) => option.value.toLowerCase() === item.toLowerCase()))
+  return <div className="mx-chips" role="group" aria-label={label}>
+    {offered.map((option) => <button key={option.value} type="button" className={`mx-chip${has(option.value) ? ' is-on' : ''}`} aria-pressed={has(option.value)} onClick={() => toggle(option.value)}>{option.label}</button>)}
+    {others.map((item) => <button key={item} type="button" className="mx-chip is-on is-other" aria-pressed="true" title={fa ? 'در فهرست نیست؛ برای برداشتن بزنید' : 'Not in the list; press to remove'} onClick={() => toggle(item)}>{item} ×</button>)}
+    {!offered.length && !others.length && <span className="muted">{fa ? 'فهرستی تعریف نشده است.' : 'No list entries yet.'}</span>}
+  </div>
 }
 
 function PickList({ value, options, onChange, fa }: { value: string[]; options: Opt[]; onChange: (value: string[]) => void; fa: boolean }) {
