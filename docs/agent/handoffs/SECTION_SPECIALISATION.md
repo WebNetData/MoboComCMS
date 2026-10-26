@@ -13,7 +13,7 @@ This handoff records where each section stands against those principles and cont
 | Section | Pick from lists | Fields by type | Owner's types and lists | Gaps |
 |---|---|---|---|---|
 | Cinema | People (`PeoplePicker`) | By format structure (film or series) | Formats (`CinemaFormat`) | Reference; done. |
-| Games | Platforms, stores, modes, localisation (lists). Developer and publisher: **this slice** | Release per platform | Lists (`GAME_LISTS`) | Engine and genres are free text. |
+| Games | Platforms, stores, modes, localisation; developer and publisher (slice 1); genres and engine (**slice 4**) | Release per platform | Lists (`GAME_LISTS`) | — |
 | Software | Licence. Platforms, app stores, developer and publisher: **this slice** | Desktop or mobile, by platform family: **this slice** | Licence, platform, app store | — |
 | Music | Artist and album. Credits from the artists: **slice 2** | Release type per album: **slice 2** | Genre, release type, credit role: **slice 2** | — |
 | Magazine | Categories, items linked to a post | By the format's family: **slice 3** | Post formats: **slice 3** | — |
@@ -137,6 +137,21 @@ This handoff records where each section stands against those principles and cont
 
     Existing magazine browser tests pass: admin 17/17 (tab count updated), review 13/13, proposals 13/13, polish 17/17.
 
-## Next slices (in order)
+## Slice 4: games genres and engine (branch `feat/games-lists-2026-10-26`, stacked on slice 3)
 
-1. **Games.** The engine and genres become managed lists.
+- **Two new name lists** on the games lists page: genres and engines.
+  - They are seeded with common genres and engines.
+  - The names games already use are adopted by migration `20270123120000_game_lists`, which also widens the code check.
+- **Game form.** Genres are chips and the engine is a select. A name the game already had stays offered.
+- **Saving.** Listed names only. A deactivated name stays on the game that had it; an unknown engine keeps the game's own; the engine can be cleared.
+- **Usage.** Uses are counted, and an entry in use is not deleted.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 707/6.
+  - New unit tests pass.
+  - The PostgreSQL games block in `vocabulary.connected.cjs` passes.
+  - Browser test `pw-games-lists` passes 9/9, including axe in dark and light and phone width. `pw-game-vocabulary` passes, updated for six lists.
+
+## Next
+
+Every section audited here now follows the three principles. What remains is to keep any new section to them. A post format's facts could also feed structured data (review rating), once the owner wants rich results.

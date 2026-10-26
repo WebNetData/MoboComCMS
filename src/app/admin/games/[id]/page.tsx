@@ -196,9 +196,10 @@ export default function GameEditorPage() {
             <div className="sa-field"><span>سازنده</span><StudioPicker value={form.developer ?? ''} onChange={(value) => update('developer', value)} label="سازنده" /></div>
             <div className="sa-field"><span>ناشر</span><StudioPicker value={form.publisher ?? ''} onChange={(value) => update('publisher', value)} label="ناشر" /></div>
             <label className="sa-field"><span>مجموعه (سری)</span><select className="select" value={form.franchiseId} onChange={(e) => update('franchiseId', e.target.value)}><option value="">بدون مجموعه</option>{franchises.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select></label>
-            {field('engine', 'موتور بازی', { dir: 'ltr', placeholder: 'Unreal Engine 5' })}
+            {/* Engine and genres come from the owner's lists (tab «پلتفرم‌ها، فروشگاه‌ها و فهرست‌ها»). */}
+            <label className="sa-field"><span>موتور بازی</span><select className="select" dir="ltr" value={form.engine ?? ''} onChange={(e) => update('engine', e.target.value)}><option value="">—</option>{Object.entries(optionsOf(vocabulary.ENGINE, form.engine ? [form.engine] : [])).map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
             {field('ageRating', 'رده سنی', { placeholder: 'PEGI 16' })}
-            {field('genres', 'سبک‌ها (با ویرگول)', { placeholder: 'اکشن، نقش‌آفرینی' })}
+            <div className="sa-field ga-genres"><Codes label="سبک‌ها" value={(form.genres ?? '').replace(/،/g, ',')} options={optionsOf(vocabulary.GENRE, list((form.genres ?? '').replace(/،/g, ',')))} onChange={(v) => update('genres', v)} /></div>
           </div>
           <label className="sa-field"><span>خلاصهٔ معرفی</span><textarea className="input" rows={3} value={form.summary} onChange={(e) => update('summary', e.target.value)} maxLength={3000} /></label>
           <fieldset className="ga-codes"><legend>پلتفرم‌ها</legend>

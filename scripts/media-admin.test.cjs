@@ -279,3 +279,11 @@ test('a magazine post format keeps its family\'s facts, validated, and the form 
   const journal = load('src/modules/journal/domain/journal')
   assert.ok(journal.PROPOSAL_TEXT_FIELDS.includes('format') && journal.PROPOSAL_TEXT_FIELDS.includes('formatData'), 'an author proposes a format change like the text')
 })
+
+test('games pick genres and engines from name lists; usage reads both', () => {
+  const lists = load('src/modules/games/domain/vocabulary').GAME_LISTS
+  assert.deepEqual(lists.filter((list) => ['GENRE', 'ENGINE'].includes(list.list)).map((list) => list.codeRule), ['name', 'name'])
+  const usage = load('src/modules/games/server/vocabulary')
+  const game = { platforms: '', modes: '', localization: '', storeLinks: '[]', releases: '[]', genres: 'اکشن، نقش‌آفرینی', engine: 'Unity' }
+  assert.deepEqual([usage.gameUses(game, 'GENRE', 'نقش‌آفرینی'), usage.gameUses(game, 'GENRE', 'ورزشی'), usage.gameUses(game, 'ENGINE', 'Unity'), usage.gameUses(game, 'ENGINE', 'Unit')], [true, false, true, false], 'either comma; whole names only')
+})
