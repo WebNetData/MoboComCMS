@@ -17,6 +17,16 @@ export function profileAddress(username: string, piece?: ForumPiece | null): str
   return `${base}?tab=${FORUM_PART}${piece === 'summary' ? '' : `&f=${piece}`}`
 }
 
+/**
+ * Where the member's address leads while social profiles are off (or the member has no social profile yet): the
+ * forum's own page, at the piece asked for. Links name the one address; this keeps them working either way.
+ */
+export function forumStandInAddress(username: string, tab?: unknown, piece?: unknown): string {
+  const base = `/forum/u/${encodeURIComponent(username)}`
+  const wanted = String(tab ?? '') === FORUM_PART ? normalizeForumPiece(piece) : 'summary'
+  return wanted === 'summary' ? base : `${base}?tab=${wanted}`
+}
+
 /** Where the old forum address (`/forum/u/<username>?tab=…`) leads now. */
 export function forumAddressTarget(username: string, tab?: unknown): string {
   const wanted = String(tab ?? '')

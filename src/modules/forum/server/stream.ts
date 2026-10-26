@@ -7,6 +7,7 @@ import { homeFeed } from '@/modules/community/server/community'
 import { recentReviews } from '@/modules/reviews/server/reviews'
 import { blockedIds, followingIds } from '@/modules/identity/server/profile'
 import { plainText } from '@/shared/text/plain'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 // The activity stream: what the whole community is doing, newest first. New topics and replies of the
 // forum and, while the social module is on, the posts of the feed, in one list. Each source keeps its own
@@ -66,7 +67,7 @@ export async function activityStream(viewer: Viewer, input: { filter?: unknown; 
     const topic = row.postNumber <= 1
     return {
       key: `forum:${row.id}`, kind: topic ? 'topic' : 'reply', at: row.createdAt,
-      person: { name: author.name, username: author.username, avatar: author.avatar, avatarColor: author.avatarColor, href: `/forum/u/${author.username}` },
+      person: { name: author.name, username: author.username, avatar: author.avatar, avatarColor: author.avatarColor, href: profileAddress(author.username) },
       title: row.thread.title, text: markdownExcerpt(row.content, 220), href: topic ? `/forum/t/${row.thread.id}` : `/forum/t/${row.thread.id}?post=${row.postNumber}`, image: '',
       place: category ? { title: category.title, color: category.color, href: `/forum/c/${category.slug}` } : null,
     }
@@ -75,7 +76,7 @@ export async function activityStream(viewer: Viewer, input: { filter?: unknown; 
     const author = authors.get(review.userId) || fallbackAuthor(review.userId)
     entries.push({
       key: `review:${review.id}`, kind: 'review', at: review.at, rating: review.rating,
-      person: { name: author.name, username: author.username, avatar: author.avatar, avatarColor: author.avatarColor, href: `/forum/u/${author.username}` },
+      person: { name: author.name, username: author.username, avatar: author.avatar, avatarColor: author.avatarColor, href: profileAddress(author.username) },
       title: review.item.title, text: review.text, href: review.item.url, image: review.item.image, place: null,
     })
   }

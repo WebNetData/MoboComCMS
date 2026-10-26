@@ -1,6 +1,7 @@
 import Link from '@/components/AppLink'
 import type { TopicRow } from '@/modules/forum/server/forum'
 import { Avatar, CategoryBadge, TagChip, TimeAgo, compact, num } from '@/components/forum/shared'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 const Icon = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
 const PIN = 'M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Z', LOCK = 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3', CHECK = 'M5 12.5l4.5 4.5L19 7.5'
@@ -12,7 +13,7 @@ function Row({ topic, showCategory }: { topic: TopicRow; showCategory: boolean }
   const unseen = topic.unread > 0 || topic.isNew
   return (
     <li className={`tl-row${topic.pinned ? ' is-pinned' : ''}${unseen ? ' is-unseen' : ''}${topic.solved ? ' is-solved' : ''}`}>
-      <Link href={`/forum/u/${topic.author.username}`} className="tl-starter" aria-label={`پروفایل ${topic.author.name}`}><Avatar author={topic.author} size={46} /></Link>
+      <Link href={profileAddress(topic.author.username)} className="tl-starter" aria-label={`پروفایل ${topic.author.name}`}><Avatar author={topic.author} size={46} /></Link>
       <div className="tl-main">
         <h3>
           <Link href={href}>{topic.title}</Link>
@@ -25,7 +26,7 @@ function Row({ topic, showCategory }: { topic: TopicRow; showCategory: boolean }
           {topic.solved && <span className="tl-flag is-ok"><Icon d={CHECK} />حل‌شده</span>}
           {topic.locked && <span className="tl-flag is-lock"><Icon d={LOCK} />بسته</span>}
           {hot && <span className="tl-flag is-hot">داغ</span>}
-          <span className="tl-by"><Link href={`/forum/u/${topic.author.username}`}>{topic.author.name}</Link><span aria-hidden="true">·</span><TimeAgo date={topic.createdAt} /></span>
+          <span className="tl-by"><Link href={profileAddress(topic.author.username)}>{topic.author.name}</Link><span aria-hidden="true">·</span><TimeAgo date={topic.createdAt} /></span>
           {showCategory && topic.category.slug && <CategoryBadge category={topic.category} />}
           {topic.tags.map((tag) => <TagChip key={tag} name={tag} />)}
         </div>
@@ -35,9 +36,9 @@ function Row({ topic, showCategory }: { topic: TopicRow; showCategory: boolean }
         <div><dt><Icon d={EYE} /><span className="sr-only">بازدید</span></dt><dd>{compact(topic.views)}</dd></div>
       </dl>
       <div className="tl-last">
-        <Link href={`/forum/u/${topic.lastPoster.username}`} tabIndex={-1} aria-hidden="true"><Avatar author={topic.lastPoster} size={34} /></Link>
+        <Link href={profileAddress(topic.lastPoster.username)} tabIndex={-1} aria-hidden="true"><Avatar author={topic.lastPoster} size={34} /></Link>
         <div>
-          <Link href={`/forum/u/${topic.lastPoster.username}`} className="tl-last-name">{topic.lastPoster.name}</Link>
+          <Link href={profileAddress(topic.lastPoster.username)} className="tl-last-name">{topic.lastPoster.name}</Link>
           <Link href={`/forum/t/${topic.id}?post=${topic.postCount}`} className="tl-last-when" title="رفتن به آخرین پیام"><TimeAgo date={topic.lastPostAt} /></Link>
         </div>
       </div>

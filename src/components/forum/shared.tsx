@@ -1,6 +1,7 @@
 import Link from '@/components/AppLink'
 import type { AuthorView } from '@/modules/forum/server/forum'
 import { sized } from '@/shared/media/image'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 // Small building blocks shared by forum pages (server-safe, no hooks).
 
@@ -29,7 +30,7 @@ export function Avatar({ author, size = 40, className = '' }: { author: AvatarAu
 export function UserName({ author, showHandle = false }: { author: AuthorView; showHandle?: boolean }) {
   return (
     <span className="fx-user">
-      <Link href={`/forum/u/${author.username}`} className="fx-user-name">{author.name}</Link>
+      <Link href={profileAddress(author.username)} className="fx-user-name">{author.name}</Link>
       {author.staff && <span className="fx-staff" title="تیم موبوکام" aria-label="تیم موبوکام">🛡</span>}
       {author.flair && <span className="fx-flair" style={{ background: author.flair.color }} title={author.flair.name} role="img" aria-label={author.flair.name}>{author.flair.icon}</span>}
       {showHandle && <bdi className="fx-handle" dir="ltr">@{author.username}</bdi>}

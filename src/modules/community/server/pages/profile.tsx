@@ -7,6 +7,7 @@ import { LINK_KINDS, canMessage, canViewProfile } from '@/modules/identity/domai
 import { activityFor, communitySettings, pinnedPost, profilePosts, profileShelves, type Activity } from '@/modules/community/server/community'
 import { Avatar, CmIcon, Verified } from '@/components/community/CommunityIcons'
 import { Feed, PeopleList, PostCard, ProfileActions, type Card } from '@/components/community/Social'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 const month = (iso: string) => new Date(iso).toLocaleDateString('fa-IR', { month: 'long', year: 'numeric' })
@@ -135,7 +136,7 @@ export async function ProfilePage({ username, tab: tabParam, viewerId, forum, pa
         <aside className="cm-aside">
           {(p.bio || visible) && <section className="cm-card"><h2>درباره</h2>{p.bio ? <p className="cm-bio" dir="auto">{p.bio}</p> : <p className="cm-muted">{own ? 'هنوز معرفی ننوشته‌اید.' : 'معرفی‌ای ننوشته است.'}</p>}{own && !p.bio && <Link href="/dashboard/public-profile" className="cm-link">نوشتن معرفی</Link>}</section>}
           {shelves && shelves.badges.length > 0 && <section className="cm-card"><h2>نشان‌ها</h2><ul className="cm-badges">{shelves.badges.map((b) => <li key={b.name} title={b.description} className={`is-${b.tier.toLowerCase()}`}><span aria-hidden="true">{b.icon}</span>{b.name}</li>)}</ul></section>}
-          {forum && shelves?.forum && <section className="cm-card"><h2>در تالار گفتمان</h2><dl className="cm-dl"><div><dt>موضوع</dt><dd className="num">{fa(shelves.forum.topicCount)}</dd></div><div><dt>پاسخ</dt><dd className="num">{fa(shelves.forum.postCount)}</dd></div><div><dt>پسند دریافتی</dt><dd className="num">{fa(shelves.forum.likesReceived)}</dd></div><div><dt>پاسخ پذیرفته‌شده</dt><dd className="num">{fa(shelves.forum.solvedCount)}</dd></div></dl><Link href={`/forum/u/${p.username}`} className="cm-link">پروفایل تالار ←</Link></section>}
+          {forum && shelves?.forum && <section className="cm-card"><h2>در تالار گفتمان</h2><dl className="cm-dl"><div><dt>موضوع</dt><dd className="num">{fa(shelves.forum.topicCount)}</dd></div><div><dt>پاسخ</dt><dd className="num">{fa(shelves.forum.postCount)}</dd></div><div><dt>پسند دریافتی</dt><dd className="num">{fa(shelves.forum.likesReceived)}</dd></div><div><dt>پاسخ پذیرفته‌شده</dt><dd className="num">{fa(shelves.forum.solvedCount)}</dd></div></dl><Link href={profileAddress(p.username, 'summary')} className="cm-link">پروفایل تالار ←</Link></section>}
           {suggested.filter((s) => s.userId !== p.userId).length > 0 && <section className="cm-card"><h2>پیشنهاد برای دنبال کردن</h2><PeopleList people={suggested.filter((s) => s.userId !== p.userId).slice(0, 4)} signedIn={!!viewerId} variant="list" /><Link href="/people" className="cm-link">همهٔ کاربران ←</Link></section>}
         </aside>
       </div>

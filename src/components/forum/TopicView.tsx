@@ -10,6 +10,7 @@ import { CookedWithPolls, type PollData } from '@/components/forum/Poll'
 import ShortcutHelp, { useForumShortcuts } from '@/components/forum/Shortcuts'
 import { REACTION_EMOJI } from '@/modules/forum/domain/community'
 import { FORUM_RANK_LABELS, TRUST_NAMES, type ForumRank } from '@/modules/forum/domain/community'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; title: string; trustLevel: number; staff: boolean; posts: number; reputation: number; likes: number; level: { name: string; icon: string; color: string } | null; badges: { name: string; icon: string; tier: string }[]; joinedAt?: string | Date; rank?: ForumRank; flair: { icon: string; color: string; name: string } | null }
 /** «مهر ۱۴۰۵»: month then year, built from parts because runtimes order the Persian date differently. */
@@ -285,7 +286,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
         </p>}
         <h1>{thread.title}</h1>
         <div className="tp-by">
-          {starter && <Link href={`/forum/u/${starter.username}`} className="tp-starter"><Avatar author={starter} size={44} /><span><b>{starter.name}</b><small>شروع‌کنندهٔ موضوع · {ago(thread.createdAt)}</small></span></Link>}
+          {starter && <Link href={profileAddress(starter.username)} className="tp-starter"><Avatar author={starter} size={44} /><span><b>{starter.name}</b><small>شروع‌کنندهٔ موضوع · {ago(thread.createdAt)}</small></span></Link>}
           <span className="tp-where">
             <Link href={`/forum/c/${data.category.slug}`} className="fx-cat"><i style={{ background: data.category.color }} />{data.category.title}</Link>
             {thread.tags.map((tag) => <Link key={tag} href={`/forum/tag/${encodeURIComponent(tag)}`} className="fx-tag">#{tag}</Link>)}
@@ -313,7 +314,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
 
       {data.solution && data.page > 0 && (
         <aside className="fx-solution">
-          <strong>✓ راه‌حل</strong> از <Link href={`/forum/u/${data.solution.author.username}`}>{data.solution.author.name}</Link> — <Link href={`/forum/t/${thread.id}?post=${data.solution.number}`}>رفتن به پاسخ</Link>
+          <strong>✓ راه‌حل</strong> از <Link href={profileAddress(data.solution.author.username)}>{data.solution.author.name}</Link> — <Link href={`/forum/t/${thread.id}?post=${data.solution.number}`}>رفتن به پاسخ</Link>
           <p>{data.solution.excerpt}</p>
         </aside>
       )}
@@ -326,8 +327,8 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
               {selecting && post.number > 1 && <label className="fx-select-post"><input type="checkbox" checked={selected.includes(post.number)} onChange={() => setSelected((list) => list.includes(post.number) ? list.filter((n) => n !== post.number) : [...list, post.number])} aria-label={`انتخاب پیام ${fa(post.number)}`} /></label>}
               {/* Who is speaking: avatar, group and rank, and their standing in the forum. */}
               <aside className="fx-post-author ax" aria-label={`نویسنده: ${post.author.name}`} style={post.author.level ? { ['--lv' as string]: post.author.level.color } : undefined}>
-                <Link href={`/forum/u/${post.author.username}`} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
-                <Link href={`/forum/u/${post.author.username}`} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
+                <Link href={profileAddress(post.author.username)} className="fx-post-avatar" tabIndex={-1} aria-hidden="true"><Avatar author={post.author} size={76} /></Link>
+                <Link href={profileAddress(post.author.username)} className="fx-author-name">{post.author.name}{post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}</Link>
                 {post.author.rank && <span className={`tp-rank is-${post.author.rank}`}>{FORUM_RANK_LABELS[post.author.rank]}</span>}
                 {/* The level their activity earned (forum settings → levels). */}
                 {post.author.level && <span className="ax-level">{post.author.level.icon && <i aria-hidden="true">{post.author.level.icon}</i>}{post.author.level.name}</span>}
@@ -347,7 +348,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
               <div className="fx-post-main">
                 <header className="fx-post-head">
                   <span className="fx-user">
-                    <Link href={`/forum/u/${post.author.username}`} className="fx-user-name">{post.author.name}</Link>
+                    <Link href={profileAddress(post.author.username)} className="fx-user-name">{post.author.name}</Link>
                     {post.author.staff && <span className="fx-staff" title="تیم موبوکام">🛡</span>}
                     {post.author.flair && <span className="fx-flair" style={{ background: post.author.flair.color }} title={post.author.flair.name}>{post.author.flair.icon}</span>}
                     <bdi className="fx-handle" dir="ltr">@{post.author.username}</bdi>
@@ -446,7 +447,7 @@ export default function TopicView({ data, categories, focusPost, trail = [] }: {
             <div><dt>بازدید</dt><dd>{fa(thread.views)}</dd></div>
             <div><dt>واکنش</dt><dd>{fa(thread.likeCount)}</dd></div>
           </dl>
-          {data.participants.length > 0 && <div className="fx-participants" aria-label="شرکت‌کنندگان">{data.participants.map((user) => <Link key={user.id} href={`/forum/u/${user.username}`} title={`${user.name} — ${fa(user.posts)} پیام`}><Avatar author={user} size={30} />{user.posts > 1 && <small>{fa(user.posts)}</small>}</Link>)}</div>}
+          {data.participants.length > 0 && <div className="fx-participants" aria-label="شرکت‌کنندگان">{data.participants.map((user) => <Link key={user.id} href={profileAddress(user.username)} title={`${user.name} — ${fa(user.posts)} پیام`}><Avatar author={user} size={30} />{user.posts > 1 && <small>{fa(user.posts)}</small>}</Link>)}</div>}
           {data.moderator && (
             <div className="fx-mod-tools">
               <strong>ابزار ناظر</strong>

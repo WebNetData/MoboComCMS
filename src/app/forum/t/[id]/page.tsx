@@ -11,6 +11,7 @@ import RecentViewTracker from '@/components/engage/RecentViewTracker'
 import Link from '@/components/AppLink'
 import { parseItemKey } from '@/modules/content/domain/items'
 import { itemCard } from '@/modules/content/server/registry'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string; post?: string }> }
@@ -46,7 +47,7 @@ export default async function TopicPage({ params, searchParams }: Props) {
   const first = data.posts.find((p) => p.number === 1)
   const jsonLd = first ? {
     '@context': 'https://schema.org', '@type': 'DiscussionForumPosting', headline: data.thread.title, datePublished: data.thread.createdAt, dateModified: data.thread.lastPostAt,
-    author: { '@type': 'Person', name: first.author.name, url: `/forum/u/${first.author.username}` }, text: data.description,
+    author: { '@type': 'Person', name: first.author.name, url: profileAddress(first.author.username) }, text: data.description,
     interactionStatistic: [{ '@type': 'InteractionCounter', interactionType: 'https://schema.org/CommentAction', userInteractionCount: data.thread.replyCount }, { '@type': 'InteractionCounter', interactionType: 'https://schema.org/LikeAction', userInteractionCount: data.thread.likeCount }],
   } : null
   return (

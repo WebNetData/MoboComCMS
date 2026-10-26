@@ -9,6 +9,7 @@ import { Avatar, num } from '@/components/forum/shared'
 import NotificationsMenu from '@/components/forum/NotificationsMenu'
 import { GlobalShortcuts } from '@/components/forum/Shortcuts'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 export type ForumNavKey = 'home' | 'activity' | 'latest' | 'new' | 'unread' | 'top' | 'bookmarks' | 'mine' | 'unanswered' | 'solved' | 'categories' | 'users' | 'groups' | 'badges' | 'staff' | 'leaderboard' | 'clubs' | 'search' | 'messages' | 'review' | ''
 
@@ -84,7 +85,7 @@ export default async function ForumShell({ viewer, active = '', category, wide =
               {signedIn ? <>
                 <Link href="/forum/messages" className="fx-top-icon" aria-label={counts.messages ? `پیام‌های خصوصی، ${num(counts.messages)} خوانده‌نشده` : 'پیام‌های خصوصی'}>✉{counts.messages > 0 && <em>{num(counts.messages)}</em>}</Link>
                 <NotificationsMenu />
-                {me && <Link href={`/forum/u/${me.username}`} className="fx-me" aria-label="پروفایل من"><Avatar author={{ name: me.user.name, avatarColor: me.user.avatarColor, avatar: me.avatar, username: me.username }} size={34} /></Link>}
+                {me && <Link href={profileAddress(me.username)} className="fx-me" aria-label="پروفایل من"><Avatar author={{ name: me.user.name, avatarColor: me.user.avatarColor, avatar: me.avatar, username: me.username }} size={34} /></Link>}
               </> : <Link href="/login?next=/forum" className="btn btn-primary btn-sm">ورود / ثبت‌نام</Link>}
             </div>
           </div>

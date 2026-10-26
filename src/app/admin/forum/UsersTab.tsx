@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
 import Restrictions from './Restrictions'
 import { date, fa, type Call, type Member } from './shared'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Filter = '' | 'restricted' | 'locked' | 'noted'
 const FILTERS: [Filter, string][] = [['', 'همه'], ['restricted', 'ساکت یا معلق'], ['locked', 'سطح دستی'], ['noted', 'دارای یادداشت']]
@@ -43,7 +44,7 @@ export default function UsersTab({ trustNames, busy, call, revision }: { trustNa
           const silenced = active(user.silencedUntil), suspended = active(user.suspendedUntil)
           return <Fragment key={user.userId}>
             <tr className={open === user.userId ? 'is-selected' : ''}>
-              <td className="sa-card-main"><Link href={`/forum/u/${user.username}`} target="_blank" className="sa-link"><b>{user.name || user.email}</b></Link> <bdi className="sa-sub" dir="ltr">@{user.username}</bdi>
+              <td className="sa-card-main"><Link href={profileAddress(user.username)} target="_blank" className="sa-link"><b>{user.name || user.email}</b></Link> <bdi className="sa-sub" dir="ltr">@{user.username}</bdi>
                 <small className="sa-sub">{user.email}{user.title && <> · «{user.title}»</>}{user.groups.length > 0 && <> · {user.groups.join('، ')}</>}</small></td>
               <td data-label="سطح اعتماد">{fa(user.trustLevel)} — {trustNames[user.trustLevel] || ''}{user.trustLocked && <span className="sa-tag" title="به‌دست تیم تعیین شده و خودکار تغییر نمی‌کند">دستی</span>}</td>
               <td data-label="پیام">{fa(user.postCount)}</td>
@@ -87,7 +88,7 @@ function UserModeration({ user, trustNames, busy, onSave, onRestrictionsChanged 
     <div className="fa-inline fa-wrap">
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('silenceDays', 'ساکت‌کردن')}>🔇 {silenced ? 'تغییر سکوت' : 'ساکت‌کردن'}</button>
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => ask('suspendDays', 'تعلیق')}>⛔ {suspended ? 'تغییر تعلیق' : 'تعلیق'}</button>
-      <Link className="btn btn-ghost btn-sm" href={`/forum/u/${user.username}`} target="_blank">نمایه ↗</Link>
+      <Link className="btn btn-ghost btn-sm" href={profileAddress(user.username)} target="_blank">نمایه ↗</Link>
     </div>
     <Restrictions userId={user.userId} disabled={busy} onChanged={onRestrictionsChanged} />
   </div>

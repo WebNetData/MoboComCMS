@@ -7,6 +7,7 @@ import { FORUM_RANK_LABELS, TRUST_NAMES } from '@/modules/forum/domain/community
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, Pager, TimeAgo, UserName, num } from '@/components/forum/shared'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'اعضای جامعه', description: 'اعضای تالار، گروه‌هایشان و فعال‌ترین‌ها', alternates: { canonical: toPublicPath('/forum/users') } }
@@ -57,7 +58,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       {podium.length > 0 && <ol className="fm-podium" aria-label={`سه نفر نخست در ${sort.unit}`}>{podium.map((row, index) => (
         <li key={row.author.id} className={`fm-step is-${index + 1}`} style={{ ['--c' as string]: row.author.avatarColor || 'var(--md-accent)' }}>
           <span className="fm-medal" aria-label={MEDALS[index]}>{num(index + 1)}</span>
-          <Link href={`/forum/u/${row.author.username}`} className="fm-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={index === 0 ? 92 : 76} /></Link>
+          <Link href={profileAddress(row.author.username)} className="fm-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={index === 0 ? 92 : 76} /></Link>
           <UserName author={row.author} />
           <small className="fm-role">{roleOf(row)}</small>
           <p className="fm-score"><b>{num(valueOf(row))}</b><span>{sort.unit}</span></p>
@@ -68,7 +69,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         <li key={row.author.id} className="fm-card" style={{ ['--c' as string]: row.author.avatarColor || 'var(--md-accent)' }}>
           <span className="fm-cover" aria-hidden="true" />
           {data.sort !== 'recent' && !data.q && <span className="fm-rank" title="رتبه در این فهرست">{num(rankFrom + index + 1)}</span>}
-          <Link href={`/forum/u/${row.author.username}`} className="fm-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={68} /></Link>
+          <Link href={profileAddress(row.author.username)} className="fm-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={68} /></Link>
           <UserName author={row.author} />
           <bdi className="fx-handle" dir="ltr">@{row.author.username}</bdi>
           <small className="fm-role">{roleOf(row)}</small>

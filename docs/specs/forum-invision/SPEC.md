@@ -111,4 +111,4 @@ Acceptance: `scripts/forum-clubs.connected.cjs` and the extended `scripts/forum-
 
 ## Next slices
 2. A weight per kind of reaction on the leaderboard, if the owner wants some to count for more.
-3. One address for a member's profile: `/u/<username>` and `/forum/u/<username>` still both exist.
+3. One address for a member's profile — **done**: `/u/<username>`; the old forum address redirects there, every forum link names it directly (2026-10-26), and it hands back to the forum page while social profiles are off.

@@ -138,7 +138,7 @@ test('markdown structure: headings, lists, quotes, code, emphasis, mentions and 
   assert.match(html, /<h3>عنوان<\/h3><ul><li>یک<\/li><li>دو<\/li><\/ul><ol><li>a<\/li><\/ol>/)
   assert.match(html, /<blockquote><p dir="auto">نقل <strong>مهم<\/strong><\/p><\/blockquote>/)
   assert.match(html, /<pre><code class="lang-js">const x = &quot;&lt;b&gt;&quot;<\/code><\/pre>/)
-  assert.match(html, /<code>a&lt;b&gt;<\/code> <strong>b<\/strong> <em>i<\/em> <del>s<\/del> 🔥 <a class="fr-mention" href="\/forum\/u\/sara_1">@Sara_1<\/a> snake_case_word/)
+  assert.match(html, /<code>a&lt;b&gt;<\/code> <strong>b<\/strong> <em>i<\/em> <del>s<\/del> 🔥 <a class="fr-mention" href="\/u\/sara_1">@Sara_1<\/a> snake_case_word/)
   const quote = md.renderMarkdown('[quote="sara, post:3, topic:12"]\nسلام\n[/quote]\nپاسخ')
   assert.match(quote, /<aside class="fr-quote"><div class="fr-quote-head"><a href="\/forum\/t\/12#post-3">@sara<\/a>:<\/div><blockquote><p dir="auto">سلام<\/p><\/blockquote><\/aside><p dir="auto">پاسخ<\/p>/)
   assert.deepEqual(md.extractMentions('hi @Ali and @sara `@code`\n> @quoted\n@ali'), ['ali', 'sara'])
@@ -201,10 +201,16 @@ test('a member has one address; the old forum address leads into it', () => {
   assert.deepEqual(['', 'activity', 'topics', 'badges', 'posts', 'followers', 'following', 'nonsense'].map((tab) => address.forumAddressTarget('sara', tab)),
     ['/u/sara?tab=forum', '/u/sara?tab=forum&f=activity', '/u/sara?tab=forum&f=topics', '/u/sara?tab=forum&f=badges', '/u/sara?tab=posts', '/u/sara?tab=followers', '/u/sara?tab=following', '/u/sara?tab=forum'])
   assert.equal(address.normalizeForumPiece('summary<script>'), 'summary')
+  // The way back while social profiles are off: the forum's own page at the piece asked for.
+  assert.deepEqual([['sara'], ['sara', 'forum'], ['sara', 'forum', 'badges'], ['sara', 'posts', 'badges'], ['sara', 'forum', '<x>'], ['a b', 'forum', 'topics']].map((args) => address.forumStandInAddress(...args)),
+    ['/forum/u/sara', '/forum/u/sara', '/forum/u/sara?tab=badges', '/forum/u/sara', '/forum/u/sara', '/forum/u/a%20b?tab=topics'])
   const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8')
   // The forum's own page stands in only while social profiles are off; the profile page takes the forum as a part.
   assert.match(read('src/app/forum/u/[username]/page.tsx'), /isModuleEnabled\('community'\)[^\n]*permanentRedirect\(forumAddressTarget\(username, tab\)\)/)
   assert.match(read('src/app/u/[username]/page.tsx'), /forum \? \{ key: FORUM_PART/)
+  assert.match(read('src/app/u/[username]/page.tsx'), /if \(!community \|\| !await profileByUsername\(username\)[^\n]*\{\s*if \(forum\) redirect\(forumStandInAddress\(username, tab, f\)\)/, 'the address hands over to the forum page only without a social profile')
+  // Links inside the forum name the one address directly instead of arriving by the redirect (its edit page stays).
+  for (const file of ['src/components/forum/TopicView.tsx', 'src/components/forum/TopicList.tsx', 'src/components/forum/shared.tsx', 'src/modules/forum/domain/markdown.ts', 'src/modules/forum/server/stream.ts', 'src/modules/forum/server/community.ts']) assert.doesNotMatch(read(file), /\/forum\/u\//, file)
   assert.match(read('src/modules/community/server/pages/profile.tsx'), /if \(!visible\) \{[\s\S]*?\} else if \(onPart\) \{/, 'a private profile does not show the forum part either')
 })
 

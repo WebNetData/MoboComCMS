@@ -5,6 +5,7 @@ import { sized } from '@/shared/media/image'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useState } from 'react'
 import Composer from '@/components/forum/Composer'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Author = { id: number; username: string; name: string; avatar: string; avatarColor: string; staff: boolean; left?: boolean }
 export type ConversationData = {
@@ -82,7 +83,7 @@ export function Conversation({ data }: { data: ConversationData }) {
       <div>
         <Link href="/forum/messages" className="fx-muted">✉ پیام‌های خصوصی</Link>
         <h1>{data.title}</h1>
-        <div className="fx-pm-people" aria-label="شرکت‌کنندگان">{active.map((p) => <Link key={p.id} href={`/forum/u/${p.username}`} title={p.name}><Avatar author={p} size={28} /><span>{p.name}</span></Link>)}</div>
+        <div className="fx-pm-people" aria-label="شرکت‌کنندگان">{active.map((p) => <Link key={p.id} href={profileAddress(p.username)} title={p.name}><Avatar author={p} size={28} /><span>{p.name}</span></Link>)}</div>
       </div>
       <div className="fx-pm-actions">
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInviting(!inviting)} aria-expanded={inviting}>+ دعوت</button>
@@ -94,9 +95,9 @@ export function Conversation({ data }: { data: ConversationData }) {
     {data.page > 1 && <Link className="fx-load" href={`/forum/messages/${data.id}?page=${data.page - 1}`}>↑ پیام‌های قبلی</Link>}
     <ol className="fx-pm-stream">
       {data.messages.map((message) => <li key={message.id} id={`m-${message.number}`} className={`fx-pm-msg${message.own ? ' is-own' : ''}${message.number > data.lastRead ? ' is-new' : ''}`}>
-        <Link href={`/forum/u/${message.author.username}`} aria-hidden="true" tabIndex={-1}><Avatar author={message.author} size={36} /></Link>
+        <Link href={profileAddress(message.author.username)} aria-hidden="true" tabIndex={-1}><Avatar author={message.author} size={36} /></Link>
         <div className="fx-pm-bubble">
-          <header><Link href={`/forum/u/${message.author.username}`}>{message.author.name}</Link>{message.author.staff && <span title="تیم موبوکام"> 🛡</span>}<time>{new Date(message.createdAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })}</time></header>
+          <header><Link href={profileAddress(message.author.username)}>{message.author.name}</Link>{message.author.staff && <span title="تیم موبوکام"> 🛡</span>}<time>{new Date(message.createdAt).toLocaleString('fa-IR', { dateStyle: 'medium', timeStyle: 'short' })}</time></header>
           <div className="fx-cooked" dangerouslySetInnerHTML={{ __html: message.html }} />
         </div>
       </li>)}
