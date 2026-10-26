@@ -213,6 +213,20 @@ async function main() {
   assert.equal(await uses('cinema', 'GENRE', noir.id), 1)
   await refused(vocab.deleteEntry('cinema', noir.id, audit), /را دارند/, 409)
 
+  // ---- a business's field of activity: a listed name (or its English name); otherwise none, unless the business had it
+  const businessLists = load('src/modules/businesses/server/vocabulary.ts')
+  const fintech = await vocab.createEntry('businesses', { list: 'CATEGORY', code: `فین‌تک ${seed}`, nameEn: `Fintech ${seed}` }, audit)
+  assert.equal(await businessLists.listedCategory(prisma, `fintech ${seed}`), `فین‌تک ${seed}`, 'an English name lands on the entry')
+  assert.equal(await businessLists.listedCategory(prisma, 'not a listed field'), '', 'an unlisted field leaves the business without one')
+  assert.equal(await businessLists.listedCategory(prisma, '   '), '')
+  await vocab.updateEntry('businesses', fintech.id, { active: false }, audit)
+  assert.equal(await businessLists.listedCategory(prisma, `فین‌تک ${seed}`, `فین‌تک ${seed}`), `فین‌تک ${seed}`, 'a business keeps a field the owner later deactivated')
+  assert.equal(await businessLists.listedCategory(prisma, `فین‌تک ${seed}`), '', 'a deactivated field is not given to another business')
+  const business = await prisma.businessProfile.create({ data: { name: `${seed} business`, slug: `${seed}-business`, kind: 'EXTERNAL', domain: `${seed}.example`, website: `https://${seed}.example`, category: `فین‌تک ${seed}` } })
+  assert.equal(await uses('businesses', 'CATEGORY', fintech.id), 1)
+  await refused(vocab.deleteEntry('businesses', fintech.id, audit), /را دارند/, 409)
+  await prisma.businessProfile.delete({ where: { id: business.id } })
+
   // ---- magazine formats: each of a family; a post keeps a known format (or the one it had); facts merge into the stored ones
   const journalFormats = load('src/modules/journal/server/formats.ts')
   assert.equal((await vocab.allLists('journal')).POST_FORMAT.find((entry) => entry.code === 'GUIDE')?.family, 'ARTICLE', 'a guide is an article-family format')

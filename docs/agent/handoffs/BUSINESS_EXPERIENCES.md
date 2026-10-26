@@ -1,5 +1,14 @@
 # Business experiences — continue existing work
 
+## Fields of activity from a managed list — 2026-10-27
+
+Branch `feat/business-categories-2026-10-27`, from main `83f0c214`. A business's category is now a name from the owner's `businesses/CATEGORY` list:
+- the admin form and the members' suggestion form pick it;
+- `listedCategory` validates it on profile save and on suggestion intake;
+- migration `20270125120000_business_categories` adopts the existing values.
+
+Ownership is unchanged: requests, profiles and the public address (`businesses/server/businesses.ts`, now with `businessCategoryNames`) stay where they were. All five business PostgreSQL tests and browser `pw-business-categories` pass. Details are in [SECTION_SPECIALISATION](SECTION_SPECIALISATION.md).
+
 ## Wide public presentation — 2026-10-16
 
 Current authoritative source: `.mobocom/autonomous-foundation`, `feat/businesses-wide-design-2026-10-16`, from owner-merged main `e098d59a` (PR191). This pointer supersedes the historical branch names below. Audit found the existing capability connected; this slice addresses `WEAK_UX`, not a missing business/review system.

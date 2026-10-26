@@ -18,6 +18,8 @@ This handoff records where each section stands against those principles and cont
 | Music | Artist and album. Credits from the artists: **slice 2** | Release type per album: **slice 2** | Genre, release type, credit role: **slice 2** | — |
 | Magazine | Categories, items linked to a post | By the format's family: **slice 3** | Post formats: **slice 3** | — |
 | Store | Brand, category | Physical or virtual, attribute groups by category | Attribute groups, kinds | Mature. |
+| Businesses | Seller from the active sellers; field of activity (**slice 6**) | External (website) or site seller | Fields of activity (slice 6) | — |
+| VIP | — | — | Plans (duration, price) | Each plan's perk lines are typed per plan; the real benefits are listed per section on the perks page. Optional: pick plan perks from a shared list. |
 
 ## This slice: software specialised (branch `feat/software-specialised-2026-10-26`)
 
@@ -168,6 +170,21 @@ This handoff records where each section stands against those principles and cont
   - The PostgreSQL cinema block in `vocabulary.connected.cjs` covers English aliases in any case, list order, unknown names dropped and a deactivated entry kept.
   - The existing PostgreSQL cinema suites pass: formats, discovery, people, people-admin.
   - Browser test `pw-cinema-lists` passes 9/9, and `pw-cinema-form` passes.
+
+## Slice 6: business fields of activity (branch `feat/business-categories-2026-10-27`)
+
+- **A managed list** «زمینه‌های فعالیت» (`BUSINESS_LISTS`, page `/admin/businesses/categories`, linked from the businesses admin).
+  - It is seeded with ten common fields, each with its English name.
+  - Migration `20270125120000_business_categories` adopts what profiles and requests already use.
+- **Forms.** The admin business form and the members' suggestion form both pick from the list. The public page receives the active names through the module's public address (`businessCategoryNames`).
+- **Saving.** `listedCategory` (`knownNames`) runs both when a profile is saved and when a member suggests a business. Unlisted fields leave the business without one; a deactivated field stays only where it already was. The directory's exact-match category filter now sees one name per field.
+- **Lists page (all sections), light mode:** the active tab and the delete action take the admin's readable accent and danger tokens.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 709/6.
+  - All five business PostgreSQL tests pass: authority, experiences, trust, and both migrations.
+  - The new business block in `vocabulary.connected.cjs` passes.
+  - Browser test `pw-business-categories` passes 8/8, with axe on the games and software lists pages in light mode.
 
 ## Next
 
