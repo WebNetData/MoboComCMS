@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { sized } from '@/shared/media/image'
 import { categoryTree } from '@/modules/forum/domain/tree'
 import { renderMarkdown } from '@/modules/forum/domain/markdown'
 
@@ -190,7 +191,7 @@ export default function Composer(props: ComposerProps) {
                 {mentions.map((user, index) => (
                   <li key={user.username} role="option" aria-selected={index === mentionIndex}>
                     <button type="button" className={index === mentionIndex ? 'is-active' : ''} onMouseDown={(e) => { e.preventDefault(); applyMention(user) }}>
-                      {user.avatar ? <img src={user.avatar} alt="" className="fx-avatar" width={22} height={22} /> : <span className="fx-avatar" style={{ width: 22, height: 22, fontSize: 10, background: user.avatarColor }}>{user.name.slice(0, 1)}</span>}
+                      {user.avatar ? <img src={sized(user.avatar, 44)} alt="" className="fx-avatar" width={22} height={22} /> : <span className="fx-avatar" style={{ width: 22, height: 22, fontSize: 10, background: user.avatarColor }}>{user.name.slice(0, 1)}</span>}
                       <b>{user.name}</b><bdi dir="ltr">@{user.username}</bdi>
                     </button>
                   </li>

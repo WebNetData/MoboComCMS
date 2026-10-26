@@ -1,6 +1,7 @@
 'use client'
 
 import Link from '@/components/AppLink'
+import { sized } from '@/shared/media/image'
 import { useRouter } from '@/platform/routing/navigation'
 import { useEffect, useState } from 'react'
 import Composer from '@/components/forum/Composer'
@@ -15,7 +16,7 @@ export type ConversationData = {
 const fa = (n: number) => n.toLocaleString('fa-IR')
 
 function Avatar({ author, size = 40 }: { author: Pick<Author, 'name' | 'avatar' | 'avatarColor'>; size?: number }) {
-  if (author.avatar) return <img className="fx-avatar" src={author.avatar} alt="" width={size} height={size} style={{ width: size, height: size }} />
+  if (author.avatar) return <img className="fx-avatar" src={sized(author.avatar, size * 2)} alt="" width={size} height={size} style={{ width: size, height: size }} />
   return <span className="fx-avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.42), background: author.avatarColor }} aria-hidden="true">{author.name.trim().slice(0, 1)}</span>
 }
 

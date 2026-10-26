@@ -1,4 +1,5 @@
 // Line icons for profiles and the social feed (24×24, currentColor, 1.8 stroke).
+import { sized } from '@/shared/media/image'
 
 const PATHS: Record<string, string> = {
   heart: 'M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.6l.9.9.9-.9A4.6 4.6 0 0 1 19.4 13Z',
@@ -59,6 +60,6 @@ export function Verified({ size = 16 }: { size?: number }) {
 type Person = { name: string; avatar: string; avatarColor: string }
 export function Avatar({ person, size = 44, ring = false }: { person: Person; size?: number; ring?: boolean }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.42) }
-  if (person.avatar) return <img className={`cm-avatar${ring ? ' has-ring' : ''}`} src={person.avatar} alt="" width={size} height={size} style={style} loading="lazy" />
+  if (person.avatar) return <img className={`cm-avatar${ring ? ' has-ring' : ''}`} src={sized(person.avatar, size * 2)} alt="" width={size} height={size} style={style} loading="lazy" />
   return <span className={`cm-avatar${ring ? ' has-ring' : ''}`} style={{ ...style, background: person.avatarColor }} aria-hidden="true">{person.name.trim().slice(0, 1) || '؟'}</span>
 }

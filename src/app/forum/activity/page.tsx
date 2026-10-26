@@ -46,7 +46,7 @@ export default async function ForumActivityPage({ searchParams }: { searchParams
     {days.length ? days.map((group) => <section key={group.day} className="fs-day" aria-labelledby={`fs-${group.day}`}>
       <h2 id={`fs-${group.day}`}><span>{group.label}</span></h2>
       <ol className="fs-list">{group.entries.map((entry) => <li key={entry.key} className={`fs-entry is-${entry.kind}`}>
-        <Link href={entry.person.href} className="fs-avatar" aria-label={`پروفایل ${entry.person.name}`}><Avatar author={entry.person} size={44} /><i aria-hidden="true">{ICON[entry.kind]}</i></Link>
+        <Link href={entry.person.href} className="fs-avatar"><Avatar author={entry.person} size={44} /><i aria-hidden="true">{ICON[entry.kind]}</i><span className="sr-only">پروفایل {entry.person.name}</span></Link>
         <div className="fs-body">
           <p className="fs-line"><Link href={entry.person.href} className="fs-name">{entry.person.name}</Link> <span>{VERB[entry.kind]}</span>{entry.place && <> <span>در</span> <Link href={entry.place.href} className="fs-place" style={{ ['--cat' as string]: entry.place.color }}>{entry.place.title}</Link></>}<small><TimeAgo date={entry.at} /></small></p>
           <Link href={entry.href} className="fs-card">
