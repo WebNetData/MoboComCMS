@@ -24,7 +24,7 @@
 .mm-bar-home { color: var(--mm-accent); font-weight: 800; }
 .mm-bar-home.is-active, .mm-bar-home:hover { background: var(--mm-accent-soft); }
 .mm-bar-link:hover, .mm-bar-quick:hover, .mm-bar-item.is-open .mm-bar-link { background: var(--mm-soft); color: var(--mm-accent); }
-.mm-bar-link.is-active { color: var(--mm-accent); box-shadow: inset 0 -2px 0 var(--mm-accent); border-radius: 10px 10px 0 0; }
+.mm-bar-link.is-active { color: color-mix(in srgb, var(--mm-accent) 50%, var(--mm-text, currentColor)); box-shadow: inset 0 -2px 0 var(--mm-accent); border-radius: 10px 10px 0 0; }
 .mm-bar-quick { color: var(--mm-muted); font-weight: 500; font-size: 13.5px; }
 .mm-bar-sep { flex: none; width: 1px; height: 20px; margin-inline: 6px; background: var(--mm-line); }
 .mm-bar-item { display: inline-flex; align-items: center; flex: none; }
@@ -166,7 +166,7 @@ html[data-theme=dark] .mm-bar { border-color: rgba(255, 255, 255, .07); box-shad
 .mm-bar-home { color: #fff; font-weight: 800; background: linear-gradient(135deg, var(--mm-accent), color-mix(in srgb, var(--mm-accent) 58%, #ec4899)); box-shadow: 0 10px 20px -12px var(--mm-accent), 0 1px 0 rgba(255, 255, 255, .28) inset; }
 .mm-bar-home.is-active, .mm-bar-home:hover { color: #fff; background: linear-gradient(135deg, var(--mm-accent), color-mix(in srgb, var(--mm-accent) 58%, #ec4899)); transform: translateY(-1px); }
 .mm-bar-link:hover, .mm-bar-quick:hover, .mm-bar-item.is-open .mm-bar-link { background: var(--mm-accent-soft); color: var(--mm-accent); }
-.mm-bar-link.is-active { color: var(--mm-accent); background: var(--mm-accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 35%, transparent); border-radius: 13px; }
+.mm-bar-link.is-active { color: color-mix(in srgb, var(--mm-accent) 50%, var(--mm-text, currentColor)); background: var(--mm-accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mm-accent) 35%, transparent); border-radius: 13px; }
 .mm-bar-item { border-radius: 13px; transition: background .2s ease; }
 .mm-bar-item.is-open { background: var(--mm-accent-soft); }
 .mm-bar-item.is-open .mm-bar-link { background: transparent; }

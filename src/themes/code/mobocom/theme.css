@@ -29,8 +29,8 @@ html[data-design="mobocom"] body { background: var(--bg); color: var(--text); }
 .mb-btn-ghost:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
 .mb-btn-gold { background: linear-gradient(135deg, #f7c95c, #e39b2d); color: #2b1a00 !important; box-shadow: 0 12px 28px -14px #e39b2d; }
 .mb-btn:focus-visible, .mb-link:focus-visible, .mb-card:focus-visible, .mb-service:focus-visible, .mb-tile:focus-visible, .mb-nav a:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
-.mb-link { display: inline-flex; align-items: center; gap: 6px; color: var(--primary) !important; font-weight: 700; font-size: 14px; white-space: nowrap; }
-.mb-eyebrow { display: inline-block; color: var(--primary); font-size: 13px; font-weight: 700; }
+.mb-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-ink, var(--primary)) !important; font-weight: 700; font-size: 14px; white-space: nowrap; }
+.mb-eyebrow { display: inline-block; color: var(--accent-ink, var(--primary)); font-size: 13px; font-weight: 700; }
 .mb-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--mb-soft); color: var(--primary); font-size: 13px; font-weight: 700; }
 .mb-icon { display: inline-grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: var(--mb-radius-sm); background: var(--mb-soft); color: var(--primary); }
 .mb-card { background: var(--card); border: var(--mb-hair); border-radius: var(--mb-radius); box-shadow: var(--mb-shadow); }
@@ -290,7 +290,7 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-tab-labels label:hover { color: var(--text); }
 .mbx-tab-panel { display: none; }
 .mbx-tab-input.is-music:checked ~ .mbx-tab-panel.is-music, .mbx-tab-input.is-cinema:checked ~ .mbx-tab-panel.is-cinema, .mbx-tab-input.is-games:checked ~ .mbx-tab-panel.is-games, .mbx-tab-input.is-software:checked ~ .mbx-tab-panel.is-software { display: block; animation: mbx-in .25s ease; }
-.mbx-tab-input.is-music:checked ~ .mbx-tab-labels .is-music, .mbx-tab-input.is-cinema:checked ~ .mbx-tab-labels .is-cinema, .mbx-tab-input.is-games:checked ~ .mbx-tab-labels .is-games, .mbx-tab-input.is-software:checked ~ .mbx-tab-labels .is-software { background: var(--card); color: var(--primary); box-shadow: var(--mb-shadow); }
+.mbx-tab-input.is-music:checked ~ .mbx-tab-labels .is-music, .mbx-tab-input.is-cinema:checked ~ .mbx-tab-labels .is-cinema, .mbx-tab-input.is-games:checked ~ .mbx-tab-labels .is-games, .mbx-tab-input.is-software:checked ~ .mbx-tab-labels .is-software { background: var(--card); color: var(--accent-ink, var(--primary)); box-shadow: var(--mb-shadow); }
 .mbx-tab-input.is-music:focus-visible ~ .mbx-tab-labels .is-music, .mbx-tab-input.is-cinema:focus-visible ~ .mbx-tab-labels .is-cinema, .mbx-tab-input.is-games:focus-visible ~ .mbx-tab-labels .is-games, .mbx-tab-input.is-software:focus-visible ~ .mbx-tab-labels .is-software { outline: 2px solid var(--primary); outline-offset: 1px; }
 @keyframes mbx-in { from { opacity: 0; transform: translateY(6px); } }
 .mbx-posters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
@@ -457,7 +457,7 @@ a.mb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, 
 .mbx-product-ph { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 22px; background: var(--card); color: var(--primary); box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--primary) 70%, transparent); transition: transform .3s; }
 .mbx-product:hover .mbx-product-ph { transform: translateY(-4px) rotate(-6deg); }
 .mbx-off { inset-inline-start: auto; inset-inline-end: 10px; box-shadow: 0 8px 16px -8px #ef4444; }
-.mbx-product-cat { align-self: flex-start; margin-inline: 4px; padding: 2px 10px; border-radius: 999px; background: var(--mb-soft); color: var(--primary); font-size: 11.5px; font-weight: 700; }
+.mbx-product-cat { align-self: flex-start; margin-inline: 4px; padding: 2px 10px; border-radius: 999px; background: var(--mb-soft); color: var(--accent-ink, var(--primary)); font-size: 11.5px; font-weight: 700; }
 .mbx-product b { min-height: 3.3em; margin-bottom: 8px; font-size: 14.5px; font-weight: 800; }
 .mbx-product-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 8px 8px 8px 8px; border-radius: 14px; background: var(--bg-soft); }
 .mbx-product-foot .mbx-product-price { display: grid; justify-items: start; gap: 0; padding: 0 4px; font-size: 15px; font-weight: 900; }

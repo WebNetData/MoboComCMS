@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { sized } from '@/shared/media/image'
 import Link from '@/components/AppLink'
 import { useRouter } from '@/platform/routing/navigation'
 import { PlayButton } from '@/components/media/PlayButton'
@@ -24,7 +25,7 @@ export default function PlaylistTracksEditor({ id, tracks, matches, fa }: { id: 
 
   const row = (track: PlayerTrack, index: number, queue: PlayerTrack[], action: 'POST' | 'DELETE') => <li key={track.id}>
     <PlayButton tracks={queue} index={index} />
-    {track.cover ? <img className="mu-tl-cover" src={track.cover} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♫</span>}
+    {track.cover ? <img className="mu-tl-cover" src={sized(track.cover, 120)} alt="" loading="lazy" /> : <span className="mu-tl-cover mu-noart">♫</span>}
     <span className="mu-tl-meta"><Link href={`/music/track/${track.slug}`}><b>{track.title}</b></Link><Link className="muted" href={`/music/artist/${track.artistSlug}`}>{track.artist}</Link></span>
     <button className={`btn btn-sm ${action === 'POST' ? 'btn-primary' : 'btn-ghost'}`} type="button" disabled={busy !== null} onClick={() => void change(track.id, action)}>{action === 'POST' ? (fa ? 'افزودن' : 'Add') : (fa ? 'برداشتن' : 'Remove')}</button>
   </li>

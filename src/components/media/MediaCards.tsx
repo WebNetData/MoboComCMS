@@ -107,7 +107,7 @@ export function ArtistBubble({ artist, fa }: Fa & { artist: ArtistLike }) {
   const name = fa ? artist.name : artist.nameEn || artist.name
   return (
     <Link href={`/music/artist/${artist.slug}`} className="mu-artist">
-      <span>{artist.image ? <img src={artist.image} alt={name} loading="lazy" /> : <i>{name.slice(0, 1)}</i>}</span>
+      <span>{artist.image ? <img src={sized(artist.image, 200)} srcSet={srcSet(artist.image, 200)} alt={name} loading="lazy" /> : <i>{name.slice(0, 1)}</i>}</span>
       <b>{name}</b>
     </Link>
   )

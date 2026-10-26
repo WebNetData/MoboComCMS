@@ -14,8 +14,8 @@
   --sp-line: #e3e8f1;
   --sp-row: #f3f6fb;
   --sp-text: #1f2a3d;
-  --sp-muted: #6b778c;
-  --sp-teal: #0ca678;
+  --sp-muted: #5b6577;
+  --sp-teal: #066649;
   --sp-orange: #f59f00;
   --sp-band: #3d4a5c;
   --sp-shadow: 0 6px 24px -18px rgba(31, 42, 61, .45);
@@ -35,6 +35,7 @@ html[data-theme='dark'] .md-software {
   --sp-row: #1b2433;
   --sp-text: #e7ecf5;
   --sp-muted: #97a3b8;
+  --sp-teal: #20c997;
   --sp-band: #1c2433;
   --sp-shadow: 0 8px 28px -18px rgba(0, 0, 0, .8);
 }
@@ -79,6 +80,12 @@ html[data-theme='dark'] .md-software {
 .md-software .sp-filters { display: grid; gap: 8px; }
 .md-software .md-chips a { border-color: var(--sp-line); background: var(--sp-card); }
 .md-software .md-chips a.is-active { border-color: var(--md-accent); background: var(--md-accent); color: #fff; }
+/* The download controls read on the software accent: white on the deeper light accent, dark ink on the pale dark one. */
+.md-software .sp-row-cta { background: color-mix(in srgb, var(--md-accent) 88%, #000); color: #fff; }
+.md-software .md-go { color: #fff !important; }
+html[data-theme='dark'] .md-software .md-chips a.is-active, html[data-theme='dark'] .md-software .sp-row-cta, html[data-theme='dark'] .md-software .sp-row-cta:hover { color: #0b1020 !important; }
+/* On the dark title band the update badge is a light teal on the band, in both themes. */
+.md-software .sp-hero-band .sp-new { color: #63e6be; background: color-mix(in srgb, #000 24%, transparent); }
 
 /* ---------- folders (sub-categories) ---------- */
 .sp-folders { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 12px; }
@@ -209,7 +216,7 @@ html[data-theme='dark'] .md-software {
 .sp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 14px; color: #fff; font-size: 13.5px; font-weight: 800; white-space: nowrap; transition: filter .15s, transform .15s; }
 .sp-btn:hover { color: #fff; filter: brightness(1.06); transform: translateY(-1px); }
 .sp-btn.is-orange { background: var(--sp-orange); color: #3b2800; }
-.sp-btn.is-teal { background: #1098ad; }
+.sp-btn.is-teal { background: #0b7285; }
 .sp-detail-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .sp-detail-top { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 20px; align-items: start; }
 .sp-artwork { display: grid; place-items: center; margin: 0; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 16px; background: var(--sp-band); color: #fff; font-size: 3rem; font-weight: 800; }

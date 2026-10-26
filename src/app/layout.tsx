@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { readableInk, textShade } from '@/shared/color/contrast'
 import './globals.css'
 import './studio.css'
 import './happ-design.css'
@@ -166,7 +167,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const design = [...bundledThemes, ...site.themes].find(t => t.id === site.themeId) || bundledThemes[0]
   const fonts = { ...defaultSiteFonts(locale), ...(site.fonts || {}) }
   const light = design.lightColors
+  // Readable derivatives of the owner's accent: ink on it, and the shade of it that reads as text on the page.
+  const inks = {
+    '--site-on-accent': readableInk(design.colors.accent), '--site-accent-ink': textShade(design.colors.accent, [design.colors.background, design.colors.surface]),
+    ...(light ? { '--site-light-on-accent': readableInk(light.accent), '--site-light-accent-ink': textShade(light.accent, [light.background, light.surface]) } : {}),
+  }
   const tokens = {
+    ...inks,
     '--site-bg': design.colors.background, '--site-surface': design.colors.surface, '--site-accent': design.colors.accent, '--site-text': design.colors.text, '--site-muted': design.colors.muted, '--site-border': design.colors.border, '--site-radius': `${design.radius}px`,
     '--site-font-body': fonts.body, '--site-font-heading': fonts.heading,
     ...(light ? {

@@ -16,14 +16,14 @@
 .sx-tile-art img { transition: transform .5s cubic-bezier(.2, .7, .3, 1); }
 .sx-tile-link:hover .sx-tile-art img { transform: scale(1.06); }
 .sx-tile-ph { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; background: var(--sx-surface); color: color-mix(in srgb, var(--sx-accent) 55%, var(--sx-muted)); box-shadow: 0 6px 16px -8px rgb(15 23 42 / .25); }
-.sx-tile-off { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; padding: 3px 9px; border-radius: 999px; background: var(--sx-deal); color: var(--sx-deal-ink); font-size: 12px; font-weight: 900; box-shadow: 0 6px 14px -6px var(--sx-deal); }
+.sx-tile-off { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; padding: 3px 9px; border-radius: 999px; background: var(--sx-deal-badge, var(--sx-deal)); color: var(--sx-deal-ink); font-size: 12px; font-weight: 900; box-shadow: 0 6px 14px -6px var(--sx-deal); }
 .sx-flag.is-vip ~ .sx-tile-off { inset-block-start: 40px; }
 .sx-tile-body { gap: 7px; padding: 12px 4px 4px; }
-.sx-tile-brand { color: var(--sx-accent); font-weight: 700; letter-spacing: .01em; }
+.sx-tile-brand { color: var(--accent-ink, var(--sx-accent)); font-weight: 700; letter-spacing: .01em; }
 .sx-tile-name { font-size: 13.5px; font-weight: 700; }
 .sx-tile-link .sx-price { padding-top: 10px; border-top: 1px dashed var(--sx-line); }
 .sx-tile-link .sx-money b { font-size: 16px; }
-.sx-off { padding: 1px 7px; border-radius: 999px; background: var(--sx-deal); color: var(--sx-deal-ink); font-size: 11px; font-weight: 800; }
+.sx-off { padding: 1px 7px; border-radius: 999px; background: var(--sx-deal-badge, var(--sx-deal)); color: var(--sx-deal-ink); font-size: 11px; font-weight: 800; }
 
 /* ---------------------------------------------------------------- product hero */
 .sx-product .sx-phero { gap: 28px; padding: clamp(14px, 2vw, 26px); border-radius: 26px; border-color: color-mix(in srgb, var(--sx-line) 80%, transparent); background:

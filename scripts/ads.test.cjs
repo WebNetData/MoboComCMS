@@ -148,3 +148,13 @@ test('a banner keeps its own shape inside its place', () => {
   // The admin is told how a picture fits each place it will be shown in.
   assert.match(fs.readFileSync(path.resolve(root, 'src/app/admin/ads/campaigns/[id]/page.tsx'), 'utf8'), /<BannerSizeCheck url=\{form\.imageUrl\} places=\{places\} \/>/)
 })
+
+test('a page asks for all its placements in one request: valid keys, each once, at most sixteen', () => {
+  assert.deepEqual(a.parsePlacementList('header,sidebar,header, footer-wide'), ['header', 'sidebar', 'footer-wide'])
+  assert.equal(a.parsePlacementList(''), null)
+  assert.equal(a.parsePlacementList('header,../x'), null, 'one bad key refuses the list')
+  assert.equal(a.parsePlacementList(Array.from({ length: 17 }, (_, i) => `slot-${i}`).join(',')), null)
+  const client = fs.readFileSync(path.resolve(__dirname, '..', 'src/plugins/ads/PromoSlot.tsx'), 'utf8')
+  assert.match(client, /new URLSearchParams\(\{ ps: placements\.join\(','\)/, 'the slots of a page share one request')
+  assert.doesNotMatch(client, /new URLSearchParams\(\{ p: placement/, 'no request per slot')
+})

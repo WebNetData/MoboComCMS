@@ -78,3 +78,17 @@ test('images: only site images get resized addresses', () => {
   assert.equal(img.srcSet(face, 160), `${face}?w=160 1x, ${face}?w=320 2x`)
   assert.equal(img.sized('/api/profile/media/../x.png', 40), '/api/profile/media/../x.png')
 })
+
+test('the accent reads wherever the site uses it: ink on it, and the nearest readable shade as text', () => {
+  const c = load('src/shared/color/contrast')
+  assert.ok(Math.abs(c.contrastRatio('#ffffff', '#000000') - 21) < 0.01)
+  assert.equal(c.readableInk('#45bffa'), '#0b1020', 'a pale accent carries dark ink (white was 2.1:1)')
+  assert.equal(c.readableInk('#3b5bdb'), '#ffffff', 'a deep accent keeps white ink')
+  const light = c.textShade('#3c94ec', ['#f6f6fb', '#ffffff'])
+  assert.ok(c.contrastRatio(light, '#ffffff') >= 4.5 && c.contrastRatio(light, '#f6f6fb') >= 4.5, 'the light-page shade reads on both surfaces')
+  assert.ok(c.contrastRatio('#3c94ec', '#ffffff') < 4.5 && light !== '#3c94ec', 'it is only changed because it had to be')
+  assert.equal(c.textShade('#1d4ed8', ['#ffffff']), '#1d4ed8', 'an accent that already reads stays exactly as chosen')
+  const dark = c.textShade('#3b5bdb', ['#0a0c12', '#151924'])
+  assert.ok(c.contrastRatio(dark, '#151924') >= 4.5 && c.luminance(dark) > c.luminance('#3b5bdb'), 'on dark pages it moves toward white')
+  assert.equal(c.textShade('not-a-colour', ['#fff']), 'not-a-colour')
+})

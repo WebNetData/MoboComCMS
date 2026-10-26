@@ -124,7 +124,7 @@ function MobocomSection({ section, site, locale, data }: ThemeHomeProps & { sect
         {columns.length > 0 && <section className="mb-container mb-section mbx-rails" id={section.id}>{heading()}
           <div className="mbx-tabs">
             {columns.map((column, index) => <input key={column.kind} type="radio" name={`mbx-tab-${section.id}`} id={`mbx-${section.id}-${column.kind}`} defaultChecked={index === 0} className={`mbx-tab-input is-${column.kind}`}/>)}
-            <div className="mbx-tab-labels" role="tablist">{columns.map(column => <label key={column.kind} htmlFor={`mbx-${section.id}-${column.kind}`} className={`is-${column.kind}`}><Icon name={column.icon} size={16}/>{fa ? column.fa : column.en}</label>)}</div>
+            <div className="mbx-tab-labels" role="group" aria-label={L('بخش‌ها', 'Sections')} tabIndex={0}>{columns.map(column => <label key={column.kind} htmlFor={`mbx-${section.id}-${column.kind}`} className={`is-${column.kind}`}><Icon name={column.icon} size={16}/>{fa ? column.fa : column.en}</label>)}</div>
             {columns.map(column => <div key={column.kind} className={`mbx-tab-panel is-${column.kind}`}>
               <div className={`mbx-posters${column.kind === 'music' || column.kind === 'software' ? ' is-square' : ''}`}>{column.items.map(item => <Link key={item.href} href={item.href} className="mbx-poster">
                 <span className="mbx-poster-art">{item.cover ? <img src={item.cover} alt="" loading="lazy"/> : <Icon name={column.icon} size={28}/>}{item.vip && <em className="mbx-vip">VIP</em>}{item.score != null && <span className="mbx-score is-small">{item.score.toLocaleString(fa ? 'fa-IR' : 'en-US')}</span>}</span>

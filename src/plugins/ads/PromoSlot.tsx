@@ -14,6 +14,28 @@ const flag = (placement: string) => `promo:has:${placement}`
 const read = (key: string) => { try { return sessionStorage.getItem(key) } catch { return null } }
 const write = (key: string, value: string) => { try { sessionStorage.setItem(key, value) } catch { /* private mode */ } }
 
+// The slots a page mounts together ask together: one request for all of them, not one each (a page has up to ten).
+type Waiting = { placement: string; resolve: (served: Served | null) => void }
+const waiting = new Map<string, Waiting[]>()
+function askServed(placement: string, path: string, lang: string): Promise<Served | null> {
+  return new Promise((resolve) => {
+    const key = `${path}\n${lang}`
+    const batch = waiting.get(key)
+    if (batch) { batch.push({ placement, resolve }); return }
+    waiting.set(key, [{ placement, resolve }])
+    setTimeout(() => {
+      const asked = waiting.get(key) || []
+      waiting.delete(key)
+      const placements = [...new Set(asked.map((item) => item.placement))].slice(0, 16)
+      const params = new URLSearchParams({ ps: placements.join(','), path, lang })
+      fetch(`/api/promo/serve?${params}`, { cache: 'no-store' })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: { ads?: Record<string, Served> } | null) => { for (const item of asked) item.resolve(data?.ads?.[item.placement] ?? null) })
+        .catch(() => { for (const item of asked) item.resolve(null) })
+    }, 0)
+  })
+}
+
 /**
  * A promotion placement. It is filled after the page has loaded (so cached pages
  * never freeze an ad), keeps its space when the last visit showed one (no layout
@@ -32,8 +54,7 @@ export default function PromoSlot({ placement, className = '' }: { placement: st
 
   useEffect(() => {
     let alive = true
-    const params = new URLSearchParams({ p: placement, path: pathname || '/', lang: document.documentElement.lang || 'fa' })
-    fetch(`/api/promo/serve?${params}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((data: Served | null) => {
+    askServed(placement, pathname || '/', document.documentElement.lang || 'fa').then((data) => {
       if (!alive) return
       setServed(data)
       write(flag(placement), data?.ad || data?.fallback ? '1' : '0')
