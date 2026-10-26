@@ -37,7 +37,7 @@ import { publicPostLinkItems } from '@/modules/journal/server/item-links'
 import ReadingProgress from '@/components/journal/ReadingProgress'
 import ArticleRail from '@/components/journal/ArticleRail'
 import { PostFormatClose, PostFormatLead } from '@/components/journal/PostFormat'
-import { factsFor } from '@/modules/journal/domain/formats'
+import { factsFor, reviewJsonLd } from '@/modules/journal/domain/formats'
 import { allLists } from '@/modules/vocabulary/server/vocabulary'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { pictureOf } from '@/modules/identity/domain/picture'
@@ -224,6 +224,8 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
   // body, a review summary or a news source below it.
   const formatEntry = (await allLists('journal').catch(() => ({ POST_FORMAT: [] as { code: string; family: string }[] }))).POST_FORMAT?.find((entry) => entry.code === post.format)
   const facts = factsFor(formatEntry?.family || 'ARTICLE', post.formatData)
+  // A review with a score and a linked item gets review stars in search results (structured data only).
+  const reviewLd = reviewJsonLd({ facts, items: linkedItems, url: `${base}/blog/${post.slug}`, author: authorName || undefined, published: post.publishedAt?.toISOString(), base })
   const contentSlot = (
     <>
       <ReadingProgress />
@@ -428,6 +430,7 @@ export default async function PostPage({ params: paramsPromise, preview }: { par
       <SectionBarSlot section="blog" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(crumbsLd) }} />
+      {reviewLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(reviewLd) }} />}
 
       {(() => {
         const crumb = (

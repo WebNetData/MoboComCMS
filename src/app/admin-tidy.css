@@ -21,6 +21,8 @@ html[data-theme='light'] .admin-shell .sa { --sa-on-accent: var(--sds-color-whit
 .admin-shell :is(.text-link, .studio-tabs .active, .studio-notice:not(.studio-error)) { color: var(--admin-accent-text); }
 /* Form actions drawn in the accent (upload a picture, add a link) take the same readable accent text. */
 .admin-shell :is(.cms-cover-buttons .cms-cover-pick, .cms-cover-pick, .mx-links-add, .ai-assist-toggle) { color: var(--admin-accent-text); }
+/* The admin menu's active item reads on its tint too (the member dashboard shares the menu and keeps its own). */
+html[data-design] .admin-shell.app-shell .ws-items .side-link.ws-item.side-link-active, html[data-design] .admin-shell.app-shell .side-link-active.ws-flat, .admin-shell .side-link-active .ws-label { color: var(--admin-accent-text); }
 .admin-shell :is(.badge-gray, .badge-primary, .badge-blue, .badge-purple) { color: var(--text); }
 html[data-design] .admin-shell .btn-primary, .admin-shell .btn-primary { background: var(--admin-action-surface); color: var(--sds-color-white-1000, #fff); }
 
