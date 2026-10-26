@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from '@/components/AppLink'
 import MediaCrud, { type MediaField } from '../../cms/MediaCrud'
 import { commonFields, inSection } from '../../cms/media-fields'
+import { useSectionLists } from '../../cms/useSectionLists'
 import { useI18n } from '@/i18n/LocaleProvider'
 import { MusicShell } from '../shared'
 
@@ -16,6 +17,11 @@ export default function AdminMusicPage({initialTab}:{initialTab:Tab}) {
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
   const L = (persian: string, english: string) => (fa ? persian : english)
   const publish = L('انتشار و دسترسی', 'Publishing & access')
+  // The owner's lists: genres (chips), release types and credit roles; inactive ones are listed for items that have them.
+  const lists = useSectionLists('music', true)
+  const option = (entry: { code: string; name: string; nameEn: string; icon: string; active: boolean }) => ({ value: entry.code, label: `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}${entry.active ? '' : L(' (غیرفعال)', ' (inactive)')}` })
+  const genres = (lists.GENRE || []).map(option), albumTypes = (lists.ALBUM_TYPE || []).map(option), roles = (lists.CREDIT_ROLE || []).map(option)
+  const genreField: MediaField = { key: 'genre', label: L('سبک‌ها', 'Genres'), type: 'chips', options: genres, table: true, hint: L('سبک‌ها را در زبانهٔ «فهرست‌ها» مدیریت کنید.', 'Manage genres under Lists.') }
   const artist: MediaField = { key: 'artistId', label: fa ? 'هنرمند' : 'Artist', type: 'select', required: true, source: { type: 'music-artists', label: (row) => row.name + (row.nameEn ? ` — ${row.nameEn}` : ''), empty: fa ? '— انتخاب هنرمند —' : '— choose artist —' }, table: (row) => row.artist?.name || '—' }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -36,8 +42,11 @@ export default function AdminMusicPage({initialTab}:{initialTab:Tab}) {
           { key: 'albumId', label: fa ? 'آلبوم (اختیاری)' : 'Album (optional)', type: 'select', source: { type: 'music-albums', label: (row) => `${row.title} — ${row.artist?.name || ''}`, empty: fa ? '— تک‌آهنگ —' : '— single —' }, table: (row) => row.album?.title || (fa ? 'تک‌آهنگ' : 'Single') },
           { key: 'trackNo', label: fa ? 'شماره در آلبوم' : 'Track #', type: 'number' },
           { key: 'duration', label: fa ? 'مدت (ثانیه)' : 'Duration (seconds)', type: 'number' },
-          { key: 'genre', label: fa ? 'سبک (با ویرگول)' : 'Genre (comma separated)', placeholder: fa ? 'پاپ، سنتی' : 'Pop, Rock', table: true },
+          genreField,
           { key: 'terms', label: fa ? 'زبان و گویش' : 'Language / dialect', type: 'terms', taxonomy: 'music-language' },
+        ]),
+        ...inSection(L('عوامل آهنگ', 'Credits'), [
+          { key: 'credits', label: L('عوامل', 'Credits'), type: 'records', source: { type: 'music-artists', label: (row) => row.name + (row.nameEn ? ` — ${row.nameEn}` : '') }, recordKeys: [{ key: 'role', label: L('نقش', 'Role'), options: roles }, { key: 'artistId', label: L('هنرمند', 'Artist'), options: 'source', wide: true }], hint: L('با همراهی (فیت)، آهنگساز، ترانه‌سرا، تنظیم‌کننده… از میان هنرمندان ثبت‌شده؛ صفحهٔ آهنگ و صفحهٔ هر هنرمند آن را نشان می‌دهد. هنرمند تازه را در زبانهٔ «خواننده‌ها و هنرمندان» بسازید و نقش‌ها را در «فهرست‌ها».', 'Featuring, composer, lyricist, arranger… from the listed artists; shown on the song and each artist page. Add new artists under Artists and roles under Lists.') },
         ]),
         ...inSection(L('فایل‌های صوتی', 'Audio files'), [
           { key: 'audioUrl', label: fa ? 'فایل صوتی ۱۲۸ (لینک)' : 'Audio 128 kbps URL', dir: 'ltr', wide: true, placeholder: 'https://dl.example.com/track-128.mp3', upload: 'music', accept: 'audio/*,.mp3,.m4a,.flac', hint: fa ? 'این لینک هرگز در صفحه نمایش داده نمی‌شود؛ پخش از مسیر امن سایت انجام می‌شود.' : 'Never shown on the page — playback goes through a protected site endpoint.' },
@@ -58,8 +67,9 @@ export default function AdminMusicPage({initialTab}:{initialTab:Tab}) {
           { key: 'title', label: fa ? 'نام آلبوم' : 'Title', required: true, table: true },
           { key: 'titleEn', label: fa ? 'نام انگلیسی' : 'English title', dir: 'ltr' },
           artist,
+          { key: 'albumType', label: L('نوع انتشار', 'Release type'), type: 'select', options: albumTypes, table: (row) => albumTypes.find((type) => type.value === row.albumType)?.label || row.albumType, hint: L('آلبوم، ای‌پی، تک‌آهنگ…؛ انواع را در «فهرست‌ها» مدیریت کنید.', 'Album, EP, single…; manage types under Lists.') },
           { key: 'year', label: fa ? 'سال انتشار' : 'Year', type: 'number', table: true },
-          { key: 'genre', label: fa ? 'سبک' : 'Genre' },
+          genreField,
         ]),
         ...inSection(L('دسته‌بندی و زبان', 'Categories & language'), [
           { key: 'terms', label: fa ? 'دسته‌بندی و زیردسته' : 'Categories', type: 'terms', taxonomy: 'music' },

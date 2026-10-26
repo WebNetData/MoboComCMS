@@ -15,7 +15,7 @@ This handoff records where each section stands against those principles and cont
 | Cinema | People (`PeoplePicker`) | By format structure (film or series) | Formats (`CinemaFormat`) | Reference; done. |
 | Games | Platforms, stores, modes, localisation (lists). Developer and publisher: **this slice** | Release per platform | Lists (`GAME_LISTS`) | Engine and genres are free text. |
 | Software | Licence. Platforms, app stores, developer and publisher: **this slice** | Desktop or mobile, by platform family: **this slice** | Licence, platform, app store | — |
-| Music | Artist and album (selects) | — | — | Genres are free text. Credits (composer, lyricist, arranger, featured artists) are missing. Album type (album, EP, single) is missing. |
+| Music | Artist and album. Credits from the artists: **slice 2** | Release type per album: **slice 2** | Genre, release type, credit role: **slice 2** | — |
 | Magazine | Categories, items linked to a post | — | — | No post format (news, review, interview, video, guide), so no format-specific fields. |
 | Store | Brand, category | Physical or virtual, attribute groups by category | Attribute groups, kinds | Mature. |
 
@@ -74,11 +74,33 @@ This handoff records where each section stands against those principles and cont
   - axe 0 on the form (dark and light), the public page and the lists page;
   - no page errors; fixtures removed.
 
+## Slice 2: music specialised (branch `feat/music-specialised-2026-10-26`, stacked on slice 1)
+
+- **Three managed lists** (`MUSIC_LISTS`, tab «فهرست‌ها» in the music admin):
+  - genres (a name list, as songs already store them);
+  - release types: album, EP, single, compilation, live, soundtrack;
+  - credit roles: featuring, composer, lyricist, arranger, mixing, producer.
+- **Genres** are chips on songs and albums. On save, only listed names are kept, plus names the item already had.
+- **Release type.** `MusicAlbum.albumType` is chosen from the list; an unknown type keeps the album's own type (a new album: album). The album page names it.
+- **Credits** (`MusicCredit`: song, artist, role, order). A song lists who else made it, as role + artist from the artists list. `saveMusicCredits` replaces them as a whole and keeps:
+  - listed roles, or roles the song already had;
+  - existing artists, a merged profile counting as the one it was merged into;
+  - no repeats.
+
+  Merging artists moves their credits without repeating one the target already has.
+- **Public pages:**
+  - the song page shows featured artists beside the singer and a «عوامل آهنگ» panel grouped by role, in the list's order;
+  - an artist's page shows «… در آهنگ‌های دیگران» per role.
+- **Migration** `20270121120000_music_specialised` is additive. It widens the code check for the music genre name list, adds `albumType`, and creates `MusicCredit` with its role check. It seeds the three lists and adopts the genre names already used.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 705/6 (the six known environment-only tests).
+  - Unit tests cover `cleanCredits` and the list shapes.
+  - The PostgreSQL test `vocabulary.connected.cjs` covers genres, release type, credits, deactivated roles, usage counts, merging and the public pages. Two deliberate breaks (no role check; credits left behind on merge) each failed it.
+  - Browser test `pw-music-specialised` passes 18/18. It covers the form, save, the song page, the credited artist page, the album type, the lists page, phone width, and axe 0.
+  - Fixed on the way: the upload field's address input now has its label (every upload field of the shared form).
+
 ## Next slices (in order)
 
-1. **Music.**
-   - Genres become a managed list.
-   - The album type (album, EP, single, compilation) becomes a managed list.
-   - Credits are picked from artists: featured artists, composer, lyricist and arranger. They need a credit model, as in the cinema.
-2. **Magazine.** A post format becomes a managed list with format-specific fields: a review's score, pros and cons; a video's address; a news item's source; an interview's guest.
-3. **Games.** The engine and genres become managed lists.
+1. **Magazine.** A post format becomes a managed list with format-specific fields: a review's score, pros and cons; a video's address; a news item's source; an interview's guest.
+2. **Games.** The engine and genres become managed lists.

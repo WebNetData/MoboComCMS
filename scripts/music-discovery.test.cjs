@@ -56,7 +56,8 @@ test('detail hydration rechecks publication, keeps reason order and never expose
   const source = { id: 1, artistId: 10, albumId: 9, slug: 'source', title: 'Source', titleEn: '', genre: 'Pop', artist, album: null, audioUrl: '/private/source.mp3', audioHqUrl: '', publishedAt: new Date(), lyrics: '', downloads: 0 }
   let adapterCalls = 0, hydrateCalls = 0
   const queries = load('src/modules/media/server/queries.ts', {
-    '@/platform/database/prisma': { db: { musicTrack: {
+    // A song's credits and the music lists' names are read beside it; none here.
+    '@/platform/database/prisma': { db: { musicCredit: { findMany: async () => [] }, vocabulary: { findMany: async () => [] }, musicTrack: {
       findFirst: async () => source,
       findMany: async ({ where }) => {
         if (where.albumId) return [{ ...source, id: 5 }]

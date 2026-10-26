@@ -57,6 +57,7 @@ export default async function ArtistPage({ params }: Props) {
       <div className="container md-body">
         {!tracks.length && !data.albums.length && <EmptyState fa={fa} />}
         {tracks.length > 0 && <section className="mu-panel"><header className="md-shelf-head"><h2>{fa ? 'آهنگ‌های محبوب' : 'Popular'}</h2></header><TrackList tracks={tracks} /></section>}
+        {data.credited.map((group) => <section key={group.role} className="mu-panel"><header className="md-shelf-head"><h2>{fa ? `${group.name} در آهنگ‌های دیگران` : `Credited as ${group.name}`}</h2></header><TrackList tracks={toPlayerTracks(group.tracks, fa)} /></section>)}
         {data.albums.length > 0 && <Shelf tone="music" title={fa ? 'آلبوم‌ها' : 'Albums'}>{data.albums.map((album) => <AlbumCard key={album.id} album={album} fa={fa} />)}</Shelf>}
         {presentation.showArtistBiography && artist.bio && <section className="mu-panel md-prose"><h2>{fa ? 'بیوگرافی' : 'Biography'}</h2><div dangerouslySetInnerHTML={{ __html: withTextDirections(artist.bio) }} /></section>}
       </div>

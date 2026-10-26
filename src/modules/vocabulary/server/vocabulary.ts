@@ -6,6 +6,7 @@ import { definitionOf, listsOf, type VocabularySection } from '@/modules/vocabul
 import { gameUsage } from '@/modules/games/server/vocabulary'
 import { softwareUsage } from '@/modules/software/server/vocabulary'
 import { linkUsage } from '@/modules/media/server/vocabulary'
+import { musicUsage } from '@/modules/music/server/vocabulary'
 
 type Tx = Prisma.TransactionClient
 type Audit = (tx: Tx, id: number, action: 'created' | 'updated' | 'deleted', metadata: Record<string, unknown>) => Promise<unknown>
@@ -14,7 +15,7 @@ const ORDER: Prisma.VocabularyOrderByWithRelationInput[] = [{ sortOrder: 'asc' }
 const SELECT = { id: true, section: true, list: true, code: true, name: true, nameEn: true, icon: true, family: true, sortOrder: true, active: true } as const
 
 /** How many items use an entry, asked per entry after one read: each section counts its own items. */
-const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage }
+const USAGE: Record<VocabularySection, (client: Pick<Tx, 'gameTitle' | 'softwareTitle' | 'mediaLink' | 'musicTrack' | 'musicAlbum' | 'musicCredit'>) => Promise<(list: string, code: string) => number>> = { games: gameUsage, software: softwareUsage, media: linkUsage, music: musicUsage }
 
 function bySection(section: VocabularySection, rows: VocabularyEntry[]): SectionLists {
   const lists: SectionLists = Object.fromEntries(listsOf(section).map((definition) => [definition.list, [] as VocabularyEntry[]]))

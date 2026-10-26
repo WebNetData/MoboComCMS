@@ -5,6 +5,25 @@ import { cleanRichText, renderEditorialText } from '@/shared/content/sanitize'
 import { relatedAlbums, relatedTracks } from '@/modules/recommendations/server/contextual'
 import { PAGE_SIZE, live } from '@/modules/media/server/queries/core'
 import { countList } from '@/modules/media/server/queries/shared'
+import { listLabels } from '@/modules/vocabulary/server/vocabulary'
+
+export type CreditGroup = { role: string; name: string; artists: ArtistRef[] }
+const ARTIST_REF = { id: true, slug: true, name: true, nameEn: true, image: true } as const
+
+/** Credits grouped by role, in the CREDIT_ROLE list's order (a role no longer listed keeps its code as its name). */
+async function creditGroups(trackId: number): Promise<CreditGroup[]> {
+  const [credits, labels] = await Promise.all([
+    db.musicCredit.findMany({ where: { trackId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { role: true, artist: { select: ARTIST_REF } } }).catch(() => []),
+    listLabels('music'),
+  ])
+  const names = labels.CREDIT_ROLE ?? {}, order = Object.keys(names)
+  const groups = new Map<string, CreditGroup>()
+  for (const credit of credits) {
+    const group = groups.get(credit.role) || { role: credit.role, name: names[credit.role] || credit.role, artists: [] }
+    group.artists.push(credit.artist); groups.set(credit.role, group)
+  }
+  return [...groups.values()].sort((a, b) => (order.indexOf(a.role) + 1 || 99) - (order.indexOf(b.role) + 1 || 99))
+}
 
 export type ArtistRef = { id: number; slug: string; name: string; nameEn: string; image: string }
 
@@ -15,7 +34,7 @@ export type TrackCard = {
   recommendationReason?: string
 }
 
-export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; access: string; artist: ArtistRef; trackCount: number; recommendationReason?: string }
+export type AlbumCard = { id: number; slug: string; title: string; titleEn: string; cover: string; year: number | null; genre: string; albumType: string; access: string; artist: ArtistRef; trackCount: number; recommendationReason?: string }
 
 export type PlaylistCard = { id: number; slug: string; title: string; titleEn: string; cover: string; description: string; access: string; trackCount: number }
 
@@ -34,7 +53,7 @@ export function toTrack(row: any): TrackCard {
 }
 
 export function toAlbum(row: any): AlbumCard {
-  return { id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover || row.artist?.image || '', year: row.year, genre: row.genre, access: row.access, artist: row.artist, trackCount: row._count?.tracks ?? 0 }
+  return { id: row.id, slug: row.slug, title: row.title, titleEn: row.titleEn, cover: row.cover || row.artist?.image || '', year: row.year, genre: row.genre, albumType: row.albumType || 'ALBUM', access: row.access, artist: row.artist, trackCount: row._count?.tracks ?? 0 }
 }
 
 function toPlaylist(row: any): PlaylistCard {
@@ -175,7 +194,8 @@ export async function getTrack(slug: string, options: { recommendations?: boolea
   const recommendations = options.recommendations ? await relatedTracks(row, 8, albumTracks.map(track => track.id)) : []
   const relatedRows = recommendations.length ? await db.musicTrack.findMany({ where: { ...live(), id: { in: recommendations.map(result => result.item.id) } }, include: trackInclude }) : []
   const relatedById = new Map(relatedRows.map(item => [item.id, item]))
-  return { track: { ...toTrack(row), lyrics: row.lyrics, downloads: row.downloads }, albumTracks: albumTracks.map(toTrack), moreFromArtist: artistTracks.map(toTrack), relatedTracks: recommendations.flatMap(result => { const item = relatedById.get(result.item.id); return item ? [{ ...toTrack(item), recommendationReason: result.reason }] : [] }) }
+  const credits = await creditGroups(row.id)
+  return { track: { ...toTrack(row), lyrics: row.lyrics, downloads: row.downloads }, credits, albumTracks: albumTracks.map(toTrack), moreFromArtist: artistTracks.map(toTrack), relatedTracks: recommendations.flatMap(result => { const item = relatedById.get(result.item.id); return item ? [{ ...toTrack(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getAlbum(slug: string) {
@@ -188,18 +208,29 @@ export async function getAlbum(slug: string) {
   ])
   const relatedRows = recommendations.length ? await db.musicAlbum.findMany({ where: { ...live(), id: { in: recommendations.map((result) => result.item.id) } }, include: albumInclude }) : []
   const relatedById = new Map(relatedRows.map((item) => [item.id, item]))
-  return { album: { ...toAlbum(row), description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toAlbum(item), recommendationReason: result.reason }] : [] }) }
+  const typeName = (await listLabels('music')).ALBUM_TYPE?.[row.albumType] || ''
+  return { album: { ...toAlbum(row), albumTypeName: typeName, description: cleanRichText(row.description), publishedAt: row.publishedAt }, tracks: tracks.map(toTrack), related: recommendations.flatMap((result) => { const item = relatedById.get(result.item.id); return item ? [{ ...toAlbum(item), recommendationReason: result.reason }] : [] }) }
 }
 
 export async function getArtist(slug: string) {
   const matched = await db.musicArtist.findUnique({ where: { slug } }).catch(() => null)
   const row = matched?.mergedIntoId ? await db.musicArtist.findUnique({ where: { id: matched.mergedIntoId } }) : matched
   if (!row) return null
-  const [albums, tracks] = await Promise.all([
+  const [albums, tracks, creditRows, labels] = await Promise.all([
     db.musicAlbum.findMany({ where: { artistId: row.id, ...live() }, include: albumInclude, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { artistId: row.id, ...live() }, include: trackInclude, orderBy: [{ plays: 'desc' }, { publishedAt: 'desc' }], take: 30 }),
+    // Songs of others this artist is credited on (composer, lyricist, featured…), published ones only.
+    db.musicCredit.findMany({ where: { artistId: row.id, track: live() }, orderBy: [{ track: { publishedAt: 'desc' } }], take: 120, select: { role: true, track: { include: trackInclude } } }).catch(() => []),
+    listLabels('music'),
   ])
-  return { artist: { ...row, bio: renderEditorialText(row.bio) }, albums: albums.map(toAlbum), tracks: tracks.map(toTrack) }
+  const names = labels.CREDIT_ROLE ?? {}, order = Object.keys(names)
+  const credited = new Map<string, { role: string; name: string; tracks: TrackCard[] }>()
+  for (const credit of creditRows) {
+    const group = credited.get(credit.role) || { role: credit.role, name: names[credit.role] || credit.role, tracks: [] }
+    if (group.tracks.length < 20) group.tracks.push(toTrack(credit.track))
+    credited.set(credit.role, group)
+  }
+  return { artist: { ...row, bio: renderEditorialText(row.bio) }, albums: albums.map(toAlbum), tracks: tracks.map(toTrack), credited: [...credited.values()].sort((a, b) => (order.indexOf(a.role) + 1 || 99) - (order.indexOf(b.role) + 1 || 99)) }
 }
 
 export async function getPlaylist(slug: string) {

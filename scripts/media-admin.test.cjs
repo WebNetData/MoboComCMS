@@ -249,3 +249,14 @@ test('a mobile app keeps a dotted package id, its oldest system and one http(s) 
   assert.deepEqual([...lists.platformFamilies(['Other'], entries)], [], 'a platform without a family decides nothing')
   assert.ok(lists.SOFTWARE_LISTS.find((list) => list.list === 'PLATFORM').seeds.every(([, , , family]) => ['DESKTOP', 'MOBILE'].includes(family)), 'every seeded platform has a family')
 })
+
+test('a song credit is a role code and an artist id, without repeats, at most thirty', () => {
+  const music = load('src/modules/music/domain/vocabulary')
+  assert.deepEqual(music.cleanCredits([{ role: 'composer', artistId: '3' }, { role: 'COMPOSER', artistId: 3 }, { role: 'LYRICIST', artistId: 3 }, { role: 'bad role!', artistId: 4 }, { role: 'ARRANGER', artistId: 0 }, { role: 'ARRANGER', artistId: 'x' }, null]),
+    [{ role: 'COMPOSER', artistId: 3 }, { role: 'LYRICIST', artistId: 3 }], 'one artist may hold several roles; bad rows are dropped')
+  assert.deepEqual(music.cleanCredits('nope'), [])
+  assert.equal(music.cleanCredits(Array.from({ length: 40 }, (_, index) => ({ role: 'FEATURED', artistId: index + 1 }))).length, 30)
+  const lists = music.MUSIC_LISTS.map((list) => list.list)
+  assert.deepEqual(lists, ['GENRE', 'ALBUM_TYPE', 'CREDIT_ROLE'])
+  assert.equal(music.MUSIC_LISTS.find((list) => list.list === 'GENRE').codeRule, 'name', 'genres are stored by name, as songs already have them')
+})

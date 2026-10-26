@@ -52,7 +52,7 @@ export default async function AlbumPage({ params }: Props) {
         <div className="container mu-detail-inner">
           <div className="mu-detail-cover is-album">{album.cover ? <img src={album.cover} alt={name} /> : <span className="mu-noart">♪</span>}</div>
           <div className="mu-detail-info">
-            <span className="md-eyebrow">{fa ? 'آلبوم' : 'Album'}{album.year ? ` · ${yr(album.year, fa)}` : ''}</span>
+            <span className="md-eyebrow">{fa ? album.albumTypeName || 'آلبوم' : album.albumType === 'ALBUM' ? 'Album' : album.albumType}{album.year ? ` · ${yr(album.year, fa)}` : ''}</span>
             <h1>{name}</h1>
             <Link href={`/music/artist/${album.artist.slug}`} className="mu-detail-artist">{album.artist.image && <img src={album.artist.image} alt="" />}{artistName}</Link>
             <div className="mu-hero-tags">

@@ -58,8 +58,9 @@ export type MediaField = {
   options?: Opt[]
   /** Options loaded from another media resource (e.g. artists for albums). */
   source?: { type: string; label: (row: any) => string; empty?: string }
-  /** A record's own fields; one with `options` is chosen from them (an app store from the owner's list). */
-  recordKeys?: { key: string; label: string; dir?: 'ltr' | 'rtl'; wide?: boolean; options?: Opt[] }[]
+  /** A record's own fields; one with `options` is chosen from them (an app store from the owner's list), or from the
+   * field's `source` with `'source'` (a song credit's artist). */
+  recordKeys?: { key: string; label: string; dir?: 'ltr' | 'rtl'; wide?: boolean; options?: Opt[] | 'source' }[]
   wide?: boolean
   dir?: 'ltr' | 'rtl'
   required?: boolean
@@ -268,7 +269,7 @@ export default function MediaCrud({ type, title, subtitle, fields: allFields, pu
       case 'checkbox': return [{ ...base, type: 'checkbox' }]
       case 'date': return [{ ...base, type: 'date' }]
       case 'select': { const options = (optionsOf(field) || []).filter((o) => o.value !== ''); return options.length ? [{ ...base, type: 'select', options }] : [] }
-      case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
+      case 'records': return field.recordKeys ? [{ ...base, type: 'records', recordKeys: field.recordKeys.filter((r) => !r.options && !/image|src|url/i.test(r.key)).map((r) => ({ key: r.key, label: r.label })) }] : []
       case 'studio': return [{ ...base, type: 'text' }]
       // People are suggested as names (a line) or as name + character rows (the cast), as before the picker.
       case 'people': return field.people === 'cast' ? [{ ...base, type: 'records', recordKeys: [{ key: 'name', label: fa ? 'نام' : 'Name' }, { key: 'role', label: fa ? 'نقش' : 'Character' }] }] : [{ ...base, type: 'text' }]
@@ -455,7 +456,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
     case 'links':
       return <LinksEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} section={field.upload || 'general'} priced={field.upload === 'cinema' || field.upload === 'software' || field.upload === 'games'} />
     case 'records':
-      return <RecordsEditor value={Array.isArray(value) ? value : []} keys={field.recordKeys || [{ key: 'text', label: field.label }]} onChange={onChange} fa={fa} />
+      return <RecordsEditor value={Array.isArray(value) ? value : []} keys={field.recordKeys || [{ key: 'text', label: field.label }]} onChange={onChange} fa={fa} sourceOptions={(options || []).filter((o) => o.value !== '')} />
     case 'seasons':
       return <SeasonsEditor value={Array.isArray(value) ? value : []} onChange={onChange} fa={fa} />
     case 'requirements':
@@ -472,7 +473,7 @@ function FieldInput({ field, value, onChange, options, fa, onBusy, titleHint }: 
       return <ChipPicker value={value} options={options || []} onChange={onChange} label={field.label} fa={fa} />
     default:
       if (field.key === 'trailerUrl') return <div className="mx-upload-field"><input className="input" aria-label={field.label} dir="ltr" value={value??''} onChange={e=>onChange(e.target.value)} placeholder={field.placeholder}/><CopyToServer kind="file" section="cinema" url={/\.(mp4|webm|mkv|mov)(\?|$)/i.test(String(value))?String(value):''} onCopied={onChange}/></div>
-      if (field.upload) return <div className="mx-upload-field"><input className="input" dir={field.dir || 'ltr'} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} /><FileUpload section={field.upload} accept={field.accept} onUploaded={(file) => onChange(file.url)} label={fa ? 'بارگذاری از رایانه' : 'Upload'} /><CopyToServer kind="file" section={field.upload} url={String(value || '')} onCopied={onChange} /></div>
+      if (field.upload) return <div className="mx-upload-field"><input className="input" aria-label={field.label} dir={field.dir || 'ltr'} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} /><FileUpload section={field.upload} accept={field.accept} onUploaded={(file) => onChange(file.url)} label={fa ? 'بارگذاری از رایانه' : 'Upload'} /><CopyToServer kind="file" section={field.upload} url={String(value || '')} onCopied={onChange} /></div>
       return <input className="input" aria-label={field.label} dir={field.dir} type={field.type === 'number' ? 'number' : 'text'} step={field.type === 'number' ? 'any' : undefined} value={value ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} required={field.required} />
   }
 }
@@ -591,12 +592,13 @@ export function LinksEditor({ value, onChange, fa, compact, section = 'general',
   )
 }
 
-function RecordsEditor({ value, keys, onChange, fa }: { value: Record<string, string>[]; keys: NonNullable<MediaField['recordKeys']>; onChange: (value: Record<string, string>[]) => void; fa: boolean }) {
+function RecordsEditor({ value, keys, onChange, fa, sourceOptions = [] }: { value: Record<string, string>[]; keys: NonNullable<MediaField['recordKeys']>; onChange: (value: Record<string, string>[]) => void; fa: boolean; sourceOptions?: Opt[] }) {
+  const choices = (k: NonNullable<MediaField['recordKeys']>[number]) => (k.options === 'source' ? sourceOptions : k.options)
   return (
     <div className="mx-records">
       {value.map((row, index) => (
         <div key={index} className="mx-record-row">
-          {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}>{k.options ? <select className="select" aria-label={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))}><option value="">{k.label}…</option>{k.options.some((o) => o.value === row[k.key]) || !row[k.key] ? null : <option value={row[k.key]}>{row[k.key]}</option>}{k.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : <input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />}{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
+          {keys.map((k) => <div key={k.key} className={k.wide?'is-wide':undefined}>{choices(k) ? <select className="select" aria-label={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))}><option value="">{k.label}…</option>{choices(k)!.some((o) => o.value === row[k.key]) || !row[k.key] ? null : <option value={row[k.key]}>{row[k.key]}</option>}{choices(k)!.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : <input className="input" aria-label={k.label} dir={k.dir} placeholder={k.label} value={row[k.key] || ''} onChange={(e) => onChange(value.map((r, i) => (i === index ? { ...r, [k.key]: e.target.value } : r)))} />}{k.key==='image'&&<CopyToServer url={row[k.key]||''} onCopied={url=>onChange(value.map((r,i)=>i===index?{...r,[k.key]:url}:r))}/>}</div>)}
           <div className="mx-row-tools">
             <button aria-label="جابه‌جایی به بالا" type="button" className="badge badge-gray" onClick={() => onChange(move(value, index, -1))}>↑</button>
             <button aria-label="حذف" type="button" className="badge badge-red" onClick={() => onChange(value.filter((_, i) => i !== index))}>✕</button>

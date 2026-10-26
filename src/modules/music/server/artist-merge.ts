@@ -25,6 +25,12 @@ export async function mergeMusicArtists(input: Record<string, unknown>, audit: (
     }
     const source = await tx.musicArtist.findUniqueOrThrow({ where: { id: sourceId } }), target = await tx.musicArtist.findUniqueOrThrow({ where: { id: targetId } })
     const tracks = await tx.musicTrack.updateMany({ where: { artistId: sourceId }, data: { artistId: targetId } }), albums = await tx.musicAlbum.updateMany({ where: { artistId: sourceId }, data: { artistId: targetId } })
+    // Credits move too; one the target already has on the same song in the same role is not repeated.
+    const credits = await tx.musicCredit.findMany({ where: { artistId: sourceId }, select: { id: true, trackId: true, role: true } })
+    const held = new Set((await tx.musicCredit.findMany({ where: { artistId: targetId, trackId: { in: credits.map((credit) => credit.trackId) } }, select: { trackId: true, role: true } })).map((credit) => `${credit.trackId}:${credit.role}`))
+    const repeated = credits.filter((credit) => held.has(`${credit.trackId}:${credit.role}`)).map((credit) => credit.id)
+    if (repeated.length) await tx.musicCredit.deleteMany({ where: { id: { in: repeated } } })
+    await tx.musicCredit.updateMany({ where: { artistId: sourceId }, data: { artistId: targetId } })
     await tx.musicArtist.updateMany({ where: { mergedIntoId: sourceId }, data: { mergedIntoId: targetId } })
     await tx.musicArtist.update({ where: { id: sourceId }, data: { mergedIntoId: targetId } })
     await tx.musicArtist.update({ where: { id: targetId }, data: { ...(target.bio ? {} : { bio: source.bio }), ...(target.image ? {} : { image: source.image }), ...(target.cover ? {} : { cover: source.cover }) } })
