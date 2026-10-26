@@ -631,6 +631,9 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
     // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
     const before = existing as Record<string, string> | null
+    // A game's genres and engine are names of the owner's lists (or what the game already had).
+    if (type === 'games' && typeof data.genres === 'string') data.genres = (await knownCodes(tx, 'games', 'GENRE', splitList(data.genres as string, 8), splitList(before?.genres ?? '', 8))).join(', ')
+    if (type === 'games' && typeof data.engine === 'string') data.engine = data.engine ? (await knownCodes(tx, 'games', 'ENGINE', [data.engine as string], before?.engine ? [before.engine] : []))[0] ?? before?.engine ?? '' : ''
     if (type === 'games') for (const [key, list] of [['modes', 'MODE'], ['localization', 'LOCALIZATION']] as const) if (typeof data[key] === 'string') data[key] = (await knownCodes(tx, 'games', list, codesOf(data[key] as string), codesOf(before?.[key]))).join(', ')
     // A mobile app's stores: those the APP_STORE list knows (or the title already had).
     if (type === 'software' && typeof data.appStores === 'string') {

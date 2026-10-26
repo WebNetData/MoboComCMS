@@ -238,6 +238,9 @@ html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 .ga-issues { display: block; margin-top: 2px; color: var(--sa-warn); font-size: 11.5px; }
 .ga-soon { color: var(--sa-accent) !important; font-weight: 700; }
 .ga-score { display: inline-grid; place-items: center; min-width: 34px; height: 28px; padding-inline: 6px; border-radius: 8px; background: var(--sa-accent-soft); color: var(--sa-accent); font-weight: 900; font-size: 13px; }
+/* A game's genres take the whole row of the info grid. */
+.ga-genres { grid-column: 1 / -1; }
+.ga-genres .ga-codes { margin-top: 0; }
 .ga-codes { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; border: 0; }
 .ga-codes legend { width: 100%; margin-bottom: 6px; padding: 0; color: var(--sa-muted); font-size: 13px; font-weight: 600; }
 .ga-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--sa-line); border-radius: 99px; background: var(--sa-surface); font-size: 12.5px; cursor: pointer; }

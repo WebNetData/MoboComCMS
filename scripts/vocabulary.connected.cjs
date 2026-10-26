@@ -190,6 +190,19 @@ async function main() {
   assert.deepEqual(profile.credited.map((group) => [group.role, group.tracks.map((track) => track.slug)]), [['LYRICIST', [`${seed}-song`]]], 'an artist page lists the songs they are credited on')
   assert.equal((await musicQueries.getAlbum(`${seed}-album`)).album.albumTypeName, 'ریمیکس', 'an album page names its release type')
 
+  // ---- a game's genres and engine are names of the owner's lists; an unknown one is dropped, a deactivated one kept
+  const soulslike = await vocab.createEntry('games', { list: 'GENRE', code: `سولزلایک ${seed}` }, audit)
+  const godot = await vocab.createEntry('games', { list: 'ENGINE', code: `Godot ${seed}` }, audit)
+  const { row: gameWithLists } = await saveGame({ title: `${seed} lists`, slug: `${seed}-lists`, genres: `اکشن، سولزلایک ${seed}, نامعلوم`, engine: `Godot ${seed}` })
+  assert.deepEqual([gameWithLists.genres, gameWithLists.engine], [`اکشن, سولزلایک ${seed}`, `Godot ${seed}`], 'listed genres (either comma) and engine kept, unknown dropped')
+  assert.equal((await saveGame({ engine: 'Not An Engine' }, gameWithLists.id)).row.engine, `Godot ${seed}`, 'an unknown engine keeps the one the game had')
+  assert.equal((await saveGame({ engine: '' }, gameWithLists.id)).row.engine, '', 'the engine can be cleared')
+  await vocab.updateEntry('games', soulslike.id, { active: false }, audit)
+  assert.equal((await saveGame({ genres: `ورزشی, سولزلایک ${seed}` }, gameWithLists.id)).row.genres, `سولزلایک ${seed}, ورزشی`, 'a game keeps a genre the owner later deactivated, in the list order')
+  assert.equal((await saveGame({ title: `${seed} other lists`, slug: `${seed}-lists-2`, genres: `سولزلایک ${seed}` })).row.genres, '', 'a deactivated genre is not given to another game')
+  assert.deepEqual([await uses('games', 'GENRE', soulslike.id), await uses('games', 'ENGINE', godot.id)], [1, 0], 'genre and engine uses are counted')
+  await refused(vocab.deleteEntry('games', soulslike.id, audit), /را دارند/, 409)
+
   // ---- magazine formats: each of a family; a post keeps a known format (or the one it had); facts merge into the stored ones
   const journalFormats = load('src/modules/journal/server/formats.ts')
   assert.equal((await vocab.allLists('journal')).POST_FORMAT.find((entry) => entry.code === 'GUIDE')?.family, 'ARTICLE', 'a guide is an article-family format')
