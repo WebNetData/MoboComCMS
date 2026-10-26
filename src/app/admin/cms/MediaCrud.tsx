@@ -39,7 +39,8 @@ const VIP_FIELD_KEYS = ['access', 'memberPrice', 'vipGiftDays']
  * seasons/episodes, cast, screenshots, system requirements and perks.
  */
 
-type Opt = { value: string; label: string }
+/** A choice; `alias` is another name the same entry arrives by (the English name an import brings). */
+type Opt = { value: string; label: string; alias?: string }
 export type MediaField = {
   key: string
   label: string
@@ -703,13 +704,17 @@ export function RequirementsEditor({ value, onChange, fa }: { value: { min: Reco
  */
 function ChipPicker({ value, options, onChange, label, fa }: { value: unknown; options: Opt[]; onChange: (value: string) => void; label: string; fa: boolean }) {
   const chosen = (Array.isArray(value) ? value.map(String) : String(value ?? '').split(/[,،|]/)).map((part) => part.trim()).filter(Boolean)
-  const has = (code: string) => chosen.some((item) => item.toLowerCase() === code.toLowerCase())
-  const toggle = (code: string) => onChange((has(code) ? chosen.filter((item) => item.toLowerCase() !== code.toLowerCase()) : [...chosen, code]).join(', '))
+  // A value matches an option by its code or its alias (an imported English name, shown at once as its entry).
+  const same = (a: string, b?: string) => !!b && a.toLowerCase() === b.toLowerCase()
+  const names = (option: Opt) => (item: string) => same(item, option.value) || same(item, option.alias)
   const offered = options.filter((option) => option.value)
-  const others = chosen.filter((item) => !offered.some((option) => option.value.toLowerCase() === item.toLowerCase()))
+  const has = (option: Opt) => chosen.some(names(option))
+  const toggle = (option: Opt) => onChange((has(option) ? chosen.filter((item) => !names(option)(item)) : [...chosen, option.value]).join(', '))
+  const others = chosen.filter((item) => !offered.some((option) => names(option)(item)))
+  const drop = (item: string) => onChange(chosen.filter((other) => other !== item).join(', '))
   return <div className="mx-chips" role="group" aria-label={label}>
-    {offered.map((option) => <button key={option.value} type="button" className={`mx-chip${has(option.value) ? ' is-on' : ''}`} aria-pressed={has(option.value)} onClick={() => toggle(option.value)}>{option.label}</button>)}
-    {others.map((item) => <button key={item} type="button" className="mx-chip is-on is-other" aria-pressed="true" title={fa ? 'در فهرست نیست؛ برای برداشتن بزنید' : 'Not in the list; press to remove'} onClick={() => toggle(item)}>{item} ×</button>)}
+    {offered.map((option) => <button key={option.value} type="button" className={`mx-chip${has(option) ? ' is-on' : ''}`} aria-pressed={has(option)} onClick={() => toggle(option)}>{option.label}</button>)}
+    {others.map((item) => <button key={item} type="button" className="mx-chip is-on is-other" aria-pressed="true" title={fa ? 'در فهرست نیست؛ برای برداشتن بزنید' : 'Not in the list; press to remove'} onClick={() => drop(item)}>{item} ×</button>)}
     {!offered.length && !others.length && <span className="muted">{fa ? 'فهرستی تعریف نشده است.' : 'No list entries yet.'}</span>}
   </div>
 }

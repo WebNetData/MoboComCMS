@@ -44,7 +44,7 @@ export default function AdminCinemaPage() {
   const { access, status, featured, publishedAt, slug } = commonFields(fa)
   // The owner's lists of genres, countries and languages (inactive ones listed for the titles that have them).
   const lists = useSectionLists('cinema', true)
-  const listOptions = (list: string) => (lists[list] || []).map((entry) => ({ value: entry.code, label: `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}${entry.active ? '' : L(' (غیرفعال)', ' (inactive)')}` }))
+  const listOptions = (list: string) => (lists[list] || []).map((entry) => ({ value: entry.code, alias: entry.nameEn, label: `${entry.icon ? `${entry.icon} ` : ''}${fa ? entry.name : entry.nameEn || entry.name}${entry.active ? '' : L(' (غیرفعال)', ' (inactive)')}` }))
   const S = {
     main: L('اطلاعات اصلی', 'Basics'),
     facts: L('امتیاز و مشخصات', 'Rating & details'),

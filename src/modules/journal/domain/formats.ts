@@ -106,6 +106,27 @@ export function describeFormatData(stored: unknown): string {
   return Object.entries(data).map(([key, value]) => `${FACT_LABELS[key as keyof FormatData]}: ${Array.isArray(value) ? value.join('، ') : value}`).join(' · ') || '—'
 }
 
+/** The schema.org type of an item a review can be about; other kinds (a person, a thread…) are not reviewed items. */
+const REVIEWED_TYPES: Record<string, string> = { product: 'Product', title: 'Movie', game: 'VideoGame', software: 'SoftwareApplication', album: 'MusicAlbum', track: 'MusicRecording', business: 'LocalBusiness' }
+
+/**
+ * A review article's structured data, for review stars in search results: only with a score and a linked item the
+ * review is about (the first one of a reviewable kind), since a review must name what it reviews.
+ */
+export function reviewJsonLd(input: { facts: FormatData; items: { type: string; title: string; url: string; image: string }[]; url: string; author?: string; published?: string; base: string }) {
+  const item = input.items.find((entry) => REVIEWED_TYPES[entry.type])
+  if (input.facts.score === undefined || !item) return null
+  const absolute = (value: string) => (/^https?:\/\//.test(value) ? value : `${input.base}${value.startsWith('/') ? '' : '/'}${value}`)
+  return {
+    '@context': 'https://schema.org', '@type': 'Review', url: input.url,
+    itemReviewed: { '@type': REVIEWED_TYPES[item.type], name: item.title, url: absolute(item.url), ...(item.image ? { image: absolute(item.image) } : {}) },
+    reviewRating: { '@type': 'Rating', ratingValue: input.facts.score, bestRating: 10, worstRating: 0 },
+    ...(input.author ? { author: { '@type': 'Person', name: input.author } } : {}),
+    ...(input.published ? { datePublished: input.published } : {}),
+    ...(input.facts.verdict ? { reviewBody: input.facts.verdict } : {}),
+  }
+}
+
 /** Which facts a family shows. */
 export const FAMILY_FACTS: Record<string, (keyof FormatData)[]> = {
   ARTICLE: [], NEWS: ['sourceName', 'sourceUrl'], REVIEW: ['score', 'pros', 'cons', 'verdict'], VIDEO: ['videoUrl'], INTERVIEW: ['guestName', 'guestRole'],

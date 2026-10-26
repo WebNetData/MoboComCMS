@@ -297,3 +297,14 @@ test('film genres, countries and languages are name lists whose English names ma
     assert.equal(new Set(english).size, english.length, `${list.list}: English names are unique`)
   }
 })
+
+test('a scored review linked to a reviewable item gets review structured data; otherwise none', () => {
+  const formats = load('src/modules/journal/domain/formats')
+  const items = [{ type: 'person', title: 'X', url: '/cinema/person/1', image: '' }, { type: 'game', title: 'Elden Ring', url: '/games/elden-ring', image: '/uploads/er.jpg' }]
+  const ld = formats.reviewJsonLd({ facts: { score: 9, verdict: 'شاهکار' }, items, url: 'https://s.test/blog/r', author: 'سارا', published: '2026-10-27T00:00:00.000Z', base: 'https://s.test' })
+  assert.deepEqual(ld.itemReviewed, { '@type': 'VideoGame', name: 'Elden Ring', url: 'https://s.test/games/elden-ring', image: 'https://s.test/uploads/er.jpg' }, 'the first reviewable item, with absolute addresses')
+  assert.deepEqual(ld.reviewRating, { '@type': 'Rating', ratingValue: 9, bestRating: 10, worstRating: 0 })
+  assert.equal(ld.reviewBody, 'شاهکار')
+  assert.equal(formats.reviewJsonLd({ facts: { verdict: 'x' }, items, url: '', base: 'https://s.test' }), null, 'no score, no stars')
+  assert.equal(formats.reviewJsonLd({ facts: { score: 7 }, items: [items[0]], url: '', base: 'https://s.test' }), null, 'a review must name a reviewable item')
+})
