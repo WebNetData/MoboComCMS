@@ -151,10 +151,13 @@ function TermTree({ nodes, active }: { nodes: TermNode[]; active?: number }) {
   const branch = (list: TermNode[], depth: number): ReactNode => <ul className={depth ? 'sp-subtree' : 'sp-tree'}>{list.map((node) => {
     const link = <Link href={node.path} className={node.id === active ? 'is-active' : ''} aria-current={node.id === active ? 'page' : undefined}>{depth === 0 && <Icon name={platformIcon(node.name)} />}<span>{node.name}</span></Link>
     return <li key={node.id}>
-      {node.children.length ? <details open={contains(node)}>
-        <summary>{link}<small>{num(node.count)}</small><Icon name="chevron" size={12} /></summary>
-        {branch(node.children, depth + 1)}
-      </details> : <div className="sp-leaf">{link}<small>{num(node.count)}</small></div>}
+      {node.children.length ? <div className="sp-branch">
+        <div className="sp-branch-head">{link}</div>
+        <details open={contains(node)}>
+          <summary aria-label={`${num(node.count)} نرم‌افزار، زیرشاخه‌های ${node.name}`}><small>{num(node.count)}</small><Icon name="chevron" size={12} /></summary>
+          {branch(node.children, depth + 1)}
+        </details>
+      </div> : <div className="sp-leaf">{link}<small>{num(node.count)}</small></div>}
     </li>
   })}</ul>
   return <>{branch(nodes, 0)}</>
@@ -190,12 +193,15 @@ export function SoftwareSidebar({ data, fa, active, terms, activeTerm, suggestio
       <h3><Icon name="folder" size={15} />دسته‌بندی‌ها <small>{num(data.total)}</small></h3>
       <ul className="sp-tree">{data.tree.map((node) => (
         <li key={node.platform}>
+          <div className="sp-branch">
+          <div className="sp-branch-head"><Link href={`/software/browse?platform=${encodeURIComponent(node.platform)}`} className={active?.platform === node.platform && !active?.category ? 'is-active' : ''}><Icon name={platformIcon(node.platform)} /><span dir="ltr">{node.platform}</span></Link></div>
           <details open={active?.platform === node.platform}>
-            <summary><Link href={`/software/browse?platform=${encodeURIComponent(node.platform)}`} className={active?.platform === node.platform && !active?.category ? 'is-active' : ''}><Icon name={platformIcon(node.platform)} /><span dir="ltr">{node.platform}</span></Link><small>{num(node.count)}</small><Icon name="chevron" size={12} /></summary>
+            <summary aria-label={`${num(node.count)} نرم‌افزار، زیرشاخه‌های ${node.platform}`}><small>{num(node.count)}</small><Icon name="chevron" size={12} /></summary>
             <ul className="sp-subtree">{node.categories.map((category) => (
               <li key={category.name}><div className="sp-leaf"><Link href={`/software/browse?platform=${encodeURIComponent(node.platform)}&category=${encodeURIComponent(category.name)}`} className={active?.platform === node.platform && active?.category === category.name ? 'is-active' : ''}><span>{category.name}</span></Link><small>{num(category.count)}</small></div></li>
             ))}</ul>
           </details>
+          </div>
         </li>
       ))}</ul>
     </nav>}

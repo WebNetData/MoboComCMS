@@ -64,7 +64,7 @@ The helper is `.mobocom/claude-tools/audit-public.cjs <label> <route…>`. It ru
 
 ## Open
 
-- **`nested-interactive` (12, all software):** the platform tree puts a link inside `<summary>`. Fixing it needs that tree's markup and styles reworked (a link plus a separate toggle).
+- **`nested-interactive` (12, all software): resolved 2026-10-26.** The trees (`TermTree` and the platform tree in `SoftwarePortal`) now give each branch a row link (`.sp-branch-head`) and its own disclosure: count plus chevron, named «N نرم‌افزار، زیرشاخه‌های …», placed where it was. axe reports 0 on the software pages, and `pw-software-tree` passes 4/4 (mouse, Enter, name, link).
 - **Main buttons:** they still carry white ink on the light accent (2.1:1 dark, 3.3:1 light). `--on-accent` is ready; switching `--on-primary` to it changes every main button's look, so it waits for the owner's decision.
 - **Images that can't be resized:** cinema pictures under `/files/download/…` and the demo SVGs are not site uploads; the cinema home is about 1.1 MB because of them.
 - The home canonical is set by the root layout; the audit's «no canonical» for `/` is its own false positive, from stripping the origin.
