@@ -52,7 +52,7 @@ const EPISODE_FIELDS: FieldDef[] = [
 
 const LINK_HINT = 'فهرست لینک‌ها ([{url, label, quality, size}]) یا یک نشانی؛ لینک‌های قبلی حفظ می‌شوند'
 
-type Options = { missingCategories: 'create' | 'error'; categorySeparator: string; defaultStatus: 'PUBLISHED' | 'DRAFT' }
+type Options = { missingCategories: 'create' | 'error'; categorySeparator: string; defaultStatus: 'PUBLISHED' | 'DRAFT'; formatId: number | null }
 const OPTIONS: OptionDef[] = [
   { key: 'categorySeparator', label: 'جداکنندهٔ سطح‌های دسته', type: 'select', step: 4, default: '>', choices: [{ value: '>', label: 'A > B' }, { value: '/', label: 'A / B' }, { value: '|', label: 'A | B' }] },
   { key: 'missingCategories', label: 'دستهٔ بخش موجود نیست', type: 'select', step: 4, default: 'create', choices: [{ value: 'create', label: 'ساخته شود' }, { value: 'error', label: 'خطا' }] },
@@ -62,9 +62,20 @@ const normalizeOptions = (raw: Record<string, unknown>): Options => ({
   missingCategories: raw.missingCategories === 'error' ? 'error' : 'create',
   categorySeparator: ['>', '/', '|'].includes(String(raw.categorySeparator)) ? String(raw.categorySeparator) : '>',
   defaultStatus: raw.defaultStatus === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
+  formatId: Number.isSafeInteger(Number(raw.formatId)) && Number(raw.formatId) > 0 ? Number(raw.formatId) : null,
 })
 
+/** Films and series: the owner's type (anime, documentary…) new rows get; empty = the structure's default type. */
+const FORMAT_OPTION: OptionDef = { key: 'formatId', label: 'نوع موارد جدید', type: 'select', step: 8, default: '', dynamic: true, hint: 'از انواعی که در «انواع» سینما ساخته‌اید؛ فقط انواع هم‌ساختار (فیلم یا سریال) این ورود نشان داده می‌شوند. موارد موجود نوعشان را نگه می‌دارند.' }
+
 type Row = Record<string, unknown> & { id: number; slug: string; title: string; titleEn: string; updatedAt: Date }
+
+/** A cinema type read once per run. */
+async function importFormat(ctx: ImportContext, id: number) {
+  const key = `format:${id}`
+  if (!ctx.cache.has(key)) ctx.cache.set(key, await db.cinemaFormat.findUnique({ where: { id }, select: { id: true, structure: true, active: true } }))
+  return ctx.cache.get(key) as { id: number; structure: string; active: boolean } | null
+}
 type EpisodePlan = { index: number; season: number; episode: number; values: Record<string, unknown>; existingId: number | null; seasonId: number | null }
 type Data = { existing: Row | null; values: Record<string, unknown>; paths: string[][]; episodes: EpisodePlan[] }
 
@@ -211,6 +222,12 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     }
     if (!existing) {
       Object.assign(body, spec.fixed || {})
+      // The chosen type, when it is active and of this importer's structure (otherwise the structure's default).
+      if (spec.resource === 'cinema-titles' && o.formatId) {
+        const format = await importFormat(ctx, o.formatId)
+        if (format && format.active && format.structure === (spec.fixed?.kind === 'SERIES' ? 'SERIES' : 'MOVIE')) body.formatId = format.id
+        else if (!ctx.cache.get('formatWarned')) { ctx.cache.set('formatWarned', true); messages.push({ level: 'warning', text: 'نوع انتخاب‌شده فعال یا هم‌ساختار نیست؛ موارد تازه نوع پیش‌فرض گرفتند.' }) }
+      }
       body.slug = await uniqueSlug(toText(allowed.slug, 100) || latinSlug(data.values.titleEn || data.values.originalTitle || data.values.title, 90) || `${spec.slugPrefix}-${suffixOf(planned.sourceKey || planned.title)}`)
       if (!('status' in body)) body.status = o.defaultStatus
     }
@@ -322,7 +339,13 @@ export function mediaAdapter(spec: MediaSpec): ImportAdapter {
     fields: spec.fields, variantFields: spec.episodes ? EPISODE_FIELDS : undefined, variantLabel: spec.episodes ? 'قسمت‌ها' : undefined,
     supports: { variants: !!spec.episodes },
     identity: ['شناسهٔ خارجی', ...(spec.naturalKey ? [spec.naturalKey === 'imdbId' ? 'شناسهٔ IMDb' : spec.naturalKey] : []), 'نامک (slug)', 'عنوان (و سال)'],
-    options: OPTIONS,
+    options: spec.resource === 'cinema-titles' ? [...OPTIONS, FORMAT_OPTION] : OPTIONS,
+    // The type choices: the owner's active types of this importer's structure.
+    choices: async (key: string) => {
+      if (key !== 'formatId' || spec.resource !== 'cinema-titles') return []
+      const formats = await db.cinemaFormat.findMany({ where: { active: true, structure: spec.fixed?.kind === 'SERIES' ? 'SERIES' : 'MOVIE' }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], select: { id: true, name: true, icon: true } })
+      return [{ value: '', label: 'خودکار (نوع پیش‌فرض)' }, ...formats.map((format) => ({ value: String(format.id), label: `${format.icon ? `${format.icon} ` : ''}${format.name}` }))]
+    },
     normalizeOptions: normalizeOptions as unknown as (raw: Record<string, unknown>) => Record<string, unknown>,
     implicitActive: (settings: ImportSettings) => (spec.episodes && settings.variants.mode !== 'none' ? ['episodes'] : []),
     prepare, plan, apply, rollback,

@@ -186,6 +186,17 @@ This handoff records where each section stands against those principles and cont
   - The new business block in `vocabulary.connected.cjs` passes.
   - Browser test `pw-business-categories` passes 8/8, with axe on the games and software lists pages in light mode.
 
+## Slice 7: the owner's cinema types in bulk imports (branch `feat/import-cinema-format-2026-10-27`)
+
+- **The new option.** The film and series importers have a «نوع موارد جدید» option. Its choices are the owner's active types of the importer's own structure, loaded through the wizard's existing dynamic choices.
+- **New rows only.** New rows take the chosen type; existing titles keep theirs.
+- **Wrong structure.** A type of the other structure (or an inactive one) is refused when importing too. Those rows get the structure's default type, with one warning per run.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 709/6.
+  - `imports.integration.cjs` (modules scope, run in the preview container) passes 6/6 with the new scenario: choices of the right structure, the type taken, and a series type refused for films.
+  - The wizard UI renders the option generically; its steps were not clicked through.
+
 ## Next
 
 Every section audited here now follows the three principles. What remains is to keep any new section to them. A post format's facts could also feed structured data (review rating), once the owner wants rich results.

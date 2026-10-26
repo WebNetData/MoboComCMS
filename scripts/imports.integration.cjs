@@ -388,6 +388,17 @@ async function magazineCinemaMusic() {
   r = await importFile('movies', `${m}-movies.json`, [{ id: `${m}-mv`, title: `Film ${m}`, imdb: 'tt9990001', year: 2024 }], { source: `imdb-${m}`, mapping: { externalId: 'id', title: 'title', imdbId: 'imdb', year: 'year' } })
   const movie = await db.cinemaTitle.findFirst({ where: { title: `Film ${m}` } })
   assert.equal(movie.kind, 'MOVIE')
+  // The owner's type for new rows: a film-structure type is taken; a series-structure one is refused for films.
+  const docType = await db.cinemaFormat.create({ data: { slug: `${m}-doc`, name: `مستند ${m}`, structure: 'MOVIE', sortOrder: 99 } })
+  const showType = await db.cinemaFormat.create({ data: { slug: `${m}-show`, name: `برنامه ${m}`, structure: 'SERIES', sortOrder: 99 } })
+  const typeChoices = ok(await view(`view=choices&adapter=movies&key=formatId`), 'type choices').choices.map((choice) => choice.value)
+  assert.ok(typeChoices.includes(String(docType.id)) && !typeChoices.includes(String(showType.id)), 'the film importer offers film-structure types only')
+  await importFile('movies', `${m}-typed.json`, [{ id: `${m}-doc1`, title: `Doc ${m}` }], { source: `imdb-${m}`, options: { formatId: String(docType.id) }, mapping: { externalId: 'id', title: 'title' } })
+  assert.equal((await db.cinemaTitle.findFirst({ where: { title: `Doc ${m}` } })).formatId, docType.id, 'a new film takes the chosen type')
+  await importFile('movies', `${m}-mistyped.json`, [{ id: `${m}-doc2`, title: `Mistyped ${m}` }], { source: `imdb-${m}`, options: { formatId: String(showType.id) }, mapping: { externalId: 'id', title: 'title' } })
+  const mistyped = await db.cinemaTitle.findFirst({ where: { title: `Mistyped ${m}` } })
+  assert.ok(mistyped.kind === 'MOVIE' && mistyped.formatId !== showType.id, 'a series type is not given to a film; it stays a film of the default type')
+  pass('the film importer gives new rows the chosen type of its own structure')
   const episodeUrl=`https://cdn.example.invalid/${m}/pilot.mkv`
   const seriesFile = [{ id: `${m}-sr`, title: `Series ${m}`, episodes: [{ season: 1, episode: 1, title: 'Pilot',summary:'<p><strong>Episode story</strong></p><script>bad()</script>',links:[{url:episodeUrl,quality:'1080p'}] }, { season: 1, episode: 2, title: 'Two' }, { season: 2, episode: 1, title: 'Back' }] }]
   const seriesSettings = { source: `imdb-${m}`, options:{copyAssets:false}, mapping: { externalId: 'id', title: 'title' }, variants: { mode: 'nested', source: 'episodes', groupBy: '' }, variantMapping: { season: 'episodes[].season', episode: 'episodes[].episode', title: 'episodes[].title',summary:'episodes[].summary',links:'episodes[].links' } }
@@ -524,6 +535,7 @@ async function cleanup(admin) {
   for (let i = 0; i < 3; i++) await db.postCategory.deleteMany({ where: { name: byMarker, children: { none: {} } } })
   const titles = await db.cinemaTitle.findMany({ where: { title: byMarker }, select: { id: true } })
   await db.cinemaTitle.deleteMany({ where: { id: { in: titles.map((t) => t.id) } } })
+  await db.cinemaFormat.deleteMany({ where: { slug: { startsWith: m } } })
   await db.musicArtist.deleteMany({ where: { name: byMarker } }) // albums and tracks cascade
   await db.importExternalRef.deleteMany({ where: { source: { contains: m } } })
   await db.importJob.deleteMany({ where: { fileName: byMarker } })
