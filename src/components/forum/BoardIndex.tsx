@@ -4,6 +4,7 @@ import { boardIndex } from '@/modules/forum/server/board'
 import ForumRow, { ForumRowsHead } from '@/components/forum/ForumRow'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, TimeAgo, compact, num } from '@/components/forum/shared'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 /** The forum's front page in the manner of a board index: sections of forums with their last post, and what is happening beside them. */
 export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
@@ -67,7 +68,7 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
           <ol className="fb-leaders">{board.contributors.map((row, index) => <li key={row.author.id}>
             <span className={`fb-rank is-${index + 1}`}>{num(index + 1)}</span>
             <Avatar author={row.author} size={36} />
-            <div><Link href={`/forum/u/${row.author.username}`}>{row.author.name}</Link>{row.author.title && <small>{row.author.title}</small>}</div>
+            <div><Link href={profileAddress(row.author.username)}>{row.author.name}</Link>{row.author.title && <small>{row.author.title}</small>}</div>
             <span className="fb-count">{num(row.posts)}<small>پیام</small></span>
           </li>)}</ol>
           <Link href="/forum/leaderboard" className="fb-widget-more">جدول برترین‌ها</Link>
@@ -76,7 +77,7 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
         <section className="fb-widget" aria-labelledby="fb-online">
           <h2 id="fb-online"><span className="fb-live" aria-hidden="true" />{num(board.stats.online)} نفر آنلاین</h2>
           {board.online.length > 0
-            ? <ul className="fb-online">{board.online.map((author) => <li key={author.id}><Link href={`/forum/u/${author.username}`} title={author.name}><Avatar author={author} size={34} /><span className="sr-only">{author.name}</span></Link></li>)}</ul>
+            ? <ul className="fb-online">{board.online.map((author) => <li key={author.id}><Link href={profileAddress(author.username)} title={author.name}><Avatar author={author} size={34} /><span className="sr-only">{author.name}</span></Link></li>)}</ul>
             : <p className="fx-muted fb-widget-note">{viewer.userId ? 'الان کسی جز شما اینجا نیست.' : 'برای دیدن اعضای حاضر وارد شوید.'}</p>}
         </section>
 
@@ -87,7 +88,7 @@ export default async function BoardIndex({ viewer }: { viewer: Viewer }) {
             <div><dt>پیام‌ها</dt><dd>{num(board.stats.posts)}</dd></div>
             <div><dt>اعضای فعال</dt><dd>{num(board.stats.members)}</dd></div>
           </dl>
-          {board.newest && <p className="fb-newest">تازه‌ترین عضو: <Link href={`/forum/u/${board.newest.username}`}>{board.newest.name}</Link> 👋</p>}
+          {board.newest && <p className="fb-newest">تازه‌ترین عضو: <Link href={profileAddress(board.newest.username)}>{board.newest.name}</Link> 👋</p>}
         </section>
       </aside>
     </div>

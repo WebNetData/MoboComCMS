@@ -12,6 +12,7 @@
  */
 
 import { POLL_BLOCK } from '@/modules/forum/domain/discourse'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 export interface MarkdownOptions {
   /** Render ![](url) as images (trust-level gated); otherwise as links. */
@@ -75,7 +76,7 @@ function inline(raw: string, tokens: Tokens, options: Required<MarkdownOptions>)
   }
   // 3. Mentions.
   text = text.replace(new RegExp(`(^|[^\\w@/])@(${USERNAME})\\b`, 'g'), (_m, before: string, name: string) =>
-    `${before}${tokens.put(`<a class="fr-mention" href="/forum/u/${name.toLowerCase()}">@${name}</a>`)}`)
+    `${before}${tokens.put(`<a class="fr-mention" href="${profileAddress(name.toLowerCase())}">@${name}</a>`)}`)
   // 4. Escape what is left, then emphasis (operating on escaped text is safe).
   text = escapeHtml(text)
   const wrap = (tag: string) => (_m: string, inner: string) => `<${tag}>${inner}</${tag}>`
@@ -101,7 +102,7 @@ function blocks(source: string, tokens: Tokens, options: Required<MarkdownOption
     `\n${tokens.put(`<pre><code${lang ? ` class="lang-${escapeHtml(lang)}"` : ''}>${escapeHtml(code)}</code></pre>`)}\n`)
   // Discourse-style attributed quotes (one level of nesting is rendered).
   text = text.replace(QUOTE_BLOCK, (_m, user: string, post: string | undefined, topic: string | undefined, inner: string) => {
-    const who = post && topic ? `<a href="/forum/t/${topic}#post-${post}">@${user}</a>` : `<a href="/forum/u/${user.toLowerCase()}">@${user}</a>`
+    const who = post && topic ? `<a href="/forum/t/${topic}#post-${post}">@${user}</a>` : `<a href="${profileAddress(user.toLowerCase())}">@${user}</a>`
     const body = depth < 2 ? blocks(inner, tokens, options, depth + 1) : escapeHtml(inner)
     return `\n${tokens.put(`<aside class="fr-quote"><div class="fr-quote-head">${who}:</div><blockquote>${body}</blockquote></aside>`)}\n`
   })

@@ -2,6 +2,7 @@
 
 import Link from '@/components/AppLink'
 import { useEffect, useState } from 'react'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Reports = {
   days: string[]
@@ -74,7 +75,7 @@ export default function ForumDashboard() {
     </div>
     <div className="fd-cols">
       <div className="card"><h3>داغ‌ترین موضوع‌ها</h3>{data.topTopics.length ? <ol className="fd-list">{data.topTopics.map((topic) => <li key={topic.id}><Link href={`/forum/t/${topic.id}`} target="_blank">{topic.title}</Link><small className="num">{fa(topic.replies)} پاسخ · {fa(topic.likes)} واکنش · {fa(topic.views)} بازدید</small></li>)}</ol> : <p className="muted">موضوعی در این بازه نیست.</p>}</div>
-      <div className="card"><h3>فعال‌ترین اعضا</h3>{data.contributors.length ? <ol className="fd-list">{data.contributors.map((user) => <li key={user.id}><Link href={`/forum/u/${user.username}`} target="_blank">{user.name}</Link><small className="num">{fa(user.posts)} پیام</small></li>)}</ol> : <p className="muted">هنوز فعالیتی نیست.</p>}</div>
+      <div className="card"><h3>فعال‌ترین اعضا</h3>{data.contributors.length ? <ol className="fd-list">{data.contributors.map((user) => <li key={user.id}><Link href={profileAddress(user.username)} target="_blank">{user.name}</Link><small className="num">{fa(user.posts)} پیام</small></li>)}</ol> : <p className="muted">هنوز فعالیتی نیست.</p>}</div>
       <div className="card"><h3>دسته‌ها</h3>{data.categories.length ? <ul className="fd-list">{data.categories.map((category) => <li key={category.id}><span><i className="fd-dot" style={{ background: category.color }} />{category.title}</span><small className="num">{fa(category.topics)} موضوع · {fa(category.posts)} پیام</small></li>)}</ul> : <p className="muted">—</p>}</div>
     </div>
   </section>

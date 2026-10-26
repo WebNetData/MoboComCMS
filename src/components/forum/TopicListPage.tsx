@@ -9,6 +9,7 @@ import { categoryLevels } from '@/modules/forum/server/moderation'
 import { forumModerators, subforumRows } from '@/modules/forum/server/board'
 import { CLUBS_SECTION, categoryFamily, categoryPath } from '@/modules/forum/domain/tree'
 import ForumRow, { ForumRowsHead } from '@/components/forum/ForumRow'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 const FILTER_TABS: { key: TopicFilter; label: string; personal?: boolean }[] = [
   { key: 'latest', label: 'آخرین' }, { key: 'top', label: 'برترین' }, { key: 'unread', label: 'خوانده‌نشده', personal: true }, { key: 'new', label: 'تازه', personal: true },
@@ -74,7 +75,7 @@ export default async function TopicListPage({ filter = 'latest', categorySlug, t
           <ForumRowsHead />
           <ul className="bi-forums">{children.map((child) => <ForumRow key={child.id} forum={child} />)}</ul>
         </section>}
-        {moderators.length > 0 && <p className="fc-mods"><span>مدیران این {children.length > 0 && !category.parentId ? 'بخش' : 'انجمن'}</span>{moderators.map((person) => <Link key={person.id} href={`/forum/u/${person.username}`}><Avatar author={person} size={26} />{person.name}</Link>)}</p>}
+        {moderators.length > 0 && <p className="fc-mods"><span>مدیران این {children.length > 0 && !category.parentId ? 'بخش' : 'انجمن'}</span>{moderators.map((person) => <Link key={person.id} href={profileAddress(person.username)}><Avatar author={person} size={26} />{person.name}</Link>)}</p>}
       </> : (
         <header className="fc-plain">
           <div>

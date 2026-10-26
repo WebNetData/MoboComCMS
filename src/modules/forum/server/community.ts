@@ -13,6 +13,7 @@ import {
 } from '@/modules/forum/domain/community'
 import { categoryFamily } from '@/modules/forum/domain/tree'
 import { forumRestrictionState } from '@/modules/forum/server/restrictions'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 // Shared forum services: settings, the current viewer (groups, trust level,
 // staff), profiles, counters, trust promotion, badges and notifications.
@@ -176,7 +177,7 @@ export async function refreshStats(userId: number) {
   const trustLevel = computeTrustLevel(profile.trustLevel, stats, settings, profile.trustLocked)
   await db.forumProfile.update({ where: { userId }, data: { topicCount, postCount, likesGiven, likesReceived, reputation, solvedCount, topicsEntered, trustLevel } })
   if (trustLevel > profile.trustLevel) {
-    await notify(userId, 'FORUM_TRUST', `trust:${userId}:${trustLevel}`, 'سطح اعتماد شما بالا رفت', `به سطح اعتماد ${trustLevel.toLocaleString('fa-IR')} رسیدید و امکانات بیشتری در تالار دارید.`, `/forum/u/${profile.username}`)
+    await notify(userId, 'FORUM_TRUST', `trust:${userId}:${trustLevel}`, 'سطح اعتماد شما بالا رفت', `به سطح اعتماد ${trustLevel.toLocaleString('fa-IR')} رسیدید و امکانات بیشتری در تالار دارید.`, profileAddress(profile.username))
   }
   await grantBadges(userId, {
     ...stats, reputation: profile.reputation, trustLevel, bestPostLikes: bestPost?.likeCount ?? 0, hasAvatar: !!profile.avatar, hasBio: profile.bio.trim().length >= 10,
@@ -218,7 +219,7 @@ async function grantBadges(userId: number, facts: Parameters<typeof earnedBadgeR
         db.forumUserBadge.create({ data: { userId, badgeId: badge.id, reason: 'automatic' } }),
         db.forumBadge.update({ where: { id: badge.id }, data: { grantCount: { increment: 1 } } }),
       ])
-      await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badge.id}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, badge.description, `/forum/u/${profile?.username || ''}?tab=badges`)
+      await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badge.id}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, badge.description, profileAddress(profile?.username || '', 'badges'))
     } catch (error) {
       if ((error as { code?: string })?.code !== 'P2002') throw error
     }
@@ -232,7 +233,7 @@ export async function setBadge(userId: number, badgeId: number, grant: boolean, 
     if (!created) return false
     const badge = await db.forumBadge.update({ where: { id: badgeId }, data: { grantCount: { increment: 1 } } })
     const profile = await db.forumProfile.findUnique({ where: { userId }, select: { username: true } })
-    await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badgeId}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, reason || badge.description, `/forum/u/${profile?.username || ''}?tab=badges`)
+    await notify(userId, 'FORUM_BADGE', `badge:${userId}:${badgeId}`, `نشان «${badge.name}» را گرفتید ${badge.icon}`, reason || badge.description, profileAddress(profile?.username || '', 'badges'))
     return true
   }
   const removed = await db.forumUserBadge.deleteMany({ where: { userId, badgeId } })

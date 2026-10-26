@@ -1,6 +1,7 @@
 import Link from '@/components/AppLink'
 import type { BoardForum } from '@/modules/forum/server/board'
 import { Avatar, TimeAgo, compact } from '@/components/forum/shared'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 const Bubble = () => <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" /><path d="M9 11h6M9 14h3" /></svg>
 
@@ -21,10 +22,10 @@ export default function ForumRow({ forum }: { forum: BoardForum }) {
     </dl>
     <div className="bi-last">
       {forum.last ? <>
-        <Link href={`/forum/u/${forum.last.author.username}`} className="bi-last-avatar" aria-label={`پروفایل ${forum.last.author.name}`}><Avatar author={forum.last.author} size={42} /></Link>
+        <Link href={profileAddress(forum.last.author.username)} className="bi-last-avatar" aria-label={`پروفایل ${forum.last.author.name}`}><Avatar author={forum.last.author} size={42} /></Link>
         <div>
           <Link href={`/forum/t/${forum.last.topicId}`} className="bi-last-title">{forum.last.title}</Link>
-          <small><Link href={`/forum/u/${forum.last.author.username}`}>{forum.last.author.name}</Link><span aria-hidden="true">·</span><TimeAgo date={forum.last.at} /></small>
+          <small><Link href={profileAddress(forum.last.author.username)}>{forum.last.author.name}</Link><span aria-hidden="true">·</span><TimeAgo date={forum.last.at} /></small>
         </div>
       </> : <small className="bi-last-empty">هنوز موضوعی ندارد<Link href={`/forum/new?category=${forum.slug}`}>اولین موضوع را بسازید</Link></small>}
     </div>

@@ -7,6 +7,7 @@ import { FORUM_RANK_LABELS } from '@/modules/forum/domain/community'
 import ForumShell from '@/components/forum/ForumShell'
 import { Avatar, UserName, num } from '@/components/forum/shared'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'جدول برترین‌ها', description: 'اعضایی که بیشترین اعتبار را گرفته‌اند، پرکارترین‌ها و محبوب‌ترین پیام‌ها', alternates: { canonical: toPublicPath('/forum/leaderboard') } }
@@ -21,7 +22,7 @@ function Board({ id, title, unit, rows, empty }: { id: string; title: string; un
     {!first ? <p className="fx-muted fl-empty">{empty}</p> : <>
       <div className="fl-first">
         <span className="fl-crown" aria-hidden="true">۱</span>
-        <Link href={`/forum/u/${first.author.username}`} className="fl-first-face" aria-label={`پروفایل ${first.author.name}`}><Avatar author={first.author} size={72} /></Link>
+        <Link href={profileAddress(first.author.username)} className="fl-first-face" aria-label={`پروفایل ${first.author.name}`}><Avatar author={first.author} size={72} /></Link>
         <div><UserName author={first.author} />{first.author.rank && <span className={`tp-rank is-${first.author.rank}`}>{FORUM_RANK_LABELS[first.author.rank]}</span>}</div>
         <p><b>{num(first.points)}</b><span>{unit}</span></p>
       </div>
@@ -67,7 +68,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       <h2 id="fl-past-title">برندگان روزهای گذشته</h2>
       <ul>{data.past.map((row) => <li key={row.day}>
         <small>{day(row.at)}</small>
-        <Link href={`/forum/u/${row.author.username}`} className="fl-past-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={52} /></Link>
+        <Link href={profileAddress(row.author.username)} className="fl-past-face" aria-label={`پروفایل ${row.author.name}`}><Avatar author={row.author} size={52} /></Link>
         <UserName author={row.author} />
         <span>{num(row.points)} اعتبار</span>
       </li>)}</ul>

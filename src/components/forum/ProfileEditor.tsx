@@ -3,6 +3,7 @@
 import { useRouter } from '@/platform/routing/navigation'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { profileAddress } from '@/modules/identity/domain/profile-address'
 
 type Initial = { username: string; bio: string; location: string; website: string; avatar: string; cover: string; title: string; primaryGroupId: number }
 
@@ -39,7 +40,7 @@ export default function ProfileEditor({ initial, name, avatarColor, groups, titl
     if (!response?.ok) { setMessage({ text: data?.error || 'ذخیره نشد', ok: false }); return }
     setMessage({ text: 'پروفایل ذخیره شد', ok: true })
     void update().catch(() => undefined)
-    router.push(`/forum/u/${data.username}`)
+    router.push(profileAddress(data.username, 'summary'))
     router.refresh()
   }
 
