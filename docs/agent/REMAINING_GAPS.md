@@ -15,6 +15,12 @@ The release checklist, backup/restore tooling and monitoring already exist. The 
 
 ## Confirmed feature gaps, in suggested implementation order
 
+Current2026-10-26: both reproduced Journal findings are resolved through exact
+transactional Post claims and existing Operations/Inbox decision intents.
+[Implementation, regression/fault evidence and rollout](handoffs/JOURNAL_REVIEW_RELIABILITY.md).
+The owner's six primary-button CSS edits remain separate and need their own
+browser acceptance. Do not reopen the fixed race or build another notice queue.
+
 | Priority | Gap | Existing owner and evidence | Safe next slice |
 |---|---|---|---|
 | 1 | Future custom module layouts remain beyond the verified templates/patterns/structural locks | 2026-10-20: pattern versions restore through History (PR210) and each writing role can have a default starting template (owner decision PLATFORM_DECISIONS 6X, `EditorRoleTemplate`, PR214). 2026-10-19: synced patterns and in-place pattern edits. Browser descriptors, live bounded rendering, manual selection, unknown/module-off retention and plugin-off public rendering are implemented; [continuation](handoffs/MODULE_BLOCKS_SETTINGS_HISTORY.md); [editor](../editor/ARCHITECTURE.md) | Audit a named new composition requirement before extending the existing registry. Shared LibraryPicker already exists; do not rebuild it or store catalogue snapshots. |

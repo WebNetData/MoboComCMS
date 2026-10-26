@@ -57,9 +57,12 @@ The feature deliberately does not do:
   - a version is recorded and the author gets an Inbox notice.
 - **Manager returns:** the status becomes `DRAFT`, with an optional note (at most 1000 characters) in the author's
   notice, and a version is recorded.
-- **Concurrency:** a decision is a compare-and-set on `status = 'PENDING'`. A second decision, or one on an article
-  that is no longer pending, gets 409 and writes nothing.
-- **A failed notice** is logged and never undoes the decision.
+- **Concurrency:** the transactional claim includes the server-read status, author and updatedAt. A changed
+  single save or decision gets409 with no nested writes; a bulk request reports a raced row failed and keeps
+  eligible results. Authors cannot overwrite a publication approved after their earlier request read.
+- **Delivery:** owner changes and a typed `journal.editorial-decision` intent commit together. A failed intent
+  or strict decision audit rolls them back; an Inbox failure after commit retries through existing Operations.
+  The captured decision UUID deduplicates Inbox/channel rows even after interrupted completion.
 
 ## Admin and public UI
 
@@ -156,3 +159,13 @@ Rollback leaves an unused table.
 - a replaced proposal decided.
 
 Browser `pw-journal-proposals` passes 13/13: the author form hides status, time and address and says «ارسال پیشنهاد ویرایش»; the save is a proposal and the live article stays; the dashboard, staff overview and filter list it; the diff panel shows both versions; apply changes the live article and the author is told.
+
+## Reliability follow-up — 2026-10-26
+
+The new native `journal-review-reliability` suite covers actual single/bulk
+approval interleavings, content-version/owner changes, fresh proposal retry,
+Operations backoff/completion, interrupted Inbox/channel dedupe, transactional
+intent/audit rollback and the existing100-item batch. Current implementation,
+executed evidence and rollout limits: [continuation](../../agent/handoffs/JOURNAL_REVIEW_RELIABILITY.md).
+Older browser results above are historical; no fresh browser run is claimed for
+the backend-only reliability fix.

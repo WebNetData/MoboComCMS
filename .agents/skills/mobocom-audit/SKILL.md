@@ -62,6 +62,8 @@ do not query an older root graph as this checkout's source. Separate measured
 local data from production traffic, and21 named history owners from arbitrary
 Admin/financial/secret rollback. Existing module owners and guards remain.
 
+For article-review/proposal state races and decision delivery, continue `docs/agent/handoffs/JOURNAL_REVIEW_RELIABILITY.md`; these intents are distinct from comment publication notices.
+
 <!-- mobocom-whole-site-quality-skill:start -->
 ## Whole-site quality routing
 

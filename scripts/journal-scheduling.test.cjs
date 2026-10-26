@@ -67,7 +67,8 @@ test('admin post create and edit preserve schedules and reject ambiguous dates',
   const db = {
     post: {
       create: async ({ data }) => { created = data; return { id: 7, ...data } },
-      findUnique: async () => ({ id: 7, status: 'PUBLISHED', publishedAt: new Date(scheduled), title: 'Scheduled article', categories: [] }),
+      findUnique: async () => ({ id: 7, authorId: null, status: 'PUBLISHED', updatedAt: new Date('2026-10-01T00:00:00Z'), publishedAt: new Date(scheduled), title: 'Scheduled article', categories: [] }),
+      updateMany: async () => ({ count: 1 }),
       update: async ({ data }) => { updated = data; return { id: 7, status: 'PUBLISHED', publishedAt: new Date(scheduled), ...data } },
     },
     $transaction: async (fn) => fn(db),

@@ -17,6 +17,7 @@ type Handler = (payload: Record<string, unknown>, job: {
 
 /** Job kinds. Each handler loads its module lazily, so the queue has no import-time cost. */
 const HANDLERS: Record<string, { run: Handler }> = {
+  'journal.editorial-decision': { run: async payload => (await import('@/modules/journal/server/review-notifications')).deliverReviewDecision(payload) },
   'journal.comment-published': { run: async payload => {
     const id = Number(payload.commentId)
     if (!Number.isSafeInteger(id) || id <= 0 || !['moderator', 'auto'].includes(String(payload.by))) throw new Error('Invalid comment notification intent')

@@ -108,6 +108,8 @@ async function main() {
   // ---- versions, audit and the author's notices
   assert.ok(await prisma.contentRevision.count({ where: { entityType: 'posts', entityId: draftId } }) >= 3, 'the decision is a version')
   assert.deepEqual((await prisma.auditLog.findMany({ where: { targetType: 'posts', targetId: { in: [String(draftId), String(returnedId)] }, action: { startsWith: 'cms.posts.review.' } }, orderBy: { id: 'asc' } })).map((row) => row.action), ['cms.posts.review.approve', 'cms.posts.review.return'])
+  assert.equal(await prisma.userNotification.count({ where: { userId: author.id, kind: 'POST_REVIEW' } }), 0, 'decisions commit their intent before delivery')
+  await require('./connected-editorial-notices.cjs')(load, prisma, author.id)
   const notices = await prisma.userNotification.findMany({ where: { userId: author.id, kind: 'POST_REVIEW' }, orderBy: { id: 'asc' } })
   assert.equal(notices.length, 4, 'approve, schedule approve, return and the batch approval each tell the author')
   assert.ok(notices.some((notice) => (notice.bodyFa || '').includes('منبع را اضافه کنید')), 'the note reaches the author')

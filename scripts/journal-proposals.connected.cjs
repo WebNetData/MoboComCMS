@@ -102,6 +102,8 @@ async function main() {
   // ---- audit and notices
   assert.deepEqual((await prisma.auditLog.findMany({ where: { targetType: 'posts', targetId: String(live.id), action: { startsWith: 'cms.posts.proposal.' } }, orderBy: { id: 'asc' } })).map((a) => a.action),
     ['cms.posts.proposal.submit', 'cms.posts.proposal.submit', 'cms.posts.proposal.submit', 'cms.posts.proposal.apply', 'cms.posts.proposal.submit', 'cms.posts.proposal.reject', 'cms.posts.proposal.submit', 'cms.posts.proposal.reject'])
+  assert.equal(await prisma.userNotification.count({ where: { userId: author.id, kind: 'POST_REVIEW' } }), 0, 'proposal decisions queue delivery atomically')
+  await require('./connected-editorial-notices.cjs')(load, prisma, author.id)
   const notices = await prisma.userNotification.findMany({ where: { userId: author.id, kind: 'POST_REVIEW' }, orderBy: { id: 'asc' } })
   assert.deepEqual(notices.map((n) => n.titleFa), ['پیشنهاد ویرایش شما اعمال شد', 'پیشنهاد ویرایش شما پذیرفته نشد', 'پیشنهاد ویرایش شما پذیرفته نشد'])
   assert.ok(notices[1].bodyFa.includes('عنوان فعلی بهتر است'), 'the note reaches the author')
