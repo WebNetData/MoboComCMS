@@ -203,6 +203,16 @@ async function main() {
   assert.deepEqual([await uses('games', 'GENRE', soulslike.id), await uses('games', 'ENGINE', godot.id)], [1, 0], 'genre and engine uses are counted')
   await refused(vocab.deleteEntry('games', soulslike.id, audit), /را دارند/, 409)
 
+  // ---- a film's genres, countries and languages: the owner's names; an English name from an import maps to its entry
+  const noir = await vocab.createEntry('cinema', { list: 'GENRE', code: `نوآر ${seed}`, nameEn: `Noir ${seed}` }, audit)
+  const { row: filmLists } = await saveTitle({ title: `${seed} lists`, slug: `${seed}-film-lists`, genres: `Drama, noir ${seed}, Unknown Genre`, countries: 'United States، ایران', languages: 'english, Klingon' })
+  assert.deepEqual([filmLists.genres, filmLists.countries, filmLists.languages], [`درام, نوآر ${seed}`, 'ایران, آمریکا', 'انگلیسی'], 'English names (any case) map to the owner\'s entries, in list order; unknown names are dropped')
+  await vocab.updateEntry('cinema', noir.id, { active: false }, audit)
+  assert.equal((await saveTitle({ genres: `نوآر ${seed}, کمدی` }, filmLists.id)).row.genres, `نوآر ${seed}, کمدی`, 'a title keeps a genre the owner later deactivated')
+  assert.equal((await saveTitle({ title: `${seed} lists 2`, slug: `${seed}-film-lists-2`, genres: `Noir ${seed}` })).row.genres, '', 'a deactivated genre is not given to another title, not even by its English name')
+  assert.equal(await uses('cinema', 'GENRE', noir.id), 1)
+  await refused(vocab.deleteEntry('cinema', noir.id, audit), /را دارند/, 409)
+
   // ---- magazine formats: each of a family; a post keeps a known format (or the one it had); facts merge into the stored ones
   const journalFormats = load('src/modules/journal/server/formats.ts')
   assert.equal((await vocab.allLists('journal')).POST_FORMAT.find((entry) => entry.code === 'GUIDE')?.family, 'ARTICLE', 'a guide is an article-family format')

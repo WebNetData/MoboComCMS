@@ -22,7 +22,7 @@ import { legacyNumber, normalizeCurrency, toMinor, BASE_CURRENCY } from '@/share
 import { cleanLinks, cleanRecords, cleanRequirements, joinList, normalizeLicense, slugOf, splitList, type LinkOwner } from '@/modules/media/domain/media'
 import { PRICED_LINK_OWNERS, normalizeLinkPrice } from '@/modules/paywall/domain/paywall'
 import { cleanCodes, cleanReleases, cleanStoreLinks, codesOf } from '@/modules/games/domain/games'
-import { knownCodes, knownLinkAudio } from '@/modules/vocabulary/server/vocabulary'
+import { knownCodes, knownLinkAudio, knownNames } from '@/modules/vocabulary/server/vocabulary'
 import { normalizeAccess, parsePerks } from '@/modules/membership/domain/membership'
 import { assignTerms, assignmentsFor, projectedTermFields, recount, removeOwner } from '@/modules/taxonomy/server/taxonomy'
 import { imdbIdentifier } from '@/modules/cinema/domain/metadata'
@@ -631,6 +631,11 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     // Codes of the owner's managed lists: a game's modes and localisations, a software title's licence. A code the
     // item already had stays even when inactive; an unknown licence keeps the one it had (a new title: free).
     const before = existing as Record<string, string> | null
+    // A film's genres, countries and languages are names of the owner's lists; an English name (from an import) is
+    // saved as the entry it names, anything unknown is dropped (an entry the title already had stays).
+    if (type === 'cinema-titles') for (const [key, list] of [['genres', 'GENRE'], ['countries', 'COUNTRY'], ['languages', 'LANGUAGE']] as const) {
+      if (typeof data[key] === 'string') data[key] = (await knownNames(tx, 'cinema', list, splitList(data[key] as string, 10), splitList(before?.[key] ?? '', 10))).join(', ')
+    }
     // A game's genres and engine are names of the owner's lists (or what the game already had).
     if (type === 'games' && typeof data.genres === 'string') data.genres = (await knownCodes(tx, 'games', 'GENRE', splitList(data.genres as string, 8), splitList(before?.genres ?? '', 8))).join(', ')
     if (type === 'games' && typeof data.engine === 'string') data.engine = data.engine ? (await knownCodes(tx, 'games', 'ENGINE', [data.engine as string], before?.engine ? [before.engine] : []))[0] ?? before?.engine ?? '' : ''

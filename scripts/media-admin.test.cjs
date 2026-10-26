@@ -287,3 +287,13 @@ test('games pick genres and engines from name lists; usage reads both', () => {
   const game = { platforms: '', modes: '', localization: '', storeLinks: '[]', releases: '[]', genres: 'اکشن، نقش‌آفرینی', engine: 'Unity' }
   assert.deepEqual([usage.gameUses(game, 'GENRE', 'نقش‌آفرینی'), usage.gameUses(game, 'GENRE', 'ورزشی'), usage.gameUses(game, 'ENGINE', 'Unity'), usage.gameUses(game, 'ENGINE', 'Unit')], [true, false, true, false], 'either comma; whole names only')
 })
+
+test('film genres, countries and languages are name lists whose English names map imports', () => {
+  const lists = load('src/modules/cinema/domain/vocabulary').CINEMA_LISTS
+  assert.deepEqual(lists.map((list) => [list.list, list.codeRule]), [['GENRE', 'name'], ['COUNTRY', 'name'], ['LANGUAGE', 'name']])
+  for (const list of lists) {
+    assert.ok(list.seeds.every(([code, , english]) => code && english && !code.includes(',')), `${list.list}: every seed has an English name for imports`)
+    const english = list.seeds.map(([, , name]) => name.toLowerCase())
+    assert.equal(new Set(english).size, english.length, `${list.list}: English names are unique`)
+  }
+})

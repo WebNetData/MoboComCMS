@@ -12,7 +12,7 @@ This handoff records where each section stands against those principles and cont
 
 | Section | Pick from lists | Fields by type | Owner's types and lists | Gaps |
 |---|---|---|---|---|
-| Cinema | People (`PeoplePicker`) | By format structure (film or series) | Formats (`CinemaFormat`) | Reference; done. |
+| Cinema | People (`PeoplePicker`); genres, countries, languages (**slice 5**) | By format structure (film or series) | Formats (`CinemaFormat`), genre/country/language lists | — |
 | Games | Platforms, stores, modes, localisation; developer and publisher (slice 1); genres and engine (**slice 4**) | Release per platform | Lists (`GAME_LISTS`) | — |
 | Software | Licence. Platforms, app stores, developer and publisher: **this slice** | Desktop or mobile, by platform family: **this slice** | Licence, platform, app store | — |
 | Music | Artist and album. Credits from the artists: **slice 2** | Release type per album: **slice 2** | Genre, release type, credit role: **slice 2** | — |
@@ -151,6 +151,23 @@ This handoff records where each section stands against those principles and cont
   - New unit tests pass.
   - The PostgreSQL games block in `vocabulary.connected.cjs` passes.
   - Browser test `pw-games-lists` passes 9/9, including axe in dark and light and phone width. `pw-game-vocabulary` passes, updated for six lists.
+
+## Slice 5: cinema genres, countries and languages (branch `feat/cinema-lists-2026-10-27`, stacked on slice 4)
+
+- **Three new name lists** for films and series, on the «ژانر، کشور و زبان» tab: genres, countries and languages.
+  - They are seeded with the common ones, each with its English name.
+  - Migration `20270124120000_cinema_lists` adopts the names titles already use and widens the code check.
+- **The title form** picks all three as chips.
+- **Saving uses `knownNames`,** a name matcher shared by all sections:
+  - a value matches an entry by its code or its English name, case-insensitive, and is saved as the code. So an IMDb or Cinemeta import that brings «Drama» or «United States» lands on «درام» or «آمریکا». Imports save through the same path.
+  - Unknown names are dropped, and a deactivated entry stays only where it already was.
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 708/6.
+  - A new unit test checks that every seed has a unique English alias.
+  - The PostgreSQL cinema block in `vocabulary.connected.cjs` covers English aliases in any case, list order, unknown names dropped and a deactivated entry kept.
+  - The existing PostgreSQL cinema suites pass: formats, discovery, people, people-admin.
+  - Browser test `pw-cinema-lists` passes 9/9, and `pw-cinema-form` passes.
 
 ## Next
 
