@@ -677,12 +677,10 @@ tr.is-off { opacity: .6; }
 .pck-totals { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .pck-half header { flex-wrap: wrap; }
 .pck-half header .sa-link { margin-inline-start: auto; font-size: 12.5px; }
-.pck-tree details > summary { list-style: none; cursor: pointer; }
-.pck-tree details > summary::-webkit-details-marker { display: none; }
-.pck-tree details > summary .pck-name::before { content: '▸'; display: inline-block; margin-inline-end: 6px; color: var(--muted); transition: transform .2s ease; }
-[dir=rtl] .pck-tree details > summary .pck-name::before { content: '◂'; }
-.pck-tree details[open] > summary .pck-name::before { transform: rotate(-90deg); }
-[dir=rtl] .pck-tree details[open] > summary .pck-name::before { transform: rotate(90deg); }
+.pck-fold { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--text); font-size: 12px; line-height: 1; cursor: pointer; }
+.pck-fold:hover { border-color: var(--w); color: var(--w); }
+.pck-fold:focus-visible { outline: 2px solid var(--w); outline-offset: 2px; }
+.pck-fold.is-leaf { border-color: transparent; background: none; color: var(--muted); cursor: default; }
 .pck-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .pck-name { display: inline-flex; align-items: center; gap: 8px; }
 .pck-name img { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; }

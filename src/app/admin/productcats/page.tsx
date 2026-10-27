@@ -19,26 +19,30 @@ function subtreeCount(rows: Row[], id: number, seen = new Set<number>()): number
   return own + rows.filter((row) => row.parentId === id).reduce((sum, row) => sum + subtreeCount(rows, row.id, seen), 0)
 }
 
-/** One category with its own actions, then its children (folded below the first level). */
+/** One category with its own actions, then its children (folded below the first level by a button of its own). */
 function Node({ row, rows, groups, depth, fa }: { row: Row; rows: Row[]; groups: Group[]; depth: number; fa: boolean }) {
   const children = rows.filter((item) => item.parentId === row.id)
+  const [open, setOpen] = useState(depth === 0)
   const group = groups.find((item) => item.id === row.attributeGroupId)
   const total = subtreeCount(rows, row.id)
-  const head = <span className="pck-row">
-    <span className="pck-name">{row.image && <img src={row.image} alt="" loading="lazy" />}{row.name}</span>
-    <small className="pck-count" title={fa ? 'کالا در این دسته و زیردسته‌هایش' : 'Products here and below'}>{faNum(total)} {fa ? 'کالا' : 'items'}</small>
-    {children.length > 0 && <small className="pck-kids">{faNum(children.length)} {fa ? 'زیردسته' : 'sub'}</small>}
-    {group && <small className="pck-group">{group.name}</small>}
-    <span className="pck-acts">
-      <a href={`?edit=${row.id}`} className="sa-link">{fa ? 'ویرایش' : 'Edit'}</a>
-      {depth < 4 && <a href={`?new=1&parentId=${row.id}`} className="sa-link">{fa ? '+ زیردسته' : '+ Sub'}</a>}
-      <a href={`/products?category=${encodeURIComponent(row.slug)}`} className="sa-link" target="_blank" rel="noreferrer">{fa ? 'نمایش' : 'View'}</a>
+  const listId = `pck-children-${row.id}`
+  return <li>
+    <span className="pck-row">
+      {children.length > 0 && depth <= 5
+        ? <button type="button" className="pck-fold" aria-expanded={open} aria-controls={listId} aria-label={`${open ? (fa ? 'بستن' : 'Fold') : (fa ? 'باز کردن' : 'Unfold')} ${row.name}`} onClick={() => setOpen(!open)}>{open ? '▾' : '◂'}</button>
+        : <span className="pck-fold is-leaf" aria-hidden="true">•</span>}
+      <span className="pck-name">{row.image && <img src={row.image} alt="" loading="lazy" />}{row.name}</span>
+      <small className="pck-count" title={fa ? 'کالا در این دسته و زیردسته‌هایش' : 'Products here and below'}>{faNum(total)} {fa ? 'کالا' : 'items'}</small>
+      {children.length > 0 && <small className="pck-kids">{faNum(children.length)} {fa ? 'زیردسته' : 'sub'}</small>}
+      {group && <small className="pck-group">{group.name}</small>}
+      <span className="pck-acts">
+        <a href={`?edit=${row.id}`} className="sa-link" aria-label={`${fa ? 'ویرایش' : 'Edit'} ${row.name}`}>{fa ? 'ویرایش' : 'Edit'}</a>
+        {depth < 4 && <a href={`?new=1&parentId=${row.id}`} className="sa-link" aria-label={`${fa ? '+ زیردسته برای' : '+ Sub for'} ${row.name}`}>{fa ? '+ زیردسته' : '+ Sub'}</a>}
+        <a href={`/products?category=${encodeURIComponent(row.slug)}`} className="sa-link" target="_blank" rel="noreferrer" aria-label={`${fa ? 'نمایش' : 'View'} ${row.name}`}>{fa ? 'نمایش' : 'View'}</a>
+      </span>
     </span>
-  </span>
-  if (!children.length || depth > 5) return <li>{head}</li>
-  return <li><details open={depth === 0}><summary>{head}</summary>
-    <ul className="pck-sub">{children.map((child) => <Node key={child.id} row={child} rows={rows} groups={groups} depth={depth + 1} fa={fa} />)}</ul>
-  </details></li>
+    {children.length > 0 && depth <= 5 && open && <ul className="pck-sub" id={listId}>{children.map((child) => <Node key={child.id} row={child} rows={rows} groups={groups} depth={depth + 1} fa={fa} />)}</ul>}
+  </li>
 }
 
 export default function AdminProductCatsPage() {
