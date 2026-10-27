@@ -207,7 +207,7 @@ function orderDetailView(order: NonNullable<DetailOrder> | (OrderWithLines & {
     shipping: minorToNumber(shippingMinor, cur),
     shippingMethod: meta.shipping && typeof meta.shipping === 'object' ? (() => {
       const m = meta.shipping as Record<string, unknown>
-      return { carrierId: String(m.carrierId || ''), carrierName: String(m.carrierName || ''), eta: String(m.eta || ''), weightGrams: Number(m.weightGrams) || 0 }
+      return { carrierId: String(m.carrierId || ''), carrierName: String(m.carrierName || ''), collect: m.collect === true, eta: String(m.eta || ''), weightGrams: Number(m.weightGrams) || 0 }
     })() : null,
     total: minorToNumber(order.totalMinor, cur),
     walletApplied: order.invoice ? minorToNumber(order.invoice.walletAppliedMinor, cur) : 0,

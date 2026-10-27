@@ -650,3 +650,14 @@ tr.is-off { opacity: .6; }
   .sa-cards td.sa-card-foot { padding-top: 10px !important; border-top: 1px dashed var(--sa-line) !important; }
   .sa-cards .sa-product-cell { min-width: 0; }
 }
+
+/* Carrier editor groups: routes and places, fee, conditions; hand-set fees per place; adding from a template. */
+.cr-group { display: grid; gap: 10px; margin: 0; padding: 10px 12px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.cr-group legend { padding: 0 6px; font-weight: 800; font-size: 13px; }
+.cr-zones { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.cr-place-fees { display: grid; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.cr-place-fee { display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+.cr-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 10px; }
+.cr-add .sa-field { flex: 1 1 220px; margin: 0; }
+.sa-hint.is-warn { color: var(--admin-danger-text, #b42318); }
+@media (max-width: 640px) { .cr-place-fee { grid-template-columns: 80px minmax(0, 1fr); } }

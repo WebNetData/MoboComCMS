@@ -13,7 +13,7 @@ import { WEEKDAY_FA, type ScheduleDay } from '@/modules/shipping/domain/shipping
 
 type Delivery = { enabled: boolean; days: ScheduleDay[] }
 type CarrierOption =
-  | { ok: true; carrierId: string; name: string; kind: string; zone: string; fee: number; eta: string; scheduled: boolean; free: boolean; note: string; freeBy?: string }
+  | { ok: true; carrierId: string; name: string; kind: string; zone: string; fee: number; eta: string; scheduled: boolean; free: boolean; note: string; freeBy?: string; collect?: boolean }
   | { ok: false; carrierId: string; name: string; reason: string }
 const ZONE_FA: Record<string, string> = { city: 'درون‌شهری', province: 'درون‌استانی', country: 'برون‌استانی' }
 
@@ -172,7 +172,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
                   <b>{o.name}</b>
                   <small className="sh-muted">{o.scheduled ? 'تحویل در روز و ساعت انتخابی' : `تحویل ${o.eta}`} · {ZONE_FA[o.zone] || o.zone}{o.note ? ` · ${o.note}` : ''}</small>
                 </div>
-                <span className="sh-carrier-fee">{o.fee > 0 ? <Amount value={o.fee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}{o.freeBy && <small className="sh-free-by">{o.freeBy}</small>}</span>
+                <span className="sh-carrier-fee">{o.collect ? <><span className="sh-collect">پس‌کرایه</span>{o.fee > 0 && <small className="sh-free-by">+ <Amount value={o.fee} currency={cart.currency} /> همین حالا</small>}</> : o.fee > 0 ? <Amount value={o.fee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}{o.freeBy && <small className="sh-free-by">{o.freeBy}</small>}</span>
               </label> : <div key={o.carrierId} className="sh-option sh-carrier is-off" aria-disabled="true">
                 <div className="sh-carrier-body"><b>{o.name}</b><small className="sh-muted">{o.reason}</small></div>
               </div>)}
@@ -229,7 +229,7 @@ export default function CartCheckout({ cart, delivery, gateways }: { cart: Cart;
         <dl className="sh-totals">
           <div><dt>قیمت کالاها</dt><dd><Amount value={cart.listTotal} currency={cart.currency} /></dd></div>
           {cart.saving > 0 && <div className="sx-save-row"><dt>سود شما</dt><dd>−<Amount value={cart.saving} currency={cart.currency} /></dd></div>}
-          {physical && <div><dt>هزینهٔ ارسال{carrier && <small className="sh-muted"> ({carrier.name})</small>}</dt><dd>{byCarrier && !carrier ? <span className="sh-muted">—</span> : shippingFee > 0 ? <Amount value={shippingFee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</dd></div>}
+          {physical && <div><dt>هزینهٔ ارسال{carrier && <small className="sh-muted"> ({carrier.name})</small>}</dt><dd>{byCarrier && !carrier ? <span className="sh-muted">—</span> : carrier?.collect ? <span className="sh-collect">پس‌کرایه{shippingFee > 0 && <> + <Amount value={shippingFee} currency={cart.currency} /></>}</span> : shippingFee > 0 ? <Amount value={shippingFee} currency={cart.currency} /> : <span className="sh-free">رایگان</span>}</dd></div>}
           {balance > 0 && <div><dt>از کیف پول</dt><dd>−<Amount value={Math.min(balance, total)} currency={cart.currency} /></dd></div>}
           <div className="sh-total"><dt>مبلغ قابل پرداخت</dt><dd><Amount value={Math.max(0, total - balance)} currency={cart.currency} /></dd></div>
         </dl>

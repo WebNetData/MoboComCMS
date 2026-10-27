@@ -17,6 +17,13 @@ Owner request: the store should have the features of a professional shop like Di
   - the contrast of the upcoming checkout step and of grey text on the selected carrier.
 - **Owner action:** at `/admin/shipping-carriers`, set the origin to مازندران / قائم‌شهر and turn carriers on. The default is Tehran and off.
 
+**Full shipping control**, branch `feat/shipping-full-control-2026-10-27` (stacked on the free-shipping branch); decision in PLATFORM_DECISIONS §6B.
+- Domain: `carriers.ts` (`zones`, `placeMode`, `pricing`, `placeFees`, `extraRial`, order range, `placeAllowed`, `carrierFee`, `CARRIER_PRESETS`/`presetCarrier`).
+- Admin: `src/app/admin/shipping-carriers/CarrierEditor.tsx`. Checkout and order views show «پس‌کرایه».
+- Evidence:
+  - unit tests in `scripts/shipping-carriers.test.cjs`;
+  - browser script `.mobocom/claude-tools/pw-shipping-control.cjs`.
+
 ## Audit: what already exists
 
 Wishlist, compare, reviews, variants, bundles, coupons, VIP prices, digital codes, returns, delivery slots, carriers, invoices and abandoned-cart reminders all exist. Treat these as present, not as gaps.

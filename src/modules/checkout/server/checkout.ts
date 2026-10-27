@@ -303,7 +303,7 @@ export async function executeCheckout(command: CheckoutCommand): Promise<Checkou
       throw error
     }
     shippingMinor = carrier.feeMinor
-    meta = { ...meta, shipping: { carrierId: carrier.carrierId, carrierName: carrier.name, zone: carrier.zone, weightGrams: carrier.weightGrams, eta: carrier.eta } }
+    meta = { ...meta, shipping: { carrierId: carrier.carrierId, carrierName: carrier.name, zone: carrier.zone, weightGrams: carrier.weightGrams, eta: carrier.eta, ...(carrier.collect ? { collect: true } : {}) } }
     amountMinor += shippingMinor
     amount = legacyNumber(amountMinor, currency)
   } else if (productId && meta.productKind === 'PHYSICAL') {

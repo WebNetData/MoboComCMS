@@ -14,7 +14,7 @@ type CarrierRow = { id: string; name: string; enabled: boolean }
 const NEXT_LABEL: Record<string, string> = { PICKED_UP: 'تحویل مرسوله‌رسان شد', IN_TRANSIT: 'در مسیر', OUT_FOR_DELIVERY: 'در حال توزیع', DELIVERED: 'تحویل گیرنده شد', RETURNED: 'برگشت خورد', CANCELLED: 'ابطال بارنامه' }
 
 /** Waybill on the order page: issue it, add the carrier's tracking code, follow the parcel, print the label. */
-export default function ShipmentPanel({ orderId, method, canIssue, onChanged }: { orderId: number; method: { carrierId: string; carrierName: string; eta: string; weightGrams: number } | null; canIssue: boolean; onChanged: () => void }) {
+export default function ShipmentPanel({ orderId, method, canIssue, onChanged }: { orderId: number; method: { carrierId: string; carrierName: string; eta: string; weightGrams: number; collect?: boolean } | null; canIssue: boolean; onChanged: () => void }) {
   const [shipment, setShipment] = useState<Shipment | null | undefined>(undefined)
   const [carriers, setCarriers] = useState<CarrierRow[]>([])
   const [form, setForm] = useState({ carrier: method?.carrierId || '', trackingCode: '', weightGrams: method?.weightGrams ? String(method.weightGrams) : '', parcels: '1', costRial: '', note: '' })
@@ -57,7 +57,7 @@ export default function ShipmentPanel({ orderId, method, canIssue, onChanged }: 
   if (!shipment) {
     if (!canIssue) return null
     return <section className="sa-card sa-form sa-noprint">
-      <header className="sa-card-head"><h2>صدور بارنامه</h2>{method && <small>انتخاب مشتری: {method.carrierName}{method.eta && ` · ${method.eta}`}</small>}</header>
+      <header className="sa-card-head"><h2>صدور بارنامه</h2>{method && <small>انتخاب مشتری: {method.carrierName}{method.eta && ` · ${method.eta}`}{method.collect && ' · پس‌کرایه (کرایه با گیرنده)'}</small>}</header>
       <div className="sa-grid">
         <label className="sa-field"><span>شرکت حمل</span><select className="select" value={form.carrier} onChange={(e) => setForm({ ...form, carrier: e.target.value })}>{carriers.map((item) => <option key={item.id} value={item.id}>{item.name}{item.enabled ? '' : ' (غیرفعال در سایت)'}</option>)}</select></label>
         <label className="sa-field"><span>کد رهگیری شرکت حمل (اختیاری)</span><input className="input" dir="ltr" value={form.trackingCode} onChange={(e) => setForm({ ...form, trackingCode: e.target.value })} placeholder="بعداً هم می‌توانید وارد کنید" /></label>
