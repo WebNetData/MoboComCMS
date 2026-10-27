@@ -237,6 +237,15 @@ test('cinema, games, software and the forum take the width of the header and are
   assert.deepEqual(imports.slice(-2), ['sections-wide.css', 'selects.css'])
   for (const section of ['cinema', 'games', 'software', 'forum']) assert.ok(css.includes(`.md-${section} .container:not(.mm-bar)`), section)
   assert.match(css, /width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\); max-width: none; padding-inline: 0; \}/)
+  // Every page (owner, 2026-10-27): 95–98% of the window. A page's column takes the theme's width, a column inside
+  // another fills it, and the panels fill the space beside their menu.
+  assert.match(css, /html\[data-design="mobocom"\] \.container:not\(\.mm-bar\) \{ width: var\(--mb-chrome\); max-width: none; padding-inline: 0; \}/)
+  assert.match(css, /html\[data-design="mobocom"\] :is\(\.container, \.app-main\) \.container:not\(\.mm-bar\) \{ width: 100%; \}/)
+  assert.match(css, /html\[data-design\] \.app-shell \.app-main, \.app-main > \.container, \.app-main > main \{ max-width: none; \}/)
+  for (const file of ['src/themes/code/mobocom/theme.css', 'src/themes/generated.css']) {
+    assert.ok(read(file).includes('html[data-design="mobocom"] { --mb-chrome: min(97%, 100% - 32px); }'), file)
+    assert.ok(read(file).includes('@media (max-width: 620px) { html[data-design="mobocom"] { --mb-chrome: calc(100% - 20px); } }'), file)
+  }
   // A short shelf takes half a row with its cards capped (a poster never grows into a billboard); full shelves share the width.
   assert.match(css, /\.md-cinema \.md-body > :has\(\.md-rail\):not\(:has\(\.md-rail > :nth-child\(6\)\)\) \{ grid-column: auto;/)
   assert.match(css, /\.md-rail \{ grid-auto-columns: calc\(\(100% - 3 \* 20px\) \/ 4\); \}/)
