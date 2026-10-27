@@ -32,7 +32,14 @@ export async function suggestPeople(params: URLSearchParams, authorId: number | 
     orderBy:[{credits:{_count:'desc'}},{id:'asc'}],take:12,
     select:{id:true,name:true,image:true,credits:{select:{role:true},take:60}},
   })
-  return {people:rows.map(({credits,...person})=>({...person,roles:[...new Set(credits.map(credit=>credit.role))]}))}
+  const people=rows.map(({credits,...person})=>({...person,roles:[...new Set(credits.map(credit=>credit.role))]}))
+  // One artist across the sections («چهره‌ها»): a singer not yet in cinema is offered too; picked, the credit's name makes
+  // their cinema record and the same name joins them into one person. A section author keeps the narrower list.
+  if(authorId||people.length>=12)return {people}
+  const known=new Set(people.map(person=>normalizePersonName(person.name)))
+  const typed=params.get('q')?.trim().slice(0,60)||q
+  const singers=await db.musicArtist.findMany({where:{mergedIntoId:null,AND:[{OR:[{name:{contains:typed}},{nameEn:{contains:typed,mode:'insensitive'}}]},{OR:[{celebrity:{is:null}},{celebrity:{is:{cinemaPersonId:null}}}]}]},orderBy:[{name:'asc'},{id:'asc'}],take:12-people.length,select:{id:true,name:true,image:true}}).catch(()=>[])
+  return {people:[...people,...singers.filter(artist=>!known.has(normalizePersonName(artist.name))).map(artist=>({id:-artist.id,name:artist.name,image:artist.image,roles:['SINGER']}))]}
 }
 export async function adminPerson(id: number) {
   const person=await db.cinemaPerson.findUnique({where:{id},select:{...profile,credits:{orderBy:{id:'asc'},take:101,select:{id:true,role:true,character:true,title:{select:{id:true,title:true,slug:true,status:true,publishedAt:true,kind:true}}}}}})

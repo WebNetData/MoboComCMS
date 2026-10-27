@@ -261,6 +261,17 @@ A list entry can carry a **family** (`Vocabulary.family`, declared per list by `
   - `.mobocom/claude-tools/pw-celebrities.cjs`.
 - **Not done:** a link in the site's main menu. The owner adds it in the menu manager, since global navigation is the owner's.
 
+**One artist across the sections (owner, 2026-10-27).** "Merge the artists section completely: a singer may act, an actor may sing, a director may act in their own film."
+- **One profile:** a person has one profile, edited once in «هنرمندان و چهره‌ها» (`/admin/celebrities`, `saveCelebrityProfile`). The name, English name, picture and biography are written into their music artist and cinema person through each section's own save (`saveMediaItem('music-artists')`, `savePerson`), so the section checks, revision history and concurrency hold. The cinema picture is locked so an import does not replace it.
+- **Adding a section:** ticking a section adds the person there; a new artist is made in the sections ticked. Music needs an English name (the singer's address is made from it). Saving needs the permission of every section involved.
+- **One page:** a person shown in «چهره‌ها» has one page. `/cinema/people/<id>` and `/music/artist/<slug>` redirect permanently to `/celebrities/<slug>`, which carries both sections' follow buttons.
+- **Picking people:** the cinema cast and crew picker also offers singers not yet in cinema (managers only; authors keep their narrower list). Picking one names the credit, and the same name joins them into one person.
+- **Works stay in their sections:** films, songs and their credits are still recorded where they belong.
+- **Not done:** music forms still pick from music artists. An actor becomes pickable there once «موسیقی» is ticked on their profile.
+- **Evidence:**
+  - `scripts/celebrity-profile.connected.cjs` (real PostgreSQL);
+  - `.mobocom/claude-tools/pw-central-artists.cjs`.
+
 **Sitemap and canonical addresses.** What the sitemap lists of a module is asked of that module with its own rule for what a visitor may see (`src/modules/seo/server/sitemap-entities.ts`): forums and topics through `visibleCategories(GUEST)` — never by reading the `access` column, which let forums of one group and their topics be advertised — and studios, film people, collections and category pages only when something public stands behind them. A listing page reached with filters gets its canonical address and indexability from `listingMeta` (`src/modules/seo/domain/seo.ts`): filters that make a list of their own stay in the address, a reordering is the same list, any other combination is not indexed.
 
 **Versions of edited items.** Existing ContentRevision keeps changed content snapshots and a baseline for older items. Secrets, counters, ownership and financial history are excluded. Supported links/seasons/categories and product catalogue relationships now use versioned snapshots restored through their canonical owner; old scalar-only snapshots preserve current relations. `/admin/history?type=&id=` shows changes and restores as a new version with the same section permission. Unique-address conflicts refuse restoration. The last fifty versions are kept; Audit remains the record of actions. [Current scope and transaction limits](handoffs/CONTENT_MANAGEMENT.md).

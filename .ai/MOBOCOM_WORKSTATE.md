@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/central-artists-2026-10-27` (on «چهره‌ها», PR #265) makes one artist profile across music and cinema, one page per person, and singers pickable in the cinema cast form.
+
 Current continuation 2026-10-27: `feat/celebrities-hub-2026-10-27` adds «چهره‌ها» (/celebrities): one directory and one page per actor, director or singer across cinema and music, with a manager at /admin/celebrities. PRs 263–264 merged.
 
 Current continuation 2026-10-27: `feat/product-multi-categories-2026-10-27` (on the category-tree branch, PR #263) lets a product sit in several categories with a WordPress-like tree picker in the product editor.

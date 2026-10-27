@@ -14,6 +14,9 @@ import { celebrityBySlug, ensureCelebritiesSynced } from '@/modules/celebrities/
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
 import { plainText } from '@/shared/text/plain'
 import { toPublicPath } from '@/platform/routing/aliases'
+import { ItemActionBar } from '@/components/engage/Engagement'
+import { getCinemaSettings } from '@/modules/cinema/server/admin'
+import { getMusicSettings } from '@/modules/music/server/admin'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -48,11 +51,13 @@ export default async function CelebrityPage({ params }: Props) {
   const { card } = person
   const personId = person.cinemaPersonId ? String(person.cinemaPersonId) : ''
   // Each section answers for its own works, with its own rule for what a visitor may see.
-  const [acted, directed, produced, songs] = await Promise.all([
+  const [acted, directed, produced, songs, cinemaSettings, musicSettings] = await Promise.all([
     cinema && personId ? browseCinema({ actor: personId }) : null,
     cinema && personId ? browseCinema({ director: personId }) : null,
     cinema && personId ? browseCinema({ producer: personId }) : null,
     music && person.musicSlug ? getArtist(person.musicSlug) : null,
+    cinema && personId ? getCinemaSettings(true) : null,
+    music && person.musicSlug ? getMusicSettings(true) : null,
   ])
   const tracks = songs ? toPlayerTracks(songs.tracks, true) : []
   const bio = songs?.artist.bio || ''
@@ -63,7 +68,7 @@ export default async function CelebrityPage({ params }: Props) {
   ].filter((shelf) => shelf.result && shelf.result.titles.length)
   const stats = [card.titles ? [card.titles, 'فیلم و سریال'] : null, card.albums ? [card.albums, 'آلبوم'] : null, card.songs ? [card.songs, 'آهنگ'] : null].filter((item): item is [number, string] => !!item)
   return <MediaShell section="celebrities" search={{ action: '/celebrities', placeholder: 'جست‌وجوی بازیگر، کارگردان یا خواننده…' }}>
-    <ManageBar title="مدیریت چهره" anyOf={['cinema.manage', 'music.manage']} links={[{ href: `/admin/celebrities?q=${encodeURIComponent(card.name)}`, label: 'چهره‌ها در مدیریت' }]} />
+    <ManageBar title="مدیریت هنرمند" anyOf={['cinema.manage', 'music.manage']} links={[{ href: `/admin/celebrities?edit=${card.id}`, label: 'ویرایش پروفایل' }, { href: `/admin/celebrities?q=${encodeURIComponent(card.name)}`, label: 'هنرمندان و چهره‌ها' }]} />
     <section className="cb-profile">
       <div className="container cb-profile-inner">
         <span className="cb-avatar">{card.image ? <img src={card.image} alt={card.name} /> : <i aria-hidden="true">{card.name.slice(0, 1)}</i>}</span>
@@ -75,9 +80,10 @@ export default async function CelebrityPage({ params }: Props) {
           {stats.length > 0 && <ul className="cb-stats">{stats.map(([value, label]) => <li key={label}><b>{fa(value)}</b><small>{label}</small></li>)}</ul>}
           <div className="cb-actions">
             {tracks.length > 0 && <PlayButton tracks={tracks} index={0} variant="big" label="پخش آهنگ‌ها" />}
-            {personId && cinema && <Link href={`/cinema/people/${personId}`} className="cb-section-link">صفحه در فیلم و سریال</Link>}
-            {person.musicSlug && music && <Link href={`/music/artist/${encodeURIComponent(person.musicSlug)}`} className="cb-section-link">صفحه در موسیقی</Link>}
           </div>
+          {/* Following stays per section: new songs from the music side, new films and series from the cinema side. */}
+          {songs && musicSettings?.showArtistFollow && <ItemActionBar item={{ type: 'artist', id: songs.artist.id }} title={card.name} image={card.image} followLabel="آهنگ‌های تازه" />}
+          {personId && cinemaSettings?.personFollowEnabled && <ItemActionBar item={{ type: 'person', id: Number(personId) }} title={card.name} image={card.image} followLabel="اعلان اثر تازه" favoriteLabels={{ off: 'دنبال‌کردن فیلم‌ها', on: 'دنبال می‌کنید' }} />}
         </div>
       </div>
     </section>
