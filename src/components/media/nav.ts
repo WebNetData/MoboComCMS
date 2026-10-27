@@ -6,7 +6,8 @@ export function musicNav(fa: boolean): SectionNavItem[] {
     { key: 'new', href: '/music/browse', label: fa ? 'جدیدترین‌ها' : 'New releases' },
     { key: 'top', href: '/music/browse?sort=popular', label: fa ? 'پربازدیدترین‌ها' : 'Most played' },
     { key: 'albums', href: '/music/albums', label: fa ? 'آلبوم‌ها' : 'Albums' },
-    { key: 'artists', href: '/music/artists', label: fa ? 'هنرمندان' : 'Artists' },
+    // Artists live in «چهره‌ها» (one page per person across music and cinema), opened on its music tab.
+    { key: 'artists', href: '/celebrities?section=music', label: fa ? 'هنرمندان' : 'Artists' },
     { key: 'languages', href: '/music/language', label: fa ? 'زبان و گویش' : 'Languages' },
     { key: 'playlists', href: '/music/playlists', label: fa ? 'پلی‌لیست‌ها' : 'Playlists' },
     { key: 'mine', href: '/music/my-playlists', label: fa ? 'پلی‌لیست‌های من' : 'My playlists' },
@@ -23,7 +24,8 @@ export function cinemaNav(fa: boolean): SectionNavItem[] {
     { key: 'dubbed', href: '/cinema/browse?dubbed=1', label: fa ? 'دوبله فارسی' : 'Persian dub' },
     { key: 'imdb', href: '/cinema/browse?sort=imdb', label: fa ? 'برترین‌های IMDb' : 'Top IMDb' },
     { key: 'calendar', href: '/cinema/calendar', label: fa ? 'تقویم پخش' : 'Episode calendar' },
-    { key: 'people', href: '/cinema/people', label: fa ? 'کارگردانان و بازیگران' : 'Directors and cast' },
+    // People live in «چهره‌ها» (one page per person across cinema and music), opened on its cinema tab.
+    { key: 'people', href: '/celebrities?section=cinema', label: fa ? 'چهره‌ها' : 'People' },
     { key: 'history', href: '/cinema/history', label: fa ? 'تاریخچهٔ تماشا' : 'Watch history' },
     { key: 'vip', href: '/vip', label: fa ? '♛ VIP' : '♛ VIP' },
   ]

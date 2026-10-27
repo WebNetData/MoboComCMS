@@ -1,3 +1,4 @@
+import { permanentRedirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { requireModule } from '@/extensions/server/modules'
 import { getServerLocale } from '@/i18n/server'
@@ -11,6 +12,9 @@ type Search = { q?: string; page?: string }
 
 export default async function MusicArtistsPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requireModule('music')
+  // Artists are listed in «چهره‌ها», on its music tab (a search is carried over).
+  const { q } = await searchParams
+  permanentRedirect(`/celebrities?section=music${q ? `&q=${encodeURIComponent(q)}` : ''}`)
   const [params, locale] = await Promise.all([searchParams, getServerLocale()])
   const fa = locale === 'fa'
   const result = await browseMusicArtists({ q: params.q, page: Number(params.page) })

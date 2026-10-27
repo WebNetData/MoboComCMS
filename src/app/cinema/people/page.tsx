@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { permanentRedirect } from 'next/navigation'
 import Link from '@/components/AppLink'
 import { requireModule } from '@/extensions/server/modules'
 import { getServerLocale } from '@/i18n/server'
@@ -13,6 +14,9 @@ export const metadata: Metadata = { title: 'کارگردانان و بازیگر
 /** /cinema/people — everybody credited on a published film or series, the most credited first. */
 export default async function CinemaPeoplePage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   await requireModule('cinema')
+  // The people of films and series are listed in «چهره‌ها», on its cinema tab (a search is carried over).
+  const { q } = await searchParams
+  permanentRedirect(`/celebrities?section=cinema${q ? `&q=${encodeURIComponent(q)}` : ''}`)
   const [locale, query] = await Promise.all([getServerLocale(), searchParams])
   const fa = locale === 'fa'
   const data = await peopleDirectory(query)

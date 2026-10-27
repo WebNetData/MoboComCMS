@@ -54,8 +54,30 @@ export async function syncCelebrities(): Promise<{ created: number; joined: numb
       created++
     } catch (error) { if (!unique(error)) throw error }
   }
+  await refreshScores()
   lastSync = Date.now()
   return { created, joined }
+}
+
+/**
+ * Each entry's published works across the sections (films and series credited on, songs, albums, credits on songs):
+ * the «most known» order. Written only where it changed.
+ */
+async function refreshScores() {
+  const now = new Date(), music = liveMusic()
+  const [credits, tracks, albums, songCredits, entries] = await Promise.all([
+    db.cinemaCredit.groupBy({ by: ['personId'], where: { title: liveTitle(now) }, _count: { _all: true } }),
+    db.musicTrack.groupBy({ by: ['artistId'], where: music, _count: { _all: true } }),
+    db.musicAlbum.groupBy({ by: ['artistId'], where: music, _count: { _all: true } }),
+    db.musicCredit.groupBy({ by: ['artistId'], where: { track: music }, _count: { _all: true } }),
+    db.celebrity.findMany({ select: { id: true, score: true, cinemaPersonId: true, musicArtistId: true } }),
+  ])
+  const of = (rows: { _count: { _all: number } }[], key: (row: never) => number | null) => new Map(rows.map((row) => [key(row as never), row._count._all]))
+  const film = of(credits, (row: { personId: number }) => row.personId), song = of(tracks, (row: { artistId: number }) => row.artistId), album = of(albums, (row: { artistId: number }) => row.artistId), credited = of(songCredits, (row: { artistId: number }) => row.artistId)
+  for (const entry of entries) {
+    const score = (entry.cinemaPersonId ? film.get(entry.cinemaPersonId) || 0 : 0) + (entry.musicArtistId ? (song.get(entry.musicArtistId) || 0) + (album.get(entry.musicArtistId) || 0) * 3 + (credited.get(entry.musicArtistId) || 0) : 0)
+    if (score !== entry.score) await db.celebrity.update({ where: { id: entry.id }, data: { score } }).catch(() => undefined)
+  }
 }
 
 /** Public pages keep the entries current without a job: at most once every five minutes per server. */
@@ -82,7 +104,7 @@ function publicWhere(now: Date, role: CelebrityRole | null, creditRole: string):
 const cardSelect = (now: Date) => ({
   id: true, slug: true, name: true, featured: true,
   cinemaPerson: { select: { image: true, credits: { where: { title: liveTitle(now) }, select: { role: true, titleId: true } } } },
-  musicArtist: { select: { image: true, nameEn: true, _count: { select: { tracks: { where: liveMusic() }, albums: { where: liveMusic() } } }, credits: { where: { track: liveMusic() }, select: { role: true }, distinct: ['role' as const] } } },
+  musicArtist: { select: { image: true, cover: true, nameEn: true, _count: { select: { tracks: { where: liveMusic() }, albums: { where: liveMusic() } } }, credits: { where: { track: liveMusic() }, select: { role: true }, distinct: ['role' as const] } } },
 }) satisfies Prisma.CelebritySelect
 
 type CardRow = Prisma.CelebrityGetPayload<{ select: ReturnType<typeof cardSelect> }>
@@ -99,23 +121,99 @@ function toCard(row: CardRow, creditNames: Record<string, string>) {
   for (const credit of row.musicArtist?.credits || []) { const name = creditNames[credit.role]; if (name && !roles.includes(name)) roles.push(name) }
   return {
     id: row.id, slug: row.slug, name: row.name, nameEn: row.musicArtist?.nameEn || '', featured: row.featured,
-    image: row.musicArtist?.image || row.cinemaPerson?.image || '', roles,
+    image: row.musicArtist?.image || row.cinemaPerson?.image || '', cover: row.musicArtist?.cover || '', roles,
     titles: new Set(row.cinemaPerson?.credits.map((credit) => credit.titleId) || []).size, songs, albums,
   }
 }
 export type CelebrityCard = ReturnType<typeof toCard>
 
 /** The directory: featured first, then by name; filtered by role and narrowed by name. */
-export async function celebrityDirectory(input: { q?: unknown; role: CelebrityRole | null; creditRole: string; page?: unknown }, creditNames: Record<string, string>) {
+export type CelebritySort = 'known' | 'new' | 'name'
+export type CelebritySection = '' | 'cinema' | 'music'
+
+/** Only people of one section: those with a public film or series, or a public song, album or song credit. */
+function sectionWhere(now: Date, section: CelebritySection): Prisma.CelebrityWhereInput | null {
+  if (section === 'cinema') return { cinemaPerson: { is: { mergedIntoId: null, credits: { some: { title: liveTitle(now) } } } } }
+  if (section === 'music') { const music = liveMusic(); return { musicArtist: { is: { mergedIntoId: null, OR: [{ tracks: { some: music } }, { albums: { some: music } }, { credits: { some: { track: music } } }] } } } }
+  return null
+}
+
+/** Names written in Latin letters or starting with a digit: the «A–Z» letter of the directory. */
+const LATIN: Prisma.CelebrityWhereInput = { OR: 'abcdefghijklmnopqrstuvwxyz0123456789'.split('').map((char) => ({ normalizedName: { startsWith: char } })) }
+
+/** The directory: by role, section, first letter and name; most known first unless asked otherwise. */
+export async function celebrityDirectory(input: { q?: unknown; role: CelebrityRole | null; creditRole: string; page?: unknown; section?: CelebritySection; sort?: CelebritySort; letter?: string }, creditNames: Record<string, string>) {
   const now = new Date()
   const page = Math.max(1, Math.min(500, Math.trunc(Number(input.page)) || 1))
   const q = normalizePersonName(String(input.q ?? '')).slice(0, 60)
-  const where: Prisma.CelebrityWhereInput = { AND: [publicWhere(now, input.role, input.creditRole), ...(q ? [{ OR: [{ normalizedName: { contains: q } }, { musicArtist: { is: { nameEn: { contains: q, mode: 'insensitive' as const } } } }] }] : [])] }
+  const letter = String(input.letter || '').slice(0, 2)
+  const section = sectionWhere(now, input.section || '')
+  const where: Prisma.CelebrityWhereInput = { AND: [
+    publicWhere(now, input.role, input.creditRole),
+    ...(section ? [section] : []),
+    ...(q ? [{ OR: [{ normalizedName: { contains: q } }, { musicArtist: { is: { nameEn: { contains: q, mode: 'insensitive' as const } } } }] }] : []),
+    ...(letter === 'en' ? [LATIN] : letter ? [{ normalizedName: { startsWith: letter } }] : []),
+  ] }
+  if (input.sort === 'name') {
+    // A to Z on a Persian site: Persian names first, then Latin ones (the database collation would put Latin first).
+    const persian: Prisma.CelebrityWhereInput = { AND: [where, { NOT: LATIN }] }, latin: Prisma.CelebrityWhereInput = { AND: [where, LATIN] }
+    const [total, before] = await Promise.all([db.celebrity.count({ where }), db.celebrity.count({ where: persian })])
+    const skip = (page - 1) * PAGE, orderBy: Prisma.CelebrityOrderByWithRelationInput[] = [{ name: 'asc' }, { id: 'asc' }]
+    const rows = skip < before ? await db.celebrity.findMany({ where: persian, orderBy, skip, take: PAGE, select: cardSelect(now) }) : []
+    if (rows.length < PAGE) rows.push(...await db.celebrity.findMany({ where: latin, orderBy, skip: Math.max(0, skip - before), take: PAGE - rows.length, select: cardSelect(now) }))
+    return { q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total, people: rows.map((row) => toCard(row, creditNames)) }
+  }
+  const orderBy: Prisma.CelebrityOrderByWithRelationInput[] = input.sort === 'new' ? [{ createdAt: 'desc' }, { id: 'desc' }] : [{ featured: 'desc' }, { score: 'desc' }, { name: 'asc' }, { id: 'asc' }]
   const [total, rows] = await Promise.all([
     db.celebrity.count({ where }),
-    db.celebrity.findMany({ where, orderBy: [{ featured: 'desc' }, { name: 'asc' }, { id: 'asc' }], skip: (page - 1) * PAGE, take: PAGE, select: cardSelect(now) }),
+    db.celebrity.findMany({ where, orderBy, skip: (page - 1) * PAGE, take: PAGE, select: cardSelect(now) }),
   ])
   return { q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total, people: rows.map((row) => toCard(row, creditNames)) }
+}
+
+/** How many people each role and section holds (the directory's chips and figures). */
+export async function celebrityCounts(creditCodes: string[]) {
+  const now = new Date()
+  const roles = Object.keys(CELEBRITY_ROLES) as CelebrityRole[]
+  const [all, cinema, music, ...rest] = await Promise.all([
+    db.celebrity.count({ where: publicWhere(now, null, '') }),
+    db.celebrity.count({ where: { AND: [publicWhere(now, null, ''), sectionWhere(now, 'cinema')!] } }),
+    db.celebrity.count({ where: { AND: [publicWhere(now, null, ''), sectionWhere(now, 'music')!] } }),
+    ...roles.map((role) => db.celebrity.count({ where: publicWhere(now, role, '') })),
+    ...creditCodes.map((code) => db.celebrity.count({ where: publicWhere(now, null, code) })),
+  ])
+  return { all, cinema, music, roles: Object.fromEntries(roles.map((role, index) => [role, rest[index]])) as Record<CelebrityRole, number>, credits: Object.fromEntries(creditCodes.map((code, index) => [code, rest[roles.length + index]])) as Record<string, number> }
+}
+
+/** The featured strip: the owner's featured people, else the most known. */
+export async function featuredCelebrities(creditNames: Record<string, string>, take = 8) {
+  const now = new Date()
+  const rows = await db.celebrity.findMany({ where: publicWhere(now, null, ''), orderBy: [{ featured: 'desc' }, { score: 'desc' }, { id: 'asc' }], take, select: cardSelect(now) })
+  return rows.map((row) => toCard(row, creditNames))
+}
+
+/**
+ * The people someone worked with: credited on the same public films and series, singing or credited on the same
+ * public songs. Most shared works first.
+ */
+export async function celebrityCollaborators(entry: { cinemaPersonId: number | null; musicArtistId: number | null }, creditNames: Record<string, string>, take = 12) {
+  const now = new Date(), music = liveMusic()
+  const people = new Map<number, number>(), artists = new Map<number, number>()
+  if (entry.cinemaPersonId) {
+    const titles = (await db.cinemaCredit.findMany({ where: { personId: entry.cinemaPersonId, title: liveTitle(now) }, select: { titleId: true }, take: 400 })).map((row) => row.titleId)
+    if (titles.length) for (const row of await db.cinemaCredit.groupBy({ by: ['personId'], where: { titleId: { in: [...new Set(titles)] }, personId: { not: entry.cinemaPersonId } }, _count: { _all: true } })) people.set(row.personId, row._count._all)
+  }
+  if (entry.musicArtistId) {
+    const own = (await db.musicTrack.findMany({ where: { artistId: entry.musicArtistId, ...music }, select: { id: true }, take: 400 })).map((row) => row.id)
+    const credited = await db.musicCredit.findMany({ where: { artistId: entry.musicArtistId, track: music }, select: { track: { select: { id: true, artistId: true } } }, take: 400 })
+    const tracks = [...new Set([...own, ...credited.map((row) => row.track.id)])]
+    if (tracks.length) for (const row of await db.musicCredit.groupBy({ by: ['artistId'], where: { trackId: { in: tracks }, artistId: { not: entry.musicArtistId } }, _count: { _all: true } })) artists.set(row.artistId, (artists.get(row.artistId) || 0) + row._count._all)
+    for (const row of credited) if (row.track.artistId !== entry.musicArtistId) artists.set(row.track.artistId, (artists.get(row.track.artistId) || 0) + 1)
+  }
+  if (!people.size && !artists.size) return []
+  const rows = await db.celebrity.findMany({ where: { AND: [{ OR: [{ cinemaPersonId: { in: [...people.keys()] } }, { musicArtistId: { in: [...artists.keys()] } }] }, publicWhere(now, null, '')] }, select: { ...cardSelect(now), cinemaPersonId: true, musicArtistId: true } })
+  const shared = (row: { cinemaPersonId: number | null; musicArtistId: number | null }) => (row.cinemaPersonId ? people.get(row.cinemaPersonId) || 0 : 0) + (row.musicArtistId ? artists.get(row.musicArtistId) || 0 : 0)
+  return rows.sort((a, b) => shared(b) - shared(a) || a.name.localeCompare(b.name, 'fa')).slice(0, take).map((row) => ({ ...toCard(row, creditNames), shared: shared(row) }))
 }
 
 /** One person's page: the entry with the sections it draws from; null when nothing of theirs is public. */
