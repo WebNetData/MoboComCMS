@@ -158,6 +158,8 @@ Other rules:
 - A **cancellation** of an order whose codes the buyer has already read is never refunded by itself; it waits for staff.
 - Stock of a product that sells from its pool is the pool's count, also after stock is returned (`returnStock` → `syncCodeStock`).
 
+**Store: full-width pages and the invoice mark (owner, 2026-10-27).** The cart, checkout and the invoice page take the width of the site header (`--mb-chrome`), like the shop front; this replaces the earlier "cart and checkout keep their own width". The product description and its questions use the whole panel. On the invoice (web and PDF) a logo sits on frosted glass (translucent white with a light edge) instead of a white box; a letter mark keeps its solid chip. The PDF can be looked at with `.mobocom/claude-tools/shot-invoice-pdf.cjs`.
+
 **Store: the shop front (owner, 2026-10-27).** The shop landing and the category listing were redesigned on the existing owners; the single product page is approved and unchanged.
 - The landing (`/products` without filters) has:
   - a hero: the welcome with a stage of up to three products, or the owner's slides when set;
