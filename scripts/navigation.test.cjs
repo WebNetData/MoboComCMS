@@ -375,3 +375,26 @@ test('page design templates: about, contact with its form, legal documents, chos
   for (const file of ['src/themes/code/mobocom/theme.css', 'src/themes/generated.css']) assert.match(read(file), /\.mb-crumbs \{ display: inline-flex;/, file)
   assert.match(read('src/themes/code/mobocom/client.tsx'), /<span className="mb-crumbs">/)
 })
+
+test('whole-page templates in the page builder and the starter terms (owner, 2026-10-28)', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const { PAGE_TEMPLATES } = load('src/modules/site/domain/builder-templates')
+  assert.deepEqual(PAGE_TEMPLATES.map((template) => template.id), ['page-foreign-payment', 'page-service', 'page-campaign'])
+  for (const template of PAGE_TEMPLATES) assert.ok(template.doc.sections.length >= 4, template.id)
+  // The payment page's order form is the form builder's own «پرداخت سایت خارجی» template, found by its address.
+  const pay = PAGE_TEMPLATES[0].doc.sections.flatMap((section) => section.columns.flatMap((column) => column.widgets))
+  assert.equal(pay.find((widget) => widget.type === 'form').props.slug, 'foreign-payment')
+  assert.match(read('src/modules/forms/domain/forms.ts'), /build: \(\) => \(\{ slug: 'foreign-payment'/)
+  assert.deepEqual(PAGE_TEMPLATES[0].doc.sections.map((section) => section.anchor).filter(Boolean), ['order', 'faq'])
+  // Offered by the template API, the panel and «＋ صفحهٔ جدید»; a missing form is made as a draft, never published.
+  assert.match(read('src/modules/site/server/http/builder/templates.ts'), /pageBundled: PAGE_TEMPLATES\.map\(summary\)/)
+  assert.match(read('src/app/admin/builder/editor.tsx'), /get\('template'\)[\s\S]+if \(asked && !next\.sections\.length\)/)
+  assert.match(read('src/app/admin/builder/template-forms.ts'), /JSON\.stringify\(\{ \.\.\.template\.form, published: false \}\)/)
+  assert.match(read('src/app/admin/pages/page.tsx'), /router\.push\(`\/admin\/builder\/\$\{data\.id\}\$\{template \? `\?template=\$\{template\.id\}` : ''\}`\)/)
+  // The starter terms cover the services offered and promise only what a product page states.
+  const terms = read('prisma/starter-content/terms.fa.html')
+  for (const part of ['خدمات ارزی و پرداخت در سایت‌های خارجی', 'محصولات دیجیتال، اکانت‌ها و گیفت کارت‌ها', 'محدودیت مسئولیت', 'حل اختلاف و قانون حاکم']) assert.ok(terms.includes(part), part)
+  assert.ok((terms.match(/<h2>/g) || []).length >= 15)
+  assert.match(read('prisma/seed.cjs'), /readFileSync\(require\('node:path'\)\.join\(__dirname, 'starter-content', 'terms\.fa\.html'\)/)
+})

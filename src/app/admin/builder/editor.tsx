@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from '@/components/AppLink'
 import { useI18n } from '@/i18n/LocaleProvider'
-import { WIDGET_TYPES, emptyDoc, type BuilderDoc, type WidgetType } from '@/modules/site/domain/builder'
+import { WIDGET_TYPES, cloneSections, emptyDoc, type BuilderDoc, type WidgetType } from '@/modules/site/domain/builder'
 import {
   addSection as addSectionOp, addWidget, duplicateSection, duplicateWidget,
   insertSectionAt, insertSectionNear, insertSections, locateWidget, moveSection, moveSectionTo, moveWidget,
@@ -14,6 +14,7 @@ import Palette from './palette'
 import Canvas, { CodePane, type DragState } from './canvas'
 import Inspector from './inspector'
 import TemplatesPanel from './templates-panel'
+import { ensureTemplateForms } from './template-forms'
 
 type Meta = { title: string; titleEn: string; path: string }
 
@@ -104,6 +105,19 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
       setSel(next.sections[0] ? { kind: 'section', sectionId: next.sections[0].id } : null)
       setMessage(restored ? L('Unsaved draft restored.', 'پیش‌نویس ذخیره‌نشده بازیابی شد.') : '')
       refreshPreview()
+      // Opened from «＋ صفحه با صفحه‌ساز» with a whole-page template: an empty page starts from it (once; the address is cleaned).
+      const asked = new URLSearchParams(window.location.search).get('template')
+      if (asked && !next.sections.length) {
+        const url = new URL(window.location.href); url.searchParams.delete('template'); window.history.replaceState(null, '', url)
+        const listed = await fetch(`/api/admin/builder/templates?pageId=${encodeURIComponent(pageId)}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        const template = (listed?.pageBundled || []).find((entry: { id: string }) => entry.id === asked) as { doc: BuilderDoc; fa: string } | undefined
+        if (template) {
+          const started = { ...next, sections: cloneSections(template.doc.sections) }
+          docRef.current = started; setDoc(started); setSel(started.sections[0] ? { kind: 'section', sectionId: started.sections[0].id } : null)
+          const made = await ensureTemplateForms(template.doc)
+          setMessage(L('Started from a template; save to keep it.', `صفحه از قالب «${template.fa}» ساخته شد؛ برای ماندگاری ذخیره کنید.`) + (made ? ` ${made}` : ''))
+        }
+      }
     } else {
       setMessage(data?.error || L('Unable to open the builder.', 'باز کردن صفحه‌ساز ممکن نشد.'))
     }
@@ -594,6 +608,7 @@ export default function BuilderEditor({ pageId }: { pageId: string }) {
       onSetTemplate={isPost && postId ? changePostTemplate : undefined}
       onClose={() => setShowTemplates(false)}
       onInsert={(sections) => { const result = insertSections(doc, sections); onChange(result.doc, result.sel) }}
+      onNotice={setMessage}
     />
   </div>
 }

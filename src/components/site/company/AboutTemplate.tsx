@@ -6,6 +6,9 @@ import shared from './company.module.css'
 import styles from './about.module.css'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
+// A section's icon when its menu link has none, from the first part of its address (as the header picks them).
+const SECTION_ICONS: Record<string, string> = { products: 'bag', shop: 'bag', blog: 'book', journal: 'book', music: 'music', cinema: 'film', games: 'gamepad', software: 'devices', forum: 'chat', celebrities: 'users', people: 'users', businesses: 'star', vip: 'crown', plans: 'globe' }
+const sectionIcon = (href: string, icon?: string) => icon || SECTION_ICONS[href.split(/[/?#]/).filter(Boolean)[0] || ''] || 'sparkles'
 
 /**
  * The «درباره ما» page template (chosen per page in Pages admin): the page title over the brand's story with what the
@@ -16,6 +19,8 @@ export default async function AboutTemplate({ title, body }: { title: string; bo
   const [data, figures] = await Promise.all([companyData(), companyFigures()]), { site } = data
   const reasons = (site.sections.find((section) => section.kind === 'features' && section.enabled)?.items || []).slice(0, 6)
   const sections = site.navigation.filter((link) => link.href !== '/' && link.enabled !== false)
+  const services = site.sections.find((section) => section.kind === 'services')?.items || []
+  const describe = (href: string) => sections.find((link) => link.href === href)?.description?.fa || services.find((item) => item.href === href)?.text.fa || ''
   return <div className={`container ${styles.about}`}>
     <header className={styles.hero}>
       <div className={styles.heroCopy}>
@@ -33,8 +38,20 @@ export default async function AboutTemplate({ title, body }: { title: string; bo
     </section>}
 
     {sections.length > 0 && <section className={shared.block} aria-labelledby="about-sections-title">
-      <header className={shared.blockHead}><span className={shared.eyebrow}>همه‌چیز در یک‌جا</span><h2 id="about-sections-title">بخش‌های {site.brand}</h2></header>
-      <nav className={styles.explore} aria-label={`بخش‌های ${site.brand}`}>{sections.map((link, index) => <Link href={link.href} key={link.id || link.href} style={{ '--tone': `var(--company-tone-${index % 6})` } as React.CSSProperties}><span className={styles.exploreIcon} aria-hidden="true"><NavigationIcon name={link.icon || 'arrow'} size={22} /></span><span>{link.label.fa}</span><b aria-hidden="true">←</b></Link>)}</nav>
+      <header className={shared.blockHead}><span className={shared.eyebrow}>همه‌چیز در یک‌جا</span><h2 id="about-sections-title">بخش‌های {site.brand}</h2><p className={styles.blockLead}>یک حساب کاربری، و همهٔ دنیای {site.brand} در دسترس شما.</p></header>
+      <ul className={styles.bento}>{sections.map((link, index) => {
+        const about = describe(link.href), figure = figures.find((item) => item.href === link.href)
+        const subs = (link.children || []).filter((child) => child.enabled !== false && child.href !== link.href).slice(0, 4)
+        return <li key={link.id || link.href} className={index < 2 ? styles.bentoWide : ''} style={{ '--tone': `var(--company-tone-${index % 6})` } as React.CSSProperties}>
+          <Link href={link.href} className={styles.bentoMain}>
+            <span className={styles.bentoIcon} aria-hidden="true"><NavigationIcon name={sectionIcon(link.href, link.icon)} size={index < 2 ? 30 : 24} /></span>
+            <span className={styles.bentoText}><b>{link.label.fa}</b>{about && <small>{about}</small>}</span>
+            {figure && <span className={styles.bentoFigure}><b>{fa(figure.value)}</b><small>{figure.label}</small></span>}
+            <span className={styles.bentoGo} aria-hidden="true">←</span>
+          </Link>
+          {subs.length > 0 && <nav className={styles.bentoSubs} aria-label={`زیربخش‌های ${link.label.fa}`}>{subs.map((child) => <Link key={child.id || child.href} href={child.href}>{child.label.fa}</Link>)}</nav>}
+        </li>
+      })}</ul>
     </section>}
 
     {reasons.length > 0 && <section className={shared.block} aria-labelledby="about-reasons-title">
