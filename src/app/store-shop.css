@@ -49,6 +49,8 @@
 /* side cards */
 .sx-hero-side { display: grid; grid-auto-rows: 1fr; gap: 16px; min-width: 0; }
 .sx-side-card { position: relative; display: grid; grid-template-rows: auto 1fr auto auto; gap: 8px; min-width: 0; padding: 14px; border-radius: 24px; border: 1px solid var(--sx-line); background: var(--sx-surface); color: inherit; text-decoration: none; overflow: hidden; transition: transform .28s cubic-bezier(.2, .9, .2, 1), box-shadow .28s ease, border-color .25s ease; }
+.sx-hero-side > .sx-side-card:only-child { align-self: start; }
+.sx-hero-side > .sx-side-card:only-child .sx-side-art { aspect-ratio: 4 / 3; }
 .sx-side-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--sx-accent) 35%, var(--sx-line)); box-shadow: var(--sx-lift); }
 .sx-side-card.is-deal { border-color: color-mix(in srgb, var(--sx-deal) 30%, var(--sx-line)); background: linear-gradient(165deg, color-mix(in srgb, var(--sx-deal) 11%, var(--sx-surface)), var(--sx-surface) 58%); }
 .sx-side-card.is-new { background: linear-gradient(165deg, color-mix(in srgb, var(--sx-accent) 10%, var(--sx-surface)), var(--sx-surface) 58%); }

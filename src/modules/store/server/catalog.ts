@@ -261,7 +261,9 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   // Out-of-stock items sink to the end whatever the order (Digikala behaviour).
   list.sort((a, b) => Number(b.inStock) - Number(a.inStock) || by[query.sort](a, b))
   const total = list.length
-  const priceSteps = priceBuckets(all.filter((card) => keep(card, 'price')).map((card) => card.price))
+  // Ready price ranges only when every listed price is in one currency.
+  const priced = all.filter((card) => keep(card, 'price'))
+  const priceSteps = new Set(priced.map((card) => card.currency)).size === 1 ? priceBuckets(priced.map((card) => card.price)) : []
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const page = Math.min(query.page, pages)
   const brandIds = brandCounts.map((row) => row.brandId!).filter(Boolean)
