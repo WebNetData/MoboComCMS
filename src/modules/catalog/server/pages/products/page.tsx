@@ -9,10 +9,12 @@ import { db } from '@/platform/database/prisma'
 import { getServerLocale, getServerTheme } from '@/i18n/server'
 import SectionBarSlot from '@/components/site/SectionBarSlot'
 import StoreSlider from '@/components/store/StoreSlider'
-import { StoreIcon } from '@/components/store/StoreIcons'
+import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
+import { sized, srcSet } from '@/shared/media/image'
 import {
-  BannerGrid, BrandStrip, CategoryCircles, Crumbs, DivisionPanels, OfferBand, ProductGrid, ProductRail, TrustStrip,
+  BannerGrid, BrandStrip, Crumbs, DivisionPanels, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
+import { CategoryGrid, QuickRoutes, ShopHero, TopSellers } from '@/components/store/ShopHome'
 import { shopDivisions, shopHome, shopListing, type CategoryNode } from '@/modules/store/server/catalog'
 import { SHOP_SORTS, isFiltered, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
@@ -57,32 +59,26 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
 async function Landing() {
   const [home, divisions] = await Promise.all([shopHome(), shopDivisions()])
   const physical = divisions.find((division) => division.kind === 'PHYSICAL'), virtual = divisions.find((division) => division.kind === 'VIRTUAL')
-  const circles = home.categories.map((node) => ({ slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: node.total }))
+  const grid = home.categories.filter((node) => node.total > 0).map((node) => ({ slug: node.slug, name: node.name, image: node.image, total: node.total, children: node.children.filter((child) => child.total > 0).map((child) => ({ slug: child.slug, name: child.name })) }))
   const empty = !home.newest.length
+  // The hero's stage: up to three distinct products with pictures, offers first.
+  const stage = [...home.offers, ...home.bestselling, ...home.newest].filter((card, index, all) => card.image && all.findIndex((other) => other.id === card.id) === index).slice(0, 3)
+  const deal = home.offers.find((card) => card.inStock)
+  const fresh = home.newest.find((card) => card.id !== deal?.id && card.image) || home.newest.find((card) => card.id !== deal?.id)
+  const stats = [
+    { label: 'کالای فعال', value: home.categories.reduce((sum, node) => sum + node.total, 0) || home.newest.length },
+    { label: 'پیشنهاد ویژه', value: home.offers.length },
+    { label: 'برند', value: home.brands.length },
+  ].filter((item) => item.value > 0)
+  const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className="container sx-landing">
-    {home.settings.slides.length > 0
-      ? <StoreSlider slides={home.settings.slides} />
-      : <section className="sx-intro">
-          <div>
-            <span className="sx-intro-kicker"><StoreIcon name="store" size={16} />فروشگاه موبوکام</span>
-            <h1>هرچه لازم دارید، با ارسال سریع و ضمانت اصالت</h1>
-            <p>کالاهای فیزیکی و محصولات دیجیتال را مقایسه کنید، به سبد خرید اضافه کنید و روز و ساعت تحویل را خودتان انتخاب کنید.</p>
-            <div className="sx-intro-actions">
-              <Link href="/products?sort=bestselling" className="sx-btn is-primary">پرفروش‌ترین‌ها</Link>
-              <Link href="/products?discounted=1&sort=discount" className="sx-btn">شگفت‌انگیزها</Link>
-            </div>
-          </div>
-          <ul className="sx-intro-stats" aria-label="فروشگاه در یک نگاه">
-            <li><b className="num">{fa(home.categories.reduce((sum, node) => sum + node.total, 0) || home.newest.length)}</b><small>کالای فعال</small></li>
-            <li><b className="num">{fa(home.offers.length)}</b><small>پیشنهاد ویژه</small></li>
-            <li><b className="num">{fa(home.brands.length)}</b><small>برند</small></li>
-          </ul>
-        </section>}
-    <DivisionPanels divisions={divisions} />
-    {home.settings.showCategories && <CategoryCircles categories={circles} />}
+    <ShopHero slider={home.settings.slides.length > 0 ? <StoreSlider slides={home.settings.slides} /> : null} stage={stage} stats={stats} deal={deal} fresh={fresh} />
+    <QuickRoutes />
+    {home.settings.showCategories && <CategoryGrid categories={grid} />}
     <OfferBand title={home.settings.offerTitle} products={home.offers} />
     <BannerGrid banners={home.settings.banners.slice(0, 2)} />
-    <ProductRail title="پرفروش‌ترین کالاها" icon="fire" products={home.bestselling.filter((card) => card.soldCount > 0).length >= 4 ? home.bestselling : []} more="/products?sort=bestselling" ranked />
+    <TopSellers products={ranked.length >= 3 ? ranked : []} />
+    <DivisionPanels divisions={divisions} />
     <ProductRail title="کالاهای فیزیکی" icon="truck" products={physical && physical.products.length >= 4 ? physical.products : []} more="/products?kind=PHYSICAL" />
     <ProductRail title="محصولات مجازی" icon="bolt" products={virtual && virtual.products.length >= 4 ? virtual.products : []} more="/products?kind=VIRTUAL" />
     {home.rails.map((rail) => <ProductRail key={rail.category.slug} title={rail.category.name} icon="box" products={rail.products} more={`/products?category=${encodeURIComponent(rail.category.slug)}`} />)}
@@ -119,15 +115,33 @@ async function Listing({ query }: { query: ShopQuery }) {
   if (query.available) chips.push({ label: 'فقط کالاهای موجود', href: shopQueryString(query, { available: false }) })
   if (query.discounted) chips.push({ label: 'فقط تخفیف‌دار', href: shopQueryString(query, { discounted: false }) })
   if (query.kind) chips.push({ label: query.kind === 'PHYSICAL' ? 'کالای فیزیکی' : 'محصول دیجیتال', href: shopQueryString(query, { kind: '' }) })
+  const icon: StoreIconName = query.q ? 'filter' : query.discounted ? 'percent' : query.kind === 'VIRTUAL' ? 'bolt' : query.kind === 'PHYSICAL' ? 'truck' : 'grid'
+  const parent = result.category && result.category.chain.length > 1 ? result.category.chain[result.category.chain.length - 2] : null
+  const kicker = parent ? parent.name : node ? 'دسته‌بندی فروشگاه' : query.q ? 'جست‌وجو در فروشگاه' : 'فروشگاه موبوکام'
+  // One tap on or off; the full set stays in the filter panel.
+  const quick: { label: string; on: boolean; patch: Partial<ShopQuery>; icon: StoreIconName }[] = [
+    { label: 'فقط موجود', on: query.available, patch: { available: !query.available }, icon: 'check' },
+    { label: 'تخفیف‌دار', on: query.discounted, patch: { discounted: !query.discounted }, icon: 'percent' },
+    { label: 'تحویل آنلاین', on: query.kind === 'VIRTUAL', patch: { kind: query.kind === 'VIRTUAL' ? '' : 'VIRTUAL' }, icon: 'bolt' },
+    { label: 'کالای فیزیکی', on: query.kind === 'PHYSICAL', patch: { kind: query.kind === 'PHYSICAL' ? '' : 'PHYSICAL' }, icon: 'truck' },
+  ]
 
   return <div className="container sx-listing">
     <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, ...(query.kind ? [{ label: query.kind === 'PHYSICAL' ? 'کالاهای فیزیکی' : 'محصولات مجازی', href: `/products?kind=${query.kind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
-    <header className="sx-listing-head">
-      <div><h1>{title}</h1>{node?.description && <p>{node.description}</p>}</div>
-      <span className="num">{fa(result.total)} کالا</span>
+    <header className={`sx-lhero${node?.image ? ' has-art' : ''}`}>
+      <span className="sx-lhero-art">{node?.image ? <img src={sized(node.image, 240)} srcSet={srcSet(node.image, 240)} alt="" decoding="async" /> : <StoreIcon name={icon} size={40} />}</span>
+      <div className="sx-lhero-copy">
+        <small className="sx-lhero-kicker">{kicker}</small>
+        <h1>{title}</h1>
+        {node?.description && <p>{node.description}</p>}
+        <ul className="sx-lhero-facts">
+          <li><b className="num">{fa(result.total)}</b> کالا</li>
+          {result.brands.length > 0 && <li><b className="num">{fa(result.brands.length)}</b> برند</li>}
+        </ul>
+      </div>
     </header>
     {node && node.children.length > 0 && <nav className="sx-subcats" aria-label="زیردسته‌ها">{node.children.map((child) => <Link key={child.id} href={`/products${shopQueryString(query, { category: child.slug })}`}>
-      {child.image ? <img src={child.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={22} />}<span>{child.name}</span>
+      <span className="sx-subcat-art">{child.image ? <img src={sized(child.image, 96)} alt="" loading="lazy" /> : <StoreIcon name="box" size={22} />}</span><span>{child.name}</span><small className="num">{fa(child.total)}</small>
     </Link>)}</nav>}
 
     <input type="checkbox" id="sx-filters-toggle" className="sx-filters-toggle" hidden />
@@ -178,7 +192,11 @@ async function Listing({ query }: { query: ShopQuery }) {
             <span><StoreIcon name="sort" size={16} />مرتب‌سازی:</span>
             {SHOP_SORTS.map((sort) => <Link key={sort.key} href={`/products${shopQueryString(query, { sort: sort.key })}`} className={query.sort === sort.key ? 'is-active' : ''} aria-current={query.sort === sort.key ? 'true' : undefined}>{sort.label}</Link>)}
           </nav>
+          <span className="sx-toolbar-count"><b className="num">{fa(result.total)}</b> کالا</span>
         </div>
+        <nav className="sx-qf" aria-label="فیلترهای سریع">{quick.map((item) => <Link key={item.label} href={`/products${shopQueryString(query, item.patch)}`} className={item.on ? 'is-on' : ''} aria-current={item.on ? 'true' : undefined}>
+          <StoreIcon name={item.on ? 'check' : item.icon} size={15} />{item.label}
+        </Link>)}</nav>
         {chips.length > 0 && <div className="sx-chips">{chips.map((chip) => <Link key={chip.label} href={`/products${chip.href}`} aria-label={`حذف فیلتر ${chip.label}`}>{chip.label}<StoreIcon name="x" size={13} /></Link>)}</div>}
         {result.products.length
           ? <ProductGrid products={result.products} />
