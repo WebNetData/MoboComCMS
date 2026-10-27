@@ -1454,6 +1454,7 @@ model MusicArtist {
   albums    MusicAlbum[]
   tracks    MusicTrack[]
   credits   MusicCredit[]
+  celebrity Celebrity?
   // The staff member who created the item; a section author manages only the items they created.
   createdById Int?
   @@index([createdById])
@@ -1796,6 +1797,7 @@ model CinemaPerson {
   profileVersion Int            @default(0)
   createdAt      DateTime       @default(now())
   credits        CinemaCredit[]
+  celebrity      Celebrity?
 }
 
 model CinemaCredit {
@@ -1810,6 +1812,26 @@ model CinemaCredit {
 
   @@unique([titleId, personId, role])
   @@index([personId, role])
+}
+
+/// One person across the site's sections («چهره‌ها»): a film's actor or director and a singer are one page when linked.
+/// Built from the sections' own people (CinemaPerson, MusicArtist), which stay the owners of names, pictures and works.
+model Celebrity {
+  id             Int           @id @default(autoincrement())
+  slug           String        @unique
+  name           String
+  normalizedName String        @default("")
+  cinemaPersonId Int?          @unique
+  musicArtistId  Int?          @unique
+  cinemaPerson   CinemaPerson? @relation(fields: [cinemaPersonId], references: [id], onDelete: SetNull)
+  musicArtist    MusicArtist?  @relation(fields: [musicArtistId], references: [id], onDelete: SetNull)
+  /// The owner split it from a same-named person of the other section: never joined again by name.
+  keepApart      Boolean       @default(false)
+  featured       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  @@index([normalizedName])
 }
 
 model CinemaSeason {

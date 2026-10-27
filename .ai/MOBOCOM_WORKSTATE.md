@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/celebrities-hub-2026-10-27` adds «چهره‌ها» (/celebrities): one directory and one page per actor, director or singer across cinema and music, with a manager at /admin/celebrities. PRs 263–264 merged.
+
 Current continuation 2026-10-27: `feat/product-multi-categories-2026-10-27` (on the category-tree branch, PR #263) lets a product sit in several categories with a WordPress-like tree picker in the product editor.
 
 Current continuation 2026-10-27: `feat/store-category-tree-2026-10-27` adds the ready professional category tree (91 categories, built from /admin/productcats in one press) and a better category manager. PRs 256–262 are merged.

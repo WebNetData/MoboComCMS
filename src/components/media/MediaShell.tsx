@@ -20,7 +20,7 @@ export type SectionNavItem = { href: string; label: string; key: string }
  * footer (a template targeting the section wins), plus the section's own menu bar: its main
  * categories with mega panels (falls back to the simple sub-menu when the bar is off).
  */
-export default async function MediaShell({ section, active, nav, children, search }: { section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum' | 'search' | 'compare' | 'favorites' | 'copyright' | 'community'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
+export default async function MediaShell({ section, active, nav, children, search }: { section: 'music' | 'cinema' | 'games' | 'vip' | 'software' | 'forum' | 'search' | 'compare' | 'favorites' | 'copyright' | 'community' | 'celebrities'; active?: string; nav?: SectionNavItem[]; children: ReactNode; search?: { action: string; placeholder: string; value?: string } }) {
   const barSection: MegaSection | null = (BAR_SECTIONS as readonly string[]).includes(section) ? (section as MegaSection) : null
   const [locale, theme, navPages, bar] = await Promise.all([getServerLocale(), getServerTheme(), getPublicNavigationPages(), barSection ? getSectionBar(barSection).catch(() => null) : null])
   const context = { route: 'section' as const, sectionSlug: section }
