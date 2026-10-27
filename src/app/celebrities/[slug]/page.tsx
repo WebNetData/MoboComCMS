@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import Link from '@/components/AppLink'
 import MediaShell from '@/components/media/MediaShell'
 import ManageBar from '@/components/admin/ManageBar'
@@ -51,6 +51,7 @@ export default async function CelebrityPage({ params }: Props) {
   if (!data) notFound()
   const { person, cinema, music } = data
   const { card } = person
+  if ((await params).slug !== card.slug) permanentRedirect(toPublicPath(`/celebrities/${encodeURIComponent(card.slug)}`))
   const personId = person.cinemaPersonId ? String(person.cinemaPersonId) : ''
   // Each section answers for its own works, with its own rule for what a visitor may see.
   const [acted, directed, produced, songs, cinemaSettings, musicSettings] = await Promise.all([

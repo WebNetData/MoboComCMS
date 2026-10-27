@@ -80,10 +80,13 @@ async function main() {
     assert.deepEqual([(await db.celebrity.findUnique({ where: { id: entry.id } })).musicArtistId, split.musicArtistId], [null, artist.id], 'split: the side the address came from keeps the entry')
     assert.equal((await db.celebrity.findUnique({ where: { musicArtistId: artist.id } })).id, split.id, 'and a sync does not join them again')
 
+    await db.celebritySlugAlias.create({ data: { slug: `${stamp}-previous`, celebrityId: split.id } })
     await hub.joinCelebrities(entry.id, split.id)
     const joined = await db.celebrity.findUnique({ where: { id: entry.id } })
     assert.deepEqual([joined.cinemaPersonId, joined.musicArtistId, joined.keepApart], [person.id, artist.id, false], 'join: one entry again')
     assert.equal(await db.celebrity.count({ where: { id: split.id } }), 0)
+    assert.equal((await db.celebritySlugAlias.findUniqueOrThrow({ where: { slug: `${stamp}-previous` } })).celebrityId, entry.id, 'joining transfers prior addresses')
+    assert.equal((await hub.celebrityBySlug(split.slug, {})).card.id, entry.id, 'joined profile current URL redirects to surviving identity')
     await assert.rejects(hub.joinCelebrities(entry.id, alone.id), (error) => error instanceof hub.CelebrityError, 'two cinema people are merged in cinema, not here')
     console.log('PASS celebrities: same name joins, other name apart, public-only directory with roles, split holds through sync, join merges')
   } finally {

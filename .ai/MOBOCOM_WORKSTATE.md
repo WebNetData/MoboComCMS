@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `fix/artist-slugs-product-feedback-2026-10-27` from main3a773eb9 completes central artist English/manual slugs, canonical old-URL aliases and scoped native product-feedback filters with explicit load/error/retry states. [Source, executed checks, migration and limits](../docs/agent/handoffs/ARTIST_SLUGS_PRODUCT_FEEDBACK.md). Preserve the owner’s central profile/light themes; no bulk URL rewrite. Full check788, four native PG suites, two detected/restored faults, production build96/96, two actual browser cases/eight themed form states/axe0, Doctor0 errors/6 reviewed warnings, scoped SAST/secrets0. Additive migration registered and local existing identities/addresses verified unchanged. No Actions/PR/deploy.
+
 Current continuation 2026-10-27: `feat/media-light-theme-2026-10-27` gives music, film & series and games a professional light theme in `src/app/media-light.css`. It provides light palettes, heroes under a light veil, and picture tiles that keep white words. The dark theme is unchanged. PRs 268–269 merged.
 
 Current continuation 2026-10-27: `feat/site-wide-width-2026-10-27` puts every page at 95–98% of the window. The width is the theme's `--mb-chrome`; each page column takes it, and the panels fill the space beside their menu. PRs 265–267 («چهره‌ها») merged.

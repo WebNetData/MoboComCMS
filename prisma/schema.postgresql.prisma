@@ -1828,6 +1828,7 @@ model Celebrity {
   /// The owner split it from a same-named person of the other section: never joined again by name.
   keepApart      Boolean       @default(false)
   featured       Boolean       @default(false)
+  slugAliases    CelebritySlugAlias[]
   /// Published works across the sections (films and series credited, songs, albums, song credits): «most known» order.
   score          Int           @default(0)
   createdAt      DateTime      @default(now())
@@ -1835,6 +1836,15 @@ model Celebrity {
 
   @@index([normalizedName])
   @@index([score])
+}
+
+/// Prior artist page addresses remain reserved and redirect to the canonical profile.
+model CelebritySlugAlias {
+  slug        String    @id
+  celebrityId Int
+  celebrity   Celebrity @relation(fields: [celebrityId], references: [id], onDelete: Cascade)
+
+  @@index([celebrityId])
 }
 
 model CinemaSeason {

@@ -24,3 +24,10 @@ export function parseCelebrityRole(value: unknown): { role: CelebrityRole | null
 /** The stable address of a person's page: a singer's music address, else the cinema person's number. */
 export const celebritySlug = (source: { musicSlug?: string; cinemaId?: number }) =>
   source.musicSlug ? String(source.musicSlug).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 80) || '' : source.cinemaId ? `person-${source.cinemaId}` : ''
+
+/** Preview and server fallback use the same English-name slug; Persian names stay names. */
+export const suggestedCelebritySlug = (nameEn: string) => nameEn.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80).replace(/^-+|-+$/g, '')
+
+export function validCelebritySlug(value: unknown) {
+  return typeof value === 'string' && value.length <= 80 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
+}
