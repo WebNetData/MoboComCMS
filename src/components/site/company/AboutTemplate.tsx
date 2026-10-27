@@ -1,14 +1,12 @@
 import Link from '@/components/AppLink'
 import NavigationIcon from '@/components/site/NavigationIcon'
+import { sectionIcon } from '@/components/site/section-icons'
 import { companyFigures } from '@/modules/site/server/company-figures'
 import { Channels, Location, companyData } from './CompanyParts'
 import shared from './company.module.css'
 import styles from './about.module.css'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
-// A section's icon when its menu link has none, from the first part of its address (as the header picks them).
-const SECTION_ICONS: Record<string, string> = { products: 'bag', shop: 'bag', blog: 'book', journal: 'book', music: 'music', cinema: 'film', games: 'gamepad', software: 'devices', forum: 'chat', celebrities: 'users', people: 'users', businesses: 'star', vip: 'crown', plans: 'globe' }
-const sectionIcon = (href: string, icon?: string) => icon || SECTION_ICONS[href.split(/[/?#]/).filter(Boolean)[0] || ''] || 'sparkles'
 
 /**
  * The «درباره ما» page template (chosen per page in Pages admin): the page title over the brand's story with what the
