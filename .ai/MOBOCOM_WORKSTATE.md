@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/product-multi-categories-2026-10-27` (on the category-tree branch, PR #263) lets a product sit in several categories with a WordPress-like tree picker in the product editor.
+
 Current continuation 2026-10-27: `feat/store-category-tree-2026-10-27` adds the ready professional category tree (91 categories, built from /admin/productcats in one press) and a better category manager. PRs 256–262 are merged.
 
 Current continuation 2026-10-27: `feat/free-shipping-rules-2026-10-27` from main 37629579 adds owner-requested free shipping by order size and area to the existing carriers owner. [Store handoff](../docs/agent/handoffs/STORE_ADVANCED.md) lists the next store slices (shop home and category listing redesign).
