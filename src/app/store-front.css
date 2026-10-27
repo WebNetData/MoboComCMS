@@ -322,6 +322,15 @@
 .sx-cart-summary .is-save dt, .sx-save-row dt { color: var(--sx-deal); }
 .sx-cart-summary .is-total { padding-top: 12px; border-top: 1px solid var(--sx-line); font-weight: 800; }
 .sx-cart-summary .is-total dt { color: var(--sx-text); }
+/* Free shipping in the cart: offers reached, and the next one with what is left and a bar. */
+.sx-free-ship { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--sx-ok, #16a34a) 8%, transparent); border: 1px solid color-mix(in srgb, var(--sx-ok, #16a34a) 25%, transparent); }
+.sx-free-ship p { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 12.5px; line-height: 1.9; }
+.sx-free-ship p svg { flex: none; margin-block-start: 4px; }
+.sx-free-ship p span { flex: 1; min-inline-size: 0; }
+.sx-free-ship .is-reached { color: color-mix(in srgb, var(--sx-ok, #16a34a) 75%, var(--sx-text, currentColor)); font-weight: 700; }
+.sx-free-next { display: grid; gap: 6px; }
+.sx-free-bar { block-size: 6px; border-radius: 99px; background: color-mix(in srgb, var(--sx-ok, #16a34a) 15%, transparent); overflow: hidden; }
+.sx-free-bar i { display: block; block-size: 100%; border-radius: inherit; background: var(--sx-ok, #16a34a); }
 .sx-cart-hint { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; font-size: 12px; color: var(--sx-muted); line-height: 1.9; }
 .sx-cart-hint.is-warn { color: var(--sx-danger); }
 .sx-cart-fine { margin: 0; font-size: 11px; color: var(--sx-muted); line-height: 1.9; }

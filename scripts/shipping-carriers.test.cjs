@@ -105,3 +105,26 @@ test('checkout re-prices the carrier on the server', () => {
   assert.match(source, /shippingMinor = carrier\.feeMinor/)
   assert.match(source, /checkoutCarrier\(\{ carrierId: carrier\.carrierId/)
 })
+
+test('free shipping by order size and place: the store city, its province, listed cities or everywhere', () => {
+  const settings = c.normalizeCarrierSettings({ enabled: true, originProvince: 'مازندران', originCity: 'قائم‌شهر', carriers: [{ id: 'post-pishtaz', enabled: true }, { id: 'tipax', enabled: true }], freeRules: [
+    { id: 'home', minRial: 50_000_000, area: 'city', label: 'ارسال رایگان در قائم‌شهر' },
+    { id: 'region', minRial: 80_000_000, area: 'cities', cities: ['ساری', 'بابل'], carrierIds: ['tipax'] },
+    { id: 'bad', minRial: 0, area: 'country' },
+    { id: 'old', minRial: 1, area: 'country', endsAt: '2020-01-01' },
+  ] })
+  assert.deepEqual(settings.freeRules.map((rule) => rule.id), ['home', 'region', 'old'], 'a rule without a minimum is dropped')
+  const now = new Date('2026-10-27T10:00:00Z')
+  const price = (dest, itemRial) => Object.fromEntries(c.quotes(settings, { dest, weightGrams: 1200, itemRial, now }).filter((q) => q.ok).map((q) => [q.carrierId, q.free ? q.freeBy || 'free' : q.feeRial]))
+  const home = { province: 'مازندران', city: 'قائمشهر' }
+  assert.equal(price(home, 49_999_990)['post-pishtaz'] > 0, true, 'below the minimum the fee stays')
+  assert.deepEqual(price(home, 50_000_000), { 'post-pishtaz': 'ارسال رایگان در قائم‌شهر', tipax: 'ارسال رایگان در قائم‌شهر' }, 'in the store city every carrier is free; the city name matches without its space')
+  assert.equal(price({ province: 'مازندران', city: 'آمل' }, 90_000_000)['tipax'] > 0, true, 'another city of the province is not the store city')
+  const sari = price({ province: 'مازندران', city: 'ساری' }, 90_000_000)
+  assert.equal(sari.tipax, 'ارسال رایگان در ساری، بابل', 'listed cities, with the place in words when the rule has no text')
+  assert.equal(sari['post-pishtaz'] > 0, true, 'only the rule\'s carriers')
+  assert.equal(price({ province: 'تهران', city: 'تهران' }, 900_000_000)['post-pishtaz'] > 0, true, 'an ended rule does nothing')
+  const offers = c.freeShippingOffers(settings, now)
+  assert.deepEqual(offers.map((offer) => [offer.id, offer.place]), [['home', 'در قائم‌شهر'], ['region', 'در ساری، بابل']], 'open offers, lowest minimum first')
+  assert.deepEqual(c.freeShippingOffers({ ...settings, enabled: false }, now), [], 'nothing to tell while carriers are off')
+})

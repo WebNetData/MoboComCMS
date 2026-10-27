@@ -61,7 +61,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
       {!!cart.waiting && <p className="sx-cart-hint is-warn" role="status">سبد خرید پر است. {fa(cart.waiting)} کالا که پیش از ورود انتخاب کرده بودید نگه داشته شده و با خالی شدن جا به سبد اضافه می‌شود.</p>}
       <ul className="sx-cart-lines">
         {cart.lines.map((line) => <li key={line.id} className={line.issue ? 'has-issue' : ''} aria-busy={busy === line.id}>
-          <Link href={`/products/${line.slug}`} className="sx-cart-art">{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
+          <Link href={`/products/${line.slug}`} className="sx-cart-art" aria-label={line.name} tabIndex={-1}>{line.image ? <img src={line.image} alt="" loading="lazy" /> : <StoreIcon name="box" size={34} />}</Link>
           <div className="sx-cart-info">
             <Link href={`/products/${line.slug}`} className="sx-cart-name">{line.name}</Link>
             <ul className="sx-cart-attrs">
@@ -95,6 +95,7 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
         {cart.saving > 0 && <div className="is-save"><dt>سود شما از خرید</dt><dd><Amount value={cart.saving} currency={cart.currency} /></dd></div>}
         <div className="is-total"><dt>جمع سبد خرید</dt><dd><Amount value={cart.itemsTotal} currency={cart.currency} /></dd></div>
       </dl>
+      {cart.hasPhysical && cart.freeShipping?.length ? <FreeShippingProgress offers={cart.freeShipping} total={cart.itemsTotal} currency={cart.currency} /> : null}
       {cart.hasPhysical && <p className="sx-cart-hint"><StoreIcon name="truck" size={16} />{cart.shippingByAddress ? 'هزینهٔ ارسال بر اساس شهر، وزن و روش ارسال (پست، تیپاکس، پیک…) در مرحلهٔ بعد محاسبه می‌شود' : cart.shipping > 0 ? <>هزینهٔ ارسال: <Amount value={cart.shipping} currency={cart.currency} /> (در مرحلهٔ بعد محاسبه می‌شود)</> : 'ارسال این سفارش رایگان است'}</p>}
       <button type="button" className="sx-btn is-primary is-block is-large" onClick={proceed} disabled={cart.blocked || busy !== null}>تأیید و تکمیل سفارش</button>
       {cart.blocked && !cart.overLimit && <p className="sx-cart-hint is-warn">برای ادامه، کالاهای دارای هشدار را حذف یا اصلاح کنید.</p>}
@@ -106,5 +107,21 @@ export default function CartPage({ initial, note }: { initial: Cart; note: strin
       <div><small>جمع سبد خرید</small><Amount value={cart.itemsTotal} currency={cart.currency} /></div>
       <button type="button" className="sx-btn is-primary" onClick={proceed} disabled={cart.blocked || busy !== null}>تکمیل سفارش</button>
     </div>
+  </div>
+}
+
+/**
+ * How far the cart is from free shipping: offers already reached say so; the next one shows what is left, with a bar.
+ * The place is the rule's own ("در قائم‌شهر"): the address chosen at checkout decides whether it applies.
+ */
+function FreeShippingProgress({ offers, total, currency }: { offers: NonNullable<Cart['freeShipping']>; total: number; currency: string }) {
+  const reached = offers.filter((offer) => total >= offer.min)
+  const next = offers.find((offer) => total < offer.min)
+  return <div className="sx-free-ship" role="status">
+    {reached.map((offer) => <p key={offer.id} className="is-reached"><StoreIcon name="truck" size={16} /><span>{offer.label || `ارسال این سفارش ${offer.place} رایگان است`}</span></p>)}
+    {next && <div className="sx-free-next">
+      <p><StoreIcon name="truck" size={16} /><span>فقط <Amount value={next.min - total} currency={currency} /> تا ارسال رایگان {next.place}</span></p>
+      <div className="sx-free-bar" role="progressbar" aria-label={`پیشرفت تا ارسال رایگان ${next.place}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, (total / next.min) * 100))}><i style={{ inlineSize: `${Math.min(100, (total / next.min) * 100)}%` }} /></div>
+    </div>}
   </div>
 }

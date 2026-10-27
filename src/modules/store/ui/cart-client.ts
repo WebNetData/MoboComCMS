@@ -13,6 +13,8 @@ export type CartLine = {
 export type Cart = {
   token: string; lines: CartLine[]; count: number; currency: string; itemsTotal: number; listTotal: number; saving: number
   shipping: number; total: number; hasPhysical: boolean; blocked: boolean; shippingByAddress?: boolean; waiting?: number; overLimit?: number
+  /** Open free-shipping offers: the minimum in the cart's currency and the place it applies to. */
+  freeShipping?: { id: string; label: string; place: string; min: number }[]
 }
 export type CartResult = { ok: true; cart: Cart; limited?: boolean } | { ok: false; error: string; code: string; status: number }
 

@@ -7,6 +7,7 @@ import { unitPrice } from '@/modules/store/server/pricing'
 import { getDeliverySettings } from '@/modules/shipping/server/shipping'
 import { shippingFeeMinor } from '@/modules/shipping/domain/shipping'
 import { getCarrierSettings } from '@/modules/shipping/server/carriers'
+import { freeShippingOffers, rialToMinor } from '@/modules/shipping/domain/carriers'
 import { minorToNumber } from '@/shared/money'
 import { isPublicProduct } from '@/modules/catalog/domain/product-publication'
 import { deliversInstantly } from '@/modules/store/domain/digital-codes'
@@ -153,6 +154,8 @@ export type CartView = {
   hasPhysical: boolean
   /** Shipping is priced per carrier and address at checkout. */
   shippingByAddress?: boolean
+  /** Open free-shipping offers (carriers on, physical items): the minimum in the cart's currency and where it applies. */
+  freeShipping?: { id: string; label: string; place: string; min: number }[]
   /** Lines that block checkout (stock, availability, mixed currency). */
   blocked: boolean
   /** Lines from before sign-in that wait in the browser's cart until this cart has room. */
@@ -235,7 +238,13 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     }
   })
   // With carriers on, the fee depends on the address and carrier chosen at checkout.
-  const byAddress = physicalMinor > 0n && (await getCarrierSettings()).enabled
+  const carrierSettings = physicalMinor > 0n ? await getCarrierSettings() : null
+  const byAddress = !!carrierSettings?.enabled
+  // What the shopper can be told while filling the cart: "X more and shipping is free in our city".
+  const freeShipping = byAddress && carrierSettings ? freeShippingOffers(carrierSettings, new Date()).flatMap((offer) => {
+    const minor = rialToMinor(offer.minRial, currency)
+    return minor === null ? [] : [{ id: offer.id, label: offer.label, place: offer.place, min: minorToNumber(minor, currency) }]
+  }) : []
   const shippingMinor = physicalMinor > 0n && !byAddress ? shippingFeeMinor(await getDeliverySettings(), currency, physicalMinor) : 0n
   return {
     // The browser keeps the guest token while lines wait, so they can still move.
@@ -250,6 +259,7 @@ async function readCart(owner: CartOwner, snapshot?: CartLineSnapshot[]): Promis
     total: minorToNumber(itemsMinor + shippingMinor, currency),
     hasPhysical: lines.some((line) => line.kind === 'PHYSICAL' && !line.issue),
     shippingByAddress: byAddress,
+    ...(freeShipping.length ? { freeShipping } : {}),
     blocked: blocked || overLimit > 0,
     ...(waiting ? { waiting } : {}),
     ...(overLimit ? { overLimit } : {}),
