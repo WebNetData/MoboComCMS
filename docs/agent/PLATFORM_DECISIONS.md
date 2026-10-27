@@ -140,6 +140,17 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 - A **cancellation** of an order whose codes the buyer has already read is never refunded by itself; it waits for staff.
 - Stock of a product that sells from its pool is the pool's count, also after stock is returned (`returnStock` → `syncCodeStock`).
 
+**Store: the shop front (owner, 2026-10-27).** The shop landing and the category listing were redesigned on the existing owners; the single product page is approved and unchanged.
+- The landing (`/products` without filters) has:
+  - a hero: the welcome with a stage of up to three products, or the owner's slides when set;
+  - beside the hero, today's deal (the soonest-ending offer in stock) and the newest pictured product;
+  - six quick routes;
+  - a category card grid with sub-categories;
+  - a numbered best-seller list (three rows per column).
+- The offer band with fewer than four offers lets its "see all" card fill the row.
+- The listing has a banner with the category image, description and counts, sub-categories with counts, quick filters that toggle (available, discounted, online delivery, physical) and the result count in a sticky toolbar.
+- Owners: `src/components/store/ShopHome.tsx` and `src/modules/catalog/server/pages/products/page.tsx`. The styles in `src/app/store-shop.css` are scoped to `.sx-landing` / `.sx-listing`. A theme page placed as the shop landing still replaces the default landing. Data comes from `shopHome` / `shopListing`; there is no new query or setting.
+
 **Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
 
 **Cinema: separate subtitle and audio files.** A `MediaLink` may be of kind `SUBTITLE` or `AUDIO` with a `language` from `TRACK_LANGUAGES` (migration `20261209120000`, additive). A track is not a release: it has no dub/original side, is shown in groups of its own under the releases in the order of the language list, is never offered to the player and never what "continue watching" opens (`isTrack`, `trackLinks`, `playbackKind`). It goes through the same protected link route as every file, so tokens, VIP and reports work; it does not count towards the daily download limit. The link editor offers the two kinds for films and episodes only. **In the site's own player:** the subtitle files of the same film or episode that the viewer may open and that are WebVTT or SubRip are offered as tracks (`watchSource` → `subtitles`). Each is served by the site at `/api/media/subtitle/<id>` (`openSubtitle`): the same checks as the link route (module, publication, takedown, price or VIP, page token), read by the server through the downloads module's public-address guard (`fetchRemoteBytes`, at most 2 MB), decoded as UTF-8 or else Windows-1256, and converted to WebVTT (`toWebVtt`); a file without a timed cue is refused. The file's own address never reaches the browser. The player switches on the viewer's language (Persian unless they chose otherwise) and remembers the choice on the device.

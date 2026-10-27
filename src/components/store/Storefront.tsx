@@ -85,7 +85,7 @@ export function OfferBand({ title, products }: { title: string; products: Produc
   if (!products.length) return null
   const ends = products.map((product) => product.saleEndsAt).filter((value): value is string => !!value).sort()[0]
   const best = Math.max(...products.map((product) => product.discount))
-  return <section className="sx-offers" aria-label={title}>
+  return <section className={`sx-offers${products.length < 4 ? ' is-few' : ''}`} aria-label={title}>
     <div className="sx-offers-lead">
       <span className="sx-offers-badge" aria-hidden="true"><StoreIcon name="percent" size={30} /></span>
       <h2>{title}</h2>
