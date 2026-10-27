@@ -116,7 +116,8 @@ export async function getMusicHome(opts: { latestSize?: number; chartSize?: numb
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: { publishedAt: 'desc' }, take: Math.max(20, latestTake) }),
     db.musicTrack.findMany({ where: live(), include: trackInclude, orderBy: chartOrder, take: chartTake }),
     db.musicAlbum.findMany({ where: live(), include: albumInclude, orderBy: { publishedAt: 'desc' }, take: 12 }),
-    db.musicArtist.findMany({ where: { mergedIntoId: null }, orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
+    // Everyone in «چهره‌ها» has a music artist (one profile for the site); the shelf shows those with music out.
+    db.musicArtist.findMany({ where: { mergedIntoId: null, OR: [{ tracks: { some: live() } }, { albums: { some: live() } }, { credits: { some: { track: live() } } }] }, orderBy: [{ featured: 'desc' }, { updatedAt: 'desc' }], select: artistSelect, take: 14 }),
     db.musicPlaylist.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }], take: 8 }),
     db.musicTrack.findMany({ where: live(), select: { genre: true }, take: 500, orderBy: { publishedAt: 'desc' } }),
     db.musicTrack.findMany({ where: { ...live(), featured: true }, include: trackInclude, orderBy: { publishedAt: 'desc' }, take: 8 }),

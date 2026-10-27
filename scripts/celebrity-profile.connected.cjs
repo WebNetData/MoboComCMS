@@ -1,6 +1,8 @@
-// Real PostgreSQL: one artist profile for every section. A new person ticked in music and cinema gets one entry whose
-// music artist and cinema person carry the same name, picture and biography; an edit reaches both; an actor who starts
-// singing gets a music artist on the same entry; adding music without an English name is refused. Fixtures removed.
+// Real PostgreSQL: one artist profile for the whole site (owner, 2026-10-27). A new person gets one entry whose music
+// artist and cinema person carry the same name, picture and biography, with no English name needed (the music address
+// is made from the person); an edit reaches both; a person the sync made in one section gains the other on save; an
+// English name gives the music address, "-2" when taken; a person split apart from a namesake does not take the
+// namesake's cinema record. Fixtures removed.
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), ts = require('typescript-api'), { PrismaClient } = require('@prisma/client')
 const db = new PrismaClient(), cache = new Map(), memo = new Map(), stamp = `cbp${Date.now().toString(36)}`
 const mocks = {
@@ -35,27 +37,39 @@ async function main() {
   const made = { entries: [], artists: [], people: [] }
   try {
     const name = `هنرمند ${stamp}`
-    const entry = await hub.saveCelebrityProfile({ name, nameEn: `Artist ${stamp}`, image: '', bio: 'زندگی‌نامه', music: true, cinema: true }, actor, audit)
-    made.entries.push(entry.id); if (entry.musicArtistId) made.artists.push(entry.musicArtistId); if (entry.cinemaPersonId) made.people.push(entry.cinemaPersonId)
-    assert.ok(entry.musicArtistId && entry.cinemaPersonId, 'a new person ticked in both sections is in both')
+    const keep = (entry) => { made.entries.push(entry.id); if (entry.musicArtistId) made.artists.push(entry.musicArtistId); if (entry.cinemaPersonId) made.people.push(entry.cinemaPersonId); return entry }
+    const entry = keep(await hub.saveCelebrityProfile({ name, nameEn: '', image: '', bio: '<p>زندگی‌نامه <strong>پررنگ</strong></p>' }, actor, audit))
+    assert.ok(entry.musicArtistId && entry.cinemaPersonId, 'a new person is in both sections at once')
     const [artist, person] = await Promise.all([db.musicArtist.findUnique({ where: { id: entry.musicArtistId } }), db.cinemaPerson.findUnique({ where: { id: entry.cinemaPersonId } })])
-    assert.deepEqual([artist.name, person.name, artist.bio.includes('زندگی‌نامه'), person.bio.includes('زندگی‌نامه'), person.imageLocked], [name, name, true, true, true], 'one profile in both sections')
+    assert.deepEqual([artist.name, person.name, artist.slug, entry.slug, person.imageLocked], [name, name, `artist-${entry.cinemaPersonId}`, `person-${entry.cinemaPersonId}`, true], 'no English name: the addresses come from the person')
+    assert.ok(artist.bio.includes('<strong>پررنگ</strong>') && person.bio.includes('<strong>پررنگ</strong>'), 'the formatted biography reaches both')
 
-    await hub.saveCelebrityProfile({ id: entry.id, name: `${name} نو`, nameEn: `Artist ${stamp}`, image: '', bio: 'تازه' }, actor, audit)
+    await hub.saveCelebrityProfile({ id: entry.id, name: `${name} نو`, nameEn: '', image: '', bio: 'تازه' }, actor, audit)
     const [artist2, person2] = await Promise.all([db.musicArtist.findUnique({ where: { id: entry.musicArtistId } }), db.cinemaPerson.findUnique({ where: { id: entry.cinemaPersonId } })])
     assert.deepEqual([artist2.name, person2.name], [`${name} نو`, `${name} نو`], 'an edit reaches both sections')
 
-    // An actor (cinema only) who starts singing.
+    // An actor the sync found in a film only: saving their profile gives them a music artist on the same entry.
     const actorName = `بازیگر ${stamp}`
-    const onlyCinema = await hub.saveCelebrityProfile({ name: actorName, nameEn: '', image: '', bio: '', cinema: true }, actor, audit)
-    made.entries.push(onlyCinema.id); made.people.push(onlyCinema.cinemaPersonId)
-    assert.equal(onlyCinema.musicArtistId, null)
-    await assert.rejects(hub.saveCelebrityProfile({ id: onlyCinema.id, name: actorName, nameEn: '', image: '', bio: '', music: true }, actor, audit), (error) => error instanceof hub.CelebrityError, 'music needs an English name for the address')
-    const singing = await hub.saveCelebrityProfile({ id: onlyCinema.id, name: actorName, nameEn: `Actor ${stamp}`, image: '', bio: '', music: true }, actor, audit)
-    made.artists.push(singing.musicArtistId)
-    assert.deepEqual([singing.id, !!singing.musicArtistId, singing.cinemaPersonId], [onlyCinema.id, true, onlyCinema.cinemaPersonId], 'the same entry now holds a music artist too')
-    await assert.rejects(hub.saveCelebrityProfile({ name: 'ن', music: false, cinema: false }, actor, audit), (error) => error instanceof hub.CelebrityError, 'a name and a section are needed')
-    console.log('PASS celebrity profile: one profile in both sections, edits reach both, an actor gains a music artist, English name required for music')
+    const found = await db.cinemaPerson.create({ data: { name: actorName, normalizedName: people.normalizePersonName(actorName) } }); made.people.push(found.id)
+    const synced = keep(await db.celebrity.create({ data: { slug: `person-${found.id}`, name: actorName, normalizedName: people.normalizePersonName(actorName), cinemaPersonId: found.id } }))
+    const singing = keep(await hub.saveCelebrityProfile({ id: synced.id, name: actorName, nameEn: `Actor ${stamp}`, image: '', bio: '' }, actor, audit))
+    assert.deepEqual([singing.id, singing.cinemaPersonId, (await db.musicArtist.findUnique({ where: { id: singing.musicArtistId } })).slug], [synced.id, found.id, `actor-${stamp}`], 'the same entry now holds a music artist named from the English name')
+
+    // The English name of a new person is taken already: the address gets "-2".
+    const twin = keep(await hub.saveCelebrityProfile({ name: `همنام ${stamp}`, nameEn: `Actor ${stamp}`, image: '', bio: '' }, actor, audit))
+    assert.equal((await db.musicArtist.findUnique({ where: { id: twin.musicArtistId } })).slug, `actor-${stamp}-2`, 'a taken music address gets a number')
+
+    // A singer kept apart from an actor of the same name does not take the actor's cinema record.
+    const shared = `همنام‌جدا ${stamp}`
+    const actorApart = await db.cinemaPerson.create({ data: { name: shared, normalizedName: people.normalizePersonName(shared) } }); made.people.push(actorApart.id)
+    keep(await db.celebrity.create({ data: { slug: `person-${actorApart.id}`, name: shared, normalizedName: people.normalizePersonName(shared), cinemaPersonId: actorApart.id, keepApart: true } }))
+    const singerApart = await db.musicArtist.create({ data: { slug: `${stamp}-apart`, name: shared } }); made.artists.push(singerApart.id)
+    const singerEntry = keep(await db.celebrity.create({ data: { slug: `${stamp}-apart`, name: shared, normalizedName: people.normalizePersonName(shared), musicArtistId: singerApart.id, keepApart: true } }))
+    const saved = await hub.saveCelebrityProfile({ id: singerEntry.id, name: shared, nameEn: '', image: '', bio: '' }, actor, audit)
+    assert.deepEqual([saved.musicArtistId, saved.cinemaPersonId], [singerApart.id, null], 'people split apart stay apart')
+
+    await assert.rejects(hub.saveCelebrityProfile({ name: 'ن' }, actor, audit), (error) => error instanceof hub.CelebrityError, 'a name is needed')
+    console.log('PASS celebrity profile: one profile for the site, no English name needed, edits reach both, a one-section person gains the other, taken address numbered, split people stay apart')
   } finally {
     await db.celebrity.deleteMany({ where: { OR: [{ id: { in: made.entries } }, { musicArtistId: { in: made.artists } }, { cinemaPersonId: { in: made.people } }] } })
     await db.contentRevision.deleteMany({ where: { entityType: 'music-artists', entityId: { in: made.artists } } }).catch(() => undefined)
