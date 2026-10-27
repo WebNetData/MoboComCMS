@@ -7,6 +7,7 @@ import { richTextToPlain } from '@/shared/content/sanitize'
 import { minorToNumber } from '@/shared/money'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { publicProductRelationshipIds } from '@/modules/catalog/server/product-relationships'
+import { parseJson, type AttributeField } from '@/modules/catalog/server/product-config'
 import {
   DEFAULT_STORE_SETTINGS, discountPercent, normalizeStoreSettings, type ShopQuery, type StoreSettings,
 } from '@/modules/store/domain/store'
@@ -221,12 +222,34 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
     db.product.findMany({ where: { ...where, ...brandFilter }, include: CARD_INCLUDE, take: LISTING_CAP, orderBy: { id: 'desc' } }),
     db.product.groupBy({ by: ['brandId'], where: { ...where, brandId: { not: null } }, _count: { _all: true } }),
   ])
-  let list = await cards(rows)
-  const priceBounds = list.length ? { min: Math.min(...list.map((card) => card.price)), max: Math.max(...list.map((card) => card.price)) } : { min: 0, max: 0 }
-  if (query.min) list = list.filter((card) => card.price >= query.min)
-  if (query.max) list = list.filter((card) => card.price <= query.max)
-  if (query.available) list = list.filter((card) => card.inStock)
-  if (query.discounted) list = list.filter((card) => card.discount > 0)
+  const all = await cards(rows)
+  const priceBounds = all.length ? { min: Math.min(...all.map((card) => card.price)), max: Math.max(...all.map((card) => card.price)) } : { min: 0, max: 0 }
+  const specsOf = new Map(rows.map((row) => [row.id, readSpecs(row.specifications)]))
+  // Every filter but one (the facet being counted sees the others, not itself).
+  const keep = (card: ProductCard, skip = '') =>
+    (skip === 'price' || ((!query.min || card.price >= query.min) && (!query.max || card.price <= query.max)))
+    && (skip === 'available' || !query.available || card.inStock)
+    && (skip === 'discounted' || !query.discounted || card.discount > 0)
+    && (skip === 'rating' || !query.rating || card.rating >= query.rating)
+    && (skip === 'instant' || !query.instant || card.instant)
+    && Object.entries(query.specs).every(([key, values]) => skip === `spec:${key}` || values.includes(specsOf.get(card.id)?.[key] || ''))
+  const list = all.filter((card) => keep(card))
+  const fields = await specFields(rows)
+  const specFacets = fields.map((field) => {
+    const counts = new Map<string, number>()
+    for (const card of all) if (keep(card, `spec:${field.key}`)) { const value = specsOf.get(card.id)?.[field.key]; if (value) counts.set(value, (counts.get(value) || 0) + 1) }
+    const order = (value: string) => { const at = field.options.indexOf(value); return at < 0 ? 999 : at }
+    const values = [...new Set([...counts.keys(), ...(query.specs[field.key] || [])])].map((value) => ({ value, count: counts.get(value) || 0 })).sort((a, b) => order(a.value) - order(b.value) || b.count - a.count || a.value.localeCompare(b.value, 'fa'))
+    return { key: field.key, label: field.label, color: field.kind === 'color', values }
+  }).filter((facet) => facet.values.length > 1 || (query.specs[facet.key]?.length ?? 0) > 0)
+  const counted = (skip: string, test: (card: ProductCard) => boolean) => all.filter((card) => keep(card, skip) && test(card)).length
+  const toggles = {
+    available: counted('available', (card) => card.inStock),
+    discounted: counted('discounted', (card) => card.discount > 0),
+    instant: counted('instant', (card) => card.instant),
+    rating4: counted('rating', (card) => card.rating >= 4),
+    rating3: counted('rating', (card) => card.rating >= 3),
+  }
   const by: Record<ShopQuery['sort'], (a: ProductCard, b: ProductCard) => number> = {
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     bestselling: (a, b) => b.soldCount - a.soldCount || b.id - a.id,
@@ -238,6 +261,7 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   // Out-of-stock items sink to the end whatever the order (Digikala behaviour).
   list.sort((a, b) => Number(b.inStock) - Number(a.inStock) || by[query.sort](a, b))
   const total = list.length
+  const priceSteps = priceBuckets(all.filter((card) => keep(card, 'price')).map((card) => card.price))
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const page = Math.min(query.page, pages)
   const brandIds = brandCounts.map((row) => row.brandId!).filter(Boolean)
@@ -252,9 +276,82 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
     pages,
     capped: rows.length >= LISTING_CAP,
     priceBounds,
+    priceSteps,
+    specFacets,
+    toggles,
     brands: brandRows.map((brand) => ({ ...brand, count: countOf.get(brand.id) || 0 })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fa')),
     currency: list[0]?.currency || rows[0]?.currency || 'IRT',
   }
+}
+
+/** A product's specifications as stored (key → text); anything malformed reads as none. */
+function readSpecs(value: string | null | undefined): Record<string, string> {
+  try {
+    const raw = JSON.parse(value || '{}')
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.fromEntries(Object.entries(raw).filter(([, item]) => typeof item === 'string' && item.trim()).map(([key, item]) => [key, String(item).trim()])) : {}
+  } catch { return {} }
+}
+
+/**
+ * The specification fields the listed products can be narrowed by: the choice fields (and colours) of the
+ * attribute groups their categories use (own or nearest ancestor's), and text fields that repeat a few values.
+ */
+async function specFields(rows: { categoryId: number | null; specifications: string }[]): Promise<AttributeField[]> {
+  const ids = [...new Set(rows.map((row) => row.categoryId).filter((id): id is number => !!id))]
+  if (!ids.length) return []
+  const categories = await db.productCategory.findMany({ select: { id: true, parentId: true, attributeGroupId: true } }).catch(() => [])
+  const byId = new Map(categories.map((row) => [row.id, row]))
+  const groupOf = (id: number) => { for (let at = byId.get(id), guard = 0; at && guard < 20; at = at.parentId ? byId.get(at.parentId) : undefined, guard++) if (at.attributeGroupId) return at.attributeGroupId; return null }
+  const groupIds = [...new Set(ids.map(groupOf).filter((id): id is number => !!id))]
+  if (!groupIds.length) return []
+  const groups = await db.productAttributeGroup.findMany({ where: { id: { in: groupIds } }, select: { fields: true } }).catch(() => [])
+  const seen = new Set<string>(), fields: AttributeField[] = []
+  for (const group of groups) for (const field of parseJson<AttributeField[]>(group.fields, [])) {
+    if (!field?.key || seen.has(field.key)) continue
+    seen.add(field.key)
+    if (field.kind === 'select' || field.kind === 'color') { fields.push(field); continue }
+    const values = new Set(rows.map((row) => readSpecs(row.specifications)[field.key]).filter(Boolean))
+    if (values.size >= 2 && values.size <= 12) fields.push({ ...field, options: [] })
+  }
+  return fields.slice(0, 10)
+}
+
+/** Four price ranges with round edges from the listed prices (none for a handful of products). */
+export function priceBuckets(prices: number[]): { min: number; max: number }[] {
+  const sorted = prices.filter((price) => price > 0).sort((a, b) => a - b)
+  if (sorted.length < 6) return []
+  const round = (value: number) => { const step = 10 ** Math.max(0, Math.floor(Math.log10(value)) - 1); return Math.max(step, Math.round(value / step) * step) }
+  const edges = [...new Set([0.25, 0.5, 0.75].map((at) => round(sorted[Math.floor(at * (sorted.length - 1))])))].sort((a, b) => a - b)
+  if (!edges.length) return []
+  return [{ min: 0, max: edges[0] }, ...edges.slice(1).map((edge, index) => ({ min: edges[index], max: edge })), { min: edges[edges.length - 1], max: 0 }]
+}
+
+// ------------------------------------------------------------------ one half of the shop
+
+/** Front page data of one half of the shop (digital or physical): its own offers, best sellers, categories and brands. */
+export async function shopDivisionHome(kind: 'PHYSICAL' | 'VIRTUAL') {
+  const settings = await getStoreSettings()
+  const now = new Date()
+  const [divisions, tree, offersRaw, bestselling, newest, popular, brands] = await Promise.all([
+    shopDivisions(),
+    categoryTree(),
+    productCards({ kind, compareAtMinor: { gt: 0 }, OR: [{ saleEndsAt: null }, { saleEndsAt: { gt: now } }] }, [{ saleEndsAt: 'asc' }, { soldCount: 'desc' }], 24),
+    productCards({ kind }, [{ soldCount: 'desc' }, { id: 'desc' }], 12),
+    productCards({ kind }, [{ createdAt: 'desc' }], 12),
+    productCards({ kind }, [{ views: 'desc' }, { id: 'desc' }], 12),
+    settings.showBrands ? db.productBrand.findMany({ where: { products: { some: { active: true, approval: 'APPROVED', kind } } }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }], take: 18, select: { id: true, slug: true, name: true, logo: true } }).catch(() => []) : [],
+  ])
+  const division = divisions.find((item) => item.kind === kind) || { kind, total: 0, categories: [], products: [] }
+  const nodes = new Map<string, CategoryNode>()
+  const walk = (list: CategoryNode[]) => { for (const node of list) { nodes.set(node.slug, node); walk(node.children) } }
+  walk(tree)
+  // One rail per category of this half that has enough of its products (up to four).
+  const rails = (await Promise.all(division.categories.slice(0, 4).map(async (category) => {
+    const node = nodes.get(category.slug)
+    const products = node ? await productCards({ kind, categoryId: { in: subtreeIds(node) } }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12) : []
+    return { category: { slug: category.slug, name: category.name }, products }
+  }))).filter((rail) => rail.products.length >= 3)
+  return { settings, division, offers: offersRaw.filter((card) => card.discount > 0).slice(0, 12), bestselling, newest, popular, brands, rails }
 }
 
 // ------------------------------------------------------------------ product page

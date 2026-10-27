@@ -12,6 +12,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   // A category listing is a page of its own: its name in the title and description; an unknown address is not indexed.
   const onlyCategory = typeof params.category === 'string' && Object.keys(params).length === 1
   const categoryName = onlyCategory ? await productCategoryName(params.category as string) : null
+  // Each half of the shop is a store page of its own (?kind=… alone).
+  const kind = typeof params.kind === 'string' && Object.keys(params).length === 1 ? params.kind.toUpperCase() : ''
+  const store = kind === 'VIRTUAL' ? { title: 'فروشگاه محصولات دیجیتال', description: 'خرید لایسنس، گیفت‌کارت، اکانت و اشتراک با تحویل آنی در حساب کاربری؛ ضمانت اصالت و پرداخت امن.' }
+    : kind === 'PHYSICAL' ? { title: 'فروشگاه کالای فیزیکی', description: 'خرید کالای اصل با ارسال به سراسر کشور، انتخاب روش و زمان ارسال، ضمانت بازگشت و پرداخت امن.' } : null
+  if (store) return { title: store.title, description: store.description, alternates: { canonical: toPublicPath(`/products?kind=${kind}`) } }
   const base: Metadata = {
     title: categoryName ? `${categoryName} — فروشگاه` : 'فروشگاه',
     description: categoryName ? `خرید آنلاین ${categoryName}: مقایسهٔ قیمت و مشخصات، ارسال سریع، ضمانت اصالت و پرداخت امن.` : 'خرید آنلاین کالاهای فیزیکی و محصولات دیجیتال با ارسال سریع، ضمانت اصالت و پرداخت امن.',

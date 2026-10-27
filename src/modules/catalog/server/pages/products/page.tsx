@@ -12,11 +12,12 @@ import StoreSlider from '@/components/store/StoreSlider'
 import { StoreIcon, type StoreIconName } from '@/components/store/StoreIcons'
 import { sized, srcSet } from '@/shared/media/image'
 import {
-  BannerGrid, BrandStrip, Crumbs, DivisionPanels, OfferBand, ProductGrid, ProductRail, TrustStrip,
+  BannerGrid, BrandStrip, Crumbs, DIGITAL_TRUST, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
-import { CategoryGrid, QuickRoutes, ShopHero, TopSellers } from '@/components/store/ShopHome'
-import { shopDivisions, shopHome, shopListing, type CategoryNode } from '@/modules/store/server/catalog'
-import { SHOP_SORTS, isFiltered, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
+import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
+import { FacetFind, FilterAutoApply } from '@/components/store/ShopFilters'
+import { shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
+import { SHOP_SORTS, SPEC_PARAM, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
 
 const SHOP_CONTEXT = { route: 'shop' } as const
@@ -50,37 +51,36 @@ export default async function ProductsPage({ searchParams: searchParamsPromise, 
     <ThemeHeader context={SHOP_CONTEXT} theme={theme} locale={locale} navPages={navPages} preview={preview} />
     <SectionBarSlot section="shop" searchValue={query.q} />
     <main className="sx-page">
-      {filtered ? <Listing query={query} /> : <Landing />}
+      {isStoreFront(query) && query.kind ? <StoreFront kind={query.kind} /> : filtered ? <Listing query={query} /> : <Landing />}
     </main>
     <ThemeFooter context={SHOP_CONTEXT} locale={locale} navPages={navPages} preview={preview} />
   </>
 }
 
+const STORE_NAME = { VIRTUAL: 'فروشگاه دیجیتال', PHYSICAL: 'فروشگاه فیزیکی' } as const
+const unique = (cards: ProductCard[]) => cards.filter((card, index, all) => all.findIndex((other) => other.id === card.id) === index)
+
+/** The shop's front: two doors (digital and physical), then what is worth seeing across both. */
 async function Landing() {
   const [home, divisions] = await Promise.all([shopHome(), shopDivisions()])
   const physical = divisions.find((division) => division.kind === 'PHYSICAL'), virtual = divisions.find((division) => division.kind === 'VIRTUAL')
   const grid = home.categories.filter((node) => node.total > 0).map((node) => ({ slug: node.slug, name: node.name, image: node.image, total: node.total, children: node.children.filter((child) => child.total > 0).map((child) => ({ slug: child.slug, name: child.name })) }))
   const empty = !home.newest.length
-  // The hero's stage: up to three distinct products with pictures, offers first.
-  const stage = [...home.offers, ...home.bestselling, ...home.newest].filter((card, index, all) => card.image && all.findIndex((other) => other.id === card.id) === index).slice(0, 3)
-  const deal = home.offers.find((card) => card.inStock)
-  const fresh = home.newest.find((card) => card.id !== deal?.id && card.image) || home.newest.find((card) => card.id !== deal?.id)
-  const stats = [
-    { label: 'کالای فعال', value: home.categories.reduce((sum, node) => sum + node.total, 0) || home.newest.length },
-    { label: 'پیشنهاد ویژه', value: home.offers.length },
-    { label: 'برند', value: home.brands.length },
-  ].filter((item) => item.value > 0)
   const ranked = home.bestselling.filter((card) => card.soldCount > 0)
   return <div className="container sx-landing">
-    <ShopHero slider={home.settings.slides.length > 0 ? <StoreSlider slides={home.settings.slides} /> : null} stage={stage} stats={stats} deal={deal} fresh={fresh} />
+    {home.settings.slides.length > 0 && <StoreSlider slides={home.settings.slides} />}
+    <header className="sx-gate-head">
+      <h1>فروشگاه موبوکام</h1>
+      <p>دو فروشگاه در یک جا: محصولات دیجیتال با تحویل آنی، و کالای فیزیکی با ارسال به سراسر کشور.</p>
+    </header>
+    <StoreDoors divisions={divisions} />
     <QuickRoutes />
     {home.settings.showCategories && <CategoryGrid categories={grid} />}
     <OfferBand title={home.settings.offerTitle} products={home.offers} />
     <BannerGrid banners={home.settings.banners.slice(0, 2)} />
     <TopSellers products={ranked.length >= 3 ? ranked : []} />
-    <DivisionPanels divisions={divisions} />
-    <ProductRail title="کالاهای فیزیکی" icon="truck" products={physical && physical.products.length >= 4 ? physical.products : []} more="/products?kind=PHYSICAL" />
-    <ProductRail title="محصولات مجازی" icon="bolt" products={virtual && virtual.products.length >= 4 ? virtual.products : []} more="/products?kind=VIRTUAL" />
+    <ProductRail title="برگزیده‌های فروشگاه دیجیتال" icon="bolt" products={virtual && virtual.products.length >= 4 ? virtual.products : []} more="/products?kind=VIRTUAL" />
+    <ProductRail title="برگزیده‌های فروشگاه فیزیکی" icon="truck" products={physical && physical.products.length >= 4 ? physical.products : []} more="/products?kind=PHYSICAL" />
     {home.rails.map((rail) => <ProductRail key={rail.category.slug} title={rail.category.name} icon="box" products={rail.products} more={`/products?category=${encodeURIComponent(rail.category.slug)}`} />)}
     <BannerGrid banners={home.settings.banners.slice(2, 4)} />
     <BrandStrip brands={home.brands} />
@@ -88,6 +88,38 @@ async function Landing() {
     <ProductRail title="پربازدیدترین‌ها" icon="grid" products={home.popular.filter((card) => card.views > 0).length >= 4 ? home.popular : []} more="/products?sort=views" />
     {empty && <div className="sx-empty"><StoreIcon name="store" size={42} /><b>هنوز کالایی منتشر نشده است</b><small>کالاها را از بخش مدیریت فروشگاه اضافه کنید.</small></div>}
     <TrustStrip />
+  </div>
+}
+
+/** One half of the shop as a store of its own: its hero and search, categories, offers, best sellers and brands. */
+async function StoreFront({ kind }: { kind: 'PHYSICAL' | 'VIRTUAL' }) {
+  const home = await shopDivisionHome(kind)
+  const copy = divisionCopy(kind), base = `/products?kind=${kind}`
+  const tone = kind === 'VIRTUAL' ? 'digital' : 'physical'
+  const stage = unique([...home.offers, ...home.bestselling, ...home.newest]).filter((card) => card.image).slice(0, 3)
+  const deal = home.offers.find((card) => card.inStock)
+  const fresh = home.newest.find((card) => card.id !== deal?.id && card.image) || home.newest.find((card) => card.id !== deal?.id)
+  const stats = [
+    { label: kind === 'VIRTUAL' ? 'محصول دیجیتال' : 'کالای فیزیکی', value: home.division.total },
+    { label: 'دسته‌بندی', value: home.division.categories.length },
+    { label: 'پیشنهاد ویژه', value: home.offers.length },
+  ].filter((item) => item.value > 0)
+  const grid = home.division.categories.map((category) => ({ slug: category.slug, name: category.name, image: category.image, total: category.total, children: category.children }))
+  const ranked = home.bestselling.filter((card) => card.soldCount > 0)
+  return <div className={`container sx-landing sx-store is-${tone}`}>
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, { label: STORE_NAME[kind] }]} />
+    <ShopHero slider={null} stage={stage} stats={stats} deal={deal} fresh={fresh} copy={copy.hero} tone={tone} />
+    <QuickRoutes items={copy.quick} />
+    <CategoryGrid categories={grid} base={base} />
+    <OfferBand title={kind === 'VIRTUAL' ? 'شگفت‌انگیزهای دیجیتال' : 'شگفت‌انگیزهای فیزیکی'} products={home.offers} />
+    <TopSellers products={ranked.length >= 3 ? ranked : []} more={`${base}&sort=bestselling`} title={kind === 'VIRTUAL' ? 'پرفروش‌ترین محصولات دیجیتال' : 'پرفروش‌ترین کالاهای فیزیکی'} />
+    {home.rails.map((rail) => <ProductRail key={rail.category.slug} title={rail.category.name} icon="box" products={rail.products} more={`${base}&category=${encodeURIComponent(rail.category.slug)}`} />)}
+    <BrandStrip brands={home.brands} />
+    <ProductRail title="تازه‌ها" icon="star" products={home.newest} more={`${base}&sort=newest&page=1`} />
+    <ProductRail title="پربازدیدها" icon="grid" products={home.popular.filter((card) => card.views > 0).length >= 4 ? home.popular : []} more={`${base}&sort=views`} />
+    {!home.division.total && <div className="sx-empty"><StoreIcon name={kind === 'VIRTUAL' ? 'bolt' : 'truck'} size={42} /><b>هنوز کالایی در {STORE_NAME[kind]} منتشر نشده است</b><Link href={copy.other.href} className="sx-btn">{copy.other.label}</Link></div>}
+    <Link href={copy.other.href} className="sx-store-switch"><StoreIcon name={kind === 'VIRTUAL' ? 'truck' : 'bolt'} size={22} /><span><small>به فروشگاه دیگر سر بزنید</small><b>{copy.other.label}</b></span><StoreIcon name="chevron" size={18} /></Link>
+    <TrustStrip items={kind === 'VIRTUAL' ? DIGITAL_TRUST : undefined} />
   </div>
 }
 
@@ -104,7 +136,12 @@ function CategoryLinks({ nodes, query, active, depth = 0 }: { nodes: CategoryNod
 async function Listing({ query }: { query: ShopQuery }) {
   const result = await shopListing(query)
   const node = result.category?.node
-  const title = query.q ? `نتایج جست‌وجو برای «${query.q}»` : node ? node.name : query.discounted ? 'پیشنهادهای شگفت‌انگیز' : 'همهٔ کالاها'
+  const rootKind = result.category?.chain[0]?.kind
+  const storeKind = query.kind || (rootKind === 'PHYSICAL' || rootKind === 'VIRTUAL' ? rootKind : '')
+  const title = query.q ? `نتایج جست‌وجو برای «${query.q}»` : node ? node.name : query.discounted ? 'پیشنهادهای شگفت‌انگیز' : query.kind === 'VIRTUAL' ? 'همهٔ محصولات دیجیتال' : query.kind === 'PHYSICAL' ? 'همهٔ کالاهای فیزیکی' : 'همهٔ کالاها'
+  // Inside one store the category tree holds that store's categories only.
+  const tree = query.kind ? result.tree.filter((item) => (item.kind === query.kind || item.kind === '') && item.total > 0) : result.tree
+  const home = query.kind ? `/products?kind=${query.kind}` : '/products'
   const unit = iranianUnit(result.currency, 'fa-IR')
   const chips: { label: string; href: string }[] = []
   if (query.q) chips.push({ label: `«${query.q}»`, href: shopQueryString(query, { q: '' }) })
@@ -115,20 +152,30 @@ async function Listing({ query }: { query: ShopQuery }) {
   if (query.available) chips.push({ label: 'فقط کالاهای موجود', href: shopQueryString(query, { available: false }) })
   if (query.discounted) chips.push({ label: 'فقط تخفیف‌دار', href: shopQueryString(query, { discounted: false }) })
   if (query.kind) chips.push({ label: query.kind === 'PHYSICAL' ? 'کالای فیزیکی' : 'محصول دیجیتال', href: shopQueryString(query, { kind: '' }) })
+  if (query.rating) chips.push({ label: `امتیاز ${fa(query.rating)} به بالا`, href: shopQueryString(query, { rating: 0 }) })
+  if (query.instant) chips.push({ label: 'تحویل آنی', href: shopQueryString(query, { instant: false }) })
+  for (const [key, values] of Object.entries(query.specs)) for (const value of values) {
+    const facet = result.specFacets.find((item) => item.key === key)
+    const rest = values.filter((item) => item !== value)
+    const specs = { ...query.specs }; if (rest.length) specs[key] = rest; else delete specs[key]
+    chips.push({ label: `${facet?.label || key}: ${value}`, href: shopQueryString(query, { specs }) })
+  }
   const icon: StoreIconName = query.q ? 'filter' : query.discounted ? 'percent' : query.kind === 'VIRTUAL' ? 'bolt' : query.kind === 'PHYSICAL' ? 'truck' : 'grid'
   const parent = result.category && result.category.chain.length > 1 ? result.category.chain[result.category.chain.length - 2] : null
-  const kicker = parent ? parent.name : node ? 'دسته‌بندی فروشگاه' : query.q ? 'جست‌وجو در فروشگاه' : 'فروشگاه موبوکام'
+  const kicker = parent ? parent.name : node ? (storeKind ? STORE_NAME[storeKind] : 'دسته‌بندی فروشگاه') : query.q ? 'جست‌وجو در فروشگاه' : storeKind ? STORE_NAME[storeKind] : 'فروشگاه موبوکام'
   // One tap on or off; the full set stays in the filter panel.
   const quick: { label: string; on: boolean; patch: Partial<ShopQuery>; icon: StoreIconName }[] = [
     { label: 'فقط موجود', on: query.available, patch: { available: !query.available }, icon: 'check' },
     { label: 'تخفیف‌دار', on: query.discounted, patch: { discounted: !query.discounted }, icon: 'percent' },
+    ...(storeKind !== 'PHYSICAL' && (result.toggles.instant > 0 || query.instant) ? [{ label: 'تحویل آنی', on: query.instant, patch: { instant: !query.instant }, icon: 'bolt' as StoreIconName }] : []),
+    { label: '۴ ستاره به بالا', on: query.rating === 4, patch: { rating: query.rating === 4 ? 0 : 4 }, icon: 'star' },
     { label: 'تحویل آنلاین', on: query.kind === 'VIRTUAL', patch: { kind: query.kind === 'VIRTUAL' ? '' : 'VIRTUAL' }, icon: 'bolt' },
     { label: 'کالای فیزیکی', on: query.kind === 'PHYSICAL', patch: { kind: query.kind === 'PHYSICAL' ? '' : 'PHYSICAL' }, icon: 'truck' },
   ]
 
   return <div className="container sx-listing">
-    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, ...(query.kind ? [{ label: query.kind === 'PHYSICAL' ? 'کالاهای فیزیکی' : 'محصولات مجازی', href: `/products?kind=${query.kind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
-    <header className={`sx-lhero${node?.image ? ' has-art' : ''}`}>
+    <Crumbs items={[{ label: 'خانه', href: '/' }, { label: 'فروشگاه', href: '/products' }, ...(storeKind ? [{ label: STORE_NAME[storeKind], href: `/products?kind=${storeKind}` }] : []), ...(result.category?.chain || []).map((item, index, chain) => ({ label: item.name, href: index < chain.length - 1 ? `/products?category=${encodeURIComponent(item.slug)}` : undefined })), ...(!node ? [{ label: title }] : [])]} />
+    <header className={`sx-lhero${node?.image ? ' has-art' : ''}${storeKind ? ` is-${storeKind === 'VIRTUAL' ? 'digital' : 'physical'}` : ''}`}>
       <span className="sx-lhero-art">{node?.image ? <img src={sized(node.image, 240)} srcSet={srcSet(node.image, 240)} alt="" decoding="async" /> : <StoreIcon name={icon} size={40} />}</span>
       <div className="sx-lhero-copy">
         <small className="sx-lhero-kicker">{kicker}</small>
@@ -147,19 +194,20 @@ async function Listing({ query }: { query: ShopQuery }) {
     <input type="checkbox" id="sx-filters-toggle" className="sx-filters-toggle" hidden />
     <div className="sx-listing-grid">
       <aside className="sx-filters" aria-label="فیلترها">
-        <div className="sx-filters-top"><b><StoreIcon name="filter" size={18} />فیلترها</b>{chips.length > 0 && <Link href="/products">حذف همه</Link>}<label htmlFor="sx-filters-toggle" className="sx-filters-close" aria-label="بستن فیلترها"><StoreIcon name="x" size={20} /></label></div>
-        <form action="/products" method="get">
+        <div className="sx-filters-top"><b><StoreIcon name="filter" size={18} />فیلترها</b>{chips.length > 0 && <Link href={home}>حذف همه</Link>}<label htmlFor="sx-filters-toggle" className="sx-filters-close" aria-label="بستن فیلترها"><StoreIcon name="x" size={20} /></label></div>
+        <form action="/products" method="get" id="sx-filter-form">
           {query.q && <input type="hidden" name="q" value={query.q} />}
           {query.category && <input type="hidden" name="category" value={query.category} />}
           {query.sort !== 'newest' && <input type="hidden" name="sort" value={query.sort} />}
           <details className="sx-facet" open>
             <summary>دسته‌بندی</summary>
             <Link href={`/products${shopQueryString(query, { category: '' })}`} className={`sx-tree-all${node ? '' : ' is-active'}`}>همهٔ دسته‌ها</Link>
-            <CategoryLinks nodes={result.tree} query={query} active={query.category} />
+            <CategoryLinks nodes={tree} query={query} active={query.category} />
           </details>
           {result.brands.length > 0 && <details className="sx-facet" open>
-            <summary>برند</summary>
-            <div className="sx-checks">{result.brands.slice(0, 30).map((brand) => <label key={brand.id}>
+            <summary>برند {query.brands.length > 0 && <small className="sx-facet-on num">{fa(query.brands.length)}</small>}</summary>
+            {result.brands.length > 8 && <FacetFind target="sx-brand-list" label="جست‌وجوی برند" />}
+            <div className="sx-checks" id="sx-brand-list">{result.brands.slice(0, 30).map((brand) => <label key={brand.id}>
               <input type="checkbox" name="brand" value={brand.slug} defaultChecked={query.brands.includes(brand.slug)} />
               <span>{brand.name}</span><small className="num">{fa(brand.count)}</small>
             </label>)}</div>
@@ -170,6 +218,29 @@ async function Listing({ query }: { query: ShopQuery }) {
               <label><span>از</span><input name="min" inputMode="numeric" defaultValue={query.min || ''} placeholder={result.priceBounds.min ? fa(result.priceBounds.min) : '۰'} /></label>
               <label><span>تا</span><input name="max" inputMode="numeric" defaultValue={query.max || ''} placeholder={result.priceBounds.max ? fa(result.priceBounds.max) : ''} /></label>
             </div>
+            {result.priceSteps.length > 0 && <div className="sx-price-steps">{result.priceSteps.map((step) => {
+              const on = query.min === step.min && query.max === step.max
+              return <Link key={`${step.min}-${step.max}`} href={`/products${shopQueryString(query, on ? { min: 0, max: 0 } : { min: step.min, max: step.max })}`} className={on ? 'is-on' : ''} aria-current={on ? 'true' : undefined}>
+                {step.min && step.max ? `${fa(step.min)} تا ${fa(step.max)}` : step.max ? `تا ${fa(step.max)}` : `از ${fa(step.min)}`}
+              </Link>
+            })}</div>}
+          </details>
+          {result.specFacets.map((facet) => <details key={facet.key} className="sx-facet" open={!!query.specs[facet.key] || result.specFacets.indexOf(facet) < 3}>
+            <summary>{facet.label} {query.specs[facet.key] && <small className="sx-facet-on num">{fa(query.specs[facet.key].length)}</small>}</summary>
+            {facet.values.length > 8 && <FacetFind target={`sx-spec-${facet.key}`} label={`جست‌وجو در ${facet.label}`} />}
+            <div className="sx-checks" id={`sx-spec-${facet.key}`}>{facet.values.map((item) => <label key={item.value} className={item.count ? '' : 'is-empty'}>
+              <input type="checkbox" name={`${SPEC_PARAM}${facet.key}`} value={item.value} defaultChecked={query.specs[facet.key]?.includes(item.value)} />
+              <span>{item.value}</span><small className="num">{fa(item.count)}</small>
+            </label>)}</div>
+          </details>)}
+          <details className="sx-facet" open={!!query.rating}>
+            <summary>امتیاز خریداران</summary>
+            <div className="sx-checks">
+              {([[0, 'همه', 0], [4, '۴ ستاره و بالاتر', result.toggles.rating4], [3, '۳ ستاره و بالاتر', result.toggles.rating3]] as const).map(([value, label, count]) => <label key={value}>
+                <input type="radio" name="rating" value={value || ''} defaultChecked={query.rating === value} />
+                <span>{value ? <><span className="sx-stars-mini" aria-hidden="true">{'★'.repeat(value)}</span>{label}</> : label}</span>{value > 0 && <small className="num">{fa(count)}</small>}
+              </label>)}
+            </div>
           </details>
           <details className="sx-facet" open>
             <summary>نوع کالا</summary>
@@ -178,11 +249,13 @@ async function Listing({ query }: { query: ShopQuery }) {
             </div>
           </details>
           <div className="sx-switches">
-            <label className="sx-switch"><input type="checkbox" name="available" value="1" defaultChecked={query.available} /><span>فقط کالاهای موجود</span></label>
-            <label className="sx-switch"><input type="checkbox" name="discounted" value="1" defaultChecked={query.discounted} /><span>فقط کالاهای تخفیف‌دار</span></label>
+            <label className="sx-switch"><input type="checkbox" name="available" value="1" defaultChecked={query.available} /><span>فقط کالاهای موجود</span><small className="num">{fa(result.toggles.available)}</small></label>
+            <label className="sx-switch"><input type="checkbox" name="discounted" value="1" defaultChecked={query.discounted} /><span>فقط کالاهای تخفیف‌دار</span><small className="num">{fa(result.toggles.discounted)}</small></label>
+            {storeKind !== 'PHYSICAL' && (result.toggles.instant > 0 || query.instant) && <label className="sx-switch"><input type="checkbox" name="instant" value="1" defaultChecked={query.instant} /><span>فقط تحویل آنی</span><small className="num">{fa(result.toggles.instant)}</small></label>}
           </div>
           <button type="submit" className="sx-btn is-primary is-block">اعمال فیلترها</button>
         </form>
+        <FilterAutoApply formId="sx-filter-form" />
       </aside>
 
       <section className="sx-results" aria-label="نتایج">

@@ -129,9 +129,19 @@ export type ShopQuery = {
   available: boolean
   discounted: boolean
   kind: '' | 'PHYSICAL' | 'VIRTUAL'
+  /** Members' rating at least this (3 or 4); 0 = any. */
+  rating: number
+  /** Digital products handed over by themselves on payment. */
+  instant: boolean
+  /** Technical specifications picked in the filters: key → accepted values (any of them). */
+  specs: Record<string, string[]>
   sort: ShopSort
   page: number
 }
+
+/** A specification filter travels as s_<key>=value (repeated for several values). */
+export const SPEC_PARAM = 's_'
+const specKey = (value: string) => /^[a-z][a-z0-9_]{0,39}$/.test(value) ? value : ''
 
 type Params = Record<string, string | string[] | undefined>
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || ''
@@ -158,6 +168,13 @@ export function parseShopQuery(params: Params): ShopQuery {
     available: first(params.available) === '1',
     discounted: first(params.discounted) === '1',
     kind: kind === 'PHYSICAL' || kind === 'VIRTUAL' ? kind : '',
+    rating: ['3', '4'].includes(first(params.rating)) ? Number(first(params.rating)) : 0,
+    instant: first(params.instant) === '1',
+    specs: Object.fromEntries(Object.entries(params).flatMap(([name, value]) => {
+      const key = name.startsWith(SPEC_PARAM) ? specKey(name.slice(SPEC_PARAM.length)) : ''
+      const values = (Array.isArray(value) ? value : [value || '']).map((item) => item.replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 80)).filter(Boolean)
+      return key && values.length ? [[key, [...new Set(values)].slice(0, 20)]] : []
+    }).slice(0, 12)),
     sort: SHOP_SORTS.some((option) => option.key === sort) ? (sort as ShopSort) : 'newest',
     page: Math.max(1, Math.min(500, Math.floor(Number(toLatin(first(params.page)))) || 1)),
   }
@@ -175,6 +192,9 @@ export function shopQueryString(query: ShopQuery, patch: Partial<ShopQuery> = {}
   if (next.available) params.set('available', '1')
   if (next.discounted) params.set('discounted', '1')
   if (next.kind) params.set('kind', next.kind)
+  if (next.rating) params.set('rating', String(next.rating))
+  if (next.instant) params.set('instant', '1')
+  for (const [key, values] of Object.entries(next.specs)) for (const value of values) params.append(`${SPEC_PARAM}${key}`, value)
   if (next.sort !== 'newest') params.set('sort', next.sort)
   if (next.page > 1) params.set('page', String(next.page))
   const text = params.toString()
@@ -183,7 +203,10 @@ export function shopQueryString(query: ShopQuery, patch: Partial<ShopQuery> = {}
 
 /** True when anything narrows the listing (the shop landing shows only without filters). */
 export const isFiltered = (query: ShopQuery) =>
-  Boolean(query.q || query.category || query.brands.length || query.min || query.max || query.available || query.discounted || query.kind || query.sort !== 'newest' || query.page > 1)
+  Boolean(query.q || query.category || query.brands.length || query.min || query.max || query.available || query.discounted || query.kind || query.rating || query.instant || Object.keys(query.specs).length || query.sort !== 'newest' || query.page > 1)
+
+/** Only the store half is chosen (?kind=…): that half's own front page, not a listing. */
+export const isStoreFront = (query: ShopQuery) => !!query.kind && !isFiltered({ ...query, kind: '' })
 
 // ------------------------------------------------------------------ merchandising settings
 

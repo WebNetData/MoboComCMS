@@ -76,6 +76,22 @@ test('shop query parsing is strict and round-trips', () => {
   assert.equal(store.shopQueryString(q, { sort: 'cheap' }).includes('page='), false, 'changing a filter resets paging')
 })
 
+test('advanced filters: specifications, rating, instant; one store half alone is its front page', () => {
+  const q = store.parseShopQuery({ s_platform: ['Windows', 'Steam', 'Windows'], 's_Bad-Key': 'x', s_region: ' جهانی ', s_empty: '', rating: '4', instant: '1', kind: 'virtual' })
+  assert.deepEqual(q.specs, { platform: ['Windows', 'Steam'], region: ['جهانی'] }, 'valid keys, distinct values, empty dropped')
+  assert.equal(q.rating, 4)
+  assert.equal(q.instant, true)
+  assert.equal(store.parseShopQuery({ rating: '5' }).rating, 0, 'only 3 or 4')
+  // repeated parameters survive the trip through a URL
+  const params = new URLSearchParams(store.shopQueryString(q).slice(1)), grouped = {}
+  for (const [key, value] of params) grouped[key] = key in grouped ? [].concat(grouped[key], value) : value
+  assert.deepEqual(store.parseShopQuery(grouped), q)
+  assert.equal(store.isFiltered(store.parseShopQuery({ s_platform: 'Windows' })), true)
+  assert.equal(store.isStoreFront(store.parseShopQuery({ kind: 'VIRTUAL' })), true, '?kind= alone is the store front')
+  assert.equal(store.isStoreFront(store.parseShopQuery({ kind: 'VIRTUAL', instant: '1' })), false, 'any filter is a listing')
+  assert.equal(store.isStoreFront(store.parseShopQuery({})), false)
+})
+
 test('store settings drop unsafe links and images', () => {
   const settings = store.normalizeStoreSettings({
     slides: [{ image: 'javascript:alert(1)', title: 'x', href: '//evil.example' }, { image: '/uploads/a.jpg', title: 'ok', href: '/products?x=1' }, { image: 'http://insecure/a.png' }],
@@ -139,7 +155,12 @@ test('the shop home shows its two halves — shipped goods and products delivere
   assert.match(front, /href=\{`\$\{base\}&category=\$\{encodeURIComponent\(category\.slug\)\}`\}/)
   assert.match(front, /href=\{`\$\{base\}&category=\$\{encodeURIComponent\(child\.slug\)\}`\}/)
   assert.match(front, /const shown = divisions\.filter\(\(division\) => division\.total > 0\)/, 'an empty half is not drawn')
-  assert.match(page, /<DivisionPanels divisions=\{divisions\} \/>/)
+  // Since 2026-10-27 the front opens on two doors (ShopHome StoreDoors), each half a store of its own (?kind=…).
+  const home = read('src/components/store/ShopHome.tsx')
+  assert.match(page, /<StoreDoors divisions=\{divisions\} \/>/)
+  assert.match(home, /division\.total > 0\)/, 'an empty door is not drawn')
+  assert.match(home, /href=\{`\$\{href\}&category=\$\{encodeURIComponent\(category\.slug\)\}`\}/, 'a door\'s categories stay in its half')
+  assert.match(page, /<CategoryGrid categories=\{grid\} base=\{base\} \/>/, 'a store\'s category cards stay in its half')
   // The landing and the listing take the width of the site header; the cart and checkout keep their own.
   assert.match(css, /\.sx-landing\.container, \.sx-listing\.container \{ width: var\(--mb-chrome, min\(1680px, 100% - 48px\)\);/)
   assert.doesNotMatch(css, /\.sx-page > \.container \{/)
