@@ -18,7 +18,10 @@
 .sx-tile-art img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
 .sx-tile:hover .sx-tile-art img { transform: scale(1.08); }
 .sx-tile-art::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(to top, rgb(0 0 0 / .2), transparent); pointer-events: none; }
-.sx-tile-ph { display: grid; place-items: center; width: 100%; height: 100%; color: var(--sx-muted); }
+/* No picture: a soft tinted field with the box mark, without the shade meant for photos. */
+.sx-tile-ph { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 0; background: radial-gradient(70% 70% at 50% 40%, color-mix(in srgb, var(--sx-accent) 14%, var(--sx-surface)), color-mix(in srgb, var(--sx-accent) 5%, var(--sx-subtle))); color: color-mix(in srgb, var(--sx-accent) 70%, var(--sx-text)); }
+.sx-tile-ph svg { padding: 14px; border-radius: 18px; background: var(--sx-surface); box-shadow: 0 14px 30px -18px var(--sx-accent); box-sizing: content-box; }
+.sx-tile-art:has(.sx-tile-ph)::after { display: none; }
 .sx-tile-off { position: absolute; z-index: 2; inset-block-start: 10px; inset-inline-start: 10px; inset-inline-end: auto; display: grid; justify-items: center; min-width: 46px; padding: 5px 8px 4px; border-radius: 14px 14px 14px 4px; background: linear-gradient(150deg, #e11d48, #9f1239); color: #fff; line-height: 1.15; box-shadow: 0 10px 20px -10px #9f1239; }
 .sx-tile-off b { font-size: 15px; font-weight: 900; }
 .sx-tile-off small { font-size: 9.5px; font-weight: 700; }
