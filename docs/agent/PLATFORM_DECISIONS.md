@@ -272,6 +272,24 @@ A list entry can carry a **family** (`Vocabulary.family`, declared per list by `
   - `scripts/celebrity-profile.connected.cjs` (real PostgreSQL);
   - `.mobocom/claude-tools/pw-central-artists.cjs`.
 
+**«چهره‌ها» is where the sections list their people (owner, 2026-10-27).** "Not every actor directs: make the central section professional, fully joined to cinema and music, with an attractive, advanced style."
+- **One list:** `/cinema/people` and `/music/artists` redirect permanently to `/celebrities?section=cinema|music` (a search is carried over). The cinema and music menus point there; the people of a section are a tab of «چهره‌ها», not a list of their own.
+- **Directory:** figures and search in the hero, a featured strip (the owner's featured people, else the most known; only on the plain first page), role chips with counts, section tabs, sorts and a first-letter bar (Persian letters plus «A–Z» for Latin names and digits).
+- **Sorts:**
+  - «سرشناس‌ترین» (the default): featured first, then a stored `Celebrity.score` (migration `20270129120000_celebrity_score`, additive). The score counts public films and series, songs, song credits and albums, an album counting three. It is refreshed with each sync.
+  - «تازه‌ترین»: newest entries first.
+  - «الفبا»: Persian names first, then Latin ones.
+- **A person's page:**
+  - a soft backdrop from their picture;
+  - «شناخته‌شده برای»: up to six works;
+  - a bar of in-page sections that sticks under the site header;
+  - films and series grouped as directed, acted, then produced;
+  - collaborators, meaning people credited on the same public films, songs or song credits, most shared first;
+  - `Person` structured data.
+- **Evidence:**
+  - `scripts/celebrities.connected.cjs` covers scores, the three sorts, Persian before Latin, section tabs, letters, counts and collaborators. Breaking the name sort makes it fail.
+  - `.mobocom/claude-tools/pw-celebrities.cjs` (27 checks) covers the featured strip, sorts, letters, the music tab, both redirects, collaborators, structured data, in-page links, and axe at 1440 light and dark and at 390.
+
 **Sitemap and canonical addresses.** What the sitemap lists of a module is asked of that module with its own rule for what a visitor may see (`src/modules/seo/server/sitemap-entities.ts`): forums and topics through `visibleCategories(GUEST)` — never by reading the `access` column, which let forums of one group and their topics be advertised — and studios, film people, collections and category pages only when something public stands behind them. A listing page reached with filters gets its canonical address and indexability from `listingMeta` (`src/modules/seo/domain/seo.ts`): filters that make a list of their own stay in the address, a reordering is the same list, any other combination is not indexed.
 
 **Versions of edited items.** Existing ContentRevision keeps changed content snapshots and a baseline for older items. Secrets, counters, ownership and financial history are excluded. Supported links/seasons/categories and product catalogue relationships now use versioned snapshots restored through their canonical owner; old scalar-only snapshots preserve current relations. `/admin/history?type=&id=` shows changes and restores as a new version with the same section permission. Unique-address conflicts refuse restoration. The last fifty versions are kept; Audit remains the record of actions. [Current scope and transaction limits](handoffs/CONTENT_MANAGEMENT.md).

@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/celebrities-pro-2026-10-27` (on PR #266) makes «چهره‌ها» the people list of cinema and music. The changes are a professional directory (featured strip, sorts, letters and section tabs) and a richer person page (backdrop, known-for, collaborators and in-page sections). `/cinema/people` and `/music/artists` now redirect into it.
+
 Current continuation 2026-10-27: `feat/central-artists-2026-10-27` (on «چهره‌ها», PR #265) makes one artist profile across music and cinema, one page per person, and singers pickable in the cinema cast form.
 
 Current continuation 2026-10-27: `feat/celebrities-hub-2026-10-27` adds «چهره‌ها» (/celebrities): one directory and one page per actor, director or singer across cinema and music, with a manager at /admin/celebrities. PRs 263–264 merged.
