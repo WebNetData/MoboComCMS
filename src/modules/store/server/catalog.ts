@@ -8,6 +8,7 @@ import { minorToNumber } from '@/shared/money'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { publicProductRelationshipIds } from '@/modules/catalog/server/product-relationships'
 import { parseJson, type AttributeField } from '@/modules/catalog/server/product-config'
+import { colorSwatch } from '@/modules/store/domain/colors'
 import {
   DEFAULT_STORE_SETTINGS, discountPercent, normalizeStoreSettings, type ShopQuery, type StoreSettings,
 } from '@/modules/store/domain/store'
@@ -62,7 +63,7 @@ export type ProductCard = {
 const CARD_INCLUDE = {
   brand: { select: { name: true, slug: true } },
   category: { select: { name: true, slug: true } },
-  variants: { where: { active: true }, select: { id: true, price: true, priceMinor: true, memberPriceMinor: true, compareAtMinor: true, stock: true } },
+  variants: { where: { active: true }, select: { id: true, price: true, priceMinor: true, memberPriceMinor: true, compareAtMinor: true, stock: true, attributes: true } },
 } satisfies Prisma.ProductInclude
 
 type CardRow = Prisma.ProductGetPayload<{ include: typeof CARD_INCLUDE }>
@@ -224,7 +225,9 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   ])
   const all = await cards(rows)
   const priceBounds = all.length ? { min: Math.min(...all.map((card) => card.price)), max: Math.max(...all.map((card) => card.price)) } : { min: 0, max: 0 }
-  const specsOf = new Map(rows.map((row) => [row.id, readSpecs(row.specifications)]))
+  // What a product offers per specification: its own value plus every value of its active variants (colour, size…).
+  const specsOf = new Map(rows.map((row) => [row.id, offeredSpecs(row)]))
+  const offers = (card: ProductCard, key: string, values: string[]) => { const have = specsOf.get(card.id)?.get(key); return !!have && values.some((value) => have.has(value)) }
   // Every filter but one (the facet being counted sees the others, not itself).
   const keep = (card: ProductCard, skip = '') =>
     (skip === 'price' || ((!query.min || card.price >= query.min) && (!query.max || card.price <= query.max)))
@@ -232,15 +235,16 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
     && (skip === 'discounted' || !query.discounted || card.discount > 0)
     && (skip === 'rating' || !query.rating || card.rating >= query.rating)
     && (skip === 'instant' || !query.instant || card.instant)
-    && Object.entries(query.specs).every(([key, values]) => skip === `spec:${key}` || values.includes(specsOf.get(card.id)?.[key] || ''))
+    && Object.entries(query.specs).every(([key, values]) => skip === `spec:${key}` || offers(card, key, values))
   const list = all.filter((card) => keep(card))
   const fields = await specFields(rows)
   const specFacets = fields.map((field) => {
     const counts = new Map<string, number>()
-    for (const card of all) if (keep(card, `spec:${field.key}`)) { const value = specsOf.get(card.id)?.[field.key]; if (value) counts.set(value, (counts.get(value) || 0) + 1) }
+    for (const card of all) if (keep(card, `spec:${field.key}`)) for (const value of specsOf.get(card.id)?.get(field.key) || []) counts.set(value, (counts.get(value) || 0) + 1)
     const order = (value: string) => { const at = field.options.indexOf(value); return at < 0 ? 999 : at }
     const values = [...new Set([...counts.keys(), ...(query.specs[field.key] || [])])].map((value) => ({ value, count: counts.get(value) || 0 })).sort((a, b) => order(a.value) - order(b.value) || b.count - a.count || a.value.localeCompare(b.value, 'fa'))
-    return { key: field.key, label: field.label, color: field.kind === 'color', values }
+    // A colour field, or a choice whose every value is a known colour name, is drawn with dots.
+    return { key: field.key, label: field.label, color: field.kind === 'color' || (values.length > 0 && values.every((item) => !!colorSwatch(item.value))), values }
   }).filter((facet) => facet.values.length > 1 || (query.specs[facet.key]?.length ?? 0) > 0)
   const counted = (skip: string, test: (card: ProductCard) => boolean) => all.filter((card) => keep(card, skip) && test(card)).length
   const toggles = {
@@ -263,7 +267,10 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   const total = list.length
   // Ready price ranges only when every listed price is in one currency.
   const priced = all.filter((card) => keep(card, 'price'))
-  const priceSteps = new Set(priced.map((card) => card.currency)).size === 1 ? priceBuckets(priced.map((card) => card.price)) : []
+  const oneCurrency = new Set(priced.map((card) => card.currency)).size === 1
+  const priceSteps = oneCurrency ? priceBuckets(priced.map((card) => card.price)) : []
+  // The slider's ends: the cheapest and dearest of what the other filters leave, in one currency only.
+  const priceRange = oneCurrency && priced.length > 1 ? { min: Math.floor(Math.min(...priced.map((card) => card.price))), max: Math.ceil(Math.max(...priced.map((card) => card.price))) } : null
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const page = Math.min(query.page, pages)
   const brandIds = brandCounts.map((row) => row.brandId!).filter(Boolean)
@@ -279,11 +286,21 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
     capped: rows.length >= LISTING_CAP,
     priceBounds,
     priceSteps,
+    priceRange,
     specFacets,
     toggles,
     brands: brandRows.map((brand) => ({ ...brand, count: countOf.get(brand.id) || 0 })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fa')),
     currency: list[0]?.currency || rows[0]?.currency || 'IRT',
   }
+}
+
+/** A product's own specification values and those of its active variants, per key. */
+function offeredSpecs(row: { specifications: string; variants: { attributes: string }[] }) {
+  const out = new Map<string, Set<string>>()
+  const add = (key: string, value: string) => { if (!out.has(key)) out.set(key, new Set()); out.get(key)!.add(value) }
+  for (const [key, value] of Object.entries(readSpecs(row.specifications))) add(key, value)
+  for (const variant of row.variants) for (const [key, value] of Object.entries(readSpecs(variant.attributes))) add(key, value)
+  return out
 }
 
 /** A product's specifications as stored (key → text); anything malformed reads as none. */
@@ -298,7 +315,7 @@ function readSpecs(value: string | null | undefined): Record<string, string> {
  * The specification fields the listed products can be narrowed by: the choice fields (and colours) of the
  * attribute groups their categories use (own or nearest ancestor's), and text fields that repeat a few values.
  */
-async function specFields(rows: { categoryId: number | null; specifications: string }[]): Promise<AttributeField[]> {
+async function specFields(rows: { categoryId: number | null; specifications: string; variants: { attributes: string }[] }[]): Promise<AttributeField[]> {
   const ids = [...new Set(rows.map((row) => row.categoryId).filter((id): id is number => !!id))]
   if (!ids.length) return []
   const categories = await db.productCategory.findMany({ select: { id: true, parentId: true, attributeGroupId: true } }).catch(() => [])
@@ -312,7 +329,7 @@ async function specFields(rows: { categoryId: number | null; specifications: str
     if (!field?.key || seen.has(field.key)) continue
     seen.add(field.key)
     if (field.kind === 'select' || field.kind === 'color') { fields.push(field); continue }
-    const values = new Set(rows.map((row) => readSpecs(row.specifications)[field.key]).filter(Boolean))
+    const values = new Set(rows.flatMap((row) => [...(offeredSpecs(row).get(field.key) || [])]))
     if (values.size >= 2 && values.size <= 12) fields.push({ ...field, options: [] })
   }
   return fields.slice(0, 10)
