@@ -23,6 +23,8 @@ import { toPublicPath } from '@/platform/routing/aliases'
 import Slider from '@/components/site/Slider'
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { formatLabel } from '@/modules/cinema/domain/formats'
+import { sized, srcSet } from '@/shared/media/image'
+import type { CSSProperties } from 'react'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }> }
@@ -91,10 +93,10 @@ export default async function TitlePage({ params }: Props) {
       <ManageBar title={ti.kind === 'SERIES' ? 'مدیریت سریال' : 'مدیریت فیلم'} anyOf={['cinema.manage']} links={[{ href: `/admin/cinema/titles?edit=${ti.id}`, label: 'ویرایش' }, { href: '/admin/cinema/titles', label: 'همهٔ فیلم‌ها و سریال‌ها' }]} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <section className="cn-detail-hero">
-        <div className="cn-hero-bg is-active" style={ti.backdrop ? { backgroundImage: `url("${ti.backdrop.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
+        <div className="cn-hero-bg is-active" style={ti.backdrop ? { '--cn-bg': `url("${sized(ti.backdrop, 1280).replace(/"/g, '%22')}")`, '--cn-bg-sm': `url("${sized(ti.backdrop, 960).replace(/"/g, '%22')}")` } as CSSProperties : undefined} aria-hidden="true" />
         <div className="cn-hero-shade" aria-hidden="true" />
         <div className="container cn-detail-inner">
-          <div className="cn-detail-poster">{ti.poster ? <img src={ti.poster} alt={name} /> : <span className="cn-noart">🎬</span>}{ti.access === 'MEMBERS' && <VipBadge fa={fa} />}</div>
+          <div className="cn-detail-poster">{ti.poster ? <img src={sized(ti.poster, 320)} srcSet={srcSet(ti.poster, 320)} alt={name} /> : <span className="cn-noart">🎬</span>}{ti.access === 'MEMBERS' && <VipBadge fa={fa} />}</div>
           <div className="cn-detail-info">
             <nav className="cn-crumbs"><Link href="/cinema">{fa ? 'فیلم و سریال' : 'Cinema'}</Link> / <Link href={ti.format ? `/cinema/browse?format=${ti.format.slug}` : `/cinema/browse?kind=${ti.kind}`}>{formatLabel(ti, fa)}</Link></nav>
             <h1>{name}</h1>
@@ -124,7 +126,7 @@ export default async function TitlePage({ params }: Props) {
         {ti.cast.length > 0 && (
           <section className="md-shelf">
             <header className="md-shelf-head"><h2>{fa ? 'بازیگران' : 'Cast'}</h2></header>
-            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => { const href = personHref(person.name); const profile=people.get(normalizePersonName(person.name)); const image=profile&&(profile.imageLocked||profile.image)?profile.image:person.image; const inner = <>{image ? <img src={image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</>; return href ? <Link key={`${person.name}-${i}`} href={href} className="cn-person">{inner}</Link> : <div key={`${person.name}-${i}`} className="cn-person">{inner}</div> })}</Slider>
+            <Slider className="md-rail cn-cast">{ti.cast.map((person, i) => { const href = personHref(person.name); const profile=people.get(normalizePersonName(person.name)); const image=profile&&(profile.imageLocked||profile.image)?profile.image:person.image; const inner = <>{image ? <img src={sized(image, 160)} srcSet={srcSet(image, 160)} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>{person.role && <small>{person.role}</small>}</>; return href ? <Link key={`${person.name}-${i}`} href={href} className="cn-person">{inner}</Link> : <div key={`${person.name}-${i}`} className="cn-person">{inner}</div> })}</Slider>
           </section>
         )}
 

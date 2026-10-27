@@ -6,6 +6,7 @@ import { episodeCalendar, filmCalendar } from '@/modules/media/server/queries'
 import { daysAway, episodeCode, normalizeKind } from '@/modules/cinema/domain/calendar'
 import MediaShell from '@/components/media/MediaShell'
 import { cinemaNav } from '@/components/media/nav'
+import { sized, srcSet } from '@/shared/media/image'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
@@ -69,7 +70,7 @@ export default async function CinemaCalendarPage({ searchParams }: { searchParam
       {calendar.days.length ? calendar.days.map((group) => <section key={group.day} className="cn-cal-day" aria-labelledby={`cal-${group.day}`}>
         <h2 id={`cal-${group.day}`}><time dateTime={group.day}>{dayTitle(group.rows[0].at)}</time><small>{distance(group.rows[0].at)}</small></h2>
         <ul>{group.rows.map((row) => <li key={row.key}><Link href={row.href} className="cn-cal-row">
-          <span className="cn-cal-poster">{row.poster ? <img src={row.poster} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
+          <span className="cn-cal-poster">{row.poster ? <img src={sized(row.poster, 160)} srcSet={srcSet(row.poster, 160)} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
           <span className="cn-cal-text"><b>{row.name}</b><small>{row.line}</small></span>
           {row.members && <span className="cn-cal-vip">{fa ? '♛ ویژه' : '♛ VIP'}</span>}
         </Link></li>)}</ul>

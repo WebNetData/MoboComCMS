@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n/LocaleProvider'
 import type { PlayerTrack } from './player-types'
 import TrackActions from './TrackActions'
 import { readPlaybackSession, sourceUrl, trackSource, writePlaybackSession } from './playback-session'
+import { sized, srcSet } from '@/shared/media/image'
 
 const PLAYER_ICONS: Record<string, React.ReactNode> = {
   play: <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none" />,
@@ -302,7 +303,7 @@ export default function MusicPlayerProvider({ children }: { children: ReactNode 
           <div className="mu-player-progress" aria-hidden="true"><span style={{ width: `${length ? (time / length) * 100 : 0}%` }} /></div>
           <div className="mu-player-inner">
             <Link href={`/music/track/${current.slug}`} className="mu-player-meta">
-              {current.cover ? <img src={current.cover} alt="" className={playing ? 'is-spinning' : ''} /> : <span className="mu-player-noart"><PlayerIcon name="note" /></span>}
+              {current.cover ? <img src={sized(current.cover, 160)} srcSet={srcSet(current.cover, 160)} alt="" className={playing ? 'is-spinning' : ''} /> : <span className="mu-player-noart"><PlayerIcon name="note" /></span>}
               <span><b>{current.title}</b><small>{current.artist}</small></span>
             </Link>
             <div className="mu-player-center">

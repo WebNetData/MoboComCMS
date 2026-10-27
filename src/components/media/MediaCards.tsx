@@ -119,7 +119,7 @@ export function PlaylistCard({ playlist, fa, index = 0 }: Fa & { playlist: Playl
   const name = fa ? playlist.title : playlist.titleEn || playlist.title
   return (
     <Link href={`/music/playlist/${playlist.slug}`} className={`mu-playlist tone-${index % 6}`}>
-      {playlist.cover ? <img src={playlist.cover} alt="" loading="lazy" /> : null}
+      {playlist.cover ? <img src={sized(playlist.cover, 320)} srcSet={srcSet(playlist.cover, 320)} alt="" loading="lazy" /> : null}
       <span className="mu-playlist-body">
         <small>{fa ? 'پلی‌لیست' : 'Playlist'} · {n(playlist.trackCount, fa)} {fa ? 'آهنگ' : 'tracks'}</small>
         <b>{name}</b>
@@ -151,7 +151,7 @@ export function GameCard({ game, fa }: Fa & { game: GameLike }) {
   return (
     <Link href={`/games/${game.slug}`} className="gm-card">
       <span className="gm-card-art">
-        {game.cover ? <img src={game.cover} alt={name} loading="lazy" /> : <span className="gm-noart">🎮</span>}
+        {game.cover ? <img src={sized(game.cover, 320)} srcSet={srcSet(game.cover, 320)} alt={name} loading="lazy" /> : <span className="gm-noart">🎮</span>}
         <ScoreBadge score={game.score} fa={fa} />
         {game.access === 'MEMBERS' && <VipBadge fa={fa} small />}
       </span>
@@ -187,7 +187,7 @@ export function SoftwareCard({ item, fa }: Fa & { item: SoftwareLike }) {
   const name = fa ? item.title : item.titleEn || item.title
   return (
     <Link href={`/software/${item.slug}`} className="sw-card">
-      <span className="sw-icon">{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
+      <span className="sw-icon">{item.icon ? <img src={sized(item.icon, 160)} srcSet={srcSet(item.icon, 160)} alt="" loading="lazy" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
       <span className="sw-card-body">
         <b>{name}</b>
         <small dir="ltr">{[item.version && `v${item.version}`, item.developer].filter(Boolean).join(' · ')}</small>

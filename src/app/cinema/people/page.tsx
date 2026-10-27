@@ -5,6 +5,7 @@ import { getServerLocale } from '@/i18n/server'
 import { peopleDirectory } from '@/modules/cinema/server/people'
 import MediaShell from '@/components/media/MediaShell'
 import { cinemaNav } from '@/components/media/nav'
+import { sized, srcSet } from '@/shared/media/image'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'کارگردانان و بازیگران | Directors and cast', description: 'کارگردانان و بازیگران فیلم‌ها و سریال‌ها.', alternates: { canonical: '/cinema/people' } }
@@ -23,7 +24,7 @@ export default async function CinemaPeoplePage({ searchParams }: { searchParams:
         <form action="/cinema/people" className="cn-people-search" role="search"><input className="input" type="search" name="q" defaultValue={data.q} placeholder={fa ? 'نام کارگردان، تهیه‌کننده یا بازیگر…' : 'A director or an actor…'} aria-label={fa ? 'جست‌وجوی نام' : 'Search a name'} /><button type="submit" className="btn btn-primary btn-sm">{fa ? 'جست‌وجو' : 'Search'}</button></form>
       </header>
       {data.people.length ? <ul className="cn-people-grid">{data.people.map((person) => <li key={person.id}><Link href={`/cinema/people/${person.id}`} className="cn-person">
-        {person.image ? <img src={person.image} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>
+        {person.image ? <img src={sized(person.image, 160)} srcSet={srcSet(person.image, 160)} alt="" loading="lazy" /> : <i>{person.name.slice(0, 1)}</i>}<b>{person.name}</b>
         <small>{[person.director && (fa ? 'کارگردان' : 'Director'), person.producer && (fa ? 'تهیه‌کننده' : 'Producer'), person.cast && (fa ? 'بازیگر' : 'Cast')].filter(Boolean).join(fa ? '، ' : ', ')} · {fa ? `${num(person.titles)} اثر در موبوکام` : `${person.titles} works on MoboCom`}</small>
       </Link></li>)}</ul> : <p className="md-empty">{data.q ? (fa ? 'کسی با این نام پیدا نشد.' : 'Nobody by that name.') : (fa ? 'هنوز کسی ثبت نشده است.' : 'Nobody is listed yet.')}</p>}
       {data.pages > 1 && <nav className="cn-history-pages" aria-label={fa ? 'صفحه‌بندی' : 'Pages'}>{data.page > 1 && <Link href={href(data.page - 1)} rel="prev">{fa ? 'قبلی' : 'Previous'}</Link>}<span>{num(data.page)} / {num(data.pages)}</span>{data.page < data.pages && <Link href={href(data.page + 1)} rel="next">{fa ? 'بعدی' : 'Next'}</Link>}</nav>}
