@@ -18,6 +18,7 @@ import { ThemeFooter, ThemeHeader } from '@/components/content/builder/ThemeChro
 import { safeJsonLd } from '@/shared/seo/json-ld'
 import { publicBlocksHtml as pageBlocksHtml } from '@/modules/editor/server/documents'
 import { withTextDirections } from '@/modules/editor/domain/rich-text'
+import CompanyPanel from '@/components/site/CompanyPanel'
 
 
 export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -80,6 +81,7 @@ export default async function CustomPage({ params: paramsPromise, preview }: { p
             </div>
           </div>
         )}
+        {layout.companyPanel !== 'none' && <CompanyPanel variant={layout.companyPanel === 'about' ? 'about' : 'contact'} />}
       </main>
       <ThemeFooter context={chromeContext} choice={builderDoc?.layout?.footer} locale={locale} navPages={navPages} preview={preview} />
     </>

@@ -1,5 +1,6 @@
 import type { SiteConfig, ThemeManifest } from './types'
 import { MENU_DEPTH, MENU_ITEMS } from './menus'
+import { validCompanyContact } from '../domain/company-contact'
 
 export function safeHref(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 2048 && !/[\s\\\u0000-\u001f]/.test(value) && (/^\/(?!\/)/.test(value) || /^#[\w-]*$/.test(value) || /^https:\/\//.test(value) || /^mailto:[^@]+@[^@]+$/.test(value))
@@ -37,6 +38,7 @@ export function validateTheme(v: unknown): v is ThemeManifest {
   return record(v) && /^[a-z][a-z0-9-]{1,49}$/.test(v.id) && (typeof v.extends === 'undefined' || (/^[a-z][a-z0-9-]{1,49}$/.test(v.extends) && v.extends !== v.id)) && text(v.name, 80) && !!v.name && text(v.description, 300) && text(v.version, 30) && Number.isInteger(v.radius) && v.radius >= 0 && v.radius <= 32 && palette(v.colors) && (v.lightColors === undefined || palette(v.lightColors))
 }
 export function validateSite(v: unknown): v is SiteConfig {
+  if (record(v) && v.contact !== undefined && !validCompanyContact(v.contact)) return false
   if (!record(v) || v.version !== 1 || !text(v.brand, 60) || !v.brand.trim() || !localized(v.tagline) || !localized(v.copyright)) return false
   if (v.logo !== undefined && v.logo !== '' && !safeHref(v.logo)) return false
   if ([v.wordmark, v.wordmarkDark].some((value) => value !== undefined && value !== '' && (typeof value !== 'string' || !safeHref(value)))) return false

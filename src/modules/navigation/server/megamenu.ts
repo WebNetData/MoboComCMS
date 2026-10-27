@@ -4,11 +4,12 @@ import { createHash } from 'node:crypto'
 import { readJsonSetting, updateJsonSetting } from '@/modules/settings/server'
 import { localizeMenu } from '@/modules/site/config/menus'
 import { getPublicExtensionRuntime } from '@/extensions/server/state'
-import { pathDisabled } from '@/platform/extensions/contracts'
+import { siteLinkDisabled } from '@/modules/site/config/visibility'
 import { visibleCategories } from '@/modules/forum/server/forum'
 import { viewerFor } from '@/modules/forum/server/community'
 import { isPublicApiEnabled } from '@/modules/public-api/server/availability'
 import { menuNodes } from '@/modules/navigation/domain/presentation'
+import { additionalSectionSources } from './section-sources'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { isStoreEnabled } from '@/modules/catalog/server/storefront'
 import { publicProductWhere } from '@/modules/catalog/domain/product-publication'
@@ -64,6 +65,7 @@ async function ownersUnder(taxonomy: Taxonomy, all: { id: number; parentId: numb
 }
 
 const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> = {
+  ...additionalSectionSources,
   async software(cfg) {
     const { nodes, all } = await taxonomyNodes('software')
     const quick = [{ label: 'به‌روزشده‌ها', href: '/software/browse' }, { label: 'پردانلودها', href: '/software/browse?sort=popular' }, { label: 'رایگان‌ها', href: '/software/browse?license=FREE' }]
@@ -147,6 +149,9 @@ const SOURCES: Record<MegaSection, (cfg: SectionMenuConfig) => Promise<Built>> =
 }
 
 const ENABLED: Record<MegaSection, () => Promise<boolean>> = {
+  home: async () => true,
+  celebrities: async () => (await isModuleEnabled('music')) || (await isModuleEnabled('cinema')),
+  businesses: () => isModuleEnabled('businesses'),
   shop: () => isStoreEnabled().catch(() => false),
   blog: () => isModuleEnabled('journal'),
   music: () => isModuleEnabled('music'),
@@ -157,6 +162,8 @@ const ENABLED: Record<MegaSection, () => Promise<boolean>> = {
 }
 
 const SEARCH: Partial<Record<MegaSection, { action: string; placeholder: string; param: string }>> = {
+  celebrities: { action: '/celebrities', placeholder: 'جست‌وجوی هنرمند…', param: 'q' },
+  businesses: { action: '/businesses', placeholder: 'جست‌وجوی نام یا دامنهٔ کسب‌وکار…', param: 'q' },
   software: { action: '/software/browse', placeholder: 'نام نرم‌افزار را بنویسید…', param: 'term' },
   games: { action: '/games/browse', placeholder: 'جست‌وجوی بازی…', param: 'term' },
   music: { action: '/music/browse', placeholder: 'جست‌وجوی آهنگ یا هنرمند…', param: 'term' },
@@ -193,7 +200,7 @@ export async function saveMegaConfig(input: unknown, options: { revision?: strin
 export async function buildSectionBar(section: MegaSection, cfg: SectionMenuConfig): Promise<SectionBar> {
   const built = await SOURCES[section](cfg).catch((): Built => ({ items: [], quick: [], searchCategories: [] }))
   const [runtime, storeOn, apiOn] = await Promise.all([getPublicExtensionRuntime(), isStoreEnabled(), isPublicApiEnabled()])
-  const allowed = (href: string) => !pathDisabled(href, runtime) && (storeOn || !/^\/products(?:[/?#]|$)/.test(href)) && (apiOn || !href.startsWith('/dashboard/api'))
+  const allowed = (href: string) => !siteLinkDisabled(href, runtime) && (storeOn || !/^\/products(?:[/?#]|$)/.test(href)) && (apiOn || !href.startsWith('/dashboard/api'))
   const custom = localizeMenu(cfg.customItems || [], 'fa')
   let nextId = 0
   const customNodes: Node[] = []

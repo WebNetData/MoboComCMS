@@ -9,7 +9,7 @@ import type { MegaSection } from '@/modules/navigation/domain/megamenu'
 import LiveSearchInput from '@/components/search/LiveSearchInput'
 import PromoSlot from '@/components/promo/PromoSlot'
 
-const BAR_SECTIONS: readonly MegaSection[] = ['music', 'cinema', 'games', 'software', 'forum']
+const BAR_SECTIONS: readonly MegaSection[] = ['music', 'cinema', 'games', 'software', 'forum', 'celebrities']
 // Sections that carry the site's promotion placements above and below their content.
 const PROMO_SECTIONS: readonly string[] = ['music', 'cinema', 'games', 'software']
 

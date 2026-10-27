@@ -87,10 +87,15 @@ async function main() {
       slug: 'about',
       title: 'درباره ما',
       titleEn: 'About us',
-      content: '<h2>درباره MoboComCMS</h2><p>ما تیمی از مهندسان شبکه هستیم که با یک هدف کار می‌کنیم: اینترنت آزاد و امن برای همه.</p><p>سرورهای ما روی زیرساخت NVMe با آپلینک ۱۰ گیگابیتی در بیش از ۳۰ موقعیت جهانی میزبانی می‌شوند.</p>',
-      contentEn: '<h2>About MoboComCMS</h2><p>We are a team of network engineers with one goal: free and secure internet for everyone.</p><p>Our servers run on NVMe infrastructure with 10Gbps uplinks across 30+ global locations.</p>',
+      content: '<h2>دنیای موبوکام</h2><p>خرید، مجله، موسیقی، سینما، بازی و گفت‌وگو؛ بخش‌های مختلف موبوکام با یک حساب کاربری در دسترس شما هستند.</p>',
+      contentEn: '',
       showInNav: true,
       sortOrder: 1,
+    },
+    {
+      slug: 'contact', title: 'تماس با ما', titleEn: '',
+      content: '<p>برای ارتباط با موبوکام و پیگیری درخواست‌ها از راه‌های ارتباطی این صفحه یا مرکز پشتیبانی استفاده کنید.</p>',
+      contentEn: '', showInNav: false, sortOrder: 4,
     },
     {
       slug: 'terms',
@@ -112,7 +117,11 @@ async function main() {
     },
   ]
   for (const p of pages) {
-    await prisma.page.upsert({ where: { slug: p.slug }, update: {}, create: p })
+    // Seed new starter pages only. An existing page or its layout is the owner's content.
+    if (!await prisma.page.findUnique({ where: { slug: p.slug }, select: { id: true } })) await prisma.$transaction(async tx => {
+      const page = await tx.page.create({ data: p })
+      if (p.slug === 'about' || p.slug === 'contact') await tx.setting.create({ data: { key: `page.layout.${page.id}`, value: JSON.stringify({ companyPanel: p.slug }) } })
+    })
   }
 
   // --- Post categories & posts ---

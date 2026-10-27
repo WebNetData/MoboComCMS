@@ -48,6 +48,7 @@ export function contentSecurityPolicy(input: { path: string; nonce: string | nul
   const miniApp = path.startsWith('/miniapp')
   const turnstile = path === '/login' || path === '/register' || path === '/forgot-password'
   const translate = !miniApp && !path.startsWith('/admin') && !path.startsWith('/api')
+  const companyMap = path.startsWith('/p/') || path === '/admin/studio'
   // The forwarder's countdown page shows the admin's ad-network code (sandboxed frames inherit this policy).
   const ads = !usesNonce(path)
   const nonce = !ads && isNonce(input.nonce) ? input.nonce : null
@@ -64,7 +65,7 @@ export function contentSecurityPolicy(input: { path: string; nonce: string | nul
     "media-src 'self' https: blob:",
     `connect-src 'self'${path.startsWith('/watch/') || ads ? ' https:' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? TRANSLATE_CONNECT : ''}`,
     // Page-builder video blocks embed these players; login/register add their own providers.
-    `frame-src 'self' ${ads ? 'https:' : VIDEO_FRAME_HOSTS}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
+    `frame-src 'self' ${ads ? 'https:' : VIDEO_FRAME_HOSTS}${companyMap ? ' https://www.openstreetmap.org' : ''}${turnstile ? ' https://challenges.cloudflare.com' : ''}${path === '/login' ? ' https://oauth.telegram.org https://telegram.org' : ''}${translate ? ' https://translate.google.com' : ''}`,
     miniApp ? "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" : "frame-ancestors 'self'",
     "base-uri 'self'",
     "object-src 'none'",
