@@ -8,6 +8,7 @@ import { minorToNumber } from '@/shared/money'
 import { unitPrice } from '@/modules/store/server/pricing'
 import { publicProductRelationshipIds } from '@/modules/catalog/server/product-relationships'
 import { parseJson, type AttributeField } from '@/modules/catalog/server/product-config'
+import { inCategories } from '@/modules/catalog/server/product-categories'
 import { colorSwatch } from '@/modules/store/domain/colors'
 import {
   DEFAULT_STORE_SETTINGS, discountPercent, normalizeStoreSettings, type ShopQuery, type StoreSettings,
@@ -111,13 +112,43 @@ export async function productCards(where: Prisma.ProductWhereInput, orderBy: Pri
 
 export type CategoryNode = { id: number; slug: string; name: string; image: string; icon: string; description: string; parentId: number | null; kind: string; count: number; total: number; children: CategoryNode[] }
 
+/** Which products each category holds, as main or further category (sets, so a product counts once per branch). */
+async function membership(where: Prisma.ProductWhereInput) {
+  const [own, extra] = await Promise.all([
+    db.product.findMany({ where: { ...where, categoryId: { not: null } }, select: { id: true, categoryId: true } }).catch(() => []),
+    db.productCategoryAssignment.findMany({ where: { product: where }, select: { productId: true, categoryId: true } }).catch(() => []),
+  ])
+  const map = new Map<number, Set<number>>()
+  const add = (categoryId: number, productId: number) => { let set = map.get(categoryId); if (!set) map.set(categoryId, set = new Set()); set.add(productId) }
+  for (const row of own) add(row.categoryId!, row.id)
+  for (const row of extra) add(row.categoryId, row.productId)
+  return map
+}
+
+/** The distinct products of a category and everything under it (a loop in the tree is cut). */
+function branchSets(members: Map<number, Set<number>>) {
+  const memo = new Map<number, Set<number>>()
+  const of = (node: { id: number; children: { id: number; children: unknown[] }[] }, path: Set<number> = new Set()): Set<number> => {
+    const known = memo.get(node.id)
+    if (known) return known
+    if (path.has(node.id)) return new Set()
+    path.add(node.id)
+    const all = new Set(members.get(node.id) || [])
+    for (const child of node.children as { id: number; children: { id: number; children: unknown[] }[] }[]) for (const id of of(child, path)) all.add(id)
+    path.delete(node.id)
+    memo.set(node.id, all)
+    return all
+  }
+  return of
+}
+
 /** Whole product-category tree with direct and subtree product counts (active products). */
 export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
-  const [rows, counts] = await Promise.all([
+  const [rows, members] = await Promise.all([
     db.productCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
-    db.product.groupBy({ by: ['categoryId'], where: { active: true, approval: 'APPROVED' }, _count: { _all: true } }),
+    membership({ active: true, approval: 'APPROVED' }),
   ])
-  const direct = new Map(counts.map((row) => [row.categoryId, row._count._all]))
+  const direct = new Map([...members].map(([id, set]) => [id, set.size]))
   const nodes = new Map<number, CategoryNode>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, name: row.name, image: row.image, icon: row.icon, description: row.description, parentId: row.parentId, kind: row.kind, count: direct.get(row.id) || 0, total: 0, children: [] }]))
   const roots: CategoryNode[] = []
   for (const node of nodes.values()) {
@@ -125,14 +156,9 @@ export const categoryTree = cache(async (): Promise<CategoryNode[]> => {
     if (parent && parent !== node) parent.children.push(node)
     else roots.push(node)
   }
-  const visiting = new Set<number>()
-  const sum = (node: CategoryNode): number => {
-    if (visiting.has(node.id)) return 0
-    visiting.add(node.id)
-    node.total = node.count + node.children.reduce((total, child) => total + sum(child), 0)
-    return node.total
-  }
-  roots.forEach(sum)
+  const setOf = branchSets(members)
+  const fill = (node: CategoryNode, depth = 0) => { node.total = setOf(node).size; if (depth < 20) node.children.forEach((child) => fill(child, depth + 1)) }
+  roots.forEach((root) => fill(root))
   return roots
 })
 
@@ -167,7 +193,7 @@ export async function shopHome() {
   // One rail per top-level category that has enough products (up to three).
   const rails = await Promise.all(tree.filter((node) => node.total >= 4).slice(0, 3).map(async (node) => ({
     category: { slug: node.slug, name: node.name },
-    products: await productCards({ categoryId: { in: subtreeIds(node) } }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12),
+    products: await productCards(inCategories(subtreeIds(node)), [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12),
   })))
   return { settings, categories: tree, offers, bestselling, newest, popular, brands, rails }
 }
@@ -185,21 +211,16 @@ export async function shopDivisions(): Promise<ShopDivision[]> {
   const tree = await categoryTree()
   return Promise.all((['PHYSICAL', 'VIRTUAL'] as const).map(async (kind) => {
     const where = { active: true, approval: 'APPROVED', kind }
-    const [counts, total, products] = await Promise.all([
-      db.product.groupBy({ by: ['categoryId'], where, _count: { _all: true } }).catch(() => []),
+    const [members, total, products] = await Promise.all([
+      membership(where),
       db.product.count({ where }).catch(() => 0),
       productCards({ kind }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12),
     ])
-    const direct = new Map(counts.map((row) => [row.categoryId, row._count._all]))
-    const seen = new Set<number>()
-    const sum = (node: CategoryNode): number => {
-      if (seen.has(node.id)) return 0
-      seen.add(node.id)
-      return (direct.get(node.id) || 0) + node.children.reduce((all, child) => all + sum(child), 0)
-    }
+    // Counted for this kind only; a product ticked under a parent and its child counts once.
+    const setOf = branchSets(members)
     const categories = tree.map((node) => {
-      const children = node.children.map((child) => ({ slug: child.slug, name: child.name, total: sum(child) })).filter((child) => child.total > 0)
-      return { slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: (direct.get(node.id) || 0) + children.reduce((all, child) => all + child.total, 0), children }
+      const children = node.children.map((child) => ({ slug: child.slug, name: child.name, total: setOf(child).size })).filter((child) => child.total > 0)
+      return { slug: node.slug, name: node.name, image: node.image, icon: node.icon, total: setOf(node).size, children }
     }).filter((node, index) => node.total > 0 && (tree[index].kind === '' || tree[index].kind === kind)).sort((a, b) => b.total - a.total)
     return { kind, total, categories, products }
   }))
@@ -213,7 +234,8 @@ export async function shopListing(query: ShopQuery, pageSize = 24) {
   const tree = await categoryTree()
   const found = query.category ? findCategory(tree, query.category) : null
   const where: Prisma.ProductWhereInput = { active: true, approval: 'APPROVED' }
-  if (found) where.categoryId = { in: subtreeIds(found.node) }
+  // A product is found under its main category and under the further ones ticked for it.
+  if (found) where.AND = [inCategories(subtreeIds(found.node))]
   if (query.kind) where.kind = query.kind
   if (query.q) where.OR = [{ name: { contains: query.q } }, { nameEn: { contains: query.q } }, { sku: { contains: query.q } }, { shortDescription: { contains: query.q } }, { brand: { name: { contains: query.q } } }]
   const brandFilter: Prisma.ProductWhereInput = query.brands.length ? { brand: { slug: { in: query.brands } } } : {}
@@ -367,7 +389,7 @@ export async function shopDivisionHome(kind: 'PHYSICAL' | 'VIRTUAL') {
   // One rail per category of this half that has enough of its products (up to four).
   const rails = (await Promise.all(division.categories.slice(0, 4).map(async (category) => {
     const node = nodes.get(category.slug)
-    const products = node ? await productCards({ kind, categoryId: { in: subtreeIds(node) } }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12) : []
+    const products = node ? await productCards({ kind, ...inCategories(subtreeIds(node)) }, [{ featured: 'desc' }, { soldCount: 'desc' }, { id: 'desc' }], 12) : []
     return { category: { slug: category.slug, name: category.name }, products }
   }))).filter((rail) => rail.products.length >= 3)
   return { settings, division, offers: offersRaw.filter((card) => card.discount > 0).slice(0, 12), bestselling, newest, popular, brands, rails }

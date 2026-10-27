@@ -149,7 +149,10 @@ test('the shop home shows its two halves — shipped goods and products delivere
   assert.match(catalog, /\(\['PHYSICAL', 'VIRTUAL'\] as const\)\.map\(async \(kind\) =>/)
   assert.match(catalog, /const where = \{ active: true, approval: 'APPROVED', kind \}/, 'only products a shopper can buy are counted')
   assert.match(catalog, /\.filter\(\(node, index\) => node\.total > 0 && /, 'a category with nothing of this kind is not offered under it')
-  assert.match(catalog, /if \(seen\.has\(node\.id\)\) return 0/, 'a loop in the category tree cannot hang the page')
+  assert.match(catalog, /if \(path\.has\(node\.id\)\) return new Set\(\)/, 'a loop in the category tree cannot hang the page')
+  // Since 2026-10-27 a product may sit in further categories; a branch counts each product once.
+  assert.match(catalog, /function branchSets\(members: Map<number, Set<number>>\)/)
+  assert.match(catalog, /if \(found\) where\.AND = \[inCategories\(subtreeIds\(found\.node\)\)\]/, 'a listing finds products by main and further categories')
   // Every link of a half keeps the shopper inside that half.
   assert.match(front, /base = `\/products\?kind=\$\{division\.kind\}`/)
   assert.match(front, /href=\{`\$\{base\}&category=\$\{encodeURIComponent\(category\.slug\)\}`\}/)
@@ -211,7 +214,7 @@ test('a product category belongs to one half of the shop: a root decides, everyt
   assert.match(route, /const kind = await kindForCategory\(tx, \{ parentId, asked: b\?\.kind \}\)\n        await assertKindFits\(tx, \{ kind, attributeGroupId \}\)/)
   assert.match(route, /await assertKindFits\(tx, \{ id, kind, attributeGroupId: data\.attributeGroupId as number \| null \| undefined \}\)/)
   assert.match(route, /if \(kind !== current\.kind\) await cascadeCategoryKind\(tx, id, kind\)/)
-  assert.match(route, /if \(e instanceof CategoryKindError\) return err\(e\.message, e\.status\)/)
+  assert.match(route, /if \(e instanceof CategoryKindError \|\| e instanceof ProductCategoryError\) return err\(e\.message, e\.status\)/)
   assert.match(input, /if \(!productFitsCategory\(kind, category\.categoryKind\)\) throw Error\(/)
   // What is stored is sorted once by the migration, and the storefront reads the column.
   const sql = read('prisma/migrations/20261226120000_product_category_kind/migration.sql')
