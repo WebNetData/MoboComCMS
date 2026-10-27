@@ -10,15 +10,41 @@ export const ZONE_LABEL: Record<Zone, string> = { city: 'درون‌شهری', p
 
 export type ZoneRate = { baseRial: number; perKgRial: number; etaMin: number; etaMax: number }
 
+/** What the carrier is, for its label: post, express company, in-city courier, freight / bus terminal. */
+export type CarrierKind = 'post' | 'express' | 'local' | 'freight'
+export const KIND_LABEL: Record<CarrierKind, string> = { post: 'پست', express: 'پیک سراسری (اکسپرس)', local: 'پیک درون‌شهری', freight: 'باربری / ترمینال' }
+
+/** How the fee is worked out: the zone and weight table, one fixed amount, or paid by the receiver on delivery. */
+export type Pricing = 'zone' | 'flat' | 'collect'
+export const PRICING_LABEL: Record<Pricing, string> = { zone: 'بر اساس مسیر و وزن', flat: 'مبلغ ثابت', collect: 'پس‌کرایه (گیرنده هنگام تحویل می‌پردازد)' }
+
+/** Which places it serves beyond its routes: everywhere, only the listed ones, or all but the listed ones. */
+export type PlaceMode = 'all' | 'only' | 'except'
+
+/** A fee set by hand for one city or province; it replaces the computed fee there (a city beats its province). */
+export type PlaceFee = { level: 'city' | 'province'; place: string; feeRial: number }
+
 export type Carrier = {
   id: string
   name: string
   enabled: boolean
-  /** post / express couriers ship anywhere; local couriers only inside listed cities. */
-  kind: 'post' | 'express' | 'local'
+  kind: CarrierKind
   rates: Record<Zone, ZoneRate>
-  /** Local couriers: cities served (same city as the store only). Empty = the store's city. */
+  /** Routes served: inside the store's city, other cities of its province, other provinces. */
+  zones: Record<Zone, boolean>
+  /** With placeMode 'only' / 'except': the cities and provinces listed. */
+  placeMode: PlaceMode
   cities: string[]
+  provinces: string[]
+  pricing: Pricing
+  /** Pricing 'flat': the fee anywhere it serves. */
+  flatRial: number
+  /** Added to every fee (packing, insurance, taking the parcel to the freight office); charged now also with 'collect'. */
+  extraRial: number
+  placeFees: PlaceFee[]
+  /** Offered only for orders whose items are within this range; 0 = no limit. */
+  minOrderRial: number
+  maxOrderRial: number
   maxWeightGrams: number
   /** Orders whose items reach this amount (Rial) ship free with this carrier; 0 = never. */
   freeOverRial: number
@@ -30,7 +56,7 @@ export type Carrier = {
 }
 
 /** Where a free-shipping rule applies: the store's own city, its province, the whole country, or listed cities. */
-export type FreeArea = 'city' | 'province' | 'country' | 'cities'
+export type FreeArea = 'city' | 'province' | 'country' | 'cities' | 'outside' | 'except'
 
 /**
  * Free shipping by order size and place ("orders over 5,000,000 Toman ship free inside our city"): every enabled rule
@@ -43,7 +69,7 @@ export type FreeShippingRule = {
   label: string
   minRial: number
   area: FreeArea
-  /** For area 'cities': the cities it covers. */
+  /** For area 'cities': the cities it covers; for 'except': the cities it leaves out. */
   cities: string[]
   /** Carriers it applies to; empty = every carrier. */
   carrierIds: string[]
@@ -65,14 +91,22 @@ export type CarrierSettings = {
 }
 
 const rate = (baseRial: number, perKgRial: number, etaMin: number, etaMax: number): ZoneRate => ({ baseRial, perKgRial, etaMin, etaMax })
+const ALL_ZONES: Record<Zone, boolean> = { city: true, province: true, country: true }
+const CITY_ONLY: Record<Zone, boolean> = { city: true, province: false, country: false }
+const OUT_OF_CITY: Record<Zone, boolean> = { city: false, province: true, country: true }
+/** The parts every carrier has with no limits and no extras; a carrier below names only what differs. */
+const plain = { zones: ALL_ZONES, placeMode: 'all' as PlaceMode, cities: [] as string[], provinces: [] as string[], pricing: 'zone' as Pricing, flatRial: 0, extraRial: 0, placeFees: [] as PlaceFee[], minOrderRial: 0, maxOrderRial: 0 }
 
 export const DEFAULT_CARRIERS: Carrier[] = [
-  { id: 'post-pishtaz', name: 'پست پیشتاز', enabled: true, kind: 'post', rates: { city: rate(450_000, 100_000, 1, 2), province: rate(550_000, 130_000, 2, 3), country: rate(700_000, 180_000, 3, 5) }, cities: [], maxWeightGrams: 30_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tracking.post.ir/?id={code}', note: 'تحویل به سراسر کشور با کد رهگیری پست' },
-  { id: 'post-sefareshi', name: 'پست سفارشی', enabled: false, kind: 'post', rates: { city: rate(320_000, 70_000, 2, 4), province: rate(380_000, 90_000, 3, 6), country: rate(480_000, 120_000, 5, 10) }, cities: [], maxWeightGrams: 30_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tracking.post.ir/?id={code}', note: 'اقتصادی، زمان تحویل طولانی‌تر' },
-  { id: 'tipax', name: 'تیپاکس', enabled: true, kind: 'express', rates: { city: rate(800_000, 150_000, 1, 1), province: rate(1_100_000, 200_000, 1, 2), country: rate(1_500_000, 300_000, 2, 3) }, cities: [], maxWeightGrams: 70_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tipax.ir/tracking?code={code}', note: 'ارسال سریع درب به درب' },
-  { id: 'chapar', name: 'چاپار', enabled: false, kind: 'express', rates: { city: rate(700_000, 140_000, 1, 1), province: rate(950_000, 180_000, 1, 2), country: rate(1_300_000, 260_000, 2, 4) }, cities: [], maxWeightGrams: 50_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://chaparnet.com/track/?tracking={code}', note: 'پست پیشتاز خصوصی' },
-  { id: 'alopeyk', name: 'الوپیک', enabled: false, kind: 'local', rates: { city: rate(1_000_000, 0, 0, 0), province: rate(0, 0, 0, 0), country: rate(0, 0, 0, 0) }, cities: ['تهران', 'کرج', 'اصفهان', 'شیراز', 'مشهد', 'تبریز', 'قم', 'اهواز', 'رشت'], maxWeightGrams: 25_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: 'پیک موتوری همان روز، فقط درون‌شهری' },
-  { id: 'courier', name: 'پیک فروشگاه', enabled: false, kind: 'local', rates: { city: rate(500_000, 0, 0, 1), province: rate(0, 0, 0, 0), country: rate(0, 0, 0, 0) }, cities: [], maxWeightGrams: 40_000, freeOverRial: 0, scheduled: true, trackingUrl: '', note: 'تحویل در روز و ساعت انتخابی شما' },
+  { ...plain, id: 'post-pishtaz', name: 'پست پیشتاز', enabled: true, kind: 'post', rates: { city: rate(450_000, 100_000, 1, 2), province: rate(550_000, 130_000, 2, 3), country: rate(700_000, 180_000, 3, 5) }, cities: [], maxWeightGrams: 30_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tracking.post.ir/?id={code}', note: 'تحویل به سراسر کشور با کد رهگیری پست' },
+  { ...plain, id: 'post-sefareshi', name: 'پست سفارشی', enabled: false, kind: 'post', rates: { city: rate(320_000, 70_000, 2, 4), province: rate(380_000, 90_000, 3, 6), country: rate(480_000, 120_000, 5, 10) }, cities: [], maxWeightGrams: 30_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tracking.post.ir/?id={code}', note: 'اقتصادی، زمان تحویل طولانی‌تر' },
+  { ...plain, id: 'tipax', name: 'تیپاکس', enabled: true, kind: 'express', rates: { city: rate(800_000, 150_000, 1, 1), province: rate(1_100_000, 200_000, 1, 2), country: rate(1_500_000, 300_000, 2, 3) }, cities: [], maxWeightGrams: 70_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://tipax.ir/tracking?code={code}', note: 'ارسال سریع درب به درب' },
+  { ...plain, id: 'chapar', name: 'چاپار', enabled: false, kind: 'express', rates: { city: rate(700_000, 140_000, 1, 1), province: rate(950_000, 180_000, 1, 2), country: rate(1_300_000, 260_000, 2, 4) }, cities: [], maxWeightGrams: 50_000, freeOverRial: 0, scheduled: false, trackingUrl: 'https://chaparnet.com/track/?tracking={code}', note: 'پست پیشتاز خصوصی' },
+  { ...plain, zones: CITY_ONLY, placeMode: 'only', id: 'alopeyk', name: 'الوپیک', enabled: false, kind: 'local', rates: { city: rate(1_000_000, 0, 0, 0), province: rate(0, 0, 0, 0), country: rate(0, 0, 0, 0) }, cities: ['تهران', 'کرج', 'اصفهان', 'شیراز', 'مشهد', 'تبریز', 'قم', 'اهواز', 'رشت'], maxWeightGrams: 25_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: 'پیک موتوری همان روز، فقط درون‌شهری' },
+  { ...plain, zones: CITY_ONLY, placeMode: 'all', id: 'courier', name: 'پیک فروشگاه', enabled: false, kind: 'local', rates: { city: rate(500_000, 0, 0, 1), province: rate(0, 0, 0, 0), country: rate(0, 0, 0, 0) }, cities: [], maxWeightGrams: 40_000, freeOverRial: 0, scheduled: true, trackingUrl: '', note: 'تحویل در روز و ساعت انتخابی شما' },
+  { ...plain, id: 'mahex', name: 'ماهکس', enabled: false, kind: 'express', rates: { city: rate(750_000, 150_000, 1, 1), province: rate(1_000_000, 190_000, 1, 2), country: rate(1_400_000, 280_000, 2, 3) }, cities: [], maxWeightGrams: 70_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: 'تحویل درب به درب' },
+  { ...plain, zones: OUT_OF_CITY, pricing: 'collect', id: 'freight', name: 'باربری', enabled: false, kind: 'freight', rates: { city: rate(0, 0, 0, 0), province: rate(0, 0, 1, 3), country: rate(0, 0, 2, 6) }, cities: [], maxWeightGrams: 1_000_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: 'کرایه هنگام تحویل از گیرنده گرفته می‌شود' },
+  { ...plain, zones: OUT_OF_CITY, pricing: 'collect', id: 'terminal', name: 'ترمینال مسافربری', enabled: false, kind: 'freight', rates: { city: rate(0, 0, 0, 0), province: rate(0, 0, 1, 2), country: rate(0, 0, 1, 3) }, cities: [], maxWeightGrams: 100_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: 'تحویل در ترمینال مقصد؛ کرایه با گیرنده' },
 ]
 
 export const DEFAULT_CARRIER_SETTINGS: CarrierSettings = { enabled: false, originProvince: 'تهران', originCity: 'تهران', packagingGrams: 200, defaultWeightGrams: 500, freeRules: [], carriers: DEFAULT_CARRIERS }
@@ -112,11 +146,23 @@ export function normalizeCarrierSettings(input: unknown): CarrierSettings {
     if (!id || carriers.some((carrier) => carrier.id === id)) continue
     const base = DEFAULT_CARRIERS.find((carrier) => carrier.id === id) || DEFAULT_CARRIERS[0]
     const rates = (item.rates && typeof item.rates === 'object' ? item.rates : {}) as Record<string, unknown>
-    const kind = item.kind === 'post' || item.kind === 'express' || item.kind === 'local' ? item.kind : base.kind
+    const kind: CarrierKind = item.kind === 'post' || item.kind === 'express' || item.kind === 'local' || item.kind === 'freight' ? item.kind : base.kind
+    const cities = Array.isArray(item.cities) ? names(item.cities) : base.cities
+    // Saved before routes and places existed: a local courier served its listed cities (or the store's) inside the city.
+    const zonesRaw = item.zones && typeof item.zones === 'object' ? item.zones as Record<string, unknown> : null
+    const zones = zonesRaw ? { city: zonesRaw.city === true, province: zonesRaw.province === true, country: zonesRaw.country === true } : kind === 'local' ? CITY_ONLY : base.zones
+    const placeMode: PlaceMode = item.placeMode === 'only' || item.placeMode === 'except' || item.placeMode === 'all' ? item.placeMode : kind === 'local' && cities.length ? 'only' : 'all'
     carriers.push({
       id, name: text(item.name, 40) || base.name, enabled: item.enabled === true, kind,
       rates: { city: normalizeRate(rates.city, base.rates.city), province: normalizeRate(rates.province, base.rates.province), country: normalizeRate(rates.country, base.rates.country) },
-      cities: Array.isArray(item.cities) ? [...new Set(item.cities.map((city) => text(city, 40)).filter(Boolean))].slice(0, 100) : base.cities,
+      zones, placeMode, cities,
+      provinces: Array.isArray(item.provinces) ? names(item.provinces) : base.provinces,
+      pricing: item.pricing === 'flat' || item.pricing === 'collect' || item.pricing === 'zone' ? item.pricing : base.pricing,
+      flatRial: int(item.flatRial ?? base.flatRial, 0, 10_000_000_000, 0),
+      extraRial: int(item.extraRial ?? base.extraRial, 0, 10_000_000_000, 0),
+      placeFees: normalizePlaceFees(item.placeFees),
+      minOrderRial: int(item.minOrderRial ?? 0, 0, 100_000_000_000, 0),
+      maxOrderRial: int(item.maxOrderRial ?? 0, 0, 100_000_000_000, 0),
       maxWeightGrams: int(item.maxWeightGrams ?? base.maxWeightGrams, 100, 1_000_000, base.maxWeightGrams),
       freeOverRial: int(item.freeOverRial ?? 0, 0, 100_000_000_000, 0),
       scheduled: typeof item.scheduled === 'boolean' ? item.scheduled : base.scheduled,
@@ -135,6 +181,20 @@ export function normalizeCarrierSettings(input: unknown): CarrierSettings {
   }
 }
 
+function names(list: unknown[]) { return [...new Set(list.map((name) => text(name, 40)).filter(Boolean))].slice(0, 100) }
+
+/** At most fifty hand-set fees, one per place. */
+export function normalizePlaceFees(input: unknown): PlaceFee[] {
+  const fees: PlaceFee[] = []
+  for (const row of Array.isArray(input) ? input.slice(0, 50) : []) {
+    const item = row && typeof row === 'object' ? row as Record<string, unknown> : {}
+    const place = text(item.place, 40), level = item.level === 'province' ? 'province' : 'city'
+    if (!place || fees.some((fee) => fee.level === level && placeKey(fee.place) === placeKey(place))) continue
+    fees.push({ level, place, feeRial: int(item.feeRial, 0, 10_000_000_000, 0) })
+  }
+  return fees
+}
+
 const isoDate = (value: unknown) => { const date = new Date(String(value ?? '')); return String(value ?? '').trim() && Number.isFinite(date.getTime()) ? date.toISOString() : '' }
 
 /** At most twenty rules, each with a positive minimum; malformed parts fall back to safe values. */
@@ -146,10 +206,10 @@ export function normalizeFreeRules(input: unknown): FreeShippingRule[] {
     if (minRial <= 0) continue
     const id = String(item.id || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30) || `rule-${rules.length + 1}`
     if (rules.some((rule) => rule.id === id)) continue
-    const area: FreeArea = item.area === 'province' || item.area === 'country' || item.area === 'cities' ? item.area : 'city'
+    const area: FreeArea = item.area === 'province' || item.area === 'country' || item.area === 'cities' || item.area === 'outside' || item.area === 'except' ? item.area : 'city'
     rules.push({
       id, enabled: item.enabled !== false, label: text(item.label, 80), minRial, area,
-      cities: area === 'cities' && Array.isArray(item.cities) ? [...new Set(item.cities.map((city) => text(city, 40)).filter(Boolean))].slice(0, 100) : [],
+      cities: (area === 'cities' || area === 'except') && Array.isArray(item.cities) ? names(item.cities) : [],
       carrierIds: Array.isArray(item.carrierIds) ? [...new Set(item.carrierIds.map((carrierId) => String(carrierId).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30)).filter(Boolean))] : [],
       startsAt: isoDate(item.startsAt), endsAt: isoDate(item.endsAt),
     })
@@ -162,6 +222,8 @@ export function freeAreaLabel(rule: Pick<FreeShippingRule, 'area' | 'cities'>, o
   if (rule.area === 'city') return `در ${origin.city}`
   if (rule.area === 'province') return `در استان ${origin.province}`
   if (rule.area === 'cities') return rule.cities.length ? `در ${rule.cities.join('، ')}` : 'در شهرهای انتخابی'
+  if (rule.area === 'outside') return `خارج از ${origin.city}`
+  if (rule.area === 'except') return rule.cities.length ? `در همه‌جا به‌جز ${rule.cities.join('، ')}` : 'در سراسر کشور'
   return 'در سراسر کشور'
 }
 
@@ -171,6 +233,8 @@ const ruleOpen = (rule: FreeShippingRule, now: Date) => rule.enabled && (!rule.s
 function ruleCovers(rule: FreeShippingRule, origin: { province: string; city: string }, dest: { province: string; city: string }) {
   if (rule.area === 'country') return true
   if (rule.area === 'cities') return rule.cities.some((city) => placeKey(city) === placeKey(dest.city))
+  if (rule.area === 'except') return !rule.cities.some((city) => placeKey(city) === placeKey(dest.city))
+  if (rule.area === 'outside') return zoneOf(origin, dest) !== 'city'
   if (placeKey(origin.province) !== placeKey(dest.province)) return false
   return rule.area === 'province' || placeKey(origin.city) === placeKey(dest.city)
 }
@@ -207,7 +271,7 @@ export function parcelWeight(items: { weightGrams: number; quantity: number }[],
 export const chargeableKg = (grams: number) => Math.max(1, Math.ceil(grams / 1000))
 
 export type Quote =
-  | { ok: true; carrierId: string; name: string; kind: Carrier['kind']; zone: Zone; feeRial: number; etaMin: number; etaMax: number; scheduled: boolean; free: boolean; note: string; freeBy?: string }
+  | { ok: true; carrierId: string; name: string; kind: Carrier['kind']; zone: Zone; feeRial: number; etaMin: number; etaMax: number; scheduled: boolean; free: boolean; note: string; freeBy?: string; collect?: boolean }
   | { ok: false; carrierId: string; name: string; reason: string }
 
 export function quote(carrier: Carrier, input: { origin: { province: string; city: string }; dest: { province: string; city: string }; weightGrams: number; itemRial: number; rules?: FreeShippingRule[]; now?: Date }): Quote {
@@ -215,17 +279,53 @@ export function quote(carrier: Carrier, input: { origin: { province: string; cit
   if (!carrier.enabled) return fail('غیرفعال')
   if (input.weightGrams > carrier.maxWeightGrams) return fail(`حداکثر وزن ${(carrier.maxWeightGrams / 1000).toLocaleString('fa-IR')} کیلوگرم`)
   const zone = zoneOf(input.origin, input.dest)
-  if (carrier.kind === 'local') {
-    if (zone !== 'city') return fail('فقط درون‌شهری')
-    const cities = carrier.cities.length ? carrier.cities : [input.origin.city]
-    if (!cities.some((city) => placeKey(city) === placeKey(input.dest.city))) return fail('در این شهر فعال نیست')
-  }
+  if (!carrier.zones[zone]) return fail(zone === 'city' ? 'داخل شهر ارسال ندارد' : zone === 'province' ? 'فقط داخل شهر ارسال دارد' : 'به استان‌های دیگر ارسال ندارد')
+  if (!placeAllowed(carrier, input.dest)) return fail('به این مقصد ارسال ندارد')
+  if (carrier.minOrderRial > 0 && input.itemRial < carrier.minOrderRial) return fail(`برای سفارش‌های از ${tomanLabel(carrier.minOrderRial)} تومان`)
+  if (carrier.maxOrderRial > 0 && input.itemRial > carrier.maxOrderRial) return fail(`برای سفارش‌های تا ${tomanLabel(carrier.maxOrderRial)} تومان`)
   const r = carrier.rates[zone]
-  if (r.baseRial <= 0 && carrier.kind === 'local' && zone !== 'city') return fail('این مسیر را پوشش نمی‌دهد')
-  const rule = input.rules?.length ? freeRuleFor(input.rules, { carrierId: carrier.id, origin: input.origin, dest: input.dest, itemRial: input.itemRial, now: input.now ?? new Date() }) : null
-  const free = !!rule || (carrier.freeOverRial > 0 && input.itemRial >= carrier.freeOverRial)
-  const feeRial = free ? 0 : r.baseRial + (chargeableKg(input.weightGrams) - 1) * r.perKgRial
-  return { ok: true, carrierId: carrier.id, name: carrier.name, kind: carrier.kind, zone, feeRial, etaMin: r.etaMin, etaMax: Math.max(r.etaMin, r.etaMax), scheduled: carrier.scheduled, free, note: carrier.note, ...(rule ? { freeBy: rule.label || `ارسال رایگان ${freeAreaLabel(rule, input.origin)}` } : {}) }
+  const collect = carrier.pricing === 'collect'
+  // The receiver pays a collect carrier's freight, so free shipping does not apply to it; its extra fee is still charged.
+  const rule = !collect && input.rules?.length ? freeRuleFor(input.rules, { carrierId: carrier.id, origin: input.origin, dest: input.dest, itemRial: input.itemRial, now: input.now ?? new Date() }) : null
+  const free = !collect && (!!rule || (carrier.freeOverRial > 0 && input.itemRial >= carrier.freeOverRial))
+  const feeRial = free ? 0 : carrierFee(carrier, zone, input.dest, input.weightGrams) + carrier.extraRial
+  return { ok: true, carrierId: carrier.id, name: carrier.name, kind: carrier.kind, zone, feeRial, etaMin: r.etaMin, etaMax: Math.max(r.etaMin, r.etaMax), scheduled: carrier.scheduled, free, note: carrier.note, ...(rule ? { freeBy: rule.label || `ارسال رایگان ${freeAreaLabel(rule, input.origin)}` } : {}), ...(collect ? { collect: true } : {}) }
+}
+
+const tomanLabel = (rial: number) => Math.round(rial / 10).toLocaleString('fa-IR')
+const inList = (list: string[], name: string) => list.some((item) => placeKey(item) === placeKey(name))
+
+/** The carrier's listed places: 'only' needs the address in them (nothing listed = no limit), 'except' keeps it out. */
+export function placeAllowed(carrier: Pick<Carrier, 'placeMode' | 'cities' | 'provinces'>, dest: { province: string; city: string }) {
+  if (carrier.placeMode === 'all' || (!carrier.cities.length && !carrier.provinces.length)) return true
+  const listed = inList(carrier.cities, dest.city) || inList(carrier.provinces, dest.province)
+  return carrier.placeMode === 'only' ? listed : !listed
+}
+
+/** The carrier's own fee before extras: a hand-set fee for the city or province, else by its pricing. */
+export function carrierFee(carrier: Carrier, zone: Zone, dest: { province: string; city: string }, weightGrams: number) {
+  if (carrier.pricing === 'collect') return 0
+  const set = carrier.placeFees.find((fee) => fee.level === 'city' && placeKey(fee.place) === placeKey(dest.city)) || carrier.placeFees.find((fee) => fee.level === 'province' && placeKey(fee.place) === placeKey(dest.province))
+  if (set) return set.feeRial
+  if (carrier.pricing === 'flat') return carrier.flatRial
+  const r = carrier.rates[zone]
+  return r.baseRial + (chargeableKg(weightGrams) - 1) * r.perKgRial
+}
+
+/** Ready carriers to add: the defaults plus a blank one; the owner edits names, prices and places after. */
+export const CARRIER_PRESETS: { key: string; label: string }[] = [
+  ...DEFAULT_CARRIERS.map((carrier) => ({ key: carrier.id, label: carrier.name })),
+  { key: 'blank', label: 'روش دلخواه (خالی)' },
+]
+
+export function presetCarrier(key: string, taken: string[]): Carrier {
+  const base = DEFAULT_CARRIERS.find((carrier) => carrier.id === key)
+  const stem = base ? base.id : 'custom'
+  let id = stem, n = 2
+  while (taken.includes(id)) id = `${stem}-${n++}`.slice(0, 30)
+  if (base) return { ...structuredClone(base), id, enabled: false }
+  const blank = rate(0, 0, 1, 3)
+  return { ...plain, id, name: 'روش ارسال جدید', enabled: false, kind: 'express', rates: { city: { ...blank }, province: { ...blank }, country: { ...blank } }, maxWeightGrams: 30_000, freeOverRial: 0, scheduled: false, trackingUrl: '', note: '' }
 }
 
 /** Every enabled carrier for an address: available ones first, cheapest first. */

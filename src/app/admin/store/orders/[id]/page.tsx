@@ -14,7 +14,7 @@ type Detail = {
   schedule: { date: string; slot: string } | null
   lines: (InputLine & { productId: number | null; slug: string; name: string; variantName: string; image: string; kind: string; quantity: number; unitPrice: number; listPrice: number; total: number })[]
   currency: string; itemsTotal: number; listTotal: number; discount: number; discountCode: string; shipping: number; total: number; walletApplied: number
-  shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number } | null
+  shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number; collect?: boolean } | null
   invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean
   customer: { id: number; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
   payments: { id: number; provider: string; status: string; amount: number; createdAt: string }[]
@@ -90,7 +90,7 @@ export default function StoreOrderPage() {
           <dl className="sa-totals">
             <div><dt>جمع کالاها</dt><dd><Money value={data.itemsTotal} currency={data.currency} /></dd></div>
             {data.discount > 0 && <div><dt>کد تخفیف {data.discountCode && <span dir="ltr">({data.discountCode})</span>}</dt><dd>−<Money value={data.discount} currency={data.currency} /></dd></div>}
-            <div><dt>هزینهٔ ارسال{data.shippingMethod && <small className="sa-sub">{data.shippingMethod.carrierName}{data.shippingMethod.eta && ` · ${data.shippingMethod.eta}`}</small>}</dt><dd>{data.shipping > 0 ? <Money value={data.shipping} currency={data.currency} /> : 'رایگان'}</dd></div>
+            <div><dt>هزینهٔ ارسال{data.shippingMethod && <small className="sa-sub">{data.shippingMethod.carrierName}{data.shippingMethod.eta && ` · ${data.shippingMethod.eta}`}</small>}</dt><dd>{data.shippingMethod?.collect ? <>پس‌کرایه{data.shipping > 0 && <> + <Money value={data.shipping} currency={data.currency} /></>}</> : data.shipping > 0 ? <Money value={data.shipping} currency={data.currency} /> : 'رایگان'}</dd></div>
             {data.walletApplied > 0 && <div><dt>پرداخت از کیف پول</dt><dd><Money value={data.walletApplied} currency={data.currency} /></dd></div>}
             <div className="is-total"><dt>مبلغ سفارش</dt><dd><Money value={data.total} currency={data.currency} /></dd></div>
           </dl>

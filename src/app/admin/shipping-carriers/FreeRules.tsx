@@ -3,7 +3,7 @@
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 import { freeAreaLabel, type Carrier, type FreeArea, type FreeShippingRule } from '@/modules/shipping/domain/carriers'
 
-const AREAS: [FreeArea, string][] = [['city', 'شهر فروشگاه'], ['province', 'استان فروشگاه'], ['cities', 'شهرهای انتخابی'], ['country', 'سراسر کشور']]
+const AREAS: [FreeArea, string][] = [['city', 'شهر فروشگاه'], ['outside', 'خارج از شهر فروشگاه'], ['province', 'استان فروشگاه'], ['cities', 'شهرهای انتخابی'], ['except', 'همه‌جا به‌جز شهرهای انتخابی'], ['country', 'سراسر کشور']]
 const toman = (rial: number) => Math.round(rial / 10)
 const digits = (value: string) => Math.max(0, Math.round(Number(value.replace(/[^\d۰-۹]/g, '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))) || 0))
 // The day as the device sees it: an ISO moment at local midnight in Tehran is the previous day in UTC.
@@ -31,8 +31,8 @@ export default function FreeRules({ rules, carriers, origin, onChange }: { rules
       </div>
       <div className="sa-grid">
         <label className="sa-field"><span>حداقل جمع کالاها (تومان)</span><input className="input num" dir="ltr" inputMode="numeric" value={toman(rule.minRial)} onChange={(e) => set(rule.id, { minRial: digits(e.target.value) * 10 })} /></label>
-        <label className="sa-field"><span>محدوده</span><select className="select" value={rule.area} onChange={(e) => set(rule.id, { area: e.target.value as FreeArea })}>{AREAS.map(([value, label]) => <option key={value} value={value}>{value === 'city' ? `${label} (${origin.city})` : value === 'province' ? `${label} (${origin.province})` : label}</option>)}</select></label>
-        {rule.area === 'cities' && <label className="sa-field"><span>شهرها (با ویرگول)</span><input className="input" value={rule.cities.join('، ')} onChange={(e) => set(rule.id, { cities: e.target.value.split(/[,،]/).map((city) => city.trim()).filter(Boolean) })} placeholder="قائم‌شهر، ساری، بابل" /></label>}
+        <label className="sa-field"><span>محدوده</span><select className="select" value={rule.area} onChange={(e) => set(rule.id, { area: e.target.value as FreeArea })}>{AREAS.map(([value, label]) => <option key={value} value={value}>{value === 'city' || value === 'outside' ? `${label} (${origin.city})` : value === 'province' ? `${label} (${origin.province})` : label}</option>)}</select></label>
+        {(rule.area === 'cities' || rule.area === 'except') && <label className="sa-field"><span>شهرها (با ویرگول)</span><input className="input" value={rule.cities.join('، ')} onChange={(e) => set(rule.id, { cities: e.target.value.split(/[,،]/).map((city) => city.trim()).filter(Boolean) })} placeholder="قائم‌شهر، ساری، بابل" /></label>}
         <label className="sa-field"><span>متن برای مشتری (اختیاری)</span><input className="input" maxLength={80} value={rule.label} onChange={(e) => set(rule.id, { label: e.target.value })} placeholder={`ارسال رایگان ${freeAreaLabel(rule, origin)}`} /></label>
         <div className="sa-field"><span>از تاریخ (اختیاری)</span><JalaliDateInput aria-label="از تاریخ" value={dateOnly(rule.startsAt)} onChange={(day) => set(rule.id, { startsAt: day ? new Date(`${day}T00:00:00`).toISOString() : '' })} /></div>
         <div className="sa-field"><span>تا تاریخ (اختیاری)</span><JalaliDateInput aria-label="تا تاریخ" value={dateOnly(rule.endsAt)} onChange={(day) => set(rule.id, { endsAt: day ? new Date(`${day}T23:59:59`).toISOString() : '' })} /></div>

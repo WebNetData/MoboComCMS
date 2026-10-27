@@ -128,3 +128,50 @@ test('free shipping by order size and place: the store city, its province, liste
   assert.deepEqual(offers.map((offer) => [offer.id, offer.place]), [['home', 'در قائم‌شهر'], ['region', 'در ساری، بابل']], 'open offers, lowest minimum first')
   assert.deepEqual(c.freeShippingOffers({ ...settings, enabled: false }, now), [], 'nothing to tell while carriers are off')
 })
+
+test('full control: routes, places, flat and hand-set fees, extras, order range and freight paid on delivery', () => {
+  const origin = { province: 'مازندران', city: 'قائم‌شهر' }
+  const base = c.normalizeCarrierSettings({ enabled: true, originProvince: origin.province, originCity: origin.city, carriers: [] })
+  assert.deepEqual(base.carriers, [], 'an empty saved list stays empty')
+  const make = (patch) => c.normalizeCarrierSettings({ enabled: true, originProvince: origin.province, originCity: origin.city, carriers: [{ id: 'x', enabled: true, kind: 'express', rates: { city: { baseRial: 100_000, perKgRial: 10_000, etaMin: 0, etaMax: 1 }, province: { baseRial: 200_000, perKgRial: 20_000, etaMin: 1, etaMax: 2 }, country: { baseRial: 300_000, perKgRial: 30_000, etaMin: 2, etaMax: 4 } }, ...patch }] }).carriers[0]
+  const q = (carrier, dest, itemRial = 10_000_000, weightGrams = 2500) => c.quote(carrier, { origin, dest, weightGrams, itemRial })
+  const home = { province: 'مازندران', city: 'قائمشهر' }, sari = { province: 'مازندران', city: 'ساری' }, tehran = { province: 'تهران', city: 'تهران' }
+
+  // a courier in town at a fixed price
+  const courier = make({ kind: 'local', zones: { city: true }, pricing: 'flat', flatRial: 400_000 })
+  assert.equal(q(courier, home).feeRial, 400_000, 'flat fee, weight ignored')
+  assert.equal(q(courier, sari).ok, false, 'not outside the city')
+  // freight out of town, paid by the receiver, with a fee for taking the parcel to the office
+  const freight = make({ kind: 'freight', zones: { province: true, country: true }, pricing: 'collect', extraRial: 150_000, freeOverRial: 1 })
+  assert.equal(q(freight, home).ok, false, 'not inside the city')
+  const out = q(freight, tehran)
+  assert.ok(out.ok && out.collect === true && out.feeRial === 150_000 && out.free === false, 'collect: only the extra now, never free')
+  // places: only / except
+  assert.equal(q(make({ placeMode: 'only', provinces: ['مازندران'] }), tehran).ok, false, 'only the listed province')
+  assert.equal(q(make({ placeMode: 'only', provinces: ['مازندران'] }), sari).ok, true)
+  assert.equal(q(make({ placeMode: 'except', cities: ['ساری'] }), sari).ok, false, 'all but the listed city')
+  assert.equal(q(make({ placeMode: 'only' }), tehran).ok, true, 'nothing listed = no limit')
+  // hand-set fees: city beats its province; weight table otherwise, plus the extra
+  const priced = make({ extraRial: 50_000, placeFees: [{ level: 'province', place: 'مازندران', feeRial: 120_000 }, { level: 'city', place: 'ساری', feeRial: 90_000 }] })
+  assert.equal(q(priced, sari).feeRial, 140_000)
+  assert.equal(q(priced, { province: 'مازندران', city: 'آمل' }).feeRial, 170_000)
+  assert.equal(q(priced, tehran).feeRial, 300_000 + 2 * 30_000 + 50_000, 'zone table: base + whole extra kilos + extra')
+  // order range
+  const ranged = make({ minOrderRial: 5_000_000, maxOrderRial: 50_000_000 })
+  assert.equal(q(ranged, tehran, 4_000_000).ok, false)
+  assert.equal(q(ranged, tehran, 60_000_000).ok, false)
+  assert.equal(q(ranged, tehran, 20_000_000).ok, true)
+  // saved before this: a local courier keeps its city-only routes and its listed cities
+  const legacy = c.normalizeCarrierSettings({ carriers: [{ id: 'alopeyk', enabled: true, kind: 'local', cities: ['تهران', 'کرج'] }] }).carriers[0]
+  assert.deepEqual([legacy.zones, legacy.placeMode, legacy.pricing], [{ city: true, province: false, country: false }, 'only', 'zone'])
+  // free rules outside the store city / everywhere but listed cities
+  const rules = c.normalizeFreeRules([{ id: 'out', minRial: 1, area: 'outside' }, { id: 'but', minRial: 1, area: 'except', cities: ['ساری'] }])
+  const now = new Date()
+  assert.equal(c.freeRuleFor([rules[0]], { carrierId: 'x', origin, dest: home, itemRial: 5, now }), null)
+  assert.equal(c.freeRuleFor([rules[0]], { carrierId: 'x', origin, dest: sari, itemRial: 5, now })?.id, 'out')
+  assert.equal(c.freeRuleFor([rules[1]], { carrierId: 'x', origin, dest: sari, itemRial: 5, now }), null)
+  assert.equal(c.freeAreaLabel(rules[1], origin), 'در همه‌جا به‌جز ساری')
+  // templates get a free id and start off
+  const added = c.presetCarrier('freight', ['freight'])
+  assert.deepEqual([added.id, added.enabled, added.pricing], ['freight-2', false, 'collect'])
+})
