@@ -97,10 +97,17 @@ export async function invoicePdf({ doc: invoice, link, siteUrl, supportEmail }: 
     pdf.rect(0, 0, PAGE.width, height).fill(band)
     pdf.save(); pdf.fillOpacity(0.1).circle(70, 8, 92).fill('#ffffff'); pdf.fillOpacity(0.07).circle(PAGE.width - 40, height + 18, 76).fill('#ffffff'); pdf.restore()
 
-    const mark = logo ? 112 : 46, markHeight = 46, markX = right - mark, markY = 30
-    pdf.roundedRect(markX, markY, mark, markHeight, 12).fill('#ffffff')
-    if (logo) { try { pdf.image(logo, markX + 5, markY + 5, { fit: [mark - 10, markHeight - 10], align: 'center', valign: 'center' }) } catch { /* an unreadable picture leaves the plain mark */ } }
-    else line((seller.sellerName || 'م').trim().slice(0, 1), markX, markY + 11, mark, { size: 20, bold: true, color: PRIMARY }, 'center')
+    const mark = logo ? 124 : 46, markHeight = logo ? 52 : 46, markX = right - mark, markY = logo ? 27 : 30
+    // A picture sits on frosted glass (translucent white with a light edge) rather than a white box; a letter keeps
+    // its solid mark so it stays readable.
+    if (logo) {
+      pdf.save(); pdf.fillOpacity(0.16).roundedRect(markX, markY, mark, markHeight, 14).fill('#ffffff'); pdf.restore()
+      pdf.save(); pdf.strokeOpacity(0.5).lineWidth(0.8).roundedRect(markX + 0.4, markY + 0.4, mark - 0.8, markHeight - 0.8, 14).stroke('#ffffff'); pdf.restore()
+      try { pdf.image(logo, markX + 8, markY + 6, { fit: [mark - 16, markHeight - 12], align: 'center', valign: 'center' }) } catch { /* an unreadable picture leaves the glass */ }
+    } else {
+      pdf.roundedRect(markX, markY, mark, markHeight, 12).fill('#ffffff')
+      line((seller.sellerName || 'م').trim().slice(0, 1), markX, markY + 11, mark, { size: 20, bold: true, color: PRIMARY }, 'center')
+    }
     line(seller.sellerName || 'فروشگاه', left + 200, 31, inner - 200 - mark - 12, { size: 16, bold: true, color: '#ffffff' })
     line('صورتحساب فروش کالا و خدمات', left + 200, 56, inner - 200 - mark - 12, { size: 9.5, color: '#e0e7ff' })
 

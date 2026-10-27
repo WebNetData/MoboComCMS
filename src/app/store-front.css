@@ -547,7 +547,7 @@
    with their categories, and tiles that answer the pointer.
    ============================================================ */
 .sx-page { padding-block: 10px 72px; }
-.sx-landing.container, .sx-listing.container { width: var(--mb-chrome, min(1680px, 100% - 48px)); max-width: none; padding-inline: 0; }
+.sx-landing.container, .sx-listing.container, .sx-cart-page.container, .sh-checkout-page.container { width: var(--mb-chrome, min(1680px, 100% - 48px)); max-width: none; padding-inline: 0; }
 .sx-page { --sx-radius: 20px; --sx-radius-sm: 13px; --sx-shadow: 0 2px 4px rgb(20 16 60 / .04), 0 22px 44px -22px rgb(20 16 60 / .28); --sx-pink: #ec4899; }
 
 /* hero */
@@ -655,7 +655,7 @@
   .sx-rail { grid-auto-columns: minmax(170px, 62%); }
   .sx-section { margin-block: 30px; }
 }
-@media (max-width: 620px) { .sx-landing.container, .sx-listing.container { width: calc(100% - 24px); } }
+@media (max-width: 620px) { .sx-landing.container, .sx-listing.container, .sx-cart-page.container, .sh-checkout-page.container { width: calc(100% - 24px); } }
 @media (prefers-reduced-motion: reduce) { .sx-world, .sx-tile-link, .sx-world-pick, .sx-world-pick img, .sx-tile-art img, .sx-btn, .sx-intro-stats li, .sx-circle span, .sx-world-all { transition: none; } }
 
 /* ---------- the special offers, second pass: a lit stage with the clock on one side and the deals as cards ---------- */

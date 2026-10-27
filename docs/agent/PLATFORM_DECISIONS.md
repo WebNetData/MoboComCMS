@@ -158,6 +158,8 @@ Other rules:
 - A **cancellation** of an order whose codes the buyer has already read is never refunded by itself; it waits for staff.
 - Stock of a product that sells from its pool is the pool's count, also after stock is returned (`returnStock` → `syncCodeStock`).
 
+**Store: full-width pages and the invoice mark (owner, 2026-10-27).** The cart, checkout and the invoice page take the width of the site header (`--mb-chrome`), like the shop front; this replaces the earlier "cart and checkout keep their own width". The product description and its questions use the whole panel. On the invoice (web and PDF) a logo sits on frosted glass (translucent white with a light edge) instead of a white box; a letter mark keeps its solid chip. The PDF can be looked at with `.mobocom/claude-tools/shot-invoice-pdf.cjs`.
+
 **Store: the shop front (owner, 2026-10-27).** The shop landing and the category listing were redesigned on the existing owners; the single product page is approved and unchanged.
 - The landing (`/products` without filters) has:
   - a hero: the welcome with a stage of up to three products, or the owner's slides when set;
@@ -167,6 +169,7 @@ Other rules:
   - a numbered best-seller list (three rows per column).
 - The offer band with fewer than four offers lets its "see all" card fill the row.
 - The listing has a banner with the category image, description and counts, sub-categories with counts, quick filters that toggle (available, discounted, online delivery, physical) and the result count in a sticky toolbar.
+- **Product card (owner, 2026-10-27: "the cards are too plain").** One card everywhere in the shop (`ProductTile`), including the similar-products rail under a product page; the product page itself is unchanged. The picture carries a deal badge, a clock for offers ending within two days, delivery flags and a sold-out veil. Quick favourite (the member's list, `/api/engage/favorite`) and compare (this browser's list) sit beside the card link, each following its module. The body reads brand · category, the name, a star chip with the review count, sales, a short-stock bar, and the price beside a go button. Styles are in `src/app/store-cards.css`.
 - Owners: `src/components/store/ShopHome.tsx` and `src/modules/catalog/server/pages/products/page.tsx`. The styles in `src/app/store-shop.css` are scoped to `.sx-landing` / `.sx-listing`. A theme page placed as the shop landing still replaces the default landing. Data comes from `shopHome` / `shopListing`; there is no new query or setting.
 
 **Store: two stores and advanced filters (owner, 2026-10-27).** The shop is split into a digital-products store and a physical-goods store. Addresses keep their form:
@@ -185,6 +188,7 @@ Filters in the listing:
 - Also: members' rating (3+ / 4+), instant delivery (only where a product really hands over its code), ready price ranges (only when every listed price shares one currency), counts beside the switches and a search inside long lists.
 - A tick applies at once; the button stays for typed prices and for browsers without script. Inside a store, the category tree is that store's.
 - «تحویل آنی» is never said of a whole store, only of products that deliver by themselves (guard in `store.test.cjs`, now also over the shop front files).
+- Since the variant slice, a specification filter also matches the values of a product's active variants (a headset in black and white matches both). A choice whose every value is a known colour name is drawn with dots from `store/domain/colors`, the table the buy box uses. The price facet gets a two-handle slider over the listed range, only when the prices share one currency.
 
 **Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
 
