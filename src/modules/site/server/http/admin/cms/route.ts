@@ -23,6 +23,7 @@ import { fxFormFields } from '@/modules/fx/server/fx'
 import { readOrderFields } from '@/modules/store/domain/order-inputs'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
+import { buildCategoryTemplate } from '@/modules/catalog/server/category-template'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
@@ -110,6 +111,13 @@ export async function GET(req: NextRequest) {
 
   if (type === 'productcats' && req.nextUrl.searchParams.get('options') === '1') {
     return ok(await db.productCategory.findMany({ select: { id: true, name: true, parentId: true, kind: true }, orderBy: { id: 'asc' } }))
+  }
+  // The category manager's tree: every category in its order, with how many products it holds directly.
+  if (type === 'productcats' && req.nextUrl.searchParams.get('tree') === '1') {
+    return ok(await db.productCategory.findMany({
+      select: { id: true, slug: true, name: true, nameEn: true, parentId: true, kind: true, attributeGroupId: true, image: true, sortOrder: true, _count: { select: { products: true } } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    }))
   }
 
   const model = MODELS[type]()
@@ -205,6 +213,12 @@ export async function POST(req: NextRequest) {
 
   const model = MODELS[type]()
   try {
+    // "Build the ready category tree" (Admin › product categories): adds what is missing, moves and renames nothing.
+    if (type === 'productcats' && b?.template === 'store-v1') {
+      const result = await buildCategoryTemplate()
+      await auditAdmin({ req, actor: admin, action: 'cms.productcats.template', targetType: 'productcats', metadata: result })
+      return ok(result)
+    }
     if (type === 'pages') {
       const layout = validatePageLayout(b || {})
       const row = await db.$transaction(async tx => {

@@ -301,3 +301,17 @@ test('buyer answers stay encrypted from cart to order, and only an audited staff
   assert.match(sql, /"inputsErasedAt"/)
   assert.match(read('prisma/release-manifest.json'), /"20261227120000_order_inputs_open_amount"/)
 })
+
+test('the ready category tree: unique, valid addresses; every child in its parent\'s half', () => {
+  const template = load('src/modules/catalog/domain/category-template.ts')
+  const rows = template.templateRows()
+  assert.ok(rows.length >= 80, 'a professional tree, not a handful')
+  assert.equal(new Set(rows.map((row) => row.slug)).size, rows.length, 'no address twice')
+  for (const row of rows) {
+    assert.match(row.slug, /^[a-z0-9][a-z0-9-]{0,79}$/, row.slug)
+    assert.ok(row.name && row.nameEn, row.slug)
+    if (row.parent) assert.equal(row.kind, rows.find((item) => item.slug === row.parent).kind, `${row.slug} follows ${row.parent}`)
+  }
+  assert.deepEqual([...new Set(template.CATEGORY_TEMPLATE.map((root) => root.kind))].sort(), ['PHYSICAL', 'VIRTUAL'], 'both stores get a tree')
+  assert.ok(template.CATEGORY_TEMPLATE.every((root) => root.description), 'every top category has a description for its page')
+})
