@@ -71,7 +71,7 @@ async function Landing() {
     {home.settings.slides.length > 0 && <StoreSlider slides={home.settings.slides} />}
     <header className="sx-gate-head">
       <h1>فروشگاه موبوکام</h1>
-      <p>دو فروشگاه در یک جا: محصولات دیجیتال با تحویل آنی، و کالای فیزیکی با ارسال به سراسر کشور.</p>
+      <p>دو فروشگاه در یک جا: محصولات دیجیتال با تحویل آنلاین، و کالای فیزیکی با ارسال به سراسر کشور.</p>
     </header>
     <StoreDoors divisions={divisions} />
     <QuickRoutes />

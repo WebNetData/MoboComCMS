@@ -202,7 +202,7 @@ const TRUST: { icon: StoreIconName; title: string; text: string }[] = [
 ]
 
 export const DIGITAL_TRUST: { icon: StoreIconName; title: string; text: string }[] = [
-  { icon: 'bolt', title: 'تحویل آنی', text: 'کد و لینک همان لحظه' },
+  { icon: 'bolt', title: 'تحویل آنلاین', text: 'بدون ارسال پستی، در حساب شما' },
   { icon: 'shield', title: 'ضمانت اصالت', text: 'کد اصل از منبع معتبر' },
   { icon: 'card', title: 'پرداخت امن', text: 'درگاه بانکی و کیف پول' },
   { icon: 'return', title: 'جایگزینی کد', text: 'کد نامعتبر عوض می‌شود' },

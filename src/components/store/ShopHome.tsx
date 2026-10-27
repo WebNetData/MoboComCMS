@@ -141,7 +141,7 @@ export function TopSellers({ products, more = '/products?sort=bestselling', titl
 }
 
 const DOOR = {
-  VIRTUAL: { title: 'فروشگاه محصولات دیجیتال', kicker: 'تحویل آنلاین و آنی', text: 'لایسنس، گیفت‌کارت، اکانت و اشتراک؛ بدون ارسال پستی، همان لحظه در حساب کاربری شما.', icon: 'bolt', cta: 'ورود به فروشگاه دیجیتال', tone: 'digital', points: ['تحویل آنی کد', 'ضمانت اصالت', 'پشتیبانی فعال‌سازی'] },
+  VIRTUAL: { title: 'فروشگاه محصولات دیجیتال', kicker: 'تحویل آنلاین', text: 'لایسنس، گیفت‌کارت، اکانت و اشتراک؛ بدون ارسال پستی، در حساب کاربری شما.', icon: 'bolt', cta: 'ورود به فروشگاه دیجیتال', tone: 'digital', points: ['تحویل در حساب کاربری', 'ضمانت اصالت', 'پشتیبانی فعال‌سازی'] },
   PHYSICAL: { title: 'فروشگاه کالای فیزیکی', kicker: 'ارسال به سراسر کشور', text: 'کالای اصل با ضمانت بازگشت؛ روش ارسال و روز و ساعت تحویل را خودتان انتخاب می‌کنید.', icon: 'truck', cta: 'ورود به فروشگاه فیزیکی', tone: 'physical', points: ['ارسال سریع', 'ضمانت بازگشت', 'پرداخت امن'] },
 } as const
 
@@ -176,8 +176,8 @@ export function divisionCopy(kind: 'PHYSICAL' | 'VIRTUAL'): { hero: HeroCopy; qu
   const base = `/products?kind=${kind}`
   if (kind === 'VIRTUAL') return {
     hero: {
-      kicker: 'فروشگاه محصولات دیجیتال', icon: 'bolt', title: ['لایسنس، گیفت‌کارت و اشتراک؛ ', 'تحویل آنی', ' در حساب شما'],
-      text: 'بدون انتظار و بدون ارسال پستی: پس از پرداخت، کد یا لینک محصول همان لحظه در پنل کاربری و ایمیل شما است.',
+      kicker: 'فروشگاه محصولات دیجیتال', icon: 'bolt', title: ['لایسنس، گیفت‌کارت و اشتراک؛ ', 'تحویل آنلاین', ' در حساب شما'],
+      text: 'بدون ارسال پستی: پس از پرداخت، محصول در پنل کاربری شما تحویل می‌شود؛ کالاهایی که نشان «آنی» دارند همان لحظه.',
       actions: [{ href: `${base}&instant=1`, label: 'تحویل آنی', icon: 'bolt', primary: true }, { href: `${base}&discounted=1&sort=discount`, label: 'تخفیف‌دارها', icon: 'percent' }, { href: '/products?kind=PHYSICAL', label: 'فروشگاه فیزیکی', icon: 'truck' }],
       searchKind: kind, searchLabel: 'جست‌وجو در محصولات دیجیتال',
     },
