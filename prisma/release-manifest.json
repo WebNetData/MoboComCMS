@@ -435,6 +435,7 @@
     "20270125120000_business_categories",
     "20270126120000_vip_perk_list",
     "20270127120000_product_extra_categories",
-    "20270128120000_celebrities"
+    "20270128120000_celebrities",
+    "20270129120000_celebrity_score"
   ]
 }

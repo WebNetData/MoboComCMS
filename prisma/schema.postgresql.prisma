@@ -1828,10 +1828,13 @@ model Celebrity {
   /// The owner split it from a same-named person of the other section: never joined again by name.
   keepApart      Boolean       @default(false)
   featured       Boolean       @default(false)
+  /// Published works across the sections (films and series credited, songs, albums, song credits): «most known» order.
+  score          Int           @default(0)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now()) @updatedAt
 
   @@index([normalizedName])
+  @@index([score])
 }
 
 model CinemaSeason {

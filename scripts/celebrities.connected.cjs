@@ -50,6 +50,22 @@ async function main() {
     const card = (await hub.celebrityDirectory({ q: stamp, role: null, creditRole: '', page: 1 }, {})).people[0]
     assert.deepEqual([card.roles, card.titles, card.songs], [['بازیگر', 'خواننده'], 1, 1], 'roles and works of both sections')
 
+    // The other person directs the same film: now public, a collaborator, and less known (one work against two).
+    await db.cinemaCredit.create({ data: { titleId: title.id, personId: loner.id, role: 'DIRECTOR' } })
+    await hub.syncCelebrities()
+    assert.deepEqual([(await db.celebrity.findUnique({ where: { id: entry.id } })).score, (await db.celebrity.findUnique({ where: { id: alone.id } })).score], [2, 1], 'score: public works of both sections')
+    const slugs = async (input) => (await hub.celebrityDirectory({ q: stamp, role: null, creditRole: '', page: 1, ...input }, {})).people.map((item) => item.slug)
+    assert.deepEqual(await slugs({}), [entry.slug, alone.slug], 'most known first')
+    assert.deepEqual(await slugs({ sort: 'name' }), [alone.slug, entry.slug], 'or by name')
+    assert.deepEqual(await slugs({ section: 'music' }), [entry.slug], 'the music tab holds only who has public music')
+    assert.deepEqual(await slugs({ section: 'cinema' }), [entry.slug, alone.slug])
+    assert.deepEqual(await slugs({ letter: 'س' }), [entry.slug], 'first letter')
+    assert.deepEqual(await slugs({ letter: 'en' }), [], 'Latin names only under A–Z')
+    const counts = await hub.celebrityCounts([])
+    assert.ok(counts.roles.director >= 1 && counts.all >= 2 && counts.music >= 1, 'counts of roles and sections')
+    const team = await hub.celebrityCollaborators({ cinemaPersonId: person.id, musicArtistId: artist.id }, {})
+    assert.deepEqual(team.map((mate) => [mate.slug, mate.shared]), [[alone.slug, 1]], 'collaborators: the director of their film, with one shared work')
+
     const split = await hub.splitCelebrity(entry.id)
     await hub.syncCelebrities()
     // The entry began on the cinema side (its address is the person's), so the actor keeps it and the singer moves out.
