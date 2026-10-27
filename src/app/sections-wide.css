@@ -67,3 +67,21 @@
 }
 @keyframes sw-rise { from { opacity: 0; translate: 0 26px; } to { opacity: 1; translate: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .md-cinema .md-rail > *, .md-games .gx-rail-track > *, .md-games .gv-upcoming > *, .md-games .gv-franchises > *, .md-software .sp-apps > * { transition: none; } }
+
+/* ============================================================
+   Every page at the width of the site header (owner, 2026-10-27: "pages 95–98% wide, the whole site and every
+   section"). The mobocom theme sets the width (--mb-chrome); a page's column takes it instead of a fixed 1200–1240px,
+   a column inside another one fills it, and the panels (dashboard, admin) fill the space beside their side menu.
+   Left at their own size on purpose: the sign-in card, dialogs, advert slots, a block's width chosen in the editor.
+   ============================================================ */
+html[data-design="mobocom"] .container:not(.mm-bar) { width: var(--mb-chrome); max-width: none; padding-inline: 0; }
+html[data-design="mobocom"] :is(.container, .app-main) .container:not(.mm-bar) { width: 100%; }
+html[data-design] .app-shell .app-main, .app-main > .container, .app-main > main { max-width: none; }
+/* pages that narrowed themselves inside that column */
+.covered-page-body.managed-page-full .managed-page-body, .content-surface.covered-article-body, .content-surface.covered-article-body .article-content-unframed, .content-surface.covered-article-body .article-bottom-links, .post-comments,
+.subscription-hub, .ticket-center, .ticket-ops, .ticket-dept-admin, .checkout-flow, .er-archive, .pr-page, .rp-public, .admin-comments, .sh-book { max-width: none !important; }
+.content-surface.covered-article-body .article-content-unframed .prose > p { max-width: none; }
+/* the social feed: its middle column takes what the side columns leave */
+@media (min-width: 1181px) { .cm-layout.is-feed { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(320px, 380px); } }
+/* the cart's bar at the foot of a phone reaches the edges of the window, whatever the page's side margin */
+.sx-cart-sticky { margin-inline: calc((100% - 100vw) / 2); }
