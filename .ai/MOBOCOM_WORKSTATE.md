@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/store-category-tree-2026-10-27` adds the ready professional category tree (91 categories, built from /admin/productcats in one press) and a better category manager. PRs 256–262 are merged.
+
 Current continuation 2026-10-27: `feat/free-shipping-rules-2026-10-27` from main 37629579 adds owner-requested free shipping by order size and area to the existing carriers owner. [Store handoff](../docs/agent/handoffs/STORE_ADVANCED.md) lists the next store slices (shop home and category listing redesign).
 
 Current continuation 2026-10-27: `feat/shipping-full-control-2026-10-27` on top of the free-shipping branch gives the owner full control of carriers (routes, places, fixed / weight / پس‌کرایه pricing, hand-set fees, extras, order range, templates).

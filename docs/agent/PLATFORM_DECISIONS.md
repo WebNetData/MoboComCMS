@@ -160,6 +160,23 @@ Other rules:
 
 **Store: full-width pages and the invoice mark (owner, 2026-10-27).** The cart, checkout and the invoice page take the width of the site header (`--mb-chrome`), like the shop front; this replaces the earlier "cart and checkout keep their own width". The product description and its questions use the whole panel. On the invoice (web and PDF) a logo sits on frosted glass (translucent white with a light edge) instead of a white box; a letter mark keeps its solid chip. The PDF can be looked at with `.mobocom/claude-tools/shot-invoice-pdf.cjs`.
 
+**Store: a professional category tree (owner, 2026-10-27).** "Many categories and sub-categories, fully professional."
+- **The ready tree:** `src/modules/catalog/domain/category-template.ts` holds 91 categories in three levels for both stores.
+  - Digital: gift cards, subscriptions with AI / streaming / music, software licences, digital games, foreign payment services, tech services.
+  - Physical: mobile with accessories, computers with components, networking, audio and video, gaming, smart gadgets, storage.
+- **Building it:** the owner builds it at `/admin/productcats` with one press (`POST /api/admin/cms?type=productcats` with `{ template: 'store-v1' }`, permission `cms.products`, audited `cms.productcats.template`).
+  - Only free addresses are made, in one serializable transaction: a child goes in its parent's half, a root in its own.
+  - A category whose address already exists is kept where it stands, neither moved nor renamed, and is reported when the template would put it elsewhere. A second press adds nothing.
+- **The manager** draws each half as a tree with:
+  - product counts (with sub-categories) and the number of sub-categories;
+  - edit / + sub-category / view on every branch, and a fold button per branch.
+- **The form** gains the picture, description and display order the server already accepted. A parent is chosen by its full path. `AdminCrud` opens `?new=1&<field>=…` with those fields filled.
+- **Shoppers** are offered only categories that hold products: the stores' category cards as before, and now the sub-categories on a category page too.
+- **Evidence:**
+  - `scripts/category-template.connected.cjs` (real PostgreSQL);
+  - a unit test in `store-v2.test.cjs`;
+  - `.mobocom/claude-tools/pw-category-tree.cjs`.
+
 **Store: the shop front (owner, 2026-10-27).** The shop landing and the category listing were redesigned on the existing owners; the single product page is approved and unchanged.
 - The landing (`/products` without filters) has:
   - a hero: the welcome with a stage of up to three products, or the owner's slides when set;
