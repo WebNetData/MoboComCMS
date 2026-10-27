@@ -46,7 +46,7 @@ export function ProductTile({ product, rank }: { product: ProductCard; rank?: nu
   const href = `/products/${product.slug}`
   const deal = product.inStock && product.discount > 0
   return <article className={`sx-tile${product.inStock ? '' : ' is-out'}${deal ? ' has-deal' : ''}`}>
-    <Link href={href} className="sx-tile-link" aria-label={product.name}>
+    <Link href={href} className="sx-tile-link">
       <span className="sx-tile-art">
         {product.image ? <img src={sized(product.image, 320)} srcSet={srcSet(product.image, 320)} alt="" loading="lazy" decoding="async" /> : <span className="sx-tile-ph"><StoreIcon name="box" size={40} /></span>}
         {rank !== undefined && <span className="sx-rank num">{fa(rank)}</span>}
