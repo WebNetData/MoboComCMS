@@ -290,3 +290,19 @@
   .sx-door:hover, .sx-door:focus-within { transform: none; }
   .sx-door:hover .sx-door-pic.is-1 { transform: rotate(-4deg); }
 }
+
+/* Price slider: two range inputs over one track, the chosen span filled; colour dots beside colour values. */
+.sx-slider-price { display: grid; gap: 10px; padding-top: 8px; }
+.sx-slider-track { position: relative; height: 28px; direction: ltr; }
+.sx-slider-track::before, .sx-slider-track::after { content: ""; position: absolute; inset-block-start: 12px; height: 4px; border-radius: 99px; }
+.sx-slider-track::before { inset-inline: 0; background: var(--sx-line); }
+.sx-slider-track::after { inset-inline-start: var(--lo); inset-inline-end: calc(100% - var(--hi)); background: var(--sx-accent); }
+.sx-slider-track input[type=range] { position: absolute; inset: 0; z-index: 1; width: 100%; height: 28px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.sx-slider-track input[type=range]::-webkit-slider-runnable-track { background: none; }
+.sx-slider-track input[type=range]::-moz-range-track { background: none; }
+.sx-slider-track input[type=range]::-webkit-slider-thumb { width: 20px; height: 20px; border: 3px solid var(--sx-accent); border-radius: 50%; background: var(--sx-surface); box-shadow: 0 2px 6px rgb(0 0 0 / .2); cursor: grab; pointer-events: auto; -webkit-appearance: none; appearance: none; }
+.sx-slider-track input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: 3px solid var(--sx-accent); border-radius: 50%; background: var(--sx-surface); box-shadow: 0 2px 6px rgb(0 0 0 / .2); cursor: grab; pointer-events: auto; }
+.sx-slider-track input[type=range]:focus-visible { outline: none; }
+.sx-slider-track input[type=range]:focus-visible::-webkit-slider-thumb { outline: 3px solid color-mix(in srgb, var(--sx-accent) 45%, transparent); outline-offset: 2px; }
+.sx-slider-track input[type=range]:focus-visible::-moz-range-thumb { outline: 3px solid color-mix(in srgb, var(--sx-accent) 45%, transparent); outline-offset: 2px; }
+.sx-dot { flex: none; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sx-text) 25%, transparent); }

@@ -185,6 +185,7 @@ Filters in the listing:
 - Also: members' rating (3+ / 4+), instant delivery (only where a product really hands over its code), ready price ranges (only when every listed price shares one currency), counts beside the switches and a search inside long lists.
 - A tick applies at once; the button stays for typed prices and for browsers without script. Inside a store, the category tree is that store's.
 - «تحویل آنی» is never said of a whole store, only of products that deliver by themselves (guard in `store.test.cjs`, now also over the shop front files).
+- Since the variant slice, a specification filter also matches the values of a product's active variants (a headset in black and white matches both). A choice whose every value is a known colour name is drawn with dots from `store/domain/colors`, the table the buy box uses. The price facet gets a two-handle slider over the listed range, only when the prices share one currency.
 
 **Cinema: film release calendar.** `CinemaTitle.releaseDate` (additive, migration `20261207120000`; unset = not on the calendar). `/cinema/calendar?kind=films` shows published films opening next and opened last, by day, in the layout the episode side has (`filmCalendar`, `groupDays`). The title pages are untouched (protected visual).
 

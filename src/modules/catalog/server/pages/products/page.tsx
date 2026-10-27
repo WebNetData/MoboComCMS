@@ -15,7 +15,8 @@ import {
   BannerGrid, BrandStrip, Crumbs, DIGITAL_TRUST, OfferBand, ProductGrid, ProductRail, TrustStrip,
 } from '@/components/store/Storefront'
 import { CategoryGrid, QuickRoutes, ShopHero, StoreDoors, TopSellers, divisionCopy } from '@/components/store/ShopHome'
-import { FacetFind, FilterAutoApply } from '@/components/store/ShopFilters'
+import { FacetFind, FilterAutoApply, PriceSlider } from '@/components/store/ShopFilters'
+import { colorSwatch } from '@/modules/store/domain/colors'
 import { shopDivisionHome, shopDivisions, shopHome, shopListing, type CategoryNode, type ProductCard } from '@/modules/store/server/catalog'
 import { SHOP_SORTS, SPEC_PARAM, isFiltered, isStoreFront, parseShopQuery, shopQueryString, type ShopQuery } from '@/modules/store/domain/store'
 import { iranianUnit } from '@/shared/money/format'
@@ -214,10 +215,10 @@ async function Listing({ query }: { query: ShopQuery }) {
           </details>}
           <details className="sx-facet" open>
             <summary>محدودهٔ قیمت {unit && <small>({unit})</small>}</summary>
-            <div className="sx-range">
+            {result.priceRange ? <PriceSlider formId="sx-filter-form" min={result.priceRange.min} max={result.priceRange.max} from={query.min} to={query.max} unit={unit} /> : <div className="sx-range">
               <label><span>از</span><input name="min" inputMode="numeric" defaultValue={query.min || ''} placeholder={result.priceBounds.min ? fa(result.priceBounds.min) : '۰'} /></label>
               <label><span>تا</span><input name="max" inputMode="numeric" defaultValue={query.max || ''} placeholder={result.priceBounds.max ? fa(result.priceBounds.max) : ''} /></label>
-            </div>
+            </div>}
             {result.priceSteps.length > 0 && <div className="sx-price-steps">{result.priceSteps.map((step) => {
               const on = query.min === step.min && query.max === step.max
               return <Link key={`${step.min}-${step.max}`} href={`/products${shopQueryString(query, on ? { min: 0, max: 0 } : { min: step.min, max: step.max })}`} className={on ? 'is-on' : ''} aria-current={on ? 'true' : undefined}>
@@ -230,7 +231,7 @@ async function Listing({ query }: { query: ShopQuery }) {
             {facet.values.length > 8 && <FacetFind target={`sx-spec-${facet.key}`} label={`جست‌وجو در ${facet.label}`} />}
             <div className="sx-checks" id={`sx-spec-${facet.key}`}>{facet.values.map((item) => <label key={item.value} className={item.count ? '' : 'is-empty'}>
               <input type="checkbox" name={`${SPEC_PARAM}${facet.key}`} value={item.value} defaultChecked={query.specs[facet.key]?.includes(item.value)} />
-              <span>{item.value}</span><small className="num">{fa(item.count)}</small>
+              {facet.color && <i className="sx-dot" style={{ background: colorSwatch(item.value) || 'var(--sx-subtle)' }} aria-hidden="true" />}<span>{item.value}</span><small className="num">{fa(item.count)}</small>
             </label>)}</div>
           </details>)}
           <details className="sx-facet" open={!!query.rating}>
