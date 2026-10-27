@@ -1,5 +1,7 @@
 # MoboCom Work State
 
+Current continuation 2026-10-27: `feat/media-light-theme-2026-10-27` gives music, film & series and games a professional light theme in `src/app/media-light.css`. It provides light palettes, heroes under a light veil, and picture tiles that keep white words. The dark theme is unchanged. PRs 268–269 merged.
+
 Current continuation 2026-10-27: `feat/site-wide-width-2026-10-27` puts every page at 95–98% of the window. The width is the theme's `--mb-chrome`; each page column takes it, and the panels fill the space beside their menu. PRs 265–267 («چهره‌ها») merged.
 
 Current continuation 2026-10-27: `feat/celebrities-pro-2026-10-27` (on PR #266) makes «چهره‌ها» the people list of cinema and music. The changes are a professional directory (featured strip, sorts, letters and section tabs) and a richer person page (backdrop, known-for, collaborators and in-page sections). `/cinema/people` and `/music/artists` now redirect into it.
