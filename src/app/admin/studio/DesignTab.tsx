@@ -1,13 +1,10 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import Link from '@/components/AppLink'
 import CoverField from '../cms/CoverField'
 import { defaultSiteFonts, local, type SiteConfig, type ThemeColors, type ThemeManifest } from '@/modules/site/config/types'
 import { TextEditor, LinkEditor } from './fields'
-import MenuTreeEditor from '@/components/admin/MenuTreeEditor'
-import MenuSectionPicker from '@/components/admin/MenuSectionPicker'
 import CompanyContactFields from './CompanyContactFields'
-import { identifyMenu, DEFAULT_FOOTER_ACCOUNT } from '@/modules/site/config/menus'
 
 export const COLOR_LABELS: Record<string, string> = { background: 'پس‌زمینه', surface: 'کارت‌ها', accent: 'رنگ اصلی', text: 'متن', muted: 'متن فرعی', border: 'خطوط' }
 export const COLOR_KEYS = ['background', 'surface', 'accent', 'text', 'muted', 'border'] as const
@@ -29,8 +26,6 @@ export default function DesignTab({ config, themes, change, setUploading, export
   exportConfig: () => void
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null)
-  const [importingSection, setImportingSection] = useState(false)
-  const sectionBusy = (busy: boolean) => { setImportingSection(busy); setUploading(busy) }
   const all = [...themes, ...config.themes]
   const base = all.find(t => t.id === config.themeId) || all[0]
   const light = base.lightColors || LIGHT_FALLBACK
@@ -105,10 +100,10 @@ export default function DesignTab({ config, themes, change, setUploading, export
       </section>
 
       <section className="card studio-editor">
-        {(['navigation', 'footer'] as const).map(group => <div key={group}><h2 className="mb-4">{group === 'navigation' ? 'منوی اصلی (هدر و ناوبری)' : 'لینک‌های پشتیبانی در فوتر'}</h2><p className="studio-help">لینک، زیرمنو، ترتیب، نمایش و آیکن را تنظیم کنید. پنهان‌کردن یک لینک، زیرمنوهایش را هم پنهان می‌کند. صفحات خودکار از بخش مدیریت صفحه‌ها کنترل می‌شوند.</p><MenuSectionPicker value={config[group]} onChange={items => change({ ...config, [group]: items })} onBusy={sectionBusy} disabled={importingSection} /><MenuTreeEditor value={config[group]} presentation={group === 'navigation' ? 'navigation' : 'list'} onChange={items => change({ ...config, [group]: items })} /></div>)}
-        {(['footerExplore', 'footerAccount'] as const).map(group => <div key={group}><h2 className="mb-4">{group === 'footerExplore' ? 'فهرست دنیای موبوکام در فوتر' : 'فهرست فضای شخصی در فوتر'}</h2><label className="studio-switch mb-4"><input type="checkbox" checked={config[group] !== undefined} onChange={event => change({ ...config, [group]: event.target.checked ? identifyMenu(structuredClone(group === 'footerExplore' ? config.navigation : DEFAULT_FOOTER_ACCOUNT)) : undefined })} />فهرست مستقل (بدون تغییر منوی هدر)</label>{config[group] !== undefined && <MenuTreeEditor value={config[group]!} onChange={items => change({ ...config, [group]: items })} />}</div>)}
-        <label className="studio-switch mb-4"><input type="checkbox" checked={config.automaticPageLinks !== false} onChange={event => change({ ...config, automaticPageLinks: event.target.checked })} />افزودن خودکار صفحات منتشرشده‌ای که نمایش در منو دارند</label>
-        <Link href="/admin/mega-menu" className="text-link">مدیریت منو و دسته‌بندی بخش‌ها</Link>
+        {/* Menus have their own page: header, section bars, footer and automatic pages, with a map of where each sits. */}
+        <h2 className="mb-4">منوهای سایت</h2>
+        <p className="studio-help">منوی هدر، نوار بخش‌ها و مگامنو، ستون‌های فوتر و صفحه‌هایی که خودکار به هدر اضافه می‌شوند، همه در «مدیریت منوها» مرتب شده‌اند.</p>
+        <Link href="/admin/menus" className="btn btn-primary">رفتن به مدیریت منوها ←</Link>
       </section>
 
       <section className="card studio-editor">

@@ -65,6 +65,11 @@ test('contact settings remain optional, validate all channels and only build exp
   const value=contact.normalizeCompanyContact({latitude:36.474506,longitude:52.872342,mapEnabled:true,phone:'+98 111 222 3333',email:'owner@example.invalid'})
   const links=contact.companyMapLinks(value),url=new URL(links.embed)
   assert.equal(url.origin,'https://www.openstreetmap.org');assert.equal(url.searchParams.get('marker'),'36.474506,52.872342')
+  // The about and contact map links to the map apps visitors use, built only from the saved pin (owner, 2026-10-28).
+  assert.equal(links.coordinates,'36.474506,52.872342')
+  assert.equal(new URL(links.neshan).origin,'https://neshan.org');assert.ok(links.neshan.includes('@36.474506,52.872342,'))
+  assert.equal(new URL(links.balad).searchParams.get('latitude'),'36.474506');assert.equal(new URL(links.waze).searchParams.get('ll'),'36.474506,52.872342')
+  assert.equal(new URL(links.osm).searchParams.get('mlat'),'36.474506')
   const defaults=load('src/modules/site/config/defaults').defaultSite
   assert.equal(validateSite({...defaults,contact:value}),true);assert.equal(validateSite({...defaults,contact:{...value,email:'bad'}}),false)
 })
@@ -324,4 +329,24 @@ test('cinema, games, software and the forum take the width of the header and are
   // The forum's one-column layout is left alone: a second column there squeezed a topic to a sliver.
   assert.doesNotMatch(css, /\.fx-layout-wide/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
+})
+
+test('every menu has one admin page: header, section bars, footer and automatic pages (owner, 2026-10-28)', () => {
+  const fs = require('node:fs'), path = require('node:path')
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n')
+  const page = read('src/app/admin/menus/page.tsx')
+  for (const tab of ["id: 'header'", "id: 'sections'", "id: 'footer'", "id: 'pages'"]) assert.ok(page.includes(tab), tab)
+  // Each menu keeps its owner: site settings with the revision claim, the section bars' own save, a page's own flag.
+  assert.match(page, /fetch\('\/api\/admin\/site', \{ method: 'PUT', headers: \{ 'Content-Type': 'application\/json', 'If-Match': revision \}/)
+  assert.match(page, /<MegaMenuManager embedded \/>/)
+  assert.match(page, /fetch\('\/api\/admin\/cms\?type=pages', \{ method: 'PATCH'[^\n]+JSON\.stringify\(\{ id: page\.id, showInNav \}\)/)
+  for (const list of ["key: 'footer'", "key: 'footerExplore'", "key: 'footerAccount'"]) assert.ok(page.includes(list), list)
+  // Old addresses and links land on it; the sidebar lists it once; Studio points to it instead of editing menus.
+  assert.match(read('src/app/admin/mega-menu/page.tsx'), /redirect\('\/admin\/menus\?tab=sections'\)/)
+  const layout = read('src/app/admin/layout.tsx')
+  assert.match(layout, /href: '\/admin\/menus', label: L\('مدیریت منوها[^\n]+perm: 'settings\.manage'/)
+  assert.doesNotMatch(layout, /href: '\/admin\/mega-menu'/)
+  const studio = read('src/app/admin/studio/DesignTab.tsx')
+  assert.match(studio, /href="\/admin\/menus"/)
+  assert.doesNotMatch(studio, /MenuTreeEditor|MenuSectionPicker/)
 })

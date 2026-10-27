@@ -87,7 +87,7 @@ export default function StoreSettingsPage() {
       <section className="sa-card sa-links">
         <header className="sa-card-head"><h2>تنظیمات مرتبط</h2></header>
         <Link href="/admin/delivery" className="sa-link">زمان‌بندی و هزینهٔ ارسال</Link>
-        <Link href="/admin/mega-menu" className="sa-link">مگامنوی فروشگاه</Link>
+        <Link href="/admin/menus?tab=sections" className="sa-link">مگامنوی فروشگاه</Link>
         <Link href="/admin/promotions" className="sa-link">کدهای تخفیف</Link>
         <Link href="/admin/productgroups" className="sa-link">گروه‌های مشخصات و تنوع (رنگ، حافظه…)</Link>
         <Link href="/admin/builder" className="sa-link">قالب صفحهٔ محصول و فروشگاه (صفحه‌ساز)</Link>

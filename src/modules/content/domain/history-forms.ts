@@ -3,7 +3,7 @@ export const CONFIGURATION_FORMS = [
   ['general', 'عمومی', '/admin/settings'], ['forum', 'تالار', '/admin/forum?tab=settings'],
   ['journal', 'مجله', '/admin/journal/settings'], ['cinema', 'فیلم و سریال', '/admin/cinema/settings'],
   ['music', 'موزیک', '/admin/music/settings'], ['games', 'بازی', '/admin/games/settings'], ['software', 'نرم‌افزار', '/admin/software/settings'],
-  ['site', 'استودیوی سایت', '/admin/studio'], ['navigation', 'مگامنو', '/admin/mega-menu'], ['media', 'کتابخانه', '/admin/media'],
+  ['site', 'استودیوی سایت', '/admin/studio'], ['navigation', 'مگامنو', '/admin/menus?tab=sections'], ['media', 'کتابخانه', '/admin/media'],
   ['notifications', 'اعلان‌ها', '/admin/notifications'], ['businesses', 'سیاست کسب‌وکار', '/admin/extensions'],
   ['delivery', 'زمان‌بندی و هزینهٔ ارسال', '/admin/delivery'], ['storefront', 'ویترین فروشگاه', '/admin/store/settings'],
   ['returns', 'لغو و مرجوعی', '/admin/store/returns'], ['watermark', 'واترمارک تصاویر', '/admin/watermark'],

@@ -54,7 +54,7 @@
 .mm-main { padding: 20px 24px 24px; }
 .mm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--mm-line); }
 .mm-title { font-size: 16px; font-weight: 800; }
-.mm-all { color: var(--mm-accent); font-size: 13px; font-weight: 700; text-decoration: none; }
+.mm-all { color: var(--accent-ink, var(--mm-accent)); font-size: 13px; font-weight: 700; text-decoration: none; }
 .mm-all:hover { text-decoration: underline; text-underline-offset: 3px; }
 .mm-columns { display: grid; grid-template-columns: repeat(var(--mm-cols, 4), minmax(0, 240px)); justify-content: start; gap: 8px 28px; }
 .mm-column-title { margin: 0 0 8px; padding-inline-start: 10px; border-inline-start: 3px solid var(--mm-accent); font-size: 13.5px; font-weight: 800; line-height: 1.6; }
@@ -66,7 +66,7 @@
 .mm-column li a span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-count { flex: none; min-width: 24px; padding: 0 6px; border-radius: 999px; background: var(--mm-soft); color: var(--mm-muted); font-size: 11px; line-height: 20px; text-align: center; }
 .mm-empty { margin: 0; color: var(--mm-muted); font-size: 13px; }
-.mm-empty a { color: var(--mm-accent); }
+.mm-empty a { color: var(--accent-ink, var(--mm-accent)); text-decoration: underline; text-underline-offset: 3px; }
 
 .mm-aside { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-inline-start: 1px solid var(--mm-line); background: var(--mm-soft); }
 .mm-aside-title { color: var(--mm-muted); font-size: 12px; font-weight: 700; }

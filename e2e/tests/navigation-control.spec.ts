@@ -25,10 +25,11 @@ test('menu drafts retain nested edits, icons, visibility and section switching',
     await route.fulfill({ response }).catch(() => {}) // The obsolete request can be aborted.
   })
   try {
-    await page.goto('/admin/studio?tab=design', { waitUntil: 'domcontentloaded', timeout: 180_000 })
-    const heading = page.getByRole('heading', { name: 'منوی اصلی (هدر و ناوبری)', exact: true })
+    // Menus have their own page (owner, 2026-10-28): the header tree is the first tab of «مدیریت منوها».
+    await page.goto('/admin/menus?tab=header', { waitUntil: 'domcontentloaded', timeout: 180_000 })
+    const heading = page.getByRole('heading', { name: 'منوی اصلی هدر', exact: true })
     await expect(heading).toBeVisible({ timeout: 90_000 })
-    const menu = page.locator('section.card').filter({ has: heading }).locator(':scope > div').filter({ has: heading })
+    const menu = page.locator('section').filter({ has: heading }).first()
     await menu.getByRole('button', { name: '+ افزودن لینک', exact: true }).click()
     const root = menu.locator('ol').first().locator(':scope > li').last()
     const title = 'پیش‌نویس آزمون ناوبری'
