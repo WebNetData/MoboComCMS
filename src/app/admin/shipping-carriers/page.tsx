@@ -3,6 +3,7 @@
 import Link from '@/components/AppLink'
 import { useEffect, useMemo, useState } from 'react'
 import { Notice } from '../store/shared'
+import FreeRules from './FreeRules'
 import { PROVINCES } from '@/modules/shipping/domain/shipping'
 import { ZONE_LABEL, etaLabel, quotes, type Carrier, type CarrierSettings, type Zone } from '@/modules/shipping/domain/carriers'
 
@@ -109,6 +110,7 @@ export default function ShippingCarriersPage() {
           </ol>
           <button type="button" className="btn btn-ghost" onClick={addCarrier}>+ روش ارسال دیگر</button>
         </section>
+        <FreeRules rules={settings.freeRules || []} carriers={settings.carriers} origin={{ province: settings.originProvince, city: settings.originCity }} onChange={(freeRules) => setSettings({ ...settings, freeRules })} />
       </div>
 
       <section className="sa-card sa-form cr-sim">
@@ -122,7 +124,7 @@ export default function ShippingCarriersPage() {
         </div>
         <ul className="cr-quotes">{preview.map((item) => <li key={item.carrierId} className={item.ok ? '' : 'is-off'}>
           <b>{item.name}</b>
-          {item.ok ? <><span>{ZONE_LABEL[item.zone]} · {etaLabel(item.etaMin, item.etaMax)}</span><strong>{item.free ? 'رایگان' : `${rial(item.feeRial)} ریال`}</strong></> : <span>{item.reason}</span>}
+          {item.ok ? <><span>{ZONE_LABEL[item.zone]} · {etaLabel(item.etaMin, item.etaMax)}</span><strong>{item.free ? 'رایگان' : `${rial(item.feeRial)} ریال`}</strong>{item.freeBy && <small className="sa-sub">{item.freeBy}</small>}</> : <span>{item.reason}</span>}
         </li>)}{!preview.length && <li className="is-off">هیچ روش ارسالی فعال نیست.</li>}</ul>
       </section>
     </div>

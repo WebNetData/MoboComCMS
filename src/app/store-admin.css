@@ -434,6 +434,14 @@ html[data-theme='light'] .sa { --sa-warn: #8a5300; }
 .cr-eta { display: flex; align-items: center; gap: 6px; }
 .cr-eta input { width: 64px !important; }
 .cr-sim { align-self: start; position: sticky; top: 16px; }
+/* Free-shipping rules: one bordered row each, with its carriers as checkboxes. */
+.cr-free-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.cr-free-list > li { display: grid; gap: 10px; padding: 0 12px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.cr-free-list > li.is-off { opacity: .7; }
+.cr-free-list .cr-line { padding-inline: 0; }
+.cr-free-carriers { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 10px; }
+.cr-free-carriers legend { padding: 0 6px; font-size: 12px; color: var(--muted); }
+.cr-quotes li small { grid-column: 1 / -1; }
 .cr-quotes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cr-quotes li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
 .cr-quotes li span { grid-column: 1; font-size: 12px; color: var(--muted); }

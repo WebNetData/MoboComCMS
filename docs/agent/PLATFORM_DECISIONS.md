@@ -129,6 +129,11 @@ Owner's direction (2026-10-06): a board as capable and good-looking as Invision 
 
 ## 6B. Slices from the capability map's open gaps (2026-10-07)
 
+**Store: free shipping by order size and place (owner, 2026-10-27).** "Orders over 5,000,000 Toman ship free inside our city (Qaemshahr)" is a rule of the carriers (`CarrierSettings.freeRules`, setting `shipping.carriers.v1`, no migration), because only carriers know the address; the flat delivery fee has no address and keeps its single `freeOverRial`.
+- A rule has a minimum in Rial (the editor takes Toman), an area (the store's city, its province, listed cities or the whole country, matched without spaces or half-spaces), optional carriers (none = all) and an optional window. `freeRuleFor` picks the lowest met minimum; `quote()` then prices that carrier at zero and names the rule (`freeBy`). At most twenty rules; a rule without a positive minimum is dropped.
+- The cart tells the shopper which offers are reached and how much is left for the next (`CartView.freeShipping`, only with carriers on and physical items, only in Rial/Toman carts). Checkout and the admin trial quote show the rule's text under «رایگان».
+- Carriers are off and the origin is Tehran by default: the owner sets the origin city and turns carriers on at `/admin/shipping-carriers` for any rule to apply.
+
 **Store: a delivered code.** A code leaves the shelf once. Taken back from its buyer it keeps its order and is marked returned (`ProductDigitalCode.returnedAt`, `returnId`, `returnNote`; migration `20261206120000`): void, not the buyer's any more, never sold again.
 - Staff **replace** a code that did not work from the product's pool screen (`replaceCode`): the old one is void and a code of the same shelf takes its place on the same order line, in one step; the buyer is told without the code in the notice.
 - **Sending a code back** is a return like any other, by its own window: `codeReturnDays` in the return rules, 0 (never) by default, because a code the buyer has read cannot be resold and that is the owner's call. Every such request is reviewed by staff; a line gives back no more units than the codes its buyer still holds, and the reasons offered fit what goes back (`reasonsForGoods`). On refund the codes of the returned units are void (`takeBackCodes`, the ones given last first; safe to repeat).
