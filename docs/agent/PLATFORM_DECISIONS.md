@@ -243,6 +243,24 @@ A list entry can carry a **family** (`Vocabulary.family`, declared per list by `
 
 **People of films and series.** `CinemaPerson`, `CinemaCredit` (migration `20261213120000`; `src/modules/cinema/{domain,server}/people.ts`): read out of each title's own director line and cast list on save (`syncCredits`), and for titles saved earlier by the `cinema-people` worker step, once. One person across spellings and roles (`normalizePersonName`). `/cinema/people` and `/cinema/people/<id>` show published titles only; the film page links the names it already shows. The title's fields remain the source of credits. Independent `/admin/cinema/people` management requires `cinema.manage`, not authorship or Magazine access. Curated display name/biography/picture extend that same person: matching key and credit IDs stay stable, role derives from credits, version claims and strict audit share the save transaction. Manual image locks include intentional blanks; automatic photo promotion respects the lock/version, and title presentation reads the canonical portrait. [Continuation and executed evidence](handoffs/CINEMA_PEOPLE_ADMIN.md).
 
+**«چهره‌ها»: one section for actors, directors and singers (owner, 2026-10-27).** "A central section where every artist is: singer, director or actor, each with a page of their own and their works."
+- **Name and address:** the owner asked for a suggestion and did not pick one, so «چهره‌ها» at `/celebrities` was taken. `/people` already belongs to the site's members (community).
+- **Entries:** `Celebrity` (migration `20270128120000_celebrities`, additive) points at a `CinemaPerson` and/or a `MusicArtist`. The sections stay the owners of names, pictures, biographies and works; the hub only composes them.
+- **Building the entries:** `syncCelebrities` runs from the public pages at most every five minutes per server, and from the manager. Each person and each artist (not merged away) gets an entry.
+  - **The owner chose** that the exact same name (`normalizePersonName`) joins once.
+  - A split keeps the two apart for good (`keepApart`); a join makes one entry of two spellings.
+  - The side an entry's address came from keeps it.
+- **Who appears:** the directory lists only people with a published film or series, or a published song or album (or a credit on one). Filters cover actor, director, producer, singer and the owner's music credit roles.
+- **A person's page** shows films and series by role (each section's own `browseCinema` / `getArtist` rules), songs (playable), albums, credits on others' songs and the biography.
+- **Links:** the sections' own person pages link to it.
+- **Manager:** `/admin/celebrities`, reached from the cinema and music admin tabs.
+  - Featured people and the list: either the cinema or the music permission.
+  - Join and split touch both sections, so they need both permissions. Audited `celebrities.*`.
+- **Evidence:**
+  - `scripts/celebrities.connected.cjs` (real PostgreSQL);
+  - `.mobocom/claude-tools/pw-celebrities.cjs`.
+- **Not done:** a link in the site's main menu. The owner adds it in the menu manager, since global navigation is the owner's.
+
 **Sitemap and canonical addresses.** What the sitemap lists of a module is asked of that module with its own rule for what a visitor may see (`src/modules/seo/server/sitemap-entities.ts`): forums and topics through `visibleCategories(GUEST)` — never by reading the `access` column, which let forums of one group and their topics be advertised — and studios, film people, collections and category pages only when something public stands behind them. A listing page reached with filters gets its canonical address and indexability from `listingMeta` (`src/modules/seo/domain/seo.ts`): filters that make a list of their own stay in the address, a reordering is the same list, any other combination is not indexed.
 
 **Versions of edited items.** Existing ContentRevision keeps changed content snapshots and a baseline for older items. Secrets, counters, ownership and financial history are excluded. Supported links/seasons/categories and product catalogue relationships now use versioned snapshots restored through their canonical owner; old scalar-only snapshots preserve current relations. `/admin/history?type=&id=` shows changes and restores as a new version with the same section permission. Unique-address conflicts refuse restoration. The last fifty versions are kept; Audit remains the record of actions. [Current scope and transaction limits](handoffs/CONTENT_MANAGEMENT.md).
