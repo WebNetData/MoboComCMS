@@ -268,6 +268,9 @@
 .sx-price-steps a:hover { border-color: var(--sx-accent); }
 .sx-price-steps a.is-on { border-color: var(--sx-accent); background: var(--sx-accent); color: var(--sx-on-accent); }
 .sx-listing .sx-facet summary { align-items: center; }
+/* The chosen category reads in body ink (accent on its soft tint is under 4.5:1); a bar beside it marks the choice. */
+.sx-listing .sx-tree a.is-active, .sx-listing .sx-tree-all.is-active { color: var(--sx-text); box-shadow: inset -3px 0 0 var(--sx-accent); }
+[dir=ltr] .sx-listing .sx-tree a.is-active, [dir=ltr] .sx-listing .sx-tree-all.is-active { box-shadow: inset 3px 0 0 var(--sx-accent); }
 
 @media (max-width: 1100px) {
   .sx-door { grid-template-columns: minmax(0, 1fr); min-height: 0; }
