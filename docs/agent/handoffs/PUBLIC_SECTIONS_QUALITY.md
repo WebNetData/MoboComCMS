@@ -66,7 +66,18 @@ The helper is `.mobocom/claude-tools/audit-public.cjs <label> <route…>`. It ru
 
 - **`nested-interactive` (12, all software): resolved 2026-10-26.** The trees (`TermTree` and the platform tree in `SoftwarePortal`) now give each branch a row link (`.sp-branch-head`) and its own disclosure: count plus chevron, named «N نرم‌افزار، زیرشاخه‌های …», placed where it was. axe reports 0 on the software pages, and `pw-software-tree` passes 4/4 (mouse, Enter, name, link).
 - **Main buttons: resolved 2026-10-26 (owner's choice «متن خوانا»).** `--on-primary` and `--sds-theme-accent-on` now take the derived `--on-accent` in `studio.css` and in the MoboCom and Clean themes, with `src/themes/generated.css` regenerated. Links drawn as main buttons keep that ink in the media pages and the forum (`a.btn-primary`).
-- **Images that can't be resized:** cinema pictures under `/files/download/…` and the demo SVGs are not site uploads; the cinema home is about 1.1 MB because of them.
+- **Images that can't be resized: resolved 2026-10-27.**
+  - Pictures copied into the files storage (`/files/download/….webp|png|jpg|avif`, and their `/api/media/transfers/<id>` addresses, which pass `?w=` through the redirect) now answer an allowed width with a cached WebP copy, like covers. The copy lives in a dot folder that is never served.
+  - `sized()`/`srcSet()` recognise both.
+  - The cinema hero asks for a 1280 copy (960 on phones, chosen by CSS so only one is fetched), and only the active, previous and next slides carry their backdrop.
+  - Posters, portraits, cast, game covers, software icons, gallery thumbnails and the player cover are drawn at their size.
+  - **Results:**
+    - cinema home 1103 KB → 445 KB on desktop and 378 KB on phone;
+    - a title page 805 KB → 275/181 KB.
+  - **Checks:**
+    - the public audit of 7 pages × light/dark × 1440/390 shows axe 0, no errors, no overflow;
+    - `pw-hero-backdrops` passes 4/4.
+  - Demo SVGs are vectors and stay as they are.
 - The home canonical is set by the root layout; the audit's «no canonical» for `/` is its own false positive, from stripping the origin.
 
 ## Forum and community — 2026-10-26

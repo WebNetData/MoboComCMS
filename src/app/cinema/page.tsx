@@ -18,6 +18,7 @@ import { Fragment, type ReactNode } from 'react'
 import Link from '@/components/AppLink'
 import { continueWatching } from '@/modules/cinema/server/progress'
 import { formatLabel } from '@/modules/cinema/domain/formats'
+import { sized, srcSet } from '@/shared/media/image'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,7 +76,7 @@ export default async function CinemaHomePage() {
       <div className="container md-body">
         {watching.length > 0 && <Shelf tone="cinema" title={fa ? 'ادامهٔ تماشا' : 'Continue watching'} eyebrow={fa ? 'کتابخانهٔ شما' : 'Your library'}>
           {watching.map((item) => <Link key={item.key} href={item.href} className="cn-continue-card">
-            <span className="cn-continue-poster">{item.poster ? <img src={item.poster} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
+            <span className="cn-continue-poster">{item.poster ? <img src={sized(item.poster, 160)} srcSet={srcSet(item.poster, 160)} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
             <b>{fa ? item.title : item.titleEn || item.title}</b>
             {item.subtitle && <small dir="auto">{item.subtitle}</small>}
             <span className="cn-continue-progress" role="meter" aria-valuenow={item.percent} aria-valuemin={0} aria-valuemax={100} aria-label={fa ? 'پیشرفت تماشا' : 'Watch progress'}><span style={{ width: `${item.percent}%` }} /></span>

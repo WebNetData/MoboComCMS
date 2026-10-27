@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { sized } from '@/shared/media/image'
 import Link from '@/components/AppLink'
 
@@ -17,10 +17,15 @@ export default function CinemaHero({ slides, fa }: { slides: HeroSlide[]; fa: bo
   }, [paused, slides.length])
   if (!slides.length) return null
   const slide = slides[active]
+  // Only the slides around the active one carry their backdrop (the cross-fade needs the previous and the next);
+  // a slide shown before stays in the browser's cache. Backdrops are asked at a width, not at their full size.
+  const near = (index: number) => index === active || index === (active + 1) % slides.length || index === (active - 1 + slides.length) % slides.length
+  // A large copy for wide screens and a smaller one for phones; the stylesheet picks one, so only it is downloaded.
+  const backdrop = (value: string) => ({ '--cn-bg': `url("${sized(value, 1280).replace(/"/g, '%22')}")`, '--cn-bg-sm': `url("${sized(value, 960).replace(/"/g, '%22')}")` }) as CSSProperties
   return (
     <section className="cn-hero" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} aria-roledescription="carousel">
       {slides.map((s, i) => (
-        <div key={s.slug} className={`cn-hero-bg${i === active ? ' is-active' : ''}`} style={s.backdrop ? { backgroundImage: `url("${s.backdrop.replace(/"/g, '%22')}")` } : undefined} aria-hidden="true" />
+        <div key={s.slug} className={`cn-hero-bg${i === active ? ' is-active' : ''}`} style={s.backdrop && near(i) ? backdrop(s.backdrop) : undefined} aria-hidden="true" />
       ))}
       <div className="cn-hero-shade" aria-hidden="true" />
       <div className="container cn-hero-inner">

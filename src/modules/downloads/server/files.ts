@@ -1,13 +1,14 @@
 import fs from 'node:fs/promises'
 import { createReadStream, createWriteStream } from 'node:fs'
 import path from 'node:path'
-import { randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { db } from '@/platform/database/prisma'
 import { env } from '@/platform/config/env'
 import { logEvent } from '@/platform/observability/logger'
 import { contentTypeFor, dispositionFor, fileNameOf } from '@/modules/downloads/domain/mask'
+import { IMAGE_WIDTHS } from '@/shared/media/image'
 
 // Files hosted by this site: manual uploads from the section editors (music,
 // films, software, games…) and files/images copied from pasted content. They
@@ -132,6 +133,19 @@ export async function pruneUploads() {
 // ------------------------------------------------------------------ serving /files/…
 
 /** GET /files/<path> — files in the download folder (never hidden ones), with range support. */
+/** A WebP copy of a stored picture at an allowed width, cached beside the files (a dot folder is never served). */
+async function resizedImage(file: string, stat: { size: number; mtimeMs: number }, width: number): Promise<Buffer> {
+  const key = createHash('sha256').update(`${file}:${stat.size}:${Math.round(stat.mtimeMs)}:${width}`).digest('hex').slice(0, 40)
+  const cached = path.join(filesRoot(), '.resized', `${key}.webp`)
+  const hit = await fs.readFile(cached).catch(() => null)
+  if (hit) return hit
+  const sharp = (await import('sharp')).default
+  const out = await sharp(await fs.readFile(file), { animated: true, limitInputPixels: 60_000_000 }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer()
+  await fs.mkdir(path.dirname(cached), { recursive: true })
+  await fs.writeFile(cached, out).catch(() => undefined)
+  return out
+}
+
 export async function serveLocalFile(req: Request, segments: string[]): Promise<Response> {
   const parts = segments.map((part) => { try { return /%[0-9a-f]{2}/i.test(part) ? decodeURIComponent(part) : part } catch { return part } })
   if (!parts.length || parts.some((part) => !part || part.startsWith('.') || part.includes('/') || part.includes('\\'))) return new Response('not found', { status: 404 })
@@ -140,6 +154,13 @@ export async function serveLocalFile(req: Request, segments: string[]): Promise<
   const stat = await fs.stat(file).catch(() => null)
   if (!stat?.isFile()) return new Response('فایل پیدا نشد', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   const name = parts[parts.length - 1]
+  // A picture asked at an allowed width (?w=320) is served as a cached WebP copy, like the site's covers: imported
+  // posters and backdrops are drawn small far more often than they are downloaded.
+  const width = Number(new URL(req.url).searchParams.get('w'))
+  if ((req.method === 'GET' || req.method === 'HEAD') && IMAGE_WIDTHS.includes(width as (typeof IMAGE_WIDTHS)[number]) && /\.(jpe?g|png|webp|avif)$/i.test(name)) {
+    const resized = await resizedImage(file, stat, width).catch(() => null)
+    if (resized) return new Response(req.method === 'HEAD' ? null : new Uint8Array(resized), { headers: { 'Content-Type': 'image/webp', 'Content-Length': String(resized.length), 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' } })
+  }
   // Files kept here may still carry their source's tags: served from a cleaned copy when the admin switched that on.
   const playable = /\.(mp3|m4a|aac|ogg|opus|wav|flac|mp4|m4v|webm|m3u8|ts|vtt|jpe?g|png|webp|gif|avif|pdf)$/i.test(name)
   if (req.method === 'GET' || req.method === 'HEAD') {

@@ -58,10 +58,12 @@ export async function POST(req: NextRequest) {
   } catch (e) { return failure(e) }
 }
 
-export async function publicTransfer(id: string) {
+/** A copied file by its transfer id; a picture asked at a width (?w=) keeps asking for it at its stored address. */
+export async function publicTransfer(id: string, width?: string | null) {
   if (!/^[a-f0-9-]{36}$/.test(id)) return err('not_found', 404)
   const row = await db.mediaTransfer.findUnique({ where: { id }, include: { asset: true } })
   if (!row || row.status === 'CANCELLED') return err('not_found', 404)
-  const url = row.status === 'READY' && row.asset ? (await import('./catalog')).assetUrl(row.asset) : row.sourceUrl
+  const stored = row.status === 'READY' && row.asset ? (await import('./catalog')).assetUrl(row.asset) : row.sourceUrl
+  const url = width && /^\d{2,4}$/.test(width) && stored.startsWith('/files/') ? `${stored}?w=${width}` : stored
   return new Response(null, { status: 307, headers: { Location: url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' } })
 }

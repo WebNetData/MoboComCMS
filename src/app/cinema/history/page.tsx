@@ -8,6 +8,7 @@ import { watchHistory } from '@/modules/cinema/server/progress'
 import MediaShell from '@/components/media/MediaShell'
 import { cinemaNav } from '@/components/media/nav'
 import HistoryActions from './HistoryActions'
+import { sized, srcSet } from '@/shared/media/image'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'تاریخچهٔ تماشا | Watch history', robots: { index: false, follow: false } }
@@ -22,7 +23,7 @@ export default async function CinemaHistoryPage({ searchParams }: { searchParams
     <div className="container md-body cn-history">
       <header className="cn-history-head"><div><span className="md-eyebrow">{fa ? 'کتابخانهٔ خصوصی' : 'Private library'}</span><h1>{fa ? 'تاریخچهٔ تماشا' : 'Watch history'}</h1><p>{fa ? 'فیلم‌ها و قسمت‌هایی که تماشا کرده‌اید یا ناتمام گذاشته‌اید.' : 'Films and episodes you watched or left unfinished.'}</p></div>{history.total > 0 && <HistoryActions fa={fa} />}</header>
       {history.items.length ? <div className="cn-history-grid">{history.items.map((item) => <Link key={item.key} href={item.href} className="cn-continue-card">
-        <span className="cn-continue-poster">{item.poster ? <img src={item.poster} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
+        <span className="cn-continue-poster">{item.poster ? <img src={sized(item.poster, 160)} srcSet={srcSet(item.poster, 160)} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}</span>
         <b>{fa ? item.title : item.titleEn || item.title}</b>
         <small>{item.subtitle || (item.completed ? (fa ? 'تماشا شده' : 'Watched') : (fa ? 'ناتمام' : 'In progress'))}</small>
         <span className="cn-continue-progress" role="meter" aria-valuenow={item.percent} aria-valuemin={0} aria-valuemax={100} aria-label={fa ? 'پیشرفت تماشا' : 'Watch progress'}><span style={{ width: `${item.percent}%` }} /></span>

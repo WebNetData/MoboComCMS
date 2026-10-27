@@ -77,6 +77,12 @@ test('images: only site images get resized addresses', () => {
   assert.equal(img.sized(face, 40), `${face}?w=160`)
   assert.equal(img.srcSet(face, 160), `${face}?w=160 1x, ${face}?w=320 2x`)
   assert.equal(img.sized('/api/profile/media/../x.png', 40), '/api/profile/media/../x.png')
+  // Pictures copied into the files storage (imported posters, backdrops) and their transfer addresses resize too.
+  const stored = '/files/download/movie/Parasite/images/b7427679-4191-4e69-977c-089bc8a237f2.webp'
+  assert.equal(img.sized(stored, 1440), `${stored}?w=1280`)
+  assert.equal(img.sized('/api/media/transfers/8a9af3f1-0d46-41c4-8b2a-9f38ba286fbf', 300), '/api/media/transfers/8a9af3f1-0d46-41c4-8b2a-9f38ba286fbf?w=320')
+  assert.equal(img.sized('/files/download/movie/x/trailer.mp4', 300), '/files/download/movie/x/trailer.mp4', 'only pictures')
+  assert.equal(img.sized('/files/download/a.webp?dl=1', 300), '/files/download/a.webp?dl=1', 'an address with its own query is left alone')
 })
 
 test('the accent reads wherever the site uses it: ink on it, and the nearest readable shade as text', () => {
