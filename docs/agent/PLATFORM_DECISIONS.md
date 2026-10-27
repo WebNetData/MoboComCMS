@@ -263,14 +263,20 @@ A list entry can carry a **family** (`Vocabulary.family`, declared per list by `
 
 **One artist across the sections (owner, 2026-10-27).** "Merge the artists section completely: a singer may act, an actor may sing, a director may act in their own film."
 - **One profile:** a person has one profile, edited once in «هنرمندان و چهره‌ها» (`/admin/celebrities`, `saveCelebrityProfile`). The name, English name, picture and biography are written into their music artist and cinema person through each section's own save (`saveMediaItem('music-artists')`, `savePerson`), so the section checks, revision history and concurrency hold. The cinema picture is locked so an import does not replace it.
-- **Adding a section:** ticking a section adds the person there; a new artist is made in the sections ticked. Music needs an English name (the singer's address is made from it). Saving needs the permission of every section involved.
+- **No sections to choose (owner, 2026-10-27):** "An artist is one for music and for film and series, not one per section." The section ticks are gone; they could not be unticked. Every save makes whichever of the music artist and cinema person the person lacks, so they can be picked in the forms of both sections.
+  - The editor shows what the person has published in each section; this follows from their works and is not chosen.
+  - The English name is optional. Without it, the music address is `artist-<cinema person id>`, and a taken address gets "-2", "-3"…
+  - A person split apart from a namesake does not take the namesake's cinema record.
+  - Saving needs both the music and the film and series manager permissions.
+  - The music home's artists shelf shows only artists with public music, so actors without songs stay off it.
+- **Biography:** written in the site's content editor (the classic editor when it is on), never as typed HTML. It is cleaned on save (`cleanRichText`) into both sections.
 - **One page:** a person shown in «چهره‌ها» has one page. `/cinema/people/<id>` and `/music/artist/<slug>` redirect permanently to `/celebrities/<slug>`, which carries both sections' follow buttons.
 - **Picking people:** the cinema cast and crew picker also offers singers not yet in cinema (managers only; authors keep their narrower list). Picking one names the credit, and the same name joins them into one person.
 - **Works stay in their sections:** films, songs and their credits are still recorded where they belong.
-- **Not done:** music forms still pick from music artists. An actor becomes pickable there once «موسیقی» is ticked on their profile.
+- **Not done:** a person the sync found in one section only, and whose profile was never saved, gains the other side on their first save. Imported cast are not copied into the music artist list by themselves, since that list loads whole into the music forms.
 - **Evidence:**
-  - `scripts/celebrity-profile.connected.cjs` (real PostgreSQL);
-  - `.mobocom/claude-tools/pw-central-artists.cjs`.
+  - `scripts/celebrity-profile.connected.cjs` (real PostgreSQL). It covers both sides without an English name, the formatted biography in both, a one-section person gaining the other, the "-2" address, and split people staying apart. Breaking the split rule makes it fail.
+  - `.mobocom/claude-tools/pw-central-artists.cjs` (16 checks): no ticks, bold from the editor reaching both sections, a stale-form edit fixed, an actor offered in the music forms' list, the music home shelf, redirects and axe.
 
 **«چهره‌ها» is where the sections list their people (owner, 2026-10-27).** "Not every actor directs: make the central section professional, fully joined to cinema and music, with an attractive, advanced style."
 - **One list:** `/cinema/people` and `/music/artists` redirect permanently to `/celebrities?section=cinema|music` (a search is carried over). The cinema and music menus point there; the people of a section are a tab of «چهره‌ها», not a list of their own.
