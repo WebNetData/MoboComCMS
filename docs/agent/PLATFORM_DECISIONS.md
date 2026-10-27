@@ -177,6 +177,15 @@ Other rules:
   - a unit test in `store-v2.test.cjs`;
   - `.mobocom/claude-tools/pw-category-tree.cjs`.
 
+**Store: several categories per product, WordPress-like (owner, 2026-10-27).** A product keeps its **main category** (`Product.categoryId`), which gives its path on the product page and its specification fields. It may also be listed under **further categories** in `ProductCategoryAssignment` (migration `20270127120000_product_extra_categories`, additive; the main one is never stored there).
+- **The editor:** a tree of the product's half, with ticks, folding, a search that keeps the branches leading to a match, and «اصلی شود». The first tick is the main category; unticking the main one passes the role on.
+- **The server** (`src/modules/catalog/server/product-categories.ts`) refuses a category of the other half or a missing one, allows at most twenty, and drops the main one from the list.
+- **Other writers stay correct:** writers that only set `categoryId` (bulk «تغییر دسته», imports, sellers) keep the further categories as they are.
+- **Shoppers:** listings and rails find a product under its main and further categories (`inCategories`). Category totals count **distinct** products (`membership` / `branchSets`), so a product ticked under a parent and its child counts once.
+- **Evidence:**
+  - `scripts/product-extra-categories.connected.cjs` (real PostgreSQL);
+  - `.mobocom/claude-tools/pw-product-categories.cjs`.
+
 **Store: the shop front (owner, 2026-10-27).** The shop landing and the category listing were redesigned on the existing owners; the single product page is approved and unchanged.
 - The landing (`/products` without filters) has:
   - a hero: the welcome with a stage of up to three products, or the owner's slides when set;

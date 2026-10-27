@@ -729,6 +729,7 @@ model ProductCategory {
   nameEn    String    @default("")
   createdAt DateTime  @default(now())
   products  Product[]
+  extraProducts ProductCategoryAssignment[]
   parentId  Int?
   parent    ProductCategory? @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
   children  ProductCategory[] @relation("ProductCategoryTree")
@@ -742,6 +743,17 @@ model ProductCategory {
   kind      String @default("")
   @@index([parentId])
   @@index([attributeGroupId])
+}
+
+/// A further category a product is listed under; the main one stays Product.categoryId.
+model ProductCategoryAssignment {
+  productId  Int
+  categoryId Int
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
 }
 
 model ProductAttributeGroup {
@@ -773,6 +785,8 @@ model Product {
   featured      Boolean          @default(false)
   sortOrder     Int              @default(0)
   categoryId    Int?
+  // Further categories the product is also listed under (WordPress-like ticks); categoryId stays its main one.
+  extraCategories ProductCategoryAssignment[]
   kind          String @default("VIRTUAL") // VIRTUAL | PHYSICAL
   access        String @default("PUBLIC") // PUBLIC | MEMBERS (VIP)
   memberPriceMinor BigInt @default(0) // VIP price; 0 = none

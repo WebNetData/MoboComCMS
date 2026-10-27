@@ -13,6 +13,7 @@ import PublishReview, { previewValue, type ReviewRow } from '../../../cms/Publis
 import type { AutofillField } from '@/modules/ai/domain/autofill'
 import ProductCodes from './Codes'
 import OrderAsk from '../OrderAsk'
+import CategoryTreePicker from '../CategoryTreePicker'
 import { OrganizationScope } from '@/components/media/OrganizationScope'
 import JalaliDateInput from '@/components/date/JalaliDateInput'
 
@@ -24,7 +25,7 @@ type Form = Record<string, any>
 
 const EMPTY: Form = {
   name: '', nameEn: '', slug: '', kind: 'PHYSICAL', price: '', compareAtPrice: '', saleEndsAt: '', currency: 'IRT', stock: -1, sku: '', lowStockAt: 0, maxPerOrder: 0,
-  weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', brandId: '', access: 'PUBLIC',
+  weightGrams: 0, warranty: '', shortDescription: '', description: '', descriptionEn: '', image: '', gallery: [], categoryId: '', categoryIds: [], brandId: '', access: 'PUBLIC',
   memberPrice: '', vipGiftDays: 0, active: true, featured: false, sortOrder: 0, seoTitle: '', seoDescription: '', specifications: {}, variants: [], faqs: [],
   pricingMode: 'FIXED', fxCurrency: 'USD', fxAmount: '', fxCompareAt: '', fxMemberPrice: '', markupPercent: '', markupFixed: '',
   isService: false, orderFields: [], openAmount: false, openCurrencies: '', openMin: '', openMax: '',
@@ -69,7 +70,7 @@ export default function ProductEditorPage() {
       if (!row) { setError('محصول پیدا نشد'); return }
       setOriginalActive(row.active !== false)
       setCodesOn(row.digitalMode === 'CODES')
-      setForm({ ...EMPTY, ...row, categoryId: row.categoryId ? String(row.categoryId) : '', brandId: row.brandId ? String(row.brandId) : '', saleEndsAt: localInput(row.saleEndsAt), description: row.description || '', descriptionEn: row.descriptionEn || '' })
+      setForm({ ...EMPTY, ...row, categoryId: row.categoryId ? String(row.categoryId) : '', categoryIds: (Array.isArray(row.extraCategories) ? row.extraCategories : []).map((link: { categoryId: number }) => String(link.categoryId)), brandId: row.brandId ? String(row.brandId) : '', saleEndsAt: localInput(row.saleEndsAt), description: row.description || '', descriptionEn: row.descriptionEn || '' })
     }).catch(() => setError('بارگذاری محصول انجام نشد'))
   }, [id, isNew])
 
@@ -126,11 +127,11 @@ export default function ProductEditorPage() {
       slug: String(form.slug || '').trim() || `p-${Date.now().toString(36)}`,
       price: String(form.price), compareAtPrice: form.compareAtPrice === '' ? '' : String(form.compareAtPrice),
       saleEndsAt: form.saleEndsAt ? new Date(form.saleEndsAt).toISOString() : '',
-      categoryId: form.categoryId ? Number(form.categoryId) : null, brandId: form.brandId ? Number(form.brandId) : null,
+      categoryId: form.categoryId ? Number(form.categoryId) : null, categoryIds: (Array.isArray(form.categoryIds) ? form.categoryIds : []).map(Number), brandId: form.brandId ? Number(form.brandId) : null,
       stock: Number(form.stock), lowStockAt: Number(form.lowStockAt) || 0, maxPerOrder: Number(form.maxPerOrder) || 0, weightGrams: Number(form.weightGrams) || 0, sortOrder: Number(form.sortOrder) || 0,
       variants: (Array.isArray(form.variants) ? form.variants : []).map((variant: Form) => ({ ...variant, price: Number(variant.price), stock: Number(variant.stock) })),
     }
-    for (const key of ['id', 'createdAt', 'updatedAt', 'category', 'priceMinor', 'views', 'soldCount', 'brand', 'repricedAt']) delete payload[key]
+    for (const key of ['id', 'createdAt', 'updatedAt', 'category', 'extraCategories', 'priceMinor', 'views', 'soldCount', 'brand', 'repricedAt']) delete payload[key]
     // A foreign-currency product gets its prices from the server (cost × live rate + profit).
     if (payload.pricingMode !== 'FX') payload.openAmount = false
     if (payload.pricingMode !== 'FX') for (const key of ['fxCurrency', 'fxAmount', 'fxCompareAt', 'fxMemberPrice', 'markupPercent', 'markupFixed']) delete payload[key]
@@ -242,7 +243,9 @@ export default function ProductEditorPage() {
         </section>
         <section className="sa-card">
           <header className="sa-card-head"><h2>دسته و برند</h2><Link href="/admin/productcats" className="sa-link">مدیریت دسته‌ها</Link></header>
-          <label className="sa-field"><span>دسته‌بندی</span><select className="select" value={form.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">بدون دسته</option>{categories.filter((category) => { const half = (category as { kind?: string }).kind || ''; return !half || half === form.kind || String(category.id) === String(form.categoryId) }).map((category) => <option key={category.id} value={category.id}>{category.parentId ? `— ${category.name}` : category.name}</option>)}</select></label>
+          <div className="sa-field"><span>دسته‌بندی‌ها</span>
+            <CategoryTreePicker categories={categories as { id: number; name: string; parentId: number | null; kind?: string }[]} kind={String(form.kind || '')} main={String(form.categoryId || '')} extras={Array.isArray(form.categoryIds) ? form.categoryIds.map(String) : []} onChange={(main, extras) => setForm((current) => ({ ...current, categoryId: main, categoryIds: extras }))} />
+          </div>
           <label className="sa-field"><span>برند</span><select className="select" value={form.brandId} onChange={(event) => update('brandId', event.target.value)}><option value="">بدون برند</option>{brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
           <Link href="/admin/store/brands" className="sa-link">افزودن برند</Link>
         </section>

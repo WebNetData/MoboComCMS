@@ -24,6 +24,7 @@ import { readOrderFields } from '@/modules/store/domain/order-inputs'
 import { bulkSameOrigin, readBulkInput } from '@/modules/content/server/bulk'
 import { auditAdmin, auditAdminStrict } from '@/platform/audit/server'
 import { buildCategoryTemplate } from '@/modules/catalog/server/category-template'
+import { ProductCategoryError, replaceExtraCategories, validateExtraCategories } from '@/modules/catalog/server/product-categories'
 import { recordRevision } from '@/modules/content/server/revisions'
 import { postRevisionState } from '@/modules/site/server/revision-state'
 import { productRevisionState } from '@/modules/catalog/server/revision-state'
@@ -121,7 +122,7 @@ export async function GET(req: NextRequest) {
   }
 
   const model = MODELS[type]()
-  const include = type === 'posts' ? { editProposal: true, category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
+  const include = type === 'posts' ? { editProposal: true, category: true, categories: { include: { category: true } }, author: { select: { email: true, name: true } }, itemLinks: { orderBy: { position: 'asc' as const } } } : type === 'products' ? { category: { include: { attributeGroup: true } }, extraCategories: { select: { categoryId: true } }, variants: { where: { active: true }, orderBy: { id: 'asc' as const } }, bundles: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], include: { components: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }] } } }, outgoingRelationships: { orderBy: [{ position: 'asc' as const }, { id: 'asc' as const }], select: { kind: true, targetId: true } } } : type === 'productcats' ? { attributeGroup: true } : undefined
   const orderBy = type === 'pages' ? [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] : { id: 'desc' as const }
   // ?id= narrows the listing to one row (the store product editor loads a single product).
   const onlyId = Number(req.nextUrl.searchParams.get('id')) || 0
@@ -276,6 +277,7 @@ export async function POST(req: NextRequest) {
       if (b?.bundles !== undefined && (!Array.isArray(b.bundles) || b.bundles.length)) throw Error("Save the product before composing bundles")
       const row = await db.$transaction(async tx => {
         const created = await tx.product.create({ data: input.data as any })
+        if (b?.categoryIds !== undefined) await replaceExtraCategories(tx, created.id, await validateExtraCategories(tx, b.categoryIds, created.categoryId, created.kind))
         if (input.variants) await saveVariants(tx, created.id, input.variants)
         if (relationships) await replaceProductRelationships(tx, created.id, relationships)
         await capturePublicProductPrices(tx, created.id, new Map())
@@ -297,7 +299,7 @@ export async function POST(req: NextRequest) {
     }
     return err('unknown type', 404)
   } catch (e: any) {
-    if (e instanceof CategoryKindError || e instanceof PostReviewError) return err(e.message, e.status)
+    if (e instanceof CategoryKindError || e instanceof PostReviewError || e instanceof ProductCategoryError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'create failed', 400)
   }
 }
@@ -423,6 +425,9 @@ export async function PATCH(req: NextRequest) {
       const saved = await db.$transaction(async tx => {
         const pricesBefore = await prepareProductPriceCapture(tx, id)
         const row = await tx.product.update({ where: { id }, data: input.data as any })
+        // The ticks beside the main category; a main category that was also ticked is not kept twice.
+        if (b?.categoryIds !== undefined) await replaceExtraCategories(tx, id, await validateExtraCategories(tx, b.categoryIds, row.categoryId, row.kind))
+        else if (row.categoryId) await tx.productCategoryAssignment.deleteMany({ where: { productId: id, categoryId: row.categoryId } })
         if (input.variants) await saveVariants(tx, id, input.variants)
         if (relationships) await replaceProductRelationships(tx, id, relationships)
         if (bundles) await replaceProductBundles(tx, id, bundles)
@@ -477,7 +482,7 @@ export async function PATCH(req: NextRequest) {
     const row = await model.update({ where: { id }, data })
     return ok(row)
   } catch (e: any) {
-    if (e instanceof CategoryKindError) return err(e.message, e.status)
+    if (e instanceof CategoryKindError || e instanceof ProductCategoryError) return err(e.message, e.status)
     if (e instanceof PostReviewError) return err(e.message, e.status)
     return err(e?.code === 'P2002' ? 'slug تکراری است' : e?.message || 'update failed', 400)
   }
