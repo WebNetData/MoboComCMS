@@ -167,6 +167,7 @@ Other rules:
   - a numbered best-seller list (three rows per column).
 - The offer band with fewer than four offers lets its "see all" card fill the row.
 - The listing has a banner with the category image, description and counts, sub-categories with counts, quick filters that toggle (available, discounted, online delivery, physical) and the result count in a sticky toolbar.
+- **Product card (owner, 2026-10-27: "the cards are too plain").** One card everywhere in the shop (`ProductTile`), including the similar-products rail under a product page; the product page itself is unchanged. The picture carries a deal badge, a clock for offers ending within two days, delivery flags and a sold-out veil. Quick favourite (the member's list, `/api/engage/favorite`) and compare (this browser's list) sit beside the card link, each following its module. The body reads brand · category, the name, a star chip with the review count, sales, a short-stock bar, and the price beside a go button. Styles are in `src/app/store-cards.css`.
 - Owners: `src/components/store/ShopHome.tsx` and `src/modules/catalog/server/pages/products/page.tsx`. The styles in `src/app/store-shop.css` are scoped to `.sx-landing` / `.sx-listing`. A theme page placed as the shop landing still replaces the default landing. Data comes from `shopHome` / `shopListing`; there is no new query or setting.
 
 **Store: two stores and advanced filters (owner, 2026-10-27).** The shop is split into a digital-products store and a physical-goods store. Addresses keep their form:
