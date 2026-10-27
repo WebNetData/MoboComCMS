@@ -37,6 +37,7 @@ import { currentSoftwareVersions, projectSoftwareVersion } from '@/modules/softw
 import { resolveStudioId } from '@/modules/studios/server/identity'
 import { cleanAppStores, cleanMinOs, cleanPackageId } from '@/modules/software/domain/app'
 import { saveMusicCredits } from '@/modules/music/server/credits'
+import { listedPerks } from '@/modules/membership/server/perks'
 import { scheduleStudioPublication } from '@/modules/studios/server/publication-notifications'
 
 /**
@@ -650,6 +651,8 @@ export async function saveMediaItem(type: string, body: Input, id: number | null
     // known code, else the one it had (a new album: ALBUM).
     if ((type === 'music-tracks' || type === 'music-albums') && typeof data.genre === 'string') data.genre = (await knownCodes(tx, 'music', 'GENRE', splitList(data.genre as string, 6), splitList(before?.genre ?? '', 6))).join(', ')
     if (type === 'music-albums' && typeof data.albumType === 'string') data.albumType = (await knownCodes(tx, 'music', 'ALBUM_TYPE', [data.albumType], before?.albumType ? [before.albumType] : []))[0] ?? before?.albumType ?? 'ALBUM'
+    // A VIP plan's listed perks keep their code with the entry's text; unknown codes become free lines or go.
+    if (type === 'vip-plans' && typeof data.perks === 'string') data.perks = JSON.stringify(await listedPerks(tx, parsePerks(data.perks as string), parsePerks(before?.perks ?? '[]')))
     if (type === 'software' && typeof data.license === 'string') data.license = (await knownCodes(tx, 'software', 'LICENSE', [data.license], before?.license ? [before.license] : []))[0] ?? before?.license ?? 'FREE'
     // A title's format sets its kind; a kind alone keeps a fitting format or takes that kind's default.
     if (type === 'cinema-titles' && (!existing || has(body, 'formatId') || has(body, 'kind'))) Object.assign(data, await resolveTitleFormat(tx, body, existing as { formatId: number | null; kind: string } | null, data.kind as string | undefined))

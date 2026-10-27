@@ -6,6 +6,7 @@ import { MUSIC_LISTS } from '@/modules/music/domain/vocabulary'
 import { JOURNAL_LISTS } from '@/modules/journal/domain/vocabulary'
 import { CINEMA_LISTS } from '@/modules/cinema/domain/vocabulary'
 import { BUSINESS_LISTS } from '@/modules/businesses/domain/vocabulary'
+import { MEMBERSHIP_LISTS } from '@/modules/membership/domain/vocabulary'
 
 /**
  * The sections that have managed lists: the module they belong to (none for lists shared by every section), who
@@ -19,6 +20,7 @@ export const VOCABULARY_SECTIONS = {
   // The magazine's permission is cms.posts (see rbac); its authors only read the formats to fill a post.
   cinema: { module: 'cinema', manage: ['cinema.manage'], read: ['cinema.manage', 'cinema.author'], lists: CINEMA_LISTS },
   businesses: { module: 'businesses', manage: ['businesses.manage'], read: ['businesses.manage'], lists: BUSINESS_LISTS },
+  membership: { module: 'membership', manage: ['membership.manage', 'plans.manage'], read: ['membership.manage', 'plans.manage'], lists: MEMBERSHIP_LISTS },
   journal: { module: 'journal', manage: ['cms.posts'], read: ['cms.posts', 'journal.author'], lists: JOURNAL_LISTS },
   // Download and stream links of every section: the site's settings or the film section (where dubs matter) manage them.
   media: { module: null, manage: ['settings.manage', 'cinema.manage'], read: ['settings.manage', 'cinema.manage', 'cinema.author', 'games.manage', 'games.author', 'software.manage', 'software.author'], lists: MEDIA_LISTS },

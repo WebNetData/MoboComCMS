@@ -172,8 +172,12 @@ export type PublicVipPlan = { id: number; slug: string; name: string; nameEn: st
 /** Active VIP plans for the /vip landing page. */
 export async function getVipPlans(): Promise<PublicVipPlan[]> {
   const rows = await db.membershipPlan.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { days: 'asc' }] }).catch(() => [])
+  // Listed perks show the owner's current text for them (one edit changes every plan); free lines as written.
+  const { allLists } = await import('@/modules/vocabulary/server/vocabulary')
+  const { resolvePerks } = await import('@/modules/membership/server/perks')
+  const entries = (await allLists('membership')).PERK ?? []
   return rows.map((row) => ({
     id: row.id, slug: row.slug, name: row.name, nameEn: row.nameEn, description: row.description, descriptionEn: row.descriptionEn,
-    days: row.days, price: legacyNumber(row.priceMinor, row.currency), currency: row.currency, perks: parsePerks(row.perks), highlight: row.highlight,
+    days: row.days, price: legacyNumber(row.priceMinor, row.currency), currency: row.currency, perks: resolvePerks(parsePerks(row.perks), entries), highlight: row.highlight,
   }))
 }

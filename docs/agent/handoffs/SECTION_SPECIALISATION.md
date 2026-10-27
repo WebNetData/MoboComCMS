@@ -19,7 +19,7 @@ This handoff records where each section stands against those principles and cont
 | Magazine | Categories, items linked to a post | By the format's family: **slice 3** | Post formats: **slice 3** | — |
 | Store | Brand, category | Physical or virtual, attribute groups by category | Attribute groups, kinds | Mature. |
 | Businesses | Seller from the active sellers; field of activity (**slice 6**) | External (website) or site seller | Fields of activity (slice 6) | — |
-| VIP | — | — | Plans (duration, price) | Each plan's perk lines are typed per plan; the real benefits are listed per section on the perks page. Optional: pick plan perks from a shared list. |
+| VIP | Plan perk lines from the perks list (**slice 8**) | — | Plans; perk lines (slice 8) | — |
 
 ## This slice: software specialised (branch `feat/software-specialised-2026-10-26`)
 
@@ -196,6 +196,21 @@ This handoff records where each section stands against those principles and cont
   - `npm run check` is 709/6.
   - `imports.integration.cjs` (modules scope, run in the preview container) passes 6/6 with the new scenario: choices of the right structure, the type taken, and a series type refused for films.
   - The wizard UI renders the option generically; its steps were not clicked through.
+
+## Slice 8: VIP plan perks from a list (branch `feat/vip-perks-list-2026-10-27`)
+
+- **A managed list** «متن مزایای پلن‌ها» (`MEMBERSHIP_LISTS`), seeded with what VIP actually unlocks. It is managed at the bottom of the existing «مزایا در هر بخش» page.
+- **Plan form.** A perk line either picks an entry (column «از فهرست مزایا») or stays the plan's own free text.
+- **Storage.** The stored shape is unchanged (`[{icon, fa, en}]`), plus an optional `code`. `listedPerks` keeps a known code with a snapshot of its text.
+- **Reading.** `getVipPlans` resolves listed lines to the entry's current text (`resolvePerks`), so one edit changes every plan. The public shape has no `code`.
+- **Validation.** Unknown codes become free lines or go. A deactivated perk stays only on plans that had it.
+- **Light mode:** the public savings badge now reads (it was 2.1:1).
+- **Checks:**
+  - TypeScript passes with 0 errors.
+  - `npm run check` is 710/6.
+  - Unit tests pass.
+  - The PostgreSQL perks block in `vocabulary.connected.cjs` passes.
+  - Browser test `pw-vip-perks` passes 9/9. It turns the membership module on for the run, because it is off on the local preview, and restores the exact state afterwards.
 
 ## Next
 

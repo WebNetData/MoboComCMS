@@ -227,6 +227,22 @@ async function main() {
   await refused(vocab.deleteEntry('businesses', fintech.id, audit), /را دارند/, 409)
   await prisma.businessProfile.delete({ where: { id: business.id } })
 
+  // ---- VIP plan perks: a listed perk keeps its code with the entry's text; the public plans show the current text
+  const perkServer = load('src/modules/membership/server/perks.ts'), membershipServer = load('src/modules/membership/server/membership.ts')
+  const early = await vocab.createEntry('membership', { list: 'PERK', code: `${CODE}_EARLY`, name: 'دسترسی زودتر', nameEn: 'Early access', icon: '⏩' }, audit)
+  const savedPerks = await perkServer.listedPerks(prisma, [{ icon: '★', fa: '', en: '', code: `${CODE}_EARLY` }, { icon: '★', fa: '', en: '', code: 'NOT_LISTED' }, { icon: '★', fa: 'خط آزاد', en: '', code: 'NOT_LISTED_2' }, { icon: '⭐', fa: 'خط خود پلن', en: '' }], [])
+  assert.deepEqual(savedPerks, [{ code: `${CODE}_EARLY`, icon: '⏩', fa: 'دسترسی زودتر', en: 'Early access' }, { icon: '★', fa: 'خط آزاد', en: '' }, { icon: '⭐', fa: 'خط خود پلن', en: '' }], 'a listed perk takes its text; an unknown code keeps only its own text, or goes')
+  const plan = await prisma.membershipPlan.create({ data: { slug: `${seed}-plan`, name: `${seed} plan`, days: 30, priceMinor: 1000n, currency: 'IRT', active: true, sortOrder: -9999, perks: JSON.stringify(savedPerks) } })
+  await vocab.updateEntry('membership', early.id, { name: 'دسترسی زودهنگام' }, audit)
+  const shown = (await membershipServer.getVipPlans()).find((row) => row.id === plan.id)
+  assert.deepEqual(shown.perks, [{ icon: '⏩', fa: 'دسترسی زودهنگام', en: 'Early access' }, { icon: '★', fa: 'خط آزاد', en: '' }, { icon: '⭐', fa: 'خط خود پلن', en: '' }], 'one edit of a listed perk changes the plan; the public shape has no code')
+  await vocab.updateEntry('membership', early.id, { active: false }, audit)
+  assert.equal((await perkServer.listedPerks(prisma, [{ icon: '★', fa: '', en: '', code: `${CODE}_EARLY` }], savedPerks))[0].code, `${CODE}_EARLY`, 'a plan keeps a perk the owner later deactivated')
+  assert.deepEqual(await perkServer.listedPerks(prisma, [{ icon: '★', fa: '', en: '', code: `${CODE}_EARLY` }], []), [], 'a deactivated perk is not given to another plan')
+  assert.equal(await uses('membership', 'PERK', early.id), 1)
+  await refused(vocab.deleteEntry('membership', early.id, audit), /را دارند/, 409)
+  await prisma.membershipPlan.delete({ where: { id: plan.id } })
+
   // ---- magazine formats: each of a family; a post keeps a known format (or the one it had); facts merge into the stored ones
   const journalFormats = load('src/modules/journal/server/formats.ts')
   assert.equal((await vocab.allLists('journal')).POST_FORMAT.find((entry) => entry.code === 'GUIDE')?.family, 'ARTICLE', 'a guide is an article-family format')
