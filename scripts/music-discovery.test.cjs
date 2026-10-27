@@ -16,6 +16,16 @@ function load(relative, mocks = {}, cache = new Map()) {
   return mod.exports
 }
 
+test('artist URL suggestions use the English name; editable slugs have one bounded ASCII format', () => {
+  const { suggestedCelebritySlug: suggest, validCelebritySlug: valid } = load('src/modules/celebrities/domain/celebrities.ts')
+  assert.equal(suggest('  Shadmehr Aghili  '), 'shadmehr-aghili')
+  assert.equal(suggest('Björk & Friends'), 'bjork-friends')
+  assert.equal(suggest('نام فارسی'), '')
+  assert.equal(suggest('A'.repeat(79)+' / long name').length, 79)
+  for (const name of ['artist-name', 'artist-27', 'a']) assert.equal(valid(name), true)
+  for (const name of ['', 'نام', 'Bad Name', '/artist', 'artist--name', '-artist', 'artist-', 'a'.repeat(81)]) assert.equal(valid(name), false, name)
+})
+
 test('cross-artist discovery bounds candidates, excludes shown album tracks and ranks exact genre terms', async () => {
   const previous = process.env.DATABASE_URL
   try {

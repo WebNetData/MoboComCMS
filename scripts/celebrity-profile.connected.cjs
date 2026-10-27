@@ -32,7 +32,7 @@ function load(file) {
 
 async function main() {
   const hub = load('src/modules/celebrities/server/celebrities.ts'), people = load('src/modules/cinema/domain/people.ts')
-  const actor = await db.user.findFirst({ where: { role: 'admin' }, select: { id: true, email: true } }) || { id: 1, email: 'owner@example.invalid' }
+  const actor = await db.user.create({ data: { email: stamp+'@example.invalid', passwordHash: 'owned fixture', role: 'ADMIN' }, select: { id: true, email: true } })
   const audit = async () => undefined
   const made = { entries: [], artists: [], people: [] }
   try {
@@ -58,6 +58,31 @@ async function main() {
     // The English name of a new person is taken already: the address gets "-2".
     const twin = keep(await hub.saveCelebrityProfile({ name: `همنام ${stamp}`, nameEn: `Actor ${stamp}`, image: '', bio: '' }, actor, audit))
     assert.equal((await db.musicArtist.findUnique({ where: { id: twin.musicArtistId } })).slug, `actor-${stamp}-2`, 'a taken music address gets a number')
+    assert.equal(twin.slug, `actor-${stamp}`, 'canonical English URL has its own namespace; existing person URL stays stable')
+    const third = keep(await hub.saveCelebrityProfile({ name: `همنام سوم ${stamp}`, nameEn: `Actor ${stamp}`, image: '', bio: '' }, actor, audit))
+    assert.equal(third.slug, `actor-${stamp}-2`, 'an occupied canonical URL is numbered for legacy automatic callers')
+
+    const custom = keep(await hub.saveCelebrityProfile({ name: `دلخواه ${stamp}`, nameEn: `Custom ${stamp}`, slug: `${stamp}-custom`, image: '', bio: '' }, actor, audit))
+    assert.equal(custom.slug, `${stamp}-custom`, 'an explicit slug is used on first save')
+    await db.musicTrack.create({ data: { slug: `${stamp}-public`, title: stamp, artistId: custom.musicArtistId, createdById: actor.id, status: 'PUBLISHED', publishedAt: new Date(Date.now()-1000) } })
+    const renamed = await hub.saveCelebrityProfile({ id: custom.id, expectedSlug: custom.slug, name: `دلخواه ${stamp}`, nameEn: `Custom ${stamp}`, slug: `${stamp}-renamed`, image: '', bio: '' }, actor, audit)
+    assert.equal(renamed.slug, `${stamp}-renamed`)
+    assert.equal((await db.celebritySlugAlias.findUnique({ where: { slug: custom.slug } }))?.celebrityId, custom.id, 'previous URL retained atomically')
+    assert.equal((await hub.celebrityBySlug(custom.slug, {})).card.slug, renamed.slug, 'old address resolves to current public profile')
+    assert.equal((await hub.saveCelebrityProfile({ id: custom.id, name: `تغییر نام ${stamp}`, nameEn: `Changed ${stamp}`, image: '', bio: '' }, actor, audit)).slug, renamed.slug, 'changing a name alone never changes an existing URL')
+    await assert.rejects(hub.saveCelebrityProfile({ id: custom.id, expectedSlug: custom.slug, name: `قدیمی ${stamp}`, slug: `${stamp}-stale` }, actor, audit), e => e.status === 409, 'stale editor cannot rename a newer address')
+    for (const slug of [renamed.slug, custom.slug]) {
+      const before = await db.cinemaPerson.count()
+      await assert.rejects(hub.saveCelebrityProfile({ name: `تداخل ${stamp}`, nameEn: `Collision ${stamp}`, slug }, actor, audit), e => e.status === 409, 'current and previous URLs stay reserved')
+      assert.equal(await db.cinemaPerson.count(), before, 'known URL collision refused before section writes')
+    }
+    for (const slug of ['bad/path', 'نام-فارسی', 'a'.repeat(81), 42]) await assert.rejects(hub.saveCelebrityProfile({ name: `نام ${stamp}`, slug }, actor, audit), e => e.status === 422, 'invalid slug refused')
+    const reclaimed = await hub.saveCelebrityProfile({ id: custom.id, expectedSlug: renamed.slug, name: `دلخواه ${stamp}`, slug: custom.slug }, actor, audit)
+    assert.equal(reclaimed.slug, custom.slug, 'owner can restore their previous address')
+    assert.equal((await hub.celebrityBySlug(renamed.slug, {})).card.slug, custom.slug, 'aliases point directly at current identity without chains')
+    const hidden = keep(await hub.saveCelebrityProfile({ name: `مخفی ${stamp}`, nameEn: `Hidden ${stamp}` }, actor, audit))
+    await hub.saveCelebrityProfile({ id: hidden.id, name: `مخفی ${stamp}`, slug: `${stamp}-hidden-new` }, actor, audit)
+    assert.equal(await hub.celebrityBySlug(hidden.slug, {}), null, 'aliases do not expose people without public works')
 
     // A singer kept apart from an actor of the same name does not take the actor's cinema record.
     const shared = `همنام‌جدا ${stamp}`
@@ -69,12 +94,13 @@ async function main() {
     assert.deepEqual([saved.musicArtistId, saved.cinemaPersonId], [singerApart.id, null], 'people split apart stay apart')
 
     await assert.rejects(hub.saveCelebrityProfile({ name: 'ن' }, actor, audit), (error) => error instanceof hub.CelebrityError, 'a name is needed')
-    console.log('PASS celebrity profile: one profile for the site, no English name needed, edits reach both, a one-section person gains the other, taken address numbered, split people stay apart')
+    console.log('PASS celebrity profile: owned identity, shared profile, English/custom URLs, reserved aliases, rename/reclaim/stale/collision guards, public-only resolution, namesake split and source preservation')
   } finally {
     await db.celebrity.deleteMany({ where: { OR: [{ id: { in: made.entries } }, { musicArtistId: { in: made.artists } }, { cinemaPersonId: { in: made.people } }] } })
     await db.contentRevision.deleteMany({ where: { entityType: 'music-artists', entityId: { in: made.artists } } }).catch(() => undefined)
     await db.musicArtist.deleteMany({ where: { id: { in: made.artists } } })
     await db.cinemaPerson.deleteMany({ where: { id: { in: made.people } } })
+    await db.user.delete({ where: { id: actor.id } })
     await db.$disconnect()
   }
 }

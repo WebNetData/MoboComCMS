@@ -12,6 +12,7 @@ import { CelebrityError, adminCelebrities, celebrityProfile, joinCelebrities, sa
 
 // The sections' own checks speak for themselves (a picture address, a name taken, an English name for the address).
 const failure = (error: unknown) => error instanceof CelebrityError || error instanceof ArtistProfileError || error instanceof PersonProfileError ? err(error.message, error.status)
+  : ['P2002', 'P2034'].includes((error as { code?: string })?.code || '') ? err('نشانی یا پروفایل هم‌زمان تغییر کرده؛ دوباره بررسی کنید', 409)
   : error instanceof Error && /[\u0600-\u06FF]/.test(error.message) ? err(error.message, 422) : err('انجام نشد؛ دوباره تلاش کنید', 503)
 const id = (value: unknown) => { const n = Number(value); return Number.isSafeInteger(n) && n > 0 ? n : 0 }
 

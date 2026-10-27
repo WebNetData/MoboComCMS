@@ -221,3 +221,9 @@
   .cb-known-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .cb-feature { transition: none; } .cb-feature:hover { transform: none; } }
+/* Admin-only address field; public artist presentation stays unchanged. */
+.admin-shell .cbx-slug { margin-block: 18px; }
+.admin-shell .cbx-slug-preview { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--sds-size-radius-200); }
+.admin-shell .cbx-slug-preview code { min-width: 0; overflow-wrap: anywhere; font-size: .82rem; color: var(--text); }
+.admin-shell .cbx-slug-preview button { min-height: 40px; }
+.admin-shell .cbx-editor .btn-ghost { color: var(--text); }

@@ -1,5 +1,7 @@
 # MoboCom Reference Architecture — mandate adoption 2026-10-10
 
+2026-10-27: artist URL editing extends Celebrities, with additive CelebritySlugAlias for permanent redirects/reserved old addresses. Music/Cinema remain profile/work owners; public visibility is unchanged. Product-feedback filters extend the existing Catalog Admin GET/PATCH, with native themed controls and obsolete-read guards. [Current implementation, executed evidence and migration](handoffs/ARTIST_SLUGS_PRODUCT_FEEDBACK.md).
+
 2026-10-26: canonical Journal body proposals extend PostEditProposal, not a new
 draft system. Editor exposes shared validation/rendering; Journal retains exact
 live/proposal claims, metadata merge and the existing decision/history/outbox.
